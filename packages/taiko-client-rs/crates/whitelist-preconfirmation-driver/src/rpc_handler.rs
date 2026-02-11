@@ -1,4 +1,4 @@
-//! Whitelist preconfirmation RPC API handler implementation.
+//! Whitelist preconfirmation REST/WS API handler implementation.
 
 use std::{
     collections::HashMap,
@@ -37,7 +37,7 @@ use crate::{
     },
     network::NetworkCommand,
     rpc::{
-        WhitelistRpcApi,
+        WhitelistRestApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
             LookaheadStatus, SlotRange, WhitelistStatus,
@@ -50,8 +50,8 @@ const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 
-/// Implements the whitelist preconfirmation RPC API.
-pub(crate) struct WhitelistRpcHandler<P>
+/// Implements the whitelist preconfirmation REST/WS API.
+pub(crate) struct WhitelistRestHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -81,11 +81,11 @@ where
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
-impl<P> WhitelistRpcHandler<P>
+impl<P> WhitelistRestHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Create a new RPC handler.
+    /// Create a new REST/WS handler.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         event_syncer: Arc<EventSyncer<P>>,
@@ -339,7 +339,7 @@ where
 }
 
 #[async_trait]
-impl<P> WhitelistRpcApi for WhitelistRpcHandler<P>
+impl<P> WhitelistRestApi for WhitelistRestHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {

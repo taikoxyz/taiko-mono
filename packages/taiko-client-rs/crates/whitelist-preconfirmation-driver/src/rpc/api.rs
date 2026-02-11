@@ -14,7 +14,7 @@ use crate::Result;
 /// Implementations must be `Send + Sync` as they will be shared across
 /// multiple async tasks handling concurrent API requests.
 #[async_trait]
-pub trait WhitelistRpcApi: Send + Sync {
+pub trait WhitelistRestApi: Send + Sync {
     /// Build, sign, and publish a preconfirmation block to the P2P network.
     async fn build_preconf_block(
         &self,

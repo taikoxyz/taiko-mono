@@ -1,46 +1,45 @@
-//! HTTP server for the whitelist preconfirmation driver.
+//! REST/WS server for the whitelist preconfirmation driver.
 
-use std::{
-    future::Future,
-    net::SocketAddr,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::{net::SocketAddr, sync::Arc};
 
-use futures::{FutureExt, SinkExt, StreamExt};
-use http::{
-    Method, StatusCode,
-    header::{
-        AUTHORIZATION, CONNECTION, CONTENT_TYPE, SEC_WEBSOCKET_ACCEPT, SEC_WEBSOCKET_KEY, UPGRADE,
+use axum::{
+    Json, Router,
+    body::Bytes,
+    extract::{
+        DefaultBodyLimit, Request, State,
+        ws::{Message, WebSocket, WebSocketUpgrade, rejection::WebSocketUpgradeRejection},
     },
+    http::{HeaderMap, StatusCode},
+    middleware::{self, Next},
+    response::{IntoResponse, Response},
+    routing::{get, post},
 };
-use http_body_util::{BodyExt, BodyStream};
-use hyper::upgrade;
-use hyper_util::rt::TokioIo;
-use jsonrpsee::{
-    RpcModule,
-    core::BoxError,
-    server::{HttpBody, HttpRequest, HttpResponse, ServerBuilder, ServerConfig, ServerHandle},
-};
+use futures::StreamExt;
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
-use tokio::sync::broadcast;
-use tokio_tungstenite::{
-    WebSocketStream,
-    tungstenite::{Message, handshake::derive_accept_key, protocol::Role},
+use tokio::{
+    net::TcpListener,
+    sync::{broadcast, oneshot},
+    task::JoinHandle,
 };
-use tower::{Layer, Service};
 use tracing::{info, warn};
 
 use super::{
-    WhitelistRpcApi,
+    WhitelistRestApi,
     types::{BuildPreconfBlockRestRequest, EndOfSequencingNotification, RestStatus},
 };
-use crate::{Result, error::WhitelistPreconfirmationDriverError};
+use crate::{
+    Result, error::WhitelistPreconfirmationDriverError, importer::MAX_COMPRESSED_TX_LIST_BYTES,
+};
 
-/// Configuration for the whitelist preconfirmation RPC server.
+/// Max accepted body size for `POST /preconfBlocks` requests.
+///
+/// The tx list payload itself is capped by `MAX_COMPRESSED_TX_LIST_BYTES`; we reserve
+/// a small overhead for JSON envelope fields.
+const MAX_PRECONF_BLOCK_REST_BODY_BYTES: usize = MAX_COMPRESSED_TX_LIST_BYTES + 64 * 1024;
+
+/// Configuration for the whitelist preconfirmation REST/WS server.
 #[derive(Debug, Clone)]
-pub struct WhitelistRpcServerConfig {
+pub struct WhitelistRestWsServerConfig {
     /// Socket address to listen on.
     pub listen_addr: SocketAddr,
     /// Whether HTTP transport is enabled.
@@ -51,7 +50,7 @@ pub struct WhitelistRpcServerConfig {
     pub jwt_secret: Option<Vec<u8>>,
 }
 
-impl Default for WhitelistRpcServerConfig {
+impl Default for WhitelistRestWsServerConfig {
     fn default() -> Self {
         Self {
             listen_addr: "127.0.0.1:8552".parse().expect("valid default address"),
@@ -62,57 +61,67 @@ impl Default for WhitelistRpcServerConfig {
     }
 }
 
-/// Running HTTP server for whitelist preconfirmation operations.
+/// Running REST/WS server for whitelist preconfirmation operations.
 ///
 /// The server serves Go-compatible REST routes and `/ws` notifications on one socket.
 #[derive(Debug)]
-pub struct WhitelistRpcServer {
+pub struct WhitelistRestWsServer {
     /// Socket address bound by the server.
     addr: SocketAddr,
-    /// Keep-alive handle for the running server.
-    handle: ServerHandle,
+    /// Signal channel for graceful shutdown.
+    shutdown_tx: Option<oneshot::Sender<()>>,
+    /// Join handle for the running server task.
+    task: JoinHandle<()>,
 }
 
-impl WhitelistRpcServer {
-    /// Start the HTTP server.
+#[derive(Clone)]
+struct RestWsState {
+    api: Arc<dyn WhitelistRestApi>,
+    jwt_auth: Option<Arc<JwtAuth>>,
+}
+
+impl WhitelistRestWsServer {
+    /// Start the REST/WS server.
     pub async fn start(
-        config: WhitelistRpcServerConfig,
-        api: Arc<dyn WhitelistRpcApi>,
+        config: WhitelistRestWsServerConfig,
+        api: Arc<dyn WhitelistRestApi>,
     ) -> Result<Self> {
-        let server_config = match (config.enable_http, config.enable_ws) {
-            (true, true) => ServerConfig::builder().build(),
-            (true, false) => ServerConfig::builder().http_only().build(),
-            (false, true) => ServerConfig::builder().ws_only().build(),
-            (false, false) => {
-                warn!(
-                    "both HTTP and WebSocket transports are disabled; defaulting to both enabled"
-                );
-                ServerConfig::builder().build()
-            }
-        };
-        let http_middleware = tower::ServiceBuilder::new().layer(RestCompatLayer {
-            api: Arc::clone(&api),
+        if !config.enable_http && !config.enable_ws {
+            return Err(WhitelistPreconfirmationDriverError::RestWsServerNoTransportsEnabled);
+        }
+
+        let listener =
+            TcpListener::bind(config.listen_addr)
+                .await
+                .map_err(|e| WhitelistPreconfirmationDriverError::RestWsServerBind {
+                    listen_addr: config.listen_addr,
+                    reason: e.to_string(),
+                })?;
+
+        let addr = listener.local_addr().map_err(|e| {
+            WhitelistPreconfirmationDriverError::RestWsServerLocalAddr { reason: e.to_string() }
+        })?;
+
+        let state = RestWsState {
+            api,
             jwt_auth: config
                 .jwt_secret
                 .as_ref()
                 .map(|secret| Arc::new(JwtAuth::new(secret.as_slice()))),
+        };
+
+        let app = build_router(&config, state);
+
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let server = axum::serve(listener, app).with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
         });
 
-        let server = ServerBuilder::with_config(server_config)
-            .set_http_middleware(http_middleware)
-            .build(config.listen_addr)
-            .await
-            .map_err(|e| WhitelistPreconfirmationDriverError::RpcServerBind {
-                listen_addr: config.listen_addr,
-                reason: e.to_string(),
-            })?;
-
-        let addr = server.local_addr().map_err(|e| {
-            WhitelistPreconfirmationDriverError::RpcServerLocalAddr { reason: e.to_string() }
-        })?;
-
-        // Non-REST methods are intentionally disabled for strict Go parity.
-        let handle = server.start(RpcModule::new(()));
+        let task = tokio::spawn(async move {
+            if let Err(err) = server.await {
+                warn!(error = %err, "whitelist preconfirmation REST/WS server terminated with error");
+            }
+        });
 
         info!(
             addr = %addr,
@@ -121,9 +130,10 @@ impl WhitelistRpcServer {
             jwt_enabled = config.jwt_secret.is_some(),
             http_url = %format!("http://{addr}"),
             ws_url = %format!("ws://{addr}"),
-            "started whitelist preconfirmation HTTP server"
+            "started whitelist preconfirmation REST/WS server"
         );
-        Ok(Self { addr, handle })
+
+        Ok(Self { addr, shutdown_tx: Some(shutdown_tx), task })
     }
 
     /// Return the bound socket address.
@@ -142,159 +152,213 @@ impl WhitelistRpcServer {
     }
 
     /// Stop the server gracefully.
-    pub async fn stop(self) {
-        if let Err(err) = self.handle.stop() {
-            warn!(error = %err, "whitelist preconfirmation HTTP server already stopped");
+    pub async fn stop(mut self) {
+        if let Some(shutdown_tx) = self.shutdown_tx.take() {
+            let _ = shutdown_tx.send(());
         }
-        let _ = self.handle.stopped().await;
-        info!("whitelist preconfirmation HTTP server stopped");
+
+        if let Err(err) = self.task.await {
+            warn!(error = %err, "whitelist preconfirmation REST/WS server task join failed");
+        }
+
+        info!("whitelist preconfirmation REST/WS server stopped");
     }
 }
 
-/// HTTP middleware layer that adds Go-compatible REST routes.
-#[derive(Clone)]
-struct RestCompatLayer {
-    api: Arc<dyn WhitelistRpcApi>,
-    jwt_auth: Option<Arc<JwtAuth>>,
+fn build_router(config: &WhitelistRestWsServerConfig, state: RestWsState) -> Router {
+    let mut router = Router::new();
+
+    if config.enable_http {
+        router = router
+            .route("/", get(health_handler))
+            .route("/healthz", get(health_handler))
+            .route("/status", get(status_handler))
+            .route(
+                "/preconfBlocks",
+                post(build_preconf_block_handler)
+                    .layer(DefaultBodyLimit::max(MAX_PRECONF_BLOCK_REST_BODY_BYTES)),
+            );
+    }
+
+    if config.enable_ws {
+        router = router.route("/ws", get(ws_handler));
+    }
+
+    router
+        .fallback(not_found_handler)
+        .layer(middleware::from_fn_with_state(state.clone(), jwt_auth_middleware))
+        .with_state(state)
 }
 
-impl<S> Layer<S> for RestCompatLayer {
-    type Service = RestCompat<S>;
+/// Shared auth middleware for REST and WS endpoints.
+async fn jwt_auth_middleware(
+    State(state): State<RestWsState>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if let Some(jwt_auth) = state.jwt_auth.as_ref() &&
+        let Err(err) = jwt_auth.validate_headers(request.headers())
+    {
+        return error_response(StatusCode::UNAUTHORIZED, err);
+    }
 
-    fn layer(&self, service: S) -> Self::Service {
-        RestCompat { service, api: Arc::clone(&self.api), jwt_auth: self.jwt_auth.clone() }
+    next.run(request).await
+}
+
+async fn health_handler() -> Response {
+    StatusCode::OK.into_response()
+}
+
+async fn status_handler(State(state): State<RestWsState>) -> Response {
+    match state.api.get_status().await {
+        Ok(status) => {
+            let response = RestStatus {
+                lookahead: status.lookahead,
+                total_cached: status.total_cached.unwrap_or_default(),
+                highest_unsafe_l2_payload_block_id: status
+                    .highest_unsafe_l2_payload_block_id
+                    .or(status.highest_unsafe_block_number)
+                    .unwrap_or_default(),
+                end_of_sequencing_block_hash: status
+                    .end_of_sequencing_block_hash
+                    .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
+            };
+            (StatusCode::OK, Json(response)).into_response()
+        }
+        Err(err) => error_response(map_rest_error_status(&err), err.to_string()),
     }
 }
 
-/// Middleware service implementing REST compatibility paths.
-#[derive(Clone)]
-struct RestCompat<S> {
-    service: S,
-    api: Arc<dyn WhitelistRpcApi>,
-    jwt_auth: Option<Arc<JwtAuth>>,
-}
-
-impl<S, B> Service<HttpRequest<B>> for RestCompat<S>
-where
-    S: Service<HttpRequest, Response = HttpResponse>,
-    S::Response: 'static,
-    S::Error: Into<BoxError> + 'static,
-    S::Future: Send + 'static,
-    B: http_body::Body<Data = bytes::Bytes> + Send + Unpin + 'static,
-    B::Data: Send,
-    B::Error: Into<BoxError>,
-{
-    type Response = S::Response;
-    type Error = BoxError;
-    type Future =
-        Pin<Box<dyn Future<Output = std::result::Result<Self::Response, Self::Error>> + Send>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<std::result::Result<(), Self::Error>> {
-        self.service.poll_ready(cx).map_err(Into::into)
-    }
-
-    fn call(&mut self, req: HttpRequest<B>) -> Self::Future {
-        let path = req.uri().path().to_string();
-        let method = req.method().clone();
-
-        if let Some(jwt_auth) = self.jwt_auth.as_ref() &&
-            let Err(err) = jwt_auth.validate_headers(req.headers())
-        {
-            return async move { Ok(error_response(StatusCode::UNAUTHORIZED, err)) }.boxed();
+async fn build_preconf_block_handler(State(state): State<RestWsState>, body: Bytes) -> Response {
+    let rest_request: BuildPreconfBlockRestRequest = match serde_json::from_slice(&body) {
+        Ok(value) => value,
+        Err(err) => {
+            return error_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                format!("failed to parse request body: {err}"),
+            );
         }
+    };
 
-        if method == Method::GET && (path == "/" || path == "/healthz") {
-            return async move { Ok(no_content_response(StatusCode::OK)) }.boxed();
-        }
+    let request = match rest_request.into_rpc_request() {
+        Ok(request) => request,
+        Err(err) => return error_response(StatusCode::BAD_REQUEST, err),
+    };
 
-        if method == Method::GET && path == "/ws" {
-            let eos_notification_rx = self.api.subscribe_end_of_sequencing();
-            let response = handle_websocket_upgrade(req, eos_notification_rx);
-            return async move { Ok(response) }.boxed();
-        }
+    match state.api.build_preconf_block(request).await {
+        Ok(response) => {
+            let Some(block_header) = response.block_header else {
+                return error_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "missing block header in build_preconf_block response".to_string(),
+                );
+            };
 
-        if method == Method::GET && path == "/status" {
-            let api = Arc::clone(&self.api);
-            return async move {
-                match api.get_status().await {
-                    Ok(status) => {
-                        let response = RestStatus {
-                            lookahead: status.lookahead,
-                            total_cached: status.total_cached.unwrap_or_default(),
-                            highest_unsafe_l2_payload_block_id: status
-                                .highest_unsafe_l2_payload_block_id
-                                .or(status.highest_unsafe_block_number)
-                                .unwrap_or_default(),
-                            end_of_sequencing_block_hash: status
-                                .end_of_sequencing_block_hash
-                                .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
-                        };
-                        Ok(json_response(StatusCode::OK, &response))
-                    }
-                    Err(err) => Ok(error_response(map_rest_error_status(&err), err.to_string())),
-                }
+            #[derive(serde::Serialize)]
+            #[serde(rename_all = "camelCase")]
+            struct BuildPreconfBlockRestResponse {
+                block_header: alloy_rpc_types::Header,
             }
-            .boxed();
+
+            (
+                StatusCode::OK,
+                Json(BuildPreconfBlockRestResponse { block_header }),
+            )
+                .into_response()
         }
+        Err(err) => error_response(map_rest_error_status(&err), err.to_string()),
+    }
+}
 
-        if method == Method::POST && path == "/preconfBlocks" {
-            let api = Arc::clone(&self.api);
-            return async move {
-                let body = match read_request_body(req.into_body()).await {
-                    Ok(body) => body,
-                    Err(err) => {
-                        return Ok(error_response(
-                            StatusCode::UNPROCESSABLE_ENTITY,
-                            format!("failed to read request body: {err}"),
-                        ));
-                    }
-                };
+async fn ws_handler(
+    State(state): State<RestWsState>,
+    ws: std::result::Result<WebSocketUpgrade, WebSocketUpgradeRejection>,
+) -> Response {
+    let ws = match ws {
+        Ok(ws) => ws,
+        Err(err) => {
+            warn!(error = %err, "websocket upgrade rejected");
+            return error_response(
+                StatusCode::BAD_REQUEST,
+                "websocket upgrade headers are required".to_string(),
+            );
+        }
+    };
 
-                let rest_request: BuildPreconfBlockRestRequest = match serde_json::from_slice(&body)
-                {
-                    Ok(value) => value,
-                    Err(err) => {
-                        return Ok(error_response(
-                            StatusCode::UNPROCESSABLE_ENTITY,
-                            format!("failed to parse request body: {err}"),
-                        ));
-                    }
-                };
+    let notifications = state.api.subscribe_end_of_sequencing();
+    ws.on_upgrade(move |socket| serve_websocket_notifications(socket, notifications))
+        .into_response()
+}
 
-                let request = match rest_request.into_rpc_request() {
-                    Ok(request) => request,
-                    Err(err) => return Ok(error_response(StatusCode::BAD_REQUEST, err)),
-                };
-
-                match api.build_preconf_block(request).await {
-                    Ok(response) => {
-                        let Some(block_header) = response.block_header else {
-                            return Ok(error_response(
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                "missing block header in build_preconf_block response".to_string(),
-                            ));
-                        };
-
-                        #[derive(serde::Serialize)]
-                        #[serde(rename_all = "camelCase")]
-                        struct BuildPreconfBlockRestResponse {
-                            block_header: alloy_rpc_types::Header,
+async fn serve_websocket_notifications(
+    mut websocket: WebSocket,
+    mut notifications: broadcast::Receiver<EndOfSequencingNotification>,
+) {
+    loop {
+        tokio::select! {
+            notification = notifications.recv() => {
+                match notification {
+                    Ok(notification) => {
+                        match serde_json::to_string(&notification) {
+                            Ok(payload) => {
+                                if websocket.send(Message::Text(payload.into())).await.is_err() {
+                                    break;
+                                }
+                            }
+                            Err(err) => {
+                                warn!(error = %err, "failed to serialize websocket EOS notification");
+                            }
                         }
-
-                        Ok(json_response(
-                            StatusCode::OK,
-                            &BuildPreconfBlockRestResponse { block_header },
-                        ))
                     }
-                    Err(err) => Ok(error_response(map_rest_error_status(&err), err.to_string())),
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
+                        warn!(skipped, "whitelist websocket subscriber lagged behind EOS notifications");
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
             }
-            .boxed();
+            incoming = websocket.next() => {
+                match incoming {
+                    Some(Ok(message)) => {
+                        if let Message::Close(_) = message {
+                            break;
+                        }
+                        if let Message::Ping(payload) = message
+                            && websocket.send(Message::Pong(payload)).await.is_err()
+                        {
+                            break;
+                        }
+                    }
+                    Some(Err(_)) | None => break,
+                }
+            }
         }
+    }
+}
 
-        let _ = req;
-        async move { Ok(error_response(StatusCode::NOT_FOUND, "route not found".to_string())) }
-            .boxed()
+async fn not_found_handler() -> Response {
+    error_response(StatusCode::NOT_FOUND, "route not found".to_string())
+}
+
+fn error_response(status: StatusCode, message: String) -> Response {
+    #[derive(serde::Serialize)]
+    struct ErrorBody {
+        error: String,
+    }
+
+    (status, Json(ErrorBody { error: message })).into_response()
+}
+
+fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
+    match err {
+        WhitelistPreconfirmationDriverError::InvalidPayload(_) |
+        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
+        WhitelistPreconfirmationDriverError::Driver(
+            driver::DriverError::PreconfIngressNotReady,
+        ) |
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
+            StatusCode::BAD_REQUEST
+        }
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
@@ -316,9 +380,9 @@ impl JwtAuth {
     }
 
     /// Validate `Authorization: Bearer <jwt>`.
-    fn validate_headers(&self, headers: &http::HeaderMap) -> std::result::Result<(), String> {
+    fn validate_headers(&self, headers: &HeaderMap) -> std::result::Result<(), String> {
         let header = headers
-            .get(AUTHORIZATION)
+            .get(axum::http::header::AUTHORIZATION)
             .and_then(|value| value.to_str().ok())
             .ok_or_else(|| "missing bearer authorization header".to_string())?;
         let token = header
@@ -331,176 +395,6 @@ impl JwtAuth {
     }
 }
 
-/// Handle a `GET /ws` upgrade request and spawn a notification push task.
-fn handle_websocket_upgrade<B>(
-    mut request: HttpRequest<B>,
-    notification_rx: broadcast::Receiver<EndOfSequencingNotification>,
-) -> HttpResponse
-where
-    B: http_body::Body + Send + 'static,
-{
-    if !is_websocket_upgrade_request(&request) {
-        return error_response(
-            StatusCode::BAD_REQUEST,
-            "websocket upgrade headers are required".to_string(),
-        );
-    }
-
-    let Some(sec_websocket_key) =
-        request.headers().get(SEC_WEBSOCKET_KEY).and_then(|value| value.to_str().ok())
-    else {
-        return error_response(StatusCode::BAD_REQUEST, "missing sec-websocket-key".to_string());
-    };
-
-    let accept_key = derive_accept_key(sec_websocket_key.as_bytes());
-    let on_upgrade = upgrade::on(&mut request);
-    let mut client_notifications = notification_rx;
-
-    tokio::spawn(async move {
-        match on_upgrade.await {
-            Ok(upgraded) => {
-                let io = TokioIo::new(upgraded);
-                let websocket = WebSocketStream::from_raw_socket(io, Role::Server, None).await;
-                serve_websocket_notifications(websocket, &mut client_notifications).await;
-            }
-            Err(err) => {
-                warn!(error = %err, "whitelist preconfirmation websocket upgrade failed");
-            }
-        }
-    });
-
-    HttpResponse::builder()
-        .status(StatusCode::SWITCHING_PROTOCOLS)
-        .header(CONNECTION, "Upgrade")
-        .header(UPGRADE, "websocket")
-        .header(SEC_WEBSOCKET_ACCEPT, accept_key)
-        .body(HttpBody::empty())
-        .expect("valid websocket upgrade response")
-}
-
-/// Return true when request headers indicate a websocket upgrade.
-fn is_websocket_upgrade_request<B>(request: &HttpRequest<B>) -> bool {
-    request.method() == Method::GET &&
-        header_contains_token(request.headers(), CONNECTION, "upgrade") &&
-        request
-            .headers()
-            .get(UPGRADE)
-            .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.eq_ignore_ascii_case("websocket"))
-}
-
-/// Check whether a comma-separated header contains a token (case-insensitive).
-fn header_contains_token(
-    headers: &http::HeaderMap,
-    header_name: http::header::HeaderName,
-    token: &str,
-) -> bool {
-    headers
-        .get(header_name)
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| value.split(',').any(|entry| entry.trim().eq_ignore_ascii_case(token)))
-}
-
-/// Push EOS notifications over a connected websocket until disconnect.
-async fn serve_websocket_notifications(
-    mut websocket: WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>,
-    notifications: &mut broadcast::Receiver<EndOfSequencingNotification>,
-) {
-    loop {
-        tokio::select! {
-            notification = notifications.recv() => {
-                match notification {
-                    Ok(notification) => {
-                        match serde_json::to_string(&notification) {
-                            Ok(payload) => {
-                                if websocket.send(Message::Text(payload)).await.is_err() {
-                                    break;
-                                }
-                            }
-                            Err(err) => {
-                                warn!(error = %err, "failed to serialize websocket EOS notification");
-                            }
-                        }
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(skipped)) => {
-                        warn!(skipped, "whitelist websocket subscriber lagged behind EOS notifications");
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
-                }
-            }
-            incoming = websocket.next() => {
-                match incoming {
-                    Some(Ok(message)) => {
-                        if message.is_close() {
-                            break;
-                        }
-                        if let Message::Ping(payload) = message
-                            && websocket.send(Message::Pong(payload)).await.is_err()
-                        {
-                            break;
-                        }
-                    }
-                    Some(Err(_)) | None => break,
-                }
-            }
-        }
-    }
-}
-
-fn no_content_response(status: StatusCode) -> HttpResponse {
-    HttpResponse::builder().status(status).body(HttpBody::empty()).expect("valid response")
-}
-
-fn error_response(status: StatusCode, message: String) -> HttpResponse {
-    #[derive(serde::Serialize)]
-    struct ErrorBody {
-        error: String,
-    }
-    json_response(status, &ErrorBody { error: message })
-}
-
-fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> HttpResponse {
-    let bytes = serde_json::to_vec(value)
-        .unwrap_or_else(|_| b"{\"error\":\"serialization failed\"}".to_vec());
-    HttpResponse::builder()
-        .status(status)
-        .header(CONTENT_TYPE, "application/json")
-        .body(HttpBody::from(bytes))
-        .expect("valid response")
-}
-
-fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
-    match err {
-        WhitelistPreconfirmationDriverError::InvalidPayload(_) |
-        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
-        WhitelistPreconfirmationDriverError::Driver(
-            driver::DriverError::PreconfIngressNotReady,
-        ) |
-        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
-            StatusCode::BAD_REQUEST
-        }
-        _ => StatusCode::INTERNAL_SERVER_ERROR,
-    }
-}
-
-async fn read_request_body<B>(body: B) -> std::result::Result<Vec<u8>, BoxError>
-where
-    B: http_body::Body<Data = bytes::Bytes> + Send + Unpin + 'static,
-    B::Data: Send,
-    B::Error: Into<BoxError>,
-{
-    let mut stream = BodyStream::new(body);
-    let mut bytes = Vec::new();
-    while let Some(frame) = stream.frame().await {
-        let data = frame
-            .map_err(Into::into)?
-            .into_data()
-            .map_err(|_| std::io::Error::other("unexpected non-data frame in request body"))?;
-        bytes.extend_from_slice(&data);
-    }
-    Ok(bytes)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,11 +404,14 @@ mod tests {
     };
     use alloy_primitives::B256;
     use async_trait::async_trait;
+    use jsonwebtoken::{EncodingKey, Header, encode};
+    use reqwest::Client;
+    use serde_json::json;
 
     struct MockApi;
 
     #[async_trait]
-    impl WhitelistRpcApi for MockApi {
+    impl WhitelistRestApi for MockApi {
         async fn build_preconf_block(
             &self,
             _request: BuildPreconfBlockRequest,
@@ -545,15 +442,17 @@ mod tests {
         }
     }
 
+    async fn start_test_server(
+        mut config: WhitelistRestWsServerConfig,
+    ) -> WhitelistRestWsServer {
+        config.listen_addr = "127.0.0.1:0".parse().unwrap();
+        let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
+        WhitelistRestWsServer::start(config, api).await.expect("server should start")
+    }
+
     #[tokio::test]
     async fn server_start_stop() {
-        let config = WhitelistRpcServerConfig {
-            listen_addr: "127.0.0.1:0".parse().unwrap(),
-            ..Default::default()
-        };
-        let api: Arc<dyn WhitelistRpcApi> = Arc::new(MockApi);
-
-        let server = WhitelistRpcServer::start(config, api).await.expect("server should start");
+        let server = start_test_server(WhitelistRestWsServerConfig::default()).await;
         assert_eq!(server.local_addr().ip().to_string(), "127.0.0.1");
         assert_ne!(server.local_addr().port(), 0);
         assert!(server.http_url().starts_with("http://127.0.0.1:"));
@@ -561,9 +460,95 @@ mod tests {
         server.stop().await;
     }
 
+    #[tokio::test]
+    async fn jwt_auth_is_required_when_secret_configured() {
+        let secret = b"test-secret".to_vec();
+        let server = start_test_server(WhitelistRestWsServerConfig {
+            jwt_secret: Some(secret.clone()),
+            ..Default::default()
+        })
+        .await;
+        let client = Client::new();
+
+        let unauthenticated = client
+            .get(format!("{}/healthz", server.http_url()))
+            .send()
+            .await
+            .expect("request should complete");
+        assert_eq!(unauthenticated.status(), StatusCode::UNAUTHORIZED);
+
+        let token = encode(
+            &Header::default(),
+            &json!({}),
+            &EncodingKey::from_secret(secret.as_slice()),
+        )
+        .expect("token encoding should work");
+
+        let authenticated = client
+            .get(format!("{}/healthz", server.http_url()))
+            .header("Authorization", format!("Bearer {token}"))
+            .send()
+            .await
+            .expect("request should complete");
+        assert_eq!(authenticated.status(), StatusCode::OK);
+
+        server.stop().await;
+    }
+
+    #[tokio::test]
+    async fn websocket_route_rejects_non_upgrade_requests() {
+        let server = start_test_server(WhitelistRestWsServerConfig::default()).await;
+        let client = Client::new();
+
+        let response = client
+            .get(format!("{}/ws", server.http_url()))
+            .send()
+            .await
+            .expect("request should complete");
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        server.stop().await;
+    }
+
+    #[tokio::test]
+    async fn preconf_blocks_enforces_body_limit() {
+        let server = start_test_server(WhitelistRestWsServerConfig::default()).await;
+        let client = Client::new();
+        let oversized_body = vec![b'a'; MAX_PRECONF_BLOCK_REST_BODY_BYTES + 1];
+
+        let response = client
+            .post(format!("{}/preconfBlocks", server.http_url()))
+            .header("content-type", "application/json")
+            .body(oversized_body)
+            .send()
+            .await
+            .expect("request should complete");
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+
+        server.stop().await;
+    }
+
+    #[tokio::test]
+    async fn server_start_fails_when_no_transports_enabled() {
+        let config = WhitelistRestWsServerConfig {
+            listen_addr: "127.0.0.1:0".parse().unwrap(),
+            enable_http: false,
+            enable_ws: false,
+            ..Default::default()
+        };
+        let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
+
+        let err =
+            WhitelistRestWsServer::start(config, api).await.expect_err("server should fail");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::RestWsServerNoTransportsEnabled
+        ));
+    }
+
     #[test]
     fn default_config() {
-        let config = WhitelistRpcServerConfig::default();
+        let config = WhitelistRestWsServerConfig::default();
         assert_eq!(config.listen_addr.port(), 8552);
         assert!(config.enable_http);
         assert!(config.enable_ws);

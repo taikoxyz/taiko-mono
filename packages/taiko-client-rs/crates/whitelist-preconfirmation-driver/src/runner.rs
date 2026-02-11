@@ -18,8 +18,8 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
-    rpc::{WhitelistRpcServer, WhitelistRpcServerConfig},
-    rpc_handler::WhitelistRpcHandler,
+    rpc::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
+    rpc_handler::WhitelistRestHandler,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -99,13 +99,13 @@ impl WhitelistPreconfirmationDriverRunner {
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.
-        let mut rpc_server = if let (Some(listen_addr), Some(signer_key)) =
+        let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
             let beacon_client = Arc::new(
                 BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
                     .await
-                    .map_err(|err| WhitelistPreconfirmationDriverError::RpcServerBeaconInit {
+                    .map_err(|err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
                         reason: err.to_string(),
                     })?,
             );
@@ -132,7 +132,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 }
             };
 
-            let handler = WhitelistRpcHandler::new(
+            let handler = WhitelistRestHandler::new(
                 preconf_ingress_sync.event_syncer(),
                 preconf_ingress_sync.client().clone(),
                 self.config.p2p_config.chain_id,
@@ -144,12 +144,12 @@ impl WhitelistPreconfirmationDriverRunner {
                 network.local_peer_id.to_string(),
             );
 
-            let rpc_config = WhitelistRpcServerConfig {
+            let server_config = WhitelistRestWsServerConfig {
                 listen_addr,
                 jwt_secret: self.config.rpc_jwt_secret.clone(),
                 ..Default::default()
             };
-            let server = WhitelistRpcServer::start(rpc_config, Arc::new(handler)).await?;
+            let server = WhitelistRestWsServer::start(server_config, Arc::new(handler)).await?;
             info!(
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
@@ -177,7 +177,7 @@ impl WhitelistPreconfirmationDriverRunner {
             tokio::select! {
                 result = &mut node_handle => {
                     event_syncer_handle.abort();
-                    if let Some(server) = rpc_server.take() {
+                    if let Some(server) = rest_ws_server.take() {
                         server.stop().await;
                     }
                     return match result {
@@ -212,7 +212,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 result = &mut *event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
-                    if let Some(server) = rpc_server.take() {
+                    if let Some(server) = rest_ws_server.take() {
                         server.stop().await;
                     }
                     return match result {
@@ -245,7 +245,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
                         event_syncer_handle.abort();
-                        if let Some(server) = rpc_server.take() {
+                        if let Some(server) = rest_ws_server.take() {
                             server.stop().await;
                         }
                         metrics::counter!(

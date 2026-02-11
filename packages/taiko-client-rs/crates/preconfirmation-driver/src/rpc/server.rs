@@ -118,9 +118,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
             let request: PublishCommitmentRequest = params.one()?;
             ctx.api.publish_commitment(request).await
         },
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
 
     rpc::register_rpc_method!(
@@ -131,9 +129,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
             let request: PublishTxListRequest = params.one()?;
             ctx.api.publish_tx_list(request).await
         },
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
 
     rpc::register_rpc_method!(
@@ -141,27 +137,21 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
         METHOD_GET_STATUS,
         RpcContext,
         |ctx| ctx.api.get_status().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
     rpc::register_rpc_method!(
         module,
         METHOD_PRECONF_TIP,
         RpcContext,
         |ctx| ctx.api.preconf_tip().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
     rpc::register_rpc_method!(
         module,
         METHOD_CANONICAL_PROPOSAL_ID,
         RpcContext,
         |ctx| ctx.api.canonical_proposal_id().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
     rpc::register_rpc_method!(
         module,
@@ -171,9 +161,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
             let timestamp: alloy_primitives::U256 = params.one()?;
             ctx.api.get_preconf_slot_info(timestamp).await
         },
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
 
     module
@@ -224,6 +212,12 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     };
 
     ErrorObjectOwned::owned(code, err.to_string(), None::<()>)
+}
+
+impl From<PreconfirmationClientError> for ErrorObjectOwned {
+    fn from(err: PreconfirmationClientError) -> Self {
+        api_error_to_rpc(err)
+    }
 }
 
 #[cfg(test)]
