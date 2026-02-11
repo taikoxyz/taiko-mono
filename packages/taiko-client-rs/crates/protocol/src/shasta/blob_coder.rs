@@ -142,6 +142,12 @@ impl BlobCoder {
     pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
         Self.decode_all(blobs)
     }
+
+    /// Decode a single blob using the Kona-compatible scheme, returning the raw payload bytes
+    /// if the encoding is valid.
+    pub fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
+        decode_blob(blob)
+    }
 }
 
 impl SidecarCoder for BlobCoder {
