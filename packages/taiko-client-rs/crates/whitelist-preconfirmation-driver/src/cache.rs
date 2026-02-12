@@ -98,6 +98,8 @@ impl EnvelopeCache {
 pub(crate) struct RecentEnvelopeCache {
     /// Fast lookup table keyed by payload block hash.
     entries: LinkedHashMap<B256, Arc<WhitelistExecutionPayloadEnvelope>>,
+    /// End-of-sequencing envelope index keyed by beacon epoch.
+    end_of_sequencing_by_epoch: LinkedHashMap<u64, B256>,
     /// Maximum number of envelopes to retain.
     capacity: usize,
 }
@@ -113,21 +115,44 @@ impl RecentEnvelopeCache {
     /// Construct a recent-envelope cache with a fixed capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         let capacity = capacity.max(1);
-        Self { entries: LinkedHashMap::with_capacity(capacity), capacity }
+        Self {
+            entries: LinkedHashMap::with_capacity(capacity),
+            end_of_sequencing_by_epoch: LinkedHashMap::with_capacity(capacity),
+            capacity,
+        }
     }
 
     /// Insert or replace a recent envelope.
     pub fn insert_recent(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
+        self.insert_recent_with_epoch_hint(envelope, None);
+    }
+
+    /// Insert or replace a recent envelope with optional EOS epoch index.
+    pub fn insert_recent_with_epoch_hint(
+        &mut self,
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+        eos_epoch: Option<u64>,
+    ) {
         let hash = envelope.execution_payload.block_hash;
         self.entries.remove(&hash);
         self.entries.insert(hash, envelope);
+        if let Some(epoch) = eos_epoch {
+            self.end_of_sequencing_by_epoch.remove(&epoch);
+            self.end_of_sequencing_by_epoch.insert(epoch, hash);
+        }
         self.evict_oldest();
     }
 
     /// Evict oldest entries until capacity is satisfied.
     fn evict_oldest(&mut self) {
         while self.entries.len() > self.capacity {
-            let _ = self.entries.pop_front();
+            let Some((evicted_hash, _)) = self.entries.pop_front() else {
+                break;
+            };
+            self.end_of_sequencing_by_epoch.retain(|_, indexed_hash| *indexed_hash != evicted_hash);
+        }
+        while self.end_of_sequencing_by_epoch.len() > self.capacity {
+            let _ = self.end_of_sequencing_by_epoch.pop_front();
         }
     }
 
@@ -137,10 +162,20 @@ impl RecentEnvelopeCache {
     }
 
     /// Get the most recently inserted end-of-sequencing envelope.
+    #[cfg(test)]
     pub fn latest_end_of_sequencing(&self) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.iter().rev().find_map(|(_, envelope)| {
             envelope.end_of_sequencing.unwrap_or(false).then(|| envelope.clone())
         })
+    }
+
+    /// Get an end-of-sequencing envelope for a specific beacon epoch.
+    pub fn end_of_sequencing_for_epoch(
+        &self,
+        epoch: u64,
+    ) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
+        let hash = self.end_of_sequencing_by_epoch.get(&epoch)?;
+        self.entries.get(hash).cloned()
     }
 
     /// Returns current number of recent envelopes.
@@ -402,6 +437,46 @@ mod tests {
 
         let latest = recent.latest_end_of_sequencing().expect("latest EOS envelope");
         assert_eq!(latest.execution_payload.block_hash, h3);
+    }
+
+    #[test]
+    fn recent_cache_serves_end_of_sequencing_by_epoch() {
+        let mut recent = RecentEnvelopeCache::with_capacity(3);
+        let h1 = B256::from([0x41u8; 32]);
+        let h2 = B256::from([0x42u8; 32]);
+
+        let mut first = sample_envelope(h1, 1);
+        first.end_of_sequencing = Some(true);
+        recent.insert_recent_with_epoch_hint(Arc::new(first), Some(100));
+
+        let mut second = sample_envelope(h2, 2);
+        second.end_of_sequencing = Some(true);
+        recent.insert_recent_with_epoch_hint(Arc::new(second), Some(101));
+
+        let epoch_100 = recent.end_of_sequencing_for_epoch(100).expect("epoch 100 must exist");
+        assert_eq!(epoch_100.execution_payload.block_hash, h1);
+
+        let epoch_101 = recent.end_of_sequencing_for_epoch(101).expect("epoch 101 must exist");
+        assert_eq!(epoch_101.execution_payload.block_hash, h2);
+        assert!(recent.end_of_sequencing_for_epoch(999).is_none());
+    }
+
+    #[test]
+    fn recent_cache_eviction_prunes_epoch_index() {
+        let mut recent = RecentEnvelopeCache::with_capacity(1);
+        let h1 = B256::from([0x51u8; 32]);
+        let h2 = B256::from([0x52u8; 32]);
+
+        let mut first = sample_envelope(h1, 1);
+        first.end_of_sequencing = Some(true);
+        recent.insert_recent_with_epoch_hint(Arc::new(first), Some(200));
+
+        let mut second = sample_envelope(h2, 2);
+        second.end_of_sequencing = Some(true);
+        recent.insert_recent_with_epoch_hint(Arc::new(second), Some(201));
+
+        assert!(recent.end_of_sequencing_for_epoch(200).is_none());
+        assert!(recent.end_of_sequencing_for_epoch(201).is_some());
     }
 
     #[test]

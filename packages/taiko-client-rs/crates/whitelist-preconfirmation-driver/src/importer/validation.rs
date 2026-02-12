@@ -6,6 +6,7 @@ use alloy_consensus::{
 };
 use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
+use alloy_rlp::{Bytes as RlpBytes, Decodable};
 use protocol::codec::{TxListCodecError, ZlibTxListCodec};
 
 use crate::{
@@ -21,6 +22,41 @@ pub(crate) fn validate_execution_payload_for_preconf(
     chain_id: u64,
     anchor_address: Address,
 ) -> Result<()> {
+    let compressed_tx_list = validate_execution_payload_common_fields(payload)?;
+    let txs = decode_compressed_tx_list(compressed_tx_list)?;
+    validate_anchor_transaction_from_txs(&txs, anchor_address, chain_id)
+}
+
+/// Validate execution payload shape when tx-list bytes are already decompressed.
+pub(crate) fn validate_execution_payload_for_preconf_with_tx_list(
+    payload: &alloy_rpc_types_engine::ExecutionPayloadV1,
+    decompressed_tx_list: &[u8],
+    chain_id: u64,
+    anchor_address: Address,
+) -> Result<()> {
+    validate_execution_payload_common_fields(payload)?;
+    if decompressed_tx_list.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
+        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
+            "decompressed transactions size exceeds max tx list size".to_string(),
+        ));
+    }
+
+    let mut payload_bytes = decompressed_tx_list;
+    let txs = Vec::<RlpBytes>::decode(&mut payload_bytes)
+        .map(|txs| txs.into_iter().map(|tx| tx.to_vec()).collect::<Vec<_>>())
+        .map_err(|err| {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "invalid RLP bytes for transactions: {err}"
+            ))
+        })?;
+
+    validate_anchor_transaction_from_txs(&txs, anchor_address, chain_id)
+}
+
+/// Validate common payload fields and return the compressed tx-list bytes.
+fn validate_execution_payload_common_fields(
+    payload: &alloy_rpc_types_engine::ExecutionPayloadV1,
+) -> Result<&[u8]> {
     if payload.timestamp == 0 {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
             "non-zero timestamp is required".to_string(),
@@ -64,37 +100,48 @@ pub(crate) fn validate_execution_payload_for_preconf(
         ));
     }
 
-    let txs = ZlibTxListCodec::new_with_limits(
-        MAX_COMPRESSED_TX_LIST_BYTES,
-        MAX_DECOMPRESSED_TX_LIST_BYTES,
-    )
-    .decode(compressed_tx_list)
-    .map_err(|err| match err {
-        TxListCodecError::ZlibDecode(reason) => {
-            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "invalid zlib bytes for transactions: {reason}"
-            ))
-        }
-        TxListCodecError::RlpDecode(reason) => WhitelistPreconfirmationDriverError::InvalidPayload(
-            format!("invalid RLP bytes for transactions: {reason}"),
-        ),
-        TxListCodecError::CompressedTooLarge { .. } => {
-            WhitelistPreconfirmationDriverError::InvalidPayload(
-                "compressed transactions size exceeds max blob data size".to_string(),
-            )
-        }
-        TxListCodecError::DecompressedTooLarge { .. } => {
-            WhitelistPreconfirmationDriverError::InvalidPayload(
-                "decompressed transactions size exceeds max tx list size".to_string(),
-            )
-        }
-        TxListCodecError::ZlibEncode(reason) | TxListCodecError::ZlibFinish(reason) => {
-            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "invalid transactions list bytes: {reason}"
-            ))
-        }
-    })?;
+    Ok(compressed_tx_list.as_ref())
+}
 
+/// Decode a compressed tx-list into individual transactions with bounded limits.
+fn decode_compressed_tx_list(compressed_tx_list: &[u8]) -> Result<Vec<Vec<u8>>> {
+    ZlibTxListCodec::new_with_limits(MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES)
+        .decode(compressed_tx_list)
+        .map_err(|err| match err {
+            TxListCodecError::ZlibDecode(reason) => {
+                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                    "invalid zlib bytes for transactions: {reason}"
+                ))
+            }
+            TxListCodecError::RlpDecode(reason) => {
+                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                    "invalid RLP bytes for transactions: {reason}"
+                ))
+            }
+            TxListCodecError::CompressedTooLarge { .. } => {
+                WhitelistPreconfirmationDriverError::InvalidPayload(
+                    "compressed transactions size exceeds max blob data size".to_string(),
+                )
+            }
+            TxListCodecError::DecompressedTooLarge { .. } => {
+                WhitelistPreconfirmationDriverError::InvalidPayload(
+                    "decompressed transactions size exceeds max tx list size".to_string(),
+                )
+            }
+            TxListCodecError::ZlibEncode(reason) | TxListCodecError::ZlibFinish(reason) => {
+                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                    "invalid transactions list bytes: {reason}"
+                ))
+            }
+        })
+}
+
+/// Validate anchor transaction requirements from decoded tx-list entries.
+fn validate_anchor_transaction_from_txs(
+    txs: &[Vec<u8>],
+    anchor_address: Address,
+    chain_id: u64,
+) -> Result<()> {
     if txs.is_empty() {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
             "empty transactions list, missing anchor transaction".to_string(),
@@ -108,15 +155,11 @@ pub(crate) fn validate_execution_payload_for_preconf(
         ))
     })?;
 
-    validate_anchor_transaction_for_preconf(&first_tx, anchor_address, chain_id).map_err(
-        |reason| {
-            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "invalid anchor transaction: {reason}"
-            ))
-        },
-    )?;
-
-    Ok(())
+    validate_anchor_transaction_for_preconf(&first_tx, anchor_address, chain_id).map_err(|reason| {
+        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+            "invalid anchor transaction: {reason}"
+        ))
+    })
 }
 
 /// Validate the first transaction in a preconfirmation tx-list as the expected Shasta anchor tx.

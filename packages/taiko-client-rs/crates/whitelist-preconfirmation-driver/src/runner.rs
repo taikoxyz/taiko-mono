@@ -14,12 +14,13 @@ use tracing::{info, warn};
 use crate::{
     Result,
     error::WhitelistPreconfirmationDriverError,
-    importer::WhitelistPreconfirmationImporter,
+    importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterConfig},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
-    rpc::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
-    rpc_handler::WhitelistRestHandler,
+    rest::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
+    rest_handler::WhitelistRestHandler,
+    runtime_state::RuntimeStatusState,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -37,10 +38,17 @@ pub struct RunnerConfig {
     pub rpc_jwt_secret: Option<Vec<u8>>,
     /// Optional hex-encoded private key for P2P block signing.
     pub p2p_signer_key: Option<String>,
+    /// Optional hex-encoded 32-byte ed25519 private key for persistent libp2p peer identity.
+    pub p2p_network_private_key: Option<String>,
+    /// Slot count reserved at epoch tail for handover to the next operator.
+    pub handover_skip_slots: u64,
+    /// Optional TaikoWrapper address used to discover preconfirmation router config.
+    pub taiko_wrapper_address: Option<Address>,
 }
 
 impl RunnerConfig {
     /// Build runner configuration.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         driver_config: DriverConfig,
         p2p_config: P2pConfig,
@@ -48,6 +56,9 @@ impl RunnerConfig {
         rpc_listen_addr: Option<SocketAddr>,
         rpc_jwt_secret: Option<Vec<u8>>,
         p2p_signer_key: Option<String>,
+        p2p_network_private_key: Option<String>,
+        handover_skip_slots: u64,
+        taiko_wrapper_address: Option<Address>,
     ) -> Self {
         Self {
             driver_config,
@@ -56,6 +67,9 @@ impl RunnerConfig {
             rpc_listen_addr,
             rpc_jwt_secret,
             p2p_signer_key,
+            p2p_network_private_key,
+            handover_skip_slots,
+            taiko_wrapper_address,
         }
     }
 }
@@ -90,47 +104,74 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
-        let network = WhitelistNetwork::spawn(self.config.p2p_config.clone())?;
+        let mut beacon_client_init_error = None;
+        let beacon_client = match BeaconClient::new(
+            self.config.driver_config.l1_beacon_endpoint.clone(),
+        )
+        .await
+        {
+            Ok(client) => Some(Arc::new(client)),
+            Err(err) => {
+                let reason = err.to_string();
+                beacon_client_init_error = Some(reason.clone());
+                warn!(
+                    error = %reason,
+                    "failed to initialise beacon metadata client; EOS epoch-indexed cache lookups are disabled"
+                );
+                None
+            }
+        };
+
+        let network = if self.config.p2p_network_private_key.is_some() {
+            WhitelistNetwork::spawn_with_identity(
+                self.config.p2p_config.clone(),
+                self.config.p2p_network_private_key.clone(),
+            )?
+        } else {
+            WhitelistNetwork::spawn(self.config.p2p_config.clone())?
+        };
         info!(
             peer_id = %network.local_peer_id,
             chain_id = self.config.p2p_config.chain_id,
             "whitelist preconfirmation p2p subscriber started"
         );
+        let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
+            .client()
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+        {
+            Ok(Some(block)) => block.header.number,
+            Ok(None) => 0,
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
+                );
+                0
+            }
+        };
+        let runtime_state =
+            Arc::new(RuntimeStatusState::new(initial_highest_unsafe_l2_payload_block_id));
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.
         let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
-            let beacon_client = Arc::new(
-                BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
-                    .await
-                    .map_err(|err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
-                        reason: err.to_string(),
-                    })?,
-            );
+            let beacon_client = beacon_client.clone().ok_or_else(|| {
+                WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
+                    reason: beacon_client_init_error.clone().unwrap_or_else(|| {
+                        "beacon metadata client initialisation failed".to_string()
+                    }),
+                }
+            })?;
 
             let signer = FixedKSigner::new(signer_key).map_err(|e| {
                 WhitelistPreconfirmationDriverError::Signing(format!(
                     "failed to create P2P signer: {e}"
                 ))
             })?;
-            let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
-                .client()
-                .l2_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await
-            {
-                Ok(Some(block)) => block.header.number,
-                Ok(None) => 0,
-                Err(err) => {
-                    warn!(
-                        error = %err,
-                        "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
-                    );
-                    0
-                }
-            };
 
             let handler = WhitelistRestHandler::new(
                 preconf_ingress_sync.event_syncer(),
@@ -139,9 +180,11 @@ impl WhitelistPreconfirmationDriverRunner {
                 signer,
                 beacon_client,
                 self.config.whitelist_address,
-                initial_highest_unsafe_l2_payload_block_id,
+                runtime_state.clone(),
                 network.command_tx.clone(),
                 network.local_peer_id.to_string(),
+                self.config.handover_skip_slots,
+                self.config.taiko_wrapper_address,
             );
 
             let server_config = WhitelistRestWsServerConfig {
@@ -164,9 +207,14 @@ impl WhitelistPreconfirmationDriverRunner {
         let mut importer = WhitelistPreconfirmationImporter::new(
             preconf_ingress_sync.event_syncer(),
             preconf_ingress_sync.client().clone(),
-            self.config.whitelist_address,
-            self.config.p2p_config.chain_id,
-            network.command_tx.clone(),
+            WhitelistPreconfirmationImporterConfig {
+                whitelist_address: self.config.whitelist_address,
+                chain_id: self.config.p2p_config.chain_id,
+                beacon_client: beacon_client.clone(),
+                network_command_tx: network.command_tx.clone(),
+                local_peer_id: network.local_peer_id,
+                runtime_state: runtime_state.clone(),
+            },
         );
         let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();
 

@@ -204,6 +204,19 @@ where
                 actual: inserted_hash,
             });
         }
+        // Match Go status semantics by updating highest-unsafe on import and reorg paths.
+        self.runtime_state.set_highest_unsafe_l2_payload_block_id(block_number);
+        if let Some(epoch) = self.end_of_sequencing_epoch(envelope) {
+            self.runtime_state.set_end_of_sequencing_block_hash(epoch, block_hash).await;
+            self.runtime_state.notify_end_of_sequencing(epoch);
+        } else if end_of_sequencing {
+            warn!(
+                block_number,
+                block_hash = %block_hash,
+                timestamp = payload.timestamp,
+                "failed to derive EOS epoch from payload timestamp; skipping EOS runtime update"
+            );
+        }
 
         info!(
             block_number,

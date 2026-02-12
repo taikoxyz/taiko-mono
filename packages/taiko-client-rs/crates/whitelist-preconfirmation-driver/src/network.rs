@@ -1,6 +1,10 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
@@ -23,6 +27,11 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
+use hashlink::LinkedHashMap;
+
+/// Gossipsub behaviour type with an explicit topic allowlist filter.
+type WhitelistGossipsub =
+    gossipsub::Behaviour<gossipsub::IdentityTransform, gossipsub::WhitelistSubscriptionFilter>;
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -30,6 +39,190 @@ const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
 const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
 /// Prefix used in Go-compatible message-id hashing for invalid snappy payloads.
 const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
+/// Capacity used for bounded in-memory duplicate guards.
+const DUPLICATE_TRACKER_CAPACITY: usize = 1000;
+/// Duplicate suppression window for repeated `requestPreconfBlocks` hashes.
+const PRECONF_REQUEST_DUPLICATE_WINDOW: Duration = Duration::from_secs(45);
+/// Duplicate suppression window for recently observed inbound `responsePreconfBlocks` hashes.
+///
+/// This network-edge cache only guards gossip ingress. The importer keeps a separate cache
+/// using the same window to suppress outbound duplicate publishes (including local loopback).
+pub(crate) const PRECONF_RESPONSE_SEEN_WINDOW: Duration = Duration::from_secs(10);
+/// Per-peer request bucket refill rate, in tokens per minute.
+const REQUEST_REFILL_PER_MIN: u32 = 200;
+/// Per-peer request bucket max burst.
+const REQUEST_MAX_TOKENS: f64 = REQUEST_REFILL_PER_MIN as f64;
+/// Maximum acceptable sightings per EOS epoch before ignoring further requests.
+const MAX_EOS_REQUESTS_PER_EPOCH: u64 = 3;
+/// Interval for reconnect attempts to configured static peers.
+const STATIC_PEER_REDIAL_INTERVAL: Duration = Duration::from_secs(60);
+
+/// Validation decision for inbound gossip message admission at network edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AdmissionDecision {
+    /// Message should be forwarded to importer.
+    Accept,
+    /// Message should be ignored as an inbound duplicate.
+    DuplicateLimited,
+    /// Message should be ignored due to per-peer token-bucket throttling.
+    RateLimited,
+}
+
+/// Per-peer token bucket state.
+#[derive(Debug, Clone, Copy)]
+struct RateBucket {
+    /// Available token credit.
+    credit: f64,
+    /// Last refill timestamp.
+    last_refill: Instant,
+}
+
+impl RateBucket {
+    /// Create a full bucket at `now`.
+    fn new(now: Instant) -> Self {
+        Self { credit: REQUEST_MAX_TOKENS, last_refill: now }
+    }
+
+    /// Refill bucket credit based on elapsed time.
+    fn refill(&mut self, now: Instant) {
+        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
+        let refill_rate = f64::from(REQUEST_REFILL_PER_MIN) / 60.0;
+        self.credit = (self.credit + (elapsed * refill_rate)).min(REQUEST_MAX_TOKENS);
+        self.last_refill = now;
+    }
+
+    /// Consume one token from the bucket.
+    fn consume_one(&mut self) -> bool {
+        if self.credit < 1.0 {
+            return false;
+        }
+        self.credit -= 1.0;
+        true
+    }
+}
+
+/// Inbound validation and anti-spam state mirroring Go topic validators.
+#[derive(Debug, Default)]
+struct InboundValidationState {
+    /// Per-peer request token buckets for inbound `preconfBlocks` payload gossip.
+    preconf_payload_buckets: LinkedHashMap<PeerId, RateBucket>,
+    /// Per-peer request token buckets for inbound `responsePreconfBlocks` gossip.
+    preconf_response_buckets: LinkedHashMap<PeerId, RateBucket>,
+    /// Per-peer request token buckets for `requestPreconfBlocks`.
+    preconf_request_buckets: LinkedHashMap<PeerId, RateBucket>,
+    /// Per-peer request token buckets for `requestEndOfSequencingPreconfBlocks`.
+    eos_request_buckets: LinkedHashMap<PeerId, RateBucket>,
+    /// Last-seen time for hash-based preconf requests.
+    preconf_request_seen: LinkedHashMap<B256, Instant>,
+    /// Per-epoch seen counters for EOS requests.
+    eos_request_seen: LinkedHashMap<u64, u64>,
+}
+
+impl InboundValidationState {
+    /// Decide if an inbound `requestPreconfBlocks` should be admitted.
+    fn admit_preconf_request(
+        &mut self,
+        from: PeerId,
+        hash: B256,
+        now: Instant,
+    ) -> AdmissionDecision {
+        self.prune_expired_request_hashes(now);
+        if let Some(last_seen) = self.preconf_request_seen.get(&hash) &&
+            now.saturating_duration_since(*last_seen) < PRECONF_REQUEST_DUPLICATE_WINDOW
+        {
+            return AdmissionDecision::DuplicateLimited;
+        }
+
+        if !Self::consume_request_token(&mut self.preconf_request_buckets, from, now) {
+            return AdmissionDecision::RateLimited;
+        }
+
+        self.preconf_request_seen.remove(&hash);
+        self.preconf_request_seen.insert(hash, now);
+        self.evict_oldest_seen_hashes();
+        AdmissionDecision::Accept
+    }
+
+    /// Decide if an inbound `requestEndOfSequencingPreconfBlocks` should be admitted.
+    fn admit_eos_request(&mut self, from: PeerId, epoch: u64, now: Instant) -> AdmissionDecision {
+        let seen_count = self.eos_request_seen.get(&epoch).copied().unwrap_or_default();
+        if seen_count >= MAX_EOS_REQUESTS_PER_EPOCH {
+            return AdmissionDecision::DuplicateLimited;
+        }
+
+        if !Self::consume_request_token(&mut self.eos_request_buckets, from, now) {
+            return AdmissionDecision::RateLimited;
+        }
+
+        self.eos_request_seen.remove(&epoch);
+        self.eos_request_seen.insert(epoch, seen_count.saturating_add(1));
+        self.evict_oldest_seen_epochs();
+        AdmissionDecision::Accept
+    }
+
+    /// Decide if an inbound `preconfBlocks` payload should be admitted.
+    ///
+    /// Do not apply hash/height duplicate limits before importer authentication. Otherwise forged
+    /// envelopes could consume the duplicate budget and block a subsequent valid payload.
+    fn admit_preconf_payload(&mut self, from: PeerId, now: Instant) -> AdmissionDecision {
+        if !Self::consume_request_token(&mut self.preconf_payload_buckets, from, now) {
+            return AdmissionDecision::RateLimited;
+        }
+        AdmissionDecision::Accept
+    }
+
+    /// Decide if an inbound `responsePreconfBlocks` payload should be admitted.
+    ///
+    /// Do not apply hash/height duplicate limits before importer authentication. Otherwise forged
+    /// envelopes could consume the duplicate budget and block a subsequent valid response.
+    fn admit_preconf_response(&mut self, from: PeerId, now: Instant) -> AdmissionDecision {
+        if !Self::consume_request_token(&mut self.preconf_response_buckets, from, now) {
+            return AdmissionDecision::RateLimited;
+        }
+        AdmissionDecision::Accept
+    }
+
+    /// Consume one token from a per-peer request bucket.
+    fn consume_request_token(
+        buckets: &mut LinkedHashMap<PeerId, RateBucket>,
+        peer: PeerId,
+        now: Instant,
+    ) -> bool {
+        let mut bucket = buckets.remove(&peer).unwrap_or_else(|| RateBucket::new(now));
+        bucket.refill(now);
+        let allowed = bucket.consume_one();
+        buckets.insert(peer, bucket);
+        while buckets.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = buckets.pop_front();
+        }
+        allowed
+    }
+
+    /// Remove expired request hash-window entries.
+    fn prune_expired_request_hashes(&mut self, now: Instant) {
+        let window = PRECONF_REQUEST_DUPLICATE_WINDOW;
+        while let Some((_, seen_at)) = self.preconf_request_seen.iter().next() {
+            if now.saturating_duration_since(*seen_at) < window {
+                break;
+            }
+            let _ = self.preconf_request_seen.pop_front();
+        }
+    }
+
+    /// Keep seen-hash map bounded.
+    fn evict_oldest_seen_hashes(&mut self) {
+        while self.preconf_request_seen.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = self.preconf_request_seen.pop_front();
+        }
+    }
+
+    /// Keep epoch-seen map bounded.
+    fn evict_oldest_seen_epochs(&mut self) {
+        while self.eos_request_seen.len() > DUPLICATE_TRACKER_CAPACITY {
+            let _ = self.eos_request_seen.pop_front();
+        }
+    }
+}
 
 /// Inbound network event for whitelist preconfirmation processing.
 #[derive(Debug)]
@@ -141,7 +334,7 @@ impl Topics {
 #[behaviour(to_swarm = "BehaviourEvent")]
 struct Behaviour {
     /// Gossip transport for whitelist preconfirmation topics.
-    gossipsub: gossipsub::Behaviour,
+    gossipsub: WhitelistGossipsub,
     /// Ping protocol for liveness.
     ping: ping::Behaviour,
     /// Identify protocol for peer metadata exchange.
@@ -190,11 +383,19 @@ struct ClassifiedBootnodes {
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
     pub fn spawn(cfg: P2pConfig) -> Result<Self> {
-        let local_key = identity::Keypair::generate_ed25519();
+        Self::spawn_with_identity(cfg, None)
+    }
+
+    /// Spawn the whitelist preconfirmation network task with an optional fixed identity key.
+    pub fn spawn_with_identity(cfg: P2pConfig, local_identity_key: Option<String>) -> Result<Self> {
+        let local_key = match local_identity_key {
+            Some(raw) => parse_ed25519_private_key(&raw)?,
+            None => identity::Keypair::generate_ed25519(),
+        };
         let local_peer_id = local_key.public().to_peer_id();
 
         let topics = Topics::new(cfg.chain_id);
-        let mut gossipsub = build_gossipsub()?;
+        let mut gossipsub = build_gossipsub(&topics)?;
         gossipsub.subscribe(&topics.preconf_blocks).map_err(to_p2p_err)?;
         gossipsub.subscribe(&topics.preconf_request).map_err(to_p2p_err)?;
         gossipsub.subscribe(&topics.preconf_response).map_err(to_p2p_err)?;
@@ -237,7 +438,8 @@ impl WhitelistNetwork {
         let bootnodes = classify_bootnodes(cfg.bootnodes);
         let mut dialed_addrs = HashSet::new();
 
-        for peer in cfg.pre_dial_peers {
+        let static_peers = cfg.pre_dial_peers.clone();
+        for peer in static_peers.iter().cloned() {
             dial_once(&mut swarm, &mut dialed_addrs, peer, "static peer");
         }
 
@@ -268,8 +470,13 @@ impl WhitelistNetwork {
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, mut command_rx) = mpsc::channel(512);
         let local_peer_id_for_events = local_peer_id;
+        let mut inbound_validation = InboundValidationState::default();
 
         let handle = tokio::spawn(async move {
+            let mut static_peer_redial_tick = tokio::time::interval(STATIC_PEER_REDIAL_INTERVAL);
+            static_peer_redial_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+            let _ = static_peer_redial_tick.tick().await;
+
             loop {
                 let has_discovery = discovery_rx.is_some();
 
@@ -450,8 +657,20 @@ impl WhitelistNetwork {
                             }
                         }
                     }
+                    _ = static_peer_redial_tick.tick(), if !static_peers.is_empty() => {
+                        for addr in static_peers.iter().cloned() {
+                            let is_connected = peer_id_from_multiaddr(&addr)
+                                .map(|peer| swarm.is_connected(&peer))
+                                .unwrap_or(false);
+                            if is_connected {
+                                continue;
+                            }
+                            dial_retry(&mut swarm, addr, "static peer redial");
+                        }
+                    }
                     event = swarm.select_next_some() => {
-                        handle_swarm_event(event, &topics, &event_tx).await?;
+                        handle_swarm_event(&mut swarm, event, &topics, &event_tx, &mut inbound_validation)
+                            .await?;
                     }
                 }
             }
@@ -462,8 +681,9 @@ impl WhitelistNetwork {
 }
 
 /// Build the gossipsub behaviour.
-pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
+fn build_gossipsub(topics: &Topics) -> Result<WhitelistGossipsub> {
     let config = gossipsub::ConfigBuilder::default()
+        .validate_messages()
         .validation_mode(gossipsub::ValidationMode::Anonymous)
         .heartbeat_interval(*kona_gossip::GOSSIP_HEARTBEAT)
         .duplicate_cache_time(*kona_gossip::SEEN_MESSAGES_TTL)
@@ -472,7 +692,22 @@ pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
         .build()
         .map_err(to_p2p_err)?;
 
-    gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, config).map_err(to_p2p_err)
+    let allowlisted_topics = [
+        topics.preconf_blocks.hash(),
+        topics.preconf_request.hash(),
+        topics.preconf_response.hash(),
+        topics.eos_request.hash(),
+    ]
+    .into_iter()
+    .collect::<HashSet<_>>();
+    let subscription_filter = gossipsub::WhitelistSubscriptionFilter(allowlisted_topics);
+
+    gossipsub::Behaviour::new_with_subscription_filter(
+        gossipsub::MessageAuthenticity::Anonymous,
+        config,
+        subscription_filter,
+    )
+    .map_err(to_p2p_err)
 }
 
 /// Parse an `enode://` URL into a multiaddr for direct dialing.
@@ -578,6 +813,16 @@ fn dial_once(
         return;
     }
 
+    dial_addr(swarm, addr, source);
+}
+
+/// Dial a peer address, recording metrics regardless of prior attempts.
+fn dial_retry(swarm: &mut Swarm<Behaviour>, addr: Multiaddr, source: &str) {
+    dial_addr(swarm, addr, source);
+}
+
+/// Shared dial path with metrics/logging.
+fn dial_addr(swarm: &mut Swarm<Behaviour>, addr: Multiaddr, source: &str) {
     metrics::counter!(
         WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
         "source" => source.to_string(),
@@ -594,6 +839,14 @@ fn dial_once(
     }
 }
 
+/// Extract a `PeerId` from a `/p2p/<peer-id>` multiaddr suffix.
+fn peer_id_from_multiaddr(addr: &Multiaddr) -> Option<PeerId> {
+    addr.iter().find_map(|protocol| match protocol {
+        libp2p::multiaddr::Protocol::P2p(peer_id) => Some(peer_id),
+        _ => None,
+    })
+}
+
 /// Receive one discovery event, if discovery is enabled.
 async fn recv_discovered_multiaddr(
     discovery_rx: &mut Option<mpsc::Receiver<Multiaddr>>,
@@ -603,13 +856,22 @@ async fn recv_discovered_multiaddr(
 
 /// Handle a swarm event.
 async fn handle_swarm_event(
+    swarm: &mut Swarm<Behaviour>,
     event: libp2p::swarm::SwarmEvent<BehaviourEvent>,
     topics: &Topics,
     event_tx: &mpsc::Sender<NetworkEvent>,
+    inbound_validation: &mut InboundValidationState,
 ) -> Result<()> {
     match event {
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(event)) => {
-            handle_gossipsub_event(*event, topics, event_tx).await?;
+            handle_gossipsub_event(
+                &mut swarm.behaviour_mut().gossipsub,
+                *event,
+                topics,
+                event_tx,
+                inbound_validation,
+            )
+            .await?;
         }
         libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
             debug!(%address, "whitelist preconfirmation network listening");
@@ -630,11 +892,13 @@ async fn handle_swarm_event(
 
 /// Handle a gossipsub event.
 async fn handle_gossipsub_event(
+    gossipsub: &mut WhitelistGossipsub,
     event: gossipsub::Event,
     topics: &Topics,
     event_tx: &mpsc::Sender<NetworkEvent>,
+    inbound_validation: &mut InboundValidationState,
 ) -> Result<()> {
-    let gossipsub::Event::Message { propagation_source, message, .. } = event else {
+    let gossipsub::Event::Message { propagation_source, message_id, message } = event else {
         return Ok(());
     };
 
@@ -644,26 +908,34 @@ async fn handle_gossipsub_event(
     if *topic == topics.preconf_blocks.hash() {
         match decode_unsafe_payload_message(&message.data) {
             Ok(payload) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "preconf_blocks",
-                    "result" => "decoded",
+                if !admit_or_ignore_message(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    inbound_validation.admit_preconf_payload(from, Instant::now()),
+                    "preconf_blocks",
+                ) {
+                    return Ok(());
+                }
+
+                forward_decoded_event(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    event_tx,
+                    "preconf_blocks",
+                    NetworkEvent::UnsafePayload { from, payload },
                 )
-                .increment(1);
-                forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await?
+                .await?;
             }
             Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                    "topic" => "preconf_blocks",
-                )
-                .increment(1);
+                report_decode_failure(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    "preconf_blocks",
+                    "decode_failed",
+                );
                 debug!(error = %err, "failed to decode unsafe payload");
             }
         }
@@ -673,26 +945,34 @@ async fn handle_gossipsub_event(
     if *topic == topics.preconf_response.hash() {
         match decode_unsafe_response_message(&message.data) {
             Ok(envelope) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                    "result" => "decoded",
+                if !admit_or_ignore_message(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    inbound_validation.admit_preconf_response(from, Instant::now()),
+                    "response_preconf_blocks",
+                ) {
+                    return Ok(());
+                }
+
+                forward_decoded_event(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    event_tx,
+                    "response_preconf_blocks",
+                    NetworkEvent::UnsafeResponse { from, envelope },
                 )
-                .increment(1);
-                forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope }).await?
+                .await?;
             }
             Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                )
-                .increment(1);
+                report_decode_failure(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    "response_preconf_blocks",
+                    "decode_failed",
+                );
                 debug!(error = %err, "failed to decode unsafe response");
             }
         }
@@ -701,26 +981,34 @@ async fn handle_gossipsub_event(
 
     if *topic == topics.preconf_request.hash() {
         if message.data.len() == 32 {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_preconf_blocks",
-                "result" => "decoded",
-            )
-            .increment(1);
             let hash = B256::from_slice(&message.data);
-            forward_event(event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
+            if !admit_or_ignore_message(
+                gossipsub,
+                &message_id,
+                &from,
+                inbound_validation.admit_preconf_request(from, hash, Instant::now()),
+                "request_preconf_blocks",
+            ) {
+                return Ok(());
+            }
+
+            forward_decoded_event(
+                gossipsub,
+                &message_id,
+                &from,
+                event_tx,
+                "request_preconf_blocks",
+                NetworkEvent::UnsafeRequest { from, hash },
+            )
+            .await?;
         } else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_preconf_blocks",
-                "result" => "invalid_length",
-            )
-            .increment(1);
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                "topic" => "request_preconf_blocks",
-            )
-            .increment(1);
+            report_decode_failure(
+                gossipsub,
+                &message_id,
+                &from,
+                "request_preconf_blocks",
+                "invalid_length",
+            );
             debug!(len = message.data.len(), "invalid preconf request payload length");
         }
         return Ok(());
@@ -728,30 +1016,141 @@ async fn handle_gossipsub_event(
 
     if *topic == topics.eos_request.hash() {
         if let Some(epoch) = decode_eos_epoch(&message.data) {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_eos_preconf_blocks",
-                "result" => "decoded",
+            if !admit_or_ignore_message(
+                gossipsub,
+                &message_id,
+                &from,
+                inbound_validation.admit_eos_request(from, epoch, Instant::now()),
+                "request_eos_preconf_blocks",
+            ) {
+                return Ok(());
+            }
+
+            forward_decoded_event(
+                gossipsub,
+                &message_id,
+                &from,
+                event_tx,
+                "request_eos_preconf_blocks",
+                NetworkEvent::EndOfSequencingRequest { from, epoch },
             )
-            .increment(1);
-            forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await?;
+            .await?;
         } else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_eos_preconf_blocks",
-                "result" => "invalid_length",
-            )
-            .increment(1);
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                "topic" => "request_eos_preconf_blocks",
-            )
-            .increment(1);
+            report_decode_failure(
+                gossipsub,
+                &message_id,
+                &from,
+                "request_eos_preconf_blocks",
+                "invalid_length",
+            );
             debug!(len = message.data.len(), "invalid end-of-sequencing payload length");
         }
+        return Ok(());
     }
 
+    report_ignore_with_metric(gossipsub, &message_id, &from, "unknown", "ignored");
+    debug!(topic = topic.as_str(), "ignoring message on unknown whitelist topic");
     Ok(())
+}
+
+/// Count one inbound gossipsub message result by topic.
+fn record_inbound_message(topic: &'static str, result: &'static str) {
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+        "topic" => topic,
+        "result" => result,
+    )
+    .increment(1);
+}
+
+/// Report ignored message and emit corresponding inbound metric.
+fn report_ignore_with_metric(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    topic: &'static str,
+    result: &'static str,
+) {
+    report_message_validation(gossipsub, message_id, from, gossipsub::MessageAcceptance::Ignore);
+    record_inbound_message(topic, result);
+}
+
+/// Report rejected message due to decode/shape failure and emit failure metrics.
+fn report_decode_failure(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    topic: &'static str,
+    result: &'static str,
+) {
+    report_message_validation(gossipsub, message_id, from, gossipsub::MessageAcceptance::Reject);
+    record_inbound_message(topic, result);
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+        "topic" => topic,
+    )
+    .increment(1);
+}
+
+/// Handle an admission decision, reporting Ignore + metrics when the message is not accepted.
+fn admit_or_ignore_message(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    decision: AdmissionDecision,
+    topic: &'static str,
+) -> bool {
+    match decision {
+        AdmissionDecision::Accept => true,
+        AdmissionDecision::DuplicateLimited => {
+            report_ignore_with_metric(gossipsub, message_id, from, topic, "duplicate_limited");
+            false
+        }
+        AdmissionDecision::RateLimited => {
+            report_ignore_with_metric(gossipsub, message_id, from, topic, "rate_limited");
+            false
+        }
+    }
+}
+
+/// Forward an already-decoded/admitted message and report gossipsub validation outcome.
+async fn forward_decoded_event(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    event_tx: &mpsc::Sender<NetworkEvent>,
+    topic: &'static str,
+    event: NetworkEvent,
+) -> Result<()> {
+    record_inbound_message(topic, "decoded");
+    if let Err(err) = forward_event(event_tx, event).await {
+        report_message_validation(
+            gossipsub,
+            message_id,
+            from,
+            gossipsub::MessageAcceptance::Ignore,
+        );
+        return Err(err);
+    }
+
+    report_message_validation(gossipsub, message_id, from, gossipsub::MessageAcceptance::Accept);
+    Ok(())
+}
+
+/// Report gossipsub message validation result for a previously received message.
+fn report_message_validation(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    acceptance: gossipsub::MessageAcceptance,
+) {
+    if !gossipsub.report_message_validation_result(message_id, from, acceptance) {
+        debug!(
+            message_id = %message_id,
+            peer = %from,
+            "gossipsub message no longer in validation cache when reporting outcome"
+        );
+    }
 }
 
 /// Decode an end-of-sequencing request epoch from fixed-width big-endian bytes.
@@ -782,9 +1181,31 @@ fn to_p2p_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverErro
     WhitelistPreconfirmationDriverError::P2p(err.to_string())
 }
 
+/// Parse a hex-encoded 32-byte ed25519 secret key into a libp2p identity keypair.
+fn parse_ed25519_private_key(raw: &str) -> Result<identity::Keypair> {
+    let stripped = raw.strip_prefix("0x").unwrap_or(raw);
+    let mut bytes = alloy_primitives::hex::decode(stripped).map_err(|err| {
+        WhitelistPreconfirmationDriverError::P2p(format!(
+            "invalid hex in p2p network private key: {err}"
+        ))
+    })?;
+    if bytes.len() != 32 {
+        return Err(WhitelistPreconfirmationDriverError::P2p(format!(
+            "p2p network private key must be 32 bytes, got {}",
+            bytes.len()
+        )));
+    }
+
+    identity::Keypair::ed25519_from_bytes(bytes.as_mut_slice()).map_err(|err| {
+        WhitelistPreconfirmationDriverError::P2p(format!(
+            "failed to decode p2p network private key: {err}"
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use alloy_primitives::{Address, Bloom, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
@@ -887,6 +1308,26 @@ mod tests {
     }
 
     #[test]
+    fn parse_ed25519_private_key_accepts_hex_seed() {
+        let key_bytes = [0x11u8; 32];
+        let key_hex = alloy_primitives::hex::encode(key_bytes);
+
+        let keypair_a = parse_ed25519_private_key(&key_hex).expect("valid private key");
+        let keypair_b = parse_ed25519_private_key(&key_hex).expect("valid private key");
+        assert_eq!(keypair_a.public().to_peer_id(), keypair_b.public().to_peer_id());
+    }
+
+    #[test]
+    fn parse_ed25519_private_key_rejects_invalid_length() {
+        let err = parse_ed25519_private_key("0xdeadbeef").expect_err("short key must fail");
+        assert!(matches!(
+            err,
+            crate::error::WhitelistPreconfirmationDriverError::P2p(msg)
+                if msg.contains("must be 32 bytes")
+        ));
+    }
+
+    #[test]
     fn decode_eos_epoch_accepts_u64_be_bytes() {
         let epoch = 42u64;
         assert_eq!(decode_eos_epoch(&epoch.to_be_bytes()), Some(epoch));
@@ -897,6 +1338,116 @@ mod tests {
         assert_eq!(decode_eos_epoch(&[]), None);
         assert_eq!(decode_eos_epoch(&[0u8; 7]), None);
         assert_eq!(decode_eos_epoch(&[0u8; 9]), None);
+    }
+
+    #[test]
+    fn inbound_validation_limits_duplicate_preconf_requests() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let hash = B256::from([0xabu8; 32]);
+        let now = Instant::now();
+
+        assert_eq!(state.admit_preconf_request(peer, hash, now), AdmissionDecision::Accept);
+        assert_eq!(
+            state.admit_preconf_request(peer, hash, now + Duration::from_secs(1)),
+            AdmissionDecision::DuplicateLimited
+        );
+        assert_eq!(
+            state.admit_preconf_request(
+                peer,
+                hash,
+                now + PRECONF_REQUEST_DUPLICATE_WINDOW + Duration::from_secs(1),
+            ),
+            AdmissionDecision::Accept
+        );
+    }
+
+    #[test]
+    fn inbound_validation_rate_limits_requests_per_peer() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        for index in 0..REQUEST_REFILL_PER_MIN {
+            let hash = B256::from(U256::from(index).to_be_bytes::<32>());
+            assert_eq!(state.admit_preconf_request(peer, hash, now), AdmissionDecision::Accept);
+        }
+
+        let limited_hash = B256::from([0xedu8; 32]);
+        assert_eq!(
+            state.admit_preconf_request(peer, limited_hash, now),
+            AdmissionDecision::RateLimited
+        );
+    }
+
+    #[test]
+    fn inbound_validation_uses_independent_rate_buckets_per_request_topic() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        for index in 0..REQUEST_REFILL_PER_MIN {
+            let hash = B256::from(U256::from(index).to_be_bytes::<32>());
+            assert_eq!(state.admit_preconf_request(peer, hash, now), AdmissionDecision::Accept);
+        }
+
+        assert_eq!(
+            state.admit_preconf_request(peer, B256::from([0x11u8; 32]), now),
+            AdmissionDecision::RateLimited
+        );
+        assert_eq!(state.admit_eos_request(peer, 1, now), AdmissionDecision::Accept);
+    }
+
+    #[test]
+    fn inbound_validation_limits_per_epoch_eos_duplicates() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let epoch = 77u64;
+        let now = Instant::now();
+
+        for _ in 0..MAX_EOS_REQUESTS_PER_EPOCH {
+            assert_eq!(state.admit_eos_request(peer, epoch, now), AdmissionDecision::Accept);
+        }
+        assert_eq!(state.admit_eos_request(peer, epoch, now), AdmissionDecision::DuplicateLimited);
+    }
+
+    #[test]
+    fn inbound_validation_rate_limits_preconf_payloads_per_peer() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        for _ in 0..REQUEST_REFILL_PER_MIN {
+            assert_eq!(state.admit_preconf_payload(peer, now), AdmissionDecision::Accept);
+        }
+        assert_eq!(state.admit_preconf_payload(peer, now), AdmissionDecision::RateLimited);
+    }
+
+    #[test]
+    fn inbound_validation_rate_limits_preconf_responses_per_peer() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        for _ in 0..REQUEST_REFILL_PER_MIN {
+            assert_eq!(state.admit_preconf_response(peer, now), AdmissionDecision::Accept);
+        }
+        assert_eq!(state.admit_preconf_response(peer, now), AdmissionDecision::RateLimited);
+    }
+
+    #[test]
+    fn inbound_validation_uses_independent_rate_buckets_per_payload_and_response_topics() {
+        let mut state = InboundValidationState::default();
+        let peer = PeerId::random();
+        let now = Instant::now();
+
+        for _ in 0..REQUEST_REFILL_PER_MIN {
+            assert_eq!(state.admit_preconf_payload(peer, now), AdmissionDecision::Accept);
+        }
+        assert_eq!(state.admit_preconf_payload(peer, now), AdmissionDecision::RateLimited);
+
+        // Payload and response topics are independently rate limited.
+        assert_eq!(state.admit_preconf_response(peer, now), AdmissionDecision::Accept);
     }
 
     #[test]
@@ -957,7 +1508,7 @@ mod tests {
         #[behaviour(to_swarm = "TestBehaviourEvent")]
         struct TestBehaviour {
             /// Gossipsub behaviour under test.
-            gossipsub: gossipsub::Behaviour,
+            gossipsub: WhitelistGossipsub,
             /// Ping behaviour required by the composite behaviour.
             ping: ping::Behaviour,
             /// Identify behaviour required by the composite behaviour.
@@ -1009,7 +1560,7 @@ mod tests {
             .multiplex(yamux::Config::default())
             .boxed();
 
-        let mut gs = build_gossipsub().expect("gossipsub config");
+        let mut gs = build_gossipsub(&Topics::new(chain_id)).expect("gossipsub config");
         gs.subscribe(&topic).expect("topic subscribe");
 
         let behaviour = TestBehaviour {
@@ -1148,7 +1699,7 @@ mod tests {
         #[behaviour(to_swarm = "TestBehaviourEvent")]
         struct TestBehaviour {
             /// Gossipsub behaviour under test.
-            gossipsub: gossipsub::Behaviour,
+            gossipsub: WhitelistGossipsub,
             /// Ping behaviour required by the composite behaviour.
             ping: ping::Behaviour,
             /// Identify behaviour required by the composite behaviour.
@@ -1201,7 +1752,7 @@ mod tests {
             .multiplex(yamux::Config::default())
             .boxed();
 
-        let mut gs = build_gossipsub().expect("gossipsub config");
+        let mut gs = build_gossipsub(&Topics::new(chain_id)).expect("gossipsub config");
         gs.subscribe(&topic).expect("topic subscribe");
 
         let behaviour = TestBehaviour {
@@ -1299,7 +1850,7 @@ mod tests {
         #[derive(NetworkBehaviour)]
         struct TestBehaviour {
             /// Gossipsub behaviour under test.
-            gossipsub: gossipsub::Behaviour,
+            gossipsub: WhitelistGossipsub,
             /// Ping behaviour required by the composite behaviour.
             ping: ping::Behaviour,
             /// Identify behaviour required by the composite behaviour.
@@ -1319,7 +1870,7 @@ mod tests {
             .multiplex(yamux::Config::default())
             .boxed();
 
-        let mut gs = build_gossipsub().expect("gossipsub config");
+        let mut gs = build_gossipsub(&Topics::new(chain_id)).expect("gossipsub config");
         gs.subscribe(&topic).expect("topic subscribe");
 
         let behaviour = TestBehaviour {

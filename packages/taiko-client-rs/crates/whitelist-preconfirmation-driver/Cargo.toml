@@ -13,16 +13,21 @@ alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
+alloy = { workspace = true }
+alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.7", features = ["ws"] }
 bytes = "1"
 bindings = { path = "../bindings" }
 driver = { path = "../driver" }
 flate2 = { workspace = true }
 futures = "0.3"
+http = "1"
+http-body = "1"
+http-body-util = { workspace = true }
 jsonwebtoken = "9"
 hashlink = "0.10"
 kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }

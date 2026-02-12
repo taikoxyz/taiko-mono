@@ -1,8 +1,6 @@
 //! Whitelist preconfirmation REST/WS API handler implementation.
 
 use std::{
-    collections::HashMap,
-    io::Read,
     sync::Arc,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
@@ -26,29 +24,48 @@ use protocol::{
 };
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
-    importer::{
-        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
-        validate_execution_payload_for_preconf,
-    },
+    importer::{decompress_tx_list, validate_execution_payload_for_preconf_with_tx_list},
     network::NetworkCommand,
-    rpc::{
+    rest::{
         WhitelistRestApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
             LookaheadStatus, SlotRange, WhitelistStatus,
         },
     },
+    runtime_state::RuntimeStatusState,
 };
 
-/// Go default handover-skip slots used for sequencing window split.
-const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
-/// Maximum number of pending EOS notifications retained for `/ws` subscribers.
-const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
+alloy::sol! {
+    #[sol(rpc)]
+    interface TaikoWrapperConfigReader {
+        function preconfRouter() external view returns (address router_);
+    }
+
+    #[sol(rpc)]
+    interface PreconfRouterConfigReader {
+        struct Config {
+            uint256 handOverSlots;
+        }
+
+        function getConfig() external view returns (Config memory config_);
+    }
+}
+
+#[derive(Debug)]
+struct HandoverConfigState {
+    /// Cached handover skip slots currently used by validation.
+    handover_skip_slots: u64,
+    /// Last beacon epoch where on-chain refresh was attempted.
+    last_refresh_epoch: Option<u64>,
+    /// Cached preconfirmation router address resolved from TaikoWrapper.
+    preconf_router_address: Option<Address>,
+}
 
 /// Implements the whitelist preconfirmation REST/WS API.
 pub(crate) struct WhitelistRestHandler<P>
@@ -69,16 +86,16 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Local peer ID string.
     local_peer_id: String,
+    /// Shared runtime state for status and EOS notifications.
+    runtime_state: Arc<RuntimeStatusState>,
+    /// Optional TaikoWrapper contract used to discover PreconfRouter config.
+    taiko_wrapper_address: Option<Address>,
+    /// Mutable cached handover configuration refreshed once per epoch.
+    handover_config: Mutex<HandoverConfigState>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
     /// Preconf whitelist contract used for operator checks.
     whitelist: PreconfWhitelistInstance<P>,
-    /// Highest unsafe payload block ID tracked by this node.
-    highest_unsafe_l2_payload_block_id: Mutex<u64>,
-    /// End-of-sequencing hash cache keyed by epoch.
-    end_of_sequencing_by_epoch: Mutex<HashMap<u64, B256>>,
-    /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
-    eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
 impl<P> WhitelistRestHandler<P>
@@ -94,26 +111,29 @@ where
         signer: FixedKSigner,
         beacon_client: Arc<BeaconClient>,
         whitelist_address: Address,
-        initial_highest_unsafe_l2_payload_block_id: u64,
+        runtime_state: Arc<RuntimeStatusState>,
         network_command_tx: mpsc::Sender<NetworkCommand>,
         local_peer_id: String,
+        fallback_handover_skip_slots: u64,
+        taiko_wrapper_address: Option<Address>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
-        let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
             event_syncer,
             rpc,
             chain_id,
             signer,
             beacon_client,
+            runtime_state,
             whitelist,
-            highest_unsafe_l2_payload_block_id: Mutex::new(
-                initial_highest_unsafe_l2_payload_block_id,
-            ),
-            end_of_sequencing_by_epoch: Mutex::new(HashMap::new()),
-            eos_notification_tx,
             network_command_tx,
             local_peer_id,
+            taiko_wrapper_address,
+            handover_config: Mutex::new(HandoverConfigState {
+                handover_skip_slots: fallback_handover_skip_slots,
+                last_refresh_epoch: None,
+                preconf_router_address: None,
+            }),
             build_preconf_lock: Mutex::new(()),
         }
     }
@@ -124,9 +144,8 @@ where
         request: &BuildPreconfBlockRequest,
         prev_randao: B256,
         signature: [u8; 65],
+        tx_list: Vec<u8>,
     ) -> Result<TaikoPayloadAttributes> {
-        let tx_list = decompress_tx_list(request.transactions.as_ref())?;
-
         let block_metadata = TaikoBlockMetadata {
             beneficiary: request.fee_recipient,
             gas_limit: request.gas_limit,
@@ -210,7 +229,8 @@ where
         &self,
         request: &BuildPreconfBlockRequest,
         prev_randao: B256,
-    ) -> Result<()> {
+    ) -> Result<Vec<u8>> {
+        let tx_list = decompress_tx_list(request.transactions.as_ref())?;
         let payload = ExecutionPayloadV1 {
             parent_hash: request.parent_hash,
             fee_recipient: request.fee_recipient,
@@ -228,23 +248,31 @@ where
             transactions: vec![request.transactions.clone()],
         };
 
-        validate_execution_payload_for_preconf(
+        validate_execution_payload_for_preconf_with_tx_list(
             &payload,
+            &tx_list,
             self.chain_id,
             *self.rpc.shasta.anchor.address(),
-        )
+        )?;
+
+        Ok(tx_list)
     }
 
-    /// Check fee recipient against current/next whitelist operator addresses.
+    /// Check fee recipient against current/next whitelist operators and slot handover window.
     async fn ensure_fee_recipient_allowed(&self, fee_recipient: Address) -> Result<()> {
         let (current, next) = self.fetch_current_next_sequencers().await?;
-        if fee_recipient == current || fee_recipient == next {
-            return Ok(());
-        }
-
-        Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "fee recipient {fee_recipient} is not current ({current}) or next ({next}) operator"
-        )))
+        let current_slot = self.beacon_client.current_slot();
+        let slots_per_epoch = self.beacon_client.slots_per_epoch();
+        let current_epoch = if slots_per_epoch == 0 { 0 } else { current_slot / slots_per_epoch };
+        let handover_skip_slots = self.handover_skip_slots_for_epoch(current_epoch).await;
+        validate_fee_recipient_for_slot(
+            fee_recipient,
+            current,
+            next,
+            current_slot,
+            slots_per_epoch,
+            handover_skip_slots,
+        )
     }
 
     /// Fetch current and next sequencer addresses pinned to a single L1 block number.
@@ -308,16 +336,11 @@ where
         let (curr_operator, next_operator) = self.fetch_current_next_sequencers().await.ok()?;
         let current_epoch = self.beacon_client.current_epoch();
         let slots_per_epoch = self.beacon_client.slots_per_epoch();
-        let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
-        let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
-        let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
-
-        let curr_ranges =
-            vec![SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) }];
-        let next_ranges = vec![SlotRange {
-            start: epoch_start.saturating_add(threshold),
-            end: epoch_start.saturating_add(slots_per_epoch),
-        }];
+        let handover_skip_slots = self.handover_skip_slots_for_epoch(current_epoch).await;
+        let (curr_range, next_range) =
+            sequencing_window_ranges(current_epoch, slots_per_epoch, handover_skip_slots);
+        let curr_ranges = vec![curr_range];
+        let next_ranges = vec![next_range];
 
         let updated_at =
             SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
@@ -334,7 +357,87 @@ where
 
     /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).
     async fn update_highest_unsafe(&self, block_number: u64) {
-        *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
+        self.runtime_state.set_highest_unsafe_l2_payload_block_id(block_number);
+    }
+
+    /// Insert end-of-sequencing hash indexed by beacon epoch with bounded retention.
+    async fn cache_end_of_sequencing_hash(&self, epoch: u64, block_hash: B256) {
+        self.runtime_state.set_end_of_sequencing_block_hash(epoch, block_hash).await;
+    }
+
+    /// Load handover skip slots from PreconfRouter config once per epoch.
+    ///
+    /// Falls back to the configured static value when router discovery/config read is unavailable.
+    async fn handover_skip_slots_for_epoch(&self, epoch: u64) -> u64 {
+        {
+            let state = self.handover_config.lock().await;
+            if state.last_refresh_epoch == Some(epoch) {
+                return state.handover_skip_slots;
+            }
+        }
+
+        let (mut preconf_router_address, mut handover_skip_slots) = {
+            let state = self.handover_config.lock().await;
+            (state.preconf_router_address, state.handover_skip_slots)
+        };
+
+        if preconf_router_address.is_none() &&
+            let Some(taiko_wrapper_address) = self.taiko_wrapper_address
+        {
+            let wrapper =
+                TaikoWrapperConfigReader::new(taiko_wrapper_address, self.rpc.l1_provider.clone());
+            match wrapper.preconfRouter().call().await {
+                Ok(router_address) => {
+                    if router_address == Address::ZERO {
+                        warn!(
+                            taiko_wrapper = %taiko_wrapper_address,
+                            "resolved zero preconf router address; keeping configured handover skip slots"
+                        );
+                    } else {
+                        preconf_router_address = Some(router_address);
+                    }
+                }
+                Err(err) => {
+                    warn!(
+                        taiko_wrapper = %taiko_wrapper_address,
+                        error = %err,
+                        "failed to resolve preconf router address from TaikoWrapper; keeping configured handover skip slots"
+                    );
+                }
+            }
+        }
+
+        if let Some(router_address) = preconf_router_address {
+            let router =
+                PreconfRouterConfigReader::new(router_address, self.rpc.l1_provider.clone());
+            match router.getConfig().call().await {
+                Ok(config) => match u64::try_from(config.handOverSlots) {
+                    Ok(updated) => {
+                        handover_skip_slots = updated;
+                    }
+                    Err(_) => {
+                        warn!(
+                            preconf_router = %router_address,
+                            handover_skip_slots = %config.handOverSlots,
+                            "preconf router handover slots exceed u64; keeping previous value"
+                        );
+                    }
+                },
+                Err(err) => {
+                    warn!(
+                        preconf_router = %router_address,
+                        error = %err,
+                        "failed to read preconf router config; keeping previous handover skip slots"
+                    );
+                }
+            }
+        }
+
+        let mut state = self.handover_config.lock().await;
+        state.last_refresh_epoch = Some(epoch);
+        state.preconf_router_address = preconf_router_address;
+        state.handover_skip_slots = handover_skip_slots;
+        state.handover_skip_slots
     }
 }
 
@@ -361,11 +464,12 @@ where
 
         let prev_randao =
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;
-        self.validate_request_payload(&request, prev_randao)?;
+        let tx_list = self.validate_request_payload(&request, prev_randao)?;
 
         // Insert the preconfirmation payload locally first, mirroring the Go flow, to
         // obtain the canonical block hash before gossiping.
-        let driver_payload = self.build_driver_payload(&request, prev_randao, [0u8; 65])?;
+        let driver_payload =
+            self.build_driver_payload(&request, prev_randao, [0u8; 65], tx_list)?;
         self.event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
             .await?;
@@ -460,11 +564,8 @@ where
         // If end-of-sequencing, also publish the EOS request.
         if request.end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.current_epoch();
-            self.end_of_sequencing_by_epoch.lock().await.insert(epoch, block_hash);
-            let _ = self.eos_notification_tx.send(EndOfSequencingNotification {
-                current_epoch: epoch,
-                end_of_sequencing: true,
-            });
+            self.cache_end_of_sequencing_hash(epoch, block_hash).await;
+            self.runtime_state.notify_end_of_sequencing(epoch);
             self.network_command_tx
                 .send(NetworkCommand::PublishEndOfSequencingRequest { epoch })
                 .await
@@ -486,15 +587,13 @@ where
     async fn get_status(&self) -> Result<WhitelistStatus> {
         let head_l1_origin_block_id =
             self.rpc.head_l1_origin().await?.map(|h| h.block_id.to::<u64>());
-        let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
+        let highest_unsafe = self.runtime_state.highest_unsafe_l2_payload_block_id();
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
-            .end_of_sequencing_by_epoch
-            .lock()
+            .runtime_state
+            .end_of_sequencing_block_hash(current_epoch)
             .await
-            .get(&current_epoch)
-            .copied()
-            .map(|hash| hash.to_string());
+            .map(|h| h.to_string());
         let sync_ready = head_l1_origin_block_id.is_some();
 
         Ok(WhitelistStatus {
@@ -503,51 +602,91 @@ where
             peer_id: self.local_peer_id.clone(),
             sync_ready,
             lookahead: self.current_lookahead_status().await,
-            total_cached: Some(0),
+            total_cached: Some(self.runtime_state.total_cached()),
             highest_unsafe_l2_payload_block_id: Some(highest_unsafe),
             end_of_sequencing_block_hash,
         })
     }
 
     fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
-        self.eos_notification_tx.subscribe()
+        self.runtime_state.subscribe_end_of_sequencing()
     }
 }
 
-/// Decompress a zlib-compressed transaction list.
-fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
-    if bytes.len() > MAX_COMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "compressed tx list exceeds maximum size: {} > {}",
-            bytes.len(),
-            MAX_COMPRESSED_TX_LIST_BYTES
-        )));
-    }
+/// Return the current-operator handover split threshold in slots.
+fn handover_threshold(slots_per_epoch: u64, handover_skip_slots: u64) -> u64 {
+    let handover_skip_slots = handover_skip_slots.min(slots_per_epoch);
+    slots_per_epoch.saturating_sub(handover_skip_slots)
+}
 
-    let decoder = flate2::read::ZlibDecoder::new(bytes);
-    let mut out = Vec::new();
-    let read_cap = MAX_DECOMPRESSED_TX_LIST_BYTES.saturating_add(1) as u64;
-    decoder.take(read_cap).read_to_end(&mut out).map_err(|err| {
-        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "failed to decompress tx list from payload: {err}"
-        ))
-    })?;
+/// Build current/next operator sequencing windows for one epoch.
+fn sequencing_window_ranges(
+    current_epoch: u64,
+    slots_per_epoch: u64,
+    handover_skip_slots: u64,
+) -> (SlotRange, SlotRange) {
+    let threshold = handover_threshold(slots_per_epoch, handover_skip_slots);
+    let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
+    (
+        SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) },
+        SlotRange {
+            start: epoch_start.saturating_add(threshold),
+            end: epoch_start.saturating_add(slots_per_epoch),
+        },
+    )
+}
 
-    if out.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "decompressed tx list exceeds maximum size: {} > {}",
-            out.len(),
-            MAX_DECOMPRESSED_TX_LIST_BYTES
-        )));
-    }
+/// Return true when the absolute slot is inside the half-open range.
+fn slot_in_range(slot: u64, range: &SlotRange) -> bool {
+    slot >= range.start && slot < range.end
+}
 
-    if out.is_empty() {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
-            "decompressed tx list is empty".to_string(),
+/// Validate fee recipient against slot-aware current/next operator handover windows.
+///
+/// This is intentionally strict for Go parity in whitelist preconfirmation handover:
+/// before threshold only current operator is accepted, and at/after threshold only next
+/// operator is accepted.
+fn validate_fee_recipient_for_slot(
+    fee_recipient: Address,
+    current_operator: Address,
+    next_operator: Address,
+    current_slot: u64,
+    slots_per_epoch: u64,
+    handover_skip_slots: u64,
+) -> Result<()> {
+    if slots_per_epoch == 0 {
+        return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
+            "invalid beacon config: slots_per_epoch is zero".to_string(),
         ));
     }
 
-    Ok(out)
+    let current_epoch = current_slot / slots_per_epoch;
+    let (curr_range, next_range) =
+        sequencing_window_ranges(current_epoch, slots_per_epoch, handover_skip_slots);
+    let in_curr_window = slot_in_range(current_slot, &curr_range);
+    let in_next_window = slot_in_range(current_slot, &next_range);
+
+    if fee_recipient == current_operator && in_curr_window {
+        return Ok(());
+    }
+
+    if fee_recipient == next_operator && in_next_window {
+        return Ok(());
+    }
+
+    let (expected_label, expected_operator) = if in_curr_window {
+        ("current", current_operator)
+    } else if in_next_window {
+        ("next", next_operator)
+    } else {
+        ("none", Address::ZERO)
+    };
+
+    Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+        "fee recipient {fee_recipient} is not allowed at slot {current_slot}; expected {expected_label} operator \
+         {expected_operator} (current range: [{}..{}), next range: [{}..{}))",
+        curr_range.start, curr_range.end, next_range.start, next_range.end
+    )))
 }
 
 /// Convert a provider error into a driver error.
@@ -562,6 +701,8 @@ mod tests {
     use flate2::{Compression, write::ZlibEncoder};
 
     use super::*;
+    use crate::importer::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES};
+    const TEST_HANDOVER_SKIP_SLOTS: u64 = 8;
 
     fn compress(payload: &[u8]) -> Vec<u8> {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
@@ -600,5 +741,81 @@ mod tests {
         let compressed = compress(&expected);
         let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
         assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_allows_current_before_handover() {
+        let current = Address::from([0x11; 20]);
+        let next = Address::from([0x22; 20]);
+        // slots_per_epoch=32 and handover_skip_slots=8 => threshold=24
+        validate_fee_recipient_for_slot(current, current, next, 23, 32, TEST_HANDOVER_SKIP_SLOTS)
+            .expect("current operator must be allowed before handover threshold");
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_allows_next_at_handover_or_later() {
+        let current = Address::from([0x11; 20]);
+        let next = Address::from([0x22; 20]);
+        validate_fee_recipient_for_slot(next, current, next, 24, 32, TEST_HANDOVER_SKIP_SLOTS)
+            .expect("next operator must be allowed at handover threshold");
+        validate_fee_recipient_for_slot(next, current, next, 31, 32, TEST_HANDOVER_SKIP_SLOTS)
+            .expect("next operator must be allowed after handover threshold");
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_rejects_wrong_operator_for_window() {
+        let current = Address::from([0x11; 20]);
+        let next = Address::from([0x22; 20]);
+        let err =
+            validate_fee_recipient_for_slot(next, current, next, 10, 32, TEST_HANDOVER_SKIP_SLOTS)
+                .expect_err("next operator should not be allowed before handover threshold");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("expected current operator")
+        ));
+
+        let err = validate_fee_recipient_for_slot(
+            current,
+            current,
+            next,
+            30,
+            32,
+            TEST_HANDOVER_SKIP_SLOTS,
+        )
+        .expect_err("current operator should not be allowed during next-operator window");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("expected next operator")
+        ));
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_allows_same_operator_across_windows() {
+        let same = Address::from([0x44; 20]);
+        validate_fee_recipient_for_slot(same, same, same, 1, 32, TEST_HANDOVER_SKIP_SLOTS)
+            .expect("same operator should be allowed in current window");
+        validate_fee_recipient_for_slot(same, same, same, 31, 32, TEST_HANDOVER_SKIP_SLOTS)
+            .expect("same operator should be allowed in next window");
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_rejects_zero_slots_per_epoch() {
+        let operator = Address::from([0x11; 20]);
+        let err = validate_fee_recipient_for_slot(
+            operator,
+            operator,
+            operator,
+            0,
+            0,
+            TEST_HANDOVER_SKIP_SLOTS,
+        )
+        .expect_err("zero slots_per_epoch must fail");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::WhitelistLookup(msg)
+                if msg.contains("slots_per_epoch is zero")
+        ));
     }
 }
