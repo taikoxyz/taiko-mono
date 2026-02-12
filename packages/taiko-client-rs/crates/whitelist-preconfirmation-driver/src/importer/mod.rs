@@ -47,6 +47,23 @@ pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
 pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
 /// Maximum hashes retained for response-seen dedup checks.
 const RESPONSE_SEEN_CACHE_CAPACITY: usize = 1024;
+
+/// Static construction inputs for [`WhitelistPreconfirmationImporter`].
+pub(crate) struct WhitelistPreconfirmationImporterConfig {
+    /// Whitelist contract address used for signer checks.
+    pub(crate) whitelist_address: Address,
+    /// Chain id used for signature-domain separation.
+    pub(crate) chain_id: u64,
+    /// Optional beacon client for EOS epoch derivation.
+    pub(crate) beacon_client: Option<Arc<BeaconClient>>,
+    /// Channel used to publish network commands.
+    pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Local libp2p peer id for response jitter salt.
+    pub(crate) local_peer_id: PeerId,
+    /// Shared runtime status/notification state.
+    pub(crate) runtime_state: Arc<RuntimeStatusState>,
+}
+
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
 pub(crate) struct WhitelistPreconfirmationImporter<P>
 where
@@ -96,13 +113,17 @@ where
     pub(crate) fn new(
         event_syncer: Arc<EventSyncer<P>>,
         rpc: Client<P>,
-        whitelist_address: Address,
-        chain_id: u64,
-        beacon_client: Option<Arc<BeaconClient>>,
-        network_command_tx: mpsc::Sender<NetworkCommand>,
-        local_peer_id: PeerId,
-        runtime_state: Arc<RuntimeStatusState>,
+        config: WhitelistPreconfirmationImporterConfig,
     ) -> Self {
+        let WhitelistPreconfirmationImporterConfig {
+            whitelist_address,
+            chain_id,
+            beacon_client,
+            network_command_tx,
+            local_peer_id,
+            runtime_state,
+        } = config;
+
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
 

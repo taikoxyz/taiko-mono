@@ -14,7 +14,7 @@ use tracing::{info, warn};
 use crate::{
     Result,
     error::WhitelistPreconfirmationDriverError,
-    importer::WhitelistPreconfirmationImporter,
+    importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterConfig},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
@@ -196,12 +196,14 @@ impl WhitelistPreconfirmationDriverRunner {
         let mut importer = WhitelistPreconfirmationImporter::new(
             preconf_ingress_sync.event_syncer(),
             preconf_ingress_sync.client().clone(),
-            self.config.whitelist_address,
-            self.config.p2p_config.chain_id,
-            beacon_client.clone(),
-            network.command_tx.clone(),
-            network.local_peer_id,
-            runtime_state.clone(),
+            WhitelistPreconfirmationImporterConfig {
+                whitelist_address: self.config.whitelist_address,
+                chain_id: self.config.p2p_config.chain_id,
+                beacon_client: beacon_client.clone(),
+                network_command_tx: network.command_tx.clone(),
+                local_peer_id: network.local_peer_id,
+                runtime_state: runtime_state.clone(),
+            },
         );
         let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();
 
