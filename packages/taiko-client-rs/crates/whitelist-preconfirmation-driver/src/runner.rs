@@ -18,8 +18,8 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
-    rpc::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
-    rpc_handler::WhitelistRestHandler,
+    rest::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
+    rest_handler::WhitelistRestHandler,
     runtime_state::RuntimeStatusState,
 };
 

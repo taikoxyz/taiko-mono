@@ -6,7 +6,7 @@ use alloy_primitives::B256;
 use hashlink::LinkedHashMap;
 use tokio::sync::{Mutex, broadcast};
 
-use crate::rpc::types::EndOfSequencingNotification;
+use crate::rest::types::EndOfSequencingNotification;
 
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;

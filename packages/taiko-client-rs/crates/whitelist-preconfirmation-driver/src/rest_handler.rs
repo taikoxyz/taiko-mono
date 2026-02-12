@@ -31,7 +31,7 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     importer::{decompress_tx_list, validate_execution_payload_for_preconf_with_tx_list},
     network::NetworkCommand,
-    rpc::{
+    rest::{
         WhitelistRestApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,

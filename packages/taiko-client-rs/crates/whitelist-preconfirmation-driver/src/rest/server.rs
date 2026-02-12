@@ -468,7 +468,7 @@ mod tests {
     use http_body_util::Full;
 
     use super::*;
-    use crate::rpc::types::{
+    use crate::rest::types::{
         BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
         WhitelistStatus,
     };
