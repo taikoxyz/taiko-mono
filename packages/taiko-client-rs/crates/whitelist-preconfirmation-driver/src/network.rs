@@ -177,8 +177,8 @@ impl InboundValidationState {
         now: Instant,
     ) -> AdmissionDecision {
         self.prune_expired_request_hashes(now);
-        if let Some(last_seen) = self.preconf_request_seen.get(&hash)
-            && now.saturating_duration_since(*last_seen) < PRECONF_REQUEST_DUPLICATE_WINDOW
+        if let Some(last_seen) = self.preconf_request_seen.get(&hash) &&
+            now.saturating_duration_since(*last_seen) < PRECONF_REQUEST_DUPLICATE_WINDOW
         {
             return AdmissionDecision::DuplicateLimited;
         }
@@ -227,8 +227,8 @@ impl InboundValidationState {
         now: Instant,
     ) -> AdmissionDecision {
         self.prune_expired_response_hashes(now);
-        if let Some(last_seen) = self.preconf_response_recent_seen.get(&block_hash)
-            && now.saturating_duration_since(*last_seen) < PRECONF_RESPONSE_SEEN_WINDOW
+        if let Some(last_seen) = self.preconf_response_recent_seen.get(&block_hash) &&
+            now.saturating_duration_since(*last_seen) < PRECONF_RESPONSE_SEEN_WINDOW
         {
             return AdmissionDecision::DuplicateLimited;
         }
@@ -1516,14 +1516,14 @@ mod tests {
         assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::DuplicateLimited);
 
         for index in 0..MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT {
-            let at = now
-                + Duration::from_secs((PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) * (index + 1));
+            let at = now +
+                Duration::from_secs((PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) * (index + 1));
             assert_eq!(state.admit_preconf_response(height, hash, at), AdmissionDecision::Accept);
         }
-        let capped_at = now
-            + Duration::from_secs(
-                (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1)
-                    * (MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT + 2),
+        let capped_at = now +
+            Duration::from_secs(
+                (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) *
+                    (MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT + 2),
             );
         assert_eq!(
             state.admit_preconf_response(height, hash, capped_at),

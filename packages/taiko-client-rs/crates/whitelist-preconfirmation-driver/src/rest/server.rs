@@ -187,8 +187,8 @@ fn build_router(state: AppState, enable_http: bool, enable_ws: bool) -> Router {
 }
 
 async fn auth_middleware(State(state): State<AppState>, request: Request, next: Next) -> Response {
-    if let Some(jwt_auth) = state.jwt_auth.as_ref()
-        && let Err(err) = jwt_auth.validate_headers(request.headers())
+    if let Some(jwt_auth) = state.jwt_auth.as_ref() &&
+        let Err(err) = jwt_auth.validate_headers(request.headers())
     {
         return error_response(StatusCode::UNAUTHORIZED, err);
     }
@@ -402,12 +402,12 @@ fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> Response
 
 fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
     match err {
-        WhitelistPreconfirmationDriverError::InvalidPayload(_)
-        | WhitelistPreconfirmationDriverError::PreconfIngressNotReady
-        | WhitelistPreconfirmationDriverError::Driver(
+        WhitelistPreconfirmationDriverError::InvalidPayload(_) |
+        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
+        WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
-        )
-        | WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
+        ) |
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
             StatusCode::BAD_REQUEST
         }
         _ => StatusCode::INTERNAL_SERVER_ERROR,

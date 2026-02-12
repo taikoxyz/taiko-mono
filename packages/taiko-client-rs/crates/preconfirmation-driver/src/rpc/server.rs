@@ -187,28 +187,28 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
         PreconfirmationClientError::Codec(_) => PreconfRpcErrorCode::InvalidTxList.code(),
         PreconfirmationClientError::Catchup(_) => PreconfRpcErrorCode::NotSynced.code(),
         PreconfirmationClientError::Lookahead(lookahead_err) => match lookahead_err {
-            LookaheadError::BeforeGenesis(_)
-            | LookaheadError::TooOld(_)
-            | LookaheadError::TooNew(_) => ErrorCode::InvalidParams.code(),
-            LookaheadError::InboxConfig(_)
-            | LookaheadError::Lookahead(_)
-            | LookaheadError::PreconfWhitelist(_)
-            | LookaheadError::BlockLookup { .. }
-            | LookaheadError::MissingLogField { .. }
-            | LookaheadError::EventDecode(_)
-            | LookaheadError::EventScanner(_)
-            | LookaheadError::ReorgDetected
-            | LookaheadError::SystemTime(_)
-            | LookaheadError::UnknownChain(_)
-            | LookaheadError::MissingLookahead(_)
-            | LookaheadError::CorruptLookaheadCache { .. } => {
+            LookaheadError::BeforeGenesis(_) |
+            LookaheadError::TooOld(_) |
+            LookaheadError::TooNew(_) => ErrorCode::InvalidParams.code(),
+            LookaheadError::InboxConfig(_) |
+            LookaheadError::Lookahead(_) |
+            LookaheadError::PreconfWhitelist(_) |
+            LookaheadError::BlockLookup { .. } |
+            LookaheadError::MissingLogField { .. } |
+            LookaheadError::EventDecode(_) |
+            LookaheadError::EventScanner(_) |
+            LookaheadError::ReorgDetected |
+            LookaheadError::SystemTime(_) |
+            LookaheadError::UnknownChain(_) |
+            LookaheadError::MissingLookahead(_) |
+            LookaheadError::CorruptLookaheadCache { .. } => {
                 PreconfRpcErrorCode::LookaheadUnavailable.code()
             }
         },
-        PreconfirmationClientError::Network(_)
-        | PreconfirmationClientError::Storage(_)
-        | PreconfirmationClientError::DriverInterface(_)
-        | PreconfirmationClientError::Config(_) => PreconfRpcErrorCode::InternalError.code(),
+        PreconfirmationClientError::Network(_) |
+        PreconfirmationClientError::Storage(_) |
+        PreconfirmationClientError::DriverInterface(_) |
+        PreconfirmationClientError::Config(_) => PreconfRpcErrorCode::InternalError.code(),
     };
 
     ErrorObjectOwned::owned(code, err.to_string(), None::<()>)

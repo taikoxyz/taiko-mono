@@ -233,8 +233,8 @@ where
 /// Returns true when a cached-envelope import error should be logged and dropped.
 pub(super) fn should_drop_cached_import_error(err: &WhitelistPreconfirmationDriverError) -> bool {
     match err {
-        WhitelistPreconfirmationDriverError::InvalidPayload(_)
-        | WhitelistPreconfirmationDriverError::InvalidSignature(_) => true,
+        WhitelistPreconfirmationDriverError::InvalidPayload(_) |
+        WhitelistPreconfirmationDriverError::InvalidSignature(_) => true,
         WhitelistPreconfirmationDriverError::Driver(driver_err) => {
             should_drop_cached_driver_error(driver_err)
         }
@@ -269,10 +269,10 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
         driver::DriverError::EngineSyncing(_) | driver::DriverError::BlockNotFound(_) => true,
         driver::DriverError::PreconfInjectionFailed { source, .. } => matches!(
             source,
-            driver::sync::error::EngineSubmissionError::EngineSyncing(_)
-                | driver::sync::error::EngineSubmissionError::MissingPayloadId
-                | driver::sync::error::EngineSubmissionError::MissingParent
-                | driver::sync::error::EngineSubmissionError::MissingInsertedBlock(_)
+            driver::sync::error::EngineSubmissionError::EngineSyncing(_) |
+                driver::sync::error::EngineSubmissionError::MissingPayloadId |
+                driver::sync::error::EngineSubmissionError::MissingParent |
+                driver::sync::error::EngineSubmissionError::MissingInsertedBlock(_)
         ),
         _ => false,
     }
