@@ -213,11 +213,8 @@ async fn status_handler(State(state): State<RestWsState>) -> Response {
         Ok(status) => {
             let response = RestStatus {
                 lookahead: status.lookahead,
-                total_cached: status.total_cached.unwrap_or_default(),
-                highest_unsafe_l2_payload_block_id: status
-                    .highest_unsafe_l2_payload_block_id
-                    .or(status.highest_unsafe_block_number)
-                    .unwrap_or_default(),
+                total_cached: status.total_cached,
+                highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
                 end_of_sequencing_block_hash: status
                     .end_of_sequencing_block_hash
                     .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
@@ -421,12 +418,12 @@ mod tests {
         async fn get_status(&self) -> Result<WhitelistStatus> {
             Ok(WhitelistStatus {
                 head_l1_origin_block_id: Some(42),
-                highest_unsafe_block_number: Some(100),
+                highest_unsafe_block_number: 100,
                 peer_id: "test-peer".to_string(),
                 sync_ready: true,
                 lookahead: None,
-                total_cached: Some(0),
-                highest_unsafe_l2_payload_block_id: Some(100),
+                total_cached: 0,
+                highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
             })
         }

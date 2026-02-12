@@ -64,7 +64,7 @@ where
     A: PayloadApplier + BlockHashReader,
 {
     applier: A,
-    canonical_tip_state: Option<Arc<AtomicCanonicalTip>>,
+    canonical_tip_state: Arc<AtomicCanonicalTip>,
 }
 
 impl<A> PreconfirmationPath<A>
@@ -79,7 +79,7 @@ where
         applier: A,
         canonical_tip_state: Arc<AtomicCanonicalTip>,
     ) -> Self {
-        Self { applier, canonical_tip_state: Some(canonical_tip_state) }
+        Self { applier, canonical_tip_state }
     }
 }
 
@@ -104,27 +104,25 @@ where
                 let block_number = preconf.block_number();
                 let parent_number = block_number.saturating_sub(1);
 
-                if let Some(canonical_tip_state) = &self.canonical_tip_state {
-                    match canonical_tip_state.load(std::sync::atomic::Ordering::Relaxed) {
-                        CanonicalTipState::Unknown => {
+                match self.canonical_tip_state.load(std::sync::atomic::Ordering::Relaxed) {
+                    CanonicalTipState::Unknown => {
+                        warn!(
+                            block_number,
+                            "rejecting preconfirmation production: canonical tip unknown"
+                        );
+                        return Err(DriverError::PreconfIngressNotReady);
+                    }
+                    CanonicalTipState::Known(canonical_block_tip) => {
+                        if block_number <= canonical_block_tip {
+                            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                            counter!(DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL)
+                                .increment(1);
                             warn!(
                                 block_number,
-                                "rejecting preconfirmation production: canonical tip unknown"
+                                canonical_block_tip,
+                                "dropping stale preconfirmation at or below canonical event-sync tip"
                             );
-                            return Err(DriverError::PreconfIngressNotReady);
-                        }
-                        CanonicalTipState::Known(canonical_block_tip) => {
-                            if block_number <= canonical_block_tip {
-                                counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                                counter!(DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL)
-                                    .increment(1);
-                                warn!(
-                                    block_number,
-                                    canonical_block_tip,
-                                    "dropping stale preconfirmation at or below canonical event-sync tip"
-                                );
-                                return Ok(Vec::new());
-                            }
+                            return Ok(Vec::new());
                         }
                     }
                 }

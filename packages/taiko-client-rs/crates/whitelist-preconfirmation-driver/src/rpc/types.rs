@@ -156,7 +156,7 @@ pub struct WhitelistStatus {
     /// Head L1 origin block ID, if available.
     pub head_l1_origin_block_id: Option<u64>,
     /// Highest unsafe block number on L2.
-    pub highest_unsafe_block_number: Option<u64>,
+    pub highest_unsafe_block_number: u64,
     /// Local libp2p peer ID.
     pub peer_id: String,
     /// Whether event sync has established a head L1 origin.
@@ -165,11 +165,9 @@ pub struct WhitelistStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lookahead: Option<LookaheadStatus>,
     /// Total cached envelopes (best-effort).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub total_cached: Option<u64>,
+    pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub highest_unsafe_l2_payload_block_id: Option<u64>,
+    pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_of_sequencing_block_hash: Option<String>,
@@ -207,12 +205,12 @@ mod tests {
     fn whitelist_status_camel_case() {
         let status = WhitelistStatus {
             head_l1_origin_block_id: Some(42),
-            highest_unsafe_block_number: Some(100),
+            highest_unsafe_block_number: 100,
             peer_id: "test-peer".to_string(),
             sync_ready: true,
             lookahead: None,
-            total_cached: Some(0),
-            highest_unsafe_l2_payload_block_id: Some(100),
+            total_cached: 0,
+            highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
         };
 
