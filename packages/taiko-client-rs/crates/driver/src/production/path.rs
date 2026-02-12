@@ -77,11 +77,6 @@ impl<A> PreconfirmationPath<A>
 where
     A: PayloadApplier + BlockHashReader,
 {
-    /// Construct a preconfirmation path backed by the given payload applier.
-    pub fn new(applier: A) -> Self {
-        Self { applier, canonical_block_tip: None }
-    }
-
     /// Construct a preconfirmation path with a canonical block tip boundary.
     ///
     /// Blocks at or below this tip are considered event-synced canonical history and must never be
@@ -416,7 +411,8 @@ mod tests {
     fn preconfirmation_path_delegates_to_applier() {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(0, parent_hash);
-        let path = PreconfirmationPath::new(applier.clone());
+        let canonical_tip = Arc::new(AtomicU64::new(0));
+        let path = PreconfirmationPath::new_with_canonical_tip(applier.clone(), canonical_tip);
         let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
 
         let rt = Runtime::new().unwrap();
