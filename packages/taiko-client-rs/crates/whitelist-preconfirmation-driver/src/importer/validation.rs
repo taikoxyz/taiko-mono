@@ -34,12 +34,17 @@ pub(crate) fn validate_execution_payload_for_preconf_with_tx_list(
     chain_id: u64,
     anchor_address: Address,
 ) -> Result<()> {
-    let _compressed_tx_list = validate_execution_payload_common_fields(payload)?;
+    let compressed_tx_list = validate_execution_payload_common_fields(payload)?;
     if decompressed_tx_list.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
             "decompressed transactions size exceeds max tx list size".to_string(),
         ));
     }
+
+    // Intentionally decode the compressed payload transactions as a defensive assertion that the
+    // caller-provided decompressed bytes are still derived from `payload.transactions[0]`.
+    // This guards against internal plumbing mismatches across call boundaries.
+    let payload_txs = decode_compressed_tx_list(compressed_tx_list)?;
 
     let mut payload_bytes = decompressed_tx_list;
     let txs = Vec::<RlpBytes>::decode(&mut payload_bytes)
@@ -49,6 +54,12 @@ pub(crate) fn validate_execution_payload_for_preconf_with_tx_list(
                 "invalid RLP bytes for transactions: {err}"
             ))
         })?;
+
+    if txs != payload_txs {
+        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
+            "decompressed tx list does not match payload transactions bytes".to_string(),
+        ));
+    }
 
     validate_anchor_transaction_from_txs(&txs, anchor_address, chain_id)
 }

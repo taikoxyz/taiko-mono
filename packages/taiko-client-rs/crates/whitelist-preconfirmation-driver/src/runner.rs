@@ -18,8 +18,9 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
-    rpc::{WhitelistRpcServer, WhitelistRpcServerConfig},
-    rpc_handler::WhitelistRpcHandler,
+    rpc::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
+    rpc_handler::WhitelistRestHandler,
+    runtime_state::RuntimeStatusState,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -125,14 +126,32 @@ impl WhitelistPreconfirmationDriverRunner {
             chain_id = self.config.p2p_config.chain_id,
             "whitelist preconfirmation p2p subscriber started"
         );
+        let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
+            .client()
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+        {
+            Ok(Some(block)) => block.header.number,
+            Ok(None) => 0,
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
+                );
+                0
+            }
+        };
+        let runtime_state =
+            Arc::new(RuntimeStatusState::new(initial_highest_unsafe_l2_payload_block_id));
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.
-        let mut rpc_server = if let (Some(listen_addr), Some(signer_key)) =
+        let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
             let beacon_client = beacon_client.clone().ok_or_else(|| {
-                WhitelistPreconfirmationDriverError::RpcServerBeaconInit {
+                WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
                     reason: beacon_client_init_error.clone().unwrap_or_else(|| {
                         "beacon metadata client initialisation failed".to_string()
                     }),
@@ -144,41 +163,25 @@ impl WhitelistPreconfirmationDriverRunner {
                     "failed to create P2P signer: {e}"
                 ))
             })?;
-            let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
-                .client()
-                .l2_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await
-            {
-                Ok(Some(block)) => block.header.number,
-                Ok(None) => 0,
-                Err(err) => {
-                    warn!(
-                        error = %err,
-                        "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
-                    );
-                    0
-                }
-            };
 
-            let handler = WhitelistRpcHandler::new(
+            let handler = WhitelistRestHandler::new(
                 preconf_ingress_sync.event_syncer(),
                 preconf_ingress_sync.client().clone(),
                 self.config.p2p_config.chain_id,
                 signer,
                 beacon_client,
                 self.config.whitelist_address,
-                initial_highest_unsafe_l2_payload_block_id,
+                runtime_state.clone(),
                 network.command_tx.clone(),
                 network.local_peer_id.to_string(),
             );
 
-            let rpc_config = WhitelistRpcServerConfig {
+            let server_config = WhitelistRestWsServerConfig {
                 listen_addr,
                 jwt_secret: self.config.rpc_jwt_secret.clone(),
                 ..Default::default()
             };
-            let server = WhitelistRpcServer::start(rpc_config, Arc::new(handler)).await?;
+            let server = WhitelistRestWsServer::start(server_config, Arc::new(handler)).await?;
             info!(
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
@@ -197,6 +200,8 @@ impl WhitelistPreconfirmationDriverRunner {
             self.config.p2p_config.chain_id,
             beacon_client.clone(),
             network.command_tx.clone(),
+            network.local_peer_id,
+            runtime_state.clone(),
         );
         let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();
 
@@ -207,7 +212,7 @@ impl WhitelistPreconfirmationDriverRunner {
             tokio::select! {
                 result = &mut node_handle => {
                     event_syncer_handle.abort();
-                    if let Some(server) = rpc_server.take() {
+                    if let Some(server) = rest_ws_server.take() {
                         server.stop().await;
                     }
                     return match result {
@@ -242,7 +247,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 result = &mut *event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
-                    if let Some(server) = rpc_server.take() {
+                    if let Some(server) = rest_ws_server.take() {
                         server.stop().await;
                     }
                     return match result {
@@ -275,7 +280,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
                         event_syncer_handle.abort();
-                        if let Some(server) = rpc_server.take() {
+                        if let Some(server) = rest_ws_server.take() {
                             server.stop().await;
                         }
                         metrics::counter!(

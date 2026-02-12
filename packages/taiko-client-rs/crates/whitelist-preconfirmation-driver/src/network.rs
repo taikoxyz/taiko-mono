@@ -43,8 +43,11 @@ const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
 const DUPLICATE_TRACKER_CAPACITY: usize = 1000;
 /// Duplicate suppression window for repeated `requestPreconfBlocks` hashes.
 const PRECONF_REQUEST_DUPLICATE_WINDOW: Duration = Duration::from_secs(45);
-/// Duplicate suppression window for recently observed `responsePreconfBlocks` hashes.
-const PRECONF_RESPONSE_SEEN_WINDOW: Duration = Duration::from_secs(10);
+/// Duplicate suppression window for recently observed inbound `responsePreconfBlocks` hashes.
+///
+/// This network-edge cache only guards gossip ingress. The importer keeps a separate cache
+/// using the same window to suppress outbound duplicate publishes (including local loopback).
+pub(crate) const PRECONF_RESPONSE_SEEN_WINDOW: Duration = Duration::from_secs(10);
 /// Per-peer request bucket refill rate, in tokens per minute.
 const REQUEST_REFILL_PER_MIN: u32 = 200;
 /// Per-peer request bucket max burst.
@@ -53,6 +56,10 @@ const REQUEST_MAX_TOKENS: f64 = REQUEST_REFILL_PER_MIN as f64;
 const MAX_PRECONF_BLOCK_DUPLICATES_PER_HEIGHT: u64 = 10;
 /// Maximum acceptable duplicate sightings per block height for `responsePreconfBlocks`.
 const MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT: u64 = 3;
+/// Maximum distinct hashes tracked per block height in duplicate guards.
+///
+/// Bounds memory for adversarial traffic that spams unique hashes at one height.
+const MAX_DISTINCT_HASHES_PER_HEIGHT: usize = 256;
 /// Maximum acceptable sightings per EOS epoch before ignoring further requests.
 const MAX_EOS_REQUESTS_PER_EPOCH: u64 = 3;
 /// Interval for reconnect attempts to configured static peers.
@@ -111,10 +118,17 @@ struct PerHeightDuplicateTracker {
 
 impl PerHeightDuplicateTracker {
     /// Record a `(height, hash)` observation and decide whether to admit.
+    ///
+    /// `cap` is the maximum number of accepted observations per `(height, hash)` key.
     fn record_with_cap(&mut self, height: u64, hash: B256, cap: u64) -> AdmissionDecision {
         let mut seen = self.by_height.remove(&height).unwrap_or_default();
         let count = seen.get(&hash).copied().unwrap_or_default();
-        if count > cap {
+        if count == 0 && seen.len() >= MAX_DISTINCT_HASHES_PER_HEIGHT {
+            self.by_height.insert(height, seen);
+            self.evict_oldest();
+            return AdmissionDecision::DuplicateLimited;
+        }
+        if count >= cap {
             self.by_height.insert(height, seen);
             self.evict_oldest();
             return AdmissionDecision::DuplicateLimited;
@@ -142,7 +156,9 @@ struct InboundValidationState {
     eos_request_buckets: LinkedHashMap<PeerId, RateBucket>,
     /// Last-seen time for hash-based preconf requests.
     preconf_request_seen: LinkedHashMap<B256, Instant>,
-    /// Last-seen time for response hashes to suppress short-window reprocessing.
+    /// Last-seen time for inbound response hashes to suppress short-window gossip reprocessing.
+    ///
+    /// Outbound duplicate suppression lives in importer `response_seen_cache`.
     preconf_response_recent_seen: LinkedHashMap<B256, Instant>,
     /// Per-epoch seen counters for EOS requests.
     eos_request_seen: LinkedHashMap<u64, u64>,
@@ -180,7 +196,7 @@ impl InboundValidationState {
     /// Decide if an inbound `requestEndOfSequencingPreconfBlocks` should be admitted.
     fn admit_eos_request(&mut self, from: PeerId, epoch: u64, now: Instant) -> AdmissionDecision {
         let seen_count = self.eos_request_seen.get(&epoch).copied().unwrap_or_default();
-        if seen_count > MAX_EOS_REQUESTS_PER_EPOCH {
+        if seen_count >= MAX_EOS_REQUESTS_PER_EPOCH {
             return AdmissionDecision::DuplicateLimited;
         }
 
@@ -251,15 +267,23 @@ impl InboundValidationState {
     /// Remove expired request hash-window entries.
     fn prune_expired_request_hashes(&mut self, now: Instant) {
         let window = PRECONF_REQUEST_DUPLICATE_WINDOW;
-        self.preconf_request_seen
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < window);
+        while let Some((_, seen_at)) = self.preconf_request_seen.iter().next() {
+            if now.saturating_duration_since(*seen_at) < window {
+                break;
+            }
+            let _ = self.preconf_request_seen.pop_front();
+        }
     }
 
     /// Remove expired response hash-window entries.
     fn prune_expired_response_hashes(&mut self, now: Instant) {
         let window = PRECONF_RESPONSE_SEEN_WINDOW;
-        self.preconf_response_recent_seen
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < window);
+        while let Some((_, seen_at)) = self.preconf_response_recent_seen.iter().next() {
+            if now.saturating_duration_since(*seen_at) < window {
+                break;
+            }
+            let _ = self.preconf_response_recent_seen.pop_front();
+        }
     }
 
     /// Keep seen-hash map bounded.
@@ -499,7 +523,7 @@ impl WhitelistNetwork {
         let mut dialed_addrs = HashSet::new();
 
         let static_peers = cfg.pre_dial_peers.clone();
-        for peer in static_peers.clone() {
+        for peer in static_peers.iter().cloned() {
             dial_once(&mut swarm, &mut dialed_addrs, peer, "static peer");
         }
 
@@ -970,65 +994,34 @@ async fn handle_gossipsub_event(
             Ok(payload) => {
                 let block_number = payload.envelope.execution_payload.block_number;
                 let block_hash = payload.envelope.execution_payload.block_hash;
-                if inbound_validation.admit_preconf_payload(block_number, block_hash)
-                    != AdmissionDecision::Accept
-                {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                        "topic" => "preconf_blocks",
-                        "result" => "duplicate_limited",
-                    )
-                    .increment(1);
+                if !admit_or_ignore_message(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    inbound_validation.admit_preconf_payload(block_number, block_hash),
+                    "preconf_blocks",
+                ) {
                     return Ok(());
                 }
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "preconf_blocks",
-                    "result" => "decoded",
-                )
-                .increment(1);
-                if let Err(err) =
-                    forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await
-                {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    return Err(err);
-                }
-                report_message_validation(
+
+                forward_decoded_event(
                     gossipsub,
                     &message_id,
                     &from,
-                    gossipsub::MessageAcceptance::Accept,
-                );
+                    event_tx,
+                    "preconf_blocks",
+                    NetworkEvent::UnsafePayload { from, payload },
+                )
+                .await?;
             }
             Err(err) => {
-                report_message_validation(
+                report_decode_failure(
                     gossipsub,
                     &message_id,
                     &from,
-                    gossipsub::MessageAcceptance::Reject,
+                    "preconf_blocks",
+                    "decode_failed",
                 );
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                    "topic" => "preconf_blocks",
-                )
-                .increment(1);
                 debug!(error = %err, "failed to decode unsafe payload");
             }
         }
@@ -1040,68 +1033,38 @@ async fn handle_gossipsub_event(
             Ok(envelope) => {
                 let block_number = envelope.execution_payload.block_number;
                 let block_hash = envelope.execution_payload.block_hash;
-                if inbound_validation.admit_preconf_response(
-                    block_number,
-                    block_hash,
-                    Instant::now(),
-                ) != AdmissionDecision::Accept
-                {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                        "topic" => "response_preconf_blocks",
-                        "result" => "duplicate_limited",
-                    )
-                    .increment(1);
+                if !admit_or_ignore_message(
+                    gossipsub,
+                    &message_id,
+                    &from,
+                    inbound_validation.admit_preconf_response(
+                        block_number,
+                        block_hash,
+                        Instant::now(),
+                    ),
+                    "response_preconf_blocks",
+                ) {
                     return Ok(());
                 }
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                    "result" => "decoded",
-                )
-                .increment(1);
-                if let Err(err) =
-                    forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope }).await
-                {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    return Err(err);
-                }
-                report_message_validation(
+
+                forward_decoded_event(
                     gossipsub,
                     &message_id,
                     &from,
-                    gossipsub::MessageAcceptance::Accept,
-                );
+                    event_tx,
+                    "response_preconf_blocks",
+                    NetworkEvent::UnsafeResponse { from, envelope },
+                )
+                .await?;
             }
             Err(err) => {
-                report_message_validation(
+                report_decode_failure(
                     gossipsub,
                     &message_id,
                     &from,
-                    gossipsub::MessageAcceptance::Reject,
+                    "response_preconf_blocks",
+                    "decode_failed",
                 );
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                )
-                .increment(1);
                 debug!(error = %err, "failed to decode unsafe response");
             }
         }
@@ -1111,80 +1074,33 @@ async fn handle_gossipsub_event(
     if *topic == topics.preconf_request.hash() {
         if message.data.len() == 32 {
             let hash = B256::from_slice(&message.data);
-            match inbound_validation.admit_preconf_request(from, hash, Instant::now()) {
-                AdmissionDecision::Accept => {}
-                AdmissionDecision::DuplicateLimited => {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                        "topic" => "request_preconf_blocks",
-                        "result" => "duplicate_limited",
-                    )
-                    .increment(1);
-                    return Ok(());
-                }
-                AdmissionDecision::RateLimited => {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                        "topic" => "request_preconf_blocks",
-                        "result" => "rate_limited",
-                    )
-                    .increment(1);
-                    return Ok(());
-                }
-            }
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_preconf_blocks",
-                "result" => "decoded",
-            )
-            .increment(1);
-            if let Err(err) =
-                forward_event(event_tx, NetworkEvent::UnsafeRequest { from, hash }).await
-            {
-                report_message_validation(
-                    gossipsub,
-                    &message_id,
-                    &from,
-                    gossipsub::MessageAcceptance::Ignore,
-                );
-                return Err(err);
-            }
-            report_message_validation(
+            if !admit_or_ignore_message(
                 gossipsub,
                 &message_id,
                 &from,
-                gossipsub::MessageAcceptance::Accept,
-            );
+                inbound_validation.admit_preconf_request(from, hash, Instant::now()),
+                "request_preconf_blocks",
+            ) {
+                return Ok(());
+            }
+
+            forward_decoded_event(
+                gossipsub,
+                &message_id,
+                &from,
+                event_tx,
+                "request_preconf_blocks",
+                NetworkEvent::UnsafeRequest { from, hash },
+            )
+            .await?;
         } else {
-            report_message_validation(
+            report_decode_failure(
                 gossipsub,
                 &message_id,
                 &from,
-                gossipsub::MessageAcceptance::Reject,
+                "request_preconf_blocks",
+                "invalid_length",
             );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_preconf_blocks",
-                "result" => "invalid_length",
-            )
-            .increment(1);
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                "topic" => "request_preconf_blocks",
-            )
-            .increment(1);
             debug!(len = message.data.len(), "invalid preconf request payload length");
         }
         return Ok(());
@@ -1192,93 +1108,124 @@ async fn handle_gossipsub_event(
 
     if *topic == topics.eos_request.hash() {
         if let Some(epoch) = decode_eos_epoch(&message.data) {
-            match inbound_validation.admit_eos_request(from, epoch, Instant::now()) {
-                AdmissionDecision::Accept => {}
-                AdmissionDecision::DuplicateLimited => {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                        "topic" => "request_eos_preconf_blocks",
-                        "result" => "duplicate_limited",
-                    )
-                    .increment(1);
-                    return Ok(());
-                }
-                AdmissionDecision::RateLimited => {
-                    report_message_validation(
-                        gossipsub,
-                        &message_id,
-                        &from,
-                        gossipsub::MessageAcceptance::Ignore,
-                    );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                        "topic" => "request_eos_preconf_blocks",
-                        "result" => "rate_limited",
-                    )
-                    .increment(1);
-                    return Ok(());
-                }
-            }
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_eos_preconf_blocks",
-                "result" => "decoded",
-            )
-            .increment(1);
-            if let Err(err) =
-                forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await
-            {
-                report_message_validation(
-                    gossipsub,
-                    &message_id,
-                    &from,
-                    gossipsub::MessageAcceptance::Ignore,
-                );
-                return Err(err);
-            }
-            report_message_validation(
+            if !admit_or_ignore_message(
                 gossipsub,
                 &message_id,
                 &from,
-                gossipsub::MessageAcceptance::Accept,
-            );
+                inbound_validation.admit_eos_request(from, epoch, Instant::now()),
+                "request_eos_preconf_blocks",
+            ) {
+                return Ok(());
+            }
+
+            forward_decoded_event(
+                gossipsub,
+                &message_id,
+                &from,
+                event_tx,
+                "request_eos_preconf_blocks",
+                NetworkEvent::EndOfSequencingRequest { from, epoch },
+            )
+            .await?;
         } else {
-            report_message_validation(
+            report_decode_failure(
                 gossipsub,
                 &message_id,
                 &from,
-                gossipsub::MessageAcceptance::Reject,
+                "request_eos_preconf_blocks",
+                "invalid_length",
             );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                "topic" => "request_eos_preconf_blocks",
-                "result" => "invalid_length",
-            )
-            .increment(1);
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                "topic" => "request_eos_preconf_blocks",
-            )
-            .increment(1);
             debug!(len = message.data.len(), "invalid end-of-sequencing payload length");
         }
         return Ok(());
     }
 
+    report_ignore_with_metric(gossipsub, &message_id, &from, "unknown", "ignored");
+    debug!(topic = topic.as_str(), "ignoring message on unknown whitelist topic");
+    Ok(())
+}
+
+/// Count one inbound gossipsub message result by topic.
+fn record_inbound_message(topic: &'static str, result: &'static str) {
     metrics::counter!(
         WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-        "topic" => "unknown",
-        "result" => "ignored",
+        "topic" => topic,
+        "result" => result,
     )
     .increment(1);
-    report_message_validation(gossipsub, &message_id, &from, gossipsub::MessageAcceptance::Ignore);
-    debug!(topic = topic.as_str(), "ignoring message on unknown whitelist topic");
+}
+
+/// Report ignored message and emit corresponding inbound metric.
+fn report_ignore_with_metric(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    topic: &'static str,
+    result: &'static str,
+) {
+    report_message_validation(gossipsub, message_id, from, gossipsub::MessageAcceptance::Ignore);
+    record_inbound_message(topic, result);
+}
+
+/// Report rejected message due to decode/shape failure and emit failure metrics.
+fn report_decode_failure(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    topic: &'static str,
+    result: &'static str,
+) {
+    report_message_validation(gossipsub, message_id, from, gossipsub::MessageAcceptance::Reject);
+    record_inbound_message(topic, result);
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+        "topic" => topic,
+    )
+    .increment(1);
+}
+
+/// Handle an admission decision, reporting Ignore + metrics when the message is not accepted.
+fn admit_or_ignore_message(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    decision: AdmissionDecision,
+    topic: &'static str,
+) -> bool {
+    match decision {
+        AdmissionDecision::Accept => true,
+        AdmissionDecision::DuplicateLimited => {
+            report_ignore_with_metric(gossipsub, message_id, from, topic, "duplicate_limited");
+            false
+        }
+        AdmissionDecision::RateLimited => {
+            report_ignore_with_metric(gossipsub, message_id, from, topic, "rate_limited");
+            false
+        }
+    }
+}
+
+/// Forward an already-decoded/admitted message and report gossipsub validation outcome.
+async fn forward_decoded_event(
+    gossipsub: &mut WhitelistGossipsub,
+    message_id: &gossipsub::MessageId,
+    from: &PeerId,
+    event_tx: &mpsc::Sender<NetworkEvent>,
+    topic: &'static str,
+    event: NetworkEvent,
+) -> Result<()> {
+    record_inbound_message(topic, "decoded");
+    if let Err(err) = forward_event(event_tx, event).await {
+        report_message_validation(
+            gossipsub,
+            message_id,
+            from,
+            gossipsub::MessageAcceptance::Ignore,
+        );
+        return Err(err);
+    }
+
+    report_message_validation(gossipsub, message_id, from, gossipsub::MessageAcceptance::Accept);
     Ok(())
 }
 
@@ -1550,7 +1497,7 @@ mod tests {
         let epoch = 77u64;
         let now = Instant::now();
 
-        for _ in 0..=MAX_EOS_REQUESTS_PER_EPOCH {
+        for _ in 0..MAX_EOS_REQUESTS_PER_EPOCH {
             assert_eq!(state.admit_eos_request(peer, epoch, now), AdmissionDecision::Accept);
         }
         assert_eq!(state.admit_eos_request(peer, epoch, now), AdmissionDecision::DuplicateLimited);
@@ -1563,27 +1510,45 @@ mod tests {
         let hash = B256::from([0x44u8; 32]);
         let now = Instant::now();
 
-        for _ in 0..=MAX_PRECONF_BLOCK_DUPLICATES_PER_HEIGHT {
+        for _ in 0..MAX_PRECONF_BLOCK_DUPLICATES_PER_HEIGHT {
             assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::Accept);
         }
         assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::DuplicateLimited);
 
-        for index in 0..=MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT {
+        for index in 0..MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT {
             let at = now
-                + Duration::from_secs(
-                    (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) * (index as u64 + 1),
-                );
+                + Duration::from_secs((PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) * (index + 1));
             assert_eq!(state.admit_preconf_response(height, hash, at), AdmissionDecision::Accept);
         }
         let capped_at = now
             + Duration::from_secs(
-                (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) *
-                    (MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT + 2),
+                (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1)
+                    * (MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT + 2),
             );
         assert_eq!(
             state.admit_preconf_response(height, hash, capped_at),
             AdmissionDecision::DuplicateLimited
         );
+    }
+
+    #[test]
+    fn inbound_validation_caps_distinct_hashes_per_height() {
+        let mut state = InboundValidationState::default();
+        let height = 1_234;
+
+        for index in 0..MAX_DISTINCT_HASHES_PER_HEIGHT {
+            let hash = B256::from(U256::from(index).to_be_bytes::<32>());
+            assert_eq!(state.admit_preconf_payload(height, hash), AdmissionDecision::Accept);
+        }
+
+        let overflow_hash = B256::from([0xFEu8; 32]);
+        assert_eq!(
+            state.admit_preconf_payload(height, overflow_hash),
+            AdmissionDecision::DuplicateLimited
+        );
+
+        let existing_hash = B256::from(U256::from(0u64).to_be_bytes::<32>());
+        assert_eq!(state.admit_preconf_payload(height, existing_hash), AdmissionDecision::Accept);
     }
 
     #[test]

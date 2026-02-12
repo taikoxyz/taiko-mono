@@ -40,18 +40,14 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
     /// Optional listen address for the whitelist preconfirmation REST/WS server.
-    #[clap(
-        long = "preconfirmation.rpc-addr",
-        visible_alias = "whitelist.rpc-addr",
-        env = "PRECONFIRMATION_RPC_ADDR"
-    )]
+    #[clap(long = "preconfirmation.rpc-addr", env = "PRECONFIRMATION_RPC_ADDR")]
     pub preconfirmation_rpc_addr: Option<std::net::SocketAddr>,
     /// Optional path to JWT secret used to authenticate whitelist preconfirmation REST/WS calls.
     #[clap(long = "preconfirmation.jwt-secret", env = "PRECONFIRMATION_SERVER_JWT_SECRET")]
     pub preconfirmation_jwt_secret: Option<PathBuf>,
     /// Optional hex-encoded private key for P2P block signing.
-    #[clap(long = "whitelist.p2p-signer-key", env = "WHITELIST_P2P_SIGNER_KEY")]
-    pub whitelist_p2p_signer_key: Option<String>,
+    #[clap(long = "preconfirmation.p2p-signer-key", env = "PRECONFIRMATION_P2P_SIGNER_KEY")]
+    pub preconfirmation_p2p_signer_key: Option<String>,
     /// Optional hex-encoded 32-byte ed25519 private key for persistent libp2p peer identity.
     #[clap(long = "whitelist.p2p-network-private-key", env = "WHITELIST_P2P_NETWORK_PRIVATE_KEY")]
     pub whitelist_p2p_network_private_key: Option<String>,
@@ -129,23 +125,9 @@ impl WhitelistPreconfirmationDriverSubCommand {
         cfg
     }
 
-    /// Resolve the whitelist RPC listen address with legacy env-var fallback.
+    /// Resolve the whitelist RPC listen address.
     fn resolve_rpc_addr(&self) -> Option<std::net::SocketAddr> {
-        if let Some(addr) = self.preconfirmation_rpc_addr {
-            return Some(addr);
-        }
-
-        let raw = std::env::var("WHITELIST_RPC_ADDR").ok()?;
-        match raw.parse() {
-            Ok(addr) => {
-                warn!("WHITELIST_RPC_ADDR is deprecated, use PRECONFIRMATION_RPC_ADDR instead");
-                Some(addr)
-            }
-            Err(err) => {
-                warn!(value = %raw, error = %err, "ignoring invalid WHITELIST_RPC_ADDR value");
-                None
-            }
-        }
+        self.preconfirmation_rpc_addr
     }
 
     /// Resolve and parse optional JWT secret used by the whitelist REST/WS server.
@@ -154,7 +136,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
             return Ok(None);
         };
 
-        let secret = rpc::client::read_jwt_secret(path.clone()).ok_or_else(|| {
+        let secret = rpc::client::read_jwt_secret(path).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!("failed to read preconfirmation JWT secret from {}", path.display()),
@@ -198,7 +180,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
             self.shasta_preconf_whitelist_address,
             self.resolve_rpc_addr(),
             self.resolve_rpc_jwt_secret()?,
-            self.whitelist_p2p_signer_key.clone(),
+            self.preconfirmation_p2p_signer_key.clone(),
             self.whitelist_p2p_network_private_key.clone(),
         );
 

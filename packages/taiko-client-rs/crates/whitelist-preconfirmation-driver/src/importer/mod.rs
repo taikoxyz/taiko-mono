@@ -1,9 +1,6 @@
 //! Whitelist preconfirmation envelope importer.
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Instant};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256};
@@ -11,6 +8,7 @@ use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
 use hashlink::LinkedHashMap;
+use libp2p::PeerId;
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
@@ -20,9 +18,11 @@ use crate::{
         EnvelopeCache, L1_EPOCH_DURATION_SECS, RecentEnvelopeCache, RequestThrottle,
         WhitelistSequencerCache,
     },
+    codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
-    network::{NetworkCommand, NetworkEvent},
+    network::{NetworkCommand, NetworkEvent, PRECONF_RESPONSE_SEEN_WINDOW},
+    runtime_state::RuntimeStatusState,
 };
 
 mod cache_import;
@@ -45,8 +45,6 @@ pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
 ///
 /// Align with the preconfirmation tx-list cap to avoid zlib bomb expansion on untrusted payloads.
 pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
-/// Retention window for hashes that already had a response observed or published.
-const RESPONSE_SEEN_WINDOW: Duration = Duration::from_secs(10);
 /// Maximum hashes retained for response-seen dedup checks.
 const RESPONSE_SEEN_CACHE_CAPACITY: usize = 1024;
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
@@ -74,12 +72,20 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Optional beacon metadata client used to derive EOS epoch from payload timestamps.
     beacon_client: Option<Arc<BeaconClient>>,
-    /// Recently observed/published response hashes used to suppress redundant responses.
+    /// Outbound response suppression cache.
+    ///
+    /// Network-edge validation already dedups inbound response gossip. This cache is an additional
+    /// importer-level guard to avoid publishing duplicate responses when requests race against
+    /// recently observed or locally-published responses.
     response_seen_cache: LinkedHashMap<B256, Instant>,
+    /// Local libp2p peer identity used to de-correlate deterministic response jitter across nodes.
+    local_peer_id: PeerId,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
     anchor_address: Address,
+    /// Shared runtime state for status and EOS websocket notifications.
+    runtime_state: Arc<RuntimeStatusState>,
 }
 
 impl<P> WhitelistPreconfirmationImporter<P>
@@ -94,6 +100,8 @@ where
         chain_id: u64,
         beacon_client: Option<Arc<BeaconClient>>,
         network_command_tx: mpsc::Sender<NetworkCommand>,
+        local_peer_id: PeerId,
+        runtime_state: Arc<RuntimeStatusState>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
@@ -110,8 +118,10 @@ where
             network_command_tx,
             beacon_client,
             response_seen_cache: LinkedHashMap::with_capacity(RESPONSE_SEEN_CACHE_CAPACITY),
+            local_peer_id,
             sync_ready: false,
             anchor_address,
+            runtime_state,
         };
         importer.update_cache_gauges();
         importer
@@ -333,12 +343,28 @@ where
             .set(self.recent_cache.len() as f64);
     }
 
+    /// Insert/refresh an accepted envelope in pending+recent caches and track total-cached.
+    pub(super) fn cache_accepted_envelope(
+        &mut self,
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+        eos_epoch: Option<u64>,
+    ) {
+        let hash = envelope.execution_payload.block_hash;
+        let is_new = self.cache.get(&hash).is_none();
+        self.cache.insert(envelope.clone());
+        self.recent_cache.insert_recent_with_epoch_hint(envelope, eos_epoch);
+        if is_new {
+            self.runtime_state.increment_total_cached();
+        }
+        self.update_cache_gauges();
+    }
+
     /// Return true when a response for `hash` has been seen recently.
     pub(super) fn response_seen_recently(&mut self, hash: B256, now: Instant) -> bool {
         self.prune_response_seen(now);
-        self.response_seen_cache
-            .get(&hash)
-            .is_some_and(|seen_at| now.saturating_duration_since(*seen_at) < RESPONSE_SEEN_WINDOW)
+        self.response_seen_cache.get(&hash).is_some_and(|seen_at| {
+            now.saturating_duration_since(*seen_at) < PRECONF_RESPONSE_SEEN_WINDOW
+        })
     }
 
     /// Record a response hash as observed/published now.
@@ -353,8 +379,12 @@ where
 
     /// Drop expired response-seen entries.
     fn prune_response_seen(&mut self, now: Instant) {
-        self.response_seen_cache
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < RESPONSE_SEEN_WINDOW);
+        while let Some((_, seen_at)) = self.response_seen_cache.iter().next() {
+            if now.saturating_duration_since(*seen_at) < PRECONF_RESPONSE_SEEN_WINDOW {
+                break;
+            }
+            let _ = self.response_seen_cache.pop_front();
+        }
     }
 }
 

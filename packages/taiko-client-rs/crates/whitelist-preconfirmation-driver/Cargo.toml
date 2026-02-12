@@ -18,18 +18,16 @@ alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
 async-trait = { workspace = true }
 anyhow = { workspace = true }
+axum = { version = "0.7", features = ["ws"] }
 bytes = "1"
 bindings = { path = "../bindings" }
 driver = { path = "../driver" }
 flate2 = { workspace = true }
 futures = "0.3"
-hyper = { workspace = true }
-hyper-util = { workspace = true }
 http = "1"
 http-body = "1"
 http-body-util = { workspace = true }
 jsonwebtoken = "9"
-jsonrpsee = { workspace = true, features = ["server"] }
 hashlink = "0.10"
 kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
 libp2p = { version = "0.56.0", features = ["tcp", "gossipsub", "ping", "identify", "noise", "yamux", "macros", "tokio"] }
@@ -44,8 +42,6 @@ snap = "1.1"
 ssz = { package = "ethereum_ssz", version = "0.9.1" }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-tokio-tungstenite = "0.24"
-tower = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

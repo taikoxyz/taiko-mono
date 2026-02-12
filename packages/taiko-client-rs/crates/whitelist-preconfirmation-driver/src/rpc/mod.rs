@@ -4,5 +4,5 @@ mod api;
 mod server;
 pub(crate) mod types;
 
-pub(crate) use api::WhitelistRpcApi;
-pub(crate) use server::{WhitelistRpcServer, WhitelistRpcServerConfig};
+pub(crate) use api::WhitelistRestApi;
+pub(crate) use server::{WhitelistRestWsServer, WhitelistRestWsServerConfig};

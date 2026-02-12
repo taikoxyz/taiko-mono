@@ -1,4 +1,4 @@
-//! Whitelist preconfirmation RPC API handler implementation.
+//! Whitelist preconfirmation REST/WS API handler implementation.
 
 use std::{
     sync::Arc,
@@ -17,7 +17,6 @@ use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayload
 use async_trait::async_trait;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::{PreconfPayload, sync::event::EventSyncer};
-use hashlink::LinkedHashMap;
 use metrics::histogram;
 use protocol::{
     shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, payload_id_to_bytes},
@@ -33,25 +32,20 @@ use crate::{
     importer::{decompress_tx_list, validate_execution_payload_for_preconf_with_tx_list},
     network::NetworkCommand,
     rpc::{
-        WhitelistRpcApi,
+        WhitelistRestApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
             LookaheadStatus, SlotRange, WhitelistStatus,
         },
     },
+    runtime_state::RuntimeStatusState,
 };
 
 /// Go default handover-skip slots used for sequencing window split.
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
-/// Maximum number of pending EOS notifications retained for `/ws` subscribers.
-const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
-/// Minimum bytes required to decode a Shasta proposal ID from header extra data.
-const SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN: usize = 7;
-/// Maximum retained epochs in the local EOS hash cache to avoid unbounded growth.
-const MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES: usize = 4096;
 
-/// Implements the whitelist preconfirmation RPC API.
-pub(crate) struct WhitelistRpcHandler<P>
+/// Implements the whitelist preconfirmation REST/WS API.
+pub(crate) struct WhitelistRestHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -69,23 +63,19 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Local peer ID string.
     local_peer_id: String,
+    /// Shared runtime state for status and EOS notifications.
+    runtime_state: Arc<RuntimeStatusState>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
     /// Preconf whitelist contract used for operator checks.
     whitelist: PreconfWhitelistInstance<P>,
-    /// Highest unsafe payload block ID tracked by this node.
-    highest_unsafe_l2_payload_block_id: Mutex<u64>,
-    /// End-of-sequencing hash cache keyed by epoch.
-    end_of_sequencing_by_epoch: Mutex<LinkedHashMap<u64, B256>>,
-    /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
-    eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
-impl<P> WhitelistRpcHandler<P>
+impl<P> WhitelistRestHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Create a new RPC handler.
+    /// Create a new REST/WS handler.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         event_syncer: Arc<EventSyncer<P>>,
@@ -94,26 +84,19 @@ where
         signer: FixedKSigner,
         beacon_client: Arc<BeaconClient>,
         whitelist_address: Address,
-        initial_highest_unsafe_l2_payload_block_id: u64,
+        runtime_state: Arc<RuntimeStatusState>,
         network_command_tx: mpsc::Sender<NetworkCommand>,
         local_peer_id: String,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
-        let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
             event_syncer,
             rpc,
             chain_id,
             signer,
             beacon_client,
+            runtime_state,
             whitelist,
-            highest_unsafe_l2_payload_block_id: Mutex::new(
-                initial_highest_unsafe_l2_payload_block_id,
-            ),
-            end_of_sequencing_by_epoch: Mutex::new(LinkedHashMap::with_capacity(
-                MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES,
-            )),
-            eos_notification_tx,
             network_command_tx,
             local_peer_id,
             build_preconf_lock: Mutex::new(()),
@@ -200,14 +183,6 @@ where
                 "block number {block_number} must follow parent number {}",
                 parent.header.number
             )));
-        }
-
-        // Mirror Go's stale/reorg guard: reject if caller builds on a parent proposal
-        // that is older than the latest canonical proposal seen from L1 events.
-        let latest_seen_proposal_id = self.event_syncer.last_canonical_proposal_id();
-        if latest_seen_proposal_id > 0 {
-            let parent_proposal_id = decode_shasta_proposal_id(parent.header.extra_data.as_ref())?;
-            ensure_parent_proposal_not_stale(parent_proposal_id, latest_seen_proposal_id)?;
         }
 
         let parent_difficulty = B256::from(parent.header.difficulty.to_be_bytes::<32>());
@@ -336,18 +311,17 @@ where
 
     /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).
     async fn update_highest_unsafe(&self, block_number: u64) {
-        *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
+        self.runtime_state.set_highest_unsafe_l2_payload_block_id(block_number);
     }
 
     /// Insert end-of-sequencing hash indexed by beacon epoch with bounded retention.
     async fn cache_end_of_sequencing_hash(&self, epoch: u64, block_hash: B256) {
-        let mut cache = self.end_of_sequencing_by_epoch.lock().await;
-        insert_end_of_sequencing_hash(&mut cache, epoch, block_hash);
+        self.runtime_state.set_end_of_sequencing_block_hash(epoch, block_hash).await;
     }
 }
 
 #[async_trait]
-impl<P> WhitelistRpcApi for WhitelistRpcHandler<P>
+impl<P> WhitelistRestApi for WhitelistRestHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -470,10 +444,7 @@ where
         if request.end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.current_epoch();
             self.cache_end_of_sequencing_hash(epoch, block_hash).await;
-            let _ = self.eos_notification_tx.send(EndOfSequencingNotification {
-                current_epoch: epoch,
-                end_of_sequencing: true,
-            });
+            self.runtime_state.notify_end_of_sequencing(epoch);
             self.network_command_tx
                 .send(NetworkCommand::PublishEndOfSequencingRequest { epoch })
                 .await
@@ -495,15 +466,13 @@ where
     async fn get_status(&self) -> Result<WhitelistStatus> {
         let head_l1_origin_block_id =
             self.rpc.head_l1_origin().await?.map(|h| h.block_id.to::<u64>());
-        let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
+        let highest_unsafe = self.runtime_state.highest_unsafe_l2_payload_block_id();
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
-            .end_of_sequencing_by_epoch
-            .lock()
+            .runtime_state
+            .end_of_sequencing_block_hash(current_epoch)
             .await
-            .get(&current_epoch)
-            .copied()
-            .map(|hash| hash.to_string());
+            .map(|h| h.to_string());
         let sync_ready = head_l1_origin_block_id.is_some();
 
         Ok(WhitelistStatus {
@@ -512,43 +481,15 @@ where
             peer_id: self.local_peer_id.clone(),
             sync_ready,
             lookahead: self.current_lookahead_status().await,
-            total_cached: Some(0),
+            total_cached: Some(self.runtime_state.total_cached()),
             highest_unsafe_l2_payload_block_id: Some(highest_unsafe),
             end_of_sequencing_block_hash,
         })
     }
 
     fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
-        self.eos_notification_tx.subscribe()
+        self.runtime_state.subscribe_end_of_sequencing()
     }
-}
-
-/// Decode Shasta proposal ID from header extra data.
-fn decode_shasta_proposal_id(extra_data: &[u8]) -> Result<u64> {
-    if extra_data.len() < SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "parent extra_data too short for proposal id: {} < {SHASTA_PROPOSAL_ID_EXTRA_DATA_LEN}",
-            extra_data.len()
-        )));
-    }
-
-    let mut proposal_id_bytes = [0u8; 8];
-    proposal_id_bytes[2..8].copy_from_slice(&extra_data[1..7]);
-    Ok(u64::from_be_bytes(proposal_id_bytes))
-}
-
-/// Ensure parent proposal ID is not older than latest canonical event-seen proposal ID.
-fn ensure_parent_proposal_not_stale(
-    parent_proposal_id: u64,
-    latest_seen_proposal_id: u64,
-) -> Result<()> {
-    if parent_proposal_id >= latest_seen_proposal_id {
-        return Ok(());
-    }
-
-    Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-        "latest proposal id seen in events: {latest_seen_proposal_id}, parent proposal id: {parent_proposal_id}"
-    )))
 }
 
 /// Return the current-operator handover split threshold in slots.
@@ -576,6 +517,10 @@ fn slot_in_range(slot: u64, range: &SlotRange) -> bool {
 }
 
 /// Validate fee recipient against slot-aware current/next operator handover windows.
+///
+/// This is intentionally strict for Go parity in whitelist preconfirmation handover:
+/// before threshold only current operator is accepted, and at/after threshold only next
+/// operator is accepted.
 fn validate_fee_recipient_for_slot(
     fee_recipient: Address,
     current_operator: Address,
@@ -620,19 +565,6 @@ fn validate_fee_recipient_for_slot(
 /// Convert a provider error into a driver error.
 fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
     WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
-}
-
-/// Insert/update an EOS hash in bounded epoch cache.
-fn insert_end_of_sequencing_hash(
-    cache: &mut LinkedHashMap<u64, B256>,
-    epoch: u64,
-    block_hash: B256,
-) {
-    cache.remove(&epoch);
-    cache.insert(epoch, block_hash);
-    while cache.len() > MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES {
-        let _ = cache.pop_front();
-    }
 }
 
 #[cfg(test)]
@@ -681,42 +613,6 @@ mod tests {
         let compressed = compress(&expected);
         let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
         assert_eq!(decoded, expected);
-    }
-
-    #[test]
-    fn decode_shasta_proposal_id_rejects_short_extra_data() {
-        let err =
-            decode_shasta_proposal_id(&[0x00, 0x01, 0x02]).expect_err("short extra_data must fail");
-        assert!(matches!(
-            err,
-            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-                if msg.contains("parent extra_data too short for proposal id")
-        ));
-    }
-
-    #[test]
-    fn decode_shasta_proposal_id_decodes_expected_value() {
-        let extra_data = [0xAA, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
-        let proposal_id =
-            decode_shasta_proposal_id(&extra_data).expect("proposal id should decode");
-        assert_eq!(proposal_id, 0x0102_0304_0506);
-    }
-
-    #[test]
-    fn ensure_parent_proposal_not_stale_rejects_older_parent() {
-        let err = ensure_parent_proposal_not_stale(5, 6).expect_err("stale parent must fail");
-        assert!(matches!(
-            err,
-            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-                if msg.contains("latest proposal id seen in events")
-        ));
-    }
-
-    #[test]
-    fn ensure_parent_proposal_not_stale_allows_equal_or_newer_parent() {
-        ensure_parent_proposal_not_stale(6, 6).expect("equal parent proposal id must pass");
-        ensure_parent_proposal_not_stale(7, 6).expect("newer parent proposal id must pass");
-        ensure_parent_proposal_not_stale(1, 0).expect("zero latest proposal id must skip check");
     }
 
     #[test]
@@ -778,23 +674,5 @@ mod tests {
             WhitelistPreconfirmationDriverError::WhitelistLookup(msg)
                 if msg.contains("slots_per_epoch is zero")
         ));
-    }
-
-    #[test]
-    fn insert_end_of_sequencing_hash_prunes_oldest_epochs() {
-        let mut cache = LinkedHashMap::new();
-        let total = MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES + 3;
-        for epoch in 0..total {
-            insert_end_of_sequencing_hash(
-                &mut cache,
-                epoch as u64,
-                B256::from_slice(&(epoch as u64).to_be_bytes().repeat(4)),
-            );
-        }
-
-        assert_eq!(cache.len(), MAX_END_OF_SEQUENCING_EPOCH_CACHE_ENTRIES);
-        assert!(!cache.contains_key(&0));
-        assert!(!cache.contains_key(&1));
-        assert!(cache.contains_key(&((total - 1) as u64)));
     }
 }

@@ -10,6 +10,7 @@ mod preconf_ingress_sync;
 mod rpc;
 mod rpc_handler;
 mod runner;
+mod runtime_state;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};
 pub use metrics::WhitelistPreconfirmationDriverMetrics;

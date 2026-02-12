@@ -71,9 +71,7 @@ where
         }
         let eos_epoch = self.end_of_sequencing_epoch(&envelope);
         let envelope = Arc::new(envelope);
-        self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent_with_epoch_hint(envelope, eos_epoch);
-        self.update_cache_gauges();
+        self.cache_accepted_envelope(envelope, eos_epoch);
 
         Ok(())
     }
@@ -132,10 +130,8 @@ where
         let eos_epoch = self.end_of_sequencing_epoch(&envelope);
         let envelope = Arc::new(envelope);
         let hash = envelope.execution_payload.block_hash;
-        self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent_with_epoch_hint(envelope, eos_epoch);
+        self.cache_accepted_envelope(envelope, eos_epoch);
         self.mark_response_seen(hash, Instant::now());
-        self.update_cache_gauges();
         Ok(())
     }
 
@@ -203,8 +199,13 @@ where
             return Ok(());
         }
 
-        let jitter = deterministic_response_jitter(from, hash, RESPONSE_JITTER_MAX);
+        let jitter =
+            deterministic_response_jitter(&self.local_peer_id, &from, hash, RESPONSE_JITTER_MAX);
         if !jitter.is_zero() {
+            // Keep sequential jitter on the importer loop to mirror Go's response-storm damping:
+            // a node intentionally delays all pending request handling within this short window.
+            // This is an explicit throttle tradeoff; network-edge request dedup/rate-limits
+            // bound request pressure before events reach the importer loop.
             tokio::time::sleep(jitter).await;
         }
 
@@ -223,6 +224,9 @@ where
             return Ok(());
         }
 
+        if self.recent_cache.get_recent(&hash).is_none() {
+            self.runtime_state.increment_total_cached();
+        }
         self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
         if self.publish_unsafe_response(envelope).await {
@@ -232,14 +236,15 @@ where
     }
 
     /// Derive EOS epoch from envelope timestamp when possible.
-    fn end_of_sequencing_epoch(&self, envelope: &WhitelistExecutionPayloadEnvelope) -> Option<u64> {
+    pub(super) fn end_of_sequencing_epoch(
+        &self,
+        envelope: &WhitelistExecutionPayloadEnvelope,
+    ) -> Option<u64> {
         if !envelope.end_of_sequencing.unwrap_or(false) {
             return None;
         }
 
-        let Some(beacon_client) = self.beacon_client.as_ref() else {
-            return None;
-        };
+        let beacon_client = self.beacon_client.as_ref()?;
 
         match beacon_client.epoch_for_timestamp(envelope.execution_payload.timestamp) {
             Ok(epoch) => Some(epoch),
@@ -266,19 +271,25 @@ fn request_outside_sync_margin(
         return false;
     };
 
-    sync_tip_block_number >= REQUEST_SYNC_MARGIN_BLOCKS &&
-        requested_block_number <=
-            sync_tip_block_number.saturating_sub(REQUEST_SYNC_MARGIN_BLOCKS)
+    sync_tip_block_number >= REQUEST_SYNC_MARGIN_BLOCKS
+        && requested_block_number
+            <= sync_tip_block_number.saturating_sub(REQUEST_SYNC_MARGIN_BLOCKS)
 }
 
 /// Deterministic jitter used before responding to preconfirmation requests.
-fn deterministic_response_jitter(peer_id: libp2p::PeerId, hash: B256, max: Duration) -> Duration {
+fn deterministic_response_jitter(
+    local_peer_id: &libp2p::PeerId,
+    requester_peer_id: &libp2p::PeerId,
+    hash: B256,
+    max: Duration,
+) -> Duration {
     if max.is_zero() {
         return Duration::ZERO;
     }
 
     let mut hasher = Sha256::new();
-    hasher.update(peer_id.to_bytes());
+    hasher.update(local_peer_id.to_bytes());
+    hasher.update(requester_peer_id.to_bytes());
     hasher.update(hash.as_slice());
     let digest = hasher.finalize();
 
@@ -296,14 +307,31 @@ mod tests {
 
     #[test]
     fn deterministic_response_jitter_is_stable_and_bounded() {
+        let local_peer = libp2p::PeerId::random();
         let peer = libp2p::PeerId::random();
         let hash = B256::from([0xabu8; 32]);
         let max = Duration::from_secs(1);
 
-        let first = deterministic_response_jitter(peer, hash, max);
-        let second = deterministic_response_jitter(peer, hash, max);
+        let first = deterministic_response_jitter(&local_peer, &peer, hash, max);
+        let second = deterministic_response_jitter(&local_peer, &peer, hash, max);
         assert_eq!(first, second, "jitter should be deterministic for the same inputs");
         assert!(first < max, "jitter must stay below maximum window");
+    }
+
+    #[test]
+    fn deterministic_response_jitter_varies_per_local_peer() {
+        let local_peer_a = libp2p::PeerId::random();
+        let local_peer_b = libp2p::PeerId::random();
+        let requester_peer = libp2p::PeerId::random();
+        let hash = B256::from([0x55u8; 32]);
+        let max = Duration::from_secs(10);
+
+        let jitter_a = deterministic_response_jitter(&local_peer_a, &requester_peer, hash, max);
+        let jitter_b = deterministic_response_jitter(&local_peer_b, &requester_peer, hash, max);
+        assert_ne!(
+            jitter_a, jitter_b,
+            "local peer id salt should decorrelate jitter across responders"
+        );
     }
 
     #[test]

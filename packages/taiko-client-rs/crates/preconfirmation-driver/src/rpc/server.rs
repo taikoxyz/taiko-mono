@@ -118,9 +118,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
             let request: PublishCommitmentRequest = params.one()?;
             ctx.api.publish_commitment(request).await
         },
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
 
     rpc::register_rpc_method!(
@@ -131,9 +129,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
             let request: PublishTxListRequest = params.one()?;
             ctx.api.publish_tx_list(request).await
         },
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
 
     rpc::register_rpc_method!(
@@ -141,27 +137,21 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
         METHOD_GET_STATUS,
         RpcContext,
         |ctx| ctx.api.get_status().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
     rpc::register_rpc_method!(
         module,
         METHOD_PRECONF_TIP,
         RpcContext,
         |ctx| ctx.api.preconf_tip().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
     rpc::register_rpc_method!(
         module,
         METHOD_CANONICAL_PROPOSAL_ID,
         RpcContext,
         |ctx| ctx.api.canonical_proposal_id().await,
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
     rpc::register_rpc_method!(
         module,
@@ -171,9 +161,7 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
             let timestamp: alloy_primitives::U256 = params.one()?;
             ctx.api.get_preconf_slot_info(timestamp).await
         },
-        record_metrics,
-        api_error_to_rpc,
-        "received preconfirmation RPC request"
+        record_metrics
     );
 
     module
@@ -199,28 +187,28 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
         PreconfirmationClientError::Codec(_) => PreconfRpcErrorCode::InvalidTxList.code(),
         PreconfirmationClientError::Catchup(_) => PreconfRpcErrorCode::NotSynced.code(),
         PreconfirmationClientError::Lookahead(lookahead_err) => match lookahead_err {
-            LookaheadError::BeforeGenesis(_) |
-            LookaheadError::TooOld(_) |
-            LookaheadError::TooNew(_) => ErrorCode::InvalidParams.code(),
-            LookaheadError::InboxConfig(_) |
-            LookaheadError::Lookahead(_) |
-            LookaheadError::PreconfWhitelist(_) |
-            LookaheadError::BlockLookup { .. } |
-            LookaheadError::MissingLogField { .. } |
-            LookaheadError::EventDecode(_) |
-            LookaheadError::EventScanner(_) |
-            LookaheadError::ReorgDetected |
-            LookaheadError::SystemTime(_) |
-            LookaheadError::UnknownChain(_) |
-            LookaheadError::MissingLookahead(_) |
-            LookaheadError::CorruptLookaheadCache { .. } => {
+            LookaheadError::BeforeGenesis(_)
+            | LookaheadError::TooOld(_)
+            | LookaheadError::TooNew(_) => ErrorCode::InvalidParams.code(),
+            LookaheadError::InboxConfig(_)
+            | LookaheadError::Lookahead(_)
+            | LookaheadError::PreconfWhitelist(_)
+            | LookaheadError::BlockLookup { .. }
+            | LookaheadError::MissingLogField { .. }
+            | LookaheadError::EventDecode(_)
+            | LookaheadError::EventScanner(_)
+            | LookaheadError::ReorgDetected
+            | LookaheadError::SystemTime(_)
+            | LookaheadError::UnknownChain(_)
+            | LookaheadError::MissingLookahead(_)
+            | LookaheadError::CorruptLookaheadCache { .. } => {
                 PreconfRpcErrorCode::LookaheadUnavailable.code()
             }
         },
-        PreconfirmationClientError::Network(_) |
-        PreconfirmationClientError::Storage(_) |
-        PreconfirmationClientError::DriverInterface(_) |
-        PreconfirmationClientError::Config(_) => PreconfRpcErrorCode::InternalError.code(),
+        PreconfirmationClientError::Network(_)
+        | PreconfirmationClientError::Storage(_)
+        | PreconfirmationClientError::DriverInterface(_)
+        | PreconfirmationClientError::Config(_) => PreconfRpcErrorCode::InternalError.code(),
     };
 
     ErrorObjectOwned::owned(code, err.to_string(), None::<()>)
