@@ -1577,8 +1577,8 @@ mod tests {
         }
         let capped_at = now
             + Duration::from_secs(
-                (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1)
-                    * (MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT + 2),
+                (PRECONF_RESPONSE_SEEN_WINDOW.as_secs() + 1) *
+                    (MAX_PRECONF_RESPONSE_DUPLICATES_PER_HEIGHT + 2),
             );
         assert_eq!(
             state.admit_preconf_response(height, hash, capped_at),

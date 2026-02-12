@@ -205,8 +205,8 @@ where
         let path = req.uri().path().to_string();
         let method = req.method().clone();
 
-        if let Some(jwt_auth) = self.jwt_auth.as_ref()
-            && let Err(err) = jwt_auth.validate_headers(req.headers())
+        if let Some(jwt_auth) = self.jwt_auth.as_ref() &&
+            let Err(err) = jwt_auth.validate_headers(req.headers())
         {
             return async move { Ok(error_response(StatusCode::UNAUTHORIZED, err)) }.boxed();
         }
@@ -394,9 +394,9 @@ where
 
 /// Return true when request headers indicate a websocket upgrade.
 fn is_websocket_upgrade_request<B>(request: &HttpRequest<B>) -> bool {
-    request.method() == Method::GET
-        && header_contains_token(request.headers(), CONNECTION, "upgrade")
-        && request
+    request.method() == Method::GET &&
+        header_contains_token(request.headers(), CONNECTION, "upgrade") &&
+        request
             .headers()
             .get(UPGRADE)
             .and_then(|value| value.to_str().ok())
@@ -485,12 +485,12 @@ fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> HttpResp
 
 fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
     match err {
-        WhitelistPreconfirmationDriverError::InvalidPayload(_)
-        | WhitelistPreconfirmationDriverError::PreconfIngressNotReady
-        | WhitelistPreconfirmationDriverError::Driver(
+        WhitelistPreconfirmationDriverError::InvalidPayload(_) |
+        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
+        WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
-        )
-        | WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
+        ) |
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::EngineSyncing(_)) => {
             StatusCode::BAD_REQUEST
         }
         _ => StatusCode::INTERNAL_SERVER_ERROR,

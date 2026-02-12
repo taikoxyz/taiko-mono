@@ -11,8 +11,7 @@ use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
 use hashlink::LinkedHashMap;
-use rpc::beacon::BeaconClient;
-use rpc::client::Client;
+use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 

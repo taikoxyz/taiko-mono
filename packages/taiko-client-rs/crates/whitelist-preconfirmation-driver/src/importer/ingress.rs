@@ -266,9 +266,9 @@ fn request_outside_sync_margin(
         return false;
     };
 
-    sync_tip_block_number >= REQUEST_SYNC_MARGIN_BLOCKS
-        && requested_block_number
-            <= sync_tip_block_number.saturating_sub(REQUEST_SYNC_MARGIN_BLOCKS)
+    sync_tip_block_number >= REQUEST_SYNC_MARGIN_BLOCKS &&
+        requested_block_number <=
+            sync_tip_block_number.saturating_sub(REQUEST_SYNC_MARGIN_BLOCKS)
 }
 
 /// Deterministic jitter used before responding to preconfirmation requests.

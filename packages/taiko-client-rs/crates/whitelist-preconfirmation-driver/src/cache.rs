@@ -286,8 +286,8 @@ impl WhitelistSequencerCache {
 
     /// Return true when signer-mismatch handling may force a fresh L1 read.
     pub fn allow_miss_refresh(&mut self, now: Instant) -> bool {
-        if let Some(last) = self.last_miss_refresh_at
-            && now.saturating_duration_since(last) < self.miss_refresh_cooldown
+        if let Some(last) = self.last_miss_refresh_at &&
+            now.saturating_duration_since(last) < self.miss_refresh_cooldown
         {
             return false;
         }
