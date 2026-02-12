@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Address, Hex } from 'viem';
 import { useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
@@ -8,6 +8,7 @@ import {
   computeUserOpsDigest,
   sendUserOpToBuilder,
   calculateMinOutput,
+  queryUserOpStatus,
 } from '../lib/userOp';
 import { DEFAULT_SLIPPAGE } from '../lib/constants';
 
@@ -29,6 +30,45 @@ export function useUserOp(): UseUserOpReturn {
   const { data: walletClient } = useWalletClient();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const pollStatus = useCallback((userOpId: number): Promise<boolean> => {
+    return new Promise((resolve) => {
+      toast.loading('Waiting for execution...', { id: 'swap' });
+
+      pollIntervalRef.current = setInterval(async () => {
+        const status = await queryUserOpStatus(userOpId);
+        if (!status) return;
+
+        if (status.status === 'Processing') {
+          toast.loading(`Processing (tx: ${status.tx_hash.slice(0, 10)}...)`, { id: 'swap' });
+        } else if (status.status === 'Executed') {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          toast.success('Swap executed successfully!', { id: 'swap' });
+          setIsPending(false);
+          resolve(true);
+        } else if (status.status === 'Rejected') {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          toast.error(`Swap rejected: ${status.reason}`, { id: 'swap' });
+          setError(new Error(status.reason));
+          setIsPending(false);
+          resolve(false);
+        }
+        // Pending: keep polling
+      }, 1000);
+    });
+  }, []);
 
   const executeSwap = useCallback(
     async ({
@@ -74,12 +114,18 @@ export function useUserOp(): UseUserOpReturn {
         // Send to builder RPC
         const result = await sendUserOpToBuilder(smartWallet, ops, signature as Hex);
 
-        if (result.success) {
+        if (result.success && result.userOpId !== undefined) {
+          // Poll for status
+          return await pollStatus(result.userOpId);
+        } else if (result.success) {
+          // No ID returned, can't poll - just show success
           toast.success('Swap submitted successfully!', { id: 'swap' });
+          setIsPending(false);
           return true;
         } else {
           toast.error(result.error || 'Failed to submit swap', { id: 'swap' });
           setError(new Error(result.error || 'Failed to submit swap'));
+          setIsPending(false);
           return false;
         }
       } catch (err) {
@@ -87,12 +133,11 @@ export function useUserOp(): UseUserOpReturn {
         const errorMessage = err instanceof Error ? err.message : 'Swap failed';
         toast.error(errorMessage, { id: 'swap' });
         setError(err instanceof Error ? err : new Error(errorMessage));
-        return false;
-      } finally {
         setIsPending(false);
+        return false;
       }
     },
-    [walletClient]
+    [walletClient, pollStatus]
   );
 
   return {

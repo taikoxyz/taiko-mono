@@ -2,13 +2,12 @@ import {
   encodeFunctionData,
   encodeAbiParameters,
   keccak256,
-  toHex,
   Address,
   Hex,
   hexToBytes,
 } from 'viem';
 import { UserOp, SwapDirection } from '../types';
-import { CrossChainSwapHandlerL1ABI, ERC20ABI } from './contracts';
+import { CrossChainSwapHandlerL1ABI, ERC20ABI, UserOpsSubmitterABI } from './contracts';
 import { L1_HANDLER, USDC_TOKEN, BUILDER_RPC_URL } from './constants';
 
 /**
@@ -110,11 +109,22 @@ export async function sendUserOpToBuilder(
   submitter: Address,
   ops: UserOp[],
   signature: Hex
-): Promise<{ success: boolean; result?: unknown; error?: string }> {
+): Promise<{ success: boolean; result?: unknown; error?: string; userOpId?: number }> {
   try {
     const builderUrl = getBuilderUrl();
-    console.log('Sending UserOps to:', builderUrl);
-    console.log('UserOps:', ops.map((op) => ({ target: op.target, value: op.value.toString() })));
+    console.log('Sending UserOp to:', builderUrl);
+    console.log('Submitter:', submitter);
+    console.log('Ops count:', ops.length);
+
+    // Encode the full executeBatch(ops, signature) calldata
+    const calldata = encodeFunctionData({
+      abi: UserOpsSubmitterABI,
+      functionName: 'executeBatch',
+      args: [
+        ops.map((op) => ({ target: op.target, value: op.value, data: op.data })),
+        signature,
+      ],
+    });
 
     const response = await fetch(builderUrl, {
       method: 'POST',
@@ -124,12 +134,7 @@ export async function sendUserOpToBuilder(
         method: 'surge_sendUserOp',
         params: {
           submitter,
-          user_ops: ops.map((op) => ({
-            target: op.target,
-            value: toHex(op.value),
-            data: op.data,
-          })),
-          signature: hexToByteArray(signature),
+          calldata,
         },
         id: 1,
       }),
@@ -164,13 +169,51 @@ export async function sendUserOpToBuilder(
       return { success: false, error: json.error.message || JSON.stringify(json.error) };
     }
 
-    return { success: true, result: json.result };
+    const userOpId = typeof json.result === 'number' ? json.result : undefined;
+    return { success: true, result: json.result, userOpId };
   } catch (error) {
     console.error('sendUserOpToBuilder error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to send UserOp',
     };
+  }
+}
+
+export type UserOpStatus =
+  | { status: 'Pending' }
+  | { status: 'Processing'; tx_hash: string }
+  | { status: 'Rejected'; reason: string }
+  | { status: 'Executed' };
+
+/**
+ * Query the status of a submitted UserOp by ID
+ */
+export async function queryUserOpStatus(userOpId: number): Promise<UserOpStatus | null> {
+  try {
+    const builderUrl = getBuilderUrl();
+    const response = await fetch(builderUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'surge_userOpStatus',
+        params: [userOpId],
+        id: 1,
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const text = await response.text();
+    if (!text) return null;
+
+    const json = JSON.parse(text);
+    if (json.error) return null;
+
+    return json.result as UserOpStatus;
+  } catch {
+    return null;
   }
 }
 
