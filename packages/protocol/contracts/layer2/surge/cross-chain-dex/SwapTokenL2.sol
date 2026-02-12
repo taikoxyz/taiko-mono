@@ -7,7 +7,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @notice Bridged ERC20 representation on L2 for cross-chain DEX POC
 /// @custom:security-contact security@taiko.xyz
 contract SwapTokenL2 is ERC20 {
-    address public immutable minter;
+    address public minter;
 
     error ONLY_MINTER();
 
@@ -23,6 +23,13 @@ contract SwapTokenL2 is ERC20 {
         if (_initialSupply > 0) {
             _mint(_minter, _initialSupply);
         }
+    }
+
+    /// @notice Transfers minting authority to a new address
+    /// @param _newMinter The new minter address
+    function setMinter(address _newMinter) external {
+        if (msg.sender != minter) revert ONLY_MINTER();
+        minter = _newMinter;
     }
 
     /// @notice Allows minter to mint tokens

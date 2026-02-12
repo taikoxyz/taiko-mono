@@ -35,3 +35,5 @@ export interface DexReserves {
 }
 
 export type SwapDirection = 'ETH_TO_USDC' | 'USDC_TO_ETH';
+
+export type ActiveTab = 'swap' | 'bridge' | 'liquidity';

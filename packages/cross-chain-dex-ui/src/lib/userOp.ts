@@ -7,8 +7,8 @@ import {
   hexToBytes,
 } from 'viem';
 import { UserOp, SwapDirection } from '../types';
-import { CrossChainSwapHandlerL1ABI, ERC20ABI, UserOpsSubmitterABI } from './contracts';
-import { L1_HANDLER, USDC_TOKEN, BUILDER_RPC_URL } from './constants';
+import { CrossChainSwapVaultL1ABI, ERC20ABI, UserOpsSubmitterABI } from './contracts';
+import { L1_VAULT, USDC_TOKEN, BUILDER_RPC_URL } from './constants';
 
 /**
  * Build UserOp(s) for a swap
@@ -20,14 +20,14 @@ export function buildSwapUserOps(
   recipient: Address
 ): UserOp[] {
   if (direction === 'ETH_TO_USDC') {
-    // Single op: call swapETHForERC20 with value
+    // Single op: call swapETHForToken with value
     return [
       {
-        target: L1_HANDLER,
+        target: L1_VAULT,
         value: amountIn,
         data: encodeFunctionData({
-          abi: CrossChainSwapHandlerL1ABI,
-          functionName: 'swapETHForERC20',
+          abi: CrossChainSwapVaultL1ABI,
+          functionName: 'swapETHForToken',
           args: [minAmountOut, recipient],
         }),
       },
@@ -38,28 +38,96 @@ export function buildSwapUserOps(
     if (!usdcAddress) throw new Error('USDC address not configured');
 
     return [
-      // 1. Approve L1Handler to spend USDC
+      // 1. Approve L1Vault to spend USDC
       {
         target: usdcAddress,
         value: 0n,
         data: encodeFunctionData({
           abi: ERC20ABI,
           functionName: 'approve',
-          args: [L1_HANDLER, amountIn],
+          args: [L1_VAULT, amountIn],
         }),
       },
       // 2. Execute swap
       {
-        target: L1_HANDLER,
+        target: L1_VAULT,
         value: 0n,
         data: encodeFunctionData({
-          abi: CrossChainSwapHandlerL1ABI,
-          functionName: 'swapERC20ForETH',
+          abi: CrossChainSwapVaultL1ABI,
+          functionName: 'swapTokenForETH',
           args: [amountIn, minAmountOut, recipient],
         }),
       },
     ];
   }
+}
+
+/**
+ * Build UserOp(s) for bridging tokens L1→L2
+ */
+export function buildBridgeUserOps(
+  amount: bigint,
+  recipient: Address
+): UserOp[] {
+  const usdcAddress = USDC_TOKEN.address;
+  if (!usdcAddress) throw new Error('USDC address not configured');
+
+  return [
+    // 1. Approve L1Vault to spend USDC
+    {
+      target: usdcAddress,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: ERC20ABI,
+        functionName: 'approve',
+        args: [L1_VAULT, amount],
+      }),
+    },
+    // 2. Bridge tokens to L2
+    {
+      target: L1_VAULT,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: CrossChainSwapVaultL1ABI,
+        functionName: 'bridgeTokenToL2',
+        args: [amount, recipient],
+      }),
+    },
+  ];
+}
+
+/**
+ * Build UserOp(s) for adding liquidity to L2 DEX from L1
+ */
+export function buildAddLiquidityUserOps(
+  ethAmount: bigint,
+  tokenAmount: bigint
+): UserOp[] {
+  const usdcAddress = USDC_TOKEN.address;
+  if (!usdcAddress) throw new Error('USDC address not configured');
+
+  return [
+    // 1. Approve L1Vault to spend USDC
+    {
+      target: usdcAddress,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: ERC20ABI,
+        functionName: 'approve',
+        args: [L1_VAULT, tokenAmount],
+      }),
+    },
+    // 2. Add liquidity (sends ETH + locks tokens)
+    {
+      target: L1_VAULT,
+      value: ethAmount,
+      data: encodeFunctionData({
+        abi: CrossChainSwapVaultL1ABI,
+        functionName: 'addLiquidityToL2',
+        args: [tokenAmount],
+      }),
+    },
+  ];
 }
 
 /**

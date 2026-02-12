@@ -31,6 +31,9 @@ contract SimpleDEX {
     /// @notice Admin/owner who can add initial liquidity
     address public immutable admin;
 
+    /// @notice Authorized liquidity provider (e.g., the L2 vault)
+    address public liquidityProvider;
+
     /// @notice ETH reserve in the pool
     uint256 public reserveETH;
 
@@ -42,6 +45,7 @@ contract SimpleDEX {
     // ---------------------------------------------------------------
 
     event LiquidityAdded(address indexed provider, uint256 ethAmount, uint256 tokenAmount);
+    event LiquidityProviderSet(address indexed provider);
     event SwapETHForToken(address indexed user, uint256 ethIn, uint256 tokenOut);
     event SwapTokenForETH(address indexed user, uint256 tokenIn, uint256 ethOut);
 
@@ -68,10 +72,18 @@ contract SimpleDEX {
     // External & Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Adds liquidity to the pool (admin only for POC)
+    /// @notice Sets an authorized liquidity provider (e.g., the L2 vault)
+    /// @param _provider The address to authorize
+    function setLiquidityProvider(address _provider) external {
+        if (msg.sender != admin) revert ONLY_ADMIN();
+        liquidityProvider = _provider;
+        emit LiquidityProviderSet(_provider);
+    }
+
+    /// @notice Adds liquidity to the pool
     /// @param _tokenAmount Amount of tokens to add
     function addLiquidity(uint256 _tokenAmount) external payable {
-        if (msg.sender != admin) revert ONLY_ADMIN();
+        if (msg.sender != admin && msg.sender != liquidityProvider) revert ONLY_ADMIN();
         if (msg.value == 0 || _tokenAmount == 0) revert ZERO_AMOUNT();
 
         token.safeTransferFrom(msg.sender, address(this), _tokenAmount);

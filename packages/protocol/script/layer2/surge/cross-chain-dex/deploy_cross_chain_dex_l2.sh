@@ -1,25 +1,17 @@
 #!/bin/sh
 
-# This script deploys the Cross-Chain DEX L2 contracts.
+# This script deploys the Cross-Chain DEX L2 contracts (vault-based, no mock minting).
 set -e
 
 # Private key for deployment
 export PRIVATE_KEY=${PRIVATE_KEY:-"0x94eb3102993b41ec55c241060f47daa0f6372e2e3ad7e91612ae36c364042e44"}
 
 # Network configuration
-export L1_RPC=${L1_RPC:-"ws://45.33.84.128:32004"}
-export L2_RPC=${L2_RPC:-"ws://45.33.84.128:8548"}
+export L1_RPC=${L1_RPC:-"http://178.79.140.153:32003"}
+export L2_RPC=${L2_RPC:-"http://178.79.140.153:8547"}
 
 # Bridge addresses
 export L2_BRIDGE=${L2_BRIDGE:-"0x7633740000000000000000000000000000000001"}
-
-# Initial liquidity (10 ETH and 10000 tokens with 18 decimals)
-export INITIAL_LIQUIDITY_ETH=${INITIAL_LIQUIDITY_ETH:-"10000000000000000000"}
-export INITIAL_LIQUIDITY_TOKEN=${INITIAL_LIQUIDITY_TOKEN:-"10000000000000000000000"}
-
-# Handler token reserve (1 million tokens with 18 decimals)
-# This should match or exceed the L1 handler's token supply
-export HANDLER_TOKEN_RESERVE=${HANDLER_TOKEN_RESERVE:-"1000000000000000000000000"}
 
 # Get chain IDs from RPCs
 echo "Getting chain IDs from RPCs..."
@@ -47,14 +39,12 @@ export LOG_LEVEL=${LOG_LEVEL:-"-vvvv"}
 export FOUNDRY_PROFILE=${FOUNDRY_PROFILE:-"layer2"}
 
 echo "=====================================";
-echo "Deploying Cross-Chain DEX L2";
+echo "Deploying Cross-Chain DEX L2 (Vault)";
 echo "=====================================";
 echo "L2 RPC: $L2_RPC"
 echo "L2 Bridge: $L2_BRIDGE"
 echo "L1 Chain ID: $L1_CHAIN_ID"
-echo "Initial Liquidity ETH: $INITIAL_LIQUIDITY_ETH"
-echo "Initial Liquidity Token: $INITIAL_LIQUIDITY_TOKEN"
-echo "Handler Token Reserve: $HANDLER_TOKEN_RESERVE"
+echo "No mock minting - liquidity added from L1"
 echo ""
 
 if [ "$BROADCAST" = "true" ]; then

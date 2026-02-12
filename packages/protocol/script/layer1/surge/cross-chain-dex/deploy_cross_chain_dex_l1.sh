@@ -1,19 +1,20 @@
 #!/bin/sh
 
-# This script deploys the Cross-Chain DEX L1 contracts.
+# This script deploys the Cross-Chain DEX L1 contracts (vault-based).
 set -e
 
 # Private key for deployment
 export PRIVATE_KEY=${PRIVATE_KEY:-"0x94eb3102993b41ec55c241060f47daa0f6372e2e3ad7e91612ae36c364042e44"}
 
 # Network configuration
-export L1_RPC=${L1_RPC:-"ws://45.33.84.128:32004"}
-export L2_RPC=${L2_RPC:-"ws://45.33.84.128:8548"}
+export L1_RPC=${L1_RPC:-"http://178.79.140.153:32003"}
+export L2_RPC=${L2_RPC:-"http://178.79.140.153:8547"}
 
 # Bridge addresses
 export L1_BRIDGE=${L1_BRIDGE:-"0xC935D1c64591Aa954F34eB49Ea6175D06A8F21Eb"}
 
 # Initial token supply (1 million tokens with 18 decimals)
+# Minted to deployer — use addLiquidityToL2() to seed DEX
 export INITIAL_TOKEN_SUPPLY=${INITIAL_TOKEN_SUPPLY:-"1000000000000000000000000"}
 
 # Get chain IDs from RPCs
@@ -42,7 +43,7 @@ export LOG_LEVEL=${LOG_LEVEL:-"-vvvv"}
 export FOUNDRY_PROFILE=${FOUNDRY_PROFILE:-"layer1"}
 
 echo "=====================================";
-echo "Deploying Cross-Chain DEX L1";
+echo "Deploying Cross-Chain DEX L1 (Vault)";
 echo "=====================================";
 echo "L1 RPC: $L1_RPC"
 echo "L1 Bridge: $L1_BRIDGE"

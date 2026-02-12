@@ -84,7 +84,8 @@ contract InboxProposeTest is InboxTestBase {
         unactivated.propose(bytes(""), encodedInput);
     }
 
-    function test_propose_RevertWhen_SameBlock() public {
+    // Surge: CannotProposeInCurrentBlock check is disabled for POC to allow multiple batches
+    function test_propose_AllowsSameBlock() public {
         _setBlobHashes(2);
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);
@@ -93,7 +94,6 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
 
         vm.prank(proposer);
-        vm.expectRevert(Inbox.CannotProposeInCurrentBlock.selector);
         inbox.propose(bytes(""), encodedInput);
     }
 

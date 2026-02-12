@@ -4,20 +4,17 @@ pragma solidity ^0.8.26;
 import { SwapTokenL2 } from
     "../../../../contracts/layer2/surge/cross-chain-dex/SwapTokenL2.sol";
 import { SimpleDEX } from "../../../../contracts/layer2/surge/cross-chain-dex/SimpleDEX.sol";
-import { CrossChainSwapHandlerL2 } from
-    "../../../../contracts/layer2/surge/cross-chain-dex/CrossChainSwapHandlerL2.sol";
+import { CrossChainSwapVaultL2 } from
+    "../../../../contracts/layer2/surge/cross-chain-dex/CrossChainSwapVaultL2.sol";
 import { Script } from "forge-std/src/Script.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
 /// @title DeployCrossChainDexL2
-/// @notice Script to deploy the Cross-Chain DEX L2 contracts
+/// @notice Script to deploy the Cross-Chain DEX L2 contracts (vault-based, no mock minting)
 contract DeployCrossChainDexL2 is Script {
     uint256 internal immutable privateKey = vm.envUint("PRIVATE_KEY");
     address internal immutable bridge = vm.envAddress("L2_BRIDGE");
     uint64 internal immutable l1ChainId = uint64(vm.envUint("L1_CHAIN_ID"));
-    uint256 internal immutable initialLiquidityETH = vm.envUint("INITIAL_LIQUIDITY_ETH");
-    uint256 internal immutable initialLiquidityToken = vm.envUint("INITIAL_LIQUIDITY_TOKEN");
-    uint256 internal immutable handlerTokenReserve = vm.envUint("HANDLER_TOKEN_RESERVE");
 
     modifier broadcast() {
         require(privateKey != 0, "invalid private key");
@@ -29,22 +26,19 @@ contract DeployCrossChainDexL2 is Script {
     function run()
         external
         broadcast
-        returns (address swapTokenL2_, address dex_, address l2Handler_)
+        returns (address swapTokenL2_, address dex_, address l2Vault_)
     {
         address deployer = vm.addr(privateKey);
 
         console2.log("=====================================");
-        console2.log("Deploying Cross-Chain DEX L2");
+        console2.log("Deploying Cross-Chain DEX L2 (Vault)");
         console2.log("=====================================");
         console2.log("Deployer:", deployer);
         console2.log("Bridge:", bridge);
         console2.log("L1 Chain ID:", l1ChainId);
-        console2.log("Initial Liquidity ETH:", initialLiquidityETH);
-        console2.log("Initial Liquidity Token:", initialLiquidityToken);
-        console2.log("Handler Token Reserve:", handlerTokenReserve);
         console2.log("");
 
-        // Deploy SwapTokenL2 with deployer as minter
+        // Deploy SwapTokenL2 (bridged token) with deployer as initial minter
         SwapTokenL2 swapTokenL2 =
             new SwapTokenL2("Bridged Swap Token", "bSWAP", deployer, 0);
         swapTokenL2_ = address(swapTokenL2);
@@ -55,36 +49,27 @@ contract DeployCrossChainDexL2 is Script {
         dex_ = address(dex);
         console2.log("SimpleDEX deployed at:", dex_);
 
-        // Deploy L2 Handler
-        CrossChainSwapHandlerL2 l2Handler =
-            new CrossChainSwapHandlerL2(bridge, l1ChainId, dex_, deployer);
-        l2Handler_ = address(l2Handler);
-        console2.log("CrossChainSwapHandlerL2 deployed at:", l2Handler_);
+        // Deploy L2 Vault
+        CrossChainSwapVaultL2 l2Vault =
+            new CrossChainSwapVaultL2(bridge, l1ChainId, dex_, swapTokenL2_, deployer);
+        l2Vault_ = address(l2Vault);
+        console2.log("CrossChainSwapVaultL2 deployed at:", l2Vault_);
 
-        // Mint tokens for DEX liquidity
-        swapTokenL2.mint(deployer, initialLiquidityToken);
-        console2.log("Minted", initialLiquidityToken, "tokens for liquidity");
+        // Transfer minting authority to L2 vault
+        swapTokenL2.setMinter(l2Vault_);
+        console2.log("Transferred minting authority to L2Vault");
 
-        // Approve and add liquidity to DEX
-        swapTokenL2.approve(dex_, initialLiquidityToken);
-        dex.addLiquidity{ value: initialLiquidityETH }(initialLiquidityToken);
-        console2.log("Added liquidity to DEX");
-        console2.log("  ETH:", initialLiquidityETH);
-        console2.log("  Token:", initialLiquidityToken);
+        // Set L2 vault as authorized liquidity provider on DEX
+        dex.setLiquidityProvider(l2Vault_);
+        console2.log("Set L2Vault as DEX liquidity provider");
 
-        // Mint tokens for L2Handler (for TOKEN->ETH swaps)
-        // These represent "virtual" tokens that match L1 locked tokens
-        swapTokenL2.mint(l2Handler_, handlerTokenReserve);
-        console2.log("Minted", handlerTokenReserve, "tokens to L2Handler");
-
-        // Approve DEX to spend L2Handler's tokens
-        l2Handler.approveTokenForDEX();
-        console2.log("Approved DEX to spend L2Handler tokens");
+        // NO mock minting! NO initial liquidity!
+        // Liquidity will be added from L1 via addLiquidityToL2()
 
         // Write deployment addresses
         writeJson("SwapTokenL2", swapTokenL2_);
         writeJson("SimpleDEX", dex_);
-        writeJson("CrossChainSwapHandlerL2", l2Handler_);
+        writeJson("CrossChainSwapVaultL2", l2Vault_);
 
         console2.log("");
         console2.log("=====================================");
@@ -92,11 +77,11 @@ contract DeployCrossChainDexL2 is Script {
         console2.log("=====================================");
         console2.log("");
         console2.log("Next steps:");
-        console2.log("1. Set L2Handler address on L1Handler");
-        console2.log("2. Set L1Handler address on L2Handler");
+        console2.log("1. Set L2Vault on L1Vault (setup script on L1)");
+        console2.log("2. Set L1Vault on L2Vault (setup script on L2)");
+        console2.log("3. Add liquidity from L1 via addLiquidityToL2()");
     }
 
-    /// @dev Writes an address to the deployment JSON file
     function writeJson(string memory name, address addr) internal {
         vm.writeJson(
             vm.serializeAddress("deployment", name, addr),

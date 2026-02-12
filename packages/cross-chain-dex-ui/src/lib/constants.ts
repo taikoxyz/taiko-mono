@@ -25,7 +25,7 @@ export const FEE_PERCENT = 0.3;
 
 // Contract addresses
 export const USER_OPS_FACTORY = import.meta.env.VITE_USER_OPS_FACTORY as `0x${string}`;
-export const L1_HANDLER = import.meta.env.VITE_L1_HANDLER as `0x${string}`;
+export const L1_VAULT = import.meta.env.VITE_L1_VAULT as `0x${string}`;
 export const SIMPLE_DEX = import.meta.env.VITE_SIMPLE_DEX as `0x${string}`;
 
 // RPC URLs

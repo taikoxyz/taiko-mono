@@ -622,7 +622,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         unchecked {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
-            require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
+
+            // Surge: Disable this for POC to allow multiple batches
+            // require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
+
             require(
                 _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
             );

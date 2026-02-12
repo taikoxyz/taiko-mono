@@ -76,10 +76,10 @@ export const UserOpsSubmitterABI = [
   },
 ] as const;
 
-export const CrossChainSwapHandlerL1ABI = [
+export const CrossChainSwapVaultL1ABI = [
   {
     type: 'function',
-    name: 'swapETHForERC20',
+    name: 'swapETHForToken',
     inputs: [
       { name: '_minTokenOut', type: 'uint256' },
       { name: '_recipient', type: 'address' },
@@ -89,7 +89,7 @@ export const CrossChainSwapHandlerL1ABI = [
   },
   {
     type: 'function',
-    name: 'swapERC20ForETH',
+    name: 'swapTokenForETH',
     inputs: [
       { name: '_tokenAmount', type: 'uint256' },
       { name: '_minETHOut', type: 'uint256' },
@@ -97,6 +97,25 @@ export const CrossChainSwapHandlerL1ABI = [
     ],
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'bridgeTokenToL2',
+    inputs: [
+      { name: '_amount', type: 'uint256' },
+      { name: '_recipient', type: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'addLiquidityToL2',
+    inputs: [
+      { name: '_tokenAmount', type: 'uint256' },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
   },
   {
     type: 'function',
