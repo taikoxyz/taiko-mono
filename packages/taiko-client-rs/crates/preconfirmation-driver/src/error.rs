@@ -63,6 +63,9 @@ pub enum DriverApiError {
     /// Latest block not found on the L2 provider.
     #[error("missing latest block")]
     MissingLatestBlock,
+    /// Event sync tip is unknown because canonical tip has not been established yet.
+    #[error("event sync tip is unknown")]
+    EventSyncTipUnknown,
     /// Missing transactions in the preconfirmation input.
     #[error("missing transactions for execution payload")]
     MissingTransactions,

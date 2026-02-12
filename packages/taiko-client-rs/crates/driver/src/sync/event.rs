@@ -30,7 +30,7 @@ use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
-use super::{SyncError, SyncStage};
+use super::{AtomicCanonicalTip, CanonicalTipState, SyncError, SyncStage};
 use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
@@ -76,16 +76,17 @@ fn should_spawn_preconf_ingress(
 ///
 /// Returns true when the published tip changed. The canonical tip may move either forward or
 /// backward across reorgs, so this always tracks the latest observed canonical value.
-fn update_canonical_block_tip(
-    last_canonical_block_number: &AtomicU64,
-    canonical_block_number_tx: &watch::Sender<u64>,
+fn update_canonical_tip_state(
+    canonical_tip_state: &AtomicCanonicalTip,
+    canonical_tip_state_tx: &watch::Sender<CanonicalTipState>,
     canonical_block_number: u64,
 ) -> bool {
-    let previous = last_canonical_block_number.swap(canonical_block_number, Ordering::Relaxed);
-    let changed = canonical_block_number != previous;
+    let next = CanonicalTipState::Known(canonical_block_number);
+    let previous = canonical_tip_state.swap(next, Ordering::Relaxed);
+    let changed = next != previous;
     if changed {
-        let has_receivers = canonical_block_number_tx.receiver_count() > 0;
-        canonical_block_number_tx.send_replace(canonical_block_number);
+        let has_receivers = canonical_tip_state_tx.receiver_count() > 0;
+        canonical_tip_state_tx.send_replace(next);
         if !has_receivers {
             debug!(
                 canonical_block_number,
@@ -116,12 +117,10 @@ where
     last_canonical_proposal_id: Arc<AtomicU64>,
     /// Sender for notifying watchers when the canonical proposal ID changes.
     proposal_id_tx: watch::Sender<u64>,
-    /// Tracks the latest canonical L2 block number produced from L1 events.
-    last_canonical_block_number: Arc<AtomicU64>,
-    /// Whether the canonical L2 block tip has been established by event sync.
-    canonical_tip_known: Arc<AtomicBool>,
-    /// Sender for notifying watchers when the canonical block number changes.
-    canonical_block_number_tx: watch::Sender<u64>,
+    /// Tracks the current canonical L2 tip state from L1 event sync.
+    canonical_tip_state: Arc<AtomicCanonicalTip>,
+    /// Sender for notifying watchers when the canonical tip state changes.
+    canonical_tip_state_tx: watch::Sender<CanonicalTipState>,
     /// Indicates whether strict preconfirmation ingress gating has been satisfied and
     /// the ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
@@ -169,9 +168,9 @@ where
         // Add preconfirmation path if enabled.
         if self.cfg.preconfirmation_enabled {
             let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
-                Arc::new(PreconfirmationPath::new_with_canonical_tip(
+                Arc::new(PreconfirmationPath::new_with_canonical_tip_state(
                     self.rpc.clone(),
-                    self.last_canonical_block_number.clone(),
+                    self.canonical_tip_state.clone(),
                 ));
             paths.push(preconf_path);
         }
@@ -184,8 +183,7 @@ where
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         rx: Arc<AsyncMutex<PreconfReceiver>>,
-        last_canonical_block_number: Arc<AtomicU64>,
-        canonical_tip_known: Arc<AtomicBool>,
+        canonical_tip_state: Arc<AtomicCanonicalTip>,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
     ) {
@@ -208,28 +206,31 @@ where
                 let router_guard = router.lock().await;
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
-                if !canonical_tip_known.load(Ordering::Relaxed) {
-                    warn!(
-                        block_number,
-                        "rejecting preconfirmation payload in ingress loop: canonical tip unknown"
-                    );
-                    let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
-                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                    continue;
-                }
-
-                let canonical_block_tip = last_canonical_block_number.load(Ordering::Relaxed);
-                if block_number <= canonical_block_tip {
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL).increment(1);
-                    warn!(
-                        block_number,
-                        canonical_block_tip,
-                        "dropping stale preconfirmation payload in ingress loop"
-                    );
-                    let _ = job.respond_to.send(Ok(()));
-                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                    continue;
+                match canonical_tip_state.load(Ordering::Relaxed) {
+                    CanonicalTipState::Unknown => {
+                        warn!(
+                            block_number,
+                            "rejecting preconfirmation payload in ingress loop: canonical tip unknown"
+                        );
+                        let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
+                    }
+                    CanonicalTipState::Known(canonical_block_tip) => {
+                        if block_number <= canonical_block_tip {
+                            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                            counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL)
+                                .increment(1);
+                            warn!(
+                                block_number,
+                                canonical_block_tip,
+                                "dropping stale preconfirmation payload in ingress loop"
+                            );
+                            let _ = job.respond_to.send(Ok(()));
+                            gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                            continue;
+                        }
+                    }
                 }
 
                 // Single-shot injection while holding router lock to avoid interleaving.
@@ -297,13 +298,13 @@ where
 
             let router = router.clone();
             let proposal_log = log.clone();
-            let last_canonical_block_number = self.last_canonical_block_number.clone();
-            let canonical_block_number_tx = self.canonical_block_number_tx.clone();
+            let canonical_tip_state = self.canonical_tip_state.clone();
+            let canonical_tip_state_tx = self.canonical_tip_state_tx.clone();
             let outcomes = Retry::spawn(retry_strategy, move || {
                 let router = router.clone();
                 let log = proposal_log.clone();
-                let last_canonical_block_number = last_canonical_block_number.clone();
-                let canonical_block_number_tx = canonical_block_number_tx.clone();
+                let canonical_tip_state = canonical_tip_state.clone();
+                let canonical_tip_state_tx = canonical_tip_state_tx.clone();
                 async move {
                     // Lock router so L1 proposals and preconf inputs cannot interleave.
                     let router_guard = router.lock().await;
@@ -324,9 +325,9 @@ where
                     // preconfirmation processing cannot observe stale boundaries.
                     if let Some(last_outcome) = outcomes.last() {
                         let canonical_block_number = last_outcome.block_number();
-                        update_canonical_block_tip(
-                            last_canonical_block_number.as_ref(),
-                            &canonical_block_number_tx,
+                        update_canonical_tip_state(
+                            canonical_tip_state.as_ref(),
+                            &canonical_tip_state_tx,
                             canonical_block_number,
                         );
                     }
@@ -349,7 +350,6 @@ where
             );
 
             self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
-            self.canonical_tip_known.store(true, Ordering::Relaxed);
             let _ = self.proposal_id_tx.send(proposal_id);
             gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
@@ -376,7 +376,8 @@ where
             (None, None)
         };
         let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
-        let (canonical_block_number_tx, _canonical_block_number_rx) = watch::channel(0u64);
+        let (canonical_tip_state_tx, _canonical_tip_state_rx) =
+            watch::channel(CanonicalTipState::Unknown);
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
         Ok(Self {
             rpc,
@@ -386,9 +387,8 @@ where
             preconf_rx,
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
             proposal_id_tx,
-            last_canonical_block_number: Arc::new(AtomicU64::new(0)),
-            canonical_tip_known: Arc::new(AtomicBool::new(false)),
-            canonical_block_number_tx,
+            canonical_tip_state: Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Unknown)),
+            canonical_tip_state_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
@@ -407,21 +407,14 @@ where
         self.proposal_id_tx.subscribe()
     }
 
-    /// Return the latest canonical L2 block number produced from L1 events.
-    pub fn last_canonical_block_number(&self) -> u64 {
-        self.last_canonical_block_number.load(Ordering::Relaxed)
+    /// Return the current canonical L2 tip state.
+    pub fn canonical_tip_state(&self) -> CanonicalTipState {
+        self.canonical_tip_state.load(Ordering::Relaxed)
     }
 
-    /// Return the current canonical L2 block tip when known.
-    pub fn canonical_block_tip(&self) -> Option<u64> {
-        self.canonical_tip_known
-            .load(Ordering::Relaxed)
-            .then(|| self.last_canonical_block_number.load(Ordering::Relaxed))
-    }
-
-    /// Subscribe to canonical block number changes.
-    pub fn subscribe_canonical_block_number(&self) -> watch::Receiver<u64> {
-        self.canonical_block_number_tx.subscribe()
+    /// Subscribe to canonical tip state changes.
+    pub fn subscribe_canonical_tip_state(&self) -> watch::Receiver<CanonicalTipState> {
+        self.canonical_tip_state_tx.subscribe()
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
@@ -475,13 +468,16 @@ where
         }
 
         let block_number = payload.block_number();
-        let canonical_block_tip = self.canonical_block_tip().ok_or_else(|| {
-            warn!(
-                block_number,
-                "rejecting preconfirmation payload before enqueue: canonical tip unknown"
-            );
-            DriverError::PreconfIngressNotReady
-        })?;
+        let canonical_block_tip = match self.canonical_tip_state() {
+            CanonicalTipState::Unknown => {
+                warn!(
+                    block_number,
+                    "rejecting preconfirmation payload before enqueue: canonical tip unknown"
+                );
+                return Err(DriverError::PreconfIngressNotReady);
+            }
+            CanonicalTipState::Known(canonical_block_tip) => canonical_block_tip,
+        };
         if block_number <= canonical_block_tip {
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
@@ -796,8 +792,7 @@ where
                 self.spawn_preconf_ingress(
                     router.clone(),
                     rx,
-                    self.last_canonical_block_number.clone(),
-                    self.canonical_tip_known.clone(),
+                    self.canonical_tip_state.clone(),
                     self.preconf_ingress_ready.clone(),
                     self.preconf_ingress_notify.clone(),
                 );
@@ -905,7 +900,8 @@ mod tests {
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
         let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
-        let (canonical_block_number_tx, _canonical_block_number_rx) = watch::channel(0u64);
+        let (canonical_tip_state_tx, _canonical_tip_state_rx) =
+            watch::channel(CanonicalTipState::Unknown);
 
         EventSyncer {
             rpc: mock_client(),
@@ -915,9 +911,8 @@ mod tests {
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
             last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
             proposal_id_tx,
-            last_canonical_block_number: Arc::new(AtomicU64::new(0)),
-            canonical_tip_known: Arc::new(AtomicBool::new(false)),
-            canonical_block_number_tx,
+            canonical_tip_state: Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Unknown)),
+            canonical_tip_state_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
@@ -939,8 +934,7 @@ mod tests {
     async fn preconf_submit_noops_when_block_is_at_or_below_canonical_tip() {
         let syncer = build_syncer().await;
         syncer.preconf_ingress_ready.store(true, Ordering::Release);
-        syncer.canonical_tip_known.store(true, Ordering::Relaxed);
-        syncer.last_canonical_block_number.store(5, Ordering::Relaxed);
+        syncer.canonical_tip_state.store(CanonicalTipState::Known(5), Ordering::Relaxed);
 
         let payload = PreconfPayload::new(sample_payload(5));
         syncer
@@ -956,7 +950,7 @@ mod tests {
     async fn preconf_submit_rejected_when_canonical_tip_is_unknown() {
         let syncer = build_syncer().await;
         syncer.preconf_ingress_ready.store(true, Ordering::Release);
-        syncer.canonical_tip_known.store(false, Ordering::Relaxed);
+        syncer.canonical_tip_state.store(CanonicalTipState::Unknown, Ordering::Relaxed);
 
         let payload = PreconfPayload::new(sample_payload(6));
         let err = syncer
@@ -975,42 +969,43 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn canonical_block_tip_reports_unknown_until_event_sync_sets_it() {
+    async fn canonical_tip_state_reports_unknown_until_event_sync_sets_it() {
         let syncer = build_syncer().await;
-        assert_eq!(syncer.canonical_block_tip(), None);
+        assert_eq!(syncer.canonical_tip_state(), CanonicalTipState::Unknown);
 
-        syncer.last_canonical_block_number.store(42, Ordering::Relaxed);
-        syncer.canonical_tip_known.store(true, Ordering::Relaxed);
-        assert_eq!(syncer.canonical_block_tip(), Some(42));
+        syncer.canonical_tip_state.store(CanonicalTipState::Known(42), Ordering::Relaxed);
+        assert_eq!(syncer.canonical_tip_state(), CanonicalTipState::Known(42));
     }
 
     #[test]
-    fn canonical_block_tip_update_tracks_latest_value_even_when_decreasing() {
-        let canonical_block_tip = AtomicU64::new(100);
-        let (canonical_block_tip_tx, canonical_block_tip_rx) = watch::channel(100u64);
+    fn canonical_tip_state_update_tracks_latest_value_even_when_decreasing() {
+        let canonical_tip_state = AtomicCanonicalTip::new(CanonicalTipState::Known(100));
+        let (canonical_tip_state_tx, canonical_tip_state_rx) =
+            watch::channel(CanonicalTipState::Known(100));
 
-        let changed = update_canonical_block_tip(&canonical_block_tip, &canonical_block_tip_tx, 95);
+        let changed = update_canonical_tip_state(&canonical_tip_state, &canonical_tip_state_tx, 95);
 
         assert!(changed, "decreasing canonical tip should notify watchers");
-        assert_eq!(canonical_block_tip.load(Ordering::Relaxed), 95);
-        assert_eq!(*canonical_block_tip_rx.borrow(), 95);
+        assert_eq!(canonical_tip_state.load(Ordering::Relaxed), CanonicalTipState::Known(95));
+        assert_eq!(*canonical_tip_state_rx.borrow(), CanonicalTipState::Known(95));
     }
 
     #[test]
-    fn canonical_block_tip_update_refreshes_watch_value_without_active_watchers() {
-        let canonical_block_tip = AtomicU64::new(0);
-        let (canonical_block_tip_tx, canonical_block_tip_rx) = watch::channel(0u64);
-        drop(canonical_block_tip_rx);
+    fn canonical_tip_state_update_refreshes_watch_value_without_active_watchers() {
+        let canonical_tip_state = AtomicCanonicalTip::new(CanonicalTipState::Unknown);
+        let (canonical_tip_state_tx, canonical_tip_state_rx) =
+            watch::channel(CanonicalTipState::Unknown);
+        drop(canonical_tip_state_rx);
 
-        let changed = update_canonical_block_tip(&canonical_block_tip, &canonical_block_tip_tx, 95);
+        let changed = update_canonical_tip_state(&canonical_tip_state, &canonical_tip_state_tx, 95);
 
         assert!(changed, "updated canonical tip should be reported as changed");
-        assert_eq!(canonical_block_tip.load(Ordering::Relaxed), 95);
+        assert_eq!(canonical_tip_state.load(Ordering::Relaxed), CanonicalTipState::Known(95));
 
-        let late_subscriber = canonical_block_tip_tx.subscribe();
+        let late_subscriber = canonical_tip_state_tx.subscribe();
         assert_eq!(
             *late_subscriber.borrow(),
-            95,
+            CanonicalTipState::Known(95),
             "late subscribers should observe the latest canonical tip",
         );
     }

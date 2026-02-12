@@ -1,12 +1,6 @@
 //! Production paths that materialise inputs into execution blocks.
 
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
-    time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 
 use super::{ProductionError, ProductionInput, ProductionPathKind};
 pub use crate::sync::engine::EngineBlockOutcome;
@@ -14,7 +8,7 @@ use crate::{
     derivation::DerivationPipeline,
     error::DriverError,
     metrics::DriverMetrics,
-    sync::{engine::PayloadApplier, error::SyncError},
+    sync::{AtomicCanonicalTip, CanonicalTipState, engine::PayloadApplier, error::SyncError},
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
@@ -70,7 +64,7 @@ where
     A: PayloadApplier + BlockHashReader,
 {
     applier: A,
-    canonical_block_tip: Option<Arc<AtomicU64>>,
+    canonical_tip_state: Option<Arc<AtomicCanonicalTip>>,
 }
 
 impl<A> PreconfirmationPath<A>
@@ -81,8 +75,11 @@ where
     ///
     /// Blocks at or below this tip are considered event-synced canonical history and must never be
     /// rewritten by preconfirmation payloads.
-    pub fn new_with_canonical_tip(applier: A, canonical_block_tip: Arc<AtomicU64>) -> Self {
-        Self { applier, canonical_block_tip: Some(canonical_block_tip) }
+    pub fn new_with_canonical_tip_state(
+        applier: A,
+        canonical_tip_state: Arc<AtomicCanonicalTip>,
+    ) -> Self {
+        Self { applier, canonical_tip_state: Some(canonical_tip_state) }
     }
 }
 
@@ -107,18 +104,28 @@ where
                 let block_number = preconf.block_number();
                 let parent_number = block_number.saturating_sub(1);
 
-                if let Some(canonical_tip) = &self.canonical_block_tip {
-                    let canonical_block_tip = canonical_tip.load(Ordering::Relaxed);
-                    if block_number <= canonical_block_tip {
-                        counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                        counter!(DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL)
-                            .increment(1);
-                        warn!(
-                            block_number,
-                            canonical_block_tip,
-                            "dropping stale preconfirmation at or below canonical event-sync tip"
-                        );
-                        return Ok(Vec::new());
+                if let Some(canonical_tip_state) = &self.canonical_tip_state {
+                    match canonical_tip_state.load(std::sync::atomic::Ordering::Relaxed) {
+                        CanonicalTipState::Unknown => {
+                            warn!(
+                                block_number,
+                                "rejecting preconfirmation production: canonical tip unknown"
+                            );
+                            return Err(DriverError::PreconfIngressNotReady);
+                        }
+                        CanonicalTipState::Known(canonical_block_tip) => {
+                            if block_number <= canonical_block_tip {
+                                counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                                counter!(DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL)
+                                    .increment(1);
+                                warn!(
+                                    block_number,
+                                    canonical_block_tip,
+                                    "dropping stale preconfirmation at or below canonical event-sync tip"
+                                );
+                                return Ok(Vec::new());
+                            }
+                        }
                     }
                 }
 
@@ -413,8 +420,9 @@ mod tests {
     fn preconfirmation_path_delegates_to_applier() {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(0, parent_hash);
-        let canonical_tip = Arc::new(AtomicU64::new(0));
-        let path = PreconfirmationPath::new_with_canonical_tip(applier.clone(), canonical_tip);
+        let canonical_tip = Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Known(0)));
+        let path =
+            PreconfirmationPath::new_with_canonical_tip_state(applier.clone(), canonical_tip);
         let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
 
         let rt = Runtime::new().unwrap();
@@ -430,8 +438,9 @@ mod tests {
     fn preconfirmation_path_drops_block_at_or_below_canonical_tip() {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(0, parent_hash);
-        let canonical_tip = Arc::new(AtomicU64::new(1));
-        let path = PreconfirmationPath::new_with_canonical_tip(applier.clone(), canonical_tip);
+        let canonical_tip = Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Known(1)));
+        let path =
+            PreconfirmationPath::new_with_canonical_tip_state(applier.clone(), canonical_tip);
         let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
 
         let rt = Runtime::new().unwrap();
@@ -447,8 +456,9 @@ mod tests {
     fn preconfirmation_path_allows_reorg_above_canonical_tip() {
         let parent_hash = B256::from([1u8; 32]);
         let applier = MockApplier::new(1, parent_hash);
-        let canonical_tip = Arc::new(AtomicU64::new(1));
-        let path = PreconfirmationPath::new_with_canonical_tip(applier.clone(), canonical_tip);
+        let canonical_tip = Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Known(1)));
+        let path =
+            PreconfirmationPath::new_with_canonical_tip_state(applier.clone(), canonical_tip);
         let payload = Arc::new(PreconfPayload::new(sample_payload(2)));
 
         let rt = Runtime::new().unwrap();
@@ -458,5 +468,23 @@ mod tests {
 
         assert_eq!(applier.calls(), 1);
         assert_eq!(outcomes.len(), 1);
+    }
+
+    #[test]
+    fn preconfirmation_path_rejects_when_canonical_tip_unknown() {
+        let parent_hash = B256::from([1u8; 32]);
+        let applier = MockApplier::new(0, parent_hash);
+        let canonical_tip = Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Unknown));
+        let path =
+            PreconfirmationPath::new_with_canonical_tip_state(applier.clone(), canonical_tip);
+        let payload = Arc::new(PreconfPayload::new(sample_payload(1)));
+
+        let rt = Runtime::new().unwrap();
+        let err = rt
+            .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
+            .expect_err("unknown canonical tip should reject preconfirmation production");
+
+        assert!(matches!(err, DriverError::PreconfIngressNotReady));
+        assert_eq!(applier.calls(), 0);
     }
 }
