@@ -152,12 +152,12 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
+	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+	}
 	// Initialize the fork height numbers.
 	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
 		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
-	}
-	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
 	}
 
 	// Ensure that the genesis block hash of L1 and L2 match.
@@ -298,6 +298,8 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
 			if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
 				forkTime = parsed
+			} else {
+				log.Error("Failed to parse TAIKO_INTERNAL_SHASTA_TIME, using 0", "env", v, "err", err)
 			}
 		}
 	}

@@ -47,3 +47,6 @@ tokio = { workspace = true }
 tokio-tungstenite = "0.24"
 tower = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true }

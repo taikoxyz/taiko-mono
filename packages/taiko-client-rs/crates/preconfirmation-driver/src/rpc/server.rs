@@ -226,6 +226,12 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     ErrorObjectOwned::owned(code, err.to_string(), None::<()>)
 }
 
+impl From<PreconfirmationClientError> for ErrorObjectOwned {
+    fn from(err: PreconfirmationClientError) -> Self {
+        api_error_to_rpc(err)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
