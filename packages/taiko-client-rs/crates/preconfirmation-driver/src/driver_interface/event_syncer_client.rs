@@ -75,7 +75,7 @@ pub trait PreconfirmationIngress: Send + Sync {
     /// Subscribe to canonical proposal id updates.
     fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64>;
 
-    /// Return the highest canonical L2 block produced from event sync.
+    /// Return the latest canonical L2 block produced from event sync.
     fn last_canonical_block_number(&self) -> u64;
 }
 
@@ -97,7 +97,7 @@ where
         self.subscribe_proposal_id()
     }
 
-    /// Return the highest canonical L2 block produced from event sync.
+    /// Return the latest canonical L2 block produced from event sync.
     fn last_canonical_block_number(&self) -> u64 {
         self.last_canonical_block_number()
     }

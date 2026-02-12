@@ -72,6 +72,31 @@ fn should_spawn_preconf_ingress(
         first_event_sync_processed
 }
 
+/// Decide whether inbox state can be treated as already synced without seeing historical logs.
+///
+/// `nextProposalId <= 1` means there are no historical proposals to process.
+fn should_treat_inbox_as_synced_without_logs(next_proposal_id: u64) -> bool {
+    next_proposal_id <= 1
+}
+
+/// Update the canonical block tip boundary and notify watchers when it changes.
+///
+/// Returns true when the published tip changed. The canonical tip may move either forward or
+/// backward across reorgs, so this always tracks the latest observed canonical value.
+fn update_canonical_block_tip(
+    last_canonical_block_number: &AtomicU64,
+    canonical_block_number_tx: &watch::Sender<u64>,
+    canonical_block_number: u64,
+) -> bool {
+    let previous = last_canonical_block_number.swap(canonical_block_number, Ordering::Relaxed);
+    let changed = canonical_block_number != previous;
+    if changed && let Err(err) = canonical_block_number_tx.send(canonical_block_number) {
+        error!(?err, canonical_block_number, "failed to notify canonical block tip watcher");
+    }
+    gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(canonical_block_number as f64);
+    changed
+}
+
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
 where
@@ -87,11 +112,11 @@ where
     preconf_tx: Option<PreconfSender>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
-    /// Tracks the highest canonical proposal id processed from L1 events.
+    /// Tracks the latest canonical proposal id processed from L1 events.
     last_canonical_proposal_id: Arc<AtomicU64>,
     /// Sender for notifying watchers when the canonical proposal ID changes.
     proposal_id_tx: watch::Sender<u64>,
-    /// Tracks the highest canonical L2 block number produced from L1 events.
+    /// Tracks the latest canonical L2 block number produced from L1 events.
     last_canonical_block_number: Arc<AtomicU64>,
     /// Whether the canonical L2 block tip has been established by event sync.
     canonical_tip_known: Arc<AtomicBool>,
@@ -298,20 +323,11 @@ where
                     // preconfirmation processing cannot observe stale boundaries.
                     if let Some(last_outcome) = outcomes.last() {
                         let canonical_block_number = last_outcome.block_number();
-                        let previous = last_canonical_block_number
-                            .fetch_max(canonical_block_number, Ordering::Relaxed);
-                        if canonical_block_number > previous {
-                            if let Err(err) = canonical_block_number_tx.send(canonical_block_number)
-                            {
-                                error!(
-                                    ?err,
-                                    canonical_block_number,
-                                    "failed to notify canonical block tip watcher"
-                                );
-                            }
-                            gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
-                                .set(canonical_block_number as f64);
-                        }
+                        update_canonical_block_tip(
+                            last_canonical_block_number.as_ref(),
+                            &canonical_block_number_tx,
+                            canonical_block_number,
+                        );
                     }
 
                     Ok(outcomes)
@@ -756,6 +772,35 @@ where
                     info!(?notification, "event scanner notification");
                     if matches!(notification, Notification::SwitchingToLive) {
                         scanner_live = true;
+                        // If there are no historical proposal logs to process, we can treat the
+                        // inbox as already synced and open the ingress gate immediately instead of
+                        // waiting for the first log batch to be processed.
+                        if self.cfg.preconfirmation_enabled && !first_event_sync_processed {
+                            match self.rpc.shasta.inbox.getCoreState().call().await {
+                                Ok(core_state) => {
+                                    let next_proposal_id = core_state.nextProposalId.to::<u64>();
+                                    if should_treat_inbox_as_synced_without_logs(next_proposal_id) {
+                                        update_canonical_block_tip(
+                                            self.last_canonical_block_number.as_ref(),
+                                            &self.canonical_block_number_tx,
+                                            0,
+                                        );
+                                        self.canonical_tip_known.store(true, Ordering::Relaxed);
+                                        first_event_sync_processed = true;
+                                        info!(
+                                            next_proposal_id,
+                                            "inbox has no historical proposals; enabling ingress gate",
+                                        );
+                                    }
+                                }
+                                Err(err) => {
+                                    warn!(
+                                        ?err,
+                                        "failed to read inbox core state while opening ingress gate",
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
                 Err(err) => {
@@ -964,6 +1009,18 @@ mod tests {
     }
 
     #[test]
+    fn canonical_block_tip_update_tracks_latest_value_even_when_decreasing() {
+        let canonical_block_tip = AtomicU64::new(100);
+        let (canonical_block_tip_tx, canonical_block_tip_rx) = watch::channel(100u64);
+
+        let changed = update_canonical_block_tip(&canonical_block_tip, &canonical_block_tip_tx, 95);
+
+        assert!(changed, "decreasing canonical tip should notify watchers");
+        assert_eq!(canonical_block_tip.load(Ordering::Relaxed), 95);
+        assert_eq!(*canonical_block_tip_rx.borrow(), 95);
+    }
+
+    #[test]
     fn preconf_ingress_spawn_requires_live_scanner_and_first_processed_event() {
         assert!(
             !should_spawn_preconf_ingress(true, false, true, false),
@@ -984,6 +1041,22 @@ mod tests {
         assert!(
             !should_spawn_preconf_ingress(false, false, true, true),
             "disabled preconfirmation must never open ingress gate",
+        );
+    }
+
+    #[test]
+    fn empty_inbox_proposal_id_is_treated_as_synced_without_logs() {
+        assert!(
+            should_treat_inbox_as_synced_without_logs(0),
+            "zero proposal id should be treated as empty inbox",
+        );
+        assert!(
+            should_treat_inbox_as_synced_without_logs(1),
+            "proposal id 1 should be treated as empty inbox",
+        );
+        assert!(
+            !should_treat_inbox_as_synced_without_logs(2),
+            "proposal id above 1 means historical proposals exist",
         );
     }
 
