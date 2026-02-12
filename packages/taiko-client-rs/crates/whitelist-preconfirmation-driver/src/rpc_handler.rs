@@ -248,16 +248,12 @@ where
         Ok(tx_list)
     }
 
-    /// Check fee recipient against current/next whitelist operator addresses.
+    /// Check fee recipient against current/next whitelist operators and slot handover window.
     async fn ensure_fee_recipient_allowed(&self, fee_recipient: Address) -> Result<()> {
         let (current, next) = self.fetch_current_next_sequencers().await?;
-        if fee_recipient == current || fee_recipient == next {
-            return Ok(());
-        }
-
-        Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "fee recipient {fee_recipient} is not current ({current}) or next ({next}) operator"
-        )))
+        let current_slot = self.beacon_client.current_slot();
+        let slots_per_epoch = self.beacon_client.slots_per_epoch();
+        validate_fee_recipient_for_slot(fee_recipient, current, next, current_slot, slots_per_epoch)
     }
 
     /// Fetch current and next sequencer addresses pinned to a single L1 block number.
@@ -321,16 +317,9 @@ where
         let (curr_operator, next_operator) = self.fetch_current_next_sequencers().await.ok()?;
         let current_epoch = self.beacon_client.current_epoch();
         let slots_per_epoch = self.beacon_client.slots_per_epoch();
-        let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
-        let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
-        let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
-
-        let curr_ranges =
-            vec![SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) }];
-        let next_ranges = vec![SlotRange {
-            start: epoch_start.saturating_add(threshold),
-            end: epoch_start.saturating_add(slots_per_epoch),
-        }];
+        let (curr_range, next_range) = sequencing_window_ranges(current_epoch, slots_per_epoch);
+        let curr_ranges = vec![curr_range];
+        let next_ranges = vec![next_range];
 
         let updated_at =
             SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
@@ -562,6 +551,72 @@ fn ensure_parent_proposal_not_stale(
     )))
 }
 
+/// Return the current-operator handover split threshold in slots.
+fn handover_threshold(slots_per_epoch: u64) -> u64 {
+    let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
+    slots_per_epoch.saturating_sub(handover_skip_slots)
+}
+
+/// Build current/next operator sequencing windows for one epoch.
+fn sequencing_window_ranges(current_epoch: u64, slots_per_epoch: u64) -> (SlotRange, SlotRange) {
+    let threshold = handover_threshold(slots_per_epoch);
+    let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
+    (
+        SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) },
+        SlotRange {
+            start: epoch_start.saturating_add(threshold),
+            end: epoch_start.saturating_add(slots_per_epoch),
+        },
+    )
+}
+
+/// Return true when the absolute slot is inside the half-open range.
+fn slot_in_range(slot: u64, range: &SlotRange) -> bool {
+    slot >= range.start && slot < range.end
+}
+
+/// Validate fee recipient against slot-aware current/next operator handover windows.
+fn validate_fee_recipient_for_slot(
+    fee_recipient: Address,
+    current_operator: Address,
+    next_operator: Address,
+    current_slot: u64,
+    slots_per_epoch: u64,
+) -> Result<()> {
+    if slots_per_epoch == 0 {
+        return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
+            "invalid beacon config: slots_per_epoch is zero".to_string(),
+        ));
+    }
+
+    let current_epoch = current_slot / slots_per_epoch;
+    let (curr_range, next_range) = sequencing_window_ranges(current_epoch, slots_per_epoch);
+    let in_curr_window = slot_in_range(current_slot, &curr_range);
+    let in_next_window = slot_in_range(current_slot, &next_range);
+
+    if fee_recipient == current_operator && in_curr_window {
+        return Ok(());
+    }
+
+    if fee_recipient == next_operator && in_next_window {
+        return Ok(());
+    }
+
+    let (expected_label, expected_operator) = if in_curr_window {
+        ("current", current_operator)
+    } else if in_next_window {
+        ("next", next_operator)
+    } else {
+        ("none", Address::ZERO)
+    };
+
+    Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+        "fee recipient {fee_recipient} is not allowed at slot {current_slot}; expected {expected_label} operator \
+         {expected_operator} (current range: [{}..{}), next range: [{}..{}))",
+        curr_range.start, curr_range.end, next_range.start, next_range.end
+    )))
+}
+
 /// Convert a provider error into a driver error.
 fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
     WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
@@ -662,6 +717,67 @@ mod tests {
         ensure_parent_proposal_not_stale(6, 6).expect("equal parent proposal id must pass");
         ensure_parent_proposal_not_stale(7, 6).expect("newer parent proposal id must pass");
         ensure_parent_proposal_not_stale(1, 0).expect("zero latest proposal id must skip check");
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_allows_current_before_handover() {
+        let current = Address::from([0x11; 20]);
+        let next = Address::from([0x22; 20]);
+        // slots_per_epoch=32 and DEFAULT_HANDOVER_SKIP_SLOTS=8 => threshold=24
+        validate_fee_recipient_for_slot(current, current, next, 23, 32)
+            .expect("current operator must be allowed before handover threshold");
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_allows_next_at_handover_or_later() {
+        let current = Address::from([0x11; 20]);
+        let next = Address::from([0x22; 20]);
+        validate_fee_recipient_for_slot(next, current, next, 24, 32)
+            .expect("next operator must be allowed at handover threshold");
+        validate_fee_recipient_for_slot(next, current, next, 31, 32)
+            .expect("next operator must be allowed after handover threshold");
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_rejects_wrong_operator_for_window() {
+        let current = Address::from([0x11; 20]);
+        let next = Address::from([0x22; 20]);
+        let err = validate_fee_recipient_for_slot(next, current, next, 10, 32)
+            .expect_err("next operator should not be allowed before handover threshold");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("expected current operator")
+        ));
+
+        let err = validate_fee_recipient_for_slot(current, current, next, 30, 32)
+            .expect_err("current operator should not be allowed during next-operator window");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg.contains("expected next operator")
+        ));
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_allows_same_operator_across_windows() {
+        let same = Address::from([0x44; 20]);
+        validate_fee_recipient_for_slot(same, same, same, 1, 32)
+            .expect("same operator should be allowed in current window");
+        validate_fee_recipient_for_slot(same, same, same, 31, 32)
+            .expect("same operator should be allowed in next window");
+    }
+
+    #[test]
+    fn validate_fee_recipient_for_slot_rejects_zero_slots_per_epoch() {
+        let operator = Address::from([0x11; 20]);
+        let err = validate_fee_recipient_for_slot(operator, operator, operator, 0, 0)
+            .expect_err("zero slots_per_epoch must fail");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::WhitelistLookup(msg)
+                if msg.contains("slots_per_epoch is zero")
+        ));
     }
 
     #[test]
