@@ -19,6 +19,7 @@ pub mod engine;
 pub mod error;
 pub mod event;
 
+pub(crate) use canonical_tip::is_stale_preconf;
 pub use canonical_tip::{AtomicCanonicalTip, CanonicalTipState};
 pub use error::SyncError;
 

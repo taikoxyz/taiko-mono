@@ -30,7 +30,7 @@ use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
-use super::{AtomicCanonicalTip, CanonicalTipState, SyncError, SyncStage};
+use super::{AtomicCanonicalTip, CanonicalTipState, SyncError, SyncStage, is_stale_preconf};
 use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
@@ -218,7 +218,7 @@ where
                         continue;
                     }
                     CanonicalTipState::Known(canonical_block_tip) => {
-                        if block_number <= canonical_block_tip {
+                        if is_stale_preconf(block_number, canonical_block_tip) {
                             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
                             counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL)
                                 .increment(1);
@@ -521,7 +521,7 @@ where
             }
             CanonicalTipState::Known(canonical_block_tip) => canonical_block_tip,
         };
-        if block_number <= canonical_block_tip {
+        if is_stale_preconf(block_number, canonical_block_tip) {
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
             warn!(

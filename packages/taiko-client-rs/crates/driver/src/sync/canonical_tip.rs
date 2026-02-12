@@ -86,9 +86,15 @@ impl AtomicCanonicalTip {
     }
 }
 
+/// Return true when a preconfirmation target block is stale against the canonical tip boundary.
+#[inline]
+pub(crate) fn is_stale_preconf(block_number: u64, canonical_block_tip: u64) -> bool {
+    block_number <= canonical_block_tip
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{AtomicCanonicalTip, CanonicalTipState};
+    use super::{AtomicCanonicalTip, CanonicalTipState, is_stale_preconf};
     use std::sync::atomic::Ordering;
 
     #[test]
@@ -110,5 +116,12 @@ mod tests {
 
         assert_eq!(previous, CanonicalTipState::Known(100));
         assert_eq!(state.load(Ordering::Relaxed), CanonicalTipState::Known(95));
+    }
+
+    #[test]
+    fn stale_preconf_comparison_matches_canonical_boundary() {
+        assert!(is_stale_preconf(10, 10));
+        assert!(is_stale_preconf(9, 10));
+        assert!(!is_stale_preconf(11, 10));
     }
 }

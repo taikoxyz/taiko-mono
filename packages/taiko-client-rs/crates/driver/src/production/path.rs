@@ -8,7 +8,10 @@ use crate::{
     derivation::DerivationPipeline,
     error::DriverError,
     metrics::DriverMetrics,
-    sync::{AtomicCanonicalTip, CanonicalTipState, engine::PayloadApplier, error::SyncError},
+    sync::{
+        AtomicCanonicalTip, CanonicalTipState, engine::PayloadApplier, error::SyncError,
+        is_stale_preconf,
+    },
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
@@ -113,7 +116,7 @@ where
                         return Err(DriverError::PreconfIngressNotReady);
                     }
                     CanonicalTipState::Known(canonical_block_tip) => {
-                        if block_number <= canonical_block_tip {
+                        if is_stale_preconf(block_number, canonical_block_tip) {
                             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
                             counter!(DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL)
                                 .increment(1);
