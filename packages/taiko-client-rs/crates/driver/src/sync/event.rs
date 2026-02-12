@@ -183,19 +183,27 @@ where
                 let router_guard = router.lock().await;
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
-                if canonical_tip_known.load(Ordering::Relaxed) {
-                    let canonical_block_tip = last_canonical_block_number.load(Ordering::Relaxed);
-                    if block_number <= canonical_block_tip {
-                        counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                        warn!(
-                            block_number,
-                            canonical_block_tip,
-                            "dropping stale preconfirmation payload in ingress loop"
-                        );
-                        let _ = job.respond_to.send(Ok(()));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                        continue;
-                    }
+                if !canonical_tip_known.load(Ordering::Relaxed) {
+                    warn!(
+                        block_number,
+                        "rejecting preconfirmation payload in ingress loop: canonical tip unknown"
+                    );
+                    let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
+                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    continue;
+                }
+
+                let canonical_block_tip = last_canonical_block_number.load(Ordering::Relaxed);
+                if block_number <= canonical_block_tip {
+                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                    warn!(
+                        block_number,
+                        canonical_block_tip,
+                        "dropping stale preconfirmation payload in ingress loop"
+                    );
+                    let _ = job.respond_to.send(Ok(()));
+                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    continue;
                 }
 
                 // Single-shot injection while holding router lock to avoid interleaving.
@@ -450,15 +458,21 @@ where
         }
 
         let block_number = payload.block_number();
-        if let Some(canonical_block_tip) = self.canonical_block_tip()
-            && block_number <= canonical_block_tip {
-                counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                warn!(
-                    block_number,
-                    canonical_block_tip, "dropping stale preconfirmation payload before enqueue"
-                );
-                return Ok(());
-            }
+        let canonical_block_tip = self.canonical_block_tip().ok_or_else(|| {
+            warn!(
+                block_number,
+                "rejecting preconfirmation payload before enqueue: canonical tip unknown"
+            );
+            DriverError::PreconfIngressNotReady
+        })?;
+        if block_number <= canonical_block_tip {
+            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+            warn!(
+                block_number,
+                canonical_block_tip, "dropping stale preconfirmation payload before enqueue"
+            );
+            return Ok(());
+        }
 
         debug!(block_number, "submitting preconfirmation payload to queue");
 
@@ -915,6 +929,28 @@ mod tests {
 
         let rx = syncer.preconf_rx.as_ref().expect("preconf receiver").clone();
         assert_eq!(rx.lock().await.len(), 0, "stale payload should not be enqueued for processing");
+    }
+
+    #[tokio::test]
+    async fn preconf_submit_rejected_when_canonical_tip_is_unknown() {
+        let syncer = build_syncer().await;
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+        syncer.canonical_tip_known.store(false, Ordering::Relaxed);
+
+        let payload = PreconfPayload::new(sample_payload(6));
+        let err = syncer
+            .submit_preconfirmation_payload_with_timeout(payload, Duration::from_millis(10))
+            .await
+            .expect_err("unknown canonical tip should reject preconfirmation payload");
+
+        assert!(matches!(err, DriverError::PreconfIngressNotReady));
+
+        let rx = syncer.preconf_rx.as_ref().expect("preconf receiver").clone();
+        assert_eq!(
+            rx.lock().await.len(),
+            0,
+            "payload should not be enqueued when canonical tip is unknown",
+        );
     }
 
     #[tokio::test]
