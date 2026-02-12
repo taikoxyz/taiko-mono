@@ -4,6 +4,8 @@
 //! falls back to the blob server if the beacon call fails. This module provides the same
 //! functionality so the Rust driver mirrors the Go behaviour.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use alloy::primitives::hex;
 use alloy_eips::eip4844::{Blob, Bytes48};
 use reqwest::Client as HttpClient;
@@ -91,7 +93,7 @@ struct BeaconBlobSidecar {
 
 /// Internal representation of a beacon sidecar after decoding hex fields.
 #[derive(Debug, Clone)]
-pub(crate) struct BeaconSidecar {
+pub struct BeaconSidecar {
     pub blob: Blob,
     pub commitment: Bytes48,
     pub proof: Bytes48,
@@ -99,15 +101,16 @@ pub(crate) struct BeaconSidecar {
 
 /// Minimal beacon client capable of retrieving blob sidecars.
 #[derive(Debug)]
-pub(crate) struct BeaconClient {
+pub struct BeaconClient {
     endpoint: Url,
     http: HttpClient,
     genesis_time: u64,
     seconds_per_slot: u64,
+    slots_per_epoch: u64,
 }
 
 impl BeaconClient {
-    /// Build a new beacon client by fetching the genesis time and slot duration.
+    /// Build a new beacon client by fetching genesis and slot/epoch metadata.
     ///
     /// The Go client follows the same pattern: it reads `/eth/v1/beacon/genesis` to determine
     /// the genesis timestamp and `/eth/v1/config/spec` to fetch `SECONDS_PER_SLOT`. Those values
@@ -157,10 +160,20 @@ impl BeaconClient {
             .ok_or_else(|| BlobDataError::Parse("SECONDS_PER_SLOT missing in beacon spec".into()))?
             .parse::<u64>()
             .map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let slots_per_epoch = spec
+            .data
+            .get("SLOTS_PER_EPOCH")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| BlobDataError::Parse("SLOTS_PER_EPOCH missing in beacon spec".into()))?
+            .parse::<u64>()
+            .map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
-        debug!(seconds_per_slot, genesis_time, "initialised beacon client metadata");
+        debug!(
+            seconds_per_slot,
+            slots_per_epoch, genesis_time, "initialised beacon client metadata"
+        );
 
-        Ok(Self { endpoint, http, genesis_time, seconds_per_slot })
+        Ok(Self { endpoint, http, genesis_time, seconds_per_slot, slots_per_epoch })
     }
 
     /// Fetch blob sidecars for the beacon slot that corresponds to the provided timestamp.
@@ -295,6 +308,32 @@ impl BeaconClient {
             )));
         }
         Ok((timestamp - self.genesis_time) / self.seconds_per_slot)
+    }
+
+    /// Return the current beacon slot based on local wall-clock time.
+    ///
+    /// Mirrors the Go driver implementation:
+    /// `(now_utc_unix - genesis_time) / seconds_per_slot`.
+    pub fn current_slot(&self) -> u64 {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or_default();
+
+        now_secs.saturating_sub(self.genesis_time) / self.seconds_per_slot
+    }
+
+    /// Return the current beacon epoch based on local wall-clock time.
+    ///
+    /// Mirrors the Go driver implementation:
+    /// `current_slot / slots_per_epoch`.
+    pub fn current_epoch(&self) -> u64 {
+        self.current_slot() / self.slots_per_epoch
+    }
+
+    /// Return configured slots per epoch from the beacon spec.
+    pub const fn slots_per_epoch(&self) -> u64 {
+        self.slots_per_epoch
     }
 }
 

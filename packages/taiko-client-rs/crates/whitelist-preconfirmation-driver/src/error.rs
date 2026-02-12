@@ -62,6 +62,32 @@ pub enum WhitelistPreconfirmationDriverError {
     /// Failed to resolve preconfirmation whitelist operators.
     #[error("whitelist operator lookup failed: {0}")]
     WhitelistLookup(String),
+    /// Failed to bind the whitelist REST/WS server socket.
+    #[error("failed to bind whitelist REST/WS server on {listen_addr}: {reason}")]
+    RestWsServerBind {
+        /// Configured listen address.
+        listen_addr: std::net::SocketAddr,
+        /// Underlying bind error description.
+        reason: String,
+    },
+    /// Failed to resolve the local address from a started whitelist REST/WS server.
+    #[error("failed to get whitelist REST/WS server local address: {reason}")]
+    RestWsServerLocalAddr {
+        /// Underlying local-address error description.
+        reason: String,
+    },
+    /// Invalid transport configuration for the whitelist REST/WS server.
+    #[error("whitelist REST/WS server requires at least one transport to be enabled")]
+    RestWsServerNoTransportsEnabled,
+    /// Failed to initialize the beacon client used by the whitelist REST/WS handler.
+    #[error("failed to initialize beacon client for whitelist REST/WS: {reason}")]
+    RestWsServerBeaconInit {
+        /// Underlying beacon initialization error description.
+        reason: String,
+    },
+    /// Signing error.
+    #[error("signing error: {0}")]
+    Signing(String),
     /// P2P network error.
     #[error("p2p error: {0}")]
     P2p(String),

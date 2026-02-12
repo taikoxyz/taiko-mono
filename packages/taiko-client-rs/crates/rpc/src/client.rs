@@ -1,6 +1,10 @@
 //! RPC client for interacting with L1 and L2 nodes.
 
-use std::{fs, io, path::PathBuf, time::Duration};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
@@ -100,7 +104,7 @@ impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
         let l2_provider = connect_provider_with_timeout(config.l2_provider_url).await?;
-        let jwt_secret = read_jwt_secret(config.jwt_secret.clone()).ok_or_else(|| {
+        let jwt_secret = read_jwt_secret(config.jwt_secret.as_path()).ok_or_else(|| {
             RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
         })?;
         let l2_auth_provider =
@@ -194,8 +198,8 @@ pub async fn build_ipc_provider(path: PathBuf) -> Result<RootProvider> {
 }
 
 /// Returns the JWT secret for the engine API
-/// using the provided [PathBuf]. If the file is not found, it will return [None].
-pub fn read_jwt_secret(path: PathBuf) -> Option<JwtSecret> {
+/// using the provided path. If the file is not found, it will return [None].
+pub fn read_jwt_secret(path: &Path) -> Option<JwtSecret> {
     if let Ok(secret) = fs::read_to_string(path) {
         return JwtSecret::from_hex(secret).ok();
     };
@@ -213,7 +217,7 @@ mod tests {
             PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/docker/jwt.hex"));
 
         // Should successfully read the JWT secret
-        let secret = read_jwt_secret(jwt_path);
+        let secret = read_jwt_secret(jwt_path.as_path());
         assert!(secret.is_some());
 
         // Verify the secret is a valid 32-byte key
@@ -226,7 +230,7 @@ mod tests {
         let jwt_path = PathBuf::from("/nonexistent/path/jwt.hex");
 
         // Should return None for non-existent file
-        let secret = read_jwt_secret(jwt_path);
+        let secret = read_jwt_secret(jwt_path.as_path());
         assert!(secret.is_none());
     }
 

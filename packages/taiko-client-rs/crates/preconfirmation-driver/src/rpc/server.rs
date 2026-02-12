@@ -1,15 +1,15 @@
 //! HTTP JSON-RPC server for the preconfirmation driver node.
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, sync::Arc};
 
 use jsonrpsee::{
     RpcModule,
     server::{ServerBuilder, ServerHandle},
-    types::{ErrorCode, ErrorObjectOwned, Params},
+    types::{ErrorCode, ErrorObjectOwned},
 };
 use metrics::{counter, histogram};
 use protocol::preconfirmation::LookaheadError;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use super::{
     PreconfRpcApi, PublishCommitmentRequest, PublishTxListRequest, types::PreconfRpcErrorCode,
@@ -99,40 +99,6 @@ impl PreconfRpcServer {
     }
 }
 
-/// Macro to register an RPC method with metrics and error handling.
-macro_rules! register_method {
-    // For methods that take a parameter
-    ($module:expr, $method:expr, |$params:ident, $ctx:ident| $call:expr) => {
-        $module
-            .register_async_method(
-                $method,
-                |$params: Params<'static>, $ctx: Arc<RpcContext>, _| async move {
-                    let start = Instant::now();
-                    debug!(method = $method, "received preconfirmation RPC request");
-                    let result = $call;
-                    record_metrics($method, &result, start.elapsed().as_secs_f64());
-                    result.map_err(api_error_to_rpc)
-                },
-            )
-            .expect("method registration should succeed");
-    };
-    // For methods without parameters
-    ($module:expr, $method:expr, |$ctx:ident| $call:expr) => {
-        $module
-            .register_async_method(
-                $method,
-                |_: Params<'static>, $ctx: Arc<RpcContext>, _| async move {
-                    let start = Instant::now();
-                    debug!(method = $method, "received preconfirmation RPC request");
-                    let result = $call;
-                    record_metrics($method, &result, start.elapsed().as_secs_f64());
-                    result.map_err(api_error_to_rpc)
-                },
-            )
-            .expect("method registration should succeed");
-    };
-}
-
 /// Internal context passed to all RPC method handlers.
 #[derive(Clone)]
 struct RpcContext {
@@ -144,26 +110,59 @@ struct RpcContext {
 fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
     let mut module = RpcModule::new(RpcContext { api });
 
-    register_method!(module, METHOD_PUBLISH_COMMITMENT, |params, ctx| {
-        let request: PublishCommitmentRequest = params.one()?;
-        ctx.api.publish_commitment(request).await
-    });
+    rpc::register_rpc_method!(
+        module,
+        METHOD_PUBLISH_COMMITMENT,
+        RpcContext,
+        |params, ctx| {
+            let request: PublishCommitmentRequest = params.one()?;
+            ctx.api.publish_commitment(request).await
+        },
+        record_metrics
+    );
 
-    register_method!(module, METHOD_PUBLISH_TX_LIST, |params, ctx| {
-        let request: PublishTxListRequest = params.one()?;
-        ctx.api.publish_tx_list(request).await
-    });
+    rpc::register_rpc_method!(
+        module,
+        METHOD_PUBLISH_TX_LIST,
+        RpcContext,
+        |params, ctx| {
+            let request: PublishTxListRequest = params.one()?;
+            ctx.api.publish_tx_list(request).await
+        },
+        record_metrics
+    );
 
-    register_method!(module, METHOD_GET_STATUS, |ctx| ctx.api.get_status().await);
-    register_method!(module, METHOD_PRECONF_TIP, |ctx| ctx.api.preconf_tip().await);
-    register_method!(module, METHOD_CANONICAL_PROPOSAL_ID, |ctx| ctx
-        .api
-        .canonical_proposal_id()
-        .await);
-    register_method!(module, METHOD_GET_PRECONF_SLOT_INFO, |params, ctx| {
-        let timestamp: alloy_primitives::U256 = params.one()?;
-        ctx.api.get_preconf_slot_info(timestamp).await
-    });
+    rpc::register_rpc_method!(
+        module,
+        METHOD_GET_STATUS,
+        RpcContext,
+        |ctx| ctx.api.get_status().await,
+        record_metrics
+    );
+    rpc::register_rpc_method!(
+        module,
+        METHOD_PRECONF_TIP,
+        RpcContext,
+        |ctx| ctx.api.preconf_tip().await,
+        record_metrics
+    );
+    rpc::register_rpc_method!(
+        module,
+        METHOD_CANONICAL_PROPOSAL_ID,
+        RpcContext,
+        |ctx| ctx.api.canonical_proposal_id().await,
+        record_metrics
+    );
+    rpc::register_rpc_method!(
+        module,
+        METHOD_GET_PRECONF_SLOT_INFO,
+        RpcContext,
+        |params, ctx| {
+            let timestamp: alloy_primitives::U256 = params.one()?;
+            ctx.api.get_preconf_slot_info(timestamp).await
+        },
+        record_metrics
+    );
 
     module
 }
@@ -213,6 +212,12 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     };
 
     ErrorObjectOwned::owned(code, err.to_string(), None::<()>)
+}
+
+impl From<PreconfirmationClientError> for ErrorObjectOwned {
+    fn from(err: PreconfirmationClientError) -> Self {
+        api_error_to_rpc(err)
+    }
 }
 
 #[cfg(test)]

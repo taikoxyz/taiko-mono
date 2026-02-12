@@ -31,12 +31,14 @@ mod validation;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use validation::validate_execution_payload_for_preconf;
+
 /// Maximum compressed tx-list size accepted from a preconfirmation payload.
-pub(super) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
+pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
 /// Maximum decompressed tx-list size accepted from a preconfirmation payload.
 ///
 /// Align with the preconfirmation tx-list cap to avoid zlib bomb expansion on untrusted payloads.
-pub(super) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
+pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
 pub(crate) struct WhitelistPreconfirmationImporter<P>
 where
