@@ -72,13 +72,6 @@ fn should_spawn_preconf_ingress(
         first_event_sync_processed
 }
 
-/// Decide whether inbox state can be treated as already synced without seeing historical logs.
-///
-/// `nextProposalId <= 1` means there are no historical proposals to process.
-fn should_treat_inbox_as_synced_without_logs(next_proposal_id: u64) -> bool {
-    next_proposal_id <= 1
-}
-
 /// Update the canonical block tip boundary and notify watchers when it changes.
 ///
 /// Returns true when the published tip changed. The canonical tip may move either forward or
@@ -780,35 +773,10 @@ where
                 Ok(ScannerMessage::Notification(notification)) => {
                     info!(?notification, "event scanner notification");
                     if matches!(notification, Notification::SwitchingToLive) {
+                        // Keep the gate strict: scanner live is necessary but not sufficient.
+                        // We always wait for at least one processed `Proposed` log before opening
+                        // preconfirmation ingress; Inbox activation emits a genesis proposal event.
                         scanner_live = true;
-                        // If there are no historical proposal logs to process, we can treat the
-                        // inbox as already synced and open the ingress gate immediately instead of
-                        // waiting for the first log batch to be processed.
-                        if self.cfg.preconfirmation_enabled && !first_event_sync_processed {
-                            let core_state =
-                                self.rpc.shasta.inbox.getCoreState().call().await.map_err(
-                                    |err| SyncError::Rpc(RpcClientError::Provider(err.to_string())),
-                                )?;
-                            let next_proposal_id = core_state.nextProposalId.to::<u64>();
-                            if should_treat_inbox_as_synced_without_logs(next_proposal_id) {
-                                update_canonical_block_tip(
-                                    self.last_canonical_block_number.as_ref(),
-                                    &self.canonical_block_number_tx,
-                                    0,
-                                );
-                                self.canonical_tip_known.store(true, Ordering::Relaxed);
-                                first_event_sync_processed = true;
-                                info!(
-                                    next_proposal_id,
-                                    "inbox has no historical proposals; enabling ingress gate",
-                                );
-                            } else {
-                                debug!(
-                                    next_proposal_id,
-                                    "inbox has historical proposals; waiting for proposal logs before enabling ingress gate"
-                                );
-                            }
-                        }
                     }
                 }
                 Err(err) => {
@@ -1049,22 +1017,6 @@ mod tests {
         assert!(
             !should_spawn_preconf_ingress(false, false, true, true),
             "disabled preconfirmation must never open ingress gate",
-        );
-    }
-
-    #[test]
-    fn empty_inbox_proposal_id_is_treated_as_synced_without_logs() {
-        assert!(
-            should_treat_inbox_as_synced_without_logs(0),
-            "zero proposal id should be treated as empty inbox",
-        );
-        assert!(
-            should_treat_inbox_as_synced_without_logs(1),
-            "proposal id 1 should be treated as empty inbox",
-        );
-        assert!(
-            !should_treat_inbox_as_synced_without_logs(2),
-            "proposal id above 1 means historical proposals exist",
         );
     }
 
