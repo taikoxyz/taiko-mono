@@ -228,6 +228,7 @@ where
                 let canonical_block_tip = last_canonical_block_number.load(Ordering::Relaxed);
                 if block_number <= canonical_block_tip {
                     counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL).increment(1);
                     warn!(
                         block_number,
                         canonical_block_tip,
@@ -490,6 +491,7 @@ where
         })?;
         if block_number <= canonical_block_tip {
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+            counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
             warn!(
                 block_number,
                 canonical_block_tip, "dropping stale preconfirmation payload before enqueue"

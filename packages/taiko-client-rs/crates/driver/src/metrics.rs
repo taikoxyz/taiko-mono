@@ -72,6 +72,15 @@ impl DriverMetrics {
         "driver_preconf_response_dropped_total";
     /// Counter for stale preconfirmation payloads dropped before processing.
     pub const PRECONF_STALE_DROPPED_TOTAL: &'static str = "driver_preconf_stale_dropped_total";
+    /// Counter for stale preconfirmation payloads dropped before enqueue.
+    pub const PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL: &'static str =
+        "driver_preconf_stale_dropped_before_enqueue_total";
+    /// Counter for stale preconfirmation payloads dropped in ingress processing.
+    pub const PRECONF_STALE_DROPPED_INGRESS_TOTAL: &'static str =
+        "driver_preconf_stale_dropped_ingress_total";
+    /// Counter for stale preconfirmation payloads dropped in preconfirmation production path.
+    pub const PRECONF_STALE_DROPPED_PRODUCTION_TOTAL: &'static str =
+        "driver_preconf_stale_dropped_production_total";
 
     // Production path metrics
     /// Histogram for parent hash lookup duration.
@@ -205,7 +214,22 @@ impl DriverMetrics {
         metrics::describe_counter!(
             Self::PRECONF_STALE_DROPPED_TOTAL,
             Unit::Count,
-            "Stale preconfirmation payloads dropped because canonical tip already passed the block"
+            "Aggregate stale preconfirmation payload drops across all decision points"
+        );
+        metrics::describe_counter!(
+            Self::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL,
+            Unit::Count,
+            "Stale preconfirmation payloads dropped before enqueue"
+        );
+        metrics::describe_counter!(
+            Self::PRECONF_STALE_DROPPED_INGRESS_TOTAL,
+            Unit::Count,
+            "Stale preconfirmation payloads dropped in the ingress loop"
+        );
+        metrics::describe_counter!(
+            Self::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL,
+            Unit::Count,
+            "Stale preconfirmation payloads dropped in the production path"
         );
 
         // Production path metrics
@@ -239,6 +263,9 @@ impl DriverMetrics {
         metrics::counter!(Self::PRECONF_ENQUEUE_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::PRECONF_RESPONSE_DROPPED_TOTAL).absolute(0);
         metrics::counter!(Self::PRECONF_STALE_DROPPED_TOTAL).absolute(0);
+        metrics::counter!(Self::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).absolute(0);
+        metrics::counter!(Self::PRECONF_STALE_DROPPED_INGRESS_TOTAL).absolute(0);
+        metrics::counter!(Self::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL).absolute(0);
 
         // Reset production path counters
         metrics::counter!(Self::PRECONF_PARENT_HASH_LOOKUP_FAILURES_TOTAL).absolute(0);
@@ -246,5 +273,21 @@ impl DriverMetrics {
         // Reset event syncer gauge
         metrics::gauge!(Self::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(0.0);
         metrics::gauge!(Self::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DriverMetrics;
+
+    #[test]
+    fn stale_drop_metrics_are_split_by_location() {
+        let submit = DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL;
+        let ingress = DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL;
+        let production = DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL;
+
+        assert_ne!(submit, ingress, "submit and ingress stale-drop metrics must differ");
+        assert_ne!(submit, production, "submit and production stale-drop metrics must differ");
+        assert_ne!(ingress, production, "ingress and production stale-drop metrics must differ");
     }
 }

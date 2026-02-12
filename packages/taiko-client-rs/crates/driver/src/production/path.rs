@@ -111,6 +111,8 @@ where
                     let canonical_block_tip = canonical_tip.load(Ordering::Relaxed);
                     if block_number <= canonical_block_tip {
                         counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                        counter!(DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL)
+                            .increment(1);
                         warn!(
                             block_number,
                             canonical_block_tip,
