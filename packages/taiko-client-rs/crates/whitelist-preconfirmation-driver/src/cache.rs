@@ -162,6 +162,7 @@ impl RecentEnvelopeCache {
     }
 
     /// Get the most recently inserted end-of-sequencing envelope.
+    #[cfg(test)]
     pub fn latest_end_of_sequencing(&self) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.iter().rev().find_map(|(_, envelope)| {
             envelope.end_of_sequencing.unwrap_or(false).then(|| envelope.clone())

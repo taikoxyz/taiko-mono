@@ -13913,6 +13913,7 @@ dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-evm",
  "alethia-reth-primitives",
+ "alloy",
  "alloy-consensus",
  "alloy-eips",
  "alloy-primitives",

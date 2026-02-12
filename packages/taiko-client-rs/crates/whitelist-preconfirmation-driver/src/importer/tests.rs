@@ -492,18 +492,18 @@ fn validate_payload_rejects_anchor_with_wrong_method() {
 }
 
 #[test]
-fn validate_payload_with_tx_list_rejects_mismatched_decompressed_bytes() {
+fn validate_payload_with_tx_list_rejects_invalid_anchor_transaction() {
     let anchor_address = sample_anchor_address();
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let expected_tx =
         signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, *ANCHOR_V4_SELECTOR);
-    let mismatched_tx =
+    let invalid_anchor_tx =
         signed_anchor_tx_bytes(&signer, TEST_CHAIN_ID, anchor_address, [1, 2, 3, 4]);
     let envelope =
         sample_execution_payload_with_transactions(vec![encode_compressed_tx_list(vec![
             expected_tx,
         ])]);
-    let decompressed_tx_list = encode_decompressed_tx_list(vec![mismatched_tx]);
+    let decompressed_tx_list = encode_decompressed_tx_list(vec![invalid_anchor_tx]);
 
     let err = validate_execution_payload_for_preconf_with_tx_list(
         &envelope.execution_payload,
@@ -511,11 +511,11 @@ fn validate_payload_with_tx_list_rejects_mismatched_decompressed_bytes() {
         TEST_CHAIN_ID,
         anchor_address,
     )
-    .expect_err("mismatched decompressed tx-list must be rejected");
+    .expect_err("invalid anchor in decompressed tx-list must be rejected");
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("does not match payload transactions bytes")
+            if msg.contains("invalid anchor transaction method")
     ));
 }
 

@@ -40,10 +40,15 @@ pub struct RunnerConfig {
     pub p2p_signer_key: Option<String>,
     /// Optional hex-encoded 32-byte ed25519 private key for persistent libp2p peer identity.
     pub p2p_network_private_key: Option<String>,
+    /// Slot count reserved at epoch tail for handover to the next operator.
+    pub handover_skip_slots: u64,
+    /// Optional TaikoWrapper address used to discover preconfirmation router config.
+    pub taiko_wrapper_address: Option<Address>,
 }
 
 impl RunnerConfig {
     /// Build runner configuration.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         driver_config: DriverConfig,
         p2p_config: P2pConfig,
@@ -52,6 +57,8 @@ impl RunnerConfig {
         rpc_jwt_secret: Option<Vec<u8>>,
         p2p_signer_key: Option<String>,
         p2p_network_private_key: Option<String>,
+        handover_skip_slots: u64,
+        taiko_wrapper_address: Option<Address>,
     ) -> Self {
         Self {
             driver_config,
@@ -61,6 +68,8 @@ impl RunnerConfig {
             rpc_jwt_secret,
             p2p_signer_key,
             p2p_network_private_key,
+            handover_skip_slots,
+            taiko_wrapper_address,
         }
     }
 }
@@ -174,6 +183,8 @@ impl WhitelistPreconfirmationDriverRunner {
                 runtime_state.clone(),
                 network.command_tx.clone(),
                 network.local_peer_id.to_string(),
+                self.config.handover_skip_slots,
+                self.config.taiko_wrapper_address,
             );
 
             let server_config = WhitelistRestWsServerConfig {

@@ -39,9 +39,24 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Shasta preconfirmation whitelist contract address.
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
+    /// Optional TaikoWrapper contract address used to refresh handover config from PreconfRouter.
+    #[clap(long = "taiko.wrapper", env = "TAIKO_WRAPPER")]
+    pub taiko_wrapper_address: Option<Address>,
     /// Optional listen address for the whitelist preconfirmation REST/WS server.
-    #[clap(long = "preconfirmation.rpc-addr", env = "PRECONFIRMATION_RPC_ADDR")]
+    #[clap(
+        long = "preconfirmation.rpc-addr",
+        visible_alias = "whitelist.rpc-addr",
+        env = "PRECONFIRMATION_RPC_ADDR"
+    )]
     pub preconfirmation_rpc_addr: Option<std::net::SocketAddr>,
+    /// Slot count reserved at epoch tail for handover to the next operator.
+    #[clap(
+        long = "preconfirmation.handover-skip-slots",
+        visible_alias = "whitelist.handover-skip-slots",
+        env = "PRECONFIRMATION_HANDOVER_SKIP_SLOTS",
+        default_value_t = 8
+    )]
+    pub preconfirmation_handover_skip_slots: u64,
     /// Optional path to JWT secret used to authenticate whitelist preconfirmation REST/WS calls.
     #[clap(long = "preconfirmation.jwt-secret", env = "PRECONFIRMATION_SERVER_JWT_SECRET")]
     pub preconfirmation_jwt_secret: Option<PathBuf>,
@@ -130,7 +145,26 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
     /// Resolve the whitelist RPC listen address.
     fn resolve_rpc_addr(&self) -> Option<std::net::SocketAddr> {
-        self.preconfirmation_rpc_addr
+        if let Some(addr) = self.preconfirmation_rpc_addr {
+            return Some(addr);
+        }
+
+        let Ok(raw) = std::env::var("WHITELIST_RPC_ADDR") else {
+            return None;
+        };
+
+        match raw.parse() {
+            Ok(addr) => {
+                warn!(
+                    "WHITELIST_RPC_ADDR is deprecated; use PRECONFIRMATION_RPC_ADDR or --preconfirmation.rpc-addr"
+                );
+                Some(addr)
+            }
+            Err(err) => {
+                warn!(value = %raw, error = %err, "failed to parse WHITELIST_RPC_ADDR");
+                None
+            }
+        }
     }
 
     /// Resolve and parse optional JWT secret used by the whitelist REST/WS server.
@@ -185,6 +219,8 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
             self.resolve_rpc_jwt_secret()?,
             self.preconfirmation_p2p_signer_key.clone(),
             self.preconfirmation_p2p_network_private_key.clone(),
+            self.preconfirmation_handover_skip_slots,
+            self.taiko_wrapper_address,
         );
 
         WhitelistPreconfirmationDriverRunner::new(runner_config).run().await?;

@@ -230,37 +230,6 @@ where
                         "result" => "served",
                     )
                     .increment(1);
-                } else if self.beacon_client.is_none() {
-                    if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
-                        debug!(
-                            peer = %from,
-                            epoch,
-                            hash = %envelope.execution_payload.block_hash,
-                            "serving latest end-of-sequencing response without epoch index because beacon metadata is unavailable"
-                        );
-                        let hash = envelope.execution_payload.block_hash;
-                        if self.publish_unsafe_response(envelope).await {
-                            self.mark_response_seen(hash, Instant::now());
-                        }
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                            "event_type" => "end_of_sequencing_request",
-                            "result" => "served_without_beacon_epoch",
-                        )
-                        .increment(1);
-                    } else {
-                        debug!(
-                            peer = %from,
-                            epoch,
-                            "no end-of-sequencing envelope found while beacon metadata is unavailable"
-                        );
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                            "event_type" => "end_of_sequencing_request",
-                            "result" => "miss",
-                        )
-                        .increment(1);
-                    }
                 } else {
                     debug!(
                         peer = %from,
