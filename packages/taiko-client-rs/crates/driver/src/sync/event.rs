@@ -84,13 +84,13 @@ fn update_canonical_block_tip(
     let previous = last_canonical_block_number.swap(canonical_block_number, Ordering::Relaxed);
     let changed = canonical_block_number != previous;
     if changed {
-        if canonical_block_number_tx.receiver_count() == 0 {
+        let has_receivers = canonical_block_number_tx.receiver_count() > 0;
+        canonical_block_number_tx.send_replace(canonical_block_number);
+        if !has_receivers {
             debug!(
                 canonical_block_number,
-                "canonical block tip changed with no active watchers; skipping notification"
+                "canonical block tip changed with no active watchers; updated stored tip for late subscribers"
             );
-        } else if let Err(err) = canonical_block_number_tx.send(canonical_block_number) {
-            warn!(?err, canonical_block_number, "failed to notify canonical block tip watcher");
         }
     }
     gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(canonical_block_number as f64);
@@ -994,6 +994,25 @@ mod tests {
         assert!(changed, "decreasing canonical tip should notify watchers");
         assert_eq!(canonical_block_tip.load(Ordering::Relaxed), 95);
         assert_eq!(*canonical_block_tip_rx.borrow(), 95);
+    }
+
+    #[test]
+    fn canonical_block_tip_update_refreshes_watch_value_without_active_watchers() {
+        let canonical_block_tip = AtomicU64::new(0);
+        let (canonical_block_tip_tx, canonical_block_tip_rx) = watch::channel(0u64);
+        drop(canonical_block_tip_rx);
+
+        let changed = update_canonical_block_tip(&canonical_block_tip, &canonical_block_tip_tx, 95);
+
+        assert!(changed, "updated canonical tip should be reported as changed");
+        assert_eq!(canonical_block_tip.load(Ordering::Relaxed), 95);
+
+        let late_subscriber = canonical_block_tip_tx.subscribe();
+        assert_eq!(
+            *late_subscriber.borrow(),
+            95,
+            "late subscribers should observe the latest canonical tip",
+        );
     }
 
     #[test]
