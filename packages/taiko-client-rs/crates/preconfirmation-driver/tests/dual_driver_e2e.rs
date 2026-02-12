@@ -108,8 +108,9 @@ impl DriverInstance {
 
 fn build_txlist_bytes(raw_tx_bytes: &[Vec<u8>]) -> Result<TxListBytes> {
     let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
-    let compressed =
-        codec.encode(raw_tx_bytes).map_err(|err| anyhow!("txlist encode error: {err}"))?;
+    let compressed = codec
+        .encode(raw_tx_bytes)
+        .map_err(|err| anyhow!("encode txlist before publishing: {err}"))?;
     TxListBytes::try_from(compressed).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))
 }
 

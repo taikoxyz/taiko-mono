@@ -16,7 +16,8 @@ use tracing::{debug, warn};
 use crate::{
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_unsafe_payload_message,
-        decode_unsafe_response_message, encode_unsafe_request_message,
+        decode_unsafe_response_message, encode_envelope_ssz, encode_eos_request_message,
+        encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
@@ -75,6 +76,18 @@ pub(crate) enum NetworkCommand {
     PublishUnsafeResponse {
         /// Envelope to publish.
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    },
+    /// Publish a signed unsafe payload to the `preconfBlocks` topic.
+    PublishUnsafePayload {
+        /// 65-byte secp256k1 signature.
+        signature: [u8; 65],
+        /// Envelope to publish.
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    },
+    /// Publish an end-of-sequencing request to the `requestEndOfSequencingPreconfBlocks` topic.
+    PublishEndOfSequencingRequest {
+        /// Epoch number.
+        epoch: u64,
     },
     /// Shutdown the network loop.
     Shutdown,
@@ -232,14 +245,18 @@ impl WhitelistNetwork {
             dial_once(&mut swarm, &mut dialed_addrs, addr, "bootnode");
         }
 
-        let mut discovery_rx = if cfg.enable_discovery {
+        let mut discovery_rx = if cfg.enable_discovery && !bootnodes.discovery_enrs.is_empty() {
             spawn_discovery(cfg.discovery_listen, bootnodes.discovery_enrs)
                 .map_err(|err| {
                     warn!(error = %err, "failed to start whitelist preconfirmation discovery");
                 })
                 .ok()
         } else {
-            if !bootnodes.discovery_enrs.is_empty() {
+            if cfg.enable_discovery && bootnodes.discovery_enrs.is_empty() {
+                tracing::info!(
+                    "discovery enabled but no ENR bootnodes provided; skipping discv5 bootstrap"
+                );
+            } else if !cfg.enable_discovery && !bootnodes.discovery_enrs.is_empty() {
                 warn!(
                     count = bootnodes.discovery_enrs.len(),
                     "discovery is disabled; skipping ENR bootnodes"
@@ -250,6 +267,7 @@ impl WhitelistNetwork {
 
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, mut command_rx) = mpsc::channel(512);
+        let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
             loop {
@@ -330,6 +348,90 @@ impl WhitelistNetwork {
                                             "failed to encode whitelist preconfirmation response"
                                         );
                                     }
+                                }
+                            }
+                            NetworkCommand::PublishUnsafePayload { signature, envelope } => {
+                                let hash = envelope.execution_payload.block_hash;
+                                // Loop back locally-built payloads so importer caches can serve
+                                // follow-up EOS catch-up requests even without peer echo.
+                                let payload_bytes = encode_envelope_ssz(&envelope);
+                                let local_event = NetworkEvent::UnsafePayload {
+                                    from: local_peer_id_for_events,
+                                    payload: DecodedUnsafePayload {
+                                        wire_signature: signature,
+                                        payload_bytes,
+                                        envelope: (*envelope).clone(),
+                                    },
+                                };
+                                forward_event(&event_tx, local_event).await?;
+
+                                match encode_unsafe_payload_message(&signature, &envelope) {
+                                    Ok(payload) => {
+                                        if let Err(err) = swarm
+                                            .behaviour_mut()
+                                            .gossipsub
+                                            .publish(topics.preconf_blocks.clone(), payload)
+                                        {
+                                            metrics::counter!(
+                                                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                                "topic" => "preconf_blocks",
+                                                "result" => "publish_failed",
+                                            )
+                                            .increment(1);
+                                            warn!(
+                                                hash = %hash,
+                                                error = %err,
+                                                "failed to publish whitelist preconfirmation payload"
+                                            );
+                                        } else {
+                                            metrics::counter!(
+                                                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                                "topic" => "preconf_blocks",
+                                                "result" => "published",
+                                            )
+                                            .increment(1);
+                                        }
+                                    }
+                                    Err(err) => {
+                                        metrics::counter!(
+                                            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                            "topic" => "preconf_blocks",
+                                            "result" => "encode_failed",
+                                        )
+                                        .increment(1);
+                                        warn!(
+                                            hash = %hash,
+                                            error = %err,
+                                            "failed to encode whitelist preconfirmation payload"
+                                        );
+                                    }
+                                }
+                            }
+                            NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
+                                let payload = encode_eos_request_message(epoch);
+                                if let Err(err) = swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .publish(topics.eos_request.clone(), payload)
+                                {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_eos_preconf_blocks",
+                                        "result" => "publish_failed",
+                                    )
+                                    .increment(1);
+                                    warn!(
+                                        epoch,
+                                        error = %err,
+                                        "failed to publish end-of-sequencing request"
+                                    );
+                                } else {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_eos_preconf_blocks",
+                                        "result" => "published",
+                                    )
+                                    .increment(1);
                                 }
                             }
                             NetworkCommand::Shutdown => {
@@ -625,14 +727,13 @@ async fn handle_gossipsub_event(
     }
 
     if *topic == topics.eos_request.hash() {
-        if message.data.len() <= 8 {
+        if let Some(epoch) = decode_eos_epoch(&message.data) {
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
                 "topic" => "request_eos_preconf_blocks",
                 "result" => "decoded",
             )
             .increment(1);
-            let epoch = message.data.iter().fold(0u64, |acc, byte| (acc << 8) | u64::from(*byte));
             forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await?;
         } else {
             metrics::counter!(
@@ -651,6 +752,17 @@ async fn handle_gossipsub_event(
     }
 
     Ok(())
+}
+
+/// Decode an end-of-sequencing request epoch from fixed-width big-endian bytes.
+fn decode_eos_epoch(payload: &[u8]) -> Option<u64> {
+    if payload.len() != std::mem::size_of::<u64>() {
+        return None;
+    }
+
+    let mut bytes = [0u8; std::mem::size_of::<u64>()];
+    bytes.copy_from_slice(payload);
+    Some(u64::from_be_bytes(bytes))
 }
 
 /// Forward one decoded event to the importer with backpressure.
@@ -772,6 +884,19 @@ mod tests {
         );
         assert!(parse_enode_url("/ip4/127.0.0.1/tcp/9000").is_none(), "multiaddr should fail");
         assert!(parse_enode_url("").is_none(), "empty string should fail");
+    }
+
+    #[test]
+    fn decode_eos_epoch_accepts_u64_be_bytes() {
+        let epoch = 42u64;
+        assert_eq!(decode_eos_epoch(&epoch.to_be_bytes()), Some(epoch));
+    }
+
+    #[test]
+    fn decode_eos_epoch_rejects_non_u64_lengths() {
+        assert_eq!(decode_eos_epoch(&[]), None);
+        assert_eq!(decode_eos_epoch(&[0u8; 7]), None);
+        assert_eq!(decode_eos_epoch(&[0u8; 9]), None);
     }
 
     #[test]
@@ -968,6 +1093,49 @@ mod tests {
         .expect("timed out waiting for request publication");
 
         assert_eq!(received_hash, expected_hash);
+
+        let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
+        let _ = whitelist_network.handle.await;
+    }
+
+    #[tokio::test]
+    async fn whitelist_network_loopbacks_published_unsafe_payload() {
+        let mut cfg = P2pConfig::default();
+        cfg.chain_id = 167_000;
+        cfg.enable_discovery = false;
+        cfg.enable_tcp = true;
+        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
+
+        let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let expected_signature = [0x77u8; 65];
+        let expected_envelope = Arc::new(sample_response_envelope());
+
+        whitelist_network
+            .command_tx
+            .send(NetworkCommand::PublishUnsafePayload {
+                signature: expected_signature,
+                envelope: expected_envelope.clone(),
+            })
+            .await
+            .expect("queue publish payload command");
+
+        let event = tokio::time::timeout(Duration::from_secs(5), whitelist_network.event_rx.recv())
+            .await
+            .expect("timed out waiting for local unsafe payload event")
+            .expect("network event channel should stay open");
+
+        match event {
+            NetworkEvent::UnsafePayload { from, payload } => {
+                assert_eq!(from, whitelist_network.local_peer_id);
+                assert_eq!(payload.wire_signature, expected_signature);
+                assert_eq!(payload.payload_bytes, encode_envelope_ssz(&expected_envelope));
+                assert_eq!(
+                    payload.envelope.execution_payload.block_hash,
+                    expected_envelope.execution_payload.block_hash
+                );
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
 
         let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
         let _ = whitelist_network.handle.await;

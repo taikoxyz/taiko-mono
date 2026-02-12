@@ -69,6 +69,17 @@ impl WhitelistPreconfirmationDriverMetrics {
     pub const PARENT_REQUESTS_TOTAL: &'static str =
         "whitelist_preconf_driver_parent_requests_total";
 
+    // RPC metrics
+    /// Counter tracking total RPC requests by method.
+    pub const RPC_REQUESTS_TOTAL: &'static str = "whitelist_preconf_driver_rpc_requests_total";
+    /// Counter tracking total RPC errors by method.
+    pub const RPC_ERRORS_TOTAL: &'static str = "whitelist_preconf_driver_rpc_errors_total";
+    /// Histogram tracking RPC request duration by method.
+    pub const RPC_DURATION_SECONDS: &'static str = "whitelist_preconf_driver_rpc_duration_seconds";
+    /// Histogram tracking build_preconf_block request duration.
+    pub const BUILD_PRECONF_BLOCK_DURATION_SECONDS: &'static str =
+        "whitelist_preconf_driver_build_preconf_block_duration_seconds";
+
     // Cache gauges
     /// Gauge tracking pending cache size.
     pub const CACHE_PENDING_COUNT: &'static str = "whitelist_preconf_driver_cache_pending_count";
@@ -176,6 +187,27 @@ impl WhitelistPreconfirmationDriverMetrics {
             "Parent request outcomes"
         );
 
+        metrics::describe_counter!(
+            Self::RPC_REQUESTS_TOTAL,
+            Unit::Count,
+            "Total whitelist RPC requests by method"
+        );
+        metrics::describe_counter!(
+            Self::RPC_ERRORS_TOTAL,
+            Unit::Count,
+            "Total whitelist RPC errors by method"
+        );
+        metrics::describe_histogram!(
+            Self::RPC_DURATION_SECONDS,
+            Unit::Seconds,
+            "Whitelist RPC request duration by method"
+        );
+        metrics::describe_histogram!(
+            Self::BUILD_PRECONF_BLOCK_DURATION_SECONDS,
+            Unit::Seconds,
+            "Duration for build_preconf_block RPC calls"
+        );
+
         metrics::describe_gauge!(Self::CACHE_PENDING_COUNT, Unit::Count, "Pending cache size");
         metrics::describe_gauge!(Self::CACHE_RECENT_COUNT, Unit::Count, "Recent cache size");
 
@@ -197,6 +229,8 @@ impl WhitelistPreconfirmationDriverMetrics {
         metrics::counter!(Self::CACHE_IMPORT_RESULTS_TOTAL).absolute(0);
         metrics::counter!(Self::DRIVER_SUBMIT_TOTAL).absolute(0);
         metrics::counter!(Self::PARENT_REQUESTS_TOTAL).absolute(0);
+        metrics::counter!(Self::RPC_REQUESTS_TOTAL).absolute(0);
+        metrics::counter!(Self::RPC_ERRORS_TOTAL).absolute(0);
 
         metrics::gauge!(Self::CACHE_PENDING_COUNT).set(0.0);
         metrics::gauge!(Self::CACHE_RECENT_COUNT).set(0.0);
@@ -230,6 +264,10 @@ mod tests {
             WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
             WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_DURATION_SECONDS,
             WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
+            WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL,
+            WhitelistPreconfirmationDriverMetrics::RPC_ERRORS_TOTAL,
+            WhitelistPreconfirmationDriverMetrics::RPC_DURATION_SECONDS,
+            WhitelistPreconfirmationDriverMetrics::BUILD_PRECONF_BLOCK_DURATION_SECONDS,
             WhitelistPreconfirmationDriverMetrics::CACHE_PENDING_COUNT,
             WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT,
         ];

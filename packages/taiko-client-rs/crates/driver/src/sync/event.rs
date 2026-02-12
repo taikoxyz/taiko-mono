@@ -42,6 +42,7 @@ use crate::{
     },
 };
 
+use alloy_rpc_types_engine::PayloadId;
 use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 
 /// Two Ethereum epochs worth of slots used as a reorg safety buffer.
@@ -246,7 +247,7 @@ where
                         counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
                         info!(
                             block_number,
-                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
                             duration_secs,
                             "preconfirmation payload injected"
                         );
@@ -258,7 +259,7 @@ where
                         error!(
                             ?err,
                             block_number,
-                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
                             duration_secs,
                             "preconfirmation processing failed"
                         );
@@ -329,6 +330,17 @@ where
                             canonical_tip_state.as_ref(),
                             &canonical_tip_state_tx,
                             canonical_block_number,
+                        );
+                    } else if matches!(
+                        canonical_tip_state.load(Ordering::Relaxed),
+                        CanonicalTipState::Unknown
+                    ) {
+                        // Preserve legacy semantics: a successfully processed proposal with no
+                        // derived blocks still establishes a canonical boundary at genesis.
+                        update_canonical_tip_state(
+                            canonical_tip_state.as_ref(),
+                            &canonical_tip_state_tx,
+                            0,
                         );
                     }
 

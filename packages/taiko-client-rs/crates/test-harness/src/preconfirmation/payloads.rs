@@ -6,11 +6,8 @@
 //! - [`build_publish_payloads_with_txs`]: Assembles a payload with actual transactions.
 //! - [`build_commitment_chain`]: Builds linked commitments for catch-up tests.
 
-use std::io::Write as IoWrite;
-
 use alloy_primitives::{Address, Bytes, U256};
 use anyhow::{Context, Result, anyhow, ensure};
-use flate2::{Compression, write::ZlibEncoder};
 use preconfirmation_types::{
     Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
     SignedCommitment, TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment,
@@ -39,11 +36,12 @@ pub struct PreparedBlock {
 // TxList Compression Utilities
 // ============================================================================
 
-/// Compresses raw bytes to TxListBytes using zlib.
-fn compress_to_txlist_bytes(data: &[u8]) -> Result<TxListBytes> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(data)?;
-    let compressed = encoder.finish()?;
+/// Encode transactions into a Go-compatible zlib-compressed RLP txlist.
+fn encode_and_compress_txlist_bytes(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
+    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
+    let compressed = codec
+        .encode(transactions)
+        .map_err(|err| anyhow!("encode txlist before publishing: {err}"))?;
     TxListBytes::try_from(compressed).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))
 }
 
@@ -52,19 +50,14 @@ fn compress_to_txlist_bytes(data: &[u8]) -> Result<TxListBytes> {
 /// Used for tests that need non-empty but deterministic transaction data.
 pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
     let tx_payload = block_number.to_be_bytes().to_vec();
-    let mut rlp_payload = Vec::new();
-    alloy_rlp::encode_list::<_, alloy_rlp::Bytes>(
-        &[alloy_rlp::Bytes::from(tx_payload)],
-        &mut rlp_payload,
-    );
-    compress_to_txlist_bytes(&rlp_payload)
+    encode_and_compress_txlist_bytes(&[tx_payload])
 }
 
 /// Builds a minimal compressed txlist (empty RLP list).
 ///
 /// Used for tests that just need a valid but empty txlist.
 pub fn build_empty_txlist() -> Result<TxListBytes> {
-    compress_to_txlist_bytes(&[0xC0])
+    encode_and_compress_txlist_bytes(&[])
 }
 
 /// Computes the raw tx list hash from txlist bytes.
@@ -183,12 +176,10 @@ pub fn build_publish_payloads_with_txs(
 /// Verifies round-trip decoding to catch encoding issues early.
 fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
     let tx_list_items: Vec<Vec<u8>> = raw_tx_bytes.iter().map(|tx| tx.to_vec()).collect();
-    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
-    let encoded = codec.encode(&tx_list_items).context("encode txlist before publishing")?;
-    let txlist_bytes =
-        TxListBytes::try_from(encoded).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))?;
+    let txlist_bytes = encode_and_compress_txlist_bytes(&tx_list_items)?;
 
     // Verify round-trip decoding to catch encoding issues early.
+    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
     let decoded = codec.decode(txlist_bytes.as_ref()).context("decode txlist before publishing")?;
     ensure!(decoded.len() == raw_tx_bytes.len(), "decoded txlist length mismatch");
 

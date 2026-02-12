@@ -90,6 +90,8 @@ impl BeaconStubServer {
 
     /// Stub seconds per slot (matches the value returned by `/eth/v1/config/spec`).
     pub const SECONDS_PER_SLOT: u64 = 12;
+    /// Stub slots per epoch (matches the value returned by `/eth/v1/config/spec`).
+    pub const SLOTS_PER_EPOCH: u64 = 32;
 
     pub fn endpoint(&self) -> &Url {
         &self.endpoint
@@ -181,7 +183,7 @@ fn handle_beacon_request(
 
     let json = match path {
         "/eth/v1/beacon/genesis" => r#"{"data":{"genesis_time":"0"}}"#,
-        "/eth/v1/config/spec" => r#"{"data":{"SECONDS_PER_SLOT":"12"}}"#,
+        "/eth/v1/config/spec" => r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#,
         _ if path.starts_with("/eth/v2/beacon/blocks/") => {
             r#"{"data":{"message":{"body":{"execution_payload":{"block_number":"0"}}}}}"#
         }

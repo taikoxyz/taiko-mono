@@ -1,10 +1,14 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::time::Instant;
+use std::{net::SocketAddr, sync::Arc, time::Instant};
 
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
+use alloy_provider::Provider;
 use driver::DriverConfig;
 use preconfirmation_net::P2pConfig;
+use protocol::signer::FixedKSigner;
+use rpc::beacon::BeaconClient;
 use tracing::{info, warn};
 
 use crate::{
@@ -14,6 +18,8 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
+    rpc::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
+    rpc_handler::WhitelistRestHandler,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -25,6 +31,12 @@ pub struct RunnerConfig {
     pub p2p_config: P2pConfig,
     /// Whitelist contract address used for signer validation.
     pub whitelist_address: Address,
+    /// Optional listen address for the whitelist preconfirmation REST/WS server.
+    pub rpc_listen_addr: Option<SocketAddr>,
+    /// Optional shared secret used for Bearer JWT authentication on REST/WS routes.
+    pub rpc_jwt_secret: Option<Vec<u8>>,
+    /// Optional hex-encoded private key for P2P block signing.
+    pub p2p_signer_key: Option<String>,
 }
 
 impl RunnerConfig {
@@ -33,8 +45,18 @@ impl RunnerConfig {
         driver_config: DriverConfig,
         p2p_config: P2pConfig,
         whitelist_address: Address,
+        rpc_listen_addr: Option<SocketAddr>,
+        rpc_jwt_secret: Option<Vec<u8>>,
+        p2p_signer_key: Option<String>,
     ) -> Self {
-        Self { driver_config, p2p_config, whitelist_address }
+        Self {
+            driver_config,
+            p2p_config,
+            whitelist_address,
+            rpc_listen_addr,
+            rpc_jwt_secret,
+            p2p_signer_key,
+        }
     }
 }
 
@@ -75,6 +97,70 @@ impl WhitelistPreconfirmationDriverRunner {
             "whitelist preconfirmation p2p subscriber started"
         );
 
+        // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
+        // are configured.
+        let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
+            (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
+        {
+            let beacon_client = Arc::new(
+                BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
+                    .await
+                    .map_err(|err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
+                        reason: err.to_string(),
+                    })?,
+            );
+
+            let signer = FixedKSigner::new(signer_key).map_err(|e| {
+                WhitelistPreconfirmationDriverError::Signing(format!(
+                    "failed to create P2P signer: {e}"
+                ))
+            })?;
+            let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
+                .client()
+                .l2_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await
+            {
+                Ok(Some(block)) => block.header.number,
+                Ok(None) => 0,
+                Err(err) => {
+                    warn!(
+                        error = %err,
+                        "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
+                    );
+                    0
+                }
+            };
+
+            let handler = WhitelistRestHandler::new(
+                preconf_ingress_sync.event_syncer(),
+                preconf_ingress_sync.client().clone(),
+                self.config.p2p_config.chain_id,
+                signer,
+                beacon_client,
+                self.config.whitelist_address,
+                initial_highest_unsafe_l2_payload_block_id,
+                network.command_tx.clone(),
+                network.local_peer_id.to_string(),
+            );
+
+            let server_config = WhitelistRestWsServerConfig {
+                listen_addr,
+                jwt_secret: self.config.rpc_jwt_secret.clone(),
+                ..Default::default()
+            };
+            let server = WhitelistRestWsServer::start(server_config, Arc::new(handler)).await?;
+            info!(
+                addr = %server.local_addr(),
+                http_url = %server.http_url(),
+                ws_url = %server.ws_url(),
+                "whitelist preconfirmation REST server started"
+            );
+            Some(server)
+        } else {
+            None
+        };
+
         let mut importer = WhitelistPreconfirmationImporter::new(
             preconf_ingress_sync.event_syncer(),
             preconf_ingress_sync.client().clone(),
@@ -91,6 +177,9 @@ impl WhitelistPreconfirmationDriverRunner {
             tokio::select! {
                 result = &mut node_handle => {
                     event_syncer_handle.abort();
+                    if let Some(server) = rest_ws_server.take() {
+                        server.stop().await;
+                    }
                     return match result {
                         Ok(Ok(())) => {
                             metrics::counter!(
@@ -123,6 +212,9 @@ impl WhitelistPreconfirmationDriverRunner {
                 result = &mut *event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
+                    if let Some(server) = rest_ws_server.take() {
+                        server.stop().await;
+                    }
                     return match result {
                         Ok(Ok(())) => {
                             metrics::counter!(
@@ -153,6 +245,9 @@ impl WhitelistPreconfirmationDriverRunner {
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
                         event_syncer_handle.abort();
+                        if let Some(server) = rest_ws_server.take() {
+                            server.stop().await;
+                        }
                         metrics::counter!(
                             WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
                             "reason" => "network_event_channel_closed",
