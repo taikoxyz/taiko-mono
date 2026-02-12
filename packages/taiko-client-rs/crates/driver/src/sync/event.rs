@@ -90,8 +90,15 @@ fn update_canonical_block_tip(
 ) -> bool {
     let previous = last_canonical_block_number.swap(canonical_block_number, Ordering::Relaxed);
     let changed = canonical_block_number != previous;
-    if changed && let Err(err) = canonical_block_number_tx.send(canonical_block_number) {
-        error!(?err, canonical_block_number, "failed to notify canonical block tip watcher");
+    if changed {
+        if canonical_block_number_tx.receiver_count() == 0 {
+            debug!(
+                canonical_block_number,
+                "canonical block tip changed with no active watchers; skipping notification"
+            );
+        } else if let Err(err) = canonical_block_number_tx.send(canonical_block_number) {
+            warn!(?err, canonical_block_number, "failed to notify canonical block tip watcher");
+        }
     }
     gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(canonical_block_number as f64);
     changed
@@ -776,29 +783,28 @@ where
                         // inbox as already synced and open the ingress gate immediately instead of
                         // waiting for the first log batch to be processed.
                         if self.cfg.preconfirmation_enabled && !first_event_sync_processed {
-                            match self.rpc.shasta.inbox.getCoreState().call().await {
-                                Ok(core_state) => {
-                                    let next_proposal_id = core_state.nextProposalId.to::<u64>();
-                                    if should_treat_inbox_as_synced_without_logs(next_proposal_id) {
-                                        update_canonical_block_tip(
-                                            self.last_canonical_block_number.as_ref(),
-                                            &self.canonical_block_number_tx,
-                                            0,
-                                        );
-                                        self.canonical_tip_known.store(true, Ordering::Relaxed);
-                                        first_event_sync_processed = true;
-                                        info!(
-                                            next_proposal_id,
-                                            "inbox has no historical proposals; enabling ingress gate",
-                                        );
-                                    }
-                                }
-                                Err(err) => {
-                                    warn!(
-                                        ?err,
-                                        "failed to read inbox core state while opening ingress gate",
-                                    );
-                                }
+                            let core_state =
+                                self.rpc.shasta.inbox.getCoreState().call().await.map_err(
+                                    |err| SyncError::Rpc(RpcClientError::Provider(err.to_string())),
+                                )?;
+                            let next_proposal_id = core_state.nextProposalId.to::<u64>();
+                            if should_treat_inbox_as_synced_without_logs(next_proposal_id) {
+                                update_canonical_block_tip(
+                                    self.last_canonical_block_number.as_ref(),
+                                    &self.canonical_block_number_tx,
+                                    0,
+                                );
+                                self.canonical_tip_known.store(true, Ordering::Relaxed);
+                                first_event_sync_processed = true;
+                                info!(
+                                    next_proposal_id,
+                                    "inbox has no historical proposals; enabling ingress gate",
+                                );
+                            } else {
+                                debug!(
+                                    next_proposal_id,
+                                    "inbox has historical proposals; waiting for proposal logs before enabling ingress gate"
+                                );
                             }
                         }
                     }
