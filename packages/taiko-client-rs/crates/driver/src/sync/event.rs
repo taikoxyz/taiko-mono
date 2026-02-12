@@ -331,17 +331,6 @@ where
                             &canonical_tip_state_tx,
                             canonical_block_number,
                         );
-                    } else if matches!(
-                        canonical_tip_state.load(Ordering::Relaxed),
-                        CanonicalTipState::Unknown
-                    ) {
-                        // Preserve legacy semantics: a successfully processed proposal with no
-                        // derived blocks still establishes a canonical boundary at genesis.
-                        update_canonical_tip_state(
-                            canonical_tip_state.as_ref(),
-                            &canonical_tip_state_tx,
-                            0,
-                        );
                     }
 
                     Ok(outcomes)
@@ -353,6 +342,25 @@ where
                 DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
                 other => SyncError::Other(anyhow!(other)),
             })?;
+
+            // Some proposals can be valid but derive no fresh execution blocks
+            // (e.g. proposal already represented by canonical chain state). In that case,
+            // initialize canonical tip from engine state so ingress does not remain stuck
+            // in Unknown after event-sync has processed a real proposal.
+            if outcomes.is_empty() &&
+                matches!(
+                    self.canonical_tip_state.load(Ordering::Relaxed),
+                    CanonicalTipState::Unknown
+                ) &&
+                let Some(canonical_block_number) =
+                    self.resolve_canonical_tip_for_proposal(proposal_id).await?
+            {
+                update_canonical_tip_state(
+                    self.canonical_tip_state.as_ref(),
+                    &self.canonical_tip_state_tx,
+                    canonical_block_number,
+                );
+            }
 
             info!(
                 block_count = outcomes.len(),
@@ -367,6 +375,29 @@ where
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
         Ok(())
+    }
+
+    /// Resolve canonical tip from execution state when a processed proposal yields no outcomes.
+    ///
+    /// Priority:
+    /// 1) batch-to-last-block mapping for the proposal id
+    /// 2) latest execution head block number as fallback
+    async fn resolve_canonical_tip_for_proposal(
+        &self,
+        proposal_id: u64,
+    ) -> Result<Option<u64>, SyncError> {
+        if let Some(block_id) = self.rpc.last_block_id_by_batch_id(U256::from(proposal_id)).await? {
+            return Ok(Some(block_id.to::<u64>()));
+        }
+
+        let latest_block = self
+            .rpc
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        Ok(latest_block.map(|block| block.header.number))
     }
 
     /// Construct a new event syncer from the provided configuration and RPC client.
