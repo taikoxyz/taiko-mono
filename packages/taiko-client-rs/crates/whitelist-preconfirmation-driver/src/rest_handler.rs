@@ -36,7 +36,7 @@ use crate::{
         validate_execution_payload_for_preconf,
     },
     network::NetworkCommand,
-    rpc::{
+    rest::{
         WhitelistRestApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
@@ -349,6 +349,10 @@ where
     ) -> Result<BuildPreconfBlockResponse> {
         let started_at = Instant::now();
         let _build_guard = self.build_preconf_lock.lock().await;
+
+        if self.rpc.head_l1_origin().await?.is_none() {
+            return Err(WhitelistPreconfirmationDriverError::PreconfIngressNotReady);
+        }
 
         let sync_status = self.rpc.l2_provider.syncing().await.map_err(provider_err)?;
         if matches!(sync_status, SyncStatus::Info(_)) {
