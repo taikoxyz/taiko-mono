@@ -59,7 +59,7 @@ pub async fn wait_for_proposal_id(
                 return Err(anyhow!(
                     "timed out waiting for proposal {expected_proposal_id}, current: {}",
                     *rx.borrow()
-                ))
+                ));
             }
         }
     }

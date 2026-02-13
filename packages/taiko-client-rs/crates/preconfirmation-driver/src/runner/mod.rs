@@ -143,11 +143,9 @@ impl PreconfirmationDriverRunner {
 
         // Build the lookahead resolver and start its background event scanner
         let l1_source = self.config.driver_config.client.l1_provider_source.clone();
-        let beacon_client = BeaconClient::new(
-            self.config.driver_config.l1_beacon_endpoint.clone(),
-        )
-        .await
-        .map_err(|e| RunnerError::BeaconGenesis(e.to_string()))?;
+        let beacon_client = BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
+            .await
+            .map_err(|e| RunnerError::BeaconGenesis(e.to_string()))?;
         let genesis_timestamp = beacon_client.genesis_time();
 
         let (lookahead_resolver, _scanner_handle) =
