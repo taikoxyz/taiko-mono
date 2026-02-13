@@ -271,7 +271,9 @@ pub fn build_commitment_chain(
     for i in 0..count {
         let block_number = start_block + i as u64;
         let timestamp = base_timestamp + i as u64;
-        let txlist_bytes = build_txlist_bytes(block_number)?;
+        // Catch-up chains do not need executable transactions; keep payloads empty so tests remain
+        // independent from transaction encoding details.
+        let txlist_bytes = build_empty_txlist()?;
 
         let block = build_prepared_block(
             signer_sk,

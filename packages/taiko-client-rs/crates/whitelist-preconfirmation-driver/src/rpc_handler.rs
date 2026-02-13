@@ -499,12 +499,12 @@ where
 
         Ok(WhitelistStatus {
             head_l1_origin_block_id,
-            highest_unsafe_block_number: Some(highest_unsafe),
+            highest_unsafe_block_number: highest_unsafe,
             peer_id: self.local_peer_id.clone(),
             sync_ready,
             lookahead: self.current_lookahead_status().await,
-            total_cached: Some(0),
-            highest_unsafe_l2_payload_block_id: Some(highest_unsafe),
+            total_cached: 0,
+            highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
         })
     }
