@@ -25,6 +25,8 @@ pub struct P2pConfig {
     pub chain_id: u64,
     /// Optional sequencer allowlist addresses for whitelist preconfirmation message validation.
     pub sequencer_addresses: Vec<Address>,
+    /// Optional single sequencer address used as a legacy fallback when no allowlist is configured.
+    pub sequencer_address: Address,
     /// Libp2p listen address for TCP/QUIC transports.
     pub listen_addr: SocketAddr,
     /// Enable discv5 peer discovery. If `false`, only manual bootnodes are used.
@@ -127,6 +129,7 @@ impl Default for P2pConfig {
         Self {
             chain_id: base.chain_id,
             sequencer_addresses: Vec::new(),
+            sequencer_address: Address::ZERO,
             listen_addr: base.listen_addr,
             enable_discovery: base.enable_discovery,
             discovery_listen: base.discv5_listen,

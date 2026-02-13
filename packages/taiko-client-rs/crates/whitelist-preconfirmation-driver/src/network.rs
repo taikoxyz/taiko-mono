@@ -162,6 +162,7 @@ impl EpochSeenTracker {
 struct GossipsubInboundState {
     chain_id: u64,
     sequencer_addresses: Vec<Address>,
+    sequencer_address: Address,
     request_rate: RateLimiter,
     request_seen: WindowedHashTracker,
     eos_rate: RateLimiter,
@@ -171,10 +172,11 @@ struct GossipsubInboundState {
 }
 
 impl GossipsubInboundState {
-    fn new(chain_id: u64, sequencer_addresses: Vec<Address>) -> Self {
+    fn new(chain_id: u64, sequencer_addresses: Vec<Address>, sequencer_address: Address) -> Self {
         Self {
             chain_id,
             sequencer_addresses,
+            sequencer_address,
             request_rate: RateLimiter::default(),
             request_seen: WindowedHashTracker::default(),
             eos_rate: RateLimiter::default(),
@@ -238,7 +240,15 @@ impl GossipsubInboundState {
             Err(_) => return gossipsub::MessageAcceptance::Reject,
         };
 
-        if !self.sequencer_addresses.contains(&signer) {
+        if !self.sequencer_addresses.is_empty() {
+            if !self.sequencer_addresses.contains(&signer) {
+                return gossipsub::MessageAcceptance::Reject;
+            }
+        } else if self.sequencer_address != Address::ZERO {
+            if signer != self.sequencer_address {
+                return gossipsub::MessageAcceptance::Reject;
+            }
+        } else {
             return gossipsub::MessageAcceptance::Reject;
         }
 
@@ -270,17 +280,21 @@ impl GossipsubInboundState {
         let prehash =
             block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
 
-        if self.sequencer_addresses.is_empty() {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
         let signer = match recover_signer(prehash, &signature) {
             Ok(signer) => signer,
             Err(_) => return gossipsub::MessageAcceptance::Reject,
         };
 
-        if !self.sequencer_addresses.contains(&signer) {
-            return gossipsub::MessageAcceptance::Reject;
+        if !self.sequencer_addresses.is_empty() {
+            if !self.sequencer_addresses.contains(&signer) {
+                return gossipsub::MessageAcceptance::Reject;
+            }
+        } else if self.sequencer_address != Address::ZERO {
+            if signer != self.sequencer_address {
+                return gossipsub::MessageAcceptance::Reject;
+            }
+        } else {
+            return gossipsub::MessageAcceptance::Ignore;
         }
 
         let height = envelope.execution_payload.block_number;
@@ -533,7 +547,7 @@ impl WhitelistNetwork {
 
         let handle = tokio::spawn(async move {
             let mut inbound_validation_state =
-                GossipsubInboundState::new(cfg.chain_id, cfg.sequencer_addresses);
+                GossipsubInboundState::new(cfg.chain_id, cfg.sequencer_addresses, cfg.sequencer_address);
 
             loop {
                 let has_discovery = discovery_rx.is_some();
@@ -1347,7 +1361,7 @@ mod tests {
 
     #[test]
     fn height_seen_tracker_rejects_over_limit_and_skips_tracking_rejected_hashes() {
-        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO);
 
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([1u8; 32]), 1));
         assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
@@ -1374,7 +1388,7 @@ mod tests {
 
     #[test]
     fn validate_preconf_blocks_rejects_empty_transaction_payload() {
-        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO);
         let mut payload = sample_preconf_payload();
         payload.envelope.execution_payload.transactions.clear();
 
@@ -1386,7 +1400,7 @@ mod tests {
 
     #[test]
     fn validate_preconf_blocks_rejects_invalid_signature() {
-        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO);
         let payload = sample_preconf_payload();
 
         assert!(matches!(
@@ -1397,7 +1411,7 @@ mod tests {
 
     #[test]
     fn validate_response_rejects_missing_signature() {
-        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO);
         let mut envelope = sample_response_envelope();
         envelope.signature = None;
 
@@ -1412,7 +1426,7 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
         let mut validation_state =
-            GossipsubInboundState::new(167_000, vec![Address::from([0x11u8; 20])]);
+            GossipsubInboundState::new(167_000, vec![Address::from([0x11u8; 20])], Address::ZERO);
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload),
@@ -1425,7 +1439,7 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let signer_address = signer.address();
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(167_000, vec![signer_address]);
+        let mut validation_state = GossipsubInboundState::new(167_000, vec![signer_address], Address::ZERO);
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload),
@@ -1434,11 +1448,44 @@ mod tests {
     }
 
     #[test]
+    fn validate_preconf_blocks_accepts_single_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            signer_address,
+        );
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload),
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[test]
+    fn validate_preconf_blocks_rejects_invalid_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            Address::from([0x11u8; 20]),
+        );
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload),
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[test]
     fn validate_response_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
         let mut validation_state =
-            GossipsubInboundState::new(167_000, vec![Address::from([0x11u8; 20])]);
+            GossipsubInboundState::new(167_000, vec![Address::from([0x11u8; 20])], Address::ZERO);
 
         assert!(matches!(
             validation_state.validate_response(&envelope),
@@ -1451,7 +1498,7 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let signer_address = signer.address();
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(167_000, vec![signer_address]);
+        let mut validation_state = GossipsubInboundState::new(167_000, vec![signer_address], Address::ZERO);
 
         assert!(matches!(
             validation_state.validate_response(&envelope),
@@ -1460,10 +1507,54 @@ mod tests {
     }
 
     #[test]
+    fn validate_response_accepts_single_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            signer_address,
+        );
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope),
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[test]
+    fn validate_response_rejects_invalid_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            Address::from([0x11u8; 20]),
+        );
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope),
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[test]
+    fn validate_response_rejects_invalid_signature_before_ignore_fallback() {
+        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO);
+        let envelope = sample_response_envelope();
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope),
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[test]
     fn validate_response_ignores_when_allowlist_is_empty() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO);
 
         assert!(matches!(
             validation_state.validate_response(&envelope),
