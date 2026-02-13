@@ -19,8 +19,7 @@ impl<P: Provider + Clone> LookaheadClient<P> {
     /// The LookaheadStore address is discovered via `Inbox.getConfig().proposerChecker`.
     pub async fn new(inbox_address: Address, provider: P) -> Result<Self> {
         let inbox = InboxInstance::new(inbox_address, provider.clone());
-        let config =
-            inbox.getConfig().call().await.map_err(|err| LookaheadError::InboxConfig(err))?;
+        let config = inbox.getConfig().call().await.map_err(LookaheadError::InboxConfig)?;
         debug!("Inbox config: {:?}", config);
 
         let lookahead_store = LookaheadStoreInstance::new(config.proposerChecker, provider);
