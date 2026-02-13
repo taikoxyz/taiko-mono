@@ -9,10 +9,7 @@ use std::{
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    fillers::FillProvider,
-    utils::JoinedRecommendedFillers,
-    Provider,
-    RootProvider,
+    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use futures::StreamExt;
 use hashlink::LinkedHashMap;
@@ -203,7 +200,8 @@ struct InboundWhitelistFilter {
 
 impl InboundWhitelistFilter {
     fn new(rpc_client: InboundWhitelistClient, whitelist_address: Address) -> Self {
-        let whitelist = InboundWhitelistInstance::new(whitelist_address, rpc_client.l1_provider.clone());
+        let whitelist =
+            InboundWhitelistInstance::new(whitelist_address, rpc_client.l1_provider.clone());
         Self { whitelist, rpc_client, sequencer_cache: WhitelistSequencerCache::default() }
     }
 
@@ -259,9 +257,10 @@ impl InboundWhitelistFilter {
 
         let snapshot = self.fetch_whitelist_snapshot_with_retry().await?;
 
-        if let Err(err) =
-            ensure_not_too_early_for_epoch(snapshot.block_timestamp, snapshot.current_epoch_start_timestamp)
-        {
+        if let Err(err) = ensure_not_too_early_for_epoch(
+            snapshot.block_timestamp,
+            snapshot.current_epoch_start_timestamp,
+        ) {
             if let Some((current, next)) = self
                 .sequencer_cache
                 .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
@@ -306,7 +305,10 @@ impl InboundWhitelistFilter {
         for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
             match self.fetch_whitelist_snapshot().await {
                 Ok(snapshot) => return Ok(snapshot),
-                Err(err) if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS && should_retry_snapshot_fetch(&err) => {
+                Err(err)
+                    if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS &&
+                        should_retry_snapshot_fetch(&err) =>
+                {
                     debug!(
                         attempt,
                         max_attempts = SNAPSHOT_FETCH_MAX_ATTEMPTS,
@@ -327,11 +329,15 @@ impl InboundWhitelistFilter {
             .l1_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await
-            .map_err(|err| whitelist_lookup_err(format!(
-                "failed to fetch latest block for whitelist snapshot: {err}"
-            )))?
+            .map_err(|err| {
+                whitelist_lookup_err(format!(
+                    "failed to fetch latest block for whitelist snapshot: {err}"
+                ))
+            })?
             .ok_or_else(|| {
-                whitelist_lookup_err("missing latest block while fetching whitelist snapshot".to_string())
+                whitelist_lookup_err(
+                    "missing latest block while fetching whitelist snapshot".to_string(),
+                )
             })?;
 
         let block_number = latest_block.header.number;
@@ -375,11 +381,8 @@ impl InboundWhitelistFilter {
                 })
         };
 
-        let (current_proposer, next_proposer, current_epoch_start_timestamp) = tokio::try_join!(
-            current_operator_fut,
-            next_operator_fut,
-            epoch_start_timestamp_fut,
-        )?;
+        let (current_proposer, next_proposer, current_epoch_start_timestamp) =
+            tokio::try_join!(current_operator_fut, next_operator_fut, epoch_start_timestamp_fut,)?;
 
         let current_seq_fut = async {
             self.whitelist
@@ -435,7 +438,9 @@ impl InboundWhitelistFilter {
             )));
         }
 
-        if current_seq.sequencerAddress == Address::ZERO || next_seq.sequencerAddress == Address::ZERO {
+        if current_seq.sequencerAddress == Address::ZERO ||
+            next_seq.sequencerAddress == Address::ZERO
+        {
             return Err(whitelist_lookup_err(
                 "received zero address for whitelist sequencer".to_string(),
             ));
@@ -506,9 +511,10 @@ impl GossipsubInboundState {
         l1_client: Option<InboundWhitelistClient>,
         whitelist_address: Option<Address>,
     ) -> Self {
-        let whitelist_filter = l1_client.zip(whitelist_address).map(|(l1_client, whitelist_address)| {
-            InboundWhitelistFilter::new(l1_client, whitelist_address)
-        });
+        let whitelist_filter =
+            l1_client.zip(whitelist_address).map(|(l1_client, whitelist_address)| {
+                InboundWhitelistFilter::new(l1_client, whitelist_address)
+            });
 
         Self {
             chain_id,
@@ -576,8 +582,8 @@ impl GossipsubInboundState {
             Err(_) => return gossipsub::MessageAcceptance::Reject,
         };
 
-        if let Some(filter) = self.whitelist_filter.as_mut()
-            && filter.ensure_signer_allowed(signer).await.is_err()
+        if let Some(filter) = self.whitelist_filter.as_mut() &&
+            filter.ensure_signer_allowed(signer).await.is_err()
         {
             return gossipsub::MessageAcceptance::Reject;
         }
@@ -614,8 +620,8 @@ impl GossipsubInboundState {
             Err(_) => return gossipsub::MessageAcceptance::Reject,
         };
 
-        if let Some(filter) = self.whitelist_filter.as_mut()
-            && filter.ensure_signer_allowed(signer).await.is_err()
+        if let Some(filter) = self.whitelist_filter.as_mut() &&
+            filter.ensure_signer_allowed(signer).await.is_err()
         {
             return gossipsub::MessageAcceptance::Reject;
         }
@@ -878,12 +884,11 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state =
-                GossipsubInboundState::new_with_whitelist_filter(
-                    cfg.chain_id,
-                    l1_client,
-                    whitelist_address,
-                );
+            let mut inbound_validation_state = GossipsubInboundState::new_with_whitelist_filter(
+                cfg.chain_id,
+                l1_client,
+                whitelist_address,
+            );
 
             loop {
                 let has_discovery = discovery_rx.is_some();
