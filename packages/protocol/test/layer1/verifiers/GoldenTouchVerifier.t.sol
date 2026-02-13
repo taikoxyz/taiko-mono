@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import "forge-std/src/Test.sol";
 import { LibAnchorSigner } from "test/layer2/LibAnchorSigner.sol";
@@ -39,8 +39,27 @@ contract GoldenTouchVerifierTest is Test {
             badIdProof[i + 4] = proof[i + 4];
         }
 
-        vm.expectRevert(GoldenTouchVerifier.GOLDEN_TOUCH_INVALID_INSTANCE.selector);
+        vm.expectRevert(GoldenTouchVerifier.GOLDEN_TOUCH_INVALID_INSTANCE_ID.selector);
         verifier.verifyProof(0, aggregatedHash, badIdProof);
+    }
+
+    function test_verifyProof_RevertWhen_InstanceAddressInvalid() external {
+        (bytes memory proof, bytes32 aggregatedHash) = _prepareValidProof();
+
+        bytes memory badAddrProof = new bytes(proof.length);
+        for (uint256 i; i < 4; ++i) {
+            badAddrProof[i] = proof[i];
+        }
+        bytes memory newAddr = abi.encodePacked(bytes20(address(0xDEAD)));
+        for (uint256 i; i < 20; ++i) {
+            badAddrProof[i + 4] = newAddr[i];
+        }
+        for (uint256 i; i < proof.length - 24; ++i) {
+            badAddrProof[i + 24] = proof[i + 24];
+        }
+
+        vm.expectRevert(GoldenTouchVerifier.GOLDEN_TOUCH_INVALID_INSTANCE_ADDRESS.selector);
+        verifier.verifyProof(0, aggregatedHash, badAddrProof);
     }
 
     function test_verifyProof_RevertWhen_SignatureInvalid() external {
