@@ -7,8 +7,8 @@ mod importer;
 pub mod metrics;
 mod network;
 mod preconf_ingress_sync;
-mod rpc;
-mod rpc_handler;
+mod rest;
+mod rest_handler;
 mod runner;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};

@@ -49,6 +49,14 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Optional path to JWT secret used to authenticate whitelist preconfirmation REST/WS calls.
     #[clap(long = "preconfirmation.jwt-secret", env = "PRECONFIRMATION_SERVER_JWT_SECRET")]
     pub preconfirmation_jwt_secret: Option<PathBuf>,
+    /// Optional comma-separated list of CORS origins allowed by whitelist REST/WS server.
+    #[clap(
+        long = "preconfirmation.cors-origins",
+        value_delimiter = ',',
+        default_value = "*",
+        env = "PRECONFIRMATION_SERVER_CORS_ORIGINS"
+    )]
+    pub preconfirmation_cors_origins: Vec<String>,
     /// Optional hex-encoded private key for P2P block signing.
     #[clap(long = "preconfirmation.p2p-signer-key", env = "PRECONFIRMATION_P2P_SIGNER_KEY")]
     pub preconfirmation_p2p_signer_key: Option<String>,
@@ -147,6 +155,17 @@ impl WhitelistPreconfirmationDriverSubCommand {
         Ok(Some(secret.as_bytes().to_vec()))
     }
 
+    /// Resolve CORS origins for the whitelist REST/WS server.
+    fn resolve_rpc_cors_origins(&self) -> Vec<String> {
+        self.preconfirmation_cors_origins
+            .iter()
+            .filter_map(|origin| {
+                let origin = origin.trim();
+                (!origin.is_empty()).then(|| origin.to_string())
+            })
+            .collect::<Vec<_>>()
+    }
+
     /// Run the whitelist preconfirmation driver.
     pub async fn run(&self) -> Result<()> {
         <Self as Subcommand>::run(self).await
@@ -181,6 +200,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
             self.shasta_preconf_whitelist_address,
             self.resolve_rpc_addr(),
             self.resolve_rpc_jwt_secret()?,
+            self.resolve_rpc_cors_origins(),
             self.preconfirmation_p2p_signer_key.clone(),
         );
 
