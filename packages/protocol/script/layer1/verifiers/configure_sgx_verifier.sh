@@ -72,38 +72,32 @@ load_env() {
             export ATTESTATION_ADDRESS=0x3b5C873F4B22C96D835D0D15fD6d1b132A068C05
             export PEM_CERTCHAIN_ADDRESS=0xefd45598d2166f9E958bb55b8E78bDEc82684d90
             ;;
+        dev-shasta|dev-shasta-sgxreth)
+            export SGX_VERIFIER_ADDRESS=0x9D351F6E72e3095F24dD854c9B8CA69F99A2C538
+            export ATTESTATION_ADDRESS=0x00A9F4767a69cA3C219854ca1bfD5440930b2beD
+            export PEM_CERTCHAIN_ADDRESS=0x795330bA9B6184E13eBb3A4253E00Adb665830F5
+            ;;
+        dev-shasta-sgxgeth|dev-shasta-sgxgeth)
+            export SGX_VERIFIER_ADDRESS=0x6B455442C8C4cAC2e09c40409E8bf7FfcdB1Fc50
+            export ATTESTATION_ADDRESS=0xef8AE6522678e44c0eE299d0835238CE5cb8c036
+            export PEM_CERTCHAIN_ADDRESS=0x795330bA9B6184E13eBb3A4253E00Adb665830F5
+            ;;
         dev-sgxgeth|dev-pacaya-sgxgeth)
             export SGX_VERIFIER_ADDRESS=0x698ceB7EF2E001347B1672389d6ca6aCE04b13C8
             export ATTESTATION_ADDRESS=0xE1eA623b32C352791Bd1Aba23665707C21053492
             export PEM_CERTCHAIN_ADDRESS=0x5B06e1cBc4bc4c3Eb52A9D40F1D49C6513E23B70
-            ;;
-        hekla-ontake|hekla-ontake-sgxreth)
-            echo "Note: ontake in hekla is deprecated"
-            export SGX_VERIFIER_ADDRESS=0x532EFBf6D62720D0B2a2Bb9d11066E8588cAE6D9
-            export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
-            export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
-            ;;
-        hekla-pacaya|hekla-pacaya-sgxreth)
-            export SGX_VERIFIER_ADDRESS=0xa8cD459E3588D6edE42177193284d40332c3bcd4
-            export ATTESTATION_ADDRESS=0xC6cD3878Fc56F2b2BaB0769C580fc230A95e1398
-            export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
-            ;;
-        hekla-sgxgeth|hekla-pacaya-sgxgeth)
-            export SGX_VERIFIER_ADDRESS=0x4361B85093720bD50d25236693CA58FD6e1b3a53
-            export ATTESTATION_ADDRESS=0x84af08F56AeA1f847c75bE08c96cDC4811694595
-            export PEM_CERTCHAIN_ADDRESS=0x08d7865e7F534d743Aba5874A9AD04bcB223a92E
             ;;
         tolba-pacaya|tolba-pacaya-sgxreth)
             export SGX_VERIFIER_ADDRESS=0xd46c13B67396cD1e74Bb40e298fbABeA7DC01f11
             export ATTESTATION_ADDRESS=0xebA89cA02449070b902A5DDc406eE709940e280E
             export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
             ;;
-        tolba-sgxgeth|tolba-pacaya-sgxgeth)
+        tolba-pacaya-sgxgeth)
             export SGX_VERIFIER_ADDRESS=0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e
             export ATTESTATION_ADDRESS=0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5
             export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
             ;;
-        tolba-shasta | tolba-shasta-sgxreth)
+        tolba-shasta|tolba-shasta-sgxreth)
             export SGX_VERIFIER_ADDRESS=0x40CcAFC1C2D14bdD70984b221F2b49af5e7C6114
             export ATTESTATION_ADDRESS=0xebA89cA02449070b902A5DDc406eE709940e280E
             export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
@@ -113,6 +107,18 @@ load_env() {
             export ATTESTATION_ADDRESS=0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5
             export PEM_CERTCHAIN_ADDRESS=0x3Fb43E1e16B313F8666b21Cd5EB6C4Ab229eB1C5
             ;;
+
+        transition-shasta-sgxreth)
+            export SGX_VERIFIER_ADDRESS=0xF6c749514c65D16b244A46A6eA4F691f15241ad3
+            export ATTESTATION_ADDRESS=0xc5550fe3ae558a17176606F175E25e914d1508A6
+            export PEM_CERTCHAIN_ADDRESS=0xD54715229eeE62c39069a05c4c5902374727655E
+            ;;
+        transition-shasta-sgxgeth)
+            export SGX_VERIFIER_ADDRESS=0xA7b19cd71553f9Cc1519963b6F98EEf3dB73d885
+            export ATTESTATION_ADDRESS=0x866931c1A49F5494cA3401e4622ebD1aCfE1dA0C
+            export PEM_CERTCHAIN_ADDRESS=0xD54715229eeE62c39069a05c4c5902374727655E
+            ;;
+
         mainnet|mainnet-ontake|mainnet-ontake-sgxreth)
             export SGX_VERIFIER_ADDRESS=0xb0f3186FC1963f774f52ff455DC86aEdD0b31F81
             export ATTESTATION_ADDRESS=0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
@@ -218,10 +224,22 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate required variables
-[[ -z "$PRIVATE_KEY" ]] && { echo "Error: PRIVATE_KEY not set"; exit 1; }
-[[ -z "$FORK_URL" ]] && { echo "Error: FORK_URL not set"; exit 1; }
-[[ -z "$ATTESTATION_ADDRESS" ]] && { echo "Error: ATTESTATION_ADDRESS not set"; exit 1; }
-[[ -z "$SGX_VERIFIER_ADDRESS" ]] && { echo "Error: SGX_VERIFIER_ADDRESS not set"; exit 1; }
+[[ -z "$PRIVATE_KEY" ]] && {
+    echo "Error: PRIVATE_KEY not set"
+    exit 1
+}
+[[ -z "$FORK_URL" ]] && {
+    echo "Error: FORK_URL not set"
+    exit 1
+}
+[[ -z "$ATTESTATION_ADDRESS" ]] && {
+    echo "Error: ATTESTATION_ADDRESS not set"
+    exit 1
+}
+[[ -z "$SGX_VERIFIER_ADDRESS" ]] && {
+    echo "Error: SGX_VERIFIER_ADDRESS not set"
+    exit 1
+}
 
 # Export configuration flags
 export SET_MRENCLAVE=$SET_MRENCLAVE
@@ -241,7 +259,7 @@ echo "SGX Verifier: $SGX_VERIFIER_ADDRESS"
 [[ "$SET_MRENCLAVE" == "true" ]] && echo "MRENCLAVE: $MRENCLAVE (enable=$MRENCLAVE_ENABLE)"
 [[ "$SET_MRSIGNER" == "true" ]] && echo "MRSIGNER: $MRSIGNER (enable=$MRSIGNER_ENABLE)"
 [[ "$CONFIG_QEID" == "true" ]] && echo "QEID: $QEID_PATH"
-[[ "$CONFIG_TCB" == "true" ]] && echo "TCB files: $(echo $TCB_PATHS | tr ',' '\n' | wc -l) file(s)"
+[[ "$CONFIG_TCB" == "true" ]] && echo "TCB files: $(echo $TCB_PATHS|tr ',' '\n'|wc -l) file(s)"
 echo "===================="
 
 # Run forge script
