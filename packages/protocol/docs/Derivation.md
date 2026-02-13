@@ -350,7 +350,12 @@ Late-proof handling on L1 may trigger at most one liveness-bond settlement for t
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
 
-The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within `MIN_BASE_FEE` and `MAX_BASE_FEE`.
+The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within a chain-specific lower bound and `MAX_BASE_FEE`.
+
+The minimum clamp is selected by chain ID:
+
+- `MAINNET_MIN_BASE_FEE` (`0.01 gwei`) on Taiko mainnet
+- `MIN_BASE_FEE` (`0.005 gwei`) on non-mainnet chains
 
 ## Constants
 
@@ -365,7 +370,8 @@ The following constants govern the block derivation process:
 | **MIN_BLOCK_GAS_LIMIT**          | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                          |
 | **MAX_BLOCK_GAS_LIMIT**          | `45,000,000`                  | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                           |
 | **INITIAL_BASE_FEE**             | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                               |
-| **MIN_BASE_FEE**                 | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                        |
+| **MIN_BASE_FEE**                 | `0.005 gwei` (5,000,000 wei)  | The default minimum base fee (inclusive) after Shasta fork for non-mainnet chains.                                                                                         |
+| **MAINNET_MIN_BASE_FEE**         | `0.01 gwei` (10,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork on Taiko mainnet.                                                                                                       |
 | **MAX_BASE_FEE**                 | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                        |
 | **BLOCK_TIME_TARGET**            | `2 seconds`                   | The block time target.                                                                                                                                                     |
 | **SHASTA_FORK_TIME**             | Hoodi/Mainnet: not scheduled  | The timestamp that determines when the fork should occur.                                                                                                                  |
