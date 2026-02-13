@@ -6,11 +6,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, B256};
-use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
-};
 use futures::StreamExt;
 use hashlink::LinkedHashMap;
 use libp2p::{
@@ -23,7 +19,6 @@ use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::{debug, warn};
 
 use crate::{
-    cache::WhitelistSequencerCache,
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash,
         decode_unsafe_payload_message, decode_unsafe_response_message, encode_envelope_ssz,
@@ -33,12 +28,6 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
-use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
-use rpc::client::Client as RpcClient;
-
-type InboundWhitelistProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
-type InboundWhitelistClient = RpcClient<InboundWhitelistProvider>;
-type InboundWhitelistInstance = PreconfWhitelistInstance<InboundWhitelistProvider>;
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -49,8 +38,6 @@ const REQUEST_RATE_REFILL_PER_SEC: f64 = REQUEST_RATE_PER_MINUTE / 60.0;
 const MAX_RESPONSES_ACCEPTABLE: usize = 3;
 const MAX_PRECONF_BLOCKS_PER_HEIGHT: usize = 10;
 const PRECONF_INBOUND_LRU_CAPACITY: usize = 1000;
-const MAX_STALE_FALLBACK_SECS: u64 = 12 * 64;
-const SNAPSHOT_FETCH_MAX_ATTEMPTS: usize = 2;
 /// Prefix used in Go-compatible message-id hashing for valid snappy payloads.
 const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
 /// Prefix used in Go-compatible message-id hashing for invalid snappy payloads.
@@ -131,16 +118,15 @@ struct HeightSeenTracker {
 
 impl HeightSeenTracker {
     fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if max_per_height == 0 {
+        if let Some(hashes) = self.seen_by_height.get(&height) {
+            if hashes.len() >= max_per_height {
+                return false;
+            }
+        } else if max_per_height == 0 {
             return false;
         }
 
-        let hashes = self.seen_by_height.entry(height).or_insert_with(Vec::new);
-        if hashes.len() > max_per_height {
-            return false;
-        }
-
-        hashes.push(hash);
+        self.seen_by_height.entry(height).or_insert(Vec::new()).push(hash);
         if self.seen_by_height.len() > PRECONF_INBOUND_LRU_CAPACITY {
             self.seen_by_height.pop_front();
         }
@@ -156,12 +142,8 @@ struct EpochSeenTracker {
 
 impl EpochSeenTracker {
     fn can_accept(&self, epoch: u64, max_per_epoch: usize) -> bool {
-        if max_per_epoch == 0 {
-            return false;
-        }
-
         match self.seen_by_epoch.get(&epoch) {
-            Some(count) => *count <= max_per_epoch,
+            Some(count) => *count < max_per_epoch,
             None => true,
         }
     }
@@ -176,325 +158,6 @@ impl EpochSeenTracker {
     }
 }
 
-#[derive(Debug)]
-struct CachedWhitelistedSequencers {
-    current: Address,
-    next: Address,
-    any_from_cache: bool,
-}
-
-#[derive(Debug)]
-struct CachedWhitelistSnapshot {
-    current: Address,
-    next: Address,
-    current_epoch_start_timestamp: u64,
-    block_timestamp: u64,
-}
-
-#[derive(Debug)]
-struct InboundWhitelistFilter {
-    whitelist: InboundWhitelistInstance,
-    rpc_client: InboundWhitelistClient,
-    sequencer_cache: WhitelistSequencerCache,
-}
-
-impl InboundWhitelistFilter {
-    fn new(rpc_client: InboundWhitelistClient, whitelist_address: Address) -> Self {
-        let whitelist =
-            InboundWhitelistInstance::new(whitelist_address, rpc_client.l1_provider.clone());
-        Self { whitelist, rpc_client, sequencer_cache: WhitelistSequencerCache::default() }
-    }
-
-    async fn ensure_signer_allowed(&mut self, signer: Address) -> Result<()> {
-        let now = Instant::now();
-        let result = self.cached_whitelist_sequencers(now).await?;
-
-        if signer == result.current || signer == result.next {
-            return Ok(());
-        }
-
-        if !result.any_from_cache {
-            return Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
-                "signer {signer} is not current ({}) or next ({}) whitelist sequencer",
-                result.current, result.next
-            )));
-        }
-
-        if !self.sequencer_cache.allow_miss_refresh(now) {
-            return Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
-                "signer {signer} is not current ({}) or next ({}) whitelist sequencer",
-                result.current, result.next
-            )));
-        }
-
-        debug!(
-            %signer,
-            cached_current = %result.current,
-            cached_next = %result.next,
-            "signer not in cached whitelist; re-fetching from L1"
-        );
-        self.sequencer_cache.invalidate();
-        let fresh = self.cached_whitelist_sequencers(now).await?;
-        if signer == fresh.current || signer == fresh.next {
-            return Ok(());
-        }
-
-        Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
-            "signer {signer} is not current ({}) or next ({}) whitelist sequencer",
-            fresh.current, fresh.next
-        )))
-    }
-
-    async fn cached_whitelist_sequencers(
-        &mut self,
-        now: Instant,
-    ) -> Result<CachedWhitelistedSequencers> {
-        if let (Some(current), Some(next)) =
-            (self.sequencer_cache.get_current(now), self.sequencer_cache.get_next(now))
-        {
-            return Ok(CachedWhitelistedSequencers { current, next, any_from_cache: true });
-        }
-
-        let snapshot = self.fetch_whitelist_snapshot_with_retry().await?;
-
-        if let Err(err) = ensure_not_too_early_for_epoch(
-            snapshot.block_timestamp,
-            snapshot.current_epoch_start_timestamp,
-        ) {
-            if let Some((current, next)) = self
-                .sequencer_cache
-                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
-            {
-                debug!(
-                    block_timestamp = snapshot.block_timestamp,
-                    current_epoch_start_timestamp = snapshot.current_epoch_start_timestamp,
-                    "using stale whitelist snapshot because latest block is before epoch start"
-                );
-                return Ok(CachedWhitelistedSequencers { current, next, any_from_cache: true });
-            }
-            return Err(err);
-        }
-
-        if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp) &&
-            let Some((current, next)) = self
-                .sequencer_cache
-                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
-        {
-            debug!(
-                block_timestamp = snapshot.block_timestamp,
-                "ignoring regressive whitelist snapshot from lagging RPC node"
-            );
-            return Ok(CachedWhitelistedSequencers { current, next, any_from_cache: true });
-        }
-
-        self.sequencer_cache.set_pair(
-            snapshot.current,
-            snapshot.next,
-            snapshot.current_epoch_start_timestamp,
-            now,
-        );
-
-        Ok(CachedWhitelistedSequencers {
-            current: snapshot.current,
-            next: snapshot.next,
-            any_from_cache: false,
-        })
-    }
-
-    async fn fetch_whitelist_snapshot_with_retry(&self) -> Result<CachedWhitelistSnapshot> {
-        for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
-            match self.fetch_whitelist_snapshot().await {
-                Ok(snapshot) => return Ok(snapshot),
-                Err(err)
-                    if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS &&
-                        should_retry_snapshot_fetch(&err) =>
-                {
-                    debug!(
-                        attempt,
-                        max_attempts = SNAPSHOT_FETCH_MAX_ATTEMPTS,
-                        error = %err,
-                        "retrying whitelist snapshot fetch after transient inconsistency"
-                    );
-                }
-                Err(err) => return Err(err),
-            }
-        }
-
-        unreachable!("snapshot fetch loop must return on success or final error")
-    }
-
-    async fn fetch_whitelist_snapshot(&self) -> Result<CachedWhitelistSnapshot> {
-        let latest_block = self
-            .rpc_client
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(|err| {
-                whitelist_lookup_err(format!(
-                    "failed to fetch latest block for whitelist snapshot: {err}"
-                ))
-            })?
-            .ok_or_else(|| {
-                whitelist_lookup_err(
-                    "missing latest block while fetching whitelist snapshot".to_string(),
-                )
-            })?;
-
-        let block_number = latest_block.header.number;
-        let block_timestamp = latest_block.header.timestamp;
-        let block_hash = latest_block.hash();
-
-        let current_operator_fut = async {
-            self.whitelist
-                .getOperatorForCurrentEpoch()
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch current operator at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let next_operator_fut = async {
-            self.whitelist
-                .getOperatorForNextEpoch()
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch next operator at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let epoch_start_timestamp_fut = async {
-            self.whitelist
-                .epochStartTimestamp(Default::default())
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch epochStartTimestamp at block {block_number}: {err}"
-                    ))
-                })
-        };
-
-        let (current_proposer, next_proposer, current_epoch_start_timestamp) =
-            tokio::try_join!(current_operator_fut, next_operator_fut, epoch_start_timestamp_fut,)?;
-
-        let current_seq_fut = async {
-            self.whitelist
-                .operators(current_proposer)
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch current operators() entry at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let next_seq_fut = async {
-            self.whitelist
-                .operators(next_proposer)
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch next operators() entry at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let pinned_block_fut = async {
-            self.rpc_client
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Number(block_number))
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch pinned block {block_number} for whitelist verification: {err}"
-                    ))
-                })
-        };
-
-        let (current_seq, next_seq, pinned_block_opt): (
-            bindings::preconf_whitelist::PreconfWhitelist::operatorsReturn,
-            bindings::preconf_whitelist::PreconfWhitelist::operatorsReturn,
-            _,
-        ) = tokio::try_join!(current_seq_fut, next_seq_fut, pinned_block_fut)?;
-
-        let pinned_block = pinned_block_opt.ok_or_else(|| {
-            whitelist_lookup_err(format!(
-                "missing pinned block {block_number} while verifying whitelist batches"
-            ))
-        })?;
-        let pinned_block_hash = pinned_block.hash();
-        if pinned_block_hash != block_hash {
-            return Err(whitelist_lookup_err(format!(
-                "block hash changed between whitelist batches at block {block_number}"
-            )));
-        }
-
-        if current_seq.sequencerAddress == Address::ZERO ||
-            next_seq.sequencerAddress == Address::ZERO
-        {
-            return Err(whitelist_lookup_err(
-                "received zero address for whitelist sequencer".to_string(),
-            ));
-        }
-
-        Ok(CachedWhitelistSnapshot {
-            current: current_seq.sequencerAddress,
-            next: next_seq.sequencerAddress,
-            current_epoch_start_timestamp: u64::from(current_epoch_start_timestamp),
-            block_timestamp,
-        })
-    }
-}
-
-/// Record and convert whitelist lookup failures into a driver error.
-///
-/// The helper centralizes metric updates for all snapshot/contract lookup failures.
-fn whitelist_lookup_err(message: String) -> WhitelistPreconfirmationDriverError {
-    metrics::counter!(WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL)
-        .increment(1);
-    WhitelistPreconfirmationDriverError::WhitelistLookup(message)
-}
-
-/// Return an error when the latest L1 block timestamp is before the epoch start.
-///
-/// This prevents callers from caching an epoch snapshot from an earlier epoch boundary.
-fn ensure_not_too_early_for_epoch(
-    block_timestamp: u64,
-    current_epoch_start_timestamp: u64,
-) -> Result<()> {
-    if block_timestamp < current_epoch_start_timestamp {
-        return Err(whitelist_lookup_err(format!(
-            "whitelist batch returned block timestamp {block_timestamp} before epoch start \
-             {current_epoch_start_timestamp}"
-        )));
-    }
-
-    Ok(())
-}
-
-/// Classify whether a snapshot lookup error is transient and worth one retry.
-fn should_retry_snapshot_fetch(err: &WhitelistPreconfirmationDriverError) -> bool {
-    match err {
-        WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {
-            let lower = message.to_ascii_lowercase();
-            message.contains("block hash changed between whitelist batches") ||
-                message.contains("missing pinned block") ||
-                (message.contains("at block") &&
-                    (lower.contains("not found") || lower.contains("unknown block")))
-        }
-        _ => false,
-    }
-}
-
 #[derive(Debug, Default)]
 struct GossipsubInboundState {
     chain_id: u64,
@@ -504,25 +167,10 @@ struct GossipsubInboundState {
     eos_seen: EpochSeenTracker,
     preconf_seen_by_height: HeightSeenTracker,
     response_seen_by_height: HeightSeenTracker,
-    whitelist_filter: Option<InboundWhitelistFilter>,
 }
 
 impl GossipsubInboundState {
-    #[cfg(test)]
     fn new(chain_id: u64) -> Self {
-        Self::new_with_whitelist_filter(chain_id, None, None)
-    }
-
-    fn new_with_whitelist_filter(
-        chain_id: u64,
-        l1_client: Option<InboundWhitelistClient>,
-        whitelist_address: Option<Address>,
-    ) -> Self {
-        let whitelist_filter =
-            l1_client.zip(whitelist_address).map(|(l1_client, whitelist_address)| {
-                InboundWhitelistFilter::new(l1_client, whitelist_address)
-            });
-
         Self {
             chain_id,
             request_rate: RateLimiter::default(),
@@ -531,7 +179,6 @@ impl GossipsubInboundState {
             eos_seen: EpochSeenTracker::default(),
             preconf_seen_by_height: HeightSeenTracker::default(),
             response_seen_by_height: HeightSeenTracker::default(),
-            whitelist_filter,
         }
     }
 
@@ -572,7 +219,7 @@ impl GossipsubInboundState {
         gossipsub::MessageAcceptance::Accept
     }
 
-    async fn validate_preconf_blocks(
+    fn validate_preconf_blocks(
         &mut self,
         payload: &DecodedUnsafePayload,
     ) -> gossipsub::MessageAcceptance {
@@ -584,14 +231,7 @@ impl GossipsubInboundState {
         }
 
         let prehash = block_signing_hash(self.chain_id, payload.payload_bytes.as_slice());
-        let signer = match recover_signer(prehash, &payload.wire_signature) {
-            Ok(signer) => signer,
-            Err(_) => return gossipsub::MessageAcceptance::Reject,
-        };
-
-        if let Some(filter) = self.whitelist_filter.as_mut() &&
-            filter.ensure_signer_allowed(signer).await.is_err()
-        {
+        if recover_signer(prehash, &payload.wire_signature).is_err() {
             return gossipsub::MessageAcceptance::Reject;
         }
 
@@ -605,7 +245,7 @@ impl GossipsubInboundState {
         gossipsub::MessageAcceptance::Accept
     }
 
-    async fn validate_response(
+    fn validate_response(
         &mut self,
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
     ) -> gossipsub::MessageAcceptance {
@@ -622,14 +262,7 @@ impl GossipsubInboundState {
 
         let prehash =
             block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-        let signer = match recover_signer(prehash, &signature) {
-            Ok(signer) => signer,
-            Err(_) => return gossipsub::MessageAcceptance::Reject,
-        };
-
-        if let Some(filter) = self.whitelist_filter.as_mut() &&
-            filter.ensure_signer_allowed(signer).await.is_err()
-        {
+        if recover_signer(prehash, &signature).is_err() {
             return gossipsub::MessageAcceptance::Reject;
         }
 
@@ -801,16 +434,7 @@ struct ClassifiedBootnodes {
 
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
-    #[cfg(test)]
     pub fn spawn(cfg: P2pConfig) -> Result<Self> {
-        Self::spawn_with_whitelist_filter(cfg, None, None)
-    }
-
-    pub(crate) fn spawn_with_whitelist_filter(
-        cfg: P2pConfig,
-        l1_client: Option<InboundWhitelistClient>,
-        whitelist_address: Option<Address>,
-    ) -> Result<Self> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
 
@@ -891,11 +515,7 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state = GossipsubInboundState::new_with_whitelist_filter(
-                cfg.chain_id,
-                l1_client,
-                whitelist_address,
-            );
+            let mut inbound_validation_state = GossipsubInboundState::new(cfg.chain_id);
 
             loop {
                 let has_discovery = discovery_rx.is_some();
@@ -1098,8 +718,7 @@ impl WhitelistNetwork {
 /// Build the gossipsub behaviour.
 pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
     let config = gossipsub::ConfigBuilder::default()
-        .validation_mode(gossipsub::ValidationMode::Permissive)
-        .validate_messages()
+        .validation_mode(gossipsub::ValidationMode::Strict)
         .heartbeat_interval(*kona_gossip::GOSSIP_HEARTBEAT)
         .duplicate_cache_time(*kona_gossip::SEEN_MESSAGES_TTL)
         .message_id_fn(message_id)
@@ -1305,22 +924,26 @@ async fn handle_gossipsub_event(
     };
 
     if *topic == topics.preconf_blocks.hash() {
-        let (acceptance, inbound_label) = match decode_unsafe_payload_message(&message.data) {
+        let acceptance = match decode_unsafe_payload_message(&message.data) {
             Ok(payload) => {
-                let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
+                let acceptance = inbound_validation_state.validate_preconf_blocks(&payload);
                 if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                    let Err(err) =
-                        forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload })
-                            .await
+                    let Err(err) = forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload })
+                        .await
                 {
                     report(&gossipsub::MessageAcceptance::Reject);
                     return Err(err);
                 }
 
-                let inbound_label = acceptance_label(&acceptance);
-                (acceptance, inbound_label)
+                acceptance
             }
             Err(err) => {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "preconf_blocks",
+                    "result" => "decode_failed",
+                )
+                .increment(1);
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
                     "topic" => "preconf_blocks",
@@ -1328,14 +951,14 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe payload");
 
-                (gossipsub::MessageAcceptance::Reject, "decode_failed")
+                gossipsub::MessageAcceptance::Reject
             }
         };
 
         metrics::counter!(
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
             "topic" => "preconf_blocks",
-            "result" => inbound_label,
+            "result" => acceptance_label(&acceptance),
         )
         .increment(1);
         report(&acceptance);
@@ -1343,9 +966,9 @@ async fn handle_gossipsub_event(
     }
 
     if *topic == topics.preconf_response.hash() {
-        let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
+        let acceptance = match decode_unsafe_response_message(&message.data) {
             Ok(envelope) => {
-                let acceptance = inbound_validation_state.validate_response(&envelope).await;
+                let acceptance = inbound_validation_state.validate_response(&envelope);
                 if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
                     let Err(err) =
                         forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope })
@@ -1355,10 +978,15 @@ async fn handle_gossipsub_event(
                     return Err(err);
                 }
 
-                let inbound_label = acceptance_label(&acceptance);
-                (acceptance, inbound_label)
+                acceptance
             }
             Err(err) => {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "response_preconf_blocks",
+                    "result" => "decode_failed",
+                )
+                .increment(1);
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
                     "topic" => "response_preconf_blocks",
@@ -1366,14 +994,14 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe response");
 
-                (gossipsub::MessageAcceptance::Reject, "decode_failed")
+                gossipsub::MessageAcceptance::Reject
             }
         };
 
         metrics::counter!(
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
             "topic" => "response_preconf_blocks",
-            "result" => inbound_label,
+            "result" => acceptance_label(&acceptance),
         )
         .increment(1);
         report(&acceptance);
@@ -1448,6 +1076,20 @@ async fn handle_gossipsub_event(
     Ok(())
 }
 
+/// Decode an end-of-sequencing request epoch from big-endian bytes.
+#[cfg(test)]
+fn decode_eos_epoch(payload: &[u8]) -> u64 {
+    let mut bytes = [0u8; std::mem::size_of::<u64>()];
+    let to_copy = payload.len().min(std::mem::size_of::<u64>());
+
+    if to_copy > 0 {
+        let source_start = payload.len() - to_copy;
+        bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
+    }
+
+    u64::from_be_bytes(bytes)
+}
+
 fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
     if payload.len() != std::mem::size_of::<u64>() {
         return None;
@@ -1455,6 +1097,19 @@ fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
 
     let bytes: [u8; std::mem::size_of::<u64>()] = payload.try_into().ok()?;
     Some(u64::from_be_bytes(bytes))
+}
+
+#[cfg(test)]
+fn decode_request_hash(payload: &[u8]) -> B256 {
+    let mut bytes = [0u8; std::mem::size_of::<B256>()];
+    let to_copy = payload.len().min(std::mem::size_of::<B256>());
+
+    if to_copy > 0 {
+        let source_start = payload.len() - to_copy;
+        bytes[std::mem::size_of::<B256>() - to_copy..].copy_from_slice(&payload[source_start..]);
+    }
+
+    B256::from(bytes)
 }
 
 fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
@@ -1522,31 +1177,6 @@ mod tests {
             },
             signature: Some([0x22u8; 65]),
         }
-    }
-
-    fn decode_eos_epoch(payload: &[u8]) -> u64 {
-        let mut bytes = [0u8; std::mem::size_of::<u64>()];
-        let to_copy = payload.len().min(std::mem::size_of::<u64>());
-
-        if to_copy > 0 {
-            let source_start = payload.len() - to_copy;
-            bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
-        }
-
-        u64::from_be_bytes(bytes)
-    }
-
-    fn decode_request_hash(payload: &[u8]) -> B256 {
-        let mut bytes = [0u8; std::mem::size_of::<B256>()];
-        let to_copy = payload.len().min(std::mem::size_of::<B256>());
-
-        if to_copy > 0 {
-            let source_start = payload.len() - to_copy;
-            bytes[std::mem::size_of::<B256>() - to_copy..]
-                .copy_from_slice(&payload[source_start..]);
-        }
-
-        B256::from(bytes)
     }
 
     fn sample_preconf_payload() -> DecodedUnsafePayload {
@@ -1635,7 +1265,7 @@ mod tests {
     fn decode_eos_epoch_requires_fixed_8_byte_length_for_request_topic() {
         assert_eq!(
             decode_eos_epoch_exact(&42u64.to_be_bytes()),
-            Some(u64::from_be_bytes(42u64.to_be_bytes()))
+            Some(42u64.to_be_bytes()).map(u64::from_be_bytes)
         );
         assert_eq!(decode_eos_epoch_exact(&[]), None);
         assert_eq!(decode_eos_epoch_exact(&[0x2au8; 7]), None);
@@ -1670,13 +1300,12 @@ mod tests {
         let mut validation_state = GossipsubInboundState::new(167_000);
 
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([1u8; 32]), 1));
-        assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
-        assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([3u8; 32]), 1));
+        assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
         assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 1);
-        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height[&1].len(), 2);
+        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height[&1].len(), 1);
         assert_eq!(
             validation_state.preconf_seen_by_height.seen_by_height[&1],
-            vec![B256::from([1u8; 32]), B256::from([2u8; 32])]
+            vec![B256::from([1u8; 32])]
         );
 
         assert!(!validation_state.preconf_seen_by_height.can_accept(2, B256::from([3u8; 32]), 0));
@@ -1689,43 +1318,41 @@ mod tests {
 
         assert!(tracker.can_accept(7, 1));
         tracker.mark(7);
-        assert!(tracker.can_accept(7, 1));
-        tracker.mark(7);
         assert!(!tracker.can_accept(7, 1));
-        assert_eq!(tracker.seen_by_epoch.get(&7), Some(&2usize));
+        assert_eq!(tracker.seen_by_epoch.get(&7), Some(&1usize));
     }
 
-    #[tokio::test]
-    async fn validate_preconf_blocks_rejects_empty_transaction_payload() {
+    #[test]
+    fn validate_preconf_blocks_rejects_empty_transaction_payload() {
         let mut validation_state = GossipsubInboundState::new(167_000);
         let mut payload = sample_preconf_payload();
         payload.envelope.execution_payload.transactions.clear();
 
         assert!(matches!(
-            validation_state.validate_preconf_blocks(&payload).await,
+            validation_state.validate_preconf_blocks(&payload),
             gossipsub::MessageAcceptance::Reject
         ));
     }
 
-    #[tokio::test]
-    async fn validate_preconf_blocks_rejects_invalid_signature() {
+    #[test]
+    fn validate_preconf_blocks_rejects_invalid_signature() {
         let mut validation_state = GossipsubInboundState::new(167_000);
         let payload = sample_preconf_payload();
 
         assert!(matches!(
-            validation_state.validate_preconf_blocks(&payload).await,
+            validation_state.validate_preconf_blocks(&payload),
             gossipsub::MessageAcceptance::Reject
         ));
     }
 
-    #[tokio::test]
-    async fn validate_response_rejects_missing_signature() {
+    #[test]
+    fn validate_response_rejects_missing_signature() {
         let mut validation_state = GossipsubInboundState::new(167_000);
         let mut envelope = sample_response_envelope();
         envelope.signature = None;
 
         assert!(matches!(
-            validation_state.validate_response(&envelope).await,
+            validation_state.validate_response(&envelope),
             gossipsub::MessageAcceptance::Reject
         ));
     }
@@ -1864,21 +1491,22 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
-                break address;
+            match peer_swarm.select_next_some().await {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    break address;
+                }
+                _ => {}
             }
         };
 
         let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
 
-        let cfg = P2pConfig {
-            chain_id,
-            enable_discovery: false,
-            enable_tcp: true,
-            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
-            pre_dial_peers: vec![dial_addr],
-            ..P2pConfig::default()
-        };
+        let mut cfg = P2pConfig::default();
+        cfg.chain_id = chain_id;
+        cfg.enable_discovery = false;
+        cfg.enable_tcp = true;
+        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
+        cfg.pre_dial_peers = vec![dial_addr];
 
         let whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
         let expected_hash = B256::from([0x66u8; 32]);
@@ -1930,13 +1558,11 @@ mod tests {
 
     #[tokio::test]
     async fn whitelist_network_loopbacks_published_unsafe_payload() {
-        let cfg = P2pConfig {
-            chain_id: 167_000,
-            enable_discovery: false,
-            enable_tcp: true,
-            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
-            ..P2pConfig::default()
-        };
+        let mut cfg = P2pConfig::default();
+        cfg.chain_id = 167_000;
+        cfg.enable_discovery = false;
+        cfg.enable_tcp = true;
+        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
 
         let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
         let expected_signature = [0x77u8; 65];
@@ -2057,21 +1683,22 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
-                break address;
+            match peer_swarm.select_next_some().await {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    break address;
+                }
+                _ => {}
             }
         };
 
         let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
 
-        let cfg = P2pConfig {
-            chain_id,
-            enable_discovery: false,
-            enable_tcp: true,
-            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
-            pre_dial_peers: vec![dial_addr],
-            ..P2pConfig::default()
-        };
+        let mut cfg = P2pConfig::default();
+        cfg.chain_id = chain_id;
+        cfg.enable_discovery = false;
+        cfg.enable_tcp = true;
+        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
+        cfg.pre_dial_peers = vec![dial_addr];
 
         let whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
         let expected = sample_response_envelope();
@@ -2174,21 +1801,22 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
-                break address;
+            match peer_swarm.select_next_some().await {
+                SwarmEvent::NewListenAddr { address, .. } => {
+                    break address;
+                }
+                _ => {}
             }
         };
 
         let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
 
-        let cfg = P2pConfig {
-            chain_id,
-            enable_discovery: false,
-            enable_tcp: true,
-            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
-            pre_dial_peers: vec![dial_addr],
-            ..P2pConfig::default()
-        };
+        let mut cfg = P2pConfig::default();
+        cfg.chain_id = chain_id;
+        cfg.enable_discovery = false;
+        cfg.enable_tcp = true;
+        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
+        cfg.pre_dial_peers = vec![dial_addr];
 
         let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
 
