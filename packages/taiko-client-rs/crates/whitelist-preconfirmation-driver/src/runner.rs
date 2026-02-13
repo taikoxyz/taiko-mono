@@ -18,8 +18,8 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
-    rpc::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
-    rpc_handler::WhitelistRestHandler,
+    rest::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
+    rest_handler::WhitelistRestHandler,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -35,6 +35,8 @@ pub struct RunnerConfig {
     pub rpc_listen_addr: Option<SocketAddr>,
     /// Optional shared secret used for Bearer JWT authentication on REST/WS routes.
     pub rpc_jwt_secret: Option<Vec<u8>>,
+    /// Optional list of allowed CORS origins for REST/WS routes.
+    pub rpc_cors_origins: Vec<String>,
     /// Optional hex-encoded private key for P2P block signing.
     pub p2p_signer_key: Option<String>,
 }
@@ -47,6 +49,7 @@ impl RunnerConfig {
         whitelist_address: Address,
         rpc_listen_addr: Option<SocketAddr>,
         rpc_jwt_secret: Option<Vec<u8>>,
+        rpc_cors_origins: Vec<String>,
         p2p_signer_key: Option<String>,
     ) -> Self {
         Self {
@@ -55,6 +58,7 @@ impl RunnerConfig {
             whitelist_address,
             rpc_listen_addr,
             rpc_jwt_secret,
+            rpc_cors_origins,
             p2p_signer_key,
         }
     }
@@ -147,6 +151,7 @@ impl WhitelistPreconfirmationDriverRunner {
             let server_config = WhitelistRestWsServerConfig {
                 listen_addr,
                 jwt_secret: self.config.rpc_jwt_secret.clone(),
+                cors_origins: self.config.rpc_cors_origins.clone(),
                 ..Default::default()
             };
             let server = WhitelistRestWsServer::start(server_config, Arc::new(handler)).await?;
