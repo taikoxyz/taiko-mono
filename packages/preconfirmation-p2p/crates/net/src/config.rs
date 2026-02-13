@@ -10,6 +10,7 @@ use std::{
     time::Duration,
 };
 
+use alloy_primitives::Address;
 use crate::reputation::ReputationConfig;
 use libp2p::Multiaddr;
 
@@ -22,6 +23,8 @@ use libp2p::Multiaddr;
 pub struct P2pConfig {
     /// Chain ID used to derive gossip topics and protocol IDs.
     pub chain_id: u64,
+    /// Optional sequencer allowlist addresses for whitelist preconfirmation message validation.
+    pub sequencer_addresses: Vec<Address>,
     /// Libp2p listen address for TCP/QUIC transports.
     pub listen_addr: SocketAddr,
     /// Enable discv5 peer discovery. If `false`, only manual bootnodes are used.
@@ -123,6 +126,7 @@ impl Default for P2pConfig {
         let base = NetworkConfig::default();
         Self {
             chain_id: base.chain_id,
+            sequencer_addresses: Vec::new(),
             listen_addr: base.listen_addr,
             enable_discovery: base.enable_discovery,
             discovery_listen: base.discv5_listen,
