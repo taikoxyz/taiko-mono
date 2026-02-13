@@ -124,6 +124,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
             sequencer_addresses: self.preconf_flags.p2p_sequencer_addresses.clone(),
+            sequencer_address: self.preconf_flags.p2p_sequencer_address.unwrap_or(Address::ZERO),
             pre_dial_peers,
             ..Default::default()
         };

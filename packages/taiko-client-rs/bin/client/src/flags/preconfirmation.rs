@@ -36,6 +36,10 @@ pub struct PreconfirmationArgs {
     )]
     pub p2p_sequencer_addresses: Vec<Address>,
 
+    /// Single fallback sequencer address for legacy non-whitelist p2p signing checks.
+    #[clap(long = "p2p.sequencer-address", env = "P2P_SEQUENCER_ADDRESS")]
+    pub p2p_sequencer_address: Option<Address>,
+
     /// Disable discv5 peer discovery.
     #[clap(long = "p2p.disable-discovery", env = "P2P_DISABLE_DISCOVERY", default_value = "false")]
     pub p2p_disable_discovery: bool,
