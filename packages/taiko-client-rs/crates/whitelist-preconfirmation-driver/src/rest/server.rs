@@ -179,7 +179,7 @@ struct AppState {
 /// Construct the server router with optional HTTP and WebSocket route groups.
 fn build_router(state: AppState, enable_http: bool, enable_ws: bool) -> Router {
     let cors_layer = build_cors_layer(&state.cors_origins);
-    let mut router = Router::new().layer(cors_layer);
+    let mut router = Router::new();
 
     if enable_http {
         router = router
@@ -193,20 +193,24 @@ fn build_router(state: AppState, enable_http: bool, enable_ws: bool) -> Router {
         router = router.route("/ws", get(handle_websocket_upgrade));
     }
 
-    router
+    router = router
         .fallback(handle_not_found)
-        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware))
-        .with_state(state)
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+    router.layer(cors_layer).with_state(state)
 }
 
 /// Build CORS middleware from configured allowed origins.
 fn build_cors_layer(cors_origins: &[String]) -> CorsLayer {
+    let allows_credentials = !cors_origins.iter().any(|origin| origin == "*");
+    let allowed_methods = [Method::GET, Method::POST, Method::OPTIONS];
+    let allowed_headers = [AUTHORIZATION, CONTENT_TYPE];
+
     if cors_origins.iter().any(|origin| origin == "*") {
         return CorsLayer::new()
             .allow_origin(Any)
-            .allow_credentials(true)
-            .allow_methods(Any)
-            .allow_headers(Any);
+            .allow_credentials(false)
+            .allow_methods(allowed_methods)
+            .allow_headers(allowed_headers);
     }
 
     let parsed_origins = cors_origins
@@ -216,9 +220,9 @@ fn build_cors_layer(cors_origins: &[String]) -> CorsLayer {
 
     CorsLayer::new()
         .allow_origin(parsed_origins)
-        .allow_credentials(true)
-        .allow_methods(Any)
-        .allow_headers(Any)
+        .allow_credentials(allows_credentials)
+        .allow_methods(allowed_methods)
+        .allow_headers(allowed_headers)
 }
 
 /// Validate request JWT credentials when a secret is configured.
@@ -258,6 +262,18 @@ async fn handle_status(State(state): State<AppState>) -> Response {
 }
 
 async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) -> Response {
+    let status = match state.api.get_status().await {
+        Ok(status) => status,
+        Err(err) => return error_response(map_rest_error_status(&err), err.to_string()),
+    };
+
+    if !status.sync_ready {
+        return error_response(
+            StatusCode::BAD_REQUEST,
+            "event sync is not ready to serve preconfBlocks".to_string(),
+        );
+    }
+
     let body = match read_request_body(request.into_body(), PRECONF_BLOCKS_BODY_LIMIT_BYTES).await {
         Ok(body) => body,
         Err(ReadRequestBodyError::TooLarge { max_bytes }) => {
@@ -310,6 +326,8 @@ async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) 
     }
 }
 
+/// Upgrade a request to a websocket stream for EOS notifications.
+/// Returns `400 Bad Request` when websocket upgrade headers are not present.
 async fn handle_websocket_upgrade(
     State(state): State<AppState>,
     websocket_upgrade: std::result::Result<
@@ -335,6 +353,7 @@ async fn handle_websocket_upgrade(
         .into_response()
 }
 
+/// Return 404 for unknown routes.
 async fn handle_not_found() -> Response {
     error_response(StatusCode::NOT_FOUND, "route not found".to_string())
 }
