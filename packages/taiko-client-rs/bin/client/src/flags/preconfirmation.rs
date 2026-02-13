@@ -2,6 +2,7 @@
 
 use std::net::SocketAddr;
 
+use alloy_primitives::Address;
 use clap::Parser;
 
 /// Preconfirmation-specific CLI arguments.
@@ -26,6 +27,14 @@ pub struct PreconfirmationArgs {
     /// Comma-separated list of static peers to dial on startup (multiaddr).
     #[clap(long = "p2p.static-peers", env = "P2P_STATIC_PEERS", value_delimiter = ',')]
     pub p2p_static_peers: Vec<String>,
+
+    /// Comma-separated list of allowed sequencer addresses for whitelist preconfirmation gossipsub.
+    #[clap(
+        long = "p2p.sequencer-addresses",
+        env = "P2P_SEQUENCER_ADDRESSES",
+        value_delimiter = ','
+    )]
+    pub p2p_sequencer_addresses: Vec<Address>,
 
     /// Disable discv5 peer discovery.
     #[clap(long = "p2p.disable-discovery", env = "P2P_DISABLE_DISCOVERY", default_value = "false")]
