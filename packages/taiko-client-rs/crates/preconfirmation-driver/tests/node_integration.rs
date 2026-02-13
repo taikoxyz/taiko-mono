@@ -39,13 +39,21 @@ fn make_client() -> (
     mpsc::Receiver<PreconfirmationInput>,
     watch::Sender<u64>,
     watch::Sender<U256>,
+    watch::Sender<U256>,
 ) {
     let (input_tx, input_rx) = mpsc::channel::<PreconfirmationInput>(16);
     let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
+    let (event_sync_tip_tx, event_sync_tip_rx) = watch::channel(U256::ZERO);
     let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
     let inbox_reader = MockInboxReader::new(0);
-    let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
-    (client, input_rx, canonical_id_tx, preconf_tip_tx)
+    let client = EmbeddedDriverClient::new(
+        input_tx,
+        canonical_id_rx,
+        event_sync_tip_rx,
+        preconf_tip_rx,
+        inbox_reader,
+    );
+    (client, input_rx, canonical_id_tx, event_sync_tip_tx, preconf_tip_tx)
 }
 
 fn make_test_input(block_number: u64) -> PreconfirmationInput {
@@ -59,15 +67,16 @@ fn make_test_input(block_number: u64) -> PreconfirmationInput {
 
 #[tokio::test]
 async fn test_embedded_driver_client_channel_communication() {
-    let (client, mut input_rx, canonical_id_tx, preconf_tip_tx) = make_client();
+    let (client, mut input_rx, canonical_id_tx, event_sync_tip_tx, preconf_tip_tx) = make_client();
 
     assert_eq!(client.preconf_tip().await.unwrap(), U256::ZERO);
     assert_eq!(client.event_sync_tip().await.unwrap(), U256::ZERO);
 
     canonical_id_tx.send(42).unwrap();
+    event_sync_tip_tx.send(U256::from(90)).unwrap();
     preconf_tip_tx.send(U256::from(100)).unwrap();
 
-    assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(42));
+    assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(90));
     assert_eq!(client.preconf_tip().await.unwrap(), U256::from(100));
 
     client.submit_preconfirmation(make_test_input(5)).await.unwrap();
@@ -80,18 +89,30 @@ async fn test_embedded_driver_client_channel_communication() {
 async fn test_driver_channels_round_trip() {
     let (input_tx, input_rx) = mpsc::channel::<PreconfirmationInput>(16);
     let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
+    let (event_sync_tip_tx, event_sync_tip_rx) = watch::channel(U256::ZERO);
     let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 
-    let channels =
-        DriverChannels { input_rx, canonical_proposal_id_tx: canonical_id_tx, preconf_tip_tx };
+    let channels = DriverChannels {
+        input_rx,
+        canonical_proposal_id_tx: canonical_id_tx,
+        event_sync_tip_tx,
+        preconf_tip_tx,
+    };
 
     let inbox_reader = MockInboxReader::new(0);
-    let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
+    let client = EmbeddedDriverClient::new(
+        input_tx,
+        canonical_id_rx,
+        event_sync_tip_rx,
+        preconf_tip_rx,
+        inbox_reader,
+    );
 
     channels.canonical_proposal_id_tx.send(100).unwrap();
+    channels.event_sync_tip_tx.send(U256::from(150)).unwrap();
     channels.preconf_tip_tx.send(U256::from(200)).unwrap();
 
-    assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(100));
+    assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(150));
     assert_eq!(client.preconf_tip().await.unwrap(), U256::from(200));
 }
 
@@ -106,16 +127,23 @@ fn test_rpc_server_config_defaults() {
 async fn test_wait_event_sync_returns_immediately_when_synced() {
     let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
     let (_, canonical_id_rx) = watch::channel(10u64);
+    let (_, event_sync_tip_rx) = watch::channel(U256::ZERO);
     let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
     let inbox_reader = MockInboxReader::new(0);
-    let client = EmbeddedDriverClient::new(input_tx, canonical_id_rx, preconf_tip_rx, inbox_reader);
+    let client = EmbeddedDriverClient::new(
+        input_tx,
+        canonical_id_rx,
+        event_sync_tip_rx,
+        preconf_tip_rx,
+        inbox_reader,
+    );
 
     client.wait_event_sync().await.unwrap();
 }
 
 #[tokio::test]
 async fn test_submit_preconfirmation_closed_channel() {
-    let (client, input_rx, _, _) = make_client();
+    let (client, input_rx, _, _, _) = make_client();
     drop(input_rx);
 
     let result = client.submit_preconfirmation(make_test_input(1)).await;
@@ -124,13 +152,14 @@ async fn test_submit_preconfirmation_closed_channel() {
 
 #[tokio::test]
 async fn test_canonical_id_updates_immediately_on_change() {
-    let (client, _input_rx, canonical_id_tx, _preconf_tip_tx) = make_client();
+    let (client, _input_rx, canonical_id_tx, event_sync_tip_tx, _preconf_tip_tx) = make_client();
 
     // Initial value
     assert_eq!(client.event_sync_tip().await.unwrap(), U256::ZERO);
 
     // Simulate driver sending update
     canonical_id_tx.send(42).unwrap();
+    event_sync_tip_tx.send(U256::from(42)).unwrap();
 
     // Should be immediately available (no 100ms delay)
     assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(42));
@@ -139,6 +168,7 @@ async fn test_canonical_id_updates_immediately_on_change() {
     canonical_id_tx.send(43).unwrap();
     canonical_id_tx.send(44).unwrap();
     canonical_id_tx.send(45).unwrap();
+    event_sync_tip_tx.send(U256::from(45)).unwrap();
 
     // Latest value should be immediately available
     assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(45));

@@ -16,9 +16,9 @@ use driver::{
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{
-    Bytes20, Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
-    TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment, u256_to_uint256,
-    uint256_to_u256,
+    Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
+    SignedCommitment, TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment,
+    u256_to_uint256, uint256_to_u256,
 };
 use protocol::codec::ZlibTxListCodec;
 use rpc::{
@@ -107,7 +107,7 @@ impl DriverInstance {
 }
 
 fn build_txlist_bytes(raw_tx_bytes: &[Vec<u8>]) -> Result<TxListBytes> {
-    let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
+    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
     let compressed = codec
         .encode(raw_tx_bytes)
         .map_err(|err| anyhow!("encode txlist before publishing: {err}"))?;

@@ -15,16 +15,16 @@ alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
-async-trait = { workspace = true }
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 axum = { version = "0.8", features = ["ws"] }
-bytes = "1"
 bindings = { path = "../bindings" }
+bytes = "1"
 driver = { path = "../driver" }
 flate2 = { workspace = true }
 futures = "0.3"
-jsonwebtoken = "9"
 hashlink = "0.10"
+jsonwebtoken = "9"
 kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
 libp2p = { version = "0.56.0", features = ["tcp", "gossipsub", "ping", "identify", "noise", "yamux", "macros", "tokio"] }
 metrics = { workspace = true }

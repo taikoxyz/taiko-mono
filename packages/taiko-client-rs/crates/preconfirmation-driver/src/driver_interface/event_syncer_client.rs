@@ -7,7 +7,7 @@ use alloy_primitives::U256;
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
-use driver::{DriverError, PreconfPayload, sync::event::EventSyncer};
+use driver::{CanonicalTipState, DriverError, PreconfPayload, sync::event::EventSyncer};
 use preconfirmation_types::uint256_to_u256;
 use tracing::info;
 
@@ -74,6 +74,9 @@ pub trait PreconfirmationIngress: Send + Sync {
 
     /// Subscribe to canonical proposal id updates.
     fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64>;
+
+    /// Return the current canonical L2 tip state produced from event sync.
+    fn canonical_tip_state(&self) -> CanonicalTipState;
 }
 
 #[async_trait]
@@ -92,6 +95,11 @@ where
     /// Subscribe to canonical proposal id updates.
     fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64> {
         self.subscribe_proposal_id()
+    }
+
+    /// Return the current canonical L2 tip state produced from event sync.
+    fn canonical_tip_state(&self) -> CanonicalTipState {
+        self.canonical_tip_state()
     }
 }
 
@@ -210,7 +218,10 @@ where
 
     /// Get the current event syncer tip block number.
     async fn event_sync_tip(&self) -> Result<U256> {
-        self.l2_provider.safe_tip().await
+        match self.event_syncer.canonical_tip_state() {
+            CanonicalTipState::Known(block_number) => Ok(U256::from(block_number)),
+            CanonicalTipState::Unknown => Err(DriverApiError::EventSyncTipUnknown.into()),
+        }
     }
 
     /// Get the current preconfirmation tip block number.
@@ -230,6 +241,7 @@ mod tests {
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types::Header as RpcHeader;
     use alloy_transport::mock::Asserter;
+    use driver::CanonicalTipState;
 
     use super::{EventSyncerDriverClient, PreconfirmationIngress, TipProvider};
     use crate::{
@@ -265,6 +277,7 @@ mod tests {
 
     struct FakeIngress {
         submits: Arc<AtomicUsize>,
+        canonical_tip_state: CanonicalTipState,
     }
 
     #[async_trait::async_trait]
@@ -281,6 +294,10 @@ mod tests {
             let (_tx, rx) = tokio::sync::watch::channel(0u64);
             rx
         }
+
+        fn canonical_tip_state(&self) -> CanonicalTipState {
+            self.canonical_tip_state
+        }
     }
 
     #[tokio::test]
@@ -290,13 +307,41 @@ mod tests {
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider.clone());
 
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress { submits: Arc::new(AtomicUsize::new(0)) }),
+            Arc::new(FakeIngress {
+                submits: Arc::new(AtomicUsize::new(0)),
+                canonical_tip_state: CanonicalTipState::Known(7),
+            }),
             inbox,
             Arc::new(StubL2Provider { safe: U256::from(10), latest: U256::from(12) }),
         );
 
-        assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(10));
+        assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(7));
         assert_eq!(client.preconf_tip().await.unwrap(), U256::from(12));
+    }
+
+    #[tokio::test]
+    async fn event_syncer_driver_client_returns_error_when_tip_unknown() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter);
+        let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
+
+        let client = EventSyncerDriverClient::new_with_components(
+            Arc::new(FakeIngress {
+                submits: Arc::new(AtomicUsize::new(0)),
+                canonical_tip_state: CanonicalTipState::Unknown,
+            }),
+            inbox,
+            Arc::new(StubL2Provider { safe: U256::ZERO, latest: U256::ZERO }),
+        );
+
+        let err = client
+            .event_sync_tip()
+            .await
+            .expect_err("unknown canonical tip should return explicit error");
+        assert!(matches!(
+            err,
+            crate::PreconfirmationClientError::DriverInterface(DriverApiError::EventSyncTipUnknown)
+        ));
     }
 
     struct NoopL2Provider;
@@ -327,7 +372,10 @@ mod tests {
 
         let submits = Arc::new(AtomicUsize::new(0));
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress { submits: submits.clone() }),
+            Arc::new(FakeIngress {
+                submits: submits.clone(),
+                canonical_tip_state: CanonicalTipState::Known(0),
+            }),
             inbox,
             Arc::new(NoopL2Provider),
         );

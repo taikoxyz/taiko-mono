@@ -32,7 +32,7 @@ pub trait DriverClient: Send + Sync {
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()>;
     /// Await the driver event sync completion signal.
     async fn wait_event_sync(&self) -> Result<()>;
-    /// Return the latest event sync tip block number.
+    /// Return the latest event-synced canonical L2 block number.
     async fn event_sync_tip(&self) -> Result<U256>;
     /// Return the latest preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256>;
