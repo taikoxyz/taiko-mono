@@ -2,9 +2,9 @@
 pragma solidity ^0.8.26;
 
 import "forge-std/src/Test.sol";
-import { LibAnchorSigner } from "test/layer2/LibAnchorSigner.sol";
-import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
 import { GoldenTouchVerifier } from "src/layer1/verifiers/GoldenTouchVerifier.sol";
+import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
+import { LibAnchorSigner } from "test/layer2/LibAnchorSigner.sol";
 
 contract GoldenTouchVerifierTest is Test {
     uint64 private constant CHAIN_ID = 167;
@@ -78,10 +78,7 @@ contract GoldenTouchVerifierTest is Test {
         verifier.verifyProof(0, aggregatedHash, proof);
     }
 
-    function _prepareValidProof()
-        private
-        returns (bytes memory proof, bytes32 aggregatedHash)
-    {
+    function _prepareValidProof() private returns (bytes memory proof, bytes32 aggregatedHash) {
         aggregatedHash = bytes32(uint256(0x1234));
         bytes32 signatureHash = LibPublicInput.hashPublicInputs(
             aggregatedHash, address(verifier), LibAnchorSigner.GOLDEN_TOUCH_ADDRESS, CHAIN_ID
