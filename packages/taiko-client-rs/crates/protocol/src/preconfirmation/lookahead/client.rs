@@ -5,6 +5,7 @@ use bindings::{
 };
 
 use super::{LookaheadData, LookaheadError, ProposerContext, Result};
+use tracing::debug;
 
 /// Thin wrapper around on-chain lookahead contracts resolved via the Inbox configuration.
 #[derive(Clone)]
@@ -19,6 +20,7 @@ impl<P: Provider + Clone> LookaheadClient<P> {
     pub async fn new(inbox_address: Address, provider: P) -> Result<Self> {
         let inbox = InboxInstance::new(inbox_address, provider.clone());
         let config = inbox.getConfig().call().await.map_err(LookaheadError::InboxConfig)?;
+        debug!("Inbox config: {:?}", config);
 
         let lookahead_store = LookaheadStoreInstance::new(config.proposerChecker, provider);
 

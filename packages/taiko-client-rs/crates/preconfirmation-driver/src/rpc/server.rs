@@ -201,7 +201,9 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
             LookaheadError::SystemTime(_) |
             LookaheadError::UnknownChain(_) |
             LookaheadError::MissingLookahead(_) |
-            LookaheadError::CorruptLookaheadCache { .. } => {
+            LookaheadError::CorruptLookaheadCache { .. } |
+            LookaheadError::GetLookaheadStoreConfig(_) |
+            LookaheadError::GetPreconfWhitelistAddress(_) => {
                 PreconfRpcErrorCode::LookaheadUnavailable.code()
             }
         },

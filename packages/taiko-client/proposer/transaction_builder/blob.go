@@ -182,9 +182,6 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		blobs                    []*eth.Blob
 		data                     []byte
 	)
-	if preconfRouterAddress != rpc.ZeroAddress {
-		to = &preconfRouterAddress
-	}
 
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {

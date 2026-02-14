@@ -36,7 +36,7 @@ use crate::{
         validate_execution_payload_for_preconf,
     },
     network::NetworkCommand,
-    rpc::{
+    rest::{
         WhitelistRestApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
