@@ -124,6 +124,22 @@ fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
     value.ok_or(SyncError::MissingFinalizedL1Block)
 }
 
+/// Resolve canonical tip for empty-outcome proposals with strict fallback policy.
+///
+/// Priority:
+/// 1) proposal batch-to-last-block mapping
+/// 2) latest execution head only when canonical tip state is still unknown
+fn resolve_empty_outcome_canonical_tip(
+    canonical_tip_state: CanonicalTipState,
+    proposal_mapped_block_number: Option<u64>,
+    latest_block_number: Option<u64>,
+) -> Option<u64> {
+    proposal_mapped_block_number.or(match canonical_tip_state {
+        CanonicalTipState::Unknown => latest_block_number,
+        CanonicalTipState::Known(_) => None,
+    })
+}
+
 /// Update the canonical block tip boundary and notify watchers when it changes.
 ///
 /// Returns true when the published tip changed. The canonical tip may move either forward or
@@ -400,19 +416,18 @@ where
             // (e.g. proposal already represented by canonical chain state). In that case,
             // initialize canonical tip from engine state so ingress does not remain stuck
             // in Unknown after event-sync has processed a real proposal.
-            if outcomes.is_empty() &&
-                matches!(
-                    self.canonical_tip_state.load(Ordering::Relaxed),
-                    CanonicalTipState::Unknown
-                ) &&
-                let Some(canonical_block_number) =
-                    self.resolve_canonical_tip_for_proposal(proposal_id).await?
-            {
-                update_canonical_tip_state(
-                    self.canonical_tip_state.as_ref(),
-                    &self.canonical_tip_state_tx,
-                    canonical_block_number,
-                );
+            if outcomes.is_empty() {
+                let canonical_tip_state = self.canonical_tip_state.load(Ordering::Relaxed);
+                if let Some(canonical_block_number) = self
+                    .resolve_canonical_tip_for_proposal(proposal_id, canonical_tip_state)
+                    .await?
+                {
+                    update_canonical_tip_state(
+                        self.canonical_tip_state.as_ref(),
+                        &self.canonical_tip_state_tx,
+                        canonical_block_number,
+                    );
+                }
             }
 
             info!(
@@ -434,23 +449,45 @@ where
     ///
     /// Priority:
     /// 1) batch-to-last-block mapping for the proposal id
-    /// 2) latest execution head block number as fallback
+    /// 2) latest execution head block number as fallback, only while canonical tip is unknown
     async fn resolve_canonical_tip_for_proposal(
         &self,
         proposal_id: u64,
+        canonical_tip_state: CanonicalTipState,
     ) -> Result<Option<u64>, SyncError> {
-        if let Some(block_id) = self.rpc.last_block_id_by_batch_id(U256::from(proposal_id)).await? {
-            return Ok(Some(block_id.to::<u64>()));
-        }
-
-        let latest_block = self
+        let proposal_mapped_block_number = self
             .rpc
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+            .last_block_id_by_batch_id(U256::from(proposal_id))
+            .await?
+            .map(|block_id| block_id.to::<u64>());
 
-        Ok(latest_block.map(|block| block.header.number))
+        let latest_block_number = match canonical_tip_state {
+            CanonicalTipState::Unknown => {
+                let latest_block = self
+                    .rpc
+                    .l2_provider
+                    .get_block_by_number(BlockNumberOrTag::Latest)
+                    .await
+                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+                latest_block.map(|block| block.header.number)
+            }
+            CanonicalTipState::Known(canonical_block_tip) => {
+                if proposal_mapped_block_number.is_none() {
+                    debug!(
+                        proposal_id,
+                        canonical_block_tip,
+                        "empty outcome proposal has no canonical batch mapping; keeping canonical tip unchanged"
+                    );
+                }
+                None
+            }
+        };
+
+        Ok(resolve_empty_outcome_canonical_tip(
+            canonical_tip_state,
+            proposal_mapped_block_number,
+            latest_block_number,
+        ))
     }
 
     /// Construct a new event syncer from the provided configuration and RPC client.
@@ -1211,6 +1248,30 @@ mod tests {
             CanonicalTipState::Known(95),
             "late subscribers should observe the latest canonical tip",
         );
+    }
+
+    #[test]
+    fn empty_outcome_known_tip_uses_proposal_mapping() {
+        let resolved = resolve_empty_outcome_canonical_tip(
+            CanonicalTipState::Known(200),
+            Some(210),
+            Some(300),
+        );
+        assert_eq!(resolved, Some(210));
+    }
+
+    #[test]
+    fn empty_outcome_known_tip_does_not_fallback_to_latest_without_mapping() {
+        let resolved =
+            resolve_empty_outcome_canonical_tip(CanonicalTipState::Known(200), None, Some(300));
+        assert_eq!(resolved, None);
+    }
+
+    #[test]
+    fn empty_outcome_unknown_tip_allows_latest_fallback_without_mapping() {
+        let resolved =
+            resolve_empty_outcome_canonical_tip(CanonicalTipState::Unknown, None, Some(300));
+        assert_eq!(resolved, Some(300));
     }
 
     #[test]
