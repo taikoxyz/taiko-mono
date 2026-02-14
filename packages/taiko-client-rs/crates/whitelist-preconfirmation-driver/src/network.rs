@@ -455,12 +455,18 @@ impl InboundWhitelistFilter {
     }
 }
 
+/// Record and convert whitelist lookup failures into a driver error.
+///
+/// The helper centralizes metric updates for all snapshot/contract lookup failures.
 fn whitelist_lookup_err(message: String) -> WhitelistPreconfirmationDriverError {
     metrics::counter!(WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL)
         .increment(1);
     WhitelistPreconfirmationDriverError::WhitelistLookup(message)
 }
 
+/// Return an error when the latest L1 block timestamp is before the epoch start.
+///
+/// This prevents callers from caching an epoch snapshot from an earlier epoch boundary.
 fn ensure_not_too_early_for_epoch(
     block_timestamp: u64,
     current_epoch_start_timestamp: u64,
@@ -475,6 +481,7 @@ fn ensure_not_too_early_for_epoch(
     Ok(())
 }
 
+/// Classify whether a snapshot lookup error is transient and worth one retry.
 fn should_retry_snapshot_fetch(err: &WhitelistPreconfirmationDriverError) -> bool {
     match err {
         WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {
