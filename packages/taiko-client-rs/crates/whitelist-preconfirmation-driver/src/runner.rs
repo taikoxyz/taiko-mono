@@ -279,7 +279,8 @@ impl WhitelistPreconfirmationDriverRunner {
     }
 }
 
-/// Runs event sync plus whitelist preconfirmation message ingestion, with optional REST/WS server for external access.
+/// Runs event sync plus whitelist preconfirmation message ingestion, with optional REST/WS server
+/// for external access.
 fn map_driver_task_error(err: driver::DriverError) -> WhitelistPreconfirmationDriverError {
     match err {
         driver::DriverError::Sync(sync_err) => WhitelistPreconfirmationDriverError::Sync(sync_err),

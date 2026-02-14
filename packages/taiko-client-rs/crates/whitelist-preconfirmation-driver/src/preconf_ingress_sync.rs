@@ -67,7 +67,8 @@ where
     }
 }
 
-/// Map a driver error to a whitelist preconfirmation driver error, preserving sync errors but wrapping others.
+/// Map a driver error to a whitelist preconfirmation driver error, preserving sync errors but
+/// wrapping others.
 fn map_driver_error(err: driver::DriverError) -> WhitelistPreconfirmationDriverError {
     match err {
         driver::DriverError::Sync(sync_err) => WhitelistPreconfirmationDriverError::Sync(sync_err),

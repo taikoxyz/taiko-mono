@@ -219,7 +219,8 @@ impl PreconfirmationDriverRunner {
     }
 }
 
-/// Map a driver task error to a runner error, preserving sync errors but wrapping other driver errors.
+/// Map a driver task error to a runner error, preserving sync errors but wrapping other driver
+/// errors.
 fn map_driver_task_error(err: driver::DriverError) -> RunnerError {
     match err {
         driver::DriverError::Sync(sync_err) => RunnerError::Sync(sync_err),
