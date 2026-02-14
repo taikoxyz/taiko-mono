@@ -21,6 +21,7 @@ use crate::{
     },
 };
 use protocol::preconfirmation::LookaheadResolver;
+use rpc::beacon::BeaconClient;
 
 use preconf_ingress_sync::PreconfIngressSync;
 
@@ -76,6 +77,9 @@ pub enum RunnerError {
     /// Preconfirmation client error.
     #[error(transparent)]
     Preconfirmation(#[from] PreconfirmationClientError),
+    /// Failed to fetch beacon genesis for lookahead resolver.
+    #[error("beacon genesis fetch failed: {0}")]
+    BeaconGenesis(String),
 }
 
 /// Configuration for the preconfirmation driver runner.
@@ -139,8 +143,13 @@ impl PreconfirmationDriverRunner {
 
         // Build the lookahead resolver and start its background event scanner
         let l1_source = self.config.driver_config.client.l1_provider_source.clone();
+        let beacon_client = BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
+            .await
+            .map_err(|e| RunnerError::BeaconGenesis(e.to_string()))?;
+        let genesis_timestamp = beacon_client.genesis_time();
+
         let (lookahead_resolver, _scanner_handle) =
-            LookaheadResolver::new(inbox_address, l1_source)
+            LookaheadResolver::new_with_genesis(inbox_address, l1_source, genesis_timestamp)
                 .await
                 .map_err(PreconfirmationClientError::from)?;
 

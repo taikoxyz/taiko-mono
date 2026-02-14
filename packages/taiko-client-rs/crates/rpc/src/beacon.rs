@@ -335,6 +335,13 @@ impl BeaconClient {
     pub const fn slots_per_epoch(&self) -> u64 {
         self.slots_per_epoch
     }
+
+    /// Return the beacon genesis timestamp (seconds since UNIX epoch).
+    ///
+    /// Fetched from `/eth/v1/beacon/genesis` during client construction.
+    pub const fn genesis_time(&self) -> u64 {
+        self.genesis_time
+    }
 }
 
 fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {

@@ -99,7 +99,7 @@ impl LookaheadResolver {
             .getLookaheadStoreConfig()
             .call()
             .await
-            .map_err(LookaheadError::Lookahead)?;
+            .map_err(LookaheadError::GetLookaheadStoreConfig)?;
 
         let preconf_whitelist = PreconfWhitelistInstance::new(
             client
@@ -107,7 +107,7 @@ impl LookaheadResolver {
                 .preconfWhitelist()
                 .call()
                 .await
-                .map_err(LookaheadError::Lookahead)?,
+                .map_err(LookaheadError::GetPreconfWhitelistAddress)?,
             provider.clone(),
         );
 
