@@ -122,12 +122,16 @@ fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
 ///
 /// Priority:
 /// 1) proposal batch-to-last-block mapping
-/// 2) caller-provided latest execution head fallback
+/// 2) latest execution head only when canonical tip state is still unknown
 fn resolve_empty_outcome_canonical_tip(
+    canonical_tip_state: CanonicalTipState,
     proposal_mapped_block_number: Option<u64>,
     latest_block_number: Option<u64>,
 ) -> Option<u64> {
-    proposal_mapped_block_number.or(latest_block_number)
+    proposal_mapped_block_number.or(match canonical_tip_state {
+        CanonicalTipState::Unknown => latest_block_number,
+        CanonicalTipState::Known(_) => None,
+    })
 }
 
 /// Update the canonical block tip boundary and notify watchers when it changes.
@@ -473,7 +477,11 @@ where
             }
         };
 
-        Ok(resolve_empty_outcome_canonical_tip(proposal_mapped_block_number, latest_block_number))
+        Ok(resolve_empty_outcome_canonical_tip(
+            canonical_tip_state,
+            proposal_mapped_block_number,
+            latest_block_number,
+        ))
     }
 
     /// Construct a new event syncer from the provided configuration and RPC client.
@@ -1227,19 +1235,25 @@ mod tests {
 
     #[test]
     fn empty_outcome_known_tip_uses_proposal_mapping() {
-        let resolved = resolve_empty_outcome_canonical_tip(Some(210), Some(300));
+        let resolved = resolve_empty_outcome_canonical_tip(
+            CanonicalTipState::Known(200),
+            Some(210),
+            Some(300),
+        );
         assert_eq!(resolved, Some(210));
     }
 
     #[test]
     fn empty_outcome_known_tip_does_not_fallback_to_latest_without_mapping() {
-        let resolved = resolve_empty_outcome_canonical_tip(None, None);
+        let resolved =
+            resolve_empty_outcome_canonical_tip(CanonicalTipState::Known(200), None, Some(300));
         assert_eq!(resolved, None);
     }
 
     #[test]
     fn empty_outcome_unknown_tip_allows_latest_fallback_without_mapping() {
-        let resolved = resolve_empty_outcome_canonical_tip(None, Some(300));
+        let resolved =
+            resolve_empty_outcome_canonical_tip(CanonicalTipState::Unknown, None, Some(300));
         assert_eq!(resolved, Some(300));
     }
 
