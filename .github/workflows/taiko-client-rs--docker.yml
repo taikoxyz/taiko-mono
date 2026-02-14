@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, event-resume]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:

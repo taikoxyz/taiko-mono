@@ -203,7 +203,7 @@ impl PreconfirmationDriverRunner {
                 node_handle.abort();
                 match result {
                     Ok(Ok(())) => Err(RunnerError::EventSyncerExited),
-                    Ok(Err(err)) => Err(RunnerError::Sync(err)),
+                    Ok(Err(err)) => Err(map_driver_task_error(err)),
                     Err(err) => Err(RunnerError::EventSyncerFailed(err.to_string())),
                 }
             }
@@ -216,5 +216,13 @@ impl PreconfirmationDriverRunner {
 
         info!("preconfirmation driver stopped");
         run_result
+    }
+}
+
+/// Map a driver task error to a runner error, preserving sync errors but wrapping other driver errors.
+fn map_driver_task_error(err: driver::DriverError) -> RunnerError {
+    match err {
+        driver::DriverError::Sync(sync_err) => RunnerError::Sync(sync_err),
+        other => RunnerError::Driver(other),
     }
 }
