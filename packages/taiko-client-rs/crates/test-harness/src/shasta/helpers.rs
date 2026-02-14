@@ -51,11 +51,44 @@ fn is_not_found_error(err: &RpcClientError) -> bool {
 
 /// Reset the authenticated L1 RPC head.
 pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
-    match client.set_head_l1_origin(U256::from(1u64)).await {
-        Ok(_) => Ok(()),
-        Err(err) if is_not_found_error(&err) => Ok(()),
-        Err(err) => Err(err.into()),
+    // Choose the highest L2 block that actually has an L1 origin row, then repoint
+    // `head_l1_origin` there. Hardcoding block 1 is brittle when tests reset chains to genesis
+    // or run against nodes with sparse origin rows.
+    let latest = client.l2_provider.get_block_number().await?;
+    for block_id in (0..=latest).rev() {
+        if client.l1_origin_by_id(U256::from(block_id)).await?.is_none() {
+            continue;
+        }
+
+        return match client.set_head_l1_origin(U256::from(block_id)).await {
+            Ok(_) => Ok(()),
+            Err(err) if is_not_found_error(&err) => continue,
+            Err(err) => Err(err.into()),
+        };
     }
+
+    warn!(
+        latest_block = latest,
+        "no L1 origin rows found while resetting head_l1_origin; bootstrapping genesis origin"
+    );
+
+    let genesis =
+        client.l2_provider.get_block_by_number(BlockNumberOrTag::Number(0)).await?.ok_or_else(
+            || anyhow::anyhow!("genesis block missing while bootstrapping L1 origin"),
+        )?;
+    let genesis_origin = RpcL1Origin {
+        block_id: U256::ZERO,
+        l2_block_hash: genesis.hash(),
+        l1_block_height: Some(U256::ZERO),
+        l1_block_hash: None,
+        build_payload_args_id: [0u8; 8],
+        is_forced_inclusion: false,
+        signature: [0u8; 65],
+    };
+
+    client.update_l1_origin(&genesis_origin).await?;
+    client.set_head_l1_origin(U256::ZERO).await?;
+    Ok(())
 }
 
 /// Revert the L1 snapshot.

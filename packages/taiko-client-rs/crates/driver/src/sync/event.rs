@@ -30,7 +30,10 @@ use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
-use super::{AtomicCanonicalTip, CanonicalTipState, SyncError, SyncStage, is_stale_preconf};
+use super::{
+    AtomicCanonicalTip, CanonicalTipState, SyncError, SyncStage,
+    checkpoint_resume_head::CheckpointResumeHead, is_stale_preconf,
+};
 use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
@@ -73,6 +76,25 @@ fn should_spawn_preconf_ingress(
         first_event_sync_processed
 }
 
+/// Resolve the L2 block number that event sync should use as its resume source.
+///
+/// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
+/// - Non-checkpoint mode: must use local `head_l1_origin`.
+///
+/// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
+/// resume point such as `Latest`, which can include local preconfirmation-only blocks.
+fn resolve_resume_head_block_number(
+    checkpoint_configured: bool,
+    checkpoint_synced_head: Option<u64>,
+    head_l1_origin_block_id: Option<u64>,
+) -> Result<u64, SyncError> {
+    if checkpoint_configured {
+        checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
+    } else {
+        head_l1_origin_block_id.ok_or(SyncError::MissingHeadL1OriginResume)
+    }
+}
+
 /// Update the canonical block tip boundary and notify watchers when it changes.
 ///
 /// Returns true when the published tip changed. The canonical tip may move either forward or
@@ -108,6 +130,8 @@ where
     rpc: Client<P>,
     /// Static driver configuration.
     cfg: DriverConfig,
+    /// Beacon-sync checkpoint head shared by the sync pipeline.
+    checkpoint_resume_head: Arc<CheckpointResumeHead>,
     /// Shared blob data source used for manifest fetches.
     blob_source: Arc<BlobDataSource>,
     /// Optional preconfirmation ingress sender for external producers.
@@ -403,6 +427,17 @@ where
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
     pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
+        Self::new_with_checkpoint_resume_head(cfg, rpc, Arc::new(CheckpointResumeHead::default()))
+            .await
+    }
+
+    /// Construct a new event syncer with shared checkpoint resume-head state.
+    #[instrument(skip(cfg, rpc, checkpoint_resume_head))]
+    pub(crate) async fn new_with_checkpoint_resume_head(
+        cfg: &DriverConfig,
+        rpc: Client<P>,
+        checkpoint_resume_head: Arc<CheckpointResumeHead>,
+    ) -> Result<Self, SyncError> {
         let blob_source = Arc::new(
             BlobDataSource::new(
                 Some(cfg.l1_beacon_endpoint.clone()),
@@ -425,6 +460,7 @@ where
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
+            checkpoint_resume_head,
             blob_source,
             preconf_tx,
             preconf_rx,
@@ -592,35 +628,64 @@ where
         Ok(())
     }
 
-    /// Determine the L1 block height used to resume event consumption after beacon sync.
+    /// Resolve the L2 execution block used as event-sync resume source.
     ///
-    /// Mirrors the Go driver's `SetUpEventSync` behaviour by querying the execution engine's head,
-    /// looking up the corresponding anchor state, and falling back to the cached head L1 origin
-    /// if the anchor has not been set yet (e.g. genesis).
+    /// Important safety behavior:
+    /// - If checkpoint mode is enabled, we require the exact checkpoint head that beacon sync
+    ///   finished at. This avoids trusting stale local origin pointers.
+    /// - Without checkpoint mode, we require local `head_l1_origin` and fail fast when missing.
+    ///   This avoids deriving proposal IDs from `Latest`, which may include local preconf-only
+    ///   blocks that were never event-confirmed.
+    #[instrument(skip(self), level = "debug")]
+    async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
+        let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
+
+        let head_l1_origin_block_id = if checkpoint_configured {
+            None
+        } else {
+            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>())
+        };
+
+        let resume_head_block_number = resolve_resume_head_block_number(
+            checkpoint_configured,
+            self.checkpoint_resume_head.get(),
+            head_l1_origin_block_id,
+        )?;
+
+        if checkpoint_configured {
+            info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
+        } else {
+            info!(resume_head_block_number, "using local head_l1_origin as event resume source");
+        }
+
+        Ok(resume_head_block_number)
+    }
+
+    /// Determine the L1 block height used to resume event consumption after beacon sync.
     #[instrument(skip(self), level = "debug")]
     async fn event_stream_start_block(&self) -> Result<(u64, U256), SyncError> {
-        let latest_block: RpcBlock<TxEnvelope> = self
+        let resume_head_block_number = self.resume_head_block_number().await?;
+        let resume_head_block = self
             .rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
+            .get_block_by_number(BlockNumberOrTag::Number(resume_head_block_number))
             .full()
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingLatestExecutionBlock)?
+            .ok_or(SyncError::MissingExecutionBlock { number: resume_head_block_number })?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
         let anchor_address = *self.rpc.shasta.anchor.address();
-        let latest_proposal_id = decode_anchor_proposal_id(&latest_block)?;
+        let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
 
-        // Determine the target block to extract the anchor block number from.
-        // Back off two epochs worth of proposals to survive L1 reorgs.
-        let target_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+        // Back off two epochs worth of proposal IDs to survive short L1 reorg windows.
+        let target_proposal_id = resume_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
         info!(
-            latest_proposal_id,
+            resume_proposal_id,
             target_proposal_id,
-            latest_hash = ?latest_block.hash(),
-            latest_number = latest_block.number(),
-            "derived proposal id from latest anchorV4 transaction",
+            resume_hash = ?resume_head_block.hash(),
+            resume_number = resume_head_block.number(),
+            "derived proposal id from resume-source anchor metadata",
         );
         if target_proposal_id == 0 {
             return Ok((0, U256::ZERO));
@@ -651,9 +716,9 @@ where
             self.decode_anchor_block_number(&target_block, anchor_address).await?;
         info!(
             anchor_block_number,
-            latest_hash = ?target_block.hash(),
-            latest_number = target_block.number(),
-            target_proposal_id = target_proposal_id,
+            target_hash = ?target_block.hash(),
+            target_number = target_block.number(),
+            target_proposal_id,
             "derived anchor block number from anchorV4 transaction",
         );
         Ok((anchor_block_number, U256::from(target_proposal_id)))
@@ -949,6 +1014,7 @@ mod tests {
         EventSyncer {
             rpc: mock_client(),
             cfg,
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
             blob_source: Arc::new(blob_source),
             preconf_tx: Some(preconf_tx),
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
@@ -1075,6 +1141,28 @@ mod tests {
             !should_spawn_preconf_ingress(false, false, true, true),
             "disabled preconfirmation must never open ingress gate",
         );
+    }
+
+    #[test]
+    fn resume_head_resolution_requires_checkpoint_state_in_checkpoint_mode() {
+        let err = resolve_resume_head_block_number(true, None, Some(100))
+            .expect_err("checkpoint mode should require checkpoint resume state");
+        assert!(matches!(err, SyncError::MissingCheckpointResumeHead));
+
+        let resolved = resolve_resume_head_block_number(true, Some(420), None)
+            .expect("checkpoint resume head should be used when present");
+        assert_eq!(resolved, 420);
+    }
+
+    #[test]
+    fn resume_head_resolution_requires_head_l1_origin_without_checkpoint() {
+        let err = resolve_resume_head_block_number(false, Some(999), None)
+            .expect_err("non-checkpoint mode should require head_l1_origin");
+        assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
+
+        let resolved = resolve_resume_head_block_number(false, None, Some(64))
+            .expect("head_l1_origin should drive resume without checkpoint");
+        assert_eq!(resolved, 64);
     }
 
     #[test]
