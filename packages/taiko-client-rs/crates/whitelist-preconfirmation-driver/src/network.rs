@@ -1451,20 +1451,6 @@ async fn handle_gossipsub_event(
     Ok(())
 }
 
-/// Decode an end-of-sequencing request epoch from big-endian bytes.
-#[cfg(test)]
-fn decode_eos_epoch(payload: &[u8]) -> u64 {
-    let mut bytes = [0u8; std::mem::size_of::<u64>()];
-    let to_copy = payload.len().min(std::mem::size_of::<u64>());
-
-    if to_copy > 0 {
-        let source_start = payload.len() - to_copy;
-        bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
-    }
-
-    u64::from_be_bytes(bytes)
-}
-
 fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
     if payload.len() != std::mem::size_of::<u64>() {
         return None;
@@ -1472,19 +1458,6 @@ fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
 
     let bytes: [u8; std::mem::size_of::<u64>()] = payload.try_into().ok()?;
     Some(u64::from_be_bytes(bytes))
-}
-
-#[cfg(test)]
-fn decode_request_hash(payload: &[u8]) -> B256 {
-    let mut bytes = [0u8; std::mem::size_of::<B256>()];
-    let to_copy = payload.len().min(std::mem::size_of::<B256>());
-
-    if to_copy > 0 {
-        let source_start = payload.len() - to_copy;
-        bytes[std::mem::size_of::<B256>() - to_copy..].copy_from_slice(&payload[source_start..]);
-    }
-
-    B256::from(bytes)
 }
 
 fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
@@ -1552,6 +1525,31 @@ mod tests {
             },
             signature: Some([0x22u8; 65]),
         }
+    }
+
+    fn decode_eos_epoch(payload: &[u8]) -> u64 {
+        let mut bytes = [0u8; std::mem::size_of::<u64>()];
+        let to_copy = payload.len().min(std::mem::size_of::<u64>());
+
+        if to_copy > 0 {
+            let source_start = payload.len() - to_copy;
+            bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
+        }
+
+        u64::from_be_bytes(bytes)
+    }
+
+    fn decode_request_hash(payload: &[u8]) -> B256 {
+        let mut bytes = [0u8; std::mem::size_of::<B256>()];
+        let to_copy = payload.len().min(std::mem::size_of::<B256>());
+
+        if to_copy > 0 {
+            let source_start = payload.len() - to_copy;
+            bytes[std::mem::size_of::<B256>() - to_copy..]
+                .copy_from_slice(&payload[source_start..]);
+        }
+
+        B256::from(bytes)
     }
 
     fn sample_preconf_payload() -> DecodedUnsafePayload {
