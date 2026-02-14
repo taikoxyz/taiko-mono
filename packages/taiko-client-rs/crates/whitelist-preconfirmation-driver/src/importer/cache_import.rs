@@ -159,11 +159,11 @@ where
                     "result" => "throttled",
                 )
                 .increment(1);
-                warn!(
+                debug!(
                     block_number,
                     block_hash = %block_hash,
                     parent_hash = %parent_hash,
-                    "throttling duplicate whitelist preconfirmation parent request"
+                    "suppressed duplicate whitelist preconfirmation parent request due to cooldown"
                 );
             }
             return Ok(false);
