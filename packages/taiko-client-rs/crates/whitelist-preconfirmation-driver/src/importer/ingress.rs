@@ -61,6 +61,7 @@ where
         }
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
+        self.cache_state.increment_pending_cache_inserts();
         self.recent_cache.insert_recent(envelope);
         self.update_cache_gauges();
 
@@ -120,6 +121,7 @@ where
 
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
+        self.cache_state.increment_pending_cache_inserts();
         self.recent_cache.insert_recent(envelope);
         self.update_cache_gauges();
         Ok(())

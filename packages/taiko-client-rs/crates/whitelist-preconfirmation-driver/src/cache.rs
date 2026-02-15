@@ -2,12 +2,16 @@
 
 use std::{
     collections::HashMap,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
     time::{Duration, Instant},
 };
 
 use alloy_primitives::{Address, B256};
 use hashlink::LinkedHashMap;
+use tokio::sync::Mutex;
 
 use crate::codec::WhitelistExecutionPayloadEnvelope;
 
@@ -15,6 +19,7 @@ use crate::codec::WhitelistExecutionPayloadEnvelope;
 const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
 /// Default maximum number of pending envelopes retained while waiting for parents.
 const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
+const DEFAULT_EOS_CACHE_CAPACITY: usize = DEFAULT_PENDING_ENVELOPE_CAPACITY;
 /// Default cooldown, in seconds, between duplicate parent-hash requests.
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
 /// One L1 epoch (32 slots x 12 seconds).
@@ -23,6 +28,51 @@ pub(crate) const L1_EPOCH_DURATION_SECS: u64 = 12 * 32;
 const DEFAULT_SEQUENCER_CACHE_TTL_SECS: u64 = L1_EPOCH_DURATION_SECS;
 /// Minimum interval between forced signer-miss refreshes from L1.
 const DEFAULT_SEQUENCER_MISS_REFRESH_COOLDOWN_SECS: u64 = 2;
+
+/// Shared cache state surfaced through REST status and high-throughput request handlers.
+#[derive(Debug, Clone)]
+pub(crate) struct SharedPreconfCacheState {
+    /// Monotonic count of pending cache inserts since startup.
+    total_pending_cache_inserts: Arc<AtomicU64>,
+    /// End-of-sequencing markers tracked per epoch.
+    end_of_sequencing_by_epoch: Arc<Mutex<LinkedHashMap<u64, B256>>>,
+}
+
+impl SharedPreconfCacheState {
+    /// Create shared cache state with zeroed counters.
+    pub(crate) fn new() -> Self {
+        Self {
+            total_pending_cache_inserts: Arc::new(AtomicU64::new(0)),
+            end_of_sequencing_by_epoch: Arc::new(Mutex::new(LinkedHashMap::new())),
+        }
+    }
+
+    /// Increment the monotonic pending-cache insert counter.
+    pub(crate) fn increment_pending_cache_inserts(&self) {
+        self.total_pending_cache_inserts.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Return total pending cache inserts since startup.
+    pub(crate) fn total_pending_cache_inserts(&self) -> u64 {
+        self.total_pending_cache_inserts.load(Ordering::Relaxed)
+    }
+
+    /// Record an EOS hash for the given epoch with bounded cache size.
+    pub(crate) async fn record_end_of_sequencing(&self, epoch: u64, block_hash: B256) {
+        let mut entries = self.end_of_sequencing_by_epoch.lock().await;
+        entries.remove(&epoch);
+        entries.insert(epoch, block_hash);
+
+        while entries.len() > DEFAULT_EOS_CACHE_CAPACITY {
+            let _ = entries.pop_front();
+        }
+    }
+
+    /// Fetch EOS hash for an epoch, if known.
+    pub(crate) async fn end_of_sequencing_for_epoch(&self, epoch: u64) -> Option<B256> {
+        self.end_of_sequencing_by_epoch.lock().await.get(&epoch).copied()
+    }
+}
 
 /// Simple in-memory cache keyed by block hash with bounded capacity.
 pub(crate) struct EnvelopeCache {
