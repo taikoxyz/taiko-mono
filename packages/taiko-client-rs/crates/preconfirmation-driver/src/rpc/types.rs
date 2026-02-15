@@ -61,10 +61,10 @@ impl From<protocol::preconfirmation::PreconfSlotInfo> for PreconfSlotInfo {
 pub struct NodeStatus {
     /// Whether the node has completed sync with L1 inbox events.
     pub is_synced_with_inbox: bool,
+    /// The highest confirmed event-sync tip from `head_l1_origin`.
+    pub event_sync_tip: Option<U256>,
     /// The highest preconfirmed block number known to this node.
     pub preconf_tip: U256,
-    /// The last canonical proposal ID from L1 inbox events.
-    pub canonical_proposal_id: u64,
     /// Number of connected P2P peers.
     pub peer_count: u64,
     /// This node's libp2p peer ID.
@@ -141,16 +141,16 @@ mod tests {
     fn test_node_status_camel_case() {
         let status = NodeStatus {
             is_synced_with_inbox: true,
+            event_sync_tip: Some(U256::from(90)),
             preconf_tip: U256::from(100),
-            canonical_proposal_id: 42,
             peer_count: 5,
             peer_id: "test-peer-id".to_string(),
         };
 
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("isSyncedWithInbox"));
+        assert!(json.contains("eventSyncTip"));
         assert!(json.contains("preconfTip"));
-        assert!(json.contains("canonicalProposalId"));
     }
 
     #[test]

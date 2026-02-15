@@ -2,6 +2,8 @@
 
 use alloy_contract::Error as ContractError;
 use alloy_transport::TransportError;
+use driver::DriverError as EmbeddedDriverError;
+use rpc::RpcClientError;
 use thiserror::Error;
 
 /// Result alias for preconfirmation client operations.
@@ -45,6 +47,12 @@ pub enum DriverApiError {
     /// Contract call error while fetching on-chain state.
     #[error("contract error: {0}")]
     Contract(#[from] ContractError),
+    /// RPC client error returned by taiko-client-rs RPC wrappers.
+    #[error("rpc client error: {0}")]
+    RpcClient(#[from] RpcClientError),
+    /// Embedded driver reported an error while evaluating sync state or tip.
+    #[error("driver error: {0}")]
+    Driver(#[from] EmbeddedDriverError),
     /// Requested block was not found.
     #[error("missing block {block_number}")]
     MissingBlock {
@@ -57,13 +65,10 @@ pub enum DriverApiError {
         /// Parent block number.
         parent_block_number: u64,
     },
-    /// Safe block not found on the L2 provider.
-    #[error("missing safe block")]
-    MissingSafeBlock,
     /// Latest block not found on the L2 provider.
     #[error("missing latest block")]
     MissingLatestBlock,
-    /// Event sync tip is unknown because canonical tip has not been established yet.
+    /// Event sync tip is unknown because `head_l1_origin` has not been established yet.
     #[error("event sync tip is unknown")]
     EventSyncTipUnknown,
     /// Missing transactions in the preconfirmation input.

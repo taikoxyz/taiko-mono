@@ -19,9 +19,6 @@ pub enum WhitelistPreconfirmationDriverError {
     /// Whitelist preconfirmation node task failed.
     #[error("whitelist preconfirmation node task failed: {0}")]
     NodeTaskFailed(String),
-    /// Preconfirmation ingress was not enabled on the driver.
-    #[error("preconfirmation ingress not enabled on driver")]
-    PreconfIngressNotEnabled,
     /// Driver preconfirmation ingress is not ready.
     #[error("driver preconfirmation ingress not ready")]
     PreconfIngressNotReady,

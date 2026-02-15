@@ -22,8 +22,6 @@ use crate::{
 pub(crate) struct NodeRpcApiImpl<I: InboxReader> {
     /// Command tx for issuing commands to the P2P network layer.
     pub(crate) command_tx: mpsc::Sender<NetworkCommand>,
-    /// Watch receiver for the canonical proposal ID.
-    pub(crate) canonical_proposal_id_rx: watch::Receiver<u64>,
     /// Watch receiver for the preconfirmation tip.
     pub(crate) preconf_tip_rx: watch::Receiver<U256>,
     /// Local peer ID string for status responses.
@@ -62,27 +60,15 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
     ///
     /// Queries the P2P layer for peer count and returns sync state information.
     async fn get_status(&self) -> Result<NodeStatus> {
-        let canonical_proposal_id = *self.canonical_proposal_id_rx.borrow();
         let preconf_tip = *self.preconf_tip_rx.borrow();
 
-        build_node_status(
-            &self.command_tx,
-            &self.inbox_reader,
-            canonical_proposal_id,
-            preconf_tip,
-            &self.local_peer_id,
-        )
-        .await
+        build_node_status(&self.command_tx, &self.inbox_reader, preconf_tip, &self.local_peer_id)
+            .await
     }
 
     /// Returns the current preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256> {
         Ok(*self.preconf_tip_rx.borrow())
-    }
-
-    /// Returns the last canonical proposal ID from L1 events.
-    async fn canonical_proposal_id(&self) -> Result<u64> {
-        Ok(*self.canonical_proposal_id_rx.borrow())
     }
 
     /// Returns the preconfirmation slot info (signer and submission window end) for the given L2
@@ -153,7 +139,6 @@ pub(crate) async fn publish_tx_list_impl(
 pub(crate) async fn build_node_status<I: InboxReader>(
     command_tx: &mpsc::Sender<NetworkCommand>,
     inbox_reader: &I,
-    canonical_proposal_id: u64,
     preconf_tip: U256,
     local_peer_id: &str,
 ) -> Result<NodeStatus> {
@@ -164,15 +149,12 @@ pub(crate) async fn build_node_status<I: InboxReader>(
         Err(_) => 0,
     };
 
-    // Compute sync status using same logic as wait_event_sync
-    let next_proposal_id = inbox_reader.get_next_proposal_id().await?;
-    let is_synced_with_inbox =
-        next_proposal_id == 0 || canonical_proposal_id >= next_proposal_id.saturating_sub(1);
+    let confirmed_sync = inbox_reader.confirmed_sync_snapshot().await?;
 
     Ok(NodeStatus {
-        is_synced_with_inbox,
+        is_synced_with_inbox: confirmed_sync.is_ready(),
+        event_sync_tip: confirmed_sync.event_sync_tip().map(U256::from),
         preconf_tip,
-        canonical_proposal_id,
         peer_count,
         peer_id: local_peer_id.to_string(),
     })
@@ -209,11 +191,31 @@ mod tests {
     #[derive(Clone)]
     struct MockInboxReader {
         next_proposal_id: std::sync::Arc<AtomicU64>,
+        target_block: std::sync::Arc<AtomicU64>,
+        head_l1_origin_block_id: std::sync::Arc<AtomicU64>,
     }
 
+    const NONE_SENTINEL: u64 = u64::MAX;
+
     impl MockInboxReader {
-        fn new(next_proposal_id: u64) -> Self {
-            Self { next_proposal_id: std::sync::Arc::new(AtomicU64::new(next_proposal_id)) }
+        fn new(
+            next_proposal_id: u64,
+            target_block: Option<u64>,
+            head_l1_origin: Option<u64>,
+        ) -> Self {
+            Self {
+                next_proposal_id: std::sync::Arc::new(AtomicU64::new(next_proposal_id)),
+                target_block: std::sync::Arc::new(AtomicU64::new(
+                    target_block.unwrap_or(NONE_SENTINEL),
+                )),
+                head_l1_origin_block_id: std::sync::Arc::new(AtomicU64::new(
+                    head_l1_origin.unwrap_or(NONE_SENTINEL),
+                )),
+            }
+        }
+
+        fn read_optional(value: u64) -> Option<u64> {
+            (value != NONE_SENTINEL).then_some(value)
         }
     }
 
@@ -222,22 +224,27 @@ mod tests {
         async fn get_next_proposal_id(&self) -> Result<u64> {
             Ok(self.next_proposal_id.load(Ordering::SeqCst))
         }
+
+        async fn get_last_block_id_by_batch_id(&self, _proposal_id: u64) -> Result<Option<u64>> {
+            Ok(Self::read_optional(self.target_block.load(Ordering::SeqCst)))
+        }
+
+        async fn get_head_l1_origin_block_id(&self) -> Result<Option<u64>> {
+            Ok(Self::read_optional(self.head_l1_origin_block_id.load(Ordering::SeqCst)))
+        }
     }
 
     /// Test that NodeRpcApiImpl returns correct status with peer_id.
     #[tokio::test]
     async fn test_node_status_includes_peer_id() {
-        let (_canonical_id_tx, canonical_id_rx) = watch::channel(42u64);
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::from(100));
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
 
-        // MockInboxReader returns 43, so with canonical_id=42, target=42, we should be synced
         let api = NodeRpcApiImpl {
             command_tx,
-            canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "12D3KooWTest".to_string(),
-            inbox_reader: MockInboxReader::new(43),
+            inbox_reader: MockInboxReader::new(43, Some(120), Some(120)),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
         };
 
@@ -250,24 +257,22 @@ mod tests {
 
         let status = api.get_status().await.unwrap();
         assert_eq!(status.peer_id, "12D3KooWTest");
-        assert_eq!(status.canonical_proposal_id, 42);
         assert_eq!(status.peer_count, 5);
-        assert!(status.is_synced_with_inbox); // canonical_id (42) >= target (43-1=42)
+        assert!(status.is_synced_with_inbox);
+        assert_eq!(status.event_sync_tip, Some(U256::from(120)));
     }
 
     /// Test that publish_tx_list accepts pre-encoded tx list bytes.
     #[tokio::test]
     async fn test_publish_tx_list_accepts_encoded_bytes() {
-        let (_canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
 
         let api = NodeRpcApiImpl {
             command_tx,
-            canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "test".to_string(),
-            inbox_reader: MockInboxReader::new(0),
+            inbox_reader: MockInboxReader::new(0, None, None),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
         };
 
@@ -299,16 +304,14 @@ mod tests {
     /// Test that get_preconf_slot_info delegates to the lookahead resolver and maps the result.
     #[tokio::test]
     async fn test_get_preconf_slot_info_returns_resolver_output() {
-        let (_canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
 
         let api = NodeRpcApiImpl {
             command_tx,
-            canonical_proposal_id_rx: canonical_id_rx,
             preconf_tip_rx,
             local_peer_id: "test".to_string(),
-            inbox_reader: MockInboxReader::new(0),
+            inbox_reader: MockInboxReader::new(0, None, None),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
         };
 

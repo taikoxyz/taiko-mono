@@ -215,7 +215,7 @@ where
         rpc.engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
-    tracing::Span::current().record("payload_id", format_args!("{}", payload_id));
+    tracing::Span::current().record("payload_id", format_args!("{payload_id}"));
 
     let expected_payload_id = PayloadId::new(payload.l1_origin.build_payload_args_id);
     if expected_payload_id != payload_id {

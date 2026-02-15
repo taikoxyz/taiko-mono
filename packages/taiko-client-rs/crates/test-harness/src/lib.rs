@@ -30,7 +30,6 @@ use tracing_subscriber::EnvFilter;
 
 mod beacon_stub;
 pub mod blocks;
-pub mod driver;
 mod helper;
 pub mod shasta;
 pub mod transactions;
@@ -42,7 +41,6 @@ pub use beacon_stub::BeaconStubServer;
 pub use blocks::{
     fetch_block_by_number, wait_for_block, wait_for_block_on_both, wait_for_block_or_loop_error,
 };
-pub use driver::wait_for_proposal_id;
 pub use helper::{PRIORITY_FEE_GWEI, evm_mine, mine_l1_block};
 pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
 pub use transactions::{

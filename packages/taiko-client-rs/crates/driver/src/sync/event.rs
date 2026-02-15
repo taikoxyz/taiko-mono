@@ -3,7 +3,7 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -23,7 +23,7 @@ use event_scanner::{EventFilter, Notification, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot, watch},
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
     time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
@@ -31,8 +31,8 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{
-    AtomicCanonicalTip, CanonicalTipState, SyncError, SyncStage,
-    checkpoint_resume_head::CheckpointResumeHead, is_stale_preconf,
+    SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead,
+    confirmed_sync::ConfirmedSyncSnapshot,
 };
 use crate::{
     config::DriverConfig,
@@ -66,16 +66,43 @@ struct FinalizedL1Snapshot {
 struct EventStreamStartPoint {
     anchor_block_number: u64,
     initial_proposal_id: u64,
-    bootstrap_canonical_tip: u64,
+    bootstrap_confirmed_tip: u64,
 }
 
 /// Decide whether the preconfirmation ingress loop can be started.
 ///
 /// Strict safety gate:
 /// - event scanner must be in live mode
+/// - confirmed sync state must be ready
 /// - ingress must not have been spawned already
-fn should_spawn_preconf_ingress(preconfirmation_enabled: bool, scanner_live: bool) -> bool {
-    preconfirmation_enabled && scanner_live
+fn should_spawn_preconf_ingress(
+    preconfirmation_enabled: bool,
+    preconf_ingress_spawned: bool,
+    scanner_live: bool,
+    confirmed_sync_ready: bool,
+) -> bool {
+    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live && confirmed_sync_ready
+}
+
+/// Decide whether a confirmed-sync probe is still needed.
+fn should_probe_confirmed_sync(
+    preconfirmation_enabled: bool,
+    preconf_ingress_spawned: bool,
+    scanner_live: bool,
+) -> bool {
+    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live
+}
+
+/// Resolve whether confirmed-sync readiness should open ingress.
+fn resolve_confirmed_sync_ready(
+    scanner_live: bool,
+    confirmed_sync_snapshot: ConfirmedSyncSnapshot,
+) -> bool {
+    if !scanner_live {
+        return false;
+    }
+
+    confirmed_sync_snapshot.is_ready()
 }
 
 /// Resolve the L2 block number that event sync should use as its resume source.
@@ -118,42 +145,10 @@ fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
     value.ok_or(SyncError::MissingFinalizedL1Block)
 }
 
-/// Resolve canonical tip for empty-outcome proposals with strict fallback policy.
-///
-/// Priority:
-/// 1) proposal batch-to-last-block mapping
-/// 2) caller-provided latest execution head fallback
-fn resolve_empty_outcome_canonical_tip(
-    proposal_mapped_block_number: Option<u64>,
-    latest_block_number: Option<u64>,
-) -> Option<u64> {
-    proposal_mapped_block_number.or(latest_block_number)
-}
-
-/// Update the canonical block tip boundary and notify watchers when it changes.
-///
-/// Returns true when the published tip changed. The canonical tip may move either forward or
-/// backward across reorgs, so this always tracks the latest observed canonical value.
-fn update_canonical_tip_state(
-    canonical_tip_state: &AtomicCanonicalTip,
-    canonical_tip_state_tx: &watch::Sender<CanonicalTipState>,
-    canonical_block_number: u64,
-) -> bool {
-    let next = CanonicalTipState::Known(canonical_block_number);
-    let previous = canonical_tip_state.swap(next, Ordering::Relaxed);
-    let changed = next != previous;
-    if changed {
-        let has_receivers = canonical_tip_state_tx.receiver_count() > 0;
-        canonical_tip_state_tx.send_replace(next);
-        if !has_receivers {
-            debug!(
-                canonical_block_number,
-                "canonical block tip changed with no active watchers; updated stored tip for late subscribers"
-            );
-        }
-    }
-    gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(canonical_block_number as f64);
-    changed
+/// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
+#[inline]
+fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
+    block_number <= confirmed_tip
 }
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -173,14 +168,6 @@ where
     preconf_tx: Option<PreconfSender>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
-    /// Tracks the latest canonical proposal id processed from L1 events.
-    last_canonical_proposal_id: Arc<AtomicU64>,
-    /// Sender for notifying watchers when the canonical proposal ID changes.
-    proposal_id_tx: watch::Sender<u64>,
-    /// Tracks the current canonical L2 tip state from L1 event sync.
-    canonical_tip_state: Arc<AtomicCanonicalTip>,
-    /// Sender for notifying watchers when the canonical tip state changes.
-    canonical_tip_state_tx: watch::Sender<CanonicalTipState>,
     /// Indicates whether strict preconfirmation ingress gating has been satisfied and
     /// the ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
@@ -228,10 +215,7 @@ where
         // Add preconfirmation path if enabled.
         if self.cfg.preconfirmation_enabled {
             let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
-                Arc::new(PreconfirmationPath::new_with_canonical_tip_state(
-                    self.rpc.clone(),
-                    self.canonical_tip_state.clone(),
-                ));
+                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
             paths.push(preconf_path);
         }
 
@@ -243,7 +227,7 @@ where
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         rx: Arc<AsyncMutex<PreconfReceiver>>,
-        canonical_tip_state: Arc<AtomicCanonicalTip>,
+        rpc: Client<P>,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
     ) {
@@ -266,31 +250,35 @@ where
                 let router_guard = router.lock().await;
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
-                match canonical_tip_state.load(Ordering::Relaxed) {
-                    CanonicalTipState::Unknown => {
+                let head_l1_origin_block_id = match rpc.head_l1_origin().await {
+                    Ok(Some(origin)) => origin.block_id.to::<u64>(),
+                    Ok(None) => {
                         warn!(
                             block_number,
-                            "rejecting preconfirmation payload in ingress loop: canonical tip unknown"
+                            "rejecting preconfirmation payload in ingress loop: head_l1_origin missing"
                         );
                         let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
                         gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
                         continue;
                     }
-                    CanonicalTipState::Known(canonical_block_tip) => {
-                        if is_stale_preconf(block_number, canonical_block_tip) {
-                            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                            counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL)
-                                .increment(1);
-                            warn!(
-                                block_number,
-                                canonical_block_tip,
-                                "dropping stale preconfirmation payload in ingress loop"
-                            );
-                            let _ = job.respond_to.send(Ok(()));
-                            gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                            continue;
-                        }
+                    Err(err) => {
+                        error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
+                        let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
                     }
+                };
+                if is_stale_preconf(block_number, head_l1_origin_block_id) {
+                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL).increment(1);
+                    warn!(
+                        block_number,
+                        head_l1_origin_block_id,
+                        "dropping stale preconfirmation payload in ingress loop"
+                    );
+                    let _ = job.respond_to.send(Ok(()));
+                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    continue;
                 }
 
                 // Single-shot injection while holding router lock to avoid interleaving.
@@ -358,13 +346,9 @@ where
 
             let router = router.clone();
             let proposal_log = log.clone();
-            let canonical_tip_state = self.canonical_tip_state.clone();
-            let canonical_tip_state_tx = self.canonical_tip_state_tx.clone();
             let outcomes = Retry::spawn(retry_strategy, move || {
                 let router = router.clone();
                 let log = proposal_log.clone();
-                let canonical_tip_state = canonical_tip_state.clone();
-                let canonical_tip_state_tx = canonical_tip_state_tx.clone();
                 async move {
                     // Lock router so L1 proposals and preconf inputs cannot interleave.
                     let router_guard = router.lock().await;
@@ -381,17 +365,6 @@ where
                             err
                         })?;
 
-                    // Publish the canonical block boundary while still holding the router lock so
-                    // preconfirmation processing cannot observe stale boundaries.
-                    if let Some(last_outcome) = outcomes.last() {
-                        let canonical_block_number = last_outcome.block_number();
-                        update_canonical_tip_state(
-                            canonical_tip_state.as_ref(),
-                            &canonical_tip_state_tx,
-                            canonical_block_number,
-                        );
-                    }
-
                     Ok(outcomes)
                 }
             })
@@ -402,22 +375,9 @@ where
                 other => SyncError::Other(anyhow!(other)),
             })?;
 
-            // Some proposals can be valid but derive no fresh execution blocks
-            // (e.g. proposal already represented by canonical chain state). In that case,
-            // initialize canonical tip from engine state so ingress does not remain stuck
-            // in Unknown after event-sync has processed a real proposal.
-            if outcomes.is_empty() {
-                let canonical_tip_state = self.canonical_tip_state.load(Ordering::Relaxed);
-                if let Some(canonical_block_number) = self
-                    .resolve_canonical_tip_for_proposal(proposal_id, canonical_tip_state)
-                    .await?
-                {
-                    update_canonical_tip_state(
-                        self.canonical_tip_state.as_ref(),
-                        &self.canonical_tip_state_tx,
-                        canonical_block_number,
-                    );
-                }
+            if let Some(last_outcome) = outcomes.last() {
+                gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+                    .set(last_outcome.block_number() as f64);
             }
 
             info!(
@@ -427,53 +387,10 @@ where
                 "successfully processed proposal into L2 blocks",
             );
 
-            self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
-            let _ = self.proposal_id_tx.send(proposal_id);
             gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
         Ok(())
-    }
-
-    /// Resolve canonical tip from execution state when a processed proposal yields no outcomes.
-    ///
-    /// Priority:
-    /// 1) batch-to-last-block mapping for the proposal id
-    /// 2) latest execution head block number as fallback, only while canonical tip is unknown
-    async fn resolve_canonical_tip_for_proposal(
-        &self,
-        proposal_id: u64,
-        canonical_tip_state: CanonicalTipState,
-    ) -> Result<Option<u64>, SyncError> {
-        let proposal_mapped_block_number = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(proposal_id))
-            .await?
-            .map(|block_id| block_id.to::<u64>());
-
-        let latest_block_number = match canonical_tip_state {
-            CanonicalTipState::Unknown => {
-                let latest_block = self
-                    .rpc
-                    .l2_provider
-                    .get_block_by_number(BlockNumberOrTag::Latest)
-                    .await
-                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
-                latest_block.map(|block| block.header.number)
-            }
-            CanonicalTipState::Known(canonical_block_tip) => {
-                if proposal_mapped_block_number.is_none() {
-                    debug!(
-                        proposal_id,
-                        canonical_block_tip,
-                        "empty outcome proposal has no canonical batch mapping; keeping canonical tip unchanged"
-                    );
-                }
-                None
-            }
-        };
-
-        Ok(resolve_empty_outcome_canonical_tip(proposal_mapped_block_number, latest_block_number))
     }
 
     /// Construct a new event syncer from the provided configuration and RPC client.
@@ -505,9 +422,6 @@ where
         } else {
             (None, None)
         };
-        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
-        let (canonical_tip_state_tx, _canonical_tip_state_rx) =
-            watch::channel(CanonicalTipState::Unknown);
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
         Ok(Self {
             rpc,
@@ -516,36 +430,9 @@ where
             blob_source,
             preconf_tx,
             preconf_rx,
-            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
-            proposal_id_tx,
-            canonical_tip_state: Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Unknown)),
-            canonical_tip_state_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
-    }
-
-    /// Return the latest canonical proposal id processed from L1 events.
-    pub fn last_canonical_proposal_id(&self) -> u64 {
-        self.last_canonical_proposal_id.load(Ordering::Relaxed)
-    }
-
-    /// Subscribe to proposal ID changes.
-    ///
-    /// Returns a watch::Receiver that receives the latest canonical proposal ID
-    /// whenever it changes. Useful for event-driven test waits.
-    pub fn subscribe_proposal_id(&self) -> watch::Receiver<u64> {
-        self.proposal_id_tx.subscribe()
-    }
-
-    /// Return the current canonical L2 tip state.
-    pub fn canonical_tip_state(&self) -> CanonicalTipState {
-        self.canonical_tip_state.load(Ordering::Relaxed)
-    }
-
-    /// Subscribe to canonical tip state changes.
-    pub fn subscribe_canonical_tip_state(&self) -> watch::Receiver<CanonicalTipState> {
-        self.canonical_tip_state_tx.subscribe()
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
@@ -553,21 +440,58 @@ where
         self.preconf_tx.clone()
     }
 
+    /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
+    ///
+    /// Readiness is strict and fail-closed:
+    /// - target id is `nextProposalId.saturating_sub(1)`
+    /// - `target == 0` is ready
+    /// - otherwise readiness requires both:
+    ///   - `last_block_id_by_batch_id(target)` exists
+    ///   - `head_l1_origin` exists and `head >= target_block`
+    pub async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, SyncError> {
+        let core_state = self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .call()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+        if target_proposal_id == 0 {
+            let head_l1_origin_block_id =
+                self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
+            return Ok(ConfirmedSyncSnapshot::new(
+                target_proposal_id,
+                None,
+                head_l1_origin_block_id,
+            ));
+        }
+
+        let target_block = self
+            .rpc
+            .last_block_id_by_batch_id(U256::from(target_proposal_id))
+            .await?
+            .map(|block_id| block_id.to::<u64>());
+        let head_l1_origin_block_id =
+            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
+
+        Ok(ConfirmedSyncSnapshot::new(target_proposal_id, target_block, head_l1_origin_block_id))
+    }
+
     /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts
     /// submissions.
     ///
     /// Readiness means:
     /// - event scanner has switched to live mode
-    /// - canonical sync state has been initialized (from bootstrap or events)
+    /// - confirmed-sync readiness check has passed against core state and custom tables
     /// - ingress loop is running
-    ///
-    /// Returns `None` if preconfirmation is disabled.
-    pub async fn wait_preconf_ingress_ready(&self) -> Option<()> {
-        self.preconf_tx.as_ref()?;
+    pub async fn wait_preconf_ingress_ready(&self) -> Result<(), DriverError> {
+        self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
         loop {
             let notified = self.preconf_ingress_notify.notified();
             if self.preconf_ingress_ready.load(Ordering::Acquire) {
-                return Some(());
+                return Ok(());
             }
             notified.await;
         }
@@ -599,22 +523,22 @@ where
         }
 
         let block_number = payload.block_number();
-        let canonical_block_tip = match self.canonical_tip_state() {
-            CanonicalTipState::Unknown => {
+        let head_l1_origin_block_id = match self.rpc.head_l1_origin().await? {
+            Some(origin) => origin.block_id.to::<u64>(),
+            None => {
                 warn!(
                     block_number,
-                    "rejecting preconfirmation payload before enqueue: canonical tip unknown"
+                    "rejecting preconfirmation payload before enqueue: head_l1_origin missing"
                 );
                 return Err(DriverError::PreconfIngressNotReady);
             }
-            CanonicalTipState::Known(canonical_block_tip) => canonical_block_tip,
         };
-        if is_stale_preconf(block_number, canonical_block_tip) {
+        if is_stale_preconf(block_number, head_l1_origin_block_id) {
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
             warn!(
                 block_number,
-                canonical_block_tip, "dropping stale preconfirmation payload before enqueue"
+                head_l1_origin_block_id, "dropping stale preconfirmation payload before enqueue"
             );
             return Ok(());
         }
@@ -786,7 +710,7 @@ where
             return Ok(EventStreamStartPoint {
                 anchor_block_number: start_block,
                 initial_proposal_id: 0,
-                bootstrap_canonical_tip: 0,
+                bootstrap_confirmed_tip: 0,
             });
         }
 
@@ -823,7 +747,7 @@ where
         Ok(EventStreamStartPoint {
             anchor_block_number,
             initial_proposal_id: target_proposal_id,
-            bootstrap_canonical_tip: target_block_number.to::<u64>(),
+            bootstrap_confirmed_tip: target_block_number.to::<u64>(),
         })
     }
 }
@@ -934,17 +858,13 @@ where
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
-        self.last_canonical_proposal_id.store(initial_proposal_id, Ordering::Relaxed);
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(initial_proposal_id as f64);
-        update_canonical_tip_state(
-            self.canonical_tip_state.as_ref(),
-            &self.canonical_tip_state_tx,
-            start_point.bootstrap_canonical_tip,
-        );
+        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+            .set(start_point.bootstrap_confirmed_tip as f64);
         info!(
             initial_proposal_id,
-            bootstrap_canonical_tip = start_point.bootstrap_canonical_tip,
-            "bootstrapped canonical sync state from finalized-bounded resume target",
+            bootstrap_confirmed_tip = start_point.bootstrap_confirmed_tip,
+            "bootstrapped event sync state from finalized-bounded resume target",
         );
 
         info!(start_tag = ?start_tag, "starting shasta event processing from L1 block");
@@ -976,7 +896,7 @@ where
         info!("event scanner started; listening for inbox proposals");
 
         // Strict gate state for starting preconfirmation ingress.
-        let mut preconf_rx = self.preconf_rx.clone();
+        let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
 
         while let Some(message) = stream.next().await {
@@ -990,7 +910,8 @@ where
                 Ok(ScannerMessage::Notification(notification)) => {
                     info!(?notification, "event scanner notification");
                     if matches!(notification, Notification::SwitchingToLive) {
-                        // Open ingress only after scanner switches to live mode.
+                        // Scanner live is necessary but not sufficient: confirmed-sync readiness
+                        // must also pass before ingress opens.
                         scanner_live = true;
                     }
                 }
@@ -1001,16 +922,30 @@ where
                 }
             }
 
-            if should_spawn_preconf_ingress(self.cfg.preconfirmation_enabled, scanner_live) &&
-                let Some(rx) = preconf_rx.take()
-            {
-                self.spawn_preconf_ingress(
-                    router.clone(),
-                    rx,
-                    self.canonical_tip_state.clone(),
-                    self.preconf_ingress_ready.clone(),
-                    self.preconf_ingress_notify.clone(),
-                );
+            if should_probe_confirmed_sync(
+                self.cfg.preconfirmation_enabled,
+                preconf_ingress_spawned,
+                scanner_live,
+            ) {
+                let confirmed_sync_snapshot = self.confirmed_sync_snapshot().await?;
+                let confirmed_sync_ready =
+                    resolve_confirmed_sync_ready(scanner_live, confirmed_sync_snapshot);
+                if should_spawn_preconf_ingress(
+                    self.cfg.preconfirmation_enabled,
+                    preconf_ingress_spawned,
+                    scanner_live,
+                    confirmed_sync_ready,
+                ) && let Some(rx) = self.preconf_rx.clone()
+                {
+                    self.spawn_preconf_ingress(
+                        router.clone(),
+                        rx,
+                        self.rpc.clone(),
+                        self.preconf_ingress_ready.clone(),
+                        self.preconf_ingress_notify.clone(),
+                    );
+                    preconf_ingress_spawned = true;
+                }
             }
         }
         Ok(())
@@ -1113,10 +1048,6 @@ mod tests {
         let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
-        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
-        let (canonical_tip_state_tx, _canonical_tip_state_rx) =
-            watch::channel(CanonicalTipState::Unknown);
-
         EventSyncer {
             rpc: mock_client(),
             cfg,
@@ -1124,10 +1055,6 @@ mod tests {
             blob_source: Arc::new(blob_source),
             preconf_tx: Some(preconf_tx),
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
-            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
-            proposal_id_tx,
-            canonical_tip_state: Arc::new(AtomicCanonicalTip::new(CanonicalTipState::Unknown)),
-            canonical_tip_state_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
@@ -1145,122 +1072,56 @@ mod tests {
         assert!(matches!(err, DriverError::PreconfIngressNotReady));
     }
 
-    #[tokio::test]
-    async fn preconf_submit_noops_when_block_is_at_or_below_canonical_tip() {
-        let syncer = build_syncer().await;
-        syncer.preconf_ingress_ready.store(true, Ordering::Release);
-        syncer.canonical_tip_state.store(CanonicalTipState::Known(5), Ordering::Relaxed);
-
-        let payload = PreconfPayload::new(sample_payload(5));
-        syncer
-            .submit_preconfirmation_payload_with_timeout(payload, Duration::from_millis(10))
-            .await
-            .expect("stale payload should be treated as no-op");
-
-        let rx = syncer.preconf_rx.as_ref().expect("preconf receiver").clone();
-        assert_eq!(rx.lock().await.len(), 0, "stale payload should not be enqueued for processing");
-    }
-
-    #[tokio::test]
-    async fn preconf_submit_rejected_when_canonical_tip_is_unknown() {
-        let syncer = build_syncer().await;
-        syncer.preconf_ingress_ready.store(true, Ordering::Release);
-        syncer.canonical_tip_state.store(CanonicalTipState::Unknown, Ordering::Relaxed);
-
-        let payload = PreconfPayload::new(sample_payload(6));
-        let err = syncer
-            .submit_preconfirmation_payload_with_timeout(payload, Duration::from_millis(10))
-            .await
-            .expect_err("unknown canonical tip should reject preconfirmation payload");
-
-        assert!(matches!(err, DriverError::PreconfIngressNotReady));
-
-        let rx = syncer.preconf_rx.as_ref().expect("preconf receiver").clone();
-        assert_eq!(
-            rx.lock().await.len(),
-            0,
-            "payload should not be enqueued when canonical tip is unknown",
-        );
-    }
-
-    #[tokio::test]
-    async fn canonical_tip_state_reports_unknown_until_event_sync_sets_it() {
-        let syncer = build_syncer().await;
-        assert_eq!(syncer.canonical_tip_state(), CanonicalTipState::Unknown);
-
-        syncer.canonical_tip_state.store(CanonicalTipState::Known(42), Ordering::Relaxed);
-        assert_eq!(syncer.canonical_tip_state(), CanonicalTipState::Known(42));
-    }
-
     #[test]
-    fn canonical_tip_state_update_tracks_latest_value_even_when_decreasing() {
-        let canonical_tip_state = AtomicCanonicalTip::new(CanonicalTipState::Known(100));
-        let (canonical_tip_state_tx, canonical_tip_state_rx) =
-            watch::channel(CanonicalTipState::Known(100));
-
-        let changed = update_canonical_tip_state(&canonical_tip_state, &canonical_tip_state_tx, 95);
-
-        assert!(changed, "decreasing canonical tip should notify watchers");
-        assert_eq!(canonical_tip_state.load(Ordering::Relaxed), CanonicalTipState::Known(95));
-        assert_eq!(*canonical_tip_state_rx.borrow(), CanonicalTipState::Known(95));
-    }
-
-    #[test]
-    fn canonical_tip_state_update_refreshes_watch_value_without_active_watchers() {
-        let canonical_tip_state = AtomicCanonicalTip::new(CanonicalTipState::Unknown);
-        let (canonical_tip_state_tx, canonical_tip_state_rx) =
-            watch::channel(CanonicalTipState::Unknown);
-        drop(canonical_tip_state_rx);
-
-        let changed = update_canonical_tip_state(&canonical_tip_state, &canonical_tip_state_tx, 95);
-
-        assert!(changed, "updated canonical tip should be reported as changed");
-        assert_eq!(canonical_tip_state.load(Ordering::Relaxed), CanonicalTipState::Known(95));
-
-        let late_subscriber = canonical_tip_state_tx.subscribe();
-        assert_eq!(
-            *late_subscriber.borrow(),
-            CanonicalTipState::Known(95),
-            "late subscribers should observe the latest canonical tip",
-        );
-    }
-
-    #[test]
-    fn empty_outcome_known_tip_uses_proposal_mapping() {
-        let resolved = resolve_empty_outcome_canonical_tip(Some(210), Some(300));
-        assert_eq!(resolved, Some(210));
-    }
-
-    #[test]
-    fn empty_outcome_known_tip_does_not_fallback_to_latest_without_mapping() {
-        let resolved = resolve_empty_outcome_canonical_tip(None, None);
-        assert_eq!(resolved, None);
-    }
-
-    #[test]
-    fn empty_outcome_unknown_tip_allows_latest_fallback_without_mapping() {
-        let resolved = resolve_empty_outcome_canonical_tip(None, Some(300));
-        assert_eq!(resolved, Some(300));
-    }
-
-    #[test]
-    fn preconf_ingress_spawn_requires_live_scanner() {
+    fn preconf_ingress_spawn_requires_live_scanner_and_confirmed_sync_ready() {
         assert!(
-            should_spawn_preconf_ingress(true, true),
-            "ingress gate should open once scanner is live",
+            !should_spawn_preconf_ingress(true, false, true, false),
+            "live scanner alone must not open ingress gate",
         );
         assert!(
-            should_spawn_preconf_ingress(true, true),
-            "ingress gate should open once scanner is live",
+            should_spawn_preconf_ingress(true, false, true, true),
+            "ingress gate should open once scanner is live and confirmed sync is ready",
         );
         assert!(
-            !should_spawn_preconf_ingress(false, true),
+            !should_spawn_preconf_ingress(true, true, true, true),
+            "ingress must not respawn after already started",
+        );
+        assert!(
+            !should_spawn_preconf_ingress(false, false, true, true),
             "disabled preconfirmation must never open ingress gate",
         );
-        assert!(
-            !should_spawn_preconf_ingress(true, false),
-            "scanner must be live before ingress gate opens",
-        );
+    }
+
+    #[test]
+    fn confirmed_sync_ready_when_target_is_zero() {
+        assert!(ConfirmedSyncSnapshot::new(0, None, None).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_requires_head_l1_origin_for_nonzero_target() {
+        assert!(!ConfirmedSyncSnapshot::new(7, Some(11), None).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_requires_target_batch_mapping_for_nonzero_target() {
+        assert!(!ConfirmedSyncSnapshot::new(7, None, Some(11)).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_is_false_when_head_is_behind_target_block() {
+        assert!(!ConfirmedSyncSnapshot::new(7, Some(12), Some(11)).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_is_true_when_head_reaches_target_block() {
+        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(12)).is_ready());
+        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(15)).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_requires_live_scanner_gate() {
+        let ready = resolve_confirmed_sync_ready(false, ConfirmedSyncSnapshot::new(0, None, None));
+        assert!(!ready, "confirmed-sync readiness must remain closed until scanner is live",);
     }
 
     #[test]

@@ -4,51 +4,22 @@ mod preconf_ingress_sync;
 
 use std::sync::Arc;
 
-use alloy_provider::Provider;
-use driver::{
-    DriverConfig, map_driver_error,
-    sync::{SyncError, event::EventSyncer},
-};
+use driver::{DriverConfig, map_driver_error, sync::SyncError};
 use preconfirmation_net::P2pConfig;
 use tracing::info;
 
 use crate::{
     ContractInboxReader, EventSyncerDriverClient, PreconfirmationClient,
     PreconfirmationClientConfig, PreconfirmationClientError,
-    rpc::{
-        PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig,
-        runner_api::{CanonicalProposalIdProvider, RunnerRpcApiImpl},
-    },
+    rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig, runner_api::RunnerRpcApiImpl},
 };
 use protocol::preconfirmation::LookaheadResolver;
 
 use preconf_ingress_sync::PreconfIngressSync;
 
-/// Canonical id provider that delegates to the event syncer.
-struct EventSyncerCanonicalIdProvider<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Event syncer used to read the latest canonical proposal id.
-    event_syncer: Arc<EventSyncer<P>>,
-}
-
-impl<P> CanonicalProposalIdProvider for EventSyncerCanonicalIdProvider<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Return the last canonical proposal id observed by the syncer.
-    fn canonical_proposal_id(&self) -> u64 {
-        self.event_syncer.last_canonical_proposal_id()
-    }
-}
-
 /// Errors emitted by the preconfirmation driver runner.
 #[derive(Debug, thiserror::Error)]
 pub enum RunnerError {
-    /// Preconfirmation ingress was not enabled on the driver.
-    #[error("preconfirmation ingress not enabled on driver")]
-    PreconfIngressNotEnabled,
     /// Event syncer exited before preconfirmation ingress was ready.
     #[error("event syncer exited before preconfirmation ingress was ready")]
     EventSyncerExited,
@@ -58,12 +29,6 @@ pub enum RunnerError {
     /// Preconfirmation node task failed.
     #[error("preconfirmation node task failed: {0}")]
     NodeTaskFailed(String),
-    /// Failed to resolve the L2 latest head.
-    #[error("failed to resolve L2 latest head for preconfirmation tip")]
-    MissingL2LatestHead,
-    /// Failed to query the L2 latest head.
-    #[error("failed to query L2 latest head for preconfirmation tip: {0}")]
-    L2LatestHeadQuery(String),
     /// Driver sync error.
     #[error(transparent)]
     Sync(#[from] SyncError),
@@ -163,14 +128,11 @@ impl PreconfirmationDriverRunner {
         let mut rpc_server = None;
         if let Some(rpc_config) = &self.config.rpc_config {
             // Build and launch the RPC server using runner-backed APIs.
-            let canonical_provider =
-                Arc::new(EventSyncerCanonicalIdProvider { event_syncer: event_syncer.clone() });
-            let inbox_reader = ContractInboxReader::new(rpc_client.shasta.inbox.clone());
+            let inbox_reader = ContractInboxReader::new(rpc_client.clone());
             let rpc_driver =
                 Arc::new(EventSyncerDriverClient::from_client(event_syncer.clone(), rpc_client));
             let api: Arc<dyn PreconfRpcApi> = Arc::new(RunnerRpcApiImpl::new(
                 command_tx.clone(),
-                canonical_provider,
                 rpc_driver,
                 local_peer_id,
                 inbox_reader,
