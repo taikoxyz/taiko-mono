@@ -602,12 +602,10 @@ impl GossipsubInboundState {
         &mut self,
         payload: &DecodedUnsafePayload,
     ) -> gossipsub::MessageAcceptance {
-        match self
-            .validate_preconf_block_signer(&payload.wire_signature, &payload.payload_bytes)
-            .await
-        {
+        match self.validate_preconf_block_payload(payload).await {
             gossipsub::MessageAcceptance::Accept => {
-                self.validate_preconf_block_payload(payload).await
+                self.validate_preconf_block_signer(&payload.wire_signature, &payload.payload_bytes)
+                    .await
             }
             other => other,
         }
