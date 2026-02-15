@@ -28,6 +28,7 @@ use rpc::client::{Client, ClientConfig};
 use tokio::{
     sync::{Mutex, Notify},
     task::JoinHandle,
+    time::sleep,
 };
 use tracing::{info, warn};
 
@@ -228,45 +229,28 @@ where
 
     async fn wait_event_sync(&self) -> Result<()> {
         info!("starting wait for driver to sync with L1 inbox events");
-
-        let mut rx = self.event_syncer.subscribe_proposal_id();
         loop {
-            let last = *rx.borrow();
-            let core_state =
-                self.inbox.getCoreState().call().await.map_err(DriverApiError::from)?;
-            let next = core_state.nextProposalId.to::<u64>();
-
-            tracing::debug!(
-                last_canonical_proposal_id = last,
-                next_proposal_id = next,
-                "checking sync"
-            );
-
-            if next == 0 {
-                info!("sync complete (no proposals)");
-                return Ok(());
-            }
-
-            let target = next.saturating_sub(1);
-            if last >= target {
+            if self
+                .event_syncer
+                .confirmed_sync_ready()
+                .await
+                .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?
+            {
                 info!("driver event sync complete");
                 return Ok(());
             }
 
-            if rx.changed().await.is_err() {
-                return Ok(());
-            }
+            sleep(Duration::from_millis(200)).await;
         }
     }
 
     async fn event_sync_tip(&self) -> Result<U256> {
-        let block = self
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Safe)
+        self.event_syncer
+            .confirmed_event_sync_tip()
             .await
-            .map_err(DriverApiError::from)?
-            .ok_or(DriverApiError::MissingSafeBlock)?;
-        Ok(U256::from(block.number()))
+            .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?
+            .map(U256::from)
+            .ok_or(DriverApiError::EventSyncTipUnknown.into())
     }
 
     async fn preconf_tip(&self) -> Result<U256> {

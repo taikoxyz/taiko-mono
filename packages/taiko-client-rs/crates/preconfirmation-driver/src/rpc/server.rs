@@ -24,8 +24,6 @@ pub const METHOD_PUBLISH_TX_LIST: &str = "preconf_publishTxList";
 pub const METHOD_GET_STATUS: &str = "preconf_getStatus";
 /// JSON-RPC method name for querying the preconfirmation tip.
 pub const METHOD_PRECONF_TIP: &str = "preconf_tip";
-/// JSON-RPC method name for querying the canonical proposal ID.
-pub const METHOD_CANONICAL_PROPOSAL_ID: &str = "preconf_canonicalProposalId";
 /// JSON-RPC method name for querying preconfirmation slot info by timestamp.
 pub const METHOD_GET_PRECONF_SLOT_INFO: &str = "preconf_getPreconfSlotInfo";
 
@@ -148,13 +146,6 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
     );
     rpc::register_rpc_method!(
         module,
-        METHOD_CANONICAL_PROPOSAL_ID,
-        RpcContext,
-        |ctx| ctx.api.canonical_proposal_id().await,
-        record_metrics
-    );
-    rpc::register_rpc_method!(
-        module,
         METHOD_GET_PRECONF_SLOT_INFO,
         RpcContext,
         |params, ctx| {
@@ -256,8 +247,8 @@ mod tests {
         async fn get_status(&self) -> Result<NodeStatus> {
             Ok(NodeStatus {
                 is_synced_with_inbox: true,
+                event_sync_tip: Some(U256::from(90)),
                 preconf_tip: U256::from(100),
-                canonical_proposal_id: 42,
                 peer_count: 5,
                 peer_id: "test-peer".to_string(),
             })
@@ -265,10 +256,6 @@ mod tests {
 
         async fn preconf_tip(&self) -> Result<U256> {
             Ok(U256::from(100))
-        }
-
-        async fn canonical_proposal_id(&self) -> Result<u64> {
-            Ok(42)
         }
 
         async fn get_preconf_slot_info(&self, _timestamp: U256) -> Result<PreconfSlotInfo> {
