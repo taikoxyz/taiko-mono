@@ -5,14 +5,11 @@ use std::{future::Future, sync::Arc};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
-use driver::{DriverConfig, SyncPipeline, sync::event::EventSyncer};
+use driver::{DriverConfig, SyncPipeline, map_driver_error, sync::event::EventSyncer};
 use rpc::client::Client;
 use tokio::task::JoinHandle;
 
-use crate::{
-    Result,
-    error::{WhitelistPreconfirmationDriverError, map_driver_error},
-};
+use crate::{Result, error::WhitelistPreconfirmationDriverError};
 
 /// Runs the event syncer and exposes shared handles used by the whitelist importer.
 pub(crate) struct PreconfIngressSync<P>

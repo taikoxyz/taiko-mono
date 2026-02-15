@@ -5,11 +5,11 @@ use std::{future::Future, sync::Arc};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
-use driver::{DriverConfig, SyncPipeline, sync::event::EventSyncer};
+use driver::{DriverConfig, SyncPipeline, map_driver_error, sync::event::EventSyncer};
 use rpc::client::Client;
 use tokio::task::JoinHandle;
 
-use super::{RunnerError, map_driver_error};
+use super::RunnerError;
 
 /// Runs the preconfirmation ingress event syncer and exposes handles to its resources.
 pub(crate) struct PreconfIngressSync<P>

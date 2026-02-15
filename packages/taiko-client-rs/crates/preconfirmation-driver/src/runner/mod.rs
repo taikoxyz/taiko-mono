@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use alloy_provider::Provider;
 use driver::{
-    DriverConfig,
+    DriverConfig, map_driver_error,
     sync::{SyncError, event::EventSyncer},
 };
 use preconfirmation_net::P2pConfig;
@@ -216,13 +216,5 @@ impl PreconfirmationDriverRunner {
 
         info!("preconfirmation driver stopped");
         run_result
-    }
-}
-
-/// Map a driver error to a runner error, preserving sync errors but wrapping other driver errors.
-fn map_driver_error(err: driver::DriverError) -> RunnerError {
-    match err {
-        driver::DriverError::Sync(sync_err) => RunnerError::Sync(sync_err),
-        other => RunnerError::Driver(other),
     }
 }

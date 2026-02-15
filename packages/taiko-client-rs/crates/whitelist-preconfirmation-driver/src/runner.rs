@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
-use driver::DriverConfig;
+use driver::{DriverConfig, map_driver_error};
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
@@ -13,7 +13,7 @@ use tracing::{info, warn};
 
 use crate::{
     Result,
-    error::{WhitelistPreconfirmationDriverError, map_driver_error},
+    error::WhitelistPreconfirmationDriverError,
     importer::WhitelistPreconfirmationImporter,
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},

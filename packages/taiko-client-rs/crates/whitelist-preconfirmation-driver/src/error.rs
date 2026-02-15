@@ -101,12 +101,3 @@ pub enum WhitelistPreconfirmationDriverError {
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
 }
-
-/// Map a driver error to a whitelist preconfirmation driver error, preserving sync errors but
-/// wrapping other variants.
-pub(crate) fn map_driver_error(err: driver::DriverError) -> WhitelistPreconfirmationDriverError {
-    match err {
-        driver::DriverError::Sync(sync_err) => WhitelistPreconfirmationDriverError::Sync(sync_err),
-        other => WhitelistPreconfirmationDriverError::Driver(other),
-    }
-}
