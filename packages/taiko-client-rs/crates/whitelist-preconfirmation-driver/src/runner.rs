@@ -179,8 +179,7 @@ impl WhitelistPreconfirmationDriverRunner {
             self.config.p2p_config.chain_id,
             network.command_tx.clone(),
         );
-        let mut epoch_tick =
-            time::interval(Duration::from_secs(L1_EPOCH_DURATION_SECS));
+        let mut epoch_tick = time::interval(Duration::from_secs(L1_EPOCH_DURATION_SECS));
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
         let event_syncer_handle = preconf_ingress_sync.handle_mut();
