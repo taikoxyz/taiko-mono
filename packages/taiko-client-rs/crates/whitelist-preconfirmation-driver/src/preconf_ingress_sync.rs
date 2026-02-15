@@ -76,11 +76,11 @@ pub(crate) async fn wait_for_preconf_ingress_ready<F>(
     event_syncer_handle: &mut JoinHandle<std::result::Result<(), driver::DriverError>>,
 ) -> Result<()>
 where
-    F: Future<Output = Option<()>> + Send,
+    F: Future<Output = std::result::Result<(), driver::DriverError>> + Send,
 {
     tokio::select! {
         ready = ready => {
-            ready.ok_or(WhitelistPreconfirmationDriverError::PreconfIngressNotEnabled)?;
+            ready.map_err(map_driver_error)?;
             Ok(())
         }
         result = event_syncer_handle => {
@@ -98,20 +98,22 @@ mod tests {
     use driver::{DriverError, sync::SyncError};
 
     #[tokio::test]
-    async fn wait_for_preconf_ingress_ready_errors_when_ready_none() {
-        let ready = async { None };
+    async fn wait_for_preconf_ingress_ready_maps_preconfirmation_disabled_error() {
+        let ready = async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) };
         let mut handle = tokio::spawn(async { Ok::<(), DriverError>(()) });
 
         let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
         assert!(matches!(
             err,
-            super::WhitelistPreconfirmationDriverError::PreconfIngressNotEnabled
+            super::WhitelistPreconfirmationDriverError::Driver(
+                DriverError::PreconfirmationDisabled
+            )
         ));
     }
 
     #[tokio::test]
     async fn wait_for_preconf_ingress_ready_maps_sync_driver_error() {
-        let ready = std::future::pending::<Option<()>>();
+        let ready = std::future::pending::<std::result::Result<(), DriverError>>();
         let mut handle = tokio::spawn(async {
             Err::<(), DriverError>(DriverError::Sync(SyncError::MissingCheckpointResumeHead))
         });
@@ -127,7 +129,7 @@ mod tests {
 
     #[tokio::test]
     async fn wait_for_preconf_ingress_ready_maps_non_sync_driver_error() {
-        let ready = std::future::pending::<Option<()>>();
+        let ready = std::future::pending::<std::result::Result<(), DriverError>>();
         let mut handle =
             tokio::spawn(async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) });
 

@@ -17,7 +17,7 @@ pub use config::DriverConfig;
 pub use driver::Driver;
 pub use error::DriverError;
 pub use production::PreconfPayload;
-pub use sync::{CanonicalTipState, SyncPipeline, SyncStage, event::EventSyncer};
+pub use sync::{ConfirmedSyncSnapshot, SyncPipeline, SyncStage, event::EventSyncer};
 
 // Re-export signer from protocol crate for backward compatibility
 pub use protocol::signer;

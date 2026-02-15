@@ -3,7 +3,7 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -23,14 +23,17 @@ use event_scanner::{EventFilter, Notification, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot, watch},
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
     time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
-use super::{SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead, is_stale_preconf};
+use super::{
+    SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead,
+    confirmed_sync::ConfirmedSyncSnapshot,
+};
 use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
@@ -63,7 +66,7 @@ struct FinalizedL1Snapshot {
 struct EventStreamStartPoint {
     anchor_block_number: u64,
     initial_proposal_id: u64,
-    bootstrap_canonical_tip: u64,
+    bootstrap_confirmed_tip: u64,
 }
 
 /// Decide whether the preconfirmation ingress loop can be started.
@@ -121,24 +124,10 @@ fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
     value.ok_or(SyncError::MissingFinalizedL1Block)
 }
 
-/// Evaluate strict confirmed-sync readiness from observed target/head values.
-///
-/// Rules:
-/// - target proposal id `0` is immediately ready.
-/// - otherwise both `target_block` and `head_block` must exist and `head_block >= target_block`.
-fn confirmed_sync_ready(
-    target_proposal_id: u64,
-    target_block: Option<u64>,
-    head_block: Option<u64>,
-) -> bool {
-    if target_proposal_id == 0 {
-        return true;
-    }
-
-    match (target_block, head_block) {
-        (Some(target_block), Some(head_block)) => head_block >= target_block,
-        _ => false,
-    }
+/// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
+#[inline]
+fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
+    block_number <= confirmed_tip
 }
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -158,10 +147,6 @@ where
     preconf_tx: Option<PreconfSender>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
-    /// Tracks the latest canonical proposal id processed from L1 events.
-    last_canonical_proposal_id: Arc<AtomicU64>,
-    /// Sender for notifying watchers when the canonical proposal ID changes.
-    proposal_id_tx: watch::Sender<u64>,
     /// Indicates whether strict preconfirmation ingress gating has been satisfied and
     /// the ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
@@ -381,8 +366,6 @@ where
                 "successfully processed proposal into L2 blocks",
             );
 
-            self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
-            let _ = self.proposal_id_tx.send(proposal_id);
             gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
@@ -418,7 +401,6 @@ where
         } else {
             (None, None)
         };
-        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
         Ok(Self {
             rpc,
@@ -427,24 +409,9 @@ where
             blob_source,
             preconf_tx,
             preconf_rx,
-            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
-            proposal_id_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
-    }
-
-    /// Return the latest canonical proposal id processed from L1 events.
-    pub fn last_canonical_proposal_id(&self) -> u64 {
-        self.last_canonical_proposal_id.load(Ordering::Relaxed)
-    }
-
-    /// Subscribe to proposal ID changes.
-    ///
-    /// Returns a watch::Receiver that receives the latest canonical proposal ID
-    /// whenever it changes. Useful for event-driven test waits.
-    pub fn subscribe_proposal_id(&self) -> watch::Receiver<u64> {
-        self.proposal_id_tx.subscribe()
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
@@ -452,7 +419,7 @@ where
         self.preconf_tx.clone()
     }
 
-    /// Return true when confirmed sync has caught up to `nextProposalId - 1`.
+    /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
     ///
     /// Readiness is strict and fail-closed:
     /// - target id is `nextProposalId.saturating_sub(1)`
@@ -460,21 +427,7 @@ where
     /// - otherwise readiness requires both:
     ///   - `last_block_id_by_batch_id(target)` exists
     ///   - `head_l1_origin` exists and `head >= target_block`
-    pub async fn confirmed_sync_ready(&self) -> Result<bool, SyncError> {
-        let (_, ready) = self.confirmed_sync_state().await?;
-        Ok(ready)
-    }
-
-    /// Return the confirmed event-sync tip from `head_l1_origin`.
-    ///
-    /// Returns `Ok(None)` when custom tables are not available (e.g. during/after beacon sync
-    /// gaps). Callers should treat this as not-ready.
-    pub async fn confirmed_event_sync_tip(&self) -> Result<Option<u64>, SyncError> {
-        Ok(self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>()))
-    }
-
-    /// Read strict confirmed-sync state from on-chain core state and custom execution tables.
-    async fn confirmed_sync_state(&self) -> Result<(u64, bool), SyncError> {
+    pub async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, SyncError> {
         let core_state = self
             .rpc
             .shasta
@@ -485,7 +438,13 @@ where
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
         let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
         if target_proposal_id == 0 {
-            return Ok((target_proposal_id, true));
+            let head_l1_origin_block_id =
+                self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
+            return Ok(ConfirmedSyncSnapshot::new(
+                target_proposal_id,
+                None,
+                head_l1_origin_block_id,
+            ));
         }
 
         let target_block = self
@@ -493,9 +452,10 @@ where
             .last_block_id_by_batch_id(U256::from(target_proposal_id))
             .await?
             .map(|block_id| block_id.to::<u64>());
-        let head_block = self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
+        let head_l1_origin_block_id =
+            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
 
-        Ok((target_proposal_id, confirmed_sync_ready(target_proposal_id, target_block, head_block)))
+        Ok(ConfirmedSyncSnapshot::new(target_proposal_id, target_block, head_l1_origin_block_id))
     }
 
     /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts
@@ -505,14 +465,12 @@ where
     /// - event scanner has switched to live mode
     /// - confirmed-sync readiness check has passed against core state and custom tables
     /// - ingress loop is running
-    ///
-    /// Returns `None` if preconfirmation is disabled.
-    pub async fn wait_preconf_ingress_ready(&self) -> Option<()> {
-        self.preconf_tx.as_ref()?;
+    pub async fn wait_preconf_ingress_ready(&self) -> Result<(), DriverError> {
+        self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
         loop {
             let notified = self.preconf_ingress_notify.notified();
             if self.preconf_ingress_ready.load(Ordering::Acquire) {
-                return Some(());
+                return Ok(());
             }
             notified.await;
         }
@@ -731,7 +689,7 @@ where
             return Ok(EventStreamStartPoint {
                 anchor_block_number: start_block,
                 initial_proposal_id: 0,
-                bootstrap_canonical_tip: 0,
+                bootstrap_confirmed_tip: 0,
             });
         }
 
@@ -768,7 +726,7 @@ where
         Ok(EventStreamStartPoint {
             anchor_block_number,
             initial_proposal_id: target_proposal_id,
-            bootstrap_canonical_tip: target_block_number.to::<u64>(),
+            bootstrap_confirmed_tip: target_block_number.to::<u64>(),
         })
     }
 }
@@ -879,13 +837,12 @@ where
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
-        self.last_canonical_proposal_id.store(initial_proposal_id, Ordering::Relaxed);
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(initial_proposal_id as f64);
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
-            .set(start_point.bootstrap_canonical_tip as f64);
+            .set(start_point.bootstrap_confirmed_tip as f64);
         info!(
             initial_proposal_id,
-            bootstrap_canonical_tip = start_point.bootstrap_canonical_tip,
+            bootstrap_confirmed_tip = start_point.bootstrap_confirmed_tip,
             "bootstrapped event sync state from finalized-bounded resume target",
         );
 
@@ -945,7 +902,7 @@ where
             }
 
             let confirmed_sync_ready =
-                if scanner_live { self.confirmed_sync_ready().await? } else { false };
+                if scanner_live { self.confirmed_sync_snapshot().await?.is_ready() } else { false };
             if should_spawn_preconf_ingress(
                 self.cfg.preconfirmation_enabled,
                 preconf_ingress_spawned,
@@ -1063,8 +1020,6 @@ mod tests {
         let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
-        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
-
         EventSyncer {
             rpc: mock_client(),
             cfg,
@@ -1072,8 +1027,6 @@ mod tests {
             blob_source: Arc::new(blob_source),
             preconf_tx: Some(preconf_tx),
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
-            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
-            proposal_id_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
@@ -1113,28 +1066,28 @@ mod tests {
 
     #[test]
     fn confirmed_sync_ready_when_target_is_zero() {
-        assert!(confirmed_sync_ready(0, None, None));
+        assert!(ConfirmedSyncSnapshot::new(0, None, None).is_ready());
     }
 
     #[test]
     fn confirmed_sync_ready_requires_head_l1_origin_for_nonzero_target() {
-        assert!(!confirmed_sync_ready(7, Some(11), None));
+        assert!(!ConfirmedSyncSnapshot::new(7, Some(11), None).is_ready());
     }
 
     #[test]
     fn confirmed_sync_ready_requires_target_batch_mapping_for_nonzero_target() {
-        assert!(!confirmed_sync_ready(7, None, Some(11)));
+        assert!(!ConfirmedSyncSnapshot::new(7, None, Some(11)).is_ready());
     }
 
     #[test]
     fn confirmed_sync_ready_is_false_when_head_is_behind_target_block() {
-        assert!(!confirmed_sync_ready(7, Some(12), Some(11)));
+        assert!(!ConfirmedSyncSnapshot::new(7, Some(12), Some(11)).is_ready());
     }
 
     #[test]
     fn confirmed_sync_ready_is_true_when_head_reaches_target_block() {
-        assert!(confirmed_sync_ready(7, Some(12), Some(12)));
-        assert!(confirmed_sync_ready(7, Some(12), Some(15)));
+        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(12)).is_ready());
+        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(15)).is_ready());
     }
 
     #[test]

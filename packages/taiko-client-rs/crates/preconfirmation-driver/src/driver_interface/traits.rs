@@ -3,6 +3,7 @@
 use alloy_primitives::U256;
 use alloy_rpc_types::Header as RpcHeader;
 use async_trait::async_trait;
+use driver::sync::ConfirmedSyncSnapshot;
 
 use crate::error::Result;
 
@@ -20,6 +21,24 @@ pub trait InboxReader: Clone + Send + Sync {
     async fn get_last_block_id_by_batch_id(&self, proposal_id: u64) -> Result<Option<u64>>;
     /// Returns the current confirmed event-sync tip from `head_l1_origin`.
     async fn get_head_l1_origin_block_id(&self) -> Result<Option<u64>>;
+
+    /// Returns a strict confirmed-sync snapshot derived from core state + custom tables.
+    async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot> {
+        let target_proposal_id = self.get_next_proposal_id().await?.saturating_sub(1);
+        if target_proposal_id == 0 {
+            return Ok(ConfirmedSyncSnapshot::new(
+                target_proposal_id,
+                None,
+                self.get_head_l1_origin_block_id().await?,
+            ));
+        }
+
+        Ok(ConfirmedSyncSnapshot::new(
+            target_proposal_id,
+            self.get_last_block_id_by_batch_id(target_proposal_id).await?,
+            self.get_head_l1_origin_block_id().await?,
+        ))
+    }
 }
 
 /// Resolve a block header for a block number.
@@ -36,7 +55,7 @@ pub trait DriverClient: Send + Sync {
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()>;
     /// Await the driver event sync completion signal.
     async fn wait_event_sync(&self) -> Result<()>;
-    /// Return the latest event-synced canonical L2 block number.
+    /// Return the latest confirmed event-sync L2 block number.
     async fn event_sync_tip(&self) -> Result<U256>;
     /// Return the latest preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256>;

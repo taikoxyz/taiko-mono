@@ -20,9 +20,6 @@ use preconf_ingress_sync::PreconfIngressSync;
 /// Errors emitted by the preconfirmation driver runner.
 #[derive(Debug, thiserror::Error)]
 pub enum RunnerError {
-    /// Preconfirmation ingress was not enabled on the driver.
-    #[error("preconfirmation ingress not enabled on driver")]
-    PreconfIngressNotEnabled,
     /// Event syncer exited before preconfirmation ingress was ready.
     #[error("event syncer exited before preconfirmation ingress was ready")]
     EventSyncerExited,
@@ -32,12 +29,6 @@ pub enum RunnerError {
     /// Preconfirmation node task failed.
     #[error("preconfirmation node task failed: {0}")]
     NodeTaskFailed(String),
-    /// Failed to resolve the L2 latest head.
-    #[error("failed to resolve L2 latest head for preconfirmation tip")]
-    MissingL2LatestHead,
-    /// Failed to query the L2 latest head.
-    #[error("failed to query L2 latest head for preconfirmation tip: {0}")]
-    L2LatestHeadQuery(String),
     /// Driver sync error.
     #[error(transparent)]
     Sync(#[from] SyncError),
