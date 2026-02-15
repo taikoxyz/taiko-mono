@@ -73,15 +73,9 @@ struct EventStreamStartPoint {
 ///
 /// Strict safety gate:
 /// - event scanner must be in live mode
-/// - canonical sync state must be initialized
 /// - ingress must not have been spawned already
-fn should_spawn_preconf_ingress(
-    preconfirmation_enabled: bool,
-    preconf_ingress_spawned: bool,
-    scanner_live: bool,
-    canonical_state_ready: bool,
-) -> bool {
-    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live && canonical_state_ready
+fn should_spawn_preconf_ingress(preconfirmation_enabled: bool, scanner_live: bool) -> bool {
+    preconfirmation_enabled && scanner_live
 }
 
 /// Resolve the L2 block number that event sync should use as its resume source.
@@ -990,9 +984,8 @@ where
         info!("event scanner started; listening for inbox proposals");
 
         // Strict gate state for starting preconfirmation ingress.
-        let mut preconf_ingress_spawned = false;
+        let mut preconf_rx = self.preconf_rx.clone();
         let mut scanner_live = false;
-        let mut canonical_state_ready = true;
 
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
@@ -1000,17 +993,12 @@ where
                 Ok(ScannerMessage::Data(logs)) => {
                     counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
                     counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
-                    let has_logs = !logs.is_empty();
                     self.process_log_batch(router.clone(), logs).await?;
-                    if has_logs {
-                        canonical_state_ready = true;
-                    }
                 }
                 Ok(ScannerMessage::Notification(notification)) => {
                     info!(?notification, "event scanner notification");
                     if matches!(notification, Notification::SwitchingToLive) {
-                        // Keep the gate strict: scanner live is necessary but not sufficient.
-                        // Ingress only opens once canonical state has been initialized.
+                        // Open ingress only after scanner switches to live mode.
                         scanner_live = true;
                     }
                 }
@@ -1021,12 +1009,8 @@ where
                 }
             }
 
-            if should_spawn_preconf_ingress(
-                self.cfg.preconfirmation_enabled,
-                preconf_ingress_spawned,
-                scanner_live,
-                canonical_state_ready,
-            ) && let Some(rx) = self.preconf_rx.clone()
+            if should_spawn_preconf_ingress(self.cfg.preconfirmation_enabled, scanner_live) &&
+                let Some(rx) = preconf_rx.take()
             {
                 self.spawn_preconf_ingress(
                     router.clone(),
@@ -1035,7 +1019,6 @@ where
                     self.preconf_ingress_ready.clone(),
                     self.preconf_ingress_notify.clone(),
                 );
-                preconf_ingress_spawned = true;
             }
         }
         Ok(())
@@ -1275,22 +1258,22 @@ mod tests {
     }
 
     #[test]
-    fn preconf_ingress_spawn_requires_live_scanner_and_canonical_state_ready() {
+    fn preconf_ingress_spawn_requires_live_scanner() {
         assert!(
-            !should_spawn_preconf_ingress(true, false, true, false),
-            "live scanner alone must not open ingress gate",
+            should_spawn_preconf_ingress(true, true),
+            "ingress gate should open once scanner is live",
         );
         assert!(
-            should_spawn_preconf_ingress(true, false, true, true),
-            "ingress gate should open once scanner is live and canonical state is ready",
+            should_spawn_preconf_ingress(true, true),
+            "ingress gate should open once scanner is live",
         );
         assert!(
-            !should_spawn_preconf_ingress(true, true, true, true),
-            "ingress must not respawn after already started",
-        );
-        assert!(
-            !should_spawn_preconf_ingress(false, false, true, true),
+            !should_spawn_preconf_ingress(false, true),
             "disabled preconfirmation must never open ingress gate",
+        );
+        assert!(
+            !should_spawn_preconf_ingress(true, false),
+            "scanner must be live before ingress gate opens",
         );
     }
 
