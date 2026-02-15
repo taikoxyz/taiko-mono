@@ -1311,13 +1311,14 @@ async fn handle_gossipsub_event(
                 if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
                     let Err(err) =
                         forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload })
-                        .await
+                            .await
                 {
                     report(&gossipsub::MessageAcceptance::Reject);
                     return Err(err);
                 }
 
-                (acceptance, acceptance_label(&acceptance))
+                let inbound_label = acceptance_label(&acceptance);
+                (acceptance, inbound_label)
             }
             Err(err) => {
                 metrics::counter!(
@@ -1327,10 +1328,7 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe payload");
 
-                (
-                    gossipsub::MessageAcceptance::Reject,
-                    "decode_failed",
-                )
+                (gossipsub::MessageAcceptance::Reject, "decode_failed")
             }
         };
 
@@ -1357,7 +1355,8 @@ async fn handle_gossipsub_event(
                     return Err(err);
                 }
 
-                (acceptance, acceptance_label(&acceptance))
+                let inbound_label = acceptance_label(&acceptance);
+                (acceptance, inbound_label)
             }
             Err(err) => {
                 metrics::counter!(
@@ -1367,10 +1366,7 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe response");
 
-                (
-                    gossipsub::MessageAcceptance::Reject,
-                    "decode_failed",
-                )
+                (gossipsub::MessageAcceptance::Reject, "decode_failed")
             }
         };
 
