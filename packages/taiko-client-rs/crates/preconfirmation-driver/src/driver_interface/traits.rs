@@ -1,13 +1,19 @@
 //! Driver interface trait definitions.
 
+use std::{future::Future, time::Duration};
+
 use alloy_primitives::U256;
 use alloy_rpc_types::Header as RpcHeader;
 use async_trait::async_trait;
 use driver::sync::ConfirmedSyncSnapshot;
+use tokio::time::sleep;
 
 use crate::error::Result;
 
 use super::PreconfirmationInput;
+
+/// Default poll interval for `wait_event_sync` checks in production paths.
+pub(crate) const DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_secs(12);
 
 /// Trait for reading L1 Inbox contract state.
 ///
@@ -59,4 +65,21 @@ pub trait DriverClient: Send + Sync {
     async fn event_sync_tip(&self) -> Result<U256>;
     /// Return the latest preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256>;
+}
+
+/// Wait for strict confirmed-sync readiness by polling a caller-provided snapshot source.
+pub(crate) async fn wait_for_confirmed_sync<F, Fut, E>(
+    mut snapshot: F,
+    poll_interval: Duration,
+) -> std::result::Result<(), E>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = std::result::Result<ConfirmedSyncSnapshot, E>>,
+{
+    loop {
+        if snapshot().await?.is_ready() {
+            return Ok(());
+        }
+        sleep(poll_interval).await;
+    }
 }

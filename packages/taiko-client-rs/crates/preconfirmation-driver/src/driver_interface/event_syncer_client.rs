@@ -12,7 +12,6 @@ use driver::{
     sync::{ConfirmedSyncSnapshot, event::EventSyncer},
 };
 use preconfirmation_types::uint256_to_u256;
-use tokio::time::sleep;
 use tracing::info;
 
 use crate::{
@@ -21,10 +20,11 @@ use crate::{
     error::{DriverApiError, PreconfirmationClientError},
 };
 
-use super::{BlockHeaderProvider, payload::build_taiko_payload_attributes};
-
-/// Poll interval used when waiting for confirmed event sync readiness.
-const WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
+use super::{
+    BlockHeaderProvider,
+    payload::build_taiko_payload_attributes,
+    traits::{DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL, wait_for_confirmed_sync},
+};
 
 /// Provides L2 tip lookups for the driver client.
 #[async_trait]
@@ -106,6 +106,7 @@ where
     event_syncer: Arc<E>,
     inbox: InboxInstance<P>,
     l2_provider: Arc<dyn L2Provider + Send + Sync>,
+    wait_event_sync_poll_interval: Duration,
 }
 
 impl<E, P> EventSyncerDriverClient<E, P>
@@ -113,13 +114,28 @@ where
     E: PreconfirmationIngress + 'static,
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Build a driver client from the provided components and poll interval.
+    pub fn new_with_components_and_poll_interval(
+        event_syncer: Arc<E>,
+        inbox: InboxInstance<P>,
+        l2_provider: Arc<dyn L2Provider + Send + Sync>,
+        wait_event_sync_poll_interval: Duration,
+    ) -> Self {
+        Self { event_syncer, inbox, l2_provider, wait_event_sync_poll_interval }
+    }
+
     /// Build a driver client from the provided components.
     pub fn new_with_components(
         event_syncer: Arc<E>,
         inbox: InboxInstance<P>,
         l2_provider: Arc<dyn L2Provider + Send + Sync>,
     ) -> Self {
-        Self { event_syncer, inbox, l2_provider }
+        Self::new_with_components_and_poll_interval(
+            event_syncer,
+            inbox,
+            l2_provider,
+            DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
+        )
     }
 }
 
@@ -131,7 +147,12 @@ where
     pub fn from_client(event_syncer: Arc<EventSyncer<P>>, client: rpc::client::Client<P>) -> Self {
         let l2_provider = client.l2_provider.clone();
         let l2_provider: Arc<dyn L2Provider + Send + Sync> = Arc::new(l2_provider);
-        Self::new_with_components(event_syncer, client.shasta.inbox, l2_provider)
+        Self::new_with_components_and_poll_interval(
+            event_syncer,
+            client.shasta.inbox,
+            l2_provider,
+            DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
+        )
     }
 }
 
@@ -174,20 +195,15 @@ where
     /// Wait for the event syncer to catch up with L1 inbox events.
     async fn wait_event_sync(&self) -> Result<()> {
         info!("starting wait for driver to sync with L1 inbox events");
-
-        loop {
-            let snapshot = self
-                .event_syncer
-                .confirmed_sync_snapshot()
-                .await
-                .map_err(DriverApiError::Driver)?;
-            if snapshot.is_ready() {
-                info!("driver event sync complete");
-                return Ok(());
-            }
-
-            sleep(WAIT_EVENT_SYNC_POLL_INTERVAL).await;
-        }
+        wait_for_confirmed_sync(
+            || async {
+                self.event_syncer.confirmed_sync_snapshot().await.map_err(DriverApiError::Driver)
+            },
+            self.wait_event_sync_poll_interval,
+        )
+        .await?;
+        info!("driver event sync complete");
+        Ok(())
     }
 
     /// Get the current event syncer tip block number.
@@ -376,7 +392,7 @@ mod tests {
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider.clone());
 
         let ready = Arc::new(AtomicBool::new(false));
-        let client = EventSyncerDriverClient::new_with_components(
+        let client = EventSyncerDriverClient::new_with_components_and_poll_interval(
             Arc::new(FakeIngress {
                 submits: Arc::new(AtomicUsize::new(0)),
                 ready: ready.clone(),
@@ -384,6 +400,7 @@ mod tests {
             }),
             inbox,
             Arc::new(NoopL2Provider),
+            Duration::from_millis(10),
         );
 
         let wait_handle = tokio::spawn(async move { client.wait_event_sync().await });
