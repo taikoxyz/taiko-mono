@@ -19,6 +19,10 @@ use super::{
     traits::{DriverClient, InboxReader},
 };
 
+/// Default poll interval for `wait_event_sync` when waiting for the driver to sync with L1 inbox
+/// events.
+const DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_secs(12);
+
 /// Real implementation of InboxReader using the Inbox contract bindings.
 #[derive(Clone)]
 pub struct ContractInboxReader<P>
@@ -94,6 +98,8 @@ pub struct EmbeddedDriverClient<I: InboxReader> {
     preconf_tip_rx: watch::Receiver<U256>,
     /// Inbox reader for checking L1 sync state.
     inbox_reader: I,
+    /// Poll interval for `wait_event_sync`.
+    wait_event_sync_poll_interval: Duration,
 }
 
 impl<I: InboxReader> EmbeddedDriverClient<I> {
@@ -103,7 +109,22 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
         preconf_tip_rx: watch::Receiver<U256>,
         inbox_reader: I,
     ) -> Self {
-        Self { input_tx, preconf_tip_rx, inbox_reader }
+        Self::new_with_poll_interval(
+            input_tx,
+            preconf_tip_rx,
+            inbox_reader,
+            DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
+        )
+    }
+
+    /// Creates a new embedded driver client with a custom `wait_event_sync` poll interval.
+    pub fn new_with_poll_interval(
+        input_tx: mpsc::Sender<PreconfirmationInput>,
+        preconf_tip_rx: watch::Receiver<U256>,
+        inbox_reader: I,
+        wait_event_sync_poll_interval: Duration,
+    ) -> Self {
+        Self { input_tx, preconf_tip_rx, inbox_reader, wait_event_sync_poll_interval }
     }
 
     /// Returns a reference to the inbox reader.
@@ -133,7 +154,6 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     ///   - `lastBlockIDByBatchID(nextProposalId - 1)` exists
     ///   - `head_l1_origin` exists and `head >= target_block`.
     async fn wait_event_sync(&self) -> Result<()> {
-        const POLL_INTERVAL: Duration = Duration::from_millis(200);
         info!("starting wait for driver to sync with L1 inbox events");
 
         loop {
@@ -149,7 +169,7 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
                 return Ok(());
             }
 
-            sleep(POLL_INTERVAL).await;
+            sleep(self.wait_event_sync_poll_interval).await;
         }
     }
 
@@ -245,7 +265,12 @@ mod tests {
         let (input_tx, input_rx) = mpsc::channel::<PreconfirmationInput>(16);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
         let inbox_reader = MockInboxReader::new(0, None, Some(0));
-        let client = EmbeddedDriverClient::new(input_tx, preconf_tip_rx, inbox_reader.clone());
+        let client = EmbeddedDriverClient::new_with_poll_interval(
+            input_tx,
+            preconf_tip_rx,
+            inbox_reader.clone(),
+            Duration::from_millis(10),
+        );
         (client, input_rx, inbox_reader, preconf_tip_tx)
     }
 
