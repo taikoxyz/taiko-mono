@@ -1,14 +1,13 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use alloy_primitives::{Address, B256};
 use futures::StreamExt;
-use hashlink::LinkedHashMap;
 use libp2p::{
     Multiaddr, PeerId, Swarm, Transport, core::upgrade, gossipsub, identify, identity, noise, ping,
     swarm::NetworkBehaviour, tcp, yamux,
@@ -20,263 +19,28 @@ use tracing::{debug, warn};
 
 use crate::{
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash,
-        decode_unsafe_payload_message, decode_unsafe_response_message, encode_envelope_ssz,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope,
+        decode_unsafe_payload_signature, decode_unsafe_response_message, decode_envelope_ssz,
+        encode_envelope_ssz,
         encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
-        encode_unsafe_response_message, recover_signer,
+        encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
+mod inbound;
+use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
+#[cfg(test)]
+use inbound::{EpochSeenTracker, HeightSeenTracker};
+
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
-const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
-const REQUEST_RATE_PER_MINUTE: f64 = 200.0;
-const REQUEST_RATE_MAX_TOKENS: f64 = REQUEST_RATE_PER_MINUTE;
-const REQUEST_RATE_REFILL_PER_SEC: f64 = REQUEST_RATE_PER_MINUTE / 60.0;
-const MAX_RESPONSES_ACCEPTABLE: usize = 3;
-const MAX_PRECONF_BLOCKS_PER_HEIGHT: usize = 10;
-const PRECONF_INBOUND_LRU_CAPACITY: usize = 1000;
 /// Prefix used in Go-compatible message-id hashing for valid snappy payloads.
 const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
 /// Prefix used in Go-compatible message-id hashing for invalid snappy payloads.
 const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
 
-#[derive(Debug)]
-struct TokenBucket {
-    tokens: f64,
-    last_refill: Instant,
-}
-
-impl TokenBucket {
-    fn new(now: Instant) -> Self {
-        Self { tokens: REQUEST_RATE_MAX_TOKENS, last_refill: now }
-    }
-
-    fn refill(&mut self, now: Instant, refill_per_sec: f64, max_tokens: f64) {
-        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
-        self.tokens = (self.tokens + elapsed * refill_per_sec).min(max_tokens);
-        self.last_refill = now;
-    }
-
-    fn consume(&mut self, amount: f64) -> bool {
-        if self.tokens < amount {
-            return false;
-        }
-        self.tokens -= amount;
-        true
-    }
-}
-
-#[derive(Debug, Default)]
-struct RateLimiter {
-    buckets: HashMap<PeerId, TokenBucket>,
-}
-
-impl RateLimiter {
-    fn prune(&mut self, now: Instant, window: Duration) {
-        self.buckets
-            .retain(|_, bucket| now.saturating_duration_since(bucket.last_refill) <= window);
-    }
-
-    fn allow(&mut self, from: PeerId, now: Instant) -> bool {
-        self.prune(now, REQUEST_SEEN_WINDOW);
-
-        let entry = self.buckets.entry(from).or_insert_with(|| TokenBucket::new(now));
-        entry.refill(now, REQUEST_RATE_REFILL_PER_SEC, REQUEST_RATE_MAX_TOKENS);
-        entry.consume(1.0)
-    }
-}
-
-#[derive(Debug, Default)]
-struct WindowedHashTracker {
-    seen: LinkedHashMap<B256, Instant>,
-}
-
-impl WindowedHashTracker {
-    fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
-        self.seen
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
-        self.seen.contains_key(&hash)
-    }
-
-    fn mark(&mut self, hash: B256, now: Instant) {
-        self.seen.remove(&hash);
-        self.seen.insert(hash, now);
-
-        while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen.pop_front();
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-struct HeightSeenTracker {
-    seen_by_height: LinkedHashMap<u64, Vec<B256>>,
-}
-
-impl HeightSeenTracker {
-    fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if let Some(hashes) = self.seen_by_height.get(&height) {
-            if hashes.len() >= max_per_height {
-                return false;
-            }
-        } else if max_per_height == 0 {
-            return false;
-        }
-
-        self.seen_by_height.entry(height).or_insert(Vec::new()).push(hash);
-        if self.seen_by_height.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen_by_height.pop_front();
-        }
-
-        true
-    }
-}
-
-#[derive(Debug, Default)]
-struct EpochSeenTracker {
-    seen_by_epoch: LinkedHashMap<u64, usize>,
-}
-
-impl EpochSeenTracker {
-    fn can_accept(&self, epoch: u64, max_per_epoch: usize) -> bool {
-        match self.seen_by_epoch.get(&epoch) {
-            Some(count) => *count < max_per_epoch,
-            None => true,
-        }
-    }
-
-    fn mark(&mut self, epoch: u64) {
-        let count = self.seen_by_epoch.entry(epoch).or_insert(0);
-        *count += 1;
-
-        if self.seen_by_epoch.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen_by_epoch.pop_front();
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-struct GossipsubInboundState {
-    chain_id: u64,
-    request_rate: RateLimiter,
-    request_seen: WindowedHashTracker,
-    eos_rate: RateLimiter,
-    eos_seen: EpochSeenTracker,
-    preconf_seen_by_height: HeightSeenTracker,
-    response_seen_by_height: HeightSeenTracker,
-}
-
-impl GossipsubInboundState {
-    fn new(chain_id: u64) -> Self {
-        Self {
-            chain_id,
-            request_rate: RateLimiter::default(),
-            request_seen: WindowedHashTracker::default(),
-            eos_rate: RateLimiter::default(),
-            eos_seen: EpochSeenTracker::default(),
-            preconf_seen_by_height: HeightSeenTracker::default(),
-            response_seen_by_height: HeightSeenTracker::default(),
-        }
-    }
-
-    fn validate_request(
-        &mut self,
-        from: PeerId,
-        hash: B256,
-        now: Instant,
-    ) -> gossipsub::MessageAcceptance {
-        if self.request_seen.is_seen(hash, now) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        if !self.request_rate.allow(from, now) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        self.request_seen.mark(hash, now);
-        gossipsub::MessageAcceptance::Accept
-    }
-
-    fn validate_eos_request(
-        &mut self,
-        from: PeerId,
-        epoch: u64,
-        now: Instant,
-    ) -> gossipsub::MessageAcceptance {
-        if !self.eos_seen.can_accept(epoch, MAX_RESPONSES_ACCEPTABLE) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        if !self.eos_rate.allow(from, now) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        self.eos_seen.mark(epoch);
-
-        gossipsub::MessageAcceptance::Accept
-    }
-
-    fn validate_preconf_blocks(
-        &mut self,
-        payload: &DecodedUnsafePayload,
-    ) -> gossipsub::MessageAcceptance {
-        if payload.envelope.execution_payload.transactions.is_empty() ||
-            payload.envelope.execution_payload.fee_recipient == Address::ZERO ||
-            payload.envelope.execution_payload.block_number == 0
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let prehash = block_signing_hash(self.chain_id, payload.payload_bytes.as_slice());
-        if recover_signer(prehash, &payload.wire_signature).is_err() {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let height = payload.envelope.execution_payload.block_number;
-        let hash = payload.envelope.execution_payload.block_hash;
-
-        if !self.preconf_seen_by_height.can_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        gossipsub::MessageAcceptance::Accept
-    }
-
-    fn validate_response(
-        &mut self,
-        envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
-    ) -> gossipsub::MessageAcceptance {
-        let Some(signature) = envelope.signature else {
-            return gossipsub::MessageAcceptance::Reject;
-        };
-
-        if envelope.execution_payload.transactions.is_empty() ||
-            envelope.execution_payload.fee_recipient == Address::ZERO ||
-            envelope.execution_payload.block_number == 0
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let prehash =
-            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-        if recover_signer(prehash, &signature).is_err() {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let height = envelope.execution_payload.block_number;
-        let hash = envelope.execution_payload.block_hash;
-        if !self.response_seen_by_height.can_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        gossipsub::MessageAcceptance::Accept
-    }
-}
-
-/// Inbound network event for whitelist preconfirmation processing.
 #[derive(Debug)]
 pub(crate) enum NetworkEvent {
     /// Incoming `preconfBlocks` payload.
@@ -432,9 +196,35 @@ struct ClassifiedBootnodes {
     discovery_enrs: Vec<String>,
 }
 
+
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
-    pub fn spawn(cfg: P2pConfig) -> Result<Self> {
+    pub fn spawn_with_whitelist_filter(
+        mut cfg: P2pConfig,
+        l1_client: Option<InboundWhitelistClient>,
+        whitelist_address: Option<Address>,
+    ) -> Result<Self> {
+        let mut whitelist_filter = None;
+        if let (Some(whitelist_address), Some(rpc_client)) = (whitelist_address, l1_client) {
+            whitelist_filter = Some(InboundWhitelistFilter::new(rpc_client, whitelist_address));
+        } else if let Some(whitelist_address) = whitelist_address {
+            cfg.sequencer_addresses = vec![whitelist_address];
+        }
+
+        Self::spawn_with_optional_whitelist_filter(cfg, whitelist_filter)
+    }
+
+    fn spawn_with_optional_whitelist_filter(
+        cfg: P2pConfig,
+        whitelist_filter: Option<InboundWhitelistFilter>,
+    ) -> Result<Self> {
+        Self::spawn_with_filter(cfg, whitelist_filter)
+    }
+
+    fn spawn_with_filter(
+        cfg: P2pConfig,
+        whitelist_filter: Option<InboundWhitelistFilter>,
+    ) -> Result<Self> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
 
@@ -515,7 +305,13 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state = GossipsubInboundState::new(cfg.chain_id);
+            let mut inbound_validation_state =
+                GossipsubInboundState::new(
+                    cfg.chain_id,
+                    cfg.sequencer_addresses,
+                    cfg.sequencer_address,
+                    whitelist_filter,
+                );
 
             loop {
                 let has_discovery = discovery_rx.is_some();
@@ -924,26 +720,41 @@ async fn handle_gossipsub_event(
     };
 
     if *topic == topics.preconf_blocks.hash() {
-        let acceptance = match decode_unsafe_payload_message(&message.data) {
-            Ok(payload) => {
-                let acceptance = inbound_validation_state.validate_preconf_blocks(&payload);
-                if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                    let Err(err) = forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload })
-                        .await
-                {
-                    report(&gossipsub::MessageAcceptance::Reject);
-                    return Err(err);
-                }
+        let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data) {
+            Ok((wire_signature, payload_bytes)) => {
+                match decode_envelope_ssz(&payload_bytes) {
+                    Ok(envelope) => {
+                        let payload = DecodedUnsafePayload {
+                            wire_signature,
+                            payload_bytes,
+                            envelope,
+                        };
+                        let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
 
-                acceptance
+                        if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
+                            && let Err(err) =
+                                forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await
+                        {
+                            report(&gossipsub::MessageAcceptance::Reject);
+                            return Err(err);
+                        }
+
+                        let inbound_label = acceptance_label(&acceptance);
+                        (acceptance, inbound_label)
+                    }
+                    Err(err) => {
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                            "topic" => "preconf_blocks",
+                        )
+                        .increment(1);
+                        debug!(error = %err, "failed to decode unsafe payload");
+
+                        (gossipsub::MessageAcceptance::Reject, "decode_failed")
+                    }
+                }
             }
             Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
                     "topic" => "preconf_blocks",
@@ -951,14 +762,14 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe payload");
 
-                gossipsub::MessageAcceptance::Reject
+                (gossipsub::MessageAcceptance::Reject, "decode_failed")
             }
         };
 
         metrics::counter!(
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
             "topic" => "preconf_blocks",
-            "result" => acceptance_label(&acceptance),
+            "result" => inbound_label,
         )
         .increment(1);
         report(&acceptance);
@@ -966,9 +777,9 @@ async fn handle_gossipsub_event(
     }
 
     if *topic == topics.preconf_response.hash() {
-        let acceptance = match decode_unsafe_response_message(&message.data) {
+        let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
             Ok(envelope) => {
-                let acceptance = inbound_validation_state.validate_response(&envelope);
+                let acceptance = inbound_validation_state.validate_response(&envelope).await;
                 if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
                     let Err(err) =
                         forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope })
@@ -978,15 +789,10 @@ async fn handle_gossipsub_event(
                     return Err(err);
                 }
 
-                acceptance
+                let inbound_label = acceptance_label(&acceptance);
+                (acceptance, inbound_label)
             }
             Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
                     "topic" => "response_preconf_blocks",
@@ -994,14 +800,14 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe response");
 
-                gossipsub::MessageAcceptance::Reject
+                (gossipsub::MessageAcceptance::Reject, "decode_failed")
             }
         };
 
         metrics::counter!(
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
             "topic" => "response_preconf_blocks",
-            "result" => acceptance_label(&acceptance),
+            "result" => inbound_label,
         )
         .increment(1);
         report(&acceptance);
@@ -1144,6 +950,7 @@ mod tests {
 
     use alloy_primitives::{Address, Bloom, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
+    use protocol::signer::FixedKSigner;
     use libp2p::{
         Transport,
         core::upgrade,
@@ -1183,6 +990,37 @@ mod tests {
         let envelope = sample_response_envelope();
         let payload_bytes = encode_envelope_ssz(&envelope);
         DecodedUnsafePayload { wire_signature: [0x11u8; 65], payload_bytes, envelope }
+    }
+
+    fn signed_wire_signature(signer: &FixedKSigner, prehash: B256) -> [u8; 65] {
+        let sig = signer
+            .sign_with_predefined_k(prehash.as_ref())
+            .expect("sign prehash for test");
+
+        let mut wire_signature = [0u8; 65];
+        wire_signature[..32].copy_from_slice(&sig.signature.r().to_be_bytes::<32>());
+        wire_signature[32..64].copy_from_slice(&sig.signature.s().to_be_bytes::<32>());
+        wire_signature[64] = sig.recovery_id;
+        wire_signature
+    }
+
+    fn sample_signed_preconf_payload(chain_id: u64, signer: &FixedKSigner) -> DecodedUnsafePayload {
+        let mut payload = sample_preconf_payload();
+        payload.wire_signature =
+            signed_wire_signature(&signer, block_signing_hash(chain_id, payload.payload_bytes.as_slice()));
+        payload
+    }
+
+    fn sample_signed_response_envelope(
+        chain_id: u64,
+        signer: &FixedKSigner,
+    ) -> WhitelistExecutionPayloadEnvelope {
+        let mut envelope = sample_response_envelope();
+        envelope.signature = Some(signed_wire_signature(
+            signer,
+            block_signing_hash(chain_id, envelope.execution_payload.block_hash.as_slice()),
+        ));
+        envelope
     }
 
     #[test]
@@ -1297,19 +1135,21 @@ mod tests {
 
     #[test]
     fn height_seen_tracker_rejects_over_limit_and_skips_tracking_rejected_hashes() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
 
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([1u8; 32]), 1));
-        assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
+        assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
+        assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([3u8; 32]), 1));
         assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 1);
-        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height[&1].len(), 1);
+        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height[&1].len(), 2);
         assert_eq!(
             validation_state.preconf_seen_by_height.seen_by_height[&1],
-            vec![B256::from([1u8; 32])]
+            vec![B256::from([1u8; 32]), B256::from([2u8; 32])]
         );
 
-        assert!(!validation_state.preconf_seen_by_height.can_accept(2, B256::from([3u8; 32]), 0));
-        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 1);
+        assert!(validation_state.preconf_seen_by_height.can_accept(2, B256::from([3u8; 32]), 0));
+        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 2);
     }
 
     #[test]
@@ -1318,42 +1158,219 @@ mod tests {
 
         assert!(tracker.can_accept(7, 1));
         tracker.mark(7);
+        assert!(tracker.can_accept(7, 1));
+        tracker.mark(7);
         assert!(!tracker.can_accept(7, 1));
-        assert_eq!(tracker.seen_by_epoch.get(&7), Some(&1usize));
+        assert_eq!(tracker.seen_by_epoch.get(&7), Some(&2usize));
     }
 
-    #[test]
-    fn validate_preconf_blocks_rejects_empty_transaction_payload() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+    #[tokio::test]
+    async fn validate_preconf_blocks_rejects_empty_transaction_payload() {
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
         let mut payload = sample_preconf_payload();
         payload.envelope.execution_payload.transactions.clear();
 
         assert!(matches!(
-            validation_state.validate_preconf_blocks(&payload),
+            validation_state.validate_preconf_blocks(&payload).await,
             gossipsub::MessageAcceptance::Reject
         ));
     }
 
-    #[test]
-    fn validate_preconf_blocks_rejects_invalid_signature() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+    #[tokio::test]
+    async fn validate_preconf_blocks_rejects_invalid_signature() {
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
         let payload = sample_preconf_payload();
 
         assert!(matches!(
-            validation_state.validate_preconf_blocks(&payload),
+            validation_state.validate_preconf_blocks(&payload).await,
             gossipsub::MessageAcceptance::Reject
         ));
     }
 
-    #[test]
-    fn validate_response_rejects_missing_signature() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+    #[tokio::test]
+    async fn validate_response_rejects_missing_signature() {
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
         let mut envelope = sample_response_envelope();
         envelope.signature = None;
 
         assert!(matches!(
-            validation_state.validate_response(&envelope),
+            validation_state.validate_response(&envelope).await,
             gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_rejects_non_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(
+                167_000,
+                vec![Address::from([0x11u8; 20])],
+                Address::ZERO,
+                None,
+            );
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_accepts_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, vec![signer_address], Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_accepts_single_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            signer_address,
+            None,
+        );
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_ignores_single_fallback_zero_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Ignore
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_rejects_invalid_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            Address::from([0x11u8; 20]),
+            None,
+        );
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_rejects_non_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(
+                167_000,
+                vec![Address::from([0x11u8; 20])],
+                Address::ZERO,
+                None,
+            );
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_accepts_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, vec![signer_address], Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_accepts_single_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            signer_address,
+            None,
+        );
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_rejects_invalid_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            Address::from([0x11u8; 20]),
+            None,
+        );
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_rejects_invalid_signature_before_ignore_fallback() {
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
+        let envelope = sample_response_envelope();
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_ignores_when_allowlist_is_empty() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Ignore
         ));
     }
 
@@ -1508,7 +1525,8 @@ mod tests {
         cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
         cfg.pre_dial_peers = vec![dial_addr];
 
-        let whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let whitelist_network =
+            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None).expect("spawn network");
         let expected_hash = B256::from([0x66u8; 32]);
         let command_tx = whitelist_network.command_tx.clone();
         let local_peer_id = whitelist_network.local_peer_id;
@@ -1564,7 +1582,8 @@ mod tests {
         cfg.enable_tcp = true;
         cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
 
-        let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let mut whitelist_network =
+            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None).expect("spawn network");
         let expected_signature = [0x77u8; 65];
         let expected_envelope = Arc::new(sample_response_envelope());
 
@@ -1700,7 +1719,8 @@ mod tests {
         cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
         cfg.pre_dial_peers = vec![dial_addr];
 
-        let whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let whitelist_network =
+            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None).expect("spawn network");
         let expected = sample_response_envelope();
         let expected_to_publish = expected.clone();
         let command_tx = whitelist_network.command_tx.clone();
@@ -1818,7 +1838,8 @@ mod tests {
         cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
         cfg.pre_dial_peers = vec![dial_addr];
 
-        let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let mut whitelist_network =
+            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None).expect("spawn network");
 
         let publish_task = tokio::spawn(async move {
             let mut connected = false;
