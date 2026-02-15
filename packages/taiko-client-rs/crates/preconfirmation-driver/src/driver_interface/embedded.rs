@@ -1,10 +1,15 @@
 //! Embedded driver client for direct in-process communication via channels.
 
+use std::time::Duration;
+
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use async_trait::async_trait;
-use bindings::inbox::Inbox::InboxInstance;
-use tokio::sync::{mpsc, watch};
+use rpc::client::Client;
+use tokio::{
+    sync::{mpsc, watch},
+    time::sleep,
+};
 use tracing::info;
 
 use crate::error::{DriverApiError, Result};
@@ -20,17 +25,17 @@ pub struct ContractInboxReader<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// L1 Inbox contract instance.
-    inbox: InboxInstance<P>,
+    /// RPC client bundle used for inbox/core-state and L2 custom table reads.
+    client: Client<P>,
 }
 
 impl<P> ContractInboxReader<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Creates a new ContractInboxReader with the given Inbox contract instance.
-    pub fn new(inbox: InboxInstance<P>) -> Self {
-        Self { inbox }
+    /// Creates a new ContractInboxReader with the given RPC client.
+    pub fn new(client: Client<P>) -> Self {
+        Self { client }
     }
 }
 
@@ -42,6 +47,8 @@ where
     /// Fetches the next proposal ID from the L1 Inbox contract.
     async fn get_next_proposal_id(&self) -> Result<u64> {
         Ok(self
+            .client
+            .shasta
             .inbox
             .getCoreState()
             .call()
@@ -49,6 +56,26 @@ where
             .map_err(DriverApiError::from)?
             .nextProposalId
             .to::<u64>())
+    }
+
+    /// Fetches the batch-to-last-block mapping for the given proposal ID.
+    async fn get_last_block_id_by_batch_id(&self, proposal_id: u64) -> Result<Option<u64>> {
+        Ok(self
+            .client
+            .last_block_id_by_batch_id(U256::from(proposal_id))
+            .await
+            .map_err(DriverApiError::from)?
+            .map(|block_id| block_id.to::<u64>()))
+    }
+
+    /// Fetches the confirmed event-sync tip from `head_l1_origin`.
+    async fn get_head_l1_origin_block_id(&self) -> Result<Option<u64>> {
+        Ok(self
+            .client
+            .head_l1_origin()
+            .await
+            .map_err(DriverApiError::from)?
+            .map(|head_l1_origin| head_l1_origin.block_id.to::<u64>()))
     }
 }
 
@@ -63,10 +90,6 @@ where
 pub struct EmbeddedDriverClient<I: InboxReader> {
     /// Channel for sending preconfirmation inputs to the driver.
     input_tx: mpsc::Sender<PreconfirmationInput>,
-    /// Watch channel for receiving the latest canonical proposal ID from the driver.
-    canonical_proposal_id_rx: watch::Receiver<u64>,
-    /// Watch channel for receiving the latest event sync tip block number.
-    event_sync_tip_rx: watch::Receiver<U256>,
     /// Watch channel for receiving the latest preconfirmation tip from the driver.
     preconf_tip_rx: watch::Receiver<U256>,
     /// Inbox reader for checking L1 sync state.
@@ -77,12 +100,10 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
     /// Creates a new embedded driver client with the given channels and inbox reader.
     pub fn new(
         input_tx: mpsc::Sender<PreconfirmationInput>,
-        canonical_proposal_id_rx: watch::Receiver<u64>,
-        event_sync_tip_rx: watch::Receiver<U256>,
         preconf_tip_rx: watch::Receiver<U256>,
         inbox_reader: I,
     ) -> Self {
-        Self { input_tx, canonical_proposal_id_rx, event_sync_tip_rx, preconf_tip_rx, inbox_reader }
+        Self { input_tx, preconf_tip_rx, inbox_reader }
     }
 
     /// Returns a reference to the inbox reader.
@@ -113,49 +134,52 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     /// Waits until the driver has synced with L1 Inbox events.
     ///
     /// This method checks the L1 Inbox contract to determine the target sync state:
-    /// - If `nextProposalId == 0`, returns Ok immediately (no proposals to sync)
-    /// - Otherwise, waits until `canonical_proposal_id >= nextProposalId - 1`
-    /// - If the watch channel is closed, returns a channel closed error
+    /// - If `nextProposalId - 1 == 0`, returns Ok immediately.
+    /// - Otherwise, readiness requires both:
+    ///   - `lastBlockIDByBatchID(nextProposalId - 1)` exists
+    ///   - `head_l1_origin` exists and `head >= target_block`.
     async fn wait_event_sync(&self) -> Result<()> {
+        const POLL_INTERVAL: Duration = Duration::from_millis(200);
         info!("starting wait for driver to sync with L1 inbox events");
 
-        let mut canonical_proposal_id_rx = self.canonical_proposal_id_rx.clone();
-
         loop {
-            let canonical_id = *canonical_proposal_id_rx.borrow();
             let next_proposal_id = self.inbox_reader.get_next_proposal_id().await?;
+            let target_proposal_id = next_proposal_id.saturating_sub(1);
 
-            info!(
-                canonical_proposal_id = canonical_id,
-                next_proposal_id = next_proposal_id,
-                "checking sync state"
-            );
-
-            // No proposals to sync - return immediately.
-            if next_proposal_id <= 1 {
+            if target_proposal_id == 0 {
                 info!("sync complete (no proposals)");
                 return Ok(());
             }
 
-            // Check if we've caught up.
-            if canonical_id >= next_proposal_id.saturating_sub(1) {
+            let target_block =
+                self.inbox_reader.get_last_block_id_by_batch_id(target_proposal_id).await?;
+            let head_l1_origin_block_id = self.inbox_reader.get_head_l1_origin_block_id().await?;
+            info!(
+                next_proposal_id,
+                target_proposal_id,
+                target_block = ?target_block,
+                head_l1_origin_block_id = ?head_l1_origin_block_id,
+                "checking sync state"
+            );
+            if matches!(
+                (target_block, head_l1_origin_block_id),
+                (Some(target_block), Some(head_block)) if head_block >= target_block
+            ) {
                 info!("driver event sync complete");
                 return Ok(());
             }
 
-            // Wait for the canonical proposal ID to change.
-            if canonical_proposal_id_rx.changed().await.is_err() {
-                return Err(DriverApiError::ChannelClosed(
-                    "canonical proposal id watch channel closed".to_string(),
-                )
-                .into());
-            }
+            sleep(POLL_INTERVAL).await;
         }
     }
 
     /// Returns the current event-synced canonical L2 block number.
     async fn event_sync_tip(&self) -> Result<U256> {
-        Ok(*self.event_sync_tip_rx.borrow())
+        self.inbox_reader
+            .get_head_l1_origin_block_id()
+            .await?
+            .map(U256::from)
+            .ok_or(DriverApiError::EventSyncTipUnknown.into())
     }
 
     /// Returns the current preconfirmation tip block number.
@@ -174,15 +198,45 @@ mod tests {
         atomic::{AtomicU64, Ordering},
     };
 
+    const NONE_SENTINEL: u64 = u64::MAX;
+
     /// Mock inbox reader for testing.
     #[derive(Clone)]
     struct MockInboxReader {
         next_proposal_id: Arc<AtomicU64>,
+        target_block: Arc<AtomicU64>,
+        head_l1_origin_block_id: Arc<AtomicU64>,
     }
 
     impl MockInboxReader {
-        fn new(next_proposal_id: u64) -> Self {
-            Self { next_proposal_id: Arc::new(AtomicU64::new(next_proposal_id)) }
+        fn new(
+            next_proposal_id: u64,
+            target_block: Option<u64>,
+            head_l1_origin: Option<u64>,
+        ) -> Self {
+            Self {
+                next_proposal_id: Arc::new(AtomicU64::new(next_proposal_id)),
+                target_block: Arc::new(AtomicU64::new(target_block.unwrap_or(NONE_SENTINEL))),
+                head_l1_origin_block_id: Arc::new(AtomicU64::new(
+                    head_l1_origin.unwrap_or(NONE_SENTINEL),
+                )),
+            }
+        }
+
+        fn set_next_proposal_id(&self, value: u64) {
+            self.next_proposal_id.store(value, Ordering::SeqCst);
+        }
+
+        fn set_target_block(&self, value: Option<u64>) {
+            self.target_block.store(value.unwrap_or(NONE_SENTINEL), Ordering::SeqCst);
+        }
+
+        fn set_head_l1_origin(&self, value: Option<u64>) {
+            self.head_l1_origin_block_id.store(value.unwrap_or(NONE_SENTINEL), Ordering::SeqCst);
+        }
+
+        fn read_optional(value: u64) -> Option<u64> {
+            (value != NONE_SENTINEL).then_some(value)
         }
     }
 
@@ -191,53 +245,27 @@ mod tests {
         async fn get_next_proposal_id(&self) -> Result<u64> {
             Ok(self.next_proposal_id.load(Ordering::SeqCst))
         }
+
+        async fn get_last_block_id_by_batch_id(&self, _proposal_id: u64) -> Result<Option<u64>> {
+            Ok(Self::read_optional(self.target_block.load(Ordering::SeqCst)))
+        }
+
+        async fn get_head_l1_origin_block_id(&self) -> Result<Option<u64>> {
+            Ok(Self::read_optional(self.head_l1_origin_block_id.load(Ordering::SeqCst)))
+        }
     }
 
     fn make_client() -> (
         EmbeddedDriverClient<MockInboxReader>,
         mpsc::Receiver<PreconfirmationInput>,
-        watch::Sender<u64>,
-        watch::Sender<U256>,
-        watch::Sender<U256>,
-    ) {
-        let (input_tx, input_rx) = mpsc::channel::<PreconfirmationInput>(16);
-        let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
-        let (event_sync_tip_tx, event_sync_tip_rx) = watch::channel(U256::ZERO);
-        let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let inbox_reader = MockInboxReader::new(0);
-        let client = EmbeddedDriverClient::new(
-            input_tx,
-            canonical_id_rx,
-            event_sync_tip_rx,
-            preconf_tip_rx,
-            inbox_reader,
-        );
-        (client, input_rx, canonical_id_tx, event_sync_tip_tx, preconf_tip_tx)
-    }
-
-    fn make_client_with_inbox(
-        next_proposal_id: u64,
-    ) -> (
-        EmbeddedDriverClient<MockInboxReader>,
-        mpsc::Receiver<PreconfirmationInput>,
-        watch::Sender<u64>,
-        watch::Sender<U256>,
-        watch::Sender<U256>,
         MockInboxReader,
+        watch::Sender<U256>,
     ) {
         let (input_tx, input_rx) = mpsc::channel::<PreconfirmationInput>(16);
-        let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
-        let (event_sync_tip_tx, event_sync_tip_rx) = watch::channel(U256::ZERO);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let inbox_reader = MockInboxReader::new(next_proposal_id);
-        let client = EmbeddedDriverClient::new(
-            input_tx,
-            canonical_id_rx.clone(),
-            event_sync_tip_rx.clone(),
-            preconf_tip_rx.clone(),
-            inbox_reader.clone(),
-        );
-        (client, input_rx, canonical_id_tx, event_sync_tip_tx, preconf_tip_tx, inbox_reader)
+        let inbox_reader = MockInboxReader::new(0, None, Some(0));
+        let client = EmbeddedDriverClient::new(input_tx, preconf_tip_rx, inbox_reader.clone());
+        (client, input_rx, inbox_reader, preconf_tip_tx)
     }
 
     fn make_test_input(block_number: u64) -> PreconfirmationInput {
@@ -251,18 +279,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_event_sync_tip() {
-        let (client, _, _, event_sync_tip_tx, _) = make_client();
-        event_sync_tip_tx.send(U256::from(42)).unwrap();
+        let (client, _, inbox_reader, _) = make_client();
+        inbox_reader.set_head_l1_origin(Some(42));
 
         assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(42));
 
-        event_sync_tip_tx.send(U256::from(100)).unwrap();
+        inbox_reader.set_head_l1_origin(Some(100));
         assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(100));
     }
 
     #[tokio::test]
     async fn test_preconf_tip() {
-        let (client, _, _, _, preconf_tip_tx) = make_client();
+        let (client, _, _, preconf_tip_tx) = make_client();
         preconf_tip_tx.send(U256::from(500)).unwrap();
 
         assert_eq!(client.preconf_tip().await.unwrap(), U256::from(500));
@@ -274,28 +302,23 @@ mod tests {
     #[tokio::test]
     async fn test_wait_event_sync_returns_immediately_when_synced() {
         let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
-        let (_, canonical_id_rx) = watch::channel(10u64);
-        let (_, event_sync_tip_rx) = watch::channel(U256::ZERO);
         let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let inbox_reader = MockInboxReader::new(0);
-        let client = EmbeddedDriverClient::new(
-            input_tx,
-            canonical_id_rx,
-            event_sync_tip_rx,
-            preconf_tip_rx,
-            inbox_reader,
-        );
+        let inbox_reader = MockInboxReader::new(0, None, None);
+        let client = EmbeddedDriverClient::new(input_tx, preconf_tip_rx, inbox_reader);
 
         client.wait_event_sync().await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_wait_event_sync_waits_for_change() {
-        let (client, _, canonical_id_tx, _, _) = make_client();
+    async fn test_wait_event_sync_waits_until_head_reaches_target_block() {
+        let (client, _, inbox_reader, _) = make_client();
+        inbox_reader.set_next_proposal_id(5);
+        inbox_reader.set_target_block(Some(12));
+        inbox_reader.set_head_l1_origin(Some(11));
 
         tokio::spawn(async move {
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-            canonical_id_tx.send(1).unwrap();
+            inbox_reader.set_head_l1_origin(Some(12));
         });
 
         client.wait_event_sync().await.unwrap();
@@ -303,7 +326,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_submit_preconfirmation() {
-        let (client, mut input_rx, _, _, _) = make_client();
+        let (client, mut input_rx, _, _) = make_client();
         let input = make_test_input(5);
 
         client.submit_preconfirmation(input).await.unwrap();
@@ -314,7 +337,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_submit_preconfirmation_closed_channel() {
-        let (client, input_rx, _, _, _) = make_client();
+        let (client, input_rx, _, _) = make_client();
         drop(input_rx);
 
         let result = client.submit_preconfirmation(make_test_input(1)).await;
@@ -323,74 +346,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_wait_event_sync_returns_ok_when_no_proposals() {
-        let (client, _, _, _, _, _) = make_client_with_inbox(0);
+        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
+        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let inbox_reader = MockInboxReader::new(0, None, None);
+        let client = EmbeddedDriverClient::new(input_tx, preconf_tip_rx, inbox_reader);
         client.wait_event_sync().await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_wait_event_sync_waits_until_synced_with_l1() {
-        let (client, _, canonical_id_tx, _, _, _) = make_client_with_inbox(5);
+    async fn test_wait_event_sync_stays_pending_when_sync_data_is_missing() {
+        let (client, _, inbox_reader, _) = make_client();
+        inbox_reader.set_next_proposal_id(5);
+        inbox_reader.set_target_block(None);
+        inbox_reader.set_head_l1_origin(Some(12));
 
-        let client_clone = client.clone();
-        let wait_handle = tokio::spawn(async move { client_clone.wait_event_sync().await });
-
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-
-        canonical_id_tx.send(4).unwrap();
-
-        tokio::time::timeout(std::time::Duration::from_millis(100), wait_handle)
-            .await
-            .expect("wait_event_sync should complete")
-            .expect("join should succeed")
-            .expect("wait_event_sync should return Ok");
+        let wait_result =
+            tokio::time::timeout(std::time::Duration::from_millis(80), client.wait_event_sync())
+                .await;
+        assert!(wait_result.is_err(), "wait should remain pending while target block is missing");
     }
 
     #[tokio::test]
-    async fn test_wait_event_sync_errors_when_channel_closed() {
-        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
-        let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
-        let (_, event_sync_tip_rx) = watch::channel(U256::ZERO);
-        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let inbox_reader = MockInboxReader::new(10);
-        let client = EmbeddedDriverClient::new(
-            input_tx,
-            canonical_id_rx,
-            event_sync_tip_rx,
-            preconf_tip_rx,
-            inbox_reader,
-        );
+    async fn test_event_sync_tip_errors_when_head_l1_origin_missing() {
+        let (client, _, inbox_reader, _) = make_client();
+        inbox_reader.set_head_l1_origin(None);
 
-        let client_clone = client.clone();
-        let wait_handle = tokio::spawn(async move { client_clone.wait_event_sync().await });
-
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-
-        drop(canonical_id_tx);
-
-        let err = tokio::time::timeout(std::time::Duration::from_millis(100), wait_handle)
-            .await
-            .expect("wait_event_sync should complete")
-            .expect("join should succeed")
-            .expect_err("wait_event_sync should return error when channel closed");
-
-        assert!(matches!(err, PreconfirmationClientError::DriverInterface(_)));
-    }
-
-    #[tokio::test]
-    async fn test_wait_event_sync_already_synced_with_l1() {
-        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
-        let (_, canonical_id_rx) = watch::channel(5u64);
-        let (_, event_sync_tip_rx) = watch::channel(U256::ZERO);
-        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let inbox_reader = MockInboxReader::new(5);
-        let client = EmbeddedDriverClient::new(
-            input_tx,
-            canonical_id_rx,
-            event_sync_tip_rx,
-            preconf_tip_rx,
-            inbox_reader,
-        );
-
-        client.wait_event_sync().await.unwrap();
+        let err = client.event_sync_tip().await.expect_err("missing head should error");
+        assert!(matches!(
+            err,
+            PreconfirmationClientError::DriverInterface(DriverApiError::EventSyncTipUnknown)
+        ));
     }
 }

@@ -1,6 +1,10 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
@@ -173,7 +177,7 @@ impl WhitelistPreconfirmationDriverRunner {
             self.config.p2p_config.chain_id,
             network.command_tx.clone(),
         );
-        let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();
+        let mut sync_ready_tick = tokio::time::interval(Duration::from_secs(1));
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
         let event_syncer_handle = preconf_ingress_sync.handle_mut();
@@ -265,14 +269,13 @@ impl WhitelistPreconfirmationDriverRunner {
 
                     importer.handle_event(event).await?;
                 }
-                changed = proposal_id_rx.changed() => {
-                    if changed.is_ok()
-                        && let Err(err) = importer.on_sync_ready_signal().await {
-                            warn!(
-                                error = %err,
-                                "failed to import cached whitelist preconfirmation payloads on sync-ready signal"
-                            );
-                        }
+                _ = sync_ready_tick.tick() => {
+                    if let Err(err) = importer.on_sync_ready_signal().await {
+                        warn!(
+                            error = %err,
+                            "failed to import cached whitelist preconfirmation payloads on periodic sync-ready tick"
+                        );
+                    }
                 }
             }
         }

@@ -16,6 +16,10 @@ use super::PreconfirmationInput;
 pub trait InboxReader: Clone + Send + Sync {
     /// Returns the next proposal ID from the L1 Inbox contract.
     async fn get_next_proposal_id(&self) -> Result<u64>;
+    /// Returns the last L2 block mapped to the given proposal/batch ID.
+    async fn get_last_block_id_by_batch_id(&self, proposal_id: u64) -> Result<Option<u64>>;
+    /// Returns the current confirmed event-sync tip from `head_l1_origin`.
+    async fn get_head_l1_origin_block_id(&self) -> Result<Option<u64>>;
 }
 
 /// Resolve a block header for a block number.
