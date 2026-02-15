@@ -323,8 +323,7 @@ mod tests {
             encode_unsafe_payload_message(&signature, &envelope).expect("payload encoding");
         let (wire_signature, payload_bytes) =
             decode_unsafe_payload_signature(&encoded).expect("payload decoding");
-        let decoded_envelope =
-            decode_envelope_ssz(&payload_bytes).expect("envelope decoding");
+        let decoded_envelope = decode_envelope_ssz(&payload_bytes).expect("envelope decoding");
 
         assert_eq!(wire_signature, signature);
         assert_eq!(decoded_envelope.end_of_sequencing, envelope.end_of_sequencing);
