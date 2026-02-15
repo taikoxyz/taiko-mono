@@ -1253,7 +1253,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn validate_preconf_blocks_ignores_single_fallback_zero_signer() {
+    async fn validate_preconf_blocks_rejects_single_fallback_zero_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
         let mut validation_state =
@@ -1261,7 +1261,7 @@ mod tests {
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
-            gossipsub::MessageAcceptance::Ignore
+            gossipsub::MessageAcceptance::Reject
         ));
     }
 

@@ -646,7 +646,7 @@ impl GossipsubInboundState {
                 return gossipsub::MessageAcceptance::Reject;
             }
         } else {
-            return gossipsub::MessageAcceptance::Ignore;
+            return gossipsub::MessageAcceptance::Reject;
         }
 
         gossipsub::MessageAcceptance::Accept
