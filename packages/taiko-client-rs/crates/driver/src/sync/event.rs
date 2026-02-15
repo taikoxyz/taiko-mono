@@ -84,21 +84,25 @@ fn should_spawn_preconf_ingress(
     preconfirmation_enabled && !preconf_ingress_spawned && scanner_live && confirmed_sync_ready
 }
 
+/// Decide whether a confirmed-sync probe is still needed.
+fn should_probe_confirmed_sync(
+    preconfirmation_enabled: bool,
+    preconf_ingress_spawned: bool,
+    scanner_live: bool,
+) -> bool {
+    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live
+}
+
 /// Resolve whether confirmed-sync readiness should open ingress.
-///
-/// Probe failures are fail-soft and keep ingress closed.
 fn resolve_confirmed_sync_ready(
     scanner_live: bool,
-    confirmed_sync_snapshot: Result<ConfirmedSyncSnapshot, SyncError>,
+    confirmed_sync_snapshot: ConfirmedSyncSnapshot,
 ) -> bool {
     if !scanner_live {
         return false;
     }
 
-    match confirmed_sync_snapshot {
-        Ok(snapshot) => snapshot.is_ready(),
-        Err(_) => false,
-    }
+    confirmed_sync_snapshot.is_ready()
 }
 
 /// Resolve the L2 block number that event sync should use as its resume source.
@@ -918,33 +922,30 @@ where
                 }
             }
 
-            let confirmed_sync_ready = if scanner_live {
-                let confirmed_sync_snapshot = self.confirmed_sync_snapshot().await;
-                if let Err(err) = &confirmed_sync_snapshot {
-                    warn!(
-                        ?err,
-                        "failed to evaluate confirmed sync readiness; keeping preconfirmation ingress closed"
-                    );
-                }
-                resolve_confirmed_sync_ready(true, confirmed_sync_snapshot)
-            } else {
-                false
-            };
-            if should_spawn_preconf_ingress(
+            if should_probe_confirmed_sync(
                 self.cfg.preconfirmation_enabled,
                 preconf_ingress_spawned,
                 scanner_live,
-                confirmed_sync_ready,
-            ) && let Some(rx) = self.preconf_rx.clone()
-            {
-                self.spawn_preconf_ingress(
-                    router.clone(),
-                    rx,
-                    self.rpc.clone(),
-                    self.preconf_ingress_ready.clone(),
-                    self.preconf_ingress_notify.clone(),
-                );
-                preconf_ingress_spawned = true;
+            ) {
+                let confirmed_sync_snapshot = self.confirmed_sync_snapshot().await?;
+                let confirmed_sync_ready =
+                    resolve_confirmed_sync_ready(scanner_live, confirmed_sync_snapshot);
+                if should_spawn_preconf_ingress(
+                    self.cfg.preconfirmation_enabled,
+                    preconf_ingress_spawned,
+                    scanner_live,
+                    confirmed_sync_ready,
+                ) && let Some(rx) = self.preconf_rx.clone()
+                {
+                    self.spawn_preconf_ingress(
+                        router.clone(),
+                        rx,
+                        self.rpc.clone(),
+                        self.preconf_ingress_ready.clone(),
+                        self.preconf_ingress_notify.clone(),
+                    );
+                    preconf_ingress_spawned = true;
+                }
             }
         }
         Ok(())
@@ -1118,12 +1119,9 @@ mod tests {
     }
 
     #[test]
-    fn confirmed_sync_probe_error_keeps_ingress_gate_closed() {
-        let ready = resolve_confirmed_sync_ready(true, Err(SyncError::MissingFinalizedL1Block));
-        assert!(
-            !ready,
-            "probe errors must keep ingress gate closed instead of bubbling up as fatal",
-        );
+    fn confirmed_sync_ready_requires_live_scanner_gate() {
+        let ready = resolve_confirmed_sync_ready(false, ConfirmedSyncSnapshot::new(0, None, None));
+        assert!(!ready, "confirmed-sync readiness must remain closed until scanner is live",);
     }
 
     #[test]
