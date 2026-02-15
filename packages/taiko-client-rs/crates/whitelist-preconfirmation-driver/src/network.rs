@@ -1305,27 +1305,21 @@ async fn handle_gossipsub_event(
     };
 
     if *topic == topics.preconf_blocks.hash() {
-        let acceptance = match decode_unsafe_payload_message(&message.data) {
+        let (acceptance, inbound_label) = match decode_unsafe_payload_message(&message.data) {
             Ok(payload) => {
                 let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
                 if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
                     let Err(err) =
                         forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload })
-                            .await
+                        .await
                 {
                     report(&gossipsub::MessageAcceptance::Reject);
                     return Err(err);
                 }
 
-                acceptance
+                (acceptance, acceptance_label(&acceptance))
             }
             Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
                     "topic" => "preconf_blocks",
@@ -1333,14 +1327,17 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe payload");
 
-                gossipsub::MessageAcceptance::Reject
+                (
+                    gossipsub::MessageAcceptance::Reject,
+                    "decode_failed",
+                )
             }
         };
 
         metrics::counter!(
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
             "topic" => "preconf_blocks",
-            "result" => acceptance_label(&acceptance),
+            "result" => inbound_label,
         )
         .increment(1);
         report(&acceptance);
@@ -1348,7 +1345,7 @@ async fn handle_gossipsub_event(
     }
 
     if *topic == topics.preconf_response.hash() {
-        let acceptance = match decode_unsafe_response_message(&message.data) {
+        let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
             Ok(envelope) => {
                 let acceptance = inbound_validation_state.validate_response(&envelope).await;
                 if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
@@ -1360,15 +1357,9 @@ async fn handle_gossipsub_event(
                     return Err(err);
                 }
 
-                acceptance
+                (acceptance, acceptance_label(&acceptance))
             }
             Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "topic" => "response_preconf_blocks",
-                    "result" => "decode_failed",
-                )
-                .increment(1);
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
                     "topic" => "response_preconf_blocks",
@@ -1376,14 +1367,17 @@ async fn handle_gossipsub_event(
                 .increment(1);
                 debug!(error = %err, "failed to decode unsafe response");
 
-                gossipsub::MessageAcceptance::Reject
+                (
+                    gossipsub::MessageAcceptance::Reject,
+                    "decode_failed",
+                )
             }
         };
 
         metrics::counter!(
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
             "topic" => "response_preconf_blocks",
-            "result" => acceptance_label(&acceptance),
+            "result" => inbound_label,
         )
         .increment(1);
         report(&acceptance);
