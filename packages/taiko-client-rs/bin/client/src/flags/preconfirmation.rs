@@ -28,7 +28,8 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.static-peers", env = "P2P_STATIC_PEERS", value_delimiter = ',')]
     pub p2p_static_peers: Vec<String>,
 
-    /// Comma-separated list of allowed sequencer addresses for whitelist preconfirmation gossipsub.
+    /// Comma-separated list of allowed sequencer addresses for whitelist preconfirmation
+    /// gossipsub.
     #[clap(
         long = "p2p.sequencer-addresses",
         env = "P2P_SEQUENCER_ADDRESSES",
