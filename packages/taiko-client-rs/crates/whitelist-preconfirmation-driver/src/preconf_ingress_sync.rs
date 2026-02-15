@@ -5,14 +5,11 @@ use std::{future::Future, result::Result, sync::Arc};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
-use driver::{DriverConfig, SyncPipeline, sync::event::EventSyncer};
+use driver::{DriverConfig, SyncPipeline, map_driver_error, sync::event::EventSyncer};
 use rpc::client::Client;
 use tokio::task::JoinHandle;
 
-use crate::{
-    Result as WhitelistResult,
-    error::{WhitelistPreconfirmationDriverError, map_driver_error},
-};
+use crate::{Result as WhitelistResult, error::WhitelistPreconfirmationDriverError};
 
 /// Runs the event syncer and exposes shared handles used by the whitelist importer.
 pub(crate) struct PreconfIngressSync<P>
@@ -78,7 +75,7 @@ where
 {
     tokio::select! {
         ready = ready => {
-            ready.map_err(map_driver_error)?;
+            ready.map_err(map_driver_error::<WhitelistPreconfirmationDriverError>)?;
             Ok(())
         }
         result = event_syncer_handle => {
