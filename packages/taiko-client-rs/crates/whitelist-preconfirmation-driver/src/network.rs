@@ -1,18 +1,13 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
-use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, B256};
-use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
-};
 use futures::StreamExt;
-use hashlink::LinkedHashMap;
 use libp2p::{
     Multiaddr, PeerId, Swarm, Transport, core::upgrade, gossipsub, identify, identity, noise, ping,
     swarm::NetworkBehaviour, tcp, yamux,
@@ -23,627 +18,29 @@ use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::{debug, warn};
 
 use crate::{
-    cache::WhitelistSequencerCache,
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash,
-        decode_unsafe_payload_message, decode_unsafe_response_message, encode_envelope_ssz,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope,
+        decode_unsafe_payload_signature, decode_unsafe_response_message, decode_envelope_ssz,
+        encode_envelope_ssz,
         encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
-        encode_unsafe_response_message, recover_signer,
+        encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
-use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
-use rpc::client::Client as RpcClient;
 
-type InboundWhitelistProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
-type InboundWhitelistClient = RpcClient<InboundWhitelistProvider>;
-type InboundWhitelistInstance = PreconfWhitelistInstance<InboundWhitelistProvider>;
+mod inbound;
+use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
+#[cfg(test)]
+use inbound::{EpochSeenTracker};
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
-const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
-const REQUEST_RATE_PER_MINUTE: f64 = 200.0;
-const REQUEST_RATE_MAX_TOKENS: f64 = REQUEST_RATE_PER_MINUTE;
-const REQUEST_RATE_REFILL_PER_SEC: f64 = REQUEST_RATE_PER_MINUTE / 60.0;
-const MAX_RESPONSES_ACCEPTABLE: usize = 3;
-const MAX_PRECONF_BLOCKS_PER_HEIGHT: usize = 10;
-const PRECONF_INBOUND_LRU_CAPACITY: usize = 1000;
-const MAX_STALE_FALLBACK_SECS: u64 = 12 * 64;
-const SNAPSHOT_FETCH_MAX_ATTEMPTS: usize = 2;
 /// Prefix used in Go-compatible message-id hashing for valid snappy payloads.
 const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
 /// Prefix used in Go-compatible message-id hashing for invalid snappy payloads.
 const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
 
-#[derive(Debug)]
-struct TokenBucket {
-    tokens: f64,
-    last_refill: Instant,
-}
-
-impl TokenBucket {
-    fn new(now: Instant) -> Self {
-        Self { tokens: REQUEST_RATE_MAX_TOKENS, last_refill: now }
-    }
-
-    fn refill(&mut self, now: Instant, refill_per_sec: f64, max_tokens: f64) {
-        let elapsed = now.saturating_duration_since(self.last_refill).as_secs_f64();
-        self.tokens = (self.tokens + elapsed * refill_per_sec).min(max_tokens);
-        self.last_refill = now;
-    }
-
-    fn consume(&mut self, amount: f64) -> bool {
-        if self.tokens < amount {
-            return false;
-        }
-        self.tokens -= amount;
-        true
-    }
-}
-
-#[derive(Debug, Default)]
-struct RateLimiter {
-    buckets: HashMap<PeerId, TokenBucket>,
-}
-
-impl RateLimiter {
-    fn prune(&mut self, now: Instant, window: Duration) {
-        self.buckets
-            .retain(|_, bucket| now.saturating_duration_since(bucket.last_refill) <= window);
-    }
-
-    fn allow(&mut self, from: PeerId, now: Instant) -> bool {
-        self.prune(now, REQUEST_SEEN_WINDOW);
-
-        let entry = self.buckets.entry(from).or_insert_with(|| TokenBucket::new(now));
-        entry.refill(now, REQUEST_RATE_REFILL_PER_SEC, REQUEST_RATE_MAX_TOKENS);
-        entry.consume(1.0)
-    }
-}
-
-#[derive(Debug, Default)]
-struct WindowedHashTracker {
-    seen: LinkedHashMap<B256, Instant>,
-}
-
-impl WindowedHashTracker {
-    fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
-        self.seen
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
-        self.seen.contains_key(&hash)
-    }
-
-    fn mark(&mut self, hash: B256, now: Instant) {
-        self.seen.remove(&hash);
-        self.seen.insert(hash, now);
-
-        while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen.pop_front();
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-struct HeightSeenTracker {
-    seen_by_height: LinkedHashMap<u64, Vec<B256>>,
-}
-
-impl HeightSeenTracker {
-    fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if max_per_height == 0 {
-            return false;
-        }
-
-        let hashes = self.seen_by_height.entry(height).or_insert_with(Vec::new);
-        if hashes.len() > max_per_height {
-            return false;
-        }
-
-        hashes.push(hash);
-        if self.seen_by_height.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen_by_height.pop_front();
-        }
-
-        true
-    }
-}
-
-#[derive(Debug, Default)]
-struct EpochSeenTracker {
-    seen_by_epoch: LinkedHashMap<u64, usize>,
-}
-
-impl EpochSeenTracker {
-    fn can_accept(&self, epoch: u64, max_per_epoch: usize) -> bool {
-        if max_per_epoch == 0 {
-            return false;
-        }
-
-        match self.seen_by_epoch.get(&epoch) {
-            Some(count) => *count <= max_per_epoch,
-            None => true,
-        }
-    }
-
-    fn mark(&mut self, epoch: u64) {
-        let count = self.seen_by_epoch.entry(epoch).or_insert(0);
-        *count += 1;
-
-        if self.seen_by_epoch.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen_by_epoch.pop_front();
-        }
-    }
-}
-
-#[derive(Debug)]
-struct CachedWhitelistedSequencers {
-    current: Address,
-    next: Address,
-    any_from_cache: bool,
-}
-
-#[derive(Debug)]
-struct CachedWhitelistSnapshot {
-    current: Address,
-    next: Address,
-    current_epoch_start_timestamp: u64,
-    block_timestamp: u64,
-}
-
-#[derive(Debug)]
-struct InboundWhitelistFilter {
-    whitelist: InboundWhitelistInstance,
-    rpc_client: InboundWhitelistClient,
-    sequencer_cache: WhitelistSequencerCache,
-}
-
-impl InboundWhitelistFilter {
-    fn new(rpc_client: InboundWhitelistClient, whitelist_address: Address) -> Self {
-        let whitelist =
-            InboundWhitelistInstance::new(whitelist_address, rpc_client.l1_provider.clone());
-        Self { whitelist, rpc_client, sequencer_cache: WhitelistSequencerCache::default() }
-    }
-
-    async fn ensure_signer_allowed(&mut self, signer: Address) -> Result<()> {
-        let now = Instant::now();
-        let result = self.cached_whitelist_sequencers(now).await?;
-
-        if signer == result.current || signer == result.next {
-            return Ok(());
-        }
-
-        if !result.any_from_cache {
-            return Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
-                "signer {signer} is not current ({}) or next ({}) whitelist sequencer",
-                result.current, result.next
-            )));
-        }
-
-        if !self.sequencer_cache.allow_miss_refresh(now) {
-            return Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
-                "signer {signer} is not current ({}) or next ({}) whitelist sequencer",
-                result.current, result.next
-            )));
-        }
-
-        debug!(
-            %signer,
-            cached_current = %result.current,
-            cached_next = %result.next,
-            "signer not in cached whitelist; re-fetching from L1"
-        );
-        self.sequencer_cache.invalidate();
-        let fresh = self.cached_whitelist_sequencers(now).await?;
-        if signer == fresh.current || signer == fresh.next {
-            return Ok(());
-        }
-
-        Err(WhitelistPreconfirmationDriverError::InvalidSignature(format!(
-            "signer {signer} is not current ({}) or next ({}) whitelist sequencer",
-            fresh.current, fresh.next
-        )))
-    }
-
-    async fn cached_whitelist_sequencers(
-        &mut self,
-        now: Instant,
-    ) -> Result<CachedWhitelistedSequencers> {
-        if let (Some(current), Some(next)) =
-            (self.sequencer_cache.get_current(now), self.sequencer_cache.get_next(now))
-        {
-            return Ok(CachedWhitelistedSequencers { current, next, any_from_cache: true });
-        }
-
-        let snapshot = self.fetch_whitelist_snapshot_with_retry().await?;
-
-        if let Err(err) = ensure_not_too_early_for_epoch(
-            snapshot.block_timestamp,
-            snapshot.current_epoch_start_timestamp,
-        ) {
-            if let Some((current, next)) = self
-                .sequencer_cache
-                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
-            {
-                debug!(
-                    block_timestamp = snapshot.block_timestamp,
-                    current_epoch_start_timestamp = snapshot.current_epoch_start_timestamp,
-                    "using stale whitelist snapshot because latest block is before epoch start"
-                );
-                return Ok(CachedWhitelistedSequencers { current, next, any_from_cache: true });
-            }
-            return Err(err);
-        }
-
-        if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp) &&
-            let Some((current, next)) = self
-                .sequencer_cache
-                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
-        {
-            debug!(
-                block_timestamp = snapshot.block_timestamp,
-                "ignoring regressive whitelist snapshot from lagging RPC node"
-            );
-            return Ok(CachedWhitelistedSequencers { current, next, any_from_cache: true });
-        }
-
-        self.sequencer_cache.set_pair(
-            snapshot.current,
-            snapshot.next,
-            snapshot.current_epoch_start_timestamp,
-            now,
-        );
-
-        Ok(CachedWhitelistedSequencers {
-            current: snapshot.current,
-            next: snapshot.next,
-            any_from_cache: false,
-        })
-    }
-
-    async fn fetch_whitelist_snapshot_with_retry(&self) -> Result<CachedWhitelistSnapshot> {
-        for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
-            match self.fetch_whitelist_snapshot().await {
-                Ok(snapshot) => return Ok(snapshot),
-                Err(err)
-                    if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS &&
-                        should_retry_snapshot_fetch(&err) =>
-                {
-                    debug!(
-                        attempt,
-                        max_attempts = SNAPSHOT_FETCH_MAX_ATTEMPTS,
-                        error = %err,
-                        "retrying whitelist snapshot fetch after transient inconsistency"
-                    );
-                }
-                Err(err) => return Err(err),
-            }
-        }
-
-        unreachable!("snapshot fetch loop must return on success or final error")
-    }
-
-    async fn fetch_whitelist_snapshot(&self) -> Result<CachedWhitelistSnapshot> {
-        let latest_block = self
-            .rpc_client
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(|err| {
-                whitelist_lookup_err(format!(
-                    "failed to fetch latest block for whitelist snapshot: {err}"
-                ))
-            })?
-            .ok_or_else(|| {
-                whitelist_lookup_err(
-                    "missing latest block while fetching whitelist snapshot".to_string(),
-                )
-            })?;
-
-        let block_number = latest_block.header.number;
-        let block_timestamp = latest_block.header.timestamp;
-        let block_hash = latest_block.hash();
-
-        let current_operator_fut = async {
-            self.whitelist
-                .getOperatorForCurrentEpoch()
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch current operator at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let next_operator_fut = async {
-            self.whitelist
-                .getOperatorForNextEpoch()
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch next operator at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let epoch_start_timestamp_fut = async {
-            self.whitelist
-                .epochStartTimestamp(Default::default())
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch epochStartTimestamp at block {block_number}: {err}"
-                    ))
-                })
-        };
-
-        let (current_proposer, next_proposer, current_epoch_start_timestamp) =
-            tokio::try_join!(current_operator_fut, next_operator_fut, epoch_start_timestamp_fut,)?;
-
-        let current_seq_fut = async {
-            self.whitelist
-                .operators(current_proposer)
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch current operators() entry at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let next_seq_fut = async {
-            self.whitelist
-                .operators(next_proposer)
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch next operators() entry at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let pinned_block_fut = async {
-            self.rpc_client
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Number(block_number))
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch pinned block {block_number} for whitelist verification: {err}"
-                    ))
-                })
-        };
-
-        let (current_seq, next_seq, pinned_block_opt): (
-            bindings::preconf_whitelist::PreconfWhitelist::operatorsReturn,
-            bindings::preconf_whitelist::PreconfWhitelist::operatorsReturn,
-            _,
-        ) = tokio::try_join!(current_seq_fut, next_seq_fut, pinned_block_fut)?;
-
-        let pinned_block = pinned_block_opt.ok_or_else(|| {
-            whitelist_lookup_err(format!(
-                "missing pinned block {block_number} while verifying whitelist batches"
-            ))
-        })?;
-        let pinned_block_hash = pinned_block.hash();
-        if pinned_block_hash != block_hash {
-            return Err(whitelist_lookup_err(format!(
-                "block hash changed between whitelist batches at block {block_number}"
-            )));
-        }
-
-        if current_seq.sequencerAddress == Address::ZERO ||
-            next_seq.sequencerAddress == Address::ZERO
-        {
-            return Err(whitelist_lookup_err(
-                "received zero address for whitelist sequencer".to_string(),
-            ));
-        }
-
-        Ok(CachedWhitelistSnapshot {
-            current: current_seq.sequencerAddress,
-            next: next_seq.sequencerAddress,
-            current_epoch_start_timestamp: u64::from(current_epoch_start_timestamp),
-            block_timestamp,
-        })
-    }
-}
-
-/// Record and convert whitelist lookup failures into a driver error.
-///
-/// The helper centralizes metric updates for all snapshot/contract lookup failures.
-fn whitelist_lookup_err(message: String) -> WhitelistPreconfirmationDriverError {
-    metrics::counter!(WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL)
-        .increment(1);
-    WhitelistPreconfirmationDriverError::WhitelistLookup(message)
-}
-
-/// Return an error when the latest L1 block timestamp is before the epoch start.
-///
-/// This prevents callers from caching an epoch snapshot from an earlier epoch boundary.
-fn ensure_not_too_early_for_epoch(
-    block_timestamp: u64,
-    current_epoch_start_timestamp: u64,
-) -> Result<()> {
-    if block_timestamp < current_epoch_start_timestamp {
-        return Err(whitelist_lookup_err(format!(
-            "whitelist batch returned block timestamp {block_timestamp} before epoch start \
-             {current_epoch_start_timestamp}"
-        )));
-    }
-
-    Ok(())
-}
-
-/// Classify whether a snapshot lookup error is transient and worth one retry.
-fn should_retry_snapshot_fetch(err: &WhitelistPreconfirmationDriverError) -> bool {
-    match err {
-        WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {
-            let lower = message.to_ascii_lowercase();
-            message.contains("block hash changed between whitelist batches") ||
-                message.contains("missing pinned block") ||
-                (message.contains("at block") &&
-                    (lower.contains("not found") || lower.contains("unknown block")))
-        }
-        _ => false,
-    }
-}
-
-#[derive(Debug, Default)]
-struct GossipsubInboundState {
-    chain_id: u64,
-    request_rate: RateLimiter,
-    request_seen: WindowedHashTracker,
-    eos_rate: RateLimiter,
-    eos_seen: EpochSeenTracker,
-    preconf_seen_by_height: HeightSeenTracker,
-    response_seen_by_height: HeightSeenTracker,
-    whitelist_filter: Option<InboundWhitelistFilter>,
-}
-
-impl GossipsubInboundState {
-    #[cfg(test)]
-    fn new(chain_id: u64) -> Self {
-        Self::new_with_whitelist_filter(chain_id, None, None)
-    }
-
-    fn new_with_whitelist_filter(
-        chain_id: u64,
-        l1_client: Option<InboundWhitelistClient>,
-        whitelist_address: Option<Address>,
-    ) -> Self {
-        let whitelist_filter =
-            l1_client.zip(whitelist_address).map(|(l1_client, whitelist_address)| {
-                InboundWhitelistFilter::new(l1_client, whitelist_address)
-            });
-
-        Self {
-            chain_id,
-            request_rate: RateLimiter::default(),
-            request_seen: WindowedHashTracker::default(),
-            eos_rate: RateLimiter::default(),
-            eos_seen: EpochSeenTracker::default(),
-            preconf_seen_by_height: HeightSeenTracker::default(),
-            response_seen_by_height: HeightSeenTracker::default(),
-            whitelist_filter,
-        }
-    }
-
-    fn validate_request(
-        &mut self,
-        from: PeerId,
-        hash: B256,
-        now: Instant,
-    ) -> gossipsub::MessageAcceptance {
-        if self.request_seen.is_seen(hash, now) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        if !self.request_rate.allow(from, now) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        self.request_seen.mark(hash, now);
-        gossipsub::MessageAcceptance::Accept
-    }
-
-    fn validate_eos_request(
-        &mut self,
-        from: PeerId,
-        epoch: u64,
-        now: Instant,
-    ) -> gossipsub::MessageAcceptance {
-        if !self.eos_seen.can_accept(epoch, MAX_RESPONSES_ACCEPTABLE) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        if !self.eos_rate.allow(from, now) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        self.eos_seen.mark(epoch);
-
-        gossipsub::MessageAcceptance::Accept
-    }
-
-    async fn validate_preconf_blocks(
-        &mut self,
-        payload: &DecodedUnsafePayload,
-    ) -> gossipsub::MessageAcceptance {
-        if payload.envelope.execution_payload.transactions.is_empty() ||
-            payload.envelope.execution_payload.fee_recipient == Address::ZERO ||
-            payload.envelope.execution_payload.block_number == 0
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let prehash = block_signing_hash(self.chain_id, payload.payload_bytes.as_slice());
-        let signer = match recover_signer(prehash, &payload.wire_signature) {
-            Ok(signer) => signer,
-            Err(_) => return gossipsub::MessageAcceptance::Reject,
-        };
-
-        if let Some(filter) = self.whitelist_filter.as_mut() &&
-            filter.ensure_signer_allowed(signer).await.is_err()
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let height = payload.envelope.execution_payload.block_number;
-        let hash = payload.envelope.execution_payload.block_hash;
-
-        if !self.preconf_seen_by_height.can_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        gossipsub::MessageAcceptance::Accept
-    }
-
-    async fn validate_response(
-        &mut self,
-        envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
-    ) -> gossipsub::MessageAcceptance {
-        let Some(signature) = envelope.signature else {
-            return gossipsub::MessageAcceptance::Reject;
-        };
-
-        if envelope.execution_payload.transactions.is_empty() ||
-            envelope.execution_payload.fee_recipient == Address::ZERO ||
-            envelope.execution_payload.block_number == 0
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let prehash =
-            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-        let signer = match recover_signer(prehash, &signature) {
-            Ok(signer) => signer,
-            Err(_) => return gossipsub::MessageAcceptance::Reject,
-        };
-
-        if let Some(filter) = self.whitelist_filter.as_mut() &&
-            filter.ensure_signer_allowed(signer).await.is_err()
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let height = envelope.execution_payload.block_number;
-        let hash = envelope.execution_payload.block_hash;
-        if !self.response_seen_by_height.can_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        gossipsub::MessageAcceptance::Accept
-    }
-}
-
-/// Inbound network event for whitelist preconfirmation processing.
 #[derive(Debug)]
 pub(crate) enum NetworkEvent {
     /// Incoming `preconfBlocks` payload.
@@ -799,17 +196,34 @@ struct ClassifiedBootnodes {
     discovery_enrs: Vec<String>,
 }
 
+
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
-    #[cfg(test)]
-    pub fn spawn(cfg: P2pConfig) -> Result<Self> {
-        Self::spawn_with_whitelist_filter(cfg, None, None)
-    }
-
-    pub(crate) fn spawn_with_whitelist_filter(
-        cfg: P2pConfig,
+    pub fn spawn_with_whitelist_filter(
+        mut cfg: P2pConfig,
         l1_client: Option<InboundWhitelistClient>,
         whitelist_address: Option<Address>,
+    ) -> Result<Self> {
+        let mut whitelist_filter = None;
+        if let (Some(whitelist_address), Some(rpc_client)) = (whitelist_address, l1_client) {
+            whitelist_filter = Some(InboundWhitelistFilter::new(rpc_client, whitelist_address));
+        } else if let Some(whitelist_address) = whitelist_address {
+            cfg.sequencer_addresses = vec![whitelist_address];
+        }
+
+        Self::spawn_with_optional_whitelist_filter(cfg, whitelist_filter)
+    }
+
+    fn spawn_with_optional_whitelist_filter(
+        cfg: P2pConfig,
+        whitelist_filter: Option<InboundWhitelistFilter>,
+    ) -> Result<Self> {
+        Self::spawn_with_filter(cfg, whitelist_filter)
+    }
+
+    fn spawn_with_filter(
+        cfg: P2pConfig,
+        whitelist_filter: Option<InboundWhitelistFilter>,
     ) -> Result<Self> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
@@ -891,11 +305,13 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state = GossipsubInboundState::new_with_whitelist_filter(
-                cfg.chain_id,
-                l1_client,
-                whitelist_address,
-            );
+            let mut inbound_validation_state =
+                GossipsubInboundState::new(
+                    cfg.chain_id,
+                    cfg.sequencer_addresses,
+                    cfg.sequencer_address,
+                    whitelist_filter,
+                );
 
             loop {
                 let has_discovery = discovery_rx.is_some();
@@ -1098,8 +514,7 @@ impl WhitelistNetwork {
 /// Build the gossipsub behaviour.
 pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
     let config = gossipsub::ConfigBuilder::default()
-        .validation_mode(gossipsub::ValidationMode::Permissive)
-        .validate_messages()
+        .validation_mode(gossipsub::ValidationMode::Strict)
         .heartbeat_interval(*kona_gossip::GOSSIP_HEARTBEAT)
         .duplicate_cache_time(*kona_gossip::SEEN_MESSAGES_TTL)
         .message_id_fn(message_id)
@@ -1305,20 +720,39 @@ async fn handle_gossipsub_event(
     };
 
     if *topic == topics.preconf_blocks.hash() {
-        let (acceptance, inbound_label) = match decode_unsafe_payload_message(&message.data) {
-            Ok(payload) => {
-                let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
-                if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                    let Err(err) =
-                        forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload })
-                            .await
-                {
-                    report(&gossipsub::MessageAcceptance::Reject);
-                    return Err(err);
-                }
+        let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data) {
+            Ok((wire_signature, payload_bytes)) => {
+                match decode_envelope_ssz(&payload_bytes) {
+                    Ok(envelope) => {
+                        let payload = DecodedUnsafePayload {
+                            wire_signature,
+                            payload_bytes,
+                            envelope,
+                        };
+                        let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
 
-                let inbound_label = acceptance_label(&acceptance);
-                (acceptance, inbound_label)
+                        if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
+                            && let Err(err) =
+                                forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await
+                        {
+                            report(&gossipsub::MessageAcceptance::Reject);
+                            return Err(err);
+                        }
+
+                        let inbound_label = acceptance_label(&acceptance);
+                        (acceptance, inbound_label)
+                    }
+                    Err(err) => {
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                            "topic" => "preconf_blocks",
+                        )
+                        .increment(1);
+                        debug!(error = %err, "failed to decode unsafe payload");
+
+                        (gossipsub::MessageAcceptance::Reject, "decode_failed")
+                    }
+                }
             }
             Err(err) => {
                 metrics::counter!(
@@ -1448,6 +882,20 @@ async fn handle_gossipsub_event(
     Ok(())
 }
 
+/// Decode an end-of-sequencing request epoch from big-endian bytes.
+#[cfg(test)]
+fn decode_eos_epoch(payload: &[u8]) -> u64 {
+    let mut bytes = [0u8; std::mem::size_of::<u64>()];
+    let to_copy = payload.len().min(std::mem::size_of::<u64>());
+
+    if to_copy > 0 {
+        let source_start = payload.len() - to_copy;
+        bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
+    }
+
+    u64::from_be_bytes(bytes)
+}
+
 fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
     if payload.len() != std::mem::size_of::<u64>() {
         return None;
@@ -1455,6 +903,19 @@ fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
 
     let bytes: [u8; std::mem::size_of::<u64>()] = payload.try_into().ok()?;
     Some(u64::from_be_bytes(bytes))
+}
+
+#[cfg(test)]
+fn decode_request_hash(payload: &[u8]) -> B256 {
+    let mut bytes = [0u8; std::mem::size_of::<B256>()];
+    let to_copy = payload.len().min(std::mem::size_of::<B256>());
+
+    if to_copy > 0 {
+        let source_start = payload.len() - to_copy;
+        bytes[std::mem::size_of::<B256>() - to_copy..].copy_from_slice(&payload[source_start..]);
+    }
+
+    B256::from(bytes)
 }
 
 fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
@@ -1489,6 +950,7 @@ mod tests {
 
     use alloy_primitives::{Address, Bloom, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
+    use protocol::signer::FixedKSigner;
     use libp2p::{
         Transport,
         core::upgrade,
@@ -1524,35 +986,47 @@ mod tests {
         }
     }
 
-    fn decode_eos_epoch(payload: &[u8]) -> u64 {
-        let mut bytes = [0u8; std::mem::size_of::<u64>()];
-        let to_copy = payload.len().min(std::mem::size_of::<u64>());
-
-        if to_copy > 0 {
-            let source_start = payload.len() - to_copy;
-            bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
-        }
-
-        u64::from_be_bytes(bytes)
-    }
-
-    fn decode_request_hash(payload: &[u8]) -> B256 {
-        let mut bytes = [0u8; std::mem::size_of::<B256>()];
-        let to_copy = payload.len().min(std::mem::size_of::<B256>());
-
-        if to_copy > 0 {
-            let source_start = payload.len() - to_copy;
-            bytes[std::mem::size_of::<B256>() - to_copy..]
-                .copy_from_slice(&payload[source_start..]);
-        }
-
-        B256::from(bytes)
-    }
-
     fn sample_preconf_payload() -> DecodedUnsafePayload {
         let envelope = sample_response_envelope();
         let payload_bytes = encode_envelope_ssz(&envelope);
         DecodedUnsafePayload { wire_signature: [0x11u8; 65], payload_bytes, envelope }
+    }
+
+    fn signed_wire_signature(signer: &FixedKSigner, prehash: B256) -> [u8; 65] {
+        let sig = signer
+            .sign_with_predefined_k(prehash.as_ref())
+            .expect("sign prehash for test");
+
+        let mut wire_signature = [0u8; 65];
+        wire_signature[..32].copy_from_slice(&sig.signature.r().to_be_bytes::<32>());
+        wire_signature[32..64].copy_from_slice(&sig.signature.s().to_be_bytes::<32>());
+        wire_signature[64] = sig.recovery_id;
+        wire_signature
+    }
+
+    fn sample_signed_preconf_payload(chain_id: u64, signer: &FixedKSigner) -> DecodedUnsafePayload {
+        let mut payload = sample_preconf_payload();
+        payload.wire_signature =
+            signed_wire_signature(
+                signer,
+                crate::codec::block_signing_hash(chain_id, payload.payload_bytes.as_slice()),
+            );
+        payload
+    }
+
+    fn sample_signed_response_envelope(
+        chain_id: u64,
+        signer: &FixedKSigner,
+    ) -> WhitelistExecutionPayloadEnvelope {
+        let mut envelope = sample_response_envelope();
+        envelope.signature = Some(signed_wire_signature(
+            signer,
+            crate::codec::block_signing_hash(
+                chain_id,
+                envelope.execution_payload.block_hash.as_slice(),
+            ),
+        ));
+        envelope
     }
 
     #[test]
@@ -1667,7 +1141,8 @@ mod tests {
 
     #[test]
     fn height_seen_tracker_rejects_over_limit_and_skips_tracking_rejected_hashes() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
 
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([1u8; 32]), 1));
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
@@ -1679,8 +1154,8 @@ mod tests {
             vec![B256::from([1u8; 32]), B256::from([2u8; 32])]
         );
 
-        assert!(!validation_state.preconf_seen_by_height.can_accept(2, B256::from([3u8; 32]), 0));
-        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 1);
+        assert!(validation_state.preconf_seen_by_height.can_accept(2, B256::from([3u8; 32]), 0));
+        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 2);
     }
 
     #[test]
@@ -1697,7 +1172,8 @@ mod tests {
 
     #[tokio::test]
     async fn validate_preconf_blocks_rejects_empty_transaction_payload() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
         let mut payload = sample_preconf_payload();
         payload.envelope.execution_payload.transactions.clear();
 
@@ -1709,7 +1185,8 @@ mod tests {
 
     #[tokio::test]
     async fn validate_preconf_blocks_rejects_invalid_signature() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
         let payload = sample_preconf_payload();
 
         assert!(matches!(
@@ -1720,13 +1197,178 @@ mod tests {
 
     #[tokio::test]
     async fn validate_response_rejects_missing_signature() {
-        let mut validation_state = GossipsubInboundState::new(167_000);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
         let mut envelope = sample_response_envelope();
         envelope.signature = None;
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
             gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_rejects_non_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(
+                167_000,
+                vec![Address::from([0x11u8; 20])],
+                Address::ZERO,
+                None,
+            );
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_accepts_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, vec![signer_address], Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_accepts_single_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            signer_address,
+            None,
+        );
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_rejects_single_fallback_zero_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_preconf_blocks_rejects_invalid_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let payload = sample_signed_preconf_payload(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::from([0x11u8; 20]), None);
+
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_rejects_non_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(
+                167_000,
+                vec![Address::from([0x11u8; 20])],
+                Address::ZERO,
+                None,
+            );
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_accepts_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, vec![signer_address], Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_accepts_single_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            Vec::new(),
+            signer_address,
+            None,
+        );
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_rejects_invalid_fallback_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::from([0x11u8; 20]), None);
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_rejects_invalid_signature_before_ignore_fallback() {
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
+        let envelope = sample_response_envelope();
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Reject
+        ));
+    }
+
+    #[tokio::test]
+    async fn validate_response_ignores_when_allowlist_is_empty() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), Address::ZERO, None);
+
+        assert!(matches!(
+            validation_state.validate_response(&envelope).await,
+            gossipsub::MessageAcceptance::Ignore
         ));
     }
 
@@ -1877,10 +1519,11 @@ mod tests {
             enable_tcp: true,
             listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
             pre_dial_peers: vec![dial_addr],
-            ..P2pConfig::default()
+            ..Default::default()
         };
 
-        let whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
+            .expect("spawn network");
         let expected_hash = B256::from([0x66u8; 32]);
         let command_tx = whitelist_network.command_tx.clone();
         let local_peer_id = whitelist_network.local_peer_id;
@@ -1935,10 +1578,11 @@ mod tests {
             enable_discovery: false,
             enable_tcp: true,
             listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
-            ..P2pConfig::default()
+            ..Default::default()
         };
 
-        let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let mut whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
+            .expect("spawn network");
         let expected_signature = [0x77u8; 65];
         let expected_envelope = Arc::new(sample_response_envelope());
 
@@ -2070,10 +1714,11 @@ mod tests {
             enable_tcp: true,
             listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
             pre_dial_peers: vec![dial_addr],
-            ..P2pConfig::default()
+            ..Default::default()
         };
 
-        let whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
+            .expect("spawn network");
         let expected = sample_response_envelope();
         let expected_to_publish = expected.clone();
         let command_tx = whitelist_network.command_tx.clone();
@@ -2187,10 +1832,11 @@ mod tests {
             enable_tcp: true,
             listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
             pre_dial_peers: vec![dial_addr],
-            ..P2pConfig::default()
+            ..Default::default()
         };
 
-        let mut whitelist_network = WhitelistNetwork::spawn(cfg).expect("spawn network");
+        let mut whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
+            .expect("spawn network");
 
         let publish_task = tokio::spawn(async move {
             let mut connected = false;
