@@ -10,8 +10,8 @@ use std::{
     time::Duration,
 };
 
-use alloy_primitives::Address;
 use crate::reputation::ReputationConfig;
+use alloy_primitives::Address;
 use libp2p::Multiaddr;
 
 /// Configuration for the P2P.
@@ -25,7 +25,8 @@ pub struct P2pConfig {
     pub chain_id: u64,
     /// Optional sequencer allowlist addresses for whitelist preconfirmation message validation.
     pub sequencer_addresses: Vec<Address>,
-    /// Optional single sequencer address used as a legacy fallback when no allowlist is configured.
+    /// Optional single sequencer address used as a legacy fallback when no allowlist is
+    /// configured.
     pub sequencer_address: Address,
     /// Libp2p listen address for TCP/QUIC transports.
     pub listen_addr: SocketAddr,
