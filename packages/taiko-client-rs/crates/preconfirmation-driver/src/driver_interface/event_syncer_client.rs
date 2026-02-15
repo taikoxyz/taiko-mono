@@ -1,6 +1,6 @@
 //! Event syncer-backed driver client for runner integration.
 
-use std::{sync::Arc, time::Duration};
+use std::{result::Result, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::U256;
@@ -15,7 +15,7 @@ use preconfirmation_types::uint256_to_u256;
 use tracing::info;
 
 use crate::{
-    Result,
+    Result as ClientResult,
     driver_interface::{DriverClient, PreconfirmationInput},
     error::{DriverApiError, PreconfirmationClientError},
 };
@@ -30,10 +30,10 @@ use super::{
 #[async_trait]
 pub trait TipProvider: Send + Sync {
     /// Returns the L2 latest tip block number.
-    async fn latest_tip(&self) -> Result<U256>;
+    async fn latest_tip(&self) -> ClientResult<U256>;
 }
 
-async fn latest_block_by_tag<P>(provider: &P) -> Result<U256>
+async fn get_latest_block<P>(provider: &P) -> ClientResult<U256>
 where
     P: Provider + Send + Sync,
 {
@@ -51,8 +51,8 @@ where
     P: Provider + Send + Sync,
 {
     /// Get the current L2 latest tip block number.
-    async fn latest_tip(&self) -> Result<U256> {
-        latest_block_by_tag(self).await
+    async fn latest_tip(&self) -> ClientResult<U256> {
+        get_latest_block(self).await
     }
 }
 
@@ -68,12 +68,10 @@ pub trait PreconfirmationIngress: Send + Sync {
     async fn submit_preconfirmation_payload(
         &self,
         payload: PreconfPayload,
-    ) -> std::result::Result<(), DriverError>;
+    ) -> Result<(), DriverError>;
 
     /// Return strict confirmed-sync state derived from inbox core state + custom tables.
-    async fn confirmed_sync_snapshot(
-        &self,
-    ) -> std::result::Result<ConfirmedSyncSnapshot, DriverError>;
+    async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, DriverError>;
 }
 
 #[async_trait]
@@ -85,14 +83,12 @@ where
     async fn submit_preconfirmation_payload(
         &self,
         payload: PreconfPayload,
-    ) -> std::result::Result<(), DriverError> {
+    ) -> Result<(), DriverError> {
         self.submit_preconfirmation_payload(payload).await
     }
 
     /// Return strict confirmed-sync state derived from inbox core state + custom tables.
-    async fn confirmed_sync_snapshot(
-        &self,
-    ) -> std::result::Result<ConfirmedSyncSnapshot, DriverError> {
+    async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, DriverError> {
         EventSyncer::confirmed_sync_snapshot(self).await.map_err(DriverError::from)
     }
 }
@@ -163,7 +159,7 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Submit a preconfirmation commitment payload to the driver.
-    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
+    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> ClientResult<()> {
         let preconf = &input.commitment.commitment.preconf;
         let block_number = uint256_to_u256(&preconf.block_number).to::<u64>();
         let proposal_id = uint256_to_u256(&preconf.proposal_id).to::<u64>();
@@ -193,7 +189,7 @@ where
     }
 
     /// Wait for the event syncer to catch up with L1 inbox events.
-    async fn wait_event_sync(&self) -> Result<()> {
+    async fn wait_event_sync(&self) -> ClientResult<()> {
         info!("starting wait for driver to sync with L1 inbox events");
         wait_for_confirmed_sync(
             || async {
@@ -207,7 +203,7 @@ where
     }
 
     /// Get the current event syncer tip block number.
-    async fn event_sync_tip(&self) -> Result<U256> {
+    async fn event_sync_tip(&self) -> ClientResult<U256> {
         self.event_syncer
             .confirmed_sync_snapshot()
             .await
@@ -218,7 +214,7 @@ where
     }
 
     /// Get the current preconfirmation tip block number.
-    async fn preconf_tip(&self) -> Result<U256> {
+    async fn preconf_tip(&self) -> ClientResult<U256> {
         self.l2_provider.latest_tip().await
     }
 }
@@ -277,14 +273,14 @@ mod tests {
         async fn submit_preconfirmation_payload(
             &self,
             _payload: driver::PreconfPayload,
-        ) -> std::result::Result<(), driver::DriverError> {
+        ) -> Result<(), driver::DriverError> {
             self.submits.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
         async fn confirmed_sync_snapshot(
             &self,
-        ) -> std::result::Result<ConfirmedSyncSnapshot, driver::DriverError> {
+        ) -> Result<ConfirmedSyncSnapshot, driver::DriverError> {
             let tip = self.tip.load(Ordering::SeqCst);
             let head_l1_origin_block_id = (tip != u64::MAX).then_some(tip);
             let target_block =
