@@ -6,22 +6,17 @@ use alloy_primitives::U256;
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use rpc::client::Client;
-use tokio::{
-    sync::{mpsc, watch},
-    time::sleep,
-};
+use tokio::sync::{mpsc, watch};
 use tracing::info;
 
 use crate::error::{DriverApiError, Result};
 
 use super::{
     PreconfirmationInput,
-    traits::{DriverClient, InboxReader},
+    traits::{
+        DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL, DriverClient, InboxReader, wait_for_confirmed_sync,
+    },
 };
-
-/// Default poll interval for `wait_event_sync` when waiting for the driver to sync with L1 inbox
-/// events.
-const DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_secs(12);
 
 /// Real implementation of InboxReader using the Inbox contract bindings.
 #[derive(Clone)]
@@ -155,22 +150,13 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     ///   - `head_l1_origin` exists and `head >= target_block`.
     async fn wait_event_sync(&self) -> Result<()> {
         info!("starting wait for driver to sync with L1 inbox events");
-
-        loop {
-            let snapshot = self.inbox_reader.confirmed_sync_snapshot().await?;
-            info!(
-                target_proposal_id = snapshot.target_proposal_id,
-                target_block = ?snapshot.target_block,
-                head_l1_origin_block_id = ?snapshot.head_l1_origin_block_id,
-                "checking sync state"
-            );
-            if snapshot.is_ready() {
-                info!("driver event sync complete");
-                return Ok(());
-            }
-
-            sleep(self.wait_event_sync_poll_interval).await;
-        }
+        wait_for_confirmed_sync(
+            || self.inbox_reader.confirmed_sync_snapshot(),
+            self.wait_event_sync_poll_interval,
+        )
+        .await?;
+        info!("driver event sync complete");
+        Ok(())
     }
 
     /// Returns the current confirmed event-sync L2 block number.
