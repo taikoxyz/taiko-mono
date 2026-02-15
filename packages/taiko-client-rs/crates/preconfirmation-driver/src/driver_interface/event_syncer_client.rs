@@ -7,7 +7,10 @@ use alloy_primitives::U256;
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
-use driver::{DriverError, PreconfPayload, sync::event::EventSyncer};
+use driver::{
+    DriverError, PreconfPayload,
+    sync::{ConfirmedSyncSnapshot, event::EventSyncer},
+};
 use preconfirmation_types::uint256_to_u256;
 use tokio::time::sleep;
 use tracing::info;
@@ -26,23 +29,19 @@ const WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
 /// Provides L2 tip lookups for the driver client.
 #[async_trait]
 pub trait TipProvider: Send + Sync {
-    /// Returns the L2 safe tip block number.
-    async fn safe_tip(&self) -> Result<U256>;
     /// Returns the L2 latest tip block number.
     async fn latest_tip(&self) -> Result<U256>;
 }
 
-async fn block_by_tag<P>(provider: &P, tag: BlockNumberOrTag) -> Result<U256>
+async fn latest_block_by_tag<P>(provider: &P) -> Result<U256>
 where
     P: Provider + Send + Sync,
 {
-    let block = provider.get_block_by_number(tag).await.map_err(DriverApiError::from)?.ok_or_else(
-        || match tag {
-            BlockNumberOrTag::Safe => DriverApiError::MissingSafeBlock,
-            BlockNumberOrTag::Latest => DriverApiError::MissingLatestBlock,
-            _ => DriverApiError::MissingLatestBlock,
-        },
-    )?;
+    let block = provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await
+        .map_err(DriverApiError::from)?
+        .ok_or(DriverApiError::MissingLatestBlock)?;
     Ok(U256::from(block.number()))
 }
 
@@ -51,14 +50,9 @@ impl<P> TipProvider for P
 where
     P: Provider + Send + Sync,
 {
-    /// Get the current L2 safe tip block number.
-    async fn safe_tip(&self) -> Result<U256> {
-        block_by_tag(self, BlockNumberOrTag::Safe).await
-    }
-
     /// Get the current L2 latest tip block number.
     async fn latest_tip(&self) -> Result<U256> {
-        block_by_tag(self, BlockNumberOrTag::Latest).await
+        latest_block_by_tag(self).await
     }
 }
 
@@ -76,11 +70,10 @@ pub trait PreconfirmationIngress: Send + Sync {
         payload: PreconfPayload,
     ) -> std::result::Result<(), DriverError>;
 
-    /// Return true once event sync has reached confirmed readiness.
-    async fn confirmed_sync_ready(&self) -> std::result::Result<bool, DriverError>;
-
-    /// Return the confirmed event sync tip from `head_l1_origin`.
-    async fn confirmed_event_sync_tip(&self) -> std::result::Result<Option<u64>, DriverError>;
+    /// Return strict confirmed-sync state derived from inbox core state + custom tables.
+    async fn confirmed_sync_snapshot(
+        &self,
+    ) -> std::result::Result<ConfirmedSyncSnapshot, DriverError>;
 }
 
 #[async_trait]
@@ -96,14 +89,11 @@ where
         self.submit_preconfirmation_payload(payload).await
     }
 
-    /// Return true once event sync has reached confirmed readiness.
-    async fn confirmed_sync_ready(&self) -> std::result::Result<bool, DriverError> {
-        EventSyncer::confirmed_sync_ready(self).await.map_err(DriverError::from)
-    }
-
-    /// Return the confirmed event sync tip from `head_l1_origin`.
-    async fn confirmed_event_sync_tip(&self) -> std::result::Result<Option<u64>, DriverError> {
-        EventSyncer::confirmed_event_sync_tip(self).await.map_err(DriverError::from)
+    /// Return strict confirmed-sync state derived from inbox core state + custom tables.
+    async fn confirmed_sync_snapshot(
+        &self,
+    ) -> std::result::Result<ConfirmedSyncSnapshot, DriverError> {
+        EventSyncer::confirmed_sync_snapshot(self).await.map_err(DriverError::from)
     }
 }
 
@@ -186,7 +176,12 @@ where
         info!("starting wait for driver to sync with L1 inbox events");
 
         loop {
-            if self.event_syncer.confirmed_sync_ready().await.map_err(DriverApiError::Driver)? {
+            let snapshot = self
+                .event_syncer
+                .confirmed_sync_snapshot()
+                .await
+                .map_err(DriverApiError::Driver)?;
+            if snapshot.is_ready() {
                 info!("driver event sync complete");
                 return Ok(());
             }
@@ -197,10 +192,13 @@ where
 
     /// Get the current event syncer tip block number.
     async fn event_sync_tip(&self) -> Result<U256> {
-        match self.event_syncer.confirmed_event_sync_tip().await.map_err(DriverApiError::Driver)? {
-            Some(block_number) => Ok(U256::from(block_number)),
-            None => Err(DriverApiError::EventSyncTipUnknown.into()),
-        }
+        self.event_syncer
+            .confirmed_sync_snapshot()
+            .await
+            .map_err(DriverApiError::Driver)?
+            .event_sync_tip()
+            .map(U256::from)
+            .ok_or(DriverApiError::EventSyncTipUnknown.into())
     }
 
     /// Get the current preconfirmation tip block number.
@@ -223,6 +221,7 @@ mod tests {
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types::Header as RpcHeader;
     use alloy_transport::mock::Asserter;
+    use driver::sync::ConfirmedSyncSnapshot;
 
     use super::{EventSyncerDriverClient, PreconfirmationIngress, TipProvider};
     use crate::{
@@ -234,16 +233,11 @@ mod tests {
     };
 
     struct StubL2Provider {
-        safe: U256,
         latest: U256,
     }
 
     #[async_trait::async_trait]
     impl TipProvider for StubL2Provider {
-        async fn safe_tip(&self) -> crate::Result<U256> {
-            Ok(self.safe)
-        }
-
         async fn latest_tip(&self) -> crate::Result<U256> {
             Ok(self.latest)
         }
@@ -272,15 +266,14 @@ mod tests {
             Ok(())
         }
 
-        async fn confirmed_sync_ready(&self) -> std::result::Result<bool, driver::DriverError> {
-            Ok(self.ready.load(Ordering::SeqCst))
-        }
-
-        async fn confirmed_event_sync_tip(
+        async fn confirmed_sync_snapshot(
             &self,
-        ) -> std::result::Result<Option<u64>, driver::DriverError> {
+        ) -> std::result::Result<ConfirmedSyncSnapshot, driver::DriverError> {
             let tip = self.tip.load(Ordering::SeqCst);
-            if tip == u64::MAX { Ok(None) } else { Ok(Some(tip)) }
+            let head_l1_origin_block_id = (tip != u64::MAX).then_some(tip);
+            let target_block =
+                if self.ready.load(Ordering::SeqCst) { Some(0) } else { Some(u64::MAX - 1) };
+            Ok(ConfirmedSyncSnapshot::new(1, target_block, head_l1_origin_block_id))
         }
     }
 
@@ -297,7 +290,7 @@ mod tests {
                 tip: Arc::new(AtomicU64::new(7)),
             }),
             inbox,
-            Arc::new(StubL2Provider { safe: U256::from(10), latest: U256::from(12) }),
+            Arc::new(StubL2Provider { latest: U256::from(12) }),
         );
 
         assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(7));
@@ -317,13 +310,13 @@ mod tests {
                 tip: Arc::new(AtomicU64::new(u64::MAX)),
             }),
             inbox,
-            Arc::new(StubL2Provider { safe: U256::ZERO, latest: U256::ZERO }),
+            Arc::new(StubL2Provider { latest: U256::ZERO }),
         );
 
         let err = client
             .event_sync_tip()
             .await
-            .expect_err("unknown canonical tip should return explicit error");
+            .expect_err("unknown event sync tip should return explicit error");
         assert!(matches!(
             err,
             crate::PreconfirmationClientError::DriverInterface(DriverApiError::EventSyncTipUnknown)
@@ -334,10 +327,6 @@ mod tests {
 
     #[async_trait::async_trait]
     impl TipProvider for NoopL2Provider {
-        async fn safe_tip(&self) -> crate::Result<U256> {
-            Ok(U256::ZERO)
-        }
-
         async fn latest_tip(&self) -> crate::Result<U256> {
             Ok(U256::ZERO)
         }

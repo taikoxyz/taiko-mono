@@ -34,10 +34,6 @@ pub enum SyncError {
     #[error("checkpoint head {checkpoint} is behind local head {local}")]
     CheckpointBehind { checkpoint: u64, local: u64 },
 
-    /// Event sync: execution engine returned no latest block.
-    #[error("execution engine returned no latest block")]
-    MissingLatestExecutionBlock,
-
     /// Event sync: checkpoint mode enabled, but beacon sync did not publish a resume head.
     #[error("checkpoint mode enabled but no checkpoint resume head is available")]
     MissingCheckpointResumeHead,

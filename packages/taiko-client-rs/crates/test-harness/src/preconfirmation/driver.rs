@@ -232,9 +232,10 @@ where
         loop {
             if self
                 .event_syncer
-                .confirmed_sync_ready()
+                .confirmed_sync_snapshot()
                 .await
                 .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?
+                .is_ready()
             {
                 info!("driver event sync complete");
                 return Ok(());
@@ -246,9 +247,10 @@ where
 
     async fn event_sync_tip(&self) -> Result<U256> {
         self.event_syncer
-            .confirmed_event_sync_tip()
+            .confirmed_sync_snapshot()
             .await
             .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?
+            .event_sync_tip()
             .map(U256::from)
             .ok_or(DriverApiError::EventSyncTipUnknown.into())
     }
@@ -264,9 +266,9 @@ where
     }
 }
 
-/// Wraps a driver client with safe-tip fallback for event sync.
+/// Wraps a driver client with fallback tip handling for event sync.
 ///
-/// When `event_sync_tip` returns `MissingSafeBlock`, falls back to `preconf_tip`.
+/// When `event_sync_tip` returns `EventSyncTipUnknown`, falls back to `preconf_tip`.
 /// Also logs submission results for debugging.
 #[derive(Clone)]
 pub struct SafeTipDriverClient {
@@ -302,9 +304,9 @@ impl DriverClient for SafeTipDriverClient {
 
     async fn event_sync_tip(&self) -> Result<U256> {
         match self.inner.event_sync_tip().await {
-            Err(PreconfirmationClientError::DriverInterface(DriverApiError::MissingSafeBlock)) => {
-                self.inner.preconf_tip().await
-            }
+            Err(PreconfirmationClientError::DriverInterface(
+                DriverApiError::EventSyncTipUnknown,
+            )) => self.inner.preconf_tip().await,
             other => other,
         }
     }
@@ -386,10 +388,7 @@ impl RealDriverSetup {
             }
         });
 
-        event_syncer
-            .wait_preconf_ingress_ready()
-            .await
-            .ok_or_else(|| anyhow::anyhow!("preconfirmation ingress disabled"))?;
+        event_syncer.wait_preconf_ingress_ready().await?;
 
         let l2_provider = rpc_client.l2_provider.clone();
         let embedded_client =

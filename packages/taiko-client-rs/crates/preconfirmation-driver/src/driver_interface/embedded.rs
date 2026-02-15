@@ -110,12 +110,6 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
     pub fn inbox_reader(&self) -> &I {
         &self.inbox_reader
     }
-
-    /// Returns the capacity of the input tx channel (for testing purposes).
-    #[cfg(test)]
-    pub fn input_tx_capacity(&self) -> usize {
-        self.input_tx.capacity()
-    }
 }
 
 #[async_trait]
@@ -143,28 +137,14 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
         info!("starting wait for driver to sync with L1 inbox events");
 
         loop {
-            let next_proposal_id = self.inbox_reader.get_next_proposal_id().await?;
-            let target_proposal_id = next_proposal_id.saturating_sub(1);
-
-            if target_proposal_id == 0 {
-                info!("sync complete (no proposals)");
-                return Ok(());
-            }
-
-            let target_block =
-                self.inbox_reader.get_last_block_id_by_batch_id(target_proposal_id).await?;
-            let head_l1_origin_block_id = self.inbox_reader.get_head_l1_origin_block_id().await?;
+            let snapshot = self.inbox_reader.confirmed_sync_snapshot().await?;
             info!(
-                next_proposal_id,
-                target_proposal_id,
-                target_block = ?target_block,
-                head_l1_origin_block_id = ?head_l1_origin_block_id,
+                target_proposal_id = snapshot.target_proposal_id,
+                target_block = ?snapshot.target_block,
+                head_l1_origin_block_id = ?snapshot.head_l1_origin_block_id,
                 "checking sync state"
             );
-            if matches!(
-                (target_block, head_l1_origin_block_id),
-                (Some(target_block), Some(head_block)) if head_block >= target_block
-            ) {
+            if snapshot.is_ready() {
                 info!("driver event sync complete");
                 return Ok(());
             }
@@ -173,11 +153,12 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
         }
     }
 
-    /// Returns the current event-synced canonical L2 block number.
+    /// Returns the current confirmed event-sync L2 block number.
     async fn event_sync_tip(&self) -> Result<U256> {
         self.inbox_reader
-            .get_head_l1_origin_block_id()
+            .confirmed_sync_snapshot()
             .await?
+            .event_sync_tip()
             .map(U256::from)
             .ok_or(DriverApiError::EventSyncTipUnknown.into())
     }

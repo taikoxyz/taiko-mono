@@ -149,24 +149,11 @@ pub(crate) async fn build_node_status<I: InboxReader>(
         Err(_) => 0,
     };
 
-    // Compute sync status using same strict readiness logic as wait_event_sync.
-    let next_proposal_id = inbox_reader.get_next_proposal_id().await?;
-    let target_proposal_id = next_proposal_id.saturating_sub(1);
-    let (is_synced_with_inbox, event_sync_tip) = if target_proposal_id == 0 {
-        (true, inbox_reader.get_head_l1_origin_block_id().await?.map(U256::from))
-    } else {
-        let target_block = inbox_reader.get_last_block_id_by_batch_id(target_proposal_id).await?;
-        let head_l1_origin_block_id = inbox_reader.get_head_l1_origin_block_id().await?;
-        let ready = matches!(
-            (target_block, head_l1_origin_block_id),
-            (Some(target_block), Some(head_block)) if head_block >= target_block
-        );
-        (ready, head_l1_origin_block_id.map(U256::from))
-    };
+    let confirmed_sync = inbox_reader.confirmed_sync_snapshot().await?;
 
     Ok(NodeStatus {
-        is_synced_with_inbox,
-        event_sync_tip,
+        is_synced_with_inbox: confirmed_sync.is_ready(),
+        event_sync_tip: confirmed_sync.event_sync_tip().map(U256::from),
         preconf_tip,
         peer_count,
         peer_id: local_peer_id.to_string(),
