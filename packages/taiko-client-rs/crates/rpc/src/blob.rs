@@ -143,7 +143,7 @@ impl BlobDataSource {
 
         for hash in blob_hashes {
             let url = endpoint
-                .join(&format!("/blobs/{}", hash))
+                .join(&format!("/blobs/{hash}"))
                 .map_err(|err| BlobDataError::Other(err.into()))?;
             debug!(hash = ?hash, url = url.as_str(), "requesting blob sidecar from endpoint");
 
