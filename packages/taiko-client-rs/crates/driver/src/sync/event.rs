@@ -84,6 +84,23 @@ fn should_spawn_preconf_ingress(
     preconfirmation_enabled && !preconf_ingress_spawned && scanner_live && confirmed_sync_ready
 }
 
+/// Resolve whether confirmed-sync readiness should open ingress.
+///
+/// Probe failures are fail-soft and keep ingress closed.
+fn resolve_confirmed_sync_ready(
+    scanner_live: bool,
+    confirmed_sync_snapshot: Result<ConfirmedSyncSnapshot, SyncError>,
+) -> bool {
+    if !scanner_live {
+        return false;
+    }
+
+    match confirmed_sync_snapshot {
+        Ok(snapshot) => snapshot.is_ready(),
+        Err(_) => false,
+    }
+}
+
 /// Resolve the L2 block number that event sync should use as its resume source.
 ///
 /// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
@@ -901,8 +918,18 @@ where
                 }
             }
 
-            let confirmed_sync_ready =
-                if scanner_live { self.confirmed_sync_snapshot().await?.is_ready() } else { false };
+            let confirmed_sync_ready = if scanner_live {
+                let confirmed_sync_snapshot = self.confirmed_sync_snapshot().await;
+                if let Err(err) = &confirmed_sync_snapshot {
+                    warn!(
+                        ?err,
+                        "failed to evaluate confirmed sync readiness; keeping preconfirmation ingress closed"
+                    );
+                }
+                resolve_confirmed_sync_ready(true, confirmed_sync_snapshot)
+            } else {
+                false
+            };
             if should_spawn_preconf_ingress(
                 self.cfg.preconfirmation_enabled,
                 preconf_ingress_spawned,
@@ -1088,6 +1115,15 @@ mod tests {
     fn confirmed_sync_ready_is_true_when_head_reaches_target_block() {
         assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(12)).is_ready());
         assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(15)).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_probe_error_keeps_ingress_gate_closed() {
+        let ready = resolve_confirmed_sync_ready(true, Err(SyncError::MissingFinalizedL1Block));
+        assert!(
+            !ready,
+            "probe errors must keep ingress gate closed instead of bubbling up as fatal",
+        );
     }
 
     #[test]
