@@ -17,7 +17,7 @@ use tracing::{info, warn};
 
 use crate::{
     Result,
-    error::WhitelistPreconfirmationDriverError,
+    error::{WhitelistPreconfirmationDriverError, map_driver_error},
     importer::WhitelistPreconfirmationImporter,
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
@@ -239,7 +239,7 @@ impl WhitelistPreconfirmationDriverRunner {
                                 "reason" => "event_syncer_error",
                             )
                             .increment(1);
-                            Err(map_driver_task_error(err))
+                            Err(map_driver_error(err))
                         }
                         Err(err) => {
                             metrics::counter!(
@@ -279,14 +279,5 @@ impl WhitelistPreconfirmationDriverRunner {
                 }
             }
         }
-    }
-}
-
-/// Runs event sync plus whitelist preconfirmation message ingestion, with optional REST/WS server
-/// for external access.
-fn map_driver_task_error(err: driver::DriverError) -> WhitelistPreconfirmationDriverError {
-    match err {
-        driver::DriverError::Sync(sync_err) => WhitelistPreconfirmationDriverError::Sync(sync_err),
-        other => WhitelistPreconfirmationDriverError::Driver(other),
     }
 }

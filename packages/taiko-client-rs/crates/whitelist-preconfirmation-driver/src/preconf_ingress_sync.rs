@@ -9,7 +9,10 @@ use driver::{DriverConfig, SyncPipeline, sync::event::EventSyncer};
 use rpc::client::Client;
 use tokio::task::JoinHandle;
 
-use crate::{Result, error::WhitelistPreconfirmationDriverError};
+use crate::{
+    Result,
+    error::{WhitelistPreconfirmationDriverError, map_driver_error},
+};
 
 /// Runs the event syncer and exposes shared handles used by the whitelist importer.
 pub(crate) struct PreconfIngressSync<P>
@@ -64,15 +67,6 @@ where
             &mut self.handle,
         )
         .await
-    }
-}
-
-/// Map a driver error to a whitelist preconfirmation driver error, preserving sync errors but
-/// wrapping others.
-fn map_driver_error(err: driver::DriverError) -> WhitelistPreconfirmationDriverError {
-    match err {
-        driver::DriverError::Sync(sync_err) => WhitelistPreconfirmationDriverError::Sync(sync_err),
-        other => WhitelistPreconfirmationDriverError::Driver(other),
     }
 }
 

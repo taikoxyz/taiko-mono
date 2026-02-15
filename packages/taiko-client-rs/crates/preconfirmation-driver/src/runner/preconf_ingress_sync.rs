@@ -9,7 +9,7 @@ use driver::{DriverConfig, SyncPipeline, sync::event::EventSyncer};
 use rpc::client::Client;
 use tokio::task::JoinHandle;
 
-use super::RunnerError;
+use super::{RunnerError, map_driver_error};
 
 /// Runs the preconfirmation ingress event syncer and exposes handles to its resources.
 pub(crate) struct PreconfIngressSync<P>
@@ -61,14 +61,6 @@ where
             &mut self.handle,
         )
         .await
-    }
-}
-
-/// Wait for the preconfirmation ingress sync to signal readiness or fail.
-fn map_driver_error(err: driver::DriverError) -> RunnerError {
-    match err {
-        driver::DriverError::Sync(sync_err) => RunnerError::Sync(sync_err),
-        other => RunnerError::Driver(other),
     }
 }
 
