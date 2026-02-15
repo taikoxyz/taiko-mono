@@ -79,6 +79,11 @@ impl FixedKSigner {
         Self::new(GOLDEN_TOUCH_PRIVATE_KEY)
     }
 
+    /// Returns the signer address derived from the private key.
+    pub const fn address(&self) -> Address {
+        self.address
+    }
+
     /// Attempt to sign the provided digest using a fixed list of `k` candidates.
     ///
     /// The method mirrors the Go implementation by first trying `k = 1`, then `k = 2`.
