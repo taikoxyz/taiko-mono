@@ -13,10 +13,12 @@ use driver::DriverConfig;
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
+use tokio::time;
 use tracing::{info, warn};
 
 use crate::{
     Result,
+    cache::L1_EPOCH_DURATION_SECS,
     error::{WhitelistPreconfirmationDriverError, map_driver_error},
     importer::WhitelistPreconfirmationImporter,
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -177,7 +179,8 @@ impl WhitelistPreconfirmationDriverRunner {
             self.config.p2p_config.chain_id,
             network.command_tx.clone(),
         );
-        let mut sync_ready_tick = tokio::time::interval(Duration::from_secs(1));
+        let mut epoch_tick =
+            time::interval(Duration::from_secs(L1_EPOCH_DURATION_SECS));
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
         let event_syncer_handle = preconf_ingress_sync.handle_mut();
@@ -269,11 +272,11 @@ impl WhitelistPreconfirmationDriverRunner {
 
                     importer.handle_event(event).await?;
                 }
-                _ = sync_ready_tick.tick() => {
+                _ = epoch_tick.tick() => {
                     if let Err(err) = importer.on_sync_ready_signal().await {
                         warn!(
                             error = %err,
-                            "failed to import cached whitelist preconfirmation payloads on periodic sync-ready tick"
+                            "failed to import cached whitelist preconfirmation payloads on periodic epoch tick"
                         );
                     }
                 }

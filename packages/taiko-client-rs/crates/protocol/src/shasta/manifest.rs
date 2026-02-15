@@ -129,8 +129,7 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     })?;
     if version != SHASTA_PAYLOAD_VERSION as u32 {
         return Err(ProtocolError::InvalidPayload(format!(
-            "unsupported payload version: expected {}, got {version}",
-            SHASTA_PAYLOAD_VERSION
+            "unsupported payload version: expected {SHASTA_PAYLOAD_VERSION}, got {version}"
         )));
     }
 

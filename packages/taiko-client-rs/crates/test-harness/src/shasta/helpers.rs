@@ -245,7 +245,7 @@ async fn fork_to(
         .await
         .context("engine_forkchoiceUpdatedV2 with attributes failed")?;
     let fc_status = &fc_response.payload_status.status;
-    ensure!(payload_status_is_ok(fc_status), "forkchoice update returned status: {:?}", fc_status);
+    ensure!(payload_status_is_ok(fc_status), "forkchoice update returned status: {fc_status:?}");
 
     let payload_id = fc_response
         .payload_id
@@ -290,8 +290,7 @@ async fn fork_to(
     let exec_status_value = &exec_status.status;
     ensure!(
         payload_status_is_ok(exec_status_value),
-        "newPayload returned status: {:?}",
-        exec_status_value
+        "newPayload returned status: {exec_status_value:?}"
     );
 
     let promote_state = ForkchoiceState {
@@ -306,8 +305,7 @@ async fn fork_to(
     let promote_status = &promote_response.payload_status.status;
     ensure!(
         payload_status_is_ok(promote_status),
-        "forkchoice promotion returned status: {:?}",
-        promote_status
+        "forkchoice promotion returned status: {promote_status:?}"
     );
 
     Ok(())
