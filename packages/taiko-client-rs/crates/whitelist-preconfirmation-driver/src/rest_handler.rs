@@ -1,7 +1,6 @@
 //! Whitelist preconfirmation REST/WS API handler implementation.
 
 use std::{
-    collections::HashMap,
     io::Read,
     sync::Arc,
     time::{Instant, SystemTime, UNIX_EPOCH},
@@ -29,6 +28,7 @@ use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::debug;
 
 use crate::{
+    cache::SharedPreconfCacheState,
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
     importer::{
@@ -75,8 +75,8 @@ where
     whitelist: PreconfWhitelistInstance<P>,
     /// Highest unsafe payload block ID tracked by this node.
     highest_unsafe_l2_payload_block_id: Mutex<u64>,
-    /// End-of-sequencing hash cache keyed by epoch.
-    end_of_sequencing_by_epoch: Mutex<HashMap<u64, B256>>,
+    /// Shared cache state used to back `/status` and EOS visibility.
+    cache_state: SharedPreconfCacheState,
     /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
@@ -97,6 +97,7 @@ where
         initial_highest_unsafe_l2_payload_block_id: u64,
         network_command_tx: mpsc::Sender<NetworkCommand>,
         local_peer_id: String,
+        cache_state: SharedPreconfCacheState,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
@@ -110,7 +111,7 @@ where
             highest_unsafe_l2_payload_block_id: Mutex::new(
                 initial_highest_unsafe_l2_payload_block_id,
             ),
-            end_of_sequencing_by_epoch: Mutex::new(HashMap::new()),
+            cache_state,
             eos_notification_tx,
             network_command_tx,
             local_peer_id,
@@ -460,7 +461,7 @@ where
         // If end-of-sequencing, also publish the EOS request.
         if request.end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.current_epoch();
-            self.end_of_sequencing_by_epoch.lock().await.insert(epoch, block_hash);
+            self.cache_state.record_end_of_sequencing(epoch, block_hash).await;
             let _ = self.eos_notification_tx.send(EndOfSequencingNotification {
                 current_epoch: epoch,
                 end_of_sequencing: true,
@@ -489,11 +490,9 @@ where
         let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
-            .end_of_sequencing_by_epoch
-            .lock()
+            .cache_state
+            .end_of_sequencing_for_epoch(current_epoch)
             .await
-            .get(&current_epoch)
-            .copied()
             .map(|hash| hash.to_string());
         let sync_ready = head_l1_origin_block_id.is_some();
 
@@ -503,7 +502,7 @@ where
             peer_id: self.local_peer_id.clone(),
             sync_ready,
             lookahead: self.current_lookahead_status().await,
-            total_cached: 0,
+            total_cached: self.cache_state.total_pending_cache_inserts(),
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
         })

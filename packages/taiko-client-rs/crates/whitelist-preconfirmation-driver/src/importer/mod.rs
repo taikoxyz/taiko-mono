@@ -14,7 +14,7 @@ use tracing::{debug, info, warn};
 use crate::{
     cache::{
         EnvelopeCache, L1_EPOCH_DURATION_SECS, RecentEnvelopeCache, RequestThrottle,
-        WhitelistSequencerCache,
+        SharedPreconfCacheState, WhitelistSequencerCache,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -52,6 +52,8 @@ where
     whitelist: PreconfWhitelistInstance<P>,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
+    /// Shared cache state used by status and EOS signaling.
+    cache_state: SharedPreconfCacheState,
     /// Out-of-order payload cache waiting for parent availability.
     cache: EnvelopeCache,
     /// Recently accepted envelopes that can be served over response topic requests.
@@ -79,6 +81,7 @@ where
         whitelist_address: Address,
         chain_id: u64,
         network_command_tx: mpsc::Sender<NetworkCommand>,
+        cache_state: SharedPreconfCacheState,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
@@ -88,6 +91,7 @@ where
             rpc,
             whitelist,
             chain_id,
+            cache_state,
             cache: EnvelopeCache::default(),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
@@ -166,6 +170,9 @@ where
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
                 if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
+                    self.cache_state
+                        .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
+                        .await;
                     debug!(
                         peer = %from,
                         epoch,

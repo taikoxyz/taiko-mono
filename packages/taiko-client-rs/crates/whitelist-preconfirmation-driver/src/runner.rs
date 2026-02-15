@@ -14,6 +14,7 @@ use tracing::{info, warn};
 use crate::{
     Result,
     error::WhitelistPreconfirmationDriverError,
+    cache::SharedPreconfCacheState,
     importer::WhitelistPreconfirmationImporter,
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
@@ -99,6 +100,7 @@ impl WhitelistPreconfirmationDriverRunner {
             Some(preconf_ingress_sync.client().clone()),
             Some(self.config.whitelist_address),
         )?;
+        let cache_state = SharedPreconfCacheState::new();
         info!(
             peer_id = %network.local_peer_id,
             chain_id = self.config.p2p_config.chain_id,
@@ -150,6 +152,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 initial_highest_unsafe_l2_payload_block_id,
                 network.command_tx.clone(),
                 network.local_peer_id.to_string(),
+                cache_state.clone(),
             );
 
             let server_config = WhitelistRestWsServerConfig {
@@ -169,13 +172,13 @@ impl WhitelistPreconfirmationDriverRunner {
         } else {
             None
         };
-
         let mut importer = WhitelistPreconfirmationImporter::new(
             preconf_ingress_sync.event_syncer(),
             preconf_ingress_sync.client().clone(),
             self.config.whitelist_address,
             self.config.p2p_config.chain_id,
             network.command_tx.clone(),
+            cache_state,
         );
         let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();
 
