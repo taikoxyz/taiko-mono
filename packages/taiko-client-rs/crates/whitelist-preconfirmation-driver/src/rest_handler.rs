@@ -269,7 +269,7 @@ where
         )
     }
 
-    /// Check fee recipient against current/next sequencing slot ranges.
+    /// Check fee recipient against current/next operator sequencing ranges.
     async fn ensure_fee_recipient_allowed(&self, fee_recipient: Address) -> Result<()> {
         let current_slot = self.beacon_client.current_slot();
         self.ensure_fee_recipient_allowed_for_slot(fee_recipient, current_slot).await
@@ -286,14 +286,20 @@ where
             return Ok(());
         }
 
-        if slot_matches_range(current_slot, &lookahead.curr_ranges) ||
-            slot_matches_range(current_slot, &lookahead.next_ranges)
-        {
+        if is_fee_recipient_allowed_for_slot(fee_recipient, current_slot, &lookahead) {
             return Ok(());
         }
 
+        let reason = if slot_matches_range(current_slot, &lookahead.curr_ranges) {
+            "current"
+        } else if slot_matches_range(current_slot, &lookahead.next_ranges) {
+            "next"
+        } else {
+            "current or next"
+        };
+
         Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "fee recipient {fee_recipient} is not allowed to build for slot {current_slot}"
+            "fee recipient {fee_recipient} is not allowed as the {reason} operator for slot {current_slot}"
         )))
     }
 
@@ -418,6 +424,17 @@ where
 
 fn slot_matches_range(slot: u64, ranges: &[SlotRange]) -> bool {
     ranges.iter().any(|range| slot >= range.start && slot < range.end)
+}
+
+fn is_fee_recipient_allowed_for_slot(
+    fee_recipient: Address,
+    current_slot: u64,
+    lookahead: &LookaheadStatus,
+) -> bool {
+    (fee_recipient == lookahead.curr_operator
+        && slot_matches_range(current_slot, &lookahead.curr_ranges))
+        || (fee_recipient == lookahead.next_operator
+            && slot_matches_range(current_slot, &lookahead.next_ranges))
 }
 
 #[async_trait]
@@ -698,5 +715,39 @@ mod tests {
         assert!(!slot_matches_range(25, &ranges));
         assert!(slot_matches_range(30, &ranges));
         assert!(!slot_matches_range(40, &ranges));
+    }
+
+    #[test]
+    fn fee_recipient_allowed_for_slot_matches_only_assigned_operator() {
+        let lookahead = LookaheadStatus {
+            curr_operator: Address::from([0x11u8; 20]),
+            next_operator: Address::from([0x22u8; 20]),
+            curr_ranges: vec![SlotRange { start: 10, end: 20 }],
+            next_ranges: vec![SlotRange { start: 20, end: 30 }],
+            updated_at: ZERO_LOOKAHEAD_UPDATED_AT.to_string(),
+            last_updated_epoch: 0,
+        };
+
+        assert!(is_fee_recipient_allowed_for_slot(
+            Address::from([0x11u8; 20]),
+            15,
+            &lookahead
+        ));
+        assert!(is_fee_recipient_allowed_for_slot(
+            Address::from([0x22u8; 20]),
+            25,
+            &lookahead
+        ));
+        assert!(!is_fee_recipient_allowed_for_slot(
+            Address::from([0x33u8; 20]),
+            15,
+            &lookahead
+        ));
+        assert!(!is_fee_recipient_allowed_for_slot(
+            Address::from([0x11u8; 20]),
+            25,
+            &lookahead
+        ));
+        assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x22u8; 20]), 15, &lookahead));
     }
 }

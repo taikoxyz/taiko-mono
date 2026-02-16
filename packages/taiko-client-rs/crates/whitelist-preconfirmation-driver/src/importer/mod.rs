@@ -7,11 +7,13 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
+use rpc::beacon::BeaconClient;
 use rpc::client::Client;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::{
+    codec::WhitelistExecutionPayloadEnvelope,
     cache::{
         EnvelopeCache, L1_EPOCH_DURATION_SECS, RecentEnvelopeCache, RequestThrottle,
         SharedPreconfCacheState, WhitelistSequencerCache,
@@ -60,6 +62,8 @@ where
     chain_id: u64,
     /// Shared cache state used by status and EOS signaling.
     cache_state: SharedPreconfCacheState,
+    /// Beacon client used for EOS epoch validation.
+    beacon_client: Option<Arc<BeaconClient>>,
     /// Out-of-order payload cache waiting for parent availability.
     cache: EnvelopeCache,
     /// Recently accepted envelopes that can be served over response topic requests.
@@ -88,6 +92,7 @@ where
         chain_id: u64,
         network_command_tx: mpsc::Sender<NetworkCommand>,
         cache_state: SharedPreconfCacheState,
+        beacon_client: Option<Arc<BeaconClient>>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
@@ -98,6 +103,7 @@ where
             whitelist,
             chain_id,
             cache_state,
+            beacon_client,
             cache: EnvelopeCache::default(),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
@@ -176,9 +182,34 @@ where
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
                 if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
-                    self.cache_state
-                        .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
-                        .await;
+                    let envelope_epoch = self.end_of_sequencing_epoch_for_payload(&envelope);
+
+                    if let Some(envelope_epoch) = envelope_epoch {
+                        if envelope_epoch == epoch {
+                            self.cache_state
+                                .record_end_of_sequencing(
+                                    envelope_epoch,
+                                    envelope.execution_payload.block_hash,
+                                )
+                                .await;
+                        } else {
+                            warn!(
+                                peer = %from,
+                                requested_epoch = epoch,
+                                actual_epoch = envelope_epoch,
+                                hash = %envelope.execution_payload.block_hash,
+                                "ignoring end-of-sequencing request: payload epoch does not match request"
+                            );
+                        }
+                    } else {
+                        warn!(
+                            peer = %from,
+                            epoch,
+                            hash = %envelope.execution_payload.block_hash,
+                            "ignoring end-of-sequencing request: failed to derive payload epoch"
+                        );
+                    }
+
                     debug!(
                         peer = %from,
                         epoch,
@@ -289,6 +320,17 @@ where
             .set(self.cache.len() as f64);
         metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
             .set(self.recent_cache.len() as f64);
+    }
+
+    fn end_of_sequencing_epoch_for_payload(
+        &self,
+        envelope: &Arc<WhitelistExecutionPayloadEnvelope>,
+    ) -> Option<u64> {
+        let Some(beacon_client) = &self.beacon_client else {
+            return None;
+        };
+
+        beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp).ok()
     }
 }
 
