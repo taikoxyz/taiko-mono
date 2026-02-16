@@ -1,14 +1,14 @@
-# Altehia-Reth Custom Tables and Beacon-Sync Gaps
+# Alethia-Reth Custom Tables and Beacon-Sync Gaps
 
 This document records the custom-table model that preconfirmation and event-sync logic across `taiko-client-rs` depends on.
 
 Scope includes `crates/driver`, `crates/preconfirmation-driver`, `crates/whitelist-preconfirmation-driver`, and `crates/rpc`.
 
-Before checking `altehia-reth` code, ask for the local path in the current environment.
+Before checking `alethia-reth` code, ask for the local path in the current environment.
 
 ## Table Model (Separate Concerns)
 
-Altehia-reth stores Taiko-specific state in separate tables:
+Alethia-reth stores Taiko-specific state in separate tables:
 
 - per-block origin table
 - confirmed-head origin pointer table
@@ -16,11 +16,11 @@ Altehia-reth stores Taiko-specific state in separate tables:
 
 Behavior anchors:
 
-- `altehia-reth/crates/db/src/model.rs`
+- `alethia-reth/crates/db/src/model.rs`
   - Declares the three Taiko custom tables as separate storage concerns.
-- `altehia-reth/crates/rpc/src/eth/eth.rs`
+- `alethia-reth/crates/rpc/src/eth/eth.rs`
   - Exposes public queries for per-block origin and head origin.
-- `altehia-reth/crates/rpc/src/eth/auth.rs`
+- `alethia-reth/crates/rpc/src/eth/auth.rs`
   - Exposes authenticated writes/reads for head pointer, per-block origin, and batch mapping.
 
 Implication: these tables are related but independent. Do not assume one table implies another is populated.
@@ -48,10 +48,10 @@ Behavior anchors:
 
 - `crates/driver/src/sync/beacon.rs`
   - Beacon sync submits remote payloads and forkchoice updates to catch up block bodies.
-- `altehia-reth/crates/rpc/src/engine/api.rs`
+- `alethia-reth/crates/rpc/src/engine/api.rs`
   - Custom L1-origin persistence is tied to the payload-attributes path.
   - Without payload attributes, table persistence path is not executed.
-- `altehia-reth/crates/primitives/src/payload/attributes.rs`
+- `alethia-reth/crates/primitives/src/payload/attributes.rs`
   - Defines preconf-block classification via L1-origin metadata shape.
 
 ## Canonical Gap Statement (Must Preserve)

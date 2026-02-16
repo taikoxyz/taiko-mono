@@ -42,20 +42,20 @@
 
 - Scope: these guardrails apply across `crates/driver`, `crates/preconfirmation-driver`, `crates/whitelist-preconfirmation-driver`, `crates/proposer`, and `crates/rpc`.
 - Before touching preconfirmation, event-sync, proposer or related custom-table behavior (features, fixes, or P2P-related updates), read these canonical docs first:
-  - `docs/agents/whitelist-preconfirmation-invariants.md`
-  - `docs/agents/event-scan-reorg-and-preconf-flow.md`
-  - `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md`
-  - `docs/agents/reference-map.md`
+  - `docs/agents/whitelist-preconfirmation-invariants.md`: canonical invariant catalog (`WLP-INV-001..010`).
+  - `docs/agents/event-scan-reorg-and-preconf-flow.md`: operational flow and sequence documentation.
+  - `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md`: custom-table model and beacon-sync gap behavior.
+  - `docs/agents/reference-map.md`: invariant-to-code mapping reference.
 - In implementation plans and code reviews for related work, explicitly cite impacted invariant IDs (`WLP-INV-001..010`).
 - Preserve stale-boundary enforcement everywhere: `block_number <= head_l1_origin` means stale preconfirmation data and must be dropped/ignored.
 - Preserve the rule that preconfirmation must never reorg event-confirmed blocks.
 - Preserve the confirmed-sync gate for opening ingress: scanner-live plus strict confirmed-sync readiness.
-- Treat altehia-reth custom tables as separate concerns (`head_l1_origin`, per-block `l1_origin`, `batch_to_last_block`); do not assume one implies the others are populated.
+- Treat alethia-reth custom tables as separate concerns (`head_l1_origin`, per-block `l1_origin`, `batch_to_last_block`); do not assume one implies the others are populated.
 - Remember beacon-sync gap behavior: beacon sync can import event-confirmed blocks without backfilling custom tables.
-- If you need to inspect `altehia-reth`, ask for its local path first; do not assume a fixed absolute path.
+- If you need to inspect `alethia-reth`, ask for its local path first; do not assume a fixed absolute path.
 - Before changing behavior, check parity with:
   - Rust code in this repository
-  - Rust RPC/engine integration assumptions in `altehia-reth` (after getting its local path)
+  - Rust RPC/engine integration assumptions in `alethia-reth` (after getting its local path)
   - Protocol assumptions in `../protocol`
 
 ## Commit & Pull Request Guidelines
