@@ -32,8 +32,6 @@ interface IInbox {
         uint48 maxProofSubmissionDelay;
         /// @notice The ring buffer size for storing proposal hashes
         uint256 ringBufferSize;
-        /// @notice The percentage of basefee paid to coinbase
-        uint8 basefeeSharingPctg;
         /// @notice The minimum number of forced inclusions that the proposer is forced to process
         /// if they are due
         uint256 minForcedInclusionCount;
@@ -59,6 +57,18 @@ interface IInbox {
         LibBlobs.BlobSlice blobSlice;
     }
 
+    /// @notice Canonical L1 cost inputs for a proposal.
+    struct ProposalCost {
+        /// @notice Gas used by this proposal transaction on L1.
+        uint64 gasUsed;
+        /// @notice Number of blobs attached to this proposal transaction on L1.
+        uint32 numBlobs;
+        /// @notice L1 basefee (EIP-1559) at proposal inclusion.
+        uint128 basefee;
+        /// @notice L1 blob basefee (EIP-4844) at proposal inclusion.
+        uint128 blobBasefee;
+    }
+
     /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
         /// @notice Unique identifier for the proposal.
@@ -75,11 +85,12 @@ interface IInbox {
         uint48 originBlockNumber;
         /// @notice The hash of the origin block.
         bytes32 originBlockHash;
-        /// @notice The percentage of base fee paid to coinbase.
-        uint8 basefeeSharingPctg;
+        /// @notice Canonical L1 cost inputs for this proposal.
+        ProposalCost cost;
         /// @notice Array of derivation sources, where each can be regular or forced inclusion.
         DerivationSource[] sources;
     }
+
 
     /// @notice Represents the core state of the inbox.
     /// @dev All 5 uint48 fields (30 bytes) pack into a single storage slot.
@@ -183,14 +194,14 @@ interface IInbox {
     /// @param proposer Address of the proposer.
     /// @param parentProposalHash The hash of the parent proposal (zero for genesis).
     /// @param endOfSubmissionWindowTimestamp Last slot timestamp where the preconfer can propose.
-    /// @param basefeeSharingPctg The percentage of base fee paid to coinbase.
+    /// @param cost Canonical L1 cost inputs for the proposal.
     /// @param sources Array of derivation sources for this proposal.
     event Proposed(
         uint48 indexed id,
         address indexed proposer,
         bytes32 parentProposalHash,
         uint48 endOfSubmissionWindowTimestamp,
-        uint8 basefeeSharingPctg,
+        ProposalCost cost,
         DerivationSource[] sources
     );
 

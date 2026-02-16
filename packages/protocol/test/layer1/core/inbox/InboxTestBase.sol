@@ -25,8 +25,25 @@ abstract contract InboxTestBase is CommonTest {
         address proposer;
         bytes32 parentProposalHash;
         uint48 endOfSubmissionWindowTimestamp;
-        uint8 basefeeSharingPctg;
+        IInbox.ProposalCost cost;
         IInbox.DerivationSource[] sources;
+    }
+
+    struct ProposedEventData {
+        bytes32 parentProposalHash;
+        uint48 endOfSubmissionWindowTimestamp;
+        IInbox.ProposalCost cost;
+        IInbox.DerivationSource[] sources;
+    }
+
+    struct ProposedEventHead {
+        bytes32 parentProposalHash;
+        uint256 endOfSubmissionWindowTimestamp;
+        uint256 gasUsed;
+        uint256 numBlobs;
+        uint256 basefee;
+        uint256 blobBasefee;
+        uint256 sourcesOffset;
     }
 
     Inbox internal inbox;
@@ -89,7 +106,6 @@ abstract contract InboxTestBase is CommonTest {
             provingWindow: 2 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
-            basefeeSharingPctg: 0,
             minForcedInclusionCount: 1,
             forcedInclusionDelay: 384,
             forcedInclusionFeeInGwei: 10_000_000,
@@ -224,12 +240,48 @@ abstract contract InboxTestBase is CommonTest {
 
         payload_.id = uint48(uint256(log.topics[1]));
         payload_.proposer = address(uint160(uint256(log.topics[2])));
-        (
-            payload_.parentProposalHash,
-            payload_.endOfSubmissionWindowTimestamp,
-            payload_.basefeeSharingPctg,
-            payload_.sources
-        ) = abi.decode(log.data, (bytes32, uint48, uint8, IInbox.DerivationSource[]));
+        ProposedEventHead memory head = abi.decode(log.data, (ProposedEventHead));
+        payload_.parentProposalHash = head.parentProposalHash;
+        payload_.endOfSubmissionWindowTimestamp = uint48(head.endOfSubmissionWindowTimestamp);
+        payload_.cost = IInbox.ProposalCost({
+            gasUsed: uint64(head.gasUsed),
+            numBlobs: uint32(head.numBlobs),
+            basefee: uint128(head.basefee),
+            blobBasefee: uint128(head.blobBasefee)
+        });
+        payload_.sources = _decodeSources(log.data, head.sourcesOffset);
+    }
+
+    function _sliceBytes(bytes memory _data, uint256 _offset)
+        private
+        pure
+        returns (bytes memory slice_)
+    {
+        require(_offset <= _data.length, "slice oob");
+        uint256 len = _data.length - _offset;
+        slice_ = new bytes(len);
+        for (uint256 i; i < len; ++i) {
+            slice_[i] = _data[_offset + i];
+        }
+    }
+
+    function _decodeSources(bytes memory _data, uint256 _offset)
+        private
+        pure
+        returns (IInbox.DerivationSource[] memory sources_)
+    {
+        bytes memory tail = _sliceBytes(_data, _offset);
+        bytes memory wrapped = new bytes(tail.length + 32);
+
+        assembly {
+            mstore(add(wrapped, 32), 0x20)
+        }
+
+        for (uint256 i; i < tail.length; ++i) {
+            wrapped[i + 32] = tail[i];
+        }
+
+        sources_ = abi.decode(wrapped, (IInbox.DerivationSource[]));
     }
 
     function _mockBeaconBlockRoot() internal {
@@ -371,7 +423,7 @@ abstract contract InboxTestBase is CommonTest {
             parentProposalHash: parentProposalHash,
             originBlockNumber: _originBlockNumber,
             originBlockHash: _originBlockHash,
-            basefeeSharingPctg: _payload.basefeeSharingPctg,
+            cost: _payload.cost,
             sources: _payload.sources
         });
     }

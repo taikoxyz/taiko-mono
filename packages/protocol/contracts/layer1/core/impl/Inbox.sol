@@ -57,6 +57,37 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     event InboxActivated(bytes32 lastPacayaBlockHash);
 
     // ---------------------------------------------------------------
+    // Gas Tracking Constants
+    // ---------------------------------------------------------------
+
+    /// @dev Base transaction cost (EIP-2028)
+    uint256 private constant _TX_BASE_GAS = 21_000;
+
+    /// @dev Calldata gas cost per zero byte
+    uint256 private constant _CALLDATA_ZERO_BYTE_GAS = 4;
+
+    /// @dev Calldata gas cost per non-zero byte
+    uint256 private constant _CALLDATA_NONZERO_BYTE_GAS = 16;
+
+    /// @dev SSTORE gas when setting a storage slot from zero to non-zero
+    uint256 private constant _SSTORE_SET_GAS = 20_000;
+
+    /// @dev SSTORE gas when changing a non-zero storage slot to a different non-zero value
+    uint256 private constant _SSTORE_RESET_GAS = 5_000;
+
+    /// @dev Cold SLOAD access cost (added to SSTORE for first access in transaction)
+    uint256 private constant _COLD_SLOAD_COST = 2_100;
+
+    /// @dev Base cost for LOG operation
+    uint256 private constant _LOG_BASE_GAS = 375;
+
+    /// @dev Cost per topic in LOG operation
+    uint256 private constant _LOG_TOPIC_GAS = 375;
+
+    /// @dev Cost per byte of data in LOG operation
+    uint256 private constant _LOG_DATA_BYTE_GAS = 8;
+
+    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
@@ -92,9 +123,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice The ring buffer size for storing proposal hashes.
     uint256 internal immutable _ringBufferSize;
-
-    /// @notice The percentage of basefee paid to coinbase.
-    uint8 internal immutable _basefeeSharingPctg;
 
     /// @notice The minimum number of forced inclusions that the proposer is forced to process if
     /// they are due.
@@ -138,7 +166,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Storage for bond balances.
     LibBonds.Storage private _bondStorage;
 
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -160,7 +188,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _provingWindow = _config.provingWindow;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
-        _basefeeSharingPctg = _config.basefeeSharingPctg;
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
@@ -207,7 +234,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+        uint256 gasStart = gasleft();
         unchecked {
+            Proposal memory proposal;
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
 
@@ -216,14 +245,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
-            Proposal memory proposal = _buildProposal(
+            proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
 
+            // Capture L1 cost inputs
+            proposal.cost.numBlobs = uint32(input.blobReference.numBlobs);
+            proposal.cost.basefee = uint128(block.basefee);
+            proposal.cost.blobBasefee = uint128(block.blobbasefee);
+
+            // Calculate gas used (must be done before state changes and event emission)
+            proposal.cost.gasUsed = _calcGasUsed(gasStart, proposal);
+
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
-            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
+            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
             _emitProposedEvent(proposal);
         }
     }
@@ -486,7 +523,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             provingWindow: _provingWindow,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
-            basefeeSharingPctg: _basefeeSharingPctg,
             minForcedInclusionCount: _minForcedInclusionCount,
             forcedInclusionDelay: _forcedInclusionDelay,
             forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei,
@@ -568,7 +604,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
+                cost: ProposalCost({ gasUsed: 0, numBlobs: 0, basefee: 0, blobBasefee: 0 }),
                 sources: result.sources
             });
         }
@@ -705,7 +741,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             _proposal.proposer,
             _proposal.parentProposalHash,
             _proposal.endOfSubmissionWindowTimestamp,
-            _proposal.basefeeSharingPctg,
+            _proposal.cost,
             _proposal.sources
         );
     }
@@ -713,6 +749,132 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // Private View/Pure Functions
     // ---------------------------------------------------------------
+
+    /// @dev Calculates the total gas used by the propose transaction.
+    /// @dev Includes: intrinsic gas, calldata cost, proposal hash storage, and event emission.
+    /// @dev Excludes: priority fee paid to validators.
+    /// @param _gasStart Gas remaining at the start of the propose call.
+    /// @param _proposal The proposal being stored and emitted.
+    /// @return gasUsed_ Total gas consumed by this transaction.
+    function _calcGasUsed(
+        uint256 _gasStart,
+        Proposal memory _proposal
+    )
+        private
+        view
+        returns (uint64 gasUsed_)
+    {
+        unchecked {
+            // Gas consumed so far (execution up to this point)
+            uint256 consumed = _gasStart - gasleft();
+
+            // Add intrinsic transaction costs (base + calldata)
+            consumed += _calcIntrinsicGas();
+
+            // Add storage cost for proposal hash
+            consumed += _calcProposalHashStorageGas(_proposal.id);
+
+            // Add event emission cost
+            consumed += _calcProposedEventGas(_proposal);
+
+            gasUsed_ = uint64(consumed);
+        }
+    }
+
+    /// @dev Calculates intrinsic gas cost for this transaction.
+    /// @dev Intrinsic gas = base cost + calldata cost (4 gas per zero byte, 16 per non-zero byte).
+    /// @return gas_ Total intrinsic gas cost.
+    function _calcIntrinsicGas() private pure returns (uint256 gas_) {
+        unchecked {
+            gas_ = _TX_BASE_GAS;
+            bytes calldata data = msg.data;
+            uint256 len = data.length;
+            for (uint256 i; i < len; ++i) {
+                gas_ += data[i] == 0 ? _CALLDATA_ZERO_BYTE_GAS : _CALLDATA_NONZERO_BYTE_GAS;
+            }
+        }
+    }
+
+    /// @dev Calculates gas cost for storing the proposal hash in the ring buffer.
+    /// @dev Cost = SSTORE (set or reset) + cold access cost.
+    /// @param _proposalId The proposal ID being stored.
+    /// @return gas_ Gas cost for the SSTORE operation.
+    function _calcProposalHashStorageGas(uint48 _proposalId) private view returns (uint256 gas_) {
+        unchecked {
+            // Determine if this is a SET (writing to new slot) or RESET (overwriting existing)
+            // Slots wrap around at ringBufferSize, so proposalId >= ringBufferSize means overwrite
+            bool isSet = uint256(_proposalId) < _ringBufferSize;
+            uint256 sstoreGas = isSet ? _SSTORE_SET_GAS : _SSTORE_RESET_GAS;
+
+            // Add cold storage access cost (first access in this transaction)
+            gas_ = sstoreGas + _COLD_SLOAD_COST;
+        }
+    }
+
+    /// @dev Calculates gas cost for emitting the Proposed event.
+    /// @dev Cost = base + (topics × topic_cost) + (data_bytes × data_cost).
+    /// @dev Event signature: Proposed(uint48 indexed id, address indexed proposer,
+    ///      bytes32 parentProposalHash, uint48 endOfSubmissionWindowTimestamp,
+    ///      ProposalCost cost, DerivationSource[] sources)
+    /// @param _proposal The proposal being emitted.
+    /// @return gas_ Gas cost for the LOG operation.
+    function _calcProposedEventGas(Proposal memory _proposal) private pure returns (uint256 gas_) {
+        unchecked {
+            // Event has 3 indexed topics: event signature + id + proposer
+            uint256 numTopics = 3;
+
+            // Calculate ABI-encoded data size for non-indexed parameters
+            // Structure: parentProposalHash, endOfSubmissionWindowTimestamp, cost, sources[]
+
+            // Fixed-size fields:
+            // - parentProposalHash: 32 bytes
+            // - endOfSubmissionWindowTimestamp: 32 bytes (uint48 padded to 32)
+            // - cost struct offset: 32 bytes
+            // - sources array offset: 32 bytes
+            uint256 dataBytes = 128;
+
+            // ProposalCost struct (4 fields):
+            // - gasUsed (uint64): 32 bytes
+            // - numBlobs (uint32): 32 bytes
+            // - basefee (uint128): 32 bytes
+            // - blobBasefee (uint128): 32 bytes
+            dataBytes += 128;
+
+            // DerivationSource[] array:
+            // - Array length: 32 bytes
+            DerivationSource[] memory sources = _proposal.sources;
+            uint256 numSources = sources.length;
+            dataBytes += 32;
+
+            // Each DerivationSource:
+            // - Struct offset: 32 bytes
+            // - isForcedInclusion: 32 bytes (bool padded)
+            // - blobSlice offset: 32 bytes
+            for (uint256 i; i < numSources; ++i) {
+                dataBytes += 96; // Source struct header
+
+                // BlobSlice struct (6 fixed fields + blobHashes array):
+                // - commitment: 32 bytes
+                // - proof: 32 bytes
+                // - startByte: 32 bytes (uint32 padded)
+                // - numBytes: 32 bytes (uint32 padded)
+                // - inclusionProof offset: 32 bytes
+                // - blobHashes offset: 32 bytes
+                dataBytes += 192;
+
+                // inclusionProof bytes array (empty for now, just length)
+                dataBytes += 32;
+
+                // blobHashes bytes32[] array
+                uint256 numHashes = sources[i].blobSlice.blobHashes.length;
+                dataBytes += 32; // Array length
+                dataBytes += numHashes * 32; // Hash data
+            }
+
+            // Calculate total LOG gas
+            gas_ = _LOG_BASE_GAS + (numTopics * _LOG_TOPIC_GAS) + (dataBytes * _LOG_DATA_BYTE_GAS);
+        }
+    }
 
     /// @dev Calculates remaining capacity for new proposals
     /// Subtracts unfinalized proposals from total capacity
