@@ -80,14 +80,7 @@ fn should_probe_confirmed_sync(
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
-fn resolve_confirmed_sync_ready(
-    scanner_live: bool,
-    confirmed_sync_snapshot: ConfirmedSyncSnapshot,
-) -> bool {
-    if !scanner_live {
-        return false;
-    }
-
+fn resolve_confirmed_sync_ready(confirmed_sync_snapshot: ConfirmedSyncSnapshot) -> bool {
     confirmed_sync_snapshot.is_ready()
 }
 
@@ -95,13 +88,10 @@ fn resolve_confirmed_sync_ready(
 ///
 /// Any probe error keeps ingress closed (fail-closed) until a later successful probe.
 fn resolve_confirmed_sync_probe(
-    scanner_live: bool,
     confirmed_sync_probe: Result<ConfirmedSyncSnapshot, SyncError>,
 ) -> bool {
     match confirmed_sync_probe {
-        Ok(confirmed_sync_snapshot) => {
-            resolve_confirmed_sync_ready(scanner_live, confirmed_sync_snapshot)
-        }
+        Ok(confirmed_sync_snapshot) => resolve_confirmed_sync_ready(confirmed_sync_snapshot),
         Err(_) => false,
     }
 }
@@ -932,8 +922,7 @@ where
                     );
                     continue;
                 }
-                let confirmed_sync_ready =
-                    resolve_confirmed_sync_probe(scanner_live, confirmed_sync_probe);
+                let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
                 if confirmed_sync_ready && let Some(rx) = self.preconf_rx.clone() {
                     self.spawn_preconf_ingress(
                         router.clone(),
@@ -1097,14 +1086,20 @@ mod tests {
     }
 
     #[test]
-    fn confirmed_sync_ready_requires_live_scanner_gate() {
-        let ready = resolve_confirmed_sync_ready(false, ConfirmedSyncSnapshot::new(0, None, None));
-        assert!(!ready, "confirmed-sync readiness must remain closed until scanner is live",);
+    fn confirmed_sync_ready_reflects_snapshot_readiness() {
+        let ready = resolve_confirmed_sync_ready(ConfirmedSyncSnapshot::new(0, None, None));
+        assert!(ready, "resolved readiness should mirror snapshot readiness");
+    }
+
+    #[test]
+    fn confirmed_sync_probe_success_reflects_snapshot_readiness() {
+        let ready = resolve_confirmed_sync_probe(Ok(ConfirmedSyncSnapshot::new(0, None, None)));
+        assert!(ready, "successful probe should defer to snapshot readiness");
     }
 
     #[test]
     fn confirmed_sync_probe_error_keeps_ingress_closed() {
-        let ready = resolve_confirmed_sync_probe(true, Err(SyncError::MissingFinalizedL1Block));
+        let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingFinalizedL1Block));
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
     }
 
