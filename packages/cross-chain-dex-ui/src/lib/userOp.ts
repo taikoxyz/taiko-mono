@@ -7,8 +7,8 @@ import {
   hexToBytes,
 } from 'viem';
 import { UserOp, SwapDirection } from '../types';
-import { CrossChainSwapVaultL1ABI, ERC20ABI, UserOpsSubmitterABI } from './contracts';
-import { L1_VAULT, USDC_TOKEN, BUILDER_RPC_URL } from './constants';
+import { CrossChainSwapVaultL1ABI, BridgeABI, ERC20ABI, UserOpsSubmitterABI } from './contracts';
+import { L1_VAULT, L1_BRIDGE, L2_CHAIN_ID, USDC_TOKEN, BUILDER_RPC_URL } from './constants';
 
 /**
  * Build UserOp(s) for a swap
@@ -91,6 +91,43 @@ export function buildBridgeUserOps(
         abi: CrossChainSwapVaultL1ABI,
         functionName: 'bridgeTokenToL2',
         args: [amount, recipient],
+      }),
+    },
+  ];
+}
+
+/**
+ * Build UserOp(s) for bridging native xDAI from L1 to L2 via the bridge
+ */
+export function buildBridgeNativeUserOps(
+  amount: bigint,
+  recipient: Address,
+  sender: Address
+): UserOp[] {
+  const zeroAddr = '0x0000000000000000000000000000000000000000' as Address;
+
+  return [
+    {
+      target: L1_BRIDGE,
+      value: amount,
+      data: encodeFunctionData({
+        abi: BridgeABI,
+        functionName: 'sendMessage',
+        args: [
+          {
+            id: 0n,
+            fee: 0n,
+            gasLimit: 0,
+            from: zeroAddr,
+            srcChainId: 0n,
+            srcOwner: sender,
+            destChainId: BigInt(L2_CHAIN_ID),
+            destOwner: recipient,
+            to: recipient,
+            value: amount,
+            data: '0x',
+          },
+        ],
       }),
     },
   ];

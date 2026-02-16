@@ -1,10 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
-import { parseEther, formatEther, Address } from 'viem';
+import { parseUnits, formatUnits, Address } from 'viem';
 import { TokenInput } from './TokenInput';
 import { useSmartWallet } from '../hooks/useSmartWallet';
 import { useTokenBalances } from '../hooks/useTokenBalances';
 import { useUserOp } from '../hooks/useUserOp';
-import { USDC_TOKEN } from '../lib/constants';
+import { ETH_TOKEN, USDC_TOKEN } from '../lib/constants';
+
+type BridgeToken = 'xDAI' | 'USDC';
 
 interface BridgeCardProps {
   onSetupWallet: () => void;
@@ -12,38 +14,49 @@ interface BridgeCardProps {
 
 export function BridgeCard({ onSetupWallet }: BridgeCardProps) {
   const { smartWallet, isConnected } = useSmartWallet();
-  const { usdcBalance } = useTokenBalances(smartWallet);
-  const { executeBridge, isPending } = useUserOp();
+  const { ethBalance, usdcBalance } = useTokenBalances(smartWallet);
+  const { executeBridge, executeBridgeNative, isPending } = useUserOp();
 
+  const [bridgeToken, setBridgeToken] = useState<BridgeToken>('USDC');
   const [inputAmount, setInputAmount] = useState('');
   const [recipient, setRecipient] = useState('');
 
+  const currentToken = bridgeToken === 'xDAI' ? ETH_TOKEN : USDC_TOKEN;
+
   const amountIn = useMemo(() => {
     try {
-      return inputAmount ? parseEther(inputAmount) : 0n;
+      return inputAmount ? parseUnits(inputAmount, currentToken.decimals) : 0n;
     } catch {
       return 0n;
     }
-  }, [inputAmount]);
+  }, [inputAmount, currentToken.decimals]);
+  const currentBalance = bridgeToken === 'xDAI' ? ethBalance : usdcBalance;
+  const hasInsufficientBalance = amountIn > currentBalance;
 
-  const hasInsufficientBalance = amountIn > usdcBalance;
-
-  // Use smart wallet as default recipient if none specified
   const effectiveRecipient = (recipient || smartWallet || '') as Address;
 
   const handleBridge = useCallback(async () => {
     if (!smartWallet || amountIn === 0n) return;
 
-    const success = await executeBridge({
-      amount: amountIn,
-      recipient: effectiveRecipient,
-      smartWallet,
-    });
+    let success: boolean;
+    if (bridgeToken === 'xDAI') {
+      success = await executeBridgeNative({
+        amount: amountIn,
+        recipient: effectiveRecipient,
+        smartWallet,
+      });
+    } else {
+      success = await executeBridge({
+        amount: amountIn,
+        recipient: effectiveRecipient,
+        smartWallet,
+      });
+    }
 
     if (success) {
       setInputAmount('');
     }
-  }, [smartWallet, amountIn, effectiveRecipient, executeBridge]);
+  }, [smartWallet, amountIn, bridgeToken, effectiveRecipient, executeBridge, executeBridgeNative]);
 
   const getButtonText = () => {
     if (isPending) return 'Bridging...';
@@ -51,7 +64,7 @@ export function BridgeCard({ onSetupWallet }: BridgeCardProps) {
     if (!smartWallet) return 'Setup Smart Wallet First';
     if (!amountIn) return 'Enter Amount';
     if (hasInsufficientBalance) return 'Insufficient Balance';
-    return 'Bridge to L2';
+    return `Bridge ${bridgeToken} to L2`;
   };
 
   const isDisabled = isPending || !isConnected || !smartWallet || !amountIn || hasInsufficientBalance;
@@ -60,16 +73,33 @@ export function BridgeCard({ onSetupWallet }: BridgeCardProps) {
     <div className="w-full max-w-md mx-auto relative z-10">
       <div className="bg-surge-card/80 backdrop-blur-xl border border-surge-border/50 rounded-2xl p-5 space-y-4 shadow-xl shadow-black/20 hover-glow">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Bridge Tokens</h2>
+          <h2 className="text-lg font-semibold text-white">Bridge</h2>
           <span className="text-xs text-gray-400">L1 &rarr; L2</span>
+        </div>
+
+        {/* Token Selector */}
+        <div className="flex gap-2">
+          {(['xDAI', 'USDC'] as BridgeToken[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setBridgeToken(t); setInputAmount(''); }}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                bridgeToken === t
+                  ? 'bg-surge-primary text-white'
+                  : 'bg-surge-dark/50 text-gray-400 hover:text-white border border-surge-border/30'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
         </div>
 
         {/* Token Amount */}
         <TokenInput
-          token={USDC_TOKEN}
+          token={currentToken}
           amount={inputAmount}
           onAmountChange={setInputAmount}
-          balance={usdcBalance}
+          balance={currentBalance}
           label="Amount"
         />
 
@@ -78,12 +108,16 @@ export function BridgeCard({ onSetupWallet }: BridgeCardProps) {
           <div className="flex items-center justify-center gap-3 py-3">
             <div className="flex items-center gap-2 bg-surge-dark/50 px-3 py-2 rounded-lg">
               <span className="text-xs text-gray-400">L1</span>
-              <span className="text-sm text-white font-medium">Lock</span>
+              <span className="text-sm text-white font-medium">
+                {bridgeToken === 'xDAI' ? 'Send' : 'Lock'}
+              </span>
             </div>
             <div className="text-surge-primary">&rarr;</div>
             <div className="flex items-center gap-2 bg-surge-dark/50 px-3 py-2 rounded-lg">
               <span className="text-xs text-gray-400">L2</span>
-              <span className="text-sm text-white font-medium">Mint</span>
+              <span className="text-sm text-white font-medium">
+                {bridgeToken === 'xDAI' ? 'Receive' : 'Mint'}
+              </span>
             </div>
           </div>
         )}
@@ -105,11 +139,11 @@ export function BridgeCard({ onSetupWallet }: BridgeCardProps) {
           <div className="bg-surge-dark/30 rounded-lg p-3 space-y-1">
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">You send</span>
-              <span className="text-white">{formatEther(amountIn)} USDC</span>
+              <span className="text-white">{formatUnits(amountIn, currentToken.decimals)} {bridgeToken}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">You receive</span>
-              <span className="text-white">{formatEther(amountIn)} USDC on L2</span>
+              <span className="text-white">{formatUnits(amountIn, currentToken.decimals)} {bridgeToken} on L2</span>
             </div>
           </div>
         )}

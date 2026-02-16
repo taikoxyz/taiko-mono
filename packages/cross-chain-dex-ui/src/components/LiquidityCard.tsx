@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { parseEther, formatEther } from 'viem';
+import { parseEther, parseUnits, formatEther, formatUnits } from 'viem';
 import { TokenInput } from './TokenInput';
 import { useSmartWallet } from '../hooks/useSmartWallet';
 import { useDexReserves } from '../hooks/useDexReserves';
@@ -23,7 +23,7 @@ export function LiquidityCard({ onSetupWallet }: LiquidityCardProps) {
 
   const hasReserves = ethReserve > 0n && tokenReserve > 0n;
   const price = hasReserves
-    ? Number(formatEther(tokenReserve)) / Number(formatEther(ethReserve))
+    ? Number(formatUnits(tokenReserve, USDC_TOKEN.decimals)) / Number(formatEther(ethReserve))
     : Number(priceInput) || 0;
 
   // When user edits ETH, auto-fill token amount based on pool ratio or user-set price
@@ -86,7 +86,7 @@ export function LiquidityCard({ onSetupWallet }: LiquidityCardProps) {
 
   const tokenAmount = useMemo(() => {
     try {
-      return tokenInput ? parseEther(tokenInput) : 0n;
+      return tokenInput ? parseUnits(tokenInput, USDC_TOKEN.decimals) : 0n;
     } catch {
       return 0n;
     }
@@ -115,7 +115,7 @@ export function LiquidityCard({ onSetupWallet }: LiquidityCardProps) {
     if (!isConnected) return 'Connect Wallet';
     if (!smartWallet) return 'Setup Smart Wallet First';
     if (!ethAmount || !tokenAmount) return 'Enter Amounts';
-    if (hasInsufficientETH) return 'Insufficient ETH';
+    if (hasInsufficientETH) return 'Insufficient xDAI';
     if (hasInsufficientTokens) return 'Insufficient USDC Tokens';
     return 'Add Liquidity to L2';
   };
@@ -136,7 +136,7 @@ export function LiquidityCard({ onSetupWallet }: LiquidityCardProps) {
           amount={ethInput}
           onAmountChange={handleEthChange}
           balance={ethBalance}
-          label="ETH Amount"
+          label="xDAI Amount"
         />
 
         <div className="flex justify-center">
@@ -157,7 +157,7 @@ export function LiquidityCard({ onSetupWallet }: LiquidityCardProps) {
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 space-y-2">
             <div className="text-xs text-yellow-400 font-medium">Pool is empty — set the initial price</div>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400 whitespace-nowrap">1 ETH =</span>
+              <span className="text-sm text-gray-400 whitespace-nowrap">1 xDAI =</span>
               <input
                 type="number"
                 value={priceInput}
@@ -175,18 +175,18 @@ export function LiquidityCard({ onSetupWallet }: LiquidityCardProps) {
         <div className="bg-surge-dark/30 rounded-lg p-3 space-y-1">
           <div className="text-xs text-gray-400 font-medium mb-2">L2 DEX Pool</div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">ETH Reserve</span>
-            <span className="text-white">{formatEther(ethReserve)} ETH</span>
+            <span className="text-gray-400">xDAI Reserve</span>
+            <span className="text-white">{formatEther(ethReserve)} xDAI</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Token Reserve</span>
-            <span className="text-white">{formatEther(tokenReserve)} USDC</span>
+            <span className="text-white">{formatUnits(tokenReserve, USDC_TOKEN.decimals)} USDC</span>
           </div>
           {price > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Price</span>
               <span className="text-white">
-                1 ETH = {price.toFixed(2)} USDC
+                1 xDAI = {price.toFixed(2)} USDC
               </span>
             </div>
           )}

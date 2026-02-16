@@ -27,6 +27,7 @@ export interface SwapQuote {
   priceImpact: number;
   fee: bigint;
   rate: number;
+  insufficientLiquidity: boolean;
 }
 
 export interface DexReserves {

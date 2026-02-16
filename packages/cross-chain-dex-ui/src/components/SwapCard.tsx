@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { parseEther, formatEther } from 'viem';
+import { parseUnits, formatUnits } from 'viem';
 import { TokenInput } from './TokenInput';
 import { SwapDetails } from './SwapDetails';
 import { SwapPath } from './SwapPath';
@@ -26,13 +26,16 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
   const [direction, setDirection] = useState<SwapDirection>('ETH_TO_USDC');
   const [inputAmount, setInputAmount] = useState('');
 
+  const inputToken = direction === 'ETH_TO_USDC' ? ETH_TOKEN : USDC_TOKEN;
+  const outputToken = direction === 'ETH_TO_USDC' ? USDC_TOKEN : ETH_TOKEN;
+
   const amountIn = useMemo(() => {
     try {
-      return inputAmount ? parseEther(inputAmount) : 0n;
+      return inputAmount ? parseUnits(inputAmount, inputToken.decimals) : 0n;
     } catch {
       return 0n;
     }
-  }, [inputAmount]);
+  }, [inputAmount, inputToken.decimals]);
 
   const quote = useSwapQuote({
     direction,
@@ -40,9 +43,6 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
     ethReserve,
     tokenReserve,
   });
-
-  const inputToken = direction === 'ETH_TO_USDC' ? ETH_TOKEN : USDC_TOKEN;
-  const outputToken = direction === 'ETH_TO_USDC' ? USDC_TOKEN : ETH_TOKEN;
   const inputBalance = direction === 'ETH_TO_USDC' ? ethBalance : usdcBalance;
   const outputBalance = direction === 'ETH_TO_USDC' ? usdcBalance : ethBalance;
 
@@ -117,7 +117,7 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
         {/* Output Token */}
         <TokenInput
           token={outputToken}
-          amount={quote.amountOut > 0n ? formatEther(quote.amountOut) : ''}
+          amount={quote.amountOut > 0n ? formatUnits(quote.amountOut, outputToken.decimals) : ''}
           onAmountChange={() => {}}
           balance={outputBalance}
           label="To"
@@ -139,6 +139,7 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
           isConnected={isConnected}
           hasSmartWallet={!!smartWallet}
           hasInsufficientBalance={hasInsufficientBalance}
+          hasInsufficientLiquidity={quote.insufficientLiquidity}
           hasAmount={amountIn > 0n}
         />
 

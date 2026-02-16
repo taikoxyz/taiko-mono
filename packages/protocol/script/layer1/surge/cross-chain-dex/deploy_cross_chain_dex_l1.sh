@@ -13,8 +13,12 @@ export L2_RPC=${L2_RPC:-"http://178.79.140.153:8547"}
 # Bridge addresses
 export L1_BRIDGE=${L1_BRIDGE:-"0xC935D1c64591Aa954F34eB49Ea6175D06A8F21Eb"}
 
+# Existing token address (set to use an existing ERC20 like real USDC instead of deploying)
+# If not set, a new SwapToken will be deployed
+export SWAP_TOKEN=${SWAP_TOKEN:-""}
+
 # Initial token supply (1 million tokens with 18 decimals)
-# Minted to deployer — use addLiquidityToL2() to seed DEX
+# Only used when deploying a new token (SWAP_TOKEN is not set)
 export INITIAL_TOKEN_SUPPLY=${INITIAL_TOKEN_SUPPLY:-"1000000000000000000000000"}
 
 # Get chain IDs from RPCs
@@ -48,7 +52,11 @@ echo "=====================================";
 echo "L1 RPC: $L1_RPC"
 echo "L1 Bridge: $L1_BRIDGE"
 echo "L2 Chain ID: $L2_CHAIN_ID"
-echo "Initial Token Supply: $INITIAL_TOKEN_SUPPLY"
+if [ -n "$SWAP_TOKEN" ]; then
+    echo "Using existing token: $SWAP_TOKEN"
+else
+    echo "Initial Token Supply: $INITIAL_TOKEN_SUPPLY"
+fi
 echo ""
 
 if [ "$BROADCAST" = "true" ]; then

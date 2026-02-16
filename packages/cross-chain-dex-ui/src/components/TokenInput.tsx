@@ -1,5 +1,5 @@
 import { Token } from '../types';
-import { formatEther } from 'viem';
+import { formatUnits } from 'viem';
 
 interface TokenInputProps {
   token: Token;
@@ -21,7 +21,7 @@ export function TokenInput({
   showMax = true,
 }: TokenInputProps) {
   const handleMaxClick = () => {
-    onAmountChange(formatEther(balance));
+    onAmountChange(formatUnits(balance, token.decimals));
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,7 +38,7 @@ export function TokenInput({
         <span className="text-sm text-gray-400">{label}</span>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">
-            Balance: {Number(formatEther(balance)).toFixed(4)}
+            Balance: {Number(formatUnits(balance, token.decimals)).toFixed(4)}
           </span>
           {showMax && !disabled && balance > 0n && (
             <button

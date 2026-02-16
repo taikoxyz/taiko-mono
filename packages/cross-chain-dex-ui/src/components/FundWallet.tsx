@@ -28,12 +28,12 @@ export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalan
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">Fund Your Smart Wallet</h2>
-            <p className="text-sm text-gray-400">Add ETH or USDC to start swapping</p>
+            <p className="text-sm text-gray-400">Add xDAI or USDC to start swapping</p>
           </div>
         </div>
 
         <p className="text-gray-400 text-sm mb-6">
-          Your smart wallet needs funds to execute swaps. Send ETH or USDC to the address below.
+          Your smart wallet needs funds to execute swaps. Send xDAI or USDC to the address below.
         </p>
 
         {/* Smart Wallet Address */}
@@ -57,9 +57,9 @@ export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalan
         {/* Current Balances */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-surge-dark rounded-lg p-3">
-            <div className="text-xs text-gray-500 mb-1">ETH Balance</div>
+            <div className="text-xs text-gray-500 mb-1">xDAI Balance</div>
             <div className="text-lg font-semibold text-white">
-              {parseFloat(ethBalance).toFixed(4)} ETH
+              {parseFloat(ethBalance).toFixed(4)} xDAI
             </div>
           </div>
           <div className="bg-surge-dark rounded-lg p-3">
@@ -71,7 +71,7 @@ export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalan
         </div>
 
         <div className="text-xs text-gray-500 mb-4">
-          <strong>Note:</strong> Send funds on Surge L1 (Chain ID: 3151908)
+          <strong>Note:</strong> Send funds on Gnosis (Chain ID: 100)
         </div>
 
         <button

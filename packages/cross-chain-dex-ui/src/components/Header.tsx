@@ -60,7 +60,7 @@ export function Header({ onSetupWallet }: HeaderProps) {
             </button>
             <span className="text-xs text-gray-500">|</span>
             <span className="text-xs text-gray-400">
-              {parseFloat(ethFormatted).toFixed(4)} ETH
+              {parseFloat(ethFormatted).toFixed(4)} xDAI
             </span>
             <span className="text-xs text-gray-400">
               {parseFloat(usdcFormatted).toFixed(2)} USDC
@@ -86,7 +86,7 @@ export function Header({ onSetupWallet }: HeaderProps) {
             <span>{address?.slice(0, 6)}...{address?.slice(-4)}</span>
             {eoaBalance && (
               <span className="text-xs text-gray-400">
-                ({parseFloat(formatEther(eoaBalance.value)).toFixed(4)} ETH)
+                ({parseFloat(formatEther(eoaBalance.value)).toFixed(4)} xDAI)
               </span>
             )}
           </button>

@@ -1,6 +1,6 @@
 import { SwapQuote, SwapDirection } from '../types';
-import { formatEther } from 'viem';
-import { FEE_PERCENT } from '../lib/constants';
+import { formatUnits } from 'viem';
+import { FEE_PERCENT, ETH_TOKEN, USDC_TOKEN } from '../lib/constants';
 
 interface SwapDetailsProps {
   quote: SwapQuote;
@@ -11,8 +11,10 @@ interface SwapDetailsProps {
 export function SwapDetails({ quote, direction, amountIn }: SwapDetailsProps) {
   if (amountIn === 0n) return null;
 
-  const inputSymbol = direction === 'ETH_TO_USDC' ? 'ETH' : 'USDC';
-  const outputSymbol = direction === 'ETH_TO_USDC' ? 'USDC' : 'ETH';
+  const inputToken = direction === 'ETH_TO_USDC' ? ETH_TOKEN : USDC_TOKEN;
+  const outputToken = direction === 'ETH_TO_USDC' ? USDC_TOKEN : ETH_TOKEN;
+  const inputSymbol = inputToken.symbol;
+  const outputSymbol = outputToken.symbol;
 
   return (
     <div className="bg-surge-dark rounded-xl p-4 space-y-3">
@@ -26,7 +28,7 @@ export function SwapDetails({ quote, direction, amountIn }: SwapDetailsProps) {
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-400">Fee ({FEE_PERCENT}%)</span>
         <span className="text-white">
-          {Number(formatEther(quote.fee)).toFixed(6)} {inputSymbol}
+          {Number(formatUnits(quote.fee, inputToken.decimals)).toFixed(6)} {inputSymbol}
         </span>
       </div>
 
@@ -48,7 +50,7 @@ export function SwapDetails({ quote, direction, amountIn }: SwapDetailsProps) {
       <div className="flex justify-between items-center text-sm">
         <span className="text-gray-400">Expected Output</span>
         <span className="text-white font-medium">
-          {Number(formatEther(quote.amountOut)).toFixed(6)} {outputSymbol}
+          {Number(formatUnits(quote.amountOut, outputToken.decimals)).toFixed(6)} {outputSymbol}
         </span>
       </div>
     </div>

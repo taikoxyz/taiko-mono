@@ -164,6 +164,53 @@ export const SimpleDEXABI = [
   },
 ] as const;
 
+export const BridgeABI = [
+  {
+    type: 'function',
+    name: 'sendMessage',
+    inputs: [
+      {
+        name: '_message',
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'uint64' },
+          { name: 'fee', type: 'uint64' },
+          { name: 'gasLimit', type: 'uint32' },
+          { name: 'from', type: 'address' },
+          { name: 'srcChainId', type: 'uint64' },
+          { name: 'srcOwner', type: 'address' },
+          { name: 'destChainId', type: 'uint64' },
+          { name: 'destOwner', type: 'address' },
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'data', type: 'bytes' },
+        ],
+      },
+    ],
+    outputs: [
+      { name: 'msgHash_', type: 'bytes32' },
+      {
+        name: 'message_',
+        type: 'tuple',
+        components: [
+          { name: 'id', type: 'uint64' },
+          { name: 'fee', type: 'uint64' },
+          { name: 'gasLimit', type: 'uint32' },
+          { name: 'from', type: 'address' },
+          { name: 'srcChainId', type: 'uint64' },
+          { name: 'srcOwner', type: 'address' },
+          { name: 'destChainId', type: 'uint64' },
+          { name: 'destOwner', type: 'address' },
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'data', type: 'bytes' },
+        ],
+      },
+    ],
+    stateMutability: 'payable',
+  },
+] as const;
+
 export const ERC20ABI = [
   {
     type: 'function',

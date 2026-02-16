@@ -7,11 +7,11 @@ import { L1_RPC_URL, L2_RPC_URL, CHAIN_ID } from './constants';
 // Define custom chain for L1
 export const surgeL1Chain = defineChain({
   id: CHAIN_ID,
-  name: 'Surge L1',
+  name: 'Gnosis',
   nativeCurrency: {
     decimals: 18,
-    name: 'Ethereum',
-    symbol: 'ETH',
+    name: 'xDAI',
+    symbol: 'xDAI',
   },
   rpcUrls: {
     default: { http: [L1_RPC_URL] },
@@ -37,7 +37,7 @@ export const l1PublicClient = createPublicClient({
 export const surgeL2Chain = defineChain({
   id: 763374, // L2 chain ID
   name: 'Surge L2',
-  nativeCurrency: { decimals: 18, name: 'Ethereum', symbol: 'ETH' },
+  nativeCurrency: { decimals: 18, name: 'xDAI', symbol: 'xDAI' },
   rpcUrls: {
     default: { http: [L2_RPC_URL] },
   },

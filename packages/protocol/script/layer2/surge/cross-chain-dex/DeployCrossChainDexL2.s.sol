@@ -39,8 +39,9 @@ contract DeployCrossChainDexL2 is Script {
         console2.log("");
 
         // Deploy SwapTokenL2 (bridged token) with deployer as initial minter
+        // 6 decimals to match canonical USDC on L1
         SwapTokenL2 swapTokenL2 =
-            new SwapTokenL2("Bridged Swap Token", "bSWAP", deployer, 0);
+            new SwapTokenL2("Bridged USDC", "bUSDC", deployer, 0, 6);
         swapTokenL2_ = address(swapTokenL2);
         console2.log("SwapTokenL2 deployed at:", swapTokenL2_);
 

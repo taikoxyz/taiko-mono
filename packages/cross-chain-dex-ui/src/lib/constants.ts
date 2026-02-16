@@ -1,17 +1,17 @@
 import { Token } from '../types';
 
 export const ETH_TOKEN: Token = {
-  symbol: 'ETH',
-  name: 'Ethereum',
+  symbol: 'xDAI',
+  name: 'xDAI',
   decimals: 18,
   address: null,
-  logo: '/eth-logo.svg',
+  logo: '/xdai-logo.svg',
 };
 
 export const USDC_TOKEN: Token = {
   symbol: 'USDC',
   name: 'USD Coin',
-  decimals: 18, // Using 18 decimals to match the SwapToken contract
+  decimals: 6, // Real Gnosis USDC has 6 decimals
   address: import.meta.env.VITE_USDC_TOKEN as `0x${string}`,
   logo: '/usdc-logo.svg',
 };
@@ -27,6 +27,10 @@ export const FEE_PERCENT = 0.3;
 export const USER_OPS_FACTORY = import.meta.env.VITE_USER_OPS_FACTORY as `0x${string}`;
 export const L1_VAULT = import.meta.env.VITE_L1_VAULT as `0x${string}`;
 export const SIMPLE_DEX = import.meta.env.VITE_SIMPLE_DEX as `0x${string}`;
+
+// Bridge
+export const L1_BRIDGE = import.meta.env.VITE_L1_BRIDGE as `0x${string}`;
+export const L2_CHAIN_ID = Number(import.meta.env.VITE_L2_CHAIN_ID || '763374');
 
 // RPC URLs
 export const L1_RPC_URL = import.meta.env.VITE_L1_RPC_URL as string;

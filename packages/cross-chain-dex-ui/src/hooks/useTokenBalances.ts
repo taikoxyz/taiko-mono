@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Address, formatEther } from 'viem';
+import { Address, formatEther, formatUnits } from 'viem';
 import { ERC20ABI } from '../lib/contracts';
 import { USDC_TOKEN } from '../lib/constants';
 import { l1PublicClient } from '../lib/config';
@@ -66,7 +66,7 @@ export function useTokenBalances(smartWallet: Address | null): TokenBalances {
     ethBalance,
     usdcBalance,
     ethFormatted: formatEther(ethBalance),
-    usdcFormatted: formatEther(usdcBalance), // Using 18 decimals
+    usdcFormatted: formatUnits(usdcBalance, USDC_TOKEN.decimals),
     isLoading,
     error,
     refetch: fetchBalances,

@@ -6,6 +6,7 @@ import { SwapDirection } from '../types';
 import {
   buildSwapUserOps,
   buildBridgeUserOps,
+  buildBridgeNativeUserOps,
   buildAddLiquidityUserOps,
   computeUserOpsDigest,
   sendUserOpToBuilder,
@@ -18,9 +19,16 @@ import { DEFAULT_SLIPPAGE } from '../lib/constants';
 interface UseUserOpReturn {
   executeSwap: (params: ExecuteSwapParams) => Promise<boolean>;
   executeBridge: (params: ExecuteBridgeParams) => Promise<boolean>;
+  executeBridgeNative: (params: ExecuteBridgeNativeParams) => Promise<boolean>;
   executeAddLiquidity: (params: ExecuteAddLiquidityParams) => Promise<boolean>;
   isPending: boolean;
   error: Error | null;
+}
+
+interface ExecuteBridgeNativeParams {
+  amount: bigint;
+  recipient: Address;
+  smartWallet: Address;
 }
 
 interface ExecuteSwapParams {
@@ -207,6 +215,14 @@ export function useUserOp(): UseUserOpReturn {
     [executeGenericOps]
   );
 
+  const executeBridgeNative = useCallback(
+    async ({ amount, recipient, smartWallet }: ExecuteBridgeNativeParams): Promise<boolean> => {
+      const ops = buildBridgeNativeUserOps(amount, recipient, smartWallet);
+      return executeGenericOps(ops, smartWallet, 'bridge', 'xDAI bridge submitted!');
+    },
+    [executeGenericOps]
+  );
+
   const executeAddLiquidity = useCallback(
     async ({ ethAmount, tokenAmount, smartWallet }: ExecuteAddLiquidityParams): Promise<boolean> => {
       const ops = buildAddLiquidityUserOps(ethAmount, tokenAmount);
@@ -218,6 +234,7 @@ export function useUserOp(): UseUserOpReturn {
   return {
     executeSwap,
     executeBridge,
+    executeBridgeNative,
     executeAddLiquidity,
     isPending,
     error,

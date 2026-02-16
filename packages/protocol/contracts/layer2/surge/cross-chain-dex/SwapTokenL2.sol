@@ -8,6 +8,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @custom:security-contact security@taiko.xyz
 contract SwapTokenL2 is ERC20 {
     address public minter;
+    uint8 private immutable _tokenDecimals;
 
     error ONLY_MINTER();
 
@@ -15,14 +16,20 @@ contract SwapTokenL2 is ERC20 {
         string memory _name,
         string memory _symbol,
         address _minter,
-        uint256 _initialSupply
+        uint256 _initialSupply,
+        uint8 _decimals
     )
         ERC20(_name, _symbol)
     {
         minter = _minter;
+        _tokenDecimals = _decimals;
         if (_initialSupply > 0) {
             _mint(_minter, _initialSupply);
         }
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _tokenDecimals;
     }
 
     /// @notice Transfers minting authority to a new address
