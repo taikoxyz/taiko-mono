@@ -61,18 +61,18 @@ impl ProposerSubCommand {
 
 #[async_trait]
 impl Subcommand for ProposerSubCommand {
-    // Return a reference to the common CLI arguments.
+    /// Return a reference to the common CLI arguments.
     fn common_args(&self) -> &CommonArgs {
         &self.common_flags
     }
 
-    // Register proposer and indexer metrics.
+    /// Register proposer metrics before runtime startup.
     fn register_metrics(&self) -> Result<()> {
         ProposerMetrics::init();
         Ok(())
     }
 
-    // Run the proposer software.
+    /// Execute the proposer subcommand flow.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;

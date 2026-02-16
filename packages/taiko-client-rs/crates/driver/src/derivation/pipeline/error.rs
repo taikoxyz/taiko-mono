@@ -133,12 +133,14 @@ pub enum DerivationError {
 }
 
 impl From<ContractError> for DerivationError {
+    /// Convert contract-call errors into the shared RPC error variant.
     fn from(err: ContractError) -> Self {
         DerivationError::Rpc(err.into())
     }
 }
 
 impl From<RpcError<TransportErrorKind>> for DerivationError {
+    /// Convert transport-backed RPC errors into the shared RPC error variant.
     fn from(err: RpcError<TransportErrorKind>) -> Self {
         DerivationError::Rpc(err.into())
     }

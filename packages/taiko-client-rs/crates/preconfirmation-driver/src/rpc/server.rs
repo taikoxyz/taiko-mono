@@ -217,6 +217,7 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
 }
 
 impl From<PreconfirmationClientError> for ErrorObjectOwned {
+    /// Convert internal preconfirmation errors into JSON-RPC error objects.
     fn from(err: PreconfirmationClientError) -> Self {
         api_error_to_rpc(err)
     }

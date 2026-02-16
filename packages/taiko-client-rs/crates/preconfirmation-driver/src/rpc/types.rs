@@ -50,6 +50,7 @@ pub struct PreconfSlotInfo {
 }
 
 impl From<protocol::preconfirmation::PreconfSlotInfo> for PreconfSlotInfo {
+    /// Convert protocol-layer slot info into the RPC wire representation.
     fn from(info: protocol::preconfirmation::PreconfSlotInfo) -> Self {
         Self { signer: info.signer, submission_window_end: info.submission_window_end }
     }

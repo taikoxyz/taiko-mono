@@ -17,6 +17,7 @@ pub enum CanonicalTipState {
 pub struct AtomicCanonicalTip(AtomicU64);
 
 impl Default for AtomicCanonicalTip {
+    /// Create a canonical-tip container initialized to `Unknown`.
     fn default() -> Self {
         Self::new(CanonicalTipState::Unknown)
     }

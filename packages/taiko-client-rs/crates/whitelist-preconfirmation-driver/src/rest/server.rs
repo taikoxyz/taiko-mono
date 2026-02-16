@@ -56,6 +56,7 @@ pub struct WhitelistRestWsServerConfig {
 }
 
 impl Default for WhitelistRestWsServerConfig {
+    /// Build the default server configuration (loopback bind, HTTP+WS enabled, no JWT).
     fn default() -> Self {
         Self {
             listen_addr: "127.0.0.1:8552".parse().expect("valid default address"),
@@ -494,6 +495,7 @@ enum ReadRequestBodyError {
 }
 
 impl std::fmt::Display for ReadRequestBodyError {
+    /// Render a human-readable error used in HTTP responses and logs.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Read(reason) => write!(f, "{reason}"),
