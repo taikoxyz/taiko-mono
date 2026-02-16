@@ -25,8 +25,8 @@ use crate::{
 };
 
 mod inbound;
-use inbound::EpochSeenTracker;
 #[cfg(test)]
+use inbound::EpochSeenTracker;
 use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
 
 /// Maximum allowed gossip payload size after decompression.
