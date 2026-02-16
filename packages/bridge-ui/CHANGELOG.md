@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.16.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.15.0...bridge-ui-v2.16.0) (2026-02-16)
+
+
+### Features
+
+* **bridge-ui:** support for shasta ([#21219](https://github.com/taikoxyz/taiko-mono/issues/21219)) ([b5e232d](https://github.com/taikoxyz/taiko-mono/commit/b5e232da647a0c5d3516be0349f90240c883bcfe))
+
+
+### Bug Fixes
+
+* **bridge-ui:** correct error message in beforeReleasing method ([#20245](https://github.com/taikoxyz/taiko-mono/issues/20245)) ([69a0e66](https://github.com/taikoxyz/taiko-mono/commit/69a0e66dc3d2ffa61f05485a88ecd9f235c9d90e))
+* **bridge-ui:** fix memory leak in CustomTokenService event listeners ([#20841](https://github.com/taikoxyz/taiko-mono/issues/20841)) ([147aedb](https://github.com/taikoxyz/taiko-mono/commit/147aedb228aef71e2b6d311b77e68552caabe8e6))
+* **bridge-ui:** improve error handling in checkBalanceToBridge with typed error checks ([#19848](https://github.com/taikoxyz/taiko-mono/issues/19848)) ([e9c5667](https://github.com/taikoxyz/taiko-mono/commit/e9c566778d944394acbb191d3f0216d454355364))
+* **bridge-ui:** swap gas limit values for ERC1155 bridge ([#21021](https://github.com/taikoxyz/taiko-mono/issues/21021)) ([f2d7270](https://github.com/taikoxyz/taiko-mono/commit/f2d72701f20dc1aea4138a6222ac29b2b624393f))
+* **bridge-ui:** use toast.push return value for notification id ([#21125](https://github.com/taikoxyz/taiko-mono/issues/21125)) ([28809bb](https://github.com/taikoxyz/taiko-mono/commit/28809bb114279549227f42d6b06034e8cd407400))
+* **repo:** correct typos across relayer, bridge-ui, and ui-lib ([#20337](https://github.com/taikoxyz/taiko-mono/issues/20337)) ([0c8ba23](https://github.com/taikoxyz/taiko-mono/commit/0c8ba23fb859388bff52fc208e31e0c73a66a2cf))
+* **repo:** fix typos ([#20846](https://github.com/taikoxyz/taiko-mono/issues/20846)) ([00d8218](https://github.com/taikoxyz/taiko-mono/commit/00d82183eb0912b0b365b084a0797c43a109763d))
+
+
+### Chores
+
+* **bridge:** remove redundant null assignment ([#20980](https://github.com/taikoxyz/taiko-mono/issues/20980)) ([1c167f0](https://github.com/taikoxyz/taiko-mono/commit/1c167f073ffa107d5ef4a87b8fea73058e5f22b3))
+
+
+### Code Refactoring
+
+* **bridge-ui:** remove quota manager ([#20794](https://github.com/taikoxyz/taiko-mono/issues/20794)) ([7bcf74a](https://github.com/taikoxyz/taiko-mono/commit/7bcf74a78fab1b2ed637ac881308e746c31c68dc))
+
 ## [2.15.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.14.0...bridge-ui-v2.15.0) (2025-09-26)
 
 
