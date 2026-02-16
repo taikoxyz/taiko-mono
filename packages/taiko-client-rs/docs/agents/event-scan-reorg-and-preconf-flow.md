@@ -143,7 +143,7 @@ Primary Rust behavior anchors:
 Before changing behavior, check:
 
 - Rust behavior in `taiko-client-rs`.
-- `altehia-reth` behavior after asking for the local repo path in the current environment.
+- `alethia-reth` behavior after asking for the local repo path in the current environment.
 - Protocol assumptions in `../protocol/contracts/layer1/preconf`.
 
 If parity intentionally changes, update this doc and `docs/agents/reference-map.md` in the same PR.
