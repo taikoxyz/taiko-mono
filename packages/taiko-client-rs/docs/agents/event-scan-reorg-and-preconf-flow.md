@@ -78,9 +78,9 @@ Primary Rust behavior anchors:
 
 Required interpretation:
 
-- If `block_number <= head_l1_origin`, the preconf item is stale.
-- If `block_number <= head_l1_origin`, it must be dropped/ignored.
-- If `block_number <= head_l1_origin`, it cannot be used to reorg confirmed history.
+- `block_number <= head_l1_origin` means the preconf item is stale.
+- Stale preconf items must be dropped/ignored.
+- Stale preconf items cannot be used to reorg confirmed history.
 
 ## Event Path Reorg Handling (Sequence)
 

@@ -21,6 +21,15 @@ A preconfirmation integration library for Taiko, combining P2P network participa
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Agent Documentation
+
+For preconfirmation, event-sync, and custom-table guardrails used across `taiko-client-rs`, read:
+
+- `docs/agents/whitelist-preconfirmation-invariants.md`
+- `docs/agents/event-scan-reorg-and-preconf-flow.md`
+- `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md`
+- `docs/agents/reference-map.md`
+
 ## Components
 
 ### Preconfirmation driver node (`PreconfirmationDriverNode`)
@@ -31,16 +40,7 @@ The main orchestrator that combines:
 - **PreconfirmationClient**: P2P network operations (gossip, commitment validation, tip catch-up)
 - **PreconfRpcServer**: Preconfirmation sidecar JSON-RPC API for external clients
 
-## Agent Documentation
-
-For preconfirmation, event-sync, and custom-table guardrails used across `taiko-client-rs`, read:
-
-- `docs/agents/whitelist-preconfirmation-invariants.md`
-- `docs/agents/event-scan-reorg-and-preconf-flow.md`
-- `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md`
-- `docs/agents/reference-map.md`
-
-## RPC API
+### RPC API
 
 Preconfirmation sidecar JSON-RPC methods:
 
