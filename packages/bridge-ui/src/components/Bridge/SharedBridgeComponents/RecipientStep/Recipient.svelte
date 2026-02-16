@@ -5,6 +5,7 @@
   import { destNetwork, destOwnerAddress, recipientAddress } from '$components/Bridge/state';
   import { ActionButton, CloseButton } from '$components/Button';
   import { Tooltip } from '$components/Tooltip';
+  import { closeOnEscapeOrOutsideClick } from '$libs/customActions';
   import { isSmartContract } from '$libs/util/isSmartContract';
   import { shortenAddress } from '$libs/util/shortenAddress';
   import { account } from '$stores/account';
@@ -40,14 +41,12 @@
   function openModal() {
     modalOpen = true;
     addressInput.focus();
-    addEscKeyListener();
   }
 
   function cancelModal() {
     // Revert change of recipient address
     $recipientAddress = prevRecipientAddress;
     $destOwnerAddress = recipientIsSmartContract ? $account?.address : null;
-    removeEscKeyListener();
     closeModal();
   }
 
@@ -98,21 +97,6 @@
     // }
   };
 
-  let escKeyListener: (event: KeyboardEvent) => void;
-
-  const addEscKeyListener = () => {
-    escKeyListener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        closeModal();
-      }
-    };
-    window.addEventListener('keydown', escKeyListener);
-  };
-
-  const removeEscKeyListener = () => {
-    window.removeEventListener('keydown', escKeyListener);
-  };
-
   $: modalOpenChange(modalOpen);
 
   $: ethereumAddressBinding = $recipientAddress || undefined;
@@ -159,7 +143,11 @@
       {/if}
     </span>
 
-    <dialog id={dialogId} class="modal" class:modal-open={modalOpen}>
+    <dialog
+      id={dialogId}
+      class="modal"
+      class:modal-open={modalOpen}
+      use:closeOnEscapeOrOutsideClick={{ enabled: modalOpen, callback: closeModal, uuid: dialogId }}>
       <div class="modal-box relative px-6 md:rounded-[20px] bg-neutral-background">
         <CloseButton onClick={cancelModal} />
 
