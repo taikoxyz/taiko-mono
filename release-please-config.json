@@ -92,6 +92,19 @@
       "package-name": "taiko-alethia-protocol"
     },
     "packages/relayer": {},
+    "packages/reorg-monitor": {
+      "release-as": "0.1.0",
+      "package-name": "reorg-monitor",
+      "release-type": "simple",
+      "component": "reorg-monitor",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "Cargo.toml",
+          "jsonpath": "$.package.version"
+        }
+      ]
+    },
     "packages/taiko-client": {
       "package-name": "taiko-alethia-client",
       "extra-files": [
