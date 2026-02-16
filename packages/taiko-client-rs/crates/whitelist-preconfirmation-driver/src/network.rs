@@ -514,7 +514,7 @@ impl WhitelistNetwork {
 /// Build the gossipsub behaviour.
 pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
     let config = gossipsub::ConfigBuilder::default()
-        .validation_mode(gossipsub::ValidationMode::Strict)
+        .validation_mode(gossipsub::ValidationMode::Permissive)
         .heartbeat_interval(*kona_gossip::GOSSIP_HEARTBEAT)
         .duplicate_cache_time(*kona_gossip::SEEN_MESSAGES_TTL)
         .message_id_fn(message_id)
