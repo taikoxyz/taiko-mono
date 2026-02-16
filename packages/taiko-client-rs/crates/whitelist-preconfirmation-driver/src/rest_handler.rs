@@ -431,10 +431,10 @@ fn is_fee_recipient_allowed_for_slot(
     current_slot: u64,
     lookahead: &LookaheadStatus,
 ) -> bool {
-    (fee_recipient == lookahead.curr_operator
-        && slot_matches_range(current_slot, &lookahead.curr_ranges))
-        || (fee_recipient == lookahead.next_operator
-            && slot_matches_range(current_slot, &lookahead.next_ranges))
+    (fee_recipient == lookahead.curr_operator &&
+        slot_matches_range(current_slot, &lookahead.curr_ranges)) ||
+        (fee_recipient == lookahead.next_operator &&
+            slot_matches_range(current_slot, &lookahead.next_ranges))
 }
 
 #[async_trait]
