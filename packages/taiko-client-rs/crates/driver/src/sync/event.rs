@@ -70,21 +70,6 @@ struct EventStreamStartPoint {
     bootstrap_confirmed_tip: u64,
 }
 
-/// Decide whether the preconfirmation ingress loop can be started.
-///
-/// Strict safety gate:
-/// - event scanner must be in live mode
-/// - confirmed sync state must be ready
-/// - ingress must not have been spawned already
-fn should_spawn_preconf_ingress(
-    preconfirmation_enabled: bool,
-    preconf_ingress_spawned: bool,
-    scanner_live: bool,
-    confirmed_sync_ready: bool,
-) -> bool {
-    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live && confirmed_sync_ready
-}
-
 /// Decide whether a confirmed-sync probe is still needed.
 fn should_probe_confirmed_sync(
     preconfirmation_enabled: bool,
@@ -949,13 +934,7 @@ where
                 }
                 let confirmed_sync_ready =
                     resolve_confirmed_sync_probe(scanner_live, confirmed_sync_probe);
-                if should_spawn_preconf_ingress(
-                    self.cfg.preconfirmation_enabled,
-                    preconf_ingress_spawned,
-                    scanner_live,
-                    confirmed_sync_ready,
-                ) && let Some(rx) = self.preconf_rx.clone()
-                {
+                if confirmed_sync_ready && let Some(rx) = self.preconf_rx.clone() {
                     self.spawn_preconf_ingress(
                         router.clone(),
                         rx,
@@ -1089,26 +1068,6 @@ mod tests {
             .expect_err("expected ingress not ready error");
 
         assert!(matches!(err, DriverError::PreconfIngressNotReady));
-    }
-
-    #[test]
-    fn preconf_ingress_spawn_requires_live_scanner_and_confirmed_sync_ready() {
-        assert!(
-            !should_spawn_preconf_ingress(true, false, true, false),
-            "live scanner alone must not open ingress gate",
-        );
-        assert!(
-            should_spawn_preconf_ingress(true, false, true, true),
-            "ingress gate should open once scanner is live and confirmed sync is ready",
-        );
-        assert!(
-            !should_spawn_preconf_ingress(true, true, true, true),
-            "ingress must not respawn after already started",
-        );
-        assert!(
-            !should_spawn_preconf_ingress(false, false, true, true),
-            "disabled preconfirmation must never open ingress gate",
-        );
     }
 
     #[test]
