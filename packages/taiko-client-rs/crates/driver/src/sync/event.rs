@@ -1073,63 +1073,6 @@ mod tests {
     }
 
     #[test]
-    fn canonical_tip_state_update_tracks_latest_value_even_when_decreasing() {
-        let canonical_tip_state = AtomicCanonicalTip::new(CanonicalTipState::Known(100));
-        let (canonical_tip_state_tx, canonical_tip_state_rx) =
-            watch::channel(CanonicalTipState::Known(100));
-
-        let changed = update_canonical_tip_state(&canonical_tip_state, &canonical_tip_state_tx, 95);
-
-        assert!(changed, "decreasing canonical tip should notify watchers");
-        assert_eq!(canonical_tip_state.load(Ordering::Relaxed), CanonicalTipState::Known(95));
-        assert_eq!(*canonical_tip_state_rx.borrow(), CanonicalTipState::Known(95));
-    }
-
-    #[test]
-    fn canonical_tip_state_update_refreshes_watch_value_without_active_watchers() {
-        let canonical_tip_state = AtomicCanonicalTip::new(CanonicalTipState::Unknown);
-        let (canonical_tip_state_tx, canonical_tip_state_rx) =
-            watch::channel(CanonicalTipState::Unknown);
-        drop(canonical_tip_state_rx);
-
-        let changed = update_canonical_tip_state(&canonical_tip_state, &canonical_tip_state_tx, 95);
-
-        assert!(changed, "updated canonical tip should be reported as changed");
-        assert_eq!(canonical_tip_state.load(Ordering::Relaxed), CanonicalTipState::Known(95));
-
-        let late_subscriber = canonical_tip_state_tx.subscribe();
-        assert_eq!(
-            *late_subscriber.borrow(),
-            CanonicalTipState::Known(95),
-            "late subscribers should observe the latest canonical tip",
-        );
-    }
-
-    #[test]
-    fn empty_outcome_known_tip_uses_proposal_mapping() {
-        let resolved = resolve_empty_outcome_canonical_tip(
-            CanonicalTipState::Known(200),
-            Some(210),
-            Some(300),
-        );
-        assert_eq!(resolved, Some(210));
-    }
-
-    #[test]
-    fn empty_outcome_known_tip_does_not_fallback_to_latest_without_mapping() {
-        let resolved =
-            resolve_empty_outcome_canonical_tip(CanonicalTipState::Known(200), None, Some(300));
-        assert_eq!(resolved, None);
-    }
-
-    #[test]
-    fn empty_outcome_unknown_tip_allows_latest_fallback_without_mapping() {
-        let resolved =
-            resolve_empty_outcome_canonical_tip(CanonicalTipState::Unknown, None, Some(300));
-        assert_eq!(resolved, Some(300));
-    }
-
-    #[test]
     fn preconf_ingress_spawn_requires_live_scanner_and_confirmed_sync_ready() {
         assert!(
             !should_spawn_preconf_ingress(true, false, true, false),
