@@ -1,12 +1,12 @@
 <script lang="ts">
   import { switchChain } from '@wagmi/core';
   import { t } from 'svelte-i18n';
-  import { type Chain, SwitchChainError, UserRejectedRequestError } from 'viem';
+  import { type Chain } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { LoadingMask } from '$components/LoadingMask';
-  import { warningToast } from '$components/NotificationToast';
   import { chains } from '$libs/chain';
+  import { handleSwitchChainError } from '$libs/network/handleSwitchChainError';
   import { config } from '$libs/wagmi';
   import { switchChainModal } from '$stores/modal';
 
@@ -29,15 +29,7 @@
       closeModal();
     } catch (err) {
       console.error(err);
-      if (err instanceof SwitchChainError) {
-        warningToast({ title: $t('messages.network.pending.title'), message: $t('messages.network.pending.message') });
-      }
-      if (err instanceof UserRejectedRequestError) {
-        warningToast({
-          title: $t('messages.network.rejected.title'),
-          message: $t('messages.network.rejected.message'),
-        });
-      }
+      handleSwitchChainError(err);
     } finally {
       switchingNetwork = false;
     }
