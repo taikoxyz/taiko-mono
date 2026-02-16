@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.33.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.3...docs-site-v1.33.4) (2026-02-16)
+
+
+### Chores
+
+* **docs-site:** add facilitator ([#21313](https://github.com/taikoxyz/taiko-mono/issues/21313)) ([ea53330](https://github.com/taikoxyz/taiko-mono/commit/ea533304427ae6cb6920f59a23ac313a4e5c6b86))
+* **repo:** update discord link ([#21282](https://github.com/taikoxyz/taiko-mono/issues/21282)) ([e281608](https://github.com/taikoxyz/taiko-mono/commit/e281608537818e2618cfa0a503dcd3d926515f1d))
+
 ## [1.33.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.2...docs-site-v1.33.3) (2026-02-09)
 
 
