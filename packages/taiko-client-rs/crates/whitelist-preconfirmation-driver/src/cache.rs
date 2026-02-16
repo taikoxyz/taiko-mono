@@ -60,7 +60,6 @@ impl SharedPreconfCacheState {
     /// Record an EOS hash for the given epoch with bounded cache size.
     pub(crate) async fn record_end_of_sequencing(&self, epoch: u64, block_hash: B256) {
         let mut entries = self.end_of_sequencing_by_epoch.lock().await;
-        entries.remove(&epoch);
         entries.insert(epoch, block_hash);
 
         while entries.len() > DEFAULT_EOS_CACHE_CAPACITY {

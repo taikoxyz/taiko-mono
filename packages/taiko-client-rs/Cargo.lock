@@ -13924,6 +13924,7 @@ dependencies = [
  "axum",
  "bindings",
  "bytes",
+ "chrono",
  "driver",
  "ethereum_ssz",
  "flate2",

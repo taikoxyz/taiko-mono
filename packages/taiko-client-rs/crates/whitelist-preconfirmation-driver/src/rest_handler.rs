@@ -25,7 +25,7 @@ use protocol::{
 };
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::{
     cache::SharedPreconfCacheState,
@@ -51,6 +51,8 @@ const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 /// Default lookahead timestamp used before first successful refresh.
 const ZERO_LOOKAHEAD_UPDATED_AT: &str = "0001-01-01T00:00:00Z";
+/// Interval for periodic lookahead refreshes.
+const LOOKAHEAD_REFRESH_INTERVAL_SECS: u64 = 12;
 
 /// Implements the whitelist preconfirmation REST/WS API.
 pub(crate) struct WhitelistRestHandler<P>
@@ -129,7 +131,8 @@ where
         let handler = Arc::clone(self);
         tokio::spawn(async move {
             handler.refresh_lookahead().await;
-            let mut ticker = tokio::time::interval(Duration::from_secs(12));
+            let mut ticker =
+                tokio::time::interval(Duration::from_secs(LOOKAHEAD_REFRESH_INTERVAL_SECS));
             loop {
                 ticker.tick().await;
                 handler.refresh_lookahead().await;
@@ -289,10 +292,8 @@ where
             return Ok(());
         }
 
-        let reason = if fee_recipient == lookahead.curr_operator { "current" } else { "next" };
-
         Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "fee recipient {fee_recipient} is not allowed as the {reason} operator for slot {current_slot}"
+            "fee recipient {fee_recipient} is not allowed to build for slot {current_slot}"
         )))
     }
 
@@ -374,7 +375,14 @@ where
 
                     Some((curr_operator, next_operator, curr_ranges, next_ranges))
                 }
-                Err(_) => None,
+                Err(err) => {
+                    warn!(
+                        error = %err,
+                        current_epoch,
+                        "failed to fetch lookahead operator metadata"
+                    );
+                    None
+                }
             })?;
 
         Some(LookaheadStatus {
@@ -390,6 +398,7 @@ where
     /// Refresh cached lookahead data if chain lookup succeeds.
     async fn refresh_lookahead(&self) {
         let Some(lookahead_status) = self.compute_lookahead_status().await else {
+            warn!("lookahead refresh failed; retaining previous cached value");
             return;
         };
 
@@ -534,10 +543,16 @@ where
         if request.end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.current_epoch();
             self.cache_state.record_end_of_sequencing(epoch, block_hash).await;
-            let _ = self.eos_notification_tx.send(EndOfSequencingNotification {
+            if let Err(err) = self.eos_notification_tx.send(EndOfSequencingNotification {
                 current_epoch: epoch,
                 end_of_sequencing: true,
-            });
+            }) {
+                warn!(
+                    error = %err,
+                    current_epoch = epoch,
+                    "failed to deliver end-of-sequencing websocket notification"
+                );
+            }
             self.network_command_tx
                 .send(NetworkCommand::PublishEndOfSequencingRequest { epoch })
                 .await

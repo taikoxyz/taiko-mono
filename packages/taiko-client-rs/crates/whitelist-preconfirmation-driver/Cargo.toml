@@ -20,6 +20,7 @@ async-trait = { workspace = true }
 axum = { version = "0.7", features = ["ws"] }
 bindings = { path = "../bindings" }
 bytes = "1"
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
 driver = { path = "../driver" }
 flate2 = { workspace = true }
 futures = "0.3"
