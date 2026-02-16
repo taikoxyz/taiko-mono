@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { Anchor } from "src/layer2/core/Anchor.sol";
-import { IPreconfSlasherL2 } from "src/layer2/preconf/IPreconfSlasherL2.sol";
 import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
@@ -15,7 +14,30 @@ import "./PreconfSlasherL2_Layout.sol"; // DO NOT DELETE
 /// are detected. It handles liveness and safety preconfirmation faults.
 /// @dev This contract acts as the L2 component of the preconfirmation slashing system.
 /// @custom:security-contact security@taiko.xyz
-contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
+contract PreconfSlasherL2 is EssentialContract {
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @dev A Commitment message binding an opaque payload to a slasher contract.
+    /// Extracted from URC's `ISlasher` to enable compilation to Shanghai.
+    struct Commitment {
+        uint64 commitmentType;
+        bytes payload;
+        address slasher;
+    }
+
+    /// @dev A commitment message signed by a delegate's ECDSA key.
+    /// Extracted from URC's `ISlasher` to enable compilation to Shanghai.
+    struct SignedCommitment {
+        Commitment commitment;
+        bytes signature;
+    }
+
+    // ---------------------------------------------------------------
+    // Immutables
+    // ---------------------------------------------------------------
+
     address public immutable preconfSlasherL1;
     address public immutable anchor;
     address public immutable bridge;
@@ -36,9 +58,10 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc IPreconfSlasherL2
+    /// @dev Validates if a preconfirmation is slashable and forwards the fault to the
+    /// L1 preconfirmation slasher.
     function slash(
-        IPreconfSlasher.Fault _fault,
+        IPreconfSlasher.PreconfirmationFault _fault,
         bytes32 _registrationRoot,
         SignedCommitment calldata _signedCommitment
     )
@@ -60,7 +83,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
             ParentSubmissionWindowEndMismatch()
         );
 
-        if (_fault == IPreconfSlasher.Fault.Liveness) {
+        if (_fault == IPreconfSlasher.PreconfirmationFault.Liveness) {
             _validateLivenessFault(preconfirmation, preconfMetadata);
         } else {
             _validateSafetyFault(preconfirmation, preconfMetadata);
@@ -146,7 +169,7 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
     /// @dev Invokes a call to L1 preconf slasher's onMessageInvocation(bytes) via the bridge
     function _invokePreconfSlasherL1(
-        IPreconfSlasher.Fault _fault,
+        IPreconfSlasher.PreconfirmationFault _fault,
         bytes32 _registrationRoot,
         SignedCommitment memory _signedCommitment
     )
@@ -175,4 +198,15 @@ contract PreconfSlasherL2 is IPreconfSlasherL2, EssentialContract {
 
         IBridge(bridge).sendMessage(message);
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidEOPFlag();
+    error NotALivenessFault();
+    error NotASafetyFault();
+    error ParentRawTxListHashMismatch();
+    error ParentSubmissionWindowEndMismatch();
+    error UnexpectedExtraProposalsInPreviousWindow();
 }

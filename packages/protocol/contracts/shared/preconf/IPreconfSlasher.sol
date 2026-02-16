@@ -24,7 +24,7 @@ interface IPreconfSlasher {
     }
 
     // The slashing reason forwarded to the L1 preconfirmation slasher
-    enum Fault {
+    enum PreconfirmationFault {
         // A liveness fault: the preconfer missed a submission or missed the EOP flag.
         // On L1, this is further classified: if the L1 slot had a block, it becomes a Safety fault.
         Liveness,

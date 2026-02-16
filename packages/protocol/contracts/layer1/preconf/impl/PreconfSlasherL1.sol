@@ -79,19 +79,6 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error CallerIsNotPreconfSlasherL2();
-    error ChallengerIsNotSelf();
-    error InvalidLookaheadSlotsIndex();
-    error InvalidRegistrationProofValidator();
-    error LookaheadHashMismatch();
-    error PreconfValidatorIsSameAsBeaconValidator();
-    error PreconfValidatorIsNotRegistered();
-    error RegistrationRootMismatch();
-
-    // ---------------------------------------------------------------
     // Immutables
     // ---------------------------------------------------------------
 
@@ -155,9 +142,9 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
             // For preconf slashing, `onMessageInvocation` calls the URC, which further
             // calls this slashing function internally
             require(_challenger == address(this), ChallengerIsNotSelf());
-            IPreconfSlasher.Fault fault = _classifyPreconfFault(_commitment, evidence);
+            IPreconfSlasher.PreconfirmationFault fault = _classifyPreconfFault(_commitment, evidence);
             SlashingAmounts memory amounts = getSlashingAmounts();
-            slashAmount_ = fault == IPreconfSlasher.Fault.Liveness
+            slashAmount_ = fault == IPreconfSlasher.PreconfirmationFault.Liveness
                 ? amounts.preconfLivenessFault
                 : amounts.preconfSafetyFault;
         }
@@ -173,10 +160,10 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
         require(ctx.from == preconfSlasherL2, CallerIsNotPreconfSlasherL2());
 
         (
-            IPreconfSlasher.Fault fault,
+            IPreconfSlasher.PreconfirmationFault fault,
             bytes32 registrationRoot,
             ISlasher.SignedCommitment memory signedCommitment
-        ) = abi.decode(_data, (IPreconfSlasher.Fault, bytes32, ISlasher.SignedCommitment));
+        ) = abi.decode(_data, (IPreconfSlasher.PreconfirmationFault, bytes32, ISlasher.SignedCommitment));
 
         // Slash the operator via the URC
         IRegistry(urc).slashCommitment(registrationRoot, signedCommitment, abi.encode(fault));
@@ -414,10 +401,10 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     )
         internal
         view
-        returns (IPreconfSlasher.Fault)
+        returns (IPreconfSlasher.PreconfirmationFault)
     {
-        IPreconfSlasher.Fault fault = abi.decode(_evidence, (IPreconfSlasher.Fault));
-        if (fault == IPreconfSlasher.Fault.Liveness) {
+        IPreconfSlasher.PreconfirmationFault fault = abi.decode(_evidence, (IPreconfSlasher.PreconfirmationFault));
+        if (fault == IPreconfSlasher.PreconfirmationFault.Liveness) {
             IPreconfSlasher.Preconfirmation memory preconfirmation =
                 abi.decode(_commitment.payload, (IPreconfSlasher.Preconfirmation));
             // If the L1 slot had a block, the preconfer had the chance to submit
@@ -425,7 +412,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
                 LibPreconfUtils.getBeaconBlockRootAt(preconfirmation.submissionWindowEnd)
                     != bytes32(0)
             ) {
-                return IPreconfSlasher.Fault.Safety;
+                return IPreconfSlasher.PreconfirmationFault.Safety;
             }
         }
         return fault;
@@ -481,4 +468,17 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
             z.offset := add(zOuterOffset, 0x20)
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CallerIsNotPreconfSlasherL2();
+    error ChallengerIsNotSelf();
+    error InvalidLookaheadSlotsIndex();
+    error InvalidRegistrationProofValidator();
+    error LookaheadHashMismatch();
+    error PreconfValidatorIsSameAsBeaconValidator();
+    error PreconfValidatorIsNotRegistered();
+    error RegistrationRootMismatch();
 }
