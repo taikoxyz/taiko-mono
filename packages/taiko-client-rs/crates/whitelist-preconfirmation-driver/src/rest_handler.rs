@@ -431,8 +431,8 @@ fn is_fee_recipient_allowed_for_slot(
     current_slot: u64,
     lookahead: &LookaheadStatus,
 ) -> bool {
-    (fee_recipient == lookahead.curr_operator
-        && slot_matches_range(current_slot, &lookahead.curr_ranges))
+    (fee_recipient == lookahead.curr_operator &&
+        slot_matches_range(current_slot, &lookahead.curr_ranges))
         || (fee_recipient == lookahead.next_operator
             && slot_matches_range(current_slot, &lookahead.next_ranges))
 }
@@ -560,10 +560,10 @@ where
         if request.end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.current_epoch();
             self.cache_state.record_end_of_sequencing(epoch, block_hash).await;
-            if let Err(err) = self.eos_notification_tx.send(EndOfSequencingNotification {
-                current_epoch: epoch,
-                end_of_sequencing: true,
-            }) {
+            if let Err(err) = self
+                .eos_notification_tx
+                .send(EndOfSequencingNotification { current_epoch: epoch, end_of_sequencing: true })
+            {
                 warn!(
                     error = %err,
                     current_epoch = epoch,
@@ -728,26 +728,14 @@ mod tests {
             last_updated_epoch: 0,
         };
 
-        assert!(is_fee_recipient_allowed_for_slot(
-            Address::from([0x11u8; 20]),
-            15,
-            &lookahead
-        ));
-        assert!(is_fee_recipient_allowed_for_slot(
-            Address::from([0x22u8; 20]),
-            25,
-            &lookahead
-        ));
+        assert!(is_fee_recipient_allowed_for_slot(Address::from([0x11u8; 20]), 15, &lookahead));
+        assert!(is_fee_recipient_allowed_for_slot(Address::from([0x22u8; 20]), 25, &lookahead));
         assert!(!is_fee_recipient_allowed_for_slot(
             Address::from([0x33u8; 20]),
             15,
             &lookahead
         ));
-        assert!(!is_fee_recipient_allowed_for_slot(
-            Address::from([0x11u8; 20]),
-            25,
-            &lookahead
-        ));
+        assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x11u8; 20]), 25, &lookahead));
         assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x22u8; 20]), 15, &lookahead));
     }
 }

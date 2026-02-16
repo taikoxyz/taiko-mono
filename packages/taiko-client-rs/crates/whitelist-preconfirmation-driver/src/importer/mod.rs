@@ -7,17 +7,16 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
-use rpc::beacon::BeaconClient;
-use rpc::client::Client;
+use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
     cache::{
         EnvelopeCache, L1_EPOCH_DURATION_SECS, RecentEnvelopeCache, RequestThrottle,
         SharedPreconfCacheState, WhitelistSequencerCache,
     },
+    codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
