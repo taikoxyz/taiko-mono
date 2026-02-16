@@ -550,7 +550,7 @@ mod tests {
     use super::*;
     use crate::rest::types::{
         BuildPreconfBlockRequest, BuildPreconfBlockResponse, BuildPreconfBlockRestRequest,
-        EndOfSequencingNotification, ExecutableData, WhitelistStatus,
+        EndOfSequencingNotification, ExecutableData, LookaheadStatus, WhitelistStatus,
     };
     use alloy_primitives::{Address, B256, Bytes as RpcBytes};
     use async_trait::async_trait;
@@ -576,7 +576,7 @@ mod tests {
                 highest_unsafe_block_number: 100,
                 peer_id: "test-peer".to_string(),
                 sync_ready: true,
-                lookahead: None,
+                lookahead: test_lookahead_status(),
                 total_cached: 0,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
@@ -615,7 +615,7 @@ mod tests {
                 highest_unsafe_block_number: 100,
                 peer_id: "test-peer".to_string(),
                 sync_ready: self.sync_ready,
-                lookahead: None,
+                lookahead: test_lookahead_status(),
                 total_cached: 0,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
@@ -625,6 +625,17 @@ mod tests {
         fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
             let (_tx, rx) = broadcast::channel(1);
             rx
+        }
+    }
+
+    fn test_lookahead_status() -> LookaheadStatus {
+        LookaheadStatus {
+            curr_operator: Address::ZERO,
+            next_operator: Address::ZERO,
+            curr_ranges: vec![],
+            next_ranges: vec![],
+            updated_at: "0001-01-01T00:00:00Z".to_string(),
+            last_updated_epoch: 0,
         }
     }
 

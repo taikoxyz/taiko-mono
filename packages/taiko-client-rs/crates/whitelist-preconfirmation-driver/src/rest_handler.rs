@@ -3,7 +3,7 @@
 use std::{
     io::Read,
     sync::Arc,
-    time::{Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant},
 };
 
 use alethia_reth_primitives::payload::{
@@ -24,7 +24,7 @@ use protocol::{
     signer::FixedKSigner,
 };
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, broadcast, mpsc};
+use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
 use tracing::debug;
 
 use crate::{
@@ -49,6 +49,8 @@ use crate::{
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
+/// Default lookahead timestamp used before first successful refresh.
+const ZERO_LOOKAHEAD_UPDATED_AT: &str = "0001-01-01T00:00:00Z";
 
 /// Implements the whitelist preconfirmation REST/WS API.
 pub(crate) struct WhitelistRestHandler<P>
@@ -75,6 +77,8 @@ where
     whitelist: PreconfWhitelistInstance<P>,
     /// Highest unsafe payload block ID tracked by this node.
     highest_unsafe_l2_payload_block_id: Mutex<u64>,
+    /// Cached lookahead status used by `/status` and fee-recipient validation.
+    lookahead_status: RwLock<LookaheadStatus>,
     /// Shared cache state used to back `/status` and EOS visibility.
     cache_state: SharedPreconfCacheState,
     /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
@@ -111,11 +115,37 @@ where
             highest_unsafe_l2_payload_block_id: Mutex::new(
                 initial_highest_unsafe_l2_payload_block_id,
             ),
+            lookahead_status: RwLock::new(Self::initial_lookahead_status()),
             cache_state,
             eos_notification_tx,
             network_command_tx,
             local_peer_id,
             build_preconf_lock: Mutex::new(()),
+        }
+    }
+
+    /// Start a background task to refresh cached lookahead metadata every 12 seconds.
+    pub(crate) fn start_lookahead_refresh_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
+        let handler = Arc::clone(self);
+        tokio::spawn(async move {
+            handler.refresh_lookahead().await;
+            let mut ticker = tokio::time::interval(Duration::from_secs(12));
+            loop {
+                ticker.tick().await;
+                handler.refresh_lookahead().await;
+            }
+        })
+    }
+
+    /// Build the initial zero-value lookahead entry.
+    fn initial_lookahead_status() -> LookaheadStatus {
+        LookaheadStatus {
+            curr_operator: Address::ZERO,
+            next_operator: Address::ZERO,
+            curr_ranges: Vec::new(),
+            next_ranges: Vec::new(),
+            updated_at: ZERO_LOOKAHEAD_UPDATED_AT.to_string(),
+            last_updated_epoch: 0,
         }
     }
 
@@ -236,15 +266,33 @@ where
         )
     }
 
-    /// Check fee recipient against current/next whitelist operator addresses.
+    /// Check fee recipient against current/next sequencing slot ranges.
     async fn ensure_fee_recipient_allowed(&self, fee_recipient: Address) -> Result<()> {
-        let (current, next) = self.fetch_current_next_sequencers().await?;
-        if fee_recipient == current || fee_recipient == next {
+        let current_slot = self.beacon_client.current_slot();
+        self.ensure_fee_recipient_allowed_for_slot(fee_recipient, current_slot).await
+    }
+
+    /// Check fee recipient against a specific slot's sequencing ranges.
+    async fn ensure_fee_recipient_allowed_for_slot(
+        &self,
+        fee_recipient: Address,
+        current_slot: u64,
+    ) -> Result<()> {
+        let lookahead = self.lookahead_status.read().await;
+        if lookahead.curr_ranges.is_empty() && lookahead.next_ranges.is_empty() {
             return Ok(());
         }
 
+        if slot_matches_range(current_slot, &lookahead.curr_ranges)
+            || slot_matches_range(current_slot, &lookahead.next_ranges)
+        {
+            return Ok(());
+        }
+
+        let reason = if fee_recipient == lookahead.curr_operator { "current" } else { "next" };
+
         Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "fee recipient {fee_recipient} is not current ({current}) or next ({next}) operator"
+            "fee recipient {fee_recipient} is not allowed as the {reason} operator for slot {current_slot}"
         )))
     }
 
@@ -305,38 +353,62 @@ where
     }
 
     /// Build best-effort Go-compatible lookahead status.
-    async fn current_lookahead_status(&self) -> Option<LookaheadStatus> {
-        let (curr_operator, next_operator) = self.fetch_current_next_sequencers().await.ok()?;
+    async fn compute_lookahead_status(&self) -> Option<LookaheadStatus> {
         let current_epoch = self.beacon_client.current_epoch();
         let slots_per_epoch = self.beacon_client.slots_per_epoch();
         let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
         let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
         let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
 
-        let curr_ranges =
-            vec![SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) }];
-        let next_ranges = vec![SlotRange {
-            start: epoch_start.saturating_add(threshold),
-            end: epoch_start.saturating_add(slots_per_epoch),
-        }];
+        let (curr_operator, next_operator, curr_ranges, next_ranges) =
+            (match self.fetch_current_next_sequencers().await {
+                Ok((curr_operator, next_operator)) => {
+                    let curr_ranges = vec![SlotRange {
+                        start: epoch_start,
+                        end: epoch_start.saturating_add(threshold),
+                    }];
+                    let next_ranges = vec![SlotRange {
+                        start: epoch_start.saturating_add(threshold),
+                        end: epoch_start.saturating_add(slots_per_epoch),
+                    }];
 
-        let updated_at =
-            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
+                    Some((curr_operator, next_operator, curr_ranges, next_ranges))
+                }
+                Err(_) => None,
+            })?;
 
         Some(LookaheadStatus {
             curr_operator,
             next_operator,
             curr_ranges,
             next_ranges,
-            updated_at,
+            updated_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
             last_updated_epoch: current_epoch,
         })
+    }
+
+    /// Refresh cached lookahead data if chain lookup succeeds.
+    async fn refresh_lookahead(&self) {
+        let Some(lookahead_status) = self.compute_lookahead_status().await else {
+            return;
+        };
+
+        *self.lookahead_status.write().await = lookahead_status;
+    }
+
+    /// Return the cached lookahead entry.
+    async fn cached_lookahead(&self) -> LookaheadStatus {
+        self.lookahead_status.read().await.clone()
     }
 
     /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).
     async fn update_highest_unsafe(&self, block_number: u64) {
         *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
     }
+}
+
+fn slot_matches_range(slot: u64, ranges: &[SlotRange]) -> bool {
+    ranges.iter().any(|range| slot >= range.start && slot < range.end)
 }
 
 #[async_trait]
@@ -501,7 +573,7 @@ where
             highest_unsafe_block_number: highest_unsafe,
             peer_id: self.local_peer_id.clone(),
             sync_ready,
-            lookahead: self.current_lookahead_status().await,
+            lookahead: self.cached_lookahead().await,
             total_cached: self.cache_state.total_pending_cache_inserts(),
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
@@ -599,5 +671,17 @@ mod tests {
         let compressed = compress(&expected);
         let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
         assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn slot_matches_range_checks_slot_bounds() {
+        let ranges = vec![SlotRange { start: 10, end: 20 }, SlotRange { start: 30, end: 40 }];
+
+        assert!(slot_matches_range(10, &ranges));
+        assert!(slot_matches_range(19, &ranges));
+        assert!(!slot_matches_range(20, &ranges));
+        assert!(!slot_matches_range(25, &ranges));
+        assert!(slot_matches_range(30, &ranges));
+        assert!(!slot_matches_range(40, &ranges));
     }
 }

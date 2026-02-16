@@ -119,8 +119,8 @@ pub struct LookaheadStatus {
     pub curr_ranges: Vec<SlotRange>,
     /// Next operator allowed slot ranges.
     pub next_ranges: Vec<SlotRange>,
-    /// Last update timestamp (unix seconds).
-    pub updated_at: u64,
+    /// Last update timestamp (RFC3339).
+    pub updated_at: String,
     /// Last epoch used for update.
     pub last_updated_epoch: u64,
 }
@@ -130,10 +130,11 @@ pub struct LookaheadStatus {
 #[serde(rename_all = "camelCase")]
 pub struct RestStatus {
     /// Sequencing lookahead information.
-    pub lookahead: Option<LookaheadStatus>,
+    pub lookahead: LookaheadStatus,
     /// Total cached envelopes (best-effort).
     pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
+    #[serde(rename = "highestUnsafeL2PayloadBlockID")]
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (if any).
     pub end_of_sequencing_block_hash: String,
@@ -162,11 +163,11 @@ pub struct WhitelistStatus {
     /// Whether event sync has established a head L1 origin.
     pub sync_ready: bool,
     /// Sequencing lookahead information.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub lookahead: Option<LookaheadStatus>,
+    pub lookahead: LookaheadStatus,
     /// Total cached envelopes (best-effort).
     pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
+    #[serde(rename = "highestUnsafeL2PayloadBlockID")]
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -208,7 +209,14 @@ mod tests {
             highest_unsafe_block_number: 100,
             peer_id: "test-peer".to_string(),
             sync_ready: true,
-            lookahead: None,
+            lookahead: LookaheadStatus {
+                curr_operator: Address::ZERO,
+                next_operator: Address::ZERO,
+                curr_ranges: Vec::new(),
+                next_ranges: Vec::new(),
+                updated_at: "0001-01-01T00:00:00Z".to_string(),
+                last_updated_epoch: 0,
+            },
             total_cached: 0,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
@@ -218,7 +226,32 @@ mod tests {
         assert!(json.contains("headL1OriginBlockId"));
         assert!(json.contains("highestUnsafeBlockNumber"));
         assert!(json.contains("syncReady"));
-        assert!(json.contains("highestUnsafeL2PayloadBlockId"));
+        assert!(json.contains("highestUnsafeL2PayloadBlockID"));
         assert!(json.contains("endOfSequencingBlockHash"));
+    }
+
+    #[test]
+    fn rest_status_lookahead_updated_at_serializes_as_rfc3339_string() {
+        let status = RestStatus {
+            lookahead: LookaheadStatus {
+                curr_operator: Address::ZERO,
+                next_operator: Address::ZERO,
+                curr_ranges: vec![],
+                next_ranges: vec![],
+                updated_at: "2024-12-25T10:00:00Z".to_string(),
+                last_updated_epoch: 123,
+            },
+            total_cached: 0,
+            highest_unsafe_l2_payload_block_id: 1,
+            end_of_sequencing_block_hash: B256::ZERO.to_string(),
+        };
+
+        let json =
+            serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&status).unwrap())
+                .expect("status should serialize as JSON");
+        assert_eq!(
+            json["lookahead"]["updatedAt"].as_str().expect("updatedAt should be a string"),
+            "2024-12-25T10:00:00Z"
+        );
     }
 }

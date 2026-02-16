@@ -13,8 +13,8 @@ use tracing::{info, warn};
 
 use crate::{
     Result,
-    error::WhitelistPreconfirmationDriverError,
     cache::SharedPreconfCacheState,
+    error::WhitelistPreconfirmationDriverError,
     importer::WhitelistPreconfirmationImporter,
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
@@ -109,6 +109,7 @@ impl WhitelistPreconfirmationDriverRunner {
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.
+        let mut lookahead_refresh_task = None;
         let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
@@ -142,7 +143,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 }
             };
 
-            let handler = WhitelistRestHandler::new(
+            let handler = Arc::new(WhitelistRestHandler::new(
                 preconf_ingress_sync.event_syncer(),
                 preconf_ingress_sync.client().clone(),
                 self.config.p2p_config.chain_id,
@@ -153,7 +154,8 @@ impl WhitelistPreconfirmationDriverRunner {
                 network.command_tx.clone(),
                 network.local_peer_id.to_string(),
                 cache_state.clone(),
-            );
+            ));
+            lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
 
             let server_config = WhitelistRestWsServerConfig {
                 listen_addr,
@@ -161,7 +163,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 cors_origins: self.config.rpc_cors_origins.clone(),
                 ..Default::default()
             };
-            let server = WhitelistRestWsServer::start(server_config, Arc::new(handler)).await?;
+            let server = WhitelistRestWsServer::start(server_config, handler).await?;
             info!(
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
@@ -189,6 +191,9 @@ impl WhitelistPreconfirmationDriverRunner {
             tokio::select! {
                 result = &mut node_handle => {
                     event_syncer_handle.abort();
+                    if let Some(task) = lookahead_refresh_task.take() {
+                        task.abort();
+                    }
                     if let Some(server) = rest_ws_server.take() {
                         server.stop().await;
                     }
@@ -224,6 +229,9 @@ impl WhitelistPreconfirmationDriverRunner {
                 result = &mut *event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
+                    if let Some(task) = lookahead_refresh_task.take() {
+                        task.abort();
+                    }
                     if let Some(server) = rest_ws_server.take() {
                         server.stop().await;
                     }
@@ -257,6 +265,9 @@ impl WhitelistPreconfirmationDriverRunner {
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
                         event_syncer_handle.abort();
+                        if let Some(task) = lookahead_refresh_task.take() {
+                            task.abort();
+                        }
                         if let Some(server) = rest_ws_server.take() {
                             server.stop().await;
                         }
