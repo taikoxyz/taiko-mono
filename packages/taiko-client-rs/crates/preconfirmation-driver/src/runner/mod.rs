@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use alloy_provider::Provider;
 use driver::{
-    DriverConfig,
+    DriverConfig, map_driver_error,
     sync::{SyncError, event::EventSyncer},
 };
 use preconfirmation_net::P2pConfig;
@@ -212,7 +212,7 @@ impl PreconfirmationDriverRunner {
                 node_handle.abort();
                 match result {
                     Ok(Ok(())) => Err(RunnerError::EventSyncerExited),
-                    Ok(Err(err)) => Err(RunnerError::Sync(err)),
+                    Ok(Err(err)) => Err(map_driver_error(err)),
                     Err(err) => Err(RunnerError::EventSyncerFailed(err.to_string())),
                 }
             }

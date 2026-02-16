@@ -15,7 +15,7 @@ pub mod sync;
 
 pub use config::DriverConfig;
 pub use driver::Driver;
-pub use error::DriverError;
+pub use error::{DriverError, map_driver_error};
 pub use production::PreconfPayload;
 pub use sync::{CanonicalTipState, SyncPipeline, SyncStage, event::EventSyncer};
 

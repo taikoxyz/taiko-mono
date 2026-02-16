@@ -5,10 +5,7 @@ use std::{future::Future, sync::Arc};
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
-use driver::{
-    DriverConfig, SyncStage,
-    sync::{SyncError, event::EventSyncer},
-};
+use driver::{DriverConfig, SyncPipeline, map_driver_error, sync::event::EventSyncer};
 use rpc::client::Client;
 use tokio::task::JoinHandle;
 
@@ -21,16 +18,16 @@ where
 {
     client: Client<P>,
     event_syncer: Arc<EventSyncer<P>>,
-    handle: JoinHandle<std::result::Result<(), SyncError>>,
+    handle: JoinHandle<std::result::Result<(), driver::DriverError>>,
 }
 
 impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
-    /// Start the preconfirmation ingress syncer and its background task.
+    /// Start the preconfirmation ingress sync pipeline and its background task.
     pub(crate) async fn start(config: &DriverConfig) -> Result<Self, RunnerError> {
         let client = Client::new(config.client.clone()).await?;
-        let event_syncer = Arc::new(EventSyncer::new(config, client.clone()).await?);
-        let event_syncer_task = event_syncer.clone();
-        let handle = tokio::spawn(async move { event_syncer_task.run().await });
+        let pipeline = SyncPipeline::new(config.clone(), client.clone()).await?;
+        let event_syncer = pipeline.event_syncer();
+        let handle = tokio::spawn(async move { pipeline.run().await });
 
         Ok(Self { client, event_syncer, handle })
     }
@@ -50,8 +47,10 @@ where
         self.event_syncer.clone()
     }
 
-    /// Get a mutable handle to the ingress syncer task.
-    pub(crate) fn handle_mut(&mut self) -> &mut JoinHandle<std::result::Result<(), SyncError>> {
+    /// Get a mutable handle to the ingress sync pipeline task.
+    pub(crate) fn handle_mut(
+        &mut self,
+    ) -> &mut JoinHandle<std::result::Result<(), driver::DriverError>> {
         &mut self.handle
     }
 
@@ -68,7 +67,7 @@ where
 /// Wait for preconfirmation ingress to be ready or the ingress syncer to exit.
 pub(crate) async fn wait_for_preconf_ingress_ready<F>(
     ready: F,
-    event_syncer_handle: &mut JoinHandle<std::result::Result<(), SyncError>>,
+    event_syncer_handle: &mut JoinHandle<std::result::Result<(), driver::DriverError>>,
 ) -> Result<(), RunnerError>
 where
     F: Future<Output = Option<()>> + Send,
@@ -78,7 +77,7 @@ where
         result = event_syncer_handle => {
             match result {
                 Ok(Ok(())) => Err(RunnerError::EventSyncerExited),
-                Ok(Err(err)) => Err(RunnerError::Sync(err)),
+                Ok(Err(err)) => Err(map_driver_error(err)),
                 Err(err) => Err(RunnerError::EventSyncerFailed(err.to_string())),
             }
         }
@@ -87,15 +86,38 @@ where
 
 #[cfg(test)]
 mod tests {
+    use driver::{DriverError, sync::SyncError};
+
     #[tokio::test]
     async fn wait_for_preconf_ingress_ready_errors_when_ready_none() {
-        use driver::sync::SyncError;
-
         let ready = async { None };
-        let mut handle = tokio::spawn(async { Ok::<(), SyncError>(()) });
+        let mut handle = tokio::spawn(async { Ok::<(), DriverError>(()) });
 
         let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
 
         assert!(err.to_string().contains("preconfirmation ingress"));
+    }
+
+    #[tokio::test]
+    async fn wait_for_preconf_ingress_ready_maps_sync_driver_error() {
+        let ready = std::future::pending::<Option<()>>();
+        let mut handle = tokio::spawn(async {
+            Err::<(), DriverError>(DriverError::Sync(SyncError::MissingCheckpointResumeHead))
+        });
+
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+
+        assert!(matches!(err, super::RunnerError::Sync(SyncError::MissingCheckpointResumeHead)));
+    }
+
+    #[tokio::test]
+    async fn wait_for_preconf_ingress_ready_maps_non_sync_driver_error() {
+        let ready = std::future::pending::<Option<()>>();
+        let mut handle =
+            tokio::spawn(async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) });
+
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+
+        assert!(matches!(err, super::RunnerError::Driver(DriverError::PreconfirmationDisabled)));
     }
 }

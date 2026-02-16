@@ -10,11 +10,14 @@ use tracing::{info, instrument};
 use crate::{
     config::DriverConfig,
     error::DriverError,
-    sync::{beacon::BeaconSyncer, event::EventSyncer},
+    sync::{
+        beacon::BeaconSyncer, checkpoint_resume_head::CheckpointResumeHead, event::EventSyncer,
+    },
 };
 
 pub mod beacon;
 pub mod canonical_tip;
+pub mod checkpoint_resume_head;
 pub mod engine;
 pub mod error;
 pub mod event;
@@ -51,8 +54,13 @@ where
     /// Construct a new pipeline from the runtime configuration.
     #[instrument(skip(cfg, rpc), name = "sync_pipeline_new")]
     pub async fn new(cfg: DriverConfig, rpc: Client<P>) -> Result<Self, DriverError> {
-        let beacon = BeaconSyncer::new(&cfg, rpc.clone());
-        let event = Arc::new(EventSyncer::new(&cfg, rpc).await?);
+        // Shared cross-stage state: beacon sync writes the checkpoint head it caught up to,
+        // event sync consumes that head as its resume anchor when checkpoint mode is enabled.
+        let checkpoint_resume_head = Arc::new(CheckpointResumeHead::default());
+        let beacon = BeaconSyncer::new(&cfg, rpc.clone(), checkpoint_resume_head.clone());
+        let event = Arc::new(
+            EventSyncer::new_with_checkpoint_resume_head(&cfg, rpc, checkpoint_resume_head).await?,
+        );
         Ok(Self { beacon, event })
     }
 
