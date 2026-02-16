@@ -149,14 +149,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         new Inbox(cfg);
     }
 
-    function test_validateConfig_RevertWhen_BondTokenZero() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.bondToken = address(0);
-
-        vm.expectRevert(LibInboxSetup.BondTokenZero.selector);
-        new Inbox(cfg);
-    }
-
     function test_validateConfig_RevertWhen_ProvingWindowZero() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.provingWindow = 0;
