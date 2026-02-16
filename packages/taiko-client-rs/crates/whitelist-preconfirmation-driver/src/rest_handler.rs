@@ -283,8 +283,8 @@ where
             return Ok(());
         }
 
-        if slot_matches_range(current_slot, &lookahead.curr_ranges)
-            || slot_matches_range(current_slot, &lookahead.next_ranges)
+        if slot_matches_range(current_slot, &lookahead.curr_ranges) ||
+            slot_matches_range(current_slot, &lookahead.next_ranges)
         {
             return Ok(());
         }
