@@ -91,9 +91,10 @@
   };
 
   async function onAddressValidation(event: CustomEvent<{ isValidEthereumAddress: boolean; addr: Address }>) {
-    const { isValidEthereumAddress, addr } = event.detail;
+    const { isValidEthereumAddress: isValidAddress, addr } = event.detail;
+    isValidEthereumAddress = isValidAddress;
     tokenAddress = addr;
-    if (isValidEthereumAddress) {
+    if (isValidAddress) {
       await onAddressChange(tokenAddress as Address);
     } else {
       tokenAddress = addr;
