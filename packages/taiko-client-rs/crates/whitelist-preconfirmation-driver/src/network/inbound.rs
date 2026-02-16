@@ -18,7 +18,7 @@ use tracing::debug;
 
 use crate::{
     cache::WhitelistSequencerCache,
-    codec::{block_signing_hash, recover_signer, DecodedUnsafePayload},
+    codec::{DecodedUnsafePayload, block_signing_hash, recover_signer},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
@@ -188,8 +188,8 @@ impl InboundWhitelistFilter {
             return Err(err);
         }
 
-        if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp)
-            && let Some((current, next)) = self
+        if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp) &&
+            let Some((current, next)) = self
                 .sequencer_cache
                 .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
         {

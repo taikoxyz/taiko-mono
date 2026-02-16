@@ -1,10 +1,6 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
 
-use std::{
-    collections::HashSet,
-    sync::Arc,
-    time::Instant,
-};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use alloy_primitives::{Address, B256};
 use futures::StreamExt;
@@ -19,9 +15,8 @@ use tracing::{debug, warn};
 
 use crate::{
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope,
-        decode_unsafe_payload_signature, decode_unsafe_response_message, decode_envelope_ssz,
-        encode_envelope_ssz,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_envelope_ssz,
+        decode_unsafe_payload_signature, decode_unsafe_response_message, encode_envelope_ssz,
         encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
@@ -30,9 +25,9 @@ use crate::{
 };
 
 mod inbound;
-use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
+use inbound::EpochSeenTracker;
 #[cfg(test)]
-use inbound::{EpochSeenTracker};
+use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -196,7 +191,6 @@ struct ClassifiedBootnodes {
     discovery_enrs: Vec<String>,
 }
 
-
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
     pub fn spawn_with_whitelist_filter(
@@ -305,13 +299,12 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state =
-                GossipsubInboundState::new(
-                    cfg.chain_id,
-                    cfg.sequencer_addresses,
-                    cfg.sequencer_address,
-                    whitelist_filter,
-                );
+            let mut inbound_validation_state = GossipsubInboundState::new(
+                cfg.chain_id,
+                cfg.sequencer_addresses,
+                cfg.sequencer_address,
+                whitelist_filter,
+            );
 
             loop {
                 let has_discovery = discovery_rx.is_some();
@@ -721,39 +714,33 @@ async fn handle_gossipsub_event(
 
     if *topic == topics.preconf_blocks.hash() {
         let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data) {
-            Ok((wire_signature, payload_bytes)) => {
-                match decode_envelope_ssz(&payload_bytes) {
-                    Ok(envelope) => {
-                        let payload = DecodedUnsafePayload {
-                            wire_signature,
-                            payload_bytes,
-                            envelope,
-                        };
-                        let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
+            Ok((wire_signature, payload_bytes)) => match decode_envelope_ssz(&payload_bytes) {
+                Ok(envelope) => {
+                    let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
+                    let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
 
-                        if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
-                            && let Err(err) =
-                                forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await
-                        {
-                            report(&gossipsub::MessageAcceptance::Reject);
-                            return Err(err);
-                        }
-
-                        let inbound_label = acceptance_label(&acceptance);
-                        (acceptance, inbound_label)
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
+                        let Err(err) =
+                            forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await
+                    {
+                        report(&gossipsub::MessageAcceptance::Reject);
+                        return Err(err);
                     }
-                    Err(err) => {
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                            "topic" => "preconf_blocks",
-                        )
-                        .increment(1);
-                        debug!(error = %err, "failed to decode unsafe payload");
 
-                        (gossipsub::MessageAcceptance::Reject, "decode_failed")
-                    }
+                    let inbound_label = acceptance_label(&acceptance);
+                    (acceptance, inbound_label)
                 }
-            }
+                Err(err) => {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                        "topic" => "preconf_blocks",
+                    )
+                    .increment(1);
+                    debug!(error = %err, "failed to decode unsafe payload");
+
+                    (gossipsub::MessageAcceptance::Reject, "decode_failed")
+                }
+            },
             Err(err) => {
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
@@ -950,7 +937,6 @@ mod tests {
 
     use alloy_primitives::{Address, Bloom, Bytes, U256};
     use alloy_rpc_types_engine::ExecutionPayloadV1;
-    use protocol::signer::FixedKSigner;
     use libp2p::{
         Transport,
         core::upgrade,
@@ -958,6 +944,7 @@ mod tests {
         swarm::{NetworkBehaviour, SwarmEvent},
         tcp, yamux,
     };
+    use protocol::signer::FixedKSigner;
 
     use super::*;
 
@@ -993,9 +980,7 @@ mod tests {
     }
 
     fn signed_wire_signature(signer: &FixedKSigner, prehash: B256) -> [u8; 65] {
-        let sig = signer
-            .sign_with_predefined_k(prehash.as_ref())
-            .expect("sign prehash for test");
+        let sig = signer.sign_with_predefined_k(prehash.as_ref()).expect("sign prehash for test");
 
         let mut wire_signature = [0u8; 65];
         wire_signature[..32].copy_from_slice(&sig.signature.r().to_be_bytes::<32>());
@@ -1006,11 +991,10 @@ mod tests {
 
     fn sample_signed_preconf_payload(chain_id: u64, signer: &FixedKSigner) -> DecodedUnsafePayload {
         let mut payload = sample_preconf_payload();
-        payload.wire_signature =
-            signed_wire_signature(
-                signer,
-                crate::codec::block_signing_hash(chain_id, payload.payload_bytes.as_slice()),
-            );
+        payload.wire_signature = signed_wire_signature(
+            signer,
+            crate::codec::block_signing_hash(chain_id, payload.payload_bytes.as_slice()),
+        );
         payload
     }
 
@@ -1212,13 +1196,12 @@ mod tests {
     async fn validate_preconf_blocks_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(
-                167_000,
-                vec![Address::from([0x11u8; 20])],
-                Address::ZERO,
-                None,
-            );
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            vec![Address::from([0x11u8; 20])],
+            Address::ZERO,
+            None,
+        );
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1245,12 +1228,8 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let signer_address = signer.address();
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(
-            167_000,
-            Vec::new(),
-            signer_address,
-            None,
-        );
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), signer_address, None);
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1288,13 +1267,12 @@ mod tests {
     async fn validate_response_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(
-                167_000,
-                vec![Address::from([0x11u8; 20])],
-                Address::ZERO,
-                None,
-            );
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            vec![Address::from([0x11u8; 20])],
+            Address::ZERO,
+            None,
+        );
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1321,12 +1299,8 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let signer_address = signer.address();
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(
-            167_000,
-            Vec::new(),
-            signer_address,
-            None,
-        );
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, Vec::new(), signer_address, None);
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1581,8 +1555,9 @@ mod tests {
             ..Default::default()
         };
 
-        let mut whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
-            .expect("spawn network");
+        let mut whitelist_network =
+            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
+                .expect("spawn network");
         let expected_signature = [0x77u8; 65];
         let expected_envelope = Arc::new(sample_response_envelope());
 
@@ -1835,8 +1810,9 @@ mod tests {
             ..Default::default()
         };
 
-        let mut whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
-            .expect("spawn network");
+        let mut whitelist_network =
+            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
+                .expect("spawn network");
 
         let publish_task = tokio::spawn(async move {
             let mut connected = false;
