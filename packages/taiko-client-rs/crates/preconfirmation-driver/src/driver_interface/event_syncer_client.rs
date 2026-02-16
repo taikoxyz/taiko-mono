@@ -141,8 +141,7 @@ where
 {
     /// Build a driver client from an EventSyncer and RPC client bundle.
     pub fn from_client(event_syncer: Arc<EventSyncer<P>>, client: rpc::client::Client<P>) -> Self {
-        let l2_provider = client.l2_provider.clone();
-        let l2_provider: Arc<dyn L2Provider + Send + Sync> = Arc::new(l2_provider);
+        let l2_provider: Arc<dyn L2Provider + Send + Sync> = Arc::new(client.l2_provider.clone());
         Self::new_with_components_and_poll_interval(
             event_syncer,
             client.shasta.inbox,

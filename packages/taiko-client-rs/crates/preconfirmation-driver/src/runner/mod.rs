@@ -2,9 +2,9 @@
 
 mod preconf_ingress_sync;
 
-use std::sync::Arc;
+use std::{result, sync::Arc};
 
-use driver::{DriverConfig, map_driver_error, sync::SyncError};
+use driver::{DriverConfig, sync::SyncError};
 use preconfirmation_net::P2pConfig;
 use tracing::info;
 
@@ -17,6 +17,10 @@ use protocol::preconfirmation::LookaheadResolver;
 use rpc::beacon::BeaconClient;
 
 use preconf_ingress_sync::PreconfIngressSync;
+
+/// Join outcome emitted by the P2P node event-loop task.
+type NodeLoopResult =
+    result::Result<result::Result<(), PreconfirmationClientError>, tokio::task::JoinError>;
 
 /// Errors emitted by the preconfirmation driver runner.
 #[derive(Debug, thiserror::Error)]
@@ -69,6 +73,13 @@ impl RunnerConfig {
         self.rpc_config = rpc_config;
         self
     }
+}
+
+/// Convert node task completion into runner-level termination semantics.
+fn map_node_loop_result(result: NodeLoopResult) -> Result<(), RunnerError> {
+    result
+        .map_err(|err| RunnerError::NodeTaskFailed(err.to_string()))?
+        .map_err(RunnerError::Preconfirmation)
 }
 
 /// Orchestrates the preconfirmation driver with embedded P2P client.
@@ -164,19 +175,11 @@ impl PreconfirmationDriverRunner {
         let run_result = tokio::select! {
             result = &mut node_handle => {
                 event_syncer_handle.abort();
-                match result {
-                    Ok(Ok(())) => Ok(()),
-                    Ok(Err(err)) => Err(RunnerError::Preconfirmation(err)),
-                    Err(err) => Err(RunnerError::NodeTaskFailed(err.to_string())),
-                }
+                map_node_loop_result(result)
             }
             result = &mut *event_syncer_handle => {
                 node_handle.abort();
-                match result {
-                    Ok(Ok(())) => Err(RunnerError::EventSyncerExited),
-                    Ok(Err(err)) => Err(map_driver_error(err)),
-                    Err(err) => Err(RunnerError::EventSyncerFailed(err.to_string())),
-                }
+                preconf_ingress_sync::map_event_syncer_exit_result(result)
             }
         };
 

@@ -74,12 +74,22 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
     /// Returns the preconfirmation slot info (signer and submission window end) for the given L2
     /// block timestamp.
     async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
-        let info = self.lookahead_resolver.slot_info_for_timestamp(timestamp).await?;
-        Ok(PreconfSlotInfo {
-            signer: info.signer,
-            submission_window_end: info.submission_window_end,
-        })
+        self.lookahead_resolver
+            .slot_info_for_timestamp(timestamp)
+            .await
+            .map(PreconfSlotInfo::from)
+            .map_err(Into::into)
     }
+}
+
+/// Query the P2P network for the current peer count, returning 0 if the command channel is closed.
+async fn query_peer_count(command_tx: &mpsc::Sender<NetworkCommand>) -> u64 {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    if command_tx.send(NetworkCommand::GetPeerCount { respond_to: tx }).await.is_err() {
+        return 0;
+    }
+
+    rx.await.unwrap_or(0)
 }
 
 /// Publish a signed commitment via the P2P network command channel.
@@ -142,14 +152,8 @@ pub(crate) async fn build_node_status<I: InboxReader>(
     preconf_tip: U256,
     local_peer_id: &str,
 ) -> Result<NodeStatus> {
-    // Query peer count via command channel
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let peer_count = match command_tx.send(NetworkCommand::GetPeerCount { respond_to: tx }).await {
-        Ok(()) => rx.await.unwrap_or(0),
-        Err(_) => 0,
-    };
-
     let confirmed_sync = inbox_reader.confirmed_sync_snapshot().await?;
+    let peer_count = query_peer_count(command_tx).await;
 
     Ok(NodeStatus {
         is_synced_with_inbox: confirmed_sync.is_ready(),
