@@ -718,7 +718,6 @@ mod tests {
             enable_ws: false,
             jwt_secret: None,
             cors_origins: vec!["https://example.com".to_string()],
-            ..Default::default()
         };
         let api =
             SyncReadyApi { build_preconf_calls: build_preconf_calls.clone(), sync_ready: false };
