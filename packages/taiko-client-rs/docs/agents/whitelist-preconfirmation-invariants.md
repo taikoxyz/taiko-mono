@@ -13,7 +13,7 @@ The `WLP` invariant prefix is kept for continuity, but scope is broader than whi
 
 - Read this file, `docs/agents/event-scan-reorg-and-preconf-flow.md`, and `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md` before changing preconfirmation or event-sync behavior.
 - In plans and reviews, cite affected IDs (`WLP-INV-001..010`).
-- If you need to inspect `altehia-reth`, ask for its local path first; do not assume where it is checked out.
+- If you need to inspect `alethia-reth`, ask for its local path first; do not assume where it is checked out.
 - Do not merge behavior changes that violate any invariant unless the invariant docs are intentionally updated in the same change.
 
 ## Glossary
@@ -80,7 +80,7 @@ Confirmed-sync readiness depends on proposal target resolution and `batch_to_las
 
 ### WLP-INV-006
 
-`head_l1_origin`, per-block `l1_origin`, and `batch_to_last_block` are separate custom-table concerns in altehia-reth.
+`head_l1_origin`, per-block `l1_origin`, and `batch_to_last_block` are separate custom-table concerns in alethia-reth.
 
 - Assumptions:
   - Data can be present in one table and missing in another.
@@ -93,7 +93,7 @@ Beacon sync imports blocks but does not guarantee custom-table population.
 
 - Assumptions:
   - Driver beacon sync submits payload and forkchoice updates without payload attributes.
-  - altehia-reth custom-table persistence is tied to payload-attributes flow.
+  - alethia-reth custom-table persistence is tied to payload-attributes flow.
 - Failure mode if broken:
   - Agents assume custom-table rows exist whenever block bodies exist.
 
@@ -119,11 +119,11 @@ Event-driven reorg handling and preconf-driven branch/reorg handling are distinc
 
 ### WLP-INV-010
 
-Rust behavior changes must be checked against Rust implementation, altehia-reth assumptions, and protocol-contract assumptions.
+Rust behavior changes must be checked against Rust implementation, alethia-reth assumptions, and protocol-contract assumptions.
 
 - Assumptions:
   - Rust implementation in `taiko-client-rs` is the source of truth for agent decisions.
-  - altehia-reth behavior may affect driver correctness and must be validated when relevant.
+  - alethia-reth behavior may affect driver correctness and must be validated when relevant.
   - Protocol contracts define proposer/lookahead assumptions that preconf clients must honor.
 - Failure mode if broken:
   - Rust changes drift from protocol or execution-engine assumptions, causing network-level incompatibility.
