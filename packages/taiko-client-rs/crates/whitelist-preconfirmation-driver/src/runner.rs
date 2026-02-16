@@ -19,7 +19,7 @@ use crate::{
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::PreconfIngressSync,
     rest::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
-    rest_handler::WhitelistRestHandler,
+    rest_handler::{WhitelistRestHandler, WhitelistRestHandlerParams},
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -136,17 +136,17 @@ impl WhitelistPreconfirmationDriverRunner {
                 }
             };
 
-            let handler = WhitelistRestHandler::new(
-                preconf_ingress_sync.event_syncer(),
-                preconf_ingress_sync.client().clone(),
-                self.config.p2p_config.chain_id,
+            let handler = WhitelistRestHandler::new(WhitelistRestHandlerParams {
+                event_syncer: preconf_ingress_sync.event_syncer(),
+                rpc: preconf_ingress_sync.client().clone(),
+                chain_id: self.config.p2p_config.chain_id,
                 signer,
                 beacon_client,
-                self.config.whitelist_address,
+                whitelist_address: self.config.whitelist_address,
                 initial_highest_unsafe_l2_payload_block_id,
-                network.command_tx.clone(),
-                network.local_peer_id.to_string(),
-            );
+                network_command_tx: network.command_tx.clone(),
+                local_peer_id: network.local_peer_id.to_string(),
+            });
 
             let server_config = WhitelistRestWsServerConfig {
                 listen_addr,

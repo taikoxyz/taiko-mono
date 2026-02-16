@@ -24,6 +24,19 @@
 - Target MSRV 1.88 and gate newer features with `#[cfg]` as needed.
 - Follow idiomatic Rust naming: snake_case for modules and functions, PascalCase for types, `SCREAMING_SNAKE_CASE` for constants. Prefer explicit `pub(crate)` boundaries.
 - Respect the shared `rustfmt.toml` and rely on `just fmt`; never bulk-format `crates/bindings/src`. Document intentional deviations with a brief comment.
+- Never add `#[allow(clippy::too_many_arguments)]` (including crate/module-level forms). When a function exceeds argument limits, introduce a named params struct and update call sites to pass that struct.
+
+## Documentation Policy (Mandatory)
+
+- Every non-test production Rust symbol must be documented with Rust doc comments (`//!` or `///`), including modules, structs/enums/traits, fields, constants/statics, type aliases, functions/methods, and associated items in `impl` blocks.
+- Comments must explain purpose and contract, not restate identifiers. Include units/invariants for fields and side effects or error semantics where relevant.
+- Exclusions:
+  - `crates/bindings/**` (generated code; never hand-edit)
+  - `crates/test-harness/**`
+  - files under `tests/**`
+  - `#[cfg(test)]` items and test-only helpers
+  - examples
+- The docs gate is required before completion: run `just clippy`.
 
 ## Testing Guidelines
 

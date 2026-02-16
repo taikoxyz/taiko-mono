@@ -26,6 +26,7 @@ pub struct BlacklistEvent {
 /// allowed lookback window while preserving the last pre-cutoff state for accurate queries.
 #[derive(Debug, Default, Clone)]
 pub struct BlacklistTimeline {
+    /// Timestamp-sorted blacklist events for one registration root.
     pub(crate) events: Vec<BlacklistEvent>,
 }
 
@@ -150,6 +151,7 @@ impl FallbackTimeline {
 /// Copy-on-write wrapper over `FallbackTimeline` providing lock-free reads and atomic updates.
 #[derive(Debug, Default)]
 pub struct FallbackTimelineStore {
+    /// Atomically swapped timeline used for lock-free readers.
     inner: ArcSwap<FallbackTimeline>,
 }
 

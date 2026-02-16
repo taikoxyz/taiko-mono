@@ -12,7 +12,9 @@ use super::*;
 /// Identifies which gossip topic payload is being processed.
 #[derive(Clone, Copy)]
 enum GossipKind {
+    /// Signed commitment gossip topic.
     Commitment,
+    /// Raw txlist gossip topic.
     RawTxList,
 }
 

@@ -42,11 +42,21 @@ pub enum ProposerError {
 
     /// Failed to decode transaction from RLP bytes.
     #[error("failed to decode transaction at index {index}: {source}")]
-    TxDecode { index: usize, source: Eip2718Error },
+    TxDecode {
+        /// Zero-based index in the decoded transaction list.
+        index: usize,
+        /// Underlying decoding error.
+        source: Eip2718Error,
+    },
 
     /// Failed to recover signer from transaction.
     #[error("failed to recover signer for transaction at index {index}: {message}")]
-    SignerRecovery { index: usize, message: String },
+    SignerRecovery {
+        /// Zero-based index in the transaction list.
+        index: usize,
+        /// Failure reason returned by signer recovery.
+        message: String,
+    },
 
     /// Anchor constructor not initialized (engine mode disabled).
     #[error("anchor constructor not initialized (engine mode is disabled)")]

@@ -28,6 +28,7 @@ pub trait TipProvider: Send + Sync {
     async fn latest_tip(&self) -> Result<U256>;
 }
 
+/// Fetch the block number for a specific L2 tag (`safe` or `latest`).
 async fn block_by_tag<P>(provider: &P, tag: BlockNumberOrTag) -> Result<U256>
 where
     P: Provider + Send + Sync,
@@ -109,8 +110,11 @@ where
     E: PreconfirmationIngress + 'static,
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// In-process event syncer used for payload submission and sync status.
     event_syncer: Arc<E>,
+    /// Inbox contract instance used for config/core-state reads.
     inbox: InboxInstance<P>,
+    /// L2 provider abstraction used for header/tip lookups.
     l2_provider: Arc<dyn L2Provider + Send + Sync>,
 }
 

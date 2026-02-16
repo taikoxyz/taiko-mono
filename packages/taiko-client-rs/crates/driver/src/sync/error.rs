@@ -25,14 +25,21 @@ pub enum SyncError {
     /// Beacon sync: failed to submit remote block.
     #[error("failed to submit remote block {block_number}")]
     RemoteBlockSubmit {
+        /// Remote block number that failed submission.
         block_number: u64,
         #[source]
+        /// Underlying submission error.
         error: AnyhowError,
     },
 
     /// Beacon sync: checkpoint head behind local head.
     #[error("checkpoint head {checkpoint} is behind local head {local}")]
-    CheckpointBehind { checkpoint: u64, local: u64 },
+    CheckpointBehind {
+        /// Checkpoint-synced head block number.
+        checkpoint: u64,
+        /// Local execution head block number.
+        local: u64,
+    },
 
     /// Event sync: execution engine returned no latest block.
     #[error("execution engine returned no latest block")]
@@ -48,7 +55,10 @@ pub enum SyncError {
 
     /// Event sync: execution engine missing a specific block.
     #[error("execution engine returned no block {number}")]
-    MissingExecutionBlock { number: u64 },
+    MissingExecutionBlock {
+        /// Missing execution block number.
+        number: u64,
+    },
 
     /// Event sync: finalized L1 block is unavailable; resume must fail closed.
     #[error("finalized l1 block is unavailable")]
@@ -56,15 +66,30 @@ pub enum SyncError {
 
     /// Event sync: execution engine missing batch-to-block mapping.
     #[error("no execution block found for batch {proposal_id}")]
-    MissingExecutionBlockForBatch { proposal_id: u64 },
+    MissingExecutionBlockForBatch {
+        /// Proposal id whose batch mapping was absent.
+        proposal_id: u64,
+    },
 
     /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
     #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
-    MissingAnchorTransaction { block_number: u64, reason: &'static str },
+    MissingAnchorTransaction {
+        /// L2 block number inspected for the anchor transaction.
+        block_number: u64,
+        /// Reason anchor extraction failed.
+        reason: &'static str,
+    },
 
     /// Event sync: failed to decode a proposal log from the inbox contract.
     #[error("invalid proposal log in block {block_number:?}, tx {tx_hash:?}: {reason}")]
-    InvalidProposalLog { reason: String, tx_hash: Option<B256>, block_number: Option<u64> },
+    InvalidProposalLog {
+        /// Decode or validation failure reason.
+        reason: String,
+        /// Optional transaction hash carrying the invalid log.
+        tx_hash: Option<B256>,
+        /// Optional block number carrying the invalid log.
+        block_number: Option<u64>,
+    },
 
     /// Event sync: derivation failed.
     #[error("derivation failed")]

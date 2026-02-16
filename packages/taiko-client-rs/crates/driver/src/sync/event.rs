@@ -56,16 +56,22 @@ const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12)
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
+    /// Finalized L1 block number.
     block_number: u64,
+    /// Hash of the finalized L1 block.
     block_hash: B256,
+    /// Proposal id considered finalized-safe at this snapshot.
     finalized_safe_proposal_id: u64,
 }
 
 /// Bootstrap state produced while resolving the event scanner start point.
 #[derive(Debug, Clone, Copy)]
 struct EventStreamStartPoint {
+    /// L1 block number used as scanner start anchor.
     anchor_block_number: u64,
+    /// Proposal id used to bootstrap derivation state.
     initial_proposal_id: u64,
+    /// Canonical L2 tip established before live scanning.
     bootstrap_canonical_tip: u64,
 }
 
@@ -194,7 +200,9 @@ where
 const PRECONF_CHANNEL_CAPACITY: usize = 1024;
 
 /// Type aliases for preconfirmation payload channels.
+/// Sender side of the preconfirmation ingress queue.
 type PreconfSender = mpsc::Sender<PreconfJob>;
+/// Receiver side of the preconfirmation ingress queue.
 type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 
 /// A preconfirmation payload submission job.

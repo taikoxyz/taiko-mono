@@ -16,8 +16,11 @@ pub(crate) struct PreconfIngressSync<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// RPC client shared with runner components.
     client: Client<P>,
+    /// Event syncer handle used for ingress readiness and submission.
     event_syncer: Arc<EventSyncer<P>>,
+    /// Background task running the sync pipeline.
     handle: JoinHandle<std::result::Result<(), driver::DriverError>>,
 }
 

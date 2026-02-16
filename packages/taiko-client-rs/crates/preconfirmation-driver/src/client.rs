@@ -30,7 +30,7 @@ use crate::{
     error::{PreconfirmationClientError, Result},
     metrics::PreconfirmationClientMetrics,
     storage::{CommitmentStore, InMemoryCommitmentStore},
-    subscription::{EventHandler, PreconfirmationEvent},
+    subscription::{EventHandler, EventHandlerParams, PreconfirmationEvent},
     sync::TipCatchup,
 };
 
@@ -259,15 +259,15 @@ where
         info!(event_sync_tip = %event_sync_tip, "driver event sync complete, starting preconfirmation client");
 
         // Build the event handler for gossip processing.
-        let handler = EventHandler::new(
-            store.clone(),
-            codec.clone(),
-            driver.clone(),
-            config.expected_slasher.clone(),
-            event_tx.clone(),
-            handle.command_sender(),
-            Arc::clone(&config.lookahead_resolver),
-        );
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
+            codec: codec.clone(),
+            driver: driver.clone(),
+            expected_slasher: config.expected_slasher.clone(),
+            event_tx: event_tx.clone(),
+            command_tx: handle.command_sender(),
+            lookahead_resolver: Arc::clone(&config.lookahead_resolver),
+        });
 
         // Spawn the P2P node loop before running catch-up.
         // Convert anyhow::Result from P2pNode::run() to our crate's Result type.

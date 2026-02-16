@@ -43,7 +43,10 @@ pub enum DerivationError {
     EmptyDerivationSources(u64),
     /// Execution engine failed to report the last block for a batch.
     #[error("missing last execution block for proposal {proposal_id}")]
-    MissingBatchLastBlock { proposal_id: u64 },
+    MissingBatchLastBlock {
+        /// Proposal id whose batch-to-last-block mapping was missing.
+        proposal_id: u64,
+    },
     /// Failure while materialising payloads via the execution engine.
     #[error(transparent)]
     Engine(#[from] EngineSubmissionError),
@@ -52,7 +55,10 @@ pub enum DerivationError {
     LatestL2BlockMissing,
     /// Proposal was missing a transaction hash in the log.
     #[error("missing transaction hash for proposal {proposal_id}")]
-    MissingProposeTxHash { proposal_id: u64 },
+    MissingProposeTxHash {
+        /// Proposal id whose log was missing a transaction hash.
+        proposal_id: u64,
+    },
     /// Proposal log was missing the emitting L1 block hash.
     #[error("proposal log missing block hash")]
     MissingL1BlockHash,
@@ -61,30 +67,66 @@ pub enum DerivationError {
     MissingL1BlockNumber,
     /// The propose transaction referenced by the log could not be found.
     #[error("propose transaction {tx_hash:?} for proposal {proposal_id} not found")]
-    MissingProposeTransaction { proposal_id: u64, tx_hash: B256 },
+    MissingProposeTransaction {
+        /// Proposal id associated with the missing transaction.
+        proposal_id: u64,
+        /// Transaction hash referenced by the proposal log.
+        tx_hash: B256,
+    },
     /// Failed to decode the propose transaction input.
     #[error("failed to decode propose input for proposal {proposal_id}: {reason}")]
-    ProposeInputDecode { proposal_id: u64, reason: String },
+    ProposeInputDecode {
+        /// Proposal id whose input decoding failed.
+        proposal_id: u64,
+        /// Decode failure detail.
+        reason: String,
+    },
     /// Failed to fetch the propose transaction from L1.
     #[error("failed to fetch propose transaction for proposal {proposal_id}: {reason}")]
-    ProposeTransactionQuery { proposal_id: u64, reason: String },
+    ProposeTransactionQuery {
+        /// Proposal id being resolved.
+        proposal_id: u64,
+        /// RPC failure detail.
+        reason: String,
+    },
     /// Failed to query the anchor block fields.
     #[error("failed to fetch anchor block {block_number}: {reason}")]
-    AnchorBlockQuery { block_number: u64, reason: String },
+    AnchorBlockQuery {
+        /// Anchor block number being queried.
+        block_number: u64,
+        /// RPC failure detail.
+        reason: String,
+    },
     /// Anchor block was not present on L1.
     #[error("anchor block {block_number} not found")]
-    AnchorBlockMissing { block_number: u64 },
+    AnchorBlockMissing {
+        /// Missing anchor block number.
+        block_number: u64,
+    },
     /// Failed to convert an execution payload into a header.
     #[error("execution payload header conversion failed: {reason}")]
-    HeaderConversion { reason: String },
+    HeaderConversion {
+        /// Header-conversion failure detail.
+        reason: String,
+    },
     /// Execution engine returned an unexpected block number.
     #[error("engine returned block {actual} but derivation expected {expected}")]
-    UnexpectedBlockNumber { expected: u64, actual: u64 },
+    UnexpectedBlockNumber {
+        /// Expected block number from derivation state.
+        expected: u64,
+        /// Actual block number returned by the engine.
+        actual: u64,
+    },
     /// Attempted to derive blocks before the Shasta fork is active.
     #[error(
         "shasta fork inactive: activation timestamp {activation_timestamp}, parent timestamp {parent_timestamp}"
     )]
-    ShastaForkInactive { activation_timestamp: u64, parent_timestamp: u64 },
+    ShastaForkInactive {
+        /// Shasta activation timestamp for the current chain.
+        activation_timestamp: u64,
+        /// Parent block timestamp observed during derivation.
+        parent_timestamp: u64,
+    },
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),

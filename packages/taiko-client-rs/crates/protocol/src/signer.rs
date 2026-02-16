@@ -46,8 +46,11 @@ pub enum FixedKSignerError {
 /// Deterministic secp256k1 signer.
 #[derive(Debug, Clone)]
 pub struct FixedKSigner {
+    /// Secp256k1 private scalar used for fixed-k signing.
     secret_scalar: Scalar,
+    /// Ethereum address derived from `secret_scalar`.
     address: Address,
+    /// Optional chain id used by Alloy signer traits.
     chain_id: Option<u64>,
 }
 

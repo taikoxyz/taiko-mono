@@ -66,7 +66,9 @@ pub struct PreconfirmationPath<A>
 where
     A: PayloadApplier + BlockHashReader,
 {
+    /// Payload applier used for parent-hash lookup and engine submission.
     applier: A,
+    /// Shared canonical tip boundary used for stale-preconfirmation rejection.
     canonical_tip_state: Arc<AtomicCanonicalTip>,
 }
 
@@ -182,7 +184,9 @@ pub struct CanonicalL1ProductionPath<D>
 where
     D: DerivationPipeline + ?Sized,
 {
+    /// Derivation pipeline used to decode L1 proposal logs.
     derivation: Arc<D>,
+    /// Engine payload applier shared with the canonical path.
     applier: Arc<dyn PayloadApplier + Send + Sync>,
 }
 

@@ -23,6 +23,7 @@ impl Default for AtomicCanonicalTip {
 }
 
 impl AtomicCanonicalTip {
+    /// Reserved raw value used to encode `CanonicalTipState::Unknown`.
     const UNKNOWN_SENTINEL: u64 = u64::MAX;
 
     /// Construct a new atomic canonical tip with the provided initial state.

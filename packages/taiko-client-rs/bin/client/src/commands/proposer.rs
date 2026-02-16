@@ -23,6 +23,7 @@ pub struct ProposerSubCommand {
     /// Common CLI arguments.
     #[command(flatten)]
     pub common_flags: CommonArgs,
+    /// Proposer-specific CLI arguments.
     #[command(flatten)]
     pub proposer_flags: ProposerArgs,
 }
