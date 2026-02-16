@@ -8,7 +8,7 @@ pragma solidity ^0.8.26;
 
 // solhint-disable max-line-length
 //   overseers                      | mapping(address => bool)                           | Slot: 0    | Offset: 0    | Bytes: 32  
-//   blacklist                      | mapping(bytes32 => struct IBlacklist.BlacklistTimestamps) | Slot: 1    | Offset: 0    | Bytes: 32  
+//   blacklist                      | mapping(bytes32 => struct LookaheadStore.BlacklistTimestamps) | Slot: 1    | Offset: 0    | Bytes: 32
 //   __gap                          | uint256[48]                                        | Slot: 2    | Offset: 0    | Bytes: 1536
 //   _initialized                   | uint8                                              | Slot: 50   | Offset: 0    | Bytes: 1   
 //   _initializing                  | bool                                               | Slot: 50   | Offset: 1    | Bytes: 1   

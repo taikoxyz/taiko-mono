@@ -26,15 +26,11 @@ interface IPreconfSlasherL2 {
         bytes signature;
     }
 
-    error EOPOnlyPreconfirmationDoesNotRequireSubmission();
     error InvalidEOPFlag();
-    error NotAMissedSubmission();
-    error NotAMissingEOP();
-    error NotAnInvalidEOP();
-    error NotARawTxListHashOrAnchorBlockMismatch();
+    error NotALivenessFault();
+    error NotASafetyFault();
     error ParentRawTxListHashMismatch();
     error ParentSubmissionWindowEndMismatch();
-    error SubmissionWindowMismatch();
     error UnexpectedExtraProposalsInPreviousWindow();
 
     /// @notice Validates if a preconfirmation is slashable and forwards the fault to the

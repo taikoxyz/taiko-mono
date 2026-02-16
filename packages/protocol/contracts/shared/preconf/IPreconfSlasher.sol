@@ -25,20 +25,11 @@ interface IPreconfSlasher {
 
     // The slashing reason forwarded to the L1 preconfirmation slasher
     enum Fault {
-        // The preconfer did not submit a preconfed block to the L1 inbox
-        // (If the submission slot on L1 is a missed slot, it's a liveness fault, else a safety
-        // fault)
-        MissedSubmission,
-        // The last preconfirmation in an assigned window does not have the eop flag set to `true`
-        // (If the submission slot on L1 is a missed slot, it's a liveness fault, else a safety
-        // fault)
-        MissingEOP,
-        // The preconfirmed raw transaction list hash or anchor block value do not match the
-        // submitted value.
-        // (Safety fault)
-        RawTxListHashOrAnchorBlockMismatch,
-        // A non-terminal preconfirmation has its eop flag set to `true`
-        // (Safety fault)
-        InvalidEOP
+        // A liveness fault: the preconfer missed a submission or missed the EOP flag.
+        // On L1, this is further classified: if the L1 slot had a block, it becomes a Safety fault.
+        Liveness,
+        // A safety fault: the preconfirmed data does not match the submitted data,
+        // or an invalid EOP flag was set.
+        Safety
     }
 }
