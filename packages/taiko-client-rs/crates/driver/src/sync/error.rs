@@ -38,9 +38,21 @@ pub enum SyncError {
     #[error("execution engine returned no latest block")]
     MissingLatestExecutionBlock,
 
+    /// Event sync: checkpoint mode enabled, but beacon sync did not publish a resume head.
+    #[error("checkpoint mode enabled but no checkpoint resume head is available")]
+    MissingCheckpointResumeHead,
+
+    /// Event sync: no-checkpoint mode requires local head L1 origin to choose a safe resume head.
+    #[error("head_l1_origin is missing; cannot derive event resume head without checkpoint")]
+    MissingHeadL1OriginResume,
+
     /// Event sync: execution engine missing a specific block.
     #[error("execution engine returned no block {number}")]
     MissingExecutionBlock { number: u64 },
+
+    /// Event sync: finalized L1 block is unavailable; resume must fail closed.
+    #[error("finalized l1 block is unavailable")]
+    MissingFinalizedL1Block,
 
     /// Event sync: execution engine missing batch-to-block mapping.
     #[error("no execution block found for batch {proposal_id}")]

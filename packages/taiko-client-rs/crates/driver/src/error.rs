@@ -79,3 +79,17 @@ pub enum DriverError {
     #[error(transparent)]
     Other(#[from] AnyhowError),
 }
+
+/// Map a [`DriverError`] into a target error type while preserving sync errors.
+///
+/// This ensures `DriverError::Sync` is converted through `From<SyncError>` instead of being
+/// wrapped as a generic driver error.
+pub fn map_driver_error<T>(err: DriverError) -> T
+where
+    T: From<SyncError> + From<DriverError>,
+{
+    match err {
+        DriverError::Sync(sync_err) => sync_err.into(),
+        other => other.into(),
+    }
+}
