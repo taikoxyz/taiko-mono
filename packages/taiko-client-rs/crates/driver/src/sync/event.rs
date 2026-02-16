@@ -105,6 +105,21 @@ fn resolve_confirmed_sync_ready(
     confirmed_sync_snapshot.is_ready()
 }
 
+/// Resolve confirmed-sync probe readiness from a probe result.
+///
+/// Any probe error keeps ingress closed (fail-closed) until a later successful probe.
+fn resolve_confirmed_sync_probe(
+    scanner_live: bool,
+    confirmed_sync_probe: Result<ConfirmedSyncSnapshot, SyncError>,
+) -> bool {
+    match confirmed_sync_probe {
+        Ok(confirmed_sync_snapshot) => {
+            resolve_confirmed_sync_ready(scanner_live, confirmed_sync_snapshot)
+        }
+        Err(_) => false,
+    }
+}
+
 /// Resolve the L2 block number that event sync should use as its resume source.
 ///
 /// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
@@ -927,9 +942,17 @@ where
                 preconf_ingress_spawned,
                 scanner_live,
             ) {
-                let confirmed_sync_snapshot = self.confirmed_sync_snapshot().await?;
+                let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
+                if let Err(err) = &confirmed_sync_probe {
+                    counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL).increment(1);
+                    warn!(
+                        ?err,
+                        "confirmed-sync probe failed; keeping preconfirmation ingress closed"
+                    );
+                    continue;
+                }
                 let confirmed_sync_ready =
-                    resolve_confirmed_sync_ready(scanner_live, confirmed_sync_snapshot);
+                    resolve_confirmed_sync_probe(scanner_live, confirmed_sync_probe);
                 if should_spawn_preconf_ingress(
                     self.cfg.preconfirmation_enabled,
                     preconf_ingress_spawned,
@@ -1122,6 +1145,12 @@ mod tests {
     fn confirmed_sync_ready_requires_live_scanner_gate() {
         let ready = resolve_confirmed_sync_ready(false, ConfirmedSyncSnapshot::new(0, None, None));
         assert!(!ready, "confirmed-sync readiness must remain closed until scanner is live",);
+    }
+
+    #[test]
+    fn confirmed_sync_probe_error_keeps_ingress_closed() {
+        let ready = resolve_confirmed_sync_probe(true, Err(SyncError::MissingFinalizedL1Block));
+        assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
     }
 
     #[test]
