@@ -717,11 +717,15 @@ async fn handle_gossipsub_event(
             Ok((wire_signature, payload_bytes)) => match decode_envelope_ssz(&payload_bytes) {
                 Ok(envelope) => {
                     let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
-                    let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
+                    let acceptance =
+                        inbound_validation_state.validate_preconf_blocks(&payload).await;
 
                     if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                        let Err(err) =
-                            forward_event(event_tx, NetworkEvent::UnsafePayload { from, payload }).await
+                        let Err(err) = forward_event(
+                            event_tx,
+                            NetworkEvent::UnsafePayload { from, payload },
+                        )
+                        .await
                     {
                         report(&gossipsub::MessageAcceptance::Reject);
                         return Err(err);
