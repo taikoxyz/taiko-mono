@@ -31,8 +31,9 @@ use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
 use super::{
-    SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead,
-    confirmed_sync::ConfirmedSyncSnapshot,
+    SyncError, SyncStage,
+    checkpoint_resume_head::CheckpointResumeHead,
+    confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
 };
 use crate::{
     config::DriverConfig,
@@ -473,25 +474,20 @@ where
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
         let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
-        if target_proposal_id == 0 {
-            let head_l1_origin_block_id =
-                self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
-            return Ok(ConfirmedSyncSnapshot::new(
-                target_proposal_id,
-                None,
-                head_l1_origin_block_id,
-            ));
-        }
-
-        let target_block = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(target_proposal_id))
-            .await?
-            .map(|block_id| block_id.to::<u64>());
-        let head_l1_origin_block_id =
-            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
-
-        Ok(ConfirmedSyncSnapshot::new(target_proposal_id, target_block, head_l1_origin_block_id))
+        build_confirmed_sync_snapshot(
+            target_proposal_id,
+            |target| async move {
+                Ok(self
+                    .rpc
+                    .last_block_id_by_batch_id(U256::from(target))
+                    .await?
+                    .map(|block_id| block_id.to::<u64>()))
+            },
+            || async {
+                Ok(self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>()))
+            },
+        )
+        .await
     }
 
     /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts

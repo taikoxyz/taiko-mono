@@ -5,7 +5,7 @@ use std::{future::Future, result::Result, time::Duration};
 use alloy_primitives::U256;
 use alloy_rpc_types::Header as RpcHeader;
 use async_trait::async_trait;
-use driver::sync::ConfirmedSyncSnapshot;
+use driver::sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot};
 use tokio::time::sleep;
 
 use crate::error::Result as ClientResult;
@@ -31,19 +31,12 @@ pub trait InboxReader: Clone + Send + Sync {
     /// Returns a strict confirmed-sync snapshot derived from core state + custom tables.
     async fn confirmed_sync_snapshot(&self) -> ClientResult<ConfirmedSyncSnapshot> {
         let target_proposal_id = self.get_next_proposal_id().await?.saturating_sub(1);
-        if target_proposal_id == 0 {
-            return Ok(ConfirmedSyncSnapshot::new(
-                target_proposal_id,
-                None,
-                self.get_head_l1_origin_block_id().await?,
-            ));
-        }
-
-        Ok(ConfirmedSyncSnapshot::new(
+        build_confirmed_sync_snapshot(
             target_proposal_id,
-            self.get_last_block_id_by_batch_id(target_proposal_id).await?,
-            self.get_head_l1_origin_block_id().await?,
-        ))
+            |target| self.get_last_block_id_by_batch_id(target),
+            || self.get_head_l1_origin_block_id(),
+        )
+        .await
     }
 }
 

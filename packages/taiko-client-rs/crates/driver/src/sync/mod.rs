@@ -22,7 +22,7 @@ pub mod engine;
 pub mod error;
 pub mod event;
 
-pub use confirmed_sync::ConfirmedSyncSnapshot;
+pub use confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot};
 pub use error::SyncError;
 
 /// High level trait to represent a driver sync stage.
