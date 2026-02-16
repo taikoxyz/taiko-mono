@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.1...taiko-alethia-client-v2.2.0) (2026-02-16)
+
+
+### Features
+
+* **taiko-client:** record `ProverLatestVerifiedIDGauge` in HandleShasta ([#21292](https://github.com/taikoxyz/taiko-mono/issues/21292)) ([e5ce141](https://github.com/taikoxyz/taiko-mono/commit/e5ce1413d60e589b0e37d40ae7a55f72ad8b8d97))
+
+
+### Bug Fixes
+
+* **taiko-client:** make based proposer working with new WL impl ([#21297](https://github.com/taikoxyz/taiko-mono/issues/21297)) ([e51d832](https://github.com/taikoxyz/taiko-mono/commit/e51d83274f4e74eb7538a1023c5d176537203114))
+* **taiko-client:** submit proposal to the ShastaInbox ([#21327](https://github.com/taikoxyz/taiko-mono/issues/21327)) ([e531244](https://github.com/taikoxyz/taiko-mono/commit/e53124432ac2af89c7b9d1d8bb139e6afb224d13))
+
+
+### Chores
+
+* **taiko-client:** corrected printing shasta fork time ([#21317](https://github.com/taikoxyz/taiko-mono/issues/21317)) ([33b4e34](https://github.com/taikoxyz/taiko-mono/commit/33b4e340155e962eab1dfa2b8932a802d26aafc5))
+* **taiko-client:** rename Shasta fork config accessor ([#21276](https://github.com/taikoxyz/taiko-mono/issues/21276)) ([32aa3ca](https://github.com/taikoxyz/taiko-mono/commit/32aa3cab0e2b643ecb1c7e12fbd28b32963bad68))
+
 ## [2.1.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.0...taiko-alethia-client-v2.1.1) (2026-02-03)
 
 
