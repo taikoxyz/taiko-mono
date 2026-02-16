@@ -7,6 +7,7 @@ use alloy_rpc_types::Header as RpcHeader;
 use async_trait::async_trait;
 use driver::sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot};
 use tokio::time::sleep;
+use tracing::info;
 
 use crate::error::Result as ClientResult;
 
@@ -70,9 +71,25 @@ where
     Fut: Future<Output = Result<ConfirmedSyncSnapshot, E>>,
 {
     loop {
-        if snapshot().await?.is_ready() {
+        let sync_snapshot = snapshot().await?;
+
+        if sync_snapshot.is_ready() {
+            info!(
+                target_proposal_id = sync_snapshot.target_proposal_id,
+                target_block = ?sync_snapshot.target_block,
+                head_l1_origin_block_id = ?sync_snapshot.head_l1_origin_block_id,
+                "confirmed sync is ready"
+            );
             return Ok(());
         }
+
+        info!(
+            target_proposal_id = sync_snapshot.target_proposal_id,
+            target_block = ?sync_snapshot.target_block,
+            head_l1_origin_block_id = ?sync_snapshot.head_l1_origin_block_id,
+            "waiting for confirmed sync"
+        );
+
         sleep(poll_interval).await;
     }
 }
