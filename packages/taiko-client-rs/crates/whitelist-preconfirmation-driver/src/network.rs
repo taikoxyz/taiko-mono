@@ -278,12 +278,11 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state =
-                GossipsubInboundState::new(
-                    cfg.chain_id,
-                    cfg.allow_all_sequencers,
-                    cfg.sequencer_addresses,
-                );
+            let mut inbound_validation_state = GossipsubInboundState::new(
+                cfg.chain_id,
+                cfg.allow_all_sequencers,
+                cfg.sequencer_addresses,
+            );
 
             loop {
                 let has_discovery = discovery_rx.is_some();
@@ -1108,8 +1107,7 @@ mod tests {
 
     #[test]
     fn height_seen_tracker_rejects_over_limit_and_skips_tracking_rejected_hashes() {
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
 
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([1u8; 32]), 1));
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
@@ -1139,8 +1137,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_preconf_blocks_rejects_empty_transaction_payload() {
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
         let mut payload = sample_preconf_payload();
         payload.envelope.execution_payload.transactions.clear();
 
@@ -1152,8 +1149,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_preconf_blocks_rejects_invalid_signature() {
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
         let payload = sample_preconf_payload();
 
         assert!(matches!(
@@ -1164,8 +1160,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_response_rejects_missing_signature() {
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
         let mut envelope = sample_response_envelope();
         envelope.signature = None;
 
@@ -1179,10 +1174,8 @@ mod tests {
     async fn validate_preconf_blocks_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(
-            167_000,
-            vec![Address::from([0x11u8; 20])],
-        );
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, false, vec![Address::from([0x11u8; 20])]);
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1195,7 +1188,7 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let signer_address = signer.address();
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(167_000, vec![signer_address]);
+        let mut validation_state = GossipsubInboundState::new(167_000, false, vec![signer_address]);
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1207,8 +1200,7 @@ mod tests {
     async fn validate_preconf_blocks_rejects_empty_allowlist_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1220,8 +1212,7 @@ mod tests {
     async fn validate_preconf_blocks_rejects_single_fallback_zero_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1233,8 +1224,7 @@ mod tests {
     async fn validate_preconf_blocks_rejects_invalid_fallback_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1246,10 +1236,8 @@ mod tests {
     async fn validate_response_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(
-            167_000,
-            vec![Address::from([0x11u8; 20])],
-        );
+        let mut validation_state =
+            GossipsubInboundState::new(167_000, false, vec![Address::from([0x11u8; 20])]);
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1262,7 +1250,7 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let signer_address = signer.address();
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(167_000, vec![signer_address]);
+        let mut validation_state = GossipsubInboundState::new(167_000, false, vec![signer_address]);
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1274,7 +1262,7 @@ mod tests {
     async fn validate_response_rejects_empty_allowlist_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state = GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1286,8 +1274,7 @@ mod tests {
     async fn validate_response_rejects_invalid_fallback_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1297,8 +1284,7 @@ mod tests {
 
     #[tokio::test]
     async fn validate_response_rejects_invalid_signature_before_ignore_fallback() {
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
         let envelope = sample_response_envelope();
 
         assert!(matches!(
@@ -1311,8 +1297,7 @@ mod tests {
     async fn validate_response_rejects_when_allowlist_is_empty() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, Vec::new());
+        let mut validation_state = GossipsubInboundState::new(167_000, false, Vec::new());
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1470,8 +1455,8 @@ mod tests {
             ..Default::default()
         };
 
-        let whitelist_network = WhitelistNetwork::spawn_with_whitelist_filter(cfg)
-            .expect("spawn network");
+        let mut whitelist_network =
+            WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
         let expected_hash = B256::from([0x66u8; 32]);
         let command_tx = whitelist_network.command_tx.clone();
         let local_peer_id = whitelist_network.local_peer_id;
@@ -1529,8 +1514,8 @@ mod tests {
             ..Default::default()
         };
 
-        let mut whitelist_network = WhitelistNetwork::spawn_with_whitelist_filter(cfg)
-                .expect("spawn network");
+        let mut whitelist_network =
+            WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
         let expected_signature = [0x77u8; 65];
         let expected_envelope = Arc::new(sample_response_envelope());
 
@@ -1665,8 +1650,7 @@ mod tests {
             ..Default::default()
         };
 
-        let whitelist_network = WhitelistNetwork::spawn_with_whitelist_filter(cfg)
-            .expect("spawn network");
+        let whitelist_network = WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
         let expected = sample_response_envelope();
         let expected_to_publish = expected.clone();
         let command_tx = whitelist_network.command_tx.clone();
@@ -1783,9 +1767,8 @@ mod tests {
             ..Default::default()
         };
 
-            let mut whitelist_network =
-                WhitelistNetwork::spawn_with_whitelist_filter(cfg)
-                .expect("spawn network");
+        let mut whitelist_network =
+            WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
 
         let publish_task = tokio::spawn(async move {
             let mut connected = false;

@@ -39,7 +39,11 @@ pub struct PreconfirmationArgs {
     /// Accept whitelist preconfirmation messages from all sequencers.
     /// This bypasses sequencer allowlist checks and should only be used for
     /// debugging or trusted deployments.
-    #[clap(long = "p2p.allow-all-sequencers", env = "P2P_ALLOW_ALL_SEQUENCERS", default_value = "false")]
+    #[clap(
+        long = "p2p.allow-all-sequencers",
+        env = "P2P_ALLOW_ALL_SEQUENCERS",
+        default_value = "false"
+    )]
     pub p2p_allow_all_sequencers: bool,
 
     /// Disable discv5 peer discovery.

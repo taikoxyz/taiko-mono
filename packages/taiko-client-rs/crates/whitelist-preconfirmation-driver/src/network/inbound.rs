@@ -9,9 +9,7 @@ use alloy_primitives::{Address, B256};
 use hashlink::LinkedHashMap;
 use libp2p::{PeerId, gossipsub};
 
-use crate::{
-    codec::{DecodedUnsafePayload, block_signing_hash, recover_signer},
-};
+use crate::codec::{DecodedUnsafePayload, block_signing_hash, recover_signer};
 
 const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
 const REQUEST_RATE_PER_MINUTE: f64 = 200.0;

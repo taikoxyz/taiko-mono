@@ -218,7 +218,8 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
-        let network = WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
+        let network =
+            WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
         info!(
             peer_id = %network.local_peer_id,
             chain_id = self.config.p2p_config.chain_id,
