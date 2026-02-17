@@ -699,6 +699,10 @@ where
         Ok(0)
     }
 
+    /// Scan `l1_origin_by_id` for the latest known row in an inclusive block range.
+    ///
+    /// The range is processed from high to low block id and returns the first matching
+    /// `block_id` if any row is found.
     #[instrument(skip(self), level = "debug")]
     async fn scan_head_l1_origin_in_range(
         &self,
