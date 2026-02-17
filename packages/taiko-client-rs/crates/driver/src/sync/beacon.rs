@@ -19,7 +19,7 @@ use rpc::{
     l1_origin::L1Origin,
 };
 use tokio::time::{MissedTickBehavior, interval};
-use tracing::{debug, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use super::{SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead};
 use crate::{config::DriverConfig, error::DriverError, metrics::DriverMetrics};
@@ -75,10 +75,16 @@ where
             return Ok(None);
         };
 
-        let response: Option<L1Origin> = provider
+        let response: Option<L1Origin> = match provider
             .raw_request(Cow::Borrowed("taiko_headL1Origin"), ())
             .await
-            .map_err(RpcClientError::from)?;
+        {
+            Ok(response) => response,
+            Err(err) => {
+                let error = RpcClientError::from(err);
+                return Err(error);
+            }
+        };
 
         let head = response.map(|origin| origin.block_id.to::<u64>());
         debug!(?head, "queried checkpoint head");
@@ -164,9 +170,12 @@ where
             return Ok(());
         }
 
-        let Some(mut checkpoint_head) =
-            self.checkpoint_head().await.map_err(SyncError::CheckpointQuery)?
+        let Some(mut checkpoint_head) = self
+            .checkpoint_head()
+            .await
+            .map_err(SyncError::CheckpointQuery)?
         else {
+            error!("checkpoint node reports no head origin; cannot run beacon sync in checkpoint mode");
             return Err(SyncError::CheckpointNoOrigin);
         };
 
@@ -199,11 +208,17 @@ where
                     }
                 };
 
-            checkpoint_head = self
+            let Some(next_checkpoint_head) = self
                 .checkpoint_head()
                 .await
                 .map_err(SyncError::CheckpointQuery)?
-                .ok_or(SyncError::CheckpointNoOrigin)?;
+            else {
+                error!(
+                    "checkpoint node stopped returning head origin; stopping beacon sync to avoid unsafe resume"
+                );
+                return Err(SyncError::CheckpointNoOrigin);
+            };
+            checkpoint_head = next_checkpoint_head;
             gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
             gauge!(DriverMetrics::BEACON_SYNC_HEAD_LAG_BLOCKS)
                 .set(checkpoint_head.saturating_sub(local_head) as f64);

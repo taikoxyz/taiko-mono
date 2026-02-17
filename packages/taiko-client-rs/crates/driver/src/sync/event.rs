@@ -1,5 +1,6 @@
 //! Event sync logic.
 
+use alethia_reth_primitives::payload::attributes::RpcL1Origin;
 use std::{
     sync::{
         Arc,
@@ -117,6 +118,9 @@ fn resolve_resume_head_block_number(
     if checkpoint_configured {
         checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
     } else {
+        // In production this function is called only after
+        // `ensure_head_l1_origin()` in non-checkpoint mode, so this fallback should
+        // only be used by explicit callers/tests that bypass that path.
         head_l1_origin_block_id.ok_or(SyncError::MissingHeadL1OriginResume)
     }
 }
@@ -600,12 +604,11 @@ where
 
     /// Resolve the L2 execution block used as event-sync resume source.
     ///
-    /// Important safety behavior:
-    /// - If checkpoint mode is enabled, we require the exact checkpoint head that beacon sync
-    ///   finished at. This avoids trusting stale local origin pointers.
-    /// - Without checkpoint mode, we require local `head_l1_origin` and fail fast when missing.
-    ///   This avoids deriving proposal IDs from `Latest`, which may include local preconf-only
-    ///   blocks that were never event-confirmed.
+    /// - Checkpoint mode: use the checkpoint-synced resume head only.
+    /// - Non-checkpoint mode: ensure local `head_l1_origin` exists and use it.
+    ///
+    /// Fail-closed behavior intentionally remains strict in checkpoint mode; local state is never
+    /// used when a checkpoint sync head was not produced.
     #[instrument(skip(self), level = "debug")]
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
@@ -613,7 +616,7 @@ where
         let head_l1_origin_block_id = if checkpoint_configured {
             None
         } else {
-            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>())
+            Some(self.ensure_head_l1_origin().await?)
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(
@@ -629,6 +632,95 @@ where
         }
 
         Ok(resume_head_block_number)
+    }
+
+    /// Recovery scan stride in blocks when searching existing `l1_origin` rows on startup.
+    /// This keeps startup bounded per chunk, though rows are still discovered with
+    /// per-block RPC lookups in the worst case.
+    const HEAD_L1_ORIGIN_SCAN_STEP: u64 = 1024;
+
+    /// Ensure `head_l1_origin` is available before event sync starts and return the resolved block id.
+    ///
+    /// On fresh local chains where auth tables are uninitialized, this:
+    /// - Reuses the latest known L1 origin row if present.
+    /// - Otherwise seeds genesis origin metadata and points head_l1_origin to block 0.
+    #[instrument(skip(self), level = "debug")]
+    async fn ensure_head_l1_origin(&self) -> Result<u64, SyncError> {
+        if let Some(origin) = self.rpc.head_l1_origin().await? {
+            return Ok(origin.block_id.to::<u64>());
+        }
+
+        warn!("head_l1_origin is missing; attempting to recover from persisted origin rows");
+
+        let latest = self
+            .rpc
+            .l2_provider
+            .get_block_number()
+            .await
+            .map_err(RpcClientError::from)?;
+
+        let mut scan_end = latest;
+        loop {
+            let scan_start = scan_end.saturating_sub(Self::HEAD_L1_ORIGIN_SCAN_STEP - 1);
+            if let Some(block_id) = self.scan_head_l1_origin_in_range(scan_end, scan_start).await? {
+                return Ok(block_id);
+            }
+
+            if scan_start == 0 {
+                break;
+            }
+
+            scan_end = scan_start.saturating_sub(1);
+        }
+
+        warn!(latest, "no persisted L1 origin rows found; seeding genesis origin");
+        let genesis = self
+            .rpc
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(0))
+            .full()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+            .ok_or(SyncError::MissingExecutionBlock { number: 0 })?;
+
+        let genesis_origin = RpcL1Origin {
+            block_id: U256::ZERO,
+            l2_block_hash: genesis.hash(),
+            l1_block_height: Some(U256::ZERO),
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        };
+        self.rpc.update_l1_origin(&genesis_origin).await?;
+        self.rpc.set_head_l1_origin(U256::ZERO).await?;
+
+        info!("seeded head_l1_origin at block 0");
+        Ok(0)
+    }
+
+    #[instrument(skip(self), level = "debug")]
+    async fn scan_head_l1_origin_in_range(
+        &self,
+        start_block_id: u64,
+        end_block_id: u64,
+    ) -> Result<Option<u64>, SyncError> {
+        if end_block_id > start_block_id {
+            return Ok(None);
+        }
+
+        for block_id in (end_block_id..=start_block_id).rev() {
+            if let Some(origin) = self.rpc.l1_origin_by_id(U256::from(block_id)).await? {
+                self.rpc.set_head_l1_origin(origin.block_id).await?;
+                info!(
+                    block_id = origin.block_id.to::<u64>(),
+                    "recovered head_l1_origin from existing origin row"
+                );
+                return Ok(Some(origin.block_id.to::<u64>()));
+            }
+        }
+
+        Ok(None)
     }
 
     /// Resolve finalized L1 block metadata and finalized-safe proposal ID.
