@@ -27,6 +27,7 @@ hashlink = "0.10"
 http = "1"
 http-body = "1"
 http-body-util = { workspace = true }
+lru = "0.12"
 jsonwebtoken = "9"
 kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
 libp2p = { version = "0.56.0", features = ["tcp", "gossipsub", "ping", "identify", "noise", "yamux", "macros", "tokio"] }

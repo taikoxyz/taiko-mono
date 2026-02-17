@@ -38,6 +38,7 @@ pub enum BlobDataError {
     Other(#[from] anyhow::Error),
 }
 
+/// Wire format for a blob sidecar response returned by a blob server.
 #[derive(Debug, Deserialize)]
 struct BlobServerResponse {
     /// Versioned hash reported by the blob server.
