@@ -1,7 +1,9 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZeroUsize,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -13,6 +15,7 @@ use alloy_provider::{
 };
 use futures::StreamExt;
 use hashlink::LinkedHashMap;
+use lru::LruCache;
 use libp2p::{
     Multiaddr, PeerId, Swarm, Transport, core::upgrade, gossipsub, identify, identity, noise, ping,
     swarm::NetworkBehaviour, tcp, yamux,
@@ -124,28 +127,39 @@ impl WindowedHashTracker {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct HeightSeenTracker {
-    seen_by_height: LinkedHashMap<u64, Vec<B256>>,
+    seen_by_height: LruCache<u64, Vec<B256>>,
 }
 
 impl HeightSeenTracker {
+    fn new(capacity: usize) -> Self {
+        Self {
+            seen_by_height: LruCache::new(NonZeroUsize::new(capacity).unwrap()),
+        }
+    }
+
     fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
         if max_per_height == 0 {
             return false;
         }
 
-        let hashes = self.seen_by_height.entry(height).or_insert_with(Vec::new);
-        if hashes.len() > max_per_height {
-            return false;
+        if let Some(hashes) = self.seen_by_height.get_mut(&height) {
+            if hashes.len() > max_per_height {
+                return false;
+            }
+            hashes.push(hash);
+            return true;
         }
 
-        hashes.push(hash);
-        if self.seen_by_height.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen_by_height.pop_front();
-        }
-
+        self.seen_by_height.put(height, vec![hash]);
         true
+    }
+}
+
+impl Default for HeightSeenTracker {
+    fn default() -> Self {
+        Self::new(PRECONF_INBOUND_LRU_CAPACITY)
     }
 }
 
@@ -1676,10 +1690,10 @@ mod tests {
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
         assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([3u8; 32]), 1));
         assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 1);
-        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height[&1].len(), 2);
+        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.get(&1).unwrap().len(), 2);
         assert_eq!(
-            validation_state.preconf_seen_by_height.seen_by_height[&1],
-            vec![B256::from([1u8; 32]), B256::from([2u8; 32])]
+            validation_state.preconf_seen_by_height.seen_by_height.get(&1).unwrap(),
+            &vec![B256::from([1u8; 32]), B256::from([2u8; 32])]
         );
 
         assert!(!validation_state.preconf_seen_by_height.can_accept(2, B256::from([3u8; 32]), 0));

@@ -13935,6 +13935,7 @@ dependencies = [
  "jsonwebtoken",
  "kona-gossip",
  "libp2p",
+ "lru 0.12.5",
  "metrics 0.24.3",
  "preconfirmation-net",
  "protocol",
