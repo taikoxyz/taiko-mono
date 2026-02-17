@@ -694,10 +694,10 @@ where
         Ok(0)
     }
 
-    /// Scan `l1_origin_by_id` for the latest known row in an inclusive block range.
+    /// Scan `l1_origin_by_id` for the latest candidate row in an inclusive block range.
     ///
-    /// The range is processed from high to low block id and returns the first matching
-    /// `block_id` if any row is found.
+    /// The range is processed from high to low block id and returns the first confirmed
+    /// candidate block id, prioritising the latest possible recovery point.
     #[instrument(skip(self), level = "debug")]
     async fn scan_head_l1_origin_in_range(
         &self,
@@ -709,17 +709,59 @@ where
         }
 
         for block_id in (scan_low_block_id..=scan_high_block_id).rev() {
-            if let Some(origin) = self.rpc.l1_origin_by_id(U256::from(block_id)).await? {
-                self.rpc.set_head_l1_origin(origin.block_id).await?;
+            if self.rpc.l1_origin_by_id(U256::from(block_id)).await?.is_none() {
+                continue;
+            }
+
+            if self.is_confirmed_origin_block(block_id).await? {
+                self.rpc.set_head_l1_origin(U256::from(block_id)).await?;
                 info!(
-                    block_id = origin.block_id.to::<u64>(),
-                    "recovered head_l1_origin from existing origin row"
+                    block_id,
+                    "recovered head_l1_origin from confirmed origin row"
                 );
-                return Ok(Some(origin.block_id.to::<u64>()));
+                return Ok(Some(block_id));
             }
         }
 
         Ok(None)
+    }
+
+    /// Return whether a candidate `l1_origin` row belongs to a confirmed proposal tail block.
+    #[instrument(skip(self), level = "debug")]
+    async fn is_confirmed_origin_block(&self, block_id: u64) -> Result<bool, SyncError> {
+        if block_id == 0 {
+            return Ok(true);
+        }
+
+        let Some(block) = self
+            .rpc
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_id))
+            .full()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+        else {
+            return Ok(false);
+        };
+        let block = block.map_transactions(|tx: RpcTransaction| tx.into());
+
+        let proposal_id = match decode_anchor_proposal_id(&block) {
+            Ok(proposal_id) => proposal_id,
+            Err(err) => {
+                warn!(block_id, ?err, "unable to parse proposal id for origin recovery candidate");
+                return Ok(false);
+            }
+        };
+
+        let Some(last_block_id) = self
+            .rpc
+            .last_block_id_by_batch_id(U256::from(proposal_id))
+            .await?
+        else {
+            return Ok(false);
+        };
+
+        Ok(last_block_id.to::<u64>() == block_id)
     }
 
     /// Resolve finalized L1 block metadata and finalized-safe proposal ID.
