@@ -804,7 +804,21 @@ where
     #[instrument(skip(self), level = "debug")]
     async fn event_stream_start_block(&self) -> Result<EventStreamStartPoint, SyncError> {
         let resume_head_block_number = self.resume_head_block_number().await?;
-        let finalized_snapshot = self.finalized_l1_snapshot().await?;
+        let finalized_snapshot = match self.finalized_l1_snapshot().await {
+            Ok(snapshot) => snapshot,
+            Err(SyncError::MissingFinalizedL1Block) => {
+                warn!(
+                    resume_head_block_number,
+                    "missing L1 finalized block; using synthetic finalized snapshot for startup"
+                );
+                FinalizedL1Snapshot {
+                    block_number: 0,
+                    block_hash: B256::ZERO,
+                    finalized_safe_proposal_id: 0,
+                }
+            }
+            Err(err) => return Err(err),
+        };
         let resume_head_block = self
             .rpc
             .l2_provider
