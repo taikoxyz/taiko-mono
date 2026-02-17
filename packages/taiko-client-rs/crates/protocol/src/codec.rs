@@ -206,9 +206,7 @@ mod tests {
         ];
         let codec = ZlibTxListCodec::new(1024);
 
-        let compressed = codec
-            .encode(std::slice::from_ref(&tx))
-            .expect("encode tx-list");
+        let compressed = codec.encode(std::slice::from_ref(&tx)).expect("encode tx-list");
         let decoded = decompress_payload(&compressed);
 
         let mut expected_rlp = Vec::new();

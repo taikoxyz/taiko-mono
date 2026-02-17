@@ -1651,7 +1651,8 @@ mod tests {
             ..Default::default()
         };
 
-        let whitelist_network = WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
+        let whitelist_network =
+            WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
         let expected = sample_response_envelope();
         let expected_to_publish = expected.clone();
         let command_tx = whitelist_network.command_tx.clone();
