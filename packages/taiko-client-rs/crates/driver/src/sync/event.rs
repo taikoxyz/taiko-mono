@@ -658,8 +658,7 @@ where
 
         let mut scan_end = latest;
         loop {
-            let scan_width =
-                Self::HEAD_L1_ORIGIN_SCAN_STEP.min(scan_budget_blocks);
+            let scan_width = Self::HEAD_L1_ORIGIN_SCAN_STEP.min(scan_budget_blocks);
             let scan_start = scan_end.saturating_sub(scan_width - 1);
             if let Some(block_id) = self.scan_head_l1_origin_in_range(scan_end, scan_start).await? {
                 return Ok(block_id);
@@ -730,10 +729,7 @@ where
 
             if self.is_confirmed_origin_block(block_id).await? {
                 self.rpc.set_head_l1_origin(U256::from(block_id)).await?;
-                info!(
-                    block_id,
-                    "recovered head_l1_origin from confirmed origin row"
-                );
+                info!(block_id, "recovered head_l1_origin from confirmed origin row");
                 return Ok(Some(block_id));
             }
         }
@@ -768,10 +764,8 @@ where
             }
         };
 
-        let Some(last_block_id) = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(proposal_id))
-            .await?
+        let Some(last_block_id) =
+            self.rpc.last_block_id_by_batch_id(U256::from(proposal_id)).await?
         else {
             return Ok(false);
         };
