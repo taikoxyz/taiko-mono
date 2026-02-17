@@ -15,11 +15,11 @@ use alloy_provider::{
 };
 use futures::StreamExt;
 use hashlink::LinkedHashMap;
-use lru::LruCache;
 use libp2p::{
     Multiaddr, PeerId, Swarm, Transport, core::upgrade, gossipsub, identify, identity, noise, ping,
     swarm::NetworkBehaviour, tcp, yamux,
 };
+use lru::LruCache;
 use preconfirmation_net::{P2pConfig, spawn_discovery};
 use sha2::{Digest, Sha256};
 use tokio::{sync::mpsc, task::JoinHandle};
@@ -134,9 +134,7 @@ struct HeightSeenTracker {
 
 impl HeightSeenTracker {
     fn new(capacity: usize) -> Self {
-        Self {
-            seen_by_height: LruCache::new(NonZeroUsize::new(capacity).unwrap()),
-        }
+        Self { seen_by_height: LruCache::new(NonZeroUsize::new(capacity).unwrap()) }
     }
 
     fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
@@ -1690,7 +1688,10 @@ mod tests {
         assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
         assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([3u8; 32]), 1));
         assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 1);
-        assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.get(&1).unwrap().len(), 2);
+        assert_eq!(
+            validation_state.preconf_seen_by_height.seen_by_height.get(&1).unwrap().len(),
+            2
+        );
         assert_eq!(
             validation_state.preconf_seen_by_height.seen_by_height.get(&1).unwrap(),
             &vec![B256::from([1u8; 32]), B256::from([2u8; 32])]
