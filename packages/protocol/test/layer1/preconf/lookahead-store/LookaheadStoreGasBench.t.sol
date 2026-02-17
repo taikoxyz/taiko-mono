@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 /// forge-config: default.isolate = true
 
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ILookaheadStore } from "src/layer1/preconf/iface/ILookaheadStore.sol";
 import { LookaheadStore } from "src/layer1/preconf/impl/LookaheadStore.sol";
 import { LibLookaheadEncoder as Encoder } from "src/layer1/preconf/libs/LibLookaheadEncoder.sol";
@@ -43,7 +43,8 @@ contract LookaheadStoreGasBench is CommonTest {
     string internal constant P_SAME = "preconf/same_epoch_proposal";
     string internal constant P_CROSS = "preconf/cross_epoch_proposal";
     string internal constant P_POST = "preconf/same_epoch_proposal_with_lookahead_posting";
-    string internal constant P_REUSE = "preconf/same_epoch_proposal_with_lookahead_posting_reuse_slot";
+    string internal constant P_REUSE =
+        "preconf/same_epoch_proposal_with_lookahead_posting_reuse_slot";
 
     function setUpOnEthereum() internal override {
         overseer = makeAddr("overseer");
@@ -55,8 +56,7 @@ contract LookaheadStoreGasBench is CommonTest {
         lookaheadStore = GasBenchHarness(
             address(
                 new ERC1967Proxy(
-                    address(impl),
-                    abi.encodeCall(LookaheadStore.init, (address(this), overseer))
+                    address(impl), abi.encodeCall(LookaheadStore.init, (address(this), overseer))
                 )
             )
         );
@@ -173,10 +173,7 @@ contract LookaheadStoreGasBench is CommonTest {
         vm.warp(epochTimestamp + 1);
 
         ILookaheadStore.LookaheadData memory data = ILookaheadStore.LookaheadData({
-            slotIndex: 0,
-            currLookahead: currEncoded,
-            nextLookahead: "",
-            commitmentSignature: ""
+            slotIndex: 0, currLookahead: currEncoded, nextLookahead: "", commitmentSignature: ""
         });
 
         bytes memory encodedData = abi.encode(data);
@@ -261,17 +258,15 @@ contract LookaheadStoreGasBench is CommonTest {
 
         // Warm the storage slot if needed (scenario 4)
         if (_warmSlot) {
-            uint256 warmEpoch =
-                nextEpochTimestamp + lookaheadStore.LOOKAHEAD_BUFFER_SIZE() * EPOCH;
+            uint256 warmEpoch = nextEpochTimestamp + lookaheadStore.LOOKAHEAD_BUFFER_SIZE() * EPOCH;
             lookaheadStore.setLookaheadHash(warmEpoch, bytes26(uint208(1)));
         }
 
         // Sign the commitment
         bytes memory sig;
         {
-            ISlasher.Commitment memory commitment = lookaheadStore.buildLookaheadCommitment(
-                nextEpochTimestamp, nextEncoded
-            );
+            ISlasher.Commitment memory commitment =
+                lookaheadStore.buildLookaheadCommitment(nextEpochTimestamp, nextEncoded);
             bytes32 digest = keccak256(abi.encode(commitment));
             (uint8 v, bytes32 r, bytes32 s) = vm.sign(COMMITTER_PK, digest);
             sig = abi.encodePacked(r, s, v);

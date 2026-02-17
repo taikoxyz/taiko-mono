@@ -186,8 +186,5 @@ interface ILookaheadStore {
     /// @notice Checks if an operator is currently blacklisted.
     /// @param _operatorRegistrationRoot Registration root of the operator.
     /// @return True if the operator is blacklisted, false otherwise.
-    function isOperatorBlacklisted(bytes32 _operatorRegistrationRoot)
-        external
-        view
-        returns (bool);
+    function isOperatorBlacklisted(bytes32 _operatorRegistrationRoot) external view returns (bool);
 }
