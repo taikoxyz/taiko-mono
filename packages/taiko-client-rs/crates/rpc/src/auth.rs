@@ -80,12 +80,19 @@ impl TaikoEngineMethod {
 
 /// Parameters for fetching pre-built transaction lists with minimum tip.
 pub struct TxPoolContentParams {
+    /// Beneficiary used for txpool list filtering on the engine side.
     pub beneficiary: Address,
+    /// Optional base fee hint used by the txpool prebuild endpoint.
     pub base_fee: Option<u64>,
+    /// Block gas limit used when building candidate tx lists.
     pub block_max_gas_limit: u64,
+    /// Maximum encoded bytes permitted per returned tx list.
     pub max_bytes_per_tx_list: u64,
+    /// Local addresses to prioritize in txpool prebuild.
     pub locals: Vec<String>,
+    /// Maximum number of tx lists requested from the engine.
     pub max_transactions_lists: u64,
+    /// Minimum tip (wei) required for transactions in returned lists.
     pub min_tip: u64,
 }
 

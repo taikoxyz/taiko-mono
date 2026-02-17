@@ -8,6 +8,7 @@ use tracing::Level;
 use url::Url;
 
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
+/// CLI flags shared by proposer and driver-style subcommands.
 pub struct CommonArgs {
     /// Websocket RPC endpoint of a L1 ethereum node.
     #[clap(

@@ -21,11 +21,17 @@ use crate::{
     network::{NetworkCommand, NetworkEvent},
 };
 
+/// Cache re-import flow for out-of-order envelopes once parents arrive.
 mod cache_import;
+/// Ingress entrypoints for unsafe payload handling.
 mod ingress;
+/// Payload normalization helpers.
 mod payload;
+/// Response serving helpers for request/response gossip.
 mod response;
+/// Whitelist signer validation and sequencer snapshot cache.
 mod signer;
+/// Payload-level validation helpers.
 mod validation;
 
 #[cfg(test)]

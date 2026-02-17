@@ -126,6 +126,7 @@ impl SubscriptionSource {
 impl TryFrom<&str> for SubscriptionSource {
     type Error = String;
 
+    /// Parse a websocket URL (`ws://` / `wss://`) or fallback to an IPC path.
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.starts_with("ws://") || value.starts_with("wss://") {
             value

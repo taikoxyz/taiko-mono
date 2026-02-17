@@ -29,11 +29,19 @@ use self::path::EngineBlockOutcome;
 pub enum ProductionError {
     /// Input was dispatched to a path that does not support it.
     #[error("{input:?} input is unsupported by {path:?} path")]
-    UnsupportedInput { path: ProductionPathKind, input: ProductionPathKind },
+    UnsupportedInput {
+        /// Path that rejected the provided input.
+        path: ProductionPathKind,
+        /// Input kind that was attempted.
+        input: ProductionPathKind,
+    },
 
     /// No registered path can handle the requested input kind.
     #[error("no production path registered for input {kind:?}")]
-    MissingPath { kind: ProductionPathKind },
+    MissingPath {
+        /// Input kind that had no matching path.
+        kind: ProductionPathKind,
+    },
 }
 
 impl From<ProductionError> for DriverError {
@@ -70,6 +78,7 @@ pub enum ProductionInput {
 /// Concrete preconfirmation payload wrapper used for injection.
 #[derive(Clone, Debug)]
 pub struct PreconfPayload {
+    /// Wrapped payload attributes submitted through preconfirmation ingress.
     payload: TaikoPayloadAttributes,
 }
 
@@ -98,6 +107,7 @@ impl PreconfPayload {
 /// Routes `ProductionInput` to a compatible `BlockProductionPath`.
 #[derive(Clone)]
 pub struct ProductionRouter {
+    /// Registered production paths scanned in order during routing.
     paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>>,
 }
 

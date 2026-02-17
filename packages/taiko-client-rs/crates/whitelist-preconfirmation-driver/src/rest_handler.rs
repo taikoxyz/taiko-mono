@@ -81,23 +81,48 @@ where
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
+/// Construction parameters for [`WhitelistRestHandler`].
+pub(crate) struct WhitelistRestHandlerParams<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Event syncer for L1 origin lookups.
+    pub event_syncer: Arc<EventSyncer<P>>,
+    /// RPC client for L1/L2 reads.
+    pub rpc: Client<P>,
+    /// Chain ID for signature domain separation.
+    pub chain_id: u64,
+    /// Deterministic signer for block signing.
+    pub signer: FixedKSigner,
+    /// Beacon client used to derive current epoch values for EOS requests.
+    pub beacon_client: Arc<BeaconClient>,
+    /// Whitelist contract address used for operator checks.
+    pub whitelist_address: Address,
+    /// Highest unsafe payload block ID tracked by this node at startup.
+    pub initial_highest_unsafe_l2_payload_block_id: u64,
+    /// Channel used to publish messages to the P2P network.
+    pub network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Local peer ID string.
+    pub local_peer_id: String,
+}
+
 impl<P> WhitelistRestHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Create a new REST/WS handler.
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
-        event_syncer: Arc<EventSyncer<P>>,
-        rpc: Client<P>,
-        chain_id: u64,
-        signer: FixedKSigner,
-        beacon_client: Arc<BeaconClient>,
-        whitelist_address: Address,
-        initial_highest_unsafe_l2_payload_block_id: u64,
-        network_command_tx: mpsc::Sender<NetworkCommand>,
-        local_peer_id: String,
-    ) -> Self {
+    pub(crate) fn new(params: WhitelistRestHandlerParams<P>) -> Self {
+        let WhitelistRestHandlerParams {
+            event_syncer,
+            rpc,
+            chain_id,
+            signer,
+            beacon_client,
+            whitelist_address,
+            initial_highest_unsafe_l2_payload_block_id,
+            network_command_tx,
+            local_peer_id,
+        } = params;
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {

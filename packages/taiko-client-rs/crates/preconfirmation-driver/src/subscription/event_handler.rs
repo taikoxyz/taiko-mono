@@ -57,21 +57,42 @@ where
     pub(super) lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
 }
 
+/// Construction parameters for an [`EventHandler`].
+pub struct EventHandlerParams<D>
+where
+    D: DriverClient,
+{
+    /// Commitment store used for persistence and pending buffers.
+    pub store: Arc<dyn CommitmentStore>,
+    /// Codec used to decode compressed txlists.
+    pub codec: Arc<ZlibTxListCodec>,
+    /// Driver client used to submit preconfirmation inputs.
+    pub driver: Arc<D>,
+    /// Optional expected slasher for commitment validation.
+    pub expected_slasher: Option<Bytes20>,
+    /// Broadcast channel for emitting client events.
+    pub event_tx: broadcast::Sender<PreconfirmationEvent>,
+    /// Command tx for issuing network requests.
+    pub command_tx: Sender<NetworkCommand>,
+    /// Lookahead resolver for signer and submission-window validation.
+    pub lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
+}
+
 impl<D> EventHandler<D>
 where
     D: DriverClient,
 {
     /// Create a new event handler with the required dependencies.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        store: Arc<dyn CommitmentStore>,
-        codec: Arc<ZlibTxListCodec>,
-        driver: Arc<D>,
-        expected_slasher: Option<Bytes20>,
-        event_tx: broadcast::Sender<PreconfirmationEvent>,
-        command_tx: Sender<NetworkCommand>,
-        lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
-    ) -> Self {
+    pub fn new(params: EventHandlerParams<D>) -> Self {
+        let EventHandlerParams {
+            store,
+            codec,
+            driver,
+            expected_slasher,
+            event_tx,
+            command_tx,
+            lookahead_resolver,
+        } = params;
         Self { store, codec, driver, expected_slasher, event_tx, command_tx, lookahead_resolver }
     }
 

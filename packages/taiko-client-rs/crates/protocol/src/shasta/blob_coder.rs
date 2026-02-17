@@ -19,6 +19,7 @@ const ROUND_BYTES: usize = 4 * 31 + 3;
 const FIRST_ROUND_CAPACITY: usize = 27 + 3 + 3 * 31;
 
 #[derive(Clone, Copy, Debug, Default)]
+/// Stateless Kona-compatible blob encoder/decoder utility.
 pub struct BlobCoder;
 
 /// Ensure that the field element at the given index exists, returning a mutable reference to it.

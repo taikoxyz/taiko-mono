@@ -50,14 +50,19 @@ pub enum DriverError {
     /// Preconfirmation payload injection failed with context.
     #[error("preconfirmation injection failed for block {block_number}: {source}")]
     PreconfInjectionFailed {
+        /// L2 block number targeted by the payload.
         block_number: u64,
         #[source]
+        /// Underlying engine submission error.
         source: EngineSubmissionError,
     },
 
     /// Timed out while enqueuing a preconfirmation payload.
     #[error("preconfirmation enqueue timed out after {waited:?}")]
-    PreconfEnqueueTimeout { waited: Duration },
+    PreconfEnqueueTimeout {
+        /// Time spent waiting for queue capacity.
+        waited: Duration,
+    },
 
     /// Channel send failed when enqueueing a preconfirmation payload.
     #[error("failed to enqueue preconfirmation: {0}")]
@@ -65,13 +70,17 @@ pub enum DriverError {
 
     /// Timed out waiting for a preconfirmation processing response.
     #[error("preconfirmation result timed out after {waited:?}")]
-    PreconfResponseTimeout { waited: Duration },
+    PreconfResponseTimeout {
+        /// Time spent waiting for the oneshot response.
+        waited: Duration,
+    },
 
     /// Response channel for a preconfirmation payload was closed before delivery.
     #[error("preconfirmation response dropped: {recv_error}")]
     PreconfResponseDropped {
         #[from]
         #[source]
+        /// Channel receive error produced by oneshot cancellation.
         recv_error: RecvError,
     },
 

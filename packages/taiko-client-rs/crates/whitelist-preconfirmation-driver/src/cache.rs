@@ -210,6 +210,7 @@ pub(crate) struct WhitelistSequencerCache {
 }
 
 impl Default for WhitelistSequencerCache {
+    /// Create a sequencer cache using the default TTL configuration.
     fn default() -> Self {
         Self::new(Duration::from_secs(DEFAULT_SEQUENCER_CACHE_TTL_SECS))
     }

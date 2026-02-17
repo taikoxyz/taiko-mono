@@ -10,7 +10,9 @@ use tracing::debug;
 /// Thin wrapper around on-chain lookahead contracts resolved via the Inbox configuration.
 #[derive(Clone)]
 pub struct LookaheadClient<P: Provider + Clone> {
+    /// Inbox contract instance used to resolve runtime configuration.
     inbox: InboxInstance<P>,
+    /// LookaheadStore contract instance used for proposer-context queries.
     lookahead_store: LookaheadStoreInstance<P>,
 }
 

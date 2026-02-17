@@ -43,8 +43,11 @@ struct ProposedEventContext {
     l1_timestamp: u64,
 }
 
+/// Bundle types extracted from proposal logs.
 mod bundle;
+/// Payload assembly and canonical verification helpers.
 mod payload;
+/// Parent-state tracking while deriving sequential blocks.
 mod state;
 
 use bundle::{BundleMeta, SourceManifestSegment};
@@ -92,11 +95,16 @@ pub struct ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + 'static,
 {
+    /// RPC client bundle used for L1/L2 queries and engine calls.
     rpc: Client<P>,
+    /// Builder for Shasta anchor transactions.
     anchor_constructor: AnchorTxConstructor<RootProvider>,
+    /// Manifest fetcher used to resolve derivation-source blobs.
     derivation_source_manifest_fetcher:
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
+    /// Activation timestamp for the Shasta fork on this chain.
     shasta_fork_timestamp: u64,
+    /// Initial proposal id used when bootstrapping event sync.
     initial_proposal_id: U256,
 }
 
