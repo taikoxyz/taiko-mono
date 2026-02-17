@@ -1,6 +1,4 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
-#![allow(clippy::missing_docs_in_private_items)]
-
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use alloy_primitives::B256;
@@ -38,6 +36,7 @@ const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
 const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
 
 #[derive(Debug)]
+/// Network event emitted by the whitelist preconfirmation gossipsub stack.
 pub(crate) enum NetworkEvent {
     /// Incoming `preconfBlocks` payload.
     UnsafePayload {
@@ -111,7 +110,9 @@ pub(crate) struct WhitelistNetwork {
 }
 
 #[derive(Clone)]
+/// Group of gossipsub topics used by the whitelist preconfirmation driver.
 struct Topics {
+    /// Topic names used by the whitelist preconfirmation network.
     /// Topic carrying signed unsafe payload gossip.
     preconf_blocks: gossipsub::IdentTopic,
     /// Topic used to request a payload by block hash.
@@ -144,6 +145,7 @@ impl Topics {
 
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "BehaviourEvent")]
+/// Composite libp2p behaviour used by the whitelist preconfirmation network runtime.
 struct Behaviour {
     /// Gossip transport for whitelist preconfirmation topics.
     gossipsub: gossipsub::Behaviour,
@@ -154,6 +156,7 @@ struct Behaviour {
 }
 
 #[derive(Debug)]
+/// Event wrapper for the nested libp2p behaviour components.
 enum BehaviourEvent {
     /// Wrapped gossipsub event.
     Gossipsub(Box<gossipsub::Event>),
@@ -185,6 +188,7 @@ impl From<identify::Event> for BehaviourEvent {
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
+/// Parsed bootnode configuration split into direct dial multiaddrs and ENR discovery peers.
 struct ClassifiedBootnodes {
     /// Parsed multiaddrs to dial directly.
     dial_addrs: Vec<Multiaddr>,
@@ -198,6 +202,7 @@ impl WhitelistNetwork {
         Self::spawn_with_filter(cfg)
     }
 
+    /// Internal spawn path that wires transport, behaviour, and the event loop.
     fn spawn_with_filter(cfg: P2pConfig) -> Result<Self> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
@@ -486,7 +491,7 @@ impl WhitelistNetwork {
 /// Build the gossipsub behaviour.
 pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
     let config = gossipsub::ConfigBuilder::default()
-        .validation_mode(gossipsub::ValidationMode::Strict)
+        .validation_mode(gossipsub::ValidationMode::Permissive)
         .heartbeat_interval(*kona_gossip::GOSSIP_HEARTBEAT)
         .duplicate_cache_time(*kona_gossip::SEEN_MESSAGES_TTL)
         .message_id_fn(message_id)
@@ -866,6 +871,7 @@ fn decode_eos_epoch(payload: &[u8]) -> u64 {
     u64::from_be_bytes(bytes)
 }
 
+/// Decode an end-of-sequencing epoch when the payload is exactly 8 bytes.
 fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
     if payload.len() != std::mem::size_of::<u64>() {
         return None;
@@ -888,6 +894,7 @@ fn decode_request_hash(payload: &[u8]) -> B256 {
     B256::from(bytes)
 }
 
+/// Decode a 32-byte request hash payload exactly (non-padded path).
 fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
     if payload.len() != std::mem::size_of::<B256>() {
         return None;
