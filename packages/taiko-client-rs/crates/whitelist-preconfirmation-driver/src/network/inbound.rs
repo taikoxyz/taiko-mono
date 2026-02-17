@@ -8,24 +8,17 @@ use std::{
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    Provider, RootProvider,
-    fillers::FillProvider,
-    utils::JoinedRecommendedFillers,
+    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
 use bindings::preconf_whitelist::PreconfWhitelist::{PreconfWhitelistInstance, operatorsReturn};
 use hashlink::LinkedHashMap;
-use libp2p::PeerId;
-use libp2p::gossipsub;
+use libp2p::{PeerId, gossipsub};
 use rpc::client::Client;
 use tracing::debug;
 
-use crate::codec::{
-    block_signing_hash,
-    recover_signer,
-    DecodedUnsafePayload,
-};
 use crate::{
     cache::WhitelistSequencerCache,
+    codec::{DecodedUnsafePayload, block_signing_hash, recover_signer},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
@@ -77,13 +70,10 @@ struct WhitelistSequencerSnapshot {
 
 impl InboundWhitelistFilter {
     pub(crate) fn new(rpc_client: InboundWhitelistClient, whitelist_address: Address) -> Self {
-        let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc_client.l1_provider.clone());
+        let whitelist =
+            PreconfWhitelistInstance::new(whitelist_address, rpc_client.l1_provider.clone());
 
-        Self {
-            whitelist,
-            rpc_client,
-            sequencer_cache: WhitelistSequencerCache::default(),
-        }
+        Self { whitelist, rpc_client, sequencer_cache: WhitelistSequencerCache::default() }
     }
 
     /// Ensure the signer is authorized by current/next whitelist sequencer snapshot.
@@ -171,20 +161,19 @@ impl InboundWhitelistFilter {
     }
 
     /// Return (current, next) sequencer addresses, using cache when available.
-    async fn cached_whitelist_sequencers(
-        &mut self,
-        now: Instant,
-    ) -> Result<CachedSequencers> {
-        if let (Some(current), Some(next)) = (self.sequencer_cache.get_current(now), self.sequencer_cache.get_next(now))
+    async fn cached_whitelist_sequencers(&mut self, now: Instant) -> Result<CachedSequencers> {
+        if let (Some(current), Some(next)) =
+            (self.sequencer_cache.get_current(now), self.sequencer_cache.get_next(now))
         {
             return Ok(CachedSequencers { current, next, any_from_cache: true });
         }
 
         let snapshot = self.fetch_whitelist_snapshot_with_retry().await?;
 
-        if let Err(err) =
-            ensure_not_too_early_for_epoch(snapshot.block_timestamp, snapshot.current_epoch_start_timestamp)
-        {
+        if let Err(err) = ensure_not_too_early_for_epoch(
+            snapshot.block_timestamp,
+            snapshot.current_epoch_start_timestamp,
+        ) {
             if let Some((current, next)) = self
                 .sequencer_cache
                 .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
@@ -199,8 +188,8 @@ impl InboundWhitelistFilter {
             return Err(err);
         }
 
-        if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp)
-            && let Some((current, next)) = self
+        if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp) &&
+            let Some((current, next)) = self
                 .sequencer_cache
                 .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
         {
@@ -230,9 +219,8 @@ impl InboundWhitelistFilter {
         for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
             match self.fetch_whitelist_snapshot().await {
                 Ok(snapshot) => return Ok(snapshot),
-                Err(err)
-                    if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS
-                        && should_retry_snapshot_fetch(&err) =>
+                Err(err) if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS &&
+                    should_retry_snapshot_fetch(&err) =>
                 {
                     debug!(
                         attempt,
@@ -404,10 +392,10 @@ fn should_retry_snapshot_fetch(err: &WhitelistPreconfirmationDriverError) -> boo
     match err {
         WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {
             let lower = message.to_ascii_lowercase();
-            message.contains("block hash changed between whitelist batches")
-                || message.contains("missing pinned block")
-                || (message.contains("at block")
-                    && (lower.contains("not found") || lower.contains("unknown block")))
+            message.contains("block hash changed between whitelist batches") ||
+                message.contains("missing pinned block") ||
+                (message.contains("at block") &&
+                    (lower.contains("not found") || lower.contains("unknown block")))
         }
         _ => false,
     }
@@ -488,8 +476,8 @@ pub(crate) struct HeightSeenTracker {
 
 impl HeightSeenTracker {
     pub(crate) fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if let Some(hashes) = self.seen_by_height.get(&height)
-            && hashes.len() > max_per_height
+        if let Some(hashes) = self.seen_by_height.get(&height) &&
+            hashes.len() > max_per_height
         {
             return false;
         }
@@ -656,9 +644,9 @@ impl GossipsubInboundState {
         &mut self,
         payload: &DecodedUnsafePayload,
     ) -> gossipsub::MessageAcceptance {
-        if payload.envelope.execution_payload.transactions.is_empty()
-            || payload.envelope.execution_payload.fee_recipient == Address::ZERO
-            || payload.envelope.execution_payload.block_number == 0
+        if payload.envelope.execution_payload.transactions.is_empty() ||
+            payload.envelope.execution_payload.fee_recipient == Address::ZERO ||
+            payload.envelope.execution_payload.block_number == 0
         {
             return gossipsub::MessageAcceptance::Reject;
         }
@@ -681,9 +669,9 @@ impl GossipsubInboundState {
             return gossipsub::MessageAcceptance::Reject;
         };
 
-        if envelope.execution_payload.transactions.is_empty()
-            || envelope.execution_payload.fee_recipient == Address::ZERO
-            || envelope.execution_payload.block_number == 0
+        if envelope.execution_payload.transactions.is_empty() ||
+            envelope.execution_payload.fee_recipient == Address::ZERO ||
+            envelope.execution_payload.block_number == 0
         {
             return gossipsub::MessageAcceptance::Reject;
         }

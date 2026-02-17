@@ -125,8 +125,6 @@ pub struct LookaheadStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestStatus {
-    /// Total cached envelopes (best-effort).
-    pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
     #[serde(rename = "highestUnsafeL2PayloadBlockID")]
     pub highest_unsafe_l2_payload_block_id: u64,
@@ -156,8 +154,6 @@ pub struct WhitelistStatus {
     pub peer_id: String,
     /// Whether event sync has established a head L1 origin.
     pub sync_ready: bool,
-    /// Total cached envelopes (best-effort).
-    pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
     #[serde(rename = "highestUnsafeL2PayloadBlockID")]
     pub highest_unsafe_l2_payload_block_id: u64,
@@ -201,7 +197,6 @@ mod tests {
             highest_unsafe_block_number: 100,
             peer_id: "test-peer".to_string(),
             sync_ready: true,
-            total_cached: 0,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
         };
@@ -218,7 +213,6 @@ mod tests {
     #[test]
     fn rest_status_serializes_fields() {
         let status = RestStatus {
-            total_cached: 0,
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
         };
@@ -237,7 +231,6 @@ mod tests {
     #[test]
     fn rest_status_does_not_include_lookahead_metadata() {
         let status = RestStatus {
-            total_cached: 0,
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
         };

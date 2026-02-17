@@ -589,7 +589,6 @@ where
             highest_unsafe_block_number: highest_unsafe,
             peer_id: self.local_peer_id.clone(),
             sync_ready,
-            total_cached: self.cache_state.total_pending_cache_inserts(),
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
         })

@@ -251,7 +251,6 @@ async fn handle_status(State(state): State<AppState>) -> Response {
     match state.api.get_status().await {
         Ok(status) => {
             let response = RestStatus {
-                total_cached: status.total_cached,
                 highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
                 end_of_sequencing_block_hash: status
                     .end_of_sequencing_block_hash
@@ -575,7 +574,6 @@ mod tests {
                 highest_unsafe_block_number: 100,
                 peer_id: "test-peer".to_string(),
                 sync_ready: true,
-                total_cached: 0,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
             })
@@ -613,7 +611,6 @@ mod tests {
                 highest_unsafe_block_number: 100,
                 peer_id: "test-peer".to_string(),
                 sync_ready: self.sync_ready,
-                total_cached: 0,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
             })
