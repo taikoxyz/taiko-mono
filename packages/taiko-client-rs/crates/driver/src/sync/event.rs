@@ -655,9 +655,7 @@ where
         let mut scan_end = latest;
         loop {
             let scan_start = scan_end.saturating_sub(Self::HEAD_L1_ORIGIN_SCAN_STEP - 1);
-            if let Some(block_id) =
-                self.scan_head_l1_origin_in_range(scan_end, scan_start).await?
-            {
+            if let Some(block_id) = self.scan_head_l1_origin_in_range(scan_end, scan_start).await? {
                 return Ok(block_id);
             }
 

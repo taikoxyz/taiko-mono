@@ -167,7 +167,9 @@ where
         let Some(mut checkpoint_head) =
             self.checkpoint_head().await.map_err(SyncError::CheckpointQuery)?
         else {
-            error!("checkpoint node reports no head origin; cannot run beacon sync in checkpoint mode");
+            error!(
+                "checkpoint node reports no head origin; cannot run beacon sync in checkpoint mode"
+            );
             return Err(SyncError::CheckpointNoOrigin);
         };
 
