@@ -1036,11 +1036,8 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            match peer_swarm.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    break address;
-                }
-                _ => {}
+            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+                break address;
             }
         };
 
@@ -1228,11 +1225,8 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            match peer_swarm.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    break address;
-                }
-                _ => {}
+            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+                break address;
             }
         };
 
@@ -1346,11 +1340,8 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            match peer_swarm.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    break address;
-                }
-                _ => {}
+            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+                break address;
             }
         };
 

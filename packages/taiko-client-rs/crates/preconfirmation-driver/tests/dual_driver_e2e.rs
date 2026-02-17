@@ -96,7 +96,7 @@ impl DriverInstance {
         event_syncer
             .wait_preconf_ingress_ready()
             .await
-            .ok_or_else(|| anyhow!("preconfirmation ingress disabled"))?;
+            .map_err(|err| anyhow!("preconfirmation ingress unavailable: {err}"))?;
 
         Ok(Self { rpc_client, event_syncer, event_handle })
     }

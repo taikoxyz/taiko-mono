@@ -223,7 +223,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     event_syncer
         .wait_preconf_ingress_ready()
         .await
-        .ok_or_else(|| anyhow!("preconfirmation ingress disabled"))?;
+        .map_err(|err| anyhow!("preconfirmation ingress unavailable: {err}"))?;
 
     // Set up driver client with safe-tip fallback.
     let embedded_client = EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());

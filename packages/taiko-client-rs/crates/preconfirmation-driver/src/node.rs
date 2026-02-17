@@ -2,15 +2,12 @@
 
 use std::sync::Arc;
 
-use alloy_primitives::{Address, U256};
-use alloy_provider::Provider;
-use preconfirmation_net::P2pConfig;
+use alloy_primitives::U256;
 use tokio::sync::{mpsc, watch};
 use tracing::info;
 
 use crate::{
-    ContractInboxReader, EmbeddedDriverClient, PreconfirmationClient, PreconfirmationClientConfig,
-    Result,
+    EmbeddedDriverClient, PreconfirmationClient, PreconfirmationClientConfig, Result,
     driver_interface::{InboxReader, PreconfirmationInput},
     error::PreconfirmationClientError,
     rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig},
@@ -60,10 +57,6 @@ impl PreconfirmationDriverNodeConfig {
 pub struct DriverChannels {
     /// Input rx for preconfirmation inputs from the node.
     pub input_rx: mpsc::Receiver<PreconfirmationInput>,
-    /// Tx for updating the canonical proposal ID.
-    pub canonical_proposal_id_tx: watch::Sender<u64>,
-    /// Tx for updating the event sync tip block number.
-    pub event_sync_tip_tx: watch::Sender<U256>,
     /// Tx for updating the preconfirmation tip.
     pub preconf_tip_tx: watch::Sender<U256>,
 }
@@ -84,8 +77,6 @@ pub struct PreconfirmationDriverNode<I: InboxReader + 'static> {
     p2p_client: PreconfirmationClient<EmbeddedDriverClient<I>>,
     /// Configuration for the optional preconfirmation sidecar JSON-RPC server.
     rpc_config: Option<PreconfRpcServerConfig>,
-    /// Watch receiver for the canonical proposal ID from the driver.
-    canonical_proposal_id_rx: watch::Receiver<u64>,
     /// Watch receiver for the preconfirmation tip from the driver.
     preconf_tip_rx: watch::Receiver<U256>,
 }
@@ -105,33 +96,15 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
         inbox_reader: I,
     ) -> Result<(Self, DriverChannels)> {
         let (input_tx, input_rx) = mpsc::channel(config.driver_channel_capacity);
-        let (canonical_id_tx, canonical_id_rx) = watch::channel(0u64);
-        let (event_sync_tip_tx, event_sync_tip_rx) = watch::channel(U256::ZERO);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 
-        let driver_client = EmbeddedDriverClient::new(
-            input_tx,
-            canonical_id_rx.clone(),
-            event_sync_tip_rx,
-            preconf_tip_rx.clone(),
-            inbox_reader,
-        );
+        let driver_client =
+            EmbeddedDriverClient::new(input_tx, preconf_tip_rx.clone(), inbox_reader);
         let p2p_client = PreconfirmationClient::new(config.p2p_config, driver_client.clone())?;
 
         Ok((
-            Self {
-                driver_client,
-                p2p_client,
-                rpc_config: config.rpc_config,
-                canonical_proposal_id_rx: canonical_id_rx,
-                preconf_tip_rx,
-            },
-            DriverChannels {
-                input_rx,
-                canonical_proposal_id_tx: canonical_id_tx,
-                event_sync_tip_tx,
-                preconf_tip_tx,
-            },
+            Self { driver_client, p2p_client, rpc_config: config.rpc_config, preconf_tip_rx },
+            DriverChannels { input_rx, preconf_tip_tx },
         ))
     }
 
@@ -159,7 +132,6 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
 
         let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
             command_tx: self.p2p_client.command_tx(),
-            canonical_proposal_id_rx: self.canonical_proposal_id_rx.clone(),
             preconf_tip_rx: self.preconf_tip_rx.clone(),
             local_peer_id: self.p2p_client.p2p_handle().local_peer_id().to_string(),
             inbox_reader: self.driver_client.inbox_reader().clone(),
@@ -181,30 +153,5 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
         &self,
     ) -> tokio::sync::broadcast::Receiver<crate::subscription::PreconfirmationEvent> {
         self.p2p_client.subscribe()
-    }
-}
-
-impl<P> PreconfirmationDriverNode<ContractInboxReader<P>>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Create a new preconfirmation driver node by building configuration from a provider.
-    pub async fn start_with_provider(
-        p2p_config: P2pConfig,
-        inbox_address: Address,
-        provider: P,
-        rpc_config: Option<PreconfRpcServerConfig>,
-    ) -> Result<(Self, DriverChannels)> {
-        let client_config =
-            PreconfirmationClientConfig::new(p2p_config, inbox_address, provider.clone()).await?;
-        let mut config = PreconfirmationDriverNodeConfig::new(client_config);
-        if let Some(rpc_config) = rpc_config {
-            config = config.with_rpc(rpc_config);
-        }
-
-        let inbox = bindings::inbox::Inbox::InboxInstance::new(inbox_address, provider);
-        let inbox_reader = ContractInboxReader::new(inbox);
-
-        Self::new(config, inbox_reader)
     }
 }

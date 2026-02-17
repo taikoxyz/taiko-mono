@@ -47,10 +47,30 @@
 
 ## Event Scanner Integration
 
-- Build `EventScanner` instances via `SubscriptionSource::to_provider()` and `EventScannerBuilder::connect` to avoid transport-specific helpers that no longer exist upstream.
-- When syncing from a block/tag or from latest events, call `EventScannerBuilder::sync().from_block(...)` or `.from_latest(...)` and immediately `.connect(provider)` returned from the subscription source.
-- Lookahead preconfirmation is split into `client`, `resolver`, `scanner`; use `LookaheadResolver::new` for the common path or `new_with_genesis` for custom/unknown chains. A default resolver type alias is exposed for the common provider stack.
+- Build event scanners from the subscription source provider conversion path and explicitly connect them to the derived provider; avoid transport-specific helper paths removed upstream.
+- When syncing from a specific block/tag or from latest events, explicitly configure the start mode first, then connect the scanner to the provider from the subscription source.
+- Lookahead preconfirmation is split into `client`, `resolver`, and `scanner`; use the standard resolver path for common chains and the custom-genesis resolver path for custom or unknown chains.
 - Solidity contracts for the bindings live in `../protocol` (relative to `crates/bindings`); consult them to mirror on-chain logic.
+
+## Preconfirmation and Event-Sync Guardrails
+
+- Scope: these guardrails apply across `crates/driver`, `crates/preconfirmation-driver`, `crates/whitelist-preconfirmation-driver`, `crates/proposer`, and `crates/rpc`.
+- Before touching preconfirmation, event-sync, proposer or related custom-table behavior (features, fixes, or P2P-related updates), read these canonical docs first:
+  - `docs/agents/whitelist-preconfirmation-invariants.md`: canonical invariant catalog (`WLP-INV-001..010`).
+  - `docs/agents/event-scan-reorg-and-preconf-flow.md`: operational flow and sequence documentation.
+  - `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md`: custom-table model and beacon-sync gap behavior.
+  - `docs/agents/reference-map.md`: invariant-to-code mapping reference.
+- In implementation plans and code reviews for related work, explicitly cite impacted invariant IDs (`WLP-INV-001..010`).
+- Preserve stale-boundary enforcement everywhere: `block_number <= head_l1_origin` means stale preconfirmation data and must be dropped/ignored.
+- Preserve the rule that preconfirmation must never reorg event-confirmed blocks.
+- Preserve the confirmed-sync gate for opening ingress: scanner-live plus strict confirmed-sync readiness.
+- Treat alethia-reth custom tables as separate concerns (`head_l1_origin`, per-block `l1_origin`, `batch_to_last_block`); do not assume one implies the others are populated.
+- Remember beacon-sync gap behavior: beacon sync can import event-confirmed blocks without backfilling custom tables.
+- If you need to inspect `alethia-reth`, ask for its local path first; do not assume a fixed absolute path.
+- Before changing behavior, check parity with:
+  - Rust code in this repository
+  - Rust RPC/engine integration assumptions in `alethia-reth` (after getting its local path)
+  - Protocol assumptions in `../protocol`
 
 ## Commit & Pull Request Guidelines
 

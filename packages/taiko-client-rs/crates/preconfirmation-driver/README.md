@@ -21,6 +21,15 @@ A preconfirmation integration library for Taiko, combining P2P network participa
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Agent Documentation
+
+For preconfirmation, event-sync, and custom-table guardrails used across `taiko-client-rs`, read:
+
+- `docs/agents/whitelist-preconfirmation-invariants.md`
+- `docs/agents/event-scan-reorg-and-preconf-flow.md`
+- `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md`
+- `docs/agents/reference-map.md`
+
 ## Components
 
 ### Preconfirmation driver node (`PreconfirmationDriverNode`)
@@ -35,10 +44,9 @@ The main orchestrator that combines:
 
 Preconfirmation sidecar JSON-RPC methods:
 
-| Method                        | Description                                             |
-| ----------------------------- | ------------------------------------------------------- |
-| `preconf_publishCommitment`   | Publish a signed preconfirmation commitment (SSZ bytes) |
-| `preconf_publishTxList`       | Publish an encoded transaction list (RLP + zlib)        |
-| `preconf_getStatus`           | Get current node status                                 |
-| `preconf_tip`                 | Get preconfirmation tip block number                    |
-| `preconf_canonicalProposalId` | Get last canonical proposal ID                          |
+| Method                      | Description                                             |
+| --------------------------- | ------------------------------------------------------- |
+| `preconf_publishCommitment` | Publish a signed preconfirmation commitment (SSZ bytes) |
+| `preconf_publishTxList`     | Publish an encoded transaction list (RLP + zlib)        |
+| `preconf_getStatus`         | Get current node status                                 |
+| `preconf_tip`               | Get preconfirmation tip block number                    |
