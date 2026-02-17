@@ -33,7 +33,12 @@ pub enum ValidationError {
     MaxCountExceeded(u32, u32),
     /// Indicates that a txlist hash does not match the advertised hash.
     #[error("txlist hash mismatch: expected {expected}, got {actual}")]
-    TxListHashMismatch { expected: String, actual: String },
+    TxListHashMismatch {
+        /// Expected hash encoded as hex-like debug text.
+        expected: String,
+        /// Actual hash encoded as hex-like debug text.
+        actual: String,
+    },
     /// Indicates an invalid combination of EOP flag and raw tx list hash.
     #[error("non-eop preconfirmation requires non-zero raw_tx_list_hash")]
     EopTxListMismatch,

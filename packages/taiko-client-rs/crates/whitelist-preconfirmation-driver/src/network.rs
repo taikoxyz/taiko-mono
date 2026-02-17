@@ -718,6 +718,7 @@ pub(crate) struct WhitelistNetwork {
 }
 
 #[derive(Clone)]
+/// Topic set used by the whitelist preconfirmation gossipsub runtime.
 struct Topics {
     /// Topic carrying signed unsafe payload gossip.
     preconf_blocks: gossipsub::IdentTopic,
@@ -751,6 +752,7 @@ impl Topics {
 
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "BehaviourEvent")]
+/// Combined swarm behaviour used by the whitelist runtime.
 struct Behaviour {
     /// Gossip transport for whitelist preconfirmation topics.
     gossipsub: gossipsub::Behaviour,
@@ -792,6 +794,7 @@ impl From<identify::Event> for BehaviourEvent {
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
+/// Bootnode split into direct-dial multiaddrs and discovery ENRs.
 struct ClassifiedBootnodes {
     /// Parsed multiaddrs to dial directly.
     dial_addrs: Vec<Multiaddr>,

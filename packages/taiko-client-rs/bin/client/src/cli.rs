@@ -31,6 +31,7 @@ pub enum Commands {
 
 #[derive(Parser, Clone, Debug)]
 #[command(author)]
+/// Top-level CLI parser containing the selected subcommand.
 pub struct Cli {
     /// The subcommand to run.
     #[command(subcommand)]

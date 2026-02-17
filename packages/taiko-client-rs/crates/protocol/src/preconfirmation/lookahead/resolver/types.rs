@@ -36,9 +36,15 @@ pub enum LookaheadBroadcast {
     /// Newly cached epoch data.
     Epoch(LookaheadEpochUpdate),
     /// Operator registration root was blacklisted.
-    Blacklisted { root: B256 },
+    Blacklisted {
+        /// Registration root that was blacklisted.
+        root: B256,
+    },
     /// Operator registration root was removed from blacklist.
-    Unblacklisted { root: B256 },
+    Unblacklisted {
+        /// Registration root that was removed from blacklist.
+        root: B256,
+    },
 }
 
 /// Epoch update broadcast structure.

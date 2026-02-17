@@ -52,8 +52,11 @@ pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Never;
 
 /// Taiko chain IDs where the Shasta fork is configured.
 pub const TAIKO_DEVNET_CHAIN_ID: u64 = 167_001;
+/// Chain ID for the Taiko Masaya network.
 pub const TAIKO_MASAYA_CHAIN_ID: u64 = 167_011;
+/// Chain ID for the Taiko Hoodi network.
 pub const TAIKO_HOODI_CHAIN_ID: u64 = 167_013;
+/// Chain ID for Taiko mainnet.
 pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
 
 /// Returns the configured Shasta fork condition for a given Taiko L2 chain ID.
