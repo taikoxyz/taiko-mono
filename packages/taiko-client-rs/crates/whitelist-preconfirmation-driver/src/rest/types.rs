@@ -227,7 +227,9 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&status).unwrap())
                 .expect("status should serialize as JSON");
         assert_eq!(
-            json["highestUnsafeL2PayloadBlockID"].as_u64().expect("missing highest unsafe block id"),
+            json["highestUnsafeL2PayloadBlockID"]
+                .as_u64()
+                .expect("missing highest unsafe block id"),
             1
         );
     }
@@ -240,8 +242,9 @@ mod tests {
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
         };
 
-        let value: serde_json::Value = serde_json::from_str(&serde_json::to_string(&status).unwrap())
-            .expect("status should serialize");
+        let value: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&status).unwrap())
+                .expect("status should serialize");
 
         assert!(value.get("lookahead").is_none());
     }
@@ -255,8 +258,9 @@ mod tests {
             next_ranges: vec![SlotRange { start: 3, end: 4 }],
         };
 
-        let value: serde_json::Value = serde_json::from_str(&serde_json::to_string(&lookahead).unwrap())
-            .expect("lookahead should serialize");
+        let value: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&lookahead).unwrap())
+                .expect("lookahead should serialize");
 
         assert!(value.get("currOperator").is_some());
         assert!(value.get("nextOperator").is_some());

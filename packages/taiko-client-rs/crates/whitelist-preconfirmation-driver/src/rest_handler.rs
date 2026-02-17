@@ -387,12 +387,7 @@ where
                 }
             })?;
 
-        Some(LookaheadStatus {
-            curr_operator,
-            next_operator,
-            curr_ranges,
-            next_ranges,
-        })
+        Some(LookaheadStatus { curr_operator, next_operator, curr_ranges, next_ranges })
     }
 
     /// Refresh cached lookahead data if chain lookup succeeds.

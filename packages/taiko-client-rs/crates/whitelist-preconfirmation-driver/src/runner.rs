@@ -102,11 +102,11 @@ impl WhitelistPreconfirmationDriverRunner {
         )?;
         let cache_state = SharedPreconfCacheState::new();
         let beacon_client = Arc::new(
-            BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
-                .await
-                .map_err(|err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
+            BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
+                |err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
                     reason: err.to_string(),
-                })?,
+                },
+            )?,
         );
         info!(
             peer_id = %network.local_peer_id,

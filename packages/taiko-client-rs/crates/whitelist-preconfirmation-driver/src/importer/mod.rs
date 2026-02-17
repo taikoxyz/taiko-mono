@@ -326,9 +326,7 @@ where
         &self,
         envelope: &Arc<WhitelistExecutionPayloadEnvelope>,
     ) -> Option<u64> {
-        self.beacon_client
-            .timestamp_to_epoch(envelope.execution_payload.timestamp)
-            .ok()
+        self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp).ok()
     }
 }
 
