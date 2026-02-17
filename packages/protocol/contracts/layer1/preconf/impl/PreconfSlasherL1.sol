@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { BLS } from "@solady/src/utils/ext/ithaca/BLS.sol";
 import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 import { MerkleTree } from "@eth-fabric/urc/lib/MerkleTree.sol";
+import { BLS } from "@solady/src/utils/ext/ithaca/BLS.sol";
 import { ILookaheadStore } from "src/layer1/preconf/iface/ILookaheadStore.sol";
 import { LibEIP4788 } from "src/layer1/preconf/libs/LibEIP4788.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
@@ -142,7 +142,8 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
             // For preconf slashing, `onMessageInvocation` calls the URC, which further
             // calls this slashing function internally
             require(_challenger == address(this), ChallengerIsNotSelf());
-            IPreconfSlasher.PreconfirmationFault fault = _classifyPreconfFault(_commitment, evidence);
+            IPreconfSlasher.PreconfirmationFault fault =
+                _classifyPreconfFault(_commitment, evidence);
             SlashingAmounts memory amounts = getSlashingAmounts();
             slashAmount_ = fault == IPreconfSlasher.PreconfirmationFault.Liveness
                 ? amounts.preconfLivenessFault
@@ -163,10 +164,17 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
             IPreconfSlasher.PreconfirmationFault fault,
             bytes32 registrationRoot,
             ISlasher.SignedCommitment memory signedCommitment
-        ) = abi.decode(_data, (IPreconfSlasher.PreconfirmationFault, bytes32, ISlasher.SignedCommitment));
+        ) = abi.decode(
+            _data, (IPreconfSlasher.PreconfirmationFault, bytes32, ISlasher.SignedCommitment)
+        );
 
         // Slash the operator via the URC
-        IRegistry(urc).slashCommitment(registrationRoot, signedCommitment, abi.encode(fault));
+        IRegistry(urc)
+            .slashCommitment(
+                registrationRoot,
+                signedCommitment,
+                abi.encodePacked(uint8(SlashingPath.Preconfirmation), uint8(fault))
+            );
     }
 
     // ---------------------------------------------------------------
@@ -330,7 +338,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
             _isG1Equal(
                 evidenceInvalidOperator.preconfLookaheadValPubKey,
                 evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
-                    .pubkey
+                .pubkey
             ),
             PreconfValidatorIsNotRegistered()
         );
@@ -371,7 +379,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
 
         // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
         IRegistry.RegistrationProof calldata registrationProof =
-            evidenceMissingOperator.operatorRegistrationProof;
+        evidenceMissingOperator.operatorRegistrationProof;
         require(
             _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
@@ -403,7 +411,9 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
         view
         returns (IPreconfSlasher.PreconfirmationFault)
     {
-        IPreconfSlasher.PreconfirmationFault fault = abi.decode(_evidence, (IPreconfSlasher.PreconfirmationFault));
+        IPreconfSlasher.PreconfirmationFault fault =
+            IPreconfSlasher.PreconfirmationFault(uint8(_evidence[0]));
+
         if (fault == IPreconfSlasher.PreconfirmationFault.Liveness) {
             IPreconfSlasher.Preconfirmation memory preconfirmation =
                 abi.decode(_commitment.payload, (IPreconfSlasher.Preconfirmation));
@@ -415,6 +425,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
                 return IPreconfSlasher.PreconfirmationFault.Safety;
             }
         }
+
         return fault;
     }
 
@@ -425,9 +436,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function getSlashingAmounts() public pure returns (SlashingAmounts memory) {
         // Note: These amounts will change
         return SlashingAmounts({
-            invalidLookahead: 1 ether,
-            preconfLivenessFault: 0.5 ether,
-            preconfSafetyFault: 1 ether
+            invalidLookahead: 1 ether, preconfLivenessFault: 0.5 ether, preconfSafetyFault: 1 ether
         });
     }
 
