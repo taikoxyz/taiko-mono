@@ -75,14 +75,10 @@ where
             return Ok(None);
         };
 
-        let response: Option<L1Origin> =
-            match provider.raw_request(Cow::Borrowed("taiko_headL1Origin"), ()).await {
-            Ok(response) => response,
-            Err(err) => {
-                let error = RpcClientError::from(err);
-                return Err(error);
-            }
-        };
+        let response: Option<L1Origin> = provider
+            .raw_request(Cow::Borrowed("taiko_headL1Origin"), ())
+            .await
+            .map_err(RpcClientError::from)?;
 
         let head = response.map(|origin| origin.block_id.to::<u64>());
         debug!(?head, "queried checkpoint head");

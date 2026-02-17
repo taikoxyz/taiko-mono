@@ -655,7 +655,9 @@ where
         let mut scan_end = latest;
         loop {
             let scan_start = scan_end.saturating_sub(Self::HEAD_L1_ORIGIN_SCAN_STEP - 1);
-            if let Some(block_id) = self.scan_head_l1_origin_in_range(scan_end, scan_start).await? {
+            if let Some(block_id) =
+                self.scan_head_l1_origin_in_range(scan_end, scan_start).await?
+            {
                 return Ok(block_id);
             }
 
@@ -676,6 +678,8 @@ where
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
             .ok_or(SyncError::MissingExecutionBlock { number: 0 })?;
 
+        // Genesis L1 origin uses sentinel zero values. This row is synthetic and only used to
+        // bootstrap local event sync when no persisted origin rows are available.
         let genesis_origin = RpcL1Origin {
             block_id: U256::ZERO,
             l2_block_hash: genesis.hash(),
@@ -699,14 +703,14 @@ where
     #[instrument(skip(self), level = "debug")]
     async fn scan_head_l1_origin_in_range(
         &self,
-        start_block_id: u64,
-        end_block_id: u64,
+        scan_high_block_id: u64,
+        scan_low_block_id: u64,
     ) -> Result<Option<u64>, SyncError> {
-        if end_block_id > start_block_id {
+        if scan_low_block_id > scan_high_block_id {
             return Ok(None);
         }
 
-        for block_id in (end_block_id..=start_block_id).rev() {
+        for block_id in (scan_low_block_id..=scan_high_block_id).rev() {
             if let Some(origin) = self.rpc.l1_origin_by_id(U256::from(block_id)).await? {
                 self.rpc.set_head_l1_origin(origin.block_id).await?;
                 info!(
