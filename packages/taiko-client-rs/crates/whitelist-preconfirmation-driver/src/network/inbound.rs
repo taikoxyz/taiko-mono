@@ -1,4 +1,5 @@
 //! Inbound validation and allowlist state for the whitelist preconfirmation network.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::{
     collections::HashMap,

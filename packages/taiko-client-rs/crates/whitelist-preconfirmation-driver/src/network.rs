@@ -1,4 +1,5 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
+#![allow(clippy::missing_docs_in_private_items)]
 
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
@@ -1455,7 +1456,7 @@ mod tests {
             ..Default::default()
         };
 
-        let mut whitelist_network =
+        let whitelist_network =
             WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
         let expected_hash = B256::from([0x66u8; 32]);
         let command_tx = whitelist_network.command_tx.clone();

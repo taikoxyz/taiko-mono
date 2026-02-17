@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use alloy::transports::http::reqwest::Url as RpcUrl;
+use alloy_primitives::Address;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
