@@ -21,6 +21,15 @@ A preconfirmation integration library for Taiko, combining P2P network participa
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+## Agent Documentation
+
+For preconfirmation, event-sync, and custom-table guardrails used across `taiko-client-rs`, read:
+
+- `docs/agents/whitelist-preconfirmation-invariants.md`
+- `docs/agents/event-scan-reorg-and-preconf-flow.md`
+- `docs/agents/alethia-reth-custom-tables-and-beacon-sync-gaps.md`
+- `docs/agents/reference-map.md`
+
 ## Components
 
 ### Preconfirmation driver node (`PreconfirmationDriverNode`)
