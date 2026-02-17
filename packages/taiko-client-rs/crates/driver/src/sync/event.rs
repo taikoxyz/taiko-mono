@@ -613,11 +613,8 @@ where
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
 
-        let head_l1_origin_block_id = if checkpoint_configured {
-            None
-        } else {
-            Some(self.ensure_head_l1_origin().await?)
-        };
+        let head_l1_origin_block_id =
+            if checkpoint_configured { None } else { Some(self.ensure_head_l1_origin().await?) };
 
         let resume_head_block_number = resolve_resume_head_block_number(
             checkpoint_configured,
@@ -639,7 +636,8 @@ where
     /// per-block RPC lookups in the worst case.
     const HEAD_L1_ORIGIN_SCAN_STEP: u64 = 1024;
 
-    /// Ensure `head_l1_origin` is available before event sync starts and return the resolved block id.
+    /// Ensure `head_l1_origin` is available before event sync starts and return the resolved block
+    /// id.
     ///
     /// On fresh local chains where auth tables are uninitialized, this:
     /// - Reuses the latest known L1 origin row if present.
@@ -652,12 +650,7 @@ where
 
         warn!("head_l1_origin is missing; attempting to recover from persisted origin rows");
 
-        let latest = self
-            .rpc
-            .l2_provider
-            .get_block_number()
-            .await
-            .map_err(RpcClientError::from)?;
+        let latest = self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from)?;
 
         let mut scan_end = latest;
         loop {

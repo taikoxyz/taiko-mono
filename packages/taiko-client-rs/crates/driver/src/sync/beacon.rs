@@ -75,10 +75,8 @@ where
             return Ok(None);
         };
 
-        let response: Option<L1Origin> = match provider
-            .raw_request(Cow::Borrowed("taiko_headL1Origin"), ())
-            .await
-        {
+        let response: Option<L1Origin> =
+            match provider.raw_request(Cow::Borrowed("taiko_headL1Origin"), ()).await {
             Ok(response) => response,
             Err(err) => {
                 let error = RpcClientError::from(err);
@@ -170,10 +168,8 @@ where
             return Ok(());
         }
 
-        let Some(mut checkpoint_head) = self
-            .checkpoint_head()
-            .await
-            .map_err(SyncError::CheckpointQuery)?
+        let Some(mut checkpoint_head) =
+            self.checkpoint_head().await.map_err(SyncError::CheckpointQuery)?
         else {
             error!("checkpoint node reports no head origin; cannot run beacon sync in checkpoint mode");
             return Err(SyncError::CheckpointNoOrigin);
@@ -208,10 +204,8 @@ where
                     }
                 };
 
-            let Some(next_checkpoint_head) = self
-                .checkpoint_head()
-                .await
-                .map_err(SyncError::CheckpointQuery)?
+            let Some(next_checkpoint_head) =
+                self.checkpoint_head().await.map_err(SyncError::CheckpointQuery)?
             else {
                 error!(
                     "checkpoint node stopped returning head origin; stopping beacon sync to avoid unsafe resume"
