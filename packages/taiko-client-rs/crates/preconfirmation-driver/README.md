@@ -35,10 +35,9 @@ The main orchestrator that combines:
 
 Preconfirmation sidecar JSON-RPC methods:
 
-| Method                        | Description                                             |
-| ----------------------------- | ------------------------------------------------------- |
-| `preconf_publishCommitment`   | Publish a signed preconfirmation commitment (SSZ bytes) |
-| `preconf_publishTxList`       | Publish an encoded transaction list (RLP + zlib)        |
-| `preconf_getStatus`           | Get current node status                                 |
-| `preconf_tip`                 | Get preconfirmation tip block number                    |
-| `preconf_canonicalProposalId` | Get last canonical proposal ID                          |
+| Method                      | Description                                             |
+| --------------------------- | ------------------------------------------------------- |
+| `preconf_publishCommitment` | Publish a signed preconfirmation commitment (SSZ bytes) |
+| `preconf_publishTxList`     | Publish an encoded transaction list (RLP + zlib)        |
+| `preconf_getStatus`         | Get current node status                                 |
+| `preconf_tip`               | Get preconfirmation tip block number                    |

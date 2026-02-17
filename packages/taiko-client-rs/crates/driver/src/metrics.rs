@@ -20,6 +20,9 @@ impl DriverMetrics {
     pub const EVENT_SCANNER_BATCHES_TOTAL: &'static str = "driver_event_scanner_batches_total";
     /// Counter tracking scanner stream errors.
     pub const EVENT_SCANNER_ERRORS_TOTAL: &'static str = "driver_event_scanner_errors_total";
+    /// Counter tracking failures while probing confirmed-sync readiness.
+    pub const EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL: &'static str =
+        "driver_event_confirmed_sync_probe_errors_total";
     /// Counter tracking proposal logs processed by the driver.
     pub const EVENT_PROPOSALS_TOTAL: &'static str = "driver_event_proposals_total";
     /// Counter tracking skipped proposals (e.g. zero ID, below initial ID).
@@ -121,6 +124,11 @@ impl DriverMetrics {
             Self::EVENT_SCANNER_ERRORS_TOTAL,
             Unit::Count,
             "Errors emitted by the event scanner stream"
+        );
+        metrics::describe_counter!(
+            Self::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL,
+            Unit::Count,
+            "Errors emitted while probing confirmed-sync readiness in event sync"
         );
         metrics::describe_counter!(
             Self::EVENT_PROPOSALS_TOTAL,
@@ -248,6 +256,7 @@ impl DriverMetrics {
         metrics::counter!(Self::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_SCANNER_BATCHES_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_SCANNER_ERRORS_TOTAL).absolute(0);
+        metrics::counter!(Self::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_PROPOSALS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_PROPOSALS_SKIPPED_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_DERIVED_BLOCKS_TOTAL).absolute(0);

@@ -131,7 +131,7 @@ impl TryFrom<&str> for SubscriptionSource {
             value
                 .parse::<Url>()
                 .map(SubscriptionSource::Ws)
-                .map_err(|e| format!("invalid websocket url: {}", e))
+                .map_err(|e| format!("invalid websocket url: {e}"))
         } else {
             Ok(SubscriptionSource::Ipc(PathBuf::from(value)))
         }

@@ -371,7 +371,7 @@ mod tests {
         let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
         let blobs = builder.take();
 
-        assert_eq!(blobs.len(), 2, "Expected 2 blobs for payload size {}", payload_size);
+        assert_eq!(blobs.len(), 2, "Expected 2 blobs for payload size {payload_size}");
 
         let mut coder = BlobCoder;
         let decoded = coder.decode_all(&blobs).unwrap().concat();
