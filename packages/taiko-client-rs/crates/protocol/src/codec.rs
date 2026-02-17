@@ -169,7 +169,8 @@ mod tests {
             0x80, 0x80,
         ];
         let mut rlp_encoded = Vec::new();
-        alloy_rlp::encode_list::<_, RlpBytes>(&[RlpBytes::from(tx.clone())], &mut rlp_encoded);
+        let tx_ref = RlpBytes::copy_from_slice(&tx);
+        alloy_rlp::encode_list::<_, RlpBytes>(std::slice::from_ref(&tx_ref), &mut rlp_encoded);
         let compressed = compress_payload(&rlp_encoded);
 
         let codec = ZlibTxListCodec::new(1024);
@@ -187,7 +188,7 @@ mod tests {
             0x80, 0x80,
         ];
         let mut rlp_encoded = Vec::new();
-        alloy_rlp::encode_list::<_, Vec<u8>>(&[tx.clone()], &mut rlp_encoded);
+        alloy_rlp::encode_list::<_, Vec<u8>>(std::slice::from_ref(&tx), &mut rlp_encoded);
         let compressed = compress_payload(&rlp_encoded);
 
         let codec = ZlibTxListCodec::new(1024);
@@ -206,7 +207,7 @@ mod tests {
         ];
         let codec = ZlibTxListCodec::new(1024);
 
-        let compressed = codec.encode(&[tx.clone()]).expect("encode tx-list");
+        let compressed = codec.encode(std::slice::from_ref(&tx)).expect("encode tx-list");
         let decoded = decompress_payload(&compressed);
 
         let mut expected_rlp = Vec::new();

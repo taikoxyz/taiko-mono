@@ -129,14 +129,15 @@ mod tests {
             validatorLeafIndex: U256::ZERO,
         };
 
-        let picked = pick_slot_origin(210, &current, Some(&[next_first.clone()])).expect("slot");
+        let picked =
+            pick_slot_origin(210, &current, Some(std::slice::from_ref(&next_first))).expect("slot");
         assert_eq!(picked, SlotOrigin::Current(1));
 
-        let picked_next =
-            pick_slot_origin(300, &current, Some(&[next_first.clone()])).expect("next slot");
+        let picked_next = pick_slot_origin(300, &current, Some(std::slice::from_ref(&next_first)))
+            .expect("next slot");
         assert_eq!(picked_next, SlotOrigin::Next(0));
 
-        let none = pick_slot_origin(500, &current, Some(&[next_first.clone()]));
+        let none = pick_slot_origin(500, &current, Some(std::slice::from_ref(&next_first)));
         assert!(none.is_none());
     }
 
