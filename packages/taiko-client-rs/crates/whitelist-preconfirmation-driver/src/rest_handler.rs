@@ -511,6 +511,10 @@ where
     async fn get_status(&self) -> Result<WhitelistStatus> {
         let head_l1_origin_block_id =
             self.rpc.head_l1_origin().await?.map(|h| h.block_id.to::<u64>());
+        let is_syncing = matches!(
+            self.rpc.l2_provider.syncing().await.map_err(provider_err)?,
+            SyncStatus::Info(_)
+        );
         let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
@@ -520,7 +524,7 @@ where
             .get(&current_epoch)
             .copied()
             .map(|hash| hash.to_string());
-        let sync_ready = head_l1_origin_block_id.is_some();
+        let sync_ready = head_l1_origin_block_id.is_some() && !is_syncing;
 
         Ok(WhitelistStatus {
             head_l1_origin_block_id,
