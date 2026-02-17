@@ -516,6 +516,7 @@ where
             SyncStatus::Info(_)
         );
         let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
+        let sync_ready = head_l1_origin_block_id.is_some() && !is_syncing;
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
             .end_of_sequencing_by_epoch
@@ -524,7 +525,6 @@ where
             .get(&current_epoch)
             .copied()
             .map(|hash| hash.to_string());
-        let sync_ready = head_l1_origin_block_id.is_some() && !is_syncing;
 
         Ok(WhitelistStatus {
             head_l1_origin_block_id,

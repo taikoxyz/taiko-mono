@@ -160,6 +160,7 @@ pub struct WhitelistStatus {
     /// Local libp2p peer ID.
     pub peer_id: String,
     /// Whether event sync has established a head L1 origin.
+    /// head L1 origin is available and engine is not syncing.
     pub sync_ready: bool,
     /// Sequencing lookahead information.
     #[serde(skip_serializing_if = "Option::is_none")]
