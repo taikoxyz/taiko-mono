@@ -635,6 +635,9 @@ where
     /// This keeps startup bounded per chunk, though rows are still discovered with
     /// per-block RPC lookups in the worst case.
     const HEAD_L1_ORIGIN_SCAN_STEP: u64 = 1024;
+    /// Maximum number of blocks scanned during `head_l1_origin` recovery before seeding
+    /// genesis to keep startup bounded on fresh chains or corrupted local tables.
+    const HEAD_L1_ORIGIN_SCAN_WINDOW_BLOCKS: u64 = Self::HEAD_L1_ORIGIN_SCAN_STEP * 16;
 
     /// Ensure `head_l1_origin` is available before event sync starts and return the resolved block
     /// id.
@@ -651,22 +654,34 @@ where
         warn!("head_l1_origin is missing; attempting to recover from persisted origin rows");
 
         let latest = self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from)?;
+        let mut scan_budget_blocks = Self::HEAD_L1_ORIGIN_SCAN_WINDOW_BLOCKS;
 
         let mut scan_end = latest;
         loop {
-            let scan_start = scan_end.saturating_sub(Self::HEAD_L1_ORIGIN_SCAN_STEP - 1);
+            let scan_width =
+                Self::HEAD_L1_ORIGIN_SCAN_STEP.min(scan_budget_blocks);
+            let scan_start = scan_end.saturating_sub(scan_width - 1);
             if let Some(block_id) = self.scan_head_l1_origin_in_range(scan_end, scan_start).await? {
                 return Ok(block_id);
             }
 
+            scan_budget_blocks = scan_budget_blocks.saturating_sub(scan_width);
+
             if scan_start == 0 {
+                break;
+            }
+            if scan_budget_blocks == 0 {
                 break;
             }
 
             scan_end = scan_start.saturating_sub(1);
         }
 
-        warn!(latest, "no persisted L1 origin rows found; seeding genesis origin");
+        warn!(
+            latest,
+            scan_window = Self::HEAD_L1_ORIGIN_SCAN_WINDOW_BLOCKS,
+            "no persisted confirmed L1 origin rows found within the recovery window; seeding genesis origin"
+        );
         let genesis = self
             .rpc
             .l2_provider
