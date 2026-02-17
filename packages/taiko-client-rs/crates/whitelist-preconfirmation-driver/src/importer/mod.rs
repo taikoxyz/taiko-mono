@@ -62,7 +62,7 @@ where
     /// Shared cache state used by status and EOS signaling.
     cache_state: SharedPreconfCacheState,
     /// Beacon client used for EOS epoch validation.
-    beacon_client: Option<Arc<BeaconClient>>,
+    beacon_client: Arc<BeaconClient>,
     /// Out-of-order payload cache waiting for parent availability.
     cache: EnvelopeCache,
     /// Recently accepted envelopes that can be served over response topic requests.
@@ -91,11 +91,12 @@ where
         chain_id: u64,
         network_command_tx: mpsc::Sender<NetworkCommand>,
         cache_state: SharedPreconfCacheState,
-        beacon_client: Option<Arc<BeaconClient>>,
+        beacon_client: Arc<BeaconClient>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
 
+        let importer_cache_state = cache_state.clone();
         let importer = Self {
             event_syncer,
             rpc,
@@ -103,7 +104,7 @@ where
             chain_id,
             cache_state,
             beacon_client,
-            cache: EnvelopeCache::default(),
+            cache: EnvelopeCache::default().with_cache_state(importer_cache_state),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
             sequencer_cache: WhitelistSequencerCache::default(),
@@ -325,11 +326,9 @@ where
         &self,
         envelope: &Arc<WhitelistExecutionPayloadEnvelope>,
     ) -> Option<u64> {
-        let Some(beacon_client) = &self.beacon_client else {
-            return None;
-        };
-
-        beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp).ok()
+        self.beacon_client
+            .timestamp_to_epoch(envelope.execution_payload.timestamp)
+            .ok()
     }
 }
 

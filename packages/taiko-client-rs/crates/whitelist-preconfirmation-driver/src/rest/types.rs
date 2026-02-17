@@ -119,18 +119,12 @@ pub struct LookaheadStatus {
     pub curr_ranges: Vec<SlotRange>,
     /// Next operator allowed slot ranges.
     pub next_ranges: Vec<SlotRange>,
-    /// Last update timestamp (RFC3339).
-    pub updated_at: String,
-    /// Last epoch used for update.
-    pub last_updated_epoch: u64,
 }
 
 /// Go-compatible REST status response for `GET /status`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestStatus {
-    /// Sequencing lookahead information.
-    pub lookahead: LookaheadStatus,
     /// Total cached envelopes (best-effort).
     pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
@@ -162,8 +156,6 @@ pub struct WhitelistStatus {
     pub peer_id: String,
     /// Whether event sync has established a head L1 origin.
     pub sync_ready: bool,
-    /// Sequencing lookahead information.
-    pub lookahead: LookaheadStatus,
     /// Total cached envelopes (best-effort).
     pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
@@ -209,14 +201,6 @@ mod tests {
             highest_unsafe_block_number: 100,
             peer_id: "test-peer".to_string(),
             sync_ready: true,
-            lookahead: LookaheadStatus {
-                curr_operator: Address::ZERO,
-                next_operator: Address::ZERO,
-                curr_ranges: Vec::new(),
-                next_ranges: Vec::new(),
-                updated_at: "0001-01-01T00:00:00Z".to_string(),
-                last_updated_epoch: 0,
-            },
             total_cached: 0,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
@@ -228,19 +212,12 @@ mod tests {
         assert!(json.contains("syncReady"));
         assert!(json.contains("highestUnsafeL2PayloadBlockID"));
         assert!(json.contains("endOfSequencingBlockHash"));
+        assert!(!json.contains("lookahead"));
     }
 
     #[test]
-    fn rest_status_lookahead_updated_at_serializes_as_rfc3339_string() {
+    fn rest_status_serializes_fields() {
         let status = RestStatus {
-            lookahead: LookaheadStatus {
-                curr_operator: Address::ZERO,
-                next_operator: Address::ZERO,
-                curr_ranges: vec![],
-                next_ranges: vec![],
-                updated_at: "2024-12-25T10:00:00Z".to_string(),
-                last_updated_epoch: 123,
-            },
             total_cached: 0,
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
@@ -250,8 +227,42 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&status).unwrap())
                 .expect("status should serialize as JSON");
         assert_eq!(
-            json["lookahead"]["updatedAt"].as_str().expect("updatedAt should be a string"),
-            "2024-12-25T10:00:00Z"
+            json["highestUnsafeL2PayloadBlockID"].as_u64().expect("missing highest unsafe block id"),
+            1
         );
+    }
+
+    #[test]
+    fn rest_status_does_not_include_lookahead_metadata() {
+        let status = RestStatus {
+            total_cached: 0,
+            highest_unsafe_l2_payload_block_id: 1,
+            end_of_sequencing_block_hash: B256::ZERO.to_string(),
+        };
+
+        let value: serde_json::Value = serde_json::from_str(&serde_json::to_string(&status).unwrap())
+            .expect("status should serialize");
+
+        assert!(value.get("lookahead").is_none());
+    }
+
+    #[test]
+    fn lookahead_status_contains_only_operator_and_ranges() {
+        let lookahead = LookaheadStatus {
+            curr_operator: Address::ZERO,
+            next_operator: Address::from([0x11u8; 20]),
+            curr_ranges: vec![SlotRange { start: 1, end: 2 }],
+            next_ranges: vec![SlotRange { start: 3, end: 4 }],
+        };
+
+        let value: serde_json::Value = serde_json::from_str(&serde_json::to_string(&lookahead).unwrap())
+            .expect("lookahead should serialize");
+
+        assert!(value.get("currOperator").is_some());
+        assert!(value.get("nextOperator").is_some());
+        assert!(value.get("currRanges").is_some());
+        assert!(value.get("nextRanges").is_some());
+        assert!(value.get("updatedAt").is_none());
+        assert!(value.get("lastUpdatedEpoch").is_none());
     }
 }

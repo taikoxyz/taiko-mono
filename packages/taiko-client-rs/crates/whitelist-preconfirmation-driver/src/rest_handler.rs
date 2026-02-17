@@ -49,8 +49,6 @@ use crate::{
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
-/// Default lookahead timestamp used before first successful refresh.
-const ZERO_LOOKAHEAD_UPDATED_AT: &str = "0001-01-01T00:00:00Z";
 /// Interval for periodic lookahead refreshes.
 const LOOKAHEAD_REFRESH_INTERVAL_SECS: u64 = 12;
 
@@ -79,7 +77,7 @@ where
     whitelist: PreconfWhitelistInstance<P>,
     /// Highest unsafe payload block ID tracked by this node.
     highest_unsafe_l2_payload_block_id: Mutex<u64>,
-    /// Cached lookahead status used by `/status` and fee-recipient validation.
+    /// Cached lookahead status used for fee-recipient validation.
     lookahead_status: RwLock<LookaheadStatus>,
     /// Shared cache state used to back `/status` and EOS visibility.
     cache_state: SharedPreconfCacheState,
@@ -147,8 +145,6 @@ where
             next_operator: Address::ZERO,
             curr_ranges: Vec::new(),
             next_ranges: Vec::new(),
-            updated_at: ZERO_LOOKAHEAD_UPDATED_AT.to_string(),
-            last_updated_epoch: 0,
         }
     }
 
@@ -396,8 +392,6 @@ where
             next_operator,
             curr_ranges,
             next_ranges,
-            updated_at: chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-            last_updated_epoch: current_epoch,
         })
     }
 
@@ -409,11 +403,6 @@ where
         };
 
         *self.lookahead_status.write().await = lookahead_status;
-    }
-
-    /// Return the cached lookahead entry.
-    async fn cached_lookahead(&self) -> LookaheadStatus {
-        self.lookahead_status.read().await.clone()
     }
 
     /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).
@@ -605,7 +594,6 @@ where
             highest_unsafe_block_number: highest_unsafe,
             peer_id: self.local_peer_id.clone(),
             sync_ready,
-            lookahead: self.cached_lookahead().await,
             total_cached: self.cache_state.total_pending_cache_inserts(),
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
@@ -724,8 +712,6 @@ mod tests {
             next_operator: Address::from([0x22u8; 20]),
             curr_ranges: vec![SlotRange { start: 10, end: 20 }],
             next_ranges: vec![SlotRange { start: 20, end: 30 }],
-            updated_at: ZERO_LOOKAHEAD_UPDATED_AT.to_string(),
-            last_updated_epoch: 0,
         };
 
         assert!(is_fee_recipient_allowed_for_slot(Address::from([0x11u8; 20]), 15, &lookahead));

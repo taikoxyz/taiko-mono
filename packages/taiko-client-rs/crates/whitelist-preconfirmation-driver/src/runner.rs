@@ -101,6 +101,13 @@ impl WhitelistPreconfirmationDriverRunner {
             Some(self.config.whitelist_address),
         )?;
         let cache_state = SharedPreconfCacheState::new();
+        let beacon_client = Arc::new(
+            BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
+                .await
+                .map_err(|err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
+                    reason: err.to_string(),
+                })?,
+        );
         info!(
             peer_id = %network.local_peer_id,
             chain_id = self.config.p2p_config.chain_id,
@@ -110,18 +117,9 @@ impl WhitelistPreconfirmationDriverRunner {
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.
         let mut lookahead_refresh_task = None;
-        let mut beacon_client: Option<Arc<BeaconClient>> = None;
         let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
-            let shared_beacon_client = Arc::new(
-                BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
-                    .await
-                    .map_err(|err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
-                        reason: err.to_string(),
-                    })?,
-            );
-
             let signer = FixedKSigner::new(signer_key).map_err(|e| {
                 WhitelistPreconfirmationDriverError::Signing(format!(
                     "failed to create P2P signer: {e}"
@@ -149,7 +147,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 preconf_ingress_sync.client().clone(),
                 self.config.p2p_config.chain_id,
                 signer,
-                Arc::clone(&shared_beacon_client),
+                Arc::clone(&beacon_client),
                 self.config.whitelist_address,
                 initial_highest_unsafe_l2_payload_block_id,
                 network.command_tx.clone(),
@@ -157,7 +155,6 @@ impl WhitelistPreconfirmationDriverRunner {
                 cache_state.clone(),
             ));
             lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
-            beacon_client = Some(shared_beacon_client);
 
             let server_config = WhitelistRestWsServerConfig {
                 listen_addr,
