@@ -5,22 +5,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::{Address, B256};
-use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
-};
-use bindings::preconf_whitelist::PreconfWhitelist::{PreconfWhitelistInstance, operatorsReturn};
 use hashlink::LinkedHashMap;
 use libp2p::{PeerId, gossipsub};
-use rpc::client::Client;
-use tracing::debug;
 
 use crate::{
-    cache::WhitelistSequencerCache,
     codec::{DecodedUnsafePayload, block_signing_hash, recover_signer},
-    error::{Result, WhitelistPreconfirmationDriverError},
-    metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
 const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
@@ -30,380 +20,6 @@ const REQUEST_RATE_REFILL_PER_SEC: f64 = REQUEST_RATE_PER_MINUTE / 60.0;
 const MAX_RESPONSES_ACCEPTABLE: usize = 3;
 const MAX_PRECONF_BLOCKS_PER_HEIGHT: usize = 10;
 const PRECONF_INBOUND_LRU_CAPACITY: usize = 1000;
-/// Maximum age for stale-cache fallback when node timing data lags epoch start.
-const MAX_STALE_FALLBACK_SECS: u64 = 12 * 64;
-/// Retry once when whitelist snapshot fetch sees a transient inconsistency.
-const SNAPSHOT_FETCH_MAX_ATTEMPTS: usize = 2;
-
-pub(crate) type InboundWhitelistProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
-pub(crate) type InboundWhitelistClient = Client<InboundWhitelistProvider>;
-
-#[derive(Debug)]
-pub(crate) struct InboundWhitelistFilter {
-    whitelist: PreconfWhitelistInstance<InboundWhitelistProvider>,
-    rpc_client: InboundWhitelistClient,
-    sequencer_cache: WhitelistSequencerCache,
-}
-
-#[derive(Debug)]
-struct CachedSequencers {
-    current: Address,
-    next: Address,
-    /// True if at least one address came from cache rather than a fresh lookup.
-    any_from_cache: bool,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum ResponseSignerDecision {
-    Accept,
-    Ignore,
-    Reject,
-}
-
-#[derive(Debug)]
-struct WhitelistSequencerSnapshot {
-    current: Address,
-    next: Address,
-    current_epoch_start_timestamp: u64,
-    block_timestamp: u64,
-}
-
-impl InboundWhitelistFilter {
-    pub(crate) fn new(rpc_client: InboundWhitelistClient, whitelist_address: Address) -> Self {
-        let whitelist =
-            PreconfWhitelistInstance::new(whitelist_address, rpc_client.l1_provider.clone());
-
-        Self { whitelist, rpc_client, sequencer_cache: WhitelistSequencerCache::default() }
-    }
-
-    /// Ensure the signer is authorized by current/next whitelist sequencer snapshot.
-    pub(crate) async fn ensure_signer_allowed(&mut self, signer: Address) -> Result<bool> {
-        let now = Instant::now();
-        let result = self.cached_whitelist_sequencers(now).await?;
-
-        if signer == result.current || signer == result.next {
-            return Ok(true);
-        }
-
-        if !result.any_from_cache {
-            return Ok(false);
-        }
-
-        if !self.sequencer_cache.allow_miss_refresh(now) {
-            debug!(
-                %signer,
-                cached_current = %result.current,
-                cached_next = %result.next,
-                "signer mismatch refresh cooldown active; rejecting without L1 re-fetch"
-            );
-            return Ok(false);
-        }
-
-        debug!(
-            %signer,
-            cached_current = %result.current,
-            cached_next = %result.next,
-            "signer not in cached whitelist; re-fetching from L1"
-        );
-        self.sequencer_cache.invalidate();
-        let fresh = self.cached_whitelist_sequencers(now).await?;
-
-        Ok(signer == fresh.current || signer == fresh.next)
-    }
-
-    pub(crate) async fn ensure_response_signer_allowed(
-        &mut self,
-        signer: Address,
-    ) -> Result<ResponseSignerDecision> {
-        let now = Instant::now();
-        let result = self.cached_whitelist_sequencers(now).await?;
-
-        if result.current == Address::ZERO && result.next == Address::ZERO {
-            return Ok(ResponseSignerDecision::Ignore);
-        }
-
-        if signer == result.current || signer == result.next {
-            return Ok(ResponseSignerDecision::Accept);
-        }
-
-        if !result.any_from_cache {
-            return Ok(ResponseSignerDecision::Reject);
-        }
-
-        if !self.sequencer_cache.allow_miss_refresh(now) {
-            debug!(
-                %signer,
-                cached_current = %result.current,
-                cached_next = %result.next,
-                "signer mismatch refresh cooldown active; rejecting response without L1 re-fetch"
-            );
-            return Ok(ResponseSignerDecision::Reject);
-        }
-
-        debug!(
-            %signer,
-            cached_current = %result.current,
-            cached_next = %result.next,
-            "signer not in cached response whitelist; re-fetching from L1"
-        );
-        self.sequencer_cache.invalidate();
-        let fresh = self.cached_whitelist_sequencers(now).await?;
-
-        if fresh.current == Address::ZERO && fresh.next == Address::ZERO {
-            return Ok(ResponseSignerDecision::Ignore);
-        }
-
-        if signer == fresh.current || signer == fresh.next {
-            return Ok(ResponseSignerDecision::Accept);
-        }
-
-        Ok(ResponseSignerDecision::Reject)
-    }
-
-    /// Return (current, next) sequencer addresses, using cache when available.
-    async fn cached_whitelist_sequencers(&mut self, now: Instant) -> Result<CachedSequencers> {
-        if let (Some(current), Some(next)) =
-            (self.sequencer_cache.get_current(now), self.sequencer_cache.get_next(now))
-        {
-            return Ok(CachedSequencers { current, next, any_from_cache: true });
-        }
-
-        let snapshot = self.fetch_whitelist_snapshot_with_retry().await?;
-
-        if let Err(err) = ensure_not_too_early_for_epoch(
-            snapshot.block_timestamp,
-            snapshot.current_epoch_start_timestamp,
-        ) {
-            if let Some((current, next)) = self
-                .sequencer_cache
-                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
-            {
-                debug!(
-                    block_timestamp = snapshot.block_timestamp,
-                    current_epoch_start_timestamp = snapshot.current_epoch_start_timestamp,
-                    "using stale whitelist snapshot because latest block is before epoch start"
-                );
-                return Ok(CachedSequencers { current, next, any_from_cache: true });
-            }
-            return Err(err);
-        }
-
-        if !self.sequencer_cache.should_accept_block_timestamp(snapshot.block_timestamp) &&
-            let Some((current, next)) = self
-                .sequencer_cache
-                .get_stale_pair_within(now, Duration::from_secs(MAX_STALE_FALLBACK_SECS))
-        {
-            debug!(
-                block_timestamp = snapshot.block_timestamp,
-                "ignoring regressive whitelist snapshot from lagging RPC node"
-            );
-            return Ok(CachedSequencers { current, next, any_from_cache: true });
-        }
-
-        self.sequencer_cache.set_pair(
-            snapshot.current,
-            snapshot.next,
-            snapshot.current_epoch_start_timestamp,
-            now,
-        );
-
-        Ok(CachedSequencers {
-            current: snapshot.current,
-            next: snapshot.next,
-            any_from_cache: false,
-        })
-    }
-
-    /// Fetch current/next sequencer snapshot with retry after transient inconsistencies.
-    async fn fetch_whitelist_snapshot_with_retry(&self) -> Result<WhitelistSequencerSnapshot> {
-        for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
-            match self.fetch_whitelist_snapshot().await {
-                Ok(snapshot) => return Ok(snapshot),
-                Err(err)
-                    if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS &&
-                        should_retry_snapshot_fetch(&err) =>
-                {
-                    debug!(
-                        attempt,
-                        max_attempts = SNAPSHOT_FETCH_MAX_ATTEMPTS,
-                        error = %err,
-                        "retrying whitelist snapshot fetch after transient inconsistency"
-                    );
-                }
-                Err(err) => return Err(err),
-            }
-        }
-
-        unreachable!("snapshot fetch loop must return on success or final error")
-    }
-
-    /// Fetch current/next sequencer snapshot pinned to a single L1 block height.
-    async fn fetch_whitelist_snapshot(&self) -> Result<WhitelistSequencerSnapshot> {
-        let latest_block = self
-            .rpc_client
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(|err| {
-                whitelist_lookup_err(format!(
-                    "failed to fetch latest block for whitelist snapshot: {err}"
-                ))
-            })?
-            .ok_or_else(|| {
-                whitelist_lookup_err(
-                    "missing latest block while fetching whitelist snapshot".to_string(),
-                )
-            })?;
-
-        let block_number = latest_block.header.number;
-        let block_timestamp = latest_block.header.timestamp;
-        let block_hash = latest_block.hash();
-
-        let current_operator_fut = async {
-            self.whitelist
-                .getOperatorForCurrentEpoch()
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch current operator at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let next_operator_fut = async {
-            self.whitelist
-                .getOperatorForNextEpoch()
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch next operator at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let epoch_start_timestamp_fut = async {
-            self.whitelist
-                .epochStartTimestamp(Default::default())
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch epochStartTimestamp at block {block_number}: {err}"
-                    ))
-                })
-        };
-
-        let (current_proposer, next_proposer, current_epoch_start_timestamp) =
-            tokio::try_join!(current_operator_fut, next_operator_fut, epoch_start_timestamp_fut)?;
-
-        let current_seq_fut = async {
-            self.whitelist
-                .operators(current_proposer)
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch current operators() entry at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let next_seq_fut = async {
-            self.whitelist
-                .operators(next_proposer)
-                .block(BlockId::Number(block_number.into()))
-                .call()
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch next operators() entry at block {block_number}: {err}"
-                    ))
-                })
-        };
-        let pinned_block_fut = async {
-            self.rpc_client
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Number(block_number))
-                .await
-                .map_err(|err| {
-                    whitelist_lookup_err(format!(
-                        "failed to fetch pinned block {block_number} for whitelist verification: \
-                         {err}"
-                    ))
-                })
-        };
-
-        let (current_seq, next_seq, pinned_block_opt): (operatorsReturn, operatorsReturn, _) =
-            tokio::try_join!(current_seq_fut, next_seq_fut, pinned_block_fut)?;
-
-        let pinned_block = pinned_block_opt.ok_or_else(|| {
-            whitelist_lookup_err(format!(
-                "missing pinned block {block_number} while verifying whitelist batches"
-            ))
-        })?;
-        let pinned_block_hash = pinned_block.hash();
-        if pinned_block_hash != block_hash {
-            return Err(whitelist_lookup_err(format!(
-                "block hash changed between whitelist batches at block {block_number}"
-            )));
-        }
-
-        if current_seq.sequencerAddress == Address::ZERO &&
-            next_seq.sequencerAddress == Address::ZERO
-        {
-            debug!(
-                current = %current_seq.sequencerAddress,
-                next = %next_seq.sequencerAddress,
-                block_number,
-                "received empty whitelist sequencer snapshot"
-            );
-        }
-
-        Ok(WhitelistSequencerSnapshot {
-            current: current_seq.sequencerAddress,
-            next: next_seq.sequencerAddress,
-            current_epoch_start_timestamp: u64::from(current_epoch_start_timestamp),
-            block_timestamp,
-        })
-    }
-}
-
-fn whitelist_lookup_err(message: String) -> WhitelistPreconfirmationDriverError {
-    metrics::counter!(WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL)
-        .increment(1);
-    WhitelistPreconfirmationDriverError::WhitelistLookup(message)
-}
-
-fn ensure_not_too_early_for_epoch(
-    block_timestamp: u64,
-    current_epoch_start_timestamp: u64,
-) -> Result<()> {
-    if block_timestamp < current_epoch_start_timestamp {
-        return Err(whitelist_lookup_err(format!(
-            "whitelist batch returned block timestamp {block_timestamp} before epoch start \
-             {current_epoch_start_timestamp}"
-        )));
-    }
-
-    Ok(())
-}
-
-fn should_retry_snapshot_fetch(err: &WhitelistPreconfirmationDriverError) -> bool {
-    match err {
-        WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {
-            let lower = message.to_ascii_lowercase();
-            message.contains("block hash changed between whitelist batches") ||
-                message.contains("missing pinned block") ||
-                (message.contains("at block") &&
-                    (lower.contains("not found") || lower.contains("unknown block")))
-        }
-        _ => false,
-    }
-}
-
 #[derive(Debug)]
 struct TokenBucket {
     tokens: f64,
@@ -520,9 +136,8 @@ impl EpochSeenTracker {
 #[derive(Debug, Default)]
 pub(crate) struct GossipsubInboundState {
     chain_id: u64,
+    allow_all_sequencers: bool,
     sequencer_addresses: Vec<Address>,
-    sequencer_address: Address,
-    whitelist_filter: Option<InboundWhitelistFilter>,
     request_rate: RateLimiter,
     request_seen: WindowedHashTracker,
     eos_rate: RateLimiter,
@@ -534,15 +149,13 @@ pub(crate) struct GossipsubInboundState {
 impl GossipsubInboundState {
     pub(crate) fn new(
         chain_id: u64,
+        allow_all_sequencers: bool,
         sequencer_addresses: Vec<Address>,
-        sequencer_address: Address,
-        whitelist_filter: Option<InboundWhitelistFilter>,
     ) -> Self {
         Self {
             chain_id,
+            allow_all_sequencers,
             sequencer_addresses,
-            sequencer_address,
-            whitelist_filter,
             request_rate: RateLimiter::default(),
             request_seen: WindowedHashTracker::default(),
             eos_rate: RateLimiter::default(),
@@ -613,32 +226,15 @@ impl GossipsubInboundState {
             Err(_) => return gossipsub::MessageAcceptance::Reject,
         };
 
-        if let Some(whitelist_filter) = self.whitelist_filter.as_mut() {
-            match whitelist_filter.ensure_signer_allowed(signer).await {
-                Ok(true) => {}
-                Ok(false) => return gossipsub::MessageAcceptance::Reject,
-                Err(err) => {
-                    debug!(
-                        error = %err,
-                        signer = %signer,
-                        "whitelist lookup failed for inbound preconf block"
-                    );
-                    return gossipsub::MessageAcceptance::Reject;
-                }
-            }
-        } else if !self.sequencer_addresses.is_empty() {
-            if !self.sequencer_addresses.contains(&signer) {
-                return gossipsub::MessageAcceptance::Reject;
-            }
-        } else if self.sequencer_address != Address::ZERO {
-            if signer != self.sequencer_address {
-                return gossipsub::MessageAcceptance::Reject;
-            }
-        } else {
+        if !self.sequencer_is_allowed(&signer) {
             return gossipsub::MessageAcceptance::Reject;
         }
 
         gossipsub::MessageAcceptance::Accept
+    }
+
+    fn sequencer_is_allowed(&self, signer: &Address) -> bool {
+        self.allow_all_sequencers || self.sequencer_addresses.contains(signer)
     }
 
     async fn validate_preconf_block_payload(
@@ -685,32 +281,8 @@ impl GossipsubInboundState {
             Err(_) => return gossipsub::MessageAcceptance::Reject,
         };
 
-        if let Some(whitelist_filter) = self.whitelist_filter.as_mut() {
-            match whitelist_filter.ensure_response_signer_allowed(signer).await {
-                Ok(ResponseSignerDecision::Accept) => {}
-                Ok(ResponseSignerDecision::Ignore) => {
-                    return gossipsub::MessageAcceptance::Ignore;
-                }
-                Ok(ResponseSignerDecision::Reject) => return gossipsub::MessageAcceptance::Reject,
-                Err(err) => {
-                    debug!(
-                        error = %err,
-                        signer = %signer,
-                        "whitelist lookup failed for inbound preconf response"
-                    );
-                    return gossipsub::MessageAcceptance::Reject;
-                }
-            }
-        } else if !self.sequencer_addresses.is_empty() {
-            if !self.sequencer_addresses.contains(&signer) {
-                return gossipsub::MessageAcceptance::Reject;
-            }
-        } else if self.sequencer_address != Address::ZERO {
-            if signer != self.sequencer_address {
-                return gossipsub::MessageAcceptance::Reject;
-            }
-        } else {
-            return gossipsub::MessageAcceptance::Ignore;
+        if !self.sequencer_is_allowed(&signer) {
+            return gossipsub::MessageAcceptance::Reject;
         }
 
         let height = envelope.execution_payload.block_number;

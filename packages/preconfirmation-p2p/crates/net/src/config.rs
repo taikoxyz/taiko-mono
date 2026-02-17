@@ -23,11 +23,11 @@ use libp2p::Multiaddr;
 pub struct P2pConfig {
     /// Chain ID used to derive gossip topics and protocol IDs.
     pub chain_id: u64,
-    /// Optional sequencer allowlist addresses for whitelist preconfirmation message validation.
+    /// Accept whitelist preconfirmation messages from all sequencers without allowlist checks.
+    /// This should only be used when all sequencers are trusted.
+    pub allow_all_sequencers: bool,
+    /// Sequencer allowlist addresses for whitelist preconfirmation message validation.
     pub sequencer_addresses: Vec<Address>,
-    /// Optional single sequencer address used as a legacy fallback when no allowlist is
-    /// configured.
-    pub sequencer_address: Address,
     /// Libp2p listen address for TCP/QUIC transports.
     pub listen_addr: SocketAddr,
     /// Enable discv5 peer discovery. If `false`, only manual bootnodes are used.
@@ -129,8 +129,8 @@ impl Default for P2pConfig {
         let base = NetworkConfig::default();
         Self {
             chain_id: base.chain_id,
+            allow_all_sequencers: false,
             sequencer_addresses: Vec::new(),
-            sequencer_address: Address::ZERO,
             listen_addr: base.listen_addr,
             enable_discovery: base.enable_discovery,
             discovery_listen: base.discv5_listen,

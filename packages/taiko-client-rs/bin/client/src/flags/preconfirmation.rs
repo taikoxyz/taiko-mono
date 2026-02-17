@@ -36,10 +36,11 @@ pub struct PreconfirmationArgs {
         value_delimiter = ','
     )]
     pub p2p_sequencer_addresses: Vec<Address>,
-
-    /// Single fallback sequencer address for legacy non-whitelist p2p signing checks.
-    #[clap(long = "p2p.sequencer-address", env = "P2P_SEQUENCER_ADDRESS")]
-    pub p2p_sequencer_address: Option<Address>,
+    /// Accept whitelist preconfirmation messages from all sequencers.
+    /// This bypasses sequencer allowlist checks and should only be used for
+    /// debugging or trusted deployments.
+    #[clap(long = "p2p.allow-all-sequencers", env = "P2P_ALLOW_ALL_SEQUENCERS", default_value = "false")]
+    pub p2p_allow_all_sequencers: bool,
 
     /// Disable discv5 peer discovery.
     #[clap(long = "p2p.disable-discovery", env = "P2P_DISABLE_DISCOVERY", default_value = "false")]
