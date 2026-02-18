@@ -194,6 +194,20 @@ impl WhitelistPreconfirmationDriverRunner {
             whitelist_address = %self.config.whitelist_address,
             "starting whitelist preconfirmation driver"
         );
+        if self.config.p2p_config.allow_all_sequencers {
+            warn!(
+                allow_all_sequencers = true,
+                "p2p sequencer allow-all mode is enabled; accepting all sequencer messages"
+            );
+            if !self.config.p2p_config.sequencer_addresses.is_empty() {
+                warn!(
+                    provided_sequencer_count = self.config.p2p_config.sequencer_addresses.len(),
+                    "p2p.sequencer-addresses will be ignored while allow-all mode is enabled"
+                );
+            }
+        } else if self.config.p2p_config.sequencer_addresses.is_empty() {
+            return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
+        }
 
         let mut preconf_ingress_sync =
             PreconfIngressSync::start(&self.config.driver_config).await?;
@@ -204,11 +218,8 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
-        let network = WhitelistNetwork::spawn_with_whitelist_filter(
-            self.config.p2p_config.clone(),
-            Some(preconf_ingress_sync.client().clone()),
-            Some(self.config.whitelist_address),
-        )?;
+        let network =
+            WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
         info!(
             peer_id = %network.local_peer_id,
             chain_id = self.config.p2p_config.chain_id,
