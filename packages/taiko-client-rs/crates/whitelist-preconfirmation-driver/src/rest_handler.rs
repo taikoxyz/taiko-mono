@@ -49,7 +49,7 @@ use crate::{
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
-/// Interval for periodic lookahead refreshes.
+/// Refresh lookahead every L1 slot (12 seconds) so operator windows stay aligned.
 const LOOKAHEAD_REFRESH_INTERVAL_SECS: u64 = 12;
 
 /// Implements the whitelist preconfirmation REST/WS API.
@@ -386,45 +386,46 @@ where
     }
 
     /// Build best-effort Go-compatible lookahead status.
-    async fn compute_lookahead_status(&self) -> Option<LookaheadStatus> {
+    async fn compute_lookahead_status(&self) -> Result<LookaheadStatus> {
         let current_epoch = self.beacon_client.current_epoch();
         let slots_per_epoch = self.beacon_client.slots_per_epoch();
         let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
         let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
         let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
 
-        let (curr_operator, next_operator, curr_ranges, next_ranges) =
-            (match self.fetch_current_next_sequencers().await {
-                Ok((curr_operator, next_operator)) => {
-                    let curr_ranges = vec![SlotRange {
-                        start: epoch_start,
-                        end: epoch_start.saturating_add(threshold),
-                    }];
-                    let next_ranges = vec![SlotRange {
-                        start: epoch_start.saturating_add(threshold),
-                        end: epoch_start.saturating_add(slots_per_epoch),
-                    }];
-
-                    Some((curr_operator, next_operator, curr_ranges, next_ranges))
-                }
-                Err(err) => {
-                    warn!(
-                        error = %err,
-                        current_epoch,
-                        "failed to fetch lookahead operator metadata"
-                    );
-                    None
-                }
+        let (curr_operator, next_operator) = self
+            .fetch_current_next_sequencers()
+            .await
+            .inspect_err(|err| {
+                warn!(
+                    error = %err,
+                    current_epoch,
+                    "failed to fetch lookahead operator metadata"
+                );
             })?;
+        let curr_ranges = vec![SlotRange {
+            start: epoch_start,
+            end: epoch_start.saturating_add(threshold),
+        }];
+        let next_ranges = vec![SlotRange {
+            start: epoch_start.saturating_add(threshold),
+            end: epoch_start.saturating_add(slots_per_epoch),
+        }];
 
-        Some(LookaheadStatus { curr_operator, next_operator, curr_ranges, next_ranges })
+        Ok(LookaheadStatus { curr_operator, next_operator, curr_ranges, next_ranges })
     }
 
     /// Refresh cached lookahead data if chain lookup succeeds.
     async fn refresh_lookahead(&self) {
-        let Some(lookahead_status) = self.compute_lookahead_status().await else {
-            warn!("lookahead refresh failed; retaining previous cached value");
-            return;
+        let lookahead_status = match self.compute_lookahead_status().await {
+            Ok(lookahead_status) => lookahead_status,
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    "lookahead refresh failed; retaining previous cached value"
+                );
+                return;
+            }
         };
 
         *self.lookahead_status.write().await = Some(lookahead_status);

@@ -230,10 +230,10 @@ impl WhitelistPreconfirmationDriverRunner {
                     importer.handle_event(event).await?;
                 }
                 _ = sync_ready_interval.tick() => {
-                    if let Err(err) = importer.on_sync_ready_signal().await {
+                    if let Err(err) = importer.maybe_import_from_cache().await {
                         warn!(
                             error = %err,
-                            "failed to import cached whitelist preconfirmation payloads on sync-ready signal"
+                            "failed to import cached whitelist preconfirmation payloads on sync-ready poll"
                         );
                     }
                 }
