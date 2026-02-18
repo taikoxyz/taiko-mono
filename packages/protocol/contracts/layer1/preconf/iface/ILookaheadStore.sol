@@ -113,6 +113,20 @@ interface ILookaheadStore {
         view
         returns (ProposerContext memory context_);
 
+    /// @notice Checks if an operator was active at a given reference timestamp.
+    /// @dev An operator is active if they were registered, opted-in, not blacklisted,
+    /// and not slashed at the reference timestamp.
+    /// @param _registrationRoot Registration root of the operator.
+    /// @param _referenceTimestamp The timestamp to check activity at.
+    /// @return True if the operator was active at the reference timestamp.
+    function isOperatorActive(
+        bytes32 _registrationRoot,
+        uint256 _referenceTimestamp
+    )
+        external
+        view
+        returns (bool);
+
     /// @notice Returns true if the lookahead is required for the next epoch.
     /// @return True if the lookahead is required for the next epoch, false otherwise.
     function isLookaheadRequired() external view returns (bool);
@@ -186,8 +200,5 @@ interface ILookaheadStore {
     /// @notice Checks if an operator is currently blacklisted.
     /// @param _operatorRegistrationRoot Registration root of the operator.
     /// @return True if the operator is blacklisted, false otherwise.
-    function isOperatorBlacklisted(bytes32 _operatorRegistrationRoot)
-        external
-        view
-        returns (bool);
+    function isOperatorBlacklisted(bytes32 _operatorRegistrationRoot) external view returns (bool);
 }

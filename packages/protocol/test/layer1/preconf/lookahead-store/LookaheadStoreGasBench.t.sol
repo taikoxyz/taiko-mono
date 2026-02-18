@@ -15,9 +15,10 @@ contract GasBenchHarness is LookaheadStore {
     constructor(
         address _inbox,
         address _preconfSlasherL1,
-        address _preconfWhitelist
+        address _preconfWhitelist,
+        address _urc
     )
-        LookaheadStore(_inbox, _preconfSlasherL1, _preconfWhitelist)
+        LookaheadStore(_inbox, _preconfSlasherL1, _preconfWhitelist, _urc)
     { }
 
     function setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) external {
@@ -32,6 +33,7 @@ contract LookaheadStoreGasBench is CommonTest {
     address internal preconfSlasherL1;
     address internal inbox;
     address internal preconfWhitelist;
+    address internal urc;
 
     uint256 internal constant EPOCH_OFFSET = 10_000;
     uint256 internal constant EPOCH_START = EPOCH_OFFSET * LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -50,8 +52,9 @@ contract LookaheadStoreGasBench is CommonTest {
         preconfSlasherL1 = makeAddr("preconfSlasherL1");
         inbox = makeAddr("inbox");
         preconfWhitelist = makeAddr("preconfWhitelist");
+        urc = makeAddr("urc");
 
-        GasBenchHarness impl = new GasBenchHarness(inbox, preconfSlasherL1, preconfWhitelist);
+        GasBenchHarness impl = new GasBenchHarness(inbox, preconfSlasherL1, preconfWhitelist, urc);
         lookaheadStore = GasBenchHarness(
             address(
                 new ERC1967Proxy(
