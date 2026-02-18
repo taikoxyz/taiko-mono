@@ -104,7 +104,8 @@ impl WhitelistPreconfirmationDriverRunner {
             return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
         }
 
-        let network = WhitelistNetwork::spawn(self.config.p2p_config.clone())?;
+        let network =
+            WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
         let cache_state = SharedPreconfCacheState::new();
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
