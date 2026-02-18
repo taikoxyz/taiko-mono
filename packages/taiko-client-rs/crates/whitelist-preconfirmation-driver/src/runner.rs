@@ -95,11 +95,21 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
-        let network = WhitelistNetwork::spawn_with_whitelist_filter(
-            self.config.p2p_config.clone(),
-            Some(preconf_ingress_sync.client().clone()),
-            Some(self.config.whitelist_address),
-        )?;
+        let network = if self.config.p2p_config.allow_all_sequencers ||
+            !self.config.p2p_config.sequencer_addresses.is_empty()
+        {
+            WhitelistNetwork::spawn_with_whitelist_filter(
+                self.config.p2p_config.clone(),
+                None,
+                None,
+            )?
+        } else {
+            WhitelistNetwork::spawn_with_whitelist_filter(
+                self.config.p2p_config.clone(),
+                Some(preconf_ingress_sync.client().clone()),
+                Some(self.config.whitelist_address),
+            )?
+        };
         let cache_state = SharedPreconfCacheState::new();
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
