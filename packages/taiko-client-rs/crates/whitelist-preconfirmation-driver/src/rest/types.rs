@@ -126,7 +126,7 @@ pub struct LookaheadStatus {
 #[serde(rename_all = "camelCase")]
 pub struct RestStatus {
     /// Highest unsafe payload block ID tracked by this node.
-    #[serde(rename = "highestUnsafeL2PayloadBlockID")]
+    #[serde(rename = "highestUnsafeL2PayloadBlockId")]
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (if any).
     pub end_of_sequencing_block_hash: String,
@@ -155,7 +155,7 @@ pub struct WhitelistStatus {
     /// Whether event sync has established a head L1 origin.
     pub sync_ready: bool,
     /// Highest unsafe payload block ID tracked by this node.
-    #[serde(rename = "highestUnsafeL2PayloadBlockID")]
+    #[serde(rename = "highestUnsafeL2PayloadBlockId")]
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -205,7 +205,7 @@ mod tests {
         assert!(json.contains("headL1OriginBlockId"));
         assert!(json.contains("highestUnsafeBlockNumber"));
         assert!(json.contains("syncReady"));
-        assert!(json.contains("highestUnsafeL2PayloadBlockID"));
+        assert!(json.contains("highestUnsafeL2PayloadBlockId"));
         assert!(json.contains("endOfSequencingBlockHash"));
         assert!(!json.contains("lookahead"));
     }
@@ -221,7 +221,7 @@ mod tests {
             serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&status).unwrap())
                 .expect("status should serialize as JSON");
         assert_eq!(
-            json["highestUnsafeL2PayloadBlockID"]
+            json["highestUnsafeL2PayloadBlockId"]
                 .as_u64()
                 .expect("missing highest unsafe block id"),
             1

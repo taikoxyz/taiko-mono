@@ -78,11 +78,38 @@ where
     /// Highest unsafe payload block ID tracked by this node.
     highest_unsafe_l2_payload_block_id: Mutex<u64>,
     /// Cached lookahead status used for fee-recipient validation.
-    lookahead_status: RwLock<LookaheadStatus>,
+    lookahead_status: RwLock<Option<LookaheadStatus>>,
     /// Shared cache state used to back `/status` and EOS visibility.
     cache_state: SharedPreconfCacheState,
     /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
+}
+
+/// Dependency bundle for constructing `WhitelistRestHandler`.
+pub(crate) struct WhitelistRestHandlerParams<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Shared event syncer used to read the current L1 origin.
+    pub(crate) event_syncer: Arc<EventSyncer<P>>,
+    /// L1/L2 RPC client.
+    pub(crate) rpc: Client<P>,
+    /// Chain ID used for signing and payload hashing.
+    pub(crate) chain_id: u64,
+    /// Signer used for block signing operations.
+    pub(crate) signer: FixedKSigner,
+    /// Beacon client used for epoch calculations.
+    pub(crate) beacon_client: Arc<BeaconClient>,
+    /// Whitelist contract address for allowlist checks.
+    pub(crate) whitelist_address: Address,
+    /// Highest unsafe payload block id used to seed status metrics.
+    pub(crate) initial_highest_unsafe_l2_payload_block_id: u64,
+    /// Network command sender for gossip publishing.
+    pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Local peer id exposed in `/status`.
+    pub(crate) local_peer_id: String,
+    /// Shared preconfirmation cache state.
+    pub(crate) cache_state: SharedPreconfCacheState,
 }
 
 impl<P> WhitelistRestHandler<P>
@@ -90,18 +117,19 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Create a new REST/WS handler.
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
-        event_syncer: Arc<EventSyncer<P>>,
-        rpc: Client<P>,
-        chain_id: u64,
-        signer: FixedKSigner,
-        beacon_client: Arc<BeaconClient>,
-        whitelist_address: Address,
-        initial_highest_unsafe_l2_payload_block_id: u64,
-        network_command_tx: mpsc::Sender<NetworkCommand>,
-        local_peer_id: String,
-        cache_state: SharedPreconfCacheState,
+        WhitelistRestHandlerParams {
+            event_syncer,
+            rpc,
+            chain_id,
+            signer,
+            beacon_client,
+            whitelist_address,
+            initial_highest_unsafe_l2_payload_block_id,
+            network_command_tx,
+            local_peer_id,
+            cache_state,
+        }: WhitelistRestHandlerParams<P>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
@@ -138,14 +166,9 @@ where
         })
     }
 
-    /// Build the initial zero-value lookahead entry.
-    fn initial_lookahead_status() -> LookaheadStatus {
-        LookaheadStatus {
-            curr_operator: Address::ZERO,
-            next_operator: Address::ZERO,
-            curr_ranges: Vec::new(),
-            next_ranges: Vec::new(),
-        }
+    /// Initial lookahead cache state when no valid metadata has been fetched yet.
+    fn initial_lookahead_status() -> Option<LookaheadStatus> {
+        None
     }
 
     /// Build driver payload attributes from the RPC request.
@@ -278,11 +301,19 @@ where
         current_slot: u64,
     ) -> Result<()> {
         let lookahead = self.lookahead_status.read().await;
+        let Some(lookahead) = lookahead.as_ref() else {
+            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
+                "lookahead metadata unavailable; try again later".to_string(),
+            ));
+        };
+
         if lookahead.curr_ranges.is_empty() && lookahead.next_ranges.is_empty() {
-            return Ok(());
+            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
+                "lookahead metadata missing operator ranges".to_string(),
+            ));
         }
 
-        if is_fee_recipient_allowed_for_slot(fee_recipient, current_slot, &lookahead) {
+        if is_fee_recipient_allowed_for_slot(fee_recipient, current_slot, lookahead) {
             return Ok(());
         }
 
@@ -397,7 +428,7 @@ where
             return;
         };
 
-        *self.lookahead_status.write().await = lookahead_status;
+        *self.lookahead_status.write().await = Some(lookahead_status);
     }
 
     /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).
@@ -406,10 +437,12 @@ where
     }
 }
 
+/// Check if a slot is contained by any of the allowed ranges.
 fn slot_matches_range(slot: u64, ranges: &[SlotRange]) -> bool {
     ranges.iter().any(|range| slot >= range.start && slot < range.end)
 }
 
+/// Return true when fee recipient matches any operator for current/next range.
 fn is_fee_recipient_allowed_for_slot(
     fee_recipient: Address,
     current_slot: u64,

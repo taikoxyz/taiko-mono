@@ -184,32 +184,45 @@ where
                 if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
                     let envelope_epoch = self.end_of_sequencing_epoch_for_payload(&envelope);
 
-                    if let Some(envelope_epoch) = envelope_epoch {
-                        if envelope_epoch == epoch {
-                            self.cache_state
-                                .record_end_of_sequencing(
-                                    envelope_epoch,
-                                    envelope.execution_payload.block_hash,
-                                )
-                                .await;
-                        } else {
-                            warn!(
-                                peer = %from,
-                                requested_epoch = epoch,
-                                actual_epoch = envelope_epoch,
-                                hash = %envelope.execution_payload.block_hash,
-                                "ignoring end-of-sequencing request: payload epoch does not match request"
-                            );
-                        }
-                    } else {
+                    let Some(envelope_epoch) = envelope_epoch else {
                         warn!(
                             peer = %from,
                             epoch,
                             hash = %envelope.execution_payload.block_hash,
                             "ignoring end-of-sequencing request: failed to derive payload epoch"
                         );
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                            "event_type" => "end_of_sequencing_request",
+                            "result" => "miss",
+                        )
+                        .increment(1);
+                        return Ok(());
+                    };
+
+                    if envelope_epoch != epoch {
+                        warn!(
+                            peer = %from,
+                            requested_epoch = epoch,
+                            actual_epoch = envelope_epoch,
+                            hash = %envelope.execution_payload.block_hash,
+                            "ignoring end-of-sequencing request: payload epoch does not match request"
+                        );
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                            "event_type" => "end_of_sequencing_request",
+                            "result" => "miss",
+                        )
+                        .increment(1);
+                        return Ok(());
                     }
 
+                    self.cache_state
+                        .record_end_of_sequencing(
+                            envelope_epoch,
+                            envelope.execution_payload.block_hash,
+                        )
+                        .await;
                     debug!(
                         peer = %from,
                         epoch,
@@ -322,6 +335,7 @@ where
             .set(self.recent_cache.len() as f64);
     }
 
+    /// Resolve the sequencer epoch from payload execution timestamp.
     fn end_of_sequencing_epoch_for_payload(
         &self,
         envelope: &Arc<WhitelistExecutionPayloadEnvelope>,

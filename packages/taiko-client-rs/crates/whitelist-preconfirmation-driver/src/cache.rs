@@ -19,6 +19,7 @@ use crate::codec::WhitelistExecutionPayloadEnvelope;
 const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
 /// Default maximum number of pending envelopes retained while waiting for parents.
 const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
+/// Maximum number of EOS cache entries retained.
 const DEFAULT_EOS_CACHE_CAPACITY: usize = DEFAULT_PENDING_ENVELOPE_CAPACITY;
 /// Default cooldown, in seconds, between duplicate parent-hash requests.
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
@@ -53,6 +54,7 @@ impl SharedPreconfCacheState {
     }
 
     /// Return total pending cache inserts since startup.
+    #[cfg(test)]
     pub(crate) fn total_pending_cache_inserts(&self) -> u64 {
         self.total_pending_cache_inserts.load(Ordering::Relaxed)
     }
@@ -62,7 +64,7 @@ impl SharedPreconfCacheState {
         let mut entries = self.end_of_sequencing_by_epoch.lock().await;
         entries.insert(epoch, block_hash);
 
-        while entries.len() > DEFAULT_EOS_CACHE_CAPACITY {
+        if entries.len() > DEFAULT_EOS_CACHE_CAPACITY {
             let _ = entries.pop_front();
         }
     }

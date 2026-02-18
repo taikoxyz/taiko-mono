@@ -18,9 +18,9 @@ use crate::{
     importer::WhitelistPreconfirmationImporter,
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
-    preconf_ingress_sync::PreconfIngressSync,
+    preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
     rest::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
-    rest_handler::WhitelistRestHandler,
+    rest_handler::{WhitelistRestHandler, WhitelistRestHandlerParams},
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -142,18 +142,18 @@ impl WhitelistPreconfirmationDriverRunner {
                 }
             };
 
-            let handler = Arc::new(WhitelistRestHandler::new(
-                preconf_ingress_sync.event_syncer(),
-                preconf_ingress_sync.client().clone(),
-                self.config.p2p_config.chain_id,
+            let handler = Arc::new(WhitelistRestHandler::new(WhitelistRestHandlerParams {
+                event_syncer: preconf_ingress_sync.event_syncer(),
+                rpc: preconf_ingress_sync.client().clone(),
+                chain_id: self.config.p2p_config.chain_id,
                 signer,
-                Arc::clone(&beacon_client),
-                self.config.whitelist_address,
+                beacon_client: Arc::clone(&beacon_client),
+                whitelist_address: self.config.whitelist_address,
                 initial_highest_unsafe_l2_payload_block_id,
-                network.command_tx.clone(),
-                network.local_peer_id.to_string(),
-                cache_state.clone(),
-            ));
+                network_command_tx: network.command_tx.clone(),
+                local_peer_id: network.local_peer_id.to_string(),
+                cache_state: cache_state.clone(),
+            }));
             lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
 
             let server_config = WhitelistRestWsServerConfig {
@@ -182,117 +182,147 @@ impl WhitelistPreconfirmationDriverRunner {
             cache_state,
             beacon_client,
         );
-        let mut proposal_id_rx = preconf_ingress_sync.event_syncer().subscribe_proposal_id();
+        let mut sync_ready_interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+        sync_ready_interval.tick().await;
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
-        let event_syncer_handle = preconf_ingress_sync.handle_mut();
+        let mut event_syncer_handle = preconf_ingress_sync.handle_mut();
 
         loop {
             tokio::select! {
                 result = &mut node_handle => {
-                    event_syncer_handle.abort();
-                    if let Some(task) = lookahead_refresh_task.take() {
-                        task.abort();
-                    }
-                    if let Some(server) = rest_ws_server.take() {
-                        server.stop().await;
-                    }
-                    return match result {
-                        Ok(Ok(())) => {
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                                "reason" => "node_exit_unexpected",
-                            )
-                            .increment(1);
-                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                                "whitelist preconfirmation network exited unexpectedly".to_string(),
-                            ))
-                        }
-                        Ok(Err(err)) => {
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                                "reason" => "node_error",
-                            )
-                            .increment(1);
-                            Err(err)
-                        }
-                        Err(err) => {
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                                "reason" => "node_join_error",
-                            )
-                            .increment(1);
-                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(err.to_string()))
-                        }
-                    };
+                    return finish_runner(
+                        event_syncer_handle,
+                        &mut lookahead_refresh_task,
+                        &mut rest_ws_server,
+                        map_node_exit_for_runner(result),
+                    )
+                    .await;
                 }
-                result = &mut *event_syncer_handle => {
+                result = &mut event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
-                    if let Some(task) = lookahead_refresh_task.take() {
-                        task.abort();
-                    }
-                    if let Some(server) = rest_ws_server.take() {
-                        server.stop().await;
-                    }
-                    return match result {
-                        Ok(Ok(())) => {
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                                "reason" => "event_syncer_exit",
-                            )
-                            .increment(1);
-                            Err(WhitelistPreconfirmationDriverError::EventSyncerExited)
-                        }
-                        Ok(Err(err)) => {
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                                "reason" => "event_syncer_error",
-                            )
-                            .increment(1);
-                            Err(WhitelistPreconfirmationDriverError::Sync(err))
-                        }
-                        Err(err) => {
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                                "reason" => "event_syncer_join_error",
-                            )
-                            .increment(1);
-                            Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string()))
-                        }
-                    };
+                    return finish_runner(
+                        event_syncer_handle,
+                        &mut lookahead_refresh_task,
+                        &mut rest_ws_server,
+                        map_event_syncer_exit_for_runner(result),
+                    )
+                    .await;
                 }
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
-                        event_syncer_handle.abort();
-                        if let Some(task) = lookahead_refresh_task.take() {
-                            task.abort();
-                        }
-                        if let Some(server) = rest_ws_server.take() {
-                            server.stop().await;
-                        }
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                            "reason" => "network_event_channel_closed",
+                        return finish_runner(
+                            event_syncer_handle,
+                            &mut lookahead_refresh_task,
+                            &mut rest_ws_server,
+                            (
+                            "network_event_channel_closed",
+                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                                "whitelist preconfirmation event channel closed".to_string(),
+                            )),
+                            ),
                         )
-                        .increment(1);
-                        return Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                            "whitelist preconfirmation event channel closed".to_string(),
-                        ));
+                        .await;
                     };
 
                     importer.handle_event(event).await?;
                 }
-                changed = proposal_id_rx.changed() => {
-                    if changed.is_ok()
-                        && let Err(err) = importer.on_sync_ready_signal().await {
-                            warn!(
-                                error = %err,
-                                "failed to import cached whitelist preconfirmation payloads on sync-ready signal"
-                            );
-                        }
+                _ = sync_ready_interval.tick() => {
+                    if let Err(err) = importer.on_sync_ready_signal().await {
+                        warn!(
+                            error = %err,
+                            "failed to import cached whitelist preconfirmation payloads on sync-ready signal"
+                        );
+                    }
                 }
             }
         }
     }
+}
+
+/// Abort sidecar tasks and stop the REST server during shutdown.
+async fn stop_sidecars<T>(
+    event_syncer_handle: &mut tokio::task::JoinHandle<T>,
+    lookahead_refresh_task: &mut Option<tokio::task::JoinHandle<()>>,
+    rest_ws_server: &mut Option<WhitelistRestWsServer>,
+) {
+    event_syncer_handle.abort();
+    if let Some(task) = lookahead_refresh_task.take() {
+        task.abort();
+    }
+    if let Some(server) = rest_ws_server.take() {
+        server.stop().await;
+    }
+}
+
+type RunnerExit = (&'static str, Result<()>);
+
+/// Stop sidecars and return the unified runner exit result.
+async fn finish_runner<T>(
+    event_syncer_handle: &mut tokio::task::JoinHandle<T>,
+    lookahead_refresh_task: &mut Option<tokio::task::JoinHandle<()>>,
+    rest_ws_server: &mut Option<WhitelistRestWsServer>,
+    (reason, result): RunnerExit,
+) -> Result<()> {
+    stop_sidecars(
+        event_syncer_handle,
+        lookahead_refresh_task,
+        rest_ws_server,
+    )
+    .await;
+    record_runner_exit(reason, result)
+}
+
+/// Convert a node task result into a standardized runner exit reason.
+fn map_node_exit_for_runner(
+    result: std::result::Result<
+        std::result::Result<(), WhitelistPreconfirmationDriverError>,
+        tokio::task::JoinError,
+    >,
+) -> (&'static str, Result<()>) {
+    match result {
+        Ok(Ok(())) => (
+            "node_exit_unexpected",
+            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                "whitelist preconfirmation network exited unexpectedly".to_string(),
+            )),
+        ),
+        Ok(Err(err)) => ("node_error", Err(err)),
+        Err(err) => (
+            "node_join_error",
+            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(err.to_string())),
+        ),
+    }
+}
+
+/// Convert an event-syncer result into a standardized runner exit reason.
+fn map_event_syncer_exit_for_runner(
+    result: EventSyncJoinResult,
+) -> (&'static str, Result<()>) {
+    match result {
+        Ok(Ok(())) => {
+            (
+                "event_syncer_exit",
+                Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
+            )
+        }
+        Ok(Err(err)) => {
+            (
+                "event_syncer_error",
+                Err(WhitelistPreconfirmationDriverError::Driver(err)),
+            )
+        }
+        Err(err) => (
+            "event_syncer_join_error",
+            Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),
+        ),
+    }
+}
+
+/// Record exit reason and return the final result.
+fn record_runner_exit(reason: &'static str, result: Result<()>) -> Result<()> {
+    metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL, "reason" => reason)
+        .increment(1);
+    result
 }

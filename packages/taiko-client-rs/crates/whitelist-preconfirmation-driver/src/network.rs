@@ -1,5 +1,4 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
-
 use std::{collections::HashSet, sync::Arc, time::Instant};
 
 use alloy_primitives::{Address, B256};
@@ -28,7 +27,7 @@ use crate::{
 mod inbound;
 use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
 #[cfg(test)]
-use inbound::{EpochSeenTracker, HeightSeenTracker};
+use inbound::EpochSeenTracker;
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -37,6 +36,7 @@ const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
 /// Prefix used in Go-compatible message-id hashing for invalid snappy payloads.
 const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
 
+/// Events emitted from network subscriptions into importer pipeline.
 #[derive(Debug)]
 pub(crate) enum NetworkEvent {
     /// Incoming `preconfBlocks` payload.
@@ -110,6 +110,7 @@ pub(crate) struct WhitelistNetwork {
     pub handle: JoinHandle<Result<()>>,
 }
 
+/// Gossipsub topic bundle for whitelist preconfirmation messages.
 #[derive(Clone)]
 struct Topics {
     /// Topic carrying signed unsafe payload gossip.
@@ -142,6 +143,7 @@ impl Topics {
     }
 }
 
+/// Combined libp2p behaviour used by the whitelist network.
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "BehaviourEvent")]
 struct Behaviour {
@@ -153,6 +155,7 @@ struct Behaviour {
     identify: identify::Behaviour,
 }
 
+/// Event wrapper produced by internal libp2p behaviour stream.
 #[derive(Debug)]
 enum BehaviourEvent {
     /// Wrapped gossipsub event.
@@ -184,6 +187,7 @@ impl From<identify::Event> for BehaviourEvent {
     }
 }
 
+/// Bootnode list split into direct dial and discovery ENR entries.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct ClassifiedBootnodes {
     /// Parsed multiaddrs to dial directly.
@@ -196,27 +200,22 @@ struct ClassifiedBootnodes {
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
     pub fn spawn_with_whitelist_filter(
-        mut cfg: P2pConfig,
+        cfg: P2pConfig,
         l1_client: Option<InboundWhitelistClient>,
         whitelist_address: Option<Address>,
     ) -> Result<Self> {
-        let mut whitelist_filter = None;
-        if let (Some(whitelist_address), Some(rpc_client)) = (whitelist_address, l1_client) {
-            whitelist_filter = Some(InboundWhitelistFilter::new(rpc_client, whitelist_address));
-        } else if let Some(whitelist_address) = whitelist_address {
-            cfg.sequencer_addresses = vec![whitelist_address];
-        }
+        let whitelist_filter = if let (Some(whitelist_address), Some(rpc_client)) =
+            (whitelist_address, l1_client)
+        {
+            Some(InboundWhitelistFilter::new(rpc_client, whitelist_address))
+        } else {
+            None
+        };
 
-        Self::spawn_with_optional_whitelist_filter(cfg, whitelist_filter)
-    }
-
-    fn spawn_with_optional_whitelist_filter(
-        cfg: P2pConfig,
-        whitelist_filter: Option<InboundWhitelistFilter>,
-    ) -> Result<Self> {
         Self::spawn_with_filter(cfg, whitelist_filter)
     }
 
+    /// Spawn network task with an optional preconfirm filter already initialized.
     fn spawn_with_filter(
         cfg: P2pConfig,
         whitelist_filter: Option<InboundWhitelistFilter>,
@@ -301,8 +300,12 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state =
-                GossipsubInboundState::new(cfg.chain_id, cfg.sequencer_addresses, cfg.sequencer_address, whitelist_filter);
+            let mut inbound_validation_state = GossipsubInboundState::new(
+                cfg.chain_id,
+                cfg.sequencer_addresses,
+                Address::ZERO,
+                whitelist_filter,
+            );
 
             loop {
                 let has_discovery = discovery_rx.is_some();
@@ -888,6 +891,7 @@ fn decode_eos_epoch(payload: &[u8]) -> u64 {
     u64::from_be_bytes(bytes)
 }
 
+/// Decode an EOS request topic payload only when it is exactly 8 bytes.
 fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
     if payload.len() != std::mem::size_of::<u64>() {
         return None;
@@ -910,6 +914,7 @@ fn decode_request_hash(payload: &[u8]) -> B256 {
     B256::from(bytes)
 }
 
+/// Decode an EOS request payload only when it is exactly 32 bytes.
 fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
     if payload.len() != std::mem::size_of::<B256>() {
         return None;
@@ -999,8 +1004,11 @@ mod tests {
     fn sample_signed_preconf_payload(chain_id: u64, signer: &FixedKSigner) -> DecodedUnsafePayload {
         let mut payload = sample_preconf_payload();
         payload.wire_signature = signed_wire_signature(
-            &signer,
-            block_signing_hash(chain_id, payload.payload_bytes.as_slice()),
+            signer,
+            crate::codec::block_signing_hash(
+                chain_id,
+                payload.payload_bytes.as_slice(),
+            ),
         );
         payload
     }
@@ -1012,7 +1020,10 @@ mod tests {
         let mut envelope = sample_response_envelope();
         envelope.signature = Some(signed_wire_signature(
             signer,
-            block_signing_hash(chain_id, envelope.execution_payload.block_hash.as_slice()),
+            crate::codec::block_signing_hash(
+                chain_id,
+                envelope.execution_payload.block_hash.as_slice(),
+            ),
         ));
         envelope
     }
@@ -1097,7 +1108,7 @@ mod tests {
     fn decode_eos_epoch_requires_fixed_8_byte_length_for_request_topic() {
         assert_eq!(
             decode_eos_epoch_exact(&42u64.to_be_bytes()),
-            Some(42u64.to_be_bytes()).map(u64::from_be_bytes)
+            Some(u64::from_be_bytes(42u64.to_be_bytes()))
         );
         assert_eq!(decode_eos_epoch_exact(&[]), None);
         assert_eq!(decode_eos_epoch_exact(&[0x2au8; 7]), None);
@@ -1476,25 +1487,23 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            match peer_swarm.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    break address;
-                }
-                _ => {}
+            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+                break address;
             }
         };
 
         let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
 
-        let mut cfg = P2pConfig::default();
-        cfg.chain_id = chain_id;
-        cfg.enable_discovery = false;
-        cfg.enable_tcp = true;
-        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
-        cfg.pre_dial_peers = vec![dial_addr];
+        let cfg = P2pConfig {
+            chain_id,
+            enable_discovery: false,
+            enable_tcp: true,
+            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+            pre_dial_peers: vec![dial_addr],
+            ..Default::default()
+        };
 
-        let whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
-            .expect("spawn network");
+        let whitelist_network = WhitelistNetwork::spawn_with_filter(cfg, None).expect("spawn network");
         let expected_hash = B256::from([0x66u8; 32]);
         let command_tx = whitelist_network.command_tx.clone();
         let local_peer_id = whitelist_network.local_peer_id;
@@ -1544,15 +1553,16 @@ mod tests {
 
     #[tokio::test]
     async fn whitelist_network_loopbacks_published_unsafe_payload() {
-        let mut cfg = P2pConfig::default();
-        cfg.chain_id = 167_000;
-        cfg.enable_discovery = false;
-        cfg.enable_tcp = true;
-        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
+        let cfg = P2pConfig {
+            chain_id: 167_000,
+            enable_discovery: false,
+            enable_tcp: true,
+            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+            ..Default::default()
+        };
 
         let mut whitelist_network =
-            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
-                .expect("spawn network");
+            WhitelistNetwork::spawn_with_filter(cfg, None).expect("spawn network");
         let expected_signature = [0x77u8; 65];
         let expected_envelope = Arc::new(sample_response_envelope());
 
@@ -1671,24 +1681,23 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            match peer_swarm.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    break address;
-                }
-                _ => {}
+            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+                break address;
             }
         };
 
         let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
 
-        let mut cfg = P2pConfig::default();
-        cfg.chain_id = chain_id;
-        cfg.enable_discovery = false;
-        cfg.enable_tcp = true;
-        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
-        cfg.pre_dial_peers = vec![dial_addr];
+        let cfg = P2pConfig {
+            chain_id,
+            enable_discovery: false,
+            enable_tcp: true,
+            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+            pre_dial_peers: vec![dial_addr],
+            ..Default::default()
+        };
 
-        let whitelist_network = WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
+        let whitelist_network = WhitelistNetwork::spawn_with_filter(cfg, None)
             .expect("spawn network");
         let expected = sample_response_envelope();
         let expected_to_publish = expected.clone();
@@ -1790,26 +1799,24 @@ mod tests {
             .expect("listen should succeed");
 
         let external_addr = loop {
-            match peer_swarm.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    break address;
-                }
-                _ => {}
+            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+                break address;
             }
         };
 
         let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
 
-        let mut cfg = P2pConfig::default();
-        cfg.chain_id = chain_id;
-        cfg.enable_discovery = false;
-        cfg.enable_tcp = true;
-        cfg.listen_addr = "127.0.0.1:0".parse().expect("listen addr");
-        cfg.pre_dial_peers = vec![dial_addr];
+        let cfg = P2pConfig {
+            chain_id,
+            enable_discovery: false,
+            enable_tcp: true,
+            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+            pre_dial_peers: vec![dial_addr],
+            ..Default::default()
+        };
 
         let mut whitelist_network =
-            WhitelistNetwork::spawn_with_optional_whitelist_filter(cfg, None)
-                .expect("spawn network");
+            WhitelistNetwork::spawn_with_filter(cfg, None).expect("spawn network");
 
         let publish_task = tokio::spawn(async move {
             let mut connected = false;
