@@ -3,14 +3,14 @@
 use std::{
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
 
 use alloy::{
-    eips::{BlockNumberOrTag, merge::EPOCH_SLOTS},
-    primitives::{Address, U256},
+    eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash},
+    primitives::{Address, B256, U256},
     sol_types::SolEvent,
 };
 use alloy_consensus::{TxEnvelope, transaction::Transaction as _};
@@ -19,18 +19,22 @@ use alloy_rpc_types::{Log, Transaction as RpcTransaction, eth::Block as RpcBlock
 use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
-use event_scanner::{EventFilter, ScannerMessage};
+use event_scanner::{EventFilter, Notification, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot, watch},
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
     time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{debug, error, info, instrument, warn};
 
-use super::{SyncError, SyncStage};
+use super::{
+    SyncError, SyncStage,
+    checkpoint_resume_head::CheckpointResumeHead,
+    confirmed_sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot},
+};
 use crate::{
     config::DriverConfig,
     derivation::ShastaDerivationPipeline,
@@ -42,17 +46,107 @@ use crate::{
     },
 };
 
+use alloy_rpc_types_engine::PayloadId;
 use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 
-/// Two Ethereum epochs worth of slots used as a reorg safety buffer.
-///
-/// When resuming event sync, the driver backs off by this many slots to ensure
-/// the anchor block cannot still be reorganized on L1.
-const RESUME_REORG_CUSHION_SLOTS: u64 = 2 * EPOCH_SLOTS;
 /// Default timeout for preconfirmation payload submission.
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+
+/// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
+#[derive(Debug, Clone, Copy)]
+struct FinalizedL1Snapshot {
+    /// Finalized L1 block number.
+    block_number: u64,
+    /// Hash of the finalized L1 block.
+    block_hash: B256,
+    /// Proposal id considered finalized-safe at this snapshot.
+    finalized_safe_proposal_id: u64,
+}
+
+/// Bootstrap state produced while resolving the event scanner start point.
+#[derive(Debug, Clone, Copy)]
+struct EventStreamStartPoint {
+    /// L1 block number used as scanner start anchor.
+    anchor_block_number: u64,
+    /// Proposal id used to bootstrap derivation state.
+    initial_proposal_id: u64,
+    /// Confirmed L2 tip established before live scanning.
+    bootstrap_confirmed_tip: u64,
+}
+
+/// Decide whether a confirmed-sync probe is still needed.
+fn should_probe_confirmed_sync(
+    preconfirmation_enabled: bool,
+    preconf_ingress_spawned: bool,
+    scanner_live: bool,
+) -> bool {
+    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live
+}
+
+/// Resolve whether confirmed-sync readiness should open ingress.
+fn resolve_confirmed_sync_ready(confirmed_sync_snapshot: ConfirmedSyncSnapshot) -> bool {
+    confirmed_sync_snapshot.is_ready()
+}
+
+/// Resolve confirmed-sync probe readiness from a probe result.
+///
+/// Any probe error keeps ingress closed (fail-closed) until a later successful probe.
+fn resolve_confirmed_sync_probe(
+    confirmed_sync_probe: Result<ConfirmedSyncSnapshot, SyncError>,
+) -> bool {
+    match confirmed_sync_probe {
+        Ok(confirmed_sync_snapshot) => resolve_confirmed_sync_ready(confirmed_sync_snapshot),
+        Err(_) => false,
+    }
+}
+
+/// Resolve the L2 block number that event sync should use as its resume source.
+///
+/// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
+/// - Non-checkpoint mode: must use local `head_l1_origin`.
+///
+/// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
+/// resume point such as `Latest`, which can include local preconfirmation-only blocks.
+fn resolve_resume_head_block_number(
+    checkpoint_configured: bool,
+    checkpoint_synced_head: Option<u64>,
+    head_l1_origin_block_id: Option<u64>,
+) -> Result<u64, SyncError> {
+    if checkpoint_configured {
+        checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
+    } else {
+        head_l1_origin_block_id.ok_or(SyncError::MissingHeadL1OriginResume)
+    }
+}
+
+/// Return the smaller of the local resume proposal and finalized-safe proposal.
+fn resolve_target_proposal_id(resume_proposal_id: u64, finalized_safe_proposal_id: u64) -> u64 {
+    resume_proposal_id.min(finalized_safe_proposal_id)
+}
+
+/// Select scanner start block when the resolved target proposal id is zero.
+///
+/// - If finalized-safe proposal id is zero, scanner can safely start from finalized L1 block.
+/// - Otherwise, keep genesis start to avoid skipping historical proposal events.
+fn resolve_zero_target_start_block(
+    finalized_safe_proposal_id: u64,
+    finalized_block_number: u64,
+) -> u64 {
+    if finalized_safe_proposal_id == 0 { finalized_block_number } else { 0 }
+}
+
+/// Convert missing finalized block responses into an explicit fail-closed sync error.
+fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
+    value.ok_or(SyncError::MissingFinalizedL1Block)
+}
+
+/// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
+#[inline]
+fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
+    block_number <= confirmed_tip
+}
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
 pub struct EventSyncer<P>
@@ -63,19 +157,18 @@ where
     rpc: Client<P>,
     /// Static driver configuration.
     cfg: DriverConfig,
+    /// Beacon-sync checkpoint head shared by the sync pipeline.
+    checkpoint_resume_head: Arc<CheckpointResumeHead>,
     /// Shared blob data source used for manifest fetches.
     blob_source: Arc<BlobDataSource>,
     /// Optional preconfirmation ingress sender for external producers.
     preconf_tx: Option<PreconfSender>,
     /// Optional preconfirmation ingress receiver consumed by the sync loop.
     preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
-    /// Tracks the highest canonical proposal id processed from L1 events.
-    last_canonical_proposal_id: Arc<AtomicU64>,
-    /// Sender for notifying watchers when the canonical proposal ID changes.
-    proposal_id_tx: watch::Sender<u64>,
-    /// Indicates whether the preconfirmation ingress loop is ready to accept submissions.
+    /// Indicates whether strict preconfirmation ingress gating has been satisfied and
+    /// the ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
-    /// Notifier signaled when the preconfirmation ingress loop becomes ready.
+    /// Notifier signaled when strict ingress gating is satisfied and the loop becomes ready.
     preconf_ingress_notify: Arc<Notify>,
 }
 
@@ -85,7 +178,9 @@ where
 const PRECONF_CHANNEL_CAPACITY: usize = 1024;
 
 /// Type aliases for preconfirmation payload channels.
+/// Sender side of the preconfirmation ingress queue.
 type PreconfSender = mpsc::Sender<PreconfJob>;
+/// Receiver side of the preconfirmation ingress queue.
 type PreconfReceiver = mpsc::Receiver<PreconfJob>;
 
 /// A preconfirmation payload submission job.
@@ -131,11 +226,13 @@ where
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         rx: Arc<AsyncMutex<PreconfReceiver>>,
+        rpc: Client<P>,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
     ) {
         spawn(async move {
-            // Start consuming externally supplied preconfirmation payloads.
+            // Start consuming externally supplied preconfirmation payloads after strict event-sync
+            // gating has allowed ingress to start.
             info!(
                 queue_capacity = PRECONF_CHANNEL_CAPACITY,
                 "started preconfirmation ingress loop"
@@ -147,14 +244,44 @@ where
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
                 gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                let router = router.clone();
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
+                let router_guard = router.lock().await;
+                // Re-check after acquiring router lock so event-sync updates cannot race this
+                // preconfirmation submission.
+                let head_l1_origin_block_id = match rpc.head_l1_origin().await {
+                    Ok(Some(origin)) => origin.block_id.to::<u64>(),
+                    Ok(None) => {
+                        warn!(
+                            block_number,
+                            "rejecting preconfirmation payload in ingress loop: head_l1_origin missing"
+                        );
+                        let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
+                    }
+                    Err(err) => {
+                        error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
+                        let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
+                    }
+                };
+                if is_stale_preconf(block_number, head_l1_origin_block_id) {
+                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL).increment(1);
+                    warn!(
+                        block_number,
+                        head_l1_origin_block_id,
+                        "dropping stale preconfirmation payload in ingress loop"
+                    );
+                    let _ = job.respond_to.send(Ok(()));
+                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    continue;
+                }
 
-                // Single-shot injection; serialise via router lock to avoid interleaving.
-                let router_call = router
-                    .lock()
-                    .await
+                // Single-shot injection while holding router lock to avoid interleaving.
+                let router_call = router_guard
                     .produce(ProductionInput::Preconfirmation(job.payload.clone()))
                     .await;
 
@@ -166,7 +293,7 @@ where
                         counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
                         info!(
                             block_number,
-                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
                             duration_secs,
                             "preconfirmation payload injected"
                         );
@@ -178,7 +305,7 @@ where
                         error!(
                             ?err,
                             block_number,
-                            build_payload_args_id = ?job.payload.payload().l1_origin.build_payload_args_id,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
                             duration_secs,
                             "preconfirmation processing failed"
                         );
@@ -222,10 +349,9 @@ where
                 let router = router.clone();
                 let log = proposal_log.clone();
                 async move {
-                    router
-                        // Lock router so L1 proposals and preconf inputs cannot interleave.
-                        .lock()
-                        .await
+                    // Lock router so L1 proposals and preconf inputs cannot interleave.
+                    let router_guard = router.lock().await;
+                    let outcomes = router_guard
                         .produce(ProductionInput::L1ProposalLog(log.clone()))
                         .await
                         .map_err(|err| {
@@ -236,7 +362,9 @@ where
                                 "proposal derivation failed; retrying"
                             );
                             err
-                        })
+                        })?;
+
+                    Ok(outcomes)
                 }
             })
             .await
@@ -246,6 +374,11 @@ where
                 other => SyncError::Other(anyhow!(other)),
             })?;
 
+            if let Some(last_outcome) = outcomes.last() {
+                gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+                    .set(last_outcome.block_number() as f64);
+            }
+
             info!(
                 block_count = outcomes.len(),
                 last_block = outcomes.last().map(|outcome| outcome.block_number()),
@@ -253,8 +386,6 @@ where
                 "successfully processed proposal into L2 blocks",
             );
 
-            self.last_canonical_proposal_id.store(proposal_id, Ordering::Relaxed);
-            let _ = self.proposal_id_tx.send(proposal_id);
             gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
@@ -264,6 +395,17 @@ where
     /// Construct a new event syncer from the provided configuration and RPC client.
     #[instrument(skip(cfg, rpc))]
     pub async fn new(cfg: &DriverConfig, rpc: Client<P>) -> Result<Self, SyncError> {
+        Self::new_with_checkpoint_resume_head(cfg, rpc, Arc::new(CheckpointResumeHead::default()))
+            .await
+    }
+
+    /// Construct a new event syncer with shared checkpoint resume-head state.
+    #[instrument(skip(cfg, rpc, checkpoint_resume_head))]
+    pub(crate) async fn new_with_checkpoint_resume_head(
+        cfg: &DriverConfig,
+        rpc: Client<P>,
+        checkpoint_resume_head: Arc<CheckpointResumeHead>,
+    ) -> Result<Self, SyncError> {
         let blob_source = Arc::new(
             BlobDataSource::new(
                 Some(cfg.l1_beacon_endpoint.clone()),
@@ -279,31 +421,17 @@ where
         } else {
             (None, None)
         };
-        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
+        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
+            checkpoint_resume_head,
             blob_source,
             preconf_tx,
             preconf_rx,
-            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
-            proposal_id_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
-    }
-
-    /// Return the latest canonical proposal id processed from L1 events.
-    pub fn last_canonical_proposal_id(&self) -> u64 {
-        self.last_canonical_proposal_id.load(Ordering::Relaxed)
-    }
-
-    /// Subscribe to proposal ID changes.
-    ///
-    /// Returns a watch::Receiver that receives the latest canonical proposal ID
-    /// whenever it changes. Useful for event-driven test waits.
-    pub fn subscribe_proposal_id(&self) -> watch::Receiver<u64> {
-        self.proposal_id_tx.subscribe()
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
@@ -311,15 +439,53 @@ where
         self.preconf_tx.clone()
     }
 
-    /// Wait until the preconfirmation ingress loop is ready to accept submissions.
+    /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
     ///
-    /// Returns `None` if preconfirmation is disabled.
-    pub async fn wait_preconf_ingress_ready(&self) -> Option<()> {
-        self.preconf_tx.as_ref()?;
+    /// Readiness is strict and fail-closed:
+    /// - target id is `nextProposalId.saturating_sub(1)`
+    /// - `target == 0` is ready
+    /// - otherwise readiness requires both:
+    ///   - `last_block_id_by_batch_id(target)` exists
+    ///   - `head_l1_origin` exists and `head >= target_block`
+    pub async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, SyncError> {
+        let core_state = self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .call()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+        build_confirmed_sync_snapshot(
+            target_proposal_id,
+            |target| async move {
+                Ok(self
+                    .rpc
+                    .last_block_id_by_batch_id(U256::from(target))
+                    .await?
+                    .map(|block_id| block_id.to::<u64>()))
+            },
+            || async {
+                Ok(self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>()))
+            },
+        )
+        .await
+    }
+
+    /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts
+    /// submissions.
+    ///
+    /// Readiness means:
+    /// - event scanner has switched to live mode
+    /// - confirmed-sync readiness check has passed against core state and custom tables
+    /// - ingress loop is running
+    pub async fn wait_preconf_ingress_ready(&self) -> Result<(), DriverError> {
+        self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
         loop {
             let notified = self.preconf_ingress_notify.notified();
             if self.preconf_ingress_ready.load(Ordering::Acquire) {
-                return Some(());
+                return Ok(());
             }
             notified.await;
         }
@@ -345,12 +511,31 @@ where
     ) -> Result<(), DriverError> {
         let tx = self.preconf_tx.as_ref().ok_or(DriverError::PreconfirmationDisabled)?;
 
-        // Reject early if ingress loop is not ready yet.
+        // Reject early if strict ingress gating is not satisfied yet.
         if !self.preconf_ingress_ready.load(Ordering::Acquire) {
             return Err(DriverError::PreconfIngressNotReady);
         }
 
         let block_number = payload.block_number();
+        let head_l1_origin_block_id = match self.rpc.head_l1_origin().await? {
+            Some(origin) => origin.block_id.to::<u64>(),
+            None => {
+                warn!(
+                    block_number,
+                    "rejecting preconfirmation payload before enqueue: head_l1_origin missing"
+                );
+                return Err(DriverError::PreconfIngressNotReady);
+            }
+        };
+        if is_stale_preconf(block_number, head_l1_origin_block_id) {
+            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
+            counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
+            warn!(
+                block_number,
+                head_l1_origin_block_id, "dropping stale preconfirmation payload before enqueue"
+            );
+            return Ok(());
+        }
 
         debug!(block_number, "submitting preconfirmation payload to queue");
 
@@ -413,38 +598,114 @@ where
         Ok(())
     }
 
-    /// Determine the L1 block height used to resume event consumption after beacon sync.
+    /// Resolve the L2 execution block used as event-sync resume source.
     ///
-    /// Mirrors the Go driver's `SetUpEventSync` behaviour by querying the execution engine's head,
-    /// looking up the corresponding anchor state, and falling back to the cached head L1 origin
-    /// if the anchor has not been set yet (e.g. genesis).
+    /// Important safety behavior:
+    /// - If checkpoint mode is enabled, we require the exact checkpoint head that beacon sync
+    ///   finished at. This avoids trusting stale local origin pointers.
+    /// - Without checkpoint mode, we require local `head_l1_origin` and fail fast when missing.
+    ///   This avoids deriving proposal IDs from `Latest`, which may include local preconf-only
+    ///   blocks that were never event-confirmed.
     #[instrument(skip(self), level = "debug")]
-    async fn event_stream_start_block(&self) -> Result<(u64, U256), SyncError> {
-        let latest_block: RpcBlock<TxEnvelope> = self
+    async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
+        let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
+
+        let head_l1_origin_block_id = if checkpoint_configured {
+            None
+        } else {
+            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>())
+        };
+
+        let resume_head_block_number = resolve_resume_head_block_number(
+            checkpoint_configured,
+            self.checkpoint_resume_head.get(),
+            head_l1_origin_block_id,
+        )?;
+
+        if checkpoint_configured {
+            info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
+        } else {
+            info!(resume_head_block_number, "using local head_l1_origin as event resume source");
+        }
+
+        Ok(resume_head_block_number)
+    }
+
+    /// Resolve finalized L1 block metadata and finalized-safe proposal ID.
+    #[instrument(skip(self), level = "debug")]
+    async fn finalized_l1_snapshot(&self) -> Result<FinalizedL1Snapshot, SyncError> {
+        let finalized_block = require_finalized_block(
+            self.rpc
+                .l1_provider
+                .get_block_by_number(BlockNumberOrTag::Finalized)
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?,
+        )?;
+
+        let block_hash = finalized_block.header.hash;
+        let block_number = finalized_block.header.number;
+        let core_state = self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+            .call()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+
+        Ok(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id })
+    }
+
+    /// Determine the L1 block height used to resume event consumption after beacon sync.
+    #[instrument(skip(self), level = "debug")]
+    async fn event_stream_start_block(&self) -> Result<EventStreamStartPoint, SyncError> {
+        let resume_head_block_number = self.resume_head_block_number().await?;
+        let finalized_snapshot = self.finalized_l1_snapshot().await?;
+        let resume_head_block = self
             .rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
+            .get_block_by_number(BlockNumberOrTag::Number(resume_head_block_number))
             .full()
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingLatestExecutionBlock)?
+            .ok_or(SyncError::MissingExecutionBlock { number: resume_head_block_number })?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
         let anchor_address = *self.rpc.shasta.anchor.address();
-        let latest_proposal_id = decode_anchor_proposal_id(&latest_block)?;
-
-        // Determine the target block to extract the anchor block number from.
-        // Back off two epochs worth of proposals to survive L1 reorgs.
-        let target_proposal_id = latest_proposal_id.saturating_sub(RESUME_REORG_CUSHION_SLOTS);
+        let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
+        let target_proposal_id = resolve_target_proposal_id(
+            resume_proposal_id,
+            finalized_snapshot.finalized_safe_proposal_id,
+        );
         info!(
-            latest_proposal_id,
+            resume_proposal_id,
+            finalized_safe_proposal_id = finalized_snapshot.finalized_safe_proposal_id,
+            finalized_block_number = finalized_snapshot.block_number,
+            finalized_block_hash = ?finalized_snapshot.block_hash,
             target_proposal_id,
-            latest_hash = ?latest_block.hash(),
-            latest_number = latest_block.number(),
-            "derived proposal id from latest anchorV4 transaction",
+            resume_hash = ?resume_head_block.hash(),
+            resume_number = resume_head_block.number(),
+            "selected finalized-bounded proposal id from resume-source anchor metadata",
         );
         if target_proposal_id == 0 {
-            return Ok((0, U256::ZERO));
+            let start_block = resolve_zero_target_start_block(
+                finalized_snapshot.finalized_safe_proposal_id,
+                finalized_snapshot.block_number,
+            );
+            info!(
+                start_block,
+                target_proposal_id,
+                finalized_safe_proposal_id = finalized_snapshot.finalized_safe_proposal_id,
+                finalized_block_number = finalized_snapshot.block_number,
+                "resolved zero-target scanner start block",
+            );
+            return Ok(EventStreamStartPoint {
+                anchor_block_number: start_block,
+                initial_proposal_id: 0,
+                bootstrap_confirmed_tip: 0,
+            });
         }
 
         let target_block_number = self
@@ -472,12 +733,16 @@ where
             self.decode_anchor_block_number(&target_block, anchor_address).await?;
         info!(
             anchor_block_number,
-            latest_hash = ?target_block.hash(),
-            latest_number = target_block.number(),
-            target_proposal_id = target_proposal_id,
+            target_hash = ?target_block.hash(),
+            target_number = target_block.number(),
+            target_proposal_id,
             "derived anchor block number from anchorV4 transaction",
         );
-        Ok((anchor_block_number, U256::from(target_proposal_id)))
+        Ok(EventStreamStartPoint {
+            anchor_block_number,
+            initial_proposal_id: target_proposal_id,
+            bootstrap_confirmed_tip: target_block_number.to::<u64>(),
+        })
     }
 }
 
@@ -582,15 +847,26 @@ where
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
-        let (anchor_block_number, initial_proposal_id) = self.event_stream_start_block().await?;
+        let start_point = self.event_stream_start_block().await?;
+        let anchor_block_number = start_point.anchor_block_number;
+        let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
+
+        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(initial_proposal_id as f64);
+        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+            .set(start_point.bootstrap_confirmed_tip as f64);
+        info!(
+            initial_proposal_id,
+            bootstrap_confirmed_tip = start_point.bootstrap_confirmed_tip,
+            "bootstrapped event sync state from finalized-bounded resume target",
+        );
 
         info!(start_tag = ?start_tag, "starting shasta event processing from L1 block");
 
         let derivation_pipeline = ShastaDerivationPipeline::new(
             self.rpc.clone(),
             self.blob_source.clone(),
-            initial_proposal_id,
+            U256::from(initial_proposal_id),
         )
         .await?;
         let derivation = Arc::new(derivation_pipeline);
@@ -613,36 +889,59 @@ where
 
         info!("event scanner started; listening for inbox proposals");
 
-        // Spawn preconfirmation ingress loop if enabled.
-        if let Some(rx) = self.preconf_rx.clone() {
-            self.spawn_preconf_ingress(
-                router.clone(),
-                rx,
-                self.preconf_ingress_ready.clone(),
-                self.preconf_ingress_notify.clone(),
-            );
-        }
+        // Strict gate state for starting preconfirmation ingress.
+        let mut preconf_ingress_spawned = false;
+        let mut scanner_live = false;
 
         while let Some(message) = stream.next().await {
             debug!(?message, "received inbox proposal message from event scanner");
-            let logs = match message {
+            match message {
                 Ok(ScannerMessage::Data(logs)) => {
                     counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
                     counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
-                    logs
+                    self.process_log_batch(router.clone(), logs).await?;
                 }
                 Ok(ScannerMessage::Notification(notification)) => {
                     info!(?notification, "event scanner notification");
-                    continue;
+                    if matches!(notification, Notification::SwitchingToLive) {
+                        // Scanner live is necessary but not sufficient: confirmed-sync readiness
+                        // must also pass before ingress opens.
+                        scanner_live = true;
+                    }
                 }
                 Err(err) => {
                     counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
                     error!(?err, "error receiving proposal logs from event scanner");
                     continue;
                 }
-            };
+            }
 
-            self.process_log_batch(router.clone(), logs).await?;
+            if should_probe_confirmed_sync(
+                self.cfg.preconfirmation_enabled,
+                preconf_ingress_spawned,
+                scanner_live,
+            ) {
+                let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
+                if let Err(err) = &confirmed_sync_probe {
+                    counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL).increment(1);
+                    warn!(
+                        ?err,
+                        "confirmed-sync probe failed; keeping preconfirmation ingress closed"
+                    );
+                    continue;
+                }
+                let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
+                if confirmed_sync_ready && let Some(rx) = self.preconf_rx.clone() {
+                    self.spawn_preconf_ingress(
+                        router.clone(),
+                        rx,
+                        self.rpc.clone(),
+                        self.preconf_ingress_ready.clone(),
+                        self.preconf_ingress_notify.clone(),
+                    );
+                    preconf_ingress_spawned = true;
+                }
+            }
         }
         Ok(())
     }
@@ -744,23 +1043,20 @@ mod tests {
         let (preconf_tx, preconf_rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
         let blob_source =
             BlobDataSource::new(None, None, true).await.expect("blob data source should build");
-        let (proposal_id_tx, _proposal_id_rx) = watch::channel(0u64);
-
         EventSyncer {
             rpc: mock_client(),
             cfg,
+            checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
             blob_source: Arc::new(blob_source),
             preconf_tx: Some(preconf_tx),
             preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
-            last_canonical_proposal_id: Arc::new(AtomicU64::new(0)),
-            proposal_id_tx,
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
     }
 
     #[tokio::test]
-    async fn preconf_submit_rejected_when_ingress_not_ready() {
+    async fn preconf_submit_rejected_before_first_event_sync_gate() {
         let syncer = build_syncer().await;
         let payload = PreconfPayload::new(sample_payload(1));
         let err = syncer
@@ -772,11 +1068,108 @@ mod tests {
     }
 
     #[test]
+    fn confirmed_sync_ready_when_target_is_zero() {
+        assert!(ConfirmedSyncSnapshot::new(0, None, None).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_requires_head_l1_origin_for_nonzero_target() {
+        assert!(!ConfirmedSyncSnapshot::new(7, Some(11), None).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_requires_target_batch_mapping_for_nonzero_target() {
+        assert!(!ConfirmedSyncSnapshot::new(7, None, Some(11)).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_is_false_when_head_is_behind_target_block() {
+        assert!(!ConfirmedSyncSnapshot::new(7, Some(12), Some(11)).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_is_true_when_head_reaches_target_block() {
+        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(12)).is_ready());
+        assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(15)).is_ready());
+    }
+
+    #[test]
+    fn confirmed_sync_ready_reflects_snapshot_readiness() {
+        let ready = resolve_confirmed_sync_ready(ConfirmedSyncSnapshot::new(0, None, None));
+        assert!(ready, "resolved readiness should mirror snapshot readiness");
+    }
+
+    #[test]
+    fn confirmed_sync_probe_success_reflects_snapshot_readiness() {
+        let ready = resolve_confirmed_sync_probe(Ok(ConfirmedSyncSnapshot::new(0, None, None)));
+        assert!(ready, "successful probe should defer to snapshot readiness");
+    }
+
+    #[test]
+    fn confirmed_sync_probe_error_keeps_ingress_closed() {
+        let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingFinalizedL1Block));
+        assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
+    }
+
+    #[test]
+    fn resume_head_resolution_requires_checkpoint_state_in_checkpoint_mode() {
+        let err = resolve_resume_head_block_number(true, None, Some(100))
+            .expect_err("checkpoint mode should require checkpoint resume state");
+        assert!(matches!(err, SyncError::MissingCheckpointResumeHead));
+
+        let resolved = resolve_resume_head_block_number(true, Some(420), None)
+            .expect("checkpoint resume head should be used when present");
+        assert_eq!(resolved, 420);
+    }
+
+    #[test]
+    fn resume_head_resolution_requires_head_l1_origin_without_checkpoint() {
+        let err = resolve_resume_head_block_number(false, Some(999), None)
+            .expect_err("non-checkpoint mode should require head_l1_origin");
+        assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
+
+        let resolved = resolve_resume_head_block_number(false, None, Some(64))
+            .expect("head_l1_origin should drive resume without checkpoint");
+        assert_eq!(resolved, 64);
+    }
+
+    #[test]
     fn preconfirmation_submit_timeout_defaults_to_12_seconds() {
         assert_eq!(
             PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT,
             Duration::from_secs(12),
             "preconfirmation submit timeout should default to 12 seconds"
         );
+    }
+
+    #[test]
+    fn target_proposal_id_is_bounded_by_finalized_safe_id_when_resume_is_ahead() {
+        let target = resolve_target_proposal_id(120, 90);
+        assert_eq!(target, 90);
+    }
+
+    #[test]
+    fn target_proposal_id_keeps_resume_id_when_resume_is_behind_finalized_safe() {
+        let target = resolve_target_proposal_id(90, 120);
+        assert_eq!(target, 90);
+    }
+
+    #[test]
+    fn zero_target_uses_finalized_block_when_finalized_safe_is_zero() {
+        let start_block = resolve_zero_target_start_block(0, 4_096);
+        assert_eq!(start_block, 4_096);
+    }
+
+    #[test]
+    fn zero_target_uses_genesis_when_finalized_safe_exists() {
+        let start_block = resolve_zero_target_start_block(17, 4_096);
+        assert_eq!(start_block, 0);
+    }
+
+    #[test]
+    fn missing_finalized_block_is_fail_closed() {
+        let err = require_finalized_block::<u64>(None)
+            .expect_err("missing finalized block must fail closed with explicit sync error");
+        assert!(matches!(err, SyncError::MissingFinalizedL1Block));
     }
 }

@@ -18,8 +18,11 @@ use alloy_primitives::{Address, U256};
 use async_trait::async_trait;
 use thiserror::Error;
 
+/// On-chain lookahead contract client wrapper.
 mod client;
+/// Core resolver implementation and submodules.
 mod resolver;
+/// Event-scanner bootstrap and background ingest loop.
 mod scanner;
 
 pub use bindings::lookahead_store::ILookaheadStore::{
@@ -37,15 +40,31 @@ pub enum LookaheadError {
     /// Failure when querying the LookaheadStore.
     #[error("failed to call lookahead store: {0}")]
     Lookahead(alloy_contract::Error),
+    /// Failed to fetch lookahead store config from the LookaheadStore.
+    #[error("failed to get lookahead store config: {0}")]
+    GetLookaheadStoreConfig(alloy_contract::Error),
+    /// Failed to fetch preconf whitelist address from the LookaheadStore.
+    #[error("failed to get preconf whitelist address: {0}")]
+    GetPreconfWhitelistAddress(alloy_contract::Error),
     /// Failure when querying the preconfirmation whitelist.
     #[error("failed to call preconf whitelist: {0}")]
     PreconfWhitelist(alloy_contract::Error),
     /// Failure when fetching a block by number from the provider.
     #[error("failed to fetch block {block_number}: {reason}")]
-    BlockLookup { block_number: u64, reason: String },
+    BlockLookup {
+        /// Block number requested during resolver processing.
+        block_number: u64,
+        /// Provider error detail for the failed lookup.
+        reason: String,
+    },
     /// Required log metadata was missing when ingesting events.
     #[error("missing log field '{field}' while {context}")]
-    MissingLogField { field: &'static str, context: &'static str },
+    MissingLogField {
+        /// Missing field name in the scanned log payload.
+        field: &'static str,
+        /// Ingest step that required the missing field.
+        context: &'static str,
+    },
     /// Decoding of a lookahead event failed.
     #[error("failed to decode lookahead event: {0}")]
     EventDecode(String),
@@ -77,7 +96,14 @@ pub enum LookaheadError {
     #[error(
         "lookahead cache corrupt for epoch starting at {epoch_start}: slot index {index} out of bounds (len {len})"
     )]
-    CorruptLookaheadCache { epoch_start: u64, index: usize, len: usize },
+    CorruptLookaheadCache {
+        /// Epoch start timestamp for the corrupt cache entry.
+        epoch_start: u64,
+        /// Invalid slot index that was requested.
+        index: usize,
+        /// Number of slots currently cached for the epoch.
+        len: usize,
+    },
 }
 
 /// Result alias for lookahead operations.

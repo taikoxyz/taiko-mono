@@ -1,5 +1,7 @@
 //! Whitelist preconfirmation driver subcommand.
 
+use std::path::PathBuf;
+
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use alloy_primitives::Address;
 use async_trait::async_trait;
@@ -8,7 +10,9 @@ use driver::{DriverConfig, metrics::DriverMetrics};
 use preconfirmation_net::P2pConfig;
 use rpc::{SubscriptionSource, client::ClientConfig};
 use tracing::warn;
-use whitelist_preconfirmation_driver::{RunnerConfig, WhitelistPreconfirmationDriverRunner};
+use whitelist_preconfirmation_driver::{
+    RunnerConfig, WhitelistPreconfirmationDriverMetrics, WhitelistPreconfirmationDriverRunner,
+};
 
 use crate::{
     commands::Subcommand,
@@ -35,6 +39,27 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Shasta preconfirmation whitelist contract address.
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
+    /// Optional listen address for the whitelist preconfirmation REST/WS server.
+    #[clap(
+        long = "preconfirmation.rpc-addr",
+        visible_alias = "whitelist.rpc-addr",
+        env = "PRECONFIRMATION_RPC_ADDR"
+    )]
+    pub preconfirmation_rpc_addr: Option<std::net::SocketAddr>,
+    /// Optional path to JWT secret used to authenticate whitelist preconfirmation REST/WS calls.
+    #[clap(long = "preconfirmation.jwt-secret", env = "PRECONFIRMATION_SERVER_JWT_SECRET")]
+    pub preconfirmation_jwt_secret: Option<PathBuf>,
+    /// Optional comma-separated list of CORS origins allowed by whitelist REST/WS server.
+    #[clap(
+        long = "preconfirmation.cors-origins",
+        value_delimiter = ',',
+        default_value = "*",
+        env = "PRECONFIRMATION_SERVER_CORS_ORIGINS"
+    )]
+    pub preconfirmation_cors_origins: Vec<String>,
+    /// Optional hex-encoded private key for P2P block signing.
+    #[clap(long = "preconfirmation.p2p-signer-key", env = "PRECONFIRMATION_P2P_SIGNER_KEY")]
+    pub preconfirmation_p2p_signer_key: Option<String>,
 }
 
 impl WhitelistPreconfirmationDriverSubCommand {
@@ -98,6 +123,8 @@ impl WhitelistPreconfirmationDriverSubCommand {
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
+            allow_all_sequencers: self.preconf_flags.p2p_allow_all_sequencers,
+            sequencer_addresses: self.preconf_flags.p2p_sequencer_addresses.clone(),
             pre_dial_peers,
             ..Default::default()
         };
@@ -107,6 +134,38 @@ impl WhitelistPreconfirmationDriverSubCommand {
         }
 
         cfg
+    }
+
+    /// Resolve the whitelist RPC listen address.
+    fn resolve_rpc_addr(&self) -> Option<std::net::SocketAddr> {
+        self.preconfirmation_rpc_addr
+    }
+
+    /// Resolve and parse optional JWT secret used by the whitelist REST/WS server.
+    fn resolve_rpc_jwt_secret(&self) -> Result<Option<Vec<u8>>> {
+        let Some(path) = self.preconfirmation_jwt_secret.as_ref() else {
+            return Ok(None);
+        };
+
+        let secret = rpc::client::read_jwt_secret(path).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("failed to read preconfirmation JWT secret from {}", path.display()),
+            )
+        })?;
+
+        Ok(Some(secret.as_bytes().to_vec()))
+    }
+
+    /// Resolve CORS origins for the whitelist REST/WS server.
+    fn resolve_rpc_cors_origins(&self) -> Vec<String> {
+        self.preconfirmation_cors_origins
+            .iter()
+            .filter_map(|origin| {
+                let origin = origin.trim();
+                (!origin.is_empty()).then(|| origin.to_string())
+            })
+            .collect::<Vec<_>>()
     }
 
     /// Run the whitelist preconfirmation driver.
@@ -125,6 +184,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
     /// Registers driver metrics with the global registry.
     fn register_metrics(&self) -> Result<()> {
         DriverMetrics::init();
+        WhitelistPreconfirmationDriverMetrics::init();
         Ok(())
     }
 
@@ -136,8 +196,15 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
         let driver_config = self.build_driver_config()?;
         let p2p_config = self.build_p2p_config();
 
-        let runner_config =
-            RunnerConfig::new(driver_config, p2p_config, self.shasta_preconf_whitelist_address);
+        let runner_config = RunnerConfig::new(
+            driver_config,
+            p2p_config,
+            self.shasta_preconf_whitelist_address,
+            self.resolve_rpc_addr(),
+            self.resolve_rpc_jwt_secret()?,
+            self.resolve_rpc_cors_origins(),
+            self.preconfirmation_p2p_signer_key.clone(),
+        );
 
         WhitelistPreconfirmationDriverRunner::new(runner_config).run().await?;
         Ok(())

@@ -19,6 +19,7 @@ const ROUND_BYTES: usize = 4 * 31 + 3;
 const FIRST_ROUND_CAPACITY: usize = 27 + 3 + 3 * 31;
 
 #[derive(Clone, Copy, Debug, Default)]
+/// Stateless Kona-compatible blob encoder/decoder utility.
 pub struct BlobCoder;
 
 /// Ensure that the field element at the given index exists, returning a mutable reference to it.
@@ -141,6 +142,12 @@ impl BlobCoder {
     /// blob if the encoding is valid.
     pub fn decode_blobs(blobs: &[Blob]) -> Option<Vec<Vec<u8>>> {
         Self.decode_all(blobs)
+    }
+
+    /// Decode a single blob using the Kona-compatible scheme, returning the raw payload bytes
+    /// if the encoding is valid.
+    pub fn decode_blob(blob: &Blob) -> Option<Vec<u8>> {
+        decode_blob(blob)
     }
 }
 
@@ -365,7 +372,7 @@ mod tests {
         let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
         let blobs = builder.take();
 
-        assert_eq!(blobs.len(), 2, "Expected 2 blobs for payload size {}", payload_size);
+        assert_eq!(blobs.len(), 2, "Expected 2 blobs for payload size {payload_size}");
 
         let mut coder = BlobCoder;
         let decoded = coder.decode_all(&blobs).unwrap().concat();
@@ -385,5 +392,16 @@ mod tests {
         let mut individual_decoded = blob1_decoded;
         individual_decoded.extend_from_slice(&blob2_decoded);
         assert_eq!(individual_decoded, payload);
+    }
+
+    #[test]
+    fn decode_single_blob_convenience_method() {
+        let payload = vec![0xAB; 100];
+        let builder = SidecarBuilder::<BlobCoder>::from_slice(&payload);
+        let blobs = builder.take();
+
+        // Test the new convenience method
+        let decoded = BlobCoder::decode_blob(&blobs[0]).unwrap();
+        assert_eq!(decoded, payload);
     }
 }

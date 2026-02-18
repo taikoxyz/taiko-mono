@@ -1,6 +1,10 @@
 //! RPC client for interacting with L1 and L2 nodes.
 
-use std::{fs, io, path::PathBuf, time::Duration};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use alethia_reth_evm::handler::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
@@ -81,36 +85,49 @@ pub struct ClientConfig {
 impl Client<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     /// Create a new `Client` without a wallet from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
-        Self::new_with_l1_provider(config.l1_provider_source.to_provider().await?, config).await
+        let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
+            RpcClientError::Connection(format!("L1 WebSocket (l1.ws) connection failed: {}", e))
+        })?;
+        Self::new_with_l1_provider(l1_provider, config).await
     }
 }
 
 impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
     /// Create a new `Client` with a wallet from the given configuration.
     pub async fn new_with_wallet(config: ClientConfig, private_key: B256) -> Result<Self> {
-        Self::new_with_l1_provider(
-            config.l1_provider_source.to_provider_with_wallet(private_key).await?,
-            config,
-        )
-        .await
+        let l1_provider =
+            config.l1_provider_source.to_provider_with_wallet(private_key).await.map_err(|e| {
+                RpcClientError::Connection(format!("L1 WebSocket (l1.ws) connection failed: {}", e))
+            })?;
+        Self::new_with_l1_provider(l1_provider, config).await
     }
 }
 
 impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
-        let l2_provider = connect_provider_with_timeout(config.l2_provider_url).await?;
-        let jwt_secret = read_jwt_secret(config.jwt_secret.clone()).ok_or_else(|| {
+        let l2_provider =
+            connect_provider_with_timeout(config.l2_provider_url.clone()).await.map_err(|e| {
+                RpcClientError::Connection(format!(
+                    "L2 HTTP RPC (l2.http) connection failed for {}: {}",
+                    config.l2_provider_url, e
+                ))
+            })?;
+        let jwt_secret = read_jwt_secret(config.jwt_secret.as_path()).ok_or_else(|| {
             RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
         })?;
         let l2_auth_provider =
             build_jwt_http_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
+        let chain_id = l2_provider.get_chain_id().await.map_err(|e| {
+            RpcClientError::Rpc(format!(
+                "L2 HTTP RPC (l2.http) failed to get chain id from {}: {}",
+                config.l2_provider_url, e
+            ))
+        })?;
+
         let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
-        let anchor = AnchorInstance::new(
-            get_treasury_address(l2_provider.get_chain_id().await?),
-            l2_auth_provider.clone(),
-        );
+        let anchor = AnchorInstance::new(get_treasury_address(chain_id), l2_auth_provider.clone());
 
         info!(
             inbox_address = ?config.inbox_address,
@@ -194,8 +211,8 @@ pub async fn build_ipc_provider(path: PathBuf) -> Result<RootProvider> {
 }
 
 /// Returns the JWT secret for the engine API
-/// using the provided [PathBuf]. If the file is not found, it will return [None].
-pub fn read_jwt_secret(path: PathBuf) -> Option<JwtSecret> {
+/// using the provided path. If the file is not found, it will return [None].
+pub fn read_jwt_secret(path: &Path) -> Option<JwtSecret> {
     if let Ok(secret) = fs::read_to_string(path) {
         return JwtSecret::from_hex(secret).ok();
     };
@@ -213,7 +230,7 @@ mod tests {
             PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../tests/docker/jwt.hex"));
 
         // Should successfully read the JWT secret
-        let secret = read_jwt_secret(jwt_path);
+        let secret = read_jwt_secret(jwt_path.as_path());
         assert!(secret.is_some());
 
         // Verify the secret is a valid 32-byte key
@@ -226,7 +243,7 @@ mod tests {
         let jwt_path = PathBuf::from("/nonexistent/path/jwt.hex");
 
         // Should return None for non-existent file
-        let secret = read_jwt_secret(jwt_path);
+        let secret = read_jwt_secret(jwt_path.as_path());
         assert!(secret.is_none());
     }
 

@@ -116,21 +116,55 @@ pub enum NetworkEvent {
     /// A peer disconnected.
     PeerDisconnected(libp2p::PeerId),
     /// Received a signed commitment over gossip.
-    GossipSignedCommitment { from: libp2p::PeerId, msg: Box<SignedCommitment> },
+    GossipSignedCommitment {
+        /// Peer that propagated the message.
+        from: libp2p::PeerId,
+        /// Signed commitment payload.
+        msg: Box<SignedCommitment>,
+    },
     /// Received a raw txlist gossip payload.
-    GossipRawTxList { from: libp2p::PeerId, msg: Box<RawTxListGossip> },
+    GossipRawTxList {
+        /// Peer that propagated the message.
+        from: libp2p::PeerId,
+        /// Raw txlist gossip payload.
+        msg: Box<RawTxListGossip>,
+    },
     /// Received a commitments response to an outbound request.
-    ReqRespCommitments { from: libp2p::PeerId, msg: GetCommitmentsByNumberResponse },
+    ReqRespCommitments {
+        /// Peer that sent the response.
+        from: libp2p::PeerId,
+        /// Commitments response body.
+        msg: GetCommitmentsByNumberResponse,
+    },
     /// Received a raw-txlist response to an outbound request.
-    ReqRespRawTxList { from: libp2p::PeerId, msg: GetRawTxListResponse },
+    ReqRespRawTxList {
+        /// Peer that sent the response.
+        from: libp2p::PeerId,
+        /// Raw txlist response body.
+        msg: GetRawTxListResponse,
+    },
     /// Received a head response to an outbound request.
-    ReqRespHead { from: libp2p::PeerId, head: preconfirmation_types::PreconfHead },
+    ReqRespHead {
+        /// Peer that sent the response.
+        from: libp2p::PeerId,
+        /// Advertised preconfirmation head.
+        head: preconfirmation_types::PreconfHead,
+    },
     /// Inbound commitments request arrived.
-    InboundCommitmentsRequest { from: libp2p::PeerId },
+    InboundCommitmentsRequest {
+        /// Peer that issued the request.
+        from: libp2p::PeerId,
+    },
     /// Inbound raw-txlist request arrived.
-    InboundRawTxListRequest { from: libp2p::PeerId },
+    InboundRawTxListRequest {
+        /// Peer that issued the request.
+        from: libp2p::PeerId,
+    },
     /// Inbound head request arrived.
-    InboundHeadRequest { from: libp2p::PeerId },
+    InboundHeadRequest {
+        /// Peer that issued the request.
+        from: libp2p::PeerId,
+    },
     /// Driver started.
     Started,
     /// Driver stopped.

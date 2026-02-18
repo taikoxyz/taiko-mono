@@ -33,12 +33,19 @@ pub struct ValidationContext {
 /// Parameters required to populate inherited metadata for forced/default manifests.
 #[derive(Debug, Clone, Copy)]
 pub struct InheritedMetadataInput {
+    /// Timestamp of the parent block.
     pub parent_timestamp: u64,
+    /// Proposal timestamp from the L1 proposal event.
     pub proposal_timestamp: u64,
+    /// Shasta fork activation timestamp for the chain.
     pub fork_timestamp: u64,
+    /// Proposer coinbase inherited by blocks in forced/default manifests.
     pub proposer: Address,
+    /// Anchor block number inherited by blocks in forced/default manifests.
     pub anchor_block_number: u64,
+    /// Number of the parent L2 block.
     pub parent_block_number: u64,
+    /// Gas limit of the parent L2 block.
     pub parent_gas_limit: u64,
 }
 
@@ -111,7 +118,7 @@ fn validate_timestamps(
     true
 }
 
-// Compute the minimum valid timestamp for the next block in the sequence.
+/// Compute the minimum valid timestamp for the next block in the sequence.
 fn compute_timestamp_lower_bound(
     parent_timestamp: u64,
     proposal_timestamp: u64,
@@ -192,7 +199,7 @@ fn validate_gas_limit(
     true
 }
 
-// Compute the allowed gas limit bounds based on the parent gas limit.
+/// Compute the valid gas-limit bounds from the effective parent gas limit.
 fn gas_limit_bounds(parent_gas_limit: u64) -> (u64, u64) {
     let parent = u128::from(parent_gas_limit);
     let denominator = u128::from(GAS_LIMIT_DENOMINATOR);
@@ -205,7 +212,7 @@ fn gas_limit_bounds(parent_gas_limit: u64) -> (u64, u64) {
     (lower, upper)
 }
 
-// Compute the effective parent gas limit by removing the anchor transaction gas when applicable.
+/// Compute the parent gas limit after discounting anchor gas for non-genesis parents.
 fn effective_parent_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
     if parent_block_number == 0 {
         parent_gas_limit

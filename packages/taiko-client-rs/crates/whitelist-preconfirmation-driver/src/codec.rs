@@ -6,8 +6,6 @@ use ssz::{Decode, Encode};
 
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
 
-/// Minimum bytes for a decoded unsafe payload (`signature + at least one payload byte`).
-const MIN_UNSAFE_PAYLOAD_BYTES: usize = 66;
 /// Size, in bytes, of secp256k1 signatures carried on the wire.
 const SIGNATURE_LEN: usize = 65;
 /// Envelope header length (`2 flag bytes + 32-byte parent beacon root`).
@@ -70,11 +68,13 @@ pub(crate) fn recover_signer(prehash: B256, signature: &[u8; SIGNATURE_LEN]) -> 
     })
 }
 
-/// Decode a message from the `preconfBlocks` topic.
-pub(crate) fn decode_unsafe_payload_message(data: &[u8]) -> Result<DecodedUnsafePayload> {
+/// Decode a preconfirmation payload into its wire signature and envelope bytes.
+pub(crate) fn decode_unsafe_payload_signature(
+    data: &[u8],
+) -> Result<([u8; SIGNATURE_LEN], Vec<u8>)> {
     let decoded = decompress_snappy_with_limit(data, "payload")?;
 
-    if decoded.len() < MIN_UNSAFE_PAYLOAD_BYTES {
+    if decoded.len() < SIGNATURE_LEN {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
             "unsafe payload too short: {}",
             decoded.len()
@@ -84,10 +84,7 @@ pub(crate) fn decode_unsafe_payload_message(data: &[u8]) -> Result<DecodedUnsafe
     let mut wire_signature = [0u8; SIGNATURE_LEN];
     wire_signature.copy_from_slice(&decoded[..SIGNATURE_LEN]);
 
-    let payload_bytes = decoded[SIGNATURE_LEN..].to_vec();
-    let envelope = decode_envelope_ssz(&payload_bytes)?;
-
-    Ok(DecodedUnsafePayload { wire_signature, payload_bytes, envelope })
+    Ok((wire_signature, decoded[SIGNATURE_LEN..].to_vec()))
 }
 
 /// Decode a message from the `responsePreconfBlocks` topic.
@@ -119,6 +116,27 @@ fn decompress_snappy_with_limit(data: &[u8], kind: &str) -> Result<Vec<u8>> {
             "failed to decompress snappy {kind}: {err}"
         ))
     })
+}
+
+/// Encode a message for the `preconfBlocks` topic (signature || SSZ envelope, snappy compressed).
+pub(crate) fn encode_unsafe_payload_message(
+    signature: &[u8; 65],
+    envelope: &WhitelistExecutionPayloadEnvelope,
+) -> Result<Vec<u8>> {
+    let ssz_bytes = encode_envelope_ssz(envelope);
+    let mut raw = Vec::with_capacity(SIGNATURE_LEN + ssz_bytes.len());
+    raw.extend_from_slice(signature);
+    raw.extend_from_slice(&ssz_bytes);
+    snap::raw::Encoder::new().compress_vec(&raw).map_err(|err| {
+        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+            "failed to compress snappy payload: {err}"
+        ))
+    })
+}
+
+/// Encode a message for the `requestEndOfSequencingPreconfBlocks` topic.
+pub(crate) fn encode_eos_request_message(epoch: u64) -> Vec<u8> {
+    epoch.to_be_bytes().to_vec()
 }
 
 /// Encode a message for the `requestPreconfBlocks` topic.
@@ -287,12 +305,49 @@ mod tests {
             .compress_vec(&oversized)
             .expect("snappy compression for oversized payload");
 
-        let err = decode_unsafe_payload_message(&encoded).expect_err("oversized payload must fail");
+        let err =
+            decode_unsafe_payload_signature(&encoded).expect_err("oversized payload must fail");
         assert!(matches!(
             err,
             WhitelistPreconfirmationDriverError::InvalidPayload(msg)
                 if msg.contains("too large after decompression")
         ));
+    }
+
+    #[test]
+    fn encode_unsafe_payload_roundtrips_with_decode() {
+        let envelope = sample_envelope();
+        let signature = envelope.signature.expect("sample has signature");
+
+        let encoded =
+            encode_unsafe_payload_message(&signature, &envelope).expect("payload encoding");
+        let (wire_signature, payload_bytes) =
+            decode_unsafe_payload_signature(&encoded).expect("payload decoding");
+        let decoded_envelope = decode_envelope_ssz(&payload_bytes).expect("envelope decoding");
+
+        assert_eq!(wire_signature, signature);
+        assert_eq!(decoded_envelope.end_of_sequencing, envelope.end_of_sequencing);
+        assert_eq!(decoded_envelope.is_forced_inclusion, envelope.is_forced_inclusion);
+        assert_eq!(decoded_envelope.parent_beacon_block_root, envelope.parent_beacon_block_root);
+        assert_eq!(
+            decoded_envelope.execution_payload.block_hash,
+            envelope.execution_payload.block_hash
+        );
+        assert_eq!(
+            decoded_envelope.execution_payload.block_number,
+            envelope.execution_payload.block_number
+        );
+        assert_eq!(decoded_envelope.signature, envelope.signature);
+    }
+
+    #[test]
+    fn encode_eos_request_message_produces_big_endian_bytes() {
+        let epoch = 0x0102030405060708u64;
+        let encoded = encode_eos_request_message(epoch);
+        assert_eq!(encoded, vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08]);
+
+        let zero = encode_eos_request_message(0);
+        assert_eq!(zero, vec![0u8; 8]);
     }
 
     #[test]

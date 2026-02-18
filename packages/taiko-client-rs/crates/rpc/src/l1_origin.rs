@@ -6,6 +6,7 @@ use alethia_reth_primitives::payload::attributes::RpcL1Origin;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 
+/// Public alias for execution-engine L1 origin payloads.
 pub type L1Origin = RpcL1Origin;
 
 use crate::{auth::handle_ignorable_origin_error, client::Client, error::Result};

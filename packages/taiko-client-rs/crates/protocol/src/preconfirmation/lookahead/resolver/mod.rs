@@ -6,10 +6,15 @@
 //! - `timeline.rs`: fallback/blacklist timelines.
 //! - `types.rs`: data types and helpers.
 
+/// Main resolver state machine and ingest handlers.
 mod core;
+/// Epoch and slot timing utilities.
 mod epoch;
+/// Owned handle for the spawned lookahead scanner task.
 pub mod scanner_handle;
+/// Blacklist/fallback timeline primitives.
 mod timeline;
+/// Shared resolver data structures and broadcast payloads.
 mod types;
 
 pub use core::LookaheadResolver;

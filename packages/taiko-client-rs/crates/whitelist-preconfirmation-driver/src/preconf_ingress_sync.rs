@@ -1,18 +1,30 @@
 //! Event sync bootstrap helper for whitelist preconfirmation ingestion.
 
-use std::{future::Future, sync::Arc};
+use std::{future::Future, result, sync::Arc};
 
 use alloy_provider::{
     Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
 };
-use driver::{
-    DriverConfig,
-    sync::{SyncError, event::EventSyncer},
-};
+use driver::{DriverConfig, SyncPipeline, map_driver_error, sync::event::EventSyncer};
 use rpc::client::Client;
 use tokio::task::JoinHandle;
 
-use crate::{Result, error::WhitelistPreconfirmationDriverError};
+use crate::{Result as WhitelistResult, error::WhitelistPreconfirmationDriverError};
+
+/// Result returned by the event sync background task.
+type EventSyncResult = result::Result<(), driver::DriverError>;
+/// Join result returned by the event sync background task handle.
+pub(crate) type EventSyncJoinResult = result::Result<EventSyncResult, tokio::task::JoinError>;
+
+/// Classified terminal outcome from the event sync background task.
+pub(crate) enum EventSyncerExit {
+    /// The task exited cleanly (`Ok(())`) before ingress could proceed.
+    Exited,
+    /// The task returned an underlying driver error.
+    Driver(driver::DriverError),
+    /// The task failed to join.
+    Join(tokio::task::JoinError),
+}
 
 /// Runs the event syncer and exposes shared handles used by the whitelist importer.
 pub(crate) struct PreconfIngressSync<P>
@@ -23,17 +35,17 @@ where
     client: Client<P>,
     /// Shared event syncer that exposes ingress readiness and submit hooks.
     event_syncer: Arc<EventSyncer<P>>,
-    /// Background task running the event sync loop.
-    handle: JoinHandle<std::result::Result<(), SyncError>>,
+    /// Background task running the sync pipeline loop.
+    handle: JoinHandle<EventSyncResult>,
 }
 
 impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
-    /// Start the event syncer and its background task.
-    pub(crate) async fn start(config: &DriverConfig) -> Result<Self> {
+    /// Start the sync pipeline and expose its event syncer and background task.
+    pub(crate) async fn start(config: &DriverConfig) -> WhitelistResult<Self> {
         let client = Client::new(config.client.clone()).await?;
-        let event_syncer = Arc::new(EventSyncer::new(config, client.clone()).await?);
-        let event_syncer_task = event_syncer.clone();
-        let handle = tokio::spawn(async move { driver::SyncStage::run(&*event_syncer_task).await });
+        let pipeline = SyncPipeline::new(config.clone(), client.clone()).await?;
+        let event_syncer = pipeline.event_syncer();
+        let handle = tokio::spawn(async move { pipeline.run().await });
 
         Ok(Self { client, event_syncer, handle })
     }
@@ -54,12 +66,12 @@ where
     }
 
     /// Access the background event syncer task handle.
-    pub(crate) fn handle_mut(&mut self) -> &mut JoinHandle<std::result::Result<(), SyncError>> {
+    pub(crate) fn handle_mut(&mut self) -> &mut JoinHandle<EventSyncResult> {
         &mut self.handle
     }
 
     /// Wait until preconfirmation ingress is available on the event syncer.
-    pub(crate) async fn wait_preconf_ingress_ready(&mut self) -> Result<()> {
+    pub(crate) async fn wait_preconf_ingress_ready(&mut self) -> WhitelistResult<()> {
         wait_for_preconf_ingress_ready(
             self.event_syncer.wait_preconf_ingress_ready(),
             &mut self.handle,
@@ -71,22 +83,85 @@ where
 /// Wait for ingress readiness, or return if the event syncer exits first.
 pub(crate) async fn wait_for_preconf_ingress_ready<F>(
     ready: F,
-    event_syncer_handle: &mut JoinHandle<std::result::Result<(), SyncError>>,
-) -> Result<()>
+    event_syncer_handle: &mut JoinHandle<EventSyncResult>,
+) -> WhitelistResult<()>
 where
-    F: Future<Output = Option<()>> + Send,
+    F: Future<Output = EventSyncResult> + Send,
 {
     tokio::select! {
-        ready = ready => {
-            ready.ok_or(WhitelistPreconfirmationDriverError::PreconfIngressNotEnabled)?;
-            Ok(())
+        ready = ready => ready.map_err(map_driver_error::<WhitelistPreconfirmationDriverError>),
+        result = event_syncer_handle => map_event_syncer_exit_for_ingress(result),
+    }
+}
+
+/// Classify raw join output from the event syncer task into semantic exit states.
+pub(crate) fn classify_event_syncer_exit(result: EventSyncJoinResult) -> EventSyncerExit {
+    match result {
+        Ok(Ok(())) => EventSyncerExit::Exited,
+        Ok(Err(err)) => EventSyncerExit::Driver(err),
+        Err(err) => EventSyncerExit::Join(err),
+    }
+}
+
+/// Convert event syncer task termination into ingress-readiness errors.
+fn map_event_syncer_exit_for_ingress(result: EventSyncJoinResult) -> WhitelistResult<()> {
+    match classify_event_syncer_exit(result) {
+        EventSyncerExit::Exited => Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
+        EventSyncerExit::Driver(err) => Err(map_driver_error(err)),
+        EventSyncerExit::Join(err) => {
+            Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string()))
         }
-        result = event_syncer_handle => {
-            match result {
-                Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
-                Ok(Err(err)) => Err(WhitelistPreconfirmationDriverError::Sync(err)),
-                Err(err) => Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),
-            }
-        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::future::pending;
+
+    use driver::{DriverError, sync::SyncError};
+
+    #[tokio::test]
+    async fn wait_for_preconf_ingress_ready_maps_preconfirmation_disabled_error() {
+        let ready = async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) };
+        let mut handle = tokio::spawn(async { Ok::<(), DriverError>(()) });
+
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+        assert!(matches!(
+            err,
+            super::WhitelistPreconfirmationDriverError::Driver(
+                DriverError::PreconfirmationDisabled
+            )
+        ));
+    }
+
+    #[tokio::test]
+    async fn wait_for_preconf_ingress_ready_maps_sync_driver_error() {
+        let ready = pending::<super::EventSyncResult>();
+        let mut handle = tokio::spawn(async {
+            Err::<(), DriverError>(DriverError::Sync(SyncError::MissingCheckpointResumeHead))
+        });
+
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+        assert!(matches!(
+            err,
+            super::WhitelistPreconfirmationDriverError::Sync(
+                SyncError::MissingCheckpointResumeHead
+            )
+        ));
+    }
+
+    #[tokio::test]
+    async fn wait_for_preconf_ingress_ready_maps_non_sync_driver_error() {
+        let ready = pending::<super::EventSyncResult>();
+        let mut handle =
+            tokio::spawn(async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) });
+
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+        assert!(matches!(
+            err,
+            super::WhitelistPreconfirmationDriverError::Driver(
+                DriverError::PreconfirmationDisabled
+            )
+        ));
     }
 }

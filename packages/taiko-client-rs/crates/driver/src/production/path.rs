@@ -63,6 +63,7 @@ pub struct PreconfirmationPath<A>
 where
     A: PayloadApplier + BlockHashReader,
 {
+    /// Payload applier used for parent-hash lookup and engine submission.
     applier: A,
 }
 
@@ -70,7 +71,7 @@ impl<A> PreconfirmationPath<A>
 where
     A: PayloadApplier + BlockHashReader,
 {
-    /// Construct a preconfirmation path backed by the given payload applier.
+    /// Construct a preconfirmation path backed by a payload applier.
     pub fn new(applier: A) -> Self {
         Self { applier }
     }
@@ -149,7 +150,9 @@ pub struct CanonicalL1ProductionPath<D>
 where
     D: DerivationPipeline + ?Sized,
 {
+    /// Derivation pipeline used to decode L1 proposal logs.
     derivation: Arc<D>,
+    /// Engine payload applier shared with the canonical path.
     applier: Arc<dyn PayloadApplier + Send + Sync>,
 }
 
@@ -313,8 +316,11 @@ mod tests {
     #[async_trait]
     impl BlockHashReader for MockApplier {
         async fn block_hash_by_number(&self, block_number: u64) -> Result<B256, DriverError> {
-            assert_eq!(block_number, self.expected_parent);
-            Ok(self.parent_hash)
+            if block_number == self.expected_parent {
+                Ok(self.parent_hash)
+            } else {
+                Err(DriverError::BlockNotFound(block_number))
+            }
         }
     }
 
@@ -392,6 +398,22 @@ mod tests {
         let outcomes = rt
             .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
             .expect("preconfirmation path should succeed");
+
+        assert_eq!(applier.calls(), 1);
+        assert_eq!(outcomes.len(), 1);
+    }
+
+    #[test]
+    fn preconfirmation_path_produces_above_parent() {
+        let parent_hash = B256::from([1u8; 32]);
+        let applier = MockApplier::new(1, parent_hash);
+        let path = PreconfirmationPath::new(applier.clone());
+        let payload = Arc::new(PreconfPayload::new(sample_payload(2)));
+
+        let rt = Runtime::new().unwrap();
+        let outcomes = rt
+            .block_on(path.produce(ProductionInput::Preconfirmation(payload)))
+            .expect("preconfirmation above canonical boundary should be allowed");
 
         assert_eq!(applier.calls(), 1);
         assert_eq!(outcomes.len(), 1);

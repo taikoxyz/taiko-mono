@@ -16,7 +16,7 @@ use crate::{
 use super::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES};
 
 /// Validate execution payload shape for preconfirmation import compatibility.
-pub(super) fn validate_execution_payload_for_preconf(
+pub(crate) fn validate_execution_payload_for_preconf(
     payload: &alloy_rpc_types_engine::ExecutionPayloadV1,
     chain_id: u64,
     anchor_address: Address,
