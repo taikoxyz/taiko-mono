@@ -398,20 +398,16 @@ where
         let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
         let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
 
-        let (curr_operator, next_operator) = self
-            .fetch_current_next_sequencers()
-            .await
-            .inspect_err(|err| {
+        let (curr_operator, next_operator) =
+            self.fetch_current_next_sequencers().await.inspect_err(|err| {
                 warn!(
                     error = %err,
                     current_epoch,
                     "failed to fetch lookahead operator metadata"
                 );
             })?;
-        let curr_ranges = vec![SlotRange {
-            start: epoch_start,
-            end: epoch_start.saturating_add(threshold),
-        }];
+        let curr_ranges =
+            vec![SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) }];
         let next_ranges = vec![SlotRange {
             start: epoch_start.saturating_add(threshold),
             end: epoch_start.saturating_add(slots_per_epoch),

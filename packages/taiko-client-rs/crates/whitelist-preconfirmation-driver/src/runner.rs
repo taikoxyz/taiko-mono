@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
-use driver::{map_driver_error, DriverConfig};
+use driver::{DriverConfig, map_driver_error};
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
@@ -277,12 +277,7 @@ async fn finish_runner<T>(
     rest_ws_server: &mut Option<WhitelistRestWsServer>,
     (reason, result): RunnerExit,
 ) -> Result<()> {
-    stop_sidecars(
-        event_syncer_handle,
-        lookahead_refresh_task,
-        rest_ws_server,
-    )
-    .await;
+    stop_sidecars(event_syncer_handle, lookahead_refresh_task, rest_ws_server).await;
     record_runner_exit(reason, result)
 }
 
@@ -309,22 +304,15 @@ fn map_node_exit_for_runner(
 }
 
 /// Convert an event-syncer result into a standardized runner exit reason.
-fn map_event_syncer_exit_for_runner(
-    result: EventSyncJoinResult,
-) -> (&'static str, Result<()>) {
+fn map_event_syncer_exit_for_runner(result: EventSyncJoinResult) -> (&'static str, Result<()>) {
     match result {
         Ok(Ok(())) => {
-            (
-                "event_syncer_exit",
-                Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
-            )
+            ("event_syncer_exit", Err(WhitelistPreconfirmationDriverError::EventSyncerExited))
         }
-        Ok(Err(err)) => {
-            (
-                "event_syncer_error",
-                Err(map_driver_error::<WhitelistPreconfirmationDriverError>(err)),
-            )
-        }
+        Ok(Err(err)) => (
+            "event_syncer_error",
+            Err(map_driver_error::<WhitelistPreconfirmationDriverError>(err)),
+        ),
         Err(err) => (
             "event_syncer_join_error",
             Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),

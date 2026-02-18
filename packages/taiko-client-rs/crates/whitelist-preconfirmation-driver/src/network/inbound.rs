@@ -118,11 +118,7 @@ impl From<SnapshotFetchError> for WhitelistPreconfirmationDriverError {
 /// Build a snapshot-fetch error with fatality hint.
 fn snapshot_fetch_error(message: String, retryable: bool) -> SnapshotFetchError {
     let error = whitelist_lookup_err(message);
-    if retryable {
-        SnapshotFetchError::Retryable(error)
-    } else {
-        SnapshotFetchError::Fatal(error)
-    }
+    if retryable { SnapshotFetchError::Retryable(error) } else { SnapshotFetchError::Fatal(error) }
 }
 
 #[derive(Debug)]
@@ -259,9 +255,7 @@ impl InboundWhitelistFilter {
     }
 
     /// Fetch current/next sequencer snapshot with retry after transient inconsistencies.
-    async fn fetch_whitelist_snapshot_with_retry(
-        &self,
-    ) -> Result<WhitelistSequencerSnapshot> {
+    async fn fetch_whitelist_snapshot_with_retry(&self) -> Result<WhitelistSequencerSnapshot> {
         for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
             match self.fetch_whitelist_snapshot().await {
                 Ok(snapshot) => return Ok(snapshot),
@@ -342,7 +336,9 @@ impl InboundWhitelistFilter {
                 .await
                 .map_err(|err| {
                     snapshot_fetch_error(
-                        format!("failed to fetch epochStartTimestamp at block {block_number}: {err}"),
+                        format!(
+                            "failed to fetch epochStartTimestamp at block {block_number}: {err}"
+                        ),
                         true,
                     )
                 })
@@ -402,9 +398,7 @@ impl InboundWhitelistFilter {
 
         let pinned_block = pinned_block_opt.ok_or_else(|| {
             snapshot_fetch_error(
-                format!(
-                "missing pinned block {block_number} while verifying whitelist batches"
-                ),
+                format!("missing pinned block {block_number} while verifying whitelist batches"),
                 true,
             )
         })?;
@@ -416,7 +410,9 @@ impl InboundWhitelistFilter {
             ));
         }
 
-        if current_seq.sequencerAddress == Address::ZERO && next_seq.sequencerAddress == Address::ZERO {
+        if current_seq.sequencerAddress == Address::ZERO &&
+            next_seq.sequencerAddress == Address::ZERO
+        {
             debug!(
                 current = %current_seq.sequencerAddress,
                 next = %next_seq.sequencerAddress,
@@ -831,9 +827,7 @@ impl GossipsubInboundState {
             gossipsub::MessageAcceptance::Reject
         } else {
             match mode {
-                SignerAuthorizationMode::PreconfBlock => {
-                    gossipsub::MessageAcceptance::Reject
-                }
+                SignerAuthorizationMode::PreconfBlock => gossipsub::MessageAcceptance::Reject,
                 SignerAuthorizationMode::Response => gossipsub::MessageAcceptance::Ignore,
             }
         }

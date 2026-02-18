@@ -15,8 +15,7 @@ use tracing::{debug, warn};
 use crate::{
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_envelope_ssz,
-        decode_unsafe_payload_signature, decode_unsafe_response_message,
-        encode_envelope_ssz,
+        decode_unsafe_payload_signature, decode_unsafe_response_message, encode_envelope_ssz,
         encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
@@ -25,9 +24,9 @@ use crate::{
 };
 
 mod inbound;
-use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
 #[cfg(test)]
 use inbound::EpochSeenTracker;
+use inbound::{GossipsubInboundState, InboundWhitelistClient, InboundWhitelistFilter};
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -203,13 +202,12 @@ impl WhitelistNetwork {
         l1_client: Option<InboundWhitelistClient>,
         whitelist_address: Option<Address>,
     ) -> Result<Self> {
-        let whitelist_filter = if let (Some(whitelist_address), Some(rpc_client)) =
-            (whitelist_address, l1_client)
-        {
-            Some(InboundWhitelistFilter::new(rpc_client, whitelist_address))
-        } else {
-            None
-        };
+        let whitelist_filter =
+            if let (Some(whitelist_address), Some(rpc_client)) = (whitelist_address, l1_client) {
+                Some(InboundWhitelistFilter::new(rpc_client, whitelist_address))
+            } else {
+                None
+            };
 
         Self::spawn_with_filter(cfg, whitelist_filter)
     }
@@ -726,15 +724,12 @@ async fn handle_gossipsub_event(
         let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data) {
             Ok((wire_signature, payload_bytes)) => match decode_envelope_ssz(&payload_bytes) {
                 Ok(envelope) => {
-                    let payload = DecodedUnsafePayload {
-                        wire_signature,
-                        payload_bytes,
-                        envelope,
-                    };
-                    let acceptance = inbound_validation_state.validate_preconf_blocks(&payload).await;
+                    let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
+                    let acceptance =
+                        inbound_validation_state.validate_preconf_blocks(&payload).await;
 
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
-                        && let Err(err) = forward_event(
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
+                        let Err(err) = forward_event(
                             event_tx,
                             NetworkEvent::UnsafePayload { from, payload },
                         )
@@ -999,9 +994,7 @@ mod tests {
     }
 
     fn signed_wire_signature(signer: &FixedKSigner, prehash: B256) -> [u8; 65] {
-        let sig = signer
-            .sign_with_predefined_k(prehash.as_ref())
-            .expect("sign prehash for test");
+        let sig = signer.sign_with_predefined_k(prehash.as_ref()).expect("sign prehash for test");
 
         let mut wire_signature = [0u8; 65];
         wire_signature[..32].copy_from_slice(&sig.signature.r().to_be_bytes::<32>());
@@ -1014,10 +1007,7 @@ mod tests {
         let mut payload = sample_preconf_payload();
         payload.wire_signature = signed_wire_signature(
             signer,
-            crate::codec::block_signing_hash(
-                chain_id,
-                payload.payload_bytes.as_slice(),
-            ),
+            crate::codec::block_signing_hash(chain_id, payload.payload_bytes.as_slice()),
         );
         payload
     }
@@ -1220,8 +1210,12 @@ mod tests {
     async fn validate_preconf_blocks_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let payload = sample_signed_preconf_payload(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, vec![Address::from([0x11u8; 20])], Address::ZERO, None);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            vec![Address::from([0x11u8; 20])],
+            Address::ZERO,
+            None,
+        );
 
         assert!(matches!(
             validation_state.validate_preconf_blocks(&payload).await,
@@ -1287,8 +1281,12 @@ mod tests {
     async fn validate_response_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let mut validation_state =
-            GossipsubInboundState::new(167_000, vec![Address::from([0x11u8; 20])], Address::ZERO, None);
+        let mut validation_state = GossipsubInboundState::new(
+            167_000,
+            vec![Address::from([0x11u8; 20])],
+            Address::ZERO,
+            None,
+        );
 
         assert!(matches!(
             validation_state.validate_response(&envelope).await,
@@ -1512,7 +1510,8 @@ mod tests {
             ..Default::default()
         };
 
-        let whitelist_network = WhitelistNetwork::spawn_with_filter(cfg, None).expect("spawn network");
+        let whitelist_network =
+            WhitelistNetwork::spawn_with_filter(cfg, None).expect("spawn network");
         let expected_hash = B256::from([0x66u8; 32]);
         let command_tx = whitelist_network.command_tx.clone();
         let local_peer_id = whitelist_network.local_peer_id;
@@ -1706,8 +1705,8 @@ mod tests {
             ..Default::default()
         };
 
-        let whitelist_network = WhitelistNetwork::spawn_with_filter(cfg, None)
-            .expect("spawn network");
+        let whitelist_network =
+            WhitelistNetwork::spawn_with_filter(cfg, None).expect("spawn network");
         let expected = sample_response_envelope();
         let expected_to_publish = expected.clone();
         let command_tx = whitelist_network.command_tx.clone();
