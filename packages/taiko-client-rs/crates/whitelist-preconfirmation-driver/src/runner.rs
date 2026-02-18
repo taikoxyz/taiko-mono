@@ -13,7 +13,7 @@ use tracing::{info, warn};
 
 use crate::{
     Result,
-    cache::SharedPreconfCacheState,
+    cache::{L1_EPOCH_DURATION_SECS, SharedPreconfCacheState},
     error::WhitelistPreconfirmationDriverError,
     importer::WhitelistPreconfirmationImporter,
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -182,7 +182,8 @@ impl WhitelistPreconfirmationDriverRunner {
             cache_state,
             beacon_client,
         );
-        let mut sync_ready_interval = tokio::time::interval(tokio::time::Duration::from_secs(5));
+        let mut sync_ready_interval =
+            tokio::time::interval(tokio::time::Duration::from_secs(L1_EPOCH_DURATION_SECS));
         sync_ready_interval.tick().await;
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
@@ -256,6 +257,7 @@ async fn stop_sidecars<T>(
     }
 }
 
+/// Tuple describing the runner exit reason and result.
 type RunnerExit = (&'static str, Result<()>);
 
 /// Stop sidecars and return the unified runner exit result.

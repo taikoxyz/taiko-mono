@@ -156,7 +156,6 @@ where
     pub(crate) fn start_lookahead_refresh_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
         let handler = Arc::clone(self);
         tokio::spawn(async move {
-            handler.refresh_lookahead().await;
             let mut ticker =
                 tokio::time::interval(Duration::from_secs(LOOKAHEAD_REFRESH_INTERVAL_SECS));
             loop {

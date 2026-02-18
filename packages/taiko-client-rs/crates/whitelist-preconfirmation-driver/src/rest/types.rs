@@ -126,7 +126,6 @@ pub struct LookaheadStatus {
 #[serde(rename_all = "camelCase")]
 pub struct RestStatus {
     /// Highest unsafe payload block ID tracked by this node.
-    #[serde(rename = "highestUnsafeL2PayloadBlockId")]
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (if any).
     pub end_of_sequencing_block_hash: String,
@@ -155,7 +154,6 @@ pub struct WhitelistStatus {
     /// Whether event sync has established a head L1 origin.
     pub sync_ready: bool,
     /// Highest unsafe payload block ID tracked by this node.
-    #[serde(rename = "highestUnsafeL2PayloadBlockId")]
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch.
     #[serde(skip_serializing_if = "Option::is_none")]

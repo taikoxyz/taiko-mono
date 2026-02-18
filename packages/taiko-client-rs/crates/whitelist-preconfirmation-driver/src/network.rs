@@ -196,7 +196,6 @@ struct ClassifiedBootnodes {
     discovery_enrs: Vec<String>,
 }
 
-
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
     pub fn spawn_with_whitelist_filter(

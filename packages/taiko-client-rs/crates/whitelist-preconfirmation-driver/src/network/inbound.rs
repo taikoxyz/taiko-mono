@@ -148,14 +148,6 @@ impl InboundWhitelistFilter {
         Self { whitelist, rpc_client, sequencer_cache: WhitelistSequencerCache::default() }
     }
 
-    /// Ensure the signer is authorized for response validation and return allow/ignore/reject.
-    pub(crate) async fn ensure_response_signer_allowed(
-        &mut self,
-        signer: Address,
-    ) -> Result<ResponseSignerDecision> {
-        self.ensure_signer_authorization(signer, SignerAuthorizationMode::Response).await
-    }
-
     /// Return (current, next) sequencer addresses, using cache when available.
     async fn cached_whitelist_sequencers(&mut self, now: Instant) -> Result<CachedSequencers> {
         if let (Some(current), Some(next)) =
@@ -290,7 +282,6 @@ impl InboundWhitelistFilter {
         unreachable!("snapshot fetch loop must return on success or final error")
     }
 
-    /// Fetch current/next sequencer snapshot pinned to a single L1 block height.
     /// Fetch current/next sequencer snapshot from the current pinned L1 block.
     async fn fetch_whitelist_snapshot(
         &self,
@@ -783,16 +774,7 @@ impl GossipsubInboundState {
         mode: SignerAuthorizationMode,
     ) -> gossipsub::MessageAcceptance {
         if let Some(whitelist_filter) = self.whitelist_filter.as_mut() {
-            let decision = match mode {
-                SignerAuthorizationMode::PreconfBlock => {
-                    whitelist_filter.ensure_signer_authorization(signer, mode).await
-                }
-                SignerAuthorizationMode::Response => {
-                    whitelist_filter.ensure_response_signer_allowed(signer).await
-                }
-            };
-
-            match decision {
+            match whitelist_filter.ensure_signer_authorization(signer, mode).await {
                 Ok(decision) => self.map_signer_authorization(mode, decision),
                 Err(err) => {
                     debug!(
@@ -812,7 +794,7 @@ impl GossipsubInboundState {
     fn validate_signer_without_filter(
         &self,
         signer: Address,
-        _mode: SignerAuthorizationMode,
+        mode: SignerAuthorizationMode,
     ) -> gossipsub::MessageAcceptance {
         if !self.sequencer_addresses.is_empty() {
             if self.sequencer_addresses.contains(&signer) {
@@ -824,7 +806,12 @@ impl GossipsubInboundState {
         } else if self.sequencer_address != Address::ZERO {
             gossipsub::MessageAcceptance::Reject
         } else {
-            gossipsub::MessageAcceptance::Ignore
+            match mode {
+                SignerAuthorizationMode::PreconfBlock => {
+                    gossipsub::MessageAcceptance::Reject
+                }
+                SignerAuthorizationMode::Response => gossipsub::MessageAcceptance::Ignore,
+            }
         }
     }
 
