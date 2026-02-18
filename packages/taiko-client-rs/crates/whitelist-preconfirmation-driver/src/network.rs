@@ -299,12 +299,22 @@ impl WhitelistNetwork {
         let local_peer_id_for_events = local_peer_id;
 
         let handle = tokio::spawn(async move {
-            let mut inbound_validation_state = GossipsubInboundState::new(
-                cfg.chain_id,
-                cfg.sequencer_addresses,
-                Address::ZERO,
-                whitelist_filter,
-            );
+            let mut inbound_validation_state = if cfg.allow_all_sequencers {
+                GossipsubInboundState::new_with_allow_all_sequencers(
+                    cfg.chain_id,
+                    cfg.sequencer_addresses,
+                    Address::ZERO,
+                    whitelist_filter,
+                    true,
+                )
+            } else {
+                GossipsubInboundState::new(
+                    cfg.chain_id,
+                    cfg.sequencer_addresses,
+                    Address::ZERO,
+                    whitelist_filter,
+                )
+            };
 
             loop {
                 let has_discovery = discovery_rx.is_some();

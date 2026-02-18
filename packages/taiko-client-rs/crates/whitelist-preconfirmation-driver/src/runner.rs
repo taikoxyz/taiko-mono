@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc, time::Instant};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
-use driver::DriverConfig;
+use driver::{map_driver_error, DriverConfig};
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
@@ -312,7 +312,7 @@ fn map_event_syncer_exit_for_runner(
         Ok(Err(err)) => {
             (
                 "event_syncer_error",
-                Err(WhitelistPreconfirmationDriverError::Driver(err)),
+                Err(map_driver_error::<WhitelistPreconfirmationDriverError>(err)),
             )
         }
         Err(err) => (

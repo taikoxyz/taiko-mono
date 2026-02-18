@@ -597,6 +597,8 @@ pub(crate) struct GossipsubInboundState {
     chain_id: u64,
     /// Explicit sequencer allowlist configured from CLI.
     sequencer_addresses: Vec<Address>,
+    /// Whether to bypass sequencer allowlist checks.
+    allow_all_sequencers: bool,
     /// Single sequencer configured from CLI.
     sequencer_address: Address,
     /// Optional whitelist filter backed by L1.
@@ -623,9 +625,27 @@ impl GossipsubInboundState {
         sequencer_address: Address,
         whitelist_filter: Option<InboundWhitelistFilter>,
     ) -> Self {
+        Self::new_with_allow_all_sequencers(
+            chain_id,
+            sequencer_addresses,
+            sequencer_address,
+            whitelist_filter,
+            false,
+        )
+    }
+
+    /// Construct inbound state from p2p and optional whitelist config.
+    pub(crate) fn new_with_allow_all_sequencers(
+        chain_id: u64,
+        sequencer_addresses: Vec<Address>,
+        sequencer_address: Address,
+        whitelist_filter: Option<InboundWhitelistFilter>,
+        allow_all_sequencers: bool,
+    ) -> Self {
         Self {
             chain_id,
             sequencer_addresses,
+            allow_all_sequencers,
             sequencer_address,
             whitelist_filter,
             request_rate: RateLimiter::default(),
@@ -773,6 +793,10 @@ impl GossipsubInboundState {
         signer: Address,
         mode: SignerAuthorizationMode,
     ) -> gossipsub::MessageAcceptance {
+        if self.allow_all_sequencers {
+            return gossipsub::MessageAcceptance::Accept;
+        }
+
         if let Some(whitelist_filter) = self.whitelist_filter.as_mut() {
             match whitelist_filter.ensure_signer_authorization(signer, mode).await {
                 Ok(decision) => self.map_signer_authorization(mode, decision),
