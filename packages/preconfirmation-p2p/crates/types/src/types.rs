@@ -29,7 +29,8 @@ pub type Uint256 = SSZU256;
 /// Core preconfirmation data structure (spec §3.1).
 #[derive(Debug, Clone, PartialEq, Eq, Default, SimpleSerialize)]
 pub struct Preconfirmation {
-    /// End Of Preconfirmation window flag for the preconfirmation, indicating if this is the final preconfirmation in a sequence.
+    /// End Of Preconfirmation window flag for the preconfirmation, 
+    /// indicating if this is the final preconfirmation in a sequence.
     pub eop: bool,
     /// L1 block number referenced by the preconfirmation.
     pub block_number: Uint256,
