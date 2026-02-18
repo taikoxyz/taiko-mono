@@ -299,11 +299,16 @@ where
         fee_recipient: Address,
         current_slot: u64,
     ) -> Result<()> {
-        let lookahead = self.lookahead_status.read().await;
-        let Some(lookahead) = lookahead.as_ref() else {
-            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
-                "lookahead metadata unavailable; try again later".to_string(),
-            ));
+        let lookahead = {
+            let cached_lookahead = self.lookahead_status.read().await;
+            if let Some(lookahead) = cached_lookahead.as_ref() {
+                lookahead.clone()
+            } else {
+                drop(cached_lookahead);
+                let lookahead = self.compute_lookahead_status().await?;
+                *self.lookahead_status.write().await = Some(lookahead.clone());
+                lookahead
+            }
         };
 
         if lookahead.curr_ranges.is_empty() && lookahead.next_ranges.is_empty() {
