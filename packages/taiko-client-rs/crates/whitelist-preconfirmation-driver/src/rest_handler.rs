@@ -299,17 +299,26 @@ where
         fee_recipient: Address,
         current_slot: u64,
     ) -> Result<()> {
-        let lookahead = {
+        let mut lookahead = {
             let cached_lookahead = self.lookahead_status.read().await;
             if let Some(lookahead) = cached_lookahead.as_ref() {
-                lookahead.clone()
+                if lookahead_slot_covers(current_slot, lookahead) {
+                    Some(lookahead.clone())
+                } else {
+                    None
+                }
             } else {
-                drop(cached_lookahead);
-                let lookahead = self.compute_lookahead_status().await?;
-                *self.lookahead_status.write().await = Some(lookahead.clone());
-                lookahead
+                None
             }
         };
+
+        if lookahead.is_none() {
+            let fresh = self.compute_lookahead_status().await?;
+            *self.lookahead_status.write().await = Some(fresh.clone());
+            lookahead = Some(fresh);
+        }
+
+        let lookahead = lookahead.expect("lookahead cache must be initialized");
 
         if lookahead.curr_ranges.is_empty() && lookahead.next_ranges.is_empty() {
             return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
@@ -317,7 +326,7 @@ where
             ));
         }
 
-        if is_fee_recipient_allowed_for_slot(fee_recipient, current_slot, lookahead) {
+        if is_fee_recipient_allowed_for_slot(fee_recipient, current_slot, &lookahead) {
             return Ok(());
         }
 
@@ -333,6 +342,11 @@ where
             "fee recipient {fee_recipient} is not allowed as the {reason} operator for slot {current_slot}"
         )))
     }
+
+fn lookahead_slot_covers(slot: u64, lookahead: &LookaheadStatus) -> bool {
+    slot_matches_range(slot, &lookahead.curr_ranges) ||
+        slot_matches_range(slot, &lookahead.next_ranges)
+}
 
     /// Fetch current and next sequencer addresses pinned to a single L1 block number.
     async fn fetch_current_next_sequencers(&self) -> Result<(Address, Address)> {
