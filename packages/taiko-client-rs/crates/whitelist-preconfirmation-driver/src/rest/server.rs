@@ -469,7 +469,6 @@ fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> Response
 fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
     match err {
         WhitelistPreconfirmationDriverError::InvalidPayload(_) |
-        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
         WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
         ) |
@@ -561,18 +560,11 @@ mod tests {
             &self,
             _request: BuildPreconfBlockRequest,
         ) -> Result<BuildPreconfBlockResponse> {
-            Ok(BuildPreconfBlockResponse {
-                block_hash: B256::ZERO,
-                block_number: 1,
-                block_header: None,
-            })
+            Ok(BuildPreconfBlockResponse { block_header: None })
         }
 
         async fn get_status(&self) -> Result<WhitelistStatus> {
             Ok(WhitelistStatus {
-                head_l1_origin_block_id: Some(42),
-                highest_unsafe_block_number: 100,
-                peer_id: "test-peer".to_string(),
                 sync_ready: true,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
@@ -598,18 +590,11 @@ mod tests {
             _request: BuildPreconfBlockRequest,
         ) -> Result<BuildPreconfBlockResponse> {
             self.build_preconf_calls.fetch_add(1, Ordering::SeqCst);
-            Ok(BuildPreconfBlockResponse {
-                block_hash: B256::ZERO,
-                block_number: 1,
-                block_header: None,
-            })
+            Ok(BuildPreconfBlockResponse { block_header: None })
         }
 
         async fn get_status(&self) -> Result<WhitelistStatus> {
             Ok(WhitelistStatus {
-                head_l1_origin_block_id: self.sync_ready.then_some(42),
-                highest_unsafe_block_number: 100,
-                peer_id: "test-peer".to_string(),
                 sync_ready: self.sync_ready,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),

@@ -34,10 +34,6 @@ pub struct BuildPreconfBlockRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildPreconfBlockResponse {
-    /// Hash of the built block.
-    pub block_hash: B256,
-    /// Number of the built block.
-    pub block_number: u64,
     /// Full block header of the built preconfirmation block.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub block_header: Option<RpcHeader>,
@@ -145,12 +141,6 @@ pub struct EndOfSequencingNotification {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WhitelistStatus {
-    /// Head L1 origin block ID, if available.
-    pub head_l1_origin_block_id: Option<u64>,
-    /// Highest unsafe block number on L2.
-    pub highest_unsafe_block_number: u64,
-    /// Local libp2p peer ID.
-    pub peer_id: String,
     /// Whether event sync has established a head L1 origin.
     pub sync_ready: bool,
     /// Highest unsafe payload block ID tracked by this node.
@@ -191,17 +181,12 @@ mod tests {
     #[test]
     fn whitelist_status_camel_case() {
         let status = WhitelistStatus {
-            head_l1_origin_block_id: Some(42),
-            highest_unsafe_block_number: 100,
-            peer_id: "test-peer".to_string(),
             sync_ready: true,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
         };
 
         let json = serde_json::to_string(&status).unwrap();
-        assert!(json.contains("headL1OriginBlockId"));
-        assert!(json.contains("highestUnsafeBlockNumber"));
         assert!(json.contains("syncReady"));
         assert!(json.contains("highestUnsafeL2PayloadBlockId"));
         assert!(json.contains("endOfSequencingBlockHash"));

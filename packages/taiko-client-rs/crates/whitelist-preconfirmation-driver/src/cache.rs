@@ -2,10 +2,7 @@
 
 use std::{
     collections::HashMap,
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -33,30 +30,14 @@ const DEFAULT_SEQUENCER_MISS_REFRESH_COOLDOWN_SECS: u64 = 2;
 /// Shared cache state surfaced through REST status and high-throughput request handlers.
 #[derive(Debug, Clone)]
 pub(crate) struct SharedPreconfCacheState {
-    /// Monotonic count of pending cache inserts since startup.
-    total_pending_cache_inserts: Arc<AtomicU64>,
     /// End-of-sequencing markers tracked per epoch.
     end_of_sequencing_by_epoch: Arc<Mutex<LinkedHashMap<u64, B256>>>,
 }
 
 impl SharedPreconfCacheState {
-    /// Create shared cache state with zeroed counters.
+    /// Create shared cache state with empty epoch mapping.
     pub(crate) fn new() -> Self {
-        Self {
-            total_pending_cache_inserts: Arc::new(AtomicU64::new(0)),
-            end_of_sequencing_by_epoch: Arc::new(Mutex::new(LinkedHashMap::new())),
-        }
-    }
-
-    /// Increment the monotonic pending-cache insert counter.
-    pub(crate) fn increment_pending_cache_inserts(&self) {
-        self.total_pending_cache_inserts.fetch_add(1, Ordering::Relaxed);
-    }
-
-    /// Return total pending cache inserts since startup.
-    #[cfg(test)]
-    pub(crate) fn total_pending_cache_inserts(&self) -> u64 {
-        self.total_pending_cache_inserts.load(Ordering::Relaxed)
+        Self { end_of_sequencing_by_epoch: Arc::new(Mutex::new(LinkedHashMap::new())) }
     }
 
     /// Record an EOS hash for the given epoch with bounded cache size.
@@ -81,8 +62,6 @@ pub(crate) struct EnvelopeCache {
     entries: LinkedHashMap<B256, Arc<WhitelistExecutionPayloadEnvelope>>,
     /// Maximum number of envelopes to retain.
     capacity: usize,
-    /// Shared cache state used for pending insert accounting.
-    cache_state: Option<SharedPreconfCacheState>,
 }
 
 impl Default for EnvelopeCache {
@@ -96,21 +75,12 @@ impl EnvelopeCache {
     /// Construct a pending-envelope cache with a fixed capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         let capacity = capacity.max(1);
-        Self { entries: LinkedHashMap::with_capacity(capacity), capacity, cache_state: None }
-    }
-
-    /// Attach cache-state tracking to a cache created with standard settings.
-    pub fn with_cache_state(mut self, cache_state: SharedPreconfCacheState) -> Self {
-        self.cache_state = Some(cache_state);
-        self
+        Self { entries: LinkedHashMap::with_capacity(capacity), capacity }
     }
 
     /// Insert or replace a cached envelope.
     pub fn insert(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
         let hash = envelope.execution_payload.block_hash;
-        if let Some(cache_state) = &self.cache_state {
-            cache_state.increment_pending_cache_inserts();
-        }
         self.entries.remove(&hash);
         self.entries.insert(hash, envelope);
         self.evict_oldest();
@@ -509,18 +479,6 @@ mod tests {
         let hashes = cache.sorted_hashes_by_block_number();
         assert_eq!(hashes, vec![h2, h3]);
         assert_eq!(cache.len(), 2);
-    }
-
-    #[test]
-    fn pending_cache_insert_increments_total_pending_cache_inserts_counter() {
-        let cache_state = SharedPreconfCacheState::new();
-        let mut cache = EnvelopeCache::default().with_cache_state(cache_state.clone());
-
-        assert_eq!(cache_state.total_pending_cache_inserts(), 0);
-        cache.insert(Arc::new(sample_envelope(B256::from([0x55u8; 32]), 1)));
-        assert_eq!(cache_state.total_pending_cache_inserts(), 1);
-        cache.insert(Arc::new(sample_envelope(B256::from([0x66u8; 32]), 2)));
-        assert_eq!(cache_state.total_pending_cache_inserts(), 2);
     }
 
     #[test]

@@ -2,24 +2,20 @@
 
 use std::sync::Arc;
 
-use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
-use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::{
-    cache::{
-        EnvelopeCache, L1_EPOCH_DURATION_SECS, RecentEnvelopeCache, RequestThrottle,
-        SharedPreconfCacheState, WhitelistSequencerCache,
-    },
+    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, SharedPreconfCacheState},
     codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
+    whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
 /// Cache re-import flow for out-of-order envelopes once parents arrive.
@@ -55,8 +51,6 @@ where
     event_syncer: Arc<EventSyncer<P>>,
     /// RPC client used for L1/L2 reads and head-origin updates.
     rpc: Client<P>,
-    /// On-chain whitelist contract instance used to validate sequencer signers.
-    whitelist: PreconfWhitelistInstance<P>,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
     /// Shared cache state used by status and EOS signaling.
@@ -69,8 +63,8 @@ where
     recent_cache: RecentEnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
-    /// TTL cache for current/next whitelist sequencer addresses.
-    sequencer_cache: WhitelistSequencerCache,
+    /// Shared sequencer fetcher for whitelist validation and epoch cache management.
+    sequencer_fetcher: WhitelistSequencerFetcher<P>,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
@@ -93,21 +87,20 @@ where
         cache_state: SharedPreconfCacheState,
         beacon_client: Arc<BeaconClient>,
     ) -> Self {
-        let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
+        let sequencer_fetcher =
+            WhitelistSequencerFetcher::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
 
-        let importer_cache_state = cache_state.clone();
         let importer = Self {
             event_syncer,
             rpc,
-            whitelist,
             chain_id,
             cache_state,
             beacon_client,
-            cache: EnvelopeCache::default().with_cache_state(importer_cache_state),
+            cache: EnvelopeCache::default(),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
-            sequencer_cache: WhitelistSequencerCache::default(),
+            sequencer_fetcher,
             network_command_tx,
             sync_ready: false,
             anchor_address,
@@ -251,35 +244,14 @@ where
         self.maybe_import_from_cache().await
     }
 
-    /// Event-sync progress signal.
-    ///
-    /// Drop cached sequencers only after crossing an epoch boundary to avoid unnecessary
-    /// re-fetches while still preventing stale signer acceptance across epochs.
-    pub(crate) async fn on_sync_ready_signal(&mut self) -> Result<()> {
-        if !self.refresh_sync_ready().await? {
-            return Ok(());
+    /// Invalidate the sequencer cache if the L1 head has crossed an epoch boundary.
+    pub(crate) async fn maybe_invalidate_sequencer_cache_for_epoch(&mut self) {
+        if let Err(err) = self.sequencer_fetcher.maybe_invalidate_for_epoch_advance().await {
+            warn!(
+                error = %err,
+                "failed to check epoch boundary for sequencer cache invalidation"
+            );
         }
-
-        if self.sequencer_cache.current_epoch_start_timestamp().is_some() {
-            let latest_l1_timestamp = self.latest_l1_block_timestamp().await?;
-            if self
-                .sequencer_cache
-                .should_invalidate_for_l1_timestamp(latest_l1_timestamp, L1_EPOCH_DURATION_SECS)
-            {
-                self.sequencer_cache.invalidate();
-            }
-        }
-
-        if self.cache.is_empty() {
-            return Ok(());
-        }
-
-        self.import_from_cache().await.inspect_err(|_err| {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::SYNC_READY_IMPORT_FAILURES_TOTAL
-            )
-            .increment(1);
-        })
     }
 
     /// Refresh whether sync is ready.
@@ -302,26 +274,11 @@ where
         Ok(self.rpc.head_l1_origin().await?.map(|head| head.block_id.to::<u64>()))
     }
 
-    /// Read latest L1 block timestamp.
-    pub(super) async fn latest_l1_block_timestamp(&self) -> Result<u64> {
-        self.rpc
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(provider_err)?
-            .map(|block| block.header.timestamp)
-            .ok_or_else(|| {
-                WhitelistPreconfirmationDriverError::WhitelistLookup(
-                    "missing latest L1 block while updating sequencer cache".to_string(),
-                )
-            })
-    }
-
     /// Get the block hash by block number.
     pub(super) async fn block_hash_by_number(&self, block_number: u64) -> Result<Option<B256>> {
         self.rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(block_number))
             .await
             .map(|opt| opt.map(|block| block.hash()))
             .map_err(provider_err)

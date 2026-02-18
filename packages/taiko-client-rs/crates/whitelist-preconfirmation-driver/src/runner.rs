@@ -95,21 +95,16 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
-        let network = if self.config.p2p_config.allow_all_sequencers ||
-            !self.config.p2p_config.sequencer_addresses.is_empty()
+        // BREAKING: a static sequencer allowlist is now required at startup.
+        // The previous L1-backed dynamic allowlist fallback has been removed.
+        // Operators must configure --p2p.sequencer-addresses or --p2p.allow-all-sequencers.
+        if !self.config.p2p_config.allow_all_sequencers &&
+            self.config.p2p_config.sequencer_addresses.is_empty()
         {
-            WhitelistNetwork::spawn_with_whitelist_filter(
-                self.config.p2p_config.clone(),
-                None,
-                None,
-            )?
-        } else {
-            WhitelistNetwork::spawn_with_whitelist_filter(
-                self.config.p2p_config.clone(),
-                Some(preconf_ingress_sync.client().clone()),
-                Some(self.config.whitelist_address),
-            )?
-        };
+            return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
+        }
+
+        let network = WhitelistNetwork::spawn(self.config.p2p_config.clone())?;
         let cache_state = SharedPreconfCacheState::new();
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
@@ -161,18 +156,16 @@ impl WhitelistPreconfirmationDriverRunner {
                 whitelist_address: self.config.whitelist_address,
                 initial_highest_unsafe_l2_payload_block_id,
                 network_command_tx: network.command_tx.clone(),
-                local_peer_id: network.local_peer_id.to_string(),
                 cache_state: cache_state.clone(),
             }));
-            lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
-
             let server_config = WhitelistRestWsServerConfig {
                 listen_addr,
                 jwt_secret: self.config.rpc_jwt_secret.clone(),
                 cors_origins: self.config.rpc_cors_origins.clone(),
                 ..Default::default()
             };
-            let server = WhitelistRestWsServer::start(server_config, handler).await?;
+            let server = WhitelistRestWsServer::start(server_config, handler.clone()).await?;
+            lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
             info!(
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
@@ -240,6 +233,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     importer.handle_event(event).await?;
                 }
                 _ = sync_ready_interval.tick() => {
+                    importer.maybe_invalidate_sequencer_cache_for_epoch().await;
                     if let Err(err) = importer.maybe_import_from_cache().await {
                         warn!(
                             error = %err,

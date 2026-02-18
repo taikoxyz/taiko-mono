@@ -69,8 +69,6 @@ where
     beacon_client: Arc<BeaconClient>,
     /// Channel to publish messages to the P2P network.
     network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Local peer ID string.
-    local_peer_id: String,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
     /// Preconf whitelist contract used for operator checks.
@@ -106,8 +104,6 @@ where
     pub(crate) initial_highest_unsafe_l2_payload_block_id: u64,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Local peer id exposed in `/status`.
-    pub(crate) local_peer_id: String,
     /// Shared preconfirmation cache state.
     pub(crate) cache_state: SharedPreconfCacheState,
 }
@@ -127,7 +123,6 @@ where
             whitelist_address,
             initial_highest_unsafe_l2_payload_block_id,
             network_command_tx,
-            local_peer_id,
             cache_state,
         }: WhitelistRestHandlerParams<P>,
     ) -> Self {
@@ -143,11 +138,10 @@ where
             highest_unsafe_l2_payload_block_id: Mutex::new(
                 initial_highest_unsafe_l2_payload_block_id,
             ),
-            lookahead_status: RwLock::new(Self::initial_lookahead_status()),
+            lookahead_status: RwLock::new(None),
             cache_state,
             eos_notification_tx,
             network_command_tx,
-            local_peer_id,
             build_preconf_lock: Mutex::new(()),
         }
     }
@@ -163,11 +157,6 @@ where
                 handler.refresh_lookahead().await;
             }
         })
-    }
-
-    /// Initial lookahead cache state when no valid metadata has been fetched yet.
-    fn initial_lookahead_status() -> Option<LookaheadStatus> {
-        None
     }
 
     /// Build driver payload attributes from the RPC request.
@@ -302,7 +291,7 @@ where
         let mut lookahead = {
             let cached_lookahead = self.lookahead_status.read().await;
             if let Some(lookahead) = cached_lookahead.as_ref() {
-                if lookahead_slot_covers(current_slot, lookahead) {
+                if Self::lookahead_slot_covers(current_slot, lookahead) {
                     Some(lookahead.clone())
                 } else {
                     None
@@ -343,10 +332,11 @@ where
         )))
     }
 
-fn lookahead_slot_covers(slot: u64, lookahead: &LookaheadStatus) -> bool {
-    slot_matches_range(slot, &lookahead.curr_ranges) ||
-        slot_matches_range(slot, &lookahead.next_ranges)
-}
+    /// Check whether the given slot falls within any current or next lookahead range.
+    fn lookahead_slot_covers(slot: u64, lookahead: &LookaheadStatus) -> bool {
+        slot_matches_range(slot, &lookahead.curr_ranges) ||
+            slot_matches_range(slot, &lookahead.next_ranges)
+    }
 
     /// Fetch current and next sequencer addresses pinned to a single L1 block number.
     async fn fetch_current_next_sequencers(&self) -> Result<(Address, Address)> {
@@ -617,12 +607,11 @@ where
         )
         .record(started_at.elapsed().as_secs_f64());
 
-        Ok(BuildPreconfBlockResponse { block_hash, block_number, block_header: Some(block_header) })
+        Ok(BuildPreconfBlockResponse { block_header: Some(block_header) })
     }
 
     async fn get_status(&self) -> Result<WhitelistStatus> {
-        let head_l1_origin_block_id =
-            self.rpc.head_l1_origin().await?.map(|h| h.block_id.to::<u64>());
+        let head_l1_origin = self.rpc.head_l1_origin().await?;
         let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
@@ -630,13 +619,9 @@ where
             .end_of_sequencing_for_epoch(current_epoch)
             .await
             .map(|hash| hash.to_string());
-        let sync_ready = head_l1_origin_block_id.is_some();
 
         Ok(WhitelistStatus {
-            head_l1_origin_block_id,
-            highest_unsafe_block_number: highest_unsafe,
-            peer_id: self.local_peer_id.clone(),
-            sync_ready,
+            sync_ready: head_l1_origin.is_some(),
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
         })
