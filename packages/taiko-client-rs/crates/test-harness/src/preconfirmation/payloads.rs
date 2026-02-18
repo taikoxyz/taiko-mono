@@ -200,7 +200,7 @@ struct PreparedBlockParams<'a> {
     gas_limit: u64,
     /// Canonical submission window end for lookahead validation.
     submission_window_end: U256,
-    /// End-of-proposal flag for the commitment.
+    /// End Of Preconfirmation window flag for the commitment.
     eop: bool,
     /// Compressed transaction list bytes.
     txlist_bytes: TxListBytes,
