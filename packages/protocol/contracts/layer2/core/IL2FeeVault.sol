@@ -11,7 +11,7 @@ interface IL2FeeVault {
     ///        come from the L1 Inbox's stored proposal data
     ///      - L2 field (l2BasefeeRevenue) is computed from L2 block execution
     struct ProposalFeeData {
-        /// @dev Sequential proposal ID from L1 Inbox (must be imported in order, no gaps).
+        /// @dev Sequential proposal ID from L1 Inbox. The caller (Anchor) enforces ordering.
         uint48 proposalId;
         /// @dev Address that submitted the proposal on L1 (receives reimbursement).
         address proposer;
@@ -28,7 +28,7 @@ interface IL2FeeVault {
     }
 
     /// @notice Imports fee data for a single proposal to calculate reimbursements.
-    /// @dev Must be called with proposalId = lastImportedProposalId + 1.
+    /// @dev Caller is expected to enforce proposal ordering.
     ///      Triggers the fee adjustment mechanism after processing the proposal.
     /// @param _fee Proposal fee data to import.
     function importProposalFee(ProposalFeeData calldata _fee) external;

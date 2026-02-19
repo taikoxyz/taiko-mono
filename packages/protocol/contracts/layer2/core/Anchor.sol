@@ -273,7 +273,10 @@ contract Anchor is EssentialContract {
     ///      verify that it matches the canonical L1 proposal hash (including cost fields).
     /// @param _proposalId The proposal id for the current block.
     /// @param _feeData The fee data to import for new proposals.
-    function _importFeeData(uint48 _proposalId, IL2FeeVault.ProposalFeeData calldata _feeData)
+    function _importFeeData(
+        uint48 _proposalId,
+        IL2FeeVault.ProposalFeeData calldata _feeData
+    )
         private
     {
         require(_proposalId != 0, InvalidProposalId());

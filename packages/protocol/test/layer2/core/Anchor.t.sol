@@ -151,7 +151,10 @@ contract AnchorTest is Test {
         });
     }
 
-    function _proposalParams(uint48 _proposalId, bool _includeFee)
+    function _proposalParams(
+        uint48 _proposalId,
+        bool _includeFee
+    )
         private
         pure
         returns (Anchor.ProposalParams memory)
@@ -170,9 +173,7 @@ contract AnchorTest is Test {
         }
 
         return Anchor.ProposalParams({
-            proposalId: _proposalId,
-            submissionWindowEnd: 0,
-            feeData: feeData
+            proposalId: _proposalId, submissionWindowEnd: 0, feeData: feeData
         });
     }
 }

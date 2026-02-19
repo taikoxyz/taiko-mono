@@ -91,7 +91,6 @@ interface IInbox {
         DerivationSource[] sources;
     }
 
-
     /// @notice Represents the core state of the inbox.
     /// @dev All 5 uint48 fields (30 bytes) pack into a single storage slot.
     struct CoreState {

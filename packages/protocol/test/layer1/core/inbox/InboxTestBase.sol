@@ -252,7 +252,10 @@ abstract contract InboxTestBase is CommonTest {
         payload_.sources = _decodeSources(log.data, head.sourcesOffset);
     }
 
-    function _sliceBytes(bytes memory _data, uint256 _offset)
+    function _sliceBytes(
+        bytes memory _data,
+        uint256 _offset
+    )
         private
         pure
         returns (bytes memory slice_)
@@ -265,7 +268,10 @@ abstract contract InboxTestBase is CommonTest {
         }
     }
 
-    function _decodeSources(bytes memory _data, uint256 _offset)
+    function _decodeSources(
+        bytes memory _data,
+        uint256 _offset
+    )
         private
         pure
         returns (IInbox.DerivationSource[] memory sources_)

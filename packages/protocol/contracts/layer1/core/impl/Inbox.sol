@@ -73,10 +73,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     uint256 private constant _SSTORE_SET_GAS = 20_000;
 
     /// @dev SSTORE gas when changing a non-zero storage slot to a different non-zero value
-    uint256 private constant _SSTORE_RESET_GAS = 5_000;
+    uint256 private constant _SSTORE_RESET_GAS = 5000;
 
     /// @dev Cold SLOAD access cost (added to SSTORE for first access in transaction)
-    uint256 private constant _COLD_SLOAD_COST = 2_100;
+    uint256 private constant _COLD_SLOAD_COST = 2100;
 
     /// @dev Base cost for LOG operation
     uint256 private constant _LOG_BASE_GAS = 375;
