@@ -623,18 +623,9 @@ where
             Some(
                 self.rpc
                     .l2_provider
-                    .get_block_by_number(BlockNumberOrTag::Latest)
+                    .get_block_number()
                     .await
-                    .map_err(|err| {
-                        SyncError::Rpc(RpcClientError::Provider(err.to_string()))
-                    })?
-                    .full()
-                    .await
-                    .map_err(|err| {
-                        SyncError::Rpc(RpcClientError::Provider(err.to_string()))
-                    })?
-                    .map(|block| block.number())
-                    .ok_or(SyncError::MissingExecutionBlock { number: 0 })?,
+                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?,
             )
         };
 
