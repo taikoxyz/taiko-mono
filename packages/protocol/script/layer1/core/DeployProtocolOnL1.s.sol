@@ -61,6 +61,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint48 withdrawalDelay;
         bool useLookaheadStore;
         address lookaheadOverseer;
+        address preconfSlasherL1;
         address urc;
         bool useDummyVerifiers;
         bool pauseBridge;
@@ -120,6 +121,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.withdrawalDelay = uint48(vm.envOr("WITHDRAWAL_DELAY", uint256(0)));
         config.useLookaheadStore = vm.envOr("USE_LOOKAHEAD_STORE", false);
         config.lookaheadOverseer = vm.envOr("LOOKAHEAD_OVERSEER", address(0));
+        config.preconfSlasherL1 = vm.envOr("PRECONF_SLASHER_L1", address(0));
         config.urc = vm.envOr("URC", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
@@ -199,7 +201,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             // Inbox address is unknown at this point — will upgrade after Inbox deployment.
             lookaheadStoreProxy_ = deployProxy({
                 name: "lookahead_store",
-                impl: address(new LookaheadStore(address(0), address(0), whitelist_, config.urc)),
+                impl: address(new LookaheadStore(address(0), config.preconfSlasherL1, whitelist_, config.urc)),
                 data: abi.encodeCall(
                     LookaheadStore.init, (config.contractOwner, config.lookaheadOverseer)
                 )
@@ -225,7 +227,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Upgrade LookaheadStore with real inbox address now that it's known
         if (config.useLookaheadStore) {
             LookaheadStore(lookaheadStoreProxy).upgradeTo(
-                address(new LookaheadStore(shastaInbox, address(0), whitelist, config.urc))
+                address(new LookaheadStore(shastaInbox, config.preconfSlasherL1, whitelist, config.urc))
             );
             console2.log("LookaheadStore upgraded with inbox address");
         }
