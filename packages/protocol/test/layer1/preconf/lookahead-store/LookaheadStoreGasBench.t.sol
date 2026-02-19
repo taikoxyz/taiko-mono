@@ -4,12 +4,37 @@ pragma solidity ^0.8.24;
 /// forge-config: default.isolate = true
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 import { ILookaheadStore } from "src/layer1/preconf/iface/ILookaheadStore.sol";
 import { LookaheadStore } from "src/layer1/preconf/impl/LookaheadStore.sol";
 import { LibLookaheadEncoder as Encoder } from "src/layer1/preconf/libs/LibLookaheadEncoder.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
+
+contract GasBenchMockURC {
+    function getOperatorData(bytes32) external pure returns (IRegistry.OperatorData memory) {
+        return IRegistry.OperatorData({
+            owner: address(1),
+            collateralWei: 1 ether,
+            numKeys: 1,
+            registeredAt: 1,
+            unregisteredAt: 0,
+            slashedAt: 0,
+            deleted: false,
+            equivocated: false
+        });
+    }
+
+    function getSlasherCommitment(bytes32, address) external pure returns (IRegistry.SlasherCommitment memory) {
+        return IRegistry.SlasherCommitment({
+            committer: address(1),
+            optedInAt: 1,
+            optedOutAt: 0,
+            slashed: false
+        });
+    }
+}
 
 contract GasBenchHarness is LookaheadStore {
     constructor(
@@ -52,7 +77,7 @@ contract LookaheadStoreGasBench is CommonTest {
         preconfSlasherL1 = makeAddr("preconfSlasherL1");
         inbox = makeAddr("inbox");
         preconfWhitelist = makeAddr("preconfWhitelist");
-        urc = makeAddr("urc");
+        urc = address(new GasBenchMockURC());
 
         GasBenchHarness impl = new GasBenchHarness(inbox, preconfSlasherL1, preconfWhitelist, urc);
         lookaheadStore = GasBenchHarness(
