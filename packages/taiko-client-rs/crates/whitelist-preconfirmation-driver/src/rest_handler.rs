@@ -375,11 +375,17 @@ where
         let started_at = Instant::now();
         let _build_guard = self.build_preconf_lock.lock().await;
 
+        // Guard against building on a genuinely syncing node, but tolerate the false-
+        // positive that taiko-geth emits on genesis chains (currentBlock == highestBlock
+        // == 0, txIndexRemainingBlocks = 1).  When current == highest the node is not
+        // actually catching up to a remote peer, so we allow the build to proceed.
         let sync_status = self.rpc.l2_provider.syncing().await.map_err(provider_err)?;
-        if matches!(sync_status, SyncStatus::Info(_)) {
-            return Err(WhitelistPreconfirmationDriverError::Driver(
-                driver::DriverError::EngineSyncing(request.block_number),
-            ));
+        if let SyncStatus::Info(ref info) = sync_status
+            && info.current_block < info.highest_block
+        {
+                return Err(WhitelistPreconfirmationDriverError::Driver(
+                    driver::DriverError::EngineSyncing(request.block_number),
+                ));
         }
 
         self.ensure_fee_recipient_allowed(request.fee_recipient).await?;

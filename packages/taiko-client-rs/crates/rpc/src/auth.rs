@@ -201,6 +201,15 @@ impl<P: Provider + Clone> Client<P> {
         let mut payload_value = serde_json::to_value(&payload.execution_payload)
             .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
         if let serde_json::Value::Object(ref mut obj) = payload_value {
+            // Include the withdrawals list so taiko-geth can reconstruct the full block.
+            // The Go driver sends the full ExecutableData (with withdrawals); omitting
+            // this field causes a blockhash mismatch because geth cannot recompute the
+            // withdrawals root from the hash alone.
+            if let Some(ref withdrawals) = payload.withdrawals {
+                let withdrawals_value = serde_json::to_value(withdrawals)
+                    .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+                obj.insert("withdrawals".to_string(), withdrawals_value);
+            }
             obj.insert(
                 "txHash".to_string(),
                 serde_json::Value::String(format!("{:#066x}", sidecar.tx_hash)),
