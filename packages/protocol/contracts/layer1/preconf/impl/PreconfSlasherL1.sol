@@ -25,6 +25,83 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     using LibBLSG1 for BLS.G1Point;
 
     // ---------------------------------------------------------------
+    // Types
+    // ---------------------------------------------------------------
+
+    /// @dev Used as the first byte of the evidence to identify the slashing path
+    enum SlashingPath {
+        Lookahead,
+        Preconfirmation
+    }
+
+    /// @dev Slashing amounts for different fault types
+    struct SlashingAmounts {
+        // Amount slashed for an invalid lookahead
+        uint256 invalidLookahead;
+        // Amount slashed for a preconfirmation liveness fault
+        uint256 preconfLivenessFault;
+        // Amount slashed for a preconfirmation safety fault
+        uint256 preconfSafetyFault;
+    }
+
+    /// @dev Used as the second byte of the lookahead evidence to identify the fault type
+    enum LookaheadFault {
+        InactiveOperator,
+        InvalidValidatorLeafIndex,
+        InvalidOperator,
+        MissingOperator
+    }
+
+    /// @dev Evidence containing the invalid lookahead with the index and timestamp
+    // of the invalid slot
+    struct LookaheadEvidence {
+        // Timestamp of the invalid slot
+        uint256 slotTimestamp;
+        // Index of the lookahead entry that covers the invalid slot
+        uint256 slotIndex;
+        // The encoded lookahead bytes (from LibLookaheadEncoder)
+        bytes encodedLookahead;
+    }
+
+    /// @dev Evidence containing the proof of inclusion of the validator pub key at
+    /// `LookaheadEvidence.slotTimestamp` in beacon lookahead.
+    struct BeaconValidatorEvidence {
+        // BLS pub key of the validator present within beacon lookahead
+        // at `LookaheadEvidence.slotTimestamp`
+        BLS.G1Point beaconValidatorPubKey;
+        // Beacon chain merkle proofs for validator inclusion
+        LibEIP4788.BeaconProofs beaconProofs;
+    }
+
+    /// @dev Evidence containing `invalidOperatorValidatorPubKey` that is a part of operator
+    /// registrations in the URC, but does not match the beacon validator pub key at the
+    /// invalid lookahead slot.
+    struct InvalidOperatorEvidence {
+        // BLS pub key of the validator registered to the operator in the URC and located at
+        // `ILookaheadStore.LookaheadSlot.validatorLeafIndex` within `operatorRegistrations`
+        BLS.G1Point invalidOperatorValidatorPubKey;
+        // An array containing all validator registrations for the operator in the URC
+        IRegistry.SignedRegistration[] operatorRegistrations;
+    }
+
+    /// @dev Evidence suggesting that `beaconValidatorPubKey` is registered to a valid
+    /// opted-in operator in the URC
+    struct MissingOperatorEvidence {
+        // URC registration proof signifying that `BeaconValidatorEvidence.beaconValidatorPubKey`
+        // belongs to a valid opted-in URC operator
+        IRegistry.RegistrationProof operatorRegistrationProof;
+    }
+
+    /// @dev Bundled return data from `_validateLookaheadEvidence`
+    struct ValidatedLookaheadEvidence {
+        uint256 epochTimestamp;
+        uint256 slotTimestamp;
+        uint256 numSlots;
+        uint256 referenceTimestamp;
+        ILookaheadStore.LookaheadSlot lookaheadSlot;
+    }
+
+    // ---------------------------------------------------------------
     // Immutables
     // ---------------------------------------------------------------
 
@@ -76,10 +153,10 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
         onlyFrom(urc)
         returns (uint256 slashAmount_)
     {
-        IPreconfSlasher.SlashingPath path = IPreconfSlasher.SlashingPath(uint8(_evidence[0]));
+        SlashingPath path = SlashingPath(uint8(_evidence[0]));
         bytes calldata evidence = _evidence[1:];
 
-        if (path == IPreconfSlasher.SlashingPath.Lookahead) {
+        if (path == SlashingPath.Lookahead) {
             _validateLookaheadSlashingEvidence(_commitment, evidence);
             slashAmount_ = getSlashingAmounts().invalidLookahead;
         } else {
@@ -88,7 +165,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
             require(_challenger == address(this), ChallengerIsNotSelf());
             IPreconfSlasher.PreconfirmationFault fault =
                 _classifyPreconfFault(_commitment, evidence);
-            IPreconfSlasher.SlashingAmounts memory amounts = getSlashingAmounts();
+            SlashingAmounts memory amounts = getSlashingAmounts();
             slashAmount_ = fault == IPreconfSlasher.PreconfirmationFault.Liveness
                 ? amounts.preconfLivenessFault
                 : amounts.preconfSafetyFault;
@@ -117,22 +194,13 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
             .slashCommitment(
                 registrationRoot,
                 signedCommitment,
-                abi.encodePacked(uint8(IPreconfSlasher.SlashingPath.Preconfirmation), uint8(fault))
+                abi.encodePacked(uint8(SlashingPath.Preconfirmation), uint8(fault))
             );
     }
 
     // ---------------------------------------------------------------
     // Internal: Lookahead slashing evidence validation
     // ---------------------------------------------------------------
-
-    /// @dev Bundled return data from `_validateLookaheadEvidence`
-    struct ValidatedLookaheadEvidence {
-        uint256 epochTimestamp;
-        uint256 slotTimestamp;
-        uint256 numSlots;
-        uint256 referenceTimestamp;
-        ILookaheadStore.LookaheadSlot lookaheadSlot;
-    }
 
     /// @dev Validates evidence for slashing an invalid lookahead.
     /// @dev Evidence format: [LookaheadFault byte][evidence tuple (bytes, bytes, bytes)]
@@ -147,13 +215,13 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
         internal
         view
     {
-        IPreconfSlasher.LookaheadFault fault = IPreconfSlasher.LookaheadFault(uint8(_evidence[0]));
+        LookaheadFault fault = LookaheadFault(uint8(_evidence[0]));
         bytes calldata evidenceBody = _evidence[1:];
 
         ValidatedLookaheadEvidence memory validatedLookaheadEvidence =
             _validateLookaheadEvidence(_commitment, _extractLookaheadEvidence(evidenceBody));
 
-        if (fault == IPreconfSlasher.LookaheadFault.InactiveOperator) {
+        if (fault == LookaheadFault.InactiveOperator) {
             // Path 1: Operator in the lookahead was not active at reference timestamp
             require(validatedLookaheadEvidence.numSlots != 0, EmptyLookahead());
             require(
@@ -164,7 +232,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
                     ),
                 OperatorIsActive()
             );
-        } else if (fault == IPreconfSlasher.LookaheadFault.InvalidValidatorLeafIndex) {
+        } else if (fault == LookaheadFault.InvalidValidatorLeafIndex) {
             // Path 2: Validator leaf index exceeds operator's registered key count
             require(validatedLookaheadEvidence.numSlots != 0, EmptyLookahead());
             IRegistry.OperatorData memory opData = IRegistry(urc)
@@ -184,7 +252,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
                 _extractBeaconValidatorEvidence(evidenceBody)
             );
 
-            if (fault == IPreconfSlasher.LookaheadFault.InvalidOperator) {
+            if (fault == LookaheadFault.InvalidOperator) {
                 // Path 3: Dedicated slot assigned to wrong operator
                 require(
                     validatedLookaheadEvidence.numSlots != 0
@@ -219,7 +287,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     /// - Ensures that the provided slot timestamp falls in the range of the indexed lookahead entry
     function _validateLookaheadEvidence(
         Commitment calldata _commitment,
-        IPreconfSlasher.LookaheadEvidence calldata _lookaheadEvidence
+        LookaheadEvidence calldata _lookaheadEvidence
     )
         internal
         view
@@ -268,7 +336,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _validateBeaconValidatorEvidence(
         uint256 _previousEpochTimestamp,
         uint256 _slotTimestamp,
-        IPreconfSlasher.BeaconValidatorEvidence calldata _beaconValidatorEvidence
+        BeaconValidatorEvidence calldata _beaconValidatorEvidence
     )
         internal
         view
@@ -314,7 +382,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _validateInvalidOperatorEvidence(
         ILookaheadStore.LookaheadSlot memory _lookaheadSlot,
         BLS.G1Point calldata _beaconValidatorPubKey,
-        IPreconfSlasher.InvalidOperatorEvidence calldata _invalidOperatorEvidence
+        InvalidOperatorEvidence calldata _invalidOperatorEvidence
     )
         internal
         view
@@ -353,7 +421,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _validateMissingOperatorEvidence(
         uint256 _referenceTimestamp,
         BLS.G1Point calldata _beaconValidatorPubKey,
-        IPreconfSlasher.MissingOperatorEvidence calldata _missingOperatorEvidence
+        MissingOperatorEvidence calldata _missingOperatorEvidence
     )
         internal
         view
@@ -427,8 +495,8 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
 
     /// @dev Returns the slashing amounts for different types of faults
     /// @return SlashingAmounts struct containing the amounts for each fault type
-    function getSlashingAmounts() public pure returns (IPreconfSlasher.SlashingAmounts memory) {
-        return IPreconfSlasher.SlashingAmounts({
+    function getSlashingAmounts() public pure returns (SlashingAmounts memory) {
+        return SlashingAmounts({
             invalidLookahead: 1 ether, preconfLivenessFault: 0.5 ether, preconfSafetyFault: 1 ether
         });
     }
@@ -443,7 +511,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _extractLookaheadEvidence(bytes calldata _evidenceBody)
         internal
         pure
-        returns (IPreconfSlasher.LookaheadEvidence calldata lookaheadEvidence_)
+        returns (LookaheadEvidence calldata lookaheadEvidence_)
     {
         assembly {
             let outerOffset := calldataload(_evidenceBody.offset)
@@ -458,7 +526,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _extractBeaconValidatorEvidence(bytes calldata _evidenceBody)
         internal
         pure
-        returns (IPreconfSlasher.BeaconValidatorEvidence calldata beaconValidatorEvidence_)
+        returns (BeaconValidatorEvidence calldata beaconValidatorEvidence_)
     {
         assembly {
             let outerOffset := calldataload(add(_evidenceBody.offset, 0x20))
@@ -473,7 +541,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _extractInvalidOperatorEvidence(bytes calldata _evidenceBody)
         internal
         pure
-        returns (IPreconfSlasher.InvalidOperatorEvidence calldata invalidOperatorEvidence_)
+        returns (InvalidOperatorEvidence calldata invalidOperatorEvidence_)
     {
         assembly {
             let outerOffset := calldataload(add(_evidenceBody.offset, 0x40))
@@ -483,13 +551,12 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     }
 
     /// @dev Extracts MissingOperatorEvidence from the third slot of the evidence body
-    /// @dev Extracts InvalidOperatorEvidence from the third slot of the evidence body
     ///      _evidenceBody: abi.encode((bytes, bytes, bytes))
     ///                                                 ^ extract this
     function _extractMissingOperatorEvidence(bytes calldata _evidenceBody)
         internal
         pure
-        returns (IPreconfSlasher.MissingOperatorEvidence calldata missingOperatorEvidence_)
+        returns (MissingOperatorEvidence calldata missingOperatorEvidence_)
     {
         assembly {
             let outerOffset := calldataload(add(_evidenceBody.offset, 0x40))
