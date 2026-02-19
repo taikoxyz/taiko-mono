@@ -224,7 +224,7 @@ impl<P: Provider + Clone> Client<P> {
         forkchoice_state: ForkchoiceState,
         payload_attributes: Option<TaikoPayloadAttributes>,
     ) -> Result<ForkchoiceUpdated> {
-        let forkchoice_state = serde_json::to_value(&forkchoice_state)
+        let forkchoice_state = serde_json::to_value(forkchoice_state)
             .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
 
         let payload_attributes = match payload_attributes {

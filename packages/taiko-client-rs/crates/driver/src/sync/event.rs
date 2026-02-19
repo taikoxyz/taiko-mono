@@ -53,7 +53,9 @@ use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+/// Poll interval in seconds used to retry waiting for finalized L1 snapshots.
 const FINALITY_POLL_INTERVAL_SECS: u64 = 12;
+/// Poll interval used to retry waiting for finalized L1 snapshots.
 const FINALITY_POLL_INTERVAL: Duration = Duration::from_secs(FINALITY_POLL_INTERVAL_SECS);
 
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
@@ -146,6 +148,7 @@ fn resolve_zero_target_start_block(
 }
 
 /// Convert missing finalized block responses into an explicit fail-closed sync error.
+#[cfg(test)]
 fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
     value.ok_or(SyncError::MissingFinalizedL1Block)
 }
@@ -612,9 +615,9 @@ where
     /// - If checkpoint mode is enabled, we require the exact checkpoint head that beacon sync
     ///   finished at. This avoids trusting stale local origin pointers.
     /// - Without checkpoint mode, we prefer local `head_l1_origin`. If missing on fresh genesis
-    ///   chains (where local head is block 0), we fallback to resume from block 0.
-    ///   Otherwise we fail fast instead of deriving proposal IDs from `Latest`, which may include
-    ///   local preconfirmation-only blocks that were never event-confirmed.
+    ///   chains (where local head is block 0), we fallback to resume from block 0. Otherwise we
+    ///   fail fast instead of deriving proposal IDs from `Latest`, which may include local
+    ///   preconfirmation-only blocks that were never event-confirmed.
     #[instrument(skip(self), level = "debug")]
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
@@ -631,8 +634,8 @@ where
                 .l2_provider
                 .get_block_number()
                 .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-                == 0
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? ==
+                0
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(
@@ -644,18 +647,13 @@ where
 
         if checkpoint_configured {
             info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
+        } else if head_l1_origin_block_id.is_some() {
+            info!(resume_head_block_number, "using local head_l1_origin as event resume source");
         } else {
-            if head_l1_origin_block_id.is_some() {
-                info!(
-                    resume_head_block_number,
-                    "using local head_l1_origin as event resume source"
-                );
-            } else {
-                info!(
-                    resume_head_block_number,
-                    "using genesis fallback as event resume source (head_l1_origin unavailable)"
-                );
-            }
+            info!(
+                resume_head_block_number,
+                "using genesis fallback as event resume source (head_l1_origin unavailable)"
+            );
         }
 
         Ok(resume_head_block_number)
