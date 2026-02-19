@@ -43,7 +43,7 @@ interface IPreconfSlasher {
 
     /// @dev Evidence containing the invalid lookahead with the index and timestamp
     // of the invalid slot
-    struct EvidenceLookahead {
+    struct LookaheadEvidence {
         // Timestamp of the invalid slot
         uint256 slotTimestamp;
         // Index of the lookahead entry that covers the invalid slot
@@ -53,10 +53,10 @@ interface IPreconfSlasher {
     }
 
     /// @dev Evidence containing the proof of inclusion of the validator pub key at
-    /// `EvidenceLookahead.slotTimestamp` in beacon lookahead.
-    struct EvidenceBeaconValidator {
+    /// `LookaheadEvidence.slotTimestamp` in beacon lookahead.
+    struct BeaconValidatorEvidence {
         // BLS pub key of the validator present within beacon lookahead
-        // at `EvidenceLookahead.slotTimestamp`
+        // at `LookaheadEvidence.slotTimestamp`
         BLS.G1Point beaconValidatorPubKey;
         // Beacon chain merkle proofs for validator inclusion
         LibEIP4788.BeaconProofs beaconProofs;
@@ -65,7 +65,7 @@ interface IPreconfSlasher {
     /// @dev Evidence containing `invalidOperatorValidatorPubKey` that is a part of operator
     /// registrations in the URC, but does not match the beacon validator pub key at the
     /// invalid lookahead slot.
-    struct EvidenceInvalidOperator {
+    struct InvalidOperatorEvidence {
         // BLS pub key of the validator registered to the operator in the URC and located at
         // `ILookaheadStore.LookaheadSlot.validatorLeafIndex` within `operatorRegistrations`
         BLS.G1Point invalidOperatorValidatorPubKey;
@@ -75,8 +75,8 @@ interface IPreconfSlasher {
 
     /// @dev Evidence suggesting that `beaconValidatorPubKey` is registered to a valid
     /// opted-in operator in the URC
-    struct EvidenceMissingOperator {
-        // URC registration proof signifying that `EvidenceBeaconValidator.beaconValidatorPubKey`
+    struct MissingOperatorEvidence {
+        // URC registration proof signifying that `BeaconValidatorEvidence.beaconValidatorPubKey`
         // belongs to a valid opted-in URC operator
         IRegistry.RegistrationProof operatorRegistrationProof;
     }

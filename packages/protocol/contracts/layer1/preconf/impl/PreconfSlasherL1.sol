@@ -63,9 +63,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     // ISlasher implementation
     // ---------------------------------------------------------------
 
-    /// @notice Called by the URC to slash a commitment
-    /// @dev Routes between lookahead and preconfirmation slashing paths based on the
-    /// first byte of evidence
+    /// @inheritdoc ISlasher
     function slash(
         Delegation calldata, // delegation
         Commitment calldata _commitment,
@@ -139,9 +137,9 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     /// @dev Validates evidence for slashing an invalid lookahead.
     /// @dev Evidence format: [LookaheadFault byte][evidence tuple (bytes, bytes, bytes)]
     /// @dev The evidence tuple contains:
-    ///   - EvidenceLookahead (always required)
-    ///   - EvidenceBeaconValidator (required for InvalidOperator and MissingOperator faults)
-    ///   - EvidenceInvalidOperator or EvidenceMissingOperator (required for respective faults)
+    ///   - LookaheadEvidence (always required)
+    ///   - BeaconValidatorEvidence (required for InvalidOperator and MissingOperator faults)
+    ///   - InvalidOperatorEvidence or MissingOperatorEvidence (required for respective faults)
     function _validateLookaheadSlashingEvidence(
         Commitment calldata _commitment,
         bytes calldata _evidence
@@ -150,65 +148,67 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
         view
     {
         IPreconfSlasher.LookaheadFault fault = IPreconfSlasher.LookaheadFault(uint8(_evidence[0]));
+        bytes calldata evidenceBody = _evidence[1:];
 
-        (
-            bytes calldata evidenceLookahead,
-            bytes calldata evidenceBeaconValidator,
-            bytes calldata evidenceInvalidOrMissingOperator
-        ) = _decodeEvidenceTuple(_evidence[1:]);
-
-        ValidatedLookaheadEvidence memory evidence =
-            _validateLookaheadEvidence(_commitment, evidenceLookahead);
+        ValidatedLookaheadEvidence memory validatedLookaheadEvidence =
+            _validateLookaheadEvidence(_commitment, _extractLookaheadEvidence(evidenceBody));
 
         if (fault == IPreconfSlasher.LookaheadFault.InactiveOperator) {
             // Path 1: Operator in the lookahead was not active at reference timestamp
-            require(evidence.numSlots != 0, EmptyLookahead());
+            require(validatedLookaheadEvidence.numSlots != 0, EmptyLookahead());
             require(
                 !ILookaheadStore(lookaheadStore)
                     .isOperatorActive(
-                        evidence.lookaheadSlot.registrationRoot, evidence.referenceTimestamp
+                        validatedLookaheadEvidence.lookaheadSlot.registrationRoot,
+                        validatedLookaheadEvidence.referenceTimestamp
                     ),
                 OperatorIsActive()
             );
         } else if (fault == IPreconfSlasher.LookaheadFault.InvalidValidatorLeafIndex) {
             // Path 2: Validator leaf index exceeds operator's registered key count
-            require(evidence.numSlots != 0, EmptyLookahead());
-            IRegistry.OperatorData memory opData =
-                IRegistry(urc).getOperatorData(evidence.lookaheadSlot.registrationRoot);
+            require(validatedLookaheadEvidence.numSlots != 0, EmptyLookahead());
+            IRegistry.OperatorData memory opData = IRegistry(urc)
+                .getOperatorData(validatedLookaheadEvidence.lookaheadSlot.registrationRoot);
             require(
-                evidence.lookaheadSlot.validatorLeafIndex >= opData.numKeys,
+                validatedLookaheadEvidence.lookaheadSlot.validatorLeafIndex >= opData.numKeys,
                 ValidValidatorLeafIndex()
             );
         } else {
             // Paths 3 & 4: Require beacon proofs
             uint256 previousEpochTimestamp =
-                evidence.epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
+                validatedLookaheadEvidence.epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH;
 
             BLS.G1Point calldata beaconValidatorPubKey = _validateBeaconValidatorEvidence(
-                previousEpochTimestamp, evidence.slotTimestamp, evidenceBeaconValidator
+                previousEpochTimestamp,
+                validatedLookaheadEvidence.slotTimestamp,
+                _extractBeaconValidatorEvidence(evidenceBody)
             );
 
             if (fault == IPreconfSlasher.LookaheadFault.InvalidOperator) {
                 // Path 3: Dedicated slot assigned to wrong operator
                 require(
-                    evidence.numSlots != 0
-                        && evidence.lookaheadSlot.timestamp == evidence.slotTimestamp,
+                    validatedLookaheadEvidence.numSlots != 0
+                        && validatedLookaheadEvidence.lookaheadSlot.timestamp
+                            == validatedLookaheadEvidence.slotTimestamp,
                     NotADedicatedSlot()
                 );
                 _validateInvalidOperatorEvidence(
-                    evidence.lookaheadSlot, beaconValidatorPubKey, evidenceInvalidOrMissingOperator
+                    validatedLookaheadEvidence.lookaheadSlot,
+                    beaconValidatorPubKey,
+                    _extractInvalidOperatorEvidence(evidenceBody)
                 );
             } else {
                 // Path 4: Slot unassigned but beacon proposer is valid opted-in operator
                 require(
-                    evidence.numSlots == 0
-                        || evidence.lookaheadSlot.timestamp != evidence.slotTimestamp,
+                    validatedLookaheadEvidence.numSlots == 0
+                        || validatedLookaheadEvidence.lookaheadSlot.timestamp
+                            != validatedLookaheadEvidence.slotTimestamp,
                     SlotHasAssignedOperator()
                 );
                 _validateMissingOperatorEvidence(
-                    evidence.referenceTimestamp,
+                    validatedLookaheadEvidence.referenceTimestamp,
                     beaconValidatorPubKey,
-                    evidenceInvalidOrMissingOperator
+                    _extractMissingOperatorEvidence(evidenceBody)
                 );
             }
         }
@@ -219,35 +219,30 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     /// - Ensures that the provided slot timestamp falls in the range of the indexed lookahead entry
     function _validateLookaheadEvidence(
         Commitment calldata _commitment,
-        bytes calldata _evidenceLookaheadBytes
+        IPreconfSlasher.LookaheadEvidence calldata _lookaheadEvidence
     )
         internal
         view
         returns (ValidatedLookaheadEvidence memory evidence_)
     {
-        IPreconfSlasher.EvidenceLookahead calldata evidenceLookahead;
-        assembly {
-            evidenceLookahead := add(_evidenceLookaheadBytes.offset, 0x20)
-        }
-
-        evidence_.slotTimestamp = evidenceLookahead.slotTimestamp;
+        evidence_.slotTimestamp = _lookaheadEvidence.slotTimestamp;
         evidence_.epochTimestamp = LibPreconfUtils.getEpochtimestampForSlot(evidence_.slotTimestamp);
 
         // Verify the encoded lookahead from the evidence matches the commitment
         bytes26 commitmentHash = abi.decode(_commitment.payload, (bytes26));
         bytes26 lookaheadHash = LibPreconfUtils.calculateLookaheadHash(
-            evidence_.epochTimestamp, evidenceLookahead.encodedLookahead
+            evidence_.epochTimestamp, _lookaheadEvidence.encodedLookahead
         );
         require(lookaheadHash == commitmentHash, LookaheadHashMismatch());
 
-        evidence_.numSlots = LibLookaheadEncoder.numSlots(evidenceLookahead.encodedLookahead);
+        evidence_.numSlots = LibLookaheadEncoder.numSlots(_lookaheadEvidence.encodedLookahead);
         evidence_.referenceTimestamp =
             getOperatorValidityReferenceTimestamp(evidence_.epochTimestamp);
 
         if (evidence_.numSlots != 0) {
-            uint256 index = evidenceLookahead.slotIndex;
+            uint256 index = _lookaheadEvidence.slotIndex;
             evidence_.lookaheadSlot =
-                LibLookaheadEncoder.decodeIndex(evidenceLookahead.encodedLookahead, index);
+                LibLookaheadEncoder.decodeIndex(_lookaheadEvidence.encodedLookahead, index);
 
             // Upper bounds check
             require(
@@ -259,7 +254,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
                 require(evidence_.slotTimestamp >= evidence_.epochTimestamp, InvalidSlotIndex());
             } else {
                 ILookaheadStore.LookaheadSlot memory prevSlot = LibLookaheadEncoder.decodeIndex(
-                    evidenceLookahead.encodedLookahead, index - 1
+                    _lookaheadEvidence.encodedLookahead, index - 1
                 );
 
                 // Lower bounds check for later slots
@@ -273,24 +268,19 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _validateBeaconValidatorEvidence(
         uint256 _previousEpochTimestamp,
         uint256 _slotTimestamp,
-        bytes calldata _evidenceBeaconValidatorBytes
+        IPreconfSlasher.BeaconValidatorEvidence calldata _beaconValidatorEvidence
     )
         internal
         view
         returns (BLS.G1Point calldata beaconValidatorPubKey_)
     {
-        IPreconfSlasher.EvidenceBeaconValidator calldata evidenceBeaconValidator;
-        assembly {
-            evidenceBeaconValidator := add(_evidenceBeaconValidatorBytes.offset, 0x20)
-        }
-
         // Verify proposer lookahead index matches the expected slot.
         // The beacon proposer lookahead at epoch E-1 covers slots starting from E-1,
         // so slots in epoch E have indices 32+.
         uint256 expectedProposerLookaheadIndex =
             (_slotTimestamp - _previousEpochTimestamp) / LibPreconfConstants.SECONDS_IN_SLOT;
         require(
-            evidenceBeaconValidator.beaconProofs.proposerLookaheadProof.proposerLookaheadIndex
+            _beaconValidatorEvidence.beaconProofs.proposerLookaheadProof.proposerLookaheadIndex
                 == expectedProposerLookaheadIndex,
             ProposerLookaheadIndexMismatch()
         );
@@ -303,7 +293,7 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
 
         // Verify the proof's beacon block header root matches EIP-4788
         require(
-            evidenceBeaconValidator.beaconProofs.beaconStateProof.beaconBlockHeaderRoot
+            _beaconValidatorEvidence.beaconProofs.beaconStateProof.beaconBlockHeaderRoot
                 == beaconBlockRoot,
             BeaconBlockRootMismatch()
         );
@@ -311,10 +301,10 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
         // Verify all beacon merkle proofs
         // (validator pubkey -> proposer lookahead -> beacon state -> block)
         LibEIP4788.verifyBeaconProofs(
-            evidenceBeaconValidator.beaconValidatorPubKey, evidenceBeaconValidator.beaconProofs
+            _beaconValidatorEvidence.beaconValidatorPubKey, _beaconValidatorEvidence.beaconProofs
         );
 
-        beaconValidatorPubKey_ = evidenceBeaconValidator.beaconValidatorPubKey;
+        beaconValidatorPubKey_ = _beaconValidatorEvidence.beaconValidatorPubKey;
     }
 
     /// @dev Validates evidence for the InvalidOperator fault:
@@ -324,38 +314,34 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _validateInvalidOperatorEvidence(
         ILookaheadStore.LookaheadSlot memory _lookaheadSlot,
         BLS.G1Point calldata _beaconValidatorPubKey,
-        bytes calldata _evidenceInvalidOperatorBytes
+        IPreconfSlasher.InvalidOperatorEvidence calldata _invalidOperatorEvidence
     )
         internal
         view
     {
-        IPreconfSlasher.EvidenceInvalidOperator calldata evidenceInvalidOperator;
-        assembly {
-            evidenceInvalidOperator := add(_evidenceInvalidOperatorBytes.offset, 0x20)
-        }
-
         // Verify that the operator's validator key is a part of operator's registration
         // at the provided leaf index
         require(
-            evidenceInvalidOperator.invalidOperatorValidatorPubKey
+            _invalidOperatorEvidence.invalidOperatorValidatorPubKey
                 .equals(
-                    evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
-                    .pubkey
+                    _invalidOperatorEvidence.operatorRegistrations[
+                        _lookaheadSlot.validatorLeafIndex
+                    ].pubkey
                 ),
             PreconfValidatorIsNotRegistered()
         );
 
         // Verify that the operator's validator does not match the beacon proposer
         require(
-            !evidenceInvalidOperator.invalidOperatorValidatorPubKey.equals(_beaconValidatorPubKey),
+            !_invalidOperatorEvidence.invalidOperatorValidatorPubKey.equals(_beaconValidatorPubKey),
             PreconfValidatorIsSameAsBeaconValidator()
         );
 
-        // Verify the correctness of `evidenceInvalidOperator.operatorRegistrations`
+        // Verify the correctness of `_invalidOperatorEvidence.operatorRegistrations`
         IRegistry.OperatorData memory operatorData =
             IRegistry(urc).getOperatorData(_lookaheadSlot.registrationRoot);
         bytes32[] memory leaves = MerkleTree.hashToLeaves(
-            evidenceInvalidOperator.operatorRegistrations, operatorData.owner
+            _invalidOperatorEvidence.operatorRegistrations, operatorData.owner
         );
         bytes32 registrationRoot = MerkleTree.generateTree(leaves);
         require(registrationRoot == _lookaheadSlot.registrationRoot, RegistrationRootMismatch());
@@ -367,19 +353,14 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     function _validateMissingOperatorEvidence(
         uint256 _referenceTimestamp,
         BLS.G1Point calldata _beaconValidatorPubKey,
-        bytes calldata _evidenceMissingOperatorBytes
+        IPreconfSlasher.MissingOperatorEvidence calldata _missingOperatorEvidence
     )
         internal
         view
     {
-        IPreconfSlasher.EvidenceMissingOperator calldata evidenceMissingOperator;
-        assembly {
-            evidenceMissingOperator := add(_evidenceMissingOperatorBytes.offset, 0x20)
-        }
-
         // Verify that the beacon validator belongs to an operator in the URC
         IRegistry.RegistrationProof calldata registrationProof =
-        evidenceMissingOperator.operatorRegistrationProof;
+        _missingOperatorEvidence.operatorRegistrationProof;
         require(
             registrationProof.registration.pubkey.equals(_beaconValidatorPubKey),
             InvalidRegistrationProofValidator()
@@ -444,8 +425,9 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
         return _epochTimestamp - LibPreconfConstants.TWO_EPOCHS;
     }
 
+    /// @dev Returns the slashing amounts for different types of faults
+    /// @return SlashingAmounts struct containing the amounts for each fault type
     function getSlashingAmounts() public pure returns (IPreconfSlasher.SlashingAmounts memory) {
-        // Note: These amounts will change
         return IPreconfSlasher.SlashingAmounts({
             invalidLookahead: 1 ether, preconfLivenessFault: 0.5 ether, preconfSafetyFault: 1 ether
         });
@@ -455,26 +437,64 @@ contract PreconfSlasherL1 is ISlasher, IMessageInvocable, EssentialContract {
     // Helpers
     // ---------------------------------------------------------------
 
-    function _decodeEvidenceTuple(bytes calldata _evidence)
+    /// @dev Extracts LookaheadEvidence from the first slot of the evidence body
+    ///      _evidenceBody: abi.encode((bytes, bytes, bytes))
+    ///                                   ^ extract this
+    function _extractLookaheadEvidence(bytes calldata _evidenceBody)
         internal
         pure
-        returns (bytes calldata x, bytes calldata y, bytes calldata z)
+        returns (IPreconfSlasher.LookaheadEvidence calldata lookaheadEvidence_)
     {
         assembly {
-            let xOuterOffset := calldataload(_evidence.offset)
-            xOuterOffset := add(_evidence.offset, xOuterOffset)
-            x.length := calldataload(xOuterOffset)
-            x.offset := add(xOuterOffset, 0x20)
+            let outerOffset := calldataload(_evidenceBody.offset)
+            outerOffset := add(_evidenceBody.offset, outerOffset)
+            lookaheadEvidence_ := add(outerOffset, 0x40)
+        }
+    }
 
-            let yOuterOffset := calldataload(add(_evidence.offset, 0x20))
-            yOuterOffset := add(_evidence.offset, yOuterOffset)
-            y.length := calldataload(yOuterOffset)
-            y.offset := add(yOuterOffset, 0x20)
+    /// @dev Extracts BeaconValidatorEvidence from the second slot of the evidence body
+    ///      _evidenceBody: abi.encode((bytes, bytes, bytes))
+    ///                                          ^ extract this
+    function _extractBeaconValidatorEvidence(bytes calldata _evidenceBody)
+        internal
+        pure
+        returns (IPreconfSlasher.BeaconValidatorEvidence calldata beaconValidatorEvidence_)
+    {
+        assembly {
+            let outerOffset := calldataload(add(_evidenceBody.offset, 0x20))
+            outerOffset := add(_evidenceBody.offset, outerOffset)
+            beaconValidatorEvidence_ := add(outerOffset, 0x40)
+        }
+    }
 
-            let zOuterOffset := calldataload(add(_evidence.offset, 0x40))
-            zOuterOffset := add(_evidence.offset, zOuterOffset)
-            z.length := calldataload(zOuterOffset)
-            z.offset := add(zOuterOffset, 0x20)
+    /// @dev Extracts InvalidOperatorEvidence from the third slot of the evidence body
+    ///      _evidenceBody: abi.encode((bytes, bytes, bytes))
+    ///                                                 ^ extract this
+    function _extractInvalidOperatorEvidence(bytes calldata _evidenceBody)
+        internal
+        pure
+        returns (IPreconfSlasher.InvalidOperatorEvidence calldata invalidOperatorEvidence_)
+    {
+        assembly {
+            let outerOffset := calldataload(add(_evidenceBody.offset, 0x40))
+            outerOffset := add(_evidenceBody.offset, outerOffset)
+            invalidOperatorEvidence_ := add(outerOffset, 0x40)
+        }
+    }
+
+    /// @dev Extracts MissingOperatorEvidence from the third slot of the evidence body
+    /// @dev Extracts InvalidOperatorEvidence from the third slot of the evidence body
+    ///      _evidenceBody: abi.encode((bytes, bytes, bytes))
+    ///                                                 ^ extract this
+    function _extractMissingOperatorEvidence(bytes calldata _evidenceBody)
+        internal
+        pure
+        returns (IPreconfSlasher.MissingOperatorEvidence calldata missingOperatorEvidence_)
+    {
+        assembly {
+            let outerOffset := calldataload(add(_evidenceBody.offset, 0x40))
+            outerOffset := add(_evidenceBody.offset, outerOffset)
+            missingOperatorEvidence_ := add(outerOffset, 0x40)
         }
     }
 

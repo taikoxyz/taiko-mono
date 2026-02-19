@@ -9,6 +9,19 @@ import { BLS } from "@solady/src/utils/ext/ithaca/BLS.sol";
 /// @title LibEIP4788
 /// @custom:security-contact security@taiko.xyz
 library LibEIP4788 {
+    // Beacon chain generalized indices
+    uint256 private constant VALIDATORS_BEACON_STATE_INDEX = 11;
+    uint256 private constant PROPOSER_LOOKAHEAD_BEACON_STATE_INDEX = 37;
+    uint256 private constant STATE_ROOT_BEACON_BLOCK_INDEX = 3;
+
+    // Proposer lookahead chunk layout: 4 x uint64 validator indices per chunk
+    uint256 private constant INDICES_PER_PROPOSER_CHUNK = 4;
+    uint256 private constant BITS_PER_PROPOSER_INDEX = 64;
+    uint256 private constant PROPOSER_INDEX_BIT_SHIFT = 192; // 256 - 64
+
+    // Precompile addresses
+    uint256 private constant SHA256_PRECOMPILE = 0x02;
+
     /// @dev Proof of inclusion of the first validator chunk in the beacon
     /// state.
     struct ValidatorChunkProof {
@@ -65,6 +78,9 @@ library LibEIP4788 {
         BeaconStateProof beaconStateProof;
     }
 
+    /// @dev Verifies beacon chain proofs for a validator's public key and proposer lookahead
+    /// @param _validatorPubKey The BLS G1 point representing the validator's public key
+    /// @param _beaconProofs The beacon proofs containing validator chunk, proposer lookahead, and beacon state proofs
     function verifyBeaconProofs(
         BLS.G1Point calldata _validatorPubKey,
         BeaconProofs calldata _beaconProofs
@@ -122,7 +138,7 @@ library LibEIP4788 {
                 _beaconProofs.validatorChunkProof.proofOfInclusionInBeaconState,
                 _beaconProofs.validatorChunkProof.beaconStateRoot,
                 _beaconProofs.validatorChunkProof.validatorsListRoot,
-                11 // validators index in beacon state
+                VALIDATORS_BEACON_STATE_INDEX
             ),
             ValidatorChunkProof_ProofOfInclusionInBeaconStateFailed()
         );
@@ -131,16 +147,18 @@ library LibEIP4788 {
         // index.
         // Each chunk has 4 64-bit segments, each containing one validator index.
         uint256 proposerLookaheadChunkIndex =
-            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex / 4;
+            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex
+                / INDICES_PER_PROPOSER_CHUNK;
         uint256 proposerLookaheadChunkSegmentIndex =
-            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex % 4;
+            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex
+                % INDICES_PER_PROPOSER_CHUNK;
 
         // Extract the u64 little-endian encoded validator index and make it
         // u256 little-endian
         bytes32 expectedValidatorIndex =
             ((_beaconProofs.proposerLookaheadProof.proposerLookaheadChunk
-                        << (proposerLookaheadChunkSegmentIndex * 64))
-                    >> 192) << 192;
+                        << (proposerLookaheadChunkSegmentIndex * BITS_PER_PROPOSER_INDEX))
+                    >> PROPOSER_INDEX_BIT_SHIFT) << PROPOSER_INDEX_BIT_SHIFT;
 
         // Verify that the validator index in the validator chunk proof matches the one in the lookahead
         // proof
@@ -167,7 +185,7 @@ library LibEIP4788 {
                 _beaconProofs.proposerLookaheadProof.proofOfInclusionInBeaconState,
                 _beaconProofs.proposerLookaheadProof.beaconStateRoot,
                 _beaconProofs.proposerLookaheadProof.proposerLookaheadRoot,
-                37 // proposer_lookahead index in beacon state
+                PROPOSER_LOOKAHEAD_BEACON_STATE_INDEX
             ),
             ProposerLookaheadProof_ProofOfInclusionInBeaconStateFailed()
         );
@@ -178,12 +196,13 @@ library LibEIP4788 {
                 _beaconProofs.beaconStateProof.proofOfInclusionInBeaconBlock,
                 _beaconProofs.beaconStateProof.beaconBlockHeaderRoot,
                 _beaconProofs.beaconStateProof.beaconStateRoot,
-                3 // state_root index in beacon block
+                STATE_ROOT_BEACON_BLOCK_INDEX
             ),
             BeaconStateProof_ProofOfInclusionInBeaconBlockFailed()
         );
     }
 
+    /// @dev Efficiently verifies a merkle proof without malloc
     function _verifyProof(
         bytes32[] calldata proof,
         bytes32 root,
@@ -200,11 +219,11 @@ library LibEIP4788 {
         for (uint256 i = 0; i < proof.length; i++) {
             bytes32 proofElement = proof[i];
 
-            // if index is even -> sha256(h, proofElement)
-            // else -> sha256(proofElement, h)
             assembly {
                 let ptr := mload(0x40)
 
+                // if index is even -> sha256(h, proofElement)
+                // else -> sha256(proofElement, h)
                 switch and(index, 1)
                 case 0 {
                     mstore(ptr, h)
@@ -215,8 +234,9 @@ library LibEIP4788 {
                     mstore(add(ptr, 0x20), h)
                 }
 
-                // sha256 precompile
-                if iszero(staticcall(gas(), 0x02, ptr, 0x40, ptr, 0x20)) { revert(0, 0) }
+                if iszero(staticcall(gas(), SHA256_PRECOMPILE, ptr, 0x40, ptr, 0x20)) {
+                    revert(0, 0)
+                }
                 h := mload(ptr)
             }
 
