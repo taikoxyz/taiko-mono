@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ILookaheadStore } from "src/layer1/preconf/iface/ILookaheadStore.sol";
 import { LookaheadStore } from "src/layer1/preconf/impl/LookaheadStore.sol";
 import { LibLookaheadEncoder as Encoder } from "src/layer1/preconf/libs/LibLookaheadEncoder.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { LibPreconfUtils } from "src/layer1/preconf/libs/LibPreconfUtils.sol";
-import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract MockURC {
@@ -24,12 +24,16 @@ contract MockURC {
         });
     }
 
-    function getSlasherCommitment(bytes32, address) external pure returns (IRegistry.SlasherCommitment memory) {
+    function getSlasherCommitment(
+        bytes32,
+        address
+    )
+        external
+        pure
+        returns (IRegistry.SlasherCommitment memory)
+    {
         return IRegistry.SlasherCommitment({
-            committer: address(1),
-            optedInAt: 1,
-            optedOutAt: 0,
-            slashed: false
+            committer: address(1), optedInAt: 1, optedOutAt: 0, slashed: false
         });
     }
 }

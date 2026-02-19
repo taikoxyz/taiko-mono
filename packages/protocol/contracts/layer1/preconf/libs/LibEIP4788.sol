@@ -147,11 +147,9 @@ library LibEIP4788 {
         // index.
         // Each chunk has 4 64-bit segments, each containing one validator index.
         uint256 proposerLookaheadChunkIndex =
-            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex
-                / INDICES_PER_PROPOSER_CHUNK;
+            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex / INDICES_PER_PROPOSER_CHUNK;
         uint256 proposerLookaheadChunkSegmentIndex =
-            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex
-                % INDICES_PER_PROPOSER_CHUNK;
+            _beaconProofs.proposerLookaheadProof.proposerLookaheadIndex % INDICES_PER_PROPOSER_CHUNK;
 
         // Extract the u64 little-endian encoded validator index and make it
         // u256 little-endian
