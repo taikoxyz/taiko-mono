@@ -24,7 +24,7 @@ use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::timeout,
+    time::{sleep, timeout},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -662,15 +662,27 @@ where
     }
 
     /// Resolve finalized L1 block metadata and finalized-safe proposal ID.
+    ///
+    /// Polls L1 every 12 seconds until a finalized block becomes available, which avoids
+    /// crash-looping on fresh devnets that have not yet reached finalization.
     #[instrument(skip(self), level = "debug")]
     async fn finalized_l1_snapshot(&self) -> Result<FinalizedL1Snapshot, SyncError> {
-        let finalized_block = require_finalized_block(
-            self.rpc
+        let finalized_block = loop {
+            let block = self
+                .rpc
                 .l1_provider
                 .get_block_by_number(BlockNumberOrTag::Finalized)
                 .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?,
-        )?;
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+            match block {
+                Some(b) => break b,
+                None => {
+                    info!("L1 finalized block not yet available; retrying in 12s");
+                    tokio::time::sleep(Duration::from_secs(12)).await;
+                }
+            }
+        };
 
         let block_hash = finalized_block.header.hash;
         let block_number = finalized_block.header.number;
@@ -877,7 +889,18 @@ where
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
-        let start_point = self.event_stream_start_block().await?;
+        let start_point = loop {
+            match self.event_stream_start_block().await {
+                Ok(start_point) => break start_point,
+                Err(SyncError::MissingFinalizedL1Block) => {
+                    warn!(
+                        "finalized block not available yet; waiting before starting event sync bootstrap"
+                    );
+                    sleep(Duration::from_secs(12)).await;
+                }
+                Err(err) => return Err(err),
+            }
+        };
         let anchor_block_number = start_point.anchor_block_number;
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
