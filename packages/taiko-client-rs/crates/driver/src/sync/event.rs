@@ -105,7 +105,8 @@ fn resolve_confirmed_sync_probe(
 /// Resolve the L2 block number that event sync should use as its resume source.
 ///
 /// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
-/// - Non-checkpoint mode: must use local `head_l1_origin`.
+/// - Non-checkpoint mode: prefer local `head_l1_origin`, otherwise allow genesis fallback (block 0)
+///   for brand-new chains bootstrapped from genesis.
 ///
 /// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
 /// resume point such as `Latest`, which can include local preconfirmation-only blocks.
@@ -113,11 +114,16 @@ fn resolve_resume_head_block_number(
     checkpoint_configured: bool,
     checkpoint_synced_head: Option<u64>,
     head_l1_origin_block_id: Option<u64>,
+    local_head_block_id: Option<u64>,
 ) -> Result<u64, SyncError> {
     if checkpoint_configured {
         checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
     } else {
-        head_l1_origin_block_id.ok_or(SyncError::MissingHeadL1OriginResume)
+        match head_l1_origin_block_id {
+            Some(block_id) => Ok(block_id),
+            None if local_head_block_id == Some(0) => Ok(0),
+            None => Err(SyncError::MissingHeadL1OriginResume),
+        }
     }
 }
 
@@ -603,12 +609,34 @@ where
     /// Important safety behavior:
     /// - If checkpoint mode is enabled, we require the exact checkpoint head that beacon sync
     ///   finished at. This avoids trusting stale local origin pointers.
-    /// - Without checkpoint mode, we require local `head_l1_origin` and fail fast when missing.
-    ///   This avoids deriving proposal IDs from `Latest`, which may include local preconf-only
-    ///   blocks that were never event-confirmed.
+    /// - Without checkpoint mode, we prefer local `head_l1_origin`. If missing on fresh genesis
+    ///   chains (where local head is block 0), we fallback to resume from block 0.
+    ///   Otherwise we fail fast instead of deriving proposal IDs from `Latest`, which may include
+    ///   local preconfirmation-only blocks that were never event-confirmed.
     #[instrument(skip(self), level = "debug")]
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
+
+        let local_head_block_id = if checkpoint_configured {
+            None
+        } else {
+            Some(
+                self.rpc
+                    .l2_provider
+                    .get_block_by_number(BlockNumberOrTag::Latest)
+                    .await
+                    .map_err(|err| {
+                        SyncError::Rpc(RpcClientError::Provider(err.to_string()))
+                    })?
+                    .full()
+                    .await
+                    .map_err(|err| {
+                        SyncError::Rpc(RpcClientError::Provider(err.to_string()))
+                    })?
+                    .map(|block| block.number())
+                    .ok_or(SyncError::MissingExecutionBlock { number: 0 })?,
+            )
+        };
 
         let head_l1_origin_block_id = if checkpoint_configured {
             None
@@ -620,12 +648,23 @@ where
             checkpoint_configured,
             self.checkpoint_resume_head.get(),
             head_l1_origin_block_id,
+            local_head_block_id,
         )?;
 
         if checkpoint_configured {
             info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
         } else {
-            info!(resume_head_block_number, "using local head_l1_origin as event resume source");
+            if head_l1_origin_block_id.is_some() {
+                info!(
+                    resume_head_block_number,
+                    "using local head_l1_origin as event resume source"
+                );
+            } else {
+                info!(
+                    resume_head_block_number,
+                    "using genesis fallback as event resume source (head_l1_origin unavailable)"
+                );
+            }
         }
 
         Ok(resume_head_block_number)
@@ -1113,24 +1152,28 @@ mod tests {
 
     #[test]
     fn resume_head_resolution_requires_checkpoint_state_in_checkpoint_mode() {
-        let err = resolve_resume_head_block_number(true, None, Some(100))
+        let err = resolve_resume_head_block_number(true, None, Some(100), Some(64))
             .expect_err("checkpoint mode should require checkpoint resume state");
         assert!(matches!(err, SyncError::MissingCheckpointResumeHead));
 
-        let resolved = resolve_resume_head_block_number(true, Some(420), None)
+        let resolved = resolve_resume_head_block_number(true, Some(420), None, Some(64))
             .expect("checkpoint resume head should be used when present");
         assert_eq!(resolved, 420);
     }
 
     #[test]
     fn resume_head_resolution_requires_head_l1_origin_without_checkpoint() {
-        let err = resolve_resume_head_block_number(false, Some(999), None)
+        let err = resolve_resume_head_block_number(false, Some(999), None, Some(64))
             .expect_err("non-checkpoint mode should require head_l1_origin");
         assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
 
-        let resolved = resolve_resume_head_block_number(false, None, Some(64))
+        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), Some(64))
             .expect("head_l1_origin should drive resume without checkpoint");
         assert_eq!(resolved, 64);
+
+        let resolved =
+            resolve_resume_head_block_number(false, None, None, Some(0)).expect("genesis fallback");
+        assert_eq!(resolved, 0);
     }
 
     #[test]
