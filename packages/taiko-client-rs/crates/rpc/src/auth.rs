@@ -224,10 +224,23 @@ impl<P: Provider + Clone> Client<P> {
         forkchoice_state: ForkchoiceState,
         payload_attributes: Option<TaikoPayloadAttributes>,
     ) -> Result<ForkchoiceUpdated> {
+        let forkchoice_state = serde_json::to_value(&forkchoice_state)
+            .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+
+        let payload_attributes = match payload_attributes {
+            Some(payload_attributes) => {
+                let mut payload_attributes = serde_json::to_value(&payload_attributes)
+                    .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+                normalize_double_quoted_json_strings(&mut payload_attributes);
+                payload_attributes
+            }
+            None => Value::Null,
+        };
+
         self.l2_auth_provider
             .raw_request(
                 Cow::Borrowed(TaikoEngineMethod::ForkchoiceUpdatedV2.as_str()),
-                (forkchoice_state, payload_attributes),
+                (forkchoice_state, Some(payload_attributes)),
             )
             .await
             .map_err(Into::into)
@@ -257,4 +270,36 @@ where
 {
     let message = err.to_string();
     if is_ignorable_origin_error(&message) { Ok(None) } else { Err(err.into()) }
+}
+
+fn normalize_double_quoted_json_strings(value: &mut Value) {
+    match value {
+        Value::Array(values) => {
+            for value in values {
+                normalize_double_quoted_json_strings(value);
+            }
+        }
+        Value::Object(map) => {
+            for value in map.values_mut() {
+                normalize_double_quoted_json_strings(value);
+            }
+        }
+        Value::String(value) if is_wrapped_json_string(value) => {
+            let unwrapped = value
+                .strip_prefix('"')
+                .and_then(|value| value.strip_suffix('"'))
+                .unwrap_or(value)
+                .to_string();
+            *value = unwrapped;
+        }
+        _ => {}
+    }
+}
+
+fn is_wrapped_json_string(value: &str) -> bool {
+    value.len() > 1
+        && value.starts_with('"')
+        && value.ends_with('"')
+        && (value[1..value.len() - 1].starts_with("0x")
+            || value[1..value.len() - 1].chars().all(|ch| ch.is_ascii_digit()))
 }
