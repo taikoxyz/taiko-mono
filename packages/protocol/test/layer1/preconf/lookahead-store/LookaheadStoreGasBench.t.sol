@@ -3,11 +3,8 @@ pragma solidity ^0.8.24;
 
 /// forge-config: default.isolate = true
 
-<<<<<<< permissionless-preconfs/lookahead-slashing-path
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
-=======
->>>>>>> permissionless-preconfs/rebase
 import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ILookaheadStore } from "src/layer1/preconf/iface/ILookaheadStore.sol";
