@@ -112,7 +112,6 @@ contract L2FeeVaultTest is Test {
         assertEq(vault.feePerGasWei(), 100_000, "fee");
     }
 
-
     function test_feePerGas_usesEffectiveBalanceWithLiabilities() external {
         vm.deal(address(vault), 150 ether);
 
@@ -125,7 +124,11 @@ contract L2FeeVaultTest is Test {
         vault.importProposalFee(data);
 
         assertEq(vault.totalLiabilities(), 75 ether, "liabilities");
-        assertEq(vault.feePerGasWei(), 500_000, "liabilities should reduce effective balance and raise fee");
+        assertEq(
+            vault.feePerGasWei(),
+            500_000,
+            "liabilities should reduce effective balance and raise fee"
+        );
     }
 
     function test_feePerGas_balanceEqualsLiabilitiesIsFullDeficit() external {
@@ -241,20 +244,14 @@ contract L2FeeVaultTest is Test {
         returns (L2FeeVault vault_)
     {
         L2FeeVault impl = new L2FeeVault(
-            _targetBalanceWei,
-            _minFeePerGasWei,
-            _maxFeePerGasWei,
-            _lossReimbursementBps,
-            _kpWad
+            _targetBalanceWei, _minFeePerGasWei, _maxFeePerGasWei, _lossReimbursementBps, _kpWad
         );
         vault_ = L2FeeVault(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
                         address(impl), abi.encodeCall(L2FeeVault.init, (address(this), ANCHOR))
                     )
-                )
-            )
+                ))
         );
     }
 
