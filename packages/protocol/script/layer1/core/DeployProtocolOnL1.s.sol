@@ -201,7 +201,9 @@ contract DeployProtocolOnL1 is DeployCapability {
             // Inbox address is unknown at this point — will upgrade after Inbox deployment.
             lookaheadStoreProxy_ = deployProxy({
                 name: "lookahead_store",
-                impl: address(new LookaheadStore(address(0), config.preconfSlasherL1, whitelist_, config.urc)),
+                impl: address(
+                    new LookaheadStore(address(0), config.preconfSlasherL1, whitelist_, config.urc)
+                ),
                 data: abi.encodeCall(
                     LookaheadStore.init, (config.contractOwner, config.lookaheadOverseer)
                 )
@@ -226,9 +228,14 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Upgrade LookaheadStore with real inbox address now that it's known
         if (config.useLookaheadStore) {
-            LookaheadStore(lookaheadStoreProxy).upgradeTo(
-                address(new LookaheadStore(shastaInbox, config.preconfSlasherL1, whitelist, config.urc))
-            );
+            LookaheadStore(lookaheadStoreProxy)
+                .upgradeTo(
+                    address(
+                        new LookaheadStore(
+                            shastaInbox, config.preconfSlasherL1, whitelist, config.urc
+                        )
+                    )
+                );
             console2.log("LookaheadStore upgraded with inbox address");
         }
     }
