@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ILookaheadStore } from "src/layer1/preconf/iface/ILookaheadStore.sol";
 import { LookaheadStore } from "src/layer1/preconf/impl/LookaheadStore.sol";
@@ -9,13 +10,42 @@ import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants
 import { LibPreconfUtils } from "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
+contract MockURC {
+    function getOperatorData(bytes32) external pure returns (IRegistry.OperatorData memory) {
+        return IRegistry.OperatorData({
+            owner: address(1),
+            collateralWei: 1 ether,
+            numKeys: 1,
+            registeredAt: 1,
+            unregisteredAt: 0,
+            slashedAt: 0,
+            deleted: false,
+            equivocated: false
+        });
+    }
+
+    function getSlasherCommitment(
+        bytes32,
+        address
+    )
+        external
+        pure
+        returns (IRegistry.SlasherCommitment memory)
+    {
+        return IRegistry.SlasherCommitment({
+            committer: address(1), optedInAt: 1, optedOutAt: 0, slashed: false
+        });
+    }
+}
+
 contract LookaheadStoreHarness is LookaheadStore {
     constructor(
         address _inbox,
         address _preconfSlasherL1,
-        address _preconfWhitelist
+        address _preconfWhitelist,
+        address _urc
     )
-        LookaheadStore(_inbox, _preconfSlasherL1, _preconfWhitelist)
+        LookaheadStore(_inbox, _preconfSlasherL1, _preconfWhitelist, _urc)
     { }
 
     function setLookaheadHash(uint256 _epochTimestamp, bytes26 _hash) external {
@@ -40,6 +70,7 @@ contract TestLookaheadStore is CommonTest {
     address internal preconfSlasherL1;
     address internal inbox;
     address internal preconfWhitelist;
+    address internal urc;
 
     uint256 internal constant EPOCH_OFFSET = 10_000;
     uint256 internal constant EPOCH_START = EPOCH_OFFSET * LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -49,9 +80,10 @@ contract TestLookaheadStore is CommonTest {
         preconfSlasherL1 = makeAddr("preconfSlasherL1");
         inbox = makeAddr("inbox");
         preconfWhitelist = makeAddr("preconfWhitelist");
+        urc = address(new MockURC());
 
         LookaheadStoreHarness impl =
-            new LookaheadStoreHarness(inbox, preconfSlasherL1, preconfWhitelist);
+            new LookaheadStoreHarness(inbox, preconfSlasherL1, preconfWhitelist, urc);
         lookaheadStore = LookaheadStoreHarness(
             address(
                 new ERC1967Proxy(
