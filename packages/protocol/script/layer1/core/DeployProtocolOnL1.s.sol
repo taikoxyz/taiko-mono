@@ -18,6 +18,7 @@ import "src/layer1/mainnet/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
+import "src/layer1/preconf/impl/LookaheadStore.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
@@ -58,6 +59,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 minBond;
         uint64 livenessBond;
         uint48 withdrawalDelay;
+        bool useLookaheadStore;
+        address lookaheadOverseer;
+        address preconfSlasherL1;
+        address urc;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -84,7 +89,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         address proofVerifier = _deployProofVerifier(verifiers, config.useDummyVerifiers);
 
         // Deploy rollup contracts (handles SignalService deployment/registration)
-        address shastaInbox = _deployRollupContracts(sharedResolver, config, proofVerifier);
+        (address shastaInbox, address lookaheadStore) =
+            _deployRollupContracts(sharedResolver, config, proofVerifier);
 
         // Deploy bridge and vaults now that SignalService is finalized
         _deployBridge(sharedResolver, config);
@@ -96,7 +102,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         // Transfer ownership to contract owner
-        _transferOwnerships(sharedResolver, shastaInbox, config.contractOwner);
+        _transferOwnerships(sharedResolver, shastaInbox, lookaheadStore, config.contractOwner);
     }
 
     function _loadConfig() private view returns (DeploymentConfig memory config) {
@@ -113,6 +119,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.minBond = uint64(vm.envOr("MIN_BOND_GWEI", uint256(0)));
         config.livenessBond = uint64(vm.envOr("LIVENESS_BOND_GWEI", uint256(0)));
         config.withdrawalDelay = uint48(vm.envOr("WITHDRAWAL_DELAY", uint256(0)));
+        config.useLookaheadStore = vm.envOr("USE_LOOKAHEAD_STORE", false);
+        config.lookaheadOverseer = vm.envOr("LOOKAHEAD_OVERSEER", address(0));
+        config.preconfSlasherL1 = vm.envOr("PRECONF_SLASHER_L1", address(0));
+        config.urc = vm.envOr("URC", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -167,28 +177,78 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
     }
 
+    function _deployProposerChecker(DeploymentConfig memory config)
+        private
+        returns (address proposerChecker_, address whitelist_, address lookaheadStoreProxy_)
+    {
+        // Deploy preconf whitelist (always needed — LookaheadStore uses it for fallback)
+        whitelist_ = config.preconfWhitelist;
+        if (whitelist_ == address(0)) {
+            whitelist_ = deployProxy({
+                name: "preconf_whitelist",
+                impl: address(new PreconfWhitelist()),
+                data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
+            });
+        } else {
+            PreconfWhitelist(whitelist_).upgradeTo(address(new PreconfWhitelist()));
+        }
+
+        PreconfWhitelist(whitelist_).addOperator(config.proposerAddress, config.proposerAddress);
+
+        proposerChecker_ = whitelist_;
+        if (config.useLookaheadStore) {
+            // Deploy LookaheadStore proxy with temp implementation.
+            // Inbox address is unknown at this point — will upgrade after Inbox deployment.
+            lookaheadStoreProxy_ = deployProxy({
+                name: "lookahead_store",
+                impl: address(
+                    new LookaheadStore(address(0), config.preconfSlasherL1, whitelist_, config.urc)
+                ),
+                data: abi.encodeCall(
+                    LookaheadStore.init, (config.contractOwner, config.lookaheadOverseer)
+                )
+            });
+            proposerChecker_ = lookaheadStoreProxy_;
+            console2.log("LookaheadStore proxy deployed:", lookaheadStoreProxy_);
+        }
+    }
+
     function _deployRollupContracts(
         address sharedResolver,
         DeploymentConfig memory config,
         address proofVerifier
     )
         private
+        returns (address shastaInbox, address lookaheadStoreProxy)
+    {
+        (address proposerChecker, address whitelist,) = _deployProposerChecker(config);
+        lookaheadStoreProxy = proposerChecker != whitelist ? proposerChecker : address(0);
+
+        shastaInbox = _deployInbox(sharedResolver, config, proofVerifier, proposerChecker);
+
+        // Upgrade LookaheadStore with real inbox address now that it's known
+        if (config.useLookaheadStore) {
+            LookaheadStore(lookaheadStoreProxy)
+                .upgradeTo(
+                    address(
+                        new LookaheadStore(
+                            shastaInbox, config.preconfSlasherL1, whitelist, config.urc
+                        )
+                    )
+                );
+            console2.log("LookaheadStore upgraded with inbox address");
+        }
+    }
+
+    function _deployInbox(
+        address sharedResolver,
+        DeploymentConfig memory config,
+        address proofVerifier,
+        address proposerChecker
+    )
+        private
         returns (address shastaInbox)
     {
-        // Deploy whitelist
-        address whitelist = config.preconfWhitelist;
-        if (whitelist == address(0)) {
-            whitelist = deployProxy({
-                name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
-            });
-        } else {
-            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
-        }
-
-        PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
-
         // Deploy prover whitelist
         address proverWhitelist = deployProxy({
             name: "prover_whitelist",
@@ -221,7 +281,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(
                 new DevnetInbox(
                     proofVerifier,
-                    whitelist,
+                    proposerChecker,
                     proverWhitelist,
                     signalService,
                     taikoToken,
@@ -251,6 +311,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     function _transferOwnerships(
         address sharedResolver,
         address shastaInbox,
+        address lookaheadStore,
         address newOwner
     )
         private
@@ -262,6 +323,11 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         Ownable2StepUpgradeable(shastaInbox).transferOwnership(newOwner);
         console2.log("ShastaInbox ownership transferred to:", newOwner);
+
+        if (lookaheadStore != address(0)) {
+            Ownable2StepUpgradeable(lookaheadStore).transferOwnership(newOwner);
+            console2.log("LookaheadStore ownership transferred to:", newOwner);
+        }
     }
 
     function deploySharedContracts(DeploymentConfig memory config)
