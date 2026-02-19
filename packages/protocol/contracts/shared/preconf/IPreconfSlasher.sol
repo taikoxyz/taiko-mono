@@ -1,86 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IRegistry } from "@eth-fabric/urc/IRegistry.sol";
-import { BLS } from "@solady/src/utils/ext/ithaca/BLS.sol";
-import { LibEIP4788 } from "src/layer1/preconf/libs/LibEIP4788.sol";
-
 /// @title IPreconfSlasher
 /// @dev Contains entities that are shared by both PreconfSlasherL1 and PreconfSlasherL2
 /// @custom:security-contact security@taiko.xyz
 interface IPreconfSlasher {
-    // ---------------------------------------------------------------
-    // Common
-    // ---------------------------------------------------------------
-
-    /// @dev Used as the first byte of the evidence to identify the slashing path
-    enum SlashingPath {
-        Lookahead,
-        Preconfirmation
-    }
-
-    /// @dev Slashing amounts for different fault types
-    struct SlashingAmounts {
-        // Amount slashed for an invalid lookahead
-        uint256 invalidLookahead;
-        // Amount slashed for a preconfirmation liveness fault
-        uint256 preconfLivenessFault;
-        // Amount slashed for a preconfirmation safety fault
-        uint256 preconfSafetyFault;
-    }
-
-    // ---------------------------------------------------------------
-    // Lookahead fault
-    // ---------------------------------------------------------------
-
-    /// @dev Used as the second byte of the lookahead evidence to identify the fault type
-    enum LookaheadFault {
-        InactiveOperator,
-        InvalidValidatorLeafIndex,
-        InvalidOperator,
-        MissingOperator
-    }
-
-    /// @dev Evidence containing the invalid lookahead with the index and timestamp
-    // of the invalid slot
-    struct LookaheadEvidence {
-        // Timestamp of the invalid slot
-        uint256 slotTimestamp;
-        // Index of the lookahead entry that covers the invalid slot
-        uint256 slotIndex;
-        // The encoded lookahead bytes (from LibLookaheadEncoder)
-        bytes encodedLookahead;
-    }
-
-    /// @dev Evidence containing the proof of inclusion of the validator pub key at
-    /// `LookaheadEvidence.slotTimestamp` in beacon lookahead.
-    struct BeaconValidatorEvidence {
-        // BLS pub key of the validator present within beacon lookahead
-        // at `LookaheadEvidence.slotTimestamp`
-        BLS.G1Point beaconValidatorPubKey;
-        // Beacon chain merkle proofs for validator inclusion
-        LibEIP4788.BeaconProofs beaconProofs;
-    }
-
-    /// @dev Evidence containing `invalidOperatorValidatorPubKey` that is a part of operator
-    /// registrations in the URC, but does not match the beacon validator pub key at the
-    /// invalid lookahead slot.
-    struct InvalidOperatorEvidence {
-        // BLS pub key of the validator registered to the operator in the URC and located at
-        // `ILookaheadStore.LookaheadSlot.validatorLeafIndex` within `operatorRegistrations`
-        BLS.G1Point invalidOperatorValidatorPubKey;
-        // An array containing all validator registrations for the operator in the URC
-        IRegistry.SignedRegistration[] operatorRegistrations;
-    }
-
-    /// @dev Evidence suggesting that `beaconValidatorPubKey` is registered to a valid
-    /// opted-in operator in the URC
-    struct MissingOperatorEvidence {
-        // URC registration proof signifying that `BeaconValidatorEvidence.beaconValidatorPubKey`
-        // belongs to a valid opted-in URC operator
-        IRegistry.RegistrationProof operatorRegistrationProof;
-    }
-
     // ---------------------------------------------------------------
     // Preconfirmation fault
     // ---------------------------------------------------------------
