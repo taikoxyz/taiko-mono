@@ -23,11 +23,27 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     address public immutable inbox;
     address public immutable preconfWhitelist;
 
+    /// @dev EIP-712 domain separator caching.
+    bytes32 private _cachedDomainSeparator;
+    uint256 private _cachedChainId;
+    address private _cachedThis;
+
+    bytes32 private constant _EIP712_DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant _NAME_HASH = keccak256(bytes("LookaheadStore"));
+    bytes32 private constant _VERSION_HASH = keccak256(bytes("1"));
+
+    /// @dev Typed data signed by lookahead posters (URC operators).
+    /// We include context (_nextEpochTimestamp and _registrationRoot) and hash dynamic payload.
+    bytes32 private constant _LOOKAHEAD_COMMITMENT_TYPEHASH = keccak256(
+        "LookaheadCommitment(uint256 nextEpochTimestamp,bytes32 registrationRoot,uint8 commitmentType,bytes32 payloadHash,address slasher)"
+    );
+
     // Lookahead buffer that stores the hashed lookahead entries for an epoch
     mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => LookaheadHash lookaheadHash) public
         lookahead;
 
-    uint256[49] private __gap;
+    uint256[46] private __gap;
 
     constructor(
         address _urc,
@@ -48,6 +64,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
+        _cacheDomainSeparator();
     }
 
     /// @inheritdoc IProposerChecker
@@ -424,6 +441,27 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
     // Internal functions
     // --------------------------------------------------------------------
+
+    function _cacheDomainSeparator() private {
+        _cachedChainId = block.chainid;
+        _cachedThis = address(this);
+        _cachedDomainSeparator = _buildDomainSeparator();
+    }
+
+    function _domainSeparatorV4() private view returns (bytes32) {
+        if (address(this) == _cachedThis && block.chainid == _cachedChainId) {
+            return _cachedDomainSeparator;
+        }
+        return _buildDomainSeparator();
+    }
+
+    function _buildDomainSeparator() private view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                _EIP712_DOMAIN_TYPEHASH, _NAME_HASH, _VERSION_HASH, block.chainid, address(this)
+            )
+        );
+    }
 
     function _updateLookahead(
         uint256 _nextEpochTimestamp,
