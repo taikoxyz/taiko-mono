@@ -90,7 +90,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     // --------------------------------------------------------------------------
 
     function _validateLookaheadEvidence(
-        bytes calldata _evidenceLookaheadBytes,
+        bytes memory _evidenceLookaheadBytes,
         ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
     )
         internal
@@ -101,10 +101,8 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             ILookaheadStore.LookaheadSlot memory lookaheadSlot_
         )
     {
-        EvidenceLookahead calldata evidenceLookahead;
-        assembly {
-            evidenceLookahead := _evidenceLookaheadBytes.offset
-        }
+        EvidenceLookahead memory evidenceLookahead =
+            abi.decode(_evidenceLookaheadBytes, (EvidenceLookahead));
 
         slotTimestamp_ = evidenceLookahead.slotTimestamp;
         uint256 epochTimestamp = LibPreconfUtils.getEpochtimestampForSlot(slotTimestamp_);
@@ -139,16 +137,14 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     function _validateBeaconValidatorEvidence(
         uint256 _previousEpochTimestamp,
         uint256 _slotTimestamp,
-        bytes calldata _evidenceBeaconValidatorBytes
+        bytes memory _evidenceBeaconValidatorBytes
     )
         internal
         view
-        returns (BLS.G1Point calldata beaconLookaheadValPubKey_)
+        returns (BLS.G1Point memory beaconLookaheadValPubKey_)
     {
-        EvidenceBeaconValidator calldata evidenceBeaconValidator;
-        assembly {
-            evidenceBeaconValidator := add(_evidenceBeaconValidatorBytes.offset, 0x20)
-        }
+        EvidenceBeaconValidator memory evidenceBeaconValidator =
+            abi.decode(_evidenceBeaconValidatorBytes, (EvidenceBeaconValidator));
 
         // The index of the beacon lookahead slot containing our beacon validator.
         // Given the `_previousEpochTimestamp` is the timestamp of the epoch preceding the one
@@ -172,16 +168,14 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
     function _validateInvalidOperatorEvidence(
         ILookaheadStore.LookaheadSlot memory _lookaheadSlot,
-        BLS.G1Point calldata _beaconLookaheadValPubKey,
-        bytes calldata _evidenceInvalidOperatorBytes
+        BLS.G1Point memory _beaconLookaheadValPubKey,
+        bytes memory _evidenceInvalidOperatorBytes
     )
         internal
         view
     {
-        EvidenceInvalidOperator calldata evidenceInvalidOperator;
-        assembly {
-            evidenceInvalidOperator := add(_evidenceInvalidOperatorBytes.offset, 0x20)
-        }
+        EvidenceInvalidOperator memory evidenceInvalidOperator =
+            abi.decode(_evidenceInvalidOperatorBytes, (EvidenceInvalidOperator));
 
         // Verify that `preconfLookaheadValPubKey` is the validator present in the preconf lookahead
         // at the problematic slot
@@ -216,20 +210,18 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
     function _validateMissingOperatorEvidence(
         uint256 _previousEpochTimestamp,
-        BLS.G1Point calldata _beaconLookaheadValPubKey,
-        bytes calldata _evidenceMissingOperatorBytes
+        BLS.G1Point memory _beaconLookaheadValPubKey,
+        bytes memory _evidenceMissingOperatorBytes
     )
         internal
         view
     {
-        EvidenceMissingOperator calldata evidenceMissingOperator;
-        assembly {
-            evidenceMissingOperator := add(_evidenceMissingOperatorBytes.offset, 0x20)
-        }
+        EvidenceMissingOperator memory evidenceMissingOperator =
+            abi.decode(_evidenceMissingOperatorBytes, (EvidenceMissingOperator));
 
         // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
-        IRegistry.RegistrationProof calldata registrationProof =
-        evidenceMissingOperator.operatorRegistrationProof;
+        IRegistry.RegistrationProof memory registrationProof =
+            evidenceMissingOperator.operatorRegistrationProof;
         require(
             _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
@@ -261,26 +253,4 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         return _a.x_a == _b.x_a && _a.x_b == _b.x_b && _a.y_a == _b.y_a && _a.y_b == _b.y_b;
     }
 
-    function _decodeEvidenceTuple(bytes calldata _evidence)
-        internal
-        pure
-        returns (bytes calldata x, bytes calldata y, bytes calldata z)
-    {
-        assembly {
-            let xOuterOffset := calldataload(_evidence.offset)
-            xOuterOffset := add(_evidence.offset, xOuterOffset)
-            x.length := calldataload(xOuterOffset)
-            x.offset := add(xOuterOffset, 0x20)
-
-            let yOuterOffset := calldataload(add(_evidence.offset, 0x20))
-            yOuterOffset := add(_evidence.offset, yOuterOffset)
-            y.length := calldataload(yOuterOffset)
-            y.offset := add(yOuterOffset, 0x20)
-
-            let zOuterOffset := calldataload(add(_evidence.offset, 0x40))
-            zOuterOffset := add(_evidence.offset, zOuterOffset)
-            z.length := calldataload(zOuterOffset)
-            z.offset := add(zOuterOffset, 0x20)
-        }
-    }
 }
