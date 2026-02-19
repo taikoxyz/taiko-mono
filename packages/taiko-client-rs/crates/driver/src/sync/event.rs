@@ -53,6 +53,8 @@ use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+const FINALITY_POLL_INTERVAL_SECS: u64 = 12;
+const FINALITY_POLL_INTERVAL: Duration = Duration::from_secs(FINALITY_POLL_INTERVAL_SECS);
 
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
@@ -114,14 +116,14 @@ fn resolve_resume_head_block_number(
     checkpoint_configured: bool,
     checkpoint_synced_head: Option<u64>,
     head_l1_origin_block_id: Option<u64>,
-    local_head_block_id: Option<u64>,
+    local_head_is_genesis: bool,
 ) -> Result<u64, SyncError> {
     if checkpoint_configured {
         checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
     } else {
         match head_l1_origin_block_id {
             Some(block_id) => Ok(block_id),
-            None if local_head_block_id == Some(0) => Ok(0),
+            None if local_head_is_genesis => Ok(0),
             None => Err(SyncError::MissingHeadL1OriginResume),
         }
     }
@@ -617,29 +619,27 @@ where
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
 
-        let local_head_block_id = if checkpoint_configured {
-            None
-        } else {
-            Some(
-                self.rpc
-                    .l2_provider
-                    .get_block_number()
-                    .await
-                    .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?,
-            )
-        };
-
         let head_l1_origin_block_id = if checkpoint_configured {
             None
         } else {
             self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>())
+        };
+        let local_head_is_genesis = if checkpoint_configured || head_l1_origin_block_id.is_some() {
+            false
+        } else {
+            self.rpc
+                .l2_provider
+                .get_block_number()
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                == 0
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(
             checkpoint_configured,
             self.checkpoint_resume_head.get(),
             head_l1_origin_block_id,
-            local_head_block_id,
+            local_head_is_genesis,
         )?;
 
         if checkpoint_configured {
@@ -678,8 +678,11 @@ where
             match block {
                 Some(b) => break b,
                 None => {
-                    info!("L1 finalized block not yet available; retrying in 12s");
-                    tokio::time::sleep(Duration::from_secs(12)).await;
+                    info!(
+                        poll_interval_secs = FINALITY_POLL_INTERVAL_SECS,
+                        "L1 finalized block not yet available; retrying"
+                    );
+                    tokio::time::sleep(FINALITY_POLL_INTERVAL).await;
                 }
             }
         };
@@ -896,7 +899,7 @@ where
                     warn!(
                         "finalized block not available yet; waiting before starting event sync bootstrap"
                     );
-                    sleep(Duration::from_secs(12)).await;
+                    sleep(FINALITY_POLL_INTERVAL).await;
                 }
                 Err(err) => return Err(err),
             }
@@ -1166,27 +1169,27 @@ mod tests {
 
     #[test]
     fn resume_head_resolution_requires_checkpoint_state_in_checkpoint_mode() {
-        let err = resolve_resume_head_block_number(true, None, Some(100), Some(64))
+        let err = resolve_resume_head_block_number(true, None, Some(100), false)
             .expect_err("checkpoint mode should require checkpoint resume state");
         assert!(matches!(err, SyncError::MissingCheckpointResumeHead));
 
-        let resolved = resolve_resume_head_block_number(true, Some(420), None, Some(64))
+        let resolved = resolve_resume_head_block_number(true, Some(420), None, false)
             .expect("checkpoint resume head should be used when present");
         assert_eq!(resolved, 420);
     }
 
     #[test]
     fn resume_head_resolution_requires_head_l1_origin_without_checkpoint() {
-        let err = resolve_resume_head_block_number(false, Some(999), None, Some(64))
+        let err = resolve_resume_head_block_number(false, Some(999), None, false)
             .expect_err("non-checkpoint mode should require head_l1_origin");
         assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
 
-        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), Some(64))
+        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), false)
             .expect("head_l1_origin should drive resume without checkpoint");
         assert_eq!(resolved, 64);
 
         let resolved =
-            resolve_resume_head_block_number(false, None, None, Some(0)).expect("genesis fallback");
+            resolve_resume_head_block_number(false, None, None, true).expect("genesis fallback");
         assert_eq!(resolved, 0);
     }
 
