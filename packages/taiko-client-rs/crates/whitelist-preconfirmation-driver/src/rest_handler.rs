@@ -520,7 +520,9 @@ where
             .get(&current_epoch)
             .copied()
             .map(|hash| hash.to_string());
-        let sync_ready = head_l1_origin_block_id.is_some();
+        // sync_ready reflects ingress readiness, which already includes the confirmed-sync
+        // and scanner-live checks required by the event syncer.
+        let sync_ready = self.event_syncer.is_preconf_ingress_ready();
 
         Ok(WhitelistStatus {
             head_l1_origin_block_id,

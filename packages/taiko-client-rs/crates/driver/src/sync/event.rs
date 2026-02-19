@@ -260,17 +260,12 @@ where
                 let router_guard = router.lock().await;
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
+                // On genesis chains head_l1_origin is not yet written; default to 0 so
+                // the staleness check passes for any block_number >= 1.  This matches the
+                // Go driver's `checkMessageBlockNumber` which skips the check when nil.
                 let head_l1_origin_block_id = match rpc.head_l1_origin().await {
                     Ok(Some(origin)) => origin.block_id.to::<u64>(),
-                    Ok(None) => {
-                        warn!(
-                            block_number,
-                            "rejecting preconfirmation payload in ingress loop: head_l1_origin missing"
-                        );
-                        let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                        continue;
-                    }
+                    Ok(None) => 0,
                     Err(err) => {
                         error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
                         let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
@@ -502,6 +497,13 @@ where
         }
     }
 
+    /// Returns whether preconfirmation ingress is currently ready.
+    ///
+    /// This mirrors the internal readiness signal used by the strict ingress gate.
+    pub fn is_preconf_ingress_ready(&self) -> bool {
+        self.preconf_ingress_ready.load(Ordering::Acquire)
+    }
+
     /// Submit a preconfirmation payload and await the processing result.
     pub async fn submit_preconfirmation_payload(
         &self,
@@ -528,15 +530,11 @@ where
         }
 
         let block_number = payload.block_number();
+        // On genesis chains head_l1_origin is not yet written; default to 0 so
+        // the staleness check passes for any block_number >= 1.
         let head_l1_origin_block_id = match self.rpc.head_l1_origin().await? {
             Some(origin) => origin.block_id.to::<u64>(),
-            None => {
-                warn!(
-                    block_number,
-                    "rejecting preconfirmation payload before enqueue: head_l1_origin missing"
-                );
-                return Err(DriverError::PreconfIngressNotReady);
-            }
+            None => 0,
         };
         if is_stale_preconf(block_number, head_l1_origin_block_id) {
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
