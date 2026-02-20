@@ -4,7 +4,7 @@ use std::{collections::HashSet, sync::Arc, time::Instant};
 use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
-    dns, Multiaddr, PeerId, Swarm, Transport, core::upgrade, gossipsub, identify, identity, noise,
+    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identify, identity, noise,
     ping, swarm::NetworkBehaviour, tcp, yamux,
 };
 use preconfirmation_net::{P2pConfig, spawn_discovery};
@@ -225,8 +225,7 @@ impl WhitelistNetwork {
 
         let noise_config = noise::Config::new(&local_key).map_err(to_p2p_err)?;
         let base_tcp = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
-        let tcp_with_dns =
-            dns::tokio::Transport::system(base_tcp).map_err(to_p2p_err)?;
+        let tcp_with_dns = dns::tokio::Transport::system(base_tcp).map_err(to_p2p_err)?;
         let transport = tcp_with_dns
             .upgrade(upgrade::Version::V1Lazy)
             .authenticate(noise_config)
