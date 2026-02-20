@@ -53,10 +53,8 @@ use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
-/// Poll interval in seconds used to retry waiting for finalized L1 snapshots.
-const FINALITY_POLL_INTERVAL_SECS: u64 = 12;
 /// Poll interval used to retry waiting for finalized L1 snapshots.
-const FINALITY_POLL_INTERVAL: Duration = Duration::from_secs(FINALITY_POLL_INTERVAL_SECS);
+const FINALITY_POLL_INTERVAL: Duration = Duration::from_secs(12);
 
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
@@ -131,11 +129,6 @@ fn resolve_resume_head_block_number(
     }
 }
 
-/// Return the smaller of the local resume proposal and finalized-safe proposal.
-fn resolve_target_proposal_id(resume_proposal_id: u64, finalized_safe_proposal_id: u64) -> u64 {
-    resume_proposal_id.min(finalized_safe_proposal_id)
-}
-
 /// Select scanner start block when the resolved target proposal id is zero.
 ///
 /// - If finalized-safe proposal id is zero, scanner can safely start from finalized L1 block.
@@ -147,10 +140,22 @@ fn resolve_zero_target_start_block(
     if finalized_safe_proposal_id == 0 { finalized_block_number } else { 0 }
 }
 
-/// Convert missing finalized block responses into an explicit fail-closed sync error.
-#[cfg(test)]
-fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
-    value.ok_or(SyncError::MissingFinalizedL1Block)
+/// Resolve the target proposal id and finalized-safe proposal id, accounting for the
+/// finalized snapshot being unavailable on fresh chains.
+///
+/// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
+/// - When finalization is unavailable and `resume_proposal_id == 0` (genesis), target is 0.
+/// - When finalization is unavailable and `resume_proposal_id > 0`, finalization is required
+///   and a `MissingFinalizedL1Block` error is returned.
+fn resolve_target_with_optional_finalization(
+    resume_proposal_id: u64,
+    finalized_safe_proposal_id: Option<u64>,
+) -> Result<(u64, u64), SyncError> {
+    match finalized_safe_proposal_id {
+        Some(safe_id) => Ok((resume_proposal_id.min(safe_id), safe_id)),
+        None if resume_proposal_id == 0 => Ok((0, 0)),
+        None => Err(SyncError::MissingFinalizedL1Block),
+    }
 }
 
 /// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
@@ -657,30 +662,22 @@ where
         Ok(resume_head_block_number)
     }
 
-    /// Resolve finalized L1 block metadata and finalized-safe proposal ID.
+    /// Try to resolve finalized L1 block metadata and finalized-safe proposal ID.
     ///
-    /// Polls L1 every 12 seconds until a finalized block becomes available, which avoids
-    /// crash-looping on fresh devnets that have not yet reached finalization.
+    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
     #[instrument(skip(self), level = "debug")]
-    async fn finalized_l1_snapshot(&self) -> Result<FinalizedL1Snapshot, SyncError> {
-        let finalized_block = loop {
-            let block = self
-                .rpc
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Finalized)
-                .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+    async fn try_finalized_l1_snapshot(
+        &self,
+    ) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
+        let finalized_block = self
+            .rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Finalized)
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
-            match block {
-                Some(b) => break b,
-                None => {
-                    info!(
-                        poll_interval_secs = FINALITY_POLL_INTERVAL_SECS,
-                        "L1 finalized block not yet available; retrying"
-                    );
-                    tokio::time::sleep(FINALITY_POLL_INTERVAL).await;
-                }
-            }
+        let Some(finalized_block) = finalized_block else {
+            return Ok(None);
         };
 
         let block_hash = finalized_block.header.hash;
@@ -696,14 +693,13 @@ where
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
         let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
-        Ok(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id })
+        Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
     #[instrument(skip(self), level = "debug")]
     async fn event_stream_start_block(&self) -> Result<EventStreamStartPoint, SyncError> {
         let resume_head_block_number = self.resume_head_block_number().await?;
-        let finalized_snapshot = self.finalized_l1_snapshot().await?;
         let resume_head_block = self
             .rpc
             .l2_provider
@@ -716,30 +712,50 @@ where
 
         let anchor_address = *self.rpc.shasta.anchor.address();
         let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
-        let target_proposal_id = resolve_target_proposal_id(
-            resume_proposal_id,
-            finalized_snapshot.finalized_safe_proposal_id,
-        );
+
+        // Try to get finalized snapshot. When unavailable and resume is at genesis,
+        // proceed without waiting so fresh devnets can start immediately.
+        let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
+
+        let (target_proposal_id, finalized_safe_proposal_id) =
+            resolve_target_with_optional_finalization(
+                resume_proposal_id,
+                finalized_snapshot.as_ref().map(|s| s.finalized_safe_proposal_id),
+            )?;
+        let start_block = if target_proposal_id == 0 {
+            finalized_snapshot
+                .as_ref()
+                .map_or(0, |snapshot| {
+                    resolve_zero_target_start_block(
+                        snapshot.finalized_safe_proposal_id,
+                        snapshot.block_number,
+                    )
+                })
+        } else {
+            0
+        };
+        let (finalized_block_number, finalized_block_hash) = if let Some(snapshot) = finalized_snapshot {
+            (Some(snapshot.block_number), Some(snapshot.block_hash))
+        } else {
+            (None, None)
+        };
+
         info!(
             resume_proposal_id,
-            finalized_safe_proposal_id = finalized_snapshot.finalized_safe_proposal_id,
-            finalized_block_number = finalized_snapshot.block_number,
-            finalized_block_hash = ?finalized_snapshot.block_hash,
+            finalized_safe_proposal_id,
+            finalized_block_number,
+            finalized_block_hash = ?finalized_block_hash,
             target_proposal_id,
             resume_hash = ?resume_head_block.hash(),
             resume_number = resume_head_block.number(),
             "selected finalized-bounded proposal id from resume-source anchor metadata",
         );
         if target_proposal_id == 0 {
-            let start_block = resolve_zero_target_start_block(
-                finalized_snapshot.finalized_safe_proposal_id,
-                finalized_snapshot.block_number,
-            );
             info!(
                 start_block,
                 target_proposal_id,
-                finalized_safe_proposal_id = finalized_snapshot.finalized_safe_proposal_id,
-                finalized_block_number = finalized_snapshot.block_number,
+                finalized_safe_proposal_id,
+                finalized_block_number,
                 "resolved zero-target scanner start block",
             );
             return Ok(EventStreamStartPoint {
@@ -1199,18 +1215,6 @@ mod tests {
     }
 
     #[test]
-    fn target_proposal_id_is_bounded_by_finalized_safe_id_when_resume_is_ahead() {
-        let target = resolve_target_proposal_id(120, 90);
-        assert_eq!(target, 90);
-    }
-
-    #[test]
-    fn target_proposal_id_keeps_resume_id_when_resume_is_behind_finalized_safe() {
-        let target = resolve_target_proposal_id(90, 120);
-        assert_eq!(target, 90);
-    }
-
-    #[test]
     fn zero_target_uses_finalized_block_when_finalized_safe_is_zero() {
         let start_block = resolve_zero_target_start_block(0, 4_096);
         assert_eq!(start_block, 4_096);
@@ -1222,10 +1226,37 @@ mod tests {
         assert_eq!(start_block, 0);
     }
 
+    // -- resolve_target_with_optional_finalization tests --
+
     #[test]
-    fn missing_finalized_block_is_fail_closed() {
-        let err = require_finalized_block::<u64>(None)
-            .expect_err("missing finalized block must fail closed with explicit sync error");
+    fn genesis_resume_without_finalization_returns_zero_target() {
+        let (target, safe) = resolve_target_with_optional_finalization(0, None)
+            .expect("genesis resume without finalization should succeed");
+        assert_eq!(target, 0);
+        assert_eq!(safe, 0);
+    }
+
+    #[test]
+    fn nonzero_resume_without_finalization_requires_finalized_block() {
+        let err = resolve_target_with_optional_finalization(5, None)
+            .expect_err("non-genesis resume without finalization must fail");
         assert!(matches!(err, SyncError::MissingFinalizedL1Block));
     }
+
+    #[test]
+    fn with_finalization_target_is_bounded_by_finalized_safe() {
+        let (target, safe) = resolve_target_with_optional_finalization(120, Some(90))
+            .expect("with finalization should succeed");
+        assert_eq!(target, 90);
+        assert_eq!(safe, 90);
+    }
+
+    #[test]
+    fn with_finalization_target_keeps_resume_when_behind() {
+        let (target, safe) = resolve_target_with_optional_finalization(50, Some(120))
+            .expect("with finalization should succeed");
+        assert_eq!(target, 50);
+        assert_eq!(safe, 120);
+    }
+
 }
