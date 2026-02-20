@@ -24,7 +24,7 @@ use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::{sleep, timeout},
+    time::timeout,
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -53,9 +53,6 @@ use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
-/// Poll interval used to retry waiting for finalized L1 snapshots.
-const FINALITY_POLL_INTERVAL: Duration = Duration::from_secs(12);
-
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -140,21 +137,33 @@ fn resolve_zero_target_start_block(
     if finalized_safe_proposal_id == 0 { finalized_block_number } else { 0 }
 }
 
+/// Maximum L1 head height at which missing finalization is expected (2 beacon epochs).
+///
+/// Below this threshold the chain is too young to have finalized and a genesis-replay
+/// fallback is safe (at most ~64 L1 blocks to scan).
+const FINALIZATION_EXPECTATION_THRESHOLD: u64 = 64;
+
 /// Resolve the target proposal id and finalized-safe proposal id, accounting for the
 /// finalized snapshot being unavailable on fresh chains.
 ///
 /// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
-/// - When finalization is unavailable and `resume_proposal_id == 0` (genesis), target is 0.
-/// - When finalization is unavailable and `resume_proposal_id > 0`, finalization is required and a
-///   `MissingFinalizedL1Block` error is returned.
+/// - When finalization is unavailable and the L1 chain is young (head < 2 epochs), both
+///   values reset to 0. This triggers a full scan from genesis which is trivially cheap.
+/// - When finalization is unavailable but the L1 chain is mature (head >= 2 epochs), a
+///   `MissingFinalizedL1Block` error is returned to fail fast instead of silently replaying
+///   from an untrusted genesis path.
 fn resolve_target_with_optional_finalization(
     resume_proposal_id: u64,
     finalized_safe_proposal_id: Option<u64>,
+    l1_head_block_number: u64,
 ) -> Result<(u64, u64), SyncError> {
     match finalized_safe_proposal_id {
         Some(safe_id) => Ok((resume_proposal_id.min(safe_id), safe_id)),
-        None if resume_proposal_id == 0 => Ok((0, 0)),
-        None => Err(SyncError::MissingFinalizedL1Block),
+        None if l1_head_block_number < FINALIZATION_EXPECTATION_THRESHOLD => Ok((0, 0)),
+        None => Err(SyncError::MissingFinalizedL1Block {
+            l1_head_block_number,
+            resume_proposal_id,
+        }),
     }
 }
 
@@ -711,14 +720,21 @@ where
         let anchor_address = *self.rpc.shasta.anchor.address();
         let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
 
-        // Try to get finalized snapshot. When unavailable and resume is at genesis,
-        // proceed without waiting so fresh devnets can start immediately.
+        // Try to get finalized snapshot. When unavailable on a young L1 (< 2 epochs),
+        // fall back to genesis replay. On mature chains, fail fast.
         let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
+        let l1_head_block_number = self
+            .rpc
+            .l1_provider
+            .get_block_number()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
         let (target_proposal_id, finalized_safe_proposal_id) =
             resolve_target_with_optional_finalization(
                 resume_proposal_id,
                 finalized_snapshot.as_ref().map(|s| s.finalized_safe_proposal_id),
+                l1_head_block_number,
             )?;
         let start_block = if target_proposal_id == 0 {
             finalized_snapshot.as_ref().map_or(0, |snapshot| {
@@ -901,18 +917,7 @@ where
     /// Start the event syncer.
     #[instrument(skip(self), name = "event_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
-        let start_point = loop {
-            match self.event_stream_start_block().await {
-                Ok(start_point) => break start_point,
-                Err(SyncError::MissingFinalizedL1Block) => {
-                    warn!(
-                        "finalized block not available yet; waiting before starting event sync bootstrap"
-                    );
-                    sleep(FINALITY_POLL_INTERVAL).await;
-                }
-                Err(err) => return Err(err),
-            }
-        };
+        let start_point = self.event_stream_start_block().await?;
         let anchor_block_number = start_point.anchor_block_number;
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
@@ -1172,7 +1177,7 @@ mod tests {
 
     #[test]
     fn confirmed_sync_probe_error_keeps_ingress_closed() {
-        let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingFinalizedL1Block));
+        let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingCheckpointResumeHead));
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
     }
 
@@ -1226,32 +1231,38 @@ mod tests {
     // -- resolve_target_with_optional_finalization tests --
 
     #[test]
-    fn genesis_resume_without_finalization_returns_zero_target() {
-        let (target, safe) = resolve_target_with_optional_finalization(0, None)
-            .expect("genesis resume without finalization should succeed");
+    fn young_chain_without_finalization_resets_to_zero_target() {
+        let (target, safe) =
+            resolve_target_with_optional_finalization(0, None, 30).expect("young chain ok");
+        assert_eq!(target, 0);
+        assert_eq!(safe, 0);
+
+        // Even with a non-zero resume, young L1 (< 64) resets both to 0.
+        let (target, safe) =
+            resolve_target_with_optional_finalization(5, None, 30).expect("young chain ok");
         assert_eq!(target, 0);
         assert_eq!(safe, 0);
     }
 
     #[test]
-    fn nonzero_resume_without_finalization_requires_finalized_block() {
-        let err = resolve_target_with_optional_finalization(5, None)
-            .expect_err("non-genesis resume without finalization must fail");
-        assert!(matches!(err, SyncError::MissingFinalizedL1Block));
+    fn mature_chain_without_finalization_errors() {
+        let err = resolve_target_with_optional_finalization(5, None, 200)
+            .expect_err("mature chain without finalization must fail");
+        assert!(matches!(err, SyncError::MissingFinalizedL1Block { .. }));
     }
 
     #[test]
     fn with_finalization_target_is_bounded_by_finalized_safe() {
-        let (target, safe) = resolve_target_with_optional_finalization(120, Some(90))
-            .expect("with finalization should succeed");
+        let (target, safe) =
+            resolve_target_with_optional_finalization(120, Some(90), 500).expect("finalized ok");
         assert_eq!(target, 90);
         assert_eq!(safe, 90);
     }
 
     #[test]
     fn with_finalization_target_keeps_resume_when_behind() {
-        let (target, safe) = resolve_target_with_optional_finalization(50, Some(120))
-            .expect("with finalization should succeed");
+        let (target, safe) =
+            resolve_target_with_optional_finalization(50, Some(120), 500).expect("finalized ok");
         assert_eq!(target, 50);
         assert_eq!(safe, 120);
     }
