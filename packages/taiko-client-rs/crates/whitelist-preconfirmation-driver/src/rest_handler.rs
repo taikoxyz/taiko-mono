@@ -378,8 +378,8 @@ where
         // == 0, txIndexRemainingBlocks = 1).  When current == highest the node is not
         // actually catching up to a remote peer, so we allow the build to proceed.
         let sync_status = self.rpc.l2_provider.syncing().await.map_err(provider_err)?;
-        if let SyncStatus::Info(ref info) = sync_status
-            && info.current_block < info.highest_block
+        if let SyncStatus::Info(ref info) = sync_status &&
+            info.current_block < info.highest_block
         {
             return Err(WhitelistPreconfirmationDriverError::Driver(
                 driver::DriverError::EngineSyncing(request.block_number),
