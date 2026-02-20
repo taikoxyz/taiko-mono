@@ -3,13 +3,12 @@
 use std::sync::Arc;
 
 use alloy_eips::BlockNumberOrTag;
-use tokio::sync::Mutex;
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::sync::event::EventSyncer;
 use rpc::client::Client;
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 use tracing::{debug, info, warn};
 
 use crate::{

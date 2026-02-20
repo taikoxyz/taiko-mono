@@ -14,8 +14,7 @@ use driver::{DriverConfig, map_driver_error};
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
-use tokio::sync::Mutex;
-use tokio::time;
+use tokio::{sync::Mutex, time};
 use tracing::{info, warn};
 
 use crate::{
@@ -238,8 +237,8 @@ impl WhitelistPreconfirmationDriverRunner {
                     BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone())
                         .await
                         .map_err(|err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
-                            reason: err.to_string(),
-                        })?,
+                        reason: err.to_string(),
+                    })?,
                 );
 
                 let signer = FixedKSigner::new(signer_key).map_err(|e| {
