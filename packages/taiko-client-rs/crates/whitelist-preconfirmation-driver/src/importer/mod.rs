@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use alloy_eips::BlockNumberOrTag;
+use tokio::sync::Mutex;
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
@@ -68,6 +69,8 @@ where
     sequencer_cache: WhitelistSequencerCache,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
+    highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
@@ -85,6 +88,7 @@ where
         whitelist_address: Address,
         chain_id: u64,
         network_command_tx: mpsc::Sender<NetworkCommand>,
+        highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
@@ -99,6 +103,7 @@ where
             request_throttle: RequestThrottle::default(),
             sequencer_cache: WhitelistSequencerCache::default(),
             network_command_tx,
+            highest_unsafe_l2_payload_block_id,
             sync_ready: false,
             anchor_address,
         };

@@ -213,6 +213,11 @@ where
             "inserted whitelist preconfirmation block"
         );
 
+        if let Some(ref highest) = self.highest_unsafe_l2_payload_block_id {
+            let mut guard = highest.lock().await;
+            *guard = block_number.max(*guard);
+        }
+
         Ok(true)
     }
 }

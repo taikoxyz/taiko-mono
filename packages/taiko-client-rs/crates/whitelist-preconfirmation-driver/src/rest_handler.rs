@@ -73,8 +73,8 @@ where
     build_preconf_lock: Mutex<()>,
     /// Preconf whitelist contract used for operator checks.
     whitelist: PreconfWhitelistInstance<P>,
-    /// Highest unsafe payload block ID tracked by this node.
-    highest_unsafe_l2_payload_block_id: Mutex<u64>,
+    /// Highest unsafe payload block ID tracked by this node (shared with importer).
+    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// End-of-sequencing hash cache keyed by epoch.
     end_of_sequencing_by_epoch: Mutex<HashMap<u64, B256>>,
     /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
@@ -98,8 +98,8 @@ where
     pub beacon_client: Arc<BeaconClient>,
     /// Whitelist contract address used for operator checks.
     pub whitelist_address: Address,
-    /// Highest unsafe payload block ID tracked by this node at startup.
-    pub initial_highest_unsafe_l2_payload_block_id: u64,
+    /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
+    pub highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Channel used to publish messages to the P2P network.
     pub network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Local peer ID string.
@@ -119,7 +119,7 @@ where
             signer,
             beacon_client,
             whitelist_address,
-            initial_highest_unsafe_l2_payload_block_id,
+            highest_unsafe_l2_payload_block_id,
             network_command_tx,
             local_peer_id,
         } = params;
@@ -132,9 +132,7 @@ where
             signer,
             beacon_client,
             whitelist,
-            highest_unsafe_l2_payload_block_id: Mutex::new(
-                initial_highest_unsafe_l2_payload_block_id,
-            ),
+            highest_unsafe_l2_payload_block_id,
             end_of_sequencing_by_epoch: Mutex::new(HashMap::new()),
             eos_notification_tx,
             network_command_tx,
