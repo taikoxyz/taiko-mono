@@ -341,7 +341,7 @@ and block-level parameters.
 | ------------------- | --------------- | -------------------------------------------------------------------------- |
 | proposalId          | uint48          | L1 proposal id for the current L2 block                                    |
 | submissionWindowEnd | uint48          | End of the preconfirmation submission window                               |
-| feeData             | ProposalFeeData | Canonical fee data to import into the L2 fee vault (proposalId == 0 skips) |
+| feeDataList         | ProposalFeeData[] | Ordered canonical fee data entries to import into the L2 fee vault   |
 
 `ProposalFeeData` fields:
 
@@ -355,15 +355,27 @@ and block-level parameters.
 | l1BlobBasefee    | uint128 | L1 blob basefee at proposal inclusion                    |
 | l2BasefeeRevenue | uint256 | Sum of L2 basefee revenue for blocks in this proposal    |
 
-The validity proof must verify that `feeData` corresponds to canonical L1 Inbox state and L2 execution.
-In particular, it should recompute `hashProposal(proposal)` from the full proposal data (including
-cost fields) and verify it matches the proposal hash stored in the ring buffer for that `proposalId`,
-using the appropriate L1 state root. It must also verify that `l2BasefeeRevenue` is correctly computed
-from the L2 blocks in that proposal (excluding system transactions as specified by the protocol).
+For each anchor transaction, derivation constructs `feeDataList` as an ordered, contiguous fee-data
+from the canonical L1 Inbox state, with:
 
-Fee data is provided once per proposal (typically on the first L2 block of that proposal). The
-anchor tracks the last imported proposal id and only imports when `proposalId` increments; for other
-blocks in the same proposal, `feeData.proposalId` is set to 0.
+- `start = _lastImportedFeeProposalId + 1`
+- `anchorVisibleId` = latest canonical proposal id visible in the L1 Inbox contract state at `anchorBlockNumber`
+- `end = min(anchorVisibleId, start + MAX_FEE_DATA_LIST_LENGTH - 1)`
+
+The `feeDataList` produced by derivation must be proposal IDs `[start, end]` (inclusive), in order.
+If `start > anchorVisibleId`, `feeDataList` must be empty.
+
+The truncation by `MAX_FEE_DATA_LIST_LENGTH` exists to keep anchor execution within
+`ANCHOR_GAS_LIMIT` by bounding fee-data catch-up work (and payload size) per anchor transaction.
+
+For each entry in `feeDataList`, the derivation/proof must:
+
+- Derive (or prove the) proposal data (including cost fields) is correct for that `proposalId` at
+  `anchorBlockNumber` (for example via L1 Inbox ring-buffer lookup, proposal history storage, or
+  hash-link verification rooted in the origin block hash), and enforce consistency with
+  `hashProposal(proposal)`.
+- Verify `l2BasefeeRevenue` is correctly computed from the base fee of the L2 blocks in that
+  proposal (excluding system transactions as specified by the protocol).
 
 **BlockParams:**
 
@@ -372,7 +384,6 @@ blocks in the same proposal, `feeData.proposalId` is set to 0.
 | anchorBlockNumber | uint48  | L1 block number to anchor (0 to skip anchoring) |
 | anchorBlockHash   | bytes32 | L1 block hash at anchorBlockNumber              |
 | anchorStateRoot   | bytes32 | L1 state root at anchorBlockNumber              |
-
 #### Transaction Execution Flow
 
 The anchor transaction executes a carefully orchestrated sequence of operations:

@@ -29,32 +29,53 @@ contract L2FeeVaultTest is Test {
     // Accounting / access control
     // ---------------------------------------------------------------
 
-    function test_importProposalFee_revertWhenUnauthorized() external {
+    function test_importProposalFeeList_revertWhenUnauthorized() external {
         IL2FeeVault.ProposalFeeData memory data = _singleFeeData(1, 10, 1, 2, 3, 1000);
         vm.expectRevert(abi.encodeWithSignature("ACCESS_DENIED()"));
         vm.prank(RANDOM);
-        vault.importProposalFee(data);
+        vault.importProposalFeeList(_asList(data));
     }
 
-    function test_importProposalFee_updatesAccounting() external {
+    function test_importProposalFeeList_updatesAccounting() external {
         uint256 l1Cost = _l1Cost(10, 1, 2, 3);
         IL2FeeVault.ProposalFeeData memory data = _singleFeeData(1, 10, 1, 2, 3, l1Cost + 1);
 
-        vm.prank(ANCHOR);
-        vault.importProposalFee(data);
+        _importOne(vault, data);
 
         assertEq(vault.claimable(PROPOSER), l1Cost, "claimable");
         assertEq(vault.totalLiabilities(), l1Cost, "liabilities");
     }
 
-    function test_importProposalFee_partialWhenLoss() external {
+    function test_importProposalFeeList_multiEntry_updatesAccountingAndFeeFromFinalDeficit()
+        external
+    {
+        // Use balance so intermediate and final deficits differ (10% then 30%).
+        vm.deal(address(vault), 100 ether);
+        uint128 basefee = 1_000_000_000_000; // 1000 gwei
+        uint256 l1Cost1 = 10 ether; // 10_000_000 * 1000 gwei
+        uint256 l1Cost2 = 20 ether; // 20_000_000 * 1000 gwei
+
+        IL2FeeVault.ProposalFeeData[] memory fees = new IL2FeeVault.ProposalFeeData[](2);
+        fees[0] = _singleFeeData(1, 10_000_000, 0, basefee, 0, l1Cost1 + 1);
+        fees[1] = _singleFeeData(2, 20_000_000, 0, basefee, 0, l1Cost2 + 1);
+
+        vm.recordLogs();
+        _importMany(vault, fees);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        uint256 totalL1Cost = l1Cost1 + l1Cost2;
+        assertEq(vault.claimable(PROPOSER), totalL1Cost, "claimable");
+        assertEq(vault.totalLiabilities(), totalL1Cost, "liabilities");
+        assertEq(vault.feePerGasWei(), 600_000, "fee from final 30% deficit");
+    }
+
+    function test_importProposalFeeList_partialWhenLoss() external {
         uint256 l1Cost = _l1Cost(10, 1, 2, 3);
         uint256 expected = (l1Cost * 8000) / 10_000;
 
         IL2FeeVault.ProposalFeeData memory data = _singleFeeData(1, 10, 1, 2, 3, l1Cost - 1);
 
-        vm.prank(ANCHOR);
-        vault.importProposalFee(data);
+        _importOne(vault, data);
 
         assertEq(vault.claimable(PROPOSER), expected, "claimable");
     }
@@ -63,8 +84,7 @@ contract L2FeeVaultTest is Test {
         uint256 l1Cost = _l1Cost(10, 1, 2, 3);
         IL2FeeVault.ProposalFeeData memory data = _singleFeeData(1, 10, 1, 2, 3, l1Cost + 1);
 
-        vm.prank(ANCHOR);
-        vault.importProposalFee(data);
+        _importOne(vault, data);
 
         vm.deal(address(vault), l1Cost);
         vm.startPrank(PROPOSER);
@@ -121,8 +141,7 @@ contract L2FeeVaultTest is Test {
         IL2FeeVault.ProposalFeeData memory data =
             _singleFeeData(1, 15_000_000, 0, basefee, 0, 75 ether);
 
-        vm.prank(ANCHOR);
-        vault.importProposalFee(data);
+        _importOne(vault, data);
 
         assertEq(vault.totalLiabilities(), 75 ether, "liabilities");
         assertEq(vault.feePerGasWei(), 500_000, "liabilities should reduce effective balance and raise fee");
@@ -136,8 +155,7 @@ contract L2FeeVaultTest is Test {
         IL2FeeVault.ProposalFeeData memory data =
             _singleFeeData(1, 10_000_000, 0, basefee, 0, 51 ether);
 
-        vm.prank(ANCHOR);
-        vault.importProposalFee(data);
+        _importOne(vault, data);
 
         assertEq(vault.totalLiabilities(), 50 ether, "liabilities");
         assertEq(vault.feePerGasWei(), 1_000_100, "full deficit should clamp to max");
@@ -167,8 +185,7 @@ contract L2FeeVaultTest is Test {
         IL2FeeVault.ProposalFeeData memory data1 =
             _singleFeeData(1, 10_000_000, 0, basefee, 0, 6 ether);
 
-        vm.prank(ANCHOR);
-        vault.importProposalFee(data1);
+        _importOne(vault, data1);
 
         uint256 feeBeforeClaim = vault.feePerGasWei();
         assertEq(feeBeforeClaim, 100_000, "fee before claim");
@@ -260,8 +277,26 @@ contract L2FeeVaultTest is Test {
 
     // Triggers _updateFeePerGas() via import path without creating liabilities or claimable.
     function _importEmpty(L2FeeVault _vault, uint48 _proposalId) private {
+        _importOne(_vault, _singleFeeData(_proposalId, 0, 0, 0, 0, 0));
+    }
+
+    function _importOne(L2FeeVault _vault, IL2FeeVault.ProposalFeeData memory _fee) private {
         vm.prank(ANCHOR);
-        _vault.importProposalFee(_singleFeeData(_proposalId, 0, 0, 0, 0, 0));
+        _vault.importProposalFeeList(_asList(_fee));
+    }
+
+    function _importMany(L2FeeVault _vault, IL2FeeVault.ProposalFeeData[] memory _fees) private {
+        vm.prank(ANCHOR);
+        _vault.importProposalFeeList(_fees);
+    }
+
+    function _asList(IL2FeeVault.ProposalFeeData memory _fee)
+        private
+        pure
+        returns (IL2FeeVault.ProposalFeeData[] memory fees_)
+    {
+        fees_ = new IL2FeeVault.ProposalFeeData[](1);
+        fees_[0] = _fee;
     }
 
     function _singleFeeData(

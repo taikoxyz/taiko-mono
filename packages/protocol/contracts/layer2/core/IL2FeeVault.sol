@@ -8,7 +8,8 @@ interface IL2FeeVault {
     /// @notice Fee data for a single proposal, used to compute reimbursements.
     /// @dev All values must be validated by the validity proof before import:
     ///      - L1 fields (proposalId, proposer, l1GasUsed, numBlobs, l1Basefee, l1BlobBasefee)
-    ///        come from the L1 Inbox's stored proposal data
+    ///        are canonical for that proposalId in anchored L1 state (e.g. via Inbox lookup,
+    ///        equivalent storage witness, or hash-link derivation)
     ///      - L2 field (l2BasefeeRevenue) is computed from L2 block execution
     struct ProposalFeeData {
         /// @dev Sequential proposal ID from L1 Inbox. The caller (Anchor) enforces ordering.
@@ -27,9 +28,9 @@ interface IL2FeeVault {
         uint256 l2BasefeeRevenue;
     }
 
-    /// @notice Imports fee data for a single proposal to calculate reimbursements.
+    /// @notice Imports fee data for one or more proposals to calculate reimbursements.
     /// @dev Caller is expected to enforce proposal ordering.
-    ///      Triggers the fee adjustment mechanism after processing the proposal.
-    /// @param _fee Proposal fee data to import.
-    function importProposalFee(ProposalFeeData calldata _fee) external;
+    ///      Triggers the fee adjustment mechanism once after processing the list.
+    /// @param _fees Ordered proposal fee data entries to import.
+    function importProposalFeeList(ProposalFeeData[] calldata _fees) external;
 }
