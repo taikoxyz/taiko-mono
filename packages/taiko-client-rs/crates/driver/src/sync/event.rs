@@ -145,8 +145,8 @@ fn resolve_zero_target_start_block(
 ///
 /// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
 /// - When finalization is unavailable and `resume_proposal_id == 0` (genesis), target is 0.
-/// - When finalization is unavailable and `resume_proposal_id > 0`, finalization is required
-///   and a `MissingFinalizedL1Block` error is returned.
+/// - When finalization is unavailable and `resume_proposal_id > 0`, finalization is required and a
+///   `MissingFinalizedL1Block` error is returned.
 fn resolve_target_with_optional_finalization(
     resume_proposal_id: u64,
     finalized_safe_proposal_id: Option<u64>,
@@ -666,9 +666,7 @@ where
     ///
     /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
     #[instrument(skip(self), level = "debug")]
-    async fn try_finalized_l1_snapshot(
-        &self,
-    ) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
+    async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
         let finalized_block = self
             .rpc
             .l1_provider
@@ -723,22 +721,21 @@ where
                 finalized_snapshot.as_ref().map(|s| s.finalized_safe_proposal_id),
             )?;
         let start_block = if target_proposal_id == 0 {
-            finalized_snapshot
-                .as_ref()
-                .map_or(0, |snapshot| {
-                    resolve_zero_target_start_block(
-                        snapshot.finalized_safe_proposal_id,
-                        snapshot.block_number,
-                    )
-                })
+            finalized_snapshot.as_ref().map_or(0, |snapshot| {
+                resolve_zero_target_start_block(
+                    snapshot.finalized_safe_proposal_id,
+                    snapshot.block_number,
+                )
+            })
         } else {
             0
         };
-        let (finalized_block_number, finalized_block_hash) = if let Some(snapshot) = finalized_snapshot {
-            (Some(snapshot.block_number), Some(snapshot.block_hash))
-        } else {
-            (None, None)
-        };
+        let (finalized_block_number, finalized_block_hash) =
+            if let Some(snapshot) = finalized_snapshot {
+                (Some(snapshot.block_number), Some(snapshot.block_hash))
+            } else {
+                (None, None)
+            };
 
         info!(
             resume_proposal_id,
@@ -1258,5 +1255,4 @@ mod tests {
         assert_eq!(target, 50);
         assert_eq!(safe, 120);
     }
-
 }

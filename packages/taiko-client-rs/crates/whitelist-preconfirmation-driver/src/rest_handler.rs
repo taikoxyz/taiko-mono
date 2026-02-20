@@ -383,9 +383,9 @@ where
         if let SyncStatus::Info(ref info) = sync_status
             && info.current_block < info.highest_block
         {
-                return Err(WhitelistPreconfirmationDriverError::Driver(
-                    driver::DriverError::EngineSyncing(request.block_number),
-                ));
+            return Err(WhitelistPreconfirmationDriverError::Driver(
+                driver::DriverError::EngineSyncing(request.block_number),
+            ));
         }
 
         self.ensure_fee_recipient_allowed(request.fee_recipient).await?;
