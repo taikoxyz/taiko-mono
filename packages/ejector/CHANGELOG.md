@@ -1,5 +1,81 @@
 # Changelog
 
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.1...ejector-v0.5.0) (2026-02-04)
+
+
+### Features
+
+* **ejector:** skip reorg ejection during re-anchoring ([#21249](https://github.com/taikoxyz/taiko-mono/issues/21249)) ([c34cd2e](https://github.com/taikoxyz/taiko-mono/commit/c34cd2ef6fdbc779feb9fb3929bb1c7aa6f337e4))
+* **ejector:** skip timeout ejection during chain reset grace period ([#21250](https://github.com/taikoxyz/taiko-mono/issues/21250)) ([ab6826c](https://github.com/taikoxyz/taiko-mono/commit/ab6826c38adb935ab28737715d578652e3d512cb))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 5 directories with 1 update ([#21264](https://github.com/taikoxyz/taiko-mono/issues/21264)) ([75a5e00](https://github.com/taikoxyz/taiko-mono/commit/75a5e0019e12c1b9048c5837d208b4f9246624b2))
+
+## [0.4.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.0...ejector-v0.4.1) (2026-01-17)
+
+
+### Bug Fixes
+
+* **ejector:** fix ejector to not eject when L2 is down or out of sync ([#21181](https://github.com/taikoxyz/taiko-mono/issues/21181)) ([a7eff95](https://github.com/taikoxyz/taiko-mono/commit/a7eff951f54e03c1662a586abee6408da609c577))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 5 directories with 2 updates ([#21116](https://github.com/taikoxyz/taiko-mono/issues/21116)) ([c76e37a](https://github.com/taikoxyz/taiko-mono/commit/c76e37a28d153f5b6407538f70ca28f0a93c82db))
+
+## [0.4.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.3.0...ejector-v0.4.0) (2025-12-30)
+
+
+### Features
+
+* **relayer:** fix few issues in relayer ([#21056](https://github.com/taikoxyz/taiko-mono/issues/21056)) ([25ea270](https://github.com/taikoxyz/taiko-mono/commit/25ea270b7a6d12a49433e29aca5a03e223f76f79))
+
+
+### Bug Fixes
+
+* **ejector:** make metrics target proposers not sequencers ([#21086](https://github.com/taikoxyz/taiko-mono/issues/21086)) ([29e82a0](https://github.com/taikoxyz/taiko-mono/commit/29e82a0f9b3f4cdfa85d97492d78eed5078e1c76))
+
+
+### Chores
+
+* **ejector,repo,taiko-client-rs:** improve code comments clarity ([#21055](https://github.com/taikoxyz/taiko-mono/issues/21055)) ([486a6e3](https://github.com/taikoxyz/taiko-mono/commit/486a6e3b1aee009bb963d16e8482643c9a868730))
+
+## [0.3.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.2.0...ejector-v0.3.0) (2025-12-19)
+
+
+### Features
+
+* **ejector:** add check if L2 is not syncing ([#21034](https://github.com/taikoxyz/taiko-mono/issues/21034)) ([fad36d1](https://github.com/taikoxyz/taiko-mono/commit/fad36d1632b7d3ba14158f2a1ddfb53fb808febe))
+* **ejector:** fix the tick duration and simplify config ([#21037](https://github.com/taikoxyz/taiko-mono/issues/21037)) ([461c662](https://github.com/taikoxyz/taiko-mono/commit/461c66257205105440c769742cdc2c1792cef9c6))
+
+## [0.2.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.2...ejector-v0.2.0) (2025-12-15)
+
+
+### Features
+
+* **ejector:** add last_reorged_to metric ([#20953](https://github.com/taikoxyz/taiko-mono/issues/20953)) ([7fa649a](https://github.com/taikoxyz/taiko-mono/commit/7fa649ace7a617a2d4981663060f7128c5706f10))
+
+## [0.1.2](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.1...ejector-v0.1.2) (2025-11-26)
+
+
+### Bug Fixes
+
+* **ejector:** eject correct operator on reorg, add flag to enable/disable ([#20837](https://github.com/taikoxyz/taiko-mono/issues/20837)) ([ba8fc96](https://github.com/taikoxyz/taiko-mono/commit/ba8fc96649bfde29339bf7ebf60c1d8bd06f8b94))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 2 directories with 2 updates ([#20822](https://github.com/taikoxyz/taiko-mono/issues/20822)) ([405b4b5](https://github.com/taikoxyz/taiko-mono/commit/405b4b5c9fc605161d3c469febd1ffa1efa22612))
+
+## [0.1.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.0...ejector-v0.1.1) (2025-11-21)
+
+
+### Bug Fixes
+
+* **ejector:** lowercase addresses before metrics init ([#20796](https://github.com/taikoxyz/taiko-mono/issues/20796)) ([3661d09](https://github.com/taikoxyz/taiko-mono/commit/3661d0990243e7cdab7fcba76dd943694420d228))
+
 ## [0.1.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.1.0...ejector-v0.1.0) (2025-11-04)
 
 

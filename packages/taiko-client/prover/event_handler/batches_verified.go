@@ -37,7 +37,7 @@ func (h *BatchesVerifiedEventHandler) HandlePacaya(
 		"New verified batch",
 		"batchID", e.BatchId,
 		"lastBlockID", batch.LastBlockId,
-		"hash", common.BytesToHash(e.BlockHash[:]),
+		"hash", common.Hash(e.BlockHash),
 	)
 	return nil
 }

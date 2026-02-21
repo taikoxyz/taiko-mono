@@ -24,6 +24,7 @@ type Config struct {
 	MetricsHTTPPort         uint64
 	ETHClientTimeout        uint64
 	L1TaikoAddress          common.Address
+	ShastaInboxAddress      common.Address
 	BridgeAddress           common.Address
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
@@ -49,6 +50,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
 		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
+		ShastaInboxAddress:      common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),

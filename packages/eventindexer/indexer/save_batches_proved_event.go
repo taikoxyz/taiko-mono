@@ -33,7 +33,7 @@ func (i *Indexer) saveBatchesProvedEvents(
 			if err := i.saveBatchesProvedEvent(ctx, chainID, event); err != nil {
 				eventindexer.BatchesProvenEventsProcessedError.Inc()
 
-				return errors.Wrap(err, "i.saveBlockProvenEvent")
+				return errors.Wrap(err, "i.saveBatchesProvedEvent")
 			}
 
 			return nil

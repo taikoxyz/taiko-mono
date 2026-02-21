@@ -53,6 +53,11 @@ static REORG_DEPTH_BLOCKS: Lazy<IntGauge> = Lazy::new(|| {
         .expect("reorg_depth_blocks metric can be created")
 });
 
+static LAST_REORGED_TO: Lazy<IntGauge> = Lazy::new(|| {
+    IntGauge::new("last_reorged_to", "Revert height of the latest reorg")
+        .expect("last_reorged_to metric can be created")
+});
+
 pub fn init() {
     REGISTRY
         .register(Box::new(L2_BLOCKS_TOTAL.clone()))
@@ -78,6 +83,9 @@ pub fn init() {
     REGISTRY
         .register(Box::new(REORG_DEPTH_BLOCKS.clone()))
         .expect("reorg_depth_blocks metric can be registered");
+    REGISTRY
+        .register(Box::new(LAST_REORGED_TO.clone()))
+        .expect("last_reorged_to metric can be registered");
 }
 
 pub fn router() -> axum::Router {
@@ -104,15 +112,18 @@ pub fn inc_l2_blocks() {
 }
 
 pub fn ensure_eject_metric_labels(addr: &str) {
-    let _ = EJECTIONS_TOTAL.with_label_values(&["success", addr]);
-    let _ = EJECTIONS_TOTAL.with_label_values(&["error", addr]);
+    let addr = addr.to_ascii_lowercase();
+    let _ = EJECTIONS_TOTAL.with_label_values(&["success", &addr]);
+    let _ = EJECTIONS_TOTAL.with_label_values(&["error", &addr]);
 }
 
 pub fn inc_eject_success(addr: &str) {
-    EJECTIONS_TOTAL.with_label_values(&["success", addr]).inc();
+    let addr = addr.to_ascii_lowercase();
+    EJECTIONS_TOTAL.with_label_values(&["success", &addr]).inc();
 }
 pub fn inc_eject_error(addr: &str) {
-    EJECTIONS_TOTAL.with_label_values(&["error", addr]).inc();
+    let addr = addr.to_ascii_lowercase();
+    EJECTIONS_TOTAL.with_label_values(&["error", &addr]).inc();
 }
 
 pub fn inc_ws_reconnections() {
@@ -129,10 +140,12 @@ pub fn set_last_block_age_seconds(seconds: u64) {
     LAST_BLOCK_AGE_SECONDS.set(clamped_seconds);
 }
 
-pub fn note_reorg(depth: usize) {
+pub fn note_reorg(depth: usize, reorg_height: u64) {
     REORG_COUNT_TOTAL.inc();
     let clamped_depth = i64::try_from(depth).unwrap_or(i64::MAX);
     REORG_DEPTH_BLOCKS.set(clamped_depth);
+    let clamped_height = i64::try_from(reorg_height).unwrap_or(i64::MAX);
+    LAST_REORGED_TO.set(clamped_height);
 }
 
 pub fn inc_reorg_skipped() {

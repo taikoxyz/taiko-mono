@@ -2,18 +2,23 @@ package rpc
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
 	"github.com/prysmaticlabs/prysm/v5/api/server/structs"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 )
+
+var ErrInvalidBlobBytes = errors.New("invalid blob bytes")
 
 type BlobDataSource struct {
 	ctx                context.Context
@@ -69,20 +74,46 @@ func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// GetBlobs get blob sidecar by meta
-func (ds *BlobDataSource) GetBlobs(
+// GetBlobBytes get the bytes of required blobs
+func (ds *BlobDataSource) GetBlobBytes(
+	ctx context.Context,
+	timestamp uint64,
+	blobHashes []common.Hash,
+) ([]byte, error) {
+	sidecars, err := ds.GetSidecars(ctx, timestamp, blobHashes)
+	if err != nil {
+		return nil, err
+	}
+	var b []byte
+	for _, sidecar := range sidecars {
+		blob := eth.Blob(common.FromHex(sidecar.Blob))
+		bytes, err := blob.ToData()
+		if err != nil {
+			return nil, errors.Join(ErrInvalidBlobBytes, err)
+		}
+		b = append(b, bytes...)
+	}
+	if len(b) == 0 {
+		return nil, pkg.ErrSidecarNotFound
+	}
+	return b, nil
+}
+
+// GetSidecars get blob sidecar by meta
+func (ds *BlobDataSource) GetSidecars(
 	ctx context.Context,
 	timestamp uint64,
 	blobHashes []common.Hash,
 ) ([]*structs.Sidecar, error) {
 	var (
-		sidecars []*structs.Sidecar
-		err      error
+		sidecars    []*structs.Sidecar
+		allSidecars []*structs.Sidecar
+		err         error
 	)
 	if ds.client.L1Beacon == nil {
-		sidecars, err = nil, pkg.ErrBeaconNotFound
+		err = pkg.ErrBeaconNotFound
 	} else {
-		sidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
+		allSidecars, err = ds.client.L1Beacon.GetBlobs(ctx, timestamp)
 	}
 	if err != nil {
 		if !errors.Is(err, pkg.ErrBeaconNotFound) {
@@ -96,13 +127,34 @@ func (ds *BlobDataSource) GetBlobs(
 		if err != nil {
 			return nil, err
 		}
-		sidecars = make([]*structs.Sidecar, len(blobs.Data))
+		allSidecars = make([]*structs.Sidecar, len(blobs.Data))
 		for index, value := range blobs.Data {
-			sidecars[index] = &structs.Sidecar{
+			allSidecars[index] = &structs.Sidecar{
 				KzgCommitment: value.KzgCommitment,
 				Blob:          value.Blob,
 			}
 		}
+	}
+	for _, blobHash := range blobHashes {
+		// Compare the blob hash with the sidecar's kzg commitment.
+		for j, sidecar := range allSidecars {
+			log.Debug(
+				"Block sidecar",
+				"index", j,
+				"KzgCommitment", sidecar.KzgCommitment,
+				"blobHash", blobHash,
+			)
+
+			commitment := kzg4844.Commitment(common.FromHex(sidecar.KzgCommitment))
+			if kzg4844.CalcBlobHashV1(sha256.New(), &commitment) == blobHash {
+				sidecars = append(sidecars, sidecar)
+				break
+			}
+		}
+	}
+
+	if len(sidecars) != len(blobHashes) {
+		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
 	}
 	return sidecars, nil
 }

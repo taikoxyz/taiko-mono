@@ -1,11 +1,10 @@
 //! Proposer Subcommand.
 use std::time::Duration;
 
+use crate::error::Result;
 use alloy::transports::http::reqwest::Url as RpcUrl;
-use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
-use event_indexer::metrics::IndexerMetrics;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
 use rpc::SubscriptionSource;
 
@@ -24,6 +23,7 @@ pub struct ProposerSubCommand {
     /// Common CLI arguments.
     #[command(flatten)]
     pub common_flags: CommonArgs,
+    /// Proposer-specific CLI arguments.
     #[command(flatten)]
     pub proposer_flags: ProposerArgs,
 }
@@ -44,6 +44,7 @@ impl ProposerSubCommand {
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
             gas_limit: self.proposer_flags.gas_limit,
+            use_engine_mode: self.proposer_flags.use_engine_mode,
         })
     }
 
@@ -60,19 +61,18 @@ impl ProposerSubCommand {
 
 #[async_trait]
 impl Subcommand for ProposerSubCommand {
-    // Return a reference to the common CLI arguments.
+    /// Return a reference to the common CLI arguments.
     fn common_args(&self) -> &CommonArgs {
         &self.common_flags
     }
 
-    // Register proposer and indexer metrics.
+    /// Register proposer metrics before runtime startup.
     fn register_metrics(&self) -> Result<()> {
         ProposerMetrics::init();
-        IndexerMetrics::init();
         Ok(())
     }
 
-    // Run the proposer software.
+    /// Execute the proposer subcommand flow.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;

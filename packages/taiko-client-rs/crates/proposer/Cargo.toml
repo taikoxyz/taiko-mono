@@ -16,14 +16,18 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # ethereum
 alloy = { workspace = true }
+alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-hardforks = { workspace = true }
 alloy-network = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
 
 # taiko
 alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true, features = ["serde"] }
 bindings = { path = "../bindings" }
-event-indexer = { path = "../event-indexer" }
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
@@ -37,4 +41,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 serial_test = { workspace = true }
+test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
+test-log = { workspace = true }
+tracing-subscriber = { workspace = true }

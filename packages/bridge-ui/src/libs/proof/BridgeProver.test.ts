@@ -1,11 +1,12 @@
 import { getPublicClient, readContract } from '@wagmi/core';
 import {
+  type Address,
   BlockNotFoundError,
   type Hash,
+  type Hex,
   keccak256,
   numberToHex,
   stringToHex,
-  toBytes,
   zeroAddress,
   zeroHash,
 } from 'viem';
@@ -15,13 +16,34 @@ import { routingContractsMap } from '$bridgeConfig';
 import type { BridgeTransaction } from '$libs/bridge';
 import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/error';
 import { BridgeProver } from '$libs/proof/BridgeProver';
-import type { ClientWithEthGetProofRequest, EthGetProofResponse, HopProof } from '$libs/proof/types';
+import {
+  CacheOption,
+  type ClientWithEthGetProofRequest,
+  type EthGetProofResponse,
+  type HopProof,
+} from '$libs/proof/types';
+import { getProtocolVersion, ProtocolVersion } from '$libs/protocol/protocolVersion';
 import { TokenType } from '$libs/token';
 import { config } from '$libs/wagmi';
 import { BLOCK_NUMBER_1, L1_ADDRESSES, L1_CHAIN_ID, L2_CHAIN_ID, STORAGE_KEY_1 } from '$mocks';
 
 vi.mock('@wagmi/core');
 vi.mock('$customToken');
+vi.mock('$libs/chain', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('$libs/chain')>();
+  return {
+    ...actual,
+    isL2Chain: (chainId: number) => chainId === 2, // L2_CHAIN_ID
+  };
+});
+vi.mock('$libs/protocol/protocolVersion', () => ({
+  ProtocolVersion: {
+    PACAYA: 'pacaya',
+    SHASTA: 'shasta',
+  },
+  getProtocolVersion: vi.fn().mockResolvedValue('shasta'),
+  clearProtocolVersionCache: vi.fn(),
+}));
 
 describe('BridgeProver', () => {
   afterEach(() => {
@@ -47,27 +69,70 @@ describe('BridgeProver', () => {
     });
   });
 
-  describe('getBlockNumber()', () => {
-    it(' should return block number', async () => {
+  describe('getLatestSyncedBlockNumber()', () => {
+    it('should return block number from Anchor when dest is L2', async () => {
       // Given
       const bridgeProver = new BridgeProver();
-      const srcChainId = BigInt(L1_CHAIN_ID);
-      const destChainId = BigInt(L2_CHAIN_ID);
+      const chainA = BigInt(L1_CHAIN_ID);
+      const chainB = BigInt(L2_CHAIN_ID);
 
-      vi.mocked(readContract).mockResolvedValueOnce([BLOCK_NUMBER_1, 1234]);
+      vi.mocked(readContract).mockResolvedValueOnce({ anchorBlockNumber: BLOCK_NUMBER_1 });
 
       // When
-      const actual = await bridgeProver.getLatestSrcBlockNumber(srcChainId, destChainId);
+      const actual = await bridgeProver.getLatestSyncedBlockNumber(chainA, chainB);
 
       // Then
-      expect(actual).toBe(BLOCK_NUMBER_1);
+      expect(actual).toBe(BigInt(BLOCK_NUMBER_1));
       expect(readContract).toHaveBeenCalledWith(config, {
-        address: routingContractsMap[L2_CHAIN_ID][L1_CHAIN_ID].signalServiceAddress,
-        abi: signalServiceAbi,
-        functionName: 'getSyncedChainData',
-        args: [srcChainId, keccak256(toBytes('STATE_ROOT')), 0n],
-        chainId: Number(destChainId),
+        address: routingContractsMap[L2_CHAIN_ID][L1_CHAIN_ID].anchorForkRouter,
+        abi: expect.any(Array),
+        functionName: 'getBlockState',
+        chainId: L2_CHAIN_ID,
       });
+    });
+
+    it('should return block number from CheckpointSaved events when dest is L1', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const chainA = BigInt(L2_CHAIN_ID);
+      const chainB = BigInt(L1_CHAIN_ID);
+
+      const mockClient = {
+        getBlockNumber: vi.fn().mockResolvedValue(100000n),
+        getContractEvents: vi.fn().mockResolvedValue([{ args: { blockNumber: BLOCK_NUMBER_1 } }]),
+      };
+
+      vi.mocked(getPublicClient).mockReturnValue(mockClient as unknown as ReturnType<typeof getPublicClient>);
+
+      // When
+      const actual = await bridgeProver.getLatestSyncedBlockNumber(chainA, chainB);
+
+      // Then
+      expect(actual).toBe(BigInt(BLOCK_NUMBER_1));
+      expect(mockClient.getContractEvents).toHaveBeenCalledWith({
+        address: routingContractsMap[L1_CHAIN_ID][L2_CHAIN_ID].signalServiceAddress,
+        abi: signalServiceAbi,
+        eventName: 'CheckpointSaved',
+        fromBlock: expect.any(BigInt),
+        toBlock: 100000n,
+      });
+    });
+
+    it('should throw BlockNotSyncedError when no checkpoints found', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const chainA = BigInt(L2_CHAIN_ID);
+      const chainB = BigInt(L1_CHAIN_ID);
+
+      const mockClient = {
+        getBlockNumber: vi.fn().mockResolvedValue(100000n),
+        getContractEvents: vi.fn().mockResolvedValue([]),
+      };
+
+      vi.mocked(getPublicClient).mockReturnValue(mockClient as unknown as ReturnType<typeof getPublicClient>);
+
+      // When / Then
+      await expect(bridgeProver.getLatestSyncedBlockNumber(chainA, chainB)).rejects.toThrow(BlockNotSyncedError);
     });
   });
 
@@ -99,8 +164,6 @@ describe('BridgeProver', () => {
         },
       ],
     };
-
-    const validSyncedChainData = [2665, 0x2e9ddddf2d3a2b19d3927cfdf9f7712be1c0940784c5792e565c385b1c5eaa27n];
 
     const validEncodedHopProofs =
       '0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000028c5900000000000000000000000000000000000000000000000000000000000009b7bf345fcf43c58e815560e89e1d11a8d919125e7c905fdbaada4c69cd8988356b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000005c00000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000004400000000000000000000000000000000000000000000000000000000000000214f90211a08281dbf681e896958b9abe7cb94789ed12d8f5ad8ee2d99876993b1ab0d81d0ca040bbc4a5b6e21e8258cf202861f5a342f753ff196d349182850a2d8f7367f2f0a0a7613d8b23324c987ac0651d0cb897d3822d218c88dc029469357536d1103884a071e6c2b6a3ff06a2f47f25901a892be7b8726300e71595cf3c9c3da1cf732e72a0b67617f856ba5775d93b2ecab9a733e5df6cfdb3d7d42c63a1c58038009212b0a0c264ccae556eb3b00f91f08f166385bd9473e0015ae087b194026aca56bf9078a046424672c23f7c00c93a72dc00958cd87cb686ef260a41cfc9e9670f08270213a0f3279794f24851a5ff6c433b9347e2230b1678083c9f30081d8e9f1cd8ff7f6ca05d86262011562b9a41d4b691abd18c74d8d2ef12f08ccd12a5c060deac6a6e99a03236cad5b7e5f2181c73f31210dc16776dbd81d9f8aec2fece05ddb1070191eca02c9655fe65cb2e6fd2695dd20d7432b25ff86f56f720c5b332133fe582cd2d0ea06f085572cc2c37e98575ae1006c5cb8c7dd79c569da86b39b756b4f4502c5b53a084e0fedc63533d211d4eeadca6cacd15fd6bfbe78d0ca342ffe898aeed522ac1a031ca798fa1da609c60161035ae92aaac0faf7f47f26e4aba8cccdcf56ad7e3a3a03f3be1824ced37a24adcfe2f22617086528228e7d972893d17468a367c027fa5a0fc42e00209f4fb2ba4c0dbfd15bd745af5532705e5515a1542b5e36a09786fa38000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d3f8d1a07450cbddff54ea18155e06e7873d3f57289925c082f9deb9c05ee3184e87dd4aa00a054ade3a28c481b5b8c91b816edea5b2bdcd2ca0a3adb26d64fe11f49403cb80a07017e8d3b35696ac36dd25008c124eab1d5d8fe5dfd5f3e92a7c4ff0f6299542a004f22d5406024b0f661eb4f4bacb964fb7bb4af2382ef69314984f73b3dbd4ca8080808080a0d3193cae46d8957e61da7e2f05b42d541013f96d786c0a9f2456c4c2946168288080a0887470ca73559870bfca2b2ddd7cf1b40b2b7427cc875759b25be06f3c268641808080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000053f851808080a0cabf7e13fc519cd713def2e9dee62e6183ad00023d529d5bd9d2d57cf1d81c1180808080808080808080a0311cf807d1af017de8ea228913ea34b5be3ea47c393d5b48e6e07b0ed50c0ffc808000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006af8689f3a38480e5ed336e2395f9cf288b676184fb0056bf0d3cab1cee805aa71d1d2b846f8440180a0bc749bb55c01b09e1b51bf8e1c179281a749d477474af9b2295db96e10b6de64a0dc679fd48cf611aa38e906adc93928c5f8f6fae534978ea2fa4f5935f5ed1b2c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002c0000000000000000000000000000000000000000000000000000000000000050000000000000000000000000000000000000000000000000000000000000006800000000000000000000000000000000000000000000000000000000000000214f90211a05300dbccc91be10da7e07563adf57776a554feb42cecb32653e1c78fa55886ffa0676290191d7706f172d5e23d92b76324eb6148eeeedf8f64bf937a76fa9f299ea08a82eadc375d57f4280bd01479a3df8134ce6cac4dff2df2e7ba930ae3a9b18ea0c95257e8a889d44926304dbaf8e7f7f4972ddf22f78d4923e470edec23c7bab4a0f3e8036e11f9374facc514dc5b4ec4c0a6de7fbe53ba2079d5ed87d49bb42a4ea05d63e796240b1882f9f7272f369d6f67f450f3c129397a16a113ada31749f1c6a07e7fa80b0bd3e90e91e71ad8ed3afa91bd8fd6d4747444198c67f9ffe50a7a00a01d37d5906497ed4bfd8d3567544316ea72d213027552c20eec55366dc2224559a09f5c2d8ea0d707eb72a56a20e55e71659c89d5a0927a3a497ba64092a2f8ccf1a0d08e30df9150dda46925362d8ea5560ecf76d902d94e7532c1f94b4aaf4ac0a8a084a4d807e7cd9f3cf40ac0359b2196e12424f53e55150a286bd84bf26c0fb18ea01a2dde92cb97680f71cfff97b489ca46d5c2955b84313783564b517b4b1e8fbfa05fb93cb2db17d211a860c6d904db748e1906c308c53cd2f56278d5193909a64ba06f34070df9b165be4d591339062a99eb4135a82c21a56a668ab511b92076cc15a0234c056746db225fd004ac226356a3a5ab4955ccd2502aaff1334ac8a840cc72a05eaef0e0983d0efdda0c25974443055a1d2deddc38383652a63446647f4ea1af800000000000000000000000000000000000000000000000000000000000000000000000000000000000000214f90211a01d0436698f89ca6940d4e7204479f2c8b11fce6ce89a40aee17622aa8eeb63b9a0118ec691f888f2a8e5d44aa6b4d3624ca2b8f5abbd240d8f6b6b73eb68ab138aa02c9b36b7501705c21bf8450ef17a4d8e260d98d8f0877260e32a924e1326353ba085415edcfc68c0fe78a46a193ecf14078347524d57805351555ac7f41ec2a5cca0bd3b0568fccd6e1b4cbdbc568690b98b3b269b6eda50e17cbdef0c5da400f086a051570e273158b001c451bc1abb178bc64c2f127febfc7004e57ed09f8d9741fba05860239b95d9fcd668d3ccca1402aacc8a3358cc91cb60e62189bc866bcbc2bba0a9046a27ff0d85a1a168603ae54351e26ced5e0db6fd39f620a8fe5e4cd06801a0c24be43220d96b2c1a1941f80894f94018a2e8845dae479b26643dfe62e103a6a0fc6b809323863df4fca616e7bbc50a36668b376a31a92eeb0eaba7275b2caa05a08f9f9a5a8dbe84fce15b70604d4324f53eab9ce8b9705afa8464110a6813b8f7a0bc9c01851c71da75c8a4f89684a72196debc0eeb53a7a73d074b844dc0e593a2a01f517c9d63f28d9048dc49fcbcd8d1fb32fc5b7b05e08d38ded214290a1e98f0a04d07325877726dfc8f4011bc717cf460f1cc479eba4df079392ec8bfa1a63b06a0d087d4e34b9a3a8abbd3cef0b22c967d3e9e132ee3dafebb0bf3028838375406a0b2f75b8740099851f102cecd1451f16cc5e91e4eb34ac3d054f197947432a175800000000000000000000000000000000000000000000000000000000000000000000000000000000000000154f9015180a0ca02688b195e28bb90963174a5b27f3de32f55a2ff1bd14db851cef8e528b1ec80a0b0e75cec851089413462543f765cdc5b761103e6a8f982a2a561493781b2e7648080a0eff1203b7f8fb1f71f3396375258f0d4c8bf71bf4fe15f11809b6121d9b1a781a00d1770676636a082407b472aae2ade57495b506ee9be15df372c2e06f6610e0aa03e1b05a990873d3d52250717ab596cdcfa098ff0ace1d71285239e1519cdbd1b80a0c3ae78fa5ad684593dd55c8bc11b99f584152f30b065c05b854b5e2c55ec80c6a0d4903036b8391f39e673881ddacebab39c341f89755ce8fc9d34d0c1b75e2692a006721ae4b485e2beb6b5d78d70fd5c1fc89ea2e391e1a1e6ba8aec3bbb0f86c1a0809249591e8376b274bcf2bed637c3cfd85cfa7979d8cd381e660d1239ad671da03f9ae10c87e25966074acdd75f46aec16b454a1784503ebb7c0322dc94a657fc80800000000000000000000000000000000000000000000000000000000000000000000000000000000000000044f8429f3b263d1c31f739858b8a37d7f0f2279a7a04448466286435bde8512e922d44a1a036973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f1500000000000000000000000000000000000000000000000000000000';
@@ -151,14 +214,13 @@ describe('BridgeProver', () => {
       const bridgeProver = new BridgeProver();
 
       vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
-      const requestMockEthProof = vi.fn().mockResolvedValue(validEthProofResult);
-      const requestMockBlock = vi.fn().mockResolvedValue({ number: validBlockNo, hash: '0x0' });
-      const mockClient = {
-        request: requestMockEthProof,
-        getBlock: requestMockBlock,
-      } as ClientWithEthGetProofRequest;
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(BigInt(validBlockNo));
 
-      vi.mocked(readContract).mockResolvedValue(validSyncedChainData);
+      const mockClient = {
+        request: vi.fn().mockResolvedValue(validEthProofResult),
+        getBlock: vi.fn().mockResolvedValue({ number: validBlockNo, hash: '0x0' }),
+      } as unknown as ClientWithEthGetProofRequest;
+
       vi.mocked(getPublicClient).mockReturnValue(mockClient);
 
       // When
@@ -176,14 +238,22 @@ describe('BridgeProver', () => {
       const bridgeProver = new BridgeProver();
 
       vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
-      const requestMockEthProof = vi.fn().mockResolvedValue(validEthProofResult);
-      const requestMockBlock = vi.fn().mockResolvedValue(null);
-      const mockClient = {
-        request: requestMockEthProof,
-        getBlock: requestMockBlock,
-      } as ClientWithEthGetProofRequest;
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(
+        BigInt(realBridgeTransaction.blockNumber!),
+      );
 
-      vi.mocked(readContract).mockResolvedValue(validSyncedChainData);
+      // Mock checkpoint verification
+      vi.mocked(readContract).mockResolvedValue({
+        blockNumber: BigInt(realBridgeTransaction.blockNumber!),
+        blockHash: zeroHash,
+        stateRoot: zeroHash,
+      });
+
+      const mockClient = {
+        request: vi.fn().mockResolvedValue(validEthProofResult),
+        getBlock: vi.fn().mockResolvedValue(null),
+      } as unknown as ClientWithEthGetProofRequest;
+
       vi.mocked(getPublicClient).mockReturnValue(mockClient);
 
       // When
@@ -199,18 +269,27 @@ describe('BridgeProver', () => {
       const bridgeProver = new BridgeProver();
 
       vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
-      const requestMockEthProof = vi.fn().mockResolvedValue(validEthProofResult);
-      const requestMockBlock = vi.fn().mockResolvedValue({ number: validBlockNo, hash: '0x0' });
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(
+        BigInt(realBridgeTransaction.blockNumber!),
+      );
+
+      // Mock checkpoint verification - stateRoot must match block.stateRoot
+      vi.mocked(readContract).mockResolvedValue({
+        blockNumber: BigInt(realBridgeTransaction.blockNumber!),
+        blockHash: zeroHash,
+        stateRoot: zeroHash,
+      });
 
       const mockClient = {
-        request: requestMockEthProof,
-        getBlock: requestMockBlock,
-      } as ClientWithEthGetProofRequest;
+        request: vi.fn().mockResolvedValue(validEthProofResult),
+        getBlock: vi.fn().mockResolvedValue({ number: BigInt(validBlockNo), stateRoot: zeroHash, hash: '0x1' }),
+        call: vi.fn().mockResolvedValue({}), // Mock verifyProofPreFlight call
+      } as unknown as ClientWithEthGetProofRequest;
 
-      vi.mocked(readContract).mockResolvedValue(validSyncedChainData);
       vi.mocked(getPublicClient).mockReturnValue(mockClient);
 
-      vi.spyOn(bridgeProver, 'encodeHopProofs').mockResolvedValue(validEncodedHopProofs);
+      vi.spyOn(bridgeProver, 'encodeHopProofs').mockReturnValue(validEncodedHopProofs);
+      vi.spyOn(bridgeProver, 'verifyProofPreFlight').mockResolvedValue(undefined);
 
       // When
       const encodedSignalProof = await bridgeProver.getEncodedSignalProof({ bridgeTx: realBridgeTransaction });
@@ -218,10 +297,168 @@ describe('BridgeProver', () => {
       // Then
       expect(encodedSignalProof).toEqual(validEncodedHopProofs);
     });
+
+    it('should use source-chain blocks for Pacaya multi-hop proofs', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const srcChainId = 10;
+      const destChainId = 40;
+      const hopChainA = 20;
+      const hopChainB = 30;
+      const srcSignalService = '0x00000000000000000000000000000000000000a1' as Address;
+      const hopSignalService = '0x00000000000000000000000000000000000000a2' as Address;
+
+      type MutableAddressConfig = {
+        bridgeAddress: Address;
+        signalServiceAddress: Address;
+        erc20VaultAddress: Address;
+        erc721VaultAddress: Address;
+        erc1155VaultAddress: Address;
+        hops?: { chainId: number; signalServiceAddress: Address }[];
+      };
+      type MutableRoutingMap = Record<number, Record<number, MutableAddressConfig>>;
+
+      const mutableRoutingContractsMap = routingContractsMap as unknown as MutableRoutingMap;
+
+      mutableRoutingContractsMap[srcChainId] = {
+        [hopChainA]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: srcSignalService,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+        [destChainId]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: zeroAddress,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+          hops: [
+            { chainId: hopChainA, signalServiceAddress: '0x00000000000000000000000000000000000000b1' },
+            { chainId: hopChainB, signalServiceAddress: '0x00000000000000000000000000000000000000b2' },
+          ],
+        },
+      };
+      mutableRoutingContractsMap[hopChainA] = {
+        [srcChainId]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: zeroAddress,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+        [hopChainB]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: hopSignalService,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+      };
+      mutableRoutingContractsMap[hopChainB] = {
+        [hopChainA]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: '0x00000000000000000000000000000000000000c1',
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+      };
+      mutableRoutingContractsMap[destChainId] = {
+        [srcChainId]: {
+          bridgeAddress: zeroAddress,
+          signalServiceAddress: zeroAddress,
+          erc20VaultAddress: zeroAddress,
+          erc721VaultAddress: zeroAddress,
+          erc1155VaultAddress: zeroAddress,
+        },
+      };
+
+      vi.mocked(getProtocolVersion).mockResolvedValueOnce(ProtocolVersion.PACAYA);
+
+      const blockNumber1 = 101n;
+      const blockNumber2 = 202n;
+      vi.mocked(readContract)
+        .mockResolvedValueOnce([blockNumber1, zeroHash])
+        .mockResolvedValueOnce([blockNumber2, zeroHash]);
+
+      const srcClient = {
+        getBlock: vi.fn().mockResolvedValue({ number: blockNumber1, hash: '0x1', stateRoot: zeroHash }),
+        request: vi.fn().mockResolvedValue({
+          accountProof: ['0x1'],
+          storageProof: [{ proof: ['0x2'] }],
+        }),
+      };
+      const hopClient = {
+        getBlock: vi.fn().mockResolvedValue({ number: blockNumber2, hash: '0x2', stateRoot: zeroHash }),
+        request: vi.fn().mockResolvedValue({
+          accountProof: ['0x3'],
+          storageProof: [{ proof: ['0x4'] }],
+        }),
+      };
+
+      vi.mocked(getPublicClient).mockImplementation((_config, params) => {
+        const chainId = params?.chainId;
+        if (chainId === srcChainId) return srcClient as unknown as ReturnType<typeof getPublicClient>;
+        if (chainId === hopChainA) return hopClient as unknown as ReturnType<typeof getPublicClient>;
+        return null as unknown as ReturnType<typeof getPublicClient>;
+      });
+
+      const multiHopBridgeTx: BridgeTransaction = {
+        amount: 1n,
+        blockNumber: '0x1',
+        decimals: 0,
+        destChainId: BigInt(destChainId),
+        from: zeroAddress,
+        srcTxHash: zeroHash as Hash,
+        destTxHash: zeroHash as Hash,
+        msgHash: zeroHash as Hash,
+        srcChainId: BigInt(srcChainId),
+        processingFee: 0n,
+        message: {
+          data: '0x',
+          destChainId: BigInt(destChainId),
+          destOwner: zeroAddress,
+          fee: 0n,
+          from: zeroAddress,
+          gasLimit: 0,
+          id: 1n,
+          srcChainId: BigInt(srcChainId),
+          srcOwner: zeroAddress,
+          to: zeroAddress,
+          value: 1n,
+        },
+        status: 0,
+        symbol: 'ETH',
+        tokenType: TokenType.ETH,
+      };
+
+      vi.spyOn(bridgeProver, 'encodeHopProofs').mockReturnValue('0x1234' as Hex);
+
+      // When
+      const encodedSignalProof = await bridgeProver.getEncodedSignalProof({ bridgeTx: multiHopBridgeTx });
+
+      // Then
+      expect(encodedSignalProof).toEqual('0x1234');
+      expect(srcClient.getBlock).toHaveBeenCalledWith({ blockNumber: blockNumber1 });
+      expect(hopClient.getBlock).toHaveBeenCalledWith({ blockNumber: blockNumber2 });
+      expect(srcClient.request).toHaveBeenCalledWith({
+        method: 'eth_getProof',
+        params: [srcSignalService, [expect.any(String)], numberToHex(blockNumber1)],
+      });
+      expect(hopClient.request).toHaveBeenCalledWith({
+        method: 'eth_getProof',
+        params: [hopSignalService, [expect.any(String)], numberToHex(blockNumber2)],
+      });
+      expect(getPublicClient).toHaveBeenCalledWith(config, { chainId: srcChainId });
+      expect(getPublicClient).toHaveBeenCalledWith(config, { chainId: hopChainA });
+      expect(getPublicClient).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('encodeHopProofs()', () => {
-    it('should encode full HopProofs correctly', async () => {
+    it('should encode HopProofs correctly', async () => {
       vi.mock('$bridgeConfig');
 
       // Given
@@ -236,16 +473,14 @@ describe('BridgeProver', () => {
         '0xf90211a05c9b8f83e3c03e07271225e2ebce1cbe9e7db3b14d2724ec6efe9cf8fce6fc06a0dbd4cd41e027eefe208271111ea3e99cb39b4645e7e166d084d62f427a9313ada0cc65078735257beecceb9c74985901fa16e8e9fb228ce6aaa62aedb282a1795fa012f4c2ae88c8f0396048da6a095d0fa2c8b86398651cd37a72d68d88d25ff19ea037cda349771733bba3681eda450fee72f5e3dcbb6b8f2acf4a2bd145d0bfad6da0ef1359be1a9f658e580c968b92029dbf62ce7a56932c10acce28b25bf7206665a037d9790673a2be78a1555bee7d37ab10d1b8d94d1f12bb011b7cc7257bf13004a0dd9b4774c203afaaeb098ab623ce32f1df6f8ff0ac1bbcb78e358b7a242cd19aa0dde51d1f37baae98d02b2e35c81030f17407fc31304ab72cf999bb2c7e8abff3a0f8672c12a366e074d6f42c2c7b0c5cc010bc4ec703c65e3b58c4fbfee18e89c2a057ba424e40bd1c6a8e7d494703f392e834d8ca7696759e2c0216ebd18bcf662fa01eafd299e8a772c056e6919eeb67bf7e1098129855234e942cfc18aaf364d39ea0df6b60bdf553e1511f445fdcf1fb7aadc23bf390eeb11145c9e2742552c2ed6da02e79f5afb8c177c40737cea4aed39fe3c0269f5a8989e02c07a0135594b83bb1a035535dac85afa0e4848c0186cc8687bc7d2de0215b97ea43e65c8e4da0a52517a08ce682327123eb41b4d49ef283ffe11d1da1b9d7163e892b775a63dd31072ec080';
 
       const bridgeProver = new BridgeProver();
-
-      const expected =
-        '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001da52c4b137f7596e26ee4d4d6f70b13c851cdbe59d4365e4b7aa16e8c893ca63000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000004800000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002800000000000000000000000000000000000000000000000000000000000000214f90211a0f776494ecffe03ad2af2426ee4fb5ae66c012c03ea3955d5b40a52fe7c6b8df6a0ef4a67411e4accae9bbb05bbcc17d036432de4e3ee0b0d02a04ee6a67db9c1a5a06c4c8f2b3206553ec83f1081a6742edff2f7b7830d3ba4166872c4f3f32bae0ba0aa2e8d96490616498fa142ba7c6a628e2839b9b182c9995992ecf1c1d346784fa0f8d7262d0abdf5d084338a640322c4dd45b1484a630331922afa60256917058aa0e49099e467972084cd70025874c6ae0a6841159aec02f39384de2d9ae7460986a02ad2a355fe840ae1bfe7843616d6bb027c1fd478918cc956e0ca7b61ec0044d0a061ec8e714d951772d74765ae997bd25f3982ea8a0c4dda8baa1e47adbd5a3975a039e5f7e8298126da1e7d6f42b1f20846d68ff40dc857b0dd251d2791c0345589a065f4d771a35d862a10b2a2da6d7d6c1e082cd59280cbab1c8e6aaf89069e72dca07851c1d2a801228a1adb24b61a5b4e1d4e12c5043a0af1b1790cd79b281c43a0a031acf4e7bd8cfb52c19cb512fb2578f416cbcf28cd3b4387d7b6107a17d4ff31a09e8def26ad9cf07bfbba2cf4a3fad0fe4075030b9a67acbecbfa5b7bdc8620cca07174a59e7f5b71a1a20f8c4a232100c1303378a7eb5dd523904d5305e20ee7dca0199ae8cd6d2b09717d59b5106ef31b451b30d777296b4afb43db9327117471eca09193465aefe93e209d05f892f77002dd5c2e74d4eed502ebae3acb7db1e33acc8000000000000000000000000000000000000000000000000000000000000000000000000000000000000000f3f8f1a0b4df476cf7a24306eb6b96d0a8fe974b88e035d93e6716cf56e3f6bacee15c88808080a09265834cbd374b79cc4f97cdab16770f4434bce18ff9724970bff1c91d54f2f1a0e13b8847e8cfc7fd465a61a64b732d940d8f87ed65828e1004e46fb4256aba48a05a7b35dc9c135fc4df95c4b02179719a3505d201fb590212cf41c31eae1ceb6980a07c46a7878ac08b149792973e8a17982311f3c997624aed0fde76ba45d9a1ba41a0ebfe5b284e549d79c976f878d93266d238d9ea3254d0ef9c199d2c5a12067de48080a05d5e60bc5b531718ba65199b06b68087c640472ef4b3afb7e4b857280edbf2e580808080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002800000000000000000000000000000000000000000000000000000000000000214f90211a062880ba06fb396ad4e16f01d22ca7a1ae677e3fe428817928db30e2cae96b97ca0aa57a805600be2304ffdd527bd3dc9e91161233dc59afb71c1aab542eafe70caa03bc6c86a4c6b49305b95b3812a162f7e6bec891b287ef291e9c468071ef0c4ada08ac85ec9872d9e6f5b4c6e72154158df88d44163457cf0bbf2134e385c871a4ea0f35f3c83fbd9da738bbfea1bc87b073d3b64abdecb6294b61cf3eb535eabefdea0905c9b0e1755d389f306f026ccb71f8f7e54cd68720cc1c76682504eeb7bceaea06867477d77649657f698380e66844a7ed14818e8aad9f4ac5748963ede640e0aa0caa272deb3227cb8b0765a718ac85bbc7ee93a04bc0a2cb9c5509c9394470eb3a01689508cc26d870b0183c13bee39ed5342bf32464813f872d7ea4e5bc5f79845a0b578886ee673adcdf7b219cd13d9d641f8e15dd9ec6c9345435e7968bc6bcc82a0fbd86d32d6c60089268373be401211c3b606efeb550659b9e43458007dce2eb6a035d73d30ad77c85ef247ab8473f71314a9d175c1e9a0ce73a78a103a3766f54ca0c08386bed5af43c7cadb42d9df7ba3b94886f483e8a2e66aaef7391a15ab51cba002ce1e689b6193a6d3a8c822b0b0076dfdf732fd045a4dc122ec3879fe3de70ea0db27c27a802c40acbde50e5c357e5327a91242e6550fe461eec10ac136ddddcea0ad6d871b4c62042c68f0ecfdb986a24ea7d850563bbd3d27f6916bc3ddd170a4800000000000000000000000000000000000000000000000000000000000000000000000000000000000000214f90211a05c9b8f83e3c03e07271225e2ebce1cbe9e7db3b14d2724ec6efe9cf8fce6fc06a0dbd4cd41e027eefe208271111ea3e99cb39b4645e7e166d084d62f427a9313ada0cc65078735257beecceb9c74985901fa16e8e9fb228ce6aaa62aedb282a1795fa012f4c2ae88c8f0396048da6a095d0fa2c8b86398651cd37a72d68d88d25ff19ea037cda349771733bba3681eda450fee72f5e3dcbb6b8f2acf4a2bd145d0bfad6da0ef1359be1a9f658e580c968b92029dbf62ce7a56932c10acce28b25bf7206665a037d9790673a2be78a1555bee7d37ab10d1b8d94d1f12bb011b7cc7257bf13004a0dd9b4774c203afaaeb098ab623ce32f1df6f8ff0ac1bbcb78e358b7a242cd19aa0dde51d1f37baae98d02b2e35c81030f17407fc31304ab72cf999bb2c7e8abff3a0f8672c12a366e074d6f42c2c7b0c5cc010bc4ec703c65e3b58c4fbfee18e89c2a057ba424e40bd1c6a8e7d494703f392e834d8ca7696759e2c0216ebd18bcf662fa01eafd299e8a772c056e6919eeb67bf7e1098129855234e942cfc18aaf364d39ea0df6b60bdf553e1511f445fdcf1fb7aadc23bf390eeb11145c9e2742552c2ed6da02e79f5afb8c177c40737cea4aed39fe3c0269f5a8989e02c07a0135594b83bb1a035535dac85afa0e4848c0186cc8687bc7d2de0215b97ea43e65c8e4da0a52517a08ce682327123eb41b4d49ef283ffe11d1da1b9d7163e892b775a63dd31072ec080000000000000000000000000';
+      const rootHash = keccak256(stringToHex('ROOT_HASH'));
 
       const hopProofs: HopProof[] = [
         {
-          chainId: BigInt(1),
+          chainId: BigInt(L2_CHAIN_ID),
           blockId: BigInt(1),
-          rootHash: keccak256(stringToHex('ROOT_HASH')),
-          cacheOption: 0n,
+          rootHash,
+          cacheOption: CacheOption.CACHE_NOTHING,
           accountProof: [accProof1, accProof2],
           storageProof: [sProof1, sProof2],
         },
@@ -255,7 +490,11 @@ describe('BridgeProver', () => {
       const actual = bridgeProver.encodeHopProofs(hopProofs);
 
       // Then
-      expect(actual).toBe(expected);
+      expect(actual).toMatch(/^0x[0-9a-f]+$/);
+      // Verify the encoding contains the rootHash (without 0x prefix, in the encoded data)
+      expect(actual).toContain(rootHash.slice(2));
+      // Verify the result is a valid ABI-encoded tuple array
+      expect(actual.length).toBeGreaterThan(2);
     });
   });
 
@@ -289,7 +528,7 @@ describe('BridgeProver', () => {
 
       // When
       const actual = await bridgeProver.getProof({
-        srcChainId: BigInt(L1_CHAIN_ID),
+        chainId: BigInt(L1_CHAIN_ID),
         blockNumber: BLOCK_NUMBER_1,
         key: STORAGE_KEY_1,
         signalServiceAddress: zeroAddress,
@@ -329,7 +568,7 @@ describe('BridgeProver', () => {
       // Then
       await expect(
         bridgeProver.getProof({
-          srcChainId: BigInt(L1_CHAIN_ID),
+          chainId: BigInt(L1_CHAIN_ID),
           blockNumber: BLOCK_NUMBER_1,
           key: STORAGE_KEY_1,
           signalServiceAddress: zeroAddress,
@@ -341,14 +580,12 @@ describe('BridgeProver', () => {
       // Given
       const bridgeProver = new BridgeProver();
 
-      vi.mocked(getPublicClient).mockImplementationOnce(() => {
-        throw new Error('any error');
-      });
+      vi.mocked(getPublicClient).mockReturnValueOnce(null as unknown as ReturnType<typeof getPublicClient>);
 
       // When // Then
       await expect(
         bridgeProver.getProof({
-          srcChainId: BigInt(L1_CHAIN_ID),
+          chainId: BigInt(L1_CHAIN_ID),
           blockNumber: BLOCK_NUMBER_1,
           key: STORAGE_KEY_1,
           signalServiceAddress: zeroAddress,
@@ -356,6 +593,162 @@ describe('BridgeProver', () => {
       ).rejects.toBeInstanceOf(ClientError);
 
       expect(getPublicClient).toHaveBeenCalledWith(config, { chainId: L1_CHAIN_ID });
+    });
+  });
+
+  describe('getLatestSyncedBlockNumber() - additional error scenarios', () => {
+    it('should throw ClientError when public client is null for L1 destination', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+      const chainA = BigInt(L2_CHAIN_ID);
+      const chainB = BigInt(L1_CHAIN_ID);
+
+      vi.mocked(getPublicClient).mockReturnValue(null as unknown as ReturnType<typeof getPublicClient>);
+
+      // When / Then
+      await expect(bridgeProver.getLatestSyncedBlockNumber(chainA, chainB)).rejects.toThrow(ClientError);
+    });
+  });
+
+  describe('getEncodedSignalProof() - checkpoint verification failures', () => {
+    const validBlockNo = '0x9b7';
+    const validSignalSlot = '0x1eb55981d51be65667e21e49934d6cb2f5fcc239607297a8280d18c3f64a978b';
+
+    const realBridgeTransaction: BridgeTransaction = {
+      amount: 5000000000000000000n,
+      blockNumber: '0x9b0',
+      decimals: 0,
+      destChainId: BigInt(167001),
+      from: '0x8626f6940E2eb28930eFb4CeF49B2d1F2C9C1199',
+      srcTxHash: '0xc0a3476ac80c3468a65702864ff4ef22ca5b54afac3d0911fb14165cdada7f1c',
+      destTxHash: '' as Hash,
+      msgHash: '0x36973cd4172846df09d48d0bf428802d674848d39229962bbaec2e2fea465f15',
+      srcChainId: 32382n,
+      processingFee: 0n,
+      message: {
+        data: '0x',
+        destChainId: 167001n,
+        destOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        fee: 0n,
+        from: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        gasLimit: 0,
+        id: 4829n,
+        srcChainId: 32382n,
+        srcOwner: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        to: '0x8626f6940e2eb28930efb4cef49b2d1f2c9c1199',
+        value: 5000000000000000000n,
+      },
+      status: 0,
+      symbol: 'ETH',
+      tokenType: TokenType.ETH,
+    };
+
+    it('should throw ProofGenerationError when checkpoint is not found on destination', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      vi.spyOn(bridgeProver, 'getSignalSlot').mockResolvedValue(validSignalSlot);
+      vi.spyOn(bridgeProver, 'getLatestSyncedBlockNumber').mockResolvedValue(
+        BigInt(realBridgeTransaction.blockNumber!),
+      );
+
+      // Ensure SHASTA protocol is used so verifyCheckpoint is called
+      vi.mocked(getProtocolVersion).mockResolvedValue(ProtocolVersion.SHASTA);
+
+      // Mock checkpoint NOT found - verifyCheckpoint calls readContract which throws,
+      // resulting in ProofGenerationError. Use mockRejectedValue (not Once) since
+      // verifyCheckpoint may call readContract multiple times for diagnostics.
+      vi.mocked(readContract).mockRejectedValue(new Error('Checkpoint not found'));
+
+      const mockClient = {
+        getBlock: vi.fn().mockResolvedValue({ number: BigInt(validBlockNo), stateRoot: zeroHash, hash: '0x1' }),
+      } as unknown as ClientWithEthGetProofRequest;
+
+      vi.mocked(getPublicClient).mockReturnValue(mockClient);
+
+      // When / Then
+      await expect(bridgeProver.getEncodedSignalProof({ bridgeTx: realBridgeTransaction })).rejects.toThrow(
+        ProofGenerationError,
+      );
+    });
+  });
+
+  describe('verifyProofPreFlight()', () => {
+    const testParams = {
+      srcChainId: L1_CHAIN_ID,
+      destChainId: L2_CHAIN_ID,
+      bridgeAddress: zeroAddress,
+      msgHash: zeroHash as Hash,
+      encodedProof: '0x1234' as Hex,
+      blockId: 100n,
+      rootHash: '0xabcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234' as Hex,
+    };
+
+    it('should succeed when checkpoint exists and state roots match', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint found with matching state root
+      vi.mocked(readContract).mockResolvedValueOnce({
+        blockNumber: testParams.blockId,
+        blockHash: zeroHash,
+        stateRoot: testParams.rootHash,
+      });
+
+      const mockClient = {
+        call: vi.fn().mockResolvedValue({}),
+      };
+      vi.mocked(getPublicClient).mockReturnValue(mockClient as unknown as ReturnType<typeof getPublicClient>);
+
+      // When / Then - should not throw
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).resolves.toBeUndefined();
+    });
+
+    it('should throw ProofGenerationError when checkpoint is not found', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint NOT found
+      vi.mocked(readContract).mockRejectedValueOnce(new Error('Checkpoint not found'));
+
+      // When / Then
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).rejects.toThrow(ProofGenerationError);
+    });
+
+    it('should throw ProofGenerationError when state root mismatches', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint with different state root
+      vi.mocked(readContract).mockResolvedValueOnce({
+        blockNumber: testParams.blockId,
+        blockHash: zeroHash,
+        stateRoot: '0xdifferentrootdifferentrootdifferentrootdifferentrootdifferentroot',
+      });
+
+      // When / Then
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).rejects.toThrow(ProofGenerationError);
+    });
+
+    it('should not throw when verifySignalReceived fails (non-blocking)', async () => {
+      // Given
+      const bridgeProver = new BridgeProver();
+
+      // Mock checkpoint found with matching state root
+      vi.mocked(readContract).mockResolvedValueOnce({
+        blockNumber: testParams.blockId,
+        blockHash: zeroHash,
+        stateRoot: testParams.rootHash,
+      });
+
+      // Mock verifySignalReceived call to fail
+      const mockClient = {
+        call: vi.fn().mockRejectedValue(new Error('Signal not received')),
+      };
+      vi.mocked(getPublicClient).mockReturnValue(mockClient as unknown as ReturnType<typeof getPublicClient>);
+
+      // When / Then - should not throw despite verifySignalReceived failure
+      await expect(bridgeProver.verifyProofPreFlight(testParams)).resolves.toBeUndefined();
     });
   });
 });

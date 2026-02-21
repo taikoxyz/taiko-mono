@@ -3,6 +3,7 @@ name = "driver"
 version.workspace = true
 edition.workspace = true
 publish = false
+license.workspace = true
 
 [dependencies]
 alethia-reth-consensus = { workspace = true }
@@ -14,7 +15,6 @@ alloy-eips = { workspace = true }
 alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
-alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
 alloy-sol-types = { workspace = true }
@@ -22,11 +22,11 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
 flate2 = { workspace = true }
-k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
+k256 = { workspace = true }
 metrics = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = "0.10"
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }
@@ -39,15 +39,20 @@ protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 
 [dev-dependencies]
+alloy-rlp = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-transport = { workspace = true }
 anyhow = { workspace = true }
-event-indexer = { path = "../event-indexer" }
-http-body-util = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
+preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
+preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
 proposer = { path = "../proposer" }
-rand = "0.8"
+rand = { workspace = true }
+secp256k1 = { workspace = true }
 serde_json = { workspace = true }
 serial_test = { workspace = true }
-test-harness = { path = "../test-harness" }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness", features = ["preconfirmation"] }
+test-log = { workspace = true }
 tokio = { workspace = true }
 tracing-subscriber = { workspace = true }

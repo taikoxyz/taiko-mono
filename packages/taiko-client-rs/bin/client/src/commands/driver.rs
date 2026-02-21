@@ -1,15 +1,14 @@
 //! Driver subcommand.
 
 use alloy::transports::http::reqwest::Url as RpcUrl;
-use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
-use event_indexer::metrics::IndexerMetrics;
-use rpc::SubscriptionSource;
+use rpc::{SubscriptionSource, client::ClientConfig};
 
 use crate::{
     commands::Subcommand,
+    error::Result,
     flags::{common::CommonArgs, driver::DriverArgs},
 };
 
@@ -17,14 +16,16 @@ use crate::{
 #[derive(Parser, Clone, Debug)]
 #[command(about = "Runs the driver software")]
 pub struct DriverSubCommand {
+    /// Common CLI arguments shared across all subcommands.
     #[command(flatten)]
     pub common_flags: CommonArgs,
+    /// Driver-specific CLI arguments.
     #[command(flatten)]
     pub driver_flags: DriverArgs,
 }
 
 impl DriverSubCommand {
-    // Build driver configuration from command-line arguments.
+    /// Build driver configuration from command-line arguments.
     fn build_config(&self) -> Result<DriverConfig> {
         let l1_source =
             SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
@@ -42,7 +43,7 @@ impl DriverSubCommand {
             None
         };
 
-        let client_cfg = rpc::client::ClientConfig {
+        let client_cfg = ClientConfig {
             l1_provider_source: l1_source,
             l2_provider_url: l2_http,
             l2_auth_provider_url: l2_auth,
@@ -67,19 +68,18 @@ impl DriverSubCommand {
 
 #[async_trait]
 impl Subcommand for DriverSubCommand {
-    // Return a reference to the common CLI arguments.
+    /// Return a reference to the common CLI arguments.
     fn common_args(&self) -> &CommonArgs {
         &self.common_flags
     }
 
-    // Register driver and indexer metrics.
+    /// Register driver and indexer metrics.
     fn register_metrics(&self) -> Result<()> {
         DriverMetrics::init();
-        IndexerMetrics::init();
         Ok(())
     }
 
-    // Run the driver.
+    /// Run the driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;

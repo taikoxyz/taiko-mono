@@ -30,7 +30,8 @@ impl Driver {
     #[instrument(skip(self))]
     pub async fn run(&self) -> Result<()> {
         info!(?self.cfg, "starting driver sync pipeline");
-        SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?.run().await?;
+        let pipeline = SyncPipeline::new(self.cfg.clone(), self.rpc.clone()).await?;
+        pipeline.run().await?;
         Ok(())
     }
 

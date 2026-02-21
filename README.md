@@ -13,7 +13,7 @@
 <div align="center">
 
 [![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
-[![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
+[![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/aGZYtKqMjj)
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
 [![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
@@ -40,7 +40,6 @@ Get started with Taiko Alethia:
 | Package                                                       | Description                                                        |
 | :------------------------------------------------------------ | :----------------------------------------------------------------- |
 | [balance-monitor](./packages/balance-monitor)                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
-| [blobindexer-rs](./packages/blobindexer-rs/)                  | Service that indexes Ethereum L1 blobs.                            |
 | [bridge-ui](./packages/bridge-ui)                             | Bridge UI.                                                         |
 | [docs-site](./packages/docs-site)                             | End user documentation site.                                       |
 | [ejector](./packages/ejector)                                 | Preconfirmation ejector service for operators with issues.         |
@@ -66,4 +65,4 @@ Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
 
 ## Getting support
 
-Reach out to the community on [Discord](https://discord.gg/taikoxyz) if you need any help!
+Reach out to the community on [Discord](https://discord.gg/7cAp9kQ8) if you need any help!

@@ -26,7 +26,6 @@ type ProposeBatchTransactionBuilder interface {
 	BuildShasta(
 		ctx context.Context,
 		txBatch []types.Transactions,
-		minTxsPerForcedInclusion *big.Int,
 		preconfRouterAddress common.Address,
 	) (*txmgr.TxCandidate, error)
 }

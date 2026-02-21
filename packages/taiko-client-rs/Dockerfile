@@ -7,9 +7,16 @@ RUN apt-get update && \
   apt-get install -y git libclang-dev pkg-config curl build-essential && \
   rm -rf /var/lib/apt/lists/*
 
-COPY ./ .
+COPY packages/taiko-client-rs packages/taiko-client-rs
+COPY packages/preconfirmation-p2p packages/preconfirmation-p2p
 
-RUN cargo build --release
+WORKDIR /app/packages/taiko-client-rs
+
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/packages/taiko-client-rs/target \
+    cargo build --release && \
+    cp /app/packages/taiko-client-rs/target/release/taiko-client /tmp/taiko-client
 
 FROM ubuntu:22.04
 
@@ -19,6 +26,6 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-COPY --from=build /app/target/release/taiko-client ./
+COPY --from=build /tmp/taiko-client ./taiko-client
 
 ENTRYPOINT ["./taiko-client"]

@@ -96,7 +96,7 @@ To complete the transfer:
 Taiko Alethia's bridge supports **Ether transfers** in two cases:
 
 1. **Direct ETH transfer**: The user calls `sendMessage` on the Bridge contract.
-2. **ETH + ERC token transfer**: The user calls `sendToken` on the `ERCXXXVault`, including ETH as part of the transaction.
+2. **ETH + ERC token transfer**: The user calls `sendToken` on the appropriate token vault (`ERC20Vault`, `ERC721Vault`, or `ERC1155Vault`), including ETH as part of the transaction.
 
 ## ERC-20, ERC-721, and ERC-1155 token bridging
 
@@ -105,7 +105,7 @@ Token bridging requires a **BridgedERC contract** on the destination chain.
 ### Bridging ERC tokens to the destination chain
 
 1. The ERC token contract must exist on the destination chain.
-2. The sender calls `sendToken` on `ERCXXXVault` (source chain).
+2. The sender calls `sendToken` on the appropriate token vault (`ERC20Vault`, `ERC721Vault`, or `ERC1155Vault`) on the source chain.
 3. The vault transfers the token to the **Bridge contract** and generates a **Merkle proof**.
 4. The recipient submits a **Merkle proof** on the destination chain.
 5. If valid, the **BridgedERC contract** mints the corresponding amount.

@@ -3,7 +3,7 @@ title: Verify a contract
 description: This guide will help you verify a smart contract on Taiko.
 ---
 
-import { Aside } from '@astrojs/starlight/components';
+import { Aside } from "@astrojs/starlight/components";
 
 This guide will help you verify a smart contract on Taiko.
 
@@ -25,43 +25,20 @@ forge verify-contract 0x526317252e346978869d178081dA2cd10ac8b56D src/Counter.sol
   --verifier blockscout
 ```
 
-It's also possible to verify the contract through `Taikoscan` API as follows:
+It's also possible to verify the contract on Taikoscan through `Etherscan v2` API as follows:
 
 ```bash
 forge verify-contract 0x526317252e346978869d178081dA2cd10ac8b56D src/Counter.sol:Counter \
-  --watch \
-  --verifier-url https://api.taikoscan.io/api \
-  --etherscan-api-key {YOUR_API_KEY}
+  --chain 167000 \
+  --verifier custom \
+  --verifier-url https://api.etherscan.io/v2/api?chainid=167000&apikey={YOUR_API_KEY}
 ```
 
-## Taiko Hekla
+## Taiko Hoodi
 
 ---
 
 ### Verify a contract with Foundry
-
-Replace the contract address and filepath to contract below, and then execute in terminal to verify your contract.
-
-```bash
-forge verify-contract 0x526317252e346978869d178081dA2cd10ac8b56D src/Counter.sol:Counter \
-  --verifier-url https://blockscoutapi.hekla.taiko.xyz/api\? \
-  --verifier blockscout
-```
-
-<Aside>
-For some users the above command does not work on Blockscout (currently investigating). You can also try passing a different `--verifier-url`:
-
-```bash "https://blockscoutapi.hekla.taiko.xyz/api?module=contract&action=verify"
---verifier-url https://blockscoutapi.hekla.taiko.xyz/api?module=contract&action=verify
-```
-
-</Aside>
-
-### Verify a contract with Hardhat or other alternatives
-
-Check out the Blockscout docs [here](https://docs.blockscout.com/for-users/verifying-a-smart-contract)!
-
-## Taiko Hoodi
 
 Replace the contract address and filepath to contract below, and then execute in terminal to verify your contract.
 
@@ -72,9 +49,9 @@ forge verify-contract 0x526317252e346978869d178081dA2cd10ac8b56D src/Counter.sol
 ```
 
 <Aside>
-For some users the above command does not work on Blockscout (currently investigating). You can also try passing a different `--verifier-url`:
+For some users the above command does not work on Blockscout. You can also try passing a different `--verifier-url`:
 
-```bash "https://blockscoutapi.hoodi.taiko.xyz/api?module=contract&action=verify"
+```bash
 --verifier-url https://blockscoutapi.hoodi.taiko.xyz/api?module=contract&action=verify
 ```
 
@@ -82,4 +59,4 @@ For some users the above command does not work on Blockscout (currently investig
 
 ### Verify a contract with Hardhat or other alternatives
 
-Check out the Blockscout docs [here](https://docs.blockscout.com/for-users/verifying-a-smart-contract)!
+Check out the Blockscout docs [here](https://docs.blockscout.com/for-users/verifying-a-smart-contract) or Hardhat docs [here](https://hardhat.org/docs/guides/smart-contract-verification)!

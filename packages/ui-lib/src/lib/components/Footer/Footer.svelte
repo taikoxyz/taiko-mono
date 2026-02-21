@@ -19,7 +19,7 @@
 		{
 			icon: 'DiscordLogo',
 			label: 'discord',
-			href: 'https://discord.com/invite/taikoxyz'
+			href: 'https://discord.gg/aGZYtKqMjj'
 		},
 		{
 			icon: 'TwitterLogo',

@@ -59,7 +59,7 @@ func filterFuncPacaya(
 
 		err = i.saveBatchProposedEvents(ctx, chainID, batchProposedEvent)
 		if err != nil {
-			return errors.Wrap(err, "i.savebatchProposedEvent")
+			return errors.Wrap(err, "i.saveBatchProposedEvents")
 		}
 	}
 

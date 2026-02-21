@@ -47,7 +47,7 @@ func (r *ERC20BalanceRepository) increaseBalanceInDB(
 		First(b).
 		Error
 	if err != nil {
-		// allow to be not found, it may be first time this user has this token
+		// allow to be not found, it may be the first time this user has this token
 		if err != gorm.ErrRecordNotFound {
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		}
@@ -231,7 +231,9 @@ func (r *ERC20BalanceRepository) CreateMetadata(
 		return 0, err
 	}
 
-	tx.Commit()
+	if err := tx.Commit().Error; err != nil {
+		return 0, err
+	}
 
 	return id, nil
 }

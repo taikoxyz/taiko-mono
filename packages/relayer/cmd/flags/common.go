@@ -100,6 +100,12 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"SRC_SIGNAL_SERVICE_ADDRESS"},
 	}
+	SrcSignalServiceForkRouterAddress = &cli.StringFlag{
+		Name:     "srcSignalServiceForkRouterAddress",
+		Usage:    "Fork router / new SignalService address for the source chain",
+		Category: commonCategory,
+		EnvVars:  []string{"SRC_SIGNAL_SERVICE_FORK_ROUTER_ADDRESS"},
+	}
 	BackOffRetryInterval = &cli.Uint64Flag{
 		Name:     "backoff.retryInterval",
 		Usage:    "Retry interval in seconds when there is an error",
@@ -132,6 +138,7 @@ var CommonFlags = []cli.Flag{
 	MetricsHTTPPort,
 	ETHClientTimeout,
 	SrcSignalServiceAddress,
+	SrcSignalServiceForkRouterAddress,
 	BackOffMaxRetries,
 	BackOffRetryInterval,
 }

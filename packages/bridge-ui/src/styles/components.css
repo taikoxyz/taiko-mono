@@ -86,7 +86,7 @@
     focus:!shadow-[0_0_0_3px_#E81899];
   }
 
-  .input-box.withValdiation {
+  .input-box.withValidation {
     @apply outline-none;
   }
 

@@ -2,14 +2,19 @@
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROTOCOL_DIR="${PROTOCOL_DIR:-$DIR/../protocol}"
+export PROTOCOL_DIR
 
 echo "Starting docker compose services..."
 
 export L1_HTTP=http://localhost:18545
 export L1_WS=ws://localhost:18545
-export L2_HTTP=http://localhost:28545
-export L2_WS=ws://localhost:28546
-export L2_AUTH=http://localhost:28551
+export L2_HTTP_0=http://localhost:28545
+export L2_WS_0=ws://localhost:28546
+export L2_AUTH_0=http://localhost:28551
+export L2_HTTP_1=http://localhost:38545
+export L2_WS_1=ws://localhost:38546
+export L2_AUTH_1=http://localhost:38551
 export JWT_SECRET=$DIR/docker/jwt.hex
 
 # Environment variables for deploying protocol contracts on L1.
@@ -30,6 +35,8 @@ export PRECONF_INBOX="false"
 export DUMMY_VERIFIERS="true"
 export ACTIVATE_INBOX="true"
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
+export PRECONF_WHITELIST=0x0000000000000000000000000000000000000000
+export REMOTE_SIGNAL_SERVICE=0x1670010000000000000000000000000000000005
 
 docker compose -f tests/docker/docker-compose.test.yaml up -d
 trap "docker compose -f tests/docker/docker-compose.test.yaml down -v" EXIT INT KILL ERR
@@ -40,7 +47,12 @@ until cast chain-id --rpc-url "$L1_WS" 2> /dev/null; do
 done
 
 # check until L2 node is ready
-until cast chain-id --rpc-url "$L2_WS" 2> /dev/null; do
+until cast chain-id --rpc-url "$L2_WS_0" 2> /dev/null; do
+    sleep 1
+done
+
+# check until secondary L2 node is ready
+until cast chain-id --rpc-url "$L2_WS_1" 2> /dev/null; do
     sleep 1
 done
 
@@ -51,14 +63,14 @@ export L2_GENESIS_HASH=$(
         -X POST \
         -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","id":0,"method":"eth_getBlockByNumber","params":["0x0", false]}' \
-        $L2_HTTP | jq .result.hash | sed 's/\"//g'
+        $L2_HTTP_0 | jq .result.hash | sed 's/\"//g'
 )
 echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"
 
 $DIR/deploy.sh
 
 # Export deployed contract addresses and other env vars for tests.
-DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
+DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
 export SHASTA_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
 export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
@@ -71,6 +83,10 @@ export L1_PROVER_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a841
 export TEST_ACCOUNT_PRIVATE_KEY=0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
 export TREASURY=0x1670010000000000000000000000000000010001
 
-cargo nextest -v run \
-    -j 1 \
-    --workspace --exclude bindings --all-features
+if [[ -n "${TEST_CRATE:-}" ]]; then
+    echo "Running tests for crate: ${TEST_CRATE}"
+    cargo nextest -v run -p "${TEST_CRATE}" --all-features --config-file nextest.toml
+else
+    echo "Running full test suite (default)"
+    cargo nextest -v run --workspace --exclude bindings --all-features --config-file nextest.toml
+fi

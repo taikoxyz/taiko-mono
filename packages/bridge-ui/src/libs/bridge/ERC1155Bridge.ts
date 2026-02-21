@@ -216,8 +216,8 @@ export class ERC1155Bridge extends Bridge {
       gasLimit = 0;
     } else {
       gasLimit = !isTokenAlreadyDeployed
-        ? minGasLimit + gasLimitConfig.erc1155DeployedGasLimit // Token is not deployed
-        : minGasLimit + gasLimitConfig.erc1155NotDeployedGasLimit; // Token is deployed
+        ? minGasLimit + gasLimitConfig.erc1155NotDeployedGasLimit // Token is not deployed
+        : minGasLimit + gasLimitConfig.erc1155DeployedGasLimit; // Token is deployed
     }
 
     const sendERC1155Args: NFTBridgeTransferOp = {

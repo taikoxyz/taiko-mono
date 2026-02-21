@@ -55,6 +55,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
+        uint64 minBond;
+        uint64 livenessBond;
+        uint48 withdrawalDelay;
         bool useDummyVerifiers;
         bool pauseBridge;
     }

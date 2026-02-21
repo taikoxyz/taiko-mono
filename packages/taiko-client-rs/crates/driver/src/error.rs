@@ -1,22 +1,39 @@
 //! Driver specific error types.
 
-use thiserror::Error;
+use std::{io, result::Result as StdResult, time::Duration};
 
-use crate::sync::SyncError;
+use anyhow::Error as AnyhowError;
+use rpc::error::RpcClientError;
+use thiserror::Error;
+use tokio::sync::oneshot::error::RecvError;
+
+use crate::sync::{SyncError, error::EngineSubmissionError};
 
 /// Convenient result alias for driver operations.
-pub type Result<T> = std::result::Result<T, DriverError>;
+pub type Result<T> = StdResult<T, DriverError>;
 
 /// Error variants emitted by the driver.
 #[derive(Debug, Error)]
 pub enum DriverError {
     /// Errors originating from the RPC client layer.
     #[error("rpc error: {0}")]
-    Rpc(#[from] rpc::error::RpcClientError),
+    Rpc(#[from] RpcClientError),
 
     /// Sync subsystem reported a failure.
     #[error(transparent)]
     Sync(#[from] SyncError),
+
+    /// I/O error emitted by the runtime.
+    #[error("io error: {0}")]
+    Io(#[from] io::Error),
+
+    /// Preconfirmation support is disabled in the driver configuration.
+    #[error("preconfirmation is not enabled in driver config")]
+    PreconfirmationDisabled,
+
+    /// Preconfirmation ingress loop has not started yet.
+    #[error("preconfirmation ingress loop is not ready")]
+    PreconfIngressNotReady,
 
     /// Block not found on remote node.
     #[error("remote node missing block {0}")]
@@ -30,7 +47,58 @@ pub enum DriverError {
     #[error("engine API returned INVALID: {0}")]
     EngineInvalidPayload(String),
 
+    /// Preconfirmation payload injection failed with context.
+    #[error("preconfirmation injection failed for block {block_number}: {source}")]
+    PreconfInjectionFailed {
+        /// L2 block number targeted by the payload.
+        block_number: u64,
+        #[source]
+        /// Underlying engine submission error.
+        source: EngineSubmissionError,
+    },
+
+    /// Timed out while enqueuing a preconfirmation payload.
+    #[error("preconfirmation enqueue timed out after {waited:?}")]
+    PreconfEnqueueTimeout {
+        /// Time spent waiting for queue capacity.
+        waited: Duration,
+    },
+
+    /// Channel send failed when enqueueing a preconfirmation payload.
+    #[error("failed to enqueue preconfirmation: {0}")]
+    PreconfEnqueueFailed(String),
+
+    /// Timed out waiting for a preconfirmation processing response.
+    #[error("preconfirmation result timed out after {waited:?}")]
+    PreconfResponseTimeout {
+        /// Time spent waiting for the oneshot response.
+        waited: Duration,
+    },
+
+    /// Response channel for a preconfirmation payload was closed before delivery.
+    #[error("preconfirmation response dropped: {recv_error}")]
+    PreconfResponseDropped {
+        #[from]
+        #[source]
+        /// Channel receive error produced by oneshot cancellation.
+        recv_error: RecvError,
+    },
+
     /// Generic boxed error.
     #[error(transparent)]
-    Other(#[from] anyhow::Error),
+    Other(#[from] AnyhowError),
+}
+
+/// Map a [`DriverError`] into a target error type while preserving sync errors.
+///
+/// This ensures `DriverError::Sync` is converted through `From<SyncError>` instead of being
+/// wrapped as a generic driver error.
+pub fn map_driver_error<T>(err: DriverError) -> T
+where
+    T: From<SyncError> + From<DriverError>,
+{
+    match err {
+        DriverError::Sync(sync_err) => sync_err.into(),
+        other => other.into(),
+    }
 }

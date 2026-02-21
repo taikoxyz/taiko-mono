@@ -76,16 +76,19 @@ func (b *BalanceMonitor) Start() error {
 			return nil
 		case <-ticker.C:
 			for _, address := range b.addresses {
-				b.checkEthBalance(context.Background(), b.l1EthClient, l1EthBalanceGauge, "L1", address)
-				b.checkEthBalance(context.Background(), b.l2EthClient, l2EthBalanceGauge, "L2", address)
+				// Create context with timeout for RPC calls to ensure graceful shutdown
+				ctx, cancel := context.WithTimeout(b.ctx, 30*time.Second)
+				b.checkEthBalance(ctx, b.l1EthClient, l1EthBalanceGauge, "L1", address)
+				b.checkEthBalance(ctx, b.l2EthClient, l2EthBalanceGauge, "L2", address)
 
 				// Check ERC-20 token balances
 				var balance float64 = 0
 				for _, tokenAddress := range b.erc20Addresses {
-					balance = balance + b.checkErc20Balance(context.Background(), b.l1EthClient, "L1", tokenAddress, address)
-					balance = balance + b.checkErc20Balance(context.Background(), b.l2EthClient, "L2", tokenAddress, address)
+					balance = balance + b.checkErc20Balance(ctx, b.l1EthClient, "L1", tokenAddress, address)
+					balance = balance + b.checkErc20Balance(ctx, b.l2EthClient, "L2", tokenAddress, address)
 
 				}
+				cancel()
 				l1Erc20BalanceGauge.WithLabelValues(address.Hex()).Set(balance)
 				slog.Info("ERC-20 Balance", "address", address.Hex(), "balance", balance)
 			}
