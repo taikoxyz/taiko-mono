@@ -23,6 +23,7 @@ func (i *Indexer) saveBlockVerifiedEvents(
 		slog.Info("no BlockVerified events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
@@ -98,6 +99,7 @@ func (i *Indexer) saveBlockVerifiedEventsV2(
 		slog.Info("no BlockVerified events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
