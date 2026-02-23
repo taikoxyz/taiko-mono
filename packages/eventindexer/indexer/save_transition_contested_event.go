@@ -22,6 +22,7 @@ func (i *Indexer) saveTransitionContestedEvents(
 		slog.Info("no transitionContested events")
 		return nil
 	}
+	defer events.Close()
 
 	for {
 		event := events.Event
@@ -91,6 +92,7 @@ func (i *Indexer) saveTransitionContestedEventsV2(
 		slog.Info("no transitionContested events")
 		return nil
 	}
+	defer events.Close()
 
 	for {
 		event := events.Event
