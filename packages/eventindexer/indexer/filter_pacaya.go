@@ -25,6 +25,7 @@ func filterFuncPacaya(
 			if err != nil {
 				return errors.Wrap(err, "i.taikoInbox.FilterBatchesProved")
 			}
+			defer batchesProvedEvents.Close()
 
 			err = i.saveBatchesProvedEvents(ctx, chainID, batchesProvedEvents)
 			if err != nil {
@@ -39,6 +40,7 @@ func filterFuncPacaya(
 			if err != nil {
 				return errors.Wrap(err, "i.taikoInbox.FilterBatchesVerified")
 			}
+			defer batchesVerifiedEvents.Close()
 
 			err = i.saveBatchesVerifiedEvents(ctx, chainID, batchesVerifiedEvents)
 			if err != nil {
@@ -56,6 +58,7 @@ func filterFuncPacaya(
 		if err != nil {
 			return errors.Wrap(err, "i.taikoInbox.FilterBatchProposed")
 		}
+		defer batchProposedEvent.Close()
 
 		err = i.saveBatchProposedEvents(ctx, chainID, batchProposedEvent)
 		if err != nil {
@@ -69,6 +72,7 @@ func filterFuncPacaya(
 			if err != nil {
 				return errors.Wrap(err, "i.bridge.FilterMessageSent")
 			}
+			defer messagesSent.Close()
 
 			err = i.saveMessageSentEvents(ctx, chainID, messagesSent)
 			if err != nil {
