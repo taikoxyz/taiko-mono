@@ -24,6 +24,7 @@ func (i *Indexer) saveBlockProposedEvents(
 		slog.Info("no blockProposed events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
@@ -113,6 +114,7 @@ func (i *Indexer) saveBlockProposedEventsV2(
 		slog.Info("no blockProposedV2 events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
