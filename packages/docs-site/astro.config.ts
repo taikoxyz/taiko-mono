@@ -38,6 +38,7 @@ export default defineConfig({
       components: {
         SiteTitle: "./src/components/starlight/SiteTitle.astro",
         Head: "./src/components/starlight/Head.astro",
+        PageTitle: "./src/components/starlight/PageTitle.astro",
       },
       title: "Docs",
       editLink: {
