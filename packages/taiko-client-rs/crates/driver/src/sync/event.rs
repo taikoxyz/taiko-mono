@@ -715,16 +715,6 @@ where
                 resume_proposal_id,
                 finalized_snapshot.as_ref().map(|s| s.finalized_safe_proposal_id),
             );
-        let start_block = if target_proposal_id == 0 {
-            finalized_snapshot.as_ref().map_or(0, |snapshot| {
-                resolve_zero_target_start_block(
-                    snapshot.finalized_safe_proposal_id,
-                    snapshot.block_number,
-                )
-            })
-        } else {
-            0
-        };
         let (finalized_block_number, finalized_block_hash) =
             if let Some(snapshot) = finalized_snapshot {
                 (Some(snapshot.block_number), Some(snapshot.block_hash))
@@ -743,9 +733,14 @@ where
             "selected finalized-bounded proposal id from resume-source anchor metadata",
         );
         if target_proposal_id == 0 {
+            let start_block = finalized_snapshot.as_ref().map_or(0, |snapshot| {
+                resolve_zero_target_start_block(
+                    snapshot.finalized_safe_proposal_id,
+                    snapshot.block_number,
+                )
+            });
             info!(
                 start_block,
-                target_proposal_id,
                 finalized_safe_proposal_id,
                 finalized_block_number,
                 "resolved zero-target scanner start block",
