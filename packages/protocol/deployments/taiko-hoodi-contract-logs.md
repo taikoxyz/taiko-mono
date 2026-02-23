@@ -101,6 +101,7 @@
   - updated on Feb 9, 2026 at commit `8051523`
 
 ### ShastaInbox
+
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
 - impl: `0xaDeb8cF142991D2AE46e5Ab6BE3172979fE6D10F`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
@@ -123,7 +124,7 @@
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - ejectors:
 - operators:
-  - taiko nethermind proposer `0x75141CD01F50A17a915d59D245aE6B2c947D37d9`(sequencer `0x75141CD01F50A17a915d59D245aE6B2c947D37d9`)
+  - taiko nethermind proposer `0xdE023f59daCee4e1B4B4216E1B6DfF624555cd2E`(sequencer `0x4f288A9b763E065c5650ce0c89bF9FbFBCc397e1`)
   - taiko chainbound proposer `0x205a600D515091b473b6c1A8477D967533D10749`(sequencer `0x205a600D515091b473b6c1A8477D967533D10749`)
   - taiko gattaca proposer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`(sequencer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`)
 - logs:
@@ -199,6 +200,7 @@
 - impl : `0xD6b1EF918E6d31749424806b65D126C237774970`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
+
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
 
