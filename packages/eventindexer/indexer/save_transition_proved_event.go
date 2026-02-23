@@ -23,6 +23,7 @@ func (i *Indexer) saveTransitionProvedEvents(
 		slog.Info("no transitionProved events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
@@ -101,6 +102,7 @@ func (i *Indexer) saveTransitionProvedEventsV2(
 		slog.Info("no transitionProved events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
