@@ -24,6 +24,7 @@ func (i *Indexer) saveMessageSentEvents(
 
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
