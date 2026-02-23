@@ -139,6 +139,11 @@ const classes = ["sl-page-actions", rootClassName].filter(Boolean).join(" ");
       };
 
       const copyWithFallback = (text: string) => {
+        // Legacy fallback for browsers without navigator.clipboard support.
+        if (typeof document.execCommand !== "function") {
+          throw new Error("Clipboard API unavailable and execCommand fallback unsupported");
+        }
+
         const textarea = document.createElement("textarea");
         textarea.value = text;
         textarea.setAttribute("readonly", "");
@@ -146,8 +151,18 @@ const classes = ["sl-page-actions", rootClassName].filter(Boolean).join(" ");
         textarea.style.left = "-9999px";
         document.body.appendChild(textarea);
         textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
+
+        let didCopy = false;
+
+        try {
+          didCopy = document.execCommand("copy");
+        } finally {
+          document.body.removeChild(textarea);
+        }
+
+        if (!didCopy) {
+          throw new Error("Legacy copy fallback failed");
+        }
       };
 
       const copyFromSource = async (sourceUrl: string) => {
