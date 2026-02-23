@@ -126,7 +126,6 @@
 - operators:
   - taiko nethermind proposer `0xdE023f59daCee4e1B4B4216E1B6DfF624555cd2E`(sequencer `0x4f288A9b763E065c5650ce0c89bF9FbFBCc397e1`)
   - taiko chainbound proposer `0x205a600D515091b473b6c1A8477D967533D10749`(sequencer `0x205a600D515091b473b6c1A8477D967533D10749`)
-  - taiko gattaca proposer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`(sequencer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`)
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - upgraded on Feb 5, 2026 at commit `99429e4`
