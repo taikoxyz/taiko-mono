@@ -23,6 +23,7 @@ func (i *Indexer) saveProposedEvents(
 		slog.Info("no Proposed events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
