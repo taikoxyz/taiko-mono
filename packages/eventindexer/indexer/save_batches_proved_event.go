@@ -23,6 +23,7 @@ func (i *Indexer) saveBatchesProvedEvents(
 		slog.Info("no batchesProved events")
 		return nil
 	}
+	defer events.Close()
 
 	wg, ctx := errgroup.WithContext(ctx)
 
