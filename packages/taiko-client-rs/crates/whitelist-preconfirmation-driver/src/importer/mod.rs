@@ -224,7 +224,9 @@ where
                             "end-of-sequencing hash known for epoch but envelope not in recent cache; rebuilding from L2"
                         );
 
-                        if let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? {
+                        if let Some(mut envelope) =
+                            self.build_response_envelope_from_l2(hash).await?
+                        {
                             envelope.end_of_sequencing = Some(true);
                             let envelope = Arc::new(envelope);
                             self.recent_cache.insert_recent(envelope.clone());
@@ -313,7 +315,6 @@ where
         metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
             .set(self.recent_cache.len() as f64);
     }
-
 }
 
 /// Convert a provider error into a driver error.
