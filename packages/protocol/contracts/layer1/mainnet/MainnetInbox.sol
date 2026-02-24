@@ -52,7 +52,6 @@ contract MainnetInbox is Inbox {
                 provingWindow: 4 hours,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
-                basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 384, // 1 epoch
                 forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH base fee

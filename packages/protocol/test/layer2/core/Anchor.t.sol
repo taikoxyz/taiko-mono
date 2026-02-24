@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "forge-std/src/Test.sol";
 import { Anchor } from "src/layer2/core/Anchor.sol";
+import { IL2FeeVault } from "src/layer2/core/IL2FeeVault.sol";
 import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 
 contract MockCheckpointStore is ICheckpointStore {
@@ -18,18 +19,33 @@ contract MockCheckpointStore is ICheckpointStore {
     }
 }
 
+contract MockFeeVault is IL2FeeVault {
+    uint256 public count;
+    uint48 public lastProposalId;
+    address public lastProposer;
+
+    function importProposalFee(ProposalFeeData calldata _fee) external override {
+        count += 1;
+        lastProposalId = _fee.proposalId;
+        lastProposer = _fee.proposer;
+    }
+}
+
 contract AnchorTest is Test {
     uint64 private constant SHASTA_FORK_HEIGHT = 100;
     uint64 private constant L1_CHAIN_ID = 1;
     address private constant GOLDEN_TOUCH = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
+    address private constant PROPOSER = address(0xB0B);
 
     Anchor internal anchor;
     MockCheckpointStore internal checkpointStore;
+    MockFeeVault internal feeVault;
 
     function setUp() external {
         checkpointStore = new MockCheckpointStore();
+        feeVault = new MockFeeVault();
 
-        Anchor anchorImpl = new Anchor(checkpointStore, L1_CHAIN_ID);
+        Anchor anchorImpl = new Anchor(checkpointStore, L1_CHAIN_ID, feeVault);
         anchor = Anchor(
             address(
                 new ERC1967Proxy(address(anchorImpl), abi.encodeCall(Anchor.init, (address(this))))
@@ -37,9 +53,21 @@ contract AnchorTest is Test {
         );
     }
 
+    function test_anchorV4_importsFeeData() external {
+        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
+        Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        assertEq(feeVault.count(), 1, "fee count");
+        assertEq(feeVault.lastProposalId(), 1, "fee id");
+        assertEq(feeVault.lastProposer(), PROPOSER, "fee proposer");
+    }
+
     function test_anchorV4_savesCheckpointAndUpdatesState() external {
-        Anchor.ProposalParams memory proposalParams =
-            Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
         Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -60,8 +88,7 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_allowsMultipleAnchorsAcrossBlocks() external {
-        Anchor.ProposalParams memory proposalParams =
-            Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
         Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -70,15 +97,14 @@ contract AnchorTest is Test {
 
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, blockParams);
+        anchor.anchorV4(_proposalParams(1, false), blockParams);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, blockParams.anchorBlockNumber);
     }
 
     function test_anchorV4_rejectsInvalidSender() external {
-        Anchor.ProposalParams memory proposalParams =
-            Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
         Anchor.BlockParams memory blockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -87,8 +113,7 @@ contract AnchorTest is Test {
     }
 
     function test_anchorV4_ignoresStaleCheckpoint() external {
-        Anchor.ProposalParams memory proposalParams =
-            Anchor.ProposalParams({ submissionWindowEnd: 0 });
+        Anchor.ProposalParams memory proposalParams = _proposalParams(1, true);
         Anchor.BlockParams memory freshBlockParams = _blockParams(1000, 0x1234, 0x5678);
 
         vm.roll(SHASTA_FORK_HEIGHT);
@@ -98,7 +123,7 @@ contract AnchorTest is Test {
         Anchor.BlockParams memory staleBlockParams = _blockParams(999, 0xAAAA, 0xBBBB);
         vm.roll(SHASTA_FORK_HEIGHT + 1);
         vm.prank(GOLDEN_TOUCH);
-        anchor.anchorV4(proposalParams, staleBlockParams);
+        anchor.anchorV4(_proposalParams(1, false), staleBlockParams);
 
         Anchor.BlockState memory blockState = anchor.getBlockState();
         assertEq(blockState.anchorBlockNumber, freshBlockParams.anchorBlockNumber);
@@ -123,6 +148,31 @@ contract AnchorTest is Test {
             anchorBlockHash: bytes32(_blockHash),
             anchorStateRoot: bytes32(_stateRoot),
             rawTxListHash: bytes32(0)
+        });
+    }
+
+    function _proposalParams(uint48 _proposalId, bool _includeFee)
+        private
+        pure
+        returns (Anchor.ProposalParams memory)
+    {
+        IL2FeeVault.ProposalFeeData memory feeData;
+        if (_includeFee) {
+            feeData = IL2FeeVault.ProposalFeeData({
+                proposalId: _proposalId,
+                proposer: PROPOSER,
+                l1GasUsed: 10,
+                numBlobs: 1,
+                l1Basefee: 2,
+                l1BlobBasefee: 3,
+                l2BasefeeRevenue: 100
+            });
+        }
+
+        return Anchor.ProposalParams({
+            proposalId: _proposalId,
+            submissionWindowEnd: 0,
+            feeData: feeData
         });
     }
 }
