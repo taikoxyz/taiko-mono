@@ -1,0 +1,305 @@
+---
+interface Action {
+  kind: "copy" | "link";
+  label: string;
+  sourceUrl?: string;
+  href?: string;
+  newTab?: boolean;
+}
+
+interface Props {
+  primaryAction: Action;
+  menuActions?: Action[];
+  rootClassName?: string;
+  translateY?: string;
+}
+
+const {
+  primaryAction,
+  menuActions = [],
+  rootClassName = "",
+  translateY = "0",
+} = Astro.props;
+
+const classes = ["sl-page-actions", rootClassName].filter(Boolean).join(" ");
+---
+
+<div
+  class={classes}
+  data-page-actions
+  style={`--sl-page-actions-translate-y: ${translateY};`}
+>
+  {primaryAction.kind === "copy" ? (
+    <button
+      type="button"
+      class="sl-page-actions-primary"
+      data-copy-action
+      data-source-url={primaryAction.sourceUrl}
+    >
+      {primaryAction.label}
+    </button>
+  ) : (
+    <a
+      class="sl-page-actions-primary"
+      href={primaryAction.href}
+      target={primaryAction.newTab ? "_blank" : undefined}
+      rel={primaryAction.newTab ? "noopener noreferrer" : undefined}
+    >
+      {primaryAction.label}
+    </a>
+  )}
+
+  {
+    menuActions.length > 0 && (
+      <details class="sl-page-actions-menu">
+        <summary aria-label="More page actions">
+          <svg
+            aria-hidden="true"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="m7 10 5 5 5-5z"></path>
+          </svg>
+        </summary>
+
+        <div class="sl-page-actions-menu-items">
+          {menuActions.map((action) =>
+            action.kind === "copy" ? (
+              <button
+                type="button"
+                class="sl-page-actions-menu-item"
+                data-copy-action
+                data-source-url={action.sourceUrl}
+              >
+                {action.label}
+              </button>
+            ) : (
+              <a
+                class="sl-page-actions-menu-item"
+                href={action.href}
+                target={action.newTab ? "_blank" : undefined}
+                rel={action.newTab ? "noopener noreferrer" : undefined}
+              >
+                {action.label}
+              </a>
+            )
+          )}
+        </div>
+      </details>
+    )
+  }
+</div>
+
+<script>
+  (() => {
+    const roots = document.querySelectorAll("[data-page-actions]");
+
+    roots.forEach((root) => {
+      if (!(root instanceof HTMLElement) || root.dataset.pageActionsBound === "true") {
+        return;
+      }
+
+      root.dataset.pageActionsBound = "true";
+
+      const details = root.querySelector(".sl-page-actions-menu");
+      const copyButtons = root.querySelectorAll("[data-copy-action]");
+
+      if (!copyButtons.length) {
+        return;
+      }
+
+      copyButtons.forEach((button) => {
+        if (button instanceof HTMLButtonElement) {
+          button.dataset.defaultLabel = button.textContent?.trim() ?? "Copy";
+        }
+      });
+
+      let labelResetTimeout = 0;
+
+      const updateCopyLabels = (label: string) => {
+        copyButtons.forEach((button) => {
+          if (button instanceof HTMLButtonElement) {
+            button.textContent = label;
+          }
+        });
+      };
+
+      const resetCopyLabels = () => {
+        window.clearTimeout(labelResetTimeout);
+
+        labelResetTimeout = window.setTimeout(() => {
+          copyButtons.forEach((button) => {
+            if (button instanceof HTMLButtonElement) {
+              button.textContent = button.dataset.defaultLabel ?? "Copy";
+            }
+          });
+        }, 1600);
+      };
+
+      const copyWithFallback = (text: string) => {
+        // Legacy fallback for browsers without navigator.clipboard support.
+        if (typeof document.execCommand !== "function") {
+          throw new Error("Clipboard API unavailable and execCommand fallback unsupported");
+        }
+
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+
+        let didCopy = false;
+
+        try {
+          didCopy = document.execCommand("copy");
+        } finally {
+          document.body.removeChild(textarea);
+        }
+
+        if (!didCopy) {
+          throw new Error("Legacy copy fallback failed");
+        }
+      };
+
+      const copyFromSource = async (sourceUrl: string) => {
+        const response = await fetch(sourceUrl, { credentials: "same-origin" });
+
+        if (!response.ok) {
+          throw new Error(`Unable to load copy source (${response.status})`);
+        }
+
+        const text = await response.text();
+
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+
+        copyWithFallback(text);
+      };
+
+      copyButtons.forEach((button) => {
+        if (!(button instanceof HTMLButtonElement)) {
+          return;
+        }
+
+        const sourceUrl = button.dataset.sourceUrl;
+
+        if (!sourceUrl) {
+          return;
+        }
+
+        button.addEventListener("click", async (event) => {
+          event.preventDefault();
+
+          try {
+            await copyFromSource(sourceUrl);
+            updateCopyLabels("Copied");
+          } catch (error) {
+            console.error(error);
+            updateCopyLabels("Copy failed");
+          } finally {
+            details?.removeAttribute("open");
+            resetCopyLabels();
+          }
+        });
+      });
+    });
+  })();
+</script>
+
+<style>
+  @layer starlight.core {
+    .sl-page-actions {
+      margin-inline-start: auto;
+      display: inline-flex;
+      align-items: stretch;
+      transform: translateY(var(--sl-page-actions-translate-y));
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 0.5rem;
+      overflow: visible;
+      background-color: var(--sl-color-black);
+    }
+
+    .sl-page-actions-primary,
+    .sl-page-actions-menu > summary,
+    .sl-page-actions-menu-item {
+      margin: 0;
+      border: 0;
+      background: transparent;
+      color: var(--sl-color-gray-2);
+      font-size: var(--sl-text-xs);
+      line-height: 1;
+      text-decoration: none;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.6rem 0.8rem;
+      cursor: pointer;
+    }
+
+    .sl-page-actions-primary:hover,
+    .sl-page-actions-primary:focus-visible,
+    .sl-page-actions-menu > summary:hover,
+    .sl-page-actions-menu > summary:focus-visible,
+    .sl-page-actions-menu-item:hover,
+    .sl-page-actions-menu-item:focus-visible {
+      color: var(--sl-color-white);
+      background-color: var(--sl-color-gray-6);
+      outline: none;
+    }
+
+    .sl-page-actions-menu {
+      position: relative;
+      border-inline-start: 1px solid var(--sl-color-gray-5);
+    }
+
+    .sl-page-actions-menu > summary {
+      list-style: none;
+      min-width: 2.1rem;
+      height: 100%;
+      padding-inline: 0.55rem;
+    }
+
+    .sl-page-actions-menu > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .sl-page-actions-menu[open] > summary {
+      color: var(--sl-color-white);
+      background-color: var(--sl-color-gray-6);
+    }
+
+    .sl-page-actions-menu-items {
+      position: absolute;
+      top: calc(100% + 0.35rem);
+      inset-inline-end: 0;
+      z-index: 15;
+      display: grid;
+      min-width: 12rem;
+      border: 1px solid var(--sl-color-gray-5);
+      border-radius: 0.5rem;
+      background-color: var(--sl-color-black);
+      box-shadow: var(--sl-shadow-md);
+      padding: 0.35rem;
+      gap: 0.2rem;
+    }
+
+    .sl-page-actions-menu-item {
+      width: 100%;
+      justify-content: flex-start;
+      border-radius: 0.35rem;
+    }
+
+    @media (max-width: 40rem) {
+      .sl-page-actions {
+        margin-inline-start: 0;
+      }
+    }
+  }
+</style>
