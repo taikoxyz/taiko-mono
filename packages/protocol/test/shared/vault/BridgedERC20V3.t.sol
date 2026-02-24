@@ -384,7 +384,8 @@ contract TestBridgedERC20V3 is CommonTest {
         token.pause();
 
         // Cancel should still work when paused (per USDC reference implementation)
-        (uint8 v, bytes32 r, bytes32 s) = _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
 
         vm.expectEmit(true, true, false, false);
         emit IEIP3009.AuthorizationCanceled(alice, nonce);
