@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
+import "src/shared/vault/IEIP3009.sol";
+import "src/shared/common/EssentialContract.sol";
 
 contract TestBridgedERC20V3 is CommonTest {
     address private vault = randAddress();
@@ -25,7 +27,8 @@ contract TestBridgedERC20V3 is CommonTest {
 
     function _deployToken() internal returns (BridgedERC20V3) {
         address srcToken = randAddress();
-        return BridgedERC20V3(
+        vm.startPrank(deployer);
+        BridgedERC20V3 deployedToken = BridgedERC20V3(
             deploy({
                 name: "TEST_V3",
                 impl: address(new BridgedERC20V3(vault)),
@@ -34,6 +37,8 @@ contract TestBridgedERC20V3 is CommonTest {
                 )
             })
         );
+        vm.stopPrank();
+        return deployedToken;
     }
 
     function _createTransferAuthorization(
@@ -136,7 +141,7 @@ contract TestBridgedERC20V3 is CommonTest {
         // Anyone can submit the transaction
         vm.prank(Carol);
         vm.expectEmit(true, true, false, false);
-        emit BridgedERC20V3.AuthorizationUsed(alice, nonce);
+        emit IEIP3009.AuthorizationUsed(alice, nonce);
         token.transferWithAuthorization(alice, bob, value, validAfter, validBefore, nonce, v, r, s);
 
         assertEq(token.balanceOf(alice), 900 ether);
@@ -161,7 +166,7 @@ contract TestBridgedERC20V3 is CommonTest {
         // Only bob (the payee) can call receiveWithAuthorization
         vm.prank(bob);
         vm.expectEmit(true, true, false, false);
-        emit BridgedERC20V3.AuthorizationUsed(alice, nonce);
+        emit IEIP3009.AuthorizationUsed(alice, nonce);
         token.receiveWithAuthorization(alice, bob, value, validAfter, validBefore, nonce, v, r, s);
 
         assertEq(token.balanceOf(alice), 900 ether);
@@ -176,7 +181,7 @@ contract TestBridgedERC20V3 is CommonTest {
         (uint8 v, bytes32 r, bytes32 s) = _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
 
         vm.expectEmit(true, true, false, false);
-        emit BridgedERC20V3.AuthorizationCanceled(alice, nonce);
+        emit IEIP3009.AuthorizationCanceled(alice, nonce);
         token.cancelAuthorization(alice, nonce, v, r, s);
 
         assertTrue(token.authorizationState(alice, nonce));
@@ -224,6 +229,9 @@ contract TestBridgedERC20V3 is CommonTest {
 
         vm.prank(vault);
         token.mint(alice, 1000 ether);
+
+        // Warp to a reasonable timestamp to avoid underflow
+        vm.warp(10_000);
 
         bytes32 nonce = keccak256("expired");
         uint256 validAfter = block.timestamp - 7200;
@@ -296,7 +304,7 @@ contract TestBridgedERC20V3 is CommonTest {
             ALICE_PRIVATE_KEY, alice, bob, 100 ether, validAfter, validBefore, nonce
         );
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
         token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
     }
 
@@ -496,6 +504,7 @@ contract TestBridgedERC20V3 is CommonTest {
     function test_upgradeFromV2ToV3_preservesState() public {
         // Deploy V2 token first
         address srcToken = randAddress();
+        vm.startPrank(deployer);
         BridgedERC20V2 tokenV2 = BridgedERC20V2(
             deploy({
                 name: "TEST_V2",
@@ -505,6 +514,7 @@ contract TestBridgedERC20V3 is CommonTest {
                 )
             })
         );
+        vm.stopPrank();
 
         // Mint some tokens
         vm.prank(vault);
