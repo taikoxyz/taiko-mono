@@ -275,18 +275,20 @@ func (s *EventSyncerTestSuite) TestKnownBatchSendsPreconfChainReorged() {
 
 	// Wait for proposals while draining the channel and ensure at least one true flag was emitted.
 	// If no proposal arrives in time, fail the test.
-	foundReorged := false
+	// NOTE: ProposeAndInsertValidBlock may process previously pending batches (e.g. batch 1)
+	// before proposing a new one (e.g. batch 2), so we may receive multiple known-batch
+	// reorged proposals. We only need to verify at least one was emitted.
+	reorgedCount := 0
 	deadline := time.After(1 * time.Second)
 	for {
 		select {
 		case proposal := <-proposalCh:
 			if proposal.PreconfChainReorged {
-				s.True(!foundReorged, "Expected exactly one reorged known-batch proposal emission")
-				foundReorged = true
+				reorgedCount++
 				s.Greater(proposal.LastBlockID, uint64(0))
 			}
 		case <-deadline:
-			s.True(foundReorged, "Expected PreconfChainReorged=true from known-batch fast path")
+			s.Greater(reorgedCount, 0, "Expected at least one PreconfChainReorged=true from known-batch fast path")
 			return
 		}
 	}
