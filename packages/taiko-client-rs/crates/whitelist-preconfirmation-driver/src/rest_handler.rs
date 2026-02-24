@@ -73,8 +73,8 @@ where
     build_preconf_lock: Mutex<()>,
     /// Preconf whitelist contract used for operator checks.
     whitelist: PreconfWhitelistInstance<P>,
-    /// Highest unsafe payload block ID tracked by this node.
-    highest_unsafe_l2_payload_block_id: Mutex<u64>,
+    /// Highest unsafe payload block ID tracked by this node (shared with importer).
+    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// End-of-sequencing hash cache keyed by epoch.
     end_of_sequencing_by_epoch: Mutex<HashMap<u64, B256>>,
     /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
@@ -98,8 +98,8 @@ where
     pub beacon_client: Arc<BeaconClient>,
     /// Whitelist contract address used for operator checks.
     pub whitelist_address: Address,
-    /// Highest unsafe payload block ID tracked by this node at startup.
-    pub initial_highest_unsafe_l2_payload_block_id: u64,
+    /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
+    pub highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Channel used to publish messages to the P2P network.
     pub network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Local peer ID string.
@@ -119,7 +119,7 @@ where
             signer,
             beacon_client,
             whitelist_address,
-            initial_highest_unsafe_l2_payload_block_id,
+            highest_unsafe_l2_payload_block_id,
             network_command_tx,
             local_peer_id,
         } = params;
@@ -132,9 +132,7 @@ where
             signer,
             beacon_client,
             whitelist,
-            highest_unsafe_l2_payload_block_id: Mutex::new(
-                initial_highest_unsafe_l2_payload_block_id,
-            ),
+            highest_unsafe_l2_payload_block_id,
             end_of_sequencing_by_epoch: Mutex::new(HashMap::new()),
             eos_notification_tx,
             network_command_tx,
@@ -375,8 +373,14 @@ where
         let started_at = Instant::now();
         let _build_guard = self.build_preconf_lock.lock().await;
 
+        // Guard against building on a genuinely syncing node, but tolerate the false-
+        // positive that taiko-geth emits on genesis chains (currentBlock == highestBlock
+        // == 0, txIndexRemainingBlocks = 1).  When current == highest the node is not
+        // actually catching up to a remote peer, so we allow the build to proceed.
         let sync_status = self.rpc.l2_provider.syncing().await.map_err(provider_err)?;
-        if matches!(sync_status, SyncStatus::Info(_)) {
+        if let SyncStatus::Info(ref info) = sync_status &&
+            info.current_block < info.highest_block
+        {
             return Err(WhitelistPreconfirmationDriverError::Driver(
                 driver::DriverError::EngineSyncing(request.block_number),
             ));
@@ -520,7 +524,9 @@ where
             .get(&current_epoch)
             .copied()
             .map(|hash| hash.to_string());
-        let sync_ready = head_l1_origin_block_id.is_some();
+        // sync_ready reflects ingress readiness, which already includes the confirmed-sync
+        // and scanner-live checks required by the event syncer.
+        let sync_ready = self.event_syncer.is_preconf_ingress_ready();
 
         Ok(WhitelistStatus {
             head_l1_origin_block_id,

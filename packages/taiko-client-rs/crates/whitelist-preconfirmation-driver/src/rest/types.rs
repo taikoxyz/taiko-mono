@@ -159,7 +159,7 @@ pub struct WhitelistStatus {
     pub highest_unsafe_block_number: u64,
     /// Local libp2p peer ID.
     pub peer_id: String,
-    /// Whether event sync has established a head L1 origin.
+    /// Whether preconfirmation ingress is ready.
     pub sync_ready: bool,
     /// Sequencing lookahead information.
     #[serde(skip_serializing_if = "Option::is_none")]
