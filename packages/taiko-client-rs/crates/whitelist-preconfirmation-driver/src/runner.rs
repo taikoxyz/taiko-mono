@@ -125,65 +125,65 @@ impl WhitelistPreconfirmationDriverRunner {
         // are configured. When enabled, create shared state for highestUnsafeL2PayloadBlockID
         // so the importer can update it on P2P imports.
         let mut lookahead_refresh_task = None;
-        let (mut rest_ws_server, shared_highest_unsafe) =
-            if let (Some(listen_addr), Some(signer_key)) =
-                (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
+        let (mut rest_ws_server, shared_highest_unsafe) = if let (
+            Some(listen_addr),
+            Some(signer_key),
+        ) =
+            (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
+        {
+            let signer = FixedKSigner::new(signer_key).map_err(|e| {
+                WhitelistPreconfirmationDriverError::Signing(format!(
+                    "failed to create P2P signer: {e}"
+                ))
+            })?;
+            let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
+                .client()
+                .l2_provider
+                .get_block_by_number(BlockNumberOrTag::Latest)
+                .await
             {
-                let signer = FixedKSigner::new(signer_key).map_err(|e| {
-                    WhitelistPreconfirmationDriverError::Signing(format!(
-                        "failed to create P2P signer: {e}"
-                    ))
-                })?;
-                let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
-                    .client()
-                    .l2_provider
-                    .get_block_by_number(BlockNumberOrTag::Latest)
-                    .await
-                {
-                    Ok(Some(block)) => block.header.number,
-                    Ok(None) => 0,
-                    Err(err) => {
-                        warn!(
-                            error = %err,
-                            "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
-                        );
-                        0
-                    }
-                };
-                let shared_highest =
-                    Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
-
-                let handler = Arc::new(WhitelistRestHandler::new(WhitelistRestHandlerParams {
-                    event_syncer: preconf_ingress_sync.event_syncer(),
-                    rpc: preconf_ingress_sync.client().clone(),
-                    chain_id: self.config.p2p_config.chain_id,
-                    signer,
-                    beacon_client: Arc::clone(&beacon_client),
-                    whitelist_address: self.config.whitelist_address,
-                    highest_unsafe_l2_payload_block_id: shared_highest.clone(),
-                    network_command_tx: network.command_tx.clone(),
-                    cache_state: cache_state.clone(),
-                    local_peer_id: network.local_peer_id.to_string(),
-                }));
-                let server_config = WhitelistRestWsServerConfig {
-                    listen_addr,
-                    jwt_secret: self.config.rpc_jwt_secret.clone(),
-                    cors_origins: self.config.rpc_cors_origins.clone(),
-                    ..Default::default()
-                };
-                let server =
-                    WhitelistRestWsServer::start(server_config, handler.clone()).await?;
-                lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
-                info!(
-                    addr = %server.local_addr(),
-                    http_url = %server.http_url(),
-                    ws_url = %server.ws_url(),
-                    "whitelist preconfirmation REST server started"
-                );
-                (Some(server), Some(shared_highest))
-            } else {
-                (None, None)
+                Ok(Some(block)) => block.header.number,
+                Ok(None) => 0,
+                Err(err) => {
+                    warn!(
+                        error = %err,
+                        "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
+                    );
+                    0
+                }
             };
+            let shared_highest = Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
+
+            let handler = Arc::new(WhitelistRestHandler::new(WhitelistRestHandlerParams {
+                event_syncer: preconf_ingress_sync.event_syncer(),
+                rpc: preconf_ingress_sync.client().clone(),
+                chain_id: self.config.p2p_config.chain_id,
+                signer,
+                beacon_client: Arc::clone(&beacon_client),
+                whitelist_address: self.config.whitelist_address,
+                highest_unsafe_l2_payload_block_id: shared_highest.clone(),
+                network_command_tx: network.command_tx.clone(),
+                cache_state: cache_state.clone(),
+                local_peer_id: network.local_peer_id.to_string(),
+            }));
+            let server_config = WhitelistRestWsServerConfig {
+                listen_addr,
+                jwt_secret: self.config.rpc_jwt_secret.clone(),
+                cors_origins: self.config.rpc_cors_origins.clone(),
+                ..Default::default()
+            };
+            let server = WhitelistRestWsServer::start(server_config, handler.clone()).await?;
+            lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
+            info!(
+                addr = %server.local_addr(),
+                http_url = %server.http_url(),
+                ws_url = %server.ws_url(),
+                "whitelist preconfirmation REST server started"
+            );
+            (Some(server), Some(shared_highest))
+        } else {
+            (None, None)
+        };
 
         let mut importer =
             WhitelistPreconfirmationImporter::new(WhitelistPreconfirmationImporterParams {
