@@ -35,6 +35,7 @@ func (d *CalldataFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBa
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch proposed filter: %w", err)
 	}
+	defer iter.Close()
 	for iter.Next() {
 		if iter.Event.Meta.BatchId != meta.GetBatchID().Uint64() {
 			continue
