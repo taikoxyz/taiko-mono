@@ -11,7 +11,6 @@ use tracing::{debug, info, warn};
 
 use crate::{
     cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, SharedPreconfCacheState},
-    codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
@@ -202,63 +201,58 @@ where
                 }
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
-                if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
-                    let envelope_epoch = self.end_of_sequencing_epoch_for_payload(&envelope);
-
-                    let Some(envelope_epoch) = envelope_epoch else {
-                        warn!(
+                if let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await {
+                    if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+                        debug!(
                             peer = %from,
                             epoch,
                             hash = %envelope.execution_payload.block_hash,
-                            "ignoring end-of-sequencing request: failed to derive payload epoch"
+                            "serving end-of-sequencing whitelist preconfirmation response from recent cache"
                         );
+                        self.publish_unsafe_response(envelope).await;
                         metrics::counter!(
                             WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
                             "event_type" => "end_of_sequencing_request",
-                            "result" => "miss",
+                            "result" => "served",
                         )
                         .increment(1);
-                        return Ok(());
-                    };
-
-                    if envelope_epoch != epoch {
-                        warn!(
+                    } else {
+                        debug!(
                             peer = %from,
-                            requested_epoch = epoch,
-                            actual_epoch = envelope_epoch,
-                            hash = %envelope.execution_payload.block_hash,
-                            "ignoring end-of-sequencing request: payload epoch does not match request"
+                            epoch,
+                            hash = %hash,
+                            "end-of-sequencing hash known for epoch but envelope not in recent cache; rebuilding from L2"
                         );
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                            "event_type" => "end_of_sequencing_request",
-                            "result" => "miss",
-                        )
-                        .increment(1);
-                        return Ok(());
-                    }
 
-                    self.cache_state
-                        .record_end_of_sequencing(
-                            envelope_epoch,
-                            envelope.execution_payload.block_hash,
-                        )
-                        .await;
-                    debug!(
-                        peer = %from,
-                        epoch,
-                        hash = %envelope.execution_payload.block_hash,
-                        "serving end-of-sequencing whitelist preconfirmation response from recent cache"
-                    );
-                    self.publish_unsafe_response(envelope).await;
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                        "event_type" => "end_of_sequencing_request",
-                        "result" => "served",
-                    )
-                    .increment(1);
+                        if let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? {
+                            envelope.end_of_sequencing = Some(true);
+                            let envelope = Arc::new(envelope);
+                            self.recent_cache.insert_recent(envelope.clone());
+                            self.update_cache_gauges();
+                            self.publish_unsafe_response(envelope).await;
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                                "event_type" => "end_of_sequencing_request",
+                                "result" => "served_l2_fallback",
+                            )
+                            .increment(1);
+                        } else {
+                            debug!(
+                                peer = %from,
+                                epoch,
+                                hash = %hash,
+                                "end-of-sequencing hash known for epoch but unavailable from recent cache and L2"
+                            );
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                                "event_type" => "end_of_sequencing_request",
+                                "result" => "miss",
+                            )
+                            .increment(1);
+                        }
+                    }
                 } else {
-                    debug!(peer = %from, epoch, "no recent end-of-sequencing envelope to serve");
+                    debug!(peer = %from, epoch, "no end-of-sequencing block found for epoch");
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
                         "event_type" => "end_of_sequencing_request",
@@ -320,13 +314,6 @@ where
             .set(self.recent_cache.len() as f64);
     }
 
-    /// Resolve the sequencer epoch from payload execution timestamp.
-    fn end_of_sequencing_epoch_for_payload(
-        &self,
-        envelope: &Arc<WhitelistExecutionPayloadEnvelope>,
-    ) -> Option<u64> {
-        self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp).ok()
-    }
 }
 
 /// Convert a provider error into a driver error.

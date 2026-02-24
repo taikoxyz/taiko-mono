@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use alloy_primitives::B256;
 use alloy_provider::Provider;
+use tracing::debug;
 
 use crate::{
     codec::{
@@ -61,8 +62,20 @@ where
         }
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope);
+        self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
+
+        if envelope.end_of_sequencing.unwrap_or(false) {
+            let epoch = self.beacon_client.current_epoch();
+            debug!(
+                epoch,
+                hash = %envelope.execution_payload.block_hash,
+                "recording end-of-sequencing envelope for epoch on payload ingress"
+            );
+            self.cache_state
+                .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
+                .await;
+        }
 
         Ok(())
     }
@@ -120,8 +133,21 @@ where
 
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope);
+        self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
+
+        if envelope.end_of_sequencing.unwrap_or(false) {
+            let epoch = self.beacon_client.current_epoch();
+            debug!(
+                epoch,
+                hash = %envelope.execution_payload.block_hash,
+                "recording end-of-sequencing envelope for epoch on response ingress"
+            );
+            self.cache_state
+                .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
+                .await;
+        }
+
         Ok(())
     }
 
