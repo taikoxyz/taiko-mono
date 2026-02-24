@@ -14,7 +14,7 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint};
+use bindings::anchor::Anchor::{AnchorInstance, BlockParams, ProposalParams};
 use thiserror::Error;
 use tracing::{info, instrument};
 
@@ -152,13 +152,18 @@ where
             "assembling shasta anchor anchorV4 transaction",
         );
 
-        let checkpoint = Checkpoint {
-            blockNumber: U48::from(anchor_block_number),
-            blockHash: anchor_block_hash,
-            stateRoot: anchor_state_root,
+        // For golden-touch (whitelist) anchors, submissionWindowEnd and rawTxListHash can be 0.
+        let proposal_params = ProposalParams {
+            submissionWindowEnd: U48::from(0u64),
+        };
+        let block_params = BlockParams {
+            anchorBlockNumber: U48::from(anchor_block_number),
+            anchorBlockHash: anchor_block_hash,
+            anchorStateRoot: anchor_state_root,
+            rawTxListHash: B256::ZERO,
         };
 
-        let call_builder = self.anchor_instance.anchorV4(checkpoint);
+        let call_builder = self.anchor_instance.anchorV4(proposal_params, block_params);
 
         let call_builder = call_builder
             .from(self.golden_touch_address)

@@ -835,7 +835,7 @@ where
         if block.header.number == 0 {
             return self.activation_block_number().await;
         }
-        Ok(decode_anchor_call(block, anchor_address)?._checkpoint.blockNumber.to::<u64>())
+        Ok(decode_anchor_call(block, anchor_address)?._blockParams.anchorBlockNumber.to::<u64>())
     }
 }
 

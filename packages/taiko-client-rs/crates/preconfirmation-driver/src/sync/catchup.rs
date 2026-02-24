@@ -6,7 +6,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use alloy_primitives::{B256, U256};
-use preconfirmation_net::P2pHandle;
+use preconfirmation_net::{NetworkErrorKind, P2pHandle};
 use preconfirmation_types::{
     Bytes32, RawTxListGossip, SignedCommitment, preconfirmation_hash, u256_to_uint256,
     uint256_to_u256,
@@ -51,9 +51,23 @@ impl TipCatchup {
         info!(event_sync_tip = %event_sync_tip, "starting tip catch-up");
 
         // 1) Fetch the peer head so we know the upper bound for backfill.
-        let peer_head = handle.request_head(None).await.map_err(|err| {
-            PreconfirmationClientError::Catchup(format!("failed to get peer head: {err}"))
-        })?;
+        // When no peers are available (e.g. first operator, discovery not yet connected),
+        // skip catchup and proceed with empty state; peers may connect later.
+        let peer_head = match handle.request_head(None).await {
+            Ok(head) => head,
+            Err(err) if err.kind == NetworkErrorKind::ReqRespBackpressure => {
+                warn!(
+                    event_sync_tip = %event_sync_tip,
+                    "no P2P peers available for catch-up; proceeding with empty state"
+                );
+                return Ok(Vec::new());
+            }
+            Err(err) => {
+                return Err(PreconfirmationClientError::Catchup(format!(
+                    "failed to get peer head: {err}"
+                )));
+            }
+        };
         let peer_tip = uint256_to_u256(&peer_head.block_number);
 
         // 2) Compute the first block after event sync; stop if we're already caught up.

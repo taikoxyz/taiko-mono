@@ -94,12 +94,13 @@ impl LookaheadResolver {
     {
         let client = LookaheadClient::new(inbox_address, provider.clone()).await?;
 
-        let lookahead_cfg = client
+        let lookahead_buffer_size: usize = client
             .lookahead_store()
-            .getLookaheadStoreConfig()
+            .LOOKAHEAD_BUFFER_SIZE()
             .call()
             .await
-            .map_err(LookaheadError::GetLookaheadStoreConfig)?;
+            .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
+            .to::<u64>() as usize;
 
         let preconf_whitelist = PreconfWhitelistInstance::new(
             client
@@ -124,7 +125,7 @@ impl LookaheadResolver {
             fallback_timeline: FallbackTimelineStore::new(),
             cache: Arc::new(DashMap::new()),
             blacklist_history: Arc::new(DashMap::new()),
-            lookahead_buffer_size: lookahead_cfg.lookaheadBufferSize as usize,
+            lookahead_buffer_size,
             genesis_timestamp,
             broadcast_tx: None,
         })
@@ -289,8 +290,10 @@ impl LookaheadResolver {
         self.record_fallback_baseline(epoch_start, epoch_start, fallback_current).await?;
 
         // Insert or update the cached epoch entry.
+        // Refactored LookaheadStore emits LookaheadPosted(epochTimestamp, bytes26 lookaheadHash)
+        // without slots; observer nodes use empty slots and fall back to whitelist.
         let cached = CachedLookaheadEpoch {
-            slots: Arc::new(event.lookaheadSlots),
+            slots: Arc::new(vec![]),
             fallback_whitelist: fallback_current,
             block_timestamp,
         };
@@ -431,11 +434,14 @@ impl LookaheadResolver {
                     let signer = self
                         .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
                         .await?;
-                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
+                    return Ok(PreconfSlotInfo {
+                        signer,
+                        submission_window_end: U256::from(slot.timestamp.to::<u64>()),
+                    });
                 }
                 Ok(PreconfSlotInfo {
                     signer: slot.committer,
-                    submission_window_end: slot.timestamp,
+                    submission_window_end: U256::from(slot.timestamp.to::<u64>()),
                 })
             }
             // Select from next epoch slots.
@@ -452,11 +458,14 @@ impl LookaheadResolver {
                     let signer = self
                         .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
                         .await?;
-                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
+                    return Ok(PreconfSlotInfo {
+                        signer,
+                        submission_window_end: U256::from(slot.timestamp.to::<u64>()),
+                    });
                 }
                 Ok(PreconfSlotInfo {
                     signer: slot.committer,
-                    submission_window_end: slot.timestamp,
+                    submission_window_end: U256::from(slot.timestamp.to::<u64>()),
                 })
             }
             // Fallback to current epoch whitelist operator.
@@ -704,7 +713,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    // Uint import retained if additional fake configs need big ints; currently unused.
+    use alloy::sol_types::private::primitives::aliases::U48;
     use bindings::lookahead_store::ILookaheadStore::LookaheadSlot as BindingLookaheadSlot;
     use dashmap::DashMap;
     use tokio::runtime::Runtime;
@@ -801,10 +810,10 @@ mod tests {
             let slot_ts = now;
             let committer = Address::from([0xaa; 20]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot]),
@@ -889,10 +898,10 @@ mod tests {
             // Current epoch: one slot earlier than ts; should force cross-epoch selection.
             let fallback_current = Address::from([0xaa; 20]);
             let slot_curr = BindingLookaheadSlot {
-                timestamp: U256::from(epoch_start + 1),
+                timestamp: U48::from(epoch_start + 1),
                 committer: Address::from([0xcc; 20]),
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached_current = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot_curr]),
@@ -904,10 +913,10 @@ mod tests {
             let next_slot_ts = next_epoch_start.saturating_add(10);
             let committer_next = Address::from([0xbb; 20]);
             let slot_next = BindingLookaheadSlot {
-                timestamp: U256::from(next_slot_ts),
+                timestamp: U48::from(next_slot_ts),
                 committer: committer_next,
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached_next = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot_next]),
@@ -955,10 +964,10 @@ mod tests {
             let committer = Address::from([0xaa; 20]);
             let root = B256::from([1u8; 32]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: root,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let fallback = Address::from([0xee; 20]);
             let cached = CachedLookaheadEpoch {
@@ -1010,10 +1019,10 @@ mod tests {
             let slot_ts = now;
             let committer = Address::from([0xaa; 20]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot]),
@@ -1102,10 +1111,10 @@ mod tests {
             let committer = Address::from([0xaa; 20]);
             let root = B256::from([1u8; 32]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: root,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let fallback = Address::from([0xee; 20]);
             let cached = CachedLookaheadEpoch {
@@ -1249,28 +1258,20 @@ mod tests {
     }
 
     #[test]
-    fn ingest_logs_populates_cache_and_resolves_slot() {
+    fn ingest_logs_populates_cache_and_resolves_fallback() {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             let now = current_unix_timestamp().unwrap();
             let genesis = now.saturating_sub(SECONDS_IN_EPOCH * 3);
             let epoch_start = epoch_start_for(now, genesis);
             let slot_ts = epoch_start + 10;
-            let committer = Address::from([0x21; 20]);
-            let root = B256::from([2u8; 32]);
 
-            // Build a LookaheadPosted log with one slot.
-            let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
-                committer,
-                registrationRoot: root,
-                validatorLeafIndex: U256::ZERO,
-            };
+            // Refactored LookaheadPosted emits only (epochTimestamp, bytes26 lookaheadHash);
+            // slots are not in the event. Observer nodes resolve to whitelist fallback.
             let store_addr = Address::from([0x44; 20]);
             let event = LookaheadPosted {
                 epochTimestamp: U256::from(epoch_start),
-                lookaheadHash: B256::ZERO,
-                lookaheadSlots: vec![slot],
+                lookaheadHash: alloy_primitives::FixedBytes::<26>::ZERO,
             };
             let log_data = event.encode_log_data();
             let inner = alloy_primitives::Log::new_unchecked(
@@ -1312,8 +1313,9 @@ mod tests {
 
             resolver.ingest_logs(vec![log]).await.unwrap();
 
+            // With empty slots (refactored event), resolution falls back to whitelist operator.
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
-            assert_eq!(result, committer);
+            assert_eq!(result, fallback);
         });
     }
 }

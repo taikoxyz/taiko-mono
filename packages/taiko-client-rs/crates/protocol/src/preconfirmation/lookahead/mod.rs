@@ -40,9 +40,6 @@ pub enum LookaheadError {
     /// Failure when querying the LookaheadStore.
     #[error("failed to call lookahead store: {0}")]
     Lookahead(alloy_contract::Error),
-    /// Failed to fetch lookahead store config from the LookaheadStore.
-    #[error("failed to get lookahead store config: {0}")]
-    GetLookaheadStoreConfig(alloy_contract::Error),
     /// Failed to fetch preconf whitelist address from the LookaheadStore.
     #[error("failed to get preconf whitelist address: {0}")]
     GetPreconfWhitelistAddress(alloy_contract::Error),

@@ -111,7 +111,7 @@ impl ShastaProposalTransactionBuilder {
                 offset: U24::ZERO,
             },
             // Include all forced inclusions in the source manifest.
-            numForcedInclusions: u16::MAX,
+            numForcedInclusions: u8::MAX,
         };
 
         // Build the transaction request with blob sidecar.

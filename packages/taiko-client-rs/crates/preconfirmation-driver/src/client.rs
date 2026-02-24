@@ -27,7 +27,7 @@ use protocol::codec::ZlibTxListCodec;
 use crate::{
     config::PreconfirmationClientConfig,
     driver_interface::DriverClient,
-    error::{PreconfirmationClientError, Result},
+    error::{DriverApiError, PreconfirmationClientError, Result},
     metrics::PreconfirmationClientMetrics,
     storage::{CommitmentStore, InMemoryCommitmentStore},
     subscription::{EventHandler, EventHandlerParams, PreconfirmationEvent},
@@ -254,7 +254,15 @@ where
         driver.wait_event_sync().await?;
 
         // Read the driver event sync tip to determine catch-up bounds.
-        let event_sync_tip = driver.event_sync_tip().await?;
+        // When head_l1_origin is not yet established (e.g. fresh chain), fall back to preconf_tip.
+        let event_sync_tip = match driver.event_sync_tip().await {
+            Ok(tip) => tip,
+            Err(PreconfirmationClientError::DriverInterface(DriverApiError::EventSyncTipUnknown)) => {
+                warn!("event sync tip unknown (head_l1_origin not established), falling back to preconf_tip");
+                driver.preconf_tip().await?
+            }
+            Err(e) => return Err(e),
+        };
 
         info!(event_sync_tip = %event_sync_tip, "driver event sync complete, starting preconfirmation client");
 

@@ -46,7 +46,7 @@ impl<P: Provider + Clone> LookaheadClient<P> {
         epoch_timestamp: U256,
     ) -> Result<ProposerContext> {
         self.lookahead_store
-            .getProposerContext(data, epoch_timestamp)
+            .getProposerContext(epoch_timestamp, data)
             .call()
             .await
             .map_err(LookaheadError::Lookahead)
