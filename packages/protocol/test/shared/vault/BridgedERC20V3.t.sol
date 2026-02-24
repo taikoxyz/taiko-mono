@@ -34,7 +34,7 @@ contract TestBridgedERC20V3 is CommonTest {
                 impl: address(new BridgedERC20V3(vault)),
                 data: abi.encodeCall(
                     BridgedERC20V3.init,
-                    (deployer, srcToken, taikoChainId, 18, "Test Token", "TEST")
+                    (deployer, srcToken, taikoChainId, 18, "TEST", "Test Token")
                 )
             })
         );
@@ -374,6 +374,25 @@ contract TestBridgedERC20V3 is CommonTest {
         token.cancelAuthorization(alice, nonce, v, r, s);
     }
 
+    function test_cancelAuthorization_worksWhenPaused() public {
+        token = _deployToken();
+
+        bytes32 nonce = keccak256("cancel-when-paused");
+
+        // Pause the token
+        vm.prank(deployer);
+        token.pause();
+
+        // Cancel should still work when paused (per USDC reference implementation)
+        (uint8 v, bytes32 r, bytes32 s) = _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
+
+        vm.expectEmit(true, true, false, false);
+        emit IEIP3009.AuthorizationCanceled(alice, nonce);
+        token.cancelAuthorization(alice, nonce, v, r, s);
+
+        assertTrue(token.authorizationState(alice, nonce));
+    }
+
     // ---------------------------------------------------------------
     // Edge Cases
     // ---------------------------------------------------------------
@@ -555,7 +574,7 @@ contract TestBridgedERC20V3 is CommonTest {
                 impl: address(new BridgedERC20V2(vault)),
                 data: abi.encodeCall(
                     BridgedERC20V2.init,
-                    (deployer, srcToken, taikoChainId, 18, "Test Token", "TEST")
+                    (deployer, srcToken, taikoChainId, 18, "TEST", "Test Token")
                 )
             })
         );

@@ -32,7 +32,7 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
     /// @dev Mapping of authorizer address => nonce => whether it has been used
     mapping(address authorizer => mapping(bytes32 nonce => bool used)) private _authorizationStates;
 
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 
     error BTOKEN_AUTHORIZATION_NOT_YET_VALID();
     error BTOKEN_AUTHORIZATION_EXPIRED();
@@ -157,7 +157,6 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
         bytes32 _s
     )
         external
-        whenNotPaused
         nonReentrant
     {
         if (_authorizationStates[_authorizer][_nonce]) revert BTOKEN_AUTHORIZATION_USED();
@@ -183,7 +182,7 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
     }
 
     /// @inheritdoc BridgedERC20V2
-    function supportsInterface(bytes4 _interfaceId) public pure override returns (bool) {
+    function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
         return _interfaceId == type(IEIP3009).interfaceId || super.supportsInterface(_interfaceId);
     }
 
