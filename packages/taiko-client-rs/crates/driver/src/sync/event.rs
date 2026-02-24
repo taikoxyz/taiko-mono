@@ -53,7 +53,6 @@ use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
-
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -105,7 +104,8 @@ fn resolve_confirmed_sync_probe(
 /// Resolve the L2 block number that event sync should use as its resume source.
 ///
 /// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
-/// - Non-checkpoint mode: must use local `head_l1_origin`.
+/// - Non-checkpoint mode: prefer local `head_l1_origin`, otherwise allow genesis fallback (block 0)
+///   for brand-new chains bootstrapped from genesis.
 ///
 /// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
 /// resume point such as `Latest`, which can include local preconfirmation-only blocks.
@@ -113,17 +113,17 @@ fn resolve_resume_head_block_number(
     checkpoint_configured: bool,
     checkpoint_synced_head: Option<u64>,
     head_l1_origin_block_id: Option<u64>,
+    local_head_is_genesis: bool,
 ) -> Result<u64, SyncError> {
     if checkpoint_configured {
         checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
     } else {
-        head_l1_origin_block_id.ok_or(SyncError::MissingHeadL1OriginResume)
+        match head_l1_origin_block_id {
+            Some(block_id) => Ok(block_id),
+            None if local_head_is_genesis => Ok(0),
+            None => Err(SyncError::MissingHeadL1OriginResume),
+        }
     }
-}
-
-/// Return the smaller of the local resume proposal and finalized-safe proposal.
-fn resolve_target_proposal_id(resume_proposal_id: u64, finalized_safe_proposal_id: u64) -> u64 {
-    resume_proposal_id.min(finalized_safe_proposal_id)
 }
 
 /// Select scanner start block when the resolved target proposal id is zero.
@@ -137,9 +137,20 @@ fn resolve_zero_target_start_block(
     if finalized_safe_proposal_id == 0 { finalized_block_number } else { 0 }
 }
 
-/// Convert missing finalized block responses into an explicit fail-closed sync error.
-fn require_finalized_block<T>(value: Option<T>) -> Result<T, SyncError> {
-    value.ok_or(SyncError::MissingFinalizedL1Block)
+/// Resolve the target proposal id and finalized-safe proposal id, accounting for the
+/// finalized snapshot being unavailable on fresh chains.
+///
+/// - When finalization is available, target is bounded by `min(resume, finalized_safe)`.
+/// - When finalization is unavailable, both values reset to 0 triggering a full genesis replay.
+///   This is safe because derivation is idempotent (the engine skips already-known blocks).
+fn resolve_target_with_optional_finalization(
+    resume_proposal_id: u64,
+    finalized_safe_proposal_id: Option<u64>,
+) -> (u64, u64) {
+    match finalized_safe_proposal_id {
+        Some(safe_id) => (resume_proposal_id.min(safe_id), safe_id),
+        None => (0, 0),
+    }
 }
 
 /// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
@@ -249,17 +260,12 @@ where
                 let router_guard = router.lock().await;
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
+                // On genesis chains head_l1_origin is not yet written; default to 0 so
+                // the staleness check passes for any block_number >= 1.  This matches the
+                // Go driver's `checkMessageBlockNumber` which skips the check when nil.
                 let head_l1_origin_block_id = match rpc.head_l1_origin().await {
                     Ok(Some(origin)) => origin.block_id.to::<u64>(),
-                    Ok(None) => {
-                        warn!(
-                            block_number,
-                            "rejecting preconfirmation payload in ingress loop: head_l1_origin missing"
-                        );
-                        let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
-                        continue;
-                    }
+                    Ok(None) => 0,
                     Err(err) => {
                         error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
                         let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
@@ -491,6 +497,13 @@ where
         }
     }
 
+    /// Returns whether preconfirmation ingress is currently ready.
+    ///
+    /// This mirrors the internal readiness signal used by the strict ingress gate.
+    pub fn is_preconf_ingress_ready(&self) -> bool {
+        self.preconf_ingress_ready.load(Ordering::Acquire)
+    }
+
     /// Submit a preconfirmation payload and await the processing result.
     pub async fn submit_preconfirmation_payload(
         &self,
@@ -517,15 +530,11 @@ where
         }
 
         let block_number = payload.block_number();
+        // On genesis chains head_l1_origin is not yet written; default to 0 so
+        // the staleness check passes for any block_number >= 1.
         let head_l1_origin_block_id = match self.rpc.head_l1_origin().await? {
             Some(origin) => origin.block_id.to::<u64>(),
-            None => {
-                warn!(
-                    block_number,
-                    "rejecting preconfirmation payload before enqueue: head_l1_origin missing"
-                );
-                return Err(DriverError::PreconfIngressNotReady);
-            }
+            None => 0,
         };
         if is_stale_preconf(block_number, head_l1_origin_block_id) {
             counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
@@ -603,9 +612,10 @@ where
     /// Important safety behavior:
     /// - If checkpoint mode is enabled, we require the exact checkpoint head that beacon sync
     ///   finished at. This avoids trusting stale local origin pointers.
-    /// - Without checkpoint mode, we require local `head_l1_origin` and fail fast when missing.
-    ///   This avoids deriving proposal IDs from `Latest`, which may include local preconf-only
-    ///   blocks that were never event-confirmed.
+    /// - Without checkpoint mode, we prefer local `head_l1_origin`. If missing on fresh genesis
+    ///   chains (where local head is block 0), we fallback to resume from block 0. Otherwise we
+    ///   fail fast instead of deriving proposal IDs from `Latest`, which may include local
+    ///   preconfirmation-only blocks that were never event-confirmed.
     #[instrument(skip(self), level = "debug")]
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
@@ -615,32 +625,53 @@ where
         } else {
             self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>())
         };
+        let local_head_is_genesis = if checkpoint_configured || head_l1_origin_block_id.is_some() {
+            false
+        } else {
+            self.rpc
+                .l2_provider
+                .get_block_number()
+                .await
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? ==
+                0
+        };
 
         let resume_head_block_number = resolve_resume_head_block_number(
             checkpoint_configured,
             self.checkpoint_resume_head.get(),
             head_l1_origin_block_id,
+            local_head_is_genesis,
         )?;
 
         if checkpoint_configured {
             info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
-        } else {
+        } else if head_l1_origin_block_id.is_some() {
             info!(resume_head_block_number, "using local head_l1_origin as event resume source");
+        } else {
+            info!(
+                resume_head_block_number,
+                "using genesis fallback as event resume source (head_l1_origin unavailable)"
+            );
         }
 
         Ok(resume_head_block_number)
     }
 
-    /// Resolve finalized L1 block metadata and finalized-safe proposal ID.
+    /// Try to resolve finalized L1 block metadata and finalized-safe proposal ID.
+    ///
+    /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
     #[instrument(skip(self), level = "debug")]
-    async fn finalized_l1_snapshot(&self) -> Result<FinalizedL1Snapshot, SyncError> {
-        let finalized_block = require_finalized_block(
-            self.rpc
-                .l1_provider
-                .get_block_by_number(BlockNumberOrTag::Finalized)
-                .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?,
-        )?;
+    async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
+        let finalized_block = self
+            .rpc
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Finalized)
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        let Some(finalized_block) = finalized_block else {
+            return Ok(None);
+        };
 
         let block_hash = finalized_block.header.hash;
         let block_number = finalized_block.header.number;
@@ -655,14 +686,13 @@ where
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
         let finalized_safe_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
-        Ok(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id })
+        Ok(Some(FinalizedL1Snapshot { block_number, block_hash, finalized_safe_proposal_id }))
     }
 
     /// Determine the L1 block height used to resume event consumption after beacon sync.
     #[instrument(skip(self), level = "debug")]
     async fn event_stream_start_block(&self) -> Result<EventStreamStartPoint, SyncError> {
         let resume_head_block_number = self.resume_head_block_number().await?;
-        let finalized_snapshot = self.finalized_l1_snapshot().await?;
         let resume_head_block = self
             .rpc
             .l2_provider
@@ -675,30 +705,44 @@ where
 
         let anchor_address = *self.rpc.shasta.anchor.address();
         let resume_proposal_id = decode_anchor_proposal_id(&resume_head_block)?;
-        let target_proposal_id = resolve_target_proposal_id(
-            resume_proposal_id,
-            finalized_snapshot.finalized_safe_proposal_id,
-        );
+
+        // Try to get finalized snapshot. When unavailable, fall back to genesis replay
+        // which is safe because derivation is idempotent.
+        let finalized_snapshot = self.try_finalized_l1_snapshot().await?;
+
+        let (target_proposal_id, finalized_safe_proposal_id) =
+            resolve_target_with_optional_finalization(
+                resume_proposal_id,
+                finalized_snapshot.as_ref().map(|s| s.finalized_safe_proposal_id),
+            );
+        let (finalized_block_number, finalized_block_hash) =
+            if let Some(snapshot) = finalized_snapshot {
+                (Some(snapshot.block_number), Some(snapshot.block_hash))
+            } else {
+                (None, None)
+            };
+
         info!(
             resume_proposal_id,
-            finalized_safe_proposal_id = finalized_snapshot.finalized_safe_proposal_id,
-            finalized_block_number = finalized_snapshot.block_number,
-            finalized_block_hash = ?finalized_snapshot.block_hash,
+            finalized_safe_proposal_id,
+            finalized_block_number,
+            finalized_block_hash = ?finalized_block_hash,
             target_proposal_id,
             resume_hash = ?resume_head_block.hash(),
             resume_number = resume_head_block.number(),
             "selected finalized-bounded proposal id from resume-source anchor metadata",
         );
         if target_proposal_id == 0 {
-            let start_block = resolve_zero_target_start_block(
-                finalized_snapshot.finalized_safe_proposal_id,
-                finalized_snapshot.block_number,
-            );
+            let start_block = finalized_snapshot.as_ref().map_or(0, |snapshot| {
+                resolve_zero_target_start_block(
+                    snapshot.finalized_safe_proposal_id,
+                    snapshot.block_number,
+                )
+            });
             info!(
                 start_block,
-                target_proposal_id,
-                finalized_safe_proposal_id = finalized_snapshot.finalized_safe_proposal_id,
-                finalized_block_number = finalized_snapshot.block_number,
+                finalized_safe_proposal_id,
+                finalized_block_number,
                 "resolved zero-target scanner start block",
             );
             return Ok(EventStreamStartPoint {
@@ -1107,30 +1151,34 @@ mod tests {
 
     #[test]
     fn confirmed_sync_probe_error_keeps_ingress_closed() {
-        let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingFinalizedL1Block));
+        let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingCheckpointResumeHead));
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
     }
 
     #[test]
     fn resume_head_resolution_requires_checkpoint_state_in_checkpoint_mode() {
-        let err = resolve_resume_head_block_number(true, None, Some(100))
+        let err = resolve_resume_head_block_number(true, None, Some(100), false)
             .expect_err("checkpoint mode should require checkpoint resume state");
         assert!(matches!(err, SyncError::MissingCheckpointResumeHead));
 
-        let resolved = resolve_resume_head_block_number(true, Some(420), None)
+        let resolved = resolve_resume_head_block_number(true, Some(420), None, false)
             .expect("checkpoint resume head should be used when present");
         assert_eq!(resolved, 420);
     }
 
     #[test]
     fn resume_head_resolution_requires_head_l1_origin_without_checkpoint() {
-        let err = resolve_resume_head_block_number(false, Some(999), None)
+        let err = resolve_resume_head_block_number(false, Some(999), None, false)
             .expect_err("non-checkpoint mode should require head_l1_origin");
         assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
 
-        let resolved = resolve_resume_head_block_number(false, None, Some(64))
+        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), false)
             .expect("head_l1_origin should drive resume without checkpoint");
         assert_eq!(resolved, 64);
+
+        let resolved =
+            resolve_resume_head_block_number(false, None, None, true).expect("genesis fallback");
+        assert_eq!(resolved, 0);
     }
 
     #[test]
@@ -1140,18 +1188,6 @@ mod tests {
             Duration::from_secs(12),
             "preconfirmation submit timeout should default to 12 seconds"
         );
-    }
-
-    #[test]
-    fn target_proposal_id_is_bounded_by_finalized_safe_id_when_resume_is_ahead() {
-        let target = resolve_target_proposal_id(120, 90);
-        assert_eq!(target, 90);
-    }
-
-    #[test]
-    fn target_proposal_id_keeps_resume_id_when_resume_is_behind_finalized_safe() {
-        let target = resolve_target_proposal_id(90, 120);
-        assert_eq!(target, 90);
     }
 
     #[test]
@@ -1166,10 +1202,31 @@ mod tests {
         assert_eq!(start_block, 0);
     }
 
+    // -- resolve_target_with_optional_finalization tests --
+
     #[test]
-    fn missing_finalized_block_is_fail_closed() {
-        let err = require_finalized_block::<u64>(None)
-            .expect_err("missing finalized block must fail closed with explicit sync error");
-        assert!(matches!(err, SyncError::MissingFinalizedL1Block));
+    fn without_finalization_resets_to_zero_target() {
+        let (target, safe) = resolve_target_with_optional_finalization(0, None);
+        assert_eq!(target, 0);
+        assert_eq!(safe, 0);
+
+        // Even with a non-zero resume, no finalization resets both to 0.
+        let (target, safe) = resolve_target_with_optional_finalization(5, None);
+        assert_eq!(target, 0);
+        assert_eq!(safe, 0);
+    }
+
+    #[test]
+    fn with_finalization_target_is_bounded_by_finalized_safe() {
+        let (target, safe) = resolve_target_with_optional_finalization(120, Some(90));
+        assert_eq!(target, 90);
+        assert_eq!(safe, 90);
+    }
+
+    #[test]
+    fn with_finalization_target_keeps_resume_when_behind() {
+        let (target, safe) = resolve_target_with_optional_finalization(50, Some(120));
+        assert_eq!(target, 50);
+        assert_eq!(safe, 120);
     }
 }

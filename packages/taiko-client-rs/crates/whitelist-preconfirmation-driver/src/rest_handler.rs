@@ -73,8 +73,10 @@ where
     build_preconf_lock: Mutex<()>,
     /// Preconf whitelist contract used for operator checks.
     whitelist: PreconfWhitelistInstance<P>,
-    /// Highest unsafe payload block ID tracked by this node.
-    highest_unsafe_l2_payload_block_id: Mutex<u64>,
+    /// Local peer ID string.
+    local_peer_id: String,
+    /// Highest unsafe payload block ID tracked by this node (shared with importer).
+    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Cached lookahead status used for fee-recipient validation.
     lookahead_status: RwLock<Option<LookaheadStatus>>,
     /// Shared cache state used to back `/status` and EOS visibility.
@@ -100,12 +102,14 @@ where
     pub(crate) beacon_client: Arc<BeaconClient>,
     /// Whitelist contract address for allowlist checks.
     pub(crate) whitelist_address: Address,
-    /// Highest unsafe payload block id used to seed status metrics.
-    pub(crate) initial_highest_unsafe_l2_payload_block_id: u64,
+    /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
+    pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared preconfirmation cache state.
     pub(crate) cache_state: SharedPreconfCacheState,
+    /// Local peer ID string.
+    pub(crate) local_peer_id: String,
 }
 
 impl<P> WhitelistRestHandler<P>
@@ -121,9 +125,10 @@ where
             signer,
             beacon_client,
             whitelist_address,
-            initial_highest_unsafe_l2_payload_block_id,
+            highest_unsafe_l2_payload_block_id,
             network_command_tx,
             cache_state,
+            local_peer_id,
         }: WhitelistRestHandlerParams<P>,
     ) -> Self {
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
@@ -135,9 +140,8 @@ where
             signer,
             beacon_client,
             whitelist,
-            highest_unsafe_l2_payload_block_id: Mutex::new(
-                initial_highest_unsafe_l2_payload_block_id,
-            ),
+            local_peer_id,
+            highest_unsafe_l2_payload_block_id,
             lookahead_status: RwLock::new(None),
             cache_state,
             eos_notification_tx,
@@ -471,8 +475,14 @@ where
         let started_at = Instant::now();
         let _build_guard = self.build_preconf_lock.lock().await;
 
+        // Guard against building on a genuinely syncing node, but tolerate the false-
+        // positive that taiko-geth emits on genesis chains (currentBlock == highestBlock
+        // == 0, txIndexRemainingBlocks = 1).  When current == highest the node is not
+        // actually catching up to a remote peer, so we allow the build to proceed.
         let sync_status = self.rpc.l2_provider.syncing().await.map_err(provider_err)?;
-        if matches!(sync_status, SyncStatus::Info(_)) {
+        if let SyncStatus::Info(ref info) = sync_status &&
+            info.current_block < info.highest_block
+        {
             return Err(WhitelistPreconfirmationDriverError::Driver(
                 driver::DriverError::EngineSyncing(request.block_number),
             ));
@@ -619,9 +629,15 @@ where
             .end_of_sequencing_for_epoch(current_epoch)
             .await
             .map(|hash| hash.to_string());
+        // sync_ready reflects ingress readiness, which already includes the confirmed-sync
+        // and scanner-live checks required by the event syncer.
+        let sync_ready = self.event_syncer.is_preconf_ingress_ready();
 
         Ok(WhitelistStatus {
-            sync_ready: head_l1_origin.is_some(),
+            head_l1_origin_block_id: head_l1_origin.as_ref().map(|o| o.block_id.to::<u64>()),
+            highest_unsafe_block_number: highest_unsafe,
+            peer_id: self.local_peer_id.clone(),
+            sync_ready,
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
         })

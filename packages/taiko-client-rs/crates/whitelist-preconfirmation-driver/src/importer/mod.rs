@@ -6,7 +6,7 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use driver::sync::event::EventSyncer;
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::mpsc;
+use tokio::sync::{Mutex, mpsc};
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -42,6 +42,29 @@ pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
 ///
 /// Align with the preconfirmation tx-list cap to avoid zlib bomb expansion on untrusted payloads.
 pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
+/// Dependency bundle for constructing [`WhitelistPreconfirmationImporter`].
+pub(crate) struct WhitelistPreconfirmationImporterParams<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Event syncer used to submit validated preconfirmation payloads.
+    pub(crate) event_syncer: Arc<EventSyncer<P>>,
+    /// RPC client used for L1/L2 reads and head-origin updates.
+    pub(crate) rpc: Client<P>,
+    /// Whitelist contract address used for signer validation.
+    pub(crate) whitelist_address: Address,
+    /// Chain id used for preconfirmation signature domain separation.
+    pub(crate) chain_id: u64,
+    /// Command channel used to publish P2P requests/responses.
+    pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Shared cache state used by status and EOS signaling.
+    pub(crate) cache_state: SharedPreconfCacheState,
+    /// Beacon client used for EOS epoch validation.
+    pub(crate) beacon_client: Arc<BeaconClient>,
+    /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
+    pub(crate) highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
+}
+
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
 pub(crate) struct WhitelistPreconfirmationImporter<P>
 where
@@ -67,6 +90,8 @@ where
     sequencer_fetcher: WhitelistSequencerFetcher<P>,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
+    highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
@@ -78,15 +103,17 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Build an importer.
-    pub(crate) fn new(
-        event_syncer: Arc<EventSyncer<P>>,
-        rpc: Client<P>,
-        whitelist_address: Address,
-        chain_id: u64,
-        network_command_tx: mpsc::Sender<NetworkCommand>,
-        cache_state: SharedPreconfCacheState,
-        beacon_client: Arc<BeaconClient>,
-    ) -> Self {
+    pub(crate) fn new(params: WhitelistPreconfirmationImporterParams<P>) -> Self {
+        let WhitelistPreconfirmationImporterParams {
+            event_syncer,
+            rpc,
+            whitelist_address,
+            chain_id,
+            network_command_tx,
+            cache_state,
+            beacon_client,
+            highest_unsafe_l2_payload_block_id,
+        } = params;
         let sequencer_fetcher =
             WhitelistSequencerFetcher::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
@@ -102,6 +129,7 @@ where
             request_throttle: RequestThrottle::default(),
             sequencer_fetcher,
             network_command_tx,
+            highest_unsafe_l2_payload_block_id,
             sync_ready: false,
             anchor_address,
         };

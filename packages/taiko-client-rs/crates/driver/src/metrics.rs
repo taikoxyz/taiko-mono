@@ -252,7 +252,10 @@ impl DriverMetrics {
             "Parent hash lookup failures during preconfirmation"
         );
 
-        // Reset counters to zero.
+        // Reset counters and gauges to zero.
+        metrics::gauge!(Self::BEACON_SYNC_LOCAL_HEAD_BLOCK).set(0.0);
+        metrics::gauge!(Self::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(0.0);
+        metrics::gauge!(Self::BEACON_SYNC_HEAD_LAG_BLOCKS).set(0.0);
         metrics::counter!(Self::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_SCANNER_BATCHES_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_SCANNER_ERRORS_TOTAL).absolute(0);
@@ -260,6 +263,7 @@ impl DriverMetrics {
         metrics::counter!(Self::EVENT_PROPOSALS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_PROPOSALS_SKIPPED_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_DERIVED_BLOCKS_TOTAL).absolute(0);
+        metrics::gauge!(Self::DERIVATION_LAST_FINALIZED_PROPOSAL_ID).set(0.0);
         metrics::counter!(Self::DERIVATION_CANONICAL_HITS_TOTAL).absolute(0);
         metrics::counter!(Self::DERIVATION_L1_ORIGIN_UPDATES_TOTAL).absolute(0);
         metrics::counter!(Self::PRECONF_INJECTION_FAILURES_TOTAL).absolute(0);

@@ -24,6 +24,7 @@ func filterFuncShasta(
 			if err != nil {
 				return errors.Wrap(err, "i.shastaInbox.FilterProved")
 			}
+			defer provedEvents.Close()
 
 			err = i.saveProvedEvents(ctx, chainID, provedEvents)
 			if err != nil {
@@ -37,6 +38,7 @@ func filterFuncShasta(
 			if err != nil {
 				return errors.Wrap(err, "i.shastaInbox.FilterProposed")
 			}
+			defer proposedEvents.Close()
 
 			err = i.saveProposedEvents(ctx, chainID, proposedEvents)
 			if err != nil {

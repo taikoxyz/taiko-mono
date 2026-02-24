@@ -565,6 +565,9 @@ mod tests {
 
         async fn get_status(&self) -> Result<WhitelistStatus> {
             Ok(WhitelistStatus {
+                head_l1_origin_block_id: Some(1),
+                highest_unsafe_block_number: 100,
+                peer_id: "test-peer".to_string(),
                 sync_ready: true,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
@@ -595,6 +598,9 @@ mod tests {
 
         async fn get_status(&self) -> Result<WhitelistStatus> {
             Ok(WhitelistStatus {
+                head_l1_origin_block_id: Some(1),
+                highest_unsafe_block_number: 100,
+                peer_id: "test-peer".to_string(),
                 sync_ready: self.sync_ready,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),

@@ -275,7 +275,12 @@ fn envelope_into_submission(
 ) -> (ExecutionPayloadInputV2, B256, u64) {
     match envelope.execution_payload {
         ExecutionPayloadFieldV2::V1(payload) => (
-            ExecutionPayloadInputV2 { execution_payload: payload.clone(), withdrawals: None },
+            // Taiko chains are always post-Shanghai so withdrawals must be non-nil even
+            // when the engine returns a V1 envelope (which omits the withdrawals field).
+            ExecutionPayloadInputV2 {
+                execution_payload: payload.clone(),
+                withdrawals: Some(Vec::new()),
+            },
             payload.block_hash,
             payload.block_number,
         ),
