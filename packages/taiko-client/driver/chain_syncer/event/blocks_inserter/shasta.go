@@ -165,7 +165,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 
 				go i.sendLatestSeenProposal(&encoding.LastSeenProposal{
 					TaikoProposalMetaData: metadata,
-					PreconfChainReorged:   false,
+					PreconfChainReorged:   true,
 					LastBlockID:           lastBlockHeader.Number.Uint64(),
 				})
 

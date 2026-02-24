@@ -223,6 +223,10 @@ func (i *Pacaya) InsertBlocksWithTxListBytes(
 					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetBatchID().Uint64(), err)
 				}
 
+				latestSeenProposal.LastBlockID = lastBlockHeader.Number.Uint64()
+				latestSeenProposal.PreconfChainReorged = true
+				go i.sendLatestSeenProposal(latestSeenProposal)
+
 				return nil
 			}
 		}

@@ -241,6 +241,58 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	s.Zero(balanceAfter.Cmp(balance))
 }
 
+func (s *EventSyncerTestSuite) TestKnownBatchSendsPreconfChainReorged() {
+	ctx := context.Background()
+
+	// Record L1 head before proposing so we know where to reset the cursor.
+	l1HeadBefore, err := s.RPCClient.L1.HeaderByNumber(ctx, nil)
+	s.Nil(err)
+
+	// Insert blocks using the default syncer (no channel) — normal insertion path.
+	s.ProposeAndInsertValidBlock(s.p, s.s)
+
+	// Create a new syncer WITH a proposal channel to capture known-batch proposals.
+	// This simulates a restart: fresh syncer state, but blocks already in canonical chain.
+	proposalCh := make(chan *encoding.LastSeenProposal, 10)
+	state2, err := state.New(ctx, s.RPCClient)
+	s.Nil(err)
+
+	syncer2, err := NewSyncer(
+		ctx,
+		s.RPCClient,
+		state2,
+		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
+		s.BlobServer.URL(),
+		proposalCh,
+	)
+	s.Nil(err)
+
+	// Reset L1Current to before the proposal to force reprocessing of the same events.
+	state2.SetL1Current(l1HeadBefore)
+
+	// Process L1 blocks — should hit the known-batch fast path since blocks exist.
+	s.Nil(syncer2.ProcessL1Blocks(ctx))
+
+	// Wait briefly for goroutines to deliver proposals to the channel.
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify that at least one proposal with PreconfChainReorged=true was received.
+	var foundReorged bool
+	for {
+		select {
+		case proposal := <-proposalCh:
+			if proposal.PreconfChainReorged {
+				foundReorged = true
+				s.Greater(proposal.LastBlockID, uint64(0))
+			}
+		default:
+			goto done
+		}
+	}
+done:
+	s.True(foundReorged, "Expected PreconfChainReorged=true from known-batch fast path")
+}
+
 func (s *EventSyncerTestSuite) initProposer() {
 	var (
 		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
