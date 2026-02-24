@@ -49,3 +49,7 @@ jspm_packages
 secrets*.yml
 .defender
 .platform
+
+# Research and planning documents
+research*.md
+plan*.md

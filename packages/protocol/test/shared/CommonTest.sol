@@ -18,6 +18,7 @@ import "src/shared/common/DefaultResolver.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
 import "src/shared/vault/BridgedERC20V2.sol";
+import "src/shared/vault/BridgedERC20V3.sol";
 import "src/shared/vault/BridgedERC721.sol";
 import "src/shared/vault/ERC1155Vault.sol";
 import "src/shared/vault/ERC20Vault.sol";
@@ -218,6 +219,29 @@ abstract contract CommonTest is Test, Script {
                 impl: address(new BridgedERC20(erc20Vault)),
                 data: abi.encodeCall(
                     BridgedERC20.init,
+                    (address(0), srcToken, _ethereumChainId, decimals, symbol, name)
+                )
+            })
+        );
+    }
+
+    function deployBridgedERC20V3(
+        address erc20Vault,
+        address srcToken,
+        uint256 _ethereumChainId,
+        uint8 decimals,
+        string memory symbol,
+        string memory name
+    )
+        internal
+        returns (BridgedERC20V3)
+    {
+        return BridgedERC20V3(
+            deploy({
+                name: "erc20_token_v3",
+                impl: address(new BridgedERC20V3(erc20Vault)),
+                data: abi.encodeCall(
+                    BridgedERC20V3.init,
                     (address(0), srcToken, _ethereumChainId, decimals, symbol, name)
                 )
             })
