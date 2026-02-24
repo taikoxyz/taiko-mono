@@ -273,24 +273,23 @@ func (s *EventSyncerTestSuite) TestKnownBatchSendsPreconfChainReorged() {
 	// Process L1 blocks — should hit the known-batch fast path since blocks exist.
 	s.Nil(syncer2.ProcessL1Blocks(ctx))
 
-	// Wait briefly for goroutines to deliver proposals to the channel.
-	time.Sleep(200 * time.Millisecond)
-
-	// Verify that at least one proposal with PreconfChainReorged=true was received.
-	var foundReorged bool
+	// Wait for proposals while draining the channel and ensure at least one true flag was emitted.
+	// If no proposal arrives in time, fail the test.
+	foundReorged := false
+	deadline := time.After(1 * time.Second)
 	for {
 		select {
 		case proposal := <-proposalCh:
 			if proposal.PreconfChainReorged {
+				s.True(!foundReorged, "Expected exactly one reorged known-batch proposal emission")
 				foundReorged = true
 				s.Greater(proposal.LastBlockID, uint64(0))
 			}
-		default:
-			goto done
+		case <-deadline:
+			s.True(foundReorged, "Expected PreconfChainReorged=true from known-batch fast path")
+			return
 		}
 	}
-done:
-	s.True(foundReorged, "Expected PreconfChainReorged=true from known-batch fast path")
 }
 
 func (s *EventSyncerTestSuite) initProposer() {
