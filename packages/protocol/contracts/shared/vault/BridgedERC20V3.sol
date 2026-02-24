@@ -96,7 +96,13 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
 
         bytes32 structHash = keccak256(
             abi.encode(
-                TRANSFER_WITH_AUTHORIZATION_TYPEHASH, _from, _to, _value, _validAfter, _validBefore, _nonce
+                TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
+                _from,
+                _to,
+                _value,
+                _validAfter,
+                _validBefore,
+                _nonce
             )
         );
 
@@ -127,7 +133,13 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
 
         bytes32 structHash = keccak256(
             abi.encode(
-                RECEIVE_WITH_AUTHORIZATION_TYPEHASH, _from, _to, _value, _validAfter, _validBefore, _nonce
+                RECEIVE_WITH_AUTHORIZATION_TYPEHASH,
+                _from,
+                _to,
+                _value,
+                _validAfter,
+                _validBefore,
+                _nonce
             )
         );
 
@@ -150,7 +162,8 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
     {
         if (_authorizationStates[_authorizer][_nonce]) revert BTOKEN_AUTHORIZATION_USED();
 
-        bytes32 structHash = keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, _authorizer, _nonce));
+        bytes32 structHash =
+            keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, _authorizer, _nonce));
 
         _validateSignature(_authorizer, structHash, _v, _r, _s);
         _authorizationStates[_authorizer][_nonce] = true;

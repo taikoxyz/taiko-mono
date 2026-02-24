@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "../CommonTest.sol";
-import "src/shared/vault/IEIP3009.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/vault/IEIP3009.sol";
 
 contract TestBridgedERC20V3 is CommonTest {
     address private vault = randAddress();
@@ -33,7 +33,8 @@ contract TestBridgedERC20V3 is CommonTest {
                 name: "TEST_V3",
                 impl: address(new BridgedERC20V3(vault)),
                 data: abi.encodeCall(
-                    BridgedERC20V3.init, (deployer, srcToken, taikoChainId, 18, "Test Token", "TEST")
+                    BridgedERC20V3.init,
+                    (deployer, srcToken, taikoChainId, 18, "Test Token", "TEST")
                 )
             })
         );
@@ -66,7 +67,8 @@ contract TestBridgedERC20V3 is CommonTest {
             )
         );
 
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
 
         (v, r, s) = vm.sign(_signerKey, digest);
     }
@@ -96,7 +98,8 @@ contract TestBridgedERC20V3 is CommonTest {
             )
         );
 
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
 
         (v, r, s) = vm.sign(_signerKey, digest);
     }
@@ -113,7 +116,8 @@ contract TestBridgedERC20V3 is CommonTest {
         bytes32 structHash =
             keccak256(abi.encode(token.CANCEL_AUTHORIZATION_TYPEHASH(), _authorizer, _nonce));
 
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
 
         (v, r, s) = vm.sign(_signerKey, digest);
     }
@@ -135,8 +139,9 @@ contract TestBridgedERC20V3 is CommonTest {
         uint256 validBefore = block.timestamp + 3600;
         uint256 value = 100 ether;
 
-        (uint8 v, bytes32 r, bytes32 s) =
-            _createTransferAuthorization(ALICE_PRIVATE_KEY, alice, bob, value, validAfter, validBefore, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = _createTransferAuthorization(
+            ALICE_PRIVATE_KEY, alice, bob, value, validAfter, validBefore, nonce
+        );
 
         // Anyone can submit the transaction
         vm.prank(Carol);
@@ -160,8 +165,9 @@ contract TestBridgedERC20V3 is CommonTest {
         uint256 validBefore = block.timestamp + 3600;
         uint256 value = 100 ether;
 
-        (uint8 v, bytes32 r, bytes32 s) =
-            _createReceiveAuthorization(ALICE_PRIVATE_KEY, alice, bob, value, validAfter, validBefore, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = _createReceiveAuthorization(
+            ALICE_PRIVATE_KEY, alice, bob, value, validAfter, validBefore, nonce
+        );
 
         // Only bob (the payee) can call receiveWithAuthorization
         vm.prank(bob);
@@ -178,7 +184,8 @@ contract TestBridgedERC20V3 is CommonTest {
 
         bytes32 nonce = keccak256("cancel-nonce-1");
 
-        (uint8 v, bytes32 r, bytes32 s) = _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
 
         vm.expectEmit(true, true, false, false);
         emit IEIP3009.AuthorizationCanceled(alice, nonce);
@@ -196,7 +203,8 @@ contract TestBridgedERC20V3 is CommonTest {
         assertFalse(token.authorizationState(alice, nonce));
 
         // After cancellation, true
-        (uint8 v, bytes32 r, bytes32 s) = _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
         token.cancelAuthorization(alice, nonce, v, r, s);
 
         assertTrue(token.authorizationState(alice, nonce));
@@ -221,7 +229,9 @@ contract TestBridgedERC20V3 is CommonTest {
         );
 
         vm.expectRevert(BridgedERC20V3.BTOKEN_AUTHORIZATION_NOT_YET_VALID.selector);
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
     }
 
     function test_transferWithAuthorization_RevertWhen_AuthorizationExpired() public {
@@ -242,7 +252,9 @@ contract TestBridgedERC20V3 is CommonTest {
         );
 
         vm.expectRevert(BridgedERC20V3.BTOKEN_AUTHORIZATION_EXPIRED.selector);
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
     }
 
     function test_transferWithAuthorization_RevertWhen_NonceAlreadyUsed() public {
@@ -260,11 +272,15 @@ contract TestBridgedERC20V3 is CommonTest {
         );
 
         // First transfer succeeds
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
 
         // Second transfer with same nonce fails
         vm.expectRevert(BridgedERC20V3.BTOKEN_AUTHORIZATION_USED.selector);
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
     }
 
     function test_transferWithAuthorization_RevertWhen_InvalidSignature() public {
@@ -283,7 +299,9 @@ contract TestBridgedERC20V3 is CommonTest {
         );
 
         vm.expectRevert(BridgedERC20V2.BTOKEN_INVALID_SIG.selector);
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
     }
 
     function test_transferWithAuthorization_RevertWhen_Paused() public {
@@ -305,7 +323,9 @@ contract TestBridgedERC20V3 is CommonTest {
         );
 
         vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
     }
 
     function test_receiveWithAuthorization_RevertWhen_CallerNotPayee() public {
@@ -318,13 +338,16 @@ contract TestBridgedERC20V3 is CommonTest {
         uint256 validAfter = block.timestamp - 1;
         uint256 validBefore = block.timestamp + 3600;
 
-        (uint8 v, bytes32 r, bytes32 s) =
-            _createReceiveAuthorization(ALICE_PRIVATE_KEY, alice, bob, 100 ether, validAfter, validBefore, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = _createReceiveAuthorization(
+            ALICE_PRIVATE_KEY, alice, bob, 100 ether, validAfter, validBefore, nonce
+        );
 
         // Carol tries to call (not the payee)
         vm.prank(Carol);
         vm.expectRevert(BridgedERC20V3.BTOKEN_CALLER_NOT_PAYEE.selector);
-        token.receiveWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.receiveWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
     }
 
     function test_cancelAuthorization_RevertWhen_AlreadyUsed() public {
@@ -341,7 +364,9 @@ contract TestBridgedERC20V3 is CommonTest {
         (uint8 v, bytes32 r, bytes32 s) = _createTransferAuthorization(
             ALICE_PRIVATE_KEY, alice, bob, 100 ether, validAfter, validBefore, nonce
         );
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
 
         // Now try to cancel
         (v, r, s) = _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
@@ -363,8 +388,9 @@ contract TestBridgedERC20V3 is CommonTest {
         uint256 validAfter = block.timestamp - 1;
         uint256 validBefore = block.timestamp + 3600;
 
-        (uint8 v, bytes32 r, bytes32 s) =
-            _createTransferAuthorization(ALICE_PRIVATE_KEY, alice, bob, 0, validAfter, validBefore, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = _createTransferAuthorization(
+            ALICE_PRIVATE_KEY, alice, bob, 0, validAfter, validBefore, nonce
+        );
 
         token.transferWithAuthorization(alice, bob, 0, validAfter, validBefore, nonce, v, r, s);
 
@@ -387,7 +413,9 @@ contract TestBridgedERC20V3 is CommonTest {
             ALICE_PRIVATE_KEY, alice, alice, 100 ether, validAfter, validBefore, nonce
         );
 
-        token.transferWithAuthorization(alice, alice, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, alice, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
 
         assertEq(token.balanceOf(alice), 1000 ether); // Balance unchanged
     }
@@ -407,7 +435,9 @@ contract TestBridgedERC20V3 is CommonTest {
             (uint8 v, bytes32 r, bytes32 s) = _createTransferAuthorization(
                 ALICE_PRIVATE_KEY, alice, bob, 50 ether, validAfter, validBefore, nonce
             );
-            token.transferWithAuthorization(alice, bob, 50 ether, validAfter, validBefore, nonce, v, r, s);
+            token.transferWithAuthorization(
+                alice, bob, 50 ether, validAfter, validBefore, nonce, v, r, s
+            );
         }
 
         assertEq(token.balanceOf(alice), 750 ether);
@@ -425,7 +455,8 @@ contract TestBridgedERC20V3 is CommonTest {
         uint256 validBefore = block.timestamp + 3600;
 
         // Cancel first
-        (uint8 v, bytes32 r, bytes32 s) = _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _createCancelAuthorization(ALICE_PRIVATE_KEY, alice, nonce);
         token.cancelAuthorization(alice, nonce, v, r, s);
 
         // Then try to transfer
@@ -433,7 +464,9 @@ contract TestBridgedERC20V3 is CommonTest {
             ALICE_PRIVATE_KEY, alice, bob, 100 ether, validAfter, validBefore, nonce
         );
         vm.expectRevert(BridgedERC20V3.BTOKEN_AUTHORIZATION_USED.selector);
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, nonce, v, r, s
+        );
     }
 
     // ---------------------------------------------------------------
@@ -450,13 +483,15 @@ contract TestBridgedERC20V3 is CommonTest {
         uint256 value = 100 ether;
 
         // Create permit signature
-        bytes32 permitTypehash =
-            keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+        bytes32 permitTypehash = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
 
         bytes32 structHash =
             keccak256(abi.encode(permitTypehash, alice, bob, value, token.nonces(alice), deadline));
 
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ALICE_PRIVATE_KEY, digest);
 
@@ -473,18 +508,27 @@ contract TestBridgedERC20V3 is CommonTest {
 
         // Use permit
         uint256 deadline = block.timestamp + 3600;
-        bytes32 permitTypehash =
-            keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-        bytes32 structHash =
-            keccak256(abi.encode(permitTypehash, alice, bob, 200 ether, token.nonces(alice), deadline));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
+        bytes32 permitTypehash = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(permitTypehash, alice, bob, 200 ether, token.nonces(alice), deadline)
+        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ALICE_PRIVATE_KEY, digest);
         token.permit(alice, bob, 200 ether, deadline, v, r, s);
 
         // Use transferWithAuthorization (different nonce system)
         bytes32 authNonce = keccak256("auth-nonce");
         (v, r, s) = _createTransferAuthorization(
-            ALICE_PRIVATE_KEY, alice, Carol, 100 ether, block.timestamp - 1, block.timestamp + 3600, authNonce
+            ALICE_PRIVATE_KEY,
+            alice,
+            Carol,
+            100 ether,
+            block.timestamp - 1,
+            block.timestamp + 3600,
+            authNonce
         );
         token.transferWithAuthorization(
             alice, Carol, 100 ether, block.timestamp - 1, block.timestamp + 3600, authNonce, v, r, s
@@ -510,7 +554,8 @@ contract TestBridgedERC20V3 is CommonTest {
                 name: "TEST_V2",
                 impl: address(new BridgedERC20V2(vault)),
                 data: abi.encodeCall(
-                    BridgedERC20V2.init, (deployer, srcToken, taikoChainId, 18, "Test Token", "TEST")
+                    BridgedERC20V2.init,
+                    (deployer, srcToken, taikoChainId, 18, "Test Token", "TEST")
                 )
             })
         );
@@ -522,11 +567,14 @@ contract TestBridgedERC20V3 is CommonTest {
 
         // Use permit on V2
         uint256 deadline = block.timestamp + 3600;
-        bytes32 permitTypehash =
-            keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-        bytes32 structHash =
-            keccak256(abi.encode(permitTypehash, alice, bob, 200 ether, tokenV2.nonces(alice), deadline));
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", tokenV2.DOMAIN_SEPARATOR(), structHash));
+        bytes32 permitTypehash = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+        bytes32 structHash = keccak256(
+            abi.encode(permitTypehash, alice, bob, 200 ether, tokenV2.nonces(alice), deadline)
+        );
+        bytes32 digest =
+            keccak256(abi.encodePacked("\x19\x01", tokenV2.DOMAIN_SEPARATOR(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ALICE_PRIVATE_KEY, digest);
         tokenV2.permit(alice, bob, 200 ether, deadline, v, r, s);
 
@@ -550,7 +598,13 @@ contract TestBridgedERC20V3 is CommonTest {
         bytes32 authNonce = keccak256("post-upgrade");
         token = tokenV3; // Set for helper function
         (v, r, s) = _createTransferAuthorization(
-            ALICE_PRIVATE_KEY, alice, Carol, 50 ether, block.timestamp - 1, block.timestamp + 3600, authNonce
+            ALICE_PRIVATE_KEY,
+            alice,
+            Carol,
+            50 ether,
+            block.timestamp - 1,
+            block.timestamp + 3600,
+            authNonce
         );
         tokenV3.transferWithAuthorization(
             alice, Carol, 50 ether, block.timestamp - 1, block.timestamp + 3600, authNonce, v, r, s
@@ -598,7 +652,9 @@ contract TestBridgedERC20V3 is CommonTest {
 
         // A relayer (David) submits the transaction
         vm.prank(David);
-        token.transferWithAuthorization(alice, bob, 500 ether, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 500 ether, validAfter, validBefore, nonce, v, r, s
+        );
 
         // Bob transfers some to Carol via standard transfer
         vm.prank(bob);
@@ -626,10 +682,13 @@ contract TestBridgedERC20V3 is CommonTest {
         uint256 validAfter = block.timestamp - 1;
         uint256 validBefore = block.timestamp + 3600;
 
-        (uint8 v, bytes32 r, bytes32 s) =
-            _createTransferAuthorization(ALICE_PRIVATE_KEY, alice, bob, _amount, validAfter, validBefore, nonce);
+        (uint8 v, bytes32 r, bytes32 s) = _createTransferAuthorization(
+            ALICE_PRIVATE_KEY, alice, bob, _amount, validAfter, validBefore, nonce
+        );
 
-        token.transferWithAuthorization(alice, bob, _amount, validAfter, validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, _amount, validAfter, validBefore, nonce, v, r, s
+        );
 
         assertEq(token.balanceOf(alice), 0);
         assertEq(token.balanceOf(bob), _amount);
@@ -648,12 +707,19 @@ contract TestBridgedERC20V3 is CommonTest {
             ALICE_PRIVATE_KEY, alice, bob, 100 ether, validAfter, validBefore, _nonce
         );
 
-        token.transferWithAuthorization(alice, bob, 100 ether, validAfter, validBefore, _nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, validAfter, validBefore, _nonce, v, r, s
+        );
 
         assertTrue(token.authorizationState(alice, _nonce));
     }
 
-    function testFuzz_validityWindow_boundaries(uint256 _validAfter, uint256 _validBefore) public {
+    function testFuzz_validityWindow_boundaries(
+        uint256 _validAfter,
+        uint256 _validBefore
+    )
+        public
+    {
         token = _deployToken();
 
         vm.prank(vault);
@@ -669,7 +735,9 @@ contract TestBridgedERC20V3 is CommonTest {
             ALICE_PRIVATE_KEY, alice, bob, 100 ether, _validAfter, _validBefore, nonce
         );
 
-        token.transferWithAuthorization(alice, bob, 100 ether, _validAfter, _validBefore, nonce, v, r, s);
+        token.transferWithAuthorization(
+            alice, bob, 100 ether, _validAfter, _validBefore, nonce, v, r, s
+        );
 
         assertEq(token.balanceOf(bob), 100 ether);
     }
