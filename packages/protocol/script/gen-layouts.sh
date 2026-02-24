@@ -19,6 +19,7 @@ contracts_shared=(
 "contracts/shared/vault/ERC721Vault.sol:ERC721Vault"
 "contracts/shared/vault/BridgedERC20.sol:BridgedERC20"
 "contracts/shared/vault/BridgedERC20V2.sol:BridgedERC20V2"
+"contracts/shared/vault/BridgedERC20V3.sol:BridgedERC20V3"
 "contracts/shared/vault/BridgedERC721.sol:BridgedERC721"
 "contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155"
 "contracts/shared/bridge/Bridge.sol:Bridge"
