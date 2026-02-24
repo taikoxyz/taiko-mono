@@ -20,7 +20,9 @@ const SNAPSHOT_FETCH_MAX_ATTEMPTS: usize = 2;
 
 /// Result of a cached sequencer lookup, including whether values came from cache.
 struct CachedSequencers {
+    /// Current-epoch whitelist sequencer address.
     current: Address,
+    /// Next-epoch whitelist sequencer address.
     next: Address,
     /// True when at least one value was served from cache rather than freshly fetched.
     any_from_cache: bool,
@@ -28,9 +30,13 @@ struct CachedSequencers {
 
 /// Snapshot of sequencer addresses used for signer validation.
 struct WhitelistSequencerSnapshot {
+    /// Current-epoch whitelist sequencer address.
     current: Address,
+    /// Next-epoch whitelist sequencer address.
     next: Address,
+    /// Epoch start timestamp read from the whitelist contract.
     current_epoch_start_timestamp: u64,
+    /// Timestamp of the pinned L1 block used for this snapshot.
     block_timestamp: u64,
 }
 
@@ -179,6 +185,7 @@ where
         unreachable!("snapshot fetch loop must return on success or final error")
     }
 
+    /// Fetch current/next sequencer snapshot pinned to one latest block.
     async fn fetch_whitelist_sequencers_snapshot(&self) -> Result<WhitelistSequencerSnapshot> {
         let latest_block = self
             .rpc
@@ -309,12 +316,14 @@ where
     }
 }
 
+/// Build a lookup error and increment failure metrics.
 fn whitelist_lookup_err(message: String) -> WhitelistPreconfirmationDriverError {
     metrics::counter!(WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL)
         .increment(1);
     WhitelistPreconfirmationDriverError::WhitelistLookup(message)
 }
 
+/// Ensure the pinned block timestamp is not earlier than the current epoch start.
 fn ensure_not_too_early_for_epoch(
     block_timestamp: u64,
     current_epoch_start_timestamp: u64,
@@ -329,6 +338,7 @@ fn ensure_not_too_early_for_epoch(
     Ok(())
 }
 
+/// Return true when a whitelist-snapshot lookup failure is considered transient.
 fn should_retry_snapshot_fetch(err: &WhitelistPreconfirmationDriverError) -> bool {
     match err {
         WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {

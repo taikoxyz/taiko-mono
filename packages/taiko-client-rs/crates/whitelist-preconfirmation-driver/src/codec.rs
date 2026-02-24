@@ -6,8 +6,6 @@ use ssz::{Decode, Encode};
 
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
 
-/// Minimum bytes for a decoded unsafe payload (`signature + at least one payload byte`).
-const MIN_UNSAFE_PAYLOAD_BYTES: usize = 66;
 /// Size, in bytes, of secp256k1 signatures carried on the wire.
 const SIGNATURE_LEN: usize = 65;
 /// Envelope header length (`2 flag bytes + 32-byte parent beacon root`).
@@ -70,11 +68,13 @@ pub(crate) fn recover_signer(prehash: B256, signature: &[u8; SIGNATURE_LEN]) -> 
     })
 }
 
-/// Decode a message from the `preconfBlocks` topic.
-pub(crate) fn decode_unsafe_payload_message(data: &[u8]) -> Result<DecodedUnsafePayload> {
+/// Decode a preconfirmation payload into its wire signature and envelope bytes.
+pub(crate) fn decode_unsafe_payload_signature(
+    data: &[u8],
+) -> Result<([u8; SIGNATURE_LEN], Vec<u8>)> {
     let decoded = decompress_snappy_with_limit(data, "payload")?;
 
-    if decoded.len() < MIN_UNSAFE_PAYLOAD_BYTES {
+    if decoded.len() < SIGNATURE_LEN {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
             "unsafe payload too short: {}",
             decoded.len()
@@ -84,10 +84,7 @@ pub(crate) fn decode_unsafe_payload_message(data: &[u8]) -> Result<DecodedUnsafe
     let mut wire_signature = [0u8; SIGNATURE_LEN];
     wire_signature.copy_from_slice(&decoded[..SIGNATURE_LEN]);
 
-    let payload_bytes = decoded[SIGNATURE_LEN..].to_vec();
-    let envelope = decode_envelope_ssz(&payload_bytes)?;
-
-    Ok(DecodedUnsafePayload { wire_signature, payload_bytes, envelope })
+    Ok((wire_signature, decoded[SIGNATURE_LEN..].to_vec()))
 }
 
 /// Decode a message from the `responsePreconfBlocks` topic.
@@ -308,7 +305,8 @@ mod tests {
             .compress_vec(&oversized)
             .expect("snappy compression for oversized payload");
 
-        let err = decode_unsafe_payload_message(&encoded).expect_err("oversized payload must fail");
+        let err =
+            decode_unsafe_payload_signature(&encoded).expect_err("oversized payload must fail");
         assert!(matches!(
             err,
             WhitelistPreconfirmationDriverError::InvalidPayload(msg)
@@ -323,21 +321,23 @@ mod tests {
 
         let encoded =
             encode_unsafe_payload_message(&signature, &envelope).expect("payload encoding");
-        let decoded = decode_unsafe_payload_message(&encoded).expect("payload decoding");
+        let (wire_signature, payload_bytes) =
+            decode_unsafe_payload_signature(&encoded).expect("payload decoding");
+        let decoded_envelope = decode_envelope_ssz(&payload_bytes).expect("envelope decoding");
 
-        assert_eq!(decoded.wire_signature, signature);
-        assert_eq!(decoded.envelope.end_of_sequencing, envelope.end_of_sequencing);
-        assert_eq!(decoded.envelope.is_forced_inclusion, envelope.is_forced_inclusion);
-        assert_eq!(decoded.envelope.parent_beacon_block_root, envelope.parent_beacon_block_root);
+        assert_eq!(wire_signature, signature);
+        assert_eq!(decoded_envelope.end_of_sequencing, envelope.end_of_sequencing);
+        assert_eq!(decoded_envelope.is_forced_inclusion, envelope.is_forced_inclusion);
+        assert_eq!(decoded_envelope.parent_beacon_block_root, envelope.parent_beacon_block_root);
         assert_eq!(
-            decoded.envelope.execution_payload.block_hash,
+            decoded_envelope.execution_payload.block_hash,
             envelope.execution_payload.block_hash
         );
         assert_eq!(
-            decoded.envelope.execution_payload.block_number,
+            decoded_envelope.execution_payload.block_number,
             envelope.execution_payload.block_number
         );
-        assert_eq!(decoded.envelope.signature, envelope.signature);
+        assert_eq!(decoded_envelope.signature, envelope.signature);
     }
 
     #[test]

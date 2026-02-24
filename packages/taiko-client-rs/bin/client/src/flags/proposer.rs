@@ -4,6 +4,7 @@ use alloy_primitives::{Address, B256};
 use clap::Parser;
 
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
+/// CLI flags specific to proposer operation.
 pub struct ProposerArgs {
     /// Private key of the L1 proposer, who will send transactions to propose L2 batches to inbox.
     #[clap(

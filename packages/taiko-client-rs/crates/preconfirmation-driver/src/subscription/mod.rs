@@ -9,7 +9,7 @@
 mod event_handler;
 mod submission;
 
-pub use event_handler::{EventHandler, PreconfirmationEvent};
+pub use event_handler::{EventHandler, EventHandlerParams, PreconfirmationEvent};
 
 #[cfg(test)]
 mod tests {
@@ -28,7 +28,7 @@ mod tests {
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
     use tokio::sync::{broadcast, mpsc};
 
-    use super::EventHandler;
+    use super::{EventHandler, EventHandlerParams};
     use crate::{
         driver_interface::{DriverClient, PreconfirmationInput},
         error::{DriverApiError, PreconfirmationClientError, Result},
@@ -123,8 +123,15 @@ mod tests {
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
-        let handler =
-            EventHandler::new(store, codec, driver, None, event_tx, command_tx, lookahead_resolver);
+        let handler = EventHandler::new(EventHandlerParams {
+            store,
+            codec,
+            driver,
+            expected_slasher: None,
+            event_tx,
+            command_tx,
+            lookahead_resolver,
+        });
 
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
@@ -215,15 +222,15 @@ mod tests {
         let lookahead_resolver =
             Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
-            driver.clone(),
-            None,
+            driver: driver.clone(),
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let parent_hash = Bytes32::try_from(vec![0u8; 32]).expect("parent hash");
         let commitment = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
@@ -242,15 +249,15 @@ mod tests {
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
             driver,
-            None,
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
@@ -269,15 +276,15 @@ mod tests {
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
             driver,
-            None,
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
@@ -300,15 +307,15 @@ mod tests {
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
             driver,
-            None,
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let raw_tx_list_hash = Bytes32::try_from(vec![0u8; 32]).expect("txlist hash");
         let txlist = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
@@ -335,15 +342,15 @@ mod tests {
         let lookahead_resolver =
             Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
-            driver.clone(),
-            None,
+            driver: driver.clone(),
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let parent_hash = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");
         let commitment = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
@@ -367,15 +374,15 @@ mod tests {
         let lookahead_resolver =
             Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
-            driver.clone(),
-            None,
+            driver: driver.clone(),
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let parent_hash = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");
         let commitment_two = build_signed_commitment(&sk, 2, parent_hash.clone(), 100, 200);
@@ -400,15 +407,15 @@ mod tests {
         let lookahead_resolver =
             Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
-            driver.clone(),
-            None,
+            driver: driver.clone(),
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let txlist_bytes = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
         let txlist_hash = keccak256_bytes(txlist_bytes.as_ref());
@@ -447,15 +454,15 @@ mod tests {
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
-        let handler = EventHandler::new(
-            store.clone(),
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
             codec,
             driver,
-            None,
+            expected_slasher: None,
             event_tx,
             command_tx,
             lookahead_resolver,
-        );
+        });
 
         let txlist_bytes = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
         let txlist_hash = keccak256_bytes(txlist_bytes.as_ref());
@@ -480,8 +487,15 @@ mod tests {
 
         drop(command_rx);
 
-        let handler =
-            EventHandler::new(store, codec, driver, None, event_tx, command_tx, lookahead_resolver);
+        let handler = EventHandler::new(EventHandlerParams {
+            store,
+            codec,
+            driver,
+            expected_slasher: None,
+            event_tx,
+            command_tx,
+            lookahead_resolver,
+        });
 
         let head = PreconfHead {
             block_number: Uint256::from(1u64),

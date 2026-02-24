@@ -114,12 +114,12 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
 }
 
 impl BlockPosition {
-    // Check if this is the final block of the final segment.
+    /// Return true if this is the last block of the last manifest segment.
     fn is_final(&self) -> bool {
         self.segment_index + 1 == self.segments_total && self.block_index + 1 == self.blocks_len
     }
 
-    // Check if this block is part of a forced inclusion segment.
+    /// Return true if this block comes from a forced-inclusion source.
     fn is_forced_inclusion(&self) -> bool {
         self.forced_inclusion
     }
@@ -131,19 +131,28 @@ impl BlockPosition {
 /// same computation when probing the canonical chain.
 #[derive(Debug)]
 struct BlockDerivationContext {
+    /// Payload attributes derived for this manifest block.
     payload: TaikoPayloadAttributes,
+    /// Anchor transaction paired with `payload`.
     anchor_tx: TxEnvelope,
+    /// Parent hash used to build the payload.
     parent_hash: B256,
+    /// L2 block number expected from execution.
     block_number: u64,
+    /// Anchor block number encoded into the anchor transaction.
     anchor_block_number: u64,
+    /// Whether this block finalizes the proposal's derivation output.
     is_final_block: bool,
 }
 
 /// Canonical block data captured when a proposal's blocks already exist on the execution chain.
 #[derive(Debug)]
 pub(super) struct KnownCanonicalBlock {
+    /// Payload attributes validated against canonical chain data.
     pub(super) payload: TaikoPayloadAttributes,
+    /// Execution outcome projected from canonical block data.
     pub(super) outcome: EngineBlockOutcome,
+    /// Whether this block is the final block for the proposal.
     pub(super) is_final_block: bool,
 }
 
@@ -153,7 +162,9 @@ pub(super) struct KnownCanonicalBlock {
 /// parent state can advance without talking to the engine again.
 #[derive(Debug)]
 struct VerifiedCanonicalBlock {
+    /// Engine-like outcome reconstructed from canonical block data.
     outcome: EngineBlockOutcome,
+    /// Consensus header used to advance parent state.
     header: Header,
 }
 
@@ -845,7 +856,7 @@ where
         Ok(Some(VerifiedCanonicalBlock { outcome, header }))
     }
 
-    // Build the anchor transaction for the given block.
+    /// Build the anchor transaction for the provided manifest block.
     #[instrument(skip(self, parent_state, meta, inputs))]
     async fn build_anchor_transaction(
         &self,
@@ -883,7 +894,7 @@ where
         Ok(tx)
     }
 
-    // Fetch the anchor block fields.
+    /// Resolve anchor block hash and state root from L1.
     #[instrument(skip(self), fields(anchor_block_number))]
     async fn resolve_anchor_block_fields(
         &self,

@@ -106,7 +106,7 @@ pub fn build_publish_payloads(
     eop: bool,
 ) -> Result<PreparedBlock> {
     let txlist_bytes = if eop { build_txlist_bytes(block_number)? } else { build_empty_txlist()? };
-    build_prepared_block(
+    build_prepared_block(PreparedBlockParams {
         signer_sk,
         signer,
         block_number,
@@ -115,8 +115,8 @@ pub fn build_publish_payloads(
         submission_window_end,
         eop,
         txlist_bytes,
-        None,
-    )
+        parent_hash: None,
+    })
 }
 
 /// Assembles a compressed txlist and signed commitment with actual transaction bytes.
@@ -156,17 +156,17 @@ pub fn build_publish_payloads_with_txs(
     raw_tx_bytes: Vec<Bytes>,
 ) -> Result<(RawTxListGossip, SignedCommitment)> {
     let txlist_bytes = compress_transactions(&raw_tx_bytes)?;
-    let block = build_prepared_block(
+    let block = build_prepared_block(PreparedBlockParams {
         signer_sk,
         signer,
-        block_number.to::<u64>(),
+        block_number: block_number.to::<u64>(),
         timestamp,
         gas_limit,
         submission_window_end,
-        false,
+        eop: false,
         txlist_bytes,
-        None,
-    )?;
+        parent_hash: None,
+    })?;
     Ok((block.txlist, block.commitment))
 }
 
@@ -187,18 +187,40 @@ fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
 }
 
 /// Internal helper to build a PreparedBlock with optional parent hash.
-#[allow(clippy::too_many_arguments)]
-fn build_prepared_block(
-    signer_sk: &SecretKey,
+struct PreparedBlockParams<'a> {
+    /// Secret key used to sign the commitment.
+    signer_sk: &'a SecretKey,
+    /// Address of the preconfirmation signer.
     signer: Address,
+    /// L2 block number for the commitment.
     block_number: u64,
+    /// L2 block timestamp.
     timestamp: u64,
+    /// Gas limit encoded into the commitment payload.
     gas_limit: u64,
+    /// Canonical submission window end for lookahead validation.
     submission_window_end: U256,
+    /// End Of Preconfirmation window flag for the commitment.
     eop: bool,
+    /// Compressed transaction list bytes.
     txlist_bytes: TxListBytes,
+    /// Optional parent preconfirmation hash for chain linkage.
     parent_hash: Option<Bytes32>,
-) -> Result<PreparedBlock> {
+}
+
+/// Internal helper to build a [`PreparedBlock`] from normalized fields.
+fn build_prepared_block(params: PreparedBlockParams<'_>) -> Result<PreparedBlock> {
+    let PreparedBlockParams {
+        signer_sk,
+        signer,
+        block_number,
+        timestamp,
+        gas_limit,
+        submission_window_end,
+        eop,
+        txlist_bytes,
+        parent_hash,
+    } = params;
     let raw_tx_list_hash = compute_txlist_hash(&txlist_bytes)?;
     let txlist =
         RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
@@ -275,17 +297,17 @@ pub fn build_commitment_chain(
         // independent from transaction encoding details.
         let txlist_bytes = build_empty_txlist()?;
 
-        let block = build_prepared_block(
+        let block = build_prepared_block(PreparedBlockParams {
             signer_sk,
             signer,
             block_number,
             timestamp,
             gas_limit,
             submission_window_end,
-            false,
+            eop: false,
             txlist_bytes,
-            Some(parent_hash),
-        )?;
+            parent_hash: Some(parent_hash),
+        })?;
 
         let hash = preconfirmation_hash(&block.commitment.commitment.preconf)
             .map_err(|err| anyhow!("preconfirmation hash error: {err}"))?;

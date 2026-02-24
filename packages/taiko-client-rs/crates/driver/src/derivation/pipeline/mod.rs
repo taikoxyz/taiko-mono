@@ -3,7 +3,9 @@
 use alloy::rpc::types::Log;
 use async_trait::async_trait;
 
+/// Shared derivation error type.
 mod error;
+/// Shasta fork derivation pipeline implementation.
 pub mod shasta;
 
 pub use error::DerivationError;

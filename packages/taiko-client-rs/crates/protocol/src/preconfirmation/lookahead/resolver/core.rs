@@ -767,7 +767,7 @@ mod tests {
         block
     }
 
-    fn test_resolver_with_cache(
+    struct TestResolverConfig {
         cache: DashMap<u64, CachedLookaheadEpoch>,
         fallback_timeline: FallbackTimelineStore,
         blacklist_history: DashMap<B256, BlacklistTimeline>,
@@ -776,16 +776,18 @@ mod tests {
         block_reader: FakeBlockReader,
         whitelist: FakeWhitelist,
         store: FakeStore,
-    ) -> LookaheadResolver {
+    }
+
+    fn test_resolver_with_cache(config: TestResolverConfig) -> LookaheadResolver {
         LookaheadResolver {
-            client: Arc::new(store),
-            preconf_whitelist: Arc::new(whitelist),
-            block_reader: Arc::new(block_reader),
-            fallback_timeline,
-            cache: Arc::new(cache),
-            blacklist_history: Arc::new(blacklist_history),
-            lookahead_buffer_size,
-            genesis_timestamp,
+            client: Arc::new(config.store),
+            preconf_whitelist: Arc::new(config.whitelist),
+            block_reader: Arc::new(config.block_reader),
+            fallback_timeline: config.fallback_timeline,
+            cache: Arc::new(config.cache),
+            blacklist_history: Arc::new(config.blacklist_history),
+            lookahead_buffer_size: config.lookahead_buffer_size,
+            genesis_timestamp: config.genesis_timestamp,
             broadcast_tx: None,
         }
     }
@@ -816,20 +818,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(100, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0xcc; 20]),
                     next: Address::from([0xdd; 20]),
                     addr: Address::from([0x12; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(result, committer);
@@ -855,20 +857,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(200, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(now)).await.unwrap();
             assert_eq!(result, fallback);
@@ -920,20 +922,20 @@ mod tests {
             let latest_block = make_block(400, now);
             let blocks = DashMap::new();
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback_current,
                     next: committer_next,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             // Query inside current epoch but after the only current slot; should pick next-epoch
             // slot.
@@ -979,20 +981,20 @@ mod tests {
                 map
             };
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
                 blacklist_history,
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(result, fallback);
@@ -1025,20 +1027,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(101, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0xcc; 20]),
                     next: Address::from([0xdd; 20]),
                     addr: Address::from([0x12; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(info.signer, committer);
@@ -1066,20 +1068,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(202, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let info = resolver.slot_info_for_timestamp(U256::from(now)).await.unwrap();
             assert_eq!(info.signer, fallback);
@@ -1125,20 +1127,20 @@ mod tests {
                 map
             };
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
                 blacklist_history,
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(info.signer, fallback);
@@ -1159,20 +1161,20 @@ mod tests {
             let latest_block = make_block(1, now);
             let blocks = DashMap::new();
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0x01; 20]),
                     next: Address::from([0x02; 20]),
                     addr: Address::from([0x03; 20]),
                 },
-                FakeStore { addr: Address::from([0x04; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x04; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(too_old_ts)).await;
             assert!(matches!(result, Err(LookaheadError::TooOld(ts)) if ts == too_old_ts));
@@ -1191,20 +1193,20 @@ mod tests {
             let latest_block = make_block(2, now);
             let blocks = DashMap::new();
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0x11; 20]),
                     next: Address::from([0x12; 20]),
                     addr: Address::from([0x13; 20]),
                 },
-                FakeStore { addr: Address::from([0x14; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x14; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(too_new_ts)).await;
             assert!(matches!(result, Err(LookaheadError::TooNew(ts)) if ts == too_new_ts));
@@ -1226,20 +1228,20 @@ mod tests {
 
             let fallback = Address::from([0xaa; 20]);
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0xbb; 20]),
                 },
-                FakeStore { addr: Address::from([0xcc; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0xcc; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(epoch_start + 20)).await;
             assert_eq!(result.unwrap(), fallback);
@@ -1293,20 +1295,20 @@ mod tests {
             let blocks = DashMap::new();
             let fallback = Address::from([0x55; 20]);
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x33; 20]),
                 },
-                FakeStore { addr: store_addr },
-            );
+                store: FakeStore { addr: store_addr },
+            });
 
             resolver.ingest_logs(vec![log]).await.unwrap();
 

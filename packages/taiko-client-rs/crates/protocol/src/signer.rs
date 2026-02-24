@@ -46,8 +46,11 @@ pub enum FixedKSignerError {
 /// Deterministic secp256k1 signer.
 #[derive(Debug, Clone)]
 pub struct FixedKSigner {
+    /// Secp256k1 private scalar used for fixed-k signing.
     secret_scalar: Scalar,
+    /// Ethereum address derived from `secret_scalar`.
     address: Address,
+    /// Optional chain id used by Alloy signer traits.
     chain_id: Option<u64>,
 }
 
@@ -77,6 +80,11 @@ impl FixedKSigner {
     #[instrument]
     pub fn golden_touch() -> Result<Self, FixedKSignerError> {
         Self::new(GOLDEN_TOUCH_PRIVATE_KEY)
+    }
+
+    /// Returns the signer address derived from the private key.
+    pub const fn address(&self) -> Address {
+        self.address
     }
 
     /// Attempt to sign the provided digest using a fixed list of `k` candidates.

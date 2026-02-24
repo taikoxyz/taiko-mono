@@ -8,6 +8,7 @@ use rpc::{
 use thiserror::Error;
 use tracing::{debug, error};
 
+/// Shasta manifest fetcher implementation.
 pub mod shasta;
 
 pub use shasta::ShastaSourceManifestFetcher;
@@ -32,7 +33,12 @@ pub enum ManifestFetcherError {
     Rpc(#[from] RpcClientError),
     /// Mismatch between requested and received blob counts.
     #[error("blob count mismatch: expected {expected}, got {actual}")]
-    BlobCountMismatch { expected: usize, actual: usize },
+    BlobCountMismatch {
+        /// Number of blob hashes requested by the caller.
+        expected: usize,
+        /// Number of sidecars returned by the data source.
+        actual: usize,
+    },
     /// Manifest bytes were invalid.
     #[error("invalid shasta manifest: {0}")]
     Invalid(String),

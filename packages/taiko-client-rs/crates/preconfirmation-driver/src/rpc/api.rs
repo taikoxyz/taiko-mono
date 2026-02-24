@@ -31,9 +31,6 @@ pub trait PreconfRpcApi: Send + Sync {
     /// Get the current preconfirmation tip block number.
     async fn preconf_tip(&self) -> Result<U256>;
 
-    /// Get the last canonical proposal ID from L1 events.
-    async fn canonical_proposal_id(&self) -> Result<u64>;
-
     /// Get the preconfirmation slot info (signer and submission window end) for a given L2 block
     /// timestamp.
     async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo>;
@@ -65,8 +62,8 @@ mod tests {
         async fn get_status(&self) -> Result<NodeStatus> {
             Ok(NodeStatus {
                 is_synced_with_inbox: true,
+                event_sync_tip: Some(U256::from(90)),
                 preconf_tip: U256::from(100),
-                canonical_proposal_id: 42,
                 peer_count: 5,
                 peer_id: "test-peer".to_string(),
             })
@@ -74,10 +71,6 @@ mod tests {
 
         async fn preconf_tip(&self) -> Result<U256> {
             Ok(U256::from(100))
-        }
-
-        async fn canonical_proposal_id(&self) -> Result<u64> {
-            Ok(42)
         }
 
         async fn get_preconf_slot_info(&self, _timestamp: U256) -> Result<PreconfSlotInfo> {
@@ -95,8 +88,8 @@ mod tests {
         let status = api.get_status().await.unwrap();
         assert!(status.is_synced_with_inbox);
         assert_eq!(status.preconf_tip, U256::from(100));
+        assert_eq!(status.event_sync_tip, Some(U256::from(90)));
         assert_eq!(api.preconf_tip().await.unwrap(), U256::from(100));
-        assert_eq!(api.canonical_proposal_id().await.unwrap(), 42);
 
         let slot_info = api.get_preconf_slot_info(U256::from(123)).await.unwrap();
         assert_eq!(slot_info.signer, Address::repeat_byte(0x11));

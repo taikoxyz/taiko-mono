@@ -215,7 +215,7 @@ where
         rpc.engine_forkchoice_updated_v2(forkchoice_state, Some(payload.clone())).await?;
 
     let payload_id = fc_response.payload_id.ok_or(EngineSubmissionError::MissingPayloadId)?;
-    tracing::Span::current().record("payload_id", format_args!("{}", payload_id));
+    tracing::Span::current().record("payload_id", format_args!("{payload_id}"));
 
     let expected_payload_id = PayloadId::new(payload.l1_origin.build_payload_args_id);
     if expected_payload_id != payload_id {
@@ -275,7 +275,12 @@ fn envelope_into_submission(
 ) -> (ExecutionPayloadInputV2, B256, u64) {
     match envelope.execution_payload {
         ExecutionPayloadFieldV2::V1(payload) => (
-            ExecutionPayloadInputV2 { execution_payload: payload.clone(), withdrawals: None },
+            // Taiko chains are always post-Shanghai so withdrawals must be non-nil even
+            // when the engine returns a V1 envelope (which omits the withdrawals field).
+            ExecutionPayloadInputV2 {
+                execution_payload: payload.clone(),
+                withdrawals: Some(Vec::new()),
+            },
             payload.block_hash,
             payload.block_number,
         ),

@@ -56,6 +56,7 @@ pub struct WhitelistRestWsServerConfig {
 }
 
 impl Default for WhitelistRestWsServerConfig {
+    /// Build the default server configuration (loopback bind, HTTP+WS enabled, no JWT).
     fn default() -> Self {
         Self {
             listen_addr: "127.0.0.1:8552".parse().expect("valid default address"),
@@ -240,10 +241,12 @@ async fn auth_middleware(State(state): State<AppState>, request: Request, next: 
     next.run(request).await
 }
 
+/// Health endpoint handler.
 async fn handle_root() -> Response {
     no_content_response(StatusCode::OK)
 }
 
+/// Status endpoint handler returning importer/runtime health.
 async fn handle_status(State(state): State<AppState>) -> Response {
     match state.api.get_status().await {
         Ok(status) => {
@@ -261,6 +264,7 @@ async fn handle_status(State(state): State<AppState>) -> Response {
     }
 }
 
+/// `preconfBlocks` REST endpoint handler.
 async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) -> Response {
     let status = match state.api.get_status().await {
         Ok(status) => status,
@@ -317,6 +321,7 @@ async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) 
             #[derive(serde::Serialize)]
             #[serde(rename_all = "camelCase")]
             struct BuildPreconfBlockRestResponse {
+                /// Built block header returned by the API.
                 block_header: alloy_rpc_types::Header,
             }
 
@@ -445,6 +450,7 @@ fn no_content_response(status: StatusCode) -> Response {
 fn error_response(status: StatusCode, message: String) -> Response {
     #[derive(serde::Serialize)]
     struct ErrorBody {
+        /// Error message returned to the caller.
         error: String,
     }
     json_response(status, &ErrorBody { error: message })
@@ -461,6 +467,7 @@ fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> Response
         .expect("valid response")
 }
 
+/// Map internal driver errors to REST status codes.
 fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
     match err {
         WhitelistPreconfirmationDriverError::InvalidPayload(_) |
@@ -478,11 +485,17 @@ fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCod
 /// Error states for request body ingestion from Axum.
 #[derive(Debug)]
 enum ReadRequestBodyError {
+    /// Failed to read a body frame.
     Read(String),
-    TooLarge { max_bytes: usize },
+    /// Body exceeded configured size limit.
+    TooLarge {
+        /// Maximum accepted body size in bytes.
+        max_bytes: usize,
+    },
 }
 
 impl std::fmt::Display for ReadRequestBodyError {
+    /// Render a human-readable error used in HTTP responses and logs.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Read(reason) => write!(f, "{reason}"),
@@ -718,7 +731,6 @@ mod tests {
             enable_ws: false,
             jwt_secret: None,
             cors_origins: vec!["https://example.com".to_string()],
-            ..Default::default()
         };
         let api =
             SyncReadyApi { build_preconf_calls: build_preconf_calls.clone(), sync_ready: false };

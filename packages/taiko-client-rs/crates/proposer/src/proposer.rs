@@ -44,7 +44,7 @@ use crate::{
 
 use alloy_provider::RootProvider;
 
-// Type alias for a list of transactions lists.
+/// Type alias for batches of transaction lists fetched from the txpool.
 pub type TransactionsLists = Vec<Vec<Transaction>>;
 
 /// Parameters captured from engine mode payload building.
@@ -59,11 +59,15 @@ pub struct EnginePayloadParams {
     pub gas_limit: u64,
 }
 
-// Proposer keeps proposing new transactions from L2 execution engine's tx pool at a fixed interval.
+/// Proposer loop that builds and submits Shasta proposals at a fixed interval.
 pub struct Proposer {
+    /// RPC client bundle with signing wallet for L1 submission.
     rpc_provider: ClientWithWallet,
+    /// Builder that converts txpool content into proposal transactions.
     transaction_builder: ShastaProposalTransactionBuilder,
+    /// Optional anchor constructor used in engine mode.
     anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
+    /// Runtime proposer configuration.
     cfg: ProposerConfigs,
 }
 
