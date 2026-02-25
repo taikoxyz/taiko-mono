@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.5.0...ejector-v0.6.0) (2026-02-25)
+
+
+### Features
+
+* **taiko-client-rs:** get_preconf_slot_info API for the taiko-client-rs ([#21279](https://github.com/taikoxyz/taiko-mono/issues/21279)) ([26f8c95](https://github.com/taikoxyz/taiko-mono/commit/26f8c958b33f29edeeabe4483dd084bb47aca089))
+
+
+### Bug Fixes
+
+* **ejector:** call removeOperatorByAddress on whitelist ([#21342](https://github.com/taikoxyz/taiko-mono/issues/21342)) ([c26e811](https://github.com/taikoxyz/taiko-mono/commit/c26e811a3993ef5f210eba8d0521a715f7fd9263))
+
 ## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.1...ejector-v0.5.0) (2026-02-04)
 
 

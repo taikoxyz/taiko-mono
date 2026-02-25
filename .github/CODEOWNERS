@@ -2,10 +2,10 @@
 .github/CODEOWNERS              @dantaik @ggonzalez94 @davidtaikocha
 .github/workflows/*             @ggonzalez94 @YoGhurt111 @davidtaikocha @RogerLamTd
 
-# Protocol (core smart contracts - highest activity)
-/packages/protocol/**           @dantaik @ggonzalez94 @davidtaikocha @smtmfft
-/packages/protocol/contracts/**/*Verifier*.sol @dantaik @ggonzalez94 @smtmfft
-/packages/protocol/contracts/layer1/preconf/** @dantaik @ggonzalez94 @AnshuJalan
+# Protocol
+/packages/protocol/**           @ggonzalez94 @davidtaikocha
+/packages/protocol/contracts/**/*Verifier*.sol @smtmfft @ggonzalez94 @davidtaikocha
+/packages/protocol/contracts/layer1/preconf/** @AnshuJalan @ggonzalez94 @davidtaikocha
 
 # Client services
 /packages/taiko-client/**       @YoGhurt111 @davidtaikocha @MatusKysel
@@ -14,11 +14,11 @@
 /packages/relayer/**            @YoGhurt111 @davidtaikocha @MatusKysel
 
 # Frontend applications
-/packages/docs-site/**          @ggonzalez94 @RogerLamTd
-/packages/bridge-ui/**          @KorbinianK @myronrotter @bearni95
+/packages/docs-site/**          @RogerLamTd @ggonzalez94
+/packages/bridge-ui/**          @RogerLamTd @ggonzalez94
 
 # Infrastructure and tools
-/packages/balance-monitor/**    @YoGhurt111 @davidtaikocha
-/packages/ejector/**            @YoGhurt111 @davidtaikocha @MatusKysel
+/packages/balance-monitor/**    @YoGhurt111 @davidtaikocha @RogerLamTd
+/packages/ejector/**            @YoGhurt111 @davidtaikocha @MatusKysel @RogerLamTd
 /packages/fork-diff/**          @YoGhurt111 @davidtaikocha @RogerLamTd
 /packages/geth-rpc-gateway/**   @YoGhurt111 @davidtaikocha

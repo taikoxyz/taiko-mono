@@ -56,10 +56,6 @@ pub enum SyncError {
         number: u64,
     },
 
-    /// Event sync: finalized L1 block is unavailable; resume must fail closed.
-    #[error("finalized l1 block is unavailable")]
-    MissingFinalizedL1Block,
-
     /// Event sync: execution engine missing batch-to-block mapping.
     #[error("no execution block found for batch {proposal_id}")]
     MissingExecutionBlockForBatch {

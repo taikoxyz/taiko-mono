@@ -503,6 +503,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
+	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -567,6 +568,7 @@ func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageProcessed")
 	}
+	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -616,6 +618,7 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 	}
+	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -662,6 +665,7 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterChainDataSynced")
 	}
+	defer chainDataSyncedEvents.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -708,6 +712,7 @@ func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "signalServiceV4.FilterCheckpointSaved")
 	}
+	defer checkpointEvents.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
