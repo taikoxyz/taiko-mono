@@ -124,7 +124,6 @@ impl WhitelistPreconfirmationDriverRunner {
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured. When enabled, create shared state for highestUnsafeL2PayloadBlockID
         // so the importer can update it on P2P imports.
-        let mut lookahead_refresh_task = None;
         let (mut rest_ws_server, shared_highest_unsafe) = if let (
             Some(listen_addr),
             Some(signer_key),
@@ -173,7 +172,6 @@ impl WhitelistPreconfirmationDriverRunner {
                 ..Default::default()
             };
             let server = WhitelistRestWsServer::start(server_config, handler.clone()).await?;
-            lookahead_refresh_task = Some(handler.start_lookahead_refresh_loop());
             info!(
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
@@ -208,7 +206,6 @@ impl WhitelistPreconfirmationDriverRunner {
                 result = &mut node_handle => {
                     return finish_runner(
                         event_syncer_handle,
-                        &mut lookahead_refresh_task,
                         &mut rest_ws_server,
                         map_node_exit_for_runner(result),
                     )
@@ -219,7 +216,6 @@ impl WhitelistPreconfirmationDriverRunner {
                     node_handle.abort();
                     return finish_runner(
                         event_syncer_handle,
-                        &mut lookahead_refresh_task,
                         &mut rest_ws_server,
                         map_event_syncer_exit_for_runner(result),
                     )
@@ -229,11 +225,10 @@ impl WhitelistPreconfirmationDriverRunner {
                     let Some(event) = maybe_event else {
                         return finish_runner(
                             event_syncer_handle,
-                            &mut lookahead_refresh_task,
                             &mut rest_ws_server,
                             (
-                            "network_event_channel_closed",
-                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                                "network_event_channel_closed",
+                                Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
                                 "whitelist preconfirmation event channel closed".to_string(),
                             )),
                             ),
@@ -260,13 +255,9 @@ impl WhitelistPreconfirmationDriverRunner {
 /// Abort sidecar tasks and stop the REST server during shutdown.
 async fn stop_sidecars<T>(
     event_syncer_handle: &mut tokio::task::JoinHandle<T>,
-    lookahead_refresh_task: &mut Option<tokio::task::JoinHandle<()>>,
     rest_ws_server: &mut Option<WhitelistRestWsServer>,
 ) {
     event_syncer_handle.abort();
-    if let Some(task) = lookahead_refresh_task.take() {
-        task.abort();
-    }
     if let Some(server) = rest_ws_server.take() {
         server.stop().await;
     }
@@ -278,11 +269,10 @@ type RunnerExit = (&'static str, Result<()>);
 /// Stop sidecars and return the unified runner exit result.
 async fn finish_runner<T>(
     event_syncer_handle: &mut tokio::task::JoinHandle<T>,
-    lookahead_refresh_task: &mut Option<tokio::task::JoinHandle<()>>,
     rest_ws_server: &mut Option<WhitelistRestWsServer>,
     (reason, result): RunnerExit,
 ) -> Result<()> {
-    stop_sidecars(event_syncer_handle, lookahead_refresh_task, rest_ws_server).await;
+    stop_sidecars(event_syncer_handle, rest_ws_server).await;
     record_runner_exit(reason, result)
 }
 

@@ -265,13 +265,7 @@ impl WhitelistSequencerCache {
     /// `snapshot_block_timestamp + elapsed <= current_epoch_start_timestamp + L1_EPOCH_DURATION_SECS`.
     pub fn get_current(&self) -> Option<Address> {
         let (addr, _) = self.current?;
-        let epoch_start = self.current_epoch_start_timestamp?;
-        let snapshot_block_timestamp = self.current_snapshot_block_timestamp?;
-        let fetched_at = self.current_fetched_at()?;
-        let now = Instant::now();
-        let estimated_now = snapshot_block_timestamp.saturating_add(now.saturating_duration_since(fetched_at).as_secs());
-
-        (estimated_now < epoch_start.saturating_add(L1_EPOCH_DURATION_SECS)).then_some(addr)
+        self.is_epoch_valid().then_some(addr)
     }
 
     /// Return the cached next-epoch sequencer if the current epoch has not ended.
@@ -280,15 +274,20 @@ impl WhitelistSequencerCache {
     /// `snapshot_block_timestamp + elapsed <= current_epoch_start_timestamp + L1_EPOCH_DURATION_SECS`.
     pub fn get_next(&self) -> Option<Address> {
         let (addr, _) = self.next?;
-        let epoch_start = self.current_epoch_start_timestamp?;
-        let snapshot_block_timestamp = self.current_snapshot_block_timestamp?;
-        let fetched_at = self.current_fetched_at()?;
-        let now = Instant::now();
-        let estimated_now = snapshot_block_timestamp.saturating_add(now.saturating_duration_since(fetched_at).as_secs());
-
-        (estimated_now < epoch_start.saturating_add(L1_EPOCH_DURATION_SECS)).then_some(addr)
+        self.is_epoch_valid().then_some(addr)
     }
 
+    /// Return `true` when the estimated current L1 time is still within the cached epoch.
+    fn is_epoch_valid(&self) -> bool {
+        let Some(epoch_start) = self.current_epoch_start_timestamp else { return false };
+        let Some(snapshot_ts) = self.current_snapshot_block_timestamp else { return false };
+        let Some(fetched_at) = self.current_fetched_at() else { return false };
+        let elapsed = Instant::now().saturating_duration_since(fetched_at).as_secs();
+        let estimated_now = snapshot_ts.saturating_add(elapsed);
+        estimated_now < epoch_start.saturating_add(L1_EPOCH_DURATION_SECS)
+    }
+
+    /// Return the `Instant` at which the current-epoch entry was cached.
     fn current_fetched_at(&self) -> Option<Instant> {
         self.current.map(|(_, fetched_at)| fetched_at)
     }
@@ -616,19 +615,21 @@ mod tests {
         let current = Address::from([0xddu8; 20]);
         let next = Address::from([0xeeu8; 20]);
 
-        cache.set_pair(
-            current,
-            next,
-            TEST_EPOCH_START,
-            TEST_EPOCH_START + 1,
-            now - Duration::from_secs(L1_EPOCH_DURATION_SECS + 1),
-        );
+        // Snapshot block timestamp is already at the epoch boundary, so even
+        // a tiny Instant elapsed pushes estimated_now past the epoch end.
+        // The Instant `fetched_at` stays recent so get_stale_pair_within still works.
+        let snapshot_ts = TEST_EPOCH_START + L1_EPOCH_DURATION_SECS - 1;
+        cache.set_pair(current, next, TEST_EPOCH_START, snapshot_ts, now);
+
+        // Allow a moment so Instant::now() inside get_current/get_next advances
+        // past the epoch boundary (snapshot_ts + elapsed >= epoch_end).
+        std::thread::sleep(Duration::from_secs(2));
 
         assert!(cache.get_current().is_none());
         assert!(cache.get_next().is_none());
         // Stale pair is still available via the Instant-based staleness window.
         assert_eq!(
-            cache.get_stale_pair_within(now + Duration::from_secs(1), Duration::from_secs(20)),
+            cache.get_stale_pair_within(Instant::now(), Duration::from_secs(15)),
             Some((current, next))
         );
     }

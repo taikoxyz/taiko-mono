@@ -3,7 +3,7 @@
 use std::{
     io::Read,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use alethia_reth_primitives::payload::{
@@ -49,9 +49,6 @@ use crate::{
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
-/// Refresh lookahead every L1 slot (12 seconds) so operator windows stay aligned.
-const LOOKAHEAD_REFRESH_INTERVAL_SECS: u64 = 12;
-
 /// Implements the whitelist preconfirmation REST/WS API.
 pub(crate) struct WhitelistRestHandler<P>
 where
@@ -148,19 +145,6 @@ where
             network_command_tx,
             build_preconf_lock: Mutex::new(()),
         }
-    }
-
-    /// Start a background task to refresh cached lookahead metadata every 12 seconds.
-    pub(crate) fn start_lookahead_refresh_loop(self: &Arc<Self>) -> tokio::task::JoinHandle<()> {
-        let handler = Arc::clone(self);
-        tokio::spawn(async move {
-            let mut ticker =
-                tokio::time::interval(Duration::from_secs(LOOKAHEAD_REFRESH_INTERVAL_SECS));
-            loop {
-                ticker.tick().await;
-                handler.refresh_lookahead().await;
-            }
-        })
     }
 
     /// Build driver payload attributes from the RPC request.
@@ -422,22 +406,6 @@ where
         }];
 
         Ok(LookaheadStatus { curr_operator, next_operator, curr_ranges, next_ranges })
-    }
-
-    /// Refresh cached lookahead data if chain lookup succeeds.
-    async fn refresh_lookahead(&self) {
-        let lookahead_status = match self.compute_lookahead_status().await {
-            Ok(lookahead_status) => lookahead_status,
-            Err(err) => {
-                warn!(
-                    error = %err,
-                    "lookahead refresh failed; retaining previous cached value"
-                );
-                return;
-            }
-        };
-
-        *self.lookahead_status.write().await = Some(lookahead_status);
     }
 
     /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).

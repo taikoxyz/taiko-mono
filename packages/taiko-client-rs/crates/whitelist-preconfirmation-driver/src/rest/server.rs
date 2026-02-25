@@ -309,13 +309,6 @@ async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) 
 
     match state.api.build_preconf_block(request).await {
         Ok(response) => {
-            let Some(block_header) = response.block_header else {
-                return error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "missing block header in build_preconf_block response".to_string(),
-                );
-            };
-
             #[derive(serde::Serialize)]
             #[serde(rename_all = "camelCase")]
             struct BuildPreconfBlockRestResponse {
@@ -323,7 +316,10 @@ async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) 
                 block_header: alloy_rpc_types::Header,
             }
 
-            json_response(StatusCode::OK, &BuildPreconfBlockRestResponse { block_header })
+            json_response(
+                StatusCode::OK,
+                &BuildPreconfBlockRestResponse { block_header: response.block_header },
+            )
         }
         Err(err) => error_response(map_rest_error_status(&err), err.to_string()),
     }
@@ -560,7 +556,7 @@ mod tests {
             &self,
             _request: BuildPreconfBlockRequest,
         ) -> Result<BuildPreconfBlockResponse> {
-            Ok(BuildPreconfBlockResponse { block_header: None })
+            Ok(BuildPreconfBlockResponse { block_header: Default::default() })
         }
 
         async fn get_status(&self) -> Result<WhitelistStatus> {
@@ -593,7 +589,7 @@ mod tests {
             _request: BuildPreconfBlockRequest,
         ) -> Result<BuildPreconfBlockResponse> {
             self.build_preconf_calls.fetch_add(1, Ordering::SeqCst);
-            Ok(BuildPreconfBlockResponse { block_header: None })
+            Ok(BuildPreconfBlockResponse { block_header: Default::default() })
         }
 
         async fn get_status(&self) -> Result<WhitelistStatus> {

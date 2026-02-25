@@ -61,14 +61,14 @@ impl From<SnapshotFetchError> for WhitelistPreconfirmationDriverError {
     }
 }
 
-/// Shared fetcher for whitelist sequencer snapshots backed by a TTL cache.
+/// Shared fetcher for whitelist sequencer snapshots backed by an epoch-boundary cache.
 #[derive(Debug)]
 pub(crate) struct WhitelistSequencerFetcher<P> {
     /// Contract binding for allowlist lookup RPC calls.
     whitelist: PreconfWhitelistInstance<P>,
     /// L1 provider used for block/timestamp reads.
     l1_provider: P,
-    /// TTL cache for current/next whitelist sequencer addresses.
+    /// Epoch-boundary cache for current/next whitelist sequencer addresses.
     pub(crate) sequencer_cache: WhitelistSequencerCache,
 }
 
@@ -159,7 +159,9 @@ where
             }
         }
 
-        unreachable!("snapshot fetch loop must return on success or final error")
+        Err(whitelist_lookup_err(format!(
+            "snapshot fetch retry loop exhausted after {SNAPSHOT_FETCH_MAX_ATTEMPTS} attempts"
+        )))
     }
 
     /// Fetch current/next sequencer snapshot from the current pinned L1 block.

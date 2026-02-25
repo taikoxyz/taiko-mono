@@ -35,8 +35,7 @@ pub struct BuildPreconfBlockRequest {
 #[serde(rename_all = "camelCase")]
 pub struct BuildPreconfBlockResponse {
     /// Full block header of the built preconfirmation block.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub block_header: Option<RpcHeader>,
+    pub block_header: RpcHeader,
 }
 
 /// REST-compatible request body for `POST /preconfBlocks`.
