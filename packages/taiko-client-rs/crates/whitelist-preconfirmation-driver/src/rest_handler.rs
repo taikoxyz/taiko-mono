@@ -1,10 +1,6 @@
 //! Whitelist preconfirmation REST/WS API handler implementation.
 
-use std::{
-    io::Read,
-    sync::Arc,
-    time::Instant,
-};
+use std::{io::Read, sync::Arc, time::Instant};
 
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
@@ -585,7 +581,7 @@ where
         )
         .record(started_at.elapsed().as_secs_f64());
 
-        Ok(BuildPreconfBlockResponse { block_header: Some(block_header) })
+        Ok(BuildPreconfBlockResponse { block_header })
     }
 
     async fn get_status(&self) -> Result<WhitelistStatus> {

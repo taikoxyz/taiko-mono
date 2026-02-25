@@ -262,7 +262,8 @@ impl WhitelistSequencerCache {
     /// Return the cached current-epoch sequencer if the current epoch has not ended.
     ///
     /// Expiry is derived from the epoch boundary: the cache is valid while
-    /// `snapshot_block_timestamp + elapsed <= current_epoch_start_timestamp + L1_EPOCH_DURATION_SECS`.
+    /// `snapshot_block_timestamp + elapsed <= current_epoch_start_timestamp +
+    /// L1_EPOCH_DURATION_SECS`.
     pub fn get_current(&self) -> Option<Address> {
         let (addr, _) = self.current?;
         self.is_epoch_valid().then_some(addr)
@@ -271,7 +272,8 @@ impl WhitelistSequencerCache {
     /// Return the cached next-epoch sequencer if the current epoch has not ended.
     ///
     /// Expiry is derived from the epoch boundary: the cache is valid while
-    /// `snapshot_block_timestamp + elapsed <= current_epoch_start_timestamp + L1_EPOCH_DURATION_SECS`.
+    /// `snapshot_block_timestamp + elapsed <= current_epoch_start_timestamp +
+    /// L1_EPOCH_DURATION_SECS`.
     pub fn get_next(&self) -> Option<Address> {
         let (addr, _) = self.next?;
         self.is_epoch_valid().then_some(addr)
@@ -533,7 +535,13 @@ mod tests {
         let now = Instant::now();
         let addr = Address::from([0xbbu8; 20]);
 
-        cache.set_pair(addr, addr, TEST_EPOCH_START, TEST_EPOCH_START, now - Duration::from_secs(L1_EPOCH_DURATION_SECS + 1));
+        cache.set_pair(
+            addr,
+            addr,
+            TEST_EPOCH_START,
+            TEST_EPOCH_START,
+            now - Duration::from_secs(L1_EPOCH_DURATION_SECS + 1),
+        );
 
         assert!(cache.get_current().is_none());
         assert!(cache.get_next().is_none());
@@ -564,7 +572,13 @@ mod tests {
         cache.set_pair(addr1, addr1, TEST_EPOCH_START, TEST_EPOCH_START + 10, now);
         assert_eq!(cache.get_current(), Some(addr1));
 
-        cache.set_pair(addr2, addr2, TEST_EPOCH_START, TEST_EPOCH_START + 11, now + Duration::from_secs(1));
+        cache.set_pair(
+            addr2,
+            addr2,
+            TEST_EPOCH_START,
+            TEST_EPOCH_START + 11,
+            now + Duration::from_secs(1),
+        );
         assert_eq!(cache.get_current(), Some(addr2));
     }
 
@@ -585,13 +599,7 @@ mod tests {
     fn sequencer_cache_invalidate_resets_timestamp_guard() {
         let mut cache = WhitelistSequencerCache::new();
         let now = Instant::now();
-        cache.set_pair(
-            Address::from([0x51u8; 20]),
-            Address::from([0x52u8; 20]),
-            1_500,
-            1_500,
-            now,
-        );
+        cache.set_pair(Address::from([0x51u8; 20]), Address::from([0x52u8; 20]), 1_500, 1_500, now);
         assert!(!cache.should_accept_block_timestamp(1_499));
 
         cache.invalidate();
