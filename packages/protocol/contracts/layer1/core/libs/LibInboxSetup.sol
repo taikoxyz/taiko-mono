@@ -17,7 +17,7 @@ library LibInboxSetup {
     /// @dev The time window during which activate() can be called after the first activation.
     uint256 public constant ACTIVATION_WINDOW = 2 hours;
     /// @dev Minimum ring buffer size to keep one slot reserved in capacity calculations.
-    uint256 public constant MIN_RING_BUFFER_SIZE = 2;
+    uint48 public constant MIN_RING_BUFFER_SIZE = 2;
 
     /// @dev Validates the Inbox configuration parameters.
     /// @param _config The configuration to validate.
@@ -28,9 +28,12 @@ library LibInboxSetup {
         require(_config.signalService != address(0), SignalServiceZero());
         require(_config.bondToken != address(0), BondTokenZero());
         require(_config.provingWindow != 0, ProvingWindowZero());
+        require(
+            _config.permissionlessProvingDelay > _config.provingWindow,
+            PermissionlessProvingDelayTooSmall()
+        );
         require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
         require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
-        require(_config.minForcedInclusionCount != 0, MinForcedInclusionCountZero());
         require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeInGweiZero());
         require(
             _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
@@ -95,7 +98,7 @@ library LibInboxSetup {
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
     error InvalidLastPacayaBlockHash();
-    error MinForcedInclusionCountZero();
+    error PermissionlessProvingDelayTooSmall();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
     error ProposerCheckerZero();
