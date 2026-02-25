@@ -5,6 +5,8 @@ source scripts/common.sh
 # Load environment variables for deploying L1 contracts.
 source integration_test/l1_env.sh
 
+SHASTA_FORK_TAIKO_MONO="${SHASTA_FORK_TAIKO_MONO:-../..}"
+
 cd ${PACAYA_FORK_TAIKO_MONO}/packages/protocol &&
   PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url "$L1_HTTP" \
