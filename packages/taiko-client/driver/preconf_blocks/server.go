@@ -1306,7 +1306,6 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 		)
 		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
 	}
-
 }
 
 // TryImportingPayload tries to import the given payload into the L2 EE chain.
