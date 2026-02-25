@@ -257,7 +257,7 @@ impl WhitelistNetwork {
         gossipsub.subscribe(&topics.eos_request).map_err(to_p2p_err)?;
 
         let reqresp_protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let reqresp_cfg = rr::Config::default().with_request_timeout(Duration::from_secs(10));
+        let reqresp_cfg = rr::Config::default().with_request_timeout(DIRECT_REQUEST_TIMEOUT);
         let reqresp = rr::Behaviour::with_codec(
             WhitelistReqRespCodec,
             std::iter::once((reqresp_protocol, rr::ProtocolSupport::Full)),
@@ -787,6 +787,7 @@ async fn handle_swarm_event(
             handle_reqresp_event(
                 *event,
                 event_tx,
+                inbound_validation_state,
                 &mut rrs.pending_response_channels,
                 &mut rrs.pending_outbound_requests,
             )
@@ -815,7 +816,12 @@ async fn handle_swarm_event(
     Ok(())
 }
 
+/// Timeout for direct request/response exchanges.
+const DIRECT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// Maximum age for stashed response channels before they are reaped.
+/// Set to 3× `DIRECT_REQUEST_TIMEOUT` to allow headroom for the libp2p protocol
+/// timeout plus importer round-trip, while still bounding memory if the library
+/// fails to emit a clean `InboundFailure` event.
 const RESPONSE_CHANNEL_TTL: Duration = Duration::from_secs(30);
 
 /// Remove response channels that have exceeded their TTL.
@@ -836,6 +842,7 @@ fn reap_stale_response_channels(
 async fn handle_reqresp_event(
     event: rr::Event<B256, Vec<u8>>,
     event_tx: &mpsc::Sender<NetworkEvent>,
+    inbound_validation_state: &mut GossipsubInboundState,
     pending_response_channels: &mut HashMap<
         rr::InboundRequestId,
         (Instant, rr::ResponseChannel<Vec<u8>>),
@@ -849,6 +856,28 @@ async fn handle_reqresp_event(
     match event {
         rr::Event::Message { peer, message, .. } => match message {
             rr::Message::Request { request_id, request, channel } => {
+                // Apply the same per-peer rate limiting and duplicate hash
+                // suppression used for gossip requestPreconfBlocks messages.
+                let acceptance =
+                    inbound_validation_state.validate_request(peer, request, Instant::now());
+                if !matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                    // Drop the channel — the peer will time out. This is
+                    // intentional: responding to rate-limited requests would
+                    // still reward the spammer with data.
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "direct_request",
+                        "result" => "throttled",
+                    )
+                    .increment(1);
+                    debug!(
+                        peer = %peer,
+                        hash = %request,
+                        "throttled direct block request from peer"
+                    );
+                    return Ok(());
+                }
+
                 pending_response_channels.insert(request_id, (Instant::now(), channel));
 
                 debug!(
