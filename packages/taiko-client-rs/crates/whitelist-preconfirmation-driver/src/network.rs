@@ -31,7 +31,7 @@ use crate::{
 mod inbound;
 #[cfg(test)]
 use inbound::EpochSeenTracker;
-use inbound::GossipsubInboundState;
+use inbound::{GossipsubInboundState, RateLimiter, WindowedHashTracker};
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -762,6 +762,10 @@ struct ReqRespState {
     /// libp2p's inbound request ID for direct cleanup on failure.
     pending_response_channels:
         HashMap<rr::InboundRequestId, (Instant, rr::ResponseChannel<Vec<u8>>)>,
+    /// Per-peer rate limiter for inbound direct requests (independent of gossip).
+    direct_request_rate: RateLimiter,
+    /// Recently seen direct-request hashes (independent of gossip dedup).
+    direct_request_seen: WindowedHashTracker,
     /// Outbound request IDs mapped to the requested block hash, used to
     /// correlate responses and clean up on outbound failure.
     pending_outbound_requests: HashMap<rr::OutboundRequestId, B256>,
@@ -787,7 +791,8 @@ async fn handle_swarm_event(
             handle_reqresp_event(
                 *event,
                 event_tx,
-                inbound_validation_state,
+                &mut rrs.direct_request_rate,
+                &mut rrs.direct_request_seen,
                 &mut rrs.pending_response_channels,
                 &mut rrs.pending_outbound_requests,
             )
@@ -842,7 +847,8 @@ fn reap_stale_response_channels(
 async fn handle_reqresp_event(
     event: rr::Event<B256, Vec<u8>>,
     event_tx: &mpsc::Sender<NetworkEvent>,
-    inbound_validation_state: &mut GossipsubInboundState,
+    direct_request_rate: &mut RateLimiter,
+    direct_request_seen: &mut WindowedHashTracker,
     pending_response_channels: &mut HashMap<
         rr::InboundRequestId,
         (Instant, rr::ResponseChannel<Vec<u8>>),
@@ -856,11 +862,14 @@ async fn handle_reqresp_event(
     match event {
         rr::Event::Message { peer, message, .. } => match message {
             rr::Message::Request { request_id, request, channel } => {
-                // Apply the same per-peer rate limiting and duplicate hash
-                // suppression used for gossip requestPreconfBlocks messages.
-                let acceptance =
-                    inbound_validation_state.validate_request(peer, request, Instant::now());
-                if !matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                // Per-peer rate limiting and duplicate hash suppression,
+                // independent of the gossip request_seen/request_rate state
+                // so that a gossip-published hash does not suppress the
+                // corresponding direct request on the same node.
+                let now = Instant::now();
+                if direct_request_seen.is_seen(request, now) ||
+                    !direct_request_rate.allow(peer, now)
+                {
                     // Drop the channel — the peer will time out. This is
                     // intentional: responding to rate-limited requests would
                     // still reward the spammer with data.
@@ -877,8 +886,9 @@ async fn handle_reqresp_event(
                     );
                     return Ok(());
                 }
+                direct_request_seen.mark(request, now);
 
-                pending_response_channels.insert(request_id, (Instant::now(), channel));
+                pending_response_channels.insert(request_id, (now, channel));
 
                 debug!(
                     peer = %peer,

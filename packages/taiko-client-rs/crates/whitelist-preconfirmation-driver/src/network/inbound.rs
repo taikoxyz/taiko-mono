@@ -66,7 +66,7 @@ pub(crate) struct RateLimiter {
 
 impl RateLimiter {
     /// Returns true if a peer is within request budget.
-    fn allow(&mut self, from: PeerId, now: Instant) -> bool {
+    pub(crate) fn allow(&mut self, from: PeerId, now: Instant) -> bool {
         self.prune(now, REQUEST_SEEN_WINDOW);
 
         let entry = self.buckets.entry(from).or_insert_with(|| TokenBucket::new(now));
@@ -83,21 +83,21 @@ impl RateLimiter {
 
 #[derive(Debug, Default)]
 /// Tracks recently seen request hashes in a window with LRU eviction.
-struct WindowedHashTracker {
+pub(crate) struct WindowedHashTracker {
     /// Map of hash -> last seen timestamp.
     seen: LinkedHashMap<B256, Instant>,
 }
 
 impl WindowedHashTracker {
     /// Checks whether a hash was seen recently.
-    fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
+    pub(crate) fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
         self.seen
             .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
         self.seen.contains_key(&hash)
     }
 
     /// Records a hash as seen at the provided time.
-    fn mark(&mut self, hash: B256, now: Instant) {
+    pub(crate) fn mark(&mut self, hash: B256, now: Instant) {
         self.seen.remove(&hash);
         self.seen.insert(hash, now);
 

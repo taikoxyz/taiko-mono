@@ -67,7 +67,14 @@ where
         Ok(())
     }
 
-    /// Handle an incoming unsafe response.
+    /// Handle an incoming unsafe response (gossip or direct).
+    ///
+    /// The embedded `envelope.signature` is verified over
+    /// `block_signing_hash(chain_id, block_hash)`. This matches the signing
+    /// domain used by the sequencer when it stores the signature in L1 origin
+    /// (see `rest_handler.rs` — `set_l1_origin_signature`).  It is distinct
+    /// from the gossip *wire* signature on the `preconfBlocks` topic, which
+    /// signs SSZ envelope bytes instead.
     pub(super) async fn handle_unsafe_response(
         &mut self,
         envelope: WhitelistExecutionPayloadEnvelope,
@@ -83,6 +90,7 @@ where
             ));
         };
 
+        // Signing domain: block_signing_hash(chain_id, block_hash).
         let prehash =
             block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
         let signer = match recover_signer(prehash, &signature) {

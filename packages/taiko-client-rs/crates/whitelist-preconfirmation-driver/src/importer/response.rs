@@ -94,6 +94,9 @@ where
         Ok(Some(WhitelistExecutionPayloadEnvelope {
             end_of_sequencing,
             is_forced_inclusion: l1_origin.is_forced_inclusion.then_some(true),
+            // Intentionally None — the sequencer never populates this field
+            // in the envelope (see rest_handler.rs), and the SSZ wire format
+            // encodes None as 32 zero bytes which is the expected default.
             parent_beacon_block_root: None,
             execution_payload: alloy_rpc_types_engine::ExecutionPayloadV1 {
                 parent_hash: block.header.parent_hash,
