@@ -88,7 +88,7 @@ where
         now: Instant,
     ) -> Result<CachedSequencers> {
         if let (Some(current), Some(next)) =
-            (self.sequencer_cache.get_current(now), self.sequencer_cache.get_next(now))
+            (self.sequencer_cache.get_current(), self.sequencer_cache.get_next())
         {
             return Ok(CachedSequencers { current, next, any_from_cache: true });
         }
@@ -129,6 +129,7 @@ where
             snapshot.current,
             snapshot.next,
             snapshot.current_epoch_start_timestamp,
+            snapshot.block_timestamp,
             now,
         );
 
