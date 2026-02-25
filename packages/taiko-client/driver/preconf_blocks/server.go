@@ -1256,7 +1256,6 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalPacaya(proposal *encodin
 			"lastBlockID", s.highestUnsafeL2PayloadBlockID,
 			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
-
 		metrics.DriverReorgsByProposalCounter.Inc()
 	} else if proposal.LastBlockID > s.highestUnsafeL2PayloadBlockID {
 		// Always keep highestUnsafeL2PayloadBlockID in sync with the canonical chain tip.
