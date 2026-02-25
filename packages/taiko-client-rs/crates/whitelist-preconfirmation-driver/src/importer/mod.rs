@@ -174,6 +174,68 @@ where
                     .increment(1);
                 }
             }
+            NetworkEvent::DirectResponse { from, hash, envelope } => {
+                if let Some(envelope) = envelope {
+                    match self.handle_unsafe_response(envelope).await {
+                        Ok(()) => metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                            "event_type" => "direct_response",
+                            "result" => "accepted",
+                        )
+                        .increment(1),
+                        Err(err) => {
+                            warn!(peer = %from, error = %err, "dropping invalid direct response");
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                                "event_type" => "direct_response",
+                                "result" => "dropped",
+                            )
+                            .increment(1);
+                        }
+                    }
+                } else {
+                    debug!(
+                        peer = %from,
+                        hash = %hash,
+                        "direct response returned empty (block not found by peer)"
+                    );
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                        "event_type" => "direct_response",
+                        "result" => "empty",
+                    )
+                    .increment(1);
+                    // No explicit gossip fallback needed here — gossip was already
+                    // published alongside the direct request in the network layer.
+                }
+            }
+            NetworkEvent::DirectRequest { from, hash, request_id } => {
+                if let Err(err) = self.handle_direct_request(from, hash, request_id).await {
+                    warn!(
+                        peer = %from,
+                        hash = %hash,
+                        ?request_id,
+                        error = %err,
+                        "failed to handle direct block request"
+                    );
+                    // Send empty response so the peer gets a prompt "not found"
+                    // rather than waiting for the 10s protocol timeout.
+                    self.send_direct_response(request_id, Vec::new()).await;
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                        "event_type" => "direct_request",
+                        "result" => "error",
+                    )
+                    .increment(1);
+                } else {
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                        "event_type" => "direct_request",
+                        "result" => "handled",
+                    )
+                    .increment(1);
+                }
+            }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
                 if let Some(envelope) = self.recent_cache.latest_end_of_sequencing() {
                     debug!(

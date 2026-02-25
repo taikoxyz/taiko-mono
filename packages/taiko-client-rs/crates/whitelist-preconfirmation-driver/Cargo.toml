@@ -29,7 +29,7 @@ http-body = "1"
 http-body-util = { workspace = true }
 jsonwebtoken = "9"
 kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
-libp2p = { version = "0.56.0", features = ["tcp", "dns", "gossipsub", "ping", "identify", "noise", "yamux", "macros", "tokio"] }
+libp2p = { version = "0.56.0", features = ["tcp", "dns", "gossipsub", "request-response", "ping", "identify", "noise", "yamux", "macros", "tokio"] }
 lru = "0.12"
 metrics = { workspace = true }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }

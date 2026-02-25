@@ -125,6 +125,87 @@ where
         Ok(())
     }
 
+    /// Handle a direct block-hash request from a peer via req/resp protocol.
+    pub(super) async fn handle_direct_request(
+        &mut self,
+        from: libp2p::PeerId,
+        hash: B256,
+        request_id: libp2p::request_response::InboundRequestId,
+    ) -> Result<()> {
+        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+                "result" => "direct_cache_hit",
+            )
+            .increment(1);
+            tracing::debug!(
+                peer = %from,
+                hash = %hash,
+                ?request_id,
+                "serving direct response from recent cache"
+            );
+            self.recent_cache.insert_recent(envelope.clone());
+            self.update_cache_gauges();
+            let response_bytes = match crate::codec::encode_unsafe_response_message(&envelope) {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    tracing::warn!(
+                        hash = %hash,
+                        error = %err,
+                        "failed to encode direct response from cache; sending empty"
+                    );
+                    Vec::new()
+                }
+            };
+            self.send_direct_response(request_id, response_bytes).await;
+            return Ok(());
+        }
+
+        let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+                "result" => "direct_not_found",
+            )
+            .increment(1);
+            tracing::debug!(
+                peer = %from,
+                hash = %hash,
+                ?request_id,
+                "direct request hash not found; sending empty response"
+            );
+            self.send_direct_response(request_id, Vec::new()).await;
+            return Ok(());
+        };
+
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+            "result" => "direct_l2_hit",
+        )
+        .increment(1);
+        tracing::debug!(
+            peer = %from,
+            hash = %hash,
+            ?request_id,
+            "serving direct response from local l2 block lookup"
+        );
+        let envelope = Arc::new(envelope);
+        self.recent_cache.insert_recent(envelope.clone());
+        self.update_cache_gauges();
+        let response_bytes = match crate::codec::encode_unsafe_response_message(&envelope) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                tracing::warn!(
+                    hash = %hash,
+                    error = %err,
+                    "failed to encode direct response from l2; sending empty"
+                );
+                Vec::new()
+            }
+        };
+        self.send_direct_response(request_id, response_bytes).await;
+        Ok(())
+    }
+
     /// Handle a block-hash request from the request topic.
     pub(super) async fn handle_unsafe_request(
         &mut self,

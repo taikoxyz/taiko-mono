@@ -1,11 +1,15 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
     Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identify, identity, noise,
-    ping, swarm::NetworkBehaviour, tcp, yamux,
+    ping, request_response as rr, swarm::NetworkBehaviour, tcp, yamux,
 };
 use preconfirmation_net::{P2pConfig, spawn_discovery};
 use sha2::{Digest, Sha256};
@@ -14,9 +18,10 @@ use tracing::{debug, warn};
 
 use crate::{
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_envelope_ssz,
-        decode_unsafe_payload_signature, decode_unsafe_response_message, encode_envelope_ssz,
-        encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, WhitelistReqRespCodec,
+        WHITELIST_REQRESP_PROTOCOL, decode_envelope_ssz, decode_unsafe_payload_signature,
+        decode_unsafe_response_message, encode_envelope_ssz, encode_eos_request_message,
+        encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
@@ -66,16 +71,29 @@ pub(crate) enum NetworkEvent {
         /// Requested epoch.
         epoch: u64,
     },
+    /// Inbound direct request from a peer for a specific block hash.
+    DirectRequest {
+        /// Peer that sent the request.
+        from: PeerId,
+        /// Requested block hash.
+        hash: B256,
+        /// Inbound request identifier used to route the response back.
+        request_id: rr::InboundRequestId,
+    },
+    /// Response received from a direct request/response exchange.
+    DirectResponse {
+        /// Peer that sent the response.
+        from: PeerId,
+        /// Original requested block hash.
+        hash: B256,
+        /// Decoded envelope, or `None` if the peer did not have the block.
+        envelope: Option<WhitelistExecutionPayloadEnvelope>,
+    },
 }
 
 /// Outbound commands for the whitelist preconfirmation network.
 #[derive(Debug)]
 pub(crate) enum NetworkCommand {
-    /// Publish an unsafe-block request to the `requestPreconfBlocks` topic.
-    PublishUnsafeRequest {
-        /// Requested block hash.
-        hash: B256,
-    },
     /// Publish an unsafe-block response to the `responsePreconfBlocks` topic.
     PublishUnsafeResponse {
         /// Envelope to publish.
@@ -92,6 +110,19 @@ pub(crate) enum NetworkCommand {
     PublishEndOfSequencingRequest {
         /// Epoch number.
         epoch: u64,
+    },
+    /// Request a block via both gossip and a direct req/resp to a connected peer.
+    /// Gossip is always published; the direct request is an optimistic fast-path.
+    RequestBlockDirect {
+        /// Requested block hash.
+        hash: B256,
+    },
+    /// Send a response back through a stashed direct-request channel.
+    SendDirectResponse {
+        /// Inbound request identifier from the corresponding `DirectRequest` event.
+        request_id: rr::InboundRequestId,
+        /// Snappy-compressed SSZ response bytes (empty = not found).
+        response_bytes: Vec<u8>,
     },
     /// Shutdown the network loop.
     Shutdown,
@@ -149,6 +180,8 @@ impl Topics {
 struct Behaviour {
     /// Gossip transport for whitelist preconfirmation topics.
     gossipsub: gossipsub::Behaviour,
+    /// Direct request/response protocol for targeted block fetching.
+    reqresp: rr::Behaviour<WhitelistReqRespCodec>,
     /// Ping protocol for liveness.
     ping: ping::Behaviour,
     /// Identify protocol for peer metadata exchange.
@@ -160,6 +193,8 @@ struct Behaviour {
 enum BehaviourEvent {
     /// Wrapped gossipsub event.
     Gossipsub(Box<gossipsub::Event>),
+    /// Wrapped request/response event.
+    ReqResp(Box<rr::Event<B256, Vec<u8>>>),
     /// Ping event marker.
     Ping,
     /// Identify event marker.
@@ -170,6 +205,13 @@ impl From<gossipsub::Event> for BehaviourEvent {
     /// Convert a gossipsub event into a behaviour event.
     fn from(value: gossipsub::Event) -> Self {
         Self::Gossipsub(Box::new(value))
+    }
+}
+
+impl From<rr::Event<B256, Vec<u8>>> for BehaviourEvent {
+    /// Convert a request/response event into a behaviour event.
+    fn from(value: rr::Event<B256, Vec<u8>>) -> Self {
+        Self::ReqResp(Box::new(value))
     }
 }
 
@@ -214,8 +256,19 @@ impl WhitelistNetwork {
         gossipsub.subscribe(&topics.preconf_response).map_err(to_p2p_err)?;
         gossipsub.subscribe(&topics.eos_request).map_err(to_p2p_err)?;
 
+        let reqresp_protocol =
+            libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let reqresp_cfg =
+            rr::Config::default().with_request_timeout(Duration::from_secs(10));
+        let reqresp = rr::Behaviour::with_codec(
+            WhitelistReqRespCodec,
+            std::iter::once((reqresp_protocol, rr::ProtocolSupport::Full)),
+            reqresp_cfg,
+        );
+
         let behaviour = Behaviour {
             gossipsub,
+            reqresp,
             ping: ping::Behaviour::new(ping::Config::new()),
             identify: identify::Behaviour::new(identify::Config::new(
                 "/taiko/whitelist-preconfirmation/1.0.0".to_string(),
@@ -292,6 +345,10 @@ impl WhitelistNetwork {
                 cfg.sequencer_addresses,
             );
 
+            let mut reqresp_state = ReqRespState::default();
+            let mut channel_reap_interval =
+                tokio::time::interval(Duration::from_secs(RESPONSE_CHANNEL_TTL.as_secs()));
+
             loop {
                 let has_discovery = discovery_rx.is_some();
 
@@ -301,33 +358,6 @@ impl WhitelistNetwork {
                             return Ok(());
                         };
                         match command {
-                            NetworkCommand::PublishUnsafeRequest { hash } => {
-                                let payload = encode_unsafe_request_message(hash);
-                                if let Err(err) = swarm
-                                    .behaviour_mut()
-                                    .gossipsub
-                                    .publish(topics.preconf_request.clone(), payload)
-                                {
-                                    metrics::counter!(
-                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                                        "topic" => "request_preconf_blocks",
-                                        "result" => "publish_failed",
-                                    )
-                                    .increment(1);
-                                    warn!(
-                                        hash = %hash,
-                                        error = %err,
-                                        "failed to publish whitelist preconfirmation request"
-                                    );
-                                } else {
-                                    metrics::counter!(
-                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                                        "topic" => "request_preconf_blocks",
-                                        "result" => "published",
-                                    )
-                                    .increment(1);
-                                }
-                            }
                             NetworkCommand::PublishUnsafeResponse { envelope } => {
                                 let hash = envelope.execution_payload.block_hash;
                                 match encode_unsafe_response_message(&envelope) {
@@ -456,6 +486,94 @@ impl WhitelistNetwork {
                                     .increment(1);
                                 }
                             }
+                            NetworkCommand::RequestBlockDirect { hash } => {
+                                // Always publish via gossip so legacy peers and mixed
+                                // deployments are covered without a 10s direct-request
+                                // timeout stall. The direct request is an optimistic
+                                // fast-path on top; the importer deduplicates responses.
+                                let gossip_payload = encode_unsafe_request_message(hash);
+                                if let Err(err) = swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .publish(topics.preconf_request.clone(), gossip_payload)
+                                {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_preconf_blocks",
+                                        "result" => "publish_failed",
+                                    )
+                                    .increment(1);
+                                    warn!(
+                                        hash = %hash,
+                                        error = %err,
+                                        "failed to publish gossip request alongside direct request"
+                                    );
+                                } else {
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "request_preconf_blocks",
+                                        "result" => "published",
+                                    )
+                                    .increment(1);
+                                }
+
+                                // Additionally send a direct request to one peer for
+                                // faster targeted response.
+                                if !reqresp_state.connected_peers.is_empty() {
+                                    let idx = reqresp_state.peer_rotation_counter % reqresp_state.connected_peers.len();
+                                    reqresp_state.peer_rotation_counter = reqresp_state.peer_rotation_counter.wrapping_add(1);
+                                    let peer = reqresp_state.connected_peers[idx];
+                                    let request_id = swarm
+                                        .behaviour_mut()
+                                        .reqresp
+                                        .send_request(&peer, hash);
+                                    reqresp_state.pending_outbound_requests.insert(request_id, hash);
+                                    metrics::counter!(
+                                        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                        "topic" => "direct_request",
+                                        "result" => "sent",
+                                    )
+                                    .increment(1);
+                                    debug!(
+                                        hash = %hash,
+                                        peer = %peer,
+                                        "sent direct block request to peer"
+                                    );
+                                }
+                            }
+                            NetworkCommand::SendDirectResponse { request_id, response_bytes } => {
+                                if let Some((_inserted_at, channel)) = reqresp_state.pending_response_channels.remove(&request_id) {
+                                    if let Err(resp) = swarm
+                                        .behaviour_mut()
+                                        .reqresp
+                                        .send_response(channel, response_bytes)
+                                    {
+                                        metrics::counter!(
+                                            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                            "topic" => "direct_response",
+                                            "result" => "send_failed",
+                                        )
+                                        .increment(1);
+                                        warn!(
+                                            ?request_id,
+                                            response_len = resp.len(),
+                                            "failed to send direct response (channel closed)"
+                                        );
+                                    } else {
+                                        metrics::counter!(
+                                            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                                            "topic" => "direct_response",
+                                            "result" => "sent",
+                                        )
+                                        .increment(1);
+                                    }
+                                } else {
+                                    warn!(
+                                        ?request_id,
+                                        "stale direct response channel id; request may have timed out"
+                                    );
+                                }
+                            }
                             NetworkCommand::Shutdown => {
                                 return Ok(());
                             }
@@ -479,8 +597,14 @@ impl WhitelistNetwork {
                             &event_tx,
                             &mut inbound_validation_state,
                             &mut swarm,
+                            &mut reqresp_state,
                         )
                         .await?;
+                    }
+                    _ = channel_reap_interval.tick() => {
+                        reap_stale_response_channels(
+                            &mut reqresp_state.pending_response_channels,
+                        );
                     }
                 }
             }
@@ -630,6 +754,23 @@ async fn recv_discovered_multiaddr(
     discovery_rx.as_mut()?.recv().await
 }
 
+/// Mutable state for the request/response protocol and peer tracking, bundled
+/// to keep the `handle_swarm_event` argument list manageable.
+#[derive(Default)]
+struct ReqRespState {
+    /// Currently connected peers, ordered for stable round-robin selection.
+    connected_peers: Vec<PeerId>,
+    /// Stashed inbound response channels awaiting importer reply, keyed by
+    /// libp2p's inbound request ID for direct cleanup on failure.
+    pending_response_channels:
+        HashMap<rr::InboundRequestId, (Instant, rr::ResponseChannel<Vec<u8>>)>,
+    /// Outbound request IDs mapped to the requested block hash, used to
+    /// correlate responses and clean up on outbound failure.
+    pending_outbound_requests: HashMap<rr::OutboundRequestId, B256>,
+    /// Counter used to rotate peer selection across direct requests.
+    peer_rotation_counter: usize,
+}
+
 /// Handle a swarm event.
 async fn handle_swarm_event(
     event: libp2p::swarm::SwarmEvent<BehaviourEvent>,
@@ -637,25 +778,193 @@ async fn handle_swarm_event(
     event_tx: &mpsc::Sender<NetworkEvent>,
     inbound_validation_state: &mut GossipsubInboundState,
     swarm: &mut Swarm<Behaviour>,
+    rrs: &mut ReqRespState,
 ) -> Result<()> {
     match event {
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(event)) => {
             handle_gossipsub_event(*event, topics, event_tx, inbound_validation_state, swarm)
                 .await?;
         }
+        libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::ReqResp(event)) => {
+            handle_reqresp_event(
+                *event,
+                event_tx,
+                &mut rrs.pending_response_channels,
+                &mut rrs.pending_outbound_requests,
+            )
+            .await?;
+        }
         libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
             debug!(%address, "whitelist preconfirmation network listening");
         }
         libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            if !rrs.connected_peers.contains(&peer_id) {
+                rrs.connected_peers.push(peer_id);
+            }
             debug!(%peer_id, "peer connected");
         }
-        libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. } => {
-            debug!(%peer_id, "peer disconnected");
+        libp2p::swarm::SwarmEvent::ConnectionClosed {
+            peer_id,
+            num_established,
+            ..
+        } => {
+            if num_established == 0 {
+                rrs.connected_peers.retain(|p| p != &peer_id);
+            }
+            debug!(%peer_id, num_established, "peer connection closed");
         }
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ping | BehaviourEvent::Identify) => {}
         other => {
             debug!(event = ?other, "ignored swarm event");
         }
+    }
+    Ok(())
+}
+
+/// Maximum age for stashed response channels before they are reaped.
+const RESPONSE_CHANNEL_TTL: Duration = Duration::from_secs(30);
+
+/// Remove response channels that have exceeded their TTL.
+fn reap_stale_response_channels(
+    channels: &mut HashMap<rr::InboundRequestId, (Instant, rr::ResponseChannel<Vec<u8>>)>,
+) {
+    let now = Instant::now();
+    channels.retain(|id, (inserted_at, _)| {
+        let alive = now.duration_since(*inserted_at) < RESPONSE_CHANNEL_TTL;
+        if !alive {
+            debug!(?id, "reaping stale direct response channel");
+        }
+        alive
+    });
+}
+
+/// Handle a request/response event.
+async fn handle_reqresp_event(
+    event: rr::Event<B256, Vec<u8>>,
+    event_tx: &mpsc::Sender<NetworkEvent>,
+    pending_response_channels: &mut HashMap<
+        rr::InboundRequestId,
+        (Instant, rr::ResponseChannel<Vec<u8>>),
+    >,
+    pending_outbound_requests: &mut HashMap<rr::OutboundRequestId, B256>,
+) -> Result<()> {
+    // Reap stale channels on every reqresp event to bound memory
+    // regardless of which event path triggered the call.
+    reap_stale_response_channels(pending_response_channels);
+
+    match event {
+        rr::Event::Message { peer, message, .. } => match message {
+            rr::Message::Request { request_id, request, channel } => {
+                pending_response_channels.insert(request_id, (Instant::now(), channel));
+
+                debug!(
+                    peer = %peer,
+                    hash = %request,
+                    ?request_id,
+                    "received direct block request from peer"
+                );
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "direct_request",
+                    "result" => "received",
+                )
+                .increment(1);
+
+                forward_event(
+                    event_tx,
+                    NetworkEvent::DirectRequest { from: peer, hash: request, request_id },
+                )
+                .await?;
+            }
+            rr::Message::Response { request_id, response } => {
+                let Some(hash) = pending_outbound_requests.remove(&request_id) else {
+                    // Orphan response — the outbound request was already cleaned up
+                    // (e.g. timed out). Drop silently to avoid forwarding a zero-hash
+                    // event that would trigger a spurious gossip request.
+                    debug!(
+                        peer = %peer,
+                        "ignoring orphan direct response with no matching outbound request"
+                    );
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                        "topic" => "direct_response",
+                        "result" => "orphan",
+                    )
+                    .increment(1);
+                    return Ok(());
+                };
+
+                let (envelope, result_label) = if response.is_empty() {
+                    (None, "empty")
+                } else {
+                    match decode_unsafe_response_message(&response) {
+                        Ok(env) => (Some(env), "decoded"),
+                        Err(err) => {
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                                "topic" => "direct_response",
+                            )
+                            .increment(1);
+                            warn!(
+                                peer = %peer,
+                                error = %err,
+                                "failed to decode direct response"
+                            );
+                            (None, "decode_failed")
+                        }
+                    }
+                };
+
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                    "topic" => "direct_response",
+                    "result" => result_label,
+                )
+                .increment(1);
+
+                forward_event(
+                    event_tx,
+                    NetworkEvent::DirectResponse { from: peer, hash, envelope },
+                )
+                .await?;
+            }
+        },
+        rr::Event::OutboundFailure { peer, request_id, error, .. } => {
+            // Clean up the outbound tracking entry. No need to forward to the
+            // importer because gossip was already published alongside the
+            // direct request — the importer will receive the gossip response.
+            pending_outbound_requests.remove(&request_id);
+
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                "topic" => "direct_request",
+                "result" => "outbound_failure",
+            )
+            .increment(1);
+            warn!(
+                peer = %peer,
+                error = %error,
+                "direct request outbound failure"
+            );
+        }
+        rr::Event::InboundFailure { peer, request_id, error, .. } => {
+            // Clean up the stashed channel — the peer won't receive a response anyway.
+            pending_response_channels.remove(&request_id);
+
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                "topic" => "direct_request",
+                "result" => "inbound_failure",
+            )
+            .increment(1);
+            warn!(
+                peer = %peer,
+                ?request_id,
+                error = %error,
+                "direct request inbound failure"
+            );
+        }
+        rr::Event::ResponseSent { .. } => {}
     }
     Ok(())
 }
@@ -1496,7 +1805,7 @@ mod tests {
                     }
                     _ = interval.tick(), if subscribed => {
                         command_tx
-                            .send(NetworkCommand::PublishUnsafeRequest {
+                            .send(NetworkCommand::RequestBlockDirect {
                                 hash: expected_hash,
                             })
                             .await
@@ -1817,5 +2126,229 @@ mod tests {
         publish_task.abort();
         let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
         let _ = whitelist_network.handle.await;
+    }
+
+    #[tokio::test]
+    async fn whitelist_network_direct_request_response_between_two_nodes() {
+        // Node A: whitelist network that will send a direct request.
+        // Node B: whitelist network that will receive the request and
+        //         respond via the command channel.
+        let chain_id = 167_000;
+
+        // Build a raw peer swarm (node B) that supports BOTH gossipsub + reqresp.
+        // We use a raw swarm instead of WhitelistNetwork so we can get its listen address
+        // and manually respond to requests.
+
+        /// Test-only swarm behaviour with gossipsub + reqresp.
+        #[derive(NetworkBehaviour)]
+        #[behaviour(to_swarm = "TestBehaviourEvent2")]
+        struct TestBehaviour2 {
+            gossipsub: gossipsub::Behaviour,
+            reqresp: rr::Behaviour<WhitelistReqRespCodec>,
+            ping: ping::Behaviour,
+            identify: identify::Behaviour,
+        }
+
+        #[derive(Debug)]
+        #[allow(dead_code)]
+        enum TestBehaviourEvent2 {
+            Gossipsub(Box<gossipsub::Event>),
+            ReqResp(Box<rr::Event<B256, Vec<u8>>>),
+            Ping,
+            Identify,
+        }
+
+        impl From<gossipsub::Event> for TestBehaviourEvent2 {
+            fn from(value: gossipsub::Event) -> Self {
+                Self::Gossipsub(Box::new(value))
+            }
+        }
+
+        impl From<rr::Event<B256, Vec<u8>>> for TestBehaviourEvent2 {
+            fn from(value: rr::Event<B256, Vec<u8>>) -> Self {
+                Self::ReqResp(Box::new(value))
+            }
+        }
+
+        impl From<ping::Event> for TestBehaviourEvent2 {
+            fn from(_: ping::Event) -> Self {
+                Self::Ping
+            }
+        }
+
+        impl From<identify::Event> for TestBehaviourEvent2 {
+            fn from(_: identify::Event) -> Self {
+                Self::Identify
+            }
+        }
+
+        let key_b = identity::Keypair::generate_ed25519();
+        let peer_id_b = key_b.public().to_peer_id();
+        let noise_b = noise::Config::new(&key_b).expect("noise config B");
+
+        let transport_b = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+            .upgrade(upgrade::Version::V1Lazy)
+            .authenticate(noise_b)
+            .multiplex(yamux::Config::default())
+            .boxed();
+
+        let reqresp_protocol_b = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let reqresp_cfg_b =
+            rr::Config::default().with_request_timeout(Duration::from_secs(10));
+
+        let request_topic = gossipsub::IdentTopic::new(format!(
+            "/taiko/{chain_id}/0/requestPreconfBlocks"
+        ));
+        let mut gs_b = build_gossipsub().expect("gossipsub B");
+        gs_b.subscribe(&request_topic).expect("subscribe B");
+
+        let behaviour_b = TestBehaviour2 {
+            gossipsub: gs_b,
+            reqresp: rr::Behaviour::with_codec(
+                WhitelistReqRespCodec,
+                std::iter::once((reqresp_protocol_b, rr::ProtocolSupport::Full)),
+                reqresp_cfg_b,
+            ),
+            ping: ping::Behaviour::new(ping::Config::new()),
+            identify: identify::Behaviour::new(identify::Config::new(
+                "/taiko/whitelist-preconfirmation-test/1.0.0".to_string(),
+                key_b.public(),
+            )),
+        };
+
+        let mut peer_swarm_b = libp2p::Swarm::new(
+            transport_b,
+            behaviour_b,
+            peer_id_b,
+            libp2p::swarm::Config::with_tokio_executor(),
+        );
+
+        peer_swarm_b
+            .listen_on("/ip4/127.0.0.1/tcp/0".parse().expect("listen addr"))
+            .expect("listen B");
+
+        let addr_b = loop {
+            if let SwarmEvent::NewListenAddr { address, .. } =
+                peer_swarm_b.select_next_some().await
+            {
+                break address;
+            }
+        };
+
+        let dial_addr_b = addr_b.with(libp2p::multiaddr::Protocol::P2p(peer_id_b));
+
+        // Start node A (whitelist network) that dials node B.
+        let cfg_a = P2pConfig {
+            chain_id,
+            enable_discovery: false,
+            enable_tcp: true,
+            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+            pre_dial_peers: vec![dial_addr_b],
+            ..Default::default()
+        };
+
+        let mut node_a =
+            WhitelistNetwork::spawn_with_whitelist_filter(cfg_a).expect("spawn node A");
+        let command_tx_a = node_a.command_tx.clone();
+
+        let expected_hash = B256::from([0xddu8; 32]);
+        let expected_envelope = sample_response_envelope();
+        let response_bytes =
+            encode_unsafe_response_message(&expected_envelope).expect("encode response");
+
+        // Run both peers concurrently:
+        // - Node B: poll swarm, respond to reqresp requests
+        // - Node A: repeatedly send RequestBlockDirect until we get a DirectResponse
+        let response_bytes_clone = response_bytes.clone();
+        let result = tokio::time::timeout(Duration::from_secs(20), async move {
+            let mut interval = tokio::time::interval(Duration::from_millis(500));
+            let mut connected_b = false;
+            loop {
+                tokio::select! {
+                    event = peer_swarm_b.select_next_some() => {
+                        match event {
+                            SwarmEvent::ConnectionEstablished { .. } => {
+                                connected_b = true;
+                            }
+                            SwarmEvent::Behaviour(TestBehaviourEvent2::ReqResp(event)) => {
+                                if let rr::Event::Message {
+                                    message: rr::Message::Request { request, channel, .. },
+                                    ..
+                                } = *event
+                                {
+                                    assert_eq!(
+                                        request, expected_hash,
+                                        "node B should receive the expected hash"
+                                    );
+                                    let _ = peer_swarm_b
+                                        .behaviour_mut()
+                                        .reqresp
+                                        .send_response(channel, response_bytes_clone.clone());
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    event = node_a.event_rx.recv() => {
+                        match event {
+                            Some(NetworkEvent::DirectResponse { envelope: Some(env), .. }) => {
+                                return env;
+                            }
+                            Some(_) | None => {}
+                        }
+                    }
+                    _ = interval.tick(), if connected_b => {
+                        let _ = command_tx_a
+                            .send(NetworkCommand::RequestBlockDirect { hash: expected_hash })
+                            .await;
+                    }
+                }
+            }
+        })
+        .await
+        .expect("timed out waiting for direct response on node A");
+
+        assert_eq!(
+            result.execution_payload.block_hash,
+            expected_envelope.execution_payload.block_hash
+        );
+        assert_eq!(result.signature, expected_envelope.signature);
+
+        // Cleanup.
+        let _ = node_a.command_tx.send(NetworkCommand::Shutdown).await;
+        let _ = node_a.handle.await;
+    }
+
+    #[tokio::test]
+    async fn whitelist_network_direct_request_falls_back_to_gossip_without_peers() {
+        // A whitelist network with no peers should fall back to gossip when
+        // sending RequestBlockDirect. We verify no panic/error occurs and
+        // the command completes. (Full gossip receipt requires a subscriber peer,
+        // which is covered by existing gossip tests.)
+        let cfg = P2pConfig {
+            chain_id: 167_000,
+            enable_discovery: false,
+            enable_tcp: true,
+            listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+            ..Default::default()
+        };
+
+        let node =
+            WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
+
+        // Send a direct request with no peers connected — should fall back to gossip.
+        node.command_tx
+            .send(NetworkCommand::RequestBlockDirect {
+                hash: B256::from([0xffu8; 32]),
+            })
+            .await
+            .expect("send RequestBlockDirect");
+
+        // Give the network loop time to process the command.
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        // No crash, no panic — the network handled it gracefully (gossip fallback).
+        let _ = node.command_tx.send(NetworkCommand::Shutdown).await;
+        let _ = node.handle.await;
     }
 }
