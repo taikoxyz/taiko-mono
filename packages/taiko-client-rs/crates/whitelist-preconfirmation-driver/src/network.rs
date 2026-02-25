@@ -18,8 +18,8 @@ use tracing::{debug, warn};
 
 use crate::{
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, WhitelistReqRespCodec,
-        WHITELIST_REQRESP_PROTOCOL, decode_envelope_ssz, decode_unsafe_payload_signature,
+        DecodedUnsafePayload, WHITELIST_REQRESP_PROTOCOL, WhitelistExecutionPayloadEnvelope,
+        WhitelistReqRespCodec, decode_envelope_ssz, decode_unsafe_payload_signature,
         decode_unsafe_response_message, encode_envelope_ssz, encode_eos_request_message,
         encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
@@ -256,10 +256,8 @@ impl WhitelistNetwork {
         gossipsub.subscribe(&topics.preconf_response).map_err(to_p2p_err)?;
         gossipsub.subscribe(&topics.eos_request).map_err(to_p2p_err)?;
 
-        let reqresp_protocol =
-            libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let reqresp_cfg =
-            rr::Config::default().with_request_timeout(Duration::from_secs(10));
+        let reqresp_protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let reqresp_cfg = rr::Config::default().with_request_timeout(Duration::from_secs(10));
         let reqresp = rr::Behaviour::with_codec(
             WhitelistReqRespCodec,
             std::iter::once((reqresp_protocol, rr::ProtocolSupport::Full)),
@@ -803,11 +801,7 @@ async fn handle_swarm_event(
             }
             debug!(%peer_id, "peer connected");
         }
-        libp2p::swarm::SwarmEvent::ConnectionClosed {
-            peer_id,
-            num_established,
-            ..
-        } => {
+        libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
             if num_established == 0 {
                 rrs.connected_peers.retain(|p| p != &peer_id);
             }
@@ -2193,12 +2187,10 @@ mod tests {
             .boxed();
 
         let reqresp_protocol_b = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let reqresp_cfg_b =
-            rr::Config::default().with_request_timeout(Duration::from_secs(10));
+        let reqresp_cfg_b = rr::Config::default().with_request_timeout(Duration::from_secs(10));
 
-        let request_topic = gossipsub::IdentTopic::new(format!(
-            "/taiko/{chain_id}/0/requestPreconfBlocks"
-        ));
+        let request_topic =
+            gossipsub::IdentTopic::new(format!("/taiko/{chain_id}/0/requestPreconfBlocks"));
         let mut gs_b = build_gossipsub().expect("gossipsub B");
         gs_b.subscribe(&request_topic).expect("subscribe B");
 
@@ -2228,8 +2220,7 @@ mod tests {
             .expect("listen B");
 
         let addr_b = loop {
-            if let SwarmEvent::NewListenAddr { address, .. } =
-                peer_swarm_b.select_next_some().await
+            if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm_b.select_next_some().await
             {
                 break address;
             }
@@ -2333,14 +2324,11 @@ mod tests {
             ..Default::default()
         };
 
-        let node =
-            WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
+        let node = WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
 
         // Send a direct request with no peers connected — should fall back to gossip.
         node.command_tx
-            .send(NetworkCommand::RequestBlockDirect {
-                hash: B256::from([0xffu8; 32]),
-            })
+            .send(NetworkCommand::RequestBlockDirect { hash: B256::from([0xffu8; 32]) })
             .await
             .expect("send RequestBlockDirect");
 

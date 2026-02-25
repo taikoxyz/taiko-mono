@@ -51,9 +51,7 @@ impl libp2p::request_response::Codec for WhitelistReqRespCodec {
     {
         let mut buf = Vec::new();
         // Read one extra byte beyond the limit so we can detect oversized responses.
-        io.take(MAX_REQRESP_RESPONSE_BYTES as u64 + 1)
-            .read_to_end(&mut buf)
-            .await?;
+        io.take(MAX_REQRESP_RESPONSE_BYTES as u64 + 1).read_to_end(&mut buf).await?;
         if buf.len() > MAX_REQRESP_RESPONSE_BYTES {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -466,10 +464,7 @@ mod tests {
         assert_eq!(buf.len(), 32, "request is exactly 32 bytes");
 
         let mut cursor = Cursor::new(buf);
-        let decoded = codec
-            .read_request(&protocol, &mut cursor)
-            .await
-            .expect("read_request");
+        let decoded = codec.read_request(&protocol, &mut cursor).await.expect("read_request");
         assert_eq!(decoded, hash);
     }
 
@@ -484,17 +479,12 @@ mod tests {
         let mut codec = WhitelistReqRespCodec;
 
         let mut buf = Vec::new();
-        codec
-            .write_response(&protocol, &mut buf, encoded.clone())
-            .await
-            .expect("write_response");
+        codec.write_response(&protocol, &mut buf, encoded.clone()).await.expect("write_response");
         assert_eq!(buf, encoded);
 
         let mut cursor = Cursor::new(buf);
-        let decoded_bytes = codec
-            .read_response(&protocol, &mut cursor)
-            .await
-            .expect("read_response");
+        let decoded_bytes =
+            codec.read_response(&protocol, &mut cursor).await.expect("read_response");
         assert_eq!(decoded_bytes, encoded);
 
         let decoded_envelope =
@@ -514,17 +504,12 @@ mod tests {
         let mut codec = WhitelistReqRespCodec;
 
         let mut buf = Vec::new();
-        codec
-            .write_response(&protocol, &mut buf, Vec::new())
-            .await
-            .expect("write_response empty");
+        codec.write_response(&protocol, &mut buf, Vec::new()).await.expect("write_response empty");
         assert!(buf.is_empty(), "empty response produces no bytes");
 
         let mut cursor = Cursor::new(buf);
-        let decoded = codec
-            .read_response(&protocol, &mut cursor)
-            .await
-            .expect("read_response empty");
+        let decoded =
+            codec.read_response(&protocol, &mut cursor).await.expect("read_response empty");
         assert!(decoded.is_empty(), "empty response decodes to empty vec");
     }
 
@@ -554,10 +539,7 @@ mod tests {
         let mut cursor = Cursor::new(oversized);
         let result = codec.read_response(&protocol, &mut cursor).await;
         assert!(result.is_err(), "oversized response should be rejected");
-        assert_eq!(
-            result.unwrap_err().kind(),
-            std::io::ErrorKind::InvalidData,
-        );
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData,);
     }
 
     #[tokio::test]
