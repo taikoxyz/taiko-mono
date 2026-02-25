@@ -241,7 +241,7 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	s.Zero(balanceAfter.Cmp(balance))
 }
 
-func (s *EventSyncerTestSuite) TestKnownBatchSendsPreconfChainReorged() {
+func (s *EventSyncerTestSuite) TestKnownBatchSendsProposal() {
 	ctx := context.Background()
 
 	// Record L1 head before proposing so we know where to reset the cursor.
@@ -273,22 +273,19 @@ func (s *EventSyncerTestSuite) TestKnownBatchSendsPreconfChainReorged() {
 	// Process L1 blocks — should hit the known-batch fast path since blocks exist.
 	s.Nil(syncer2.ProcessL1Blocks(ctx))
 
-	// Wait for proposals while draining the channel and ensure at least one true flag was emitted.
-	// If no proposal arrives in time, fail the test.
-	// NOTE: ProposeAndInsertValidBlock may process previously pending batches (e.g. batch 1)
-	// before proposing a new one (e.g. batch 2), so we may receive multiple known-batch
-	// reorged proposals. We only need to verify at least one was emitted.
-	reorgedCount := 0
+	// Wait for proposals while draining the channel.
+	// Known-batch proposals should have PreconfChainReorged=false (not a reorg)
+	// and a valid LastBlockID so the preconf server can advance its canonical tip.
+	proposalCount := 0
 	deadline := time.After(1 * time.Second)
 	for {
 		select {
 		case proposal := <-proposalCh:
-			if proposal.PreconfChainReorged {
-				reorgedCount++
-				s.Greater(proposal.LastBlockID, uint64(0))
-			}
+			s.False(proposal.PreconfChainReorged, "Known batch should not be marked as reorged")
+			s.Greater(proposal.LastBlockID, uint64(0))
+			proposalCount++
 		case <-deadline:
-			s.Greater(reorgedCount, 0, "Expected at least one PreconfChainReorged=true from known-batch fast path")
+			s.Greater(proposalCount, 0, "Expected at least one proposal from known-batch fast path")
 			return
 		}
 	}

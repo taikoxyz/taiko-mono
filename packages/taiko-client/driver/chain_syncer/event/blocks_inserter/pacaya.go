@@ -225,7 +225,7 @@ func (i *Pacaya) InsertBlocksWithTxListBytes(
 
 				go i.sendLatestSeenProposal(&encoding.LastSeenProposal{
 					TaikoProposalMetaData: metadata,
-					PreconfChainReorged:   true,
+					PreconfChainReorged:   false,
 					LastBlockID:           lastBlockHeader.Number.Uint64(),
 				})
 

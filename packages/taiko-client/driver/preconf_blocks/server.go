@@ -1247,6 +1247,17 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalPacaya(proposal *encodin
 	s.latestSeenProposal = proposal
 	metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
 
+	// Always keep highestUnsafeL2PayloadBlockID in sync with the canonical chain tip.
+	if proposal.LastBlockID > s.highestUnsafeL2PayloadBlockID {
+		log.Info(
+			"Advancing highest unsafe L2 payload block ID to canonical tip",
+			"batchID", proposal.Pacaya().GetBatchID(),
+			"previousHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			"newHighestUnsafeL2PayloadBlockID", proposal.LastBlockID,
+		)
+		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
+	}
+
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 	if s.latestSeenProposal.PreconfChainReorged {
 		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
@@ -1275,6 +1286,17 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 
 	if proposal.LastBlockID != 0 {
 		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
+	}
+
+	// Always keep highestUnsafeL2PayloadBlockID in sync with the canonical chain tip.
+	if proposal.LastBlockID > s.highestUnsafeL2PayloadBlockID {
+		log.Info(
+			"Advancing highest unsafe L2 payload block ID to canonical tip",
+			"proposalId", proposal.Shasta().GetEventData().Id,
+			"previousHighestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			"newHighestUnsafeL2PayloadBlockID", proposal.LastBlockID,
+		)
+		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
 	}
 
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
