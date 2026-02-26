@@ -140,6 +140,7 @@ where
 
         let block_number = latest_block.header.number;
         let block_timestamp = latest_block.header.timestamp;
+        let block_hash = latest_block.hash();
 
         let current_operator_fut = async {
             self.whitelist
@@ -206,7 +207,33 @@ where
                 })
         };
 
-        let (current_seq, next_seq) = tokio::try_join!(current_seq_fut, next_seq_fut)?;
+        let pinned_block_fut = async {
+            self.l1_provider
+                .get_block_by_number(BlockNumberOrTag::Number(block_number))
+                .await
+                .map_err(|err| {
+                    whitelist_lookup_err(format!(
+                        "failed to re-fetch block {block_number} for hash verification: {err}"
+                    ))
+                })
+        };
+
+        let (current_seq, next_seq, pinned_block_opt) =
+            tokio::try_join!(current_seq_fut, next_seq_fut, pinned_block_fut)?;
+
+        let pinned_hash = pinned_block_opt
+            .ok_or_else(|| {
+                whitelist_lookup_err(format!(
+                    "block {block_number} disappeared during whitelist snapshot"
+                ))
+            })?
+            .hash();
+        if pinned_hash != block_hash {
+            return Err(whitelist_lookup_err(format!(
+                "block hash changed at height {block_number} during whitelist snapshot \
+                 (load-balanced RPC inconsistency or reorg)"
+            )));
+        }
 
         // Zero-address snapshots are intentionally cached and returned here.
         // Each consumer validates differently: the inbound gossip filter treats
