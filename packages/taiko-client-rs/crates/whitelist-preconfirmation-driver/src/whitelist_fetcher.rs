@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use alloy_eips::{BlockId, BlockNumberOrTag};
 use alloy_primitives::Address;
 use alloy_provider::Provider;
-use bindings::preconf_whitelist::PreconfWhitelist::{PreconfWhitelistInstance, operatorsReturn};
+use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use tracing::debug;
 
 use crate::{
@@ -17,8 +17,6 @@ use crate::{
 
 /// Maximum age for stale-cache fallback when node timing data lags epoch start.
 const MAX_STALE_FALLBACK_SECS: u64 = 12 * 64;
-/// Retry once when whitelist snapshot fetch sees a transient inconsistency.
-const SNAPSHOT_FETCH_MAX_ATTEMPTS: usize = 2;
 
 /// Result of a cached sequencer lookup, including whether values came from cache.
 #[derive(Debug)]
@@ -42,23 +40,6 @@ pub(crate) struct WhitelistSequencerSnapshot {
     pub(crate) current_epoch_start_timestamp: u64,
     /// Block timestamp for the pinned block.
     pub(crate) block_timestamp: u64,
-}
-
-/// Error class returned from snapshot fetch attempts.
-#[derive(Debug)]
-pub(crate) enum SnapshotFetchError {
-    /// Retry is safe on transient provider/chain inconsistency.
-    Retryable(WhitelistPreconfirmationDriverError),
-    /// Retry is not safe and should fail the lookup immediately.
-    Fatal(WhitelistPreconfirmationDriverError),
-}
-
-impl From<SnapshotFetchError> for WhitelistPreconfirmationDriverError {
-    fn from(err: SnapshotFetchError) -> Self {
-        match err {
-            SnapshotFetchError::Retryable(err) | SnapshotFetchError::Fatal(err) => err,
-        }
-    }
 }
 
 /// Shared fetcher for whitelist sequencer snapshots backed by an epoch-boundary cache.
@@ -93,7 +74,7 @@ where
             return Ok(CachedSequencers { current, next, any_from_cache: true });
         }
 
-        let snapshot = self.fetch_whitelist_snapshot_with_retry().await?;
+        let snapshot = self.fetch_whitelist_snapshot().await?;
 
         if let Err(err) = ensure_not_too_early_for_epoch(
             snapshot.block_timestamp,
@@ -140,54 +121,25 @@ where
         })
     }
 
-    /// Fetch current/next sequencer snapshot with retry after transient inconsistencies.
-    async fn fetch_whitelist_snapshot_with_retry(&self) -> Result<WhitelistSequencerSnapshot> {
-        for attempt in 1..=SNAPSHOT_FETCH_MAX_ATTEMPTS {
-            match self.fetch_whitelist_snapshot().await {
-                Ok(snapshot) => return Ok(snapshot),
-                Err(SnapshotFetchError::Retryable(err))
-                    if attempt < SNAPSHOT_FETCH_MAX_ATTEMPTS =>
-                {
-                    debug!(
-                        attempt,
-                        max_attempts = SNAPSHOT_FETCH_MAX_ATTEMPTS,
-                        error = %err,
-                        "retrying whitelist snapshot fetch after transient inconsistency"
-                    );
-                }
-                Err(err) => return Err(err.into()),
-            }
-        }
-
-        Err(whitelist_lookup_err(format!(
-            "snapshot fetch retry loop exhausted after {SNAPSHOT_FETCH_MAX_ATTEMPTS} attempts"
-        )))
-    }
-
-    /// Fetch current/next sequencer snapshot from the current pinned L1 block.
-    async fn fetch_whitelist_snapshot(
-        &self,
-    ) -> std::result::Result<WhitelistSequencerSnapshot, SnapshotFetchError> {
+    /// Fetch current/next sequencer snapshot from the latest L1 block.
+    async fn fetch_whitelist_snapshot(&self) -> Result<WhitelistSequencerSnapshot> {
         let latest_block = self
             .l1_provider
             .get_block_by_number(BlockNumberOrTag::Latest)
             .await
             .map_err(|err| {
-                snapshot_fetch_error(
-                    format!("failed to fetch latest block for whitelist snapshot: {err}"),
-                    false,
-                )
+                whitelist_lookup_err(format!(
+                    "failed to fetch latest block for whitelist snapshot: {err}"
+                ))
             })?
             .ok_or_else(|| {
-                snapshot_fetch_error(
+                whitelist_lookup_err(
                     "missing latest block while fetching whitelist snapshot".to_string(),
-                    false,
                 )
             })?;
 
         let block_number = latest_block.header.number;
         let block_timestamp = latest_block.header.timestamp;
-        let block_hash = latest_block.hash();
 
         let current_operator_fut = async {
             self.whitelist
@@ -196,10 +148,9 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    snapshot_fetch_error(
-                        format!("failed to fetch current operator at block {block_number}: {err}"),
-                        true,
-                    )
+                    whitelist_lookup_err(format!(
+                        "failed to fetch current operator at block {block_number}: {err}"
+                    ))
                 })
         };
         let next_operator_fut = async {
@@ -209,10 +160,9 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    snapshot_fetch_error(
-                        format!("failed to fetch next operator at block {block_number}: {err}"),
-                        true,
-                    )
+                    whitelist_lookup_err(format!(
+                        "failed to fetch next operator at block {block_number}: {err}"
+                    ))
                 })
         };
         let epoch_start_timestamp_fut = async {
@@ -222,12 +172,9 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    snapshot_fetch_error(
-                        format!(
-                            "failed to fetch epochStartTimestamp at block {block_number}: {err}"
-                        ),
-                        true,
-                    )
+                    whitelist_lookup_err(format!(
+                        "failed to fetch epochStartTimestamp at block {block_number}: {err}"
+                    ))
                 })
         };
 
@@ -241,13 +188,9 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    snapshot_fetch_error(
-                        format!(
-                            "failed to fetch current operators() entry at block {block_number}: \
-                             {err}"
-                        ),
-                        true,
-                    )
+                    whitelist_lookup_err(format!(
+                        "failed to fetch current operators() entry at block {block_number}: {err}"
+                    ))
                 })
         };
         let next_seq_fut = async {
@@ -257,45 +200,13 @@ where
                 .call()
                 .await
                 .map_err(|err| {
-                    snapshot_fetch_error(
-                        format!(
-                            "failed to fetch next operators() entry at block {block_number}: {err}"
-                        ),
-                        true,
-                    )
-                })
-        };
-        let pinned_block_fut = async {
-            self.l1_provider
-                .get_block_by_number(BlockNumberOrTag::Number(block_number))
-                .await
-                .map_err(|err| {
-                    snapshot_fetch_error(
-                        format!(
-                            "failed to fetch pinned block {block_number} for whitelist \
-                             verification: {err}"
-                        ),
-                        true,
-                    )
+                    whitelist_lookup_err(format!(
+                        "failed to fetch next operators() entry at block {block_number}: {err}"
+                    ))
                 })
         };
 
-        let (current_seq, next_seq, pinned_block_opt): (operatorsReturn, operatorsReturn, _) =
-            tokio::try_join!(current_seq_fut, next_seq_fut, pinned_block_fut)?;
-
-        let pinned_block = pinned_block_opt.ok_or_else(|| {
-            snapshot_fetch_error(
-                format!("missing pinned block {block_number} while verifying whitelist batches"),
-                true,
-            )
-        })?;
-        let pinned_block_hash = pinned_block.hash();
-        if pinned_block_hash != block_hash {
-            return Err(snapshot_fetch_error(
-                format!("block hash changed between whitelist batches at block {block_number}"),
-                true,
-            ));
-        }
+        let (current_seq, next_seq) = tokio::try_join!(current_seq_fut, next_seq_fut)?;
 
         // Zero-address snapshots are intentionally cached and returned here.
         // Each consumer validates differently: the inbound gossip filter treats
@@ -356,12 +267,6 @@ where
     }
 }
 
-/// Build a snapshot-fetch error with fatality hint.
-fn snapshot_fetch_error(message: String, retryable: bool) -> SnapshotFetchError {
-    let error = whitelist_lookup_err(message);
-    if retryable { SnapshotFetchError::Retryable(error) } else { SnapshotFetchError::Fatal(error) }
-}
-
 /// Map a whitelist lookup failure into a typed driver error and increment metric.
 fn whitelist_lookup_err(message: String) -> WhitelistPreconfirmationDriverError {
     metrics::counter!(WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL)
@@ -384,21 +289,6 @@ fn ensure_not_too_early_for_epoch(
     Ok(())
 }
 
-/// Return true when a whitelist-snapshot lookup failure is considered transient.
-#[cfg(test)]
-fn is_retryable_snapshot_error(err: &WhitelistPreconfirmationDriverError) -> bool {
-    match err {
-        WhitelistPreconfirmationDriverError::WhitelistLookup(message) => {
-            let lower = message.to_ascii_lowercase();
-            message.contains("block hash changed between whitelist batches") ||
-                message.contains("missing pinned block") ||
-                (message.contains("at block") &&
-                    (lower.contains("not found") || lower.contains("unknown block")))
-        }
-        _ => false,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -413,37 +303,5 @@ mod tests {
     fn epoch_timing_check_accepts_equal_or_later_block() {
         ensure_not_too_early_for_epoch(100, 100).expect("equal timestamp must pass");
         ensure_not_too_early_for_epoch(101, 100).expect("later timestamp must pass");
-    }
-
-    #[test]
-    fn retryable_snapshot_error_for_reorg_like_hash_change() {
-        let err = WhitelistPreconfirmationDriverError::WhitelistLookup(
-            "block hash changed between whitelist batches at block 123".to_string(),
-        );
-        assert!(is_retryable_snapshot_error(&err));
-    }
-
-    #[test]
-    fn retryable_snapshot_error_for_missing_pinned_block() {
-        let err = WhitelistPreconfirmationDriverError::WhitelistLookup(
-            "missing pinned block 123 while verifying whitelist batches".to_string(),
-        );
-        assert!(is_retryable_snapshot_error(&err));
-    }
-
-    #[test]
-    fn retryable_snapshot_error_for_missing_block_during_call() {
-        let err = WhitelistPreconfirmationDriverError::WhitelistLookup(
-            "failed to fetch current operator at block 123: header not found".to_string(),
-        );
-        assert!(is_retryable_snapshot_error(&err));
-    }
-
-    #[test]
-    fn retryable_snapshot_error_ignores_non_retryable_lookup_errors() {
-        let err = WhitelistPreconfirmationDriverError::WhitelistLookup(
-            "failed to fetch current operator at block 123".to_string(),
-        );
-        assert!(!is_retryable_snapshot_error(&err));
     }
 }

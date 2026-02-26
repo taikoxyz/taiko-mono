@@ -6,13 +6,12 @@ use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,
 };
-use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes};
 use async_trait::async_trait;
-use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use metrics::histogram;
 use protocol::{
@@ -39,6 +38,7 @@ use crate::{
             LookaheadStatus, SlotRange, WhitelistStatus,
         },
     },
+    whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
 /// Go default handover-skip slots used for sequencing window split.
@@ -64,8 +64,8 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
-    /// Preconf whitelist contract used for operator checks.
-    whitelist: PreconfWhitelistInstance<P>,
+    /// Fetcher that provides cached, retry-safe whitelist operator lookups.
+    sequencer_fetcher: Mutex<WhitelistSequencerFetcher<P>>,
     /// Local peer ID string.
     local_peer_id: String,
     /// Highest unsafe payload block ID tracked by this node (shared with importer).
@@ -93,8 +93,8 @@ where
     pub(crate) signer: FixedKSigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
-    /// Whitelist contract address for allowlist checks.
-    pub(crate) whitelist_address: Address,
+    /// Pre-built fetcher for cached whitelist operator lookups.
+    pub(crate) sequencer_fetcher: WhitelistSequencerFetcher<P>,
     /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
     pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Network command sender for gossip publishing.
@@ -117,14 +117,13 @@ where
             chain_id,
             signer,
             beacon_client,
-            whitelist_address,
+            sequencer_fetcher,
             highest_unsafe_l2_payload_block_id,
             network_command_tx,
             cache_state,
             local_peer_id,
         }: WhitelistRestHandlerParams<P>,
     ) -> Self {
-        let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
             event_syncer,
@@ -132,7 +131,7 @@ where
             chain_id,
             signer,
             beacon_client,
-            whitelist,
+            sequencer_fetcher: Mutex::new(sequencer_fetcher),
             local_peer_id,
             highest_unsafe_l2_payload_block_id,
             lookahead_status: RwLock::new(None),
@@ -322,78 +321,45 @@ where
             slot_matches_range(slot, &lookahead.next_ranges)
     }
 
-    /// Fetch current and next sequencer addresses pinned to a single L1 block number.
-    async fn fetch_current_next_sequencers(&self) -> Result<(Address, Address)> {
-        let latest_block = self
-            .rpc
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(provider_err)?
-            .ok_or_else(|| {
-                WhitelistPreconfirmationDriverError::WhitelistLookup(
-                    "missing latest L1 block while fetching whitelist operators".to_string(),
-                )
-            })?;
+    /// Build best-effort Go-compatible lookahead status using the shared sequencer fetcher.
+    ///
+    /// Derives the epoch from the contract's `epochStartTimestamp`, ensuring that
+    /// slot ranges and operator addresses are consistent even at epoch boundaries.
+    async fn compute_lookahead_status(&self) -> Result<LookaheadStatus> {
+        let mut fetcher = self.sequencer_fetcher.lock().await;
+        let cached = fetcher.cached_whitelist_sequencers(Instant::now()).await.inspect_err(
+            |err| {
+                warn!(
+                    error = %err,
+                    "failed to fetch lookahead operator metadata"
+                );
+            },
+        )?;
 
-        let block_id = BlockId::Number(latest_block.header.number.into());
-        let current_proposer = self
-            .whitelist
-            .getOperatorForCurrentEpoch()
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?;
-        let next_proposer = self
-            .whitelist
-            .getOperatorForNextEpoch()
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?;
-
-        let current = self
-            .whitelist
-            .operators(current_proposer)
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?
-            .sequencerAddress;
-        let next = self
-            .whitelist
-            .operators(next_proposer)
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?
-            .sequencerAddress;
-
-        if current == Address::ZERO || next == Address::ZERO {
+        if cached.current == Address::ZERO || cached.next == Address::ZERO {
             return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
                 "received zero address while fetching whitelist operators".to_string(),
             ));
         }
 
-        Ok((current, next))
-    }
+        let epoch_start_timestamp =
+            fetcher.sequencer_cache.current_epoch_start_timestamp().ok_or_else(|| {
+                WhitelistPreconfirmationDriverError::WhitelistLookup(
+                    "epoch start timestamp unavailable after whitelist fetch".to_string(),
+                )
+            })?;
 
-    /// Build best-effort Go-compatible lookahead status.
-    async fn compute_lookahead_status(&self) -> Result<LookaheadStatus> {
-        let current_epoch = self.beacon_client.current_epoch();
+        let current_epoch =
+            self.beacon_client.timestamp_to_epoch(epoch_start_timestamp).map_err(|e| {
+                WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    "failed to derive epoch from epoch start timestamp {epoch_start_timestamp}: {e}"
+                ))
+            })?;
         let slots_per_epoch = self.beacon_client.slots_per_epoch();
         let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
         let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
         let epoch_start = current_epoch.saturating_mul(slots_per_epoch);
 
-        let (curr_operator, next_operator) =
-            self.fetch_current_next_sequencers().await.inspect_err(|err| {
-                warn!(
-                    error = %err,
-                    current_epoch,
-                    "failed to fetch lookahead operator metadata"
-                );
-            })?;
         let curr_ranges =
             vec![SlotRange { start: epoch_start, end: epoch_start.saturating_add(threshold) }];
         let next_ranges = vec![SlotRange {
@@ -401,7 +367,12 @@ where
             end: epoch_start.saturating_add(slots_per_epoch),
         }];
 
-        Ok(LookaheadStatus { curr_operator, next_operator, curr_ranges, next_ranges })
+        Ok(LookaheadStatus {
+            curr_operator: cached.current,
+            next_operator: cached.next,
+            curr_ranges,
+            next_ranges,
+        })
     }
 
     /// Update highest unsafe block tracking (mirrors Go's update on each insertion/reorg point).
@@ -554,7 +525,15 @@ where
 
         // If end-of-sequencing, also publish the EOS request.
         if request.end_of_sequencing.unwrap_or(false) {
-            let epoch = self.beacon_client.current_epoch();
+            let epoch = self
+                .beacon_client
+                .timestamp_to_epoch(request.timestamp)
+                .map_err(|e| {
+                    WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                        "failed to derive epoch from block timestamp {}: {e}",
+                        request.timestamp
+                    ))
+                })?;
             self.cache_state.record_end_of_sequencing(epoch, block_hash).await;
             if let Err(err) = self
                 .eos_notification_tx

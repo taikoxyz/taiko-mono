@@ -22,6 +22,7 @@ use crate::{
     preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
     rest::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
     rest_handler::{WhitelistRestHandler, WhitelistRestHandlerParams},
+    whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -81,6 +82,14 @@ impl WhitelistPreconfirmationDriverRunner {
     /// Run until either event syncer or whitelist network exits.
     pub async fn run(self) -> Result<()> {
         metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL).increment(1);
+
+        // Fail fast on deterministic misconfiguration before blocking on sync bootstrap.
+        if !self.config.p2p_config.allow_all_sequencers &&
+            self.config.p2p_config.sequencer_addresses.is_empty()
+        {
+            return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
+        }
+
         info!(
             chain_id = self.config.p2p_config.chain_id,
             whitelist_address = %self.config.whitelist_address,
@@ -95,15 +104,6 @@ impl WhitelistPreconfirmationDriverRunner {
             WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
         )
         .record(wait_start.elapsed().as_secs_f64());
-
-        // BREAKING: a static sequencer allowlist is now required at startup.
-        // The previous L1-backed dynamic allowlist fallback has been removed.
-        // Operators must configure --p2p.sequencer-addresses or --p2p.allow-all-sequencers.
-        if !self.config.p2p_config.allow_all_sequencers &&
-            self.config.p2p_config.sequencer_addresses.is_empty()
-        {
-            return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
-        }
 
         let network =
             WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
@@ -153,13 +153,17 @@ impl WhitelistPreconfirmationDriverRunner {
             };
             let shared_highest = Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
 
+            let rest_sequencer_fetcher = WhitelistSequencerFetcher::new(
+                self.config.whitelist_address,
+                preconf_ingress_sync.client().l1_provider.clone(),
+            );
             let handler = Arc::new(WhitelistRestHandler::new(WhitelistRestHandlerParams {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
                 chain_id: self.config.p2p_config.chain_id,
                 signer,
                 beacon_client: Arc::clone(&beacon_client),
-                whitelist_address: self.config.whitelist_address,
+                sequencer_fetcher: rest_sequencer_fetcher,
                 highest_unsafe_l2_payload_block_id: shared_highest.clone(),
                 network_command_tx: network.command_tx.clone(),
                 cache_state: cache_state.clone(),
