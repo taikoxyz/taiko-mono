@@ -1747,7 +1747,11 @@ mod tests {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let signer_address = signer.address();
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let state = GossipsubInboundState::new_with_allow_all_sequencers(167_000, vec![signer_address], false);
+        let state = GossipsubInboundState::new_with_allow_all_sequencers(
+            167_000,
+            vec![signer_address],
+            false,
+        );
 
         assert!(state.verify_envelope_signer(&envelope));
     }
@@ -1756,7 +1760,11 @@ mod tests {
     fn verify_envelope_signer_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let state = GossipsubInboundState::new_with_allow_all_sequencers(167_000, vec![Address::from([0x11u8; 20])], false);
+        let state = GossipsubInboundState::new_with_allow_all_sequencers(
+            167_000,
+            vec![Address::from([0x11u8; 20])],
+            false,
+        );
 
         assert!(!state.verify_envelope_signer(&envelope));
     }
@@ -1812,7 +1820,11 @@ mod tests {
         let mut seen = HashMap::default();
         let mut channels = HashMap::new();
         let mut outbound = HashMap::new();
-        let state = GossipsubInboundState::new_with_allow_all_sequencers(chain_id, vec![signer_address], false);
+        let state = GossipsubInboundState::new_with_allow_all_sequencers(
+            chain_id,
+            vec![signer_address],
+            false,
+        );
 
         // Use a different hash than the envelope's block_hash
         let wrong_hash = B256::from([0xffu8; 32]);
@@ -1863,7 +1875,11 @@ mod tests {
         let mut channels = HashMap::new();
         let mut outbound = HashMap::new();
         // Use a wrong address in the allowlist
-        let state = GossipsubInboundState::new_with_allow_all_sequencers(chain_id, vec![Address::from([0x11u8; 20])], false);
+        let state = GossipsubInboundState::new_with_allow_all_sequencers(
+            chain_id,
+            vec![Address::from([0x11u8; 20])],
+            false,
+        );
 
         let outbound_id = test_outbound_request_id();
         outbound.insert(outbound_id, block_hash);
@@ -1910,7 +1926,11 @@ mod tests {
         let mut seen = HashMap::default();
         let mut channels = HashMap::new();
         let mut outbound = HashMap::new();
-        let state = GossipsubInboundState::new_with_allow_all_sequencers(chain_id, vec![signer_address], false);
+        let state = GossipsubInboundState::new_with_allow_all_sequencers(
+            chain_id,
+            vec![signer_address],
+            false,
+        );
 
         let outbound_id = test_outbound_request_id();
         outbound.insert(outbound_id, block_hash);
