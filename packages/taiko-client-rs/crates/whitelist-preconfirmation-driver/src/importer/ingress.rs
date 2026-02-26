@@ -152,6 +152,7 @@ where
                 ?request_id,
                 "serving direct response from recent cache"
             );
+            self.recent_cache.insert_recent(envelope.clone());
             self.update_cache_gauges();
             let response_bytes = match crate::codec::encode_unsafe_response_message(&envelope) {
                 Ok(bytes) => bytes,

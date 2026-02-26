@@ -965,6 +965,19 @@ async fn handle_reqresp_event(
                                     "rejected direct response: block hash does not match request"
                                 );
                                 (None, "hash_mismatch")
+                            } else if !GossipsubInboundState::validate_response_shape(&env) {
+                                metrics::counter!(
+                                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                                    "topic" => "direct_response",
+                                    "result" => "invalid_shape",
+                                )
+                                .increment(1);
+                                warn!(
+                                    peer = %peer,
+                                    hash = %hash,
+                                    "rejected direct response: invalid response shape"
+                                );
+                                (None, "invalid_shape")
                             } else if !inbound_validation_state.verify_envelope_signer(&env) {
                                 metrics::counter!(
                                     WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,

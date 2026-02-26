@@ -279,6 +279,17 @@ impl GossipsubInboundState {
         self.allow_all_sequencers || self.sequencer_addresses.contains(signer)
     }
 
+    /// Checks basic response envelope shape: non-empty transactions, non-zero
+    /// fee recipient, and non-zero block number. Used by both the gossip and
+    /// direct reqresp validation paths.
+    pub(crate) fn validate_response_shape(
+        envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
+    ) -> bool {
+        !envelope.execution_payload.transactions.is_empty()
+            && envelope.execution_payload.fee_recipient != Address::ZERO
+            && envelope.execution_payload.block_number != 0
+    }
+
     /// Verifies that the envelope carries a valid signature from an allowed sequencer.
     ///
     /// This is the signer-only subset of [`validate_response`] and is used by the
@@ -330,14 +341,7 @@ impl GossipsubInboundState {
         &mut self,
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
     ) -> gossipsub::MessageAcceptance {
-        if envelope.execution_payload.transactions.is_empty() ||
-            envelope.execution_payload.fee_recipient == Address::ZERO ||
-            envelope.execution_payload.block_number == 0
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        if !self.verify_envelope_signer(envelope) {
+        if !Self::validate_response_shape(envelope) || !self.verify_envelope_signer(envelope) {
             return gossipsub::MessageAcceptance::Reject;
         }
 

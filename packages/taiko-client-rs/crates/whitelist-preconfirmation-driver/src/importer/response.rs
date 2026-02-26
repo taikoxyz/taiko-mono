@@ -94,9 +94,6 @@ where
         Ok(Some(WhitelistExecutionPayloadEnvelope {
             end_of_sequencing,
             is_forced_inclusion: l1_origin.is_forced_inclusion.then_some(true),
-            // Deliberately use L1-origin signature as-is here. This endpoint
-            // serves responses only from the local node; caller-side validation
-            // and allowlist checks are performed when importing the envelope.
             // Intentionally None — the sequencer never populates this field
             // in the envelope (see rest_handler.rs), and the SSZ wire format
             // encodes None as 32 zero bytes which is the expected default.
@@ -117,6 +114,9 @@ where
                 block_hash: block.header.hash,
                 transactions: vec![Bytes::from(compressed_tx_list)],
             },
+            // Use L1-origin signature as-is. This endpoint serves responses
+            // only from the local node; caller-side validation and allowlist
+            // checks are performed when importing the envelope.
             signature: Some(l1_origin.signature),
         }))
     }
