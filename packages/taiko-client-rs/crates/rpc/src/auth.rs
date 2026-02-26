@@ -39,6 +39,32 @@ pub struct CompatiblePreBuiltTxList<T> {
 /// Re-export used across the RPC client for untyped transaction lists.
 pub type PreBuiltTxList = CompatiblePreBuiltTxList<Value>;
 
+/// Normalize a tx pool response object that may use camelCase keys into the
+/// snake_case field names expected by `CompatiblePreBuiltTxList`.
+fn normalize_prebuilt_tx_list(raw: Value) -> Result<PreBuiltTxList> {
+    let Value::Object(mut object) = raw else {
+        return Err(RpcClientError::Other(anyhow!("invalid tx pool list response")));
+    };
+
+    let tx_list = object.remove("txList");
+    if let Some(value) = tx_list {
+        object.insert("tx_list".to_string(), value);
+    }
+
+    let estimated_gas_used = object.remove("estimatedGasUsed");
+    if let Some(value) = estimated_gas_used {
+        object.insert("estimated_gas_used".to_string(), value);
+    }
+
+    let bytes_length = object.remove("bytesLength");
+    if let Some(value) = bytes_length {
+        object.insert("bytes_length".to_string(), value);
+    }
+
+    serde_json::from_value(Value::Object(object))
+        .map_err(|err| RpcClientError::Other(anyhow!(err)))
+}
+
 /// Taiko authenticated RPC method names.
 #[derive(Debug, Clone, Copy)]
 pub enum TaikoAuthMethod {
@@ -119,7 +145,8 @@ impl<P: Provider + Clone> Client<P> {
         &self,
         params: TxPoolContentParams,
     ) -> Result<Vec<PreBuiltTxList>> {
-        self.l2_auth_provider
+        let content: Vec<Value> = self
+            .l2_auth_provider
             .raw_request(
                 Cow::Borrowed(TaikoAuthMethod::TxPoolContentWithMinTip.as_str()),
                 (
@@ -132,8 +159,12 @@ impl<P: Provider + Clone> Client<P> {
                     params.min_tip,
                 ),
             )
-            .await
-            .map_err(Into::into)
+            .await?;
+
+        content
+            .into_iter()
+            .map(normalize_prebuilt_tx_list)
+            .collect::<Result<Vec<_>>>()
     }
 
     /// Update the execution engine's L1 origin metadata for a given block.
