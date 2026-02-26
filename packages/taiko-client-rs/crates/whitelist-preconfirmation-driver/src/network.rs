@@ -526,6 +526,16 @@ impl WhitelistNetwork {
                                         .reqresp
                                         .send_request(&peer, hash);
                                     reqresp_state.pending_outbound_requests.insert(request_id, hash);
+                                    if reqresp_state.pending_outbound_requests.len()
+                                        > DIRECT_REQUEST_PENDING_WARNING_LIMIT
+                                    {
+                                        warn!(
+                                            pending = reqresp_state
+                                                .pending_outbound_requests
+                                                .len(),
+                                            "high number of pending direct outbound requests",
+                                        );
+                                    }
                                     metrics::counter!(
                                         WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
                                         "topic" => "direct_request",
@@ -758,14 +768,16 @@ async fn recv_discovered_multiaddr(
 struct ReqRespState {
     /// Currently connected peers, ordered for stable round-robin selection.
     connected_peers: Vec<PeerId>,
+    /// Set of currently connected peer ids for O(1) membership checks.
+    connected_peer_ids: HashSet<PeerId>,
     /// Stashed inbound response channels awaiting importer reply, keyed by
     /// libp2p's inbound request ID for direct cleanup on failure.
     pending_response_channels:
         HashMap<rr::InboundRequestId, (Instant, rr::ResponseChannel<Vec<u8>>)>,
     /// Per-peer rate limiter for inbound direct requests (independent of gossip).
     direct_request_rate: RateLimiter,
-    /// Recently seen direct-request hashes (independent of gossip dedup).
-    direct_request_seen: WindowedHashTracker,
+    /// Recently seen direct-request hashes, tracked per peer (independent of gossip dedup).
+    direct_request_seen: HashMap<PeerId, WindowedHashTracker>,
     /// Outbound request IDs mapped to the requested block hash, used to
     /// correlate responses and clean up on outbound failure.
     pending_outbound_requests: HashMap<rr::OutboundRequestId, B256>,
@@ -795,6 +807,7 @@ async fn handle_swarm_event(
                 &mut rrs.direct_request_seen,
                 &mut rrs.pending_response_channels,
                 &mut rrs.pending_outbound_requests,
+                inbound_validation_state,
             )
             .await?;
         }
@@ -802,14 +815,16 @@ async fn handle_swarm_event(
             debug!(%address, "whitelist preconfirmation network listening");
         }
         libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-            if !rrs.connected_peers.contains(&peer_id) {
+            if rrs.connected_peer_ids.insert(peer_id) {
                 rrs.connected_peers.push(peer_id);
             }
             debug!(%peer_id, "peer connected");
         }
         libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
             if num_established == 0 {
+                rrs.connected_peer_ids.remove(&peer_id);
                 rrs.connected_peers.retain(|p| p != &peer_id);
+                rrs.direct_request_seen.remove(&peer_id);
             }
             debug!(%peer_id, num_established, "peer connection closed");
         }
@@ -823,6 +838,8 @@ async fn handle_swarm_event(
 
 /// Timeout for direct request/response exchanges.
 const DIRECT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// Emit a warning if too many direct outbound requests remain pending.
+const DIRECT_REQUEST_PENDING_WARNING_LIMIT: usize = 1_000;
 /// Maximum age for stashed response channels before they are reaped.
 /// Set to 3× `DIRECT_REQUEST_TIMEOUT` to allow headroom for the libp2p protocol
 /// timeout plus importer round-trip, while still bounding memory if the library
@@ -848,12 +865,13 @@ async fn handle_reqresp_event(
     event: rr::Event<B256, Vec<u8>>,
     event_tx: &mpsc::Sender<NetworkEvent>,
     direct_request_rate: &mut RateLimiter,
-    direct_request_seen: &mut WindowedHashTracker,
+    direct_request_seen: &mut HashMap<PeerId, WindowedHashTracker>,
     pending_response_channels: &mut HashMap<
         rr::InboundRequestId,
         (Instant, rr::ResponseChannel<Vec<u8>>),
     >,
     pending_outbound_requests: &mut HashMap<rr::OutboundRequestId, B256>,
+    inbound_validation_state: &GossipsubInboundState,
 ) -> Result<()> {
     // Reap stale channels on every reqresp event to bound memory
     // regardless of which event path triggered the call.
@@ -867,7 +885,8 @@ async fn handle_reqresp_event(
                 // so that a gossip-published hash does not suppress the
                 // corresponding direct request on the same node.
                 let now = Instant::now();
-                if direct_request_seen.is_seen(request, now) ||
+                let peer_seen = direct_request_seen.entry(peer).or_default();
+                if peer_seen.is_seen(request, now) ||
                     !direct_request_rate.allow(peer, now)
                 {
                     // Drop the channel — the peer will time out. This is
@@ -886,7 +905,7 @@ async fn handle_reqresp_event(
                     );
                     return Ok(());
                 }
-                direct_request_seen.mark(request, now);
+                peer_seen.mark(request, now);
 
                 pending_response_channels.insert(request_id, (now, channel));
 
@@ -931,7 +950,38 @@ async fn handle_reqresp_event(
                     (None, "empty")
                 } else {
                     match decode_unsafe_response_message(&response) {
-                        Ok(env) => (Some(env), "decoded"),
+                        Ok(env) => {
+                            if env.execution_payload.block_hash != hash {
+                                metrics::counter!(
+                                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                                    "topic" => "direct_response",
+                                    "result" => "hash_mismatch",
+                                )
+                                .increment(1);
+                                warn!(
+                                    peer = %peer,
+                                    requested = %hash,
+                                    received = %env.execution_payload.block_hash,
+                                    "rejected direct response: block hash does not match request"
+                                );
+                                (None, "hash_mismatch")
+                            } else if !inbound_validation_state.verify_envelope_signer(&env) {
+                                metrics::counter!(
+                                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+                                    "topic" => "direct_response",
+                                    "result" => "signer_rejected",
+                                )
+                                .increment(1);
+                                warn!(
+                                    peer = %peer,
+                                    hash = %hash,
+                                    "rejected direct response: invalid or disallowed signer"
+                                );
+                                (None, "signer_rejected")
+                            } else {
+                                (Some(env), "decoded")
+                            }
+                        }
                         Err(err) => {
                             metrics::counter!(
                                 WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
@@ -1658,6 +1708,209 @@ mod tests {
     }
 
     #[test]
+    fn verify_envelope_signer_accepts_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let state = GossipsubInboundState::new(167_000, false, vec![signer_address]);
+
+        assert!(state.verify_envelope_signer(&envelope));
+    }
+
+    #[test]
+    fn verify_envelope_signer_rejects_non_allowlisted_signer() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let state =
+            GossipsubInboundState::new(167_000, false, vec![Address::from([0x11u8; 20])]);
+
+        assert!(!state.verify_envelope_signer(&envelope));
+    }
+
+    #[test]
+    fn verify_envelope_signer_rejects_missing_signature() {
+        let mut envelope = sample_response_envelope();
+        envelope.signature = None;
+        let state = GossipsubInboundState::new(167_000, true, Vec::new());
+
+        assert!(!state.verify_envelope_signer(&envelope));
+    }
+
+    #[test]
+    fn verify_envelope_signer_rejects_invalid_signature_bytes() {
+        let envelope = sample_response_envelope(); // has signature = Some([0x22; 65])
+        let state = GossipsubInboundState::new(167_000, true, Vec::new());
+
+        // The dummy [0x22; 65] signature will fail ecrecover
+        assert!(!state.verify_envelope_signer(&envelope));
+    }
+
+    #[test]
+    fn verify_envelope_signer_accepts_with_allow_all_sequencers() {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(167_000, &signer);
+        let state = GossipsubInboundState::new(167_000, true, Vec::new());
+
+        assert!(state.verify_envelope_signer(&envelope));
+    }
+
+    /// Create a test-only `OutboundRequestId` via the request/response behaviour API.
+    fn test_outbound_request_id() -> rr::OutboundRequestId {
+        let reqresp_protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let mut reqresp = rr::Behaviour::with_codec(
+            WhitelistReqRespCodec,
+            std::iter::once((reqresp_protocol, rr::ProtocolSupport::Full)),
+            rr::Config::default(),
+        );
+        reqresp.send_request(&PeerId::random(), B256::ZERO)
+    }
+
+    #[tokio::test]
+    async fn handle_reqresp_rejects_direct_response_with_hash_mismatch() {
+        let chain_id = 167_000;
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(chain_id, &signer);
+        let response_bytes = encode_unsafe_response_message(&envelope).expect("encode");
+
+        let (event_tx, mut event_rx) = mpsc::channel(16);
+        let mut rate = RateLimiter::default();
+        let mut seen = HashMap::default();
+        let mut channels = HashMap::new();
+        let mut outbound = HashMap::new();
+        let state = GossipsubInboundState::new(chain_id, false, vec![signer_address]);
+
+        // Use a different hash than the envelope's block_hash
+        let wrong_hash = B256::from([0xffu8; 32]);
+        assert_ne!(wrong_hash, envelope.execution_payload.block_hash);
+
+        let outbound_id = test_outbound_request_id();
+        outbound.insert(outbound_id, wrong_hash);
+
+        let event = rr::Event::Message {
+            peer: PeerId::random(),
+            connection_id: libp2p::swarm::ConnectionId::new_unchecked(0),
+            message: rr::Message::Response { request_id: outbound_id, response: response_bytes },
+        };
+
+        handle_reqresp_event(
+            event,
+            &event_tx,
+            &mut rate,
+            &mut seen,
+            &mut channels,
+            &mut outbound,
+            &state,
+        )
+        .await
+        .expect("handle_reqresp_event should succeed");
+
+        let event = event_rx.recv().await.expect("should receive event");
+        match event {
+            NetworkEvent::DirectResponse { envelope, hash, .. } => {
+                assert!(envelope.is_none(), "hash-mismatched response should be rejected");
+                assert_eq!(hash, wrong_hash);
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn handle_reqresp_rejects_direct_response_with_disallowed_signer() {
+        let chain_id = 167_000;
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let envelope = sample_signed_response_envelope(chain_id, &signer);
+        let block_hash = envelope.execution_payload.block_hash;
+        let response_bytes = encode_unsafe_response_message(&envelope).expect("encode");
+
+        let (event_tx, mut event_rx) = mpsc::channel(16);
+        let mut rate = RateLimiter::default();
+        let mut seen = HashMap::default();
+        let mut channels = HashMap::new();
+        let mut outbound = HashMap::new();
+        // Use a wrong address in the allowlist
+        let state =
+            GossipsubInboundState::new(chain_id, false, vec![Address::from([0x11u8; 20])]);
+
+        let outbound_id = test_outbound_request_id();
+        outbound.insert(outbound_id, block_hash);
+
+        let event = rr::Event::Message {
+            peer: PeerId::random(),
+            connection_id: libp2p::swarm::ConnectionId::new_unchecked(0),
+            message: rr::Message::Response { request_id: outbound_id, response: response_bytes },
+        };
+
+        handle_reqresp_event(
+            event,
+            &event_tx,
+            &mut rate,
+            &mut seen,
+            &mut channels,
+            &mut outbound,
+            &state,
+        )
+        .await
+        .expect("handle_reqresp_event should succeed");
+
+        let event = event_rx.recv().await.expect("should receive event");
+        match event {
+            NetworkEvent::DirectResponse { envelope, hash, .. } => {
+                assert!(envelope.is_none(), "disallowed-signer response should be rejected");
+                assert_eq!(hash, block_hash);
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn handle_reqresp_accepts_valid_direct_response() {
+        let chain_id = 167_000;
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let envelope = sample_signed_response_envelope(chain_id, &signer);
+        let block_hash = envelope.execution_payload.block_hash;
+        let response_bytes = encode_unsafe_response_message(&envelope).expect("encode");
+
+        let (event_tx, mut event_rx) = mpsc::channel(16);
+        let mut rate = RateLimiter::default();
+        let mut seen = HashMap::default();
+        let mut channels = HashMap::new();
+        let mut outbound = HashMap::new();
+        let state = GossipsubInboundState::new(chain_id, false, vec![signer_address]);
+
+        let outbound_id = test_outbound_request_id();
+        outbound.insert(outbound_id, block_hash);
+
+        let event = rr::Event::Message {
+            peer: PeerId::random(),
+            connection_id: libp2p::swarm::ConnectionId::new_unchecked(0),
+            message: rr::Message::Response { request_id: outbound_id, response: response_bytes },
+        };
+
+        handle_reqresp_event(
+            event,
+            &event_tx,
+            &mut rate,
+            &mut seen,
+            &mut channels,
+            &mut outbound,
+            &state,
+        )
+        .await
+        .expect("handle_reqresp_event should succeed");
+
+        let event = event_rx.recv().await.expect("should receive event");
+        match event {
+            NetworkEvent::DirectResponse { envelope: Some(env), hash, .. } => {
+                assert_eq!(hash, block_hash);
+                assert_eq!(env.execution_payload.block_hash, block_hash);
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[test]
     fn classify_bootnodes_splits_enr_and_multiaddr_entries() {
         let input = vec![
             "/ip4/127.0.0.1/tcp/9000/p2p/12D3KooWEhXfLw7BrTHr2VfVki6jPiKG8AqfXw3hNziR6mM2Mz4s"
@@ -2267,6 +2520,14 @@ mod tests {
 
         let dial_addr_b = addr_b.with(libp2p::multiaddr::Protocol::P2p(peer_id_b));
 
+        // Build a properly signed envelope so it passes both hash and signer checks.
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+        let signer_address = signer.address();
+        let expected_envelope = sample_signed_response_envelope(chain_id, &signer);
+        let expected_hash = expected_envelope.execution_payload.block_hash;
+        let response_bytes =
+            encode_unsafe_response_message(&expected_envelope).expect("encode response");
+
         // Start node A (whitelist network) that dials node B.
         let cfg_a = P2pConfig {
             chain_id,
@@ -2274,17 +2535,13 @@ mod tests {
             enable_tcp: true,
             listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
             pre_dial_peers: vec![dial_addr_b],
+            sequencer_addresses: vec![signer_address],
             ..Default::default()
         };
 
         let mut node_a =
             WhitelistNetwork::spawn_with_whitelist_filter(cfg_a).expect("spawn node A");
         let command_tx_a = node_a.command_tx.clone();
-
-        let expected_hash = B256::from([0xddu8; 32]);
-        let expected_envelope = sample_response_envelope();
-        let response_bytes =
-            encode_unsafe_response_message(&expected_envelope).expect("encode response");
 
         // Run both peers concurrently:
         // - Node B: poll swarm, respond to reqresp requests
@@ -2320,11 +2577,8 @@ mod tests {
                         }
                     }
                     event = node_a.event_rx.recv() => {
-                        match event {
-                            Some(NetworkEvent::DirectResponse { envelope: Some(env), .. }) => {
-                                return env;
-                            }
-                            Some(_) | None => {}
+                        if let Some(NetworkEvent::DirectResponse { envelope: Some(env), .. }) = event {
+                            return env;
                         }
                     }
                     _ = interval.tick(), if connected_b => {

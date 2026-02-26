@@ -176,6 +176,22 @@ where
             }
             NetworkEvent::DirectResponse { from, hash, envelope } => {
                 if let Some(envelope) = envelope {
+                    if envelope.execution_payload.block_hash != hash {
+                        warn!(
+                            peer = %from,
+                            requested = %hash,
+                            received = %envelope.execution_payload.block_hash,
+                            "dropping direct response with mismatched block hash"
+                        );
+                        metrics::counter!(
+                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+                            "event_type" => "direct_response",
+                            "result" => "hash_mismatch",
+                        )
+                        .increment(1);
+                        return Ok(());
+                    }
+
                     match self.handle_unsafe_response(envelope).await {
                         Ok(()) => metrics::counter!(
                             WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,

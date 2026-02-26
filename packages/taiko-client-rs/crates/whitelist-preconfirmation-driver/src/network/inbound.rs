@@ -279,6 +279,30 @@ impl GossipsubInboundState {
         self.allow_all_sequencers || self.sequencer_addresses.contains(signer)
     }
 
+    /// Verifies that the envelope carries a valid signature from an allowed sequencer.
+    ///
+    /// This is the signer-only subset of [`validate_response`] and is used by the
+    /// direct reqresp path to reject forged responses at the network layer before
+    /// they reach the importer.
+    pub(crate) fn verify_envelope_signer(
+        &self,
+        envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
+    ) -> bool {
+        let Some(signature) = envelope.signature else {
+            return false;
+        };
+
+        let prehash =
+            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
+
+        let signer = match recover_signer(prehash, &signature) {
+            Ok(signer) => signer,
+            Err(_) => return false,
+        };
+
+        self.sequencer_is_allowed(&signer)
+    }
+
     /// Validates preconfirmation payload semantics and duplicate tracking.
     async fn validate_preconf_block_payload(
         &mut self,
@@ -306,10 +330,6 @@ impl GossipsubInboundState {
         &mut self,
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
     ) -> gossipsub::MessageAcceptance {
-        let Some(signature) = envelope.signature else {
-            return gossipsub::MessageAcceptance::Reject;
-        };
-
         if envelope.execution_payload.transactions.is_empty() ||
             envelope.execution_payload.fee_recipient == Address::ZERO ||
             envelope.execution_payload.block_number == 0
@@ -317,15 +337,7 @@ impl GossipsubInboundState {
             return gossipsub::MessageAcceptance::Reject;
         }
 
-        let prehash =
-            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-
-        let signer = match recover_signer(prehash, &signature) {
-            Ok(signer) => signer,
-            Err(_) => return gossipsub::MessageAcceptance::Reject,
-        };
-
-        if !self.sequencer_is_allowed(&signer) {
+        if !self.verify_envelope_signer(envelope) {
             return gossipsub::MessageAcceptance::Reject;
         }
 
