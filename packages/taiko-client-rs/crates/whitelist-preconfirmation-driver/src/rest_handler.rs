@@ -1,23 +1,17 @@
 //! Whitelist preconfirmation REST/WS API handler implementation.
 
-use std::{
-    collections::HashMap,
-    io::Read,
-    sync::Arc,
-    time::{Instant, SystemTime, UNIX_EPOCH},
-};
+use std::{io::Read, sync::Arc, time::Instant};
 
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,
 };
-use alloy_eips::{BlockId, BlockNumberOrTag};
+use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes};
 use async_trait::async_trait;
-use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use metrics::histogram;
 use protocol::{
@@ -25,10 +19,11 @@ use protocol::{
     signer::FixedKSigner,
 };
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, broadcast, mpsc};
-use tracing::debug;
+use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
+use tracing::{debug, warn};
 
 use crate::{
+    cache::SharedPreconfCacheState,
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
     importer::{
@@ -43,13 +38,13 @@ use crate::{
             LookaheadStatus, SlotRange, WhitelistStatus,
         },
     },
+    whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
 /// Go default handover-skip slots used for sequencing window split.
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
-
 /// Implements the whitelist preconfirmation REST/WS API.
 pub(crate) struct WhitelistRestHandler<P>
 where
@@ -67,43 +62,47 @@ where
     beacon_client: Arc<BeaconClient>,
     /// Channel to publish messages to the P2P network.
     network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Local peer ID string.
-    local_peer_id: String,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
-    /// Preconf whitelist contract used for operator checks.
-    whitelist: PreconfWhitelistInstance<P>,
+    /// Fetcher that provides cached, retry-safe whitelist operator lookups.
+    sequencer_fetcher: Mutex<WhitelistSequencerFetcher<P>>,
+    /// Local peer ID string.
+    local_peer_id: String,
     /// Highest unsafe payload block ID tracked by this node (shared with importer).
     highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
-    /// End-of-sequencing hash cache keyed by epoch.
-    end_of_sequencing_by_epoch: Mutex<HashMap<u64, B256>>,
+    /// Cached lookahead status used for fee-recipient validation.
+    lookahead_status: RwLock<Option<LookaheadStatus>>,
+    /// Shared cache state used to back `/status` and EOS visibility.
+    cache_state: SharedPreconfCacheState,
     /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
-/// Construction parameters for [`WhitelistRestHandler`].
+/// Dependency bundle for constructing `WhitelistRestHandler`.
 pub(crate) struct WhitelistRestHandlerParams<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Event syncer for L1 origin lookups.
-    pub event_syncer: Arc<EventSyncer<P>>,
-    /// RPC client for L1/L2 reads.
-    pub rpc: Client<P>,
-    /// Chain ID for signature domain separation.
-    pub chain_id: u64,
-    /// Deterministic signer for block signing.
-    pub signer: FixedKSigner,
-    /// Beacon client used to derive current epoch values for EOS requests.
-    pub beacon_client: Arc<BeaconClient>,
-    /// Whitelist contract address used for operator checks.
-    pub whitelist_address: Address,
+    /// Shared event syncer used to read the current L1 origin.
+    pub(crate) event_syncer: Arc<EventSyncer<P>>,
+    /// L1/L2 RPC client.
+    pub(crate) rpc: Client<P>,
+    /// Chain ID used for signing and payload hashing.
+    pub(crate) chain_id: u64,
+    /// Signer used for block signing operations.
+    pub(crate) signer: FixedKSigner,
+    /// Beacon client used for epoch calculations.
+    pub(crate) beacon_client: Arc<BeaconClient>,
+    /// Pre-built fetcher for cached whitelist operator lookups.
+    pub(crate) sequencer_fetcher: WhitelistSequencerFetcher<P>,
     /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
-    pub highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
-    /// Channel used to publish messages to the P2P network.
-    pub network_command_tx: mpsc::Sender<NetworkCommand>,
+    pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+    /// Network command sender for gossip publishing.
+    pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
+    /// Shared preconfirmation cache state.
+    pub(crate) cache_state: SharedPreconfCacheState,
     /// Local peer ID string.
-    pub local_peer_id: String,
+    pub(crate) local_peer_id: String,
 }
 
 impl<P> WhitelistRestHandler<P>
@@ -111,19 +110,20 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Create a new REST/WS handler.
-    pub(crate) fn new(params: WhitelistRestHandlerParams<P>) -> Self {
-        let WhitelistRestHandlerParams {
+    pub(crate) fn new(
+        WhitelistRestHandlerParams {
             event_syncer,
             rpc,
             chain_id,
             signer,
             beacon_client,
-            whitelist_address,
+            sequencer_fetcher,
             highest_unsafe_l2_payload_block_id,
             network_command_tx,
+            cache_state,
             local_peer_id,
-        } = params;
-        let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
+        }: WhitelistRestHandlerParams<P>,
+    ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
             event_syncer,
@@ -131,12 +131,13 @@ where
             chain_id,
             signer,
             beacon_client,
-            whitelist,
+            sequencer_fetcher: Mutex::new(sequencer_fetcher),
+            local_peer_id,
             highest_unsafe_l2_payload_block_id,
-            end_of_sequencing_by_epoch: Mutex::new(HashMap::new()),
+            lookahead_status: RwLock::new(None),
+            cache_state,
             eos_notification_tx,
             network_command_tx,
-            local_peer_id,
             build_preconf_lock: Mutex::new(()),
         }
     }
@@ -258,78 +259,101 @@ where
         )
     }
 
-    /// Check fee recipient against current/next whitelist operator addresses.
+    /// Check fee recipient against current/next operator sequencing ranges.
     async fn ensure_fee_recipient_allowed(&self, fee_recipient: Address) -> Result<()> {
-        let (current, next) = self.fetch_current_next_sequencers().await?;
-        if fee_recipient == current || fee_recipient == next {
+        let current_slot = self.beacon_client.current_slot();
+        self.ensure_fee_recipient_allowed_for_slot(fee_recipient, current_slot).await
+    }
+
+    /// Check fee recipient against a specific slot's sequencing ranges.
+    async fn ensure_fee_recipient_allowed_for_slot(
+        &self,
+        fee_recipient: Address,
+        current_slot: u64,
+    ) -> Result<()> {
+        let mut lookahead = {
+            let cached_lookahead = self.lookahead_status.read().await;
+            if let Some(lookahead) = cached_lookahead.as_ref() {
+                if Self::lookahead_slot_covers(current_slot, lookahead) {
+                    Some(lookahead.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        if lookahead.is_none() {
+            let fresh = self.compute_lookahead_status().await?;
+            *self.lookahead_status.write().await = Some(fresh.clone());
+            lookahead = Some(fresh);
+        }
+
+        let lookahead = lookahead.expect("lookahead cache must be initialized");
+
+        if lookahead.curr_ranges.is_empty() && lookahead.next_ranges.is_empty() {
+            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
+                "lookahead metadata missing operator ranges".to_string(),
+            ));
+        }
+
+        if is_fee_recipient_allowed_for_slot(fee_recipient, current_slot, &lookahead) {
             return Ok(());
         }
 
+        let reason = if slot_matches_range(current_slot, &lookahead.curr_ranges) {
+            "current"
+        } else if slot_matches_range(current_slot, &lookahead.next_ranges) {
+            "next"
+        } else {
+            "current or next"
+        };
+
         Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "fee recipient {fee_recipient} is not current ({current}) or next ({next}) operator"
+            "fee recipient {fee_recipient} is not allowed as the {reason} operator for slot {current_slot}"
         )))
     }
 
-    /// Fetch current and next sequencer addresses pinned to a single L1 block number.
-    async fn fetch_current_next_sequencers(&self) -> Result<(Address, Address)> {
-        let latest_block = self
-            .rpc
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(provider_err)?
-            .ok_or_else(|| {
-                WhitelistPreconfirmationDriverError::WhitelistLookup(
-                    "missing latest L1 block while fetching whitelist operators".to_string(),
-                )
+    /// Check whether the given slot falls within any current or next lookahead range.
+    fn lookahead_slot_covers(slot: u64, lookahead: &LookaheadStatus) -> bool {
+        slot_matches_range(slot, &lookahead.curr_ranges) ||
+            slot_matches_range(slot, &lookahead.next_ranges)
+    }
+
+    /// Build best-effort Go-compatible lookahead status using the shared sequencer fetcher.
+    ///
+    /// Derives the epoch from the contract's `epochStartTimestamp`, ensuring that
+    /// slot ranges and operator addresses are consistent even at epoch boundaries.
+    async fn compute_lookahead_status(&self) -> Result<LookaheadStatus> {
+        let mut fetcher = self.sequencer_fetcher.lock().await;
+        let cached =
+            fetcher.cached_whitelist_sequencers(Instant::now()).await.inspect_err(|err| {
+                warn!(
+                    error = %err,
+                    "failed to fetch lookahead operator metadata"
+                );
             })?;
 
-        let block_id = BlockId::Number(latest_block.header.number.into());
-        let current_proposer = self
-            .whitelist
-            .getOperatorForCurrentEpoch()
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?;
-        let next_proposer = self
-            .whitelist
-            .getOperatorForNextEpoch()
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?;
-
-        let current = self
-            .whitelist
-            .operators(current_proposer)
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?
-            .sequencerAddress;
-        let next = self
-            .whitelist
-            .operators(next_proposer)
-            .block(block_id)
-            .call()
-            .await
-            .map_err(provider_err)?
-            .sequencerAddress;
-
-        if current == Address::ZERO || next == Address::ZERO {
+        if cached.current == Address::ZERO || cached.next == Address::ZERO {
             return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
                 "received zero address while fetching whitelist operators".to_string(),
             ));
         }
 
-        Ok((current, next))
-    }
+        let epoch_start_timestamp =
+            fetcher.sequencer_cache.current_epoch_start_timestamp().ok_or_else(|| {
+                WhitelistPreconfirmationDriverError::WhitelistLookup(
+                    "epoch start timestamp unavailable after whitelist fetch".to_string(),
+                )
+            })?;
 
-    /// Build best-effort Go-compatible lookahead status.
-    async fn current_lookahead_status(&self) -> Option<LookaheadStatus> {
-        let (curr_operator, next_operator) = self.fetch_current_next_sequencers().await.ok()?;
-        let current_epoch = self.beacon_client.current_epoch();
+        let current_epoch =
+            self.beacon_client.timestamp_to_epoch(epoch_start_timestamp).map_err(|e| {
+                WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    "failed to derive epoch from epoch start timestamp {epoch_start_timestamp}: {e}"
+                ))
+            })?;
         let slots_per_epoch = self.beacon_client.slots_per_epoch();
         let handover_skip_slots = DEFAULT_HANDOVER_SKIP_SLOTS.min(slots_per_epoch);
         let threshold = slots_per_epoch.saturating_sub(handover_skip_slots);
@@ -342,16 +366,11 @@ where
             end: epoch_start.saturating_add(slots_per_epoch),
         }];
 
-        let updated_at =
-            SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or_default();
-
-        Some(LookaheadStatus {
-            curr_operator,
-            next_operator,
+        Ok(LookaheadStatus {
+            curr_operator: cached.current,
+            next_operator: cached.next,
             curr_ranges,
             next_ranges,
-            updated_at,
-            last_updated_epoch: current_epoch,
         })
     }
 
@@ -359,6 +378,23 @@ where
     async fn update_highest_unsafe(&self, block_number: u64) {
         *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
     }
+}
+
+/// Check if a slot is contained by any of the allowed ranges.
+fn slot_matches_range(slot: u64, ranges: &[SlotRange]) -> bool {
+    ranges.iter().any(|range| slot >= range.start && slot < range.end)
+}
+
+/// Return true when fee recipient matches any operator for current/next range.
+fn is_fee_recipient_allowed_for_slot(
+    fee_recipient: Address,
+    current_slot: u64,
+    lookahead: &LookaheadStatus,
+) -> bool {
+    (fee_recipient == lookahead.curr_operator &&
+        slot_matches_range(current_slot, &lookahead.curr_ranges)) ||
+        (fee_recipient == lookahead.next_operator &&
+            slot_matches_range(current_slot, &lookahead.next_ranges))
 }
 
 #[async_trait]
@@ -488,12 +524,23 @@ where
 
         // If end-of-sequencing, also publish the EOS request.
         if request.end_of_sequencing.unwrap_or(false) {
-            let epoch = self.beacon_client.current_epoch();
-            self.end_of_sequencing_by_epoch.lock().await.insert(epoch, block_hash);
-            let _ = self.eos_notification_tx.send(EndOfSequencingNotification {
-                current_epoch: epoch,
-                end_of_sequencing: true,
-            });
+            let epoch = self.beacon_client.timestamp_to_epoch(request.timestamp).map_err(|e| {
+                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                    "failed to derive epoch from block timestamp {}: {e}",
+                    request.timestamp
+                ))
+            })?;
+            self.cache_state.record_end_of_sequencing(epoch, block_hash).await;
+            if let Err(err) = self
+                .eos_notification_tx
+                .send(EndOfSequencingNotification { current_epoch: epoch, end_of_sequencing: true })
+            {
+                warn!(
+                    error = %err,
+                    current_epoch = epoch,
+                    "failed to deliver end-of-sequencing websocket notification"
+                );
+            }
             self.network_command_tx
                 .send(NetworkCommand::PublishEndOfSequencingRequest { epoch })
                 .await
@@ -509,32 +556,27 @@ where
         )
         .record(started_at.elapsed().as_secs_f64());
 
-        Ok(BuildPreconfBlockResponse { block_hash, block_number, block_header: Some(block_header) })
+        Ok(BuildPreconfBlockResponse { block_header })
     }
 
     async fn get_status(&self) -> Result<WhitelistStatus> {
-        let head_l1_origin_block_id =
-            self.rpc.head_l1_origin().await?.map(|h| h.block_id.to::<u64>());
+        let head_l1_origin = self.rpc.head_l1_origin().await?;
         let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
-            .end_of_sequencing_by_epoch
-            .lock()
+            .cache_state
+            .end_of_sequencing_for_epoch(current_epoch)
             .await
-            .get(&current_epoch)
-            .copied()
             .map(|hash| hash.to_string());
         // sync_ready reflects ingress readiness, which already includes the confirmed-sync
         // and scanner-live checks required by the event syncer.
         let sync_ready = self.event_syncer.is_preconf_ingress_ready();
 
         Ok(WhitelistStatus {
-            head_l1_origin_block_id,
+            head_l1_origin_block_id: head_l1_origin.as_ref().map(|o| o.block_id.to::<u64>()),
             highest_unsafe_block_number: highest_unsafe,
             peer_id: self.local_peer_id.clone(),
             sync_ready,
-            lookahead: self.current_lookahead_status().await,
-            total_cached: 0,
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,
         })
@@ -631,5 +673,33 @@ mod tests {
         let compressed = compress(&expected);
         let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
         assert_eq!(decoded, expected);
+    }
+
+    #[test]
+    fn slot_matches_range_checks_slot_bounds() {
+        let ranges = vec![SlotRange { start: 10, end: 20 }, SlotRange { start: 30, end: 40 }];
+
+        assert!(slot_matches_range(10, &ranges));
+        assert!(slot_matches_range(19, &ranges));
+        assert!(!slot_matches_range(20, &ranges));
+        assert!(!slot_matches_range(25, &ranges));
+        assert!(slot_matches_range(30, &ranges));
+        assert!(!slot_matches_range(40, &ranges));
+    }
+
+    #[test]
+    fn fee_recipient_allowed_for_slot_matches_only_assigned_operator() {
+        let lookahead = LookaheadStatus {
+            curr_operator: Address::from([0x11u8; 20]),
+            next_operator: Address::from([0x22u8; 20]),
+            curr_ranges: vec![SlotRange { start: 10, end: 20 }],
+            next_ranges: vec![SlotRange { start: 20, end: 30 }],
+        };
+
+        assert!(is_fee_recipient_allowed_for_slot(Address::from([0x11u8; 20]), 15, &lookahead));
+        assert!(is_fee_recipient_allowed_for_slot(Address::from([0x22u8; 20]), 25, &lookahead));
+        assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x33u8; 20]), 15, &lookahead));
+        assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x11u8; 20]), 25, &lookahead));
+        assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x22u8; 20]), 15, &lookahead));
     }
 }

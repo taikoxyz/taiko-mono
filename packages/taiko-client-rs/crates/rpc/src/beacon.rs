@@ -332,6 +332,11 @@ impl BeaconClient {
         Ok((timestamp - self.genesis_time) / self.seconds_per_slot)
     }
 
+    /// Convert a timestamp to a beacon epoch.
+    pub fn timestamp_to_epoch(&self, timestamp: u64) -> Result<u64, BlobDataError> {
+        Ok(self.timestamp_to_slot(timestamp)? / self.slots_per_epoch)
+    }
+
     /// Return the current beacon slot based on local wall-clock time.
     ///
     /// Mirrors the Go driver implementation:

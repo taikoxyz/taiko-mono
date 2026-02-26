@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use alloy_primitives::B256;
 use alloy_provider::Provider;
+use tracing::debug;
 
 use crate::{
     codec::{
@@ -61,8 +62,30 @@ where
         }
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope);
+        self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
+
+        if envelope.end_of_sequencing.unwrap_or(false) {
+            match self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp) {
+                Ok(epoch) => {
+                    debug!(
+                        epoch,
+                        hash = %envelope.execution_payload.block_hash,
+                        "recording end-of-sequencing envelope for epoch on payload ingress"
+                    );
+                    self.cache_state
+                        .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
+                        .await;
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        timestamp = envelope.execution_payload.timestamp,
+                        error = %err,
+                        "failed to derive epoch from payload timestamp for EOS recording"
+                    );
+                }
+            }
+        }
 
         Ok(())
     }
@@ -120,8 +143,31 @@ where
 
         let envelope = Arc::new(envelope);
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope);
+        self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
+
+        if envelope.end_of_sequencing.unwrap_or(false) {
+            match self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp) {
+                Ok(epoch) => {
+                    debug!(
+                        epoch,
+                        hash = %envelope.execution_payload.block_hash,
+                        "recording end-of-sequencing envelope for epoch on response ingress"
+                    );
+                    self.cache_state
+                        .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
+                        .await;
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        timestamp = envelope.execution_payload.timestamp,
+                        error = %err,
+                        "failed to derive epoch from response timestamp for EOS recording"
+                    );
+                }
+            }
+        }
+
         Ok(())
     }
 
