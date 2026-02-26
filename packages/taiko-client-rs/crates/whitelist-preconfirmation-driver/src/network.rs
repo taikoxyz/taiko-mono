@@ -886,9 +886,7 @@ async fn handle_reqresp_event(
                 // corresponding direct request on the same node.
                 let now = Instant::now();
                 let peer_seen = direct_request_seen.entry(peer).or_default();
-                if peer_seen.is_seen(request, now) ||
-                    !direct_request_rate.allow(peer, now)
-                {
+                if peer_seen.is_seen(request, now) || !direct_request_rate.allow(peer, now) {
                     // Drop the channel — the peer will time out. This is
                     // intentional: responding to rate-limited requests would
                     // still reward the spammer with data.
@@ -1734,8 +1732,7 @@ mod tests {
     fn verify_envelope_signer_rejects_non_allowlisted_signer() {
         let signer = FixedKSigner::golden_touch().expect("golden touch signer");
         let envelope = sample_signed_response_envelope(167_000, &signer);
-        let state =
-            GossipsubInboundState::new(167_000, false, vec![Address::from([0x11u8; 20])]);
+        let state = GossipsubInboundState::new(167_000, false, vec![Address::from([0x11u8; 20])]);
 
         assert!(!state.verify_envelope_signer(&envelope));
     }
@@ -1842,8 +1839,7 @@ mod tests {
         let mut channels = HashMap::new();
         let mut outbound = HashMap::new();
         // Use a wrong address in the allowlist
-        let state =
-            GossipsubInboundState::new(chain_id, false, vec![Address::from([0x11u8; 20])]);
+        let state = GossipsubInboundState::new(chain_id, false, vec![Address::from([0x11u8; 20])]);
 
         let outbound_id = test_outbound_request_id();
         outbound.insert(outbound_id, block_hash);

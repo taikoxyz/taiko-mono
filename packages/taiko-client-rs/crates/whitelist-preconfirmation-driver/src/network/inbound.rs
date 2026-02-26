@@ -285,9 +285,9 @@ impl GossipsubInboundState {
     pub(crate) fn validate_response_shape(
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
     ) -> bool {
-        !envelope.execution_payload.transactions.is_empty()
-            && envelope.execution_payload.fee_recipient != Address::ZERO
-            && envelope.execution_payload.block_number != 0
+        !envelope.execution_payload.transactions.is_empty() &&
+            envelope.execution_payload.fee_recipient != Address::ZERO &&
+            envelope.execution_payload.block_number != 0
     }
 
     /// Verifies that the envelope carries a valid signature from an allowed sequencer.
