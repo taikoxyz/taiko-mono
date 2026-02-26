@@ -31,6 +31,7 @@ Use CLI flags or environment variables:
 - `duplicate_block_notifications_total`
 - `last_block_age_seconds`
 - `last_block_number`
+- `current_preconfer_info`
 
 ## Run locally
 

@@ -1,8 +1,12 @@
-use std::{convert::TryFrom, sync::Once};
+use std::{
+    convert::TryFrom,
+    sync::{Mutex, Once},
+};
 
+use alloy::primitives::Address;
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use once_cell::sync::Lazy;
-use prometheus::{Encoder, IntCounter, IntGauge, Registry, core::Collector};
+use prometheus::{Encoder, IntCounter, IntGauge, IntGaugeVec, Opts, Registry, core::Collector};
 
 static REGISTRY: Lazy<Registry> = Lazy::new(Registry::new);
 static METRICS_INIT: Once = Once::new();
@@ -54,6 +58,16 @@ static LAST_REORGED_TO: Lazy<IntGauge> = Lazy::new(|| {
     new_int_gauge("last_reorged_to", "Revert height of the latest reorg (-1 when unknown)")
 });
 
+static CURRENT_PRECONFER_INFO: Lazy<IntGaugeVec> = Lazy::new(|| {
+    new_int_gauge_vec(
+        "current_preconfer_info",
+        "Marker metric with value 1 for current preconfer address",
+        &["preconfer"],
+    )
+});
+// mutable Option<String> to remember previous preconfer address
+static CURRENT_PRECONFER_LABEL: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+
 fn new_int_counter(name: &str, help: &str) -> IntCounter {
     match IntCounter::new(name, help) {
         Ok(metric) => metric,
@@ -63,6 +77,13 @@ fn new_int_counter(name: &str, help: &str) -> IntCounter {
 
 fn new_int_gauge(name: &str, help: &str) -> IntGauge {
     match IntGauge::new(name, help) {
+        Ok(metric) => metric,
+        Err(error) => panic!("failed to create metric {name}: {error}"),
+    }
+}
+
+fn new_int_gauge_vec(name: &str, help: &str, labels: &[&str]) -> IntGaugeVec {
+    match IntGaugeVec::new(Opts::new(name, help), labels) {
         Ok(metric) => metric,
         Err(error) => panic!("failed to create metric {name}: {error}"),
     }
@@ -107,6 +128,7 @@ pub fn init() {
         register_metric("last_block_number", Box::new(LAST_BLOCK_NUMBER.clone()));
         register_metric("reorg_depth_blocks", Box::new(REORG_DEPTH_BLOCKS.clone()));
         register_metric("last_reorged_to", Box::new(LAST_REORGED_TO.clone()));
+        register_metric("current_preconfer_info", Box::new(CURRENT_PRECONFER_INFO.clone()));
     });
 }
 
@@ -151,6 +173,28 @@ pub fn set_last_block_age_seconds(seconds: u64) {
 
 pub fn set_last_block_number(block_number: u64) {
     LAST_BLOCK_NUMBER.set(clamp_u64_to_i64(block_number));
+}
+
+pub fn set_curr_preconfer(address: Address) {
+    let label = address.to_string();
+    // lock shared state
+    let mut guard = match CURRENT_PRECONFER_LABEL.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    // if preconfer is unchanged, just set gauge to 1 and exit
+    if guard.as_deref() == Some(label.as_str()) {
+        CURRENT_PRECONFER_INFO.with_label_values(&[label.as_str()]).set(1);
+        return;
+    }
+    // remove old label (if any)
+    if let Some(prev) = guard.as_ref() {
+        let _ = CURRENT_PRECONFER_INFO.remove_label_values(&[prev.as_str()]);
+    }
+    // set new current label series
+    CURRENT_PRECONFER_INFO.with_label_values(&[label.as_str()]).set(1);
+    // update locked state
+    *guard = Some(label);
 }
 
 pub fn note_reorg(depth: usize, reverted_to: Option<u64>) {

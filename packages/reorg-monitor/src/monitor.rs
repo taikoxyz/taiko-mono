@@ -89,6 +89,7 @@ impl ReorgMonitor {
 
                                             metrics::inc_l2_blocks();
                                             metrics::set_last_block_number(tracked_block.number);
+                                            metrics::set_curr_preconfer(tracked_block.coinbase);
                                             last_block_seen = Instant::now();
                                             metrics::set_last_block_age_seconds(0);
 
