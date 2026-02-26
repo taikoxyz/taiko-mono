@@ -58,7 +58,7 @@ async fn out_of_order_blocks_buffered_and_submitted_in_order(
         preconfirmation_driver::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
     let mut events = internal_client.subscribe();
 
-    let mut event_loop = internal_client.sync_and_catchup().await?;
+    let mut event_loop = internal_client.sync_and_catchup(tokio::sync::mpsc::channel(1).1).await?;
     let event_loop_handle = tokio::spawn(async move { event_loop.run().await });
 
     wait_for_peer_connected(&mut events).await;
@@ -169,7 +169,7 @@ async fn partial_gap_filled_triggers_submission(env: &mut ShastaEnv) -> anyhow::
         preconfirmation_driver::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
     let mut events = internal_client.subscribe();
 
-    let mut event_loop = internal_client.sync_and_catchup().await?;
+    let mut event_loop = internal_client.sync_and_catchup(tokio::sync::mpsc::channel(1).1).await?;
     let event_loop_handle = tokio::spawn(async move { event_loop.run().await });
 
     wait_for_peer_connected(&mut events).await;

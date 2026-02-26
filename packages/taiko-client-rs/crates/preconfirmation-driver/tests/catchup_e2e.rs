@@ -80,7 +80,7 @@ async fn catchup_backfills_and_fetches_txlists(env: &mut ShastaEnv) -> anyhow::R
     let internal_client = PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
     let mut events = internal_client.subscribe();
 
-    let mut event_loop = internal_client.sync_and_catchup().await?;
+    let mut event_loop = internal_client.sync_and_catchup(tokio::sync::mpsc::channel(1).1).await?;
     let event_loop_handle = tokio::spawn(async move { event_loop.run().await });
 
     wait_for_peer_connected(&mut events).await;

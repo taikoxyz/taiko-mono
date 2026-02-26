@@ -4,12 +4,13 @@ use std::sync::Arc;
 
 use alloy_primitives::U256;
 use async_trait::async_trait;
-use preconfirmation_net::NetworkCommand;
+use preconfirmation_net::{NetworkCommand, NetworkEvent, PeerId};
 use tokio::sync::mpsc;
 
 use crate::{
     Result,
     driver_interface::{DriverClient, InboxReader},
+    error::PreconfirmationClientError,
     rpc::{
         NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishCommitmentRequest,
         PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
@@ -25,10 +26,14 @@ pub(crate) struct RunnerRpcApiImpl<I: InboxReader> {
     driver: Arc<dyn DriverClient>,
     /// Local peer id string reported over RPC.
     local_peer_id: String,
+    /// Local peer ID used as the `from` field in loopback events.
+    local_peer_id_peer: PeerId,
     /// Inbox reader used to determine sync status.
     inbox_reader: I,
     /// Lookahead resolver for slot info by timestamp.
     lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
+    /// Loopback channel for emitting gossip events back to the local event loop.
+    loopback_tx: mpsc::Sender<NetworkEvent>,
 }
 
 impl<I: InboxReader> RunnerRpcApiImpl<I> {
@@ -37,29 +42,67 @@ impl<I: InboxReader> RunnerRpcApiImpl<I> {
         command_tx: mpsc::Sender<NetworkCommand>,
         driver: Arc<dyn DriverClient>,
         local_peer_id: String,
+        local_peer_id_peer: PeerId,
         inbox_reader: I,
         lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
+        loopback_tx: mpsc::Sender<NetworkEvent>,
     ) -> Self {
-        Self { command_tx, driver, local_peer_id, inbox_reader, lookahead_resolver }
+        Self {
+            command_tx,
+            driver,
+            local_peer_id,
+            local_peer_id_peer,
+            inbox_reader,
+            lookahead_resolver,
+            loopback_tx,
+        }
     }
 }
 
 #[async_trait]
 impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
     /// Publish a preconfirmation commitment to the P2P network.
+    ///
+    /// Also emits the commitment as a local loopback event so the local event
+    /// handler processes it. Gossipsub does not deliver a node's own published
+    /// messages back to it, so the loopback is the only local delivery path —
+    /// there is no risk of duplicate processing even when the node has peers.
     async fn publish_commitment(
         &self,
         request: PublishCommitmentRequest,
     ) -> Result<PublishCommitmentResponse> {
-        publish_commitment_impl(&self.command_tx, request).await
+        let (response, commitment) = publish_commitment_impl(&self.command_tx, request).await?;
+
+        let event = NetworkEvent::GossipSignedCommitment {
+            from: self.local_peer_id_peer,
+            msg: Box::new(commitment),
+        };
+        self.loopback_tx.send(event).await.map_err(|e| {
+            PreconfirmationClientError::Network(format!("loopback commitment send failed: {e}"))
+        })?;
+
+        Ok(response)
     }
 
     /// Publish a raw tx list to the P2P network after hash validation.
+    ///
+    /// Also emits the txlist as a local loopback event so the local event
+    /// handler processes it.
     async fn publish_tx_list(
         &self,
         request: PublishTxListRequest,
     ) -> Result<PublishTxListResponse> {
-        publish_tx_list_impl(&self.command_tx, request).await
+        let (response, gossip) = publish_tx_list_impl(&self.command_tx, request).await?;
+
+        let event = NetworkEvent::GossipRawTxList {
+            from: self.local_peer_id_peer,
+            msg: Box::new(gossip),
+        };
+        self.loopback_tx.send(event).await.map_err(|e| {
+            PreconfirmationClientError::Network(format!("loopback txlist send failed: {e}"))
+        })?;
+
+        Ok(response)
     }
 
     /// Return node status including sync state, tips, and peer identity.
@@ -218,8 +261,10 @@ mod tests {
             command_tx,
             driver,
             "peer".to_string(),
+            preconfirmation_net::PeerId::random(),
             inbox_reader,
             Arc::new(MockLookaheadResolver),
+            tokio::sync::mpsc::channel(16).0,
         );
 
         let status = api.get_status().await.unwrap();

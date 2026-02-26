@@ -120,7 +120,8 @@ where
 
     let client = PreconfirmationClient::new(p2p_cfg, driver_client)?;
     let events = client.subscribe();
-    let mut event_loop = client.sync_and_catchup().await?;
+    let (_loopback_tx, loopback_rx) = tokio::sync::mpsc::channel(1);
+    let mut event_loop = client.sync_and_catchup(loopback_rx).await?;
 
     let (task, result_rx) = if config.with_result_channel {
         let (tx, rx) = oneshot::channel();
