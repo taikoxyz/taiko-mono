@@ -153,15 +153,15 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
-	originBlockNumber := uint64(1000)
-	parentAnchorBlockNumber := uint64(900)
+	originBlockNumber := uint64(manifest.AnchorMaxOffset + 1000)
+	parentAnchorBlockNumber := originBlockNumber - 100
 	proposalID := testutils.RandomHash().Big()
 
 	// Test 1: Non-monotonic progression - should be adjusted and return false (no progression)
 	sourcePayload := &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
-				AnchorBlockNumber: 850, // Less than parent, should be adjusted
+				AnchorBlockNumber: parentAnchorBlockNumber - 1, // Less than parent, should be adjusted
 			}},
 		},
 	}
@@ -172,7 +172,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 
 	// Test 2: Future reference - should be adjusted and return false (no progression)
-	futureAnchor := originBlockNumber - manifest.AnchorMinOffset + 1 // 999, violates future reference
+	futureAnchor := originBlockNumber - uint64(manifest.AnchorMinOffset) + 1
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -186,7 +186,8 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 
 	// Test 3: Excessive lag - should be adjusted and return false (no progression)
-	lagAnchor := originBlockNumber - manifest.AnchorMaxOffset - 1 // 871, excessive lag
+	parentAnchorForLag := originBlockNumber - uint64(manifest.AnchorMaxOffset) - 20
+	lagAnchor := originBlockNumber - uint64(manifest.AnchorMaxOffset) - 1
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -195,12 +196,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		},
 	}
 
-	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
+	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorForLag, proposal, false)
 	s.False(result) // Should return false since no progression beyond parent
-	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
+	s.Equal(parentAnchorForLag, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 
 	// Test 4: Valid anchor block number - should remain unchanged
-	validAnchor := uint64(950) // Between parent (900) and max allowed (998)
+	validAnchor := parentAnchorBlockNumber + 1
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
