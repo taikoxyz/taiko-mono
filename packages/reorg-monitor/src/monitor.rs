@@ -1,6 +1,7 @@
 use std::time::{Duration, Instant};
 
 use alloy::{
+    primitives::Address,
     providers::{Provider, ProviderBuilder, WsConnect},
     transports::http::reqwest::Url,
 };
@@ -10,18 +11,57 @@ use tokio::time::{interval, sleep};
 use tracing::{debug, info, warn};
 
 use crate::{
-    metrics,
+    bindings, metrics,
     monitor_reorg::{ChainReorgTracker, TrackedBlock},
 };
+
+#[derive(Clone, Debug)]
+pub struct PreconfSource {
+    pub l1_http_url: Url,
+    pub whitelist_address: Address,
+}
 
 pub struct ReorgMonitor {
     l2_ws_url: Url,
     reorg_history_depth: usize,
+    preconf_source: Option<PreconfSource>,
 }
 
 impl ReorgMonitor {
-    pub fn new(l2_ws_url: Url, reorg_history_depth: usize) -> Self {
-        Self { l2_ws_url, reorg_history_depth: reorg_history_depth.max(1) }
+    pub fn new(
+        l2_ws_url: Url,
+        reorg_history_depth: usize,
+        preconf_source: Option<PreconfSource>,
+    ) -> Self {
+        Self { l2_ws_url, reorg_history_depth: reorg_history_depth.max(1), preconf_source }
+    }
+
+    fn spawn_preconfer_poller(&self) {
+        let Some(preconf_source) = self.preconf_source.clone() else {
+            return;
+        };
+
+        tokio::spawn(async move {
+            let provider = ProviderBuilder::new().connect_http(preconf_source.l1_http_url.clone());
+            let whitelist =
+                bindings::IPreconfWhitelist::new(preconf_source.whitelist_address, provider);
+            let mut ticker = interval(Duration::from_secs(2));
+
+            loop {
+                ticker.tick().await;
+                match whitelist.getOperatorForCurrentEpoch().call().await {
+                    Ok(current_operator) => {
+                        metrics::set_curr_preconfer(current_operator);
+                    }
+                    Err(error) => {
+                        warn!(
+                            whitelist_address = ?preconf_source.whitelist_address,
+                            "Failed to poll getOperatorForCurrentEpoch: {error}"
+                        );
+                    }
+                }
+            }
+        });
     }
 
     pub async fn run(&self) -> Result<()> {
@@ -29,6 +69,16 @@ impl ReorgMonitor {
             "Running reorg monitor at {} (history depth {})",
             self.l2_ws_url, self.reorg_history_depth
         );
+        if let Some(preconf_source) = self.preconf_source.as_ref() {
+            info!(
+                whitelist_address = ?preconf_source.whitelist_address,
+                l1_http_url = %preconf_source.l1_http_url,
+                "current_preconfer_info source is whitelist getOperatorForCurrentEpoch",
+            );
+            self.spawn_preconfer_poller();
+        } else {
+            info!("current_preconfer_info source is latest L2 block beneficiary (coinbase)");
+        }
 
         let mut reorg_tracker = ChainReorgTracker::new(self.reorg_history_depth);
         let mut last_block_seen = Instant::now();
@@ -89,7 +139,9 @@ impl ReorgMonitor {
 
                                             metrics::inc_l2_blocks();
                                             metrics::set_last_block_number(tracked_block.number);
-                                            metrics::set_curr_preconfer(tracked_block.coinbase);
+                                            if self.preconf_source.is_none() {
+                                                metrics::set_curr_preconfer(tracked_block.coinbase);
+                                            }
                                             last_block_seen = Instant::now();
                                             metrics::set_last_block_age_seconds(0);
 

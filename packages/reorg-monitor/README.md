@@ -16,8 +16,10 @@ reorgs and exports Prometheus metrics.
 Use CLI flags or environment variables:
 
 - `L2_WS_URL` / `--l2-ws-url` (default `ws://localhost:8546`)
-- `HTTP_PORT` / `--server-port` (default `8080`)
+- `HTTP_PORT` / `--http-port` (default `8080`)
 - `REORG_HISTORY_DEPTH` / `--reorg-history-depth` (default `768`)
+- `L1_HTTP_URL` / `--l1-http-url` (optional, required with whitelist address)
+- `PRECONF_WHITELIST_ADDRESS` / `--preconf-whitelist-address` (optional, required with L1 HTTP URL)
 
 ## Metrics
 
@@ -31,7 +33,8 @@ Use CLI flags or environment variables:
 - `duplicate_block_notifications_total`
 - `last_block_age_seconds`
 - `last_block_number`
-- `current_preconfer_info`
+- `current_preconfer_info` (from `getOperatorForCurrentEpoch` when whitelist config is provided,
+  otherwise latest L2 block `coinbase`)
 
 ## Run locally
 
@@ -44,6 +47,6 @@ Or with explicit args:
 ```bash
 cargo run --bin reorg-monitor -- \
   --l2-ws-url ws://localhost:8546 \
-  --server-port 8080 \
+  --http-port 8080 \
   --reorg-history-depth 768
 ```
