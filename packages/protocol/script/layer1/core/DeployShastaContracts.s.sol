@@ -88,7 +88,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         );
         console2.log("MainnetVerifier deployed:", proofVerifier);
 
-        address preconfWhitelist = address(new PreconfWhitelist());
+        address preconfWhitelist = address(new PreconfWhitelist(config.contractOwner));
         console2.log("PreconfWhitelist deployed:", preconfWhitelist);
 
         // Set `msg.sender` as the owner by setting the owner to address(0)

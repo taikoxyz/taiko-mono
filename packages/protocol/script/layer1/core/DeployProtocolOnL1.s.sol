@@ -47,6 +47,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     struct DeploymentConfig {
         address contractOwner;
+        address ejectorManager;
         bytes32 l2GenesisHash;
         uint64 l2ChainId;
         address sharedResolver;
@@ -98,6 +99,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function _loadConfig() private view returns (DeploymentConfig memory config) {
         config.contractOwner = vm.envAddress("CONTRACT_OWNER");
+        config.ejectorManager = vm.envOr("EJECTOR_MANAGER", config.contractOwner);
         config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
@@ -174,11 +176,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (whitelist == address(0)) {
             whitelist = deployProxy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(config.ejectorManager)),
                 data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
             });
         } else {
-            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
+            PreconfWhitelist(whitelist).upgradeTo(
+                address(new PreconfWhitelist(config.ejectorManager))
+            );
         }
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
