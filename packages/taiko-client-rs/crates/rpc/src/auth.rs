@@ -6,7 +6,6 @@ use alethia_reth_primitives::{
     engine::types::TaikoExecutionDataSidecar,
     payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
 };
-use alethia_reth_rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList;
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::{
@@ -14,13 +13,31 @@ use alloy_rpc_types_engine::{
     PayloadId, PayloadStatus,
 };
 use anyhow::anyhow;
+use serde::Deserialize;
 use serde_json::Value;
 
 use super::client::Client;
 use crate::error::{Result, RpcClientError};
 
-/// Re-export of Taiko's pre-built transaction list type using untyped transactions.
-pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
+/// Taiko's pre-built transaction list representation used by the authenticated RPC.
+///
+/// Compatibility shim: newer RPC responses use camelCase (`txList`) while the local call path
+/// expects snake_case (`tx_list`), so both are accepted during decoding.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct CompatiblePreBuiltTxList<T> {
+    /// Transactions encoded in the RPC response.
+    #[serde(alias = "txList")]
+    pub tx_list: Vec<T>,
+    /// Estimated gas used by the selected list.
+    #[serde(alias = "estimatedGasUsed")]
+    pub estimated_gas_used: u64,
+    /// Byte-size estimate for the encoded list.
+    #[serde(alias = "bytesLength")]
+    pub bytes_length: u64,
+}
+
+/// Re-export used across the RPC client for untyped transaction lists.
+pub type PreBuiltTxList = CompatiblePreBuiltTxList<Value>;
 
 /// Taiko authenticated RPC method names.
 #[derive(Debug, Clone, Copy)]
