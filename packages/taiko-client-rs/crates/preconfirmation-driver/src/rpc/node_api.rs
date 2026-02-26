@@ -96,7 +96,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
             preconf_tip,
             &self.local_peer_id_peer.to_string(),
         )
-            .await
+        .await
     }
 
     /// Returns the current preconfirmation tip block number.

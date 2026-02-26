@@ -106,7 +106,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
             preconf_tip,
             &self.local_peer_id_peer.to_string(),
         )
-            .await
+        .await
     }
 
     /// Return the latest preconfirmation tip height.
