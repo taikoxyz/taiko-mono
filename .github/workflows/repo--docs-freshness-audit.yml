@@ -16,7 +16,7 @@ concurrency:
 jobs:
   docs-freshness-audit:
     if: github.repository == 'taikoxyz/taiko-mono'
-    runs-on: ubuntu-latest
+    runs-on: [arc-runner-set]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
