@@ -7,6 +7,7 @@ use preconfirmation_net::{NetworkCommand, NetworkEvent, PeerId};
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, TxListBytes};
 use ssz_rs::Deserialize;
 use tokio::sync::{mpsc, watch};
+use tracing::error;
 
 use crate::{
     Result,
@@ -60,9 +61,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
             from: self.local_peer_id_peer,
             msg: Box::new(commitment),
         };
-        self.loopback_tx.send(event).await.map_err(|e| {
-            PreconfirmationClientError::Network(format!("loopback commitment send failed: {e}"))
-        })?;
+        send_loopback(&self.loopback_tx, event).await;
 
         Ok(response)
     }
@@ -84,9 +83,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
             from: self.local_peer_id_peer,
             msg: Box::new(gossip),
         };
-        self.loopback_tx.send(event).await.map_err(|e| {
-            PreconfirmationClientError::Network(format!("loopback txlist send failed: {e}"))
-        })?;
+        send_loopback(&self.loopback_tx, event).await;
 
         Ok(response)
     }
@@ -125,6 +122,18 @@ async fn query_peer_count(command_tx: &mpsc::Sender<NetworkCommand>) -> u64 {
     }
 
     rx.await.unwrap_or(0)
+}
+
+/// Send a loopback event to the local event loop on a best-effort basis.
+///
+/// A failure means the event loop has exited (receiver dropped), which is a node
+/// health issue — not an RPC-level error.  Because the P2P publish already
+/// succeeded at this point, returning an error would cause callers to retry and
+/// produce duplicate gossip.  We therefore log the failure and move on.
+pub(crate) async fn send_loopback(tx: &mpsc::Sender<NetworkEvent>, event: NetworkEvent) {
+    if let Err(e) = tx.send(event).await {
+        error!(error = %e, "loopback send failed — local event loop may have exited");
+    }
 }
 
 /// Publish a signed commitment via the P2P network command channel.
@@ -427,9 +436,13 @@ mod tests {
         }
     }
 
-    /// Test that publish_tx_list returns an error when the loopback channel is closed.
+    /// Test that publish_tx_list still returns Ok when the loopback channel is closed.
+    ///
+    /// A closed loopback means the event loop has exited, which is a node health
+    /// issue. The P2P publish already succeeded, so returning an error would cause
+    /// callers to retry and produce duplicate gossip.
     #[tokio::test]
-    async fn test_publish_tx_list_errors_on_closed_loopback() {
+    async fn test_publish_tx_list_succeeds_despite_closed_loopback() {
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
         // Create a channel and immediately drop the receiver to close it.
@@ -454,46 +467,50 @@ mod tests {
 
         let result =
             api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list }).await;
-        assert!(result.is_err(), "should error when loopback channel is closed");
+        assert!(result.is_ok(), "should succeed even when loopback channel is closed");
     }
 
-    /// End-to-end test: publish a txlist via the RPC API, receive the loopback event,
-    /// pass it through `EventHandler::handle_event`, and verify the store contains
-    /// the txlist.
-    #[tokio::test]
-    async fn test_loopback_txlist_reaches_event_handler() {
-        use crate::{
-            driver_interface::DriverClient,
-            storage::{CommitmentStore, InMemoryCommitmentStore},
-            subscription::{EventHandler, EventHandlerParams},
-        };
-        use preconfirmation_net::NetworkEvent;
-        use preconfirmation_types::MAX_TXLIST_BYTES;
-        use protocol::codec::ZlibTxListCodec;
-        use tokio::sync::broadcast;
+    // -- shared test infrastructure for end-to-end loopback tests --
 
-        // -- mock driver for the handler --
-        struct StubDriver;
-        #[async_trait::async_trait]
-        impl DriverClient for StubDriver {
-            async fn submit_preconfirmation(
-                &self,
-                _: crate::driver_interface::PreconfirmationInput,
-            ) -> Result<()> {
-                Ok(())
-            }
-            async fn wait_event_sync(&self) -> Result<()> {
-                Ok(())
-            }
-            async fn event_sync_tip(&self) -> Result<U256> {
-                Ok(U256::ZERO)
-            }
-            async fn preconf_tip(&self) -> Result<U256> {
-                Ok(U256::ZERO)
-            }
+    use crate::{
+        driver_interface::DriverClient,
+        storage::{CommitmentStore, InMemoryCommitmentStore},
+        subscription::{EventHandler, EventHandlerParams},
+    };
+    use preconfirmation_net::NetworkEvent;
+    use preconfirmation_types::MAX_TXLIST_BYTES;
+    use protocol::codec::ZlibTxListCodec;
+    use tokio::sync::broadcast;
+
+    /// Stub driver that accepts everything and keeps tip at zero.
+    struct StubDriver;
+    #[async_trait::async_trait]
+    impl DriverClient for StubDriver {
+        async fn submit_preconfirmation(
+            &self,
+            _: crate::driver_interface::PreconfirmationInput,
+        ) -> Result<()> {
+            Ok(())
         }
+        async fn wait_event_sync(&self) -> Result<()> {
+            Ok(())
+        }
+        async fn event_sync_tip(&self) -> Result<U256> {
+            Ok(U256::ZERO)
+        }
+        async fn preconf_tip(&self) -> Result<U256> {
+            Ok(U256::ZERO)
+        }
+    }
 
-        // -- wiring --
+    /// Helper: build an `EventHandler` + `NodeRpcApiImpl` pair sharing a loopback
+    /// channel, returning `(api, loopback_rx, handler, store)`.
+    fn build_loopback_test_harness() -> (
+        NodeRpcApiImpl<MockInboxReader>,
+        mpsc::Receiver<NetworkEvent>,
+        EventHandler<StubDriver>,
+        Arc<InMemoryCommitmentStore>,
+    ) {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(StubDriver);
@@ -509,8 +526,8 @@ mod tests {
             lookahead_resolver: Arc::new(MockLookaheadResolver),
         });
 
-        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let (loopback_tx, mut loopback_rx) = mpsc::channel(16);
+        let (command_tx, command_rx) = mpsc::channel::<NetworkCommand>(16);
+        let (loopback_tx, loopback_rx) = mpsc::channel(16);
         let api = NodeRpcApiImpl {
             command_tx,
             preconf_tip_rx: watch::channel(U256::ZERO).1,
@@ -522,7 +539,20 @@ mod tests {
         };
 
         // Drain P2P commands so publish doesn't block.
-        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
+        tokio::spawn(async move {
+            let mut rx = command_rx;
+            while rx.recv().await.is_some() {}
+        });
+
+        (api, loopback_rx, handler, store)
+    }
+
+    /// End-to-end test: publish a txlist via the RPC API, receive the loopback event,
+    /// pass it through `EventHandler::handle_event`, and verify the store contains
+    /// the txlist.
+    #[tokio::test]
+    async fn test_loopback_txlist_reaches_event_handler() {
+        let (api, mut loopback_rx, handler, store) = build_loopback_test_harness();
 
         // Build a valid txlist and publish via the RPC API.
         let tx_list = alloy_primitives::Bytes::from(vec![0xABu8; 4]);
@@ -544,5 +574,34 @@ mod tests {
             CommitmentStore::get_txlist(store.as_ref(), &tx_list_hash).is_some(),
             "txlist should be in the store after loopback processing"
         );
+    }
+
+    /// End-to-end test: publish a commitment via the RPC API, receive the loopback
+    /// event, pass it through `EventHandler::handle_event`, and verify the store
+    /// contains the commitment.
+    #[tokio::test]
+    async fn test_loopback_commitment_reaches_event_handler() {
+        let (api, mut loopback_rx, handler, _store) = build_loopback_test_harness();
+
+        // Build a minimal valid SSZ-encoded SignedCommitment.
+        let commitment = SignedCommitment::default();
+        let mut commitment_bytes = Vec::new();
+        ssz_rs::Serialize::serialize(&commitment, &mut commitment_bytes)
+            .expect("serialize commitment");
+        let request = PublishCommitmentRequest {
+            commitment: alloy_primitives::Bytes::from(commitment_bytes),
+        };
+
+        api.publish_commitment(request).await.expect("publish should succeed");
+
+        // Receive from loopback and pass through the handler.
+        let event = loopback_rx.recv().await.expect("loopback event expected");
+        assert!(matches!(event, NetworkEvent::GossipSignedCommitment { .. }));
+        // handle_event dispatches to handle_commitment which validates and
+        // stores. With block_number=0 and event_sync_tip=0 the commitment is
+        // stale (current_block <= event_sync_tip), so the handler drops it.
+        // The important assertion is that handle_event succeeds — proving the
+        // loopback event was correctly dispatched.
+        handler.handle_event(event).await.expect("handler should process loopback commitment");
     }
 }

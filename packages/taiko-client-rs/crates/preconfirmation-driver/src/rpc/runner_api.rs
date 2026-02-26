@@ -10,11 +10,10 @@ use tokio::sync::mpsc;
 use crate::{
     Result,
     driver_interface::{DriverClient, InboxReader},
-    error::PreconfirmationClientError,
     rpc::{
         NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishCommitmentRequest,
         PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
-        node_api::{build_node_status, publish_commitment_impl, publish_tx_list_impl},
+        node_api::{build_node_status, publish_commitment_impl, publish_tx_list_impl, send_loopback},
     },
 };
 
@@ -77,9 +76,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
             from: self.local_peer_id_peer,
             msg: Box::new(commitment),
         };
-        self.loopback_tx.send(event).await.map_err(|e| {
-            PreconfirmationClientError::Network(format!("loopback commitment send failed: {e}"))
-        })?;
+        send_loopback(&self.loopback_tx, event).await;
 
         Ok(response)
     }
@@ -98,9 +95,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
             from: self.local_peer_id_peer,
             msg: Box::new(gossip),
         };
-        self.loopback_tx.send(event).await.map_err(|e| {
-            PreconfirmationClientError::Network(format!("loopback txlist send failed: {e}"))
-        })?;
+        send_loopback(&self.loopback_tx, event).await;
 
         Ok(response)
     }
