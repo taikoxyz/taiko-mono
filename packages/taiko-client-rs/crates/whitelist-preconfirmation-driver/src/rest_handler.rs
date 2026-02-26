@@ -327,14 +327,13 @@ where
     /// slot ranges and operator addresses are consistent even at epoch boundaries.
     async fn compute_lookahead_status(&self) -> Result<LookaheadStatus> {
         let mut fetcher = self.sequencer_fetcher.lock().await;
-        let cached = fetcher.cached_whitelist_sequencers(Instant::now()).await.inspect_err(
-            |err| {
+        let cached =
+            fetcher.cached_whitelist_sequencers(Instant::now()).await.inspect_err(|err| {
                 warn!(
                     error = %err,
                     "failed to fetch lookahead operator metadata"
                 );
-            },
-        )?;
+            })?;
 
         if cached.current == Address::ZERO || cached.next == Address::ZERO {
             return Err(WhitelistPreconfirmationDriverError::WhitelistLookup(
@@ -525,15 +524,12 @@ where
 
         // If end-of-sequencing, also publish the EOS request.
         if request.end_of_sequencing.unwrap_or(false) {
-            let epoch = self
-                .beacon_client
-                .timestamp_to_epoch(request.timestamp)
-                .map_err(|e| {
-                    WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                        "failed to derive epoch from block timestamp {}: {e}",
-                        request.timestamp
-                    ))
-                })?;
+            let epoch = self.beacon_client.timestamp_to_epoch(request.timestamp).map_err(|e| {
+                WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                    "failed to derive epoch from block timestamp {}: {e}",
+                    request.timestamp
+                ))
+            })?;
             self.cache_state.record_end_of_sequencing(epoch, block_hash).await;
             if let Err(err) = self
                 .eos_notification_tx

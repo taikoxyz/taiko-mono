@@ -66,10 +66,7 @@ where
         self.update_cache_gauges();
 
         if envelope.end_of_sequencing.unwrap_or(false) {
-            match self
-                .beacon_client
-                .timestamp_to_epoch(envelope.execution_payload.timestamp)
-            {
+            match self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp) {
                 Ok(epoch) => {
                     debug!(
                         epoch,
@@ -150,10 +147,7 @@ where
         self.update_cache_gauges();
 
         if envelope.end_of_sequencing.unwrap_or(false) {
-            match self
-                .beacon_client
-                .timestamp_to_epoch(envelope.execution_payload.timestamp)
-            {
+            match self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp) {
                 Ok(epoch) => {
                     debug!(
                         epoch,
