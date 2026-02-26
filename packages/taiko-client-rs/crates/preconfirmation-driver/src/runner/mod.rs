@@ -144,7 +144,6 @@ impl PreconfirmationDriverRunner {
         // Start the preconfirmation P2P client.
         let preconf_client = PreconfirmationClient::new(client_config, driver_client)?;
         let command_tx = preconf_client.command_tx();
-        let local_peer_id = preconf_client.p2p_handle().local_peer_id().to_string();
         let lookahead_resolver = preconf_client.lookahead_resolver().clone();
 
         // Create the loopback channel so locally-published commitments and
@@ -164,7 +163,6 @@ impl PreconfirmationDriverRunner {
             let api: Arc<dyn PreconfRpcApi> = Arc::new(RunnerRpcApiImpl::new(
                 command_tx.clone(),
                 rpc_driver,
-                local_peer_id,
                 local_peer_id_peer,
                 inbox_reader,
                 lookahead_resolver,

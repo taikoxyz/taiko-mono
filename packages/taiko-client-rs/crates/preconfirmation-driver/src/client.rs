@@ -76,6 +76,11 @@ where
     D: DriverClient + 'static,
 {
     /// Run the event loop forever, retrying on errors with exponential backoff.
+    ///
+    /// Note: restart only refreshes the event-loop-owned P2P sender used by
+    /// internal handlers. Any cloned RPC API values (`NodeRpcApiImpl`/`RunnerRpcApiImpl`)
+    /// still hold their original `command_tx` sender and will continue targeting the old
+    /// handle after a rebuild.
     pub async fn run_with_retry(mut self) -> Result<()> {
         let mut backoff = RetryBackoff::new(P2P_RESTART_BACKOFF_BASE, P2P_RESTART_BACKOFF_MAX);
 

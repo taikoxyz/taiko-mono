@@ -7,7 +7,7 @@ use preconfirmation_net::{NetworkCommand, NetworkEvent, PeerId};
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, TxListBytes};
 use ssz_rs::Deserialize;
 use tokio::sync::{mpsc, watch};
-use tracing::error;
+use tracing::{error, warn};
 
 use crate::{
     Result,
@@ -25,8 +25,6 @@ pub(crate) struct NodeRpcApiImpl<I: InboxReader> {
     pub(crate) command_tx: mpsc::Sender<NetworkCommand>,
     /// Watch receiver for the preconfirmation tip.
     pub(crate) preconf_tip_rx: watch::Receiver<U256>,
-    /// Local peer ID string for status responses.
-    pub(crate) local_peer_id: String,
     /// Local peer ID used as the `from` field in loopback events.
     pub(crate) local_peer_id_peer: PeerId,
     /// Inbox reader for checking L1 sync state.
@@ -92,7 +90,12 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
     async fn get_status(&self) -> Result<NodeStatus> {
         let preconf_tip = *self.preconf_tip_rx.borrow();
 
-        build_node_status(&self.command_tx, &self.inbox_reader, preconf_tip, &self.local_peer_id)
+        build_node_status(
+            &self.command_tx,
+            &self.inbox_reader,
+            preconf_tip,
+            &self.local_peer_id_peer.to_string(),
+        )
             .await
     }
 
@@ -129,8 +132,14 @@ async fn query_peer_count(command_tx: &mpsc::Sender<NetworkCommand>) -> u64 {
 /// succeeded at this point, returning an error would cause callers to retry and
 /// produce duplicate gossip.  We therefore log the failure and move on.
 pub(crate) async fn send_loopback(tx: &mpsc::Sender<NetworkEvent>, event: NetworkEvent) {
-    if let Err(e) = tx.send(event).await {
-        error!(error = %e, "loopback send failed — local event loop may have exited");
+    match tx.try_send(event) {
+        Ok(()) => {}
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+            warn!("loopback send dropped: channel full");
+        }
+        Err(error) => {
+            error!(error = %error, "loopback send failed — local event loop may have exited");
+        }
     }
 }
 
@@ -300,12 +309,12 @@ mod tests {
     async fn test_node_status_includes_peer_id() {
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::from(100));
         let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
+        let local_peer_id = PeerId::random();
 
         let api = NodeRpcApiImpl {
             command_tx,
             preconf_tip_rx,
-            local_peer_id: "12D3KooWTest".to_string(),
-            local_peer_id_peer: PeerId::random(),
+            local_peer_id_peer: local_peer_id,
             inbox_reader: MockInboxReader::new(43, Some(120), Some(120)),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
             loopback_tx: mpsc::channel(16).0,
@@ -319,7 +328,7 @@ mod tests {
         });
 
         let status = api.get_status().await.unwrap();
-        assert_eq!(status.peer_id, "12D3KooWTest");
+        assert_eq!(status.peer_id, local_peer_id.to_string());
         assert_eq!(status.peer_count, 5);
         assert!(status.is_synced_with_inbox);
         assert_eq!(status.event_sync_tip, Some(U256::from(120)));
@@ -335,7 +344,6 @@ mod tests {
         let api = NodeRpcApiImpl {
             command_tx,
             preconf_tip_rx,
-            local_peer_id: "test".to_string(),
             local_peer_id_peer: PeerId::random(),
             inbox_reader: MockInboxReader::new(0, None, None),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
@@ -376,7 +384,6 @@ mod tests {
         let api = NodeRpcApiImpl {
             command_tx,
             preconf_tip_rx,
-            local_peer_id: "test".to_string(),
             local_peer_id_peer: PeerId::random(),
             inbox_reader: MockInboxReader::new(0, None, None),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
@@ -404,7 +411,6 @@ mod tests {
         let api = NodeRpcApiImpl {
             command_tx,
             preconf_tip_rx,
-            local_peer_id: "test".to_string(),
             local_peer_id_peer: PeerId::random(),
             inbox_reader: MockInboxReader::new(0, None, None),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
@@ -449,7 +455,6 @@ mod tests {
         let api = NodeRpcApiImpl {
             command_tx,
             preconf_tip_rx,
-            local_peer_id: "test".to_string(),
             local_peer_id_peer: PeerId::random(),
             inbox_reader: MockInboxReader::new(0, None, None),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
@@ -528,7 +533,6 @@ mod tests {
         let api = NodeRpcApiImpl {
             command_tx,
             preconf_tip_rx: watch::channel(U256::ZERO).1,
-            local_peer_id: "test".to_string(),
             local_peer_id_peer: PeerId::random(),
             inbox_reader: MockInboxReader::new(0, None, None),
             lookahead_resolver: Arc::new(MockLookaheadResolver),

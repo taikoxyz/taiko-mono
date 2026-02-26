@@ -25,8 +25,6 @@ pub(crate) struct RunnerRpcApiImpl<I: InboxReader> {
     command_tx: mpsc::Sender<NetworkCommand>,
     /// Driver client used for tip queries.
     driver: Arc<dyn DriverClient>,
-    /// Local peer id string reported over RPC.
-    local_peer_id: String,
     /// Local peer ID used as the `from` field in loopback events.
     local_peer_id_peer: PeerId,
     /// Inbox reader used to determine sync status.
@@ -42,7 +40,6 @@ impl<I: InboxReader> RunnerRpcApiImpl<I> {
     pub(crate) fn new(
         command_tx: mpsc::Sender<NetworkCommand>,
         driver: Arc<dyn DriverClient>,
-        local_peer_id: String,
         local_peer_id_peer: PeerId,
         inbox_reader: I,
         lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
@@ -51,7 +48,6 @@ impl<I: InboxReader> RunnerRpcApiImpl<I> {
         Self {
             command_tx,
             driver,
-            local_peer_id,
             local_peer_id_peer,
             inbox_reader,
             lookahead_resolver,
@@ -104,7 +100,12 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
     async fn get_status(&self) -> Result<NodeStatus> {
         let preconf_tip = self.driver.preconf_tip().await?;
 
-        build_node_status(&self.command_tx, &self.inbox_reader, preconf_tip, &self.local_peer_id)
+        build_node_status(
+            &self.command_tx,
+            &self.inbox_reader,
+            preconf_tip,
+            &self.local_peer_id_peer.to_string(),
+        )
             .await
     }
 
@@ -255,7 +256,6 @@ mod tests {
         let api = RunnerRpcApiImpl::new(
             command_tx,
             driver,
-            "peer".to_string(),
             preconfirmation_net::PeerId::random(),
             inbox_reader,
             Arc::new(MockLookaheadResolver),

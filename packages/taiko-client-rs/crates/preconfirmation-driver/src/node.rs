@@ -148,7 +148,6 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
         let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
             command_tx: self.p2p_client.command_tx(),
             preconf_tip_rx: self.preconf_tip_rx.clone(),
-            local_peer_id: local_peer_id_peer.to_string(),
             local_peer_id_peer,
             inbox_reader: self.driver_client.inbox_reader().clone(),
             lookahead_resolver: self.p2p_client.lookahead_resolver().clone(),
