@@ -13,7 +13,9 @@ use crate::{
     rpc::{
         NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishCommitmentRequest,
         PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
-        node_api::{build_node_status, publish_commitment_impl, publish_tx_list_impl, send_loopback},
+        node_api::{
+            build_node_status, publish_commitment_impl, publish_tx_list_impl, send_loopback,
+        },
     },
 };
 
@@ -91,10 +93,8 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
     ) -> Result<PublishTxListResponse> {
         let (response, gossip) = publish_tx_list_impl(&self.command_tx, request).await?;
 
-        let event = NetworkEvent::GossipRawTxList {
-            from: self.local_peer_id_peer,
-            msg: Box::new(gossip),
-        };
+        let event =
+            NetworkEvent::GossipRawTxList { from: self.local_peer_id_peer, msg: Box::new(gossip) };
         send_loopback(&self.loopback_tx, event).await;
 
         Ok(response)

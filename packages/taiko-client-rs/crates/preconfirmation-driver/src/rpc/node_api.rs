@@ -79,10 +79,8 @@ impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
     ) -> Result<PublishTxListResponse> {
         let (response, gossip) = publish_tx_list_impl(&self.command_tx, request).await?;
 
-        let event = NetworkEvent::GossipRawTxList {
-            from: self.local_peer_id_peer,
-            msg: Box::new(gossip),
-        };
+        let event =
+            NetworkEvent::GossipRawTxList { from: self.local_peer_id_peer, msg: Box::new(gossip) };
         send_loopback(&self.loopback_tx, event).await;
 
         Ok(response)
@@ -465,8 +463,7 @@ mod tests {
         // Drain the P2P command channel.
         tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
 
-        let result =
-            api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list }).await;
+        let result = api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list }).await;
         assert!(result.is_ok(), "should succeed even when loopback channel is closed");
     }
 
