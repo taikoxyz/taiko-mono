@@ -55,10 +55,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: p1.proposer,
-            designatedProver: proposer, // Different from actual to trigger bond
-            timestamp: p1Timestamp,
-            blockHash: keccak256("checkpoint1")
+            proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
         });
 
         IInbox.ProveInput memory input = _buildInputWithProver(
@@ -80,6 +77,50 @@ contract InboxWhitelistProverTest is InboxTestBase {
             uint256(whitelistedBalanceBefore),
             "no bond change for whitelisted prover"
         );
+    }
+
+    function test_prove_succeedsWhen_CallerIsNotWhitelistedProverAndProposalIsTooOld() public {
+        ProposedEvent memory p1 = _proposeOne();
+        uint48 p1Timestamp = uint48(block.timestamp);
+
+        vm.warp(uint256(p1Timestamp) + config.permissionlessProvingDelay + 1);
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
+            proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
+        });
+
+        IInbox.ProveInput memory input = _buildInputWithProver(
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, prover
+        );
+
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.prank(prover);
+        inbox.prove(encodedInput, bytes("proof"));
+
+        IInbox.CoreState memory state = inbox.getCoreState();
+        assertEq(state.lastFinalizedProposalId, p1.id, "finalized id");
+    }
+
+    function test_prove_RevertWhen_CallerIsNotWhitelistedProverAndProposalTooYoung() public {
+        ProposedEvent memory p1 = _proposeOne();
+        uint48 p1Timestamp = uint48(block.timestamp);
+
+        vm.warp(uint256(p1Timestamp) + config.provingWindow + 1);
+
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
+            proposer: p1.proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
+        });
+
+        IInbox.ProveInput memory input = _buildInputWithProver(
+            p1.id, inbox.getCoreState().lastFinalizedBlockHash, transitions, prover
+        );
+
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.expectRevert(Inbox.ProverNotWhitelisted.selector);
+        vm.prank(prover);
+        inbox.prove(encodedInput, bytes("proof"));
     }
 
     function test_prove_RevertWhen_CallerIsNotWhitelistedProver() public {
@@ -123,10 +164,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
             bytes32 blockHash = keccak256(abi.encode("checkpoint", i + 1));
             transitions[i] = IInbox.Transition({
-                proposer: payload.proposer,
-                designatedProver: _actualProver,
-                timestamp: proposalTimestamp,
-                blockHash: blockHash
+                proposer: payload.proposer, timestamp: proposalTimestamp, blockHash: blockHash
             });
         }
 
@@ -142,8 +180,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("stateRoot", _count)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
     }
 
@@ -171,8 +208,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("stateRoot")),
                 transitions: _transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
     }
 }

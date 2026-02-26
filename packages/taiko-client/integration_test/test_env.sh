@@ -3,6 +3,8 @@
 source internal/docker/docker_env.sh
 source scripts/common.sh
 
+SHASTA_FORK_TAIKO_MONO="${SHASTA_FORK_TAIKO_MONO:-../..}"
+
 # get deployed contract address.
 PACAYA_DEPLOYMENT_JSON=$(cat ${PACAYA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
 DEPLOYMENT_JSON=$(cat ${SHASTA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)

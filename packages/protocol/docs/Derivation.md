@@ -21,14 +21,16 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component** | **Description**                                                         |
-| ---------------------- | ----------------------------------------------------------------------- |
-| **id**                 | A unique, sequential identifier for the proposal                        |
-| **proposer**           | The address that proposed the proposal                                  |
-| **timestamp**          | The timestamp when the proposal was accepted on L1                      |
-| **originBlockNumber**  | The L1 block number from **one block before** the proposal was accepted |
-| **originBlockHash**    | The hash of `originBlockNumber` block                                   |
-| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                             |
+| **Metadata Component**             | **Description**                                                                                       |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **id**                             | A unique, sequential identifier for the proposal                                                      |
+| **proposer**                       | The address that proposed the proposal                                                                |
+| **timestamp**                      | The timestamp when the proposal was accepted on L1                                                    |
+| **endOfSubmissionWindowTimestamp** | The last slot timestamp where the current preconfer can propose. `0` for whitelisted preconfirmations |
+| **parentProposalHash**             | The hash of the parent proposal                                                                       |
+| **originBlockNumber**              | The L1 block number from **one block before** the proposal was accepted                               |
+| **originBlockHash**                | The hash of `originBlockNumber` block                                                                 |
+| **basefeeSharingPctg**             | The percentage of base fee paid to coinbase                                                           |
 
 ### Derivation Source-level Metadata
 
@@ -57,20 +59,21 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 The metadata preparation process initiates with a subscription to the inbox's `Proposed` event (see
 [`IInbox.Proposed`](../contracts/layer1/core/iface/IInbox.sol#L174-L188)).
 
-The other fields can be derived by querying the L1 and the inbox contract:
+The other fields can be derived by querying the L1:
 
 - `timestamp` comes from the L1 block that emitted the log; `originBlockHash/Number` come from its parent block (event block - 1).
-- `parentProposalHash` comes from `Inbox.getProposalHash(id - 1)`.
 
 The following metadata fields are extracted directly from the event payload:
 
 **Proposal-level assignments:**
 
-| Metadata Field                | Value Assignment             |
-| ----------------------------- | ---------------------------- |
-| `metadata.id`                 | `payload.id`                 |
-| `metadata.proposer`           | `payload.proposer`           |
-| `metadata.basefeeSharingPctg` | `payload.basefeeSharingPctg` |
+| Metadata Field                            | Value Assignment                         |
+| ----------------------------------------- | ---------------------------------------- |
+| `metadata.id`                             | `payload.id`                             |
+| `metadata.proposer`                       | `payload.proposer`                       |
+| `metadata.parentProposalHash`             | `payload.parentProposalHash`             |
+| `metadata.endOfSubmissionWindowTimestamp` | `payload.endOfSubmissionWindowTimestamp` |
+| `metadata.basefeeSharingPctg`             | `payload.basefeeSharingPctg`             |
 
 **Derivation source-level assignments (for source `i`):**
 
@@ -82,7 +85,7 @@ The `sources` array in the `Proposed` event (`payload.sources`) contains `Deriva
 [`IInbox.DerivationSource`](../contracts/layer1/core/iface/IInbox.sol#L47-L53)). Each source includes a `blobSlice` field that serves as the primary mechanism for locating and validating proposal metadata. Responsibilities are split as follows:
 
 - **Forced inclusion submitters** publish blob data for a `DerivationSourceManifest` and call `Inbox.saveForcedInclusion(blobReference)`; the inbox stores the resulting `blobSlice` in a queue.
-- **The proposer** publishes blob data for their own `DerivationSourceManifest` and calls `Inbox.propose(...)` with a `blobReference` to it plus `numForcedInclusions`. The inbox dequeues that many forced inclusions and appends the proposer's source **last**.
+- **The proposer** publishes blob data for their own `DerivationSourceManifest` and calls `Inbox.propose(...)` with a `blobReference` to it plus `numForcedInclusions`. The inbox dequeues up to `min(numForcedInclusions, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions (FIFO, currently 10) and appends the proposer's source **last**. If forced inclusions are due, the proposer must request at least `min(numDue, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions.
 
 The manifest data structures are defined as follows:
 
@@ -152,12 +155,12 @@ For each `DerivationSource[i]`, the validator performs:
 
 1. **Blob Validation**: Verify `blobSlice.blobHashes.length > 0`
    - Let `BLOB_BYTES = 4096 * 32 = 131072` (bytes per blob as defined by EIP-4844)
-2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES * blobSlice.blobHashes.length - 64`
+2. **Offset Validation**: Verify `blobSlice.offset <= BLOB_BYTES - 64`
 3. **Version Extraction**: Extract version from bytes `[offset, offset+32)` and verify it equals `0x1`
 4. **Size Extraction**: Extract data size from bytes `[offset+32, offset+64)`
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
 6. **Decoding**: RLP decode the decompressed data
-7. **Block Count Validation**: Verify `manifest.blocks.length <= PROPOSAL_MAX_BLOCKS`
+7. **Block Count Validation**: Verify `manifest.blocks.length <= DERIVATION_SOURCE_MAX_BLOCKS`
 8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
@@ -228,7 +231,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - **Future reference**: `manifest.blocks[i].anchorBlockNumber > proposal.originBlockNumber`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - MAX_ANCHOR_OFFSET`
 
-**Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == false`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
+**Forced inclusion protection**: Only proposer-supplied sources are penalized for stagnant anchors. Forced inclusions (`derivationSource.isForcedInclusion == true`) blocks intentionally inherit the parent anchor as mentioned above and never get replaced with the default manifest even when the anchor number does not advance.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -243,11 +246,12 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 10, this allows ±10 millionths (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per million (units of 1/1,000,000) per block to ensure economic stability. With the default value of 200, this allows ±200 millionths (±0.02%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Validation process**:
 
 1. **Define bounds**:
+
    - `upperBound = min(parent.metadata.gasLimit * (1_000_000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MAX_BLOCK_GAS_LIMIT)`
    - `lowerBound = min(max(parent.metadata.gasLimit * (1_000_000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 1_000_000, MIN_BLOCK_GAS_LIMIT), upperBound)`
 
@@ -255,10 +259,6 @@ Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` parts per 
    - If `manifest.blocks[i].gasLimit` falls outside `[lowerBound, upperBound]`: Replace the entire derivation source with the default source manifest.
 
 After all calculations above, an additional `1_000_000` gas units will be added to the final gas limit value, reserving headroom for the mandatory `Anchor.anchorV4` transaction.
-
-#### Bond instruction processing
-
-Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder.
 
 ### Additional Metadata Fields
 
@@ -316,7 +316,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the ShastaAnchor contract with the L1 checkpoint fields:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the `Anchor` contract (via `AnchorForkRouter` on fork-aware deployments) with the L1 checkpoint fields:
 
 | Parameter         | Type    | Description                                     |
 | ----------------- | ------- | ----------------------------------------------- |
@@ -329,6 +329,7 @@ The anchor transaction serves as a privileged system transaction responsible for
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
+
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
 
@@ -341,26 +342,36 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 - Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
 
+## L1 Proof and Liveness Bond Settlement
+
+Late-proof handling on L1 may trigger at most one liveness-bond settlement for the first proven proposal. The Inbox applies the settlement inside `prove` on L1 (best-effort), crediting 50% of the debited bond to the actual prover and burning the remainder.
+
 ## Base Fee Calculation
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
 
-The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within `MIN_BASE_FEE` and `MAX_BASE_FEE`.
+The consensus engine pins the base fee at `INITIAL_BASE_FEE` for the very first block when the Shasta fork starts from genesis, because the parent block time (`parent.timestamp - parent.parent.timestamp`) needed for calculation is unavailable. If the fork activates later or once the block height exceeds `1`, base fee computation should follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification), and the calculated value must be clamped within a chain-specific lower bound and `MAX_BASE_FEE`.
+
+The minimum clamp is selected by chain ID:
+
+- `MAINNET_MIN_BASE_FEE` (`0.01 gwei`) on Taiko mainnet
+- `MIN_BASE_FEE` (`0.005 gwei`) on non-mainnet chains
 
 ## Constants
 
 The following constants govern the block derivation process:
 
-| Constant                       | Value                         | Description                                                                                                                                                                |
-| ------------------------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PROPOSAL_MAX_BLOCKS**        | `384`                         | The maximum number of blocks allowed in a proposal. If we assume block time is as small as one second, 384 blocks will cover an Ethereum epoch.                            |
-| **MAX_ANCHOR_OFFSET**          | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                              |
-| **TIMESTAMP_MAX_OFFSET**       | `1536` (12 \* 128)            | The maximum number timestamp offset from the proposal origin timestamp. This is set to longer than an epoch to allow the next proposer to recover without causing a reorg. |
-| **BLOCK_GAS_LIMIT_MAX_CHANGE** | `10`                          | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 10 = 10 / 1,000,000 = 0.001%.                                                      |
-| **MIN_BLOCK_GAS_LIMIT**        | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                          |
-| **MAX_BLOCK_GAS_LIMIT**        | `45,000,000`                  | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                           |
-| **INITIAL_BASE_FEE**           | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                               |
-| **MIN_BASE_FEE**               | `0.005 gwei` (5,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork.                                                                                                                        |
-| **MAX_BASE_FEE**               | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                        |
-| **BLOCK_TIME_TARGET**          | `2 seconds`                   | The block time target.                                                                                                                                                     |
-| **SHASTA_FORK_TIME**           | Hoodi/Mainnet: not scheduled  | The timestamp that determines when the fork should occur.                                                                                                                  |
+| Constant                         | Value                         | Description                                                                                                                                                                |
+| -------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **DERIVATION_SOURCE_MAX_BLOCKS** | `192`                         | The per-derivation-source block limit. If we assume block times of seconds,192 blocks will cover an Ethereum epoch.                                                        |
+| **MAX_ANCHOR_OFFSET**            | `128`                         | The maximum anchor block number offset from the proposal origin block number.                                                                                              |
+| **TIMESTAMP_MAX_OFFSET**         | `1536` (12 \* 128)            | The maximum number timestamp offset from the proposal origin timestamp. This is set to longer than an epoch to allow the next proposer to recover without causing a reorg. |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE**   | `200`                         | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 200 = 200 / 1,000,000 = 0.02%.                                                     |
+| **MIN_BLOCK_GAS_LIMIT**          | `10,000,000`                  | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                                                                          |
+| **MAX_BLOCK_GAS_LIMIT**          | `45,000,000`                  | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                                                                           |
+| **INITIAL_BASE_FEE**             | `0.025 gwei` (25,000,000 wei) | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                                                                               |
+| **MIN_BASE_FEE**                 | `0.005 gwei` (5,000,000 wei)  | The default minimum base fee (inclusive) after Shasta fork for non-mainnet chains.                                                                                         |
+| **MAINNET_MIN_BASE_FEE**         | `0.01 gwei` (10,000,000 wei)  | The minimum base fee (inclusive) after Shasta fork on Taiko mainnet.                                                                                                       |
+| **MAX_BASE_FEE**                 | `1 gwei` (1,000,000,000 wei)  | The maximum base fee (inclusive) after Shasta fork.                                                                                                                        |
+| **BLOCK_TIME_TARGET**            | `2 seconds`                   | The block time target.                                                                                                                                                     |
+| **SHASTA_FORK_TIME**             | Hoodi/Mainnet: not scheduled  | The timestamp that determines when the fork should occur.                                                                                                                  |

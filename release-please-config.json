@@ -72,6 +72,11 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"ejector\" && !@.source)].version"
         }
       ]
     },
@@ -85,6 +90,11 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"overseer-rs\" && !@.source)].version"
         }
       ]
     },
@@ -110,6 +120,16 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.workspace.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "crates/bindings/Cargo.toml",
+          "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?((@.name == \"taiko-client\" || @.name == \"bindings\" || @.name == \"driver\" || @.name == \"preconfirmation-driver\" || @.name == \"whitelist-preconfirmation-driver\" || @.name == \"proposer\" || @.name == \"protocol\" || @.name == \"rpc\" || @.name == \"test-harness\") && !@.source)].version"
         }
       ]
     },
@@ -122,6 +142,11 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"urcindexer-rs\" && !@.source)].version"
         }
       ]
     },

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.34.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.4...docs-site-v1.34.0) (2026-02-24)
+
+
+### Features
+
+* **docs-site:** add a copy from md button and fix titles ([#21364](https://github.com/taikoxyz/taiko-mono/issues/21364)) ([4277910](https://github.com/taikoxyz/taiko-mono/commit/42779105d8a119a8134d7fb1f7b98b767acd5131))
+
 ## [1.33.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.3...docs-site-v1.33.4) (2026-02-18)
 
 
