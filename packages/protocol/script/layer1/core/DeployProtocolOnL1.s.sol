@@ -180,9 +180,8 @@ contract DeployProtocolOnL1 is DeployCapability {
                 data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
             });
         } else {
-            PreconfWhitelist(whitelist).upgradeTo(
-                address(new PreconfWhitelist(config.ejectorManager))
-            );
+            PreconfWhitelist(whitelist)
+                .upgradeTo(address(new PreconfWhitelist(config.ejectorManager)));
         }
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
