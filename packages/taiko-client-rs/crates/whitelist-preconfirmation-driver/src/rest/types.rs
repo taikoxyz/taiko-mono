@@ -34,13 +34,8 @@ pub struct BuildPreconfBlockRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildPreconfBlockResponse {
-    /// Hash of the built block.
-    pub block_hash: B256,
-    /// Number of the built block.
-    pub block_number: u64,
     /// Full block header of the built preconfirmation block.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub block_header: Option<RpcHeader>,
+    pub block_header: RpcHeader,
 }
 
 /// REST-compatible request body for `POST /preconfBlocks`.
@@ -119,20 +114,12 @@ pub struct LookaheadStatus {
     pub curr_ranges: Vec<SlotRange>,
     /// Next operator allowed slot ranges.
     pub next_ranges: Vec<SlotRange>,
-    /// Last update timestamp (unix seconds).
-    pub updated_at: u64,
-    /// Last epoch used for update.
-    pub last_updated_epoch: u64,
 }
 
 /// Go-compatible REST status response for `GET /status`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RestStatus {
-    /// Sequencing lookahead information.
-    pub lookahead: Option<LookaheadStatus>,
-    /// Total cached envelopes (best-effort).
-    pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (if any).
@@ -161,11 +148,6 @@ pub struct WhitelistStatus {
     pub peer_id: String,
     /// Whether preconfirmation ingress is ready.
     pub sync_ready: bool,
-    /// Sequencing lookahead information.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub lookahead: Option<LookaheadStatus>,
-    /// Total cached envelopes (best-effort).
-    pub total_cached: u64,
     /// Highest unsafe payload block ID tracked by this node.
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch.
@@ -208,8 +190,6 @@ mod tests {
             highest_unsafe_block_number: 100,
             peer_id: "test-peer".to_string(),
             sync_ready: true,
-            lookahead: None,
-            total_cached: 0,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
         };
@@ -220,5 +200,58 @@ mod tests {
         assert!(json.contains("syncReady"));
         assert!(json.contains("highestUnsafeL2PayloadBlockId"));
         assert!(json.contains("endOfSequencingBlockHash"));
+    }
+
+    #[test]
+    fn rest_status_serializes_fields() {
+        let status = RestStatus {
+            highest_unsafe_l2_payload_block_id: 1,
+            end_of_sequencing_block_hash: B256::ZERO.to_string(),
+        };
+
+        let json =
+            serde_json::from_str::<serde_json::Value>(&serde_json::to_string(&status).unwrap())
+                .expect("status should serialize as JSON");
+        assert_eq!(
+            json["highestUnsafeL2PayloadBlockId"]
+                .as_u64()
+                .expect("missing highest unsafe block id"),
+            1
+        );
+    }
+
+    #[test]
+    fn rest_status_does_not_include_lookahead_metadata() {
+        let status = RestStatus {
+            highest_unsafe_l2_payload_block_id: 1,
+            end_of_sequencing_block_hash: B256::ZERO.to_string(),
+        };
+
+        let value: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&status).unwrap())
+                .expect("status should serialize");
+
+        assert!(value.get("lookahead").is_none());
+    }
+
+    #[test]
+    fn lookahead_status_contains_only_operator_and_ranges() {
+        let lookahead = LookaheadStatus {
+            curr_operator: Address::ZERO,
+            next_operator: Address::from([0x11u8; 20]),
+            curr_ranges: vec![SlotRange { start: 1, end: 2 }],
+            next_ranges: vec![SlotRange { start: 3, end: 4 }],
+        };
+
+        let value: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&lookahead).unwrap())
+                .expect("lookahead should serialize");
+
+        assert!(value.get("currOperator").is_some());
+        assert!(value.get("nextOperator").is_some());
+        assert!(value.get("currRanges").is_some());
+        assert!(value.get("nextRanges").is_some());
+        assert!(value.get("updatedAt").is_none());
+        assert!(value.get("lastUpdatedEpoch").is_none());
     }
 }

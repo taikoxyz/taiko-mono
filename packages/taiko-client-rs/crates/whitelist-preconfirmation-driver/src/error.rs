@@ -19,22 +19,6 @@ pub enum WhitelistPreconfirmationDriverError {
     /// Whitelist preconfirmation node task failed.
     #[error("whitelist preconfirmation node task failed: {0}")]
     NodeTaskFailed(String),
-    /// Driver preconfirmation ingress is not ready.
-    #[error("driver preconfirmation ingress not ready")]
-    PreconfIngressNotReady,
-    /// Unsupported chain for whitelist preconfirmation mode.
-    #[error(
-        "whitelist preconfirmation mode currently supports only chain_id={expected}, got {actual}"
-    )]
-    UnsupportedChain {
-        /// Expected chain id.
-        expected: u64,
-        /// Actual chain id.
-        actual: u64,
-    },
-    /// Missing execution payload in envelope.
-    #[error("missing execution payload")]
-    MissingExecutionPayload,
     /// Invalid or unsupported payload format.
     #[error("invalid payload format: {0}")]
     InvalidPayload(String),

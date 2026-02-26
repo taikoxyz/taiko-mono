@@ -12,6 +12,7 @@ mod preconf_ingress_sync;
 mod rest;
 mod rest_handler;
 mod runner;
+mod whitelist_fetcher;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};
 pub use metrics::WhitelistPreconfirmationDriverMetrics;

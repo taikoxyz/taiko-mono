@@ -251,8 +251,6 @@ async fn handle_status(State(state): State<AppState>) -> Response {
     match state.api.get_status().await {
         Ok(status) => {
             let response = RestStatus {
-                lookahead: status.lookahead,
-                total_cached: status.total_cached,
                 highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
                 end_of_sequencing_block_hash: status
                     .end_of_sequencing_block_hash
@@ -311,13 +309,6 @@ async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) 
 
     match state.api.build_preconf_block(request).await {
         Ok(response) => {
-            let Some(block_header) = response.block_header else {
-                return error_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "missing block header in build_preconf_block response".to_string(),
-                );
-            };
-
             #[derive(serde::Serialize)]
             #[serde(rename_all = "camelCase")]
             struct BuildPreconfBlockRestResponse {
@@ -325,7 +316,10 @@ async fn handle_preconf_blocks(State(state): State<AppState>, request: Request) 
                 block_header: alloy_rpc_types::Header,
             }
 
-            json_response(StatusCode::OK, &BuildPreconfBlockRestResponse { block_header })
+            json_response(
+                StatusCode::OK,
+                &BuildPreconfBlockRestResponse { block_header: response.block_header },
+            )
         }
         Err(err) => error_response(map_rest_error_status(&err), err.to_string()),
     }
@@ -471,7 +465,6 @@ fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> Response
 fn map_rest_error_status(err: &WhitelistPreconfirmationDriverError) -> StatusCode {
     match err {
         WhitelistPreconfirmationDriverError::InvalidPayload(_) |
-        WhitelistPreconfirmationDriverError::PreconfIngressNotReady |
         WhitelistPreconfirmationDriverError::Driver(
             driver::DriverError::PreconfIngressNotReady,
         ) |
@@ -563,21 +556,15 @@ mod tests {
             &self,
             _request: BuildPreconfBlockRequest,
         ) -> Result<BuildPreconfBlockResponse> {
-            Ok(BuildPreconfBlockResponse {
-                block_hash: B256::ZERO,
-                block_number: 1,
-                block_header: None,
-            })
+            Ok(BuildPreconfBlockResponse { block_header: Default::default() })
         }
 
         async fn get_status(&self) -> Result<WhitelistStatus> {
             Ok(WhitelistStatus {
-                head_l1_origin_block_id: Some(42),
+                head_l1_origin_block_id: Some(1),
                 highest_unsafe_block_number: 100,
                 peer_id: "test-peer".to_string(),
                 sync_ready: true,
-                lookahead: None,
-                total_cached: 0,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
             })
@@ -602,21 +589,15 @@ mod tests {
             _request: BuildPreconfBlockRequest,
         ) -> Result<BuildPreconfBlockResponse> {
             self.build_preconf_calls.fetch_add(1, Ordering::SeqCst);
-            Ok(BuildPreconfBlockResponse {
-                block_hash: B256::ZERO,
-                block_number: 1,
-                block_header: None,
-            })
+            Ok(BuildPreconfBlockResponse { block_header: Default::default() })
         }
 
         async fn get_status(&self) -> Result<WhitelistStatus> {
             Ok(WhitelistStatus {
-                head_l1_origin_block_id: self.sync_ready.then_some(42),
+                head_l1_origin_block_id: Some(1),
                 highest_unsafe_block_number: 100,
                 peer_id: "test-peer".to_string(),
                 sync_ready: self.sync_ready,
-                lookahead: None,
-                total_cached: 0,
                 highest_unsafe_l2_payload_block_id: 100,
                 end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
             })
