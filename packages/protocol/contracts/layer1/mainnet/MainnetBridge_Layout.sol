@@ -24,4 +24,5 @@ pragma solidity ^0.8.26;
 //   __ctx                          | struct IBridge.Context                             | Slot: 253  | Offset: 0    | Bytes: 64  
 //   __reserved2                    | uint256                                            | Slot: 255  | Offset: 0    | Bytes: 32  
 //   __reserved3                    | uint256                                            | Slot: 256  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[44]                                        | Slot: 257  | Offset: 0    | Bytes: 1408
+//   isEthMinter                    | mapping(address => bool)                           | Slot: 257  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[43]                                        | Slot: 258  | Offset: 0    | Bytes: 1376
