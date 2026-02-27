@@ -7,6 +7,7 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract ProverWhitelistTest is CommonTest {
     ProverWhitelist internal proverWhitelist;
+    address internal proverManager;
 
     address internal prover1 = address(0x1001);
     address internal prover2 = address(0x1002);
@@ -17,7 +18,8 @@ contract ProverWhitelistTest is CommonTest {
     function setUp() public virtual override {
         super.setUp();
 
-        ProverWhitelist impl = new ProverWhitelist();
+        proverManager = makeAddr("proverManager");
+        ProverWhitelist impl = new ProverWhitelist(proverManager);
         proverWhitelist = ProverWhitelist(
             address(
                 new ERC1967Proxy(
@@ -92,10 +94,30 @@ contract ProverWhitelistTest is CommonTest {
         assertFalse(isWhitelisted2);
     }
 
-    function test_whitelistProver_RevertWhen_CallerNotOwner() public {
+    function test_whitelistProver_RevertWhen_CallerNotOwnerOrManager() public {
         vm.prank(prover1);
-        vm.expectRevert();
+        vm.expectRevert(ProverWhitelist.NotOwnerOrProverManager.selector);
         proverWhitelist.whitelistProver(prover1, true);
+    }
+
+    function test_whitelistProver_allowsProverManager() public {
+        vm.prank(proverManager);
+        proverWhitelist.whitelistProver(prover1, true);
+
+        (bool isWhitelisted, uint256 count) = proverWhitelist.isProverWhitelisted(prover1);
+        assertTrue(isWhitelisted);
+        assertEq(count, 1);
+    }
+
+    function test_whitelistProver_allowsProverManagerToDisable() public {
+        proverWhitelist.whitelistProver(prover1, true);
+
+        vm.prank(proverManager);
+        proverWhitelist.whitelistProver(prover1, false);
+
+        (bool isWhitelisted, uint256 count) = proverWhitelist.isProverWhitelisted(prover1);
+        assertFalse(isWhitelisted);
+        assertEq(count, 0);
     }
 
     function test_whitelistProver_RevertWhen_AlreadyEnabled() public {

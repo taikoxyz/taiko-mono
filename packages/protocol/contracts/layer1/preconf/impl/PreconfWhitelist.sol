@@ -30,6 +30,13 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     uint8 public constant RANDOMNESS_DELAY = 2;
 
     // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
+
+    /// @dev Address authorized to manage ejecters alongside the owner.
+    address internal immutable _ejectorManager;
+
+    // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
@@ -66,6 +73,18 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _;
     }
 
+    modifier onlyOwnerOrEjectorManager() {
+        require(msg.sender == owner() || msg.sender == _ejectorManager, NotOwnerOrEjectorManager());
+        _;
+    }
+
+    /// @notice Initializes immutable role configuration for ejecter management.
+    /// @param _ejectorManagerAddress Address authorized to manage ejecters.
+    constructor(address _ejectorManagerAddress) {
+        require(_ejectorManagerAddress != address(0), InvalidEjectorManager());
+        _ejectorManager = _ejectorManagerAddress;
+    }
+
     function init(address _owner) external initializer {
         __Essential_init(_owner);
     }
@@ -92,7 +111,14 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @notice Sets the ejecter address.
     /// @param _ejecter The new ejecter address.
-    function setEjecter(address _ejecter, bool _isEjecter) external onlyOwner {
+    /// @param _isEjecter Whether the address should be treated as an ejecter.
+    function setEjecter(
+        address _ejecter,
+        bool _isEjecter
+    )
+        external
+        onlyOwnerOrEjectorManager
+    {
         ejecters[_ejecter] = _isEjecter;
         emit EjecterUpdated(_ejecter, _isEjecter);
     }
@@ -294,7 +320,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     error CannotRemoveLastOperator();
     error InvalidOperatorIndex();
     error InvalidOperatorAddress();
+    error InvalidEjectorManager();
     error OperatorAlreadyExists();
     error NoActiveOperatorRemaining();
     error NotOwnerOrEjecter();
+    error NotOwnerOrEjectorManager();
 }
