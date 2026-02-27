@@ -27,6 +27,12 @@ pub enum ProposerError {
     /// Parent block not found error
     #[error("parent block {0} not found")]
     ParentBlockNotFound(u64),
+    /// Parent block is missing base fee required for EIP-4396 base-fee calculation.
+    #[error("parent block {parent_block_number} missing base fee for EIP-4396 calculation")]
+    MissingParentBaseFee {
+        /// Parent block number whose header was missing `base_fee_per_gas`.
+        parent_block_number: u64,
+    },
 
     /// Failed to decode extra data from parent block.
     #[error("invalid extra data in parent block")]

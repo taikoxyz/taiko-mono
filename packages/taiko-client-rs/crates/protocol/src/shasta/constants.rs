@@ -1,6 +1,7 @@
 //! Shasta protocol constants and limits.
 
 use crate::shasta::error::{ForkConfigResult, ShastaForkConfigError};
+use alethia_reth_consensus::eip4396::{MAINNET_MIN_BASE_FEE, MIN_BASE_FEE};
 use alloy_eips::eip4844::BYTES_PER_BLOB;
 use alloy_hardforks::ForkCondition;
 
@@ -58,6 +59,13 @@ pub const TAIKO_MASAYA_CHAIN_ID: u64 = 167_011;
 pub const TAIKO_HOODI_CHAIN_ID: u64 = 167_013;
 /// Chain ID for Taiko mainnet.
 pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
+
+/// Returns the EIP-4396 minimum base-fee clamp for a Taiko chain.
+///
+/// Taiko mainnet uses a distinct clamp value; all other supported chains use the default.
+pub const fn min_base_fee_for_chain(chain_id: u64) -> u64 {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID { MAINNET_MIN_BASE_FEE } else { MIN_BASE_FEE }
+}
 
 /// Returns the configured Shasta fork condition for a given Taiko L2 chain ID.
 pub const fn shasta_fork_condition_for_chain(chain_id: u64) -> Option<ForkCondition> {

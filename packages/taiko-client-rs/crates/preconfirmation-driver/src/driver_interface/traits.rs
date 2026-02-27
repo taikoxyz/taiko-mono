@@ -46,6 +46,8 @@ pub trait InboxReader: Clone + Send + Sync {
 pub trait BlockHeaderProvider: Send + Sync {
     /// Fetch the block header for the specified block number.
     async fn header_by_number(&self, block_number: u64) -> ClientResult<RpcHeader>;
+    /// Return the connected L2 chain ID.
+    async fn chain_id(&self) -> ClientResult<u64>;
 }
 
 /// Trait for driving preconfirmation submissions and sync state.
