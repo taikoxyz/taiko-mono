@@ -3,8 +3,6 @@
 use std::sync::Arc;
 
 use alloy_primitives::U256;
-use preconfirmation_types::MAX_TXLIST_BYTES;
-use protocol::codec::ZlibTxListCodec;
 use tokio::sync::{mpsc, watch};
 use tracing::info;
 
@@ -132,7 +130,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
             server.stop().await;
         }
 
-        result.map_err(|e| PreconfirmationClientError::Network(e.to_string()))
+        result
     }
 
     /// Optionally start the RPC server.
@@ -142,7 +140,7 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
         };
 
         let local_peer_id = self.p2p_client.p2p_handle().local_peer_id().to_string();
-        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let codec = self.p2p_client.codec().clone();
         let driver: Arc<EmbeddedDriverClient<I>> = Arc::new(self.driver_client.clone());
 
         let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {

@@ -226,8 +226,8 @@ where
             .submit_preconfirmation_payload(PreconfPayload::new(payload))
             .await
             .map_err(|err| {
-                PreconfirmationClientError::DriverInterface(DriverApiError::ChannelClosed(
-                    err.to_string(),
+                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(
+                    driver::DriverError::from(err),
                 ))
             })?;
 

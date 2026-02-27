@@ -223,6 +223,11 @@ where
         &self.handle
     }
 
+    /// Get a reference to the txlist codec.
+    pub fn codec(&self) -> &Arc<ZlibTxListCodec> {
+        &self.codec
+    }
+
     /// Get a reference to the lookahead resolver.
     pub fn lookahead_resolver(
         &self,

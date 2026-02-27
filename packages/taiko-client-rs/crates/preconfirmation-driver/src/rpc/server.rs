@@ -30,7 +30,20 @@ const METRIC_ERRORS_TOTAL: &str = "preconf_rpc_errors_total";
 /// Metric name for RPC duration histogram.
 const METRIC_DURATION_SECONDS: &str = "preconf_rpc_duration_seconds";
 
+/// Maximum request body size for the RPC server (4 MiB).
+///
+/// Sized to fit a `PublishBlockRequest` with a max-sized txlist (2 MiB compressed)
+/// plus hex encoding overhead and JSON framing.
+const MAX_REQUEST_BODY_SIZE: u32 = 4 * 1024 * 1024;
+/// Maximum number of concurrent RPC connections.
+const MAX_CONNECTIONS: u32 = 64;
+
 /// Configuration for the preconfirmation RPC server.
+///
+/// **Security note:** The server binds plain HTTP with no authentication.
+/// It should only be exposed on localhost or a trusted network. Binding to
+/// `0.0.0.0` without external access control allows any caller to invoke
+/// `preconf_publishBlock` and cause the node to mine arbitrary blocks.
 #[derive(Debug, Clone)]
 pub struct PreconfRpcServerConfig {
     /// Socket address to listen on (e.g., "127.0.0.1:8550").
@@ -59,9 +72,14 @@ impl PreconfRpcServer {
         config: PreconfRpcServerConfig,
         api: Arc<dyn PreconfRpcApi>,
     ) -> Result<Self> {
-        let server = ServerBuilder::new().build(config.listen_addr).await.map_err(|e| {
-            PreconfirmationClientError::Config(format!("failed to bind server: {e}"))
-        })?;
+        let server = ServerBuilder::new()
+            .max_request_body_size(MAX_REQUEST_BODY_SIZE)
+            .max_connections(MAX_CONNECTIONS)
+            .build(config.listen_addr)
+            .await
+            .map_err(|e| {
+                PreconfirmationClientError::Config(format!("failed to bind server: {e}"))
+            })?;
 
         let addr = server.local_addr().map_err(|e| {
             PreconfirmationClientError::Config(format!("failed to get local addr: {e}"))
@@ -159,7 +177,17 @@ fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
 /// Map a domain error into a JSON-RPC error object.
 fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     let code = match &err {
-        PreconfirmationClientError::Validation(_) => PreconfRpcErrorCode::InvalidCommitment.code(),
+        PreconfirmationClientError::Validation(msg) => {
+            if msg.contains("stale commitment") {
+                PreconfRpcErrorCode::NotSynced.code()
+            } else if msg.contains("signer mismatch") {
+                PreconfRpcErrorCode::InvalidSigner.code()
+            } else if msg.contains("submission_window_end mismatch") {
+                PreconfRpcErrorCode::SubmissionWindowExpired.code()
+            } else {
+                PreconfRpcErrorCode::InvalidCommitment.code()
+            }
+        }
         PreconfirmationClientError::Codec(_) => PreconfRpcErrorCode::InvalidTxList.code(),
         PreconfirmationClientError::Catchup(_) => PreconfRpcErrorCode::NotSynced.code(),
         PreconfirmationClientError::Lookahead(lookahead_err) => match lookahead_err {

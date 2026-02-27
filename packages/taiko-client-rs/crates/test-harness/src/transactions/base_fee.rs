@@ -1,11 +1,10 @@
 //! Base fee calculation for E2E tests.
 
-use alethia_reth_consensus::eip4396::{
-    MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
-};
+use alethia_reth_consensus::eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee};
 use alloy_eips::BlockNumberOrTag;
 use alloy_provider::Provider;
 use anyhow::{Result, anyhow};
+use protocol::shasta::constants::min_base_fee_for_chain;
 
 /// Computes the expected base fee for the next block using EIP-4396 rules.
 ///
@@ -52,10 +51,12 @@ where
     let parent_base_fee_per_gas = parent_header
         .base_fee_per_gas
         .ok_or_else(|| anyhow!("parent block {parent_block_number} missing base fee"))?;
+    let chain_id = provider.get_chain_id().await?;
+    let min_base_fee = min_base_fee_for_chain(chain_id);
     Ok(calculate_next_block_eip4396_base_fee(
         &parent_header,
         time_delta,
         parent_base_fee_per_gas,
-        MIN_BASE_FEE,
+        min_base_fee,
     ))
 }

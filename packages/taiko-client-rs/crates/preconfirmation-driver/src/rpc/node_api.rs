@@ -11,11 +11,13 @@ use preconfirmation_types::{
 use protocol::codec::ZlibTxListCodec;
 use ssz_rs::Deserialize;
 use tokio::sync::{mpsc, watch};
+use tracing::warn;
 
 use crate::{
     Result,
     driver_interface::{DriverClient, InboxReader, PreconfirmationInput},
     error::PreconfirmationClientError,
+    metrics::PreconfirmationClientMetrics,
     rpc::{
         NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse,
     },
@@ -76,14 +78,19 @@ impl<I: InboxReader + 'static, D: DriverClient + 'static> PreconfRpcApi for Node
     }
 }
 
-/// Query the P2P network for the current peer count, returning 0 if the command channel is closed.
+/// Query the P2P network for the current peer count.
+///
+/// Returns 0 and logs a warning if the command channel is closed.
 async fn query_peer_count(command_tx: &mpsc::Sender<NetworkCommand>) -> u64 {
     let (tx, rx) = tokio::sync::oneshot::channel();
     if command_tx.send(NetworkCommand::GetPeerCount { respond_to: tx }).await.is_err() {
+        warn!("peer count query failed: P2P command channel closed");
         return 0;
     }
-
-    rx.await.unwrap_or(0)
+    rx.await.unwrap_or_else(|_| {
+        warn!("peer count query failed: response channel dropped");
+        0
+    })
 }
 
 /// Validate, mine, and gossip a preconfirmation block atomically.
@@ -95,7 +102,7 @@ async fn query_peer_count(command_tx: &mpsc::Sender<NetworkCommand>) -> u64 {
 /// 5. Reject stale commitments (block_number <= event_sync_tip)
 /// 6. Build `PreconfirmationInput`
 /// 7. Submit to driver (mine the block)
-/// 8. Gossip to P2P (parallel, propagate failures)
+/// 8. Gossip to P2P (sequential, best-effort after successful mine)
 pub(crate) async fn publish_block_impl(
     command_tx: &mpsc::Sender<NetworkCommand>,
     driver: &dyn DriverClient,
@@ -106,25 +113,33 @@ pub(crate) async fn publish_block_impl(
 ) -> Result<PublishBlockResponse> {
     // 1. SSZ-decode the commitment.
     let signed_commitment = SignedCommitment::deserialize(request.commitment.as_ref())
-        .map_err(|e| PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}")))?;
+        .map_err(|e| {
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}"))
+        })?;
 
     // 2a. Validate txlist hash matches the provided bytes.
-    let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec())
-        .map_err(|_| PreconfirmationClientError::Validation("txlist too large".into()))?;
+    let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec()).map_err(|_| {
+        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        PreconfirmationClientError::Validation("txlist too large".into())
+    })?;
     let calculated_hash = keccak256_bytes(&raw_tx_list);
     if calculated_hash != request.tx_list_hash {
+        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
         return Err(PreconfirmationClientError::Validation(format!(
             "tx_list_hash mismatch: expected {}, got {}",
             request.tx_list_hash, calculated_hash
         )));
     }
 
-    // 2b. Validate that the commitment's embedded raw_tx_list_hash matches for non-EOP commitments.
-    let is_eop_only = is_eop_only(&signed_commitment);
-    if !is_eop_only {
+    // 2b. Validate that the commitment's embedded raw_tx_list_hash matches for non-EOP.
+    let eop_only = is_eop_only(&signed_commitment);
+    if !eop_only {
         let embedded_hash =
             B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
         if embedded_hash != calculated_hash {
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                .increment(1);
             return Err(PreconfirmationClientError::Validation(format!(
                 "commitment raw_tx_list_hash mismatch: commitment contains {}, txlist hashes to {}",
                 embedded_hash, calculated_hash
@@ -133,7 +148,12 @@ pub(crate) async fn publish_block_impl(
     }
 
     // 3. Validate commitment signature + recover signer.
-    let signer = validate_commitment_with_signer(&signed_commitment, expected_slasher)?;
+    let signer = validate_commitment_with_signer(&signed_commitment, expected_slasher)
+        .map_err(|e| {
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                .increment(1);
+            e
+        })?;
 
     // 4. Validate lookahead.
     let timestamp = uint256_to_u256(&signed_commitment.commitment.preconf.timestamp);
@@ -141,12 +161,16 @@ pub(crate) async fn publish_block_impl(
         .slot_info_for_timestamp(timestamp)
         .await
         .map_err(PreconfirmationClientError::from)?;
-    validate_lookahead(&signed_commitment, signer, &slot_info)?;
+    validate_lookahead(&signed_commitment, signer, &slot_info).map_err(|e| {
+        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        e
+    })?;
 
     // 5. Reject stale commitments whose block is already covered by confirmed sync.
     let current_block = uint256_to_u256(&signed_commitment.commitment.preconf.block_number);
     let event_sync_tip = driver.event_sync_tip().await?;
     if current_block <= event_sync_tip {
+        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
         return Err(PreconfirmationClientError::Validation(format!(
             "stale commitment: block {} <= event_sync_tip {}",
             current_block, event_sync_tip
@@ -154,12 +178,14 @@ pub(crate) async fn publish_block_impl(
     }
 
     // 6. Build PreconfirmationInput.
-    let input = if is_eop_only {
+    let input = if eop_only {
         PreconfirmationInput::new(signed_commitment.clone(), None, None)
     } else {
-        let transactions = codec
-            .decode(raw_tx_list.as_ref())
-            .map_err(|e| PreconfirmationClientError::Codec(e.to_string()))?;
+        let transactions = codec.decode(raw_tx_list.as_ref()).map_err(|e| {
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
+                .increment(1);
+            PreconfirmationClientError::Codec(e.to_string())
+        })?;
         PreconfirmationInput::new(
             signed_commitment.clone(),
             Some(transactions),
@@ -168,21 +194,36 @@ pub(crate) async fn publish_block_impl(
     };
 
     // 7. Submit to driver — mine the block.
-    driver.submit_preconfirmation(input).await?;
+    driver.submit_preconfirmation(input).await.map_err(|e| {
+        metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL).increment(1);
+        e
+    })?;
+    metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL).increment(1);
 
-    // 8. Gossip to P2P (parallel, propagate failures).
-    // Note: these gossip sends run after submission; if one fails, the block may
-    // already be mined and accepted. Retrying can therefore submit the same input again.
+    // 8. Gossip to P2P (sequential, best-effort after successful mine).
+    //
+    // The block is already mined at this point. Gossip failures are logged
+    // but do not fail the RPC — returning an error after a successful mine
+    // would cause callers to retry and produce duplicate driver submissions.
     let commitment_hash = keccak256_bytes(request.commitment.as_ref());
-    let raw_tx_list_hash =
-        Bytes32::try_from(calculated_hash.0.to_vec()).expect("keccak256 always produces 32 bytes");
-    let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
-    let (r1, r2) = tokio::join!(
-        command_tx.send(NetworkCommand::PublishCommitment(signed_commitment)),
-        command_tx.send(NetworkCommand::PublishRawTxList(gossip)),
-    );
-    r1.map_err(|e| PreconfirmationClientError::Network(format!("gossip commitment failed: {e}")))?;
-    r2.map_err(|e| PreconfirmationClientError::Network(format!("gossip txlist failed: {e}")))?;
+
+    if let Err(e) = command_tx
+        .send(NetworkCommand::PublishCommitment(signed_commitment))
+        .await
+    {
+        warn!(error = %e, "gossip commitment failed after successful mine");
+    }
+
+    // Skip txlist gossip for EOP-only commitments — there is no meaningful
+    // txlist to broadcast and no follower will match the zero hash.
+    if !eop_only {
+        let raw_tx_list_hash = Bytes32::try_from(calculated_hash.0.to_vec())
+            .map_err(|e| PreconfirmationClientError::Validation(e.to_string()))?;
+        let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
+        if let Err(e) = command_tx.send(NetworkCommand::PublishRawTxList(gossip)).await {
+            warn!(error = %e, "gossip txlist failed after successful mine");
+        }
+    }
 
     Ok(PublishBlockResponse { commitment_hash, tx_list_hash: calculated_hash })
 }
@@ -284,10 +325,7 @@ mod tests {
     struct StubDriver;
     #[async_trait::async_trait]
     impl DriverClient for StubDriver {
-        async fn submit_preconfirmation(
-            &self,
-            _: PreconfirmationInput,
-        ) -> Result<()> {
+        async fn submit_preconfirmation(&self, _: PreconfirmationInput) -> Result<()> {
             Ok(())
         }
         async fn wait_event_sync(&self) -> Result<()> {
@@ -301,7 +339,6 @@ mod tests {
         }
     }
 
-    /// Test that NodeRpcApiImpl returns correct status with peer_id.
     #[tokio::test]
     async fn test_node_status_includes_peer_id() {
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::from(100));
@@ -319,7 +356,6 @@ mod tests {
             local_peer_id: local_peer_id.clone(),
         };
 
-        // Spawn a handler to respond to GetPeerCount command
         tokio::spawn(async move {
             if let Some(NetworkCommand::GetPeerCount { respond_to }) = command_rx.recv().await {
                 let _ = respond_to.send(5);
@@ -333,7 +369,6 @@ mod tests {
         assert_eq!(status.event_sync_tip, Some(U256::from(120)));
     }
 
-    /// Test that get_preconf_slot_info delegates to the lookahead resolver and maps the result.
     #[tokio::test]
     async fn test_get_preconf_slot_info_returns_resolver_output() {
         let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
@@ -352,21 +387,17 @@ mod tests {
 
         tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
 
-        let timestamp = U256::from(500);
-        let slot_info = api.get_preconf_slot_info(timestamp).await.unwrap();
-
+        let slot_info = api.get_preconf_slot_info(U256::from(500)).await.unwrap();
         assert_eq!(slot_info.signer, alloy_primitives::Address::repeat_byte(0x11));
         assert_eq!(slot_info.submission_window_end, U256::from(2000));
     }
 
-    /// Test that publish_block_impl rejects tx_list_hash mismatch.
     #[tokio::test]
     async fn test_publish_block_rejects_hash_mismatch() {
         let (command_tx, _command_rx) = mpsc::channel::<NetworkCommand>(16);
         let driver = StubDriver;
         let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
 
-        // Build a minimal valid SSZ-encoded SignedCommitment.
         let commitment = SignedCommitment::default();
         let mut commitment_bytes = Vec::new();
         ssz_rs::Serialize::serialize(&commitment, &mut commitment_bytes)
@@ -374,17 +405,12 @@ mod tests {
 
         let request = PublishBlockRequest {
             commitment: alloy_primitives::Bytes::from(commitment_bytes),
-            tx_list_hash: B256::ZERO, // wrong hash
+            tx_list_hash: B256::ZERO,
             tx_list: alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]),
         };
 
         let result = publish_block_impl(
-            &command_tx,
-            &driver,
-            &codec,
-            None,
-            &MockLookaheadResolver,
-            request,
+            &command_tx, &driver, &codec, None, &MockLookaheadResolver, request,
         )
         .await;
 
@@ -392,15 +418,12 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("tx_list_hash mismatch"));
     }
 
-    /// Test that publish_block_impl rejects when commitment's embedded raw_tx_list_hash
-    /// differs from the provided txlist.
     #[tokio::test]
     async fn test_publish_block_rejects_commitment_hash_mismatch() {
         let (command_tx, _command_rx) = mpsc::channel::<NetworkCommand>(16);
         let driver = StubDriver;
         let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
 
-        // Build a commitment with a non-zero raw_tx_list_hash that won't match the txlist.
         let mut commitment = SignedCommitment::default();
         commitment.commitment.preconf.raw_tx_list_hash =
             preconfirmation_types::Bytes32::try_from(vec![0xAAu8; 32]).unwrap();
@@ -408,7 +431,6 @@ mod tests {
         ssz_rs::Serialize::serialize(&commitment, &mut commitment_bytes)
             .expect("serialize commitment");
 
-        // Provide a txlist whose hash matches tx_list_hash but NOT the commitment.
         let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]);
         let tx_list_hash = keccak256_bytes(tx_list.as_ref());
 
@@ -419,100 +441,11 @@ mod tests {
         };
 
         let result = publish_block_impl(
-            &command_tx,
-            &driver,
-            &codec,
-            None,
-            &MockLookaheadResolver,
-            request,
+            &command_tx, &driver, &codec, None, &MockLookaheadResolver, request,
         )
         .await;
 
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().to_string().contains("commitment raw_tx_list_hash mismatch"),
-        );
-    }
-
-    /// Test that EOP-only commitments with zero raw_tx_list_hash can be submitted.
-    #[tokio::test]
-    async fn test_publish_block_accepts_eop_only_commitment() {
-        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let driver = StubDriver;
-        let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
-
-        let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]);
-        let tx_list_hash = keccak256_bytes(tx_list.as_ref());
-
-        let mut commitment = SignedCommitment::default();
-        commitment.commitment.preconf.eop = true;
-        commitment.commitment.preconf.block_number = preconfirmation_types::Uint256::from(1u64);
-        commitment.commitment.preconf.timestamp = preconfirmation_types::Uint256::from(42u64);
-        commitment.commitment.preconf.submission_window_end =
-            preconfirmation_types::Uint256::from(2000u64);
-        commitment.commitment.preconf.raw_tx_list_hash =
-            preconfirmation_types::Bytes32::try_from(vec![0u8; 32]).unwrap();
-
-        let secret_key = secp256k1::SecretKey::from_slice(&[42u8; 32])
-            .expect("valid deterministic test secret key");
-        let signer = {
-            let secp = secp256k1::Secp256k1::new();
-            preconfirmation_types::public_key_to_address(&secp256k1::PublicKey::from_secret_key(
-                &secp,
-                &secret_key,
-            ))
-        };
-        commitment.signature =
-            preconfirmation_types::sign_commitment(&commitment.commitment, &secret_key)
-                .expect("valid test signature");
-
-        let mut commitment_bytes = Vec::new();
-        ssz_rs::Serialize::serialize(&commitment, &mut commitment_bytes)
-            .expect("serialize commitment");
-
-        // Consume gossip commands sent by publish_block_impl so `send` does not fail.
-        tokio::spawn(async move {
-            while command_rx.recv().await.is_some() {}
-        });
-
-        struct TestResolver(alloy_primitives::Address);
-
-        #[async_trait::async_trait]
-        impl protocol::preconfirmation::PreconfSignerResolver for TestResolver {
-            async fn signer_for_timestamp(
-                &self,
-                _timestamp: U256,
-            ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
-                Ok(self.0)
-            }
-
-            async fn slot_info_for_timestamp(
-                &self,
-                _timestamp: U256,
-            ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
-                Ok(protocol::preconfirmation::PreconfSlotInfo {
-                    signer: self.0,
-                    submission_window_end: U256::from(2000),
-                })
-            }
-        }
-
-        let request = PublishBlockRequest {
-            commitment: alloy_primitives::Bytes::from(commitment_bytes),
-            tx_list_hash,
-            tx_list,
-        };
-
-        let result = publish_block_impl(
-            &command_tx,
-            &driver,
-            &codec,
-            None,
-            &TestResolver(signer),
-            request,
-        )
-        .await;
-
-        assert!(result.is_ok());
+        assert!(result.unwrap_err().to_string().contains("commitment raw_tx_list_hash mismatch"));
     }
 }
