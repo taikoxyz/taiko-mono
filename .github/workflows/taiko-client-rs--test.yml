@@ -73,7 +73,25 @@ jobs:
           access_token: ${{ github.token }}
 
       - uses: actions/checkout@v6
-      - uses: rui314/setup-mold@v1
+      - name: Install mold
+        shell: bash
+        run: |
+          set -euxo pipefail
+          MOLD_VERSION=2.40.4
+          ARCH="$(uname -m)"
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          curl -fsSL "https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz" \
+            | $SUDO tar -C /usr/local --strip-components=1 --no-overwrite-dir -xzf -
+
+          if [ "$(realpath /usr/bin/ld)" != /usr/local/bin/mold ]; then
+            $SUDO ln -sf /usr/local/bin/mold "$(realpath /usr/bin/ld)"
+          fi
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
