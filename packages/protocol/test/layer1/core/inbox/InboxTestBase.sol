@@ -148,7 +148,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _deployProverWhitelist() internal returns (ProverWhitelist) {
-        ProverWhitelist impl = new ProverWhitelist();
+        ProverWhitelist impl = new ProverWhitelist(address(this));
         return ProverWhitelist(
             address(
                 new ERC1967Proxy(

@@ -17,7 +17,7 @@ contract InboxWhitelistProverTest is InboxTestBase {
 
     function _buildConfig() internal override returns (IInbox.Config memory) {
         // Deploy and setup ProverWhitelist
-        ProverWhitelist proverWhitelistImpl = new ProverWhitelist();
+        ProverWhitelist proverWhitelistImpl = new ProverWhitelist(address(this));
         proverWhitelist = ProverWhitelist(
             address(
                 new ERC1967Proxy(

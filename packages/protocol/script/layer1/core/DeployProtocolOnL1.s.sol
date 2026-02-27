@@ -48,6 +48,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     struct DeploymentConfig {
         address contractOwner;
         address ejectorManager;
+        address proverManager;
         bytes32 l2GenesisHash;
         uint64 l2ChainId;
         address sharedResolver;
@@ -100,6 +101,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     function _loadConfig() private view returns (DeploymentConfig memory config) {
         config.contractOwner = vm.envAddress("CONTRACT_OWNER");
         config.ejectorManager = vm.envOr("EJECTOR_MANAGER", config.contractOwner);
+        config.proverManager = vm.envOr("PROVER_MANAGER", config.contractOwner);
         config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
@@ -189,7 +191,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy prover whitelist
         address proverWhitelist = deployProxy({
             name: "prover_whitelist",
-            impl: address(new ProverWhitelist()),
+            impl: address(new ProverWhitelist(config.proverManager)),
             data: abi.encodeCall(ProverWhitelist.init, (config.contractOwner))
         });
         console2.log("ProverWhitelist deployed:", proverWhitelist);
