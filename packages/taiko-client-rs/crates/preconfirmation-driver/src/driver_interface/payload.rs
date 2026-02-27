@@ -1,7 +1,7 @@
 //! Helpers for constructing execution payloads from preconfirmation inputs.
 
 use alethia_reth_consensus::eip4396::{
-    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+    MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
@@ -38,6 +38,31 @@ where
     }
 }
 
+/// Compute base fee for the next block from parent and grandparent headers.
+async fn compute_base_fee_per_gas(
+    l2_provider: &dyn BlockHeaderProvider,
+    parent_header: &RpcHeader,
+    parent_block_number: u64,
+) -> Result<u64> {
+    if parent_header.inner.number == 0 {
+        return Ok(SHASTA_INITIAL_BASE_FEE);
+    }
+
+    let parent_base_fee_per_gas = parent_header
+        .inner
+        .base_fee_per_gas
+        .ok_or(DriverApiError::MissingBaseFee { parent_block_number })?;
+    let grandparent_header =
+        l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
+
+    Ok(calculate_next_block_eip4396_base_fee(
+        &parent_header.inner,
+        parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
+        parent_base_fee_per_gas,
+        MIN_BASE_FEE,
+    ))
+}
+
 /// Build [`TaikoPayloadAttributes`] from a [`PreconfirmationInput`].
 ///
 /// This builder is intentionally conservative: it only derives fields available in the
@@ -64,27 +89,11 @@ pub async fn build_taiko_payload_attributes(
         B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
         block_number,
     );
-    let base_fee_per_gas = if parent_header.inner.number == 0 {
-        SHASTA_INITIAL_BASE_FEE
-    } else {
-        // Validate that the parent header has a base fee (required for EIP-1559 chains).
-        // The actual base fee is computed below using the EIP-4396 formula.
-        parent_header
-            .inner
-            .base_fee_per_gas
-            .ok_or_else(|| DriverApiError::MissingBaseFee { parent_block_number })?;
-
-        let grandparent_header =
-            l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
-
-        calculate_next_block_eip4396_base_fee(
-            &parent_header.inner,
-            parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
-        )
-    };
+    let base_fee_per_gas =
+        compute_base_fee_per_gas(l2_provider, &parent_header, parent_block_number).await?;
     let transactions = input.transactions.as_ref().ok_or(DriverApiError::MissingTransactions)?;
     let tx_list =
-        encode_tx_list(&transactions.iter().map(|tx| Bytes::from(tx.clone())).collect::<Vec<_>>());
+        encode_tx_list(&transactions.iter().cloned().map(Bytes::from).collect::<Vec<_>>());
     let extra_data = encode_extra_data(basefee_sharing_pctg, proposal_id);
 
     let block_metadata = TaikoBlockMetadata {
