@@ -52,6 +52,8 @@ async fn compute_base_fee_per_gas(
         .inner
         .base_fee_per_gas
         .ok_or(DriverApiError::MissingBaseFee { parent_block_number })?;
+    // Preconfirmation path currently uses the default clamp; mainnet-specific handling is
+    // applied in derivation/proposer flows where chain context is explicitly tracked.
     let grandparent_header =
         l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
 

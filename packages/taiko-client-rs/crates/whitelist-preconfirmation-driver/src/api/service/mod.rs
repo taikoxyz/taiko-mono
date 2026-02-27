@@ -1,4 +1,4 @@
-//! Whitelist preconfirmation REST/WS API handler implementation.
+//! Whitelist preconfirmation API service implementation.
 
 use std::{io::Read, sync::Arc, time::Instant};
 
@@ -55,8 +55,8 @@ const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 
-/// Implements the whitelist preconfirmation REST/WS API.
-pub(crate) struct WhitelistApiHandler<P>
+/// Implements whitelist preconfirmation API business logic.
+pub(crate) struct WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -84,12 +84,12 @@ where
     lookahead_status: RwLock<Option<LookaheadStatus>>,
     /// Shared cache state used to back `/status` and EOS visibility.
     cache_state: SharedPreconfCacheState,
-    /// Broadcast channel for REST `/ws` end-of-sequencing notifications.
+    /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
-/// Dependency bundle for constructing `WhitelistApiHandler`.
-pub(crate) struct WhitelistApiHandlerParams<P>
+/// Dependency bundle for constructing `WhitelistApiService`.
+pub(crate) struct WhitelistApiServiceParams<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -115,13 +115,13 @@ where
     pub(crate) local_peer_id: String,
 }
 
-impl<P> WhitelistApiHandler<P>
+impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Create a new REST/WS handler.
+    /// Create a new API service instance.
     pub(crate) fn new(
-        WhitelistApiHandlerParams {
+        WhitelistApiServiceParams {
             event_syncer,
             rpc,
             chain_id,
@@ -132,7 +132,7 @@ where
             network_command_tx,
             cache_state,
             local_peer_id,
-        }: WhitelistApiHandlerParams<P>,
+        }: WhitelistApiServiceParams<P>,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {

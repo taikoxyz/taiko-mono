@@ -100,6 +100,7 @@ impl Proposer {
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
+        // Match proposer-side base-fee clamping to chain policy used by derivation.
         let min_base_fee_to_clamp =
             min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
 
@@ -273,6 +274,7 @@ impl Proposer {
                 parent_block_number: parent_number,
             })?;
 
+        // Pass explicit parent base fee + chain clamp to mirror current EIP-4396 API semantics.
         Ok(U256::from(calculate_next_block_eip4396_base_fee(
             &parent.header.inner,
             parent_block_time_delta_secs,

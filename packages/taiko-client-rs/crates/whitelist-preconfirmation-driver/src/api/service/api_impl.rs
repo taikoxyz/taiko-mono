@@ -1,8 +1,8 @@
-//! `WhitelistApi` implementation for the REST handler.
+//! `WhitelistApi` implementation for the API service.
 
 use super::*;
 
-impl<P> WhitelistApiHandler<P>
+impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -21,7 +21,7 @@ where
 }
 
 #[async_trait]
-impl<P> WhitelistApi for WhitelistApiHandler<P>
+impl<P> WhitelistApi for WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -91,6 +91,8 @@ where
         let block_hash_signature =
             self.sign_digest(block_signing_hash(self.chain_id, block_hash.as_slice()))?;
 
+        // Persist per-block signature before gossip so RPC readers can immediately resolve
+        // canonical origin signatures for the inserted block.
         self.rpc
             .set_l1_origin_signature(
                 U256::from(block_number),

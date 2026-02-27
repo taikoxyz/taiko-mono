@@ -102,6 +102,7 @@ impl WhitelistNetwork {
             dial_once(&mut swarm, &mut dialed_addrs, addr, "bootnode");
         }
 
+        // Keep discovery bootstrap behavior explicit so config combinations are easy to audit.
         let mut discovery_rx = match (cfg.enable_discovery, bootnodes.discovery_enrs.is_empty()) {
             (true, false) => spawn_discovery(cfg.discovery_listen, bootnodes.discovery_enrs)
                 .map_err(|err| {
@@ -215,6 +216,8 @@ impl WhitelistNetwork {
                                         envelope: (*envelope).clone(),
                                     },
                                 };
+                                // Loopback first so downstream cache/import logic observes the
+                                // payload even when there are no peers to echo it back.
                                 forward_event(&event_tx, local_event).await?;
 
                                 match encode_unsafe_payload_message(&signature, &envelope) {

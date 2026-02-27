@@ -10,7 +10,6 @@ mod importer;
 pub mod metrics;
 mod network;
 mod preconf_ingress_sync;
-mod rest_handler;
 mod runner;
 mod whitelist_fetcher;
 

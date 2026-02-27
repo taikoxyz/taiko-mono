@@ -2,7 +2,7 @@
 
 use super::*;
 
-impl<P> WhitelistApiHandler<P>
+impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {

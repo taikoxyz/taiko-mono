@@ -14,14 +14,16 @@ use tracing::{info, warn};
 
 use crate::{
     Result,
-    api::{WhitelistApiServer, WhitelistApiServerConfig},
+    api::{
+        WhitelistApiServer, WhitelistApiServerConfig, WhitelistApiService,
+        WhitelistApiServiceParams,
+    },
     cache::{L1_EPOCH_DURATION_SECS, SharedPreconfCacheState},
     error::WhitelistPreconfirmationDriverError,
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
-    rest_handler::{WhitelistApiHandler, WhitelistApiHandlerParams},
     whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
@@ -157,7 +159,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 self.config.whitelist_address,
                 preconf_ingress_sync.client().l1_provider.clone(),
             );
-            let handler = Arc::new(WhitelistApiHandler::new(WhitelistApiHandlerParams {
+            let handler = Arc::new(WhitelistApiService::new(WhitelistApiServiceParams {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
                 chain_id: self.config.p2p_config.chain_id,

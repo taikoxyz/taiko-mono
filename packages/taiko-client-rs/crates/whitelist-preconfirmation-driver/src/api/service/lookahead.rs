@@ -2,7 +2,7 @@
 
 use super::*;
 
-impl<P> WhitelistApiHandler<P>
+impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -18,6 +18,7 @@ where
         fee_recipient: Address,
         current_slot: u64,
     ) -> Result<()> {
+        // Reuse cached lookahead only when it still covers the queried slot.
         let lookahead = if let Some(cached) = self
             .lookahead_status
             .read()
@@ -43,6 +44,7 @@ where
             return Ok(());
         }
 
+        // Keep the failure reason aligned with the currently active half-epoch assignment.
         let in_current = slot_matches_range(current_slot, &lookahead.curr_ranges);
         let in_next = slot_matches_range(current_slot, &lookahead.next_ranges);
         let reason = match (in_current, in_next) {

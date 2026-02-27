@@ -132,6 +132,7 @@ where
         let chain_id = rpc.l2_provider.get_chain_id().await?;
         let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
             .map_err(|err| DerivationError::Other(err.into()))?;
+        // Clamp differs by chain; keep derivation-side base-fee math chain-aware.
         let min_base_fee_to_clamp = min_base_fee_for_chain(chain_id);
         info!(
             chain_id,

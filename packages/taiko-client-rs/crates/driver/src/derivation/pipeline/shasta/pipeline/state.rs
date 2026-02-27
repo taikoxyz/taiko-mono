@@ -73,6 +73,7 @@ impl ParentState {
             self.header.base_fee_per_gas.ok_or(DerivationError::MissingParentBaseFee {
                 parent_block_number: self.header.number,
             })?;
+        // Use cached parent/grandparent delta with chain-specific clamp to mirror proposer logic.
         Ok(calculate_next_block_eip4396_base_fee(
             &self.header,
             self.parent_block_time_delta_secs,

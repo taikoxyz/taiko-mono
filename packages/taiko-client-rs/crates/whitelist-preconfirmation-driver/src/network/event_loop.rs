@@ -95,6 +95,7 @@ pub(super) async fn handle_gossipsub_event(
         };
 
     let mut report = |acceptance: &gossipsub::MessageAcceptance| {
+        // Explicitly report every decision so mesh scoring remains aligned with local validation.
         let _ = swarm.behaviour_mut().gossipsub.report_message_validation_result(
             &message_id,
             &from,
@@ -115,6 +116,8 @@ pub(super) async fn handle_gossipsub_event(
                         )
                         .await
                     {
+                        // If forwarding to importer fails, reject to avoid silently accepting
+                        // data that local consumers could not process.
                         report(&gossipsub::MessageAcceptance::Reject);
                         return Err(err);
                     }
@@ -193,6 +196,7 @@ pub(super) async fn handle_gossipsub_event(
 
         let acceptance = inbound_validation_state.validate_request(from, hash, now);
         if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+            // Requests are relayed only after inbound dedupe/rate checks pass.
             forward_event(event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
         }
 
@@ -221,6 +225,7 @@ pub(super) async fn handle_gossipsub_event(
 
         let acceptance = inbound_validation_state.validate_eos_request(from, epoch, now);
         if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+            // EOS requests follow the same acceptance gate as preconf requests.
             forward_event(event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch }).await?;
         }
 
