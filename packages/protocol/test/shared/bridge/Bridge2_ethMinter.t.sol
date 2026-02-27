@@ -52,10 +52,37 @@ contract TestBridge2_ethMinter is TestBridge2Base {
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
         eBridge.mintEth(address(0), 1 ether);
 
-        vm.expectRevert(Bridge.INVALID_MINT_RECIPIENT.selector);
+        vm.expectRevert(Bridge.B_INVALID_MINT_RECIPIENT.selector);
         eBridge.mintEth(address(eBridge), 1 ether);
 
         vm.stopPrank();
+    }
+
+    function test_bridge2_mintEth_reverts_for_zero_amount() public {
+        vm.prank(deployer);
+        eBridge.setEthMinter(Alice, true);
+
+        vm.prank(Alice);
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
+        eBridge.mintEth(Bob, 0);
+    }
+
+    function test_bridge2_mintEth_reverts_when_paused() public {
+        vm.prank(deployer);
+        eBridge.setEthMinter(Alice, true);
+
+        vm.prank(deployer);
+        eBridge.pause();
+
+        vm.prank(Alice);
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        eBridge.mintEth(Bob, 1 ether);
+
+        vm.prank(deployer);
+        eBridge.unpause();
+
+        vm.prank(Alice);
+        eBridge.mintEth(Bob, 1 ether);
     }
 
     function test_bridge2_mintEth_reverts_for_non_minter() public {

@@ -375,11 +375,12 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     }
 
     /// @inheritdoc IEthMinter
-    function mintEth(address _recipient, uint256 _amount) external nonReentrant {
+    function mintEth(address _recipient, uint256 _amount) external whenNotPaused nonReentrant {
         if (_recipient == address(0)) revert ZERO_ADDRESS();
-        if (_recipient == address(this)) revert INVALID_MINT_RECIPIENT();
+        if (_recipient == address(this)) revert B_INVALID_MINT_RECIPIENT();
+        if (_amount == 0) revert B_INVALID_VALUE();
         if (!isEthMinter[msg.sender]) revert B_INVALID_ETH_MINTER();
-        _recipient.sendEtherAndVerify(_amount, gasleft());
+        _recipient.sendEtherAndVerify(_amount, _SEND_ETHER_GAS_LIMIT);
         emit EthMinted(_recipient, _amount);
     }
 
@@ -706,7 +707,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     error B_INVALID_ETH_MINTER();
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
-    error INVALID_MINT_RECIPIENT();
+    error B_INVALID_MINT_RECIPIENT();
     error B_INVALID_STATUS();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_SENT();
