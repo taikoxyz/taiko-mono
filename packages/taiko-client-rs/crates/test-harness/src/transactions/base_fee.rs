@@ -1,6 +1,8 @@
 //! Base fee calculation for E2E tests.
 
-use alethia_reth_consensus::eip4396::{SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee};
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+};
 use alloy_eips::BlockNumberOrTag;
 use alloy_provider::Provider;
 use anyhow::{Result, anyhow};

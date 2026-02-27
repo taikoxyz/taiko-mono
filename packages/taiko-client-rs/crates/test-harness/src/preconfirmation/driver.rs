@@ -226,9 +226,7 @@ where
             .submit_preconfirmation_payload(PreconfPayload::new(payload))
             .await
             .map_err(|err| {
-                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(
-                    err,
-                ))
+                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(err))
             })?;
 
         info!(block_number, proposal_id, "submitted preconfirmation payload");

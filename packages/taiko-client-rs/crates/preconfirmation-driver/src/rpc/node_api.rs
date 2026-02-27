@@ -5,8 +5,8 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{
-    Bytes20, RawTxListGossip, SignedCommitment, TxListBytes, keccak256_bytes,
-    b256_to_bytes32, uint256_to_u256,
+    Bytes20, RawTxListGossip, SignedCommitment, TxListBytes, b256_to_bytes32, keccak256_bytes,
+    uint256_to_u256,
 };
 use protocol::codec::ZlibTxListCodec;
 use ssz_rs::Deserialize;
@@ -18,9 +18,7 @@ use crate::{
     driver_interface::{DriverClient, InboxReader, PreconfirmationInput},
     error::PreconfirmationClientError,
     metrics::PreconfirmationClientMetrics,
-    rpc::{
-        NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse,
-    },
+    rpc::{NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse},
     validation::{is_eop_only, validate_commitment_with_signer, validate_lookahead},
 };
 
@@ -116,7 +114,9 @@ pub(crate) async fn publish_block_impl(
         .inspect_err(|_| {
             metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
         })
-        .map_err(|e| PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}")))?;
+        .map_err(|e| {
+            PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}"))
+        })?;
 
     // 2a. Validate txlist hash matches the provided bytes.
     let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec()).map_err(|_| {
@@ -138,8 +138,7 @@ pub(crate) async fn publish_block_impl(
         let embedded_hash =
             B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
         if embedded_hash != calculated_hash {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                .increment(1);
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
             return Err(PreconfirmationClientError::Validation(format!(
                 "commitment raw_tx_list_hash mismatch: commitment contains {}, txlist hashes to {}",
                 embedded_hash, calculated_hash
@@ -150,10 +149,8 @@ pub(crate) async fn publish_block_impl(
     // 3. Validate commitment signature + recover signer.
     let signer = validate_commitment_with_signer(&signed_commitment, expected_slasher)
         .inspect_err(|_| {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                .increment(1);
-        })
-        ?;
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        })?;
 
     // 4. Validate lookahead.
     let timestamp = uint256_to_u256(&signed_commitment.commitment.preconf.timestamp);
@@ -161,11 +158,9 @@ pub(crate) async fn publish_block_impl(
         .slot_info_for_timestamp(timestamp)
         .await
         .map_err(PreconfirmationClientError::from)?;
-    validate_lookahead(&signed_commitment, signer, &slot_info)
-        .inspect_err(|_| {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
-        })
-        ?;
+    validate_lookahead(&signed_commitment, signer, &slot_info).inspect_err(|_| {
+        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+    })?;
 
     // 5. Reject stale commitments whose block is already covered by confirmed sync.
     let current_block = uint256_to_u256(&signed_commitment.commitment.preconf.block_number);
@@ -183,8 +178,7 @@ pub(crate) async fn publish_block_impl(
         PreconfirmationInput::new(signed_commitment.clone(), None, None)
     } else {
         let transactions = codec.decode(raw_tx_list.as_ref()).map_err(|e| {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                .increment(1);
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
             PreconfirmationClientError::Codec(e.to_string())
         })?;
         PreconfirmationInput::new(
@@ -195,13 +189,9 @@ pub(crate) async fn publish_block_impl(
     };
 
     // 7. Submit to driver — mine the block.
-    driver
-        .submit_preconfirmation(input)
-        .await
-        .inspect_err(|_| {
-            metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
-                .increment(1);
-        })?;
+    driver.submit_preconfirmation(input).await.inspect_err(|_| {
+        metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL).increment(1);
+    })?;
     metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL).increment(1);
 
     // 8. Gossip to P2P (sequential, best-effort after successful mine).
@@ -211,10 +201,7 @@ pub(crate) async fn publish_block_impl(
     // would cause callers to retry and produce duplicate driver submissions.
     let commitment_hash = keccak256_bytes(request.commitment.as_ref());
 
-    if let Err(e) = command_tx
-        .send(NetworkCommand::PublishCommitment(signed_commitment))
-        .await
-    {
+    if let Err(e) = command_tx.send(NetworkCommand::PublishCommitment(signed_commitment)).await {
         warn!(error = %e, "gossip commitment failed after successful mine");
     }
 
@@ -412,10 +399,9 @@ mod tests {
             tx_list: alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]),
         };
 
-        let result = publish_block_impl(
-            &command_tx, &driver, &codec, None, &MockLookaheadResolver, request,
-        )
-        .await;
+        let result =
+            publish_block_impl(&command_tx, &driver, &codec, None, &MockLookaheadResolver, request)
+                .await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("tx_list_hash mismatch"));
@@ -443,10 +429,9 @@ mod tests {
             tx_list,
         };
 
-        let result = publish_block_impl(
-            &command_tx, &driver, &codec, None, &MockLookaheadResolver, request,
-        )
-        .await;
+        let result =
+            publish_block_impl(&command_tx, &driver, &codec, None, &MockLookaheadResolver, request)
+                .await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("commitment raw_tx_list_hash mismatch"));
