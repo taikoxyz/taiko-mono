@@ -46,6 +46,8 @@ Definitions:
 
 - `step_gas`: the total gas charged by the EVM for executing one opcode, including both the static cost (from the opcode gas table) and any dynamic cost (memory expansion, storage access charges, etc.). Measured as `gas_spent_after - gas_spent_before` across a single opcode execution.
 - `SPAWN_OPCODES`: `CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`, `CREATE`, `CREATE2`
+- `child_frame_created`: true only when a spawn opcode creates a child EVM execution frame.
+- `precompile_invoked`: true when a CALL-family opcode (`CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`) resolves to an active precompile and executes it.
 - `opcode_multiplier[opcode]`: per-opcode proving-cost multiplier. All valid opcodes are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted opcodes default to `max(uint16)` (fail-safe).
 - `precompile_multiplier[addr]`: per-precompile proving-cost multiplier, indexed by the low byte of the precompile address. All active precompiles are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted precompiles default to `max(uint16)` (fail-safe).
 - Multiplier values are listed in [Appendix B](#appendix-b-full-zk-multipliers).
@@ -70,10 +72,11 @@ SPAWN_ESTIMATE = {
 
 # --- Per-opcode hook (called for every EVM opcode execution) ---
 
-def on_opcode(opcode: uint8, step_gas: uint64, child_frame_created: bool):
-    # child_frame_created is False when the opcode did not create a child frame
-    # (e.g. CALL to an account with no code, or insufficient gas for frame creation)
-    if opcode in SPAWN_OPCODES and child_frame_created:
+def on_opcode(opcode: uint8, step_gas: uint64, child_frame_created: bool, precompile_invoked: bool):
+    # child_frame_created is True only for real child EVM frame creation.
+    # precompile_invoked is True for CALL-family dispatch to precompiles.
+    # If both are false, the opcode short-circuited at call-site and step_gas is used.
+    if opcode in SPAWN_OPCODES and (child_frame_created or precompile_invoked):
         raw_gas: uint64 = SPAWN_ESTIMATE[opcode]
     else:
         raw_gas: uint64 = step_gas
@@ -84,7 +87,7 @@ def on_opcode(opcode: uint8, step_gas: uint64, child_frame_created: bool):
         halt_execution()  # stop immediately, do not execute further opcodes
 
 
-# --- Precompile hook (called when a CALL resolves to a precompile) ---
+# --- Precompile hook (called when a CALL-family opcode resolves to a precompile) ---
 
 def on_precompile(precompile_address: uint8, gas_used: uint64):
     tx_zk_gas_used += gas_used * precompile_multiplier[precompile_address]
@@ -116,10 +119,11 @@ Precompile calls do not execute opcodes — the EVM runs them directly and retur
 
 Precompile detection is implementation-defined (e.g. checking the active precompile set for the current fork). The multiplier is indexed by the low byte of the precompile address.
 
-When a call targets a precompile address:
+When a CALL-family opcode targets a precompile address:
 
+- The CALL-family opcode itself is metered via `on_opcode` with `precompile_invoked = True` and uses `SPAWN_ESTIMATE[opcode]` as raw gas (not `step_gas`). This covers only opcode-side spawn overhead.
 - `precompile_zk = precompile_gas_used * precompile_multiplier[low_byte]`
-- `precompile_gas_used` is the gas charged by the precompile's own gas schedule (`base_cost + data_cost`), excluding the CALL opcode's own costs (cold account access, memory expansion, value transfer stipend). This is the value deducted from the calling frame's gas counter when the precompile runs.
+- `precompile_gas_used` is the gas charged by the precompile's own gas schedule (`base_cost + data_cost`), excluding the CALL-family opcode's own costs (cold account access, memory expansion, value transfer stipend). This is the value deducted from the calling frame's gas counter when the precompile runs.
 - The charge is applied after the precompile executes, since gas cost is only known after execution. Since precompiles are atomic (no child opcodes), the block limit check fires before any subsequent opcode.
 
 ## Problem with Spawn Opcodes
