@@ -119,14 +119,17 @@ pub(crate) async fn publish_block_impl(
         )));
     }
 
-    // 2b. Validate that the commitment's embedded raw_tx_list_hash matches.
-    let embedded_hash =
-        B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
-    if embedded_hash != calculated_hash {
-        return Err(PreconfirmationClientError::Validation(format!(
-            "commitment raw_tx_list_hash mismatch: commitment contains {}, txlist hashes to {}",
-            embedded_hash, calculated_hash
-        )));
+    // 2b. Validate that the commitment's embedded raw_tx_list_hash matches for non-EOP commitments.
+    let is_eop_only = is_eop_only(&signed_commitment);
+    if !is_eop_only {
+        let embedded_hash =
+            B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
+        if embedded_hash != calculated_hash {
+            return Err(PreconfirmationClientError::Validation(format!(
+                "commitment raw_tx_list_hash mismatch: commitment contains {}, txlist hashes to {}",
+                embedded_hash, calculated_hash
+            )));
+        }
     }
 
     // 3. Validate commitment signature + recover signer.
@@ -151,7 +154,7 @@ pub(crate) async fn publish_block_impl(
     }
 
     // 6. Build PreconfirmationInput.
-    let input = if is_eop_only(&signed_commitment) {
+    let input = if is_eop_only {
         PreconfirmationInput::new(signed_commitment.clone(), None, None)
     } else {
         let transactions = codec
@@ -168,6 +171,8 @@ pub(crate) async fn publish_block_impl(
     driver.submit_preconfirmation(input).await?;
 
     // 8. Gossip to P2P (parallel, propagate failures).
+    // Note: these gossip sends run after submission; if one fails, the block may
+    // already be mined and accepted. Retrying can therefore submit the same input again.
     let commitment_hash = keccak256_bytes(request.commitment.as_ref());
     let raw_tx_list_hash =
         Bytes32::try_from(calculated_hash.0.to_vec()).expect("keccak256 always produces 32 bytes");
@@ -427,5 +432,87 @@ mod tests {
         assert!(
             result.unwrap_err().to_string().contains("commitment raw_tx_list_hash mismatch"),
         );
+    }
+
+    /// Test that EOP-only commitments with zero raw_tx_list_hash can be submitted.
+    #[tokio::test]
+    async fn test_publish_block_accepts_eop_only_commitment() {
+        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
+        let driver = StubDriver;
+        let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
+
+        let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]);
+        let tx_list_hash = keccak256_bytes(tx_list.as_ref());
+
+        let mut commitment = SignedCommitment::default();
+        commitment.commitment.preconf.eop = true;
+        commitment.commitment.preconf.block_number = preconfirmation_types::Uint256::from(1u64);
+        commitment.commitment.preconf.timestamp = preconfirmation_types::Uint256::from(42u64);
+        commitment.commitment.preconf.submission_window_end =
+            preconfirmation_types::Uint256::from(2000u64);
+        commitment.commitment.preconf.raw_tx_list_hash =
+            preconfirmation_types::Bytes32::try_from(vec![0u8; 32]).unwrap();
+
+        let secret_key = secp256k1::SecretKey::from_slice(&[42u8; 32])
+            .expect("valid deterministic test secret key");
+        let signer = {
+            let secp = secp256k1::Secp256k1::new();
+            preconfirmation_types::public_key_to_address(&secp256k1::PublicKey::from_secret_key(
+                &secp,
+                &secret_key,
+            ))
+        };
+        commitment.signature =
+            preconfirmation_types::sign_commitment(&commitment.commitment, &secret_key)
+                .expect("valid test signature");
+
+        let mut commitment_bytes = Vec::new();
+        ssz_rs::Serialize::serialize(&commitment, &mut commitment_bytes)
+            .expect("serialize commitment");
+
+        // Consume gossip commands sent by publish_block_impl so `send` does not fail.
+        tokio::spawn(async move {
+            while command_rx.recv().await.is_some() {}
+        });
+
+        struct TestResolver(alloy_primitives::Address);
+
+        #[async_trait::async_trait]
+        impl protocol::preconfirmation::PreconfSignerResolver for TestResolver {
+            async fn signer_for_timestamp(
+                &self,
+                _timestamp: U256,
+            ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
+                Ok(self.0)
+            }
+
+            async fn slot_info_for_timestamp(
+                &self,
+                _timestamp: U256,
+            ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
+                Ok(protocol::preconfirmation::PreconfSlotInfo {
+                    signer: self.0,
+                    submission_window_end: U256::from(2000),
+                })
+            }
+        }
+
+        let request = PublishBlockRequest {
+            commitment: alloy_primitives::Bytes::from(commitment_bytes),
+            tx_list_hash,
+            tx_list,
+        };
+
+        let result = publish_block_impl(
+            &command_tx,
+            &driver,
+            &codec,
+            None,
+            &TestResolver(signer),
+            request,
+        )
+        .await;
+
+        assert!(result.is_ok());
     }
 }
