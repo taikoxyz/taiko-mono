@@ -9,7 +9,6 @@ use tracing::info;
 use crate::{
     EmbeddedDriverClient, PreconfirmationClient, PreconfirmationClientConfig, Result,
     driver_interface::{InboxReader, PreconfirmationInput},
-    error::PreconfirmationClientError,
     rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig},
 };
 

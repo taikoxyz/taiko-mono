@@ -6,7 +6,7 @@ use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{
     Bytes20, Bytes32, RawTxListGossip, SignedCommitment, TxListBytes, keccak256_bytes,
-    uint256_to_u256,
+    b256_to_bytes32, uint256_to_u256,
 };
 use protocol::codec::ZlibTxListCodec;
 use ssz_rs::Deserialize;
@@ -217,8 +217,7 @@ pub(crate) async fn publish_block_impl(
     // Skip txlist gossip for EOP-only commitments — there is no meaningful
     // txlist to broadcast and no follower will match the zero hash.
     if !eop_only {
-        let raw_tx_list_hash = Bytes32::try_from(calculated_hash.0.to_vec())
-            .map_err(|e| PreconfirmationClientError::Validation(e.to_string()))?;
+        let raw_tx_list_hash = b256_to_bytes32(calculated_hash);
         let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
         if let Err(e) = command_tx.send(NetworkCommand::PublishRawTxList(gossip)).await {
             warn!(error = %e, "gossip txlist failed after successful mine");

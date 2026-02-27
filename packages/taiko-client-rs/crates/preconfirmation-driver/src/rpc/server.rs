@@ -4,7 +4,7 @@ use std::{net::SocketAddr, sync::Arc};
 
 use jsonrpsee::{
     RpcModule,
-    server::{ServerBuilder, ServerHandle},
+    server::{ServerBuilder, ServerConfig, ServerHandle},
     types::{ErrorCode, ErrorObjectOwned},
 };
 use metrics::{counter, histogram};
@@ -73,8 +73,12 @@ impl PreconfRpcServer {
         api: Arc<dyn PreconfRpcApi>,
     ) -> Result<Self> {
         let server = ServerBuilder::new()
-            .max_request_body_size(MAX_REQUEST_BODY_SIZE)
-            .max_connections(MAX_CONNECTIONS)
+            .set_config(
+                ServerConfig::builder()
+                    .max_request_body_size(MAX_REQUEST_BODY_SIZE)
+                    .max_connections(MAX_CONNECTIONS)
+                    .build(),
+            )
             .build(config.listen_addr)
             .await
             .map_err(|e| {
