@@ -16,7 +16,7 @@ use tracing::warn;
 use crate::{
     Result,
     driver_interface::{DriverClient, InboxReader, PreconfirmationInput},
-    error::PreconfirmationClientError,
+    error::{PreconfirmationClientError, ValidationErrorCode},
     metrics::PreconfirmationClientMetrics,
     rpc::{NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse},
     validation::{is_eop_only, validate_commitment_with_signer, validate_lookahead},
@@ -167,10 +167,13 @@ pub(crate) async fn publish_block_impl(
     let event_sync_tip = driver.event_sync_tip().await?;
     if current_block <= event_sync_tip {
         metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
-        return Err(PreconfirmationClientError::Validation(format!(
-            "stale commitment: block {} <= event_sync_tip {}",
-            current_block, event_sync_tip
-        )));
+        return Err(PreconfirmationClientError::validation_error(
+            ValidationErrorCode::StaleCommitment,
+            format!(
+                "stale commitment: block {} <= event_sync_tip {}",
+                current_block, event_sync_tip
+            ),
+        ));
     }
 
     // 6. Build PreconfirmationInput.
@@ -188,32 +191,48 @@ pub(crate) async fn publish_block_impl(
         )
     };
 
-    // 7. Submit to driver — mine the block.
-    driver.submit_preconfirmation(input).await.inspect_err(|_| {
-        metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL).increment(1);
-    })?;
-    metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL).increment(1);
-
-    // 8. Gossip to P2P (sequential, best-effort after successful mine).
-    //
-    // The block is already mined at this point. Gossip failures are logged
-    // but do not fail the RPC — returning an error after a successful mine
-    // would cause callers to retry and produce duplicate driver submissions.
+    // 7. Submit to driver and gossip to P2P in parallel.
     let commitment_hash = keccak256_bytes(request.commitment.as_ref());
+    let raw_tx_list_hash = b256_to_bytes32(calculated_hash);
+    let raw_tx_list_for_gossip = raw_tx_list.clone();
+    let command_tx_for_commitment = command_tx.clone();
+    let command_tx_for_txlist = command_tx.clone();
 
-    if let Err(e) = command_tx.send(NetworkCommand::PublishCommitment(signed_commitment)).await {
-        warn!(error = %e, "gossip commitment failed after successful mine");
-    }
+    let commitment_gossip = async move {
+        command_tx_for_commitment
+            .send(NetworkCommand::PublishCommitment(signed_commitment))
+            .await
+            .map_err(|e| {
+                warn!(error = %e, "gossip commitment failed");
+                PreconfirmationClientError::Network(format!("failed to publish commitment: {e}"))
+            })
+    };
 
-    // Skip txlist gossip for EOP-only commitments — there is no meaningful
-    // txlist to broadcast and no follower will match the zero hash.
-    if !eop_only {
-        let raw_tx_list_hash = b256_to_bytes32(calculated_hash);
-        let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
-        if let Err(e) = command_tx.send(NetworkCommand::PublishRawTxList(gossip)).await {
-            warn!(error = %e, "gossip txlist failed after successful mine");
+    let txlist_gossip = async move {
+        if eop_only {
+            // Skip txlist gossip for EOP-only commitments — there is no meaningful
+            // txlist to broadcast and no follower will match the zero hash.
+            return Ok(());
         }
-    }
+
+        let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list_for_gossip };
+        command_tx_for_txlist.send(NetworkCommand::PublishRawTxList(gossip)).await.map_err(|e| {
+            warn!(error = %e, "gossip txlist failed");
+            PreconfirmationClientError::Network(format!("failed to publish txlist: {e}"))
+        })
+    };
+
+    let driver_submit = async {
+        // 7a. Submit to driver — mine the block.
+        driver.submit_preconfirmation(input).await.inspect_err(|_| {
+            metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
+                .increment(1);
+        })?;
+        metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL).increment(1);
+        Ok(())
+    };
+
+    tokio::try_join!(driver_submit, commitment_gossip, txlist_gossip)?;
 
     Ok(PublishBlockResponse { commitment_hash, tx_list_hash: calculated_hash })
 }

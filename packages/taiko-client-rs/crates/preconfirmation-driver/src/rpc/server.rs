@@ -8,11 +8,15 @@ use jsonrpsee::{
     types::{ErrorCode, ErrorObjectOwned},
 };
 use metrics::{counter, histogram};
+use preconfirmation_types::MAX_TXLIST_BYTES;
 use protocol::preconfirmation::LookaheadError;
 use tracing::{info, warn};
 
 use super::{PreconfRpcApi, PublishBlockRequest, types::PreconfRpcErrorCode};
-use crate::{Result, error::PreconfirmationClientError};
+use crate::{
+    Result,
+    error::{PreconfirmationClientError, ValidationErrorCode},
+};
 
 /// JSON-RPC method name for publishing a preconfirmation block.
 pub const METHOD_PUBLISH_BLOCK: &str = "preconf_publishBlock";
@@ -30,11 +34,12 @@ const METRIC_ERRORS_TOTAL: &str = "preconf_rpc_errors_total";
 /// Metric name for RPC duration histogram.
 const METRIC_DURATION_SECONDS: &str = "preconf_rpc_duration_seconds";
 
-/// Maximum request body size for the RPC server (4 MiB).
+/// Maximum request body size for the RPC server (about 5.3 MiB).
 ///
-/// Sized to fit a `PublishBlockRequest` with a max-sized txlist (2 MiB compressed)
-/// plus hex encoding overhead and JSON framing.
-const MAX_REQUEST_BODY_SIZE: u32 = 4 * 1024 * 1024;
+/// Covers `PublishBlockRequest` with max-sized compressed txlist (`MAX_TXLIST_BYTES`),
+/// which is encoded as hex in JSON (2x bytes + 0x prefix), plus JSON framing and
+/// commitment field overhead.
+const MAX_REQUEST_BODY_SIZE: u32 = (MAX_TXLIST_BYTES as u32 * 2) + 2 + (128 * 1024);
 /// Maximum number of concurrent RPC connections.
 const MAX_CONNECTIONS: u32 = 64;
 
@@ -178,10 +183,19 @@ fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
 }
 
 /// Converts a preconfirmation client error to a JSON-RPC error object.
-/// Map a domain error into a JSON-RPC error object.
 fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
     let code = match &err {
+        PreconfirmationClientError::ValidationWithCode { kind, .. } => match kind {
+            ValidationErrorCode::StaleCommitment => PreconfRpcErrorCode::NotSynced.code(),
+            ValidationErrorCode::SignerMismatch => PreconfRpcErrorCode::InvalidSigner.code(),
+            ValidationErrorCode::SubmissionWindowExpired => {
+                PreconfRpcErrorCode::SubmissionWindowExpired.code()
+            }
+            ValidationErrorCode::Other => PreconfRpcErrorCode::InvalidCommitment.code(),
+        },
         PreconfirmationClientError::Validation(msg) => {
+            // Backward-compatible path for callers/tests that still use unclassified validation
+            // messages.
             if msg.contains("stale commitment") {
                 PreconfRpcErrorCode::NotSynced.code()
             } else if msg.contains("signer mismatch") {
@@ -235,7 +249,7 @@ impl From<PreconfirmationClientError> for ErrorObjectOwned {
 mod tests {
     use super::*;
     use crate::{
-        error::PreconfirmationClientError,
+        error::{PreconfirmationClientError, ValidationErrorCode},
         rpc::types::{NodeStatus, PreconfSlotInfo, PublishBlockResponse},
     };
     use alloy_primitives::{B256, U256};
@@ -321,6 +335,38 @@ mod tests {
         for err in errors {
             let rpc_error = api_error_to_rpc(PreconfirmationClientError::from(err));
             assert_eq!(rpc_error.code(), PreconfRpcErrorCode::LookaheadUnavailable.code());
+        }
+    }
+
+    #[test]
+    fn test_structured_validation_error_codes_map_to_expected_rpc_codes() {
+        let cases = [
+            (
+                PreconfirmationClientError::validation_error(
+                    ValidationErrorCode::StaleCommitment,
+                    "stale commitment".to_string(),
+                ),
+                PreconfRpcErrorCode::NotSynced.code(),
+            ),
+            (
+                PreconfirmationClientError::validation_error(
+                    ValidationErrorCode::SignerMismatch,
+                    "signer mismatch".to_string(),
+                ),
+                PreconfRpcErrorCode::InvalidSigner.code(),
+            ),
+            (
+                PreconfirmationClientError::validation_error(
+                    ValidationErrorCode::SubmissionWindowExpired,
+                    "submission_window_end mismatch".to_string(),
+                ),
+                PreconfRpcErrorCode::SubmissionWindowExpired.code(),
+            ),
+        ];
+
+        for (error, expected_code) in cases {
+            let rpc_error = api_error_to_rpc(error);
+            assert_eq!(rpc_error.code(), expected_code);
         }
     }
 }

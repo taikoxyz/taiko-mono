@@ -9,9 +9,18 @@ use serde::{Deserialize, Serialize};
 pub struct PublishBlockRequest {
     /// The SSZ-encoded SignedCommitment bytes.
     pub commitment: Bytes,
-    /// The keccak256 hash of the compressed transaction list.
+    /// The keccak256 hash of `tx_list`.
+    ///
+    /// For EOP-only commitments (`raw_tx_list_hash` is zero), callers should
+    /// provide a dummy `tx_list` and its matching hash (typically empty txlist + actual
+    /// keccak256 hash), because the commitment itself does not carry a real
+    /// txlist hash.
     pub tx_list_hash: B256,
     /// The compressed transaction list bytes (RLP list + zlib).
+    ///
+    /// This field is required for EOP-only commitments even though the commitment itself
+    /// does not contain an enforced txlist hash. The node validates this hash against
+    /// this field's value.
     pub tx_list: Bytes,
 }
 
