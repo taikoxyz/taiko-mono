@@ -26,7 +26,7 @@ use alloy_rpc_types_engine::{
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, calculate_shasta_difficulty,
-    constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES},
+    constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain},
     encode_extra_data,
 };
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
@@ -45,12 +45,12 @@ use crate::{
 use alloy_provider::RootProvider;
 
 /// Type alias for batches of transaction lists fetched from the txpool.
-pub type TransactionsLists = Vec<Vec<Transaction>>;
+pub type TransactionLists = Vec<Vec<Transaction>>;
 
 /// Parameters captured from engine mode payload building.
 /// These ensure consistency between the anchor transaction and the block manifest.
 #[derive(Debug, Clone, Copy)]
-pub struct EnginePayloadParams {
+pub struct EngineBuildContext {
     /// The L1 block number used for the anchor transaction.
     pub anchor_block_number: u64,
     /// The timestamp used for the payload.
@@ -67,6 +67,8 @@ pub struct Proposer {
     transaction_builder: ShastaProposalTransactionBuilder,
     /// Optional anchor constructor used in engine mode.
     anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
+    /// Chain-specific minimum base fee used by EIP-4396 clamping.
+    min_base_fee_to_clamp: u64,
     /// Runtime proposer configuration.
     cfg: ProposerConfigs,
 }
@@ -98,6 +100,9 @@ impl Proposer {
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
+        // Match proposer-side base-fee clamping to chain policy used by derivation.
+        let min_base_fee_to_clamp =
+            min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
 
         // Initialize anchor transaction constructor only for engine mode.
         let anchor_constructor = if cfg.use_engine_mode {
@@ -112,7 +117,13 @@ impl Proposer {
             None
         };
 
-        Ok(Self { rpc_provider, cfg, transaction_builder, anchor_constructor })
+        Ok(Self {
+            rpc_provider,
+            transaction_builder,
+            anchor_constructor,
+            min_base_fee_to_clamp,
+            cfg,
+        })
     }
 
     /// Start the proposer main loop.
@@ -196,7 +207,7 @@ impl Proposer {
     }
 
     /// Fetch transaction pool content from the L2 execution engine.
-    async fn fetch_pool_content(&self) -> Result<TransactionsLists> {
+    async fn fetch_pool_content(&self) -> Result<TransactionLists> {
         let base_fee_u64 = u64::try_from(self.calculate_next_shasta_block_base_fee().await?)
             .map_err(|_| ProposerError::BaseFeeOverflow)?;
 
@@ -248,18 +259,27 @@ impl Proposer {
         }
 
         // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
-        let parent_block_time = parent.header.timestamp -
-            self.rpc_provider
-                .l2_provider
-                .get_block_by_number(BlockNumberOrTag::Number(parent.number() - 1))
-                .await?
-                .ok_or_else(|| ProposerError::ParentBlockNotFound(parent.number() - 1))?
-                .header
-                .timestamp;
+        let parent_number = parent.number();
+        let grandparent_number = parent_number.saturating_sub(1);
+        let grandparent = self
+            .rpc_provider
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(grandparent_number))
+            .await?
+            .ok_or(ProposerError::ParentBlockNotFound(grandparent_number))?;
+        let parent_block_time_delta_secs =
+            parent.header.timestamp.saturating_sub(grandparent.header.timestamp);
+        let parent_base_fee_per_gas =
+            parent.header.inner.base_fee_per_gas.ok_or(ProposerError::MissingParentBaseFee {
+                parent_block_number: parent_number,
+            })?;
 
+        // Pass explicit parent base fee + chain clamp to mirror current EIP-4396 API semantics.
         Ok(U256::from(calculate_next_block_eip4396_base_fee(
             &parent.header.inner,
-            parent_block_time,
+            parent_block_time_delta_secs,
+            parent_base_fee_per_gas,
+            self.min_base_fee_to_clamp,
         )))
     }
 
@@ -305,7 +325,7 @@ impl Proposer {
     async fn build_payload_attributes(
         &self,
         parent: &Block,
-    ) -> Result<(TaikoPayloadAttributes, EnginePayloadParams)> {
+    ) -> Result<(TaikoPayloadAttributes, EngineBuildContext)> {
         let block_number = parent.number() + 1;
         let timestamp = current_unix_timestamp();
 
@@ -379,20 +399,21 @@ impl Proposer {
             anchor_transaction: Some(Bytes::from(anchor_tx.encoded_2718())),
         };
 
-        let engine_params = EnginePayloadParams {
-            anchor_block_number,
-            timestamp,
-            gas_limit: parent.header.gas_limit,
-        };
-
-        Ok((payload_attributes, engine_params))
+        Ok((
+            payload_attributes,
+            EngineBuildContext {
+                anchor_block_number,
+                timestamp,
+                gas_limit: parent.header.gas_limit,
+            },
+        ))
     }
 
     /// Fetch transactions using Engine API (FCU + get_payload).
     /// In engine mode, we use forkchoice_updated to trigger payload building
     /// with tx_list: None, then retrieve the built payload to extract transactions.
     /// Returns the transactions and the engine payload parameters used.
-    async fn fetch_payload_transactions(&self) -> Result<(TransactionsLists, EnginePayloadParams)> {
+    async fn fetch_payload_transactions(&self) -> Result<(TransactionLists, EngineBuildContext)> {
         // Build forkchoice state and get the head block to use as parent.
         let (forkchoice_state, parent) = self.build_forkchoice_state().await?;
 

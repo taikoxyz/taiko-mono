@@ -41,7 +41,7 @@ pub struct BuildPreconfBlockResponse {
 /// REST-compatible request body for `POST /preconfBlocks`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BuildPreconfBlockRestRequest {
+pub struct BuildPreconfBlockApiRequest {
     /// Nested executable payload fields.
     pub executable_data: Option<ExecutableData>,
     /// Whether this is the last preconfirmation block in the epoch.
@@ -72,7 +72,7 @@ pub struct ExecutableData {
     pub base_fee_per_gas: u64,
 }
 
-impl BuildPreconfBlockRestRequest {
+impl BuildPreconfBlockApiRequest {
     /// Convert REST request format into internal RPC request format.
     pub fn into_rpc_request(self) -> std::result::Result<BuildPreconfBlockRequest, String> {
         let executable_data =
@@ -92,7 +92,7 @@ impl BuildPreconfBlockRestRequest {
     }
 }
 
-/// Go-compatible slot range.
+/// Allowed slot range.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SlotRange {
@@ -102,7 +102,7 @@ pub struct SlotRange {
     pub end: u64,
 }
 
-/// Go-compatible lookahead status shape.
+/// Lookahead status payload shape.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LookaheadStatus {
@@ -116,17 +116,17 @@ pub struct LookaheadStatus {
     pub next_ranges: Vec<SlotRange>,
 }
 
-/// Go-compatible REST status response for `GET /status`.
+/// REST status response for `GET /status`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RestStatus {
+pub struct ApiStatus {
     /// Highest unsafe payload block ID tracked by this node.
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (if any).
     pub end_of_sequencing_block_hash: String,
 }
 
-/// Go-compatible `/ws` push notification payload.
+/// `/ws` push notification payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EndOfSequencingNotification {
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     fn rest_status_serializes_fields() {
-        let status = RestStatus {
+        let status = ApiStatus {
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
         };
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn rest_status_does_not_include_lookahead_metadata() {
-        let status = RestStatus {
+        let status = ApiStatus {
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
         };

@@ -14,14 +14,16 @@ use tracing::{info, warn};
 
 use crate::{
     Result,
+    api::{
+        WhitelistApiServer, WhitelistApiServerConfig, WhitelistApiService,
+        WhitelistApiServiceParams,
+    },
     cache::{L1_EPOCH_DURATION_SECS, SharedPreconfCacheState},
     error::WhitelistPreconfirmationDriverError,
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
     preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
-    rest::{WhitelistRestWsServer, WhitelistRestWsServerConfig},
-    rest_handler::{WhitelistRestHandler, WhitelistRestHandlerParams},
     whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
@@ -157,7 +159,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 self.config.whitelist_address,
                 preconf_ingress_sync.client().l1_provider.clone(),
             );
-            let handler = Arc::new(WhitelistRestHandler::new(WhitelistRestHandlerParams {
+            let handler = Arc::new(WhitelistApiService::new(WhitelistApiServiceParams {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
                 chain_id: self.config.p2p_config.chain_id,
@@ -169,13 +171,13 @@ impl WhitelistPreconfirmationDriverRunner {
                 cache_state: cache_state.clone(),
                 local_peer_id: network.local_peer_id.to_string(),
             }));
-            let server_config = WhitelistRestWsServerConfig {
+            let server_config = WhitelistApiServerConfig {
                 listen_addr,
                 jwt_secret: self.config.rpc_jwt_secret.clone(),
                 cors_origins: self.config.rpc_cors_origins.clone(),
                 ..Default::default()
             };
-            let server = WhitelistRestWsServer::start(server_config, handler.clone()).await?;
+            let server = WhitelistApiServer::start(server_config, handler.clone()).await?;
             info!(
                 addr = %server.local_addr(),
                 http_url = %server.http_url(),
@@ -259,7 +261,7 @@ impl WhitelistPreconfirmationDriverRunner {
 /// Abort sidecar tasks and stop the REST server during shutdown.
 async fn stop_sidecars<T>(
     event_syncer_handle: &mut tokio::task::JoinHandle<T>,
-    rest_ws_server: &mut Option<WhitelistRestWsServer>,
+    rest_ws_server: &mut Option<WhitelistApiServer>,
 ) {
     event_syncer_handle.abort();
     if let Some(server) = rest_ws_server.take() {
@@ -273,7 +275,7 @@ type RunnerExit = (&'static str, Result<()>);
 /// Stop sidecars and return the unified runner exit result.
 async fn finish_runner<T>(
     event_syncer_handle: &mut tokio::task::JoinHandle<T>,
-    rest_ws_server: &mut Option<WhitelistRestWsServer>,
+    rest_ws_server: &mut Option<WhitelistApiServer>,
     (reason, result): RunnerExit,
 ) -> Result<()> {
     stop_sidecars(event_syncer_handle, rest_ws_server).await;
