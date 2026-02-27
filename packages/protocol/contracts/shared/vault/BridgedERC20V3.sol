@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import "./BridgedERC20V2.sol";
 import "./IEIP3009.sol";
+import
+    "@openzeppelin/contracts-upgradeable/utils/cryptography/SignatureCheckerUpgradeable.sol";
 
 import "./BridgedERC20V3_Layout.sol"; // DO NOT DELETE
 
@@ -92,23 +94,26 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
         whenNotPaused
         nonReentrant
     {
-        _requireValidAuthorization(_from, _nonce, _validAfter, _validBefore);
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
-                _from,
-                _to,
-                _value,
-                _validAfter,
-                _validBefore,
-                _nonce
-            )
+        _transferWithAuthorization(
+            _from, _to, _value, _validAfter, _validBefore, _nonce, abi.encodePacked(_r, _s, _v)
         );
+    }
 
-        _validateSignature(_from, structHash, _v, _r, _s);
-        _markAuthorizationAsUsed(_from, _nonce);
-        _transfer(_from, _to, _value);
+    /// @inheritdoc IEIP3009
+    function transferWithAuthorization(
+        address _from,
+        address _to,
+        uint256 _value,
+        uint256 _validAfter,
+        uint256 _validBefore,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
+        _transferWithAuthorization(_from, _to, _value, _validAfter, _validBefore, _nonce, _signature);
     }
 
     /// @inheritdoc IEIP3009
@@ -128,24 +133,29 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
         nonReentrant
     {
         if (_to != msg.sender) revert BTOKEN_CALLER_NOT_PAYEE();
-
-        _requireValidAuthorization(_from, _nonce, _validAfter, _validBefore);
-
-        bytes32 structHash = keccak256(
-            abi.encode(
-                RECEIVE_WITH_AUTHORIZATION_TYPEHASH,
-                _from,
-                _to,
-                _value,
-                _validAfter,
-                _validBefore,
-                _nonce
-            )
+        _receiveWithAuthorization(
+            _from, _to, _value, _validAfter, _validBefore, _nonce, abi.encodePacked(_r, _s, _v)
         );
+    }
 
-        _validateSignature(_from, structHash, _v, _r, _s);
-        _markAuthorizationAsUsed(_from, _nonce);
-        _transfer(_from, _to, _value);
+    /// @inheritdoc IEIP3009
+    function receiveWithAuthorization(
+        address _from,
+        address _to,
+        uint256 _value,
+        uint256 _validAfter,
+        uint256 _validBefore,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
+        if (_to != msg.sender) revert BTOKEN_CALLER_NOT_PAYEE();
+        _receiveWithAuthorization(
+            _from, _to, _value, _validAfter, _validBefore, _nonce, _signature
+        );
     }
 
     /// @inheritdoc IEIP3009
@@ -159,14 +169,19 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
         external
         nonReentrant
     {
-        if (_authorizationStates[_authorizer][_nonce]) revert BTOKEN_AUTHORIZATION_USED();
+        _cancelAuthorization(_authorizer, _nonce, abi.encodePacked(_r, _s, _v));
+    }
 
-        bytes32 structHash =
-            keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, _authorizer, _nonce));
-
-        _validateSignature(_authorizer, structHash, _v, _r, _s);
-        _authorizationStates[_authorizer][_nonce] = true;
-        emit AuthorizationCanceled(_authorizer, _nonce);
+    /// @inheritdoc IEIP3009
+    function cancelAuthorization(
+        address _authorizer,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        external
+        nonReentrant
+    {
+        _cancelAuthorization(_authorizer, _nonce, _signature);
     }
 
     /// @inheritdoc IEIP3009
@@ -184,6 +199,86 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
     /// @inheritdoc BridgedERC20V2
     function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
         return _interfaceId == type(IEIP3009).interfaceId || super.supportsInterface(_interfaceId);
+    }
+
+    /// @dev Executes a transfer with authorization
+    function _transferWithAuthorization(
+        address _from,
+        address _to,
+        uint256 _value,
+        uint256 _validAfter,
+        uint256 _validBefore,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        private
+    {
+        _requireValidAuthorization(_from, _nonce, _validAfter, _validBefore);
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
+                _from,
+                _to,
+                _value,
+                _validAfter,
+                _validBefore,
+                _nonce
+            )
+        );
+
+        _validateSignature(_from, structHash, _signature);
+        _markAuthorizationAsUsed(_from, _nonce);
+        _transfer(_from, _to, _value);
+    }
+
+    /// @dev Executes a receive with authorization
+    function _receiveWithAuthorization(
+        address _from,
+        address _to,
+        uint256 _value,
+        uint256 _validAfter,
+        uint256 _validBefore,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        private
+    {
+        _requireValidAuthorization(_from, _nonce, _validAfter, _validBefore);
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                RECEIVE_WITH_AUTHORIZATION_TYPEHASH,
+                _from,
+                _to,
+                _value,
+                _validAfter,
+                _validBefore,
+                _nonce
+            )
+        );
+
+        _validateSignature(_from, structHash, _signature);
+        _markAuthorizationAsUsed(_from, _nonce);
+        _transfer(_from, _to, _value);
+    }
+
+    /// @dev Executes a cancel authorization
+    function _cancelAuthorization(
+        address _authorizer,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        private
+    {
+        if (_authorizationStates[_authorizer][_nonce]) revert BTOKEN_AUTHORIZATION_USED();
+
+        bytes32 structHash =
+            keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, _authorizer, _nonce));
+
+        _validateSignature(_authorizer, structHash, _signature);
+        _authorizationStates[_authorizer][_nonce] = true;
+        emit AuthorizationCanceled(_authorizer, _nonce);
     }
 
     /// @dev Validates authorization parameters
@@ -205,25 +300,23 @@ contract BridgedERC20V3 is BridgedERC20V2, IEIP3009 {
         if (_authorizationStates[_authorizer][_nonce]) revert BTOKEN_AUTHORIZATION_USED();
     }
 
-    /// @dev Validates signature against the signer
+    /// @dev Validates signature against the signer using OZ SignatureChecker.
+    /// Supports both EOA (ECDSA) and contract wallet (EIP-1271) signatures.
     /// @param _signer Expected signer address
     /// @param _structHash EIP-712 struct hash
-    /// @param _v v component of signature
-    /// @param _r r component of signature
-    /// @param _s s component of signature
+    /// @param _signature Signature bytes
     function _validateSignature(
         address _signer,
         bytes32 _structHash,
-        uint8 _v,
-        bytes32 _r,
-        bytes32 _s
+        bytes memory _signature
     )
         private
         view
     {
         bytes32 hash = _hashTypedDataV4(_structHash);
-        address recovered = ECDSAUpgradeable.recover(hash, _v, _r, _s);
-        if (recovered != _signer) revert BTOKEN_INVALID_SIG();
+        if (!SignatureCheckerUpgradeable.isValidSignatureNow(_signer, hash, _signature)) {
+            revert BTOKEN_INVALID_SIG();
+        }
     }
 
     /// @dev Marks an authorization as used

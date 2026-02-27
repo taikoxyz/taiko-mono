@@ -16,7 +16,7 @@ interface IEIP3009 {
     /// @param nonce The nonce of the authorization
     event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
 
-    /// @notice Execute a transfer with a signed authorization
+    /// @notice Execute a transfer with a signed authorization (EOA signature)
     /// @param _from Payer's address (Authorizer)
     /// @param _to Payee's address
     /// @param _value Amount to be transferred
@@ -39,7 +39,26 @@ interface IEIP3009 {
     )
         external;
 
-    /// @notice Receive a transfer with a signed authorization from the payer
+    /// @notice Execute a transfer with a signed authorization (EIP-1271 compatible)
+    /// @param _from Payer's address (Authorizer)
+    /// @param _to Payee's address
+    /// @param _value Amount to be transferred
+    /// @param _validAfter The time after which this is valid (unix time)
+    /// @param _validBefore The time before which this is valid (unix time)
+    /// @param _nonce Unique nonce
+    /// @param _signature Signature bytes (ECDSA or EIP-1271 contract signature)
+    function transferWithAuthorization(
+        address _from,
+        address _to,
+        uint256 _value,
+        uint256 _validAfter,
+        uint256 _validBefore,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        external;
+
+    /// @notice Receive a transfer with a signed authorization from the payer (EOA signature)
     /// @dev This has an additional check to ensure that the payee's address
     /// matches the caller of this function to prevent front-running attacks.
     /// @param _from Payer's address (Authorizer)
@@ -64,7 +83,28 @@ interface IEIP3009 {
     )
         external;
 
-    /// @notice Attempt to cancel an authorization
+    /// @notice Receive a transfer with a signed authorization from the payer (EIP-1271 compatible)
+    /// @dev This has an additional check to ensure that the payee's address
+    /// matches the caller of this function to prevent front-running attacks.
+    /// @param _from Payer's address (Authorizer)
+    /// @param _to Payee's address
+    /// @param _value Amount to be transferred
+    /// @param _validAfter The time after which this is valid (unix time)
+    /// @param _validBefore The time before which this is valid (unix time)
+    /// @param _nonce Unique nonce
+    /// @param _signature Signature bytes (ECDSA or EIP-1271 contract signature)
+    function receiveWithAuthorization(
+        address _from,
+        address _to,
+        uint256 _value,
+        uint256 _validAfter,
+        uint256 _validBefore,
+        bytes32 _nonce,
+        bytes memory _signature
+    )
+        external;
+
+    /// @notice Attempt to cancel an authorization (EOA signature)
     /// @dev Works only if the authorization is not yet used.
     /// @param _authorizer Authorizer's address
     /// @param _nonce Nonce of the authorization
@@ -77,6 +117,18 @@ interface IEIP3009 {
         uint8 _v,
         bytes32 _r,
         bytes32 _s
+    )
+        external;
+
+    /// @notice Attempt to cancel an authorization (EIP-1271 compatible)
+    /// @dev Works only if the authorization is not yet used.
+    /// @param _authorizer Authorizer's address
+    /// @param _nonce Nonce of the authorization
+    /// @param _signature Signature bytes (ECDSA or EIP-1271 contract signature)
+    function cancelAuthorization(
+        address _authorizer,
+        bytes32 _nonce,
+        bytes memory _signature
     )
         external;
 
