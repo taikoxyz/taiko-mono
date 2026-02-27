@@ -375,7 +375,14 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     }
 
     /// @inheritdoc IEthMinter
-    function mintEth(address _recipient, uint256 _amount) external whenNotPaused nonReentrant {
+    function mintEth(
+        address _recipient,
+        uint256 _amount
+    )
+        external
+        whenNotPaused
+        nonReentrant
+    {
         if (_recipient == address(0)) revert ZERO_ADDRESS();
         if (_recipient == address(this)) revert B_INVALID_MINT_RECIPIENT();
         if (_amount == 0) revert B_INVALID_VALUE();
