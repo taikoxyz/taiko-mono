@@ -5,7 +5,7 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{
-    Bytes20, Bytes32, RawTxListGossip, SignedCommitment, TxListBytes, keccak256_bytes,
+    Bytes20, RawTxListGossip, SignedCommitment, TxListBytes, keccak256_bytes,
     b256_to_bytes32, uint256_to_u256,
 };
 use protocol::codec::ZlibTxListCodec;
@@ -113,10 +113,10 @@ pub(crate) async fn publish_block_impl(
 ) -> Result<PublishBlockResponse> {
     // 1. SSZ-decode the commitment.
     let signed_commitment = SignedCommitment::deserialize(request.commitment.as_ref())
-        .map_err(|e| {
+        .inspect_err(|_| {
             metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
-            PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}"))
-        })?;
+        })
+        .map_err(|e| PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}")))?;
 
     // 2a. Validate txlist hash matches the provided bytes.
     let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec()).map_err(|_| {
@@ -149,11 +149,11 @@ pub(crate) async fn publish_block_impl(
 
     // 3. Validate commitment signature + recover signer.
     let signer = validate_commitment_with_signer(&signed_commitment, expected_slasher)
-        .map_err(|e| {
+        .inspect_err(|_| {
             metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
                 .increment(1);
-            e
-        })?;
+        })
+        ?;
 
     // 4. Validate lookahead.
     let timestamp = uint256_to_u256(&signed_commitment.commitment.preconf.timestamp);
@@ -161,10 +161,11 @@ pub(crate) async fn publish_block_impl(
         .slot_info_for_timestamp(timestamp)
         .await
         .map_err(PreconfirmationClientError::from)?;
-    validate_lookahead(&signed_commitment, signer, &slot_info).map_err(|e| {
-        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
-        e
-    })?;
+    validate_lookahead(&signed_commitment, signer, &slot_info)
+        .inspect_err(|_| {
+            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        })
+        ?;
 
     // 5. Reject stale commitments whose block is already covered by confirmed sync.
     let current_block = uint256_to_u256(&signed_commitment.commitment.preconf.block_number);
@@ -194,10 +195,13 @@ pub(crate) async fn publish_block_impl(
     };
 
     // 7. Submit to driver — mine the block.
-    driver.submit_preconfirmation(input).await.map_err(|e| {
-        metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL).increment(1);
-        e
-    })?;
+    driver
+        .submit_preconfirmation(input)
+        .await
+        .inspect_err(|_| {
+            metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
+                .increment(1);
+        })?;
     metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL).increment(1);
 
     // 8. Gossip to P2P (sequential, best-effort after successful mine).

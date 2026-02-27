@@ -227,7 +227,7 @@ where
             .await
             .map_err(|err| {
                 PreconfirmationClientError::DriverInterface(DriverApiError::Driver(
-                    driver::DriverError::from(err),
+                    err,
                 ))
             })?;
 
