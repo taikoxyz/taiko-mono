@@ -38,6 +38,7 @@ export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
 export PRECONF_WHITELIST=0x0000000000000000000000000000000000000000
 export REMOTE_SIGNAL_SERVICE=0x1670010000000000000000000000000000000005
 
+# Prefer Docker Compose v2 plugin; fallback to the standalone v1/v2 binary.
 if docker compose version > /dev/null 2>&1; then
     DOCKER_COMPOSE=(docker compose)
 elif command -v docker-compose > /dev/null 2>&1; then
