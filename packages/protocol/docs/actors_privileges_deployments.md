@@ -24,7 +24,7 @@ In the context of the smart contract system, various actors play distinct roles.
   - The right to trigger transferring/minting the tokens (on destination chain) (be it ERC20, ERC721, ERC1155) from the vault contracts
   - The right to trigger releasing the custodied assets on the source chain (if bridging is not successful)
 
-### 1.3 ERCXXX_Vault
+### 1.3 ERC20Vault / ERC721Vault / ERC1155Vault
 
 - **Role**: This role is given to respective token vault contracts (ERC20, ERC721, ERC1155)
 - **Privileges**:

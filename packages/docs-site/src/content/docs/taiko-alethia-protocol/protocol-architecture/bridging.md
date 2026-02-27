@@ -115,7 +115,7 @@ Token bridging requires a **BridgedERC contract** on the destination chain.
 1. The sender calls `sendToken` on the `BridgedERC` contract (destination chain).
 2. The contract **burns** the token and generates a **Merkle proof**.
 3. The recipient submits the **proof** on the canonical chain.
-4. The canonical **TokenVault contract** releases the original token.
+4. The canonical **ERC20Vault**, **ERC721Vault**, or **ERC1155Vault** contract releases the original token.
 
 ## Summary
 
