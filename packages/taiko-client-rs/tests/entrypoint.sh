@@ -49,10 +49,11 @@ else
 fi
 
 cleanup() {
-    "${DOCKER_COMPOSE[@]}" -f tests/docker/docker-compose.test.yaml down -v
+    "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" down -v
 }
 
-"${DOCKER_COMPOSE[@]}" -f tests/docker/docker-compose.test.yaml up -d
+COMPOSE_FILE=tests/docker/docker-compose.test.yaml
+"${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" up -d
 trap cleanup EXIT INT KILL ERR
 
 # check until L1 node is ready

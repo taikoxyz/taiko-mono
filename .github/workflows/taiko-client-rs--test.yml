@@ -28,6 +28,32 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Ensure native build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if command -v cc > /dev/null 2>&1; then
+            cc --version
+            exit 0
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          if command -v apt-get > /dev/null 2>&1; then
+            $SUDO apt-get update
+            $SUDO apt-get install -y build-essential pkg-config
+          else
+            echo "ERROR: apt-get is required to install build tools on this runner"
+            exit 1
+          fi
+
+          cc --version
+
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -73,6 +99,33 @@ jobs:
           access_token: ${{ github.token }}
 
       - uses: actions/checkout@v6
+
+      - name: Ensure native build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if command -v cc > /dev/null 2>&1; then
+            cc --version
+            exit 0
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          if command -v apt-get > /dev/null 2>&1; then
+            $SUDO apt-get update
+            $SUDO apt-get install -y build-essential pkg-config
+          else
+            echo "ERROR: apt-get is required to install build tools on this runner"
+            exit 1
+          fi
+
+          cc --version
+
       - name: Install mold
         shell: bash
         run: |
