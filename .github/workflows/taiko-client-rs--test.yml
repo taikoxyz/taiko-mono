@@ -23,7 +23,7 @@ jobs:
   lint:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
-    runs-on: [ubuntu-latest]
+    runs-on: [arc-runner-set]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -61,7 +61,7 @@ jobs:
   test:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
-    runs-on: [ubuntu-latest]
+    runs-on: [arc-runner-set]
     timeout-minutes: 15
     env:
       PROTOCOL_FORK_DIR: protocol-taiko-mono
