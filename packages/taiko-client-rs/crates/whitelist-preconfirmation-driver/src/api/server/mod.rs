@@ -5,7 +5,7 @@ use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use tracing::{info, warn};
 
-use super::WhitelistRestApi;
+use super::WhitelistApi;
 use crate::{
     Result, error::WhitelistPreconfirmationDriverError, importer::MAX_COMPRESSED_TX_LIST_BYTES,
 };
@@ -26,7 +26,7 @@ const PRECONF_BLOCKS_BODY_LIMIT_BYTES: usize = (MAX_COMPRESSED_TX_LIST_BYTES * 2
 
 /// Configuration for the whitelist preconfirmation REST/WS server.
 #[derive(Debug, Clone)]
-pub struct WhitelistRestWsServerConfig {
+pub struct WhitelistApiServerConfig {
     /// Socket address to listen on.
     pub listen_addr: SocketAddr,
     /// Whether HTTP transport is enabled.
@@ -39,7 +39,7 @@ pub struct WhitelistRestWsServerConfig {
     pub cors_origins: Vec<String>,
 }
 
-impl Default for WhitelistRestWsServerConfig {
+impl Default for WhitelistApiServerConfig {
     /// Build the default server configuration (loopback bind, HTTP+WS enabled, no JWT).
     fn default() -> Self {
         Self {
@@ -56,7 +56,7 @@ impl Default for WhitelistRestWsServerConfig {
 ///
 /// The server serves Go-compatible REST routes and `/ws` notifications on one socket.
 #[derive(Debug)]
-pub struct WhitelistRestWsServer {
+pub struct WhitelistApiServer {
     /// Socket address bound by the server.
     addr: SocketAddr,
     /// Graceful-shutdown trigger for the running server.
@@ -65,11 +65,11 @@ pub struct WhitelistRestWsServer {
     task: JoinHandle<()>,
 }
 
-impl WhitelistRestWsServer {
+impl WhitelistApiServer {
     /// Start the REST/WS server.
     pub async fn start(
-        config: WhitelistRestWsServerConfig,
-        api: Arc<dyn WhitelistRestApi>,
+        config: WhitelistApiServerConfig,
+        api: Arc<dyn WhitelistApi>,
     ) -> Result<Self> {
         if !config.enable_http && !config.enable_ws {
             return Err(WhitelistPreconfirmationDriverError::RestWsServerNoTransportsEnabled);

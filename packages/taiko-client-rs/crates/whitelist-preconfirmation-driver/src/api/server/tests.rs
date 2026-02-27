@@ -7,20 +7,20 @@ use std::sync::{
 use tokio::sync::broadcast;
 
 use super::{
-    PRECONF_BLOCKS_BODY_LIMIT_BYTES, WhitelistRestWsServer, WhitelistRestWsServerConfig,
+    PRECONF_BLOCKS_BODY_LIMIT_BYTES, WhitelistApiServer, WhitelistApiServerConfig,
     auth::JwtAuth,
     http_utils::{RequestBodyReadError, read_request_body},
 };
 use crate::{
     Result,
-    error::WhitelistPreconfirmationDriverError,
-    rest::{
-        WhitelistRestApi,
+    api::{
+        WhitelistApi,
         types::{
-            BuildPreconfBlockRequest, BuildPreconfBlockResponse, BuildPreconfBlockRestRequest,
+            BuildPreconfBlockApiRequest, BuildPreconfBlockRequest, BuildPreconfBlockResponse,
             EndOfSequencingNotification, ExecutableData, WhitelistStatus,
         },
     },
+    error::WhitelistPreconfirmationDriverError,
 };
 use alloy_primitives::{Address, B256, Bytes as RpcBytes};
 use async_trait::async_trait;
@@ -28,7 +28,7 @@ use async_trait::async_trait;
 struct MockApi;
 
 #[async_trait]
-impl WhitelistRestApi for MockApi {
+impl WhitelistApi for MockApi {
     async fn build_preconf_block(
         &self,
         _request: BuildPreconfBlockRequest,
@@ -60,7 +60,7 @@ struct SyncReadyApi {
 }
 
 #[async_trait]
-impl WhitelistRestApi for SyncReadyApi {
+impl WhitelistApi for SyncReadyApi {
     async fn build_preconf_block(
         &self,
         _request: BuildPreconfBlockRequest,
@@ -87,7 +87,7 @@ impl WhitelistRestApi for SyncReadyApi {
 }
 
 fn sample_preconf_request() -> Vec<u8> {
-    let request = BuildPreconfBlockRestRequest {
+    let request = BuildPreconfBlockApiRequest {
         executable_data: Some(ExecutableData {
             parent_hash: B256::ZERO,
             fee_recipient: Address::ZERO,
@@ -104,8 +104,8 @@ fn sample_preconf_request() -> Vec<u8> {
     serde_json::to_vec(&request).expect("sample preconf request should serialize")
 }
 
-fn test_config(enable_http: bool, enable_ws: bool) -> WhitelistRestWsServerConfig {
-    WhitelistRestWsServerConfig {
+fn test_config(enable_http: bool, enable_ws: bool) -> WhitelistApiServerConfig {
+    WhitelistApiServerConfig {
         listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
         enable_http,
         enable_ws,
@@ -117,9 +117,9 @@ fn test_config(enable_http: bool, enable_ws: bool) -> WhitelistRestWsServerConfi
 #[tokio::test]
 async fn server_start_stop() {
     let config = test_config(true, true);
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
 
-    let server = WhitelistRestWsServer::start(config, api).await.expect("server should start");
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
     assert_eq!(server.local_addr().ip().to_string(), "127.0.0.1");
     assert_ne!(server.local_addr().port(), 0);
     assert!(server.http_url().starts_with("http://127.0.0.1:"));
@@ -130,9 +130,9 @@ async fn server_start_stop() {
 #[tokio::test]
 async fn server_start_fails_when_no_transports_enabled() {
     let config = test_config(false, false);
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
 
-    let err = WhitelistRestWsServer::start(config, api)
+    let err = WhitelistApiServer::start(config, api)
         .await
         .expect_err("server must fail when both transports are disabled");
     assert!(matches!(err, WhitelistPreconfirmationDriverError::RestWsServerNoTransportsEnabled));
@@ -140,7 +140,7 @@ async fn server_start_fails_when_no_transports_enabled() {
 
 #[test]
 fn default_config() {
-    let config = WhitelistRestWsServerConfig::default();
+    let config = WhitelistApiServerConfig::default();
     assert_eq!(config.listen_addr.port(), 8552);
     assert!(config.enable_http);
     assert!(config.enable_ws);
@@ -150,14 +150,14 @@ fn default_config() {
 
 #[tokio::test]
 async fn cors_layer_allows_configured_origin() {
-    let config = WhitelistRestWsServerConfig {
+    let config = WhitelistApiServerConfig {
         listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
         cors_origins: vec!["https://example.com".to_string()],
         ..test_config(true, true)
     };
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
 
-    let server = WhitelistRestWsServer::start(config, api).await.expect("server should start");
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
     let response = reqwest::Client::new()
         .get(format!("{}/status", server.http_url()))
         .header(reqwest::header::ORIGIN, "https://example.com")
@@ -180,14 +180,14 @@ async fn cors_layer_allows_configured_origin() {
 #[tokio::test]
 async fn preconf_blocks_is_rejected_when_not_sync_ready() {
     let build_preconf_calls = Arc::new(AtomicUsize::new(0));
-    let config = WhitelistRestWsServerConfig {
+    let config = WhitelistApiServerConfig {
         listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
         cors_origins: vec!["https://example.com".to_string()],
         ..test_config(true, false)
     };
     let api = SyncReadyApi { build_preconf_calls: build_preconf_calls.clone(), sync_ready: false };
     let server =
-        WhitelistRestWsServer::start(config, Arc::new(api)).await.expect("server should start");
+        WhitelistApiServer::start(config, Arc::new(api)).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .post(format!("{}/preconfBlocks", server.http_url()))
@@ -230,13 +230,13 @@ fn jwt_auth_rejects_missing_header() {
 
 #[tokio::test]
 async fn jwt_auth_is_required_when_secret_configured() {
-    let config = WhitelistRestWsServerConfig {
+    let config = WhitelistApiServerConfig {
         listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
         jwt_secret: Some(b"test-secret".to_vec()),
         ..test_config(true, false)
     };
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
-    let server = WhitelistRestWsServer::start(config, api).await.expect("server should start");
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .get(format!("{}/status", server.http_url()))
@@ -251,8 +251,8 @@ async fn jwt_auth_is_required_when_secret_configured() {
 #[tokio::test]
 async fn websocket_route_rejects_non_upgrade_requests() {
     let config = test_config(false, true);
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
-    let server = WhitelistRestWsServer::start(config, api).await.expect("server should start");
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .get(format!("{}/ws", server.http_url()))
@@ -267,8 +267,8 @@ async fn websocket_route_rejects_non_upgrade_requests() {
 #[tokio::test]
 async fn ws_route_is_not_served_when_ws_transport_is_disabled() {
     let config = test_config(true, false);
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
-    let server = WhitelistRestWsServer::start(config, api).await.expect("server should start");
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .get(format!("{}/ws", server.http_url()))
@@ -283,8 +283,8 @@ async fn ws_route_is_not_served_when_ws_transport_is_disabled() {
 #[tokio::test]
 async fn http_routes_are_not_served_when_http_transport_is_disabled() {
     let config = test_config(false, true);
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
-    let server = WhitelistRestWsServer::start(config, api).await.expect("server should start");
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let response = reqwest::Client::new()
         .get(format!("{}/status", server.http_url()))
@@ -299,8 +299,8 @@ async fn http_routes_are_not_served_when_http_transport_is_disabled() {
 #[tokio::test]
 async fn preconf_blocks_enforces_body_limit() {
     let config = test_config(true, false);
-    let api: Arc<dyn WhitelistRestApi> = Arc::new(MockApi);
-    let server = WhitelistRestWsServer::start(config, api).await.expect("server should start");
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
     let oversized_body = vec![b'a'; PRECONF_BLOCKS_BODY_LIMIT_BYTES + 1];
     let response = reqwest::Client::new()

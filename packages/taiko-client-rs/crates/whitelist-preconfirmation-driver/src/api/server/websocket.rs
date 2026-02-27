@@ -5,7 +5,7 @@ use futures::StreamExt;
 use tokio::sync::broadcast;
 use tracing::warn;
 
-use crate::rest::types::EndOfSequencingNotification;
+use crate::api::types::EndOfSequencingNotification;
 
 /// Push EOS notifications over a connected websocket until disconnect.
 pub(super) async fn serve_websocket_notifications(

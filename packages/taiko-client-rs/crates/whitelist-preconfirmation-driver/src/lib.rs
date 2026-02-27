@@ -2,6 +2,7 @@
 #![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
 //! Whitelist preconfirmation driver integration.
 
+mod api;
 mod cache;
 mod codec;
 mod error;
@@ -9,7 +10,6 @@ mod importer;
 pub mod metrics;
 mod network;
 mod preconf_ingress_sync;
-mod rest;
 mod rest_handler;
 mod runner;
 mod whitelist_fetcher;

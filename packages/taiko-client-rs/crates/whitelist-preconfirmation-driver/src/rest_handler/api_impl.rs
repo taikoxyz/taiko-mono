@@ -1,8 +1,8 @@
-//! `WhitelistRestApi` implementation for the REST handler.
+//! `WhitelistApi` implementation for the REST handler.
 
 use super::*;
 
-impl<P> WhitelistRestHandler<P>
+impl<P> WhitelistApiHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -21,7 +21,7 @@ where
 }
 
 #[async_trait]
-impl<P> WhitelistRestApi for WhitelistRestHandler<P>
+impl<P> WhitelistApi for WhitelistApiHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {

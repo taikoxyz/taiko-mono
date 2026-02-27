@@ -14,7 +14,7 @@ use super::{
     state::AppState,
     websocket::serve_websocket_notifications,
 };
-use crate::rest::types::{BuildPreconfBlockRestRequest, RestStatus};
+use crate::api::types::{ApiStatus, BuildPreconfBlockApiRequest};
 
 /// REST response payload for successful `/preconfBlocks` requests.
 #[derive(serde::Serialize)]
@@ -38,7 +38,7 @@ pub(super) async fn handle_root() -> Response {
 pub(super) async fn handle_status(State(state): State<AppState>) -> Response {
     match state.api.get_status().await {
         Ok(status) => {
-            let response = RestStatus {
+            let response = ApiStatus {
                 highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
                 end_of_sequencing_block_hash: status
                     .end_of_sequencing_block_hash
@@ -83,7 +83,7 @@ pub(super) async fn handle_preconf_blocks(
         }
     };
 
-    let rest_request: BuildPreconfBlockRestRequest = match serde_json::from_slice(&body) {
+    let rest_request: BuildPreconfBlockApiRequest = match serde_json::from_slice(&body) {
         Ok(value) => value,
         Err(err) => {
             return error_response(

@@ -23,6 +23,13 @@ use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
 use tracing::{debug, warn};
 
 use crate::{
+    api::{
+        WhitelistApi,
+        types::{
+            BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
+            LookaheadStatus, SlotRange, WhitelistStatus,
+        },
+    },
     cache::SharedPreconfCacheState,
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
@@ -31,13 +38,6 @@ use crate::{
         validate_execution_payload_for_preconf,
     },
     network::NetworkCommand,
-    rest::{
-        WhitelistRestApi,
-        types::{
-            BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
-            LookaheadStatus, SlotRange, WhitelistStatus,
-        },
-    },
     whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
@@ -56,7 +56,7 @@ const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 
 /// Implements the whitelist preconfirmation REST/WS API.
-pub(crate) struct WhitelistRestHandler<P>
+pub(crate) struct WhitelistApiHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -88,8 +88,8 @@ where
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
 }
 
-/// Dependency bundle for constructing `WhitelistRestHandler`.
-pub(crate) struct WhitelistRestHandlerParams<P>
+/// Dependency bundle for constructing `WhitelistApiHandler`.
+pub(crate) struct WhitelistApiHandlerParams<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
@@ -115,13 +115,13 @@ where
     pub(crate) local_peer_id: String,
 }
 
-impl<P> WhitelistRestHandler<P>
+impl<P> WhitelistApiHandler<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Create a new REST/WS handler.
     pub(crate) fn new(
-        WhitelistRestHandlerParams {
+        WhitelistApiHandlerParams {
             event_syncer,
             rpc,
             chain_id,
@@ -132,7 +132,7 @@ where
             network_command_tx,
             cache_state,
             local_peer_id,
-        }: WhitelistRestHandlerParams<P>,
+        }: WhitelistApiHandlerParams<P>,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
         Self {
