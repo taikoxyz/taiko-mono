@@ -11,16 +11,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use tokio::{
-    sync::{broadcast, mpsc},
-    time::sleep,
-};
+use tokio::{sync::{broadcast, mpsc}, time::sleep};
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 
 use preconfirmation_net::{
-    LocalValidationAdapter, NetworkCommand, NetworkEvent, P2pHandle, P2pNode, PreconfStorage,
-    ValidationAdapter,
+    LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, PreconfStorage, ValidationAdapter,
 };
 use preconfirmation_types::MAX_TXLIST_BYTES;
 use protocol::codec::ZlibTxListCodec;
@@ -37,8 +33,6 @@ use crate::{
 
 /// Capacity for the broadcast event channel used by the client.
 const EVENT_CHANNEL_CAPACITY: usize = 16;
-/// Channel capacity for the loopback channel from the RPC server to the event loop.
-pub const LOOPBACK_CHANNEL_CAPACITY: usize = 256;
 /// Base delay used when restarting the P2P event loop.
 const P2P_RESTART_BACKOFF_BASE: Duration = Duration::from_secs(1);
 /// Maximum delay between P2P event loop restarts.
@@ -65,10 +59,6 @@ where
     handle: P2pHandle,
     /// Event handler that processes inbound gossip and sync events.
     handler: EventHandler<D>,
-    /// Loopback receiver for events injected by the local RPC server.
-    /// Published commitments and txlists are delivered locally so a
-    /// single-node setup (zero P2P peers) can still advance the chain.
-    loopback_rx: mpsc::Receiver<NetworkEvent>,
 }
 
 impl<D> EventLoop<D>
@@ -104,7 +94,6 @@ where
         let node_handle = &mut self.node_handle;
         let handle = &mut self.handle;
         let handler = &self.handler;
-        let loopback_rx = &mut self.loopback_rx;
 
         let mut events = handle.events();
         loop {
@@ -122,9 +111,6 @@ where
                             "p2p event stream ended".to_string(),
                         ));
                     };
-                    handler.handle_event(event).await?;
-                }
-                Some(event) = loopback_rx.recv() => {
                     handler.handle_event(event).await?;
                 }
             }
@@ -253,14 +239,7 @@ where
     ///    txlists.
     /// 4. Emits a synced event.
     /// 5. Returns a [`EventLoop`] that can be used to run the blocking event loop.
-    ///
-    /// The `loopback_rx` channel delivers locally-published commitments and txlists
-    /// into the event loop so a single-node setup (zero P2P peers) can still advance
-    /// the chain.
-    pub async fn sync_and_catchup(
-        self,
-        loopback_rx: mpsc::Receiver<NetworkEvent>,
-    ) -> Result<EventLoop<D>> {
+    pub async fn sync_and_catchup(self) -> Result<EventLoop<D>> {
         let PreconfirmationClient {
             config,
             store,
@@ -322,7 +301,7 @@ where
         }
         metrics::counter!(PreconfirmationClientMetrics::SYNCED_TOTAL).increment(1);
 
-        Ok(EventLoop { config, p2p_storage, node_handle, handle, handler, loopback_rx })
+        Ok(EventLoop { config, p2p_storage, node_handle, handle, handler })
     }
 }
 

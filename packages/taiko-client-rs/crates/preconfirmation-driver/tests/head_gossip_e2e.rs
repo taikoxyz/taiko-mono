@@ -78,7 +78,7 @@ async fn head_update_propagates_to_peer(env: &mut ShastaEnv) -> anyhow::Result<(
         preconfirmation_driver::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
     let mut events = internal_client.subscribe();
 
-    let mut event_loop = internal_client.sync_and_catchup(tokio::sync::mpsc::channel(1).1).await?;
+    let mut event_loop = internal_client.sync_and_catchup().await?;
     let event_loop_handle = tokio::spawn(async move { event_loop.run().await });
 
     wait_for_peer_connected(&mut events).await;

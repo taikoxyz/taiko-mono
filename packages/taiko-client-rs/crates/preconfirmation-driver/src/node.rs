@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use alloy_primitives::U256;
+use preconfirmation_types::MAX_TXLIST_BYTES;
+use protocol::codec::ZlibTxListCodec;
 use tokio::sync::{mpsc, watch};
 use tracing::info;
-
-use preconfirmation_net::NetworkEvent;
 
 use crate::{
     EmbeddedDriverClient, PreconfirmationClient, PreconfirmationClientConfig, Result,
@@ -16,8 +16,6 @@ use crate::{
 };
 
 use crate::rpc::node_api::NodeRpcApiImpl;
-
-use crate::client::LOOPBACK_CHANNEL_CAPACITY;
 
 /// Default channel capacity for preconfirmation inputs to the driver.
 const DEFAULT_DRIVER_CHANNEL_CAPACITY: usize = 256;
@@ -83,6 +81,8 @@ pub struct PreconfirmationDriverNode<I: InboxReader + 'static> {
     rpc_config: Option<PreconfRpcServerConfig>,
     /// Watch receiver for the preconfirmation tip from the driver.
     preconf_tip_rx: watch::Receiver<U256>,
+    /// Expected slasher address passed to the RPC API for commitment validation.
+    expected_slasher: Option<preconfirmation_types::Bytes20>,
 }
 
 impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
@@ -102,12 +102,19 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
         let (input_tx, input_rx) = mpsc::channel(config.driver_channel_capacity);
         let (preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
 
+        let expected_slasher = config.p2p_config.expected_slasher.clone();
         let driver_client =
             EmbeddedDriverClient::new(input_tx, preconf_tip_rx.clone(), inbox_reader);
         let p2p_client = PreconfirmationClient::new(config.p2p_config, driver_client.clone())?;
 
         Ok((
-            Self { driver_client, p2p_client, rpc_config: config.rpc_config, preconf_tip_rx },
+            Self {
+                driver_client,
+                p2p_client,
+                rpc_config: config.rpc_config,
+                preconf_tip_rx,
+                expected_slasher,
+            },
             DriverChannels { input_rx, preconf_tip_tx },
         ))
     }
@@ -116,9 +123,9 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
     pub async fn run(self) -> Result<()> {
         info!("starting preconfirmation node");
 
-        let (rpc_server, loopback_rx) = self.start_rpc_server().await?;
+        let rpc_server = self.start_rpc_server().await?;
 
-        let mut event_loop = self.p2p_client.sync_and_catchup(loopback_rx).await?;
+        let mut event_loop = self.p2p_client.sync_and_catchup().await?;
         let result = event_loop.run().await;
 
         if let Some(server) = rpc_server {
@@ -128,35 +135,30 @@ impl<I: InboxReader + 'static> PreconfirmationDriverNode<I> {
         result.map_err(|e| PreconfirmationClientError::Network(e.to_string()))
     }
 
-    /// Create the loopback channel and optionally start the RPC server.
-    ///
-    /// Always creates a loopback channel so locally-published data is delivered
-    /// to the event loop. When an RPC server is configured the loopback sender
-    /// is wired into the RPC API; otherwise the sender is dropped (the receiver
-    /// stays open but idle).
-    async fn start_rpc_server(
-        &self,
-    ) -> Result<(Option<PreconfRpcServer>, mpsc::Receiver<NetworkEvent>)> {
-        let (loopback_tx, loopback_rx) = mpsc::channel(LOOPBACK_CHANNEL_CAPACITY);
-
+    /// Optionally start the RPC server.
+    async fn start_rpc_server(&self) -> Result<Option<PreconfRpcServer>> {
         let Some(rpc_config) = &self.rpc_config else {
-            return Ok((None, loopback_rx));
+            return Ok(None);
         };
 
-        let local_peer_id_peer = self.p2p_client.p2p_handle().local_peer_id();
+        let local_peer_id = self.p2p_client.p2p_handle().local_peer_id().to_string();
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver: Arc<EmbeddedDriverClient<I>> = Arc::new(self.driver_client.clone());
 
         let api: Arc<dyn PreconfRpcApi> = Arc::new(NodeRpcApiImpl {
             command_tx: self.p2p_client.command_tx(),
             preconf_tip_rx: self.preconf_tip_rx.clone(),
-            local_peer_id_peer,
             inbox_reader: self.driver_client.inbox_reader().clone(),
             lookahead_resolver: self.p2p_client.lookahead_resolver().clone(),
-            loopback_tx,
+            driver,
+            codec,
+            expected_slasher: self.expected_slasher.clone(),
+            local_peer_id,
         });
 
         let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
         info!(url = %server.http_url(), "preconfirmation RPC server started");
-        Ok((Some(server), loopback_rx))
+        Ok(Some(server))
     }
 
     /// Get a reference to the embedded driver client.

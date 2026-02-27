@@ -7,8 +7,7 @@
 //!
 //! # API Methods
 //!
-//! - `preconf_publishCommitment`: Publish a signed preconfirmation commitment (SSZ bytes)
-//! - `preconf_publishTxList`: Publish an encoded transaction list (RLP + zlib)
+//! - `preconf_publishBlock`: Publish a preconfirmation block (commitment + txlist atomically)
 //! - `preconf_getStatus`: Get current node status
 //!
 //! # Example
@@ -33,7 +32,4 @@ pub mod types;
 
 pub use api::PreconfRpcApi;
 pub use server::{PreconfRpcServer, PreconfRpcServerConfig};
-pub use types::{
-    NodeStatus, PreconfRpcErrorCode, PreconfSlotInfo, PublishCommitmentRequest,
-    PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
-};
+pub use types::{NodeStatus, PreconfRpcErrorCode, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse};

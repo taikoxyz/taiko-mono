@@ -3,109 +3,70 @@
 use std::sync::Arc;
 
 use alloy_primitives::{B256, U256};
-use preconfirmation_net::{NetworkCommand, NetworkEvent, PeerId};
-use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, TxListBytes};
+use preconfirmation_net::NetworkCommand;
+use preconfirmation_types::{
+    Bytes20, Bytes32, RawTxListGossip, SignedCommitment, TxListBytes, keccak256_bytes,
+    uint256_to_u256,
+};
+use protocol::codec::ZlibTxListCodec;
 use ssz_rs::Deserialize;
 use tokio::sync::{mpsc, watch};
-use tracing::{error, warn};
 
 use crate::{
     Result,
-    driver_interface::InboxReader,
+    driver_interface::{DriverClient, InboxReader, PreconfirmationInput},
     error::PreconfirmationClientError,
     rpc::{
-        NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishCommitmentRequest,
-        PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
+        NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse,
     },
+    validation::{is_eop_only, validate_commitment_with_signer, validate_lookahead},
 };
 
 /// Internal RPC API implementation backed by the preconfirmation driver node state.
-pub(crate) struct NodeRpcApiImpl<I: InboxReader> {
+pub(crate) struct NodeRpcApiImpl<I: InboxReader, D: DriverClient> {
     /// Command tx for issuing commands to the P2P network layer.
     pub(crate) command_tx: mpsc::Sender<NetworkCommand>,
     /// Watch receiver for the preconfirmation tip.
     pub(crate) preconf_tip_rx: watch::Receiver<U256>,
-    /// Local peer ID used as the `from` field in loopback events.
-    pub(crate) local_peer_id_peer: PeerId,
     /// Inbox reader for checking L1 sync state.
     pub(crate) inbox_reader: I,
     /// Lookahead resolver for slot info by timestamp.
     pub(crate) lookahead_resolver:
         Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
-    /// Loopback channel for emitting gossip events back to the local event loop.
-    /// Published commitments and txlists are also delivered locally so a
-    /// single-node setup (zero P2P peers) can still advance the chain.
-    pub(crate) loopback_tx: mpsc::Sender<NetworkEvent>,
+    /// Driver client for submitting preconfirmation inputs.
+    pub(crate) driver: Arc<D>,
+    /// Txlist codec for decompression.
+    pub(crate) codec: Arc<ZlibTxListCodec>,
+    /// Expected slasher address for commitment validation.
+    pub(crate) expected_slasher: Option<Bytes20>,
+    /// Local peer ID string used in status responses.
+    pub(crate) local_peer_id: String,
 }
 
 #[async_trait::async_trait]
-impl<I: InboxReader + 'static> PreconfRpcApi for NodeRpcApiImpl<I> {
-    /// Publishes a signed commitment to the P2P network.
-    ///
-    /// Decodes the SSZ-encoded commitment, extracts the tx_list_hash, and broadcasts
-    /// via the P2P gossip network. Also emits the commitment as a local loopback event
-    /// so the local event handler processes it.
-    ///
-    /// Note: gossipsub does not deliver a node's own published messages back to it,
-    /// so the loopback is the **only** local delivery path — there is no risk of
-    /// duplicate processing even when the node has peers.
-    async fn publish_commitment(
-        &self,
-        request: PublishCommitmentRequest,
-    ) -> Result<PublishCommitmentResponse> {
-        let (response, commitment) = publish_commitment_impl(&self.command_tx, request).await?;
-
-        let event = NetworkEvent::GossipSignedCommitment {
-            from: self.local_peer_id_peer,
-            msg: Box::new(commitment),
-        };
-        send_loopback(&self.loopback_tx, event).await;
-
-        Ok(response)
-    }
-
-    /// Publishes a transaction list to the P2P network.
-    ///
-    /// Verifies the hash matches the provided encoded tx list and broadcasts via P2P gossip.
-    /// Also emits the txlist as a local loopback event so the local event handler processes it.
-    ///
-    /// See [`publish_commitment`](Self::publish_commitment) for why this does not cause
-    /// duplicate processing.
-    async fn publish_tx_list(
-        &self,
-        request: PublishTxListRequest,
-    ) -> Result<PublishTxListResponse> {
-        let (response, gossip) = publish_tx_list_impl(&self.command_tx, request).await?;
-
-        let event =
-            NetworkEvent::GossipRawTxList { from: self.local_peer_id_peer, msg: Box::new(gossip) };
-        send_loopback(&self.loopback_tx, event).await;
-
-        Ok(response)
-    }
-
-    /// Returns the current status of the preconfirmation driver node.
-    ///
-    /// Queries the P2P layer for peer count and returns sync state information.
-    async fn get_status(&self) -> Result<NodeStatus> {
-        let preconf_tip = *self.preconf_tip_rx.borrow();
-
-        build_node_status(
+impl<I: InboxReader + 'static, D: DriverClient + 'static> PreconfRpcApi for NodeRpcApiImpl<I, D> {
+    async fn publish_block(&self, request: PublishBlockRequest) -> Result<PublishBlockResponse> {
+        publish_block_impl(
             &self.command_tx,
-            &self.inbox_reader,
-            preconf_tip,
-            &self.local_peer_id_peer.to_string(),
+            self.driver.as_ref(),
+            &self.codec,
+            self.expected_slasher.as_ref(),
+            self.lookahead_resolver.as_ref(),
+            request,
         )
         .await
     }
 
-    /// Returns the current preconfirmation tip block number.
+    async fn get_status(&self) -> Result<NodeStatus> {
+        let preconf_tip = *self.preconf_tip_rx.borrow();
+        build_node_status(&self.command_tx, &self.inbox_reader, preconf_tip, &self.local_peer_id)
+            .await
+    }
+
     async fn preconf_tip(&self) -> Result<U256> {
         Ok(*self.preconf_tip_rx.borrow())
     }
 
-    /// Returns the preconfirmation slot info (signer and submission window end) for the given L2
-    /// block timestamp.
     async fn get_preconf_slot_info(&self, timestamp: U256) -> Result<PreconfSlotInfo> {
         self.lookahead_resolver
             .slot_info_for_timestamp(timestamp)
@@ -125,90 +86,100 @@ async fn query_peer_count(command_tx: &mpsc::Sender<NetworkCommand>) -> u64 {
     rx.await.unwrap_or(0)
 }
 
-/// Send a loopback event to the local event loop on a best-effort basis.
+/// Validate, mine, and gossip a preconfirmation block atomically.
 ///
-/// A failure means the event loop has exited (receiver dropped), which is a node
-/// health issue — not an RPC-level error.  Because the P2P publish already
-/// succeeded at this point, returning an error would cause callers to retry and
-/// produce duplicate gossip.  We therefore log the failure and move on.
-pub(crate) async fn send_loopback(tx: &mpsc::Sender<NetworkEvent>, event: NetworkEvent) {
-    match tx.try_send(event) {
-        Ok(()) => {}
-        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-            warn!("loopback send dropped: channel full");
-        }
-        Err(error) => {
-            error!(error = %error, "loopback send failed — local event loop may have exited");
-        }
-    }
-}
-
-/// Publish a signed commitment via the P2P network command channel.
-///
-/// Returns the publish response and the decoded [`SignedCommitment`] so callers
-/// can emit a loopback event without re-decoding.
-pub(crate) async fn publish_commitment_impl(
+/// 1. SSZ-decode the commitment
+/// 2. Validate txlist hash (request + commitment consistency)
+/// 3. Validate commitment signature + recover signer
+/// 4. Validate lookahead
+/// 5. Reject stale commitments (block_number <= event_sync_tip)
+/// 6. Build `PreconfirmationInput`
+/// 7. Submit to driver (mine the block)
+/// 8. Gossip to P2P (parallel, propagate failures)
+pub(crate) async fn publish_block_impl(
     command_tx: &mpsc::Sender<NetworkCommand>,
-    request: PublishCommitmentRequest,
-) -> Result<(PublishCommitmentResponse, SignedCommitment)> {
-    // Decode the signed commitment from SSZ bytes
-    let commitment_bytes = request.commitment.as_ref();
-    let signed_commitment = SignedCommitment::deserialize(commitment_bytes).map_err(|e| {
-        PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}"))
-    })?;
+    driver: &dyn DriverClient,
+    codec: &ZlibTxListCodec,
+    expected_slasher: Option<&Bytes20>,
+    lookahead_resolver: &(dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync),
+    request: PublishBlockRequest,
+) -> Result<PublishBlockResponse> {
+    // 1. SSZ-decode the commitment.
+    let signed_commitment = SignedCommitment::deserialize(request.commitment.as_ref())
+        .map_err(|e| PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}")))?;
 
-    // Calculate commitment hash and extract tx_list_hash before publishing
-    let commitment_hash = preconfirmation_types::keccak256_bytes(commitment_bytes);
-    let tx_list_hash =
-        B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
-
-    // Clone the commitment for the caller before moving it into the network command.
-    let commitment_clone = signed_commitment.clone();
-
-    // Publish via P2P network
-    command_tx
-        .send(NetworkCommand::PublishCommitment(signed_commitment))
-        .await
-        .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
-
-    Ok((
-        PublishCommitmentResponse { commitment_hash: B256::from(commitment_hash.0), tx_list_hash },
-        commitment_clone,
-    ))
-}
-
-/// Publish a raw tx list via the P2P network command channel after hash validation.
-///
-/// Returns the publish response and the constructed [`RawTxListGossip`] so callers
-/// can emit a loopback event without re-constructing.
-pub(crate) async fn publish_tx_list_impl(
-    command_tx: &mpsc::Sender<NetworkCommand>,
-    request: PublishTxListRequest,
-) -> Result<(PublishTxListResponse, RawTxListGossip)> {
+    // 2a. Validate txlist hash matches the provided bytes.
     let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec())
         .map_err(|_| PreconfirmationClientError::Validation("txlist too large".into()))?;
-
-    let calculated_hash = preconfirmation_types::keccak256_bytes(&raw_tx_list);
-    if calculated_hash.0 != request.tx_list_hash.0 {
+    let calculated_hash = keccak256_bytes(&raw_tx_list);
+    if calculated_hash != request.tx_list_hash {
         return Err(PreconfirmationClientError::Validation(format!(
             "tx_list_hash mismatch: expected {}, got {}",
             request.tx_list_hash, calculated_hash
         )));
     }
 
+    // 2b. Validate that the commitment's embedded raw_tx_list_hash matches.
+    let embedded_hash =
+        B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
+    if embedded_hash != calculated_hash {
+        return Err(PreconfirmationClientError::Validation(format!(
+            "commitment raw_tx_list_hash mismatch: commitment contains {}, txlist hashes to {}",
+            embedded_hash, calculated_hash
+        )));
+    }
+
+    // 3. Validate commitment signature + recover signer.
+    let signer = validate_commitment_with_signer(&signed_commitment, expected_slasher)?;
+
+    // 4. Validate lookahead.
+    let timestamp = uint256_to_u256(&signed_commitment.commitment.preconf.timestamp);
+    let slot_info = lookahead_resolver
+        .slot_info_for_timestamp(timestamp)
+        .await
+        .map_err(PreconfirmationClientError::from)?;
+    validate_lookahead(&signed_commitment, signer, &slot_info)?;
+
+    // 5. Reject stale commitments whose block is already covered by confirmed sync.
+    let current_block = uint256_to_u256(&signed_commitment.commitment.preconf.block_number);
+    let event_sync_tip = driver.event_sync_tip().await?;
+    if current_block <= event_sync_tip {
+        return Err(PreconfirmationClientError::Validation(format!(
+            "stale commitment: block {} <= event_sync_tip {}",
+            current_block, event_sync_tip
+        )));
+    }
+
+    // 6. Build PreconfirmationInput.
+    let input = if is_eop_only(&signed_commitment) {
+        PreconfirmationInput::new(signed_commitment.clone(), None, None)
+    } else {
+        let transactions = codec
+            .decode(raw_tx_list.as_ref())
+            .map_err(|e| PreconfirmationClientError::Codec(e.to_string()))?;
+        PreconfirmationInput::new(
+            signed_commitment.clone(),
+            Some(transactions),
+            Some(raw_tx_list.to_vec()),
+        )
+    };
+
+    // 7. Submit to driver — mine the block.
+    driver.submit_preconfirmation(input).await?;
+
+    // 8. Gossip to P2P (parallel, propagate failures).
+    let commitment_hash = keccak256_bytes(request.commitment.as_ref());
     let raw_tx_list_hash =
         Bytes32::try_from(calculated_hash.0.to_vec()).expect("keccak256 always produces 32 bytes");
     let gossip = RawTxListGossip { raw_tx_list_hash, txlist: raw_tx_list };
+    let (r1, r2) = tokio::join!(
+        command_tx.send(NetworkCommand::PublishCommitment(signed_commitment)),
+        command_tx.send(NetworkCommand::PublishRawTxList(gossip)),
+    );
+    r1.map_err(|e| PreconfirmationClientError::Network(format!("gossip commitment failed: {e}")))?;
+    r2.map_err(|e| PreconfirmationClientError::Network(format!("gossip txlist failed: {e}")))?;
 
-    // Clone the gossip for the caller before moving it into the network command.
-    let gossip_clone = gossip.clone();
-
-    command_tx
-        .send(NetworkCommand::PublishRawTxList(gossip))
-        .await
-        .map_err(|e| PreconfirmationClientError::Network(format!("failed to publish: {e}")))?;
-
-    Ok((PublishTxListResponse { tx_list_hash: request.tx_list_hash }, gossip_clone))
+    Ok(PublishBlockResponse { commitment_hash, tx_list_hash: calculated_hash })
 }
 
 /// Build a NodeStatus by querying peer count and computing sync state.
@@ -304,193 +275,13 @@ mod tests {
         }
     }
 
-    /// Test that NodeRpcApiImpl returns correct status with peer_id.
-    #[tokio::test]
-    async fn test_node_status_includes_peer_id() {
-        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::from(100));
-        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let local_peer_id = PeerId::random();
-
-        let api = NodeRpcApiImpl {
-            command_tx,
-            preconf_tip_rx,
-            local_peer_id_peer: local_peer_id,
-            inbox_reader: MockInboxReader::new(43, Some(120), Some(120)),
-            lookahead_resolver: Arc::new(MockLookaheadResolver),
-            loopback_tx: mpsc::channel(16).0,
-        };
-
-        // Spawn a handler to respond to GetPeerCount command
-        tokio::spawn(async move {
-            if let Some(NetworkCommand::GetPeerCount { respond_to }) = command_rx.recv().await {
-                let _ = respond_to.send(5);
-            }
-        });
-
-        let status = api.get_status().await.unwrap();
-        assert_eq!(status.peer_id, local_peer_id.to_string());
-        assert_eq!(status.peer_count, 5);
-        assert!(status.is_synced_with_inbox);
-        assert_eq!(status.event_sync_tip, Some(U256::from(120)));
-    }
-
-    /// Test that publish_tx_list accepts pre-encoded tx list bytes.
-    #[tokio::test]
-    async fn test_publish_tx_list_accepts_encoded_bytes() {
-        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let (loopback_tx, _loopback_rx) = mpsc::channel(16);
-
-        let api = NodeRpcApiImpl {
-            command_tx,
-            preconf_tip_rx,
-            local_peer_id_peer: PeerId::random(),
-            inbox_reader: MockInboxReader::new(0, None, None),
-            lookahead_resolver: Arc::new(MockLookaheadResolver),
-            loopback_tx,
-        };
-
-        let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8, 4u8]);
-        let calculated_hash = preconfirmation_types::keccak256_bytes(tx_list.as_ref());
-        let tx_list_hash = B256::from(calculated_hash.0);
-        let expected_raw_hash =
-            Bytes32::try_from(calculated_hash.0.to_vec()).expect("keccak256 always 32 bytes");
-        let expected_txlist =
-            TxListBytes::try_from(tx_list.to_vec()).expect("tx list within size limit");
-
-        let receiver = tokio::spawn(async move {
-            match command_rx.recv().await {
-                Some(NetworkCommand::PublishRawTxList(gossip)) => {
-                    assert_eq!(gossip.raw_tx_list_hash, expected_raw_hash);
-                    assert_eq!(gossip.txlist, expected_txlist);
-                }
-                other => panic!("unexpected network command: {other:?}"),
-            }
-        });
-
-        let response =
-            api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list }).await.unwrap();
-
-        assert_eq!(response.tx_list_hash, tx_list_hash);
-        receiver.await.unwrap();
-    }
-
-    /// Test that get_preconf_slot_info delegates to the lookahead resolver and maps the result.
-    #[tokio::test]
-    async fn test_get_preconf_slot_info_returns_resolver_output() {
-        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
-
-        let api = NodeRpcApiImpl {
-            command_tx,
-            preconf_tip_rx,
-            local_peer_id_peer: PeerId::random(),
-            inbox_reader: MockInboxReader::new(0, None, None),
-            lookahead_resolver: Arc::new(MockLookaheadResolver),
-            loopback_tx: mpsc::channel(16).0,
-        };
-
-        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
-
-        let timestamp = U256::from(500);
-        let slot_info = api.get_preconf_slot_info(timestamp).await.unwrap();
-
-        assert_eq!(slot_info.signer, alloy_primitives::Address::repeat_byte(0x11));
-        assert_eq!(slot_info.submission_window_end, U256::from(2000));
-    }
-
-    /// Test that publish_tx_list sends a loopback event to the loopback channel.
-    #[tokio::test]
-    async fn test_publish_tx_list_sends_loopback_event() {
-        use preconfirmation_net::NetworkEvent;
-
-        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let (loopback_tx, mut loopback_rx) = mpsc::channel(16);
-
-        let api = NodeRpcApiImpl {
-            command_tx,
-            preconf_tip_rx,
-            local_peer_id_peer: PeerId::random(),
-            inbox_reader: MockInboxReader::new(0, None, None),
-            lookahead_resolver: Arc::new(MockLookaheadResolver),
-            loopback_tx,
-        };
-
-        let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8, 4u8]);
-        let calculated_hash = preconfirmation_types::keccak256_bytes(tx_list.as_ref());
-        let tx_list_hash = B256::from(calculated_hash.0);
-
-        // Drain the P2P command channel so publish doesn't block.
-        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
-
-        api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list }).await.unwrap();
-
-        // The loopback channel must have received a GossipRawTxList event.
-        let event = loopback_rx.try_recv().expect("loopback event should be available");
-        match event {
-            NetworkEvent::GossipRawTxList { msg, .. } => {
-                assert_eq!(
-                    B256::from_slice(msg.raw_tx_list_hash.as_ref()),
-                    tx_list_hash,
-                    "loopback txlist hash must match"
-                );
-            }
-            other => panic!("expected GossipRawTxList, got {other:?}"),
-        }
-    }
-
-    /// Test that publish_tx_list still returns Ok when the loopback channel is closed.
-    ///
-    /// A closed loopback means the event loop has exited, which is a node health
-    /// issue. The P2P publish already succeeded, so returning an error would cause
-    /// callers to retry and produce duplicate gossip.
-    #[tokio::test]
-    async fn test_publish_tx_list_succeeds_despite_closed_loopback() {
-        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
-        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
-        // Create a channel and immediately drop the receiver to close it.
-        let (loopback_tx, _) = mpsc::channel::<preconfirmation_net::NetworkEvent>(1);
-
-        let api = NodeRpcApiImpl {
-            command_tx,
-            preconf_tip_rx,
-            local_peer_id_peer: PeerId::random(),
-            inbox_reader: MockInboxReader::new(0, None, None),
-            lookahead_resolver: Arc::new(MockLookaheadResolver),
-            loopback_tx,
-        };
-
-        let tx_list = alloy_primitives::Bytes::from(vec![5u8, 6u8]);
-        let calculated_hash = preconfirmation_types::keccak256_bytes(tx_list.as_ref());
-        let tx_list_hash = B256::from(calculated_hash.0);
-
-        // Drain the P2P command channel.
-        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
-
-        let result = api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list }).await;
-        assert!(result.is_ok(), "should succeed even when loopback channel is closed");
-    }
-
-    // -- shared test infrastructure for end-to-end loopback tests --
-
-    use crate::{
-        driver_interface::DriverClient,
-        storage::{CommitmentStore, InMemoryCommitmentStore},
-        subscription::{EventHandler, EventHandlerParams},
-    };
-    use preconfirmation_net::NetworkEvent;
-    use preconfirmation_types::MAX_TXLIST_BYTES;
-    use protocol::codec::ZlibTxListCodec;
-    use tokio::sync::broadcast;
-
     /// Stub driver that accepts everything and keeps tip at zero.
     struct StubDriver;
     #[async_trait::async_trait]
     impl DriverClient for StubDriver {
         async fn submit_preconfirmation(
             &self,
-            _: crate::driver_interface::PreconfirmationInput,
+            _: PreconfirmationInput,
         ) -> Result<()> {
             Ok(())
         }
@@ -505,104 +296,136 @@ mod tests {
         }
     }
 
-    /// Helper: build an `EventHandler` + `NodeRpcApiImpl` pair sharing a loopback
-    /// channel, returning `(api, loopback_rx, handler, store)`.
-    fn build_loopback_test_harness() -> (
-        NodeRpcApiImpl<MockInboxReader>,
-        mpsc::Receiver<NetworkEvent>,
-        EventHandler<StubDriver>,
-        Arc<InMemoryCommitmentStore>,
-    ) {
-        let store = Arc::new(InMemoryCommitmentStore::new());
-        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
-        let driver = Arc::new(StubDriver);
-        let (event_tx, _event_rx) = broadcast::channel(16);
-        let (handler_cmd_tx, _handler_cmd_rx) = mpsc::channel(8);
-        let handler = EventHandler::new(EventHandlerParams {
-            store: store.clone() as Arc<dyn CommitmentStore>,
-            codec,
-            driver,
-            expected_slasher: None,
-            event_tx,
-            command_tx: handler_cmd_tx,
-            lookahead_resolver: Arc::new(MockLookaheadResolver),
-        });
+    /// Test that NodeRpcApiImpl returns correct status with peer_id.
+    #[tokio::test]
+    async fn test_node_status_includes_peer_id() {
+        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::from(100));
+        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
+        let local_peer_id = "test-peer-id".to_string();
 
-        let (command_tx, command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let (loopback_tx, loopback_rx) = mpsc::channel(16);
         let api = NodeRpcApiImpl {
             command_tx,
-            preconf_tip_rx: watch::channel(U256::ZERO).1,
-            local_peer_id_peer: PeerId::random(),
-            inbox_reader: MockInboxReader::new(0, None, None),
+            preconf_tip_rx,
+            inbox_reader: MockInboxReader::new(43, Some(120), Some(120)),
             lookahead_resolver: Arc::new(MockLookaheadResolver),
-            loopback_tx,
+            driver: Arc::new(StubDriver),
+            codec: Arc::new(ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES)),
+            expected_slasher: None,
+            local_peer_id: local_peer_id.clone(),
         };
 
-        // Drain P2P commands so publish doesn't block.
+        // Spawn a handler to respond to GetPeerCount command
         tokio::spawn(async move {
-            let mut rx = command_rx;
-            while rx.recv().await.is_some() {}
+            if let Some(NetworkCommand::GetPeerCount { respond_to }) = command_rx.recv().await {
+                let _ = respond_to.send(5);
+            }
         });
 
-        (api, loopback_rx, handler, store)
+        let status = api.get_status().await.unwrap();
+        assert_eq!(status.peer_id, local_peer_id);
+        assert_eq!(status.peer_count, 5);
+        assert!(status.is_synced_with_inbox);
+        assert_eq!(status.event_sync_tip, Some(U256::from(120)));
     }
 
-    /// End-to-end test: publish a txlist via the RPC API, receive the loopback event,
-    /// pass it through `EventHandler::handle_event`, and verify the store contains
-    /// the txlist.
+    /// Test that get_preconf_slot_info delegates to the lookahead resolver and maps the result.
     #[tokio::test]
-    async fn test_loopback_txlist_reaches_event_handler() {
-        let (api, mut loopback_rx, handler, store) = build_loopback_test_harness();
+    async fn test_get_preconf_slot_info_returns_resolver_output() {
+        let (_preconf_tip_tx, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(16);
 
-        // Build a valid txlist and publish via the RPC API.
-        let tx_list = alloy_primitives::Bytes::from(vec![0xABu8; 4]);
-        let hash = preconfirmation_types::keccak256_bytes(tx_list.as_ref());
-        let tx_list_hash = B256::from(hash.0);
+        let api = NodeRpcApiImpl {
+            command_tx,
+            preconf_tip_rx,
+            inbox_reader: MockInboxReader::new(0, None, None),
+            lookahead_resolver: Arc::new(MockLookaheadResolver),
+            driver: Arc::new(StubDriver),
+            codec: Arc::new(ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES)),
+            expected_slasher: None,
+            local_peer_id: "test".to_string(),
+        };
 
-        api.publish_tx_list(PublishTxListRequest { tx_list_hash, tx_list })
-            .await
-            .expect("publish should succeed");
+        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
 
-        // Receive from loopback and pass through the handler — the same
-        // path that EventLoop::run() takes in its `select!`.
-        let event = loopback_rx.recv().await.expect("loopback event expected");
-        assert!(matches!(event, NetworkEvent::GossipRawTxList { .. }));
-        handler.handle_event(event).await.expect("handler should process loopback event");
+        let timestamp = U256::from(500);
+        let slot_info = api.get_preconf_slot_info(timestamp).await.unwrap();
 
-        // Verify the txlist landed in the store.
-        assert!(
-            CommitmentStore::get_txlist(store.as_ref(), &tx_list_hash).is_some(),
-            "txlist should be in the store after loopback processing"
-        );
+        assert_eq!(slot_info.signer, alloy_primitives::Address::repeat_byte(0x11));
+        assert_eq!(slot_info.submission_window_end, U256::from(2000));
     }
 
-    /// End-to-end test: publish a commitment via the RPC API, receive the loopback
-    /// event, pass it through `EventHandler::handle_event`, and verify the store
-    /// contains the commitment.
+    /// Test that publish_block_impl rejects tx_list_hash mismatch.
     #[tokio::test]
-    async fn test_loopback_commitment_reaches_event_handler() {
-        let (api, mut loopback_rx, handler, _store) = build_loopback_test_harness();
+    async fn test_publish_block_rejects_hash_mismatch() {
+        let (command_tx, _command_rx) = mpsc::channel::<NetworkCommand>(16);
+        let driver = StubDriver;
+        let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
 
         // Build a minimal valid SSZ-encoded SignedCommitment.
         let commitment = SignedCommitment::default();
         let mut commitment_bytes = Vec::new();
         ssz_rs::Serialize::serialize(&commitment, &mut commitment_bytes)
             .expect("serialize commitment");
-        let request = PublishCommitmentRequest {
+
+        let request = PublishBlockRequest {
             commitment: alloy_primitives::Bytes::from(commitment_bytes),
+            tx_list_hash: B256::ZERO, // wrong hash
+            tx_list: alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]),
         };
 
-        api.publish_commitment(request).await.expect("publish should succeed");
+        let result = publish_block_impl(
+            &command_tx,
+            &driver,
+            &codec,
+            None,
+            &MockLookaheadResolver,
+            request,
+        )
+        .await;
 
-        // Receive from loopback and pass through the handler.
-        let event = loopback_rx.recv().await.expect("loopback event expected");
-        assert!(matches!(event, NetworkEvent::GossipSignedCommitment { .. }));
-        // handle_event dispatches to handle_commitment which validates and
-        // stores. With block_number=0 and event_sync_tip=0 the commitment is
-        // stale (current_block <= event_sync_tip), so the handler drops it.
-        // The important assertion is that handle_event succeeds — proving the
-        // loopback event was correctly dispatched.
-        handler.handle_event(event).await.expect("handler should process loopback commitment");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("tx_list_hash mismatch"));
+    }
+
+    /// Test that publish_block_impl rejects when commitment's embedded raw_tx_list_hash
+    /// differs from the provided txlist.
+    #[tokio::test]
+    async fn test_publish_block_rejects_commitment_hash_mismatch() {
+        let (command_tx, _command_rx) = mpsc::channel::<NetworkCommand>(16);
+        let driver = StubDriver;
+        let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
+
+        // Build a commitment with a non-zero raw_tx_list_hash that won't match the txlist.
+        let mut commitment = SignedCommitment::default();
+        commitment.commitment.preconf.raw_tx_list_hash =
+            preconfirmation_types::Bytes32::try_from(vec![0xAAu8; 32]).unwrap();
+        let mut commitment_bytes = Vec::new();
+        ssz_rs::Serialize::serialize(&commitment, &mut commitment_bytes)
+            .expect("serialize commitment");
+
+        // Provide a txlist whose hash matches tx_list_hash but NOT the commitment.
+        let tx_list = alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]);
+        let tx_list_hash = keccak256_bytes(tx_list.as_ref());
+
+        let request = PublishBlockRequest {
+            commitment: alloy_primitives::Bytes::from(commitment_bytes),
+            tx_list_hash,
+            tx_list,
+        };
+
+        let result = publish_block_impl(
+            &command_tx,
+            &driver,
+            &codec,
+            None,
+            &MockLookaheadResolver,
+            request,
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(
+            result.unwrap_err().to_string().contains("commitment raw_tx_list_hash mismatch"),
+        );
     }
 }

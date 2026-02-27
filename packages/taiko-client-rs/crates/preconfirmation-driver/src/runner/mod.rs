@@ -6,13 +6,13 @@ use std::{result, sync::Arc};
 
 use driver::{DriverConfig, sync::SyncError};
 use preconfirmation_net::P2pConfig;
-use tokio::sync::mpsc;
+use preconfirmation_types::MAX_TXLIST_BYTES;
+use protocol::codec::ZlibTxListCodec;
 use tracing::info;
 
 use crate::{
     ContractInboxReader, EventSyncerDriverClient, PreconfirmationClient,
     PreconfirmationClientConfig, PreconfirmationClientError,
-    client::LOOPBACK_CHANNEL_CAPACITY,
     rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig, runner_api::RunnerRpcApiImpl},
 };
 use protocol::preconfirmation::LookaheadResolver;
@@ -142,43 +142,36 @@ impl PreconfirmationDriverRunner {
             EventSyncerDriverClient::from_client(event_syncer.clone(), rpc_client.clone());
 
         // Start the preconfirmation P2P client.
+        let expected_slasher = client_config.expected_slasher.clone();
         let preconf_client = PreconfirmationClient::new(client_config, driver_client)?;
         let command_tx = preconf_client.command_tx();
         let lookahead_resolver = preconf_client.lookahead_resolver().clone();
 
-        // Create the loopback channel so locally-published commitments and
-        // txlists are always delivered to the event handler, even with zero peers.
-        // When no RPC server is configured the sender is dropped and the receiver
-        // becomes inert.
-        let (loopback_tx, loopback_rx) = mpsc::channel(LOOPBACK_CHANNEL_CAPACITY);
-
         let mut rpc_server = None;
         if let Some(rpc_config) = &self.config.rpc_config {
-            let local_peer_id_peer = preconf_client.p2p_handle().local_peer_id();
+            let local_peer_id = preconf_client.p2p_handle().local_peer_id().to_string();
 
             // Build and launch the RPC server using runner-backed APIs.
             let inbox_reader = ContractInboxReader::new(rpc_client.clone());
             let rpc_driver =
                 Arc::new(EventSyncerDriverClient::from_client(event_syncer.clone(), rpc_client));
+            let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
             let api: Arc<dyn PreconfRpcApi> = Arc::new(RunnerRpcApiImpl::new(
                 command_tx.clone(),
                 rpc_driver,
-                local_peer_id_peer,
                 inbox_reader,
                 lookahead_resolver,
-                loopback_tx,
+                codec,
+                expected_slasher,
+                local_peer_id,
             ));
             let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
             info!(url = %server.http_url(), "preconfirmation RPC server started");
             rpc_server = Some(server);
-        } else {
-            // No RPC server — drop the sender so the loopback receiver closes
-            // cleanly instead of pending forever.
-            drop(loopback_tx);
         }
 
         // Start the P2P sync/catchup event loop.
-        let mut event_loop = preconf_client.sync_and_catchup(loopback_rx).await?;
+        let mut event_loop = preconf_client.sync_and_catchup().await?;
 
         let mut node_handle = tokio::spawn(async move { event_loop.run().await });
         let event_syncer_handle = preconf_ingress_sync.handle_mut();

@@ -269,7 +269,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     let internal_client = PreconfirmationClient::new(int_cfg, driver_client)?;
     let mut events = internal_client.subscribe();
 
-    let mut event_loop = internal_client.sync_and_catchup(tokio::sync::mpsc::channel(1).1).await?;
+    let mut event_loop = internal_client.sync_and_catchup().await?;
     let (event_loop_tx, mut event_loop_rx) = oneshot::channel::<anyhow::Result<()>>();
     let event_loop_handle = spawn(async move {
         let _ = event_loop_tx.send(event_loop.run().await.map_err(Into::into));

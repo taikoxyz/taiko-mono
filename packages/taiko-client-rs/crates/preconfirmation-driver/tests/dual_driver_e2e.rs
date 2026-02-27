@@ -196,7 +196,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let preconf_client1 = PreconfirmationClient::new(preconf1_cfg, driver1_client)?;
     let mut events1 = preconf_client1.subscribe();
 
-    let mut event_loop1 = preconf_client1.sync_and_catchup(tokio::sync::mpsc::channel(1).1).await?;
+    let mut event_loop1 = preconf_client1.sync_and_catchup().await?;
     let (event_loop1_tx, mut event_loop1_rx) = oneshot::channel::<anyhow::Result<()>>();
     let event_loop1_handle = spawn(async move {
         let _ = event_loop1_tx.send(event_loop1.run().await.map_err(Into::into));
@@ -215,7 +215,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let preconf_client2 = PreconfirmationClient::new(preconf2_cfg, driver2_client)?;
     let mut events2 = preconf_client2.subscribe();
 
-    let mut event_loop2 = preconf_client2.sync_and_catchup(tokio::sync::mpsc::channel(1).1).await?;
+    let mut event_loop2 = preconf_client2.sync_and_catchup().await?;
     let (event_loop2_tx, mut event_loop2_rx) = oneshot::channel::<anyhow::Result<()>>();
     let event_loop2_handle = spawn(async move {
         let _ = event_loop2_tx.send(event_loop2.run().await.map_err(Into::into));
