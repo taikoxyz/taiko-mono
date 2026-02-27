@@ -8,9 +8,9 @@ use crate::error::Result;
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
-/// Prefix used in Go-compatible message-id hashing for valid snappy payloads.
+/// Prefix used in message-id hashing for valid snappy payloads.
 const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
-/// Prefix used in Go-compatible message-id hashing for invalid snappy payloads.
+/// Prefix used in message-id hashing for invalid snappy payloads.
 const MESSAGE_ID_PREFIX_INVALID_SNAPPY: [u8; 4] = [0, 0, 0, 0];
 
 /// Build the gossipsub behaviour.
@@ -27,7 +27,7 @@ pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
     gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, config).map_err(to_p2p_err)
 }
 
-/// Compute Go-compatible gossipsub message IDs.
+/// Compute gossipsub message IDs.
 pub(crate) fn message_id(message: &gossipsub::Message) -> gossipsub::MessageId {
     let (valid_snappy, data) = try_decompress_snappy(&message.data);
 

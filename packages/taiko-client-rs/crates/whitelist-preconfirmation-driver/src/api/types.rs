@@ -92,7 +92,7 @@ impl BuildPreconfBlockApiRequest {
     }
 }
 
-/// Go-compatible slot range.
+/// Allowed slot range.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SlotRange {
@@ -102,7 +102,7 @@ pub struct SlotRange {
     pub end: u64,
 }
 
-/// Go-compatible lookahead status shape.
+/// Lookahead status payload shape.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LookaheadStatus {
@@ -116,7 +116,7 @@ pub struct LookaheadStatus {
     pub next_ranges: Vec<SlotRange>,
 }
 
-/// Go-compatible REST status response for `GET /status`.
+/// REST status response for `GET /status`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiStatus {
@@ -126,7 +126,7 @@ pub struct ApiStatus {
     pub end_of_sequencing_block_hash: String,
 }
 
-/// Go-compatible `/ws` push notification payload.
+/// `/ws` push notification payload.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EndOfSequencingNotification {

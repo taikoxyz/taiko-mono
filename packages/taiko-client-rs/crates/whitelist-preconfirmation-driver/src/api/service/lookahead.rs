@@ -64,7 +64,7 @@ where
             slot_matches_range(slot, &lookahead.next_ranges)
     }
 
-    /// Build best-effort Go-compatible lookahead status using the shared sequencer fetcher.
+    /// Build best-effort lookahead status using the shared sequencer fetcher.
     ///
     /// Derives the epoch from the contract's `epochStartTimestamp`, ensuring that
     /// slot ranges and operator addresses are consistent even at epoch boundaries.

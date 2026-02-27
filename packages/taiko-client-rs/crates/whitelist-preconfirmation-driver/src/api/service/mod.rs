@@ -50,7 +50,7 @@ mod status;
 #[cfg(test)]
 mod tests;
 
-/// Go default handover-skip slots used for sequencing window split.
+/// Default handover-skip slots used for sequencing window split.
 const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;

@@ -22,7 +22,7 @@ impl JwtAuth {
     /// Build a validator from a shared secret.
     pub(super) fn new(secret: &[u8]) -> Self {
         let mut validation = Validation::new(Algorithm::HS256);
-        // Match Go `echo-jwt` behaviour: verify signature; claims like `exp` stay optional.
+        // Validate signatures while keeping claims like `exp` optional.
         validation.required_spec_claims.clear();
         validation.validate_exp = false;
         validation.validate_nbf = false;

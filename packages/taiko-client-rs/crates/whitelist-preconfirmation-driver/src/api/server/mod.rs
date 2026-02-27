@@ -54,7 +54,7 @@ impl Default for WhitelistApiServerConfig {
 
 /// Running REST/WS server for whitelist preconfirmation operations.
 ///
-/// The server serves Go-compatible REST routes and `/ws` notifications on one socket.
+/// The server serves REST routes and `/ws` notifications on one socket.
 #[derive(Debug)]
 pub struct WhitelistApiServer {
     /// Socket address bound by the server.

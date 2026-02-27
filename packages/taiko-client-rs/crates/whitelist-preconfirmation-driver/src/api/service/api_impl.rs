@@ -53,7 +53,7 @@ where
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;
         self.validate_request_payload(&request, prev_randao)?;
 
-        // Insert the preconfirmation payload locally first, mirroring the Go flow, to
+        // Insert the preconfirmation payload locally first to
         // obtain the canonical block hash before gossiping.
         let driver_payload = self.build_driver_payload(&request, prev_randao, [0u8; 65])?;
         self.event_syncer
