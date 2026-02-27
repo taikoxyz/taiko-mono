@@ -57,6 +57,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     event InboxActivated(bytes32 lastPacayaBlockHash);
 
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice Maximum number of forced inclusions processed per proposal.
+    /// @dev Must be < 12 to avoid derived block timestamps drifting into the future when proposals
+    /// happen every L1 slot (Derivation enforces 1s block times).
+    uint256 internal constant MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10;
+
+    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
@@ -196,7 +205,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via `IProposerChecker`
-    ///      2. Process `input.numForcedInclusions` forced inclusions.
+    ///      2. Processes up to `min(input.numForcedInclusions, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)`
+    ///         forced inclusions. If forced inclusions are due, the proposer must request at least
+    ///         `min(numDue, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions.
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
@@ -589,16 +600,23 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
-            uint256 toProcess = _numForcedInclusionsRequested > available
-                ? available
-                : _numForcedInclusionsRequested;
-
-            uint48 headAfter = head + uint48(toProcess);
-            if (available > toProcess) {
-                bool isOldestInclusionDue =
-                    $.isOldestForcedInclusionDue(headAfter, tail, _forcedInclusionDelay);
-                require(!isOldestInclusionDue, UnprocessedForcedInclusionIsDue());
+            uint256 dueToProcess;
+            uint256 maxToInspect = available.min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
+            for (uint256 i; i < maxToInspect; ++i) {
+                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
+                uint256 timestamp = inclusion.blobSlice.timestamp;
+                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay))
+                {
+                    break;
+                }
+                ++dueToProcess;
             }
+            require(
+                _numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue()
+            );
+
+            uint256 toProcess = _numForcedInclusionsRequested.min(available)
+                .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
 
             result_.sources = new DerivationSource[](toProcess + 1);
 
