@@ -58,10 +58,11 @@ pub(super) async fn auth_middleware(
         return next.run(request).await;
     }
 
-    if let Some(jwt_auth) = state.jwt_auth.as_ref()
-        && let Err(err) = jwt_auth.validate_headers(request.headers()) {
-            return error_response(http::StatusCode::UNAUTHORIZED, err);
-        }
+    if let Some(jwt_auth) = state.jwt_auth.as_ref() &&
+        let Err(err) = jwt_auth.validate_headers(request.headers())
+    {
+        return error_response(http::StatusCode::UNAUTHORIZED, err);
+    }
 
     next.run(request).await
 }

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use alethia_reth_consensus::eip4396::{MAINNET_MIN_BASE_FEE, MIN_BASE_FEE};
 use alloy::{
     eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash},
     primitives::{B256, U256},
@@ -16,7 +15,7 @@ use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
 use metrics::{counter, gauge};
 use protocol::shasta::{
-    constants::{PROPOSAL_MAX_BLOB_BYTES, TAIKO_MAINNET_CHAIN_ID, shasta_fork_timestamp_for_chain},
+    constants::{PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain, shasta_fork_timestamp_for_chain},
     manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
@@ -55,11 +54,6 @@ use bundle::{BundleMeta, SourceManifestSegment};
 use state::ParentState;
 
 pub use bundle::ShastaProposalBundle;
-
-/// Return the chain-specific EIP-4396 base-fee clamp used during derivation.
-fn min_base_fee_for_chain(chain_id: u64) -> u64 {
-    if chain_id == TAIKO_MAINNET_CHAIN_ID { MAINNET_MIN_BASE_FEE } else { MIN_BASE_FEE }
-}
 
 /// Convert a derivation source's blob slice into ordered blob hashes for manifest fetch.
 fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {

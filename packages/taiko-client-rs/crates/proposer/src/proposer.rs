@@ -1,7 +1,7 @@
 //! Core proposer implementation for submitting block proposals.
 
 use alethia_reth_consensus::eip4396::{
-    MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alethia_reth_primitives::{
     decode_shasta_proposal_id,
@@ -26,7 +26,7 @@ use alloy_rpc_types_engine::{
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, calculate_shasta_difficulty,
-    constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES},
+    constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain},
     encode_extra_data,
 };
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
@@ -67,6 +67,8 @@ pub struct Proposer {
     transaction_builder: ShastaProposalTransactionBuilder,
     /// Optional anchor constructor used in engine mode.
     anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
+    /// Chain-specific minimum base fee used by EIP-4396 clamping.
+    min_base_fee_to_clamp: u64,
     /// Runtime proposer configuration.
     cfg: ProposerConfigs,
 }
@@ -98,6 +100,8 @@ impl Proposer {
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
+        let min_base_fee_to_clamp =
+            min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
 
         // Initialize anchor transaction constructor only for engine mode.
         let anchor_constructor = if cfg.use_engine_mode {
@@ -112,7 +116,13 @@ impl Proposer {
             None
         };
 
-        Ok(Self { rpc_provider, cfg, transaction_builder, anchor_constructor })
+        Ok(Self {
+            rpc_provider,
+            transaction_builder,
+            anchor_constructor,
+            min_base_fee_to_clamp,
+            cfg,
+        })
     }
 
     /// Start the proposer main loop.
@@ -267,7 +277,7 @@ impl Proposer {
             &parent.header.inner,
             parent_block_time_delta_secs,
             parent_base_fee_per_gas,
-            MIN_BASE_FEE,
+            self.min_base_fee_to_clamp,
         )))
     }
 
