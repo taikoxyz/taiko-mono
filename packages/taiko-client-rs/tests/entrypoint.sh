@@ -48,11 +48,11 @@ else
     exit 1
 fi
 
+COMPOSE_FILE=tests/docker/docker-compose.test.yaml
 cleanup() {
     "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" down -v
 }
 
-COMPOSE_FILE=tests/docker/docker-compose.test.yaml
 "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" up -d
 trap cleanup EXIT INT KILL ERR
 
