@@ -310,6 +310,37 @@ async fn preconf_blocks_enforces_body_limit() {
         .await
         .expect("request should succeed");
     assert_eq!(response.status(), reqwest::StatusCode::PAYLOAD_TOO_LARGE);
+    let payload: serde_json::Value = response.json().await.expect("json body expected");
+    let error = payload
+        .get("error")
+        .and_then(serde_json::Value::as_str)
+        .expect("error field should be a string");
+    assert!(error.starts_with("request body exceeds maximum of "));
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn preconf_blocks_rejects_invalid_json() {
+    let config = test_config(true, false);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+
+    let response = reqwest::Client::new()
+        .post(format!("{}/preconfBlocks", server.http_url()))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body("{")
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::UNPROCESSABLE_ENTITY);
+
+    let payload: serde_json::Value = response.json().await.expect("json body expected");
+    let error = payload
+        .get("error")
+        .and_then(serde_json::Value::as_str)
+        .expect("error field should be a string");
+    assert!(error.starts_with("failed to parse request body: "));
 
     server.stop().await;
 }

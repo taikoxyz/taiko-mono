@@ -16,9 +16,10 @@ pub(super) fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     let read_cap = MAX_DECOMPRESSED_TX_LIST_BYTES.saturating_add(1) as u64;
     decoder.take(read_cap).read_to_end(&mut out).map_err(|err| {
-        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "failed to decompress tx list from payload: {err}"
-        ))
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            "failed to decompress tx list from payload",
+            err,
+        )
     })?;
 
     if out.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
@@ -36,9 +37,4 @@ pub(super) fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
     }
 
     Ok(out)
-}
-
-/// Convert a provider error into a driver error.
-pub(super) fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
-    WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
 }
