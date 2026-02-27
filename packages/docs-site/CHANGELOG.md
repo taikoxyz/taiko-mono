@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.34.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.4...docs-site-v1.34.0) (2026-02-24)
+
+
+### Features
+
+* **docs-site:** add a copy from md button and fix titles ([#21364](https://github.com/taikoxyz/taiko-mono/issues/21364)) ([4277910](https://github.com/taikoxyz/taiko-mono/commit/42779105d8a119a8134d7fb1f7b98b767acd5131))
+
+## [1.33.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.3...docs-site-v1.33.4) (2026-02-18)
+
+
+### Chores
+
+* **docs-site:** add facilitator ([#21313](https://github.com/taikoxyz/taiko-mono/issues/21313)) ([ea53330](https://github.com/taikoxyz/taiko-mono/commit/ea533304427ae6cb6920f59a23ac313a4e5c6b86))
+* **repo:** update discord link ([#21282](https://github.com/taikoxyz/taiko-mono/issues/21282)) ([e281608](https://github.com/taikoxyz/taiko-mono/commit/e281608537818e2618cfa0a503dcd3d926515f1d))
+
+## [1.33.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.2...docs-site-v1.33.3) (2026-02-09)
+
+
+### Chores
+
+* **docs-site:** add erc 8004 addresses to docs ([#21283](https://github.com/taikoxyz/taiko-mono/issues/21283)) ([b5c868c](https://github.com/taikoxyz/taiko-mono/commit/b5c868cf2d5681ffcc9415fd2dad5eac83bd23df))
+* **docs-site:** fix release version ([#21269](https://github.com/taikoxyz/taiko-mono/issues/21269)) ([df82dc7](https://github.com/taikoxyz/taiko-mono/commit/df82dc7ee10dc95a3e6d697f03680867d3a3dc9e))
+* **docs-site:** replace ERCXXXVault placeholder with actual vault names ([#21303](https://github.com/taikoxyz/taiko-mono/issues/21303)) ([3e48a4c](https://github.com/taikoxyz/taiko-mono/commit/3e48a4c6e301eeefb4c3cb0e8f0ce289ff614268))
+
+
+### Documentation
+
+* **docs-site:** update zk coverage and rpc explorer entries ([#21288](https://github.com/taikoxyz/taiko-mono/issues/21288)) ([19948bf](https://github.com/taikoxyz/taiko-mono/commit/19948bf7e768a58b7c93f6690ef6dc043eae0fd7))
+
+## [1.33.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.1...docs-site-v1.33.2) (2026-02-01)
+
+
+### Chores
+
+* **docs-site:** add erc8004 v1.0 addresses ([#21234](https://github.com/taikoxyz/taiko-mono/issues/21234)) ([2ff43d5](https://github.com/taikoxyz/taiko-mono/commit/2ff43d5cb328c0ed9827ccba764387146b817833))
+
 ## [1.33.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.0...docs-site-v1.33.1) (2026-01-27)
 
 

@@ -56,7 +56,7 @@ async fn eject_operator_internal(
 
     info!(reason = reason, operator = %operator_hex, "Sending removeOperator transaction");
 
-    let pending = preconf_whitelist.removeOperator(operator, true).send().await?;
+    let pending = preconf_whitelist.removeOperator(U256::from(info.index)).send().await?;
     let tx_hash = pending.tx_hash();
     info!(
         reason = reason,

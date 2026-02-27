@@ -38,6 +38,7 @@ export default defineConfig({
       components: {
         SiteTitle: "./src/components/starlight/SiteTitle.astro",
         Head: "./src/components/starlight/Head.astro",
+        PageTitle: "./src/components/starlight/PageTitle.astro",
       },
       title: "Docs",
       editLink: {
@@ -63,7 +64,7 @@ export default defineConfig({
         {
           icon: "discord",
           label: "Discord",
-          href: "https://discord.gg/taikoxyz",
+          href: "https://discord.gg/aGZYtKqMjj",
         },
         {
           icon: "youtube",

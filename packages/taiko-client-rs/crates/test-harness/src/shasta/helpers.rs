@@ -23,7 +23,7 @@ use rpc::{
 };
 use tracing::{info, warn};
 
-use crate::helper::{increase_l1_time, mine_l1_block};
+use crate::helper::{increase_l1_time, mine_l1_blocks};
 
 /// The RPC client type used in Shasta tests.
 pub type RpcClient = Client<FillProvider<JoinedRecommendedFillers, RootProvider>>;
@@ -34,11 +34,13 @@ const PRECONF_OPERATOR_ACTIVATION_BLOCKS: usize = 64;
 const L1_BLOCK_TIME_SECONDS: u64 = 12;
 
 /// Advances L1 time and mines blocks to ensure the preconfigured operator whitelist is active.
+///
+/// Uses batch operations (single `evm_increaseTime` + single `anvil_mine`) instead of
+/// looping 64 times, reducing RPC calls from 128 to 2.
 pub async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
-    for _ in 0..PRECONF_OPERATOR_ACTIVATION_BLOCKS {
-        increase_l1_time(client, L1_BLOCK_TIME_SECONDS).await?;
-        mine_l1_block(client).await?;
-    }
+    let total_seconds = PRECONF_OPERATOR_ACTIVATION_BLOCKS as u64 * L1_BLOCK_TIME_SECONDS;
+    increase_l1_time(client, total_seconds).await?;
+    mine_l1_blocks(client, PRECONF_OPERATOR_ACTIVATION_BLOCKS).await?;
     Ok(())
 }
 
@@ -49,11 +51,44 @@ fn is_not_found_error(err: &RpcClientError) -> bool {
 
 /// Reset the authenticated L1 RPC head.
 pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
-    match client.set_head_l1_origin(U256::from(1u64)).await {
-        Ok(_) => Ok(()),
-        Err(err) if is_not_found_error(&err) => Ok(()),
-        Err(err) => Err(err.into()),
+    // Choose the highest L2 block that actually has an L1 origin row, then repoint
+    // `head_l1_origin` there. Hardcoding block 1 is brittle when tests reset chains to genesis
+    // or run against nodes with sparse origin rows.
+    let latest = client.l2_provider.get_block_number().await?;
+    for block_id in (0..=latest).rev() {
+        if client.l1_origin_by_id(U256::from(block_id)).await?.is_none() {
+            continue;
+        }
+
+        return match client.set_head_l1_origin(U256::from(block_id)).await {
+            Ok(_) => Ok(()),
+            Err(err) if is_not_found_error(&err) => continue,
+            Err(err) => Err(err.into()),
+        };
     }
+
+    warn!(
+        latest_block = latest,
+        "no L1 origin rows found while resetting head_l1_origin; bootstrapping genesis origin"
+    );
+
+    let genesis =
+        client.l2_provider.get_block_by_number(BlockNumberOrTag::Number(0)).await?.ok_or_else(
+            || anyhow::anyhow!("genesis block missing while bootstrapping L1 origin"),
+        )?;
+    let genesis_origin = RpcL1Origin {
+        block_id: U256::ZERO,
+        l2_block_hash: genesis.hash(),
+        l1_block_height: Some(U256::ZERO),
+        l1_block_hash: None,
+        build_payload_args_id: [0u8; 8],
+        is_forced_inclusion: false,
+        signature: [0u8; 65],
+    };
+
+    client.update_l1_origin(&genesis_origin).await?;
+    client.set_head_l1_origin(U256::ZERO).await?;
+    Ok(())
 }
 
 /// Revert the L1 snapshot.
@@ -210,7 +245,7 @@ async fn fork_to(
         .await
         .context("engine_forkchoiceUpdatedV2 with attributes failed")?;
     let fc_status = &fc_response.payload_status.status;
-    ensure!(payload_status_is_ok(fc_status), "forkchoice update returned status: {:?}", fc_status);
+    ensure!(payload_status_is_ok(fc_status), "forkchoice update returned status: {fc_status:?}");
 
     let payload_id = fc_response
         .payload_id
@@ -255,8 +290,7 @@ async fn fork_to(
     let exec_status_value = &exec_status.status;
     ensure!(
         payload_status_is_ok(exec_status_value),
-        "newPayload returned status: {:?}",
-        exec_status_value
+        "newPayload returned status: {exec_status_value:?}"
     );
 
     let promote_state = ForkchoiceState {
@@ -271,8 +305,7 @@ async fn fork_to(
     let promote_status = &promote_response.payload_status.status;
     ensure!(
         payload_status_is_ok(promote_status),
-        "forkchoice promotion returned status: {:?}",
-        promote_status
+        "forkchoice promotion returned status: {promote_status:?}"
     );
 
     Ok(())

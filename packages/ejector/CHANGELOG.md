@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.6.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.5.0...ejector-v0.6.0) (2026-02-25)
+
+
+### Features
+
+* **taiko-client-rs:** get_preconf_slot_info API for the taiko-client-rs ([#21279](https://github.com/taikoxyz/taiko-mono/issues/21279)) ([26f8c95](https://github.com/taikoxyz/taiko-mono/commit/26f8c958b33f29edeeabe4483dd084bb47aca089))
+
+
+### Bug Fixes
+
+* **ejector:** call removeOperatorByAddress on whitelist ([#21342](https://github.com/taikoxyz/taiko-mono/issues/21342)) ([c26e811](https://github.com/taikoxyz/taiko-mono/commit/c26e811a3993ef5f210eba8d0521a715f7fd9263))
+
+## [0.5.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.1...ejector-v0.5.0) (2026-02-04)
+
+
+### Features
+
+* **ejector:** skip reorg ejection during re-anchoring ([#21249](https://github.com/taikoxyz/taiko-mono/issues/21249)) ([c34cd2e](https://github.com/taikoxyz/taiko-mono/commit/c34cd2ef6fdbc779feb9fb3929bb1c7aa6f337e4))
+* **ejector:** skip timeout ejection during chain reset grace period ([#21250](https://github.com/taikoxyz/taiko-mono/issues/21250)) ([ab6826c](https://github.com/taikoxyz/taiko-mono/commit/ab6826c38adb935ab28737715d578652e3d512cb))
+
+
+### Chores
+
+* **deps:** bump the cargo group across 5 directories with 1 update ([#21264](https://github.com/taikoxyz/taiko-mono/issues/21264)) ([75a5e00](https://github.com/taikoxyz/taiko-mono/commit/75a5e0019e12c1b9048c5837d208b4f9246624b2))
+
 ## [0.4.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.4.0...ejector-v0.4.1) (2026-01-17)
 
 

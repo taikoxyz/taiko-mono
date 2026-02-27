@@ -3,11 +3,12 @@ members = [
     "bin/client",
     "crates/bindings",
     "crates/driver",
-    "crates/preconfirmation-client",
+    "crates/preconfirmation-driver",
     "crates/proposer",
     "crates/protocol",
     "crates/rpc",
     "crates/test-harness",
+    "crates/whitelist-preconfirmation-driver",
 ]
 resolver = "2"
 
@@ -33,7 +34,7 @@ clap = { version = "4", features = ["derive", "env"] }
 
 # observability
 metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.15", default-features = false, features = [
+metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = [
   "http-listener",
 ] }
 tracing = "0.1"
@@ -76,13 +77,13 @@ jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "41fac9fd014a9944439aa2c2fbae56f9f1a627f3" }
-alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", rev = "41fac9fd014a9944439aa2c2fbae56f9f1a627f3" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "41fac9fd014a9944439aa2c2fbae56f9f1a627f3", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "a575e625374de3403df8517069626d007102cfc8" }
+alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", rev = "a575e625374de3403df8517069626d007102cfc8" }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "a575e625374de3403df8517069626d007102cfc8", features = [
   "serde",
 ] }
-alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "41fac9fd014a9944439aa2c2fbae56f9f1a627f3" }
-reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.10.0" }
+alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "a575e625374de3403df8517069626d007102cfc8" }
+reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.1" }
 
 # types
 anyhow = "1"
@@ -97,6 +98,7 @@ url = "2.5.4"
 secp256k1 = { version = "0.30", features = ["recovery", "rand"] }
 serde_json = "1"
 sha2 = "0.10"
+ssz_rs = "0.9.0"
 
 # testing
 serial_test = { version = "3", features = ["async"] }

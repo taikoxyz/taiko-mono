@@ -1,6 +1,6 @@
 //! Beacon sync logic.
 
-use std::{borrow::Cow, marker::PhantomData, time::Duration};
+use std::{borrow::Cow, marker::PhantomData, sync::Arc, time::Duration};
 
 use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
@@ -21,7 +21,7 @@ use rpc::{
 use tokio::time::{MissedTickBehavior, interval};
 use tracing::{debug, info, instrument, warn};
 
-use super::{SyncError, SyncStage};
+use super::{SyncError, SyncStage, checkpoint_resume_head::CheckpointResumeHead};
 use crate::{config::DriverConfig, error::DriverError, metrics::DriverMetrics};
 
 /// Default polling interval used when no retry interval is configured.
@@ -32,9 +32,15 @@ pub struct BeaconSyncer<P>
 where
     P: Provider + Clone,
 {
+    /// Interval between beacon sync retries.
     retry_interval: Duration,
+    /// RPC client used for local node engine and chain calls.
     rpc: Client<P>,
+    /// Optional checkpoint provider used for remote catch-up blocks.
     checkpoint: Option<RootProvider>,
+    /// Shared checkpoint head used to resume event sync after beacon sync.
+    checkpoint_resume_head: Arc<CheckpointResumeHead>,
+    /// Marker that ties this type to the generic provider parameter.
     _marker: PhantomData<P>,
 }
 
@@ -44,11 +50,21 @@ where
 {
     /// Construct a new beacon syncer from the provided configuration and RPC client.
     #[instrument(skip(config, rpc))]
-    pub fn new(config: &DriverConfig, rpc: Client<P>) -> Self {
+    pub fn new(
+        config: &DriverConfig,
+        rpc: Client<P>,
+        checkpoint_resume_head: Arc<CheckpointResumeHead>,
+    ) -> Self {
         let checkpoint =
             config.l2_checkpoint_url.as_ref().map(|url| connect_http_with_timeout(url.clone()));
 
-        Self { retry_interval: config.retry_interval, rpc, checkpoint, _marker: PhantomData }
+        Self {
+            retry_interval: config.retry_interval,
+            rpc,
+            checkpoint,
+            checkpoint_resume_head,
+            _marker: PhantomData,
+        }
     }
 
     /// Query the checkpoint node for its head L1 origin block number.
@@ -139,6 +155,10 @@ where
     /// missing blocks to the local execution engine.
     #[instrument(skip(self), name = "beacon_syncer_run")]
     async fn run(&self) -> Result<(), SyncError> {
+        // Always clear stale state from previous attempts so event sync cannot accidentally
+        // consume an old checkpoint head after a failed or skipped beacon sync run.
+        self.checkpoint_resume_head.clear();
+
         if self.checkpoint.is_none() {
             info!("no checkpoint endpoint configured; skipping beacon sync stage");
             return Ok(());
@@ -219,6 +239,10 @@ where
                 })?;
                 counter!(DriverMetrics::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).increment(1);
             } else {
+                // Persist the checkpoint head we have confirmed local execution is synced to.
+                // Event sync uses this exact value as its authoritative resume source when
+                // checkpoint mode is enabled.
+                self.checkpoint_resume_head.set(checkpoint_head);
                 info!(checkpoint_head, local_head, "local engine at or ahead of checkpoint; done");
                 break Ok(());
             }

@@ -152,6 +152,7 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     Whether you are running the node on a personal machine or a cloud provider's
     machine, you should ensure your the following ports on your machine are
     **open and visible to the internet at your external IP:**
+
     - TCP `4001` OR whichever port you set `P2P_TCP_PORT` to in your `.env`.
     - UDP `30303` OR whichever port you set `P2P_UDP_PORT` to in your `.env`.
 
@@ -169,6 +170,7 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     it is simply to persist an identity.**
 
     You may either set `PRIV_RAW` in your `.env`, or `PRIV_FILE`:
+
     - `PRIV_RAW` is the hexstring private key in plaintext
     - `PRIV_FILE` is the name of your txt file that consists entirely of a
       private key with no newlines IN YOUR `/script/` DIRECTORY.
@@ -217,6 +219,7 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     block explorer, you are fully synced.
 
     #### Option 2: Check with curl commands
+
     1. Check if the Execution Layer client is connected to Taiko L2:
 
        ```bash

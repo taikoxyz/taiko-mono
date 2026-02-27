@@ -84,4 +84,9 @@ pub enum NetworkCommand {
         /// Responder to deliver the listening addresses.
         respond_to: oneshot::Sender<Vec<Multiaddr>>,
     },
+    /// Get the current connected peer count.
+    GetPeerCount {
+        /// Responder to deliver the peer count.
+        respond_to: oneshot::Sender<u64>,
+    },
 }

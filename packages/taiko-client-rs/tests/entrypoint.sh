@@ -2,7 +2,7 @@
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROTOCOL_DIR="${PROTOCOL_DIR:-$DIR/../protocol}"
+PROTOCOL_DIR="${PROTOCOL_DIR:-$DIR/../../protocol}"
 export PROTOCOL_DIR
 
 echo "Starting docker compose services..."

@@ -19,7 +19,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -127,6 +126,13 @@ func (p *Proposer) InitFromConfig(
 			*cfg.PrivateTxmgrConfigs,
 		); err != nil {
 			return err
+		}
+	}
+
+	if cfg.TaikoWrapperAddress.Hex() != rpc.ZeroAddress.Hex() {
+		p.preconfRouterAddress, err = p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: p.ctx})
+		if err != nil {
+			return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
 		}
 	}
 
@@ -593,76 +599,50 @@ func (p *Proposer) GetParentMetaHash(ctx context.Context) (common.Hash, error) {
 
 // shouldPropose checks whether the proposer should propose at this time.
 func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
-	ctxWithTimeout, cancel := rpc.CtxWithTimeoutOrDefault(ctx, rpc.DefaultRpcTimeout)
-	defer cancel()
-
-	preconfRouterAddr, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch preconfirmation router: %w", err)
+	if p.rpc.PacayaClients.PreconfWhitelist == nil {
+		return true, nil
 	}
-	if preconfRouterAddr == rpc.ZeroAddress {
-		// No pre‑confirmation router → propose as normal.
-		p.rpc.PacayaClients.PreconfRouter = nil
-		p.preconfRouterAddress = rpc.ZeroAddress
-	} else {
-		p.preconfRouterAddress = preconfRouterAddr
-		// if we haven't set the preconfRouter, do so now.
-		if p.rpc.PacayaClients.PreconfRouter == nil {
-			p.rpc.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
-			if err != nil {
-				return false, fmt.Errorf("failed to create preconfirmation router: %w", err)
-			}
-		}
+	// check the current epoch operator
+	operator, err := p.rpc.GetPreconfWhiteListOperator(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to get current epoch preconfer address: %w", err)
+	}
 
-		// Check the fallback proposer address
-		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(
-			&bind.CallOpts{Context: ctxWithTimeout},
+	// it needs to be either us, or the proverSet we propose through
+	if operator != p.proposerAddress &&
+		operator != p.ProverSetAddress {
+		log.Info(
+			"Preconfirmation is activated and proposer isn't the current epoch preconfer, skip proposing",
+			"time", time.Now(),
+			"currentEpochOperator", operator.Hex(),
+			"proposer", p.proposerAddress.Hex(),
+			"proverSet", p.ProverSetAddress.Hex(),
 		)
-		if err != nil {
-			return false, fmt.Errorf("failed to get fallback preconfer address: %w", err)
-		}
+		return false, nil
+	}
 
-		// check the active operators
-		operators, err := p.rpc.GetAllActiveOperators(&bind.CallOpts{
-			Context: ctx,
-		})
-		if err != nil {
-			return false, fmt.Errorf("failed to get all active preconfer address: %w", err)
-		}
-
-		// it needs to be either us, or the proverSet we propose through
-		if len(operators) != 0 ||
-			(fallbackPreconferAddress != p.proposerAddress &&
-				fallbackPreconferAddress != p.ProverSetAddress) {
-			log.Info(
-				"Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
-				"time", time.Now(),
-				"activeOperatorNums", len(operators),
-			)
-			return false, nil
-		}
-
-		// We need to check when the l2Head was last updated.
-		if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
-			log.Info(
-				"Fallback timeout not reached, skip proposing",
-				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
-				"blockID", p.l2HeadUpdate.blockID,
-				"now", time.Now().UTC(),
-				"fallbackTimeout", p.FallbackTimeout,
-			)
-			return false, nil
-		} else {
-			log.Info(
-				"Fallback timeout reached, proposer can propose",
-				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
-				"now", time.Now().UTC(),
-				"fallbackTimeout", p.FallbackTimeout,
-				"blockID", p.l2HeadUpdate.blockID,
-			)
-			// Reset the l2HeadUpdate to avoid proposing too often.
-			p.l2HeadUpdate = l2HeadUpdateInfo{blockID: 0, updatedAt: time.Now().UTC()}
-		}
+	// We need to check when the l2Head was last updated.
+	if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
+		log.Info(
+			"Fallback timeout not reached, skip proposing",
+			"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
+			"blockID", p.l2HeadUpdate.blockID,
+			"now", time.Now().UTC(),
+			"fallbackTimeout", p.FallbackTimeout,
+		)
+		return false, nil
+	} else {
+		log.Info(
+			"Fallback timeout reached, proposer can propose",
+			"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
+			"now", time.Now().UTC(),
+			"fallbackTimeout", p.FallbackTimeout,
+			"blockID", p.l2HeadUpdate.blockID,
+		)
+		// Reset the l2HeadUpdate to avoid proposing too often.
+		p.l2HeadUpdate = l2HeadUpdateInfo{blockID: 0, updatedAt: time.Now().UTC()}
 	}
 
 	return true, nil

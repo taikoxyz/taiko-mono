@@ -4,6 +4,8 @@
 //! falls back to the blob server if the beacon call fails. This module provides the same
 //! functionality so the Rust driver mirrors the Go behaviour.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use alloy::primitives::hex;
 use alloy_eips::eip4844::{Blob, Bytes48};
 use reqwest::Client as HttpClient;
@@ -16,12 +18,14 @@ use crate::{blob::BlobDataError, client::DEFAULT_HTTP_TIMEOUT};
 /// JSON payload returned by `/eth/v1/beacon/genesis`.
 #[derive(Debug, Deserialize)]
 struct GenesisResponse {
+    /// Parsed genesis payload body.
     data: GenesisData,
 }
 
 /// Inner data of the genesis response.
 #[derive(Debug, Deserialize)]
 struct GenesisData {
+    /// Beacon-chain genesis time as a decimal string.
     #[serde(rename = "genesis_time")]
     genesis_time: String,
 }
@@ -29,38 +33,45 @@ struct GenesisData {
 /// JSON payload returned by `/eth/v1/config/spec`.
 #[derive(Debug, Deserialize)]
 struct SpecResponse {
+    /// Raw beacon spec map keyed by field name.
     data: serde_json::Value,
 }
 
 /// JSON payload returned by `/eth/v1/beacon/blob_sidecars/<slot>`.
 #[derive(Debug, Deserialize)]
 struct BlobSidecarsResponse {
+    /// Blob sidecars for the queried slot.
     data: Vec<BeaconBlobSidecar>,
 }
 
 /// JSON payload returned by `/eth/v2/beacon/blocks/<slot>`.
 #[derive(Debug, Deserialize)]
 struct BeaconBlockResponse {
+    /// Block payload for the queried slot.
     data: BeaconBlockData,
 }
 
 /// Inner data of a beacon block response.
 #[derive(Debug, Deserialize)]
 struct BeaconBlockData {
+    /// Beacon block message content.
     message: BeaconBlockMessage,
 }
 
 /// Beacon block message body.
 #[derive(Debug, Deserialize)]
 struct BeaconBlockMessage {
+    /// Block body that may include execution payload metadata.
     body: BeaconBlockBody,
 }
 
 /// Beacon block body containing the execution payload or header.
 #[derive(Debug, Deserialize)]
 struct BeaconBlockBody {
+    /// Full execution payload when the block is unblinded.
     #[serde(rename = "execution_payload")]
     execution_payload: Option<ExecutionPayload>,
+    /// Execution payload header when the block is blinded.
     #[serde(rename = "execution_payload_header")]
     execution_payload_header: Option<ExecutionPayloadHeader>,
 }
@@ -68,6 +79,7 @@ struct BeaconBlockBody {
 /// Execution payload returned by the beacon node.
 #[derive(Debug, Deserialize)]
 struct ExecutionPayload {
+    /// Execution-layer block number encoded as decimal string.
     #[serde(rename = "block_number")]
     block_number: String,
 }
@@ -75,6 +87,7 @@ struct ExecutionPayload {
 /// Blinded execution payload header returned by the beacon node.
 #[derive(Debug, Deserialize)]
 struct ExecutionPayloadHeader {
+    /// Execution-layer block number encoded as decimal string.
     #[serde(rename = "block_number")]
     block_number: String,
 }
@@ -82,32 +95,44 @@ struct ExecutionPayloadHeader {
 /// Serialized representation of a single blob sidecar returned by the beacon node.
 #[derive(Debug, Deserialize)]
 struct BeaconBlobSidecar {
+    /// Hex-encoded blob body.
     blob: String,
+    /// Hex-encoded KZG commitment.
     #[serde(rename = "kzg_commitment")]
     kzg_commitment: String,
+    /// Optional hex-encoded KZG proof.
     #[serde(rename = "kzg_proof")]
     kzg_proof: Option<String>,
 }
 
 /// Internal representation of a beacon sidecar after decoding hex fields.
 #[derive(Debug, Clone)]
-pub(crate) struct BeaconSidecar {
+pub struct BeaconSidecar {
+    /// Blob body for this sidecar.
     pub blob: Blob,
+    /// KZG commitment for `blob`.
     pub commitment: Bytes48,
+    /// KZG proof for `blob`.
     pub proof: Bytes48,
 }
 
 /// Minimal beacon client capable of retrieving blob sidecars.
 #[derive(Debug)]
-pub(crate) struct BeaconClient {
+pub struct BeaconClient {
+    /// Base beacon REST endpoint URL.
     endpoint: Url,
+    /// Shared HTTP client used for beacon requests.
     http: HttpClient,
+    /// Beacon genesis timestamp (seconds since UNIX epoch).
     genesis_time: u64,
+    /// Slot duration in seconds from beacon spec.
     seconds_per_slot: u64,
+    /// Number of slots per epoch from beacon spec.
+    slots_per_epoch: u64,
 }
 
 impl BeaconClient {
-    /// Build a new beacon client by fetching the genesis time and slot duration.
+    /// Build a new beacon client by fetching genesis and slot/epoch metadata.
     ///
     /// The Go client follows the same pattern: it reads `/eth/v1/beacon/genesis` to determine
     /// the genesis timestamp and `/eth/v1/config/spec` to fetch `SECONDS_PER_SLOT`. Those values
@@ -157,10 +182,20 @@ impl BeaconClient {
             .ok_or_else(|| BlobDataError::Parse("SECONDS_PER_SLOT missing in beacon spec".into()))?
             .parse::<u64>()
             .map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let slots_per_epoch = spec
+            .data
+            .get("SLOTS_PER_EPOCH")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| BlobDataError::Parse("SLOTS_PER_EPOCH missing in beacon spec".into()))?
+            .parse::<u64>()
+            .map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
-        debug!(seconds_per_slot, genesis_time, "initialised beacon client metadata");
+        debug!(
+            seconds_per_slot,
+            slots_per_epoch, genesis_time, "initialised beacon client metadata"
+        );
 
-        Ok(Self { endpoint, http, genesis_time, seconds_per_slot })
+        Ok(Self { endpoint, http, genesis_time, seconds_per_slot, slots_per_epoch })
     }
 
     /// Fetch blob sidecars for the beacon slot that corresponds to the provided timestamp.
@@ -296,19 +331,60 @@ impl BeaconClient {
         }
         Ok((timestamp - self.genesis_time) / self.seconds_per_slot)
     }
+
+    /// Convert a timestamp to a beacon epoch.
+    pub fn timestamp_to_epoch(&self, timestamp: u64) -> Result<u64, BlobDataError> {
+        Ok(self.timestamp_to_slot(timestamp)? / self.slots_per_epoch)
+    }
+
+    /// Return the current beacon slot based on local wall-clock time.
+    ///
+    /// Mirrors the Go driver implementation:
+    /// `(now_utc_unix - genesis_time) / seconds_per_slot`.
+    pub fn current_slot(&self) -> u64 {
+        let now_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or_default();
+
+        now_secs.saturating_sub(self.genesis_time) / self.seconds_per_slot
+    }
+
+    /// Return the current beacon epoch based on local wall-clock time.
+    ///
+    /// Mirrors the Go driver implementation:
+    /// `current_slot / slots_per_epoch`.
+    pub fn current_epoch(&self) -> u64 {
+        self.current_slot() / self.slots_per_epoch
+    }
+
+    /// Return configured slots per epoch from the beacon spec.
+    pub const fn slots_per_epoch(&self) -> u64 {
+        self.slots_per_epoch
+    }
+
+    /// Return the beacon genesis timestamp (seconds since UNIX epoch).
+    ///
+    /// Fetched from `/eth/v1/beacon/genesis` during client construction.
+    pub const fn genesis_time(&self) -> u64 {
+        self.genesis_time
+    }
 }
 
+/// Parse a hex-encoded blob string into a fixed-size EIP-4844 blob.
 fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
     let bytes = decode_hex(value)?;
     Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
 }
 
+/// Parse a hex-encoded 48-byte field into a `Bytes48`.
 fn parse_bytes48(value: &str) -> Result<Bytes48, BlobDataError> {
     let decoded = decode_hex(value)?;
     Bytes48::try_from(decoded.as_slice())
         .map_err(|_| BlobDataError::Parse("invalid 48-byte value".into()))
 }
 
+/// Decode hex text (with optional `0x`) into raw bytes.
 fn decode_hex(value: &str) -> Result<Vec<u8>, BlobDataError> {
     let mut stripped = value.trim_start_matches("0x").to_owned();
     if stripped.len() % 2 == 1 {

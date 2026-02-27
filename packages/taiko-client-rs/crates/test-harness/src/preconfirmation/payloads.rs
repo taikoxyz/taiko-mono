@@ -6,18 +6,14 @@
 //! - [`build_publish_payloads_with_txs`]: Assembles a payload with actual transactions.
 //! - [`build_commitment_chain`]: Builds linked commitments for catch-up tests.
 
-use std::io::Write as IoWrite;
-
 use alloy_primitives::{Address, Bytes, U256};
-use alloy_rlp::encode as rlp_encode;
 use anyhow::{Context, Result, anyhow, ensure};
-use flate2::{Compression, write::ZlibEncoder};
-use preconfirmation_client::codec::ZlibTxListCodec;
 use preconfirmation_types::{
     Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
     SignedCommitment, TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment,
     u256_to_uint256,
 };
+use protocol::codec::ZlibTxListCodec;
 use secp256k1::SecretKey;
 
 // ============================================================================
@@ -40,11 +36,12 @@ pub struct PreparedBlock {
 // TxList Compression Utilities
 // ============================================================================
 
-/// Compresses raw bytes to TxListBytes using zlib.
-fn compress_to_txlist_bytes(data: &[u8]) -> Result<TxListBytes> {
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(data)?;
-    let compressed = encoder.finish()?;
+/// Encode transactions into a Go-compatible zlib-compressed RLP txlist.
+fn encode_and_compress_txlist_bytes(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
+    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
+    let compressed = codec
+        .encode(transactions)
+        .map_err(|err| anyhow!("encode txlist before publishing: {err}"))?;
     TxListBytes::try_from(compressed).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))
 }
 
@@ -53,15 +50,14 @@ fn compress_to_txlist_bytes(data: &[u8]) -> Result<TxListBytes> {
 /// Used for tests that need non-empty but deterministic transaction data.
 pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
     let tx_payload = block_number.to_be_bytes().to_vec();
-    let rlp_payload = rlp_encode(vec![tx_payload]);
-    compress_to_txlist_bytes(&rlp_payload)
+    encode_and_compress_txlist_bytes(&[tx_payload])
 }
 
 /// Builds a minimal compressed txlist (empty RLP list).
 ///
 /// Used for tests that just need a valid but empty txlist.
 pub fn build_empty_txlist() -> Result<TxListBytes> {
-    compress_to_txlist_bytes(&[0xC0])
+    encode_and_compress_txlist_bytes(&[])
 }
 
 /// Computes the raw tx list hash from txlist bytes.
@@ -110,7 +106,7 @@ pub fn build_publish_payloads(
     eop: bool,
 ) -> Result<PreparedBlock> {
     let txlist_bytes = if eop { build_txlist_bytes(block_number)? } else { build_empty_txlist()? };
-    build_prepared_block(
+    build_prepared_block(PreparedBlockParams {
         signer_sk,
         signer,
         block_number,
@@ -119,8 +115,8 @@ pub fn build_publish_payloads(
         submission_window_end,
         eop,
         txlist_bytes,
-        None,
-    )
+        parent_hash: None,
+    })
 }
 
 /// Assembles a compressed txlist and signed commitment with actual transaction bytes.
@@ -160,17 +156,17 @@ pub fn build_publish_payloads_with_txs(
     raw_tx_bytes: Vec<Bytes>,
 ) -> Result<(RawTxListGossip, SignedCommitment)> {
     let txlist_bytes = compress_transactions(&raw_tx_bytes)?;
-    let block = build_prepared_block(
+    let block = build_prepared_block(PreparedBlockParams {
         signer_sk,
         signer,
-        block_number.to::<u64>(),
+        block_number: block_number.to::<u64>(),
         timestamp,
         gas_limit,
         submission_window_end,
-        false,
+        eop: false,
         txlist_bytes,
-        None,
-    )?;
+        parent_hash: None,
+    })?;
     Ok((block.txlist, block.commitment))
 }
 
@@ -180,12 +176,7 @@ pub fn build_publish_payloads_with_txs(
 /// Verifies round-trip decoding to catch encoding issues early.
 fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
     let tx_list_items: Vec<Vec<u8>> = raw_tx_bytes.iter().map(|tx| tx.to_vec()).collect();
-    let tx_list = rlp_encode(&tx_list_items);
-
-    let first_byte = *tx_list.first().ok_or_else(|| anyhow!("empty tx list encoding"))?;
-    ensure!(first_byte >= 0xc0, "tx list is not an RLP list (first byte 0x{first_byte:02x})");
-
-    let txlist_bytes = compress_to_txlist_bytes(&tx_list)?;
+    let txlist_bytes = encode_and_compress_txlist_bytes(&tx_list_items)?;
 
     // Verify round-trip decoding to catch encoding issues early.
     let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
@@ -196,18 +187,40 @@ fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
 }
 
 /// Internal helper to build a PreparedBlock with optional parent hash.
-#[allow(clippy::too_many_arguments)]
-fn build_prepared_block(
-    signer_sk: &SecretKey,
+struct PreparedBlockParams<'a> {
+    /// Secret key used to sign the commitment.
+    signer_sk: &'a SecretKey,
+    /// Address of the preconfirmation signer.
     signer: Address,
+    /// L2 block number for the commitment.
     block_number: u64,
+    /// L2 block timestamp.
     timestamp: u64,
+    /// Gas limit encoded into the commitment payload.
     gas_limit: u64,
+    /// Canonical submission window end for lookahead validation.
     submission_window_end: U256,
+    /// End Of Preconfirmation window flag for the commitment.
     eop: bool,
+    /// Compressed transaction list bytes.
     txlist_bytes: TxListBytes,
+    /// Optional parent preconfirmation hash for chain linkage.
     parent_hash: Option<Bytes32>,
-) -> Result<PreparedBlock> {
+}
+
+/// Internal helper to build a [`PreparedBlock`] from normalized fields.
+fn build_prepared_block(params: PreparedBlockParams<'_>) -> Result<PreparedBlock> {
+    let PreparedBlockParams {
+        signer_sk,
+        signer,
+        block_number,
+        timestamp,
+        gas_limit,
+        submission_window_end,
+        eop,
+        txlist_bytes,
+        parent_hash,
+    } = params;
     let raw_tx_list_hash = compute_txlist_hash(&txlist_bytes)?;
     let txlist =
         RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
@@ -280,19 +293,21 @@ pub fn build_commitment_chain(
     for i in 0..count {
         let block_number = start_block + i as u64;
         let timestamp = base_timestamp + i as u64;
-        let txlist_bytes = build_txlist_bytes(block_number)?;
+        // Catch-up chains do not need executable transactions; keep payloads empty so tests remain
+        // independent from transaction encoding details.
+        let txlist_bytes = build_empty_txlist()?;
 
-        let block = build_prepared_block(
+        let block = build_prepared_block(PreparedBlockParams {
             signer_sk,
             signer,
             block_number,
             timestamp,
             gas_limit,
             submission_window_end,
-            false,
+            eop: false,
             txlist_bytes,
-            Some(parent_hash),
-        )?;
+            parent_hash: Some(parent_hash),
+        })?;
 
         let hash = preconfirmation_hash(&block.commitment.commitment.preconf)
             .map_err(|err| anyhow!("preconfirmation hash error: {err}"))?;
@@ -331,7 +346,7 @@ pub fn derive_signer(seed: u8) -> (SecretKey, Address) {
 ///
 /// Returns the maximum of event_sync_tip and preconf_tip plus one,
 /// which is the next block that should be preconfirmed.
-pub async fn compute_starting_block<D: preconfirmation_client::DriverClient>(
+pub async fn compute_starting_block<D: preconfirmation_driver::DriverClient>(
     driver: &D,
 ) -> Result<u64> {
     let event_sync_tip = driver.event_sync_tip().await?;

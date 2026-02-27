@@ -23,7 +23,7 @@ jobs:
   lint:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
-    runs-on: [ubuntu-latest]
+    runs-on: [arc-runner-set]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -41,7 +41,7 @@ jobs:
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests
-    runs-on: [ubuntu-latest]
+    runs-on: [arc-runner-set]
     timeout-minutes: 30
     env:
       OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
@@ -58,7 +58,7 @@ jobs:
 
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.0
         with:
           access_token: ${{ github.token }}
 

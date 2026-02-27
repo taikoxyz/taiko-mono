@@ -73,7 +73,7 @@ services:
 
   l2_nmc:
     container_name: l2_nmc
-    image: nethermindeth/nethermind:master-b247009
+    image: nethermindeth/nethermind:master
     restart: unless-stopped
     pull_policy: always
     volumes:

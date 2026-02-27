@@ -237,13 +237,13 @@ func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAdd
 	// Parse the ERC20 contract ABI
 	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "abi.JSON")
 	}
 
 	// Prepare the call message
 	callData, err := parsedABI.Pack("decimals")
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "parsedABI.Pack")
 	}
 
 	msg := ethereum.CallMsg{
@@ -253,14 +253,14 @@ func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAdd
 
 	result, err := client.CallContract(ctx, msg, nil)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "client.CallContract")
 	}
 
 	var decimals uint8
 
 	err = parsedABI.UnpackIntoInterface(&decimals, "decimals", result)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "parsedABI.UnpackIntoInterface")
 	}
 
 	return decimals, nil

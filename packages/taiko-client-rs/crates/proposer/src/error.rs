@@ -27,6 +27,12 @@ pub enum ProposerError {
     /// Parent block not found error
     #[error("parent block {0} not found")]
     ParentBlockNotFound(u64),
+    /// Parent block is missing base fee required for EIP-4396 base-fee calculation.
+    #[error("parent block {parent_block_number} missing base fee for EIP-4396 calculation")]
+    MissingParentBaseFee {
+        /// Parent block number whose header was missing `base_fee_per_gas`.
+        parent_block_number: u64,
+    },
 
     /// Failed to decode extra data from parent block.
     #[error("invalid extra data in parent block")]
@@ -42,11 +48,21 @@ pub enum ProposerError {
 
     /// Failed to decode transaction from RLP bytes.
     #[error("failed to decode transaction at index {index}: {source}")]
-    TxDecode { index: usize, source: Eip2718Error },
+    TxDecode {
+        /// Zero-based index in the decoded transaction list.
+        index: usize,
+        /// Underlying decoding error.
+        source: Eip2718Error,
+    },
 
     /// Failed to recover signer from transaction.
     #[error("failed to recover signer for transaction at index {index}: {message}")]
-    SignerRecovery { index: usize, message: String },
+    SignerRecovery {
+        /// Zero-based index in the transaction list.
+        index: usize,
+        /// Failure reason returned by signer recovery.
+        message: String,
+    },
 
     /// Anchor constructor not initialized (engine mode disabled).
     #[error("anchor constructor not initialized (engine mode is disabled)")]
@@ -83,6 +99,7 @@ pub enum ProposerError {
 
 // Manual From implementations for types that don't play well with #[from]
 impl From<RpcError<TransportErrorKind>> for ProposerError {
+    /// Convert transport-layer RPC errors into the proposer RPC error variant.
     fn from(err: RpcError<TransportErrorKind>) -> Self {
         ProposerError::Rpc(err.to_string())
     }
@@ -90,6 +107,7 @@ impl From<RpcError<TransportErrorKind>> for ProposerError {
 
 // Manual From implementation for PendingTransactionError
 impl From<PendingTransactionError> for ProposerError {
+    /// Convert pending-transaction submission errors into a proposer error.
     fn from(err: PendingTransactionError) -> Self {
         ProposerError::PendingTransaction(err.to_string())
     }
@@ -97,6 +115,7 @@ impl From<PendingTransactionError> for ProposerError {
 
 // Manual From implementation for RpcClientError
 impl From<RpcClientError> for ProposerError {
+    /// Convert RPC client wrapper errors into the proposer RPC error variant.
     fn from(err: RpcClientError) -> Self {
         ProposerError::Rpc(err.to_string())
     }
@@ -104,6 +123,7 @@ impl From<RpcClientError> for ProposerError {
 
 // Manual From implementation for ProtocolError
 impl From<ProtocolError> for ProposerError {
+    /// Convert protocol-layer failures into the generic proposer error bucket.
     fn from(err: ProtocolError) -> Self {
         ProposerError::Other(err.into())
     }

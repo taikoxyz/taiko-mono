@@ -80,6 +80,12 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
 
+	header, err := h.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 header by hash: %w", err)
+	}
+	metrics.ProverLatestVerifiedIDGauge.Set(float64(header.Number.Uint64()))
+
 	log.Info(
 		"New valid proven Shasta batch received",
 		"firstProposalID", e.FirstNewProposalId,

@@ -1,0 +1,35 @@
+---
+import MarkdownButton from "~/components/MarkdownButton.astro";
+
+const { starlightRoute } = Astro.locals;
+const slug = starlightRoute.entry.slug;
+const showMarkdownButton = slug !== "404" && !slug.endsWith("/404");
+const markdownUrl = `/${slug}.md`;
+---
+
+<div class="sl-page-title-row">
+  <h1 id="_top">{starlightRoute.entry.data.title}</h1>
+  {showMarkdownButton && <MarkdownButton markdownUrl={markdownUrl} />}
+</div>
+
+<style>
+  @layer starlight.core {
+    .sl-page-title-row {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.75rem 1rem;
+    }
+
+    .sl-page-title-row h1 {
+      margin: 0;
+      flex: 1 1 18rem;
+      min-width: 0;
+      font-size: var(--sl-text-h1);
+      line-height: var(--sl-line-height-headings);
+      font-weight: 600;
+      color: var(--sl-color-white);
+    }
+  }
+</style>

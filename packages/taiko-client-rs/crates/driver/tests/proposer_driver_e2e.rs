@@ -21,13 +21,13 @@ use rpc::{
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
-use tokio::{spawn, time::sleep};
-use tracing::{info, warn};
+use tokio::spawn;
+use tracing::warn;
 
 fn client_config(env: &ShastaEnv) -> ClientConfig {
     ClientConfig {
         l1_provider_source: env.l1_source.clone(),
-        l2_provider_url: env.l2_http_0.clone(),
+        l2_provider_url: env.l2_ws_0.clone(),
         l2_auth_provider_url: env.l2_auth_0.clone(),
         jwt_secret: env.jwt_secret.clone(),
         inbox_address: env.inbox_address,
@@ -65,7 +65,7 @@ async fn submit_proposal(
     Ok((proposal_id, proposal_log))
 }
 
-/// Waits for the event syncer to process a specific proposal.
+/// Waits for the event syncer to process a specific proposal using confirmed-sync state polling.
 async fn wait_for_proposal_processed<P>(
     event_syncer: &EventSyncer<P>,
     driver_client: &Client<P>,
@@ -79,14 +79,16 @@ where
     let deadline = tokio::time::Instant::now() + timeout;
 
     loop {
-        if tokio::time::Instant::now() >= deadline {
-            return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}"));
-        }
-
-        let current_proposal_id = event_syncer.last_canonical_proposal_id();
-        let l2_head = driver_client.l2_provider.get_block_number().await?;
-
-        if current_proposal_id >= expected_proposal_id {
+        let target_block = driver_client
+            .last_block_id_by_batch_id(U256::from(expected_proposal_id))
+            .await?
+            .map(|block_number| block_number.to::<u64>());
+        let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
+        if matches!(
+            (target_block, confirmed_head),
+            (Some(target_block), Some(head_block)) if head_block >= target_block
+        ) {
+            let l2_head = driver_client.l2_provider.get_block_number().await?;
             if l2_head < l2_head_before {
                 warn!(
                     l2_head_before,
@@ -96,7 +98,12 @@ where
             return Ok(l2_head);
         }
 
-        sleep(Duration::from_millis(500)).await;
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}"));
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
 
@@ -138,7 +145,6 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
     let (proposal_id, _log) = submit_proposal(&proposer, request, env.inbox_address).await?;
-    info!(proposal_id, "proposal submitted");
 
     let l2_head_after = wait_for_proposal_processed(
         &event_syncer,
@@ -157,11 +163,6 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
         l2_head_after >= l2_head_before,
         "L2 head should not move backwards after proposal processing"
     );
-    ensure!(
-        event_syncer.last_canonical_proposal_id() >= proposal_id,
-        "canonical proposal id should update"
-    );
-
     syncer_handle.abort();
     beacon_stub.shutdown().await?;
 
@@ -214,7 +215,6 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_secs(30),
     )
     .await?;
-
     // Capture the canonical block hash produced by the first processing.
     let canonical_block = driver_client
         .l2_provider
@@ -234,7 +234,6 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         .process_proposal(&proposal_log, applier)
         .await
         .context("re-processing proposal for known-canonical path")?;
-
     let canonical_block_after = driver_client
         .l2_provider
         .get_block_by_number(alloy_eips::BlockNumberOrTag::Latest)

@@ -7,7 +7,7 @@ use alloy_provider::RootProvider;
 use anyhow::{Context, Result};
 use rpc::{
     SubscriptionSource,
-    client::{Client, ClientConfig, connect_http_with_timeout},
+    client::{Client, ClientConfig, connect_provider_with_timeout},
 };
 use test_context::AsyncTestContext;
 use tracing::info;
@@ -22,8 +22,6 @@ use super::helpers::{
 /// Holds resolved endpoints, credentials, and clients needed to drive Shasta integration flows.
 pub struct ShastaEnv {
     pub l1_source: SubscriptionSource,
-    /// Primary L2 HTTP endpoint.
-    pub l2_http_0: RpcUrl,
     /// Primary L2 WebSocket endpoint.
     pub l2_ws_0: RpcUrl,
     /// Primary L2 Auth endpoint.
@@ -37,8 +35,6 @@ pub struct ShastaEnv {
     pub client: RpcClient,
     cleanup_provider: RootProvider,
     snapshot_id: String,
-    /// Secondary L2 HTTP endpoint for dual-driver E2E tests.
-    pub l2_http_1: RpcUrl,
     /// Secondary L2 WebSocket endpoint for dual-driver E2E tests.
     pub l2_ws_1: RpcUrl,
     /// Secondary L2 Auth endpoint for dual-driver E2E tests.
@@ -50,7 +46,6 @@ impl fmt::Debug for ShastaEnv {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ShastaEnv")
             .field("l1_source", &self.l1_source)
-            .field("l2_http_0", &self.l2_http_0)
             .field("l2_ws_0", &self.l2_ws_0)
             .field("l2_auth_0", &self.l2_auth_0)
             .field("jwt_secret", &self.jwt_secret)
@@ -60,7 +55,6 @@ impl fmt::Debug for ShastaEnv {
             .field("taiko_anchor_address", &self.taiko_anchor_address)
             .field("client_config", &self.client_config)
             .field("client", &self.client)
-            .field("l2_http_1", &self.l2_http_1)
             .field("l2_ws_1", &self.l2_ws_1)
             .field("l2_auth_1", &self.l2_auth_1)
             .finish()
@@ -68,18 +62,15 @@ impl fmt::Debug for ShastaEnv {
 }
 
 impl ShastaEnv {
-    fn load_l2_secondary_endpoints() -> Result<(RpcUrl, RpcUrl, RpcUrl)> {
-        let l2_http_1 = env::var("L2_HTTP_1").context("L2_HTTP_1 env var is required")?;
+    fn load_l2_secondary_endpoints() -> Result<(RpcUrl, RpcUrl)> {
         let l2_ws_1 = env::var("L2_WS_1").context("L2_WS_1 env var is required")?;
         let l2_auth_1 = env::var("L2_AUTH_1").context("L2_AUTH_1 env var is required")?;
 
-        let l2_http_1_url =
-            RpcUrl::parse(l2_http_1.as_str()).context("invalid L2_HTTP_1 endpoint")?;
         let l2_ws_1_url = RpcUrl::parse(l2_ws_1.as_str()).context("invalid L2_WS_1 endpoint")?;
         let l2_auth_1_url =
             RpcUrl::parse(l2_auth_1.as_str()).context("invalid L2_AUTH_1 endpoint")?;
 
-        Ok((l2_http_1_url, l2_ws_1_url, l2_auth_1_url))
+        Ok((l2_ws_1_url, l2_auth_1_url))
     }
 
     /// Resolves required environment variables and builds a default RPC client bundle.
@@ -91,9 +82,6 @@ impl ShastaEnv {
 
         // Read all required endpoints, secrets, and addresses from the harness environment.
         let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
-        let l1_http =
-            env::var("L1_HTTP").context("L1_HTTP env var is required for cleanup snapshots")?;
-        let l2_http_0 = env::var("L2_HTTP_0").context("L2_HTTP_0 env var is required")?;
         let l2_ws_0 = env::var("L2_WS_0").context("L2_WS_0 env var is required")?;
         let l2_auth_0 = env::var("L2_AUTH_0").context("L2_AUTH_0 env var is required")?;
         let jwt_secret = env::var("JWT_SECRET").context("JWT_SECRET env var is required")?;
@@ -105,12 +93,8 @@ impl ShastaEnv {
         let anchor = env::var("TAIKO_ANCHOR").context("TAIKO_ANCHOR env var is required")?;
 
         // Parse raw strings into URLs, paths, and addresses.
-        let l1_source = SubscriptionSource::Ws(
-            RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?,
-        );
-        let l1_http_url = RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
-        let l2_http_0_url =
-            RpcUrl::parse(l2_http_0.as_str()).context("invalid L2_HTTP_0 endpoint")?;
+        let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
+        let l1_source = SubscriptionSource::Ws(l1_ws_url.clone());
         let l2_ws_0_url = RpcUrl::parse(l2_ws_0.as_str()).context("invalid L2_WS_0 endpoint")?;
         let l2_auth_0_url =
             RpcUrl::parse(l2_auth_0.as_str()).context("invalid L2_AUTH_0 endpoint")?;
@@ -122,12 +106,12 @@ impl ShastaEnv {
             proposer_key.parse().context("invalid L1_PROPOSER_PRIVATE_KEY hex value")?;
         let taiko_anchor_address =
             Address::from_str(anchor.as_str()).context("invalid TAIKO_ANCHOR address")?;
-        let (l2_http_1, l2_ws_1, l2_auth_1) = Self::load_l2_secondary_endpoints()?;
+        let (l2_ws_1, l2_auth_1) = Self::load_l2_secondary_endpoints()?;
 
-        // Build shared RPC client bundle and a dedicated HTTP provider for snapshots.
+        // Build shared RPC client bundle and a dedicated provider for snapshots.
         let client_config = ClientConfig {
             l1_provider_source: l1_source.clone(),
-            l2_provider_url: l2_http_0_url.clone(),
+            l2_provider_url: l2_ws_0_url.clone(),
             l2_auth_provider_url: l2_auth_0_url.clone(),
             jwt_secret: jwt_secret_path.clone(),
             inbox_address,
@@ -140,7 +124,7 @@ impl ShastaEnv {
 
         let secondary_config = ClientConfig {
             l1_provider_source: l1_source.clone(),
-            l2_provider_url: l2_http_1.clone(),
+            l2_provider_url: l2_ws_1.clone(),
             l2_auth_provider_url: l2_auth_1.clone(),
             jwt_secret: jwt_secret_path.clone(),
             inbox_address,
@@ -150,14 +134,13 @@ impl ShastaEnv {
         reset_head_l1_origin(&secondary_client).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
-        let cleanup_provider = connect_http_with_timeout(l1_http_url.clone());
+        let cleanup_provider = connect_provider_with_timeout(l1_ws_url.clone()).await?;
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
         info!(elapsed_ms = started.elapsed().as_millis(), "loaded ShastaEnv");
         Ok(Self {
             l1_source,
-            l2_http_0: l2_http_0_url,
             l2_ws_0: l2_ws_0_url,
             l2_auth_0: l2_auth_0_url,
             jwt_secret: jwt_secret_path,
@@ -169,7 +152,6 @@ impl ShastaEnv {
             client,
             cleanup_provider,
             snapshot_id,
-            l2_http_1,
             l2_ws_1,
             l2_auth_1,
         })
@@ -231,17 +213,15 @@ mod tests {
     }
 
     #[test]
-    fn secondary_l2_endpoints_are_loaded_when_set() {
+    fn secondary_l2_endpoints_accept_ws_only() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _http = EnvGuard::set("L2_HTTP_1", "http://localhost:38545");
         let _ws = EnvGuard::set("L2_WS_1", "ws://localhost:38546");
         let _auth = EnvGuard::set("L2_AUTH_1", "http://localhost:38551");
 
         let result = ShastaEnv::load_l2_secondary_endpoints();
 
         assert!(result.is_ok());
-        let (l2_http_1, l2_ws_1, l2_auth_1) = result.unwrap();
-        assert_eq!(l2_http_1.as_str(), "http://localhost:38545/");
+        let (l2_ws_1, l2_auth_1) = result.unwrap();
         assert_eq!(l2_ws_1.as_str(), "ws://localhost:38546/");
         assert_eq!(l2_auth_1.as_str(), "http://localhost:38551/");
     }
@@ -250,7 +230,6 @@ mod tests {
     fn secondary_l2_endpoints_fail_when_unset() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         unsafe {
-            env::remove_var("L2_HTTP_1");
             env::remove_var("L2_WS_1");
             env::remove_var("L2_AUTH_1");
         }
