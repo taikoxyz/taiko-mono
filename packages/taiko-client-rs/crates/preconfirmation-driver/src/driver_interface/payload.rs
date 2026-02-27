@@ -1,7 +1,7 @@
 //! Helpers for constructing execution payloads from preconfirmation inputs.
 
 use alethia_reth_consensus::eip4396::{
-    MIN_BASE_FEE, SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
 };
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
@@ -36,6 +36,12 @@ where
             .ok_or_else(|| DriverApiError::MissingBlock { block_number })?;
         Ok(block.header)
     }
+
+    /// Return the connected L2 chain ID.
+    async fn chain_id(&self) -> Result<u64> {
+        let chain_id = self.get_chain_id().await.map_err(DriverApiError::from)?;
+        Ok(chain_id)
+    }
 }
 
 /// Compute base fee for the next block from parent and grandparent headers.
@@ -43,6 +49,7 @@ async fn compute_base_fee_per_gas(
     l2_provider: &dyn BlockHeaderProvider,
     parent_header: &RpcHeader,
     parent_block_number: u64,
+    min_base_fee_to_clamp: u64,
 ) -> Result<u64> {
     if parent_header.inner.number == 0 {
         return Ok(SHASTA_INITIAL_BASE_FEE);
@@ -52,8 +59,6 @@ async fn compute_base_fee_per_gas(
         .inner
         .base_fee_per_gas
         .ok_or(DriverApiError::MissingBaseFee { parent_block_number })?;
-    // Preconfirmation path currently uses the default clamp; mainnet-specific handling is
-    // applied in derivation/proposer flows where chain context is explicitly tracked.
     let grandparent_header =
         l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
 
@@ -61,7 +66,7 @@ async fn compute_base_fee_per_gas(
         &parent_header.inner,
         parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
         parent_base_fee_per_gas,
-        MIN_BASE_FEE,
+        min_base_fee_to_clamp,
     ))
 }
 
@@ -73,6 +78,7 @@ pub async fn build_taiko_payload_attributes(
     input: &PreconfirmationInput,
     basefee_sharing_pctg: u8,
     l2_provider: &dyn BlockHeaderProvider,
+    min_base_fee_to_clamp: u64,
 ) -> Result<TaikoPayloadAttributes> {
     let preconf = &input.commitment.commitment.preconf;
 
@@ -91,8 +97,13 @@ pub async fn build_taiko_payload_attributes(
         B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
         block_number,
     );
-    let base_fee_per_gas =
-        compute_base_fee_per_gas(l2_provider, &parent_header, parent_block_number).await?;
+    let base_fee_per_gas = compute_base_fee_per_gas(
+        l2_provider,
+        &parent_header,
+        parent_block_number,
+        min_base_fee_to_clamp,
+    )
+    .await?;
     let transactions = input.transactions.as_ref().ok_or(DriverApiError::MissingTransactions)?;
     let tx_list =
         encode_tx_list(&transactions.iter().cloned().map(Bytes::from).collect::<Vec<_>>());
@@ -149,10 +160,14 @@ mod tests {
     use preconfirmation_types::{
         Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,
     };
+    use protocol::shasta::constants::{
+        TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, min_base_fee_for_chain,
+    };
     use std::collections::BTreeMap;
 
     /// Test header provider for mocking L2 block headers.
     struct TestHeaderProvider {
+        chain_id: u64,
         headers: BTreeMap<u64, RpcHeader>,
     }
 
@@ -163,6 +178,10 @@ mod tests {
                 .get(&block_number)
                 .cloned()
                 .ok_or_else(|| DriverApiError::MissingBlock { block_number }.into())
+        }
+
+        async fn chain_id(&self) -> Result<u64> {
+            Ok(self.chain_id)
         }
     }
 
@@ -203,11 +222,16 @@ mod tests {
         let mut headers = BTreeMap::new();
         headers.insert(4, parent_header.clone());
         headers.insert(3, grandparent_header);
-        let provider = TestHeaderProvider { headers };
+        let provider = TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers };
         let basefee_sharing_pctg = 5;
-        let payload = build_taiko_payload_attributes(&input, basefee_sharing_pctg, &provider)
-            .await
-            .expect("payload");
+        let payload = build_taiko_payload_attributes(
+            &input,
+            basefee_sharing_pctg,
+            &provider,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect("payload");
         let parent_difficulty = B256::from(parent_header.inner.difficulty.to_be_bytes::<32>());
         let expected_mix_hash = calculate_shasta_difficulty(parent_difficulty, 5);
         let transactions = vec![Bytes::from(vec![0x01, 0x02])];
@@ -292,10 +316,16 @@ mod tests {
 
         let input = PreconfirmationInput::new(commitment, Some(vec![vec![0x01]]), None);
 
-        let provider = TestHeaderProvider { headers: BTreeMap::new() };
-        let err = build_taiko_payload_attributes(&input, 5, &provider)
-            .await
-            .expect_err("expected overflow error");
+        let provider =
+            TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers: BTreeMap::new() };
+        let err = build_taiko_payload_attributes(
+            &input,
+            5,
+            &provider,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect_err("expected overflow error");
 
         assert!(matches!(
             err,
@@ -339,15 +369,63 @@ mod tests {
         let mut headers = BTreeMap::new();
         headers.insert(4, parent_header);
         headers.insert(3, grandparent_header);
-        let provider = TestHeaderProvider { headers };
+        let provider = TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers };
 
-        let err = build_taiko_payload_attributes(&input, 5, &provider)
-            .await
-            .expect_err("expected missing transactions error");
+        let err = build_taiko_payload_attributes(
+            &input,
+            5,
+            &provider,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect_err("expected missing transactions error");
 
         assert!(matches!(
             err,
             PreconfirmationClientError::DriverInterface(DriverApiError::MissingTransactions)
         ));
+    }
+
+    #[tokio::test]
+    async fn base_fee_uses_mainnet_clamp_when_chain_id_is_mainnet() {
+        let parent_header = RpcHeader::new(Header {
+            number: 1,
+            timestamp: 2,
+            gas_limit: 30_000_000,
+            gas_used: 14_000_000,
+            base_fee_per_gas: Some(5_000_000),
+            ..Default::default()
+        });
+        let grandparent_header =
+            RpcHeader::new(Header { number: 0, timestamp: 0, ..Default::default() });
+
+        let mut headers = BTreeMap::new();
+        headers.insert(1, parent_header.clone());
+        headers.insert(0, grandparent_header.clone());
+
+        let devnet_provider =
+            TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers: headers.clone() };
+        let mainnet_provider = TestHeaderProvider { chain_id: TAIKO_MAINNET_CHAIN_ID, headers };
+
+        let devnet_base_fee = compute_base_fee_per_gas(
+            &devnet_provider,
+            &parent_header,
+            1,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect("devnet base fee");
+        let mainnet_base_fee = compute_base_fee_per_gas(
+            &mainnet_provider,
+            &parent_header,
+            1,
+            min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
+        )
+        .await
+        .expect("mainnet base fee");
+
+        assert_eq!(devnet_base_fee, min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID));
+        assert_eq!(mainnet_base_fee, min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID));
+        assert!(mainnet_base_fee > devnet_base_fee);
     }
 }
