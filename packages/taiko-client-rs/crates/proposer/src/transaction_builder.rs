@@ -22,7 +22,7 @@ use tracing::info;
 
 use crate::{
     error::{ProposerError, Result},
-    proposer::{EnginePayloadParams, TransactionsLists, current_unix_timestamp},
+    proposer::{EngineBuildContext, TransactionLists, current_unix_timestamp},
 };
 
 /// A transaction builder for Shasta `propose` transactions.
@@ -45,8 +45,8 @@ impl ShastaProposalTransactionBuilder {
     /// Otherwise, the current L1 head, current timestamp, and MAX_BLOCK_GAS_LIMIT are used.
     pub async fn build(
         &self,
-        txs_lists: TransactionsLists,
-        engine_params: Option<EnginePayloadParams>,
+        txs_lists: TransactionLists,
+        engine_params: Option<EngineBuildContext>,
     ) -> Result<TransactionRequest> {
         // Use provided engine params or derive defaults.
         // For engine mode, subtract anchor gas from the manifest gas limit since the
@@ -69,32 +69,31 @@ impl ShastaProposalTransactionBuilder {
             ),
         };
 
-        // Build the block manifests.
-        let block_manifests = txs_lists
-            .iter()
-            .enumerate()
-            .map(|(index, txs)| {
-                info!(
-                    block_index = index,
-                    tx_count = txs.len(),
-                    timestamp,
-                    anchor_block_number,
-                    gas_limit,
-                    coinbase = ?self.l2_suggested_fee_recipient,
-                    "setting up derivation source manifest block"
-                );
-                BlockManifest {
-                    timestamp,
-                    coinbase: self.l2_suggested_fee_recipient,
-                    anchor_block_number,
-                    gas_limit,
-                    transactions: txs.iter().cloned().map(Into::into).collect(),
-                }
-            })
-            .collect::<Vec<BlockManifest>>();
-
         // Build the proposal manifest.
-        let manifest = DerivationSourceManifest { blocks: block_manifests };
+        let manifest = DerivationSourceManifest {
+            blocks: txs_lists
+                .iter()
+                .enumerate()
+                .map(|(index, txs)| {
+                    info!(
+                        block_index = index,
+                        tx_count = txs.len(),
+                        timestamp,
+                        anchor_block_number,
+                        gas_limit,
+                        coinbase = ?self.l2_suggested_fee_recipient,
+                        "setting up derivation source manifest block"
+                    );
+                    BlockManifest {
+                        timestamp,
+                        coinbase: self.l2_suggested_fee_recipient,
+                        anchor_block_number,
+                        gas_limit,
+                        transactions: txs.iter().cloned().map(Into::into).collect(),
+                    }
+                })
+                .collect::<Vec<BlockManifest>>(),
+        };
 
         // Build the blob sidecar from the proposal manifest.
         let sidecar: BlobTransactionSidecar =

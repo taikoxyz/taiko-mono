@@ -6,6 +6,8 @@ use std::{result, sync::Arc};
 
 use driver::{DriverConfig, sync::SyncError};
 use preconfirmation_net::P2pConfig;
+use preconfirmation_types::MAX_TXLIST_BYTES;
+use protocol::codec::ZlibTxListCodec;
 use tracing::info;
 
 use crate::{
@@ -140,23 +142,28 @@ impl PreconfirmationDriverRunner {
             EventSyncerDriverClient::from_client(event_syncer.clone(), rpc_client.clone());
 
         // Start the preconfirmation P2P client.
+        let expected_slasher = client_config.expected_slasher.clone();
         let preconf_client = PreconfirmationClient::new(client_config, driver_client)?;
         let command_tx = preconf_client.command_tx();
-        let local_peer_id = preconf_client.p2p_handle().local_peer_id().to_string();
         let lookahead_resolver = preconf_client.lookahead_resolver().clone();
 
         let mut rpc_server = None;
         if let Some(rpc_config) = &self.config.rpc_config {
+            let local_peer_id = preconf_client.p2p_handle().local_peer_id().to_string();
+
             // Build and launch the RPC server using runner-backed APIs.
             let inbox_reader = ContractInboxReader::new(rpc_client.clone());
             let rpc_driver =
                 Arc::new(EventSyncerDriverClient::from_client(event_syncer.clone(), rpc_client));
+            let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
             let api: Arc<dyn PreconfRpcApi> = Arc::new(RunnerRpcApiImpl::new(
                 command_tx.clone(),
                 rpc_driver,
-                local_peer_id,
                 inbox_reader,
                 lookahead_resolver,
+                codec,
+                expected_slasher,
+                local_peer_id,
             ));
             let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
             info!(url = %server.http_url(), "preconfirmation RPC server started");

@@ -24,6 +24,7 @@ use preconfirmation_driver::{
     error::{DriverApiError, PreconfirmationClientError},
 };
 use preconfirmation_types::uint256_to_u256;
+use protocol::shasta::constants::min_base_fee_for_chain;
 use rpc::client::{Client, ClientConfig};
 use tokio::{
     sync::{Mutex, Notify},
@@ -210,17 +211,22 @@ where
         }
 
         let config = self.inbox.getConfig().call().await.map_err(DriverApiError::from)?;
-        let payload =
-            build_taiko_payload_attributes(&input, config.basefeeSharingPctg, &self.l2_provider)
-                .await?;
+        let min_base_fee_to_clamp = min_base_fee_for_chain(
+            self.l2_provider.get_chain_id().await.map_err(DriverApiError::from)?,
+        );
+        let payload = build_taiko_payload_attributes(
+            &input,
+            config.basefeeSharingPctg,
+            &self.l2_provider,
+            min_base_fee_to_clamp,
+        )
+        .await?;
 
         self.event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(payload))
             .await
             .map_err(|err| {
-                PreconfirmationClientError::DriverInterface(DriverApiError::ChannelClosed(
-                    err.to_string(),
-                ))
+                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(err))
             })?;
 
         info!(block_number, proposal_id, "submitted preconfirmation payload");

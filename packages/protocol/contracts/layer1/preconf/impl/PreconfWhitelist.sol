@@ -128,10 +128,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @param _proposer The proposer address of the operator to check.
     /// @param _epochTimestamp The timestamp of the epoch to check.
     /// @return _ True if the operator is active in the given epoch, false otherwise.
-    function isOperatorActive(
-        address _proposer,
-        uint32 _epochTimestamp
-    )
+    function isOperatorActive(address _proposer, uint32 _epochTimestamp)
         public
         view
         returns (bool)
@@ -212,7 +209,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         require(operatorCount > 1, CannotRemoveLastOperator());
         require(_proposer != address(0), InvalidOperatorAddress());
         OperatorInfo storage info = operators[_proposer];
-        require(info.activeSince != 0, InvalidOperatorAddress());
+        require(info.sequencerAddress != address(0), InvalidOperatorAddress());
 
         uint32 currentEpochTs = epochStartTimestamp(0);
         if (isOperatorActive(_proposer, currentEpochTs)) {

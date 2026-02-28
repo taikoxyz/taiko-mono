@@ -15,7 +15,7 @@ contract LibCodecTest is Test {
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
@@ -37,7 +37,7 @@ contract LibCodecTest is Test {
                 numBlobs: type(uint16).max,
                 offset: type(uint24).max
             }),
-            numForcedInclusions: type(uint8).max
+            numForcedInclusions: type(uint16).max
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
@@ -57,7 +57,7 @@ contract LibCodecTest is Test {
         uint16 blobStartIndex,
         uint16 numBlobs,
         uint24 offset,
-        uint8 numForcedInclusions
+        uint16 numForcedInclusions
     )
         public
         pure
@@ -71,7 +71,7 @@ contract LibCodecTest is Test {
         });
 
         bytes memory encoded = LibCodec.encodeProposeInput(input);
-        assertEq(encoded.length, 14, "encoded length");
+        assertEq(encoded.length, 15, "encoded length");
 
         IInbox.ProposeInput memory decoded = LibCodec.decodeProposeInput(encoded);
         assertEq(decoded.deadline, input.deadline, "deadline");
@@ -88,16 +88,10 @@ contract LibCodecTest is Test {
     function test_encode_decode_proveInput_roundtrip() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x1111),
-            designatedProver: address(0x2222),
-            timestamp: 100,
-            blockHash: bytes32(uint256(1))
+            proposer: address(0x1111), timestamp: 100, blockHash: bytes32(uint256(1))
         });
         transitions[1] = IInbox.Transition({
-            proposer: address(0x3333),
-            designatedProver: address(0x4444),
-            timestamp: 200,
-            blockHash: bytes32(uint256(2))
+            proposer: address(0x3333), timestamp: 200, blockHash: bytes32(uint256(2))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -109,8 +103,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 1000,
                 endStateRoot: bytes32(uint256(88)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: true
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
@@ -134,11 +127,6 @@ contract LibCodecTest is Test {
             decoded.commitment.transitions[0].proposer,
             transitions[0].proposer,
             "transitions[0] proposer"
-        );
-        assertEq(
-            decoded.commitment.transitions[0].designatedProver,
-            transitions[0].designatedProver,
-            "transitions[0] designatedProver"
         );
         assertEq(
             decoded.commitment.transitions[0].timestamp,
@@ -165,16 +153,12 @@ contract LibCodecTest is Test {
         );
         assertEq(decoded.commitment.endStateRoot, input.commitment.endStateRoot, "endStateRoot");
         assertEq(decoded.commitment.actualProver, input.commitment.actualProver, "actualProver");
-        assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
     function test_encode_decode_proveInput_singleProposal() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x5555),
-            designatedProver: address(0x6666),
-            timestamp: 500,
-            blockHash: bytes32(uint256(55))
+            proposer: address(0x5555), timestamp: 500, blockHash: bytes32(uint256(55))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -186,8 +170,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 50,
                 endStateRoot: bytes32(uint256(66)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
@@ -197,7 +180,6 @@ contract LibCodecTest is Test {
         assertEq(decoded.commitment.transitions.length, 1, "transitions length");
         assertEq(decoded.commitment.transitions[0].proposer, address(0x5555), "proposer");
         assertEq(decoded.commitment.actualProver, address(0xBBBB), "actualProver");
-        assertEq(decoded.forceCheckpointSync, false, "forceCheckpointSync");
     }
 
     function test_encode_decode_proveInput_emptyProposals() public pure {
@@ -212,8 +194,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 9999,
                 endStateRoot: bytes32(uint256(789)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: false
+            })
         });
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
@@ -228,10 +209,7 @@ contract LibCodecTest is Test {
     function test_encode_proveInput_deterministic() public pure {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
-            proposer: address(0x1234),
-            designatedProver: address(0x5678),
-            timestamp: 12_345,
-            blockHash: bytes32(uint256(9999))
+            proposer: address(0x1234), timestamp: 12_345, blockHash: bytes32(uint256(9999))
         });
 
         IInbox.ProveInput memory input = IInbox.ProveInput({
@@ -243,8 +221,7 @@ contract LibCodecTest is Test {
                 endBlockNumber: 888,
                 endStateRoot: bytes32(uint256(7777)),
                 transitions: transitions
-            }),
-            forceCheckpointSync: true
+            })
         });
 
         bytes memory encoded1 = LibCodec.encodeProveInput(input);
@@ -256,8 +233,7 @@ contract LibCodecTest is Test {
 
     function testFuzz_encodeDecodeProveInput_PreservesFields(
         bytes32 seed,
-        uint8 transitionsLen,
-        bool forceCheckpointSync
+        uint8 transitionsLen
     )
         public
         pure
@@ -268,7 +244,6 @@ contract LibCodecTest is Test {
         for (uint256 i; i < transitionsLen; ++i) {
             transitions[i] = IInbox.Transition({
                 proposer: _addr(seed, "proposer", i),
-                designatedProver: _addr(seed, "designatedProver", i),
                 timestamp: uint48(uint256(keccak256(abi.encode(seed, "timestamp", i)))),
                 blockHash: keccak256(abi.encode(seed, "blockHash", i))
             });
@@ -284,7 +259,6 @@ contract LibCodecTest is Test {
             endStateRoot: keccak256(abi.encode(seed, "endStateRoot")),
             transitions: transitions
         });
-        input.forceCheckpointSync = forceCheckpointSync;
 
         bytes memory encoded = LibCodec.encodeProveInput(input);
         IInbox.ProveInput memory decoded = LibCodec.decodeProveInput(encoded);
@@ -318,11 +292,6 @@ contract LibCodecTest is Test {
                 "transition proposer"
             );
             assertEq(
-                decoded.commitment.transitions[i].designatedProver,
-                input.commitment.transitions[i].designatedProver,
-                "transition designatedProver"
-            );
-            assertEq(
                 decoded.commitment.transitions[i].timestamp,
                 input.commitment.transitions[i].timestamp,
                 "transition timestamp"
@@ -333,15 +302,9 @@ contract LibCodecTest is Test {
                 "transition blockHash"
             );
         }
-
-        assertEq(decoded.forceCheckpointSync, input.forceCheckpointSync, "forceCheckpointSync");
     }
 
-    function _addr(
-        bytes32 seed,
-        string memory label,
-        uint256 index
-    )
+    function _addr(bytes32 seed, string memory label, uint256 index)
         private
         pure
         returns (address)
@@ -349,4 +312,3 @@ contract LibCodecTest is Test {
         return address(uint160(uint256(keccak256(abi.encode(seed, label, index)))));
     }
 }
-

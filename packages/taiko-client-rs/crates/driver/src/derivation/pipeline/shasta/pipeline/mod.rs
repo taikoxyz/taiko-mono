@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
 use metrics::{counter, gauge};
 use protocol::shasta::{
-    constants::{PROPOSAL_MAX_BLOB_BYTES, shasta_fork_timestamp_for_chain},
+    constants::{PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain, shasta_fork_timestamp_for_chain},
     manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
@@ -104,6 +104,8 @@ where
         Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
     /// Activation timestamp for the Shasta fork on this chain.
     shasta_fork_timestamp: u64,
+    /// Minimum base-fee clamp to use for EIP-4396 calculations on this chain.
+    min_base_fee_to_clamp: u64,
     /// Initial proposal id used when bootstrapping event sync.
     initial_proposal_id: U256,
 }
@@ -130,12 +132,18 @@ where
         let chain_id = rpc.l2_provider.get_chain_id().await?;
         let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
             .map_err(|err| DerivationError::Other(err.into()))?;
-        info!(chain_id, shasta_fork_timestamp, "initialised shasta derivation pipeline");
+        // Clamp differs by chain; keep derivation-side base-fee math chain-aware.
+        let min_base_fee_to_clamp = min_base_fee_for_chain(chain_id);
+        info!(
+            chain_id,
+            shasta_fork_timestamp, min_base_fee_to_clamp, "initialised shasta derivation pipeline"
+        );
         Ok(Self {
             rpc,
             anchor_constructor,
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             shasta_fork_timestamp,
+            min_base_fee_to_clamp,
             initial_proposal_id,
         })
     }
@@ -351,10 +359,13 @@ where
         };
 
         let state = ParentState {
-            parent_block_time: parent_header.timestamp.saturating_sub(grandparent_timestamp),
+            parent_block_time_delta_secs: parent_header
+                .timestamp
+                .saturating_sub(grandparent_timestamp),
             header: parent_header,
             anchor_block_number: anchor_state.anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
+            min_base_fee_to_clamp: self.min_base_fee_to_clamp,
         };
         debug!(
             parent_number = state.header.number,

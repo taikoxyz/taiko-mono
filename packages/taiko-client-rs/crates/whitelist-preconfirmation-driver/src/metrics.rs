@@ -17,10 +17,6 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Counter tracking sync-ready transitions.
     pub const SYNC_READY_TRANSITIONS_TOTAL: &'static str =
         "whitelist_preconf_driver_sync_ready_transitions_total";
-    /// Counter tracking sync-ready triggered import failures.
-    pub const SYNC_READY_IMPORT_FAILURES_TOTAL: &'static str =
-        "whitelist_preconf_driver_sync_ready_import_failures_total";
-
     // Network metrics
     /// Counter tracking inbound gossip/request messages by topic and decode status.
     pub const NETWORK_INBOUND_MESSAGES_TOTAL: &'static str =
@@ -104,12 +100,6 @@ impl WhitelistPreconfirmationDriverMetrics {
             Unit::Count,
             "Number of sync-ready state transitions"
         );
-        metrics::describe_counter!(
-            Self::SYNC_READY_IMPORT_FAILURES_TOTAL,
-            Unit::Count,
-            "Sync-ready triggered cache import failures"
-        );
-
         metrics::describe_counter!(
             Self::NETWORK_INBOUND_MESSAGES_TOTAL,
             Unit::Count,
@@ -214,7 +204,6 @@ impl WhitelistPreconfirmationDriverMetrics {
         metrics::counter!(Self::RUNNER_START_TOTAL).absolute(0);
         metrics::counter!(Self::RUNNER_EXIT_TOTAL).absolute(0);
         metrics::counter!(Self::SYNC_READY_TRANSITIONS_TOTAL).absolute(0);
-        metrics::counter!(Self::SYNC_READY_IMPORT_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_INBOUND_MESSAGES_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_DECODE_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_OUTBOUND_PUBLISH_TOTAL).absolute(0);
@@ -248,7 +237,6 @@ mod tests {
             WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
             WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS,
             WhitelistPreconfirmationDriverMetrics::SYNC_READY_TRANSITIONS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::SYNC_READY_IMPORT_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,

@@ -70,7 +70,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set or invalid");
-        vm.startBroadcast();
+        vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
     }
@@ -115,7 +115,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
-        config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.minBond = uint64(vm.envOr("MIN_BOND_GWEI", uint256(0)));
         config.livenessBond = uint64(vm.envOr("LIVENESS_BOND_GWEI", uint256(0)));
         config.withdrawalDelay = uint48(vm.envOr("WITHDRAWAL_DELAY", uint256(0)));

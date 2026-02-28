@@ -69,6 +69,11 @@ where
     D: DriverClient + 'static,
 {
     /// Run the event loop forever, retrying on errors with exponential backoff.
+    ///
+    /// Note: restart only refreshes the event-loop-owned P2P sender used by
+    /// internal handlers. Any cloned RPC API values (`NodeRpcApiImpl`/`RunnerRpcApiImpl`)
+    /// still hold their original `command_tx` sender and will continue targeting the old
+    /// handle after a rebuild.
     pub async fn run_with_retry(mut self) -> Result<()> {
         let mut backoff = RetryBackoff::new(P2P_RESTART_BACKOFF_BASE, P2P_RESTART_BACKOFF_MAX);
 
@@ -219,6 +224,11 @@ where
     /// Get a reference to the P2P handle for querying network state.
     pub fn p2p_handle(&self) -> &P2pHandle {
         &self.handle
+    }
+
+    /// Get a reference to the txlist codec.
+    pub fn codec(&self) -> &Arc<ZlibTxListCodec> {
+        &self.codec
     }
 
     /// Get a reference to the lookahead resolver.
