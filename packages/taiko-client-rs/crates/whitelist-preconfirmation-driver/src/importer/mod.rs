@@ -305,7 +305,7 @@ where
             .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(block_number))
             .await
             .map(|opt| opt.map(|block| block.hash()))
-            .map_err(provider_err)
+            .map_err(WhitelistPreconfirmationDriverError::provider)
     }
 
     /// Update cache gauges after cache mutations.
@@ -315,11 +315,6 @@ where
         metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
             .set(self.recent_cache.len() as f64);
     }
-}
-
-/// Convert a provider error into a driver error.
-pub(super) fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
-    WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
 }
 
 /// Returns true only when sync readiness transitions from disabled to enabled.

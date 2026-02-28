@@ -1,6 +1,6 @@
 //! Error types for whitelist preconfirmation driver.
 
-use std::result::Result as StdResult;
+use std::{fmt::Display, result::Result as StdResult};
 
 use thiserror::Error;
 
@@ -86,4 +86,68 @@ pub enum WhitelistPreconfirmationDriverError {
     /// RPC client error.
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
+}
+
+impl WhitelistPreconfirmationDriverError {
+    /// Build an `InvalidPayload` error from a complete message.
+    pub(crate) fn invalid_payload(message: impl Into<String>) -> Self {
+        Self::InvalidPayload(message.into())
+    }
+
+    /// Build an `InvalidSignature` error from a complete message.
+    pub(crate) fn invalid_signature(message: impl Into<String>) -> Self {
+        Self::InvalidSignature(message.into())
+    }
+
+    /// Map an arbitrary provider failure into an RPC provider error variant.
+    pub(crate) fn provider(err: impl Display) -> Self {
+        Self::Rpc(rpc::RpcClientError::Provider(err.to_string()))
+    }
+
+    /// Map an arbitrary P2P failure into a standardized P2P error variant.
+    pub(crate) fn p2p(err: impl Display) -> Self {
+        Self::P2p(err.to_string())
+    }
+
+    /// Build an `InvalidPayload` error by attaching context to an underlying failure.
+    pub(crate) fn invalid_payload_with_context(context: &str, err: impl Display) -> Self {
+        Self::invalid_payload(format!("{context}: {err}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WhitelistPreconfirmationDriverError;
+
+    #[test]
+    fn provider_helper_wraps_error_message() {
+        let err = WhitelistPreconfirmationDriverError::provider("rpc boom");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(msg))
+                if msg == "rpc boom"
+        ));
+    }
+
+    #[test]
+    fn p2p_helper_wraps_error_message() {
+        let err = WhitelistPreconfirmationDriverError::p2p("channel closed");
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::P2p(msg) if msg == "channel closed"
+        ));
+    }
+
+    #[test]
+    fn invalid_payload_with_context_formats_message() {
+        let err = WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            "failed to parse payload",
+            "bad bytes",
+        );
+        assert!(matches!(
+            err,
+            WhitelistPreconfirmationDriverError::InvalidPayload(msg)
+                if msg == "failed to parse payload: bad bytes"
+        ));
+    }
 }
