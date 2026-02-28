@@ -78,7 +78,7 @@ where
             .l2_provider
             .get_block_by_hash(parent_hash)
             .await
-            .map_err(super::compression::provider_err)?
+            .map_err(WhitelistPreconfirmationDriverError::provider)?
             .ok_or_else(|| {
                 WhitelistPreconfirmationDriverError::InvalidPayload(format!(
                     "parent block not found for hash {parent_hash}"

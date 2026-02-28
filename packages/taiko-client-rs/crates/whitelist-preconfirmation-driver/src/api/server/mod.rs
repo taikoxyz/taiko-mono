@@ -12,6 +12,7 @@ use crate::{
 
 mod auth;
 mod handlers;
+mod http_error;
 mod http_utils;
 mod router;
 mod state;

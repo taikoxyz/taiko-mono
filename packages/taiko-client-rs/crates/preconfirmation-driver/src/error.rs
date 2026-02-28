@@ -18,6 +18,14 @@ pub enum PreconfirmationClientError {
     /// Validation failure for a commitment or txlist payload.
     #[error("validation error: {0}")]
     Validation(String),
+    /// Validation failure with a typed classification for structured RPC mapping.
+    #[error("validation error: {kind:?}: {details}")]
+    ValidationWithCode {
+        /// Structured reason for the validation failure.
+        kind: ValidationErrorCode,
+        /// Human-readable details for logs.
+        details: String,
+    },
     /// Storage layer failure (in-memory or persistent).
     #[error("storage error: {0}")]
     Storage(String),
@@ -80,6 +88,26 @@ pub enum DriverApiError {
     /// Channel closed unexpectedly (used by embedded driver client).
     #[error("channel closed: {0}")]
     ChannelClosed(String),
+}
+
+/// Structured validation failure classifications.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationErrorCode {
+    /// Commitment references a stale block number.
+    StaleCommitment,
+    /// Signer mismatch for the expected preconfirmer.
+    SignerMismatch,
+    /// Submission window end does not match the expected slot.
+    SubmissionWindowExpired,
+    /// Validation failure that does not have a specific mapping.
+    Other,
+}
+
+impl PreconfirmationClientError {
+    /// Construct a structured validation error.
+    pub fn validation_error(kind: ValidationErrorCode, details: impl Into<String>) -> Self {
+        Self::ValidationWithCode { kind, details: details.into() }
+    }
 }
 
 impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {

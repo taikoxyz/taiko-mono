@@ -298,13 +298,8 @@ pub(super) async fn forward_event(
         metrics::counter!(WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL)
             .increment(1);
         warn!(error = %err, "whitelist preconfirmation event channel closed");
-        WhitelistPreconfirmationDriverError::P2p(format!(
+        WhitelistPreconfirmationDriverError::p2p(format!(
             "whitelist preconfirmation event channel closed: {err}"
         ))
     })
-}
-
-/// Convert a p2p error into a driver error.
-pub(super) fn to_p2p_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
-    WhitelistPreconfirmationDriverError::P2p(err.to_string())
 }

@@ -3,8 +3,7 @@
 use libp2p::gossipsub;
 use sha2::{Digest, Sha256};
 
-use super::event_loop::to_p2p_err;
-use crate::error::Result;
+use crate::error::{Result, WhitelistPreconfirmationDriverError};
 
 /// Maximum allowed gossip payload size after decompression.
 const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
@@ -22,9 +21,10 @@ pub(crate) fn build_gossipsub() -> Result<gossipsub::Behaviour> {
         .message_id_fn(message_id)
         .max_transmit_size(MAX_GOSSIP_SIZE_BYTES)
         .build()
-        .map_err(to_p2p_err)?;
+        .map_err(WhitelistPreconfirmationDriverError::p2p)?;
 
-    gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, config).map_err(to_p2p_err)
+    gossipsub::Behaviour::new(gossipsub::MessageAuthenticity::Anonymous, config)
+        .map_err(WhitelistPreconfirmationDriverError::p2p)
 }
 
 /// Compute gossipsub message IDs.

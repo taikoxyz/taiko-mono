@@ -12,7 +12,7 @@ use tracing::{debug, warn};
 
 use super::{
     bootnodes::{classify_bootnodes, dial_once, recv_discovered_multiaddr},
-    event_loop::{forward_event, handle_swarm_event, to_p2p_err},
+    event_loop::{forward_event, handle_swarm_event},
     gossip::build_gossipsub,
     inbound::GossipsubInboundState,
     types::{Behaviour, NetworkCommand, NetworkEvent, Topics, WhitelistNetwork},
@@ -23,7 +23,7 @@ use crate::{
         encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
-    error::Result,
+    error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
@@ -50,10 +50,18 @@ impl WhitelistNetwork {
 
         let topics = Topics::new(cfg.chain_id);
         let mut gossipsub = build_gossipsub()?;
-        gossipsub.subscribe(&topics.preconf_blocks).map_err(to_p2p_err)?;
-        gossipsub.subscribe(&topics.preconf_request).map_err(to_p2p_err)?;
-        gossipsub.subscribe(&topics.preconf_response).map_err(to_p2p_err)?;
-        gossipsub.subscribe(&topics.eos_request).map_err(to_p2p_err)?;
+        gossipsub
+            .subscribe(&topics.preconf_blocks)
+            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
+        gossipsub
+            .subscribe(&topics.preconf_request)
+            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
+        gossipsub
+            .subscribe(&topics.preconf_response)
+            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
+        gossipsub
+            .subscribe(&topics.eos_request)
+            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
 
         let behaviour = Behaviour {
             gossipsub,
@@ -64,9 +72,11 @@ impl WhitelistNetwork {
             )),
         };
 
-        let noise_config = noise::Config::new(&local_key).map_err(to_p2p_err)?;
+        let noise_config =
+            noise::Config::new(&local_key).map_err(WhitelistPreconfirmationDriverError::p2p)?;
         let base_tcp = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
-        let tcp_with_dns = dns::tokio::Transport::system(base_tcp).map_err(to_p2p_err)?;
+        let tcp_with_dns = dns::tokio::Transport::system(base_tcp)
+            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
         let transport = tcp_with_dns
             .upgrade(upgrade::Version::V1Lazy)
             .authenticate(noise_config)
@@ -87,8 +97,8 @@ impl WhitelistNetwork {
                 format!("/ip6/{}/tcp/{}", cfg.listen_addr.ip(), cfg.listen_addr.port())
             }
             .parse::<Multiaddr>()
-            .map_err(to_p2p_err)?;
-            swarm.listen_on(listen_addr).map_err(to_p2p_err)?;
+            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
+            swarm.listen_on(listen_addr).map_err(WhitelistPreconfirmationDriverError::p2p)?;
         }
 
         let bootnodes = classify_bootnodes(cfg.bootnodes);
