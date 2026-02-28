@@ -15,7 +15,7 @@ WORKDIR /app/packages/taiko-client-rs
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/app/packages/taiko-client-rs/target \
-    cargo build --release && \
+    cargo build --release --locked && \
     cp /app/packages/taiko-client-rs/target/release/taiko-client /tmp/taiko-client
 
 FROM ubuntu:22.04
