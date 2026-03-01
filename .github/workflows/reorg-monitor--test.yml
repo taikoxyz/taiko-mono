@@ -1,0 +1,78 @@
+name: CI (reorg-monitor)
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/reorg-monitor/**"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/reorg-monitor/**"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    name: Lint (fmt + clippy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      # Toolchain + components (rustfmt, clippy)
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      # Cache target/ and cargo registry/git
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            packages/reorg-monitor
+
+      - name: cargo fmt --check
+        working-directory: packages/reorg-monitor
+        run: cargo fmt --all -- --check
+
+      - name: cargo clippy (workspace)
+        working-directory: packages/reorg-monitor
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: llvm-tools-preview
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            packages/reorg-monitor
+
+      # Fast path: plain tests (works even without llvm-cov)
+      - name: cargo test (workspace)
+        working-directory: packages/reorg-monitor
+        run: cargo test --workspace --all-features --all-targets
