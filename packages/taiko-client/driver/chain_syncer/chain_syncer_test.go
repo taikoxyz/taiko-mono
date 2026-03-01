@@ -160,7 +160,6 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	b, err := builder.SplitToBlobs([]byte{0x1})
@@ -207,7 +206,6 @@ func (s *ChainSyncerTestSuite) TestShastaDerivationFetchDoesNotBlockPreconf() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		ctx,
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(ctx, txCandidate))
@@ -290,7 +288,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -346,7 +343,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{testTx1}, {testTx2}},
-		common.Address{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -395,7 +391,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		txBatch,
-		common.Address{},
 	)
 	s.Nil(err)
 
@@ -444,7 +439,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		txBatch,
-		common.Address{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -532,7 +526,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	txCandidate.GasLimit = 0
@@ -612,7 +605,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	txCandidate.GasLimit = 0

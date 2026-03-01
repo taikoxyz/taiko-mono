@@ -157,8 +157,6 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 func (b *CalldataTransactionBuilder) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	minTxsPerForcedInclusion *big.Int,
-	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
 	return nil, fmt.Errorf("CalldataTransactionBuilder does not support BuildShasta")
 }

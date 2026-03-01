@@ -174,7 +174,6 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 func (b *BlobTransactionBuilder) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
 	var (
 		to                       = &b.shastaInboxAddress

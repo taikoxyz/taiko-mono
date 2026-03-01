@@ -189,7 +189,6 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 func (b *TxBuilderWithFallback) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
 	// Shasta requires blob transactions for proposal data availability.
 	if b.blobTransactionBuilder == nil {
@@ -198,7 +197,6 @@ func (b *TxBuilderWithFallback) BuildShasta(
 	return b.blobTransactionBuilder.BuildShasta(
 		ctx,
 		txBatch,
-		preconfRouterAddress,
 	)
 }
 

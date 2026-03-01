@@ -508,7 +508,6 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 	txCandidate, err := p.txBuilder.BuildShasta(
 		ctx,
 		txBatch,
-		p.preconfRouterAddress,
 	)
 	if err != nil {
 		log.Warn("Failed to build Shasta Inbox.propose transaction", "error", encoding.TryParsingCustomError(err))
