@@ -35,42 +35,7 @@ jobs:
           cache: true
 
       - name: Ensure make is available
-        run: |
-          if command -v make >/dev/null 2>&1; then
-            echo "make already installed"
-            exit 0
-          fi
-
-          if [ "$(id -u)" -eq 0 ]; then
-            SUDO=""
-          elif command -v sudo >/dev/null 2>&1; then
-            SUDO="sudo"
-          else
-            echo "make is missing and this runner is non-root without sudo; cannot install make"
-            exit 1
-          fi
-
-          run_with_privileges() {
-            if [ -n "$SUDO" ]; then
-              $SUDO "$@"
-            else
-              "$@"
-            fi
-          }
-
-          if command -v apt-get >/dev/null 2>&1; then
-            run_with_privileges apt-get update
-            run_with_privileges apt-get install -y make
-          elif command -v apk >/dev/null 2>&1; then
-            run_with_privileges apk add --no-cache make
-          elif command -v dnf >/dev/null 2>&1; then
-            run_with_privileges dnf install -y make
-          elif command -v yum >/dev/null 2>&1; then
-            run_with_privileges yum install -y make
-          else
-            echo "Unsupported package manager: cannot install make"
-            exit 1
-          fi
+        uses: ./.github/actions/ensure-make
 
       - name: Lint
         working-directory: packages/taiko-client
@@ -112,42 +77,7 @@ jobs:
           cache: true
 
       - name: Ensure make is available
-        run: |
-          if command -v make >/dev/null 2>&1; then
-            echo "make already installed"
-            exit 0
-          fi
-
-          if [ "$(id -u)" -eq 0 ]; then
-            SUDO=""
-          elif command -v sudo >/dev/null 2>&1; then
-            SUDO="sudo"
-          else
-            echo "make is missing and this runner is non-root without sudo; cannot install make"
-            exit 1
-          fi
-
-          run_with_privileges() {
-            if [ -n "$SUDO" ]; then
-              $SUDO "$@"
-            else
-              "$@"
-            fi
-          }
-
-          if command -v apt-get >/dev/null 2>&1; then
-            run_with_privileges apt-get update
-            run_with_privileges apt-get install -y make
-          elif command -v apk >/dev/null 2>&1; then
-            run_with_privileges apk add --no-cache make
-          elif command -v dnf >/dev/null 2>&1; then
-            run_with_privileges dnf install -y make
-          elif command -v yum >/dev/null 2>&1; then
-            run_with_privileges yum install -y make
-          else
-            echo "Unsupported package manager: cannot install make"
-            exit 1
-          fi
+        uses: ./.github/actions/ensure-make
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
