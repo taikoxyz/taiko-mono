@@ -1,6 +1,6 @@
 //! Whitelist preconfirmation API service implementation.
 
-use std::{io::Read, sync::Arc, time::Instant};
+use std::{sync::Arc, time::Instant};
 
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
@@ -33,16 +33,12 @@ use crate::{
     cache::SharedPreconfCacheState,
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
-    importer::{
-        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
-        validate_execution_payload_for_preconf,
-    },
+    importer::validate_execution_payload_for_preconf,
     network::NetworkCommand,
     whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
 mod api_impl;
-mod compression;
 mod lookahead;
 mod payload_build;
 mod status;
