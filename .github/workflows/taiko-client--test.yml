@@ -26,7 +26,7 @@ jobs:
     runs-on: [arc-runner-set]
     timeout-minutes: 5
     env:
-      CGO_ENABLED: 0
+      CGO_ENABLED: 1
     steps:
       - uses: actions/checkout@v6
 
@@ -38,6 +38,25 @@ jobs:
 
       - name: Go mod download
         run: go mod download
+
+      - name: Ensure build-essential is installed
+        run: |
+          set -euo pipefail
+
+          if command -v gcc >/dev/null 2>&1 && \
+             command -v g++ >/dev/null 2>&1 && \
+             command -v make >/dev/null 2>&1; then
+            echo "Required build tools are already available."
+            exit 0
+          fi
+
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "::error::gcc/g++/make are missing and apt-get is unavailable, cannot install automatically."
+            exit 1
+          fi
+
+          sudo apt-get update
+          sudo apt-get install -y build-essential
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9
