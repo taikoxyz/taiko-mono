@@ -13,7 +13,7 @@ where
         prev_randao: B256,
         signature: [u8; 65],
     ) -> Result<TaikoPayloadAttributes> {
-        let tx_list = super::compression::decompress_tx_list(request.transactions.as_ref())?;
+        let tx_list = crate::tx_list::decompress_tx_list(request.transactions.as_ref())?;
 
         let block_metadata = TaikoBlockMetadata {
             beneficiary: request.fee_recipient,

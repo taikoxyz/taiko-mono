@@ -30,6 +30,49 @@ impl<P> WhitelistPreconfirmationImporter<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Cache a validated envelope and persist EOS epoch mapping when applicable.
+    async fn ingest_validated_envelope(
+        &mut self,
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+        ingress_source: &'static str,
+    ) {
+        self.cache.insert(envelope.clone());
+        self.recent_cache.insert_recent(envelope.clone());
+        self.update_cache_gauges();
+        self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
+    }
+
+    /// Record the envelope block hash for its beacon epoch when `end_of_sequencing` is set.
+    async fn record_eos_epoch_if_marked(
+        &self,
+        envelope: &WhitelistExecutionPayloadEnvelope,
+        ingress_source: &'static str,
+    ) {
+        if !envelope.end_of_sequencing.unwrap_or(false) {
+            return;
+        }
+
+        let timestamp = envelope.execution_payload.timestamp;
+        if let Ok(epoch) = self.beacon_client.timestamp_to_epoch(timestamp).inspect_err(|err| {
+            tracing::warn!(
+                timestamp,
+                ingress_source,
+                error = %err,
+                "failed to derive epoch from envelope timestamp for EOS recording"
+            );
+        }) {
+            debug!(
+                epoch,
+                hash = %envelope.execution_payload.block_hash,
+                ingress_source,
+                "recording end-of-sequencing envelope for epoch"
+            );
+            self.cache_state
+                .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
+                .await;
+        }
+    }
+
     /// Handle an incoming unsafe payload.
     pub(super) async fn handle_unsafe_payload(
         &mut self,
@@ -52,30 +95,7 @@ where
         .inspect_err(|_err| {
             record_validation_failure("payload_validate");
         })?;
-        let envelope = Arc::new(envelope);
-        self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
-
-        if envelope.end_of_sequencing.unwrap_or(false) {
-            let timestamp = envelope.execution_payload.timestamp;
-            if let Ok(epoch) = self.beacon_client.timestamp_to_epoch(timestamp).inspect_err(|err| {
-                tracing::warn!(
-                    timestamp,
-                    error = %err,
-                    "failed to derive epoch from payload timestamp for EOS recording"
-                );
-            }) {
-                debug!(
-                    epoch,
-                    hash = %envelope.execution_payload.block_hash,
-                    "recording end-of-sequencing envelope for epoch on payload ingress"
-                );
-                self.cache_state
-                    .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
-                    .await;
-            }
-        }
+        self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
 
         Ok(())
     }
@@ -110,30 +130,7 @@ where
             record_validation_failure("response_validate");
         })?;
 
-        let envelope = Arc::new(envelope);
-        self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
-
-        if envelope.end_of_sequencing.unwrap_or(false) {
-            let timestamp = envelope.execution_payload.timestamp;
-            if let Ok(epoch) = self.beacon_client.timestamp_to_epoch(timestamp).inspect_err(|err| {
-                tracing::warn!(
-                    timestamp,
-                    error = %err,
-                    "failed to derive epoch from response timestamp for EOS recording"
-                );
-            }) {
-                debug!(
-                    epoch,
-                    hash = %envelope.execution_payload.block_hash,
-                    "recording end-of-sequencing envelope for epoch on response ingress"
-                );
-                self.cache_state
-                    .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
-                    .await;
-            }
-        }
+        self.ingest_validated_envelope(Arc::new(envelope), "response").await;
 
         Ok(())
     }
