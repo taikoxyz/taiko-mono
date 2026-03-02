@@ -55,7 +55,6 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "srcRpcUrl", c.SrcRPCUrl)
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestBridgeAddress)
-		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.SrcSignalServiceAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC20VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC721VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC1155VaultAddress)
@@ -99,7 +98,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
 		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
-		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+
 		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
@@ -136,7 +135,7 @@ func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
 		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
 		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
-		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+
 		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,

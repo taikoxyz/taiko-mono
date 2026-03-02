@@ -215,53 +215,6 @@ func (r *EventRepository) Delete(
 	return r.db.GormDB().WithContext(ctx).Delete(relayer.Event{}, id).Error
 }
 
-func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
-	ctx context.Context,
-	srcChainId uint64,
-	syncedChainId uint64,
-	blockNumber uint64,
-) (*relayer.Event, error) {
-	e := &relayer.Event{}
-	// find all message sent events
-	if err := r.db.GormDB().WithContext(ctx).Where("name = ?", relayer.EventNameChainDataSynced).
-		Where("chain_id = ?", srcChainId).
-		Where("synced_chain_id = ?", syncedChainId).
-		Where("block_id >= ?", blockNumber).
-		Order("block_id DESC").
-		Limit(1).
-		First(&e).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
-
-		return nil, errors.Wrap(err, "r.db.First")
-	}
-
-	return e, nil
-}
-
-func (r *EventRepository) LatestChainDataSyncedEvent(
-	ctx context.Context,
-	srcChainId uint64,
-	syncedChainId uint64,
-) (uint64, error) {
-	blockID := 0
-	// find all message sent events
-	if err := r.db.GormDB().WithContext(ctx).Table("events").
-		Where("chain_id = ?", srcChainId).
-		Where("synced_chain_id = ?", syncedChainId).
-		Select("COALESCE(MAX(block_id), 0)").
-		Scan(&blockID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return 0, nil
-		}
-
-		return 0, errors.Wrap(err, "r.db.First")
-	}
-
-	return uint64(blockID), nil
-}
-
 func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
 	ctx context.Context,
 	chainId uint64,
