@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "forge-std/src/Test.sol";
+import { MainnetVerifier } from "src/layer1/mainnet/MainnetVerifier.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { AnyTwoVerifier } from "src/layer1/verifiers/compose/AnyTwoVerifier.sol";
 import { AnyVerifier } from "src/layer1/verifiers/compose/AnyVerifier.sol";
 import { ComposeVerifier } from "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import { SgxAndZkVerifier } from "src/layer1/verifiers/compose/SgxAndZkVerifier.sol";
-import { MainnetVerifier } from "src/layer1/mainnet/MainnetVerifier.sol";
 
 contract StubVerifier is IProofVerifier {
     function verifyProof(uint256, bytes32, bytes calldata) external view { }
@@ -35,9 +35,8 @@ contract ComposeVerifierTest is Test {
         anyVerifier = new AnyVerifier(address(sgx), address(risc0), address(sp1));
         anyTwoVerifier = new AnyTwoVerifier(address(sgx), address(risc0), address(sp1));
         sgxAndZkVerifier = new SgxAndZkVerifier(address(sgx), address(risc0), address(sp1));
-        mainnetVerifier = new MainnetVerifier(
-            address(sgxGeth), address(sgx), address(risc0), address(sp1)
-        );
+        mainnetVerifier =
+            new MainnetVerifier(address(sgxGeth), address(sgx), address(risc0), address(sp1));
     }
 
     // ---------------------------------------------------------------
@@ -190,9 +189,7 @@ contract ComposeVerifierTest is Test {
 
     function test_mainnetVerifier_AllowsSgxGethAndSgxReth() external {
         bytes memory data = _encodeProof(
-            _toArray(
-                ComposeVerifier.VerifierType.SGX_GETH, ComposeVerifier.VerifierType.SGX_RETH
-            ),
+            _toArray(ComposeVerifier.VerifierType.SGX_GETH, ComposeVerifier.VerifierType.SGX_RETH),
             _toBytesArray(bytes("sgx-geth"), bytes("sgx-reth"))
         );
 

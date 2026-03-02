@@ -41,14 +41,12 @@ contract MainnetVerifier is ComposeVerifier {
         if (_verifiers.length != 2) return false;
 
         if (_verifiers[0] == sgxGethVerifier) {
-            return _verifiers[1] == sgxRethVerifier
-                || _verifiers[1] == risc0RethVerifier
+            return _verifiers[1] == sgxRethVerifier || _verifiers[1] == risc0RethVerifier
                 || _verifiers[1] == sp1RethVerifier;
         }
 
         if (_verifiers[0] == sgxRethVerifier) {
-            return _verifiers[1] == sgxGethVerifier
-                || _verifiers[1] == risc0RethVerifier
+            return _verifiers[1] == sgxGethVerifier || _verifiers[1] == risc0RethVerifier
                 || _verifiers[1] == sp1RethVerifier;
         }
 
