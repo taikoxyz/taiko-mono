@@ -254,17 +254,16 @@ impl NetworkRuntime {
 
         tokio::select! {
             maybe_command = self.command_rx.recv() => {
-                let control = next_loop_control_from_command(maybe_command.as_ref());
-                if matches!(control, NetworkLoopControl::Stop) {
-                    return Ok(NetworkLoopControl::Stop);
+                match maybe_command {
+                    None => Ok(NetworkLoopControl::Stop),
+                    Some(command) => match next_loop_control_from_command(Some(&command)) {
+                        NetworkLoopControl::Stop => Ok(NetworkLoopControl::Stop),
+                        NetworkLoopControl::Continue => {
+                            self.handle_command(command).await?;
+                            Ok(NetworkLoopControl::Continue)
+                        }
+                    },
                 }
-
-                let Some(command) = maybe_command else {
-                    return Ok(NetworkLoopControl::Stop);
-                };
-
-                self.handle_command(command).await?;
-                Ok(NetworkLoopControl::Continue)
             }
             maybe_addr = recv_discovered_multiaddr(&mut self.discovery_rx), if has_discovery => {
                 self.handle_discovery_multiaddr(maybe_addr);
