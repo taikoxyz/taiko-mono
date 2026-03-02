@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.7.0...fork-diff-v0.7.1) (2026-03-02)
+
+
+### Bug Fixes
+
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
 ## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.6.3...fork-diff-v0.7.0) (2025-05-20)
 
 
