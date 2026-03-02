@@ -1,5 +1,3 @@
-use std::io::Read;
-
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,
@@ -7,17 +5,15 @@ use alethia_reth_primitives::payload::{
 use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
-use flate2::read::ZlibDecoder;
 use protocol::shasta::{PAYLOAD_ID_VERSION_V2, payload_id_to_bytes};
 
 use crate::{
     codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
+    tx_list::decompress_tx_list,
 };
 
-use super::{
-    MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, WhitelistPreconfirmationImporter,
-};
+use super::WhitelistPreconfirmationImporter;
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -77,41 +73,4 @@ where
 
         Ok(payload)
     }
-}
-
-/// Decompress a zlib-compressed transaction list.
-fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
-    if bytes.len() > MAX_COMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
-            "compressed tx list exceeds maximum size: {} > {}",
-            bytes.len(),
-            MAX_COMPRESSED_TX_LIST_BYTES
-        )));
-    }
-
-    let decoder = ZlibDecoder::new(bytes);
-    let mut out = Vec::new();
-    let read_cap = MAX_DECOMPRESSED_TX_LIST_BYTES.saturating_add(1) as u64;
-    decoder.take(read_cap).read_to_end(&mut out).map_err(|err| {
-        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-            "failed to decompress tx list from payload",
-            err,
-        )
-    })?;
-
-    if out.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
-            "decompressed tx list exceeds maximum size: {} > {}",
-            out.len(),
-            MAX_DECOMPRESSED_TX_LIST_BYTES
-        )));
-    }
-
-    if out.is_empty() {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload(
-            "decompressed tx list is empty",
-        ));
-    }
-
-    Ok(out)
 }
