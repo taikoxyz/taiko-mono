@@ -10,7 +10,7 @@ use preconfirmation_types::{
 };
 use protocol::preconfirmation::PreconfSlotInfo;
 
-use crate::error::{PreconfirmationClientError, Result};
+use crate::error::{PreconfirmationClientError, Result, ValidationErrorCode};
 
 /// Validate a signed commitment with basic checks and return the recovered signer.
 pub fn validate_commitment_with_signer(
@@ -24,7 +24,10 @@ pub fn validate_commitment_with_signer(
     if let Some(expected) = expected_slasher &&
         &commitment.commitment.slasher_address != expected
     {
-        return Err(PreconfirmationClientError::Validation("slasher address mismatch".to_string()));
+        return Err(PreconfirmationClientError::validation_error(
+            ValidationErrorCode::SignerMismatch,
+            "signer mismatch: recovered signer does not match expected slot signer".to_string(),
+        ));
     }
     Ok(recovered)
 }
@@ -50,7 +53,8 @@ pub fn validate_lookahead(
     if uint256_to_u256(&commitment.commitment.preconf.submission_window_end) !=
         expected_slot_info.submission_window_end
     {
-        return Err(PreconfirmationClientError::Validation(
+        return Err(PreconfirmationClientError::validation_error(
+            ValidationErrorCode::SubmissionWindowExpired,
             "submission_window_end mismatch: commitment window end does not match expected slot end"
                 .to_string(),
         ));

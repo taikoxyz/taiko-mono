@@ -266,14 +266,11 @@ where
             return Ok(());
         };
 
-        let latest_block =
-            self.l1_provider.get_block_by_number(BlockNumberOrTag::Latest).await.map_err(
-                |err| {
-                    WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(
-                        err.to_string(),
-                    ))
-                },
-            )?;
+        let latest_block = self
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .map_err(WhitelistPreconfirmationDriverError::provider)?;
 
         let Some(block) = latest_block else {
             return Ok(());

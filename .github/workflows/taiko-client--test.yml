@@ -23,7 +23,7 @@ jobs:
   lint:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
-    runs-on: [ubuntu-latest]
+    runs-on: [arc-runner-set]
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
@@ -34,6 +34,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Ensure make is available
+        uses: ./.github/actions/ensure-make
+
       - name: Lint
         working-directory: packages/taiko-client
         run: make lint
@@ -41,7 +44,7 @@ jobs:
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests
-    runs-on: [ubuntu-latest]
+    runs-on: [arc-runner-set]
     timeout-minutes: 30
     env:
       OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
@@ -72,6 +75,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Ensure make is available
+        uses: ./.github/actions/ensure-make
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

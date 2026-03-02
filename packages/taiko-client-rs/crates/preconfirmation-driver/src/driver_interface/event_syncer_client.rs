@@ -12,6 +12,8 @@ use driver::{
     sync::{ConfirmedSyncSnapshot, event::EventSyncer},
 };
 use preconfirmation_types::uint256_to_u256;
+use protocol::shasta::constants::min_base_fee_for_chain;
+use tokio::sync::OnceCell;
 use tracing::info;
 
 use crate::{
@@ -106,6 +108,8 @@ where
     inbox: InboxInstance<P>,
     /// L2 provider abstraction used for header/tip lookups.
     l2_provider: Arc<dyn L2Provider + Send + Sync>,
+    /// Cached chain-specific base-fee clamp used when building payload attributes.
+    min_base_fee_to_clamp: OnceCell<u64>,
     /// Poll interval for confirmed-sync checks while waiting for event sync readiness.
     wait_event_sync_poll_interval: Duration,
 }
@@ -122,7 +126,13 @@ where
         l2_provider: Arc<dyn L2Provider + Send + Sync>,
         wait_event_sync_poll_interval: Duration,
     ) -> Self {
-        Self { event_syncer, inbox, l2_provider, wait_event_sync_poll_interval }
+        Self {
+            event_syncer,
+            inbox,
+            l2_provider,
+            min_base_fee_to_clamp: OnceCell::new(),
+            wait_event_sync_poll_interval,
+        }
     }
 
     /// Build a driver client from the provided components.
@@ -137,6 +147,24 @@ where
             l2_provider,
             DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
         )
+    }
+}
+
+impl<E, P> EventSyncerDriverClient<E, P>
+where
+    E: PreconfirmationIngress + 'static,
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Resolve and cache the chain-specific base-fee clamp once per client instance.
+    async fn cached_min_base_fee_to_clamp(&self) -> ClientResult<u64> {
+        let min_base_fee_to_clamp = self
+            .min_base_fee_to_clamp
+            .get_or_try_init(|| async {
+                let chain_id = self.l2_provider.chain_id().await?;
+                Ok::<u64, PreconfirmationClientError>(min_base_fee_for_chain(chain_id))
+            })
+            .await?;
+        Ok(*min_base_fee_to_clamp)
     }
 }
 
@@ -174,10 +202,12 @@ where
         }
 
         let config = self.inbox.getConfig().call().await.map_err(DriverApiError::from)?;
+        let min_base_fee_to_clamp = self.cached_min_base_fee_to_clamp().await?;
         let payload = build_taiko_payload_attributes(
             &input,
             config.basefeeSharingPctg,
             self.l2_provider.as_ref(),
+            min_base_fee_to_clamp,
         )
         .await?;
 
@@ -263,6 +293,10 @@ mod tests {
     impl super::BlockHeaderProvider for StubL2Provider {
         async fn header_by_number(&self, block_number: u64) -> crate::Result<RpcHeader> {
             Err(DriverApiError::MissingBlock { block_number }.into())
+        }
+
+        async fn chain_id(&self) -> crate::Result<u64> {
+            Ok(0)
         }
     }
 
@@ -352,6 +386,10 @@ mod tests {
     impl super::BlockHeaderProvider for NoopL2Provider {
         async fn header_by_number(&self, block_number: u64) -> crate::Result<RpcHeader> {
             Err(DriverApiError::MissingBlock { block_number }.into())
+        }
+
+        async fn chain_id(&self) -> crate::Result<u64> {
+            Ok(0)
         }
     }
 
