@@ -13,11 +13,10 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::NetworkCommand,
+    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
-use super::{
-    MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, WhitelistPreconfirmationImporter,
-};
+use super::WhitelistPreconfirmationImporter;
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
