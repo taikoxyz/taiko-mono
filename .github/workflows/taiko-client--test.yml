@@ -25,6 +25,8 @@ jobs:
     name: Lint
     runs-on: [arc-runner-set]
     timeout-minutes: 5
+    env:
+      CGO_ENABLED: 0
     steps:
       - uses: actions/checkout@v6
 
@@ -34,12 +36,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Ensure make is available
-        uses: ./.github/actions/ensure-make
+      - name: Go mod download
+        run: go mod download
 
       - name: Lint
-        working-directory: packages/taiko-client
-        run: make lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: ./packages/taiko-client
+          args: --timeout=5m --build-tags gofuzz,blst_disabled --config=.golangci.yml ./...
 
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
