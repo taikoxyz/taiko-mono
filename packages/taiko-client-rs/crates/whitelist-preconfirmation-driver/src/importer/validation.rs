@@ -12,9 +12,8 @@ use thiserror::Error;
 use crate::{
     codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
+    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
-
-use super::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES};
 
 /// Validation failures for the first transaction that must be the Shasta anchor call.
 #[derive(Debug, Error)]
