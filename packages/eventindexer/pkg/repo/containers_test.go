@@ -8,7 +8,6 @@ import (
 
 	"github.com/pressly/goose/v3"
 	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -31,7 +30,6 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 			"MYSQL_ROOT_PASSWORD": dbPassword,
 			"MYSQL_DATABASE":      dbName,
 		},
-		WaitingFor: wait.ForListeningPort("3306/tcp").WithStartupTimeout(2 * time.Minute),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
