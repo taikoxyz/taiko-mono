@@ -1066,73 +1066,67 @@ async fn whitelist_network_direct_reqresp_round_trip() {
 
     // Drive peer swarm + send commands + collect response in one select loop
     // so the peer connection stays alive and gets polled continuously.
-    let (response_hash, response_env) = tokio::time::timeout(
-        Duration::from_secs(20),
-        async move {
-            let mut connected = false;
-            let mut responded = false;
-            let mut interval = tokio::time::interval(Duration::from_millis(500));
-            loop {
-                tokio::select! {
-                    event = peer_swarm.select_next_some() => {
-                        match event {
-                            SwarmEvent::ConnectionEstablished { .. } => {
-                                connected = true;
-                            }
-                            SwarmEvent::Behaviour(TestReqRespEvent::Reqresp(
-                                request_response::Event::Message {
-                                    message:
-                                        request_response::Message::Request {
-                                            request: hash,
-                                            channel,
-                                            ..
-                                        },
-                                    ..
-                                },
-                            )) => {
-                                assert_eq!(
-                                    hash, expected_hash,
-                                    "peer should receive the requested hash"
-                                );
-                                peer_swarm
-                                    .behaviour_mut()
-                                    .reqresp
-                                    .send_response(channel, encoded_response.clone())
-                                    .expect("send response");
-                                responded = true;
-                            }
-                            _ => {}
+    let (response_hash, response_env) = tokio::time::timeout(Duration::from_secs(20), async move {
+        let mut connected = false;
+        let mut responded = false;
+        let mut interval = tokio::time::interval(Duration::from_millis(500));
+        loop {
+            tokio::select! {
+                event = peer_swarm.select_next_some() => {
+                    match event {
+                        SwarmEvent::ConnectionEstablished { .. } => {
+                            connected = true;
                         }
-                    }
-                    event = whitelist_network.event_rx.recv() => {
-                        if let Some(NetworkEvent::DirectResponse {
-                            hash,
-                            envelope: Some(env),
-                            ..
-                        }) = event
-                        {
-                            return (hash, env);
+                        SwarmEvent::Behaviour(TestReqRespEvent::Reqresp(
+                            request_response::Event::Message {
+                                message:
+                                    request_response::Message::Request {
+                                        request: hash,
+                                        channel,
+                                        ..
+                                    },
+                                ..
+                            },
+                        )) => {
+                            assert_eq!(
+                                hash, expected_hash,
+                                "peer should receive the requested hash"
+                            );
+                            peer_swarm
+                                .behaviour_mut()
+                                .reqresp
+                                .send_response(channel, encoded_response.clone())
+                                .expect("send response");
+                            responded = true;
                         }
-                    }
-                    _ = interval.tick(), if connected && !responded => {
-                        let _ = command_tx
-                            .send(NetworkCommand::RequestBlock {
-                                hash: expected_hash,
-                            })
-                            .await;
+                        _ => {}
                     }
                 }
+                event = whitelist_network.event_rx.recv() => {
+                    if let Some(NetworkEvent::DirectResponse {
+                        hash,
+                        envelope: Some(env),
+                        ..
+                    }) = event
+                    {
+                        return (hash, env);
+                    }
+                }
+                _ = interval.tick(), if connected && !responded => {
+                    let _ = command_tx
+                        .send(NetworkCommand::RequestBlock {
+                            hash: expected_hash,
+                        })
+                        .await;
+                }
             }
-        },
-    )
+        }
+    })
     .await
     .expect("timed out waiting for direct reqresp round-trip");
 
     assert_eq!(response_hash, expected_hash);
-    assert_eq!(
-        response_env.execution_payload.block_hash,
-        envelope.execution_payload.block_hash
-    );
+    assert_eq!(response_env.execution_payload.block_hash, envelope.execution_payload.block_hash);
     assert_eq!(
         response_env.execution_payload.block_number,
         envelope.execution_payload.block_number

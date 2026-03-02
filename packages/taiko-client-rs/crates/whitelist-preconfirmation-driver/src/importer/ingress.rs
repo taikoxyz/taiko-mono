@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use alloy_primitives::B256;
 use alloy_provider::Provider;
@@ -18,21 +17,6 @@ use super::{
     WhitelistPreconfirmationImporter,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
-
-/// Encode an envelope for a direct response, falling back to an empty `Vec` on error.
-fn encode_or_empty(envelope: &WhitelistExecutionPayloadEnvelope, hash: B256) -> Vec<u8> {
-    match encode_unsafe_response_message(envelope) {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            tracing::warn!(
-                hash = %hash,
-                error = %err,
-                "failed to encode direct response; sending empty"
-            );
-            Vec::new()
-        }
-    }
-}
 
 /// Increment validation failure metrics for the given ingest stage.
 fn record_validation_failure(stage: &'static str) {
@@ -295,12 +279,18 @@ where
         }
         self.direct_request_seen.mark(from, hash, now);
 
-        let response_bytes = match self.lookup_block_for_serving(from, hash, &DIRECT_LOOKUP_LABELS).await? {
-            LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
-                encode_or_empty(&envelope, hash)
-            }
-            LookupResult::NotFound => Vec::new(),
-        };
+        let response_bytes =
+            match self.lookup_block_for_serving(from, hash, &DIRECT_LOOKUP_LABELS).await? {
+                LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
+                    encode_unsafe_response_message(&envelope).map_err(|err| {
+                        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+                            "failed to encode direct response envelope",
+                            err,
+                        )
+                    })?
+                }
+                LookupResult::NotFound => Vec::new(),
+            };
         self.send_direct_response(request_id, response_bytes).await?;
         Ok(())
     }

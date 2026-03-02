@@ -1,6 +1,10 @@
 //! Swarm bootstrap and main network loop orchestration.
 
-use std::{collections::{HashMap, HashSet}, net::SocketAddr, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    net::SocketAddr,
+    sync::Arc,
+};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
@@ -8,8 +12,8 @@ use libp2p::{
     Multiaddr, PeerId, StreamProtocol, Swarm, Transport, core::upgrade, dns, identify, identity,
     noise, ping, request_response, tcp, yamux,
 };
-use rand::seq::IteratorRandom;
 use preconfirmation_net::{P2pConfig, spawn_discovery};
+use rand::seq::IteratorRandom;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
@@ -362,8 +366,7 @@ impl NetworkRuntime {
         // the block is found even if the chosen peer does not have it.
         let peer = self.swarm.connected_peers().choose(&mut rand::thread_rng()).copied();
         if let Some(peer_id) = peer {
-            let request_id =
-                self.swarm.behaviour_mut().reqresp.send_request(&peer_id, hash);
+            let request_id = self.swarm.behaviour_mut().reqresp.send_request(&peer_id, hash);
             self.pending_requests.insert(request_id, hash);
             record_outbound_publish("direct_request", "sent");
         } else {
@@ -409,10 +412,7 @@ impl NetworkRuntime {
             }
         } else {
             record_outbound_publish("direct_response", "channel_missing");
-            warn!(
-                ?request_id,
-                "no response channel found for direct response"
-            );
+            warn!(?request_id, "no response channel found for direct response");
         }
     }
 

@@ -13,8 +13,10 @@ use crate::{
     cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, SharedPreconfCacheState},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
-    network::{NetworkCommand, NetworkEvent},
-    network::inbound::{PeerHashTracker, RateLimiter},
+    network::{
+        NetworkCommand, NetworkEvent,
+        inbound::{PeerHashTracker, RateLimiter},
+    },
     whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
@@ -264,9 +266,7 @@ where
                     // (errors come from lookup_block_for_serving or send_direct_response).
                     // Send an empty response so the peer gets a prompt "not found"
                     // rather than waiting for the protocol timeout.
-                    if let Err(send_err) =
-                        self.send_direct_response(request_id, Vec::new()).await
-                    {
+                    if let Err(send_err) = self.send_direct_response(request_id, Vec::new()).await {
                         warn!(
                             peer = %from,
                             ?request_id,

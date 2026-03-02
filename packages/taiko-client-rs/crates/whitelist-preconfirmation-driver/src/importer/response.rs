@@ -123,8 +123,7 @@ where
     /// Request a block via both gossip and a direct req/resp to a connected peer.
     /// Gossip is always published; the direct request is an optimistic fast-path.
     pub(super) async fn request_block(&self, hash: B256) {
-        if let Err(err) =
-            self.network_command_tx.send(NetworkCommand::RequestBlock { hash }).await
+        if let Err(err) = self.network_command_tx.send(NetworkCommand::RequestBlock { hash }).await
         {
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
