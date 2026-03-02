@@ -155,14 +155,6 @@ fn init_discovery_receiver(
     }
 }
 
-/// Determine whether runtime should continue after receiving a command channel item.
-fn should_continue_from_command(maybe_command: Option<&NetworkCommand>) -> bool {
-    match maybe_command {
-        None | Some(NetworkCommand::Shutdown) => false,
-        Some(_) => true,
-    }
-}
-
 /// Runtime state machine that owns networking resources and processes loop inputs.
 struct NetworkRuntime {
     /// Live libp2p swarm.
@@ -183,52 +175,7 @@ struct NetworkRuntime {
     local_peer_id_for_events: PeerId,
 }
 
-/// Parameter bundle used to construct [`NetworkRuntime`] without argument sprawl.
-struct NetworkRuntimeParams {
-    /// Live libp2p swarm.
-    swarm: Swarm<Behaviour>,
-    /// Topic bundle used for outbound publishing and inbound routing.
-    topics: Topics,
-    /// Channel used to forward validated network events to the importer.
-    event_tx: mpsc::Sender<NetworkEvent>,
-    /// Channel receiving outbound publish commands from higher-level components.
-    command_rx: mpsc::Receiver<NetworkCommand>,
-    /// Optional discovery stream for ENR-derived dial candidates.
-    discovery_rx: Option<mpsc::Receiver<Multiaddr>>,
-    /// Set of addresses already dialed to avoid redundant dial attempts.
-    dialed_addrs: HashSet<Multiaddr>,
-    /// Inbound validation and dedupe state for gossipsub messages.
-    inbound_validation_state: GossipsubInboundState,
-    /// Local peer id used by loopback payload events.
-    local_peer_id_for_events: PeerId,
-}
-
 impl NetworkRuntime {
-    /// Construct a runtime from initialized networking components.
-    fn new(params: NetworkRuntimeParams) -> Self {
-        let NetworkRuntimeParams {
-            swarm,
-            topics,
-            event_tx,
-            command_rx,
-            discovery_rx,
-            dialed_addrs,
-            inbound_validation_state,
-            local_peer_id_for_events,
-        } = params;
-
-        Self {
-            swarm,
-            topics,
-            event_tx,
-            command_rx,
-            discovery_rx,
-            dialed_addrs,
-            inbound_validation_state,
-            local_peer_id_for_events,
-        }
-    }
-
     /// Run the network runtime loop until an explicit shutdown signal or channel closure.
     async fn run(mut self) -> Result<()> {
         while self.run_once().await? {}
@@ -244,14 +191,11 @@ impl NetworkRuntime {
             maybe_command = self.command_rx.recv() => {
                 match maybe_command {
                     None => Ok(false),
+                    Some(NetworkCommand::Shutdown) => Ok(false),
                     Some(command) => {
-                        if should_continue_from_command(Some(&command)) {
-                            self.handle_command(command).await?;
-                            Ok(true)
-                        } else {
-                            Ok(false)
-                        }
-                    }
+                        self.handle_command(command).await?;
+                        Ok(true)
+                    },
                 }
             }
             maybe_addr = recv_discovered_multiaddr(&mut self.discovery_rx), if has_discovery => {
@@ -281,8 +225,7 @@ impl NetworkRuntime {
                 self.publish_end_of_sequencing_request(epoch);
             }
             NetworkCommand::Shutdown => {
-                // Shutdown is handled at the select branch level via
-                // `next_loop_control_from_command`.
+                // Shutdown is handled in `run_once`.
             }
         }
 
@@ -495,7 +438,7 @@ impl WhitelistNetwork {
             allow_all_sequencers,
         );
 
-        let runtime = NetworkRuntime::new(NetworkRuntimeParams {
+        let runtime = NetworkRuntime {
             swarm,
             topics,
             event_tx,
@@ -504,33 +447,10 @@ impl WhitelistNetwork {
             dialed_addrs,
             inbound_validation_state,
             local_peer_id_for_events: local_peer_id,
-        });
+        };
 
         let handle = tokio::spawn(async move { runtime.run().await });
 
         Ok(Self { local_peer_id, event_rx, command_tx, handle })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::should_continue_from_command;
-    use crate::network::NetworkCommand;
-
-    #[test]
-    fn closed_command_channel_requests_runtime_stop() {
-        assert!(!should_continue_from_command(None));
-    }
-
-    #[test]
-    fn shutdown_command_requests_runtime_stop() {
-        assert!(!should_continue_from_command(Some(&NetworkCommand::Shutdown)));
-    }
-
-    #[test]
-    fn publish_command_requests_runtime_continue() {
-        assert!(should_continue_from_command(Some(&NetworkCommand::PublishUnsafeRequest {
-            hash: alloy_primitives::B256::ZERO,
-        },)));
     }
 }
