@@ -14,7 +14,7 @@ use tracing::{debug, warn};
 
 use super::{
     bootnodes::{classify_bootnodes, dial_once, recv_discovered_multiaddr},
-    event_loop::{forward_event, handle_swarm_event as process_swarm_event},
+    event_loop::{forward_event, handle_swarm_event},
     gossip::build_gossipsub,
     inbound::GossipsubInboundState,
     types::{Behaviour, BehaviourEvent, NetworkCommand, NetworkEvent, Topics, WhitelistNetwork},
@@ -443,7 +443,7 @@ impl NetworkRuntime {
         &mut self,
         event: libp2p::swarm::SwarmEvent<BehaviourEvent>,
     ) -> Result<()> {
-        process_swarm_event(
+        handle_swarm_event(
             event,
             &self.topics,
             &self.event_tx,
