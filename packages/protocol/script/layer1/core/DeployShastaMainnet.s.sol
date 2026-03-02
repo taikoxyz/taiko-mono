@@ -29,8 +29,8 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.sp1PlonkVerifier = 0xcdCEBD75cDcb9DEd637D537776431Db563Ff0821;
 
         config.activator = 0xF14Dc4EdDb43e9a6A440e6beC97ea2ea64f39Ef7;
-        config.ejectorManager = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
-        config.proverManager = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
+        config.ejectorManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
+        config.proverManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
         config.provers = new address[](1);
         config.provers[0] = 0xa5cb34B75bD72f15290ef37A01F06183E8036875; // We can add new provers later using the prover manager role
         config.shastaForkTimestamp = 1_774_530_900; // 2026-03-26 13:15:00 UTC
