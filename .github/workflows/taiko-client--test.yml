@@ -42,7 +42,7 @@ jobs:
       - name: Ensure build-essential is installed
         run: |
           set -euo pipefail
-          if [ "${RUNNER_DEBUG}" = "1" ]; then set -x; fi
+          if [ "${RUNNER_DEBUG:-}" = "1" ]; then set -x; fi
 
           if command -v gcc >/dev/null 2>&1 && \
              command -v g++ >/dev/null 2>&1 && \
