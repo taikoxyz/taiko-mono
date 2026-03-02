@@ -47,7 +47,10 @@ func testMysql(t *testing.T) (db.DB, func(), error) {
 	}
 
 	closeContainer := func() {
-		err := mysqlC.Terminate(ctx)
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer stopCancel()
+
+		err := mysqlC.Terminate(stopCtx)
 		if err != nil {
 			t.Fatal(err)
 		}
