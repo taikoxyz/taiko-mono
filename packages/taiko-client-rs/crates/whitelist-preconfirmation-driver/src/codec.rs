@@ -8,88 +8,6 @@ use ssz::{Decode, Encode};
 
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
 
-/// Protocol identifier for the direct request/response protocol.
-pub(crate) const WHITELIST_REQRESP_PROTOCOL: &str = "/taiko/whitelist-preconf/req/1";
-
-/// Maximum response size (same as gossip limit).
-const MAX_REQRESP_RESPONSE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
-
-/// Codec for the direct request/response protocol.
-///
-/// Request: 32-byte block hash (raw `B256`).
-/// Response: Snappy-compressed SSZ envelope (same encoding as gossip `responsePreconfBlocks`).
-/// Empty response = block not found.
-#[derive(Debug, Clone, Default)]
-pub(crate) struct WhitelistReqRespCodec;
-
-#[async_trait]
-impl libp2p::request_response::Codec for WhitelistReqRespCodec {
-    type Protocol = libp2p::StreamProtocol;
-    type Request = B256;
-    type Response = Vec<u8>;
-
-    async fn read_request<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> std::io::Result<Self::Request>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        let mut buf = [0u8; 32];
-        io.read_exact(&mut buf).await?;
-        Ok(B256::from(buf))
-    }
-
-    async fn read_response<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> std::io::Result<Self::Response>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        let mut buf = Vec::new();
-        // Read one extra byte beyond the limit so we can detect oversized responses.
-        io.take(MAX_REQRESP_RESPONSE_BYTES as u64 + 1).read_to_end(&mut buf).await?;
-        if buf.len() > MAX_REQRESP_RESPONSE_BYTES {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "direct response exceeds maximum allowed size",
-            ));
-        }
-        Ok(buf)
-    }
-
-    async fn write_request<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-        req: Self::Request,
-    ) -> std::io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        io.write_all(req.as_slice()).await?;
-        io.close().await?;
-        Ok(())
-    }
-
-    async fn write_response<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-        res: Self::Response,
-    ) -> std::io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        io.write_all(&res).await?;
-        io.close().await?;
-        Ok(())
-    }
-}
-
 /// Size, in bytes, of secp256k1 signatures carried on the wire.
 const SIGNATURE_LEN: usize = 65;
 /// Envelope header length (`2 flag bytes + 32-byte parent beacon root`).
@@ -325,6 +243,96 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
         execution_payload,
         signature,
     })
+}
+
+/// Protocol identifier for the direct request/response protocol.
+pub(crate) const WHITELIST_REQRESP_PROTOCOL: &str = "/taiko/whitelist-preconf/req/1";
+
+/// Maximum response size (same as gossip limit).
+const MAX_REQRESP_RESPONSE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
+
+/// Codec for the direct request/response protocol.
+///
+/// Request: 32-byte block hash (raw `B256`).
+/// Response: Snappy-compressed SSZ envelope (same encoding as gossip `responsePreconfBlocks`).
+/// Empty response = block not found.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct WhitelistReqRespCodec;
+
+#[async_trait]
+impl libp2p::request_response::Codec for WhitelistReqRespCodec {
+    type Protocol = libp2p::StreamProtocol;
+    type Request = B256;
+    type Response = Vec<u8>;
+
+    async fn read_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Request>
+    where
+        T: AsyncRead + Unpin + Send,
+    {
+        let mut buf = [0u8; 32];
+        io.read_exact(&mut buf).await?;
+        // Reject trailing data: a well-formed request is exactly 32 bytes.
+        let mut trail = [0u8; 1];
+        if io.read(&mut trail).await? > 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "direct request contains trailing data after 32-byte hash",
+            ));
+        }
+        Ok(B256::from(buf))
+    }
+
+    async fn read_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Response>
+    where
+        T: AsyncRead + Unpin + Send,
+    {
+        let mut buf = Vec::new();
+        // Read one extra byte beyond the limit so we can detect oversized responses.
+        io.take(MAX_REQRESP_RESPONSE_BYTES as u64 + 1).read_to_end(&mut buf).await?;
+        if buf.len() > MAX_REQRESP_RESPONSE_BYTES {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "direct response exceeds maximum allowed size",
+            ));
+        }
+        Ok(buf)
+    }
+
+    async fn write_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        req: Self::Request,
+    ) -> std::io::Result<()>
+    where
+        T: AsyncWrite + Unpin + Send,
+    {
+        io.write_all(req.as_slice()).await?;
+        io.close().await?;
+        Ok(())
+    }
+
+    async fn write_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        res: Self::Response,
+    ) -> std::io::Result<()>
+    where
+        T: AsyncWrite + Unpin + Send,
+    {
+        io.write_all(&res).await?;
+        io.close().await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

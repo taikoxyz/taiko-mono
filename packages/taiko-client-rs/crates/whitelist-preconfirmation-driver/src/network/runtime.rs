@@ -1,10 +1,12 @@
 //! Swarm bootstrap and main network loop orchestration.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use futures::StreamExt;
+use rand::seq::IteratorRandom;
 use libp2p::{
-    Multiaddr, Swarm, Transport, core::upgrade, dns, identify, identity, noise, ping, tcp, yamux,
+    Multiaddr, StreamProtocol, Swarm, Transport, core::upgrade, dns, identify, identity, noise,
+    ping, request_response, tcp, yamux,
 };
 use preconfirmation_net::{P2pConfig, spawn_discovery};
 use tokio::sync::mpsc;
@@ -19,8 +21,8 @@ use super::{
 };
 use crate::{
     codec::{
-        DecodedUnsafePayload, encode_envelope_ssz, encode_eos_request_message,
-        encode_unsafe_payload_message, encode_unsafe_request_message,
+        DecodedUnsafePayload, WHITELIST_REQRESP_PROTOCOL, encode_envelope_ssz,
+        encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
@@ -63,8 +65,17 @@ impl WhitelistNetwork {
             .subscribe(&topics.eos_request)
             .map_err(WhitelistPreconfirmationDriverError::p2p)?;
 
+        let reqresp = request_response::Behaviour::new(
+            [(
+                StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL),
+                request_response::ProtocolSupport::Full,
+            )],
+            request_response::Config::default(),
+        );
+
         let behaviour = Behaviour {
             gossipsub,
+            reqresp,
             ping: ping::Behaviour::new(ping::Config::new()),
             identify: identify::Behaviour::new(identify::Config::new(
                 "/taiko/whitelist-preconfirmation/1.0.0".to_string(),
@@ -146,6 +157,15 @@ impl WhitelistNetwork {
                 cfg.allow_all_sequencers,
             );
 
+            // Stash response channels so `SendDirectResponse` can look them up.
+            let mut response_channels: HashMap<
+                request_response::InboundRequestId,
+                request_response::ResponseChannel<Vec<u8>>,
+            > = HashMap::new();
+            // Track pending outbound requests so we can map response IDs back to block hashes.
+            let mut pending_requests: HashMap<request_response::OutboundRequestId, alloy_primitives::B256> =
+                HashMap::new();
+
             loop {
                 let has_discovery = discovery_rx.is_some();
 
@@ -155,26 +175,6 @@ impl WhitelistNetwork {
                             return Ok(());
                         };
                         match command {
-                            NetworkCommand::PublishUnsafeRequest { hash } => {
-                                let payload = encode_unsafe_request_message(hash);
-                                if let Err(err) = swarm
-                                    .behaviour_mut()
-                                    .gossipsub
-                                    .publish(topics.preconf_request.clone(), payload)
-                                {
-                                    record_outbound_publish(
-                                        "request_preconf_blocks",
-                                        "publish_failed",
-                                    );
-                                    warn!(
-                                        hash = %hash,
-                                        error = %err,
-                                        "failed to publish whitelist preconfirmation request"
-                                    );
-                                } else {
-                                    record_outbound_publish("request_preconf_blocks", "published");
-                                }
-                            }
                             NetworkCommand::PublishUnsafeResponse { envelope } => {
                                 let hash = envelope.execution_payload.block_hash;
                                 match encode_unsafe_response_message(&envelope) {
@@ -283,6 +283,67 @@ impl WhitelistNetwork {
                                     );
                                 }
                             }
+                            NetworkCommand::RequestBlock { hash } => {
+                                // Pick a random connected peer for the optimistic direct
+                                // request.  Randomization avoids always hammering the same
+                                // peer when there are multiple connections.  The gossip
+                                // fallback published below ensures the block is found even
+                                // if the chosen peer does not have it.
+                                let peer = swarm.connected_peers().choose(&mut rand::thread_rng()).copied();
+                                if let Some(peer_id) = peer {
+                                    let request_id = swarm
+                                        .behaviour_mut()
+                                        .reqresp
+                                        .send_request(&peer_id, hash);
+                                    pending_requests.insert(request_id, hash);
+                                    record_outbound_publish("direct_request", "sent");
+                                } else {
+                                    record_outbound_publish("direct_request", "no_peers");
+                                }
+                                // Also publish the request via gossip as a fallback.
+                                let payload = encode_unsafe_request_message(hash);
+                                if let Err(err) = swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .publish(topics.preconf_request.clone(), payload)
+                                {
+                                    record_outbound_publish(
+                                        "request_preconf_blocks",
+                                        "publish_failed",
+                                    );
+                                    warn!(
+                                        hash = %hash,
+                                        error = %err,
+                                        "failed to publish gossip fallback for direct block request"
+                                    );
+                                } else {
+                                    record_outbound_publish("request_preconf_blocks", "published");
+                                }
+                            }
+                            NetworkCommand::SendDirectResponse { request_id, response_bytes } => {
+                                if let Some(channel) = response_channels.remove(&request_id) {
+                                    if let Err(response_bytes) = swarm
+                                        .behaviour_mut()
+                                        .reqresp
+                                        .send_response(channel, response_bytes)
+                                    {
+                                        record_outbound_publish("direct_response", "send_failed");
+                                        warn!(
+                                            ?request_id,
+                                            len = response_bytes.len(),
+                                            "failed to send direct response (channel closed)"
+                                        );
+                                    } else {
+                                        record_outbound_publish("direct_response", "sent");
+                                    }
+                                } else {
+                                    record_outbound_publish("direct_response", "channel_missing");
+                                    warn!(
+                                        ?request_id,
+                                        "no response channel found for direct response"
+                                    );
+                                }
+                            }
                             NetworkCommand::Shutdown => {
                                 return Ok(());
                             }
@@ -306,6 +367,8 @@ impl WhitelistNetwork {
                             &event_tx,
                             &mut inbound_validation_state,
                             &mut swarm,
+                            &mut response_channels,
+                            &mut pending_requests,
                         )
                         .await?;
                     }

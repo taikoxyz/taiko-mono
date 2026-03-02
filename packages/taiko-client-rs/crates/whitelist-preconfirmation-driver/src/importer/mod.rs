@@ -14,6 +14,7 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
+    network::inbound::{PeerHashTracker, RateLimiter},
     whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
@@ -85,6 +86,10 @@ where
     recent_cache: RecentEnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
+    /// Per-peer rate limiter for inbound direct req/resp requests.
+    direct_request_rate: RateLimiter,
+    /// Per-(peer, hash) dedup tracker for inbound direct req/resp requests.
+    direct_request_seen: PeerHashTracker,
     /// Shared sequencer fetcher for whitelist validation and epoch cache management.
     sequencer_fetcher: WhitelistSequencerFetcher<P>,
     /// Command channel used to publish P2P requests/responses.
@@ -126,6 +131,8 @@ where
             cache: EnvelopeCache::default(),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
+            direct_request_rate: RateLimiter::default(),
+            direct_request_seen: PeerHashTracker::default(),
             sequencer_fetcher,
             network_command_tx,
             highest_unsafe_l2_payload_block_id,
@@ -260,9 +267,20 @@ where
                         error = %err,
                         "failed to handle direct block request"
                     );
-                    // Send empty response so the peer gets a prompt "not found"
-                    // rather than waiting for the 10s protocol timeout.
-                    self.send_direct_response(request_id, Vec::new()).await;
+                    // If handle_direct_request returns Err, no response was sent yet
+                    // (errors come from lookup_block_for_serving or send_direct_response).
+                    // Send an empty response so the peer gets a prompt "not found"
+                    // rather than waiting for the protocol timeout.
+                    if let Err(send_err) =
+                        self.send_direct_response(request_id, Vec::new()).await
+                    {
+                        warn!(
+                            peer = %from,
+                            ?request_id,
+                            error = %send_err,
+                            "failed to send empty direct response after request error"
+                        );
+                    }
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
                         "event_type" => "direct_request",

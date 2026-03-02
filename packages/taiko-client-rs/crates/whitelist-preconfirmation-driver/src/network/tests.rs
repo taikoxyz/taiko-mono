@@ -607,7 +607,7 @@ async fn whitelist_network_publishes_anonymous_preconf_request() {
                 }
                 _ = interval.tick(), if subscribed => {
                     command_tx
-                        .send(NetworkCommand::PublishUnsafeRequest {
+                        .send(NetworkCommand::RequestBlock {
                             hash: expected_hash,
                         })
                         .await
@@ -925,6 +925,220 @@ async fn whitelist_network_receives_anonymous_preconf_request() {
     assert_eq!(received_hash, B256::from([0x11u8; 32]));
 
     publish_task.abort();
+    let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
+    let _ = whitelist_network.handle.await;
+}
+
+#[tokio::test]
+async fn whitelist_network_direct_reqresp_round_trip() {
+    use libp2p::{StreamProtocol, request_response};
+
+    use crate::codec::{
+        WHITELIST_REQRESP_PROTOCOL, WhitelistReqRespCodec, encode_unsafe_response_message,
+    };
+
+    /// Test-only swarm behaviour including gossipsub and reqresp protocols.
+    #[derive(NetworkBehaviour)]
+    #[behaviour(to_swarm = "TestReqRespEvent")]
+    struct TestReqRespBehaviour {
+        /// Gossipsub behaviour (needed so topic subscriptions are exchanged).
+        gossipsub: gossipsub::Behaviour,
+        /// Direct request/response protocol matching production.
+        reqresp: request_response::Behaviour<WhitelistReqRespCodec>,
+        /// Ping protocol for liveness.
+        ping: ping::Behaviour,
+        /// Identify protocol for peer metadata exchange.
+        identify: identify::Behaviour,
+    }
+
+    /// Event wrapper for the test-only behaviour.
+    #[derive(Debug)]
+    enum TestReqRespEvent {
+        /// Wrapped gossipsub event (payload unused — only reqresp events are inspected).
+        Gossipsub,
+        /// Direct req/resp event.
+        Reqresp(request_response::Event<B256, Vec<u8>>),
+        /// Ping event marker.
+        Ping,
+        /// Identify event marker.
+        Identify,
+    }
+
+    impl From<gossipsub::Event> for TestReqRespEvent {
+        fn from(_: gossipsub::Event) -> Self {
+            Self::Gossipsub
+        }
+    }
+
+    impl From<request_response::Event<B256, Vec<u8>>> for TestReqRespEvent {
+        fn from(value: request_response::Event<B256, Vec<u8>>) -> Self {
+            Self::Reqresp(value)
+        }
+    }
+
+    impl From<ping::Event> for TestReqRespEvent {
+        fn from(_: ping::Event) -> Self {
+            Self::Ping
+        }
+    }
+
+    impl From<identify::Event> for TestReqRespEvent {
+        fn from(_: identify::Event) -> Self {
+            Self::Identify
+        }
+    }
+
+    let chain_id = 167_000;
+    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+    let signer_address = signer.address();
+    let envelope = sample_signed_response_envelope(chain_id, &signer);
+    let expected_hash = envelope.execution_payload.block_hash;
+    let encoded_response =
+        encode_unsafe_response_message(&envelope).expect("encode response for test");
+
+    // Build peer swarm with reqresp support.
+    let key = identity::Keypair::generate_ed25519();
+    let peer_id = key.public().to_peer_id();
+    let noise_config = noise::Config::new(&key).expect("noise config");
+
+    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+        .upgrade(upgrade::Version::V1Lazy)
+        .authenticate(noise_config)
+        .multiplex(yamux::Config::default())
+        .boxed();
+
+    let mut gs = build_gossipsub().expect("gossipsub config");
+    let request_topic =
+        gossipsub::IdentTopic::new(format!("/taiko/{chain_id}/0/requestPreconfBlocks"));
+    gs.subscribe(&request_topic).expect("topic subscribe");
+
+    let reqresp = request_response::Behaviour::new(
+        [(
+            StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL),
+            request_response::ProtocolSupport::Full,
+        )],
+        request_response::Config::default(),
+    );
+
+    let behaviour = TestReqRespBehaviour {
+        gossipsub: gs,
+        reqresp,
+        ping: ping::Behaviour::new(ping::Config::new()),
+        identify: identify::Behaviour::new(identify::Config::new(
+            "/taiko/whitelist-preconfirmation-test/1.0.0".to_string(),
+            key.public(),
+        )),
+    };
+
+    let mut peer_swarm = libp2p::Swarm::new(
+        transport,
+        behaviour,
+        peer_id,
+        libp2p::swarm::Config::with_tokio_executor(),
+    );
+
+    peer_swarm
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().expect("listen addr"))
+        .expect("listen should succeed");
+
+    let external_addr = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+            break address;
+        }
+    };
+
+    let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
+
+    // Spawn WhitelistNetwork with the signer allowlisted so validation passes.
+    let cfg = P2pConfig {
+        chain_id,
+        enable_discovery: false,
+        enable_tcp: true,
+        listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+        pre_dial_peers: vec![dial_addr],
+        sequencer_addresses: vec![signer_address],
+        ..Default::default()
+    };
+
+    let mut whitelist_network =
+        WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
+    let command_tx = whitelist_network.command_tx.clone();
+
+    // Drive peer swarm + send commands + collect response in one select loop
+    // so the peer connection stays alive and gets polled continuously.
+    let (response_hash, response_env) = tokio::time::timeout(
+        Duration::from_secs(20),
+        async move {
+            let mut connected = false;
+            let mut responded = false;
+            let mut interval = tokio::time::interval(Duration::from_millis(500));
+            loop {
+                tokio::select! {
+                    event = peer_swarm.select_next_some() => {
+                        match event {
+                            SwarmEvent::ConnectionEstablished { .. } => {
+                                connected = true;
+                            }
+                            SwarmEvent::Behaviour(TestReqRespEvent::Reqresp(
+                                request_response::Event::Message {
+                                    message:
+                                        request_response::Message::Request {
+                                            request: hash,
+                                            channel,
+                                            ..
+                                        },
+                                    ..
+                                },
+                            )) => {
+                                assert_eq!(
+                                    hash, expected_hash,
+                                    "peer should receive the requested hash"
+                                );
+                                peer_swarm
+                                    .behaviour_mut()
+                                    .reqresp
+                                    .send_response(channel, encoded_response.clone())
+                                    .expect("send response");
+                                responded = true;
+                            }
+                            _ => {}
+                        }
+                    }
+                    event = whitelist_network.event_rx.recv() => {
+                        if let Some(NetworkEvent::DirectResponse {
+                            hash,
+                            envelope: Some(env),
+                            ..
+                        }) = event
+                        {
+                            return (hash, env);
+                        }
+                    }
+                    _ = interval.tick(), if connected && !responded => {
+                        let _ = command_tx
+                            .send(NetworkCommand::RequestBlock {
+                                hash: expected_hash,
+                            })
+                            .await;
+                    }
+                }
+            }
+        },
+    )
+    .await
+    .expect("timed out waiting for direct reqresp round-trip");
+
+    assert_eq!(response_hash, expected_hash);
+    assert_eq!(
+        response_env.execution_payload.block_hash,
+        envelope.execution_payload.block_hash
+    );
+    assert_eq!(
+        response_env.execution_payload.block_number,
+        envelope.execution_payload.block_number
+    );
+    assert_eq!(response_env.signature, envelope.signature);
+
     let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
     let _ = whitelist_network.handle.await;
 }

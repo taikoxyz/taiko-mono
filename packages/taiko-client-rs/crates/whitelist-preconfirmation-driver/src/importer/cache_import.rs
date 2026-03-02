@@ -152,7 +152,7 @@ where
                     "result" => "issued",
                 )
                 .increment(1);
-                self.request_block_direct(parent_hash).await;
+                self.request_block(parent_hash).await;
             } else {
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,

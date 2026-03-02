@@ -109,6 +109,35 @@ impl WindowedHashTracker {
 }
 
 #[derive(Debug, Default)]
+/// Per-(peer, hash) dedup tracker for direct request serving.
+///
+/// Keyed by `(PeerId, B256)` so that a request from one peer does not
+/// suppress valid concurrent requests for the same hash from other peers.
+pub(crate) struct PeerHashTracker {
+    /// Last seen timestamps for each (peer, hash) pair.
+    seen: LinkedHashMap<(PeerId, B256), Instant>,
+}
+
+impl PeerHashTracker {
+    /// Returns true when this (peer, hash) pair was already seen inside the window.
+    pub(crate) fn is_seen(&mut self, peer: PeerId, hash: B256, now: Instant) -> bool {
+        self.seen
+            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
+        self.seen.contains_key(&(peer, hash))
+    }
+
+    /// Record a (peer, hash) pair as seen at the given instant.
+    pub(crate) fn mark(&mut self, peer: PeerId, hash: B256, now: Instant) {
+        self.seen.remove(&(peer, hash));
+        self.seen.insert((peer, hash), now);
+
+        while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
+            self.seen.pop_front();
+        }
+    }
+}
+
+#[derive(Debug, Default)]
 /// Height-window tracker for deduping payload hash per block height.
 pub(crate) struct HeightSeenTracker {
     /// Seen hashes keyed by block height.
@@ -308,10 +337,7 @@ impl GossipsubInboundState {
         &mut self,
         payload: &DecodedUnsafePayload,
     ) -> gossipsub::MessageAcceptance {
-        if payload.envelope.execution_payload.transactions.is_empty() ||
-            payload.envelope.execution_payload.fee_recipient == Address::ZERO ||
-            payload.envelope.execution_payload.block_number == 0
-        {
+        if !Self::validate_response_shape(&payload.envelope) {
             return gossipsub::MessageAcceptance::Reject;
         }
 
