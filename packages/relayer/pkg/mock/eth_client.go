@@ -170,6 +170,10 @@ func (c *EthClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) 
 	return nil, nil
 }
 
-func (c *EthClient) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+func (c *EthClient) SubscribeFilterLogs(
+	ctx context.Context,
+	query ethereum.FilterQuery,
+	ch chan<- types.Log,
+) (ethereum.Subscription, error) {
 	return nil, nil
 }

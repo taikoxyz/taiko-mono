@@ -1,6 +1,6 @@
 module github.com/taikoxyz/taiko-mono
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.6

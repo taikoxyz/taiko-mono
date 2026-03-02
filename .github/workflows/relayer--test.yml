@@ -33,6 +33,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: go mod download
+        run: go mod download
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
