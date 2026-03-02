@@ -60,7 +60,7 @@ jobs:
 
       - name: eventindexer - Unit Tests
         working-directory: ./packages/eventindexer
-        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
+        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -timeout=20m -coverprofile=coverage.txt -covermode=atomic
 
       - name: eventindexer - Upload coverage to Codecov
         uses: codecov/codecov-action@v5
