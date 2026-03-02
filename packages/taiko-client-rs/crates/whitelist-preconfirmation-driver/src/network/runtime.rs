@@ -155,20 +155,11 @@ fn init_discovery_receiver(
     }
 }
 
-/// Control signal indicating whether the runtime loop should keep running.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum NetworkLoopControl {
-    /// Continue polling network inputs.
-    Continue,
-    /// Stop the loop and exit the network task.
-    Stop,
-}
-
-/// Determine runtime loop control from a received command channel item.
-fn next_loop_control_from_command(maybe_command: Option<&NetworkCommand>) -> NetworkLoopControl {
+/// Determine whether runtime should continue after receiving a command channel item.
+fn should_continue_from_command(maybe_command: Option<&NetworkCommand>) -> bool {
     match maybe_command {
-        None | Some(NetworkCommand::Shutdown) => NetworkLoopControl::Stop,
-        Some(_) => NetworkLoopControl::Continue,
+        None | Some(NetworkCommand::Shutdown) => false,
+        Some(_) => true,
     }
 }
 
@@ -240,38 +231,36 @@ impl NetworkRuntime {
 
     /// Run the network runtime loop until an explicit shutdown signal or channel closure.
     async fn run(mut self) -> Result<()> {
-        loop {
-            match self.run_once().await? {
-                NetworkLoopControl::Continue => continue,
-                NetworkLoopControl::Stop => return Ok(()),
-            }
-        }
+        while self.run_once().await? {}
+
+        Ok(())
     }
 
     /// Process one input event from command, discovery, or swarm.
-    async fn run_once(&mut self) -> Result<NetworkLoopControl> {
+    async fn run_once(&mut self) -> Result<bool> {
         let has_discovery = self.discovery_rx.is_some();
 
         tokio::select! {
             maybe_command = self.command_rx.recv() => {
                 match maybe_command {
-                    None => Ok(NetworkLoopControl::Stop),
-                    Some(command) => match next_loop_control_from_command(Some(&command)) {
-                        NetworkLoopControl::Stop => Ok(NetworkLoopControl::Stop),
-                        NetworkLoopControl::Continue => {
+                    None => Ok(false),
+                    Some(command) => {
+                        if should_continue_from_command(Some(&command)) {
                             self.handle_command(command).await?;
-                            Ok(NetworkLoopControl::Continue)
+                            Ok(true)
+                        } else {
+                            Ok(false)
                         }
-                    },
+                    }
                 }
             }
             maybe_addr = recv_discovered_multiaddr(&mut self.discovery_rx), if has_discovery => {
                 self.handle_discovery_multiaddr(maybe_addr);
-                Ok(NetworkLoopControl::Continue)
+                Ok(true)
             }
             event = self.swarm.select_next_some() => {
                 self.handle_swarm_event(event).await?;
-                Ok(NetworkLoopControl::Continue)
+                Ok(true)
             }
         }
     }
@@ -525,18 +514,23 @@ impl WhitelistNetwork {
 
 #[cfg(test)]
 mod tests {
-    use super::{NetworkLoopControl, next_loop_control_from_command};
+    use super::should_continue_from_command;
     use crate::network::NetworkCommand;
 
     #[test]
     fn closed_command_channel_requests_runtime_stop() {
-        let control = next_loop_control_from_command(None);
-        assert!(matches!(control, NetworkLoopControl::Stop));
+        assert!(!should_continue_from_command(None));
     }
 
     #[test]
     fn shutdown_command_requests_runtime_stop() {
-        let control = next_loop_control_from_command(Some(&NetworkCommand::Shutdown));
-        assert!(matches!(control, NetworkLoopControl::Stop));
+        assert!(!should_continue_from_command(Some(&NetworkCommand::Shutdown)));
+    }
+
+    #[test]
+    fn publish_command_requests_runtime_continue() {
+        assert!(should_continue_from_command(Some(&NetworkCommand::PublishUnsafeRequest {
+            hash: alloy_primitives::B256::ZERO,
+        },)));
     }
 }
