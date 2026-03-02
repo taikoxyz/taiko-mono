@@ -409,11 +409,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 					relayer.MessageStatusChangedEventsAfterRetryErrorCount.Inc()
 				}
 
-				if i.signalService != nil {
-					if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
-						slog.Error("i.indexCheckpointSavedEvents", "error", err)
-						relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
-					}
+				if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
+					slog.Error("i.indexCheckpointSavedEvents", "error", err)
+					relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
 				}
 			}
 		case relayer.EventNameMessageProcessed:
@@ -586,10 +584,6 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	if i.signalService == nil {
-		return nil
-	}
-
 	slog.Info("indexing checkpointSaved events")
 
 	checkpointEvents, err := i.signalService.FilterCheckpointSaved(

@@ -2,20 +2,31 @@ package indexer
 
 import (
 	"context"
+	"log"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 )
 
 func newTestService(syncMode SyncMode, watchMode WatchMode) (*Indexer, relayer.Bridge) {
 	b := &mock.Bridge{}
 
+	ethClient := &mock.EthClient{}
+
+	ss, err := signalservice.NewSignalService(common.Address{}, ethClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	return &Indexer{
 		eventRepo:     &mock.EventRepository{},
 		bridge:        b,
 		destBridge:    b,
-		srcEthClient:  &mock.EthClient{},
+		srcEthClient:  ethClient,
+		signalService: ss,
 		numGoroutines: 10,
 
 		latestIndexedBlockNumber: 0,
