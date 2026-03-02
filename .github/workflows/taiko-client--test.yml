@@ -76,7 +76,7 @@ jobs:
         with:
           version: latest
           working-directory: ./packages/taiko-client
-          args: --timeout=5m --config=.golangci.yml ./...
+          args: --timeout=10m --config=.golangci.yml ./...
 
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
