@@ -16,7 +16,7 @@ lint:
 	@CGO_ENABLED=1 go install golang.org/x/tools/cmd/goimports@latest \
 	&& go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
 	&& goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
-	&& golangci-lint run --timeout 5m --build-tags gofuzz,blst_disabled
+	&& golangci-lint run --timeout 5m
 
 test:
 	@PACKAGE=${PACKAGE} \
