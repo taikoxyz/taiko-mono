@@ -7,7 +7,7 @@ use tracing::{info, warn};
 
 use super::WhitelistApi;
 use crate::{
-    Result, error::WhitelistPreconfirmationDriverError, importer::MAX_COMPRESSED_TX_LIST_BYTES,
+    Result, error::WhitelistPreconfirmationDriverError, tx_list::MAX_COMPRESSED_TX_LIST_BYTES,
 };
 
 mod auth;
