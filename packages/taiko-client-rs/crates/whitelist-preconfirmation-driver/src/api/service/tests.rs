@@ -7,8 +7,7 @@ use super::lookahead::{is_fee_recipient_allowed_for_slot, slot_matches_range};
 use crate::{
     api::types::{LookaheadStatus, SlotRange},
     error::WhitelistPreconfirmationDriverError,
-    importer::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
-    tx_list::decompress_tx_list,
+    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
 };
 
 fn compress(payload: &[u8]) -> Vec<u8> {
