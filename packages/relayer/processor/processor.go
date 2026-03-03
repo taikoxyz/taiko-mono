@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,10 +30,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
-	v4signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
-	signalserviceforkrouter "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalserviceforkrouter"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -101,8 +98,6 @@ type Processor struct {
 
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
-	shastaOldForkAddress    common.Address
-	shastaNewForkAddress    common.Address
 
 	confirmations uint64
 
@@ -136,12 +131,6 @@ type Processor struct {
 	processingTxHashMu sync.Mutex
 
 	minFeeToProcess uint64
-
-	shastaForkTimestamp uint64
-	forkWindow          time.Duration
-
-	shastaOldForkSignalService relayer.SignalService
-	shastaNewForkSignalService relayer.SignalService
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -231,61 +220,16 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		})
 	}
 
-	var srcSignalService relayer.SignalService
+	if cfg.SrcSignalServiceAddress == relayer.ZeroAddress {
+		return errors.New("srcSignalServiceAddress not provided")
+	}
 
-	switch {
-	case cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress:
-		router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
-			cfg.SrcSignalServiceForkRouterAddress,
-			srcEthClient,
-		)
-		if err != nil {
-			return err
-		}
-
-		oldForkAddress, err := router.OldFork(&bind.CallOpts{})
-		if err != nil {
-			return err
-		}
-
-		newForkAddress, err := router.NewFork(&bind.CallOpts{})
-		if err != nil {
-			return err
-		}
-
-		oldForkSignalService, err := v4signalservice.NewSignalService(oldForkAddress, srcEthClient)
-		if err != nil {
-			return err
-		}
-
-		newForkSignalService, err := v4signalservice.NewSignalService(newForkAddress, srcEthClient)
-		if err != nil {
-			return err
-		}
-
-		srcSignalService = oldForkSignalService
-
-		p.shastaOldForkSignalService = oldForkSignalService
-		p.shastaNewForkSignalService = newForkSignalService
-		p.shastaOldForkAddress = oldForkAddress
-		p.shastaNewForkAddress = newForkAddress
-
-		shastaForkTimestamp, err := router.ShastaForkTimestamp(&bind.CallOpts{})
-		if err != nil {
-			return err
-		}
-
-		p.shastaForkTimestamp = shastaForkTimestamp
-	case cfg.SrcSignalServiceAddress != relayer.ZeroAddress:
-		srcSignalService, err = signalservice.NewSignalService(
-			cfg.SrcSignalServiceAddress,
-			srcEthClient,
-		)
-		if err != nil {
-			return err
-		}
-	default:
-		return errors.New("srcSignalService address not provided")
+	srcSignalService, err := signalservice.NewSignalService(
+		cfg.SrcSignalServiceAddress,
+		srcEthClient,
+	)
+	if err != nil {
+		return err
 	}
 
 	destERC20Vault, err := erc20vault.NewERC20Vault(
@@ -414,9 +358,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
-	if cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress {
-		p.srcSignalServiceAddress = cfg.SrcSignalServiceForkRouterAddress
-	}
 
 	p.msgCh = make(chan queue.Message)
 	p.srcCaller = srcRpcClient
@@ -424,10 +365,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	p.backOffMaxRetries = cfg.BackOffMaxRetries
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
-
-	if cfg.ForkWindowSeconds > 0 {
-		p.forkWindow = time.Duration(cfg.ForkWindowSeconds) * time.Second
-	}
 
 	p.targetTxHash = cfg.TargetTxHash
 

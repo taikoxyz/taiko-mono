@@ -36,6 +36,10 @@ impl MockInboxReader {
         }
     }
 
+    fn set_next_proposal_id(&self, value: u64) {
+        self.next_proposal_id.store(value, Ordering::SeqCst);
+    }
+
     fn set_head_l1_origin(&self, value: Option<u64>) {
         self.head_l1_origin_block_id.store(value.unwrap_or(NONE_SENTINEL), Ordering::SeqCst);
     }
@@ -144,10 +148,48 @@ async fn test_submit_preconfirmation_closed_channel() {
 }
 
 #[tokio::test]
-async fn test_event_sync_tip_errors_when_head_l1_origin_missing() {
-    let (client, _input_rx, inbox_reader, _preconf_tip_tx) = make_client();
+async fn test_event_sync_tip_falls_back_to_zero_on_genesis() {
+    // make_client() sets next_proposal_id=0, so target_proposal_id=0 (fresh genesis).
+    let (client, _input_rx, inbox_reader, preconf_tip_tx) = make_client();
     inbox_reader.set_head_l1_origin(None);
 
+    let tip = client.event_sync_tip().await.expect("should fall back to confirmed genesis tip");
+    assert_eq!(tip, alloy::primitives::U256::ZERO);
+
+    preconf_tip_tx.send(alloy::primitives::U256::from(50)).unwrap();
+    let tip = client.event_sync_tip().await.expect("should still return confirmed genesis tip");
+    assert_eq!(tip, alloy::primitives::U256::ZERO);
+}
+
+#[tokio::test]
+async fn test_event_sync_tip_rejects_during_startup_catchup() {
+    let (client, _input_rx, inbox_reader, _preconf_tip_tx) = make_client();
+    // Simulate target_proposal_id > 0 (proposals exist on L1) with head_l1_origin missing.
+    inbox_reader.set_next_proposal_id(5);
+    inbox_reader.set_head_l1_origin(None);
+
+    let err = client.event_sync_tip().await.unwrap_err();
+    assert!(matches!(
+        err,
+        preconfirmation_driver::PreconfirmationClientError::DriverInterface(
+            preconfirmation_driver::DriverApiError::EventSyncTipUnknown
+        )
+    ));
+}
+
+#[tokio::test]
+async fn test_event_sync_tip_transitions_from_genesis_zero_to_startup_unknown() {
+    let (client, _input_rx, inbox_reader, _preconf_tip_tx) = make_client();
+
+    // Fresh genesis-like state: no confirmed `head_l1_origin` yet → confirmed boundary is 0.
+    inbox_reader.set_head_l1_origin(None);
+    let tip = client.event_sync_tip().await.expect("genesis path should still return zero");
+    assert_eq!(tip, alloy::primitives::U256::ZERO);
+
+    // Once proposals exist (nextProposalId > 1 → target_proposal_id > 0), missing
+    // `head_l1_origin` is no longer a genesis fallback and must be treated as
+    // unknown startup state.
+    inbox_reader.set_next_proposal_id(2);
     let err = client.event_sync_tip().await.unwrap_err();
     assert!(matches!(
         err,
