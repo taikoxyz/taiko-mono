@@ -237,14 +237,19 @@ where
     }
 
     /// Get the current event syncer tip block number.
+    /// Falls back to `preconf_tip` when `head_l1_origin` has not been established yet,
+    /// which avoids a full-history catch-up on restart when preconfirmed blocks already exist.
     async fn event_sync_tip(&self) -> ClientResult<U256> {
-        self.event_syncer
+        match self
+            .event_syncer
             .confirmed_sync_snapshot()
             .await
             .map_err(DriverApiError::Driver)?
             .event_sync_tip()
-            .map(U256::from)
-            .ok_or(DriverApiError::EventSyncTipUnknown.into())
+        {
+            Some(tip) => Ok(U256::from(tip)),
+            None => self.preconf_tip().await,
+        }
     }
 
     /// Get the current preconfirmation tip block number.
@@ -348,7 +353,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn event_syncer_driver_client_returns_error_when_tip_unknown() {
+    async fn event_syncer_driver_client_falls_back_to_preconf_tip_when_tip_unknown() {
         let asserter = Asserter::new();
         let provider = ProviderBuilder::new().connect_mocked_client(asserter);
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
@@ -360,17 +365,15 @@ mod tests {
                 tip: Arc::new(AtomicU64::new(u64::MAX)),
             }),
             inbox,
-            Arc::new(StubL2Provider { latest: U256::ZERO }),
+            Arc::new(StubL2Provider { latest: U256::from(99) }),
         );
 
-        let err = client
+        // Falls back to preconf_tip (from StubL2Provider) when head_l1_origin is unknown.
+        let tip = client
             .event_sync_tip()
             .await
-            .expect_err("unknown event sync tip should return explicit error");
-        assert!(matches!(
-            err,
-            crate::PreconfirmationClientError::DriverInterface(DriverApiError::EventSyncTipUnknown)
-        ));
+            .expect("should fall back to preconf_tip when head_l1_origin is missing");
+        assert_eq!(tip, U256::from(99));
     }
 
     struct NoopL2Provider;

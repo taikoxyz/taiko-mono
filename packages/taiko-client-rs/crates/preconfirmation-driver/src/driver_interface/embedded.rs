@@ -160,13 +160,13 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     }
 
     /// Returns the current confirmed event-sync L2 block number.
+    /// Falls back to `preconf_tip` when `head_l1_origin` has not been established yet,
+    /// which avoids a full-history catch-up on restart when preconfirmed blocks already exist.
     async fn event_sync_tip(&self) -> Result<U256> {
-        self.inbox_reader
-            .confirmed_sync_snapshot()
-            .await?
-            .event_sync_tip()
-            .map(U256::from)
-            .ok_or(DriverApiError::EventSyncTipUnknown.into())
+        match self.inbox_reader.confirmed_sync_snapshot().await?.event_sync_tip() {
+            Some(tip) => Ok(U256::from(tip)),
+            None => self.preconf_tip().await,
+        }
     }
 
     /// Returns the current preconfirmation tip block number.
@@ -178,7 +178,6 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::PreconfirmationClientError;
     use preconfirmation_types::{Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment};
     use std::sync::{
         Arc,
@@ -359,14 +358,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_event_sync_tip_errors_when_head_l1_origin_missing() {
-        let (client, _, inbox_reader, _) = make_client();
+    async fn test_event_sync_tip_falls_back_to_preconf_tip_when_head_l1_origin_missing() {
+        let (client, _, inbox_reader, preconf_tip_tx) = make_client();
         inbox_reader.set_head_l1_origin(None);
 
-        let err = client.event_sync_tip().await.expect_err("missing head should error");
-        assert!(matches!(
-            err,
-            PreconfirmationClientError::DriverInterface(DriverApiError::EventSyncTipUnknown)
-        ));
+        // With default preconf_tip (0), fallback returns 0.
+        let tip = client.event_sync_tip().await.expect("should fall back to preconf_tip");
+        assert_eq!(tip, U256::ZERO);
+
+        // When preconf_tip advances, the fallback follows it.
+        preconf_tip_tx.send(U256::from(42)).unwrap();
+        let tip = client.event_sync_tip().await.expect("should fall back to preconf_tip");
+        assert_eq!(tip, U256::from(42));
     }
 }

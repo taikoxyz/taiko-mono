@@ -4,7 +4,7 @@
 //!
 //! ## Driver Implementations
 //! - [`MockDriverClient`]: A mock driver client that records submissions for verification.
-//! - [`SafeTipDriverClient`]: Wraps a real driver client with safe-tip fallback.
+//! - [`LoggingDriverClient`]: Wraps a real driver client with submission logging.
 //! - [`RealDriverSetup`]: Full driver setup for E2E tests with actual block production.
 //!
 //! ## Lookahead Resolvers
@@ -39,7 +39,7 @@ mod payloads;
 
 pub use client::{RunningPreconfClient, TestPreconfClientConfig, spawn_test_preconf_client};
 pub use driver::{
-    EventSyncerDriverClient, MockDriverClient, RealDriverSetup, SafeTipDriverClient,
+    EventSyncerDriverClient, MockDriverClient, RealDriverSetup, LoggingDriverClient,
     StartingBlockInfo,
 };
 pub use events::{
