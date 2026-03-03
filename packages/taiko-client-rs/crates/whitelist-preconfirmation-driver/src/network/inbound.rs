@@ -67,7 +67,7 @@ pub(crate) struct RateLimiter {
 
 impl RateLimiter {
     /// Allow only when peer has available request tokens.
-    fn allow(&mut self, from: PeerId, now: Instant) -> bool {
+    pub(crate) fn allow(&mut self, from: PeerId, now: Instant) -> bool {
         self.prune(now, REQUEST_SEEN_WINDOW);
 
         let entry = self.buckets.entry(from).or_insert_with(|| TokenBucket::new(now));
@@ -84,23 +84,52 @@ impl RateLimiter {
 
 #[derive(Debug, Default)]
 /// Hash tracker for seen request hashes.
-struct WindowedHashTracker {
+pub(crate) struct WindowedHashTracker {
     /// Last seen timestamps for each hash.
     seen: LinkedHashMap<B256, Instant>,
 }
 
 impl WindowedHashTracker {
     /// Returns true when the hash was already seen inside the window.
-    fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
+    pub(crate) fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
         self.seen
             .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
         self.seen.contains_key(&hash)
     }
 
     /// Record a hash as seen at the given instant.
-    fn mark(&mut self, hash: B256, now: Instant) {
+    pub(crate) fn mark(&mut self, hash: B256, now: Instant) {
         self.seen.remove(&hash);
         self.seen.insert(hash, now);
+
+        while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
+            self.seen.pop_front();
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+/// Per-(peer, hash) dedup tracker for direct request serving.
+///
+/// Keyed by `(PeerId, B256)` so that a request from one peer does not
+/// suppress valid concurrent requests for the same hash from other peers.
+pub(crate) struct PeerHashTracker {
+    /// Last seen timestamps for each (peer, hash) pair.
+    seen: LinkedHashMap<(PeerId, B256), Instant>,
+}
+
+impl PeerHashTracker {
+    /// Returns true when this (peer, hash) pair was already seen inside the window.
+    pub(crate) fn is_seen(&mut self, peer: PeerId, hash: B256, now: Instant) -> bool {
+        self.seen
+            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
+        self.seen.contains_key(&(peer, hash))
+    }
+
+    /// Record a (peer, hash) pair as seen at the given instant.
+    pub(crate) fn mark(&mut self, peer: PeerId, hash: B256, now: Instant) {
+        self.seen.remove(&(peer, hash));
+        self.seen.insert((peer, hash), now);
 
         while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
             self.seen.pop_front();
@@ -268,15 +297,47 @@ impl GossipsubInboundState {
         self.validate_signer(signer)
     }
 
+    /// Checks basic response envelope shape: non-empty transactions, non-zero
+    /// fee recipient, and non-zero block number. Used by both the gossip and
+    /// direct reqresp validation paths.
+    pub(crate) fn validate_response_shape(
+        envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
+    ) -> bool {
+        !envelope.execution_payload.transactions.is_empty() &&
+            envelope.execution_payload.fee_recipient != Address::ZERO &&
+            envelope.execution_payload.block_number != 0
+    }
+
+    /// Verifies that the envelope carries a valid signature from an allowed sequencer.
+    ///
+    /// This is the signer-only subset of [`validate_response`] and is used by the
+    /// direct reqresp path to reject forged responses at the network layer before
+    /// they reach the importer.
+    pub(crate) fn verify_envelope_signer(
+        &self,
+        envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
+    ) -> bool {
+        let Some(signature) = envelope.signature else {
+            return false;
+        };
+
+        let prehash =
+            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
+
+        let signer = match recover_signer(prehash, &signature) {
+            Ok(signer) => signer,
+            Err(_) => return false,
+        };
+
+        matches!(self.validate_signer(signer), gossipsub::MessageAcceptance::Accept)
+    }
+
     /// Validate payload fields and per-height uniqueness.
     fn validate_preconf_block_payload(
         &mut self,
         payload: &DecodedUnsafePayload,
     ) -> gossipsub::MessageAcceptance {
-        if payload.envelope.execution_payload.transactions.is_empty() ||
-            payload.envelope.execution_payload.fee_recipient == Address::ZERO ||
-            payload.envelope.execution_payload.block_number == 0
-        {
+        if !Self::validate_response_shape(&payload.envelope) {
             return gossipsub::MessageAcceptance::Reject;
         }
 
@@ -295,28 +356,8 @@ impl GossipsubInboundState {
         &mut self,
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
     ) -> gossipsub::MessageAcceptance {
-        let Some(signature) = envelope.signature else {
+        if !Self::validate_response_shape(envelope) || !self.verify_envelope_signer(envelope) {
             return gossipsub::MessageAcceptance::Reject;
-        };
-
-        if envelope.execution_payload.transactions.is_empty() ||
-            envelope.execution_payload.fee_recipient == Address::ZERO ||
-            envelope.execution_payload.block_number == 0
-        {
-            return gossipsub::MessageAcceptance::Reject;
-        }
-
-        let prehash =
-            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-
-        let signer = match recover_signer(prehash, &signature) {
-            Ok(signer) => signer,
-            Err(_) => return gossipsub::MessageAcceptance::Reject,
-        };
-
-        let acceptance = self.validate_signer(signer);
-        if !matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
-            return acceptance;
         }
 
         let height = envelope.execution_payload.block_number;
