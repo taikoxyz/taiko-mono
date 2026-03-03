@@ -93,6 +93,9 @@ where
         Ok(Some(WhitelistExecutionPayloadEnvelope {
             end_of_sequencing,
             is_forced_inclusion: l1_origin.is_forced_inclusion.then_some(true),
+            // Intentionally None — the sequencer never populates this field
+            // in the envelope (see rest_handler.rs), and the SSZ wire format
+            // encodes None as 32 zero bytes which is the expected default.
             parent_beacon_block_root: None,
             execution_payload: alloy_rpc_types_engine::ExecutionPayloadV1 {
                 parent_hash: block.header.parent_hash,
@@ -110,34 +113,66 @@ where
                 block_hash: block.header.hash,
                 transactions: vec![Bytes::from(compressed_tx_list)],
             },
+            // Use L1-origin signature as-is. This endpoint serves responses
+            // only from the local node; caller-side validation and allowlist
+            // checks are performed when importing the envelope.
             signature: Some(l1_origin.signature),
         }))
     }
 
-    /// Publish a block-hash request on `requestPreconfBlocks`.
-    pub(super) async fn publish_unsafe_request(&self, hash: B256) {
-        if let Err(err) =
-            self.network_command_tx.send(NetworkCommand::PublishUnsafeRequest { hash }).await
+    /// Request a block via both gossip and a direct req/resp to a connected peer.
+    /// Gossip is always published; the direct request is an optimistic fast-path.
+    pub(super) async fn request_block(&self, hash: B256) {
+        if let Err(err) = self.network_command_tx.send(NetworkCommand::RequestBlock { hash }).await
         {
             metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                "topic" => "request_preconf_blocks",
+                WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
+                "operation" => "request_block",
                 "result" => "queue_failed",
             )
             .increment(1);
             warn!(
                 hash = %hash,
                 error = %err,
-                "failed to queue whitelist preconfirmation request publish command"
+                "failed to queue block request command"
             );
         } else {
             metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                "topic" => "request_preconf_blocks",
+                WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
+                "operation" => "request_block",
                 "result" => "queued",
             )
             .increment(1);
         }
+    }
+
+    /// Send a response back through a stashed direct-request channel.
+    pub(super) async fn send_direct_response(
+        &self,
+        request_id: libp2p::request_response::InboundRequestId,
+        response_bytes: Vec<u8>,
+    ) -> Result<()> {
+        self.network_command_tx
+            .send(NetworkCommand::SendDirectResponse { request_id, response_bytes })
+            .await
+            .map_err(|err| {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
+                    "operation" => "send_response",
+                    "result" => "queue_failed",
+                )
+                .increment(1);
+                WhitelistPreconfirmationDriverError::p2p(format!(
+                    "failed to queue direct response command: {err}"
+                ))
+            })?;
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
+            "operation" => "send_response",
+            "result" => "queued",
+        )
+        .increment(1);
+        Ok(())
     }
 
     /// Publish an envelope response on `responsePreconfBlocks`.

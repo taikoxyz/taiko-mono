@@ -24,7 +24,9 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
     runs-on: [arc-runner-set]
-    timeout-minutes: 5
+    timeout-minutes: 10
+    env:
+      CGO_ENABLED: 1
     steps:
       - uses: actions/checkout@v6
 
@@ -34,12 +36,47 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Ensure make is available
-        uses: ./.github/actions/ensure-make
+      - name: Go mod download
+        run: go mod download
+
+      - name: Ensure build-essential is installed
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_DEBUG:-}" = "1" ]; then set -x; fi
+
+          if command -v gcc >/dev/null 2>&1 && \
+             command -v g++ >/dev/null 2>&1 && \
+             command -v make >/dev/null 2>&1; then
+            echo "Required build tools are already available."
+            exit 0
+          fi
+
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "::error::gcc/g++/make are missing and apt-get is unavailable, cannot install automatically."
+            exit 1
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
+
+          retry=0
+          until sudo apt-get update; do
+            retry=$((retry + 1))
+            if [ "${retry}" -ge 4 ]; then
+              echo "::error::apt-get update failed after ${retry} attempts."
+              exit 1
+            fi
+            echo "::warning::apt-get update failed, retrying (${retry}/3)"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends build-essential
 
       - name: Lint
-        working-directory: packages/taiko-client
-        run: make lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: ./packages/taiko-client
+          args: --timeout=10m --config=.golangci.yml ./...
 
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
@@ -47,6 +84,7 @@ jobs:
     runs-on: [arc-runner-set]
     timeout-minutes: 30
     env:
+      CGO_ENABLED: 1
       OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
       PACAYA_FORK_TAIKO_MONO_DIR: pacaya-fork-taiko-mono
       SHASTA_FORK_TAIKO_MONO_DIR: shasta-fork-taiko-mono
@@ -70,6 +108,38 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
+      - name: Ensure docker compose is available
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if docker compose version > /dev/null 2>&1; then
+            docker compose version
+            exit 0
+          fi
+
+          if command -v docker-compose > /dev/null 2>&1; then
+            docker-compose version
+            exit 0
+          fi
+
+          ARCH="$(uname -m)"
+          if [ "$ARCH" = "arm64" ]; then
+            ARCH="aarch64"
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          $SUDO curl -fsSL \
+            "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" \
+            -o /usr/local/bin/docker-compose
+          $SUDO chmod +x /usr/local/bin/docker-compose
+          docker-compose version
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -78,6 +148,38 @@ jobs:
 
       - name: Ensure make is available
         uses: ./.github/actions/ensure-make
+
+      - name: Ensure build-essential is installed
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_DEBUG:-}" = "1" ]; then set -x; fi
+
+          if command -v gcc >/dev/null 2>&1 && \
+             command -v g++ >/dev/null 2>&1 && \
+             command -v make >/dev/null 2>&1; then
+            echo "Required build tools are already available."
+            exit 0
+          fi
+
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "::error::gcc/g++/make are missing and apt-get is unavailable, cannot install automatically."
+            exit 1
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
+
+          retry=0
+          until sudo apt-get update; do
+            retry=$((retry + 1))
+            if [ "${retry}" -ge 4 ]; then
+              echo "::error::apt-get update failed after ${retry} attempts."
+              exit 1
+            fi
+            echo "::warning::apt-get update failed, retrying (${retry}/3)"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends build-essential
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies

@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release --locked && \
     cp /app/packages/taiko-client-rs/target/release/taiko-client /tmp/taiko-client
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 RUN apt-get update && \
   apt-get install -y jq curl && \

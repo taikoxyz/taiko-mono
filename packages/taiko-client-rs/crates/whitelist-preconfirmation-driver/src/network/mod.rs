@@ -3,7 +3,7 @@
 mod bootnodes;
 mod event_loop;
 mod gossip;
-pub(super) mod inbound;
+pub(crate) mod inbound;
 mod runtime;
 mod types;
 

@@ -58,6 +58,7 @@ pub struct NodeStatus {
     /// Whether the node has completed sync with L1 inbox events.
     pub is_synced_with_inbox: bool,
     /// The highest confirmed event-sync tip from `head_l1_origin`.
+    /// May be `None` before confirmed sync is available.
     pub event_sync_tip: Option<U256>,
     /// The highest preconfirmed block number known to this node.
     pub preconf_tip: U256,

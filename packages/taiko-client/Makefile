@@ -13,10 +13,10 @@ clean:
 	@rm -rf bin/*
 
 lint:
-	@go install golang.org/x/tools/cmd/goimports@v0.36.0 \
-	&& go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5 \
+	@CGO_ENABLED=1 go install golang.org/x/tools/cmd/goimports@latest \
+	&& go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest \
 	&& goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
-	&& golangci-lint run --timeout 5m
+	&& golangci-lint run --timeout 10m
 
 test:
 	@PACKAGE=${PACKAGE} \
