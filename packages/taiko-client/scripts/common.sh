@@ -3,7 +3,16 @@
 RED='\033[1;31m'
 NC='\033[0m' # No Color
 
-COMPOSE="docker compose -f internal/docker/nodes/docker-compose.yml"
+COMPOSE_YML="internal/docker/nodes/docker-compose.yml"
+
+if docker compose version > /dev/null 2>&1; then
+    DOCKER_COMPOSE=(docker compose)
+elif command -v docker-compose > /dev/null 2>&1; then
+    DOCKER_COMPOSE=(docker-compose)
+else
+    echo "ERROR: neither 'docker compose' nor 'docker-compose' is available"
+    exit 1
+fi
 
 print_error() {
   local msg="$1"
@@ -31,7 +40,7 @@ compose_down() {
   local services=("$@")
   echo
   echo "stopping services..."
-  $COMPOSE down -v "${services[@]}" #--remove-orphans
+  "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_YML" down -v "${services[@]}"
   echo "done"
 }
 
@@ -39,6 +48,6 @@ compose_up() {
   local services=("$@")
   echo
   echo "launching services..."
-  $COMPOSE up --quiet-pull "${services[@]}" -d --wait
+  "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_YML" up --quiet-pull -d --wait "${services[@]}"
   echo "done"
 }
