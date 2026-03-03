@@ -46,7 +46,7 @@ impl PreconfirmationInput {
 
 pub use embedded::{ContractInboxReader, EmbeddedDriverClient};
 pub use event_syncer_client::EventSyncerDriverClient;
-pub use traits::{BlockHeaderProvider, DriverClient, InboxReader};
+pub use traits::{BlockHeaderProvider, DriverClient, InboxReader, resolve_event_sync_tip};
 
 #[cfg(test)]
 mod tests {
