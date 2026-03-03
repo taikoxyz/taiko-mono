@@ -9,10 +9,12 @@ use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 
-use crate::{codec::WhitelistExecutionPayloadEnvelope, error::WhitelistPreconfirmationDriverError};
+use crate::{
+    codec::WhitelistExecutionPayloadEnvelope, error::WhitelistPreconfirmationDriverError,
+    tx_list::MAX_COMPRESSED_TX_LIST_BYTES,
+};
 
 use super::{
-    MAX_COMPRESSED_TX_LIST_BYTES,
     cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
     sync_ready_transition,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},

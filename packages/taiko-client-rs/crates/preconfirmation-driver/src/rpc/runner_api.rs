@@ -5,15 +5,16 @@ use std::sync::Arc;
 use alloy_primitives::U256;
 use async_trait::async_trait;
 use preconfirmation_net::NetworkCommand;
+use preconfirmation_types::Bytes20;
+use protocol::codec::ZlibTxListCodec;
 use tokio::sync::mpsc;
 
 use crate::{
     Result,
     driver_interface::{DriverClient, InboxReader},
     rpc::{
-        NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishCommitmentRequest,
-        PublishCommitmentResponse, PublishTxListRequest, PublishTxListResponse,
-        node_api::{build_node_status, publish_commitment_impl, publish_tx_list_impl},
+        NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse,
+        node_api::{build_node_status, publish_block_impl},
     },
 };
 
@@ -21,14 +22,18 @@ use crate::{
 pub(crate) struct RunnerRpcApiImpl<I: InboxReader> {
     /// Channel used to send P2P/network commands.
     command_tx: mpsc::Sender<NetworkCommand>,
-    /// Driver client used for tip queries.
+    /// Driver client used for tip queries and preconfirmation submission.
     driver: Arc<dyn DriverClient>,
-    /// Local peer id string reported over RPC.
-    local_peer_id: String,
     /// Inbox reader used to determine sync status.
     inbox_reader: I,
     /// Lookahead resolver for slot info by timestamp.
     lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
+    /// Txlist codec for decompression.
+    codec: Arc<ZlibTxListCodec>,
+    /// Expected slasher address for commitment validation.
+    expected_slasher: Option<Bytes20>,
+    /// Local peer ID string used in status responses.
+    local_peer_id: String,
 }
 
 impl<I: InboxReader> RunnerRpcApiImpl<I> {
@@ -36,36 +41,41 @@ impl<I: InboxReader> RunnerRpcApiImpl<I> {
     pub(crate) fn new(
         command_tx: mpsc::Sender<NetworkCommand>,
         driver: Arc<dyn DriverClient>,
-        local_peer_id: String,
         inbox_reader: I,
         lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
+        codec: Arc<ZlibTxListCodec>,
+        expected_slasher: Option<Bytes20>,
+        local_peer_id: String,
     ) -> Self {
-        Self { command_tx, driver, local_peer_id, inbox_reader, lookahead_resolver }
+        Self {
+            command_tx,
+            driver,
+            inbox_reader,
+            lookahead_resolver,
+            codec,
+            expected_slasher,
+            local_peer_id,
+        }
     }
 }
 
 #[async_trait]
 impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
-    /// Publish a preconfirmation commitment to the P2P network.
-    async fn publish_commitment(
-        &self,
-        request: PublishCommitmentRequest,
-    ) -> Result<PublishCommitmentResponse> {
-        publish_commitment_impl(&self.command_tx, request).await
-    }
-
-    /// Publish a raw tx list to the P2P network after hash validation.
-    async fn publish_tx_list(
-        &self,
-        request: PublishTxListRequest,
-    ) -> Result<PublishTxListResponse> {
-        publish_tx_list_impl(&self.command_tx, request).await
+    async fn publish_block(&self, request: PublishBlockRequest) -> Result<PublishBlockResponse> {
+        publish_block_impl(
+            &self.command_tx,
+            self.driver.as_ref(),
+            &self.codec,
+            self.expected_slasher.as_ref(),
+            self.lookahead_resolver.as_ref(),
+            request,
+        )
+        .await
     }
 
     /// Return node status including sync state, tips, and peer identity.
     async fn get_status(&self) -> Result<NodeStatus> {
         let preconf_tip = self.driver.preconf_tip().await?;
-
         build_node_status(&self.command_tx, &self.inbox_reader, preconf_tip, &self.local_peer_id)
             .await
     }
@@ -92,6 +102,8 @@ mod tests {
 
     use alloy_primitives::U256;
     use async_trait::async_trait;
+    use preconfirmation_types::MAX_TXLIST_BYTES;
+    use protocol::codec::ZlibTxListCodec;
     use tokio::sync::mpsc;
 
     use crate::{
@@ -107,22 +119,15 @@ mod tests {
 
     #[async_trait::async_trait]
     impl DriverClient for TestDriver {
-        /// Accept the preconfirmation input without side effects.
         async fn submit_preconfirmation(&self, _input: PreconfirmationInput) -> crate::Result<()> {
             Ok(())
         }
-
-        /// Report that event sync has completed.
         async fn wait_event_sync(&self) -> crate::Result<()> {
             Ok(())
         }
-
-        /// Return a constant event sync tip for testing.
         async fn event_sync_tip(&self) -> crate::Result<U256> {
             Ok(U256::ZERO)
         }
-
-        /// Return the configured preconfirmation tip.
         async fn preconf_tip(&self) -> crate::Result<U256> {
             Ok(self.tip)
         }
@@ -182,7 +187,6 @@ mod tests {
 
     #[async_trait::async_trait]
     impl crate::driver_interface::InboxReader for MockInboxReader {
-        /// Return the next proposal id from the shared atomic.
         async fn get_next_proposal_id(&self) -> crate::Result<u64> {
             Ok(self.next_proposal_id.load(Ordering::SeqCst))
         }
@@ -217,9 +221,11 @@ mod tests {
         let api = RunnerRpcApiImpl::new(
             command_tx,
             driver,
-            "peer".to_string(),
             inbox_reader,
             Arc::new(MockLookaheadResolver),
+            Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
+            None,
+            "test-peer".to_string(),
         );
 
         let status = api.get_status().await.unwrap();

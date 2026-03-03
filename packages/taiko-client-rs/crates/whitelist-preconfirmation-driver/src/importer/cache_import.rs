@@ -16,7 +16,7 @@ where
     P: alloy_provider::Provider + Clone + Send + Sync + 'static,
 {
     /// Attempt to import cached envelopes if sync is ready.
-    pub(super) async fn maybe_import_from_cache(&mut self) -> Result<()> {
+    pub(crate) async fn maybe_import_from_cache(&mut self) -> Result<()> {
         let _ = self.refresh_sync_ready().await?;
         if !self.sync_ready || self.cache.is_empty() {
             return Ok(());
@@ -152,7 +152,7 @@ where
                     "result" => "issued",
                 )
                 .increment(1);
-                self.publish_unsafe_request(parent_hash).await;
+                self.request_block(parent_hash).await;
             } else {
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,

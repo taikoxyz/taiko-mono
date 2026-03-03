@@ -3,7 +3,7 @@
 //! This module provides:
 //! - [`MockDriverClient`]: Records submissions for unit-style tests.
 //! - [`EventSyncerDriverClient`]: Submits directly to an in-process event syncer.
-//! - [`SafeTipDriverClient`]: Wraps a driver client with safe-tip fallback.
+//! - [`LoggingDriverClient`]: Wraps a driver client with submission logging.
 //! - [`RealDriverSetup`]: Full driver setup for E2E tests with actual block production.
 
 use std::{sync::Arc, time::Duration};
@@ -22,8 +22,10 @@ use preconfirmation_driver::{
     DriverClient, PreconfirmationInput, Result,
     driver_interface::payload::build_taiko_payload_attributes,
     error::{DriverApiError, PreconfirmationClientError},
+    resolve_event_sync_tip,
 };
 use preconfirmation_types::uint256_to_u256;
+use protocol::shasta::constants::min_base_fee_for_chain;
 use rpc::client::{Client, ClientConfig};
 use tokio::{
     sync::{Mutex, Notify},
@@ -210,17 +212,22 @@ where
         }
 
         let config = self.inbox.getConfig().call().await.map_err(DriverApiError::from)?;
-        let payload =
-            build_taiko_payload_attributes(&input, config.basefeeSharingPctg, &self.l2_provider)
-                .await?;
+        let min_base_fee_to_clamp = min_base_fee_for_chain(
+            self.l2_provider.get_chain_id().await.map_err(DriverApiError::from)?,
+        );
+        let payload = build_taiko_payload_attributes(
+            &input,
+            config.basefeeSharingPctg,
+            &self.l2_provider,
+            min_base_fee_to_clamp,
+        )
+        .await?;
 
         self.event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(payload))
             .await
             .map_err(|err| {
-                PreconfirmationClientError::DriverInterface(DriverApiError::ChannelClosed(
-                    err.to_string(),
-                ))
+                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(err))
             })?;
 
         info!(block_number, proposal_id, "submitted preconfirmation payload");
@@ -246,13 +253,12 @@ where
     }
 
     async fn event_sync_tip(&self) -> Result<U256> {
-        self.event_syncer
+        let snapshot = self
+            .event_syncer
             .confirmed_sync_snapshot()
             .await
-            .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?
-            .event_sync_tip()
-            .map(U256::from)
-            .ok_or(DriverApiError::EventSyncTipUnknown.into())
+            .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?;
+        resolve_event_sync_tip(&snapshot)
     }
 
     async fn preconf_tip(&self) -> Result<U256> {
@@ -266,24 +272,21 @@ where
     }
 }
 
-/// Wraps a driver client with fallback tip handling for event sync.
-///
-/// When `event_sync_tip` returns `EventSyncTipUnknown`, falls back to `preconf_tip`.
-/// Also logs submission results for debugging.
+/// Wraps a driver client with logging for submission results.
 #[derive(Clone)]
-pub struct SafeTipDriverClient {
+pub struct LoggingDriverClient {
     inner: Arc<dyn DriverClient>,
 }
 
-impl SafeTipDriverClient {
-    /// Create a new safe-tip driver client wrapper.
+impl LoggingDriverClient {
+    /// Create a new logging driver client wrapper.
     pub fn new(inner: Arc<dyn DriverClient>) -> Self {
         Self { inner }
     }
 }
 
 #[async_trait]
-impl DriverClient for SafeTipDriverClient {
+impl DriverClient for LoggingDriverClient {
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
         let block_number =
             uint256_to_u256(&input.commitment.commitment.preconf.block_number).to::<u64>();
@@ -302,13 +305,10 @@ impl DriverClient for SafeTipDriverClient {
         self.inner.wait_event_sync().await
     }
 
+    // Delegation only — fallback logic lives in the inner implementation via
+    // `resolve_event_sync_tip`, so no logging or mutation is needed here.
     async fn event_sync_tip(&self) -> Result<U256> {
-        match self.inner.event_sync_tip().await {
-            Err(PreconfirmationClientError::DriverInterface(
-                DriverApiError::EventSyncTipUnknown,
-            )) => self.inner.preconf_tip().await,
-            other => other,
-        }
+        self.inner.event_sync_tip().await
     }
 
     async fn preconf_tip(&self) -> Result<U256> {
@@ -343,7 +343,7 @@ impl DriverClient for SafeTipDriverClient {
 /// ```
 pub struct RealDriverSetup {
     /// Driver client for preconfirmation submission.
-    pub driver_client: SafeTipDriverClient,
+    pub driver_client: LoggingDriverClient,
     /// L2 provider for block queries.
     pub l2_provider: RootProvider,
     /// Beacon stub server.
@@ -358,7 +358,7 @@ impl RealDriverSetup {
     /// This sets up:
     /// 1. Beacon stub server
     /// 2. Event syncer with preconfirmation enabled
-    /// 3. Embedded driver client with safe-tip fallback
+    /// 3. Embedded driver client with logging wrapper
     pub async fn start(env: &ShastaEnv) -> AnyhowResult<Self> {
         let beacon_server = BeaconStubServer::start().await?;
 
@@ -393,7 +393,7 @@ impl RealDriverSetup {
         let l2_provider = rpc_client.l2_provider.clone();
         let embedded_client =
             EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());
-        let driver_client = SafeTipDriverClient::new(Arc::new(embedded_client));
+        let driver_client = LoggingDriverClient::new(Arc::new(embedded_client));
 
         Ok(Self { driver_client, l2_provider, beacon_server, event_handle })
     }

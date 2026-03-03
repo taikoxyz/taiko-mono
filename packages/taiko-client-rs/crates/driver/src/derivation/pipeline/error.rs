@@ -127,6 +127,12 @@ pub enum DerivationError {
         /// Parent block timestamp observed during derivation.
         parent_timestamp: u64,
     },
+    /// Parent header was missing base fee while computing the next EIP-4396 base fee.
+    #[error("parent header {parent_block_number} missing base fee for EIP-4396 calculation")]
+    MissingParentBaseFee {
+        /// Parent block number whose header was missing `base_fee_per_gas`.
+        parent_block_number: u64,
+    },
     /// Generic error bucket.
     #[error(transparent)]
     Other(#[from] AnyhowError),
