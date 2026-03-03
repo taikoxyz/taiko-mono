@@ -7,10 +7,8 @@ use axum::{
 
 use super::{
     PRECONF_BLOCKS_BODY_LIMIT_BYTES,
-    http_utils::{
-        RequestBodyReadError, error_response, json_response, map_rest_error_status,
-        no_content_response, read_request_body,
-    },
+    http_error::ApiHttpError,
+    http_utils::{error_response, json_response, no_content_response, read_request_body},
     state::AppState,
     websocket::serve_websocket_notifications,
 };
@@ -24,87 +22,47 @@ struct BuildPreconfBlockRestResponse {
     block_header: alloy_rpc_types::Header,
 }
 
-/// Convert an internal REST API error into a serialized HTTP response.
-fn rest_api_error(err: crate::error::WhitelistPreconfirmationDriverError) -> Response {
-    error_response(map_rest_error_status(&err), err.to_string())
-}
-
 /// Health endpoint handler.
 pub(super) async fn handle_root() -> Response {
     no_content_response(http::StatusCode::OK)
 }
 
 /// Status endpoint handler returning importer/runtime health.
-pub(super) async fn handle_status(State(state): State<AppState>) -> Response {
-    match state.api.get_status().await {
-        Ok(status) => {
-            let response = ApiStatus {
-                highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
-                end_of_sequencing_block_hash: status
-                    .end_of_sequencing_block_hash
-                    .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
-            };
-            json_response(http::StatusCode::OK, &response)
-        }
-        Err(err) => rest_api_error(err),
-    }
+pub(super) async fn handle_status(State(state): State<AppState>) -> Result<Response, ApiHttpError> {
+    let status = state.api.get_status().await?;
+    let response = ApiStatus {
+        highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
+        end_of_sequencing_block_hash: status
+            .end_of_sequencing_block_hash
+            .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
+    };
+    Ok(json_response(http::StatusCode::OK, &response))
 }
 
 /// `preconfBlocks` REST endpoint handler.
 pub(super) async fn handle_preconf_blocks(
     State(state): State<AppState>,
     request: Request,
-) -> Response {
-    let status = match state.api.get_status().await {
-        Ok(status) => status,
-        Err(err) => return rest_api_error(err),
-    };
+) -> Result<Response, ApiHttpError> {
+    let status = state.api.get_status().await?;
 
     if !status.sync_ready {
-        return error_response(
-            http::StatusCode::BAD_REQUEST,
+        return Err(ApiHttpError::BadRequest(
             "event sync is not ready to serve preconfBlocks".to_string(),
-        );
+        ));
     }
 
-    let body = match read_request_body(request.into_body(), PRECONF_BLOCKS_BODY_LIMIT_BYTES).await {
-        Ok(body) => body,
-        Err(RequestBodyReadError::TooLarge { max_bytes }) => {
-            return error_response(
-                http::StatusCode::PAYLOAD_TOO_LARGE,
-                format!("request body exceeds maximum of {max_bytes} bytes"),
-            );
-        }
-        Err(err) => {
-            return error_response(
-                http::StatusCode::UNPROCESSABLE_ENTITY,
-                format!("failed to read request body: {err}"),
-            );
-        }
-    };
+    let body = read_request_body(request.into_body(), PRECONF_BLOCKS_BODY_LIMIT_BYTES).await?;
 
-    let rest_request: BuildPreconfBlockApiRequest = match serde_json::from_slice(&body) {
-        Ok(value) => value,
-        Err(err) => {
-            return error_response(
-                http::StatusCode::UNPROCESSABLE_ENTITY,
-                format!("failed to parse request body: {err}"),
-            );
-        }
-    };
+    let rest_request: BuildPreconfBlockApiRequest = serde_json::from_slice(&body)?;
 
-    let request = match rest_request.into_rpc_request() {
-        Ok(request) => request,
-        Err(err) => return error_response(http::StatusCode::BAD_REQUEST, err),
-    };
+    let request = rest_request.into_rpc_request().map_err(ApiHttpError::BadRequest)?;
 
-    match state.api.build_preconf_block(request).await {
-        Ok(response) => json_response(
-            http::StatusCode::OK,
-            &BuildPreconfBlockRestResponse { block_header: response.block_header },
-        ),
-        Err(err) => rest_api_error(err),
-    }
+    let response = state.api.build_preconf_block(request).await?;
+    Ok(json_response(
+        http::StatusCode::OK,
+        &BuildPreconfBlockRestResponse { block_header: response.block_header },
+    ))
 }
 
 /// Upgrade a request to a websocket stream for EOS notifications.

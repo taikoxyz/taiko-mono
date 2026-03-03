@@ -17,75 +17,85 @@ use super::{
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
 
+/// Increment validation failure metrics for the given ingest stage.
+fn record_validation_failure(stage: &'static str) {
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
+        "stage" => stage,
+    )
+    .increment(1);
+}
+
 impl<P> WhitelistPreconfirmationImporter<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Cache a validated envelope and persist EOS epoch mapping when applicable.
+    async fn ingest_validated_envelope(
+        &mut self,
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+        ingress_source: &'static str,
+    ) {
+        self.cache.insert(envelope.clone());
+        self.recent_cache.insert_recent(envelope.clone());
+        self.update_cache_gauges();
+        self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
+    }
+
+    /// Record the envelope block hash for its beacon epoch when `end_of_sequencing` is set.
+    async fn record_eos_epoch_if_marked(
+        &self,
+        envelope: &WhitelistExecutionPayloadEnvelope,
+        ingress_source: &'static str,
+    ) {
+        if !envelope.end_of_sequencing.unwrap_or(false) {
+            return;
+        }
+
+        let timestamp = envelope.execution_payload.timestamp;
+        if let Ok(epoch) = self.beacon_client.timestamp_to_epoch(timestamp).inspect_err(|err| {
+            tracing::warn!(
+                timestamp,
+                ingress_source,
+                error = %err,
+                "failed to derive epoch from envelope timestamp for EOS recording"
+            );
+        }) {
+            debug!(
+                epoch,
+                hash = %envelope.execution_payload.block_hash,
+                ingress_source,
+                "recording end-of-sequencing envelope for epoch"
+            );
+            self.cache_state
+                .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
+                .await;
+        }
+    }
+
     /// Handle an incoming unsafe payload.
     pub(super) async fn handle_unsafe_payload(
         &mut self,
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
         let prehash = block_signing_hash(self.chain_id, payload.payload_bytes.as_slice());
-        let signer = match recover_signer(prehash, &payload.wire_signature) {
-            Ok(signer) => signer,
-            Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-                    "stage" => "payload_signature_recover",
-                )
-                .increment(1);
-                return Err(err);
-            }
-        };
-        if let Err(err) = self.ensure_signer_allowed(signer).await {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-                "stage" => "payload_signer_check",
-            )
-            .increment(1);
-            return Err(err);
-        }
+        let signer = recover_signer(prehash, &payload.wire_signature).inspect_err(|_err| {
+            record_validation_failure("payload_signature_recover");
+        })?;
+        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
+            record_validation_failure("payload_signer_check");
+        })?;
 
         let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
-        if let Err(err) = validate_execution_payload_for_preconf(
+        validate_execution_payload_for_preconf(
             &envelope.execution_payload,
             self.chain_id,
             self.anchor_address,
-        ) {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-                "stage" => "payload_validate",
-            )
-            .increment(1);
-            return Err(err);
-        }
-        let envelope = Arc::new(envelope);
-        self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
-
-        if envelope.end_of_sequencing.unwrap_or(false) {
-            match self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp) {
-                Ok(epoch) => {
-                    debug!(
-                        epoch,
-                        hash = %envelope.execution_payload.block_hash,
-                        "recording end-of-sequencing envelope for epoch on payload ingress"
-                    );
-                    self.cache_state
-                        .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
-                        .await;
-                }
-                Err(err) => {
-                    tracing::warn!(
-                        timestamp = envelope.execution_payload.timestamp,
-                        error = %err,
-                        "failed to derive epoch from payload timestamp for EOS recording"
-                    );
-                }
-            }
-        }
+        )
+        .inspect_err(|_err| {
+            record_validation_failure("payload_validate");
+        })?;
+        self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
 
         Ok(())
     }
@@ -96,77 +106,31 @@ where
         envelope: WhitelistExecutionPayloadEnvelope,
     ) -> Result<()> {
         let Some(signature) = envelope.signature else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-                "stage" => "response_missing_signature",
-            )
-            .increment(1);
-            return Err(WhitelistPreconfirmationDriverError::InvalidSignature(
-                "response payload is missing embedded signature".to_string(),
+            record_validation_failure("response_missing_signature");
+            return Err(WhitelistPreconfirmationDriverError::invalid_signature(
+                "response payload is missing embedded signature",
             ));
         };
 
         let prehash =
             block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-        let signer = match recover_signer(prehash, &signature) {
-            Ok(signer) => signer,
-            Err(err) => {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-                    "stage" => "response_signature_recover",
-                )
-                .increment(1);
-                return Err(err);
-            }
-        };
-        if let Err(err) = self.ensure_signer_allowed(signer).await {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-                "stage" => "response_signer_check",
-            )
-            .increment(1);
-            return Err(err);
-        }
+        let signer = recover_signer(prehash, &signature).inspect_err(|_err| {
+            record_validation_failure("response_signature_recover");
+        })?;
+        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
+            record_validation_failure("response_signer_check");
+        })?;
 
-        if let Err(err) = validate_execution_payload_for_preconf(
+        validate_execution_payload_for_preconf(
             &envelope.execution_payload,
             self.chain_id,
             self.anchor_address,
-        ) {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-                "stage" => "response_validate",
-            )
-            .increment(1);
-            return Err(err);
-        }
+        )
+        .inspect_err(|_err| {
+            record_validation_failure("response_validate");
+        })?;
 
-        let envelope = Arc::new(envelope);
-        self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
-
-        if envelope.end_of_sequencing.unwrap_or(false) {
-            match self.beacon_client.timestamp_to_epoch(envelope.execution_payload.timestamp) {
-                Ok(epoch) => {
-                    debug!(
-                        epoch,
-                        hash = %envelope.execution_payload.block_hash,
-                        "recording end-of-sequencing envelope for epoch on response ingress"
-                    );
-                    self.cache_state
-                        .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
-                        .await;
-                }
-                Err(err) => {
-                    tracing::warn!(
-                        timestamp = envelope.execution_payload.timestamp,
-                        error = %err,
-                        "failed to derive epoch from response timestamp for EOS recording"
-                    );
-                }
-            }
-        }
+        self.ingest_validated_envelope(Arc::new(envelope), "response").await;
 
         Ok(())
     }

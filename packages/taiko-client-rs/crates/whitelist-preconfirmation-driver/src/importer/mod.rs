@@ -34,13 +34,6 @@ mod validation;
 mod tests;
 
 pub(crate) use validation::validate_execution_payload_for_preconf;
-
-/// Maximum compressed tx-list size accepted from a preconfirmation payload.
-pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
-/// Maximum decompressed tx-list size accepted from a preconfirmation payload.
-///
-/// Align with the preconfirmation tx-list cap to avoid zlib bomb expansion on untrusted payloads.
-pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
 /// Dependency bundle for constructing [`WhitelistPreconfirmationImporter`].
 pub(crate) struct WhitelistPreconfirmationImporterParams<P>
 where
@@ -305,7 +298,7 @@ where
             .get_block_by_number(alloy_eips::BlockNumberOrTag::Number(block_number))
             .await
             .map(|opt| opt.map(|block| block.hash()))
-            .map_err(provider_err)
+            .map_err(WhitelistPreconfirmationDriverError::provider)
     }
 
     /// Update cache gauges after cache mutations.
@@ -315,11 +308,6 @@ where
         metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
             .set(self.recent_cache.len() as f64);
     }
-}
-
-/// Convert a provider error into a driver error.
-pub(super) fn provider_err(err: impl std::fmt::Display) -> WhitelistPreconfirmationDriverError {
-    WhitelistPreconfirmationDriverError::Rpc(rpc::RpcClientError::Provider(err.to_string()))
 }
 
 /// Returns true only when sync readiness transitions from disabled to enabled.

@@ -13,7 +13,7 @@ where
         command_name: &'static str,
     ) -> Result<()> {
         self.network_command_tx.send(command).await.map_err(|err| {
-            WhitelistPreconfirmationDriverError::P2p(format!(
+            WhitelistPreconfirmationDriverError::p2p(format!(
                 "failed to send {command_name} command: {err}"
             ))
         })
@@ -37,8 +37,12 @@ where
         // positive that taiko-geth emits on genesis chains (currentBlock == highestBlock
         // == 0, txIndexRemainingBlocks = 1).  When current == highest the node is not
         // actually catching up to a remote peer, so we allow the build to proceed.
-        let sync_status =
-            self.rpc.l2_provider.syncing().await.map_err(super::compression::provider_err)?;
+        let sync_status = self
+            .rpc
+            .l2_provider
+            .syncing()
+            .await
+            .map_err(WhitelistPreconfirmationDriverError::provider)?;
         if let SyncStatus::Info(ref info) = sync_status &&
             info.current_block < info.highest_block
         {
@@ -65,7 +69,7 @@ where
             .l2_provider
             .get_block_by_number(BlockNumberOrTag::Number(request.block_number))
             .await
-            .map_err(super::compression::provider_err)?
+            .map_err(WhitelistPreconfirmationDriverError::provider)?
             .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(
                 request.block_number,
             ))?;

@@ -13,12 +13,10 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::NetworkCommand,
+    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
-use super::{
-    MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, WhitelistPreconfirmationImporter,
-    provider_err,
-};
+use super::WhitelistPreconfirmationImporter;
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -35,7 +33,7 @@ where
             .get_block_by_hash(hash)
             .full()
             .await
-            .map_err(provider_err)?
+            .map_err(WhitelistPreconfirmationDriverError::provider)?
             .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
         else {
             return Ok(None);
@@ -59,8 +57,8 @@ where
         }
 
         let Some(transactions) = block.transactions.as_transactions() else {
-            return Err(WhitelistPreconfirmationDriverError::InvalidPayload(
-                "request-response block missing full transaction bodies".to_string(),
+            return Err(WhitelistPreconfirmationDriverError::invalid_payload(
+                "request-response block missing full transaction bodies",
             ));
         };
 
@@ -74,9 +72,10 @@ where
         )
         .encode(&raw_transactions)
         .map_err(|err| {
-            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "failed to encode request-response tx list: {err}"
-            ))
+            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+                "failed to encode request-response tx list",
+                err,
+            )
         })?;
 
         let end_of_sequencing = self
@@ -85,7 +84,7 @@ where
             .and_then(|envelope| envelope.end_of_sequencing)
             .filter(|enabled| *enabled);
         let base_fee = block.header.base_fee_per_gas.ok_or_else(|| {
-            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+            WhitelistPreconfirmationDriverError::invalid_payload(format!(
                 "request-response block {} missing base fee",
                 block.header.number
             ))

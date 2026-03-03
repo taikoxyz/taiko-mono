@@ -1,5 +1,7 @@
 //! HTTP response helpers, REST status mapping, and body ingestion utilities.
 
+use std::fmt::Display;
+
 use axum::{
     body::Body,
     http::{StatusCode, header::CONTENT_TYPE},
@@ -61,7 +63,7 @@ pub(super) enum RequestBodyReadError {
     },
 }
 
-impl std::fmt::Display for RequestBodyReadError {
+impl Display for RequestBodyReadError {
     /// Render a human-readable error used in HTTP responses and logs.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

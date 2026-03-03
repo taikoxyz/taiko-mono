@@ -34,6 +34,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Ensure make is available
+        uses: ./.github/actions/ensure-make
+
       - name: Lint
         working-directory: packages/taiko-client
         run: make lint
@@ -72,6 +75,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Ensure make is available
+        uses: ./.github/actions/ensure-make
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
