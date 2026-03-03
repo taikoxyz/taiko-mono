@@ -2,6 +2,8 @@
 
 use alloy_primitives::{Address, B256, Signature, U256, keccak256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
+use async_trait::async_trait;
+use futures::prelude::*;
 use ssz::{Decode, Encode};
 
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
@@ -243,6 +245,96 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
     })
 }
 
+/// Protocol identifier for the direct request/response protocol.
+pub(crate) const WHITELIST_REQRESP_PROTOCOL: &str = "/taiko/whitelist-preconf/req/1";
+
+/// Maximum response size (same as gossip limit).
+const MAX_REQRESP_RESPONSE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
+
+/// Codec for the direct request/response protocol.
+///
+/// Request: 32-byte block hash (raw `B256`).
+/// Response: Snappy-compressed SSZ envelope (same encoding as gossip `responsePreconfBlocks`).
+/// Empty response = block not found.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct WhitelistReqRespCodec;
+
+#[async_trait]
+impl libp2p::request_response::Codec for WhitelistReqRespCodec {
+    type Protocol = libp2p::StreamProtocol;
+    type Request = B256;
+    type Response = Vec<u8>;
+
+    async fn read_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Request>
+    where
+        T: AsyncRead + Unpin + Send,
+    {
+        let mut buf = [0u8; 32];
+        io.read_exact(&mut buf).await?;
+        // Reject trailing data: a well-formed request is exactly 32 bytes.
+        let mut trail = [0u8; 1];
+        if io.read(&mut trail).await? > 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "direct request contains trailing data after 32-byte hash",
+            ));
+        }
+        Ok(B256::from(buf))
+    }
+
+    async fn read_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+    ) -> std::io::Result<Self::Response>
+    where
+        T: AsyncRead + Unpin + Send,
+    {
+        let mut buf = Vec::new();
+        // Read one extra byte beyond the limit so we can detect oversized responses.
+        io.take(MAX_REQRESP_RESPONSE_BYTES as u64 + 1).read_to_end(&mut buf).await?;
+        if buf.len() > MAX_REQRESP_RESPONSE_BYTES {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "direct response exceeds maximum allowed size",
+            ));
+        }
+        Ok(buf)
+    }
+
+    async fn write_request<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        req: Self::Request,
+    ) -> std::io::Result<()>
+    where
+        T: AsyncWrite + Unpin + Send,
+    {
+        io.write_all(req.as_slice()).await?;
+        io.close().await?;
+        Ok(())
+    }
+
+    async fn write_response<T>(
+        &mut self,
+        _protocol: &Self::Protocol,
+        io: &mut T,
+        res: Self::Response,
+    ) -> std::io::Result<()>
+    where
+        T: AsyncWrite + Unpin + Send,
+    {
+        io.write_all(&res).await?;
+        io.close().await?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use alloy_primitives::{Bloom, Bytes};
@@ -364,5 +456,112 @@ mod tests {
             WhitelistPreconfirmationDriverError::InvalidPayload(msg)
                 if msg.contains("too large after decompression")
         ));
+    }
+
+    #[tokio::test]
+    async fn reqresp_codec_request_roundtrips() {
+        use futures::io::Cursor;
+        use libp2p::request_response::Codec as _;
+
+        let hash = B256::from([0xabu8; 32]);
+        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let mut codec = WhitelistReqRespCodec;
+
+        let mut buf = Vec::new();
+        codec.write_request(&protocol, &mut buf, hash).await.expect("write_request");
+        assert_eq!(buf.len(), 32, "request is exactly 32 bytes");
+
+        let mut cursor = Cursor::new(buf);
+        let decoded = codec.read_request(&protocol, &mut cursor).await.expect("read_request");
+        assert_eq!(decoded, hash);
+    }
+
+    #[tokio::test]
+    async fn reqresp_codec_response_roundtrips() {
+        use futures::io::Cursor;
+        use libp2p::request_response::Codec as _;
+
+        let envelope = sample_envelope();
+        let encoded = encode_unsafe_response_message(&envelope).expect("encode response");
+        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let mut codec = WhitelistReqRespCodec;
+
+        let mut buf = Vec::new();
+        codec.write_response(&protocol, &mut buf, encoded.clone()).await.expect("write_response");
+        assert_eq!(buf, encoded);
+
+        let mut cursor = Cursor::new(buf);
+        let decoded_bytes =
+            codec.read_response(&protocol, &mut cursor).await.expect("read_response");
+        assert_eq!(decoded_bytes, encoded);
+
+        let decoded_envelope =
+            decode_unsafe_response_message(&decoded_bytes).expect("decode response");
+        assert_eq!(
+            decoded_envelope.execution_payload.block_hash,
+            envelope.execution_payload.block_hash
+        );
+    }
+
+    #[tokio::test]
+    async fn reqresp_codec_empty_response_roundtrips() {
+        use futures::io::Cursor;
+        use libp2p::request_response::Codec as _;
+
+        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let mut codec = WhitelistReqRespCodec;
+
+        let mut buf = Vec::new();
+        codec.write_response(&protocol, &mut buf, Vec::new()).await.expect("write_response empty");
+        assert!(buf.is_empty(), "empty response produces no bytes");
+
+        let mut cursor = Cursor::new(buf);
+        let decoded =
+            codec.read_response(&protocol, &mut cursor).await.expect("read_response empty");
+        assert!(decoded.is_empty(), "empty response decodes to empty vec");
+    }
+
+    #[tokio::test]
+    async fn reqresp_codec_read_request_rejects_short_input() {
+        use futures::io::Cursor;
+        use libp2p::request_response::Codec as _;
+
+        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let mut codec = WhitelistReqRespCodec;
+
+        let short = vec![0u8; 16];
+        let mut cursor = Cursor::new(short);
+        let result = codec.read_request(&protocol, &mut cursor).await;
+        assert!(result.is_err(), "16-byte input should fail read_exact for 32 bytes");
+    }
+
+    #[tokio::test]
+    async fn reqresp_codec_read_response_rejects_oversized_input() {
+        use futures::io::Cursor;
+        use libp2p::request_response::Codec as _;
+
+        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let mut codec = WhitelistReqRespCodec;
+
+        let oversized = vec![0u8; MAX_REQRESP_RESPONSE_BYTES + 1];
+        let mut cursor = Cursor::new(oversized);
+        let result = codec.read_response(&protocol, &mut cursor).await;
+        assert!(result.is_err(), "oversized response should be rejected");
+        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData,);
+    }
+
+    #[tokio::test]
+    async fn reqresp_codec_read_response_accepts_max_size_input() {
+        use futures::io::Cursor;
+        use libp2p::request_response::Codec as _;
+
+        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
+        let mut codec = WhitelistReqRespCodec;
+
+        let max_size = vec![0u8; MAX_REQRESP_RESPONSE_BYTES];
+        let mut cursor = Cursor::new(max_size.clone());
+        let result = codec.read_response(&protocol, &mut cursor).await;
+        assert!(result.is_ok(), "response at exactly max size should be accepted");
+        assert_eq!(result.unwrap().len(), MAX_REQRESP_RESPONSE_BYTES);
     }
 }

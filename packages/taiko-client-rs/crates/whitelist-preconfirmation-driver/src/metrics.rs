@@ -33,6 +33,12 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Counter tracking dial failures by source.
     pub const NETWORK_DIAL_FAILURES_TOTAL: &'static str =
         "whitelist_preconf_driver_network_dial_failures_total";
+    /// Counter tracking direct req/resp command outcomes (queue, send, response).
+    pub const NETWORK_DIRECT_REQRESP_TOTAL: &'static str =
+        "whitelist_preconf_driver_network_direct_reqresp_total";
+    /// Counter tracking transport-level failures for direct req/resp (timeouts, disconnects).
+    pub const NETWORK_TRANSPORT_FAILURES_TOTAL: &'static str =
+        "whitelist_preconf_driver_network_transport_failures_total";
     /// Counter tracking event-forward failures into importer queue.
     pub const NETWORK_FORWARD_FAILURES_TOTAL: &'static str =
         "whitelist_preconf_driver_network_forward_failures_total";
@@ -126,6 +132,16 @@ impl WhitelistPreconfirmationDriverMetrics {
             "Dial failures by source"
         );
         metrics::describe_counter!(
+            Self::NETWORK_DIRECT_REQRESP_TOTAL,
+            Unit::Count,
+            "Direct req/resp command outcomes"
+        );
+        metrics::describe_counter!(
+            Self::NETWORK_TRANSPORT_FAILURES_TOTAL,
+            Unit::Count,
+            "Transport-level failures for direct req/resp"
+        );
+        metrics::describe_counter!(
             Self::NETWORK_FORWARD_FAILURES_TOTAL,
             Unit::Count,
             "Failures forwarding network events to importer"
@@ -209,6 +225,8 @@ impl WhitelistPreconfirmationDriverMetrics {
         metrics::counter!(Self::NETWORK_OUTBOUND_PUBLISH_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_DIAL_ATTEMPTS_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_DIAL_FAILURES_TOTAL).absolute(0);
+        metrics::counter!(Self::NETWORK_DIRECT_REQRESP_TOTAL).absolute(0);
+        metrics::counter!(Self::NETWORK_TRANSPORT_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_FORWARD_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::IMPORTER_EVENTS_TOTAL).absolute(0);
         metrics::counter!(Self::VALIDATION_FAILURES_TOTAL).absolute(0);
@@ -242,6 +260,8 @@ mod tests {
             WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_FAILURES_TOTAL,
+            WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
+            WhitelistPreconfirmationDriverMetrics::NETWORK_TRANSPORT_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
             WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
