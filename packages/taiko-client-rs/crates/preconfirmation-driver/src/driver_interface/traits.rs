@@ -74,7 +74,7 @@ pub trait DriverClient: Send + Sync {
 ///
 /// This is the single source of truth for the fallback logic so that all
 /// [`DriverClient`] implementations stay consistent.
-pub async fn resolve_event_sync_tip(snapshot: &ConfirmedSyncSnapshot) -> ClientResult<U256> {
+pub fn resolve_event_sync_tip(snapshot: &ConfirmedSyncSnapshot) -> ClientResult<U256> {
     match snapshot.event_sync_tip() {
         Some(tip) => Ok(U256::from(tip)),
         // Fresh genesis chain — no proposals confirmed on L1 yet, confirmed boundary is 0.
@@ -125,14 +125,14 @@ mod tests {
     #[tokio::test]
     async fn resolve_returns_snapshot_tip_when_present() {
         let snapshot = ConfirmedSyncSnapshot::new(1, Some(10), Some(42));
-        let tip = resolve_event_sync_tip(&snapshot).await.unwrap();
+        let tip = resolve_event_sync_tip(&snapshot).unwrap();
         assert_eq!(tip, U256::from(42));
     }
 
     #[tokio::test]
     async fn resolve_returns_zero_when_tip_missing_on_genesis_snapshot() {
         let snapshot = ConfirmedSyncSnapshot::new(0, None, None);
-        let tip = resolve_event_sync_tip(&snapshot).await.unwrap();
+        let tip = resolve_event_sync_tip(&snapshot).unwrap();
         assert_eq!(tip, U256::ZERO);
     }
 
@@ -140,7 +140,7 @@ mod tests {
     async fn resolve_rejects_when_confirmed_sync_not_ready() {
         // target_proposal_id > 0 but head_l1_origin is None → startup catch-up window.
         let snapshot = ConfirmedSyncSnapshot::new(5, Some(10), None);
-        let err = resolve_event_sync_tip(&snapshot).await.unwrap_err();
+        let err = resolve_event_sync_tip(&snapshot).unwrap_err();
         assert!(
             matches!(
                 err,

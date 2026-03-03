@@ -162,7 +162,7 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     /// Returns the current confirmed event-sync L2 block number.
     async fn event_sync_tip(&self) -> Result<U256> {
         let snapshot = self.inbox_reader.confirmed_sync_snapshot().await?;
-        super::traits::resolve_event_sync_tip(&snapshot).await
+        super::traits::resolve_event_sync_tip(&snapshot)
     }
 
     /// Returns the current preconfirmation tip block number.
@@ -362,7 +362,8 @@ mod tests {
         assert_eq!(tip, U256::ZERO);
 
         preconf_tip_tx.send(U256::from(42)).unwrap();
-        let tip = client.event_sync_tip().await.expect("should still fall back to zero on genesis");
+    let tip =
+        client.event_sync_tip().await.expect("genesis returns 0 regardless of preconf_tip");
         assert_eq!(tip, U256::ZERO);
     }
 }

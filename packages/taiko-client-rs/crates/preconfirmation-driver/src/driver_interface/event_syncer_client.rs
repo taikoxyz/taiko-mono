@@ -240,7 +240,7 @@ where
     async fn event_sync_tip(&self) -> ClientResult<U256> {
         let snapshot =
             self.event_syncer.confirmed_sync_snapshot().await.map_err(DriverApiError::Driver)?;
-        super::traits::resolve_event_sync_tip(&snapshot).await
+        super::traits::resolve_event_sync_tip(&snapshot)
     }
 
     /// Get the current preconfirmation tip block number.
