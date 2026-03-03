@@ -160,11 +160,9 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     }
 
     /// Returns the current confirmed event-sync L2 block number.
-    /// Falls back to `preconf_tip` when `head_l1_origin` has not been established yet,
-    /// which avoids a full-history catch-up on restart when preconfirmed blocks already exist.
     async fn event_sync_tip(&self) -> Result<U256> {
         let snapshot = self.inbox_reader.confirmed_sync_snapshot().await?;
-        super::traits::resolve_event_sync_tip(&snapshot, || self.preconf_tip()).await
+        super::traits::resolve_event_sync_tip(&snapshot).await
     }
 
     /// Returns the current preconfirmation tip block number.
@@ -356,17 +354,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_event_sync_tip_falls_back_to_preconf_tip_when_head_l1_origin_missing() {
+    async fn test_event_sync_tip_falls_back_to_zero_when_head_l1_origin_missing() {
         let (client, _, inbox_reader, preconf_tip_tx) = make_client();
         inbox_reader.set_head_l1_origin(None);
 
-        // With default preconf_tip (0), fallback returns 0.
-        let tip = client.event_sync_tip().await.expect("should fall back to preconf_tip");
+        let tip = client.event_sync_tip().await.expect("should fall back to zero on genesis");
         assert_eq!(tip, U256::ZERO);
 
-        // When preconf_tip advances, the fallback follows it.
         preconf_tip_tx.send(U256::from(42)).unwrap();
-        let tip = client.event_sync_tip().await.expect("should fall back to preconf_tip");
-        assert_eq!(tip, U256::from(42));
+        let tip = client.event_sync_tip().await.expect("should still fall back to zero on genesis");
+        assert_eq!(tip, U256::ZERO);
     }
 }

@@ -258,7 +258,7 @@ where
             .confirmed_sync_snapshot()
             .await
             .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?;
-        resolve_event_sync_tip(&snapshot, || self.preconf_tip()).await
+        resolve_event_sync_tip(&snapshot).await
     }
 
     async fn preconf_tip(&self) -> Result<U256> {

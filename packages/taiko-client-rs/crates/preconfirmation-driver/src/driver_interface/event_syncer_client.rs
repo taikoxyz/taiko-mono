@@ -237,12 +237,10 @@ where
     }
 
     /// Get the current event syncer tip block number.
-    /// Falls back to `preconf_tip` when `head_l1_origin` has not been established yet,
-    /// which avoids a full-history catch-up on restart when preconfirmed blocks already exist.
     async fn event_sync_tip(&self) -> ClientResult<U256> {
         let snapshot =
             self.event_syncer.confirmed_sync_snapshot().await.map_err(DriverApiError::Driver)?;
-        super::traits::resolve_event_sync_tip(&snapshot, || self.preconf_tip()).await
+        super::traits::resolve_event_sync_tip(&snapshot).await
     }
 
     /// Get the current preconfirmation tip block number.
@@ -363,12 +361,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn event_syncer_driver_client_falls_back_to_preconf_tip_on_genesis() {
+    async fn event_syncer_driver_client_returns_zero_on_genesis_snapshot() {
         let asserter = Asserter::new();
         let provider = ProviderBuilder::new().connect_mocked_client(asserter);
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
 
-        // target_proposal_id=0 (fresh genesis), head_l1_origin=None → fallback to preconf_tip.
+        // target_proposal_id=0 (fresh genesis), head_l1_origin=None → confirmed tip is genesis(0).
         let client = EventSyncerDriverClient::new_with_components(
             Arc::new(FakeIngress::new(false, u64::MAX).with_target_proposal_id(0)),
             inbox,
@@ -378,8 +376,8 @@ mod tests {
         let tip = client
             .event_sync_tip()
             .await
-            .expect("should fall back to preconf_tip on fresh genesis");
-        assert_eq!(tip, U256::from(99));
+            .expect("should return genesis confirmed tip on fresh genesis");
+        assert_eq!(tip, U256::ZERO);
     }
 
     #[tokio::test]
