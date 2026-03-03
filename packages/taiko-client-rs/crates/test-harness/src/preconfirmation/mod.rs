@@ -39,7 +39,7 @@ mod payloads;
 
 pub use client::{RunningPreconfClient, TestPreconfClientConfig, spawn_test_preconf_client};
 pub use driver::{
-    EventSyncerDriverClient, MockDriverClient, RealDriverSetup, LoggingDriverClient,
+    EventSyncerDriverClient, LoggingDriverClient, MockDriverClient, RealDriverSetup,
     StartingBlockInfo,
 };
 pub use events::{

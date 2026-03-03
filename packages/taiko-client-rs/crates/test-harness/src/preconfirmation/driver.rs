@@ -19,9 +19,10 @@ use driver::{
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{
-    DriverClient, PreconfirmationInput, Result, resolve_event_sync_tip,
+    DriverClient, PreconfirmationInput, Result,
     driver_interface::payload::build_taiko_payload_attributes,
     error::{DriverApiError, PreconfirmationClientError},
+    resolve_event_sync_tip,
 };
 use preconfirmation_types::uint256_to_u256;
 use protocol::shasta::constants::min_base_fee_for_chain;

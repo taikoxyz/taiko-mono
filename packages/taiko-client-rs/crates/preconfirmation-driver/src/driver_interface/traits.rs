@@ -73,7 +73,10 @@ pub trait DriverClient: Send + Sync {
 ///
 /// This is the single source of truth for the fallback logic so that all
 /// [`DriverClient`] implementations stay consistent.
-pub async fn resolve_event_sync_tip<F, Fut>(snapshot: &ConfirmedSyncSnapshot, fallback: F) -> ClientResult<U256>
+pub async fn resolve_event_sync_tip<F, Fut>(
+    snapshot: &ConfirmedSyncSnapshot,
+    fallback: F,
+) -> ClientResult<U256>
 where
     F: FnOnce() -> Fut,
     Fut: Future<Output = ClientResult<U256>>,
@@ -128,20 +131,17 @@ mod tests {
     #[tokio::test]
     async fn resolve_returns_snapshot_tip_when_present() {
         let snapshot = ConfirmedSyncSnapshot::new(1, Some(10), Some(42));
-        let tip = resolve_event_sync_tip(&snapshot, || async {
-            panic!("fallback should not be called")
-        })
-        .await
-        .unwrap();
+        let tip =
+            resolve_event_sync_tip(&snapshot, || async { panic!("fallback should not be called") })
+                .await
+                .unwrap();
         assert_eq!(tip, U256::from(42));
     }
 
     #[tokio::test]
     async fn resolve_calls_fallback_when_tip_missing() {
         let snapshot = ConfirmedSyncSnapshot::new(0, None, None);
-        let tip = resolve_event_sync_tip(&snapshot, || async { Ok(U256::from(99)) })
-            .await
-            .unwrap();
+        let tip = resolve_event_sync_tip(&snapshot, || async { Ok(U256::from(99)) }).await.unwrap();
         assert_eq!(tip, U256::from(99));
     }
 
