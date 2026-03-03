@@ -186,9 +186,10 @@ async fn test_event_sync_tip_transitions_from_genesis_zero_to_startup_unknown() 
     let tip = client.event_sync_tip().await.expect("genesis path should still return zero");
     assert_eq!(tip, alloy::primitives::U256::ZERO);
 
-    // Once proposals exist (target_proposal_id > 0), missing `head_l1_origin` is no longer
-    // a genesis fallback and must be treated as unknown startup state.
-    inbox_reader.set_next_proposal_id(1);
+    // Once proposals exist (nextProposalId > 1 → target_proposal_id > 0), missing
+    // `head_l1_origin` is no longer a genesis fallback and must be treated as
+    // unknown startup state.
+    inbox_reader.set_next_proposal_id(2);
     let err = client.event_sync_tip().await.unwrap_err();
     assert!(matches!(
         err,
