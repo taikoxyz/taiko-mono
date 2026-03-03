@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.34.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.34.0...docs-site-v1.34.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
+
+### Chores
+
+* **docs-site:** fix Alethia docs wording consistency ([#21410](https://github.com/taikoxyz/taiko-mono/issues/21410)) ([70a91e0](https://github.com/taikoxyz/taiko-mono/commit/70a91e05fa59eec2bd58ced1ff30c142c66ab64c))
+* **protocol:** merge 3.0.0 back to main ([#21359](https://github.com/taikoxyz/taiko-mono/issues/21359)) ([1df2675](https://github.com/taikoxyz/taiko-mono/commit/1df267517a7369a5381e357dfc29f11339966141))
+
 ## [1.34.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.4...docs-site-v1.34.0) (2026-02-24)
 
 

@@ -1,6 +1,6 @@
 {
   "packages/bridge-ui": "2.15.0",
-  "packages/docs-site": "1.34.0",
+  "packages/docs-site": "1.34.1",
   "packages/eventindexer": "0.14.0",
   "packages/ejector": "0.6.0",
   "packages/fork-diff": "0.7.1",
