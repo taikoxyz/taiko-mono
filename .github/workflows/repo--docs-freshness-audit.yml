@@ -17,6 +17,7 @@ jobs:
   docs-freshness-audit:
     if: github.repository == 'taikoxyz/taiko-mono'
     runs-on: [arc-runner-set]
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -29,22 +30,94 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install docs audit dependencies
+      - name: Build weekly audit context
         run: |
-          npm install --ignore-scripts --no-save --no-package-lock \
-            @anthropic-ai/claude-agent-sdk@latest \
-            tsx@latest \
-            typescript@latest \
-            @types/node@latest
+          set -euo pipefail
+
+          from_date="$(date -u -d '7 days ago' +%F)"
+          to_date="$(date -u +%F)"
+          context_file=".github/tmp/weekly-docs-context.md"
+
+          mkdir -p "$(dirname "$context_file")"
+
+          {
+            echo "# Weekly Docs Audit Context"
+            echo
+            echo "Date window: ${from_date} to ${to_date} (UTC)"
+            echo
+            echo "## Recent commits"
+            git log --since="${from_date} 00:00:00" --until="${to_date} 23:59:59" \
+              --date=short --pretty='format:- %h %ad %an: %s'
+            echo
+            echo "## Changed files"
+            git log --since="${from_date} 00:00:00" --until="${to_date} 23:59:59" \
+              --name-only --pretty=format: | sed '/^$/d' | sort -u
+          } > "$context_file"
+
+      - name: Install docs audit dependencies
+        working-directory: .github/scripts/docs-audit
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run weekly docs audit agent
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AUDIT_SUMMARY_PATH: ${{ github.workspace }}/.github/tmp/weekly-docs-audit-summary.md
+          HOME: ${{ runner.temp }}/isolated-home
+          REPO_ROOT: ${{ github.workspace }}
+        working-directory: .github/scripts/docs-audit
         run: |
-          npx tsc --pretty false --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext .github/scripts/weekly-docs-audit.ts
-          npx tsx .github/scripts/weekly-docs-audit.ts
+          set -euo pipefail
+          mkdir -p "$HOME"
+          npx tsc --pretty false --noEmit --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext weekly-docs-audit.ts
+          npx tsx weekly-docs-audit.ts
+
+      - name: Validate changed files are docs-only
+        run: |
+          set -euo pipefail
+          changed_files="$(git diff --name-only)"
+
+          if [ -z "$changed_files" ]; then
+            exit 0
+          fi
+
+          while IFS= read -r file; do
+            case "$file" in
+              AGENTS.md|CLAUDE.md|README.md|*/AGENTS.md|*/CLAUDE.md|*/README.md|docs/*|*/docs/*)
+                ;;
+              *)
+                echo "Unexpected non-doc change detected: $file"
+                exit 1
+                ;;
+            esac
+          done <<< "$changed_files"
+
+      - name: Check for docs changes
+        id: docs_changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "No documentation changes needed this week."
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Documentation changes detected."
+          fi
+
+      - name: Read audit summary
+        id: audit_summary
+        run: |
+          summary_file=".github/tmp/weekly-docs-audit-summary.md"
+          {
+            echo "summary<<'EOF'"
+            if [ -s "$summary_file" ]; then
+              cat "$summary_file"
+            else
+              echo "No summary produced by docs audit agent."
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Open docs proposal PR
+        if: steps.docs_changes.outputs.has_changes == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -64,10 +137,12 @@ jobs:
             Trigger:
             - Weekly schedule
             - Manual workflow dispatch
+
+            Audit summary:
+            ${{ steps.audit_summary.outputs.summary }}
           labels: documentation,automation
           add-paths: |
             **/AGENTS.md
             **/CLAUDE.md
             **/README.md
-            docs/**
             **/docs/**
