@@ -39,6 +39,7 @@ struct LookupLabels {
     not_found: &'static str,
 }
 
+/// Metric and log labels for direct block hash lookup traffic.
 const DIRECT_LOOKUP_LABELS: LookupLabels = LookupLabels {
     log_prefix: "direct",
     cache_hit: "direct_cache_hit",
@@ -46,6 +47,7 @@ const DIRECT_LOOKUP_LABELS: LookupLabels = LookupLabels {
     not_found: "direct_not_found",
 };
 
+/// Metric and log labels for gossip-derived block hash lookup traffic.
 const GOSSIP_LOOKUP_LABELS: LookupLabels = LookupLabels {
     log_prefix: "gossip",
     cache_hit: "cache_hit",
