@@ -19,7 +19,7 @@ use driver::{
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{
-    DriverClient, PreconfirmationInput, Result,
+    DriverClient, PreconfirmationInput, Result, resolve_event_sync_tip,
     driver_interface::payload::build_taiko_payload_attributes,
     error::{DriverApiError, PreconfirmationClientError},
 };
@@ -252,16 +252,12 @@ where
     }
 
     async fn event_sync_tip(&self) -> Result<U256> {
-        match self
+        let snapshot = self
             .event_syncer
             .confirmed_sync_snapshot()
             .await
-            .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?
-            .event_sync_tip()
-        {
-            Some(tip) => Ok(U256::from(tip)),
-            None => self.preconf_tip().await,
-        }
+            .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?;
+        resolve_event_sync_tip(&snapshot, || self.preconf_tip()).await
     }
 
     async fn preconf_tip(&self) -> Result<U256> {
@@ -308,6 +304,8 @@ impl DriverClient for LoggingDriverClient {
         self.inner.wait_event_sync().await
     }
 
+    // Delegation only — fallback logic lives in the inner implementation via
+    // `resolve_event_sync_tip`, so no logging or mutation is needed here.
     async fn event_sync_tip(&self) -> Result<U256> {
         self.inner.event_sync_tip().await
     }

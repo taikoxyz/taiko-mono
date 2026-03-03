@@ -240,16 +240,12 @@ where
     /// Falls back to `preconf_tip` when `head_l1_origin` has not been established yet,
     /// which avoids a full-history catch-up on restart when preconfirmed blocks already exist.
     async fn event_sync_tip(&self) -> ClientResult<U256> {
-        match self
+        let snapshot = self
             .event_syncer
             .confirmed_sync_snapshot()
             .await
-            .map_err(DriverApiError::Driver)?
-            .event_sync_tip()
-        {
-            Some(tip) => Ok(U256::from(tip)),
-            None => self.preconf_tip().await,
-        }
+            .map_err(DriverApiError::Driver)?;
+        super::traits::resolve_event_sync_tip(&snapshot, || self.preconf_tip()).await
     }
 
     /// Get the current preconfirmation tip block number.
@@ -309,6 +305,23 @@ mod tests {
         submits: Arc<AtomicUsize>,
         ready: Arc<AtomicBool>,
         tip: Arc<AtomicU64>,
+        target_proposal_id: u64,
+    }
+
+    impl FakeIngress {
+        fn new(ready: bool, tip: u64) -> Self {
+            Self {
+                submits: Arc::new(AtomicUsize::new(0)),
+                ready: Arc::new(AtomicBool::new(ready)),
+                tip: Arc::new(AtomicU64::new(tip)),
+                target_proposal_id: 1,
+            }
+        }
+
+        fn with_target_proposal_id(mut self, id: u64) -> Self {
+            self.target_proposal_id = id;
+            self
+        }
     }
 
     #[async_trait::async_trait]
@@ -326,9 +339,16 @@ mod tests {
         ) -> Result<ConfirmedSyncSnapshot, driver::DriverError> {
             let tip = self.tip.load(Ordering::SeqCst);
             let head_l1_origin_block_id = (tip != u64::MAX).then_some(tip);
-            let target_block =
-                if self.ready.load(Ordering::SeqCst) { Some(0) } else { Some(u64::MAX - 1) };
-            Ok(ConfirmedSyncSnapshot::new(1, target_block, head_l1_origin_block_id))
+            let target_block = if self.ready.load(Ordering::SeqCst) {
+                Some(0)
+            } else {
+                Some(u64::MAX - 1)
+            };
+            Ok(ConfirmedSyncSnapshot::new(
+                self.target_proposal_id,
+                target_block,
+                head_l1_origin_block_id,
+            ))
         }
     }
 
@@ -339,11 +359,7 @@ mod tests {
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider.clone());
 
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress {
-                submits: Arc::new(AtomicUsize::new(0)),
-                ready: Arc::new(AtomicBool::new(true)),
-                tip: Arc::new(AtomicU64::new(7)),
-            }),
+            Arc::new(FakeIngress::new(true, 7)),
             inbox,
             Arc::new(StubL2Provider { latest: U256::from(12) }),
         );
@@ -353,27 +369,48 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn event_syncer_driver_client_falls_back_to_preconf_tip_when_tip_unknown() {
+    async fn event_syncer_driver_client_falls_back_to_preconf_tip_on_genesis() {
         let asserter = Asserter::new();
         let provider = ProviderBuilder::new().connect_mocked_client(asserter);
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
 
+        // target_proposal_id=0 (fresh genesis), head_l1_origin=None → fallback to preconf_tip.
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress {
-                submits: Arc::new(AtomicUsize::new(0)),
-                ready: Arc::new(AtomicBool::new(false)),
-                tip: Arc::new(AtomicU64::new(u64::MAX)),
-            }),
+            Arc::new(FakeIngress::new(false, u64::MAX).with_target_proposal_id(0)),
             inbox,
             Arc::new(StubL2Provider { latest: U256::from(99) }),
         );
 
-        // Falls back to preconf_tip (from StubL2Provider) when head_l1_origin is unknown.
         let tip = client
             .event_sync_tip()
             .await
-            .expect("should fall back to preconf_tip when head_l1_origin is missing");
+            .expect("should fall back to preconf_tip on fresh genesis");
         assert_eq!(tip, U256::from(99));
+    }
+
+    #[tokio::test]
+    async fn event_syncer_driver_client_rejects_during_startup_catchup() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter);
+        let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
+
+        // target_proposal_id=1, head_l1_origin=None → startup catch-up window, fail-closed.
+        let client = EventSyncerDriverClient::new_with_components(
+            Arc::new(FakeIngress::new(false, u64::MAX)),
+            inbox,
+            Arc::new(StubL2Provider { latest: U256::from(99) }),
+        );
+
+        let err = client
+            .event_sync_tip()
+            .await
+            .expect_err("should reject during startup catch-up window");
+        assert!(matches!(
+            err,
+            crate::PreconfirmationClientError::DriverInterface(
+                DriverApiError::EventSyncTipUnknown
+            )
+        ));
     }
 
     struct NoopL2Provider;
@@ -408,6 +445,7 @@ mod tests {
                 submits: submits.clone(),
                 ready: Arc::new(AtomicBool::new(true)),
                 tip: Arc::new(AtomicU64::new(0)),
+                target_proposal_id: 1,
             }),
             inbox,
             Arc::new(NoopL2Provider),
@@ -438,6 +476,7 @@ mod tests {
                 submits: Arc::new(AtomicUsize::new(0)),
                 ready: ready.clone(),
                 tip: Arc::new(AtomicU64::new(5)),
+                target_proposal_id: 1,
             }),
             inbox,
             Arc::new(NoopL2Provider),

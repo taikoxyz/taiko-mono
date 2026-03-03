@@ -163,10 +163,8 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     /// Falls back to `preconf_tip` when `head_l1_origin` has not been established yet,
     /// which avoids a full-history catch-up on restart when preconfirmed blocks already exist.
     async fn event_sync_tip(&self) -> Result<U256> {
-        match self.inbox_reader.confirmed_sync_snapshot().await?.event_sync_tip() {
-            Some(tip) => Ok(U256::from(tip)),
-            None => self.preconf_tip().await,
-        }
+        let snapshot = self.inbox_reader.confirmed_sync_snapshot().await?;
+        super::traits::resolve_event_sync_tip(&snapshot, || self.preconf_tip()).await
     }
 
     /// Returns the current preconfirmation tip block number.
