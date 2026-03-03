@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -446,6 +445,12 @@ func (p *Processor) Name() string {
 	return "processor"
 }
 
+// WaitForInterrupt returns whether processor should keep running and wait for
+// shutdown signals after Start() returns.
+func (p *Processor) WaitForInterrupt() bool {
+	return p.targetTxHash == nil
+}
+
 func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
@@ -464,12 +469,7 @@ func (p *Processor) Start() error {
 
 	// if a targetTxHash is set, we only want to process that specific one.
 	if p.targetTxHash != nil {
-		err := p.processSingle(ctx)
-		if err != nil {
-			slog.Error(err.Error())
-		}
-
-		os.Exit(0)
+		return p.processSingle(ctx)
 	}
 
 	// otherwise, we can start the queue, and process messages from it
