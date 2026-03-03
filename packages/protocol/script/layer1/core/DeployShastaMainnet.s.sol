@@ -23,7 +23,7 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.contractOwner = LibL1Addrs.DAO_CONTROLLER;
 
         config.oldSignalServiceImpl = 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c;
-        config.r0Groth16Verifier = 0x7CCA385bdC790c25924333F5ADb7F4967F5d1599;
+        config.r0Groth16Verifier = 0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319;
         config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
         config.sgxRethAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
         config.sp1PlonkVerifier = 0xcdCEBD75cDcb9DEd637D537776431Db563Ff0821;
