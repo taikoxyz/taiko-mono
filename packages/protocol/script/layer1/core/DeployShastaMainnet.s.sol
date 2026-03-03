@@ -12,9 +12,6 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - ACTIVATOR: Address to set as initial inbox owner
-/// - PROVERS: Comma-separated list of prover addresses
-/// - SHASTA_FORK_TIMESTAMP: Unix timestamp for the Shasta fork
 contract DeployShastaMainnet is DeployShastaContracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
         // Use known mainnet constants
@@ -26,14 +23,16 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.contractOwner = LibL1Addrs.DAO_CONTROLLER;
 
         config.oldSignalServiceImpl = 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c;
-        config.r0Groth16Verifier = 0x7CCA385bdC790c25924333F5ADb7F4967F5d1599;
+        config.r0Groth16Verifier = 0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319;
         config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
         config.sgxRethAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
-        config.sp1PlonkVerifier = 0xcdCEBD75cDcb9DEd637D537776431Db563Ff0821;
+        config.sp1PlonkVerifier = 0x3B6041173B80E77f038f3F2C0f9744f04837185e;
 
-        // Load deployment-specific values from environment
-        config.activator = vm.envAddress("ACTIVATOR");
-        config.provers = vm.envAddress("PROVERS", ",");
-        config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
+        config.activator = 0xF14Dc4EdDb43e9a6A440e6beC97ea2ea64f39Ef7;
+        config.ejectorManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
+        config.proverManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
+        config.provers = new address[](1);
+        config.provers[0] = 0xa5cb34B75bD72f15290ef37A01F06183E8036875; // We can add new provers later using the prover manager role
+        config.shastaForkTimestamp = 1_774_530_900; // 2026-03-26 13:15:00 UTC
     }
 }
