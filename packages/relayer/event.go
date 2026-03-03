@@ -15,7 +15,6 @@ var (
 	EventNameMessageSent          = "MessageSent"
 	EventNameMessageStatusChanged = "MessageStatusChanged"
 	EventNameMessageProcessed     = "MessageProcessed"
-	EventNameChainDataSynced      = "ChainDataSynced"
 	EventNameCheckpointSaved      = "CheckpointSaved"
 )
 
@@ -148,17 +147,6 @@ type EventRepository interface {
 		msgHash string,
 	) (*Event, error)
 	Delete(ctx context.Context, id int) error
-	ChainDataSyncedEventByBlockNumberOrGreater(
-		ctx context.Context,
-		srcChainId uint64,
-		syncedChainId uint64,
-		blockNumber uint64,
-	) (*Event, error)
-	LatestChainDataSyncedEvent(
-		ctx context.Context,
-		srcChainId uint64,
-		syncedChainId uint64,
-	) (uint64, error)
 	CheckpointSyncedEventByBlockNumberOrGreater(
 		ctx context.Context,
 		chainId uint64,
