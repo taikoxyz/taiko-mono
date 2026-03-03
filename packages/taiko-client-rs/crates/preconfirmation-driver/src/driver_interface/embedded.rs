@@ -362,8 +362,10 @@ mod tests {
         assert_eq!(tip, U256::ZERO);
 
         preconf_tip_tx.send(U256::from(42)).unwrap();
-    let tip =
-        client.event_sync_tip().await.expect("genesis returns 0 regardless of preconf_tip");
+        let tip = client
+            .event_sync_tip()
+            .await
+            .expect("genesis returns 0 regardless of preconf_tip");
         assert_eq!(tip, U256::ZERO);
     }
 }
