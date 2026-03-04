@@ -2,9 +2,8 @@ use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
-        BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT,
-        MIN_BLOCK_GAS_LIMIT, TAIKO_HOODI_CHAIN_ID, max_anchor_offset_for_chain,
-        timestamp_max_offset_for_chain,
+        BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_BLOCK_GAS_LIMIT,
+        MIN_BLOCK_GAS_LIMIT, max_anchor_offset_for_chain, timestamp_max_offset_for_chain,
     },
     manifest::DerivationSourceManifest,
 };
@@ -262,7 +261,10 @@ pub fn apply_inherited_metadata(
 #[cfg(test)]
 mod tests {
     use alloy_primitives::Address;
-    use protocol::shasta::manifest::BlockManifest;
+    use protocol::shasta::{
+        constants::{MAX_ANCHOR_OFFSET, TAIKO_HOODI_CHAIN_ID},
+        manifest::BlockManifest,
+    };
 
     use super::*;
 
