@@ -4,7 +4,7 @@ use futures::future::Either;
 use libp2p::{
     Transport,
     core::{muxing::StreamMuxerBox, transport::Boxed, upgrade},
-    identity, noise, tcp, yamux,
+    dns, identity, noise, tcp, yamux,
 };
 
 use crate::{behaviour::NetBehaviour, config::NetworkConfig};
@@ -44,7 +44,9 @@ pub fn build_transport_and_behaviour(cfg: &NetworkConfig) -> anyhow::Result<Buil
     // Build multiplexers/transports based on config.
     let mut base: Option<Boxed<(libp2p::PeerId, StreamMuxerBox)>> = None;
     if cfg.enable_tcp {
-        let tcp_transport = tcp::tokio::Transport::new(tcp::Config::default())
+        let base_tcp = tcp::tokio::Transport::new(tcp::Config::default());
+        let tcp_with_dns = dns::tokio::Transport::system(base_tcp)?;
+        let tcp_transport = tcp_with_dns
             .upgrade(upgrade::Version::V1Lazy)
             .authenticate(noise_config.clone())
             .multiplex(yamux::Config::default())
