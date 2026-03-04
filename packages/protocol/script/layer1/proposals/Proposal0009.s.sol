@@ -9,6 +9,8 @@ import "../governance/BuildProposal.sol";
 contract Proposal0009 is BuildProposal {
     address public constant PRECONF_WHITELIST_NEW_IMPL = 0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149;
     address public constant PROVER_WHITELIST_PROXY = 0xEa798547d97e345395dA071a0D7ED8144CD612Ae;
+    address public constant PACAYA_MAINNET_INBOX_NEW_IMPL =
+        0x38Dd73fed93F8051E7A0dDd6FB3b9E7C25668187;
     address public constant SIGNAL_SERVICE_FORK_ROUTER_L1 =
         0x6a4B15E4b0296B2ECE03Ee9Ed74E4A3E3ECA68D6;
     address public constant ANCHOR_FORK_ROUTER_L2 = 0x38e4A497aD70aa0581BAc29747b0Ea7a53258585;
@@ -16,7 +18,7 @@ contract Proposal0009 is BuildProposal {
         0x2987F6Bef39b03F8522EC38B36aF0f7422938EAb;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](3);
+        actions = new Controller.Action[](4);
 
         // Upgrade L1 PreconfWhitelist proxy to the Shasta implementation.
         actions[0] = buildUpgradeAction(L1.PRECONF_WHITELIST, PRECONF_WHITELIST_NEW_IMPL);
@@ -30,6 +32,9 @@ contract Proposal0009 is BuildProposal {
 
         // Upgrade L1 SignalService proxy to the Shasta fork router.
         actions[2] = buildUpgradeAction(L1.SIGNAL_SERVICE, SIGNAL_SERVICE_FORK_ROUTER_L1);
+
+        // Upgrade L1 Inbox proxy to the Pacaya mainnet implementation.
+        actions[3] = buildUpgradeAction(L1.INBOX, PACAYA_MAINNET_INBOX_NEW_IMPL);
     }
 
     function buildL2Actions()
