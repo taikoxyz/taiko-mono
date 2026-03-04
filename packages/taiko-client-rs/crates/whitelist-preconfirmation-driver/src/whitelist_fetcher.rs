@@ -262,9 +262,9 @@ where
     /// Check whether the L1 head has advanced past the cached epoch boundary and, if so,
     /// invalidate the sequencer cache to force a fresh L1 read on the next access.
     pub(crate) async fn maybe_invalidate_for_epoch_advance(&mut self) -> Result<()> {
-        let Some(_) = self.sequencer_cache.current_epoch_start_timestamp() else {
+        if self.sequencer_cache.current_epoch_start_timestamp().is_none() {
             return Ok(());
-        };
+        }
 
         let latest_block = self
             .l1_provider

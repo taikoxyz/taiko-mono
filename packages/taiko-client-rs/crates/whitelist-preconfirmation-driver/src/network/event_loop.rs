@@ -233,22 +233,12 @@ pub(super) async fn handle_gossipsub_event(
     let from = propagation_source;
     let now = Instant::now();
 
-    let copy_acceptance =
-        |acceptance: &gossipsub::MessageAcceptance| -> gossipsub::MessageAcceptance {
-            match acceptance {
-                gossipsub::MessageAcceptance::Accept => gossipsub::MessageAcceptance::Accept,
-                gossipsub::MessageAcceptance::Ignore => gossipsub::MessageAcceptance::Ignore,
-                gossipsub::MessageAcceptance::Reject => gossipsub::MessageAcceptance::Reject,
-            }
-        };
-
-    let mut report = |acceptance: &gossipsub::MessageAcceptance| {
+    let mut report = |acceptance: gossipsub::MessageAcceptance| {
         // Explicitly report every decision so mesh scoring remains aligned with local validation.
-        let _ = swarm.behaviour_mut().gossipsub.report_message_validation_result(
-            &message_id,
-            &from,
-            copy_acceptance(acceptance),
-        );
+        let _ = swarm
+            .behaviour_mut()
+            .gossipsub
+            .report_message_validation_result(&message_id, &from, acceptance);
     };
     if *topic == topics.preconf_blocks.hash() {
         let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data) {
@@ -266,7 +256,7 @@ pub(super) async fn handle_gossipsub_event(
                     {
                         // If forwarding to importer fails, reject to avoid silently accepting
                         // data that local consumers could not process.
-                        report(&gossipsub::MessageAcceptance::Reject);
+                        report(gossipsub::MessageAcceptance::Reject);
                         return Err(err);
                     }
 
@@ -292,7 +282,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => inbound_label,
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
         return Ok(());
     }
 
@@ -305,7 +295,7 @@ pub(super) async fn handle_gossipsub_event(
                         forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope })
                             .await
                 {
-                    report(&gossipsub::MessageAcceptance::Reject);
+                    report(gossipsub::MessageAcceptance::Reject);
                     return Err(err);
                 }
 
@@ -325,7 +315,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => inbound_label,
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
         return Ok(());
     }
 
@@ -338,7 +328,7 @@ pub(super) async fn handle_gossipsub_event(
                 "result" => inbound_label,
             )
             .increment(1);
-            report(&acceptance);
+            report(acceptance);
             return Ok(());
         };
 
@@ -354,7 +344,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => acceptance_label(&acceptance),
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
         return Ok(());
     }
 
@@ -367,7 +357,7 @@ pub(super) async fn handle_gossipsub_event(
                 "result" => inbound_label,
             )
             .increment(1);
-            report(&acceptance);
+            report(acceptance);
             return Ok(());
         };
 
@@ -383,7 +373,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => acceptance_label(&acceptance),
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
     }
 
     Ok(())
@@ -392,12 +382,12 @@ pub(super) async fn handle_gossipsub_event(
 /// Decode an end-of-sequencing request epoch from big-endian bytes.
 #[cfg(test)]
 pub(super) fn decode_eos_epoch(payload: &[u8]) -> u64 {
-    let mut bytes = [0u8; std::mem::size_of::<u64>()];
-    let to_copy = payload.len().min(std::mem::size_of::<u64>());
+    let mut bytes = [0u8; 8];
+    let to_copy = payload.len().min(8);
 
     if to_copy > 0 {
         let source_start = payload.len() - to_copy;
-        bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
+        bytes[8 - to_copy..].copy_from_slice(&payload[source_start..]);
     }
 
     u64::from_be_bytes(bytes)
@@ -405,23 +395,19 @@ pub(super) fn decode_eos_epoch(payload: &[u8]) -> u64 {
 
 /// Decode an end-of-sequencing epoch when the payload is exactly 8 bytes.
 pub(super) fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
-    if payload.len() != std::mem::size_of::<u64>() {
-        return None;
-    }
-
-    let bytes: [u8; std::mem::size_of::<u64>()] = payload.try_into().ok()?;
+    let bytes: [u8; 8] = payload.try_into().ok()?;
     Some(u64::from_be_bytes(bytes))
 }
 
 /// Decode a request hash from big-endian bytes with set-bytes compatibility semantics.
 #[cfg(test)]
 pub(super) fn decode_request_hash(payload: &[u8]) -> B256 {
-    let mut bytes = [0u8; std::mem::size_of::<B256>()];
-    let to_copy = payload.len().min(std::mem::size_of::<B256>());
+    let mut bytes = [0u8; 32];
+    let to_copy = payload.len().min(32);
 
     if to_copy > 0 {
         let source_start = payload.len() - to_copy;
-        bytes[std::mem::size_of::<B256>() - to_copy..].copy_from_slice(&payload[source_start..]);
+        bytes[32 - to_copy..].copy_from_slice(&payload[source_start..]);
     }
 
     B256::from(bytes)
@@ -429,11 +415,7 @@ pub(super) fn decode_request_hash(payload: &[u8]) -> B256 {
 
 /// Decode a 32-byte request hash payload exactly (non-padded path).
 pub(super) fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
-    if payload.len() != std::mem::size_of::<B256>() {
-        return None;
-    }
-
-    let bytes: [u8; std::mem::size_of::<B256>()] = payload.try_into().ok()?;
+    let bytes: [u8; 32] = payload.try_into().ok()?;
     Some(B256::from(bytes))
 }
 

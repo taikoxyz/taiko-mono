@@ -82,7 +82,7 @@ where
             .cache
             .get(&hash)
             .and_then(|envelope| envelope.end_of_sequencing)
-            .filter(|enabled| *enabled);
+            .filter(|&enabled| enabled);
         let base_fee = block.header.base_fee_per_gas.ok_or_else(|| {
             WhitelistPreconfirmationDriverError::invalid_payload(format!(
                 "request-response block {} missing base fee",
