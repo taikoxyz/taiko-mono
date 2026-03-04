@@ -2,7 +2,7 @@ name: "CI"
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix-ci-client]
     paths:
       - "packages/taiko-client/**"
   pull_request:
@@ -134,11 +134,9 @@ jobs:
             SUDO="sudo"
           fi
 
-          $SUDO curl -fsSL \
-            "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" \
-            -o /usr/local/bin/docker-compose
-          $SUDO chmod +x /usr/local/bin/docker-compose
-          docker-compose version
+          $SUDO apt-get update
+          $SUDO apt-get -y install docker-compose-plugin
+          docker compose version
 
       - name: Set up Go
         uses: actions/setup-go@v6
