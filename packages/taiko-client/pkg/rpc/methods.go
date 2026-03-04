@@ -1548,7 +1548,7 @@ func (c *Client) GetProposalByIDShasta(
 		return nil, nil, fmt.Errorf("failed to get synced L1 snippet from anchor transaction: %w", err)
 	}
 
-	end := anchorNumber + manifest.AnchorMaxOffset
+	end := anchorNumber + manifest.AnchorMaxOffsetByChainID(c.L2.ChainID)
 	iter, err := c.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{
 		Start:   anchorNumber,
 		End:     &end,

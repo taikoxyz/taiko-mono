@@ -21,6 +21,8 @@ pub(super) struct ParentState {
     pub(super) shasta_fork_timestamp: u64,
     /// Chain-specific minimum base fee used by EIP-4396 clamping.
     pub(super) min_base_fee_to_clamp: u64,
+    /// L2 chain ID used by chain-aware Shasta validation bounds.
+    pub(super) chain_id: u64,
 }
 
 impl ParentState {
@@ -47,6 +49,7 @@ impl ParentState {
             anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
             min_base_fee_to_clamp: self.min_base_fee_to_clamp,
+            chain_id: self.chain_id,
         })
     }
 
@@ -97,6 +100,7 @@ impl ParentState {
             origin_block_number: meta.origin_block_number,
             is_forced_inclusion,
             fork_timestamp: self.shasta_fork_timestamp,
+            chain_id: self.chain_id,
         }
     }
 
@@ -117,6 +121,7 @@ impl ParentState {
                 anchor_block_number: self.anchor_block_number,
                 parent_block_number: self.header.number,
                 parent_gas_limit: self.header.gas_limit,
+                chain_id: self.chain_id,
             },
         );
     }
