@@ -170,7 +170,7 @@ func init() {
 	}
 
 	if SGXVerifierABI, err = ontakeBindings.SgxVerifierMetaData.GetAbi(); err != nil {
-		log.Crit("Get SGXVerifier ABI error", err)
+		log.Crit("Get SGXVerifier ABI error", "error", err)
 	}
 
 	if ProverSetABI, err = ontakeBindings.ProverSetMetaData.GetAbi(); err != nil {

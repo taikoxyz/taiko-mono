@@ -14,6 +14,7 @@ import (
 )
 
 var (
+	srcSignalServiceAddr    = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD399"
 	destBridgeAddr          = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	destQuotaManagerAddr    = "0x63FaC9201494f0bd17B9892B9fae4d52fe3BD357"
 	headerSyncInterval      = "30"
@@ -54,8 +55,8 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, uint64(5555), c.QueuePort)
 		assert.Equal(t, "srcRpcUrl", c.SrcRPCUrl)
 		assert.Equal(t, "destRpcUrl", c.DestRPCUrl)
+		assert.Equal(t, common.HexToAddress(srcSignalServiceAddr), c.SrcSignalServiceAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestBridgeAddress)
-		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.SrcSignalServiceAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC20VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC721VaultAddress)
 		assert.Equal(t, common.HexToAddress(destBridgeAddr), c.DestERC1155VaultAddress)
@@ -98,8 +99,9 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.QueuePort.Name, "5555",
 		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
+		"--" + flags.SrcSignalServiceAddress.Name, srcSignalServiceAddr,
 		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
-		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+
 		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,
@@ -136,7 +138,7 @@ func TestNewConfigFromCliContext_PrivKeyError(t *testing.T) {
 		"--" + flags.SrcRPCUrl.Name, "srcRpcUrl",
 		"--" + flags.DestRPCUrl.Name, "destRpcUrl",
 		"--" + flags.DestBridgeAddress.Name, destBridgeAddr,
-		"--" + flags.SrcSignalServiceAddress.Name, destBridgeAddr,
+
 		"--" + flags.DestERC721VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC20VaultAddress.Name, destBridgeAddr,
 		"--" + flags.DestERC1155VaultAddress.Name, destBridgeAddr,

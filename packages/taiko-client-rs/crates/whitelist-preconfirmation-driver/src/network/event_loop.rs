@@ -2,8 +2,10 @@
 
 use std::time::Instant;
 
+use std::collections::HashMap;
+
 use alloy_primitives::B256;
-use libp2p::{Swarm, gossipsub};
+use libp2p::{Swarm, gossipsub, request_response};
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
@@ -46,11 +48,26 @@ pub(super) async fn handle_swarm_event(
     event_tx: &mpsc::Sender<NetworkEvent>,
     inbound_validation_state: &mut GossipsubInboundState,
     swarm: &mut Swarm<Behaviour>,
+    response_channels: &mut HashMap<
+        request_response::InboundRequestId,
+        request_response::ResponseChannel<Vec<u8>>,
+    >,
+    pending_requests: &mut HashMap<request_response::OutboundRequestId, B256>,
 ) -> Result<()> {
     match event {
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(event)) => {
             handle_gossipsub_event(*event, topics, event_tx, inbound_validation_state, swarm)
                 .await?;
+        }
+        libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Reqresp(event)) => {
+            handle_reqresp_event(
+                event,
+                event_tx,
+                inbound_validation_state,
+                response_channels,
+                pending_requests,
+            )
+            .await?;
         }
         libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
             debug!(%address, "whitelist preconfirmation network listening");
@@ -64,6 +81,137 @@ pub(super) async fn handle_swarm_event(
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ping | BehaviourEvent::Identify) => {}
         other => {
             debug!(event = ?other, "ignored swarm event");
+        }
+    }
+    Ok(())
+}
+
+/// Handle one request/response event.
+async fn handle_reqresp_event(
+    event: request_response::Event<B256, Vec<u8>>,
+    event_tx: &mpsc::Sender<NetworkEvent>,
+    inbound_validation_state: &GossipsubInboundState,
+    response_channels: &mut HashMap<
+        request_response::InboundRequestId,
+        request_response::ResponseChannel<Vec<u8>>,
+    >,
+    pending_requests: &mut HashMap<request_response::OutboundRequestId, B256>,
+) -> Result<()> {
+    match event {
+        request_response::Event::Message { peer, message, .. } => match message {
+            request_response::Message::Request { request_id, request: hash, channel } => {
+                debug!(
+                    peer = %peer,
+                    hash = %hash,
+                    ?request_id,
+                    "received direct block request"
+                );
+                response_channels.insert(request_id, channel);
+                forward_event(
+                    event_tx,
+                    NetworkEvent::DirectRequest { from: peer, hash, request_id },
+                )
+                .await?;
+            }
+            request_response::Message::Response { request_id, response } => {
+                let Some(hash) = pending_requests.remove(&request_id) else {
+                    warn!(
+                        peer = %peer,
+                        ?request_id,
+                        "received direct response for unknown request id; dropping"
+                    );
+                    metrics::counter!(
+                        WhitelistPreconfirmationDriverMetrics::NETWORK_TRANSPORT_FAILURES_TOTAL,
+                        "direction" => "response_unknown_id",
+                    )
+                    .increment(1);
+                    return Ok(());
+                };
+                let envelope = if response.is_empty() {
+                    None
+                } else {
+                    match decode_unsafe_response_message(&response) {
+                        Ok(env) => {
+                            // Validate shape and signer before forwarding to the
+                            // importer, mirroring the gossip validation path.
+                            if !GossipsubInboundState::validate_response_shape(&env) ||
+                                !inbound_validation_state.verify_envelope_signer(&env)
+                            {
+                                warn!(
+                                    peer = %peer,
+                                    hash = %hash,
+                                    "direct response failed shape/signer validation"
+                                );
+                                metrics::counter!(
+                                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                                    "topic" => "direct_response_invalid",
+                                )
+                                .increment(1);
+                                None
+                            } else {
+                                Some(env)
+                            }
+                        }
+                        Err(err) => {
+                            warn!(
+                                peer = %peer,
+                                hash = %hash,
+                                error = %err,
+                                "failed to decode direct response"
+                            );
+                            metrics::counter!(
+                                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
+                                "topic" => "direct_response",
+                            )
+                            .increment(1);
+                            None
+                        }
+                    }
+                };
+                forward_event(
+                    event_tx,
+                    NetworkEvent::DirectResponse { from: peer, hash, envelope },
+                )
+                .await?;
+            }
+        },
+        request_response::Event::OutboundFailure { peer, request_id, error, .. } => {
+            if let Some(hash) = pending_requests.remove(&request_id) {
+                warn!(
+                    peer = %peer,
+                    hash = %hash,
+                    error = %error,
+                    "direct request outbound failure"
+                );
+            } else {
+                warn!(
+                    peer = %peer,
+                    ?request_id,
+                    error = %error,
+                    "direct request outbound failure for unknown request id"
+                );
+            }
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::NETWORK_TRANSPORT_FAILURES_TOTAL,
+                "direction" => "outbound",
+            )
+            .increment(1);
+        }
+        request_response::Event::InboundFailure { peer, request_id, error, .. } => {
+            response_channels.remove(&request_id);
+            debug!(
+                peer = %peer,
+                ?request_id,
+                error = %error,
+                "direct request inbound failure"
+            );
+        }
+        request_response::Event::ResponseSent { peer, request_id, .. } => {
+            debug!(
+                peer = %peer,
+                ?request_id,
+                "direct response sent"
+            );
         }
     }
     Ok(())
@@ -85,21 +233,12 @@ pub(super) async fn handle_gossipsub_event(
     let from = propagation_source;
     let now = Instant::now();
 
-    let copy_acceptance =
-        |acceptance: &gossipsub::MessageAcceptance| -> gossipsub::MessageAcceptance {
-            match acceptance {
-                gossipsub::MessageAcceptance::Accept => gossipsub::MessageAcceptance::Accept,
-                gossipsub::MessageAcceptance::Ignore => gossipsub::MessageAcceptance::Ignore,
-                gossipsub::MessageAcceptance::Reject => gossipsub::MessageAcceptance::Reject,
-            }
-        };
-
-    let mut report = |acceptance: &gossipsub::MessageAcceptance| {
+    let mut report = |acceptance: gossipsub::MessageAcceptance| {
         // Explicitly report every decision so mesh scoring remains aligned with local validation.
         let _ = swarm.behaviour_mut().gossipsub.report_message_validation_result(
             &message_id,
             &from,
-            copy_acceptance(acceptance),
+            acceptance,
         );
     };
     if *topic == topics.preconf_blocks.hash() {
@@ -118,7 +257,7 @@ pub(super) async fn handle_gossipsub_event(
                     {
                         // If forwarding to importer fails, reject to avoid silently accepting
                         // data that local consumers could not process.
-                        report(&gossipsub::MessageAcceptance::Reject);
+                        report(gossipsub::MessageAcceptance::Reject);
                         return Err(err);
                     }
 
@@ -144,7 +283,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => inbound_label,
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
         return Ok(());
     }
 
@@ -157,7 +296,7 @@ pub(super) async fn handle_gossipsub_event(
                         forward_event(event_tx, NetworkEvent::UnsafeResponse { from, envelope })
                             .await
                 {
-                    report(&gossipsub::MessageAcceptance::Reject);
+                    report(gossipsub::MessageAcceptance::Reject);
                     return Err(err);
                 }
 
@@ -177,7 +316,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => inbound_label,
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
         return Ok(());
     }
 
@@ -190,7 +329,7 @@ pub(super) async fn handle_gossipsub_event(
                 "result" => inbound_label,
             )
             .increment(1);
-            report(&acceptance);
+            report(acceptance);
             return Ok(());
         };
 
@@ -206,7 +345,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => acceptance_label(&acceptance),
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
         return Ok(());
     }
 
@@ -219,7 +358,7 @@ pub(super) async fn handle_gossipsub_event(
                 "result" => inbound_label,
             )
             .increment(1);
-            report(&acceptance);
+            report(acceptance);
             return Ok(());
         };
 
@@ -235,7 +374,7 @@ pub(super) async fn handle_gossipsub_event(
             "result" => acceptance_label(&acceptance),
         )
         .increment(1);
-        report(&acceptance);
+        report(acceptance);
     }
 
     Ok(())
@@ -244,12 +383,12 @@ pub(super) async fn handle_gossipsub_event(
 /// Decode an end-of-sequencing request epoch from big-endian bytes.
 #[cfg(test)]
 pub(super) fn decode_eos_epoch(payload: &[u8]) -> u64 {
-    let mut bytes = [0u8; std::mem::size_of::<u64>()];
-    let to_copy = payload.len().min(std::mem::size_of::<u64>());
+    let mut bytes = [0u8; 8];
+    let to_copy = payload.len().min(8);
 
     if to_copy > 0 {
         let source_start = payload.len() - to_copy;
-        bytes[std::mem::size_of::<u64>() - to_copy..].copy_from_slice(&payload[source_start..]);
+        bytes[8 - to_copy..].copy_from_slice(&payload[source_start..]);
     }
 
     u64::from_be_bytes(bytes)
@@ -257,23 +396,19 @@ pub(super) fn decode_eos_epoch(payload: &[u8]) -> u64 {
 
 /// Decode an end-of-sequencing epoch when the payload is exactly 8 bytes.
 pub(super) fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
-    if payload.len() != std::mem::size_of::<u64>() {
-        return None;
-    }
-
-    let bytes: [u8; std::mem::size_of::<u64>()] = payload.try_into().ok()?;
+    let bytes: [u8; 8] = payload.try_into().ok()?;
     Some(u64::from_be_bytes(bytes))
 }
 
 /// Decode a request hash from big-endian bytes with set-bytes compatibility semantics.
 #[cfg(test)]
 pub(super) fn decode_request_hash(payload: &[u8]) -> B256 {
-    let mut bytes = [0u8; std::mem::size_of::<B256>()];
-    let to_copy = payload.len().min(std::mem::size_of::<B256>());
+    let mut bytes = [0u8; 32];
+    let to_copy = payload.len().min(32);
 
     if to_copy > 0 {
         let source_start = payload.len() - to_copy;
-        bytes[std::mem::size_of::<B256>() - to_copy..].copy_from_slice(&payload[source_start..]);
+        bytes[32 - to_copy..].copy_from_slice(&payload[source_start..]);
     }
 
     B256::from(bytes)
@@ -281,11 +416,7 @@ pub(super) fn decode_request_hash(payload: &[u8]) -> B256 {
 
 /// Decode a 32-byte request hash payload exactly (non-padded path).
 pub(super) fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
-    if payload.len() != std::mem::size_of::<B256>() {
-        return None;
-    }
-
-    let bytes: [u8; std::mem::size_of::<B256>()] = payload.try_into().ok()?;
+    let bytes: [u8; 32] = payload.try_into().ok()?;
     Some(B256::from(bytes))
 }
 
