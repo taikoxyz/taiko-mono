@@ -356,11 +356,9 @@ impl WhitelistSequencerCache {
         l1_block_timestamp: u64,
         epoch_duration_secs: u64,
     ) -> bool {
-        self.current_epoch_start_timestamp
-            .map(|cached_epoch_start| {
-                l1_block_timestamp >= cached_epoch_start.saturating_add(epoch_duration_secs)
-            })
-            .unwrap_or(false)
+        self.current_epoch_start_timestamp.is_some_and(|cached_epoch_start| {
+            l1_block_timestamp >= cached_epoch_start.saturating_add(epoch_duration_secs)
+        })
     }
 
     /// Return `true` if a snapshot taken at `block_timestamp` can replace cached values.
@@ -368,13 +366,11 @@ impl WhitelistSequencerCache {
     /// This prevents a lagging RPC node from overwriting a newer-epoch cached snapshot and
     /// rejects implausibly far-future timestamps from a misbehaving node.
     pub fn should_accept_block_timestamp(&self, block_timestamp: u64) -> bool {
-        self.current_epoch_start_timestamp
-            .map(|cached_epoch_start| {
-                let max_reasonable_timestamp =
-                    cached_epoch_start.saturating_add(L1_EPOCH_DURATION_SECS.saturating_mul(2));
-                block_timestamp >= cached_epoch_start && block_timestamp < max_reasonable_timestamp
-            })
-            .unwrap_or(true)
+        self.current_epoch_start_timestamp.is_none_or(|cached_epoch_start| {
+            let max_reasonable_timestamp =
+                cached_epoch_start.saturating_add(L1_EPOCH_DURATION_SECS.saturating_mul(2));
+            block_timestamp >= cached_epoch_start && block_timestamp < max_reasonable_timestamp
+        })
     }
 }
 

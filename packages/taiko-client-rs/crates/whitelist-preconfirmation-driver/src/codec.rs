@@ -148,10 +148,9 @@ pub(crate) fn encode_unsafe_request_message(hash: B256) -> Vec<u8> {
 
 /// Encode Taiko whitelist preconfirmation SSZ envelope bytes.
 pub(crate) fn encode_envelope_ssz(envelope: &WhitelistExecutionPayloadEnvelope) -> Vec<u8> {
+    let sig_len = if envelope.signature.is_some() { SIGNATURE_LEN } else { 0 };
     let mut out = Vec::with_capacity(
-        ENVELOPE_HEADER_LEN +
-            envelope.execution_payload.as_ssz_bytes().len() +
-            envelope.signature.map(|_| SIGNATURE_LEN).unwrap_or_default(),
+        ENVELOPE_HEADER_LEN + envelope.execution_payload.as_ssz_bytes().len() + sig_len,
     );
 
     let mut flags0 = 0u8;
@@ -212,7 +211,7 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
     let has_signature = flags1 & 0x02 != 0;
 
     let root = &bytes[2..ENVELOPE_HEADER_LEN];
-    let parent_beacon_block_root = root.iter().any(|b| *b != 0).then(|| B256::from_slice(root));
+    let parent_beacon_block_root = root.iter().any(|&b| b != 0).then(|| B256::from_slice(root));
 
     let signature_len = if has_signature { SIGNATURE_LEN } else { 0 };
     if bytes.len() < ENVELOPE_HEADER_LEN + signature_len {
