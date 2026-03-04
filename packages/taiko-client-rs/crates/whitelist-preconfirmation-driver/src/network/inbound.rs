@@ -147,11 +147,7 @@ pub(crate) struct HeightSeenTracker {
 impl HeightSeenTracker {
     /// Whether another hash can be accepted for the supplied block height.
     pub(crate) fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if self
-            .seen_by_height
-            .get(&height)
-            .is_some_and(|hashes| hashes.len() > max_per_height)
-        {
+        if self.seen_by_height.get(&height).is_some_and(|hashes| hashes.len() > max_per_height) {
             return false;
         }
 

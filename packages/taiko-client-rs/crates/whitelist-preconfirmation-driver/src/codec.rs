@@ -211,8 +211,7 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
     let has_signature = flags1 & 0x02 != 0;
 
     let root = &bytes[2..ENVELOPE_HEADER_LEN];
-    let parent_beacon_block_root =
-        root.iter().any(|&b| b != 0).then(|| B256::from_slice(root));
+    let parent_beacon_block_root = root.iter().any(|&b| b != 0).then(|| B256::from_slice(root));
 
     let signature_len = if has_signature { SIGNATURE_LEN } else { 0 };
     if bytes.len() < ENVELOPE_HEADER_LEN + signature_len {

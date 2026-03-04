@@ -235,10 +235,11 @@ pub(super) async fn handle_gossipsub_event(
 
     let mut report = |acceptance: gossipsub::MessageAcceptance| {
         // Explicitly report every decision so mesh scoring remains aligned with local validation.
-        let _ = swarm
-            .behaviour_mut()
-            .gossipsub
-            .report_message_validation_result(&message_id, &from, acceptance);
+        let _ = swarm.behaviour_mut().gossipsub.report_message_validation_result(
+            &message_id,
+            &from,
+            acceptance,
+        );
     };
     if *topic == topics.preconf_blocks.hash() {
         let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data) {
