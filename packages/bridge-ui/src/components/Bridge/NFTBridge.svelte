@@ -9,7 +9,6 @@
   import { OnNetwork } from '$components/OnNetwork';
   import { Step, Stepper } from '$components/Stepper';
   import { hasBridge } from '$libs/bridge/bridges';
-  import { BridgePausedError } from '$libs/error';
   import { ETHToken } from '$libs/token';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { type Account, account } from '$stores/account';
@@ -65,13 +64,9 @@
     }
   }
 
-  const runValidations = () => {
+  const runValidations = async () => {
     if (addressInputComponent) addressInputComponent.validateAddress();
-    isBridgePaused().then((paused) => {
-      if (paused) {
-        throw new BridgePausedError();
-      }
-    });
+    if (await isBridgePaused()) return;
   };
 
   function onAccountChange(account: Account) {
@@ -83,10 +78,10 @@
   }
 
   function updateForm() {
-    tick().then(() => {
+    tick().then(async () => {
       if (importMethod === ImportMethod.MANUAL) {
         // run validations again if we are in manual mode
-        runValidations();
+        await runValidations();
       } else {
         resetForm();
       }
