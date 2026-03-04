@@ -33,6 +33,7 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			ctxClose()
 			return err
 		}
+
 		defer func() {
 			ctxClose()
 			app.Close(ctx)
