@@ -25,11 +25,12 @@
 ### signal_service
 
 - proxy: `0x4c70b7F5E153D497faFa0476575903F9299ed811`
-- impl: `0xF3012Be33Cf09eFFD0fB976f79eE11048b11bbD1`
+- impl: `0x2D0DF6900fBe181bE5246268Aafd1ecb6c4C8B35`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Mar 4, 2026 at commit `a01f51c`
 
 ### bridge
 
