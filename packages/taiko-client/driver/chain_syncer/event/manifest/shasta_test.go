@@ -145,7 +145,14 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	}
 
 	proposal := &shastaBindings.ShastaInboxClientProposed{Id: proposalID, Proposer: proposer}
-	result := validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false, chainID)
+	result := validateAnchorBlockNumber(
+		sourcePayload,
+		originBlockNumber,
+		parentAnchorBlockNumber,
+		proposal,
+		false,
+		chainID,
+	)
 	s.False(result)
 
 	// Test 2: Future reference - anchor newer than origin block
@@ -229,7 +236,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 
 func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 	chainID := params.TaikoHoodiNetworkID
-	parentTime := uint64(1_000 + manifest.TimestampMaxOffsetByChainID(chainID))
+	parentTime := 1_000 + manifest.TimestampMaxOffsetByChainID(chainID)
 	parentHeader := &types.Header{
 		Number:   big.NewInt(1),
 		GasLimit: 30_000_000,
