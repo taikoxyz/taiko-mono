@@ -16,7 +16,7 @@ use crate::{behaviour::NetBehaviour, config::NetworkConfig};
 pub struct BuiltParts {
     /// Identity keypair for the local node.
     pub keypair: identity::Keypair,
-    /// Boxed transport (TCP + noise + yamux) used by the swarm.
+    /// Boxed transport (DNS + TCP + noise + yamux) used by the swarm.
     pub transport: Boxed<(libp2p::PeerId, StreamMuxerBox)>,
     /// Combined behaviour (ping/identify/gossipsub/req-resp/gating).
     pub behaviour: NetBehaviour,
@@ -45,7 +45,8 @@ pub fn build_transport_and_behaviour(cfg: &NetworkConfig) -> anyhow::Result<Buil
     let mut base: Option<Boxed<(libp2p::PeerId, StreamMuxerBox)>> = None;
     if cfg.enable_tcp {
         let base_tcp = tcp::tokio::Transport::new(tcp::Config::default());
-        let tcp_with_dns = dns::tokio::Transport::system(base_tcp)?;
+        let tcp_with_dns = dns::tokio::Transport::system(base_tcp)
+            .map_err(|e| anyhow::anyhow!("failed to create DNS transport: {e}"))?;
         let tcp_transport = tcp_with_dns
             .upgrade(upgrade::Version::V1Lazy)
             .authenticate(noise_config.clone())
