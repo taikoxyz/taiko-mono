@@ -33,6 +33,6 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.proverManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
         config.provers = new address[](1);
         config.provers[0] = 0xa5cb34B75bD72f15290ef37A01F06183E8036875; // We can add new provers later using the prover manager role
-        config.shastaForkTimestamp = 1_774_530_900; // 2026-03-26 13:15:00 UTC
+        config.shastaForkTimestamp = 1_775_135_700; // 2026-04-02 13:15:00 UTC
     }
 }
