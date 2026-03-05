@@ -35,8 +35,8 @@ contract Proposal0009 is BuildProposal {
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        // 4 Shasta/protocol + 18 ZK (RISC0/SP1 PACAYA+SHASTA) + 3 SGX = 25
-        actions = new Controller.Action[](25);
+        // 4 Shasta/protocol + 12 ZK (Pacaya agg+batch only; Shasta batch+shasta-agg only) + 3 SGX = 19
+        actions = new Controller.Action[](19);
 
         // Upgrade L1 PreconfWhitelist proxy to the Shasta implementation.
         actions[0] = buildUpgradeAction(L1.PRECONF_WHITELIST, PRECONF_WHITELIST_NEW_IMPL);
@@ -54,7 +54,7 @@ contract Proposal0009 is BuildProposal {
         // Upgrade L1 Inbox proxy to the Pacaya mainnet implementation.
         actions[3] = buildUpgradeAction(L1.INBOX, PACAYA_MAINNET_INBOX_NEW_IMPL);
 
-        // --- ZK: RISC0 image IDs for PACAYA (3) ---
+        // --- ZK: RISC0 PACAYA (aggregation + batch, no shasta-aggregation) ---
         actions[4] = Controller.Action({
             target: RISC0_PACAYA_VERIFIER,
             value: 0,
@@ -71,22 +71,21 @@ contract Proposal0009 is BuildProposal {
                 (0x7280f15f5c0a9b1354907d862c0b03caf3f33d65bb83e6db56bbd3cf0dd79fd2, true)
             )
         });
+        // --- ZK: SP1 PACAYA (sp1-aggregation + sp1-batch, no sp1-shasta-aggregation) ---
         actions[6] = Controller.Action({
-            target: RISC0_PACAYA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted,
-                (0x26abb0237d10e891443e2a76bd3c1f6704c1ad03c07cb2165f4afcfc64b3cee7, true)
-            )
-        });
-
-        // --- ZK: SP1 programs for PACAYA (6) ---
-        actions[7] = Controller.Action({
             target: SP1_PACAYA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
                 (0x00711b07e4437d1fba25154fc88c2766496448350d0e0a40883163651c6222c1, true)
+            )
+        });
+        actions[7] = Controller.Action({
+            target: SP1_PACAYA_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted,
+                (0x388d83f210df47ee44a2a9f908c276644b2241a8343829021062c6ca1c6222c1, true)
             )
         });
         actions[8] = Controller.Action({
@@ -94,7 +93,7 @@ contract Proposal0009 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (0x388d83f210df47ee44a2a9f908c276644b2241a8343829021062c6ca1c6222c1, true)
+                (0x00d9389b2b0ce723bb0261ba1e77fed3fc97c3a217b09b6689bcd0ffd801657b, true)
             )
         });
         actions[9] = Controller.Action({
@@ -102,44 +101,11 @@ contract Proposal0009 is BuildProposal {
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (0x00d9389b2b0ce723bb0261ba1e77fed3fc97c3a217b09b6689bcd0ffd801657b, true)
-            )
-        });
-        actions[10] = Controller.Action({
-            target: SP1_PACAYA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
                 (0x6c9c4d954339c8ee604c3743677fed3f64be1d105ec26d9a1379a1ff5801657b, true)
             )
         });
-        actions[11] = Controller.Action({
-            target: SP1_PACAYA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x008e24716118be9594358d8882d93d5425f0827cf0a7a4fd0ea2fc4414debfe7, true)
-            )
-        });
-        actions[12] = Controller.Action({
-            target: SP1_PACAYA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x471238b0462fa56506b1b1102d93d5422f8413e7429e93f41d45f88814debfe7, true)
-            )
-        });
-
-        // --- ZK: RISC0 image IDs for SHASTA (3) ---
-        actions[13] = Controller.Action({
-            target: RISC0_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted,
-                (0x33ac277d74776b9199ffe913addadb6a49fafb07153a7faa874593629377d513, true)
-            )
-        });
-        actions[14] = Controller.Action({
+        // --- ZK: RISC0 SHASTA (batch + shasta-aggregation, no pacaya aggregation) ---
+        actions[10] = Controller.Action({
             target: RISC0_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -147,7 +113,7 @@ contract Proposal0009 is BuildProposal {
                 (0x7280f15f5c0a9b1354907d862c0b03caf3f33d65bb83e6db56bbd3cf0dd79fd2, true)
             )
         });
-        actions[15] = Controller.Action({
+        actions[11] = Controller.Action({
             target: RISC0_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -155,25 +121,8 @@ contract Proposal0009 is BuildProposal {
                 (0x26abb0237d10e891443e2a76bd3c1f6704c1ad03c07cb2165f4afcfc64b3cee7, true)
             )
         });
-
-        // --- ZK: SP1 programs for SHASTA (6) ---
-        actions[16] = Controller.Action({
-            target: SP1_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x00711b07e4437d1fba25154fc88c2766496448350d0e0a40883163651c6222c1, true)
-            )
-        });
-        actions[17] = Controller.Action({
-            target: SP1_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x388d83f210df47ee44a2a9f908c276644b2241a8343829021062c6ca1c6222c1, true)
-            )
-        });
-        actions[18] = Controller.Action({
+        // --- ZK: SP1 SHASTA (sp1-batch + sp1-shasta-aggregation, no sp1-aggregation) ---
+        actions[12] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -181,7 +130,7 @@ contract Proposal0009 is BuildProposal {
                 (0x00d9389b2b0ce723bb0261ba1e77fed3fc97c3a217b09b6689bcd0ffd801657b, true)
             )
         });
-        actions[19] = Controller.Action({
+        actions[13] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -189,7 +138,7 @@ contract Proposal0009 is BuildProposal {
                 (0x6c9c4d954339c8ee604c3743677fed3f64be1d105ec26d9a1379a1ff5801657b, true)
             )
         });
-        actions[20] = Controller.Action({
+        actions[14] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -197,7 +146,7 @@ contract Proposal0009 is BuildProposal {
                 (0x008e24716118be9594358d8882d93d5425f0827cf0a7a4fd0ea2fc4414debfe7, true)
             )
         });
-        actions[21] = Controller.Action({
+        actions[15] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -207,7 +156,7 @@ contract Proposal0009 is BuildProposal {
         });
 
         // --- SGX: raiko + gaiko mrenclave (raiko v1.15.0, https://github.com/taikoxyz/raiko/pull/670) ---
-        actions[22] = Controller.Action({
+        actions[16] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
@@ -216,7 +165,7 @@ contract Proposal0009 is BuildProposal {
                 true
             )
         });
-        actions[23] = Controller.Action({
+        actions[17] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
@@ -225,7 +174,7 @@ contract Proposal0009 is BuildProposal {
                 true
             )
         });
-        actions[24] = Controller.Action({
+        actions[18] = Controller.Action({
             target: SGXGETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(

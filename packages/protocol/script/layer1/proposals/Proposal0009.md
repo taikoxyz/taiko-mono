@@ -4,7 +4,7 @@
 
 This proposal (1) upgrades Taiko mainnet protocol contracts to activate Shasta on L1 and L2, (2) registers raiko zk:v1.15.0 RISC0/SP1 image and program IDs on PACAYA and SHASTA verifiers, and (3) updates SGX MR_ENCLAVE values to raiko v1.15.0 (base + edmm for raiko; base for gaiko).
 
-It executes **25 L1 actions** from the DAO Controller and **2 L2 actions** through the DelegateController bridge flow.
+It executes **19 L1 actions** from the DAO Controller and **2 L2 actions** through the DelegateController bridge flow.
 
 - **Shasta**: Next generation protocol; see [Achieving stage 1: Shasta is almost here](https://paragraph.com/@taiko-labs/achieving-stage-1-shasta-is-almost-here).
 - **ZK**: Image/program IDs from [raiko RELEASE zk:v1.15.0](https://github.com/taikoxyz/raiko/pull/670/changes).
@@ -41,7 +41,7 @@ It executes **25 L1 actions** from the DAO Controller and **2 L2 actions** throu
 | `SGXRETH_ATTESTER` | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` |
 | `SGXGETH_ATTESTER` | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` |
 
-### L1 Actions (25 total)
+### L1 Actions (19 total)
 
 **Shasta / protocol (4)**
 
@@ -50,7 +50,7 @@ It executes **25 L1 actions** from the DAO Controller and **2 L2 actions** throu
 3. Upgrade `SIGNAL_SERVICE` proxy (`0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`) to `SIGNAL_SERVICE_FORK_ROUTER_L1`.
 4. Upgrade L1 `INBOX` proxy to `PACAYA_MAINNET_INBOX_NEW_IMPL`.
 
-**ZK verifiers (18)** — RISC0 `setImageIdTrusted` and SP1 `setProgramTrusted` for PACAYA and SHASTA (raiko zk:v1.15.0 image/program IDs).
+**ZK verifiers (12)** — Pacaya: RISC0 aggregation + batch, SP1 sp1-aggregation + sp1-batch (no Shasta agg). Shasta: RISC0 batch + shasta-aggregation, SP1 sp1-batch + sp1-shasta-aggregation (no Pacaya agg). raiko zk:v1.15.0.
 
 **SGX (3)** — `setMrEnclave(bytes32,bool)` on attesters: raiko base + raiko edmm on `SGXRETH_ATTESTER`; gaiko base on `SGXGETH_ATTESTER`.
 
