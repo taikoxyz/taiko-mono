@@ -34,7 +34,12 @@ pub struct ChainReorgTracker {
 
 impl ChainReorgTracker {
     pub fn new(max_depth: usize) -> Self {
-        Self { history: VecDeque::with_capacity(max_depth.max(1)), max_depth: max_depth.max(1) }
+        let max_depth = max_depth.max(1);
+    
+        Self {
+            history: VecDeque::with_capacity(max_depth),
+            max_depth,
+        }
     }
 
     pub fn apply(&mut self, block: TrackedBlock) -> ApplyOutcome {
