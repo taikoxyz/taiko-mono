@@ -6,7 +6,7 @@ NC='\033[0m' # No Color
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 COMPOSE_YML="$PROJECT_ROOT/internal/docker/nodes/docker-compose.yml"
 
-if ! command -v docker compose > /dev/null 2>&1; then
+if ! command docker compose version > /dev/null 2>&1; then
     echo "ERROR: 'docker compose' is not available"
     exit 1
 fi
