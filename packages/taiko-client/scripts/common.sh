@@ -6,21 +6,13 @@ NC='\033[0m' # No Color
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 COMPOSE_YML="$PROJECT_ROOT/internal/docker/nodes/docker-compose.yml"
 
-if docker compose version > /dev/null 2>&1; then
-    DOCKER_COMPOSE_FLAVOR="plugin"
-elif command -v docker-compose > /dev/null 2>&1; then
-    DOCKER_COMPOSE_FLAVOR="standalone"
-else
-    echo "ERROR: neither 'docker compose' nor 'docker-compose' is available"
+if ! command -v docker compose > /dev/null 2>&1; then
+    echo "ERROR: 'docker compose' is not available"
     exit 1
 fi
 
 docker_compose() {
-  if [ "$DOCKER_COMPOSE_FLAVOR" = "plugin" ]; then
-    docker compose -f "$COMPOSE_YML" "$@"
-  else
-    docker-compose -f "$COMPOSE_YML" "$@"
-  fi
+  docker compose -f "$COMPOSE_YML" "$@"
 }
 
 print_error() {
