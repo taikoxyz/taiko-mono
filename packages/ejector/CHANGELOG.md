@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.2](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.1...ejector-v0.6.2) (2026-03-06)
+
+
+### Chores
+
+* **repo:** add concurrency gate to release please and bump ejector lock ([#21420](https://github.com/taikoxyz/taiko-mono/issues/21420)) ([1b97c19](https://github.com/taikoxyz/taiko-mono/commit/1b97c19bc2c8280dc91f16a82ee03eca2789a4db))
+
+
+### Code Refactoring
+
+* **ejector:** avoid cloning beacon URL in BeaconClient ([#21434](https://github.com/taikoxyz/taiko-mono/issues/21434)) ([295bdbe](https://github.com/taikoxyz/taiko-mono/commit/295bdbe65b0b7894969e3419455f6aafdad6e2d1))
+
 ## [0.6.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.0...ejector-v0.6.1) (2026-03-03)
 
 
