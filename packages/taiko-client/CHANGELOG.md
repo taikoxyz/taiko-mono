@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.1...taiko-alethia-client-v2.2.0) (2026-03-06)
+
+
+### Features
+
+* **taiko-client:** align `setL1OriginSignature` RPC encoding with taiko-geth ([#21367](https://github.com/taikoxyz/taiko-mono/issues/21367)) ([d656b53](https://github.com/taikoxyz/taiko-mono/commit/d656b539988aea00d2db503f6a11899319ae1a84))
+* **taiko-client:** record `ProverLatestVerifiedIDGauge` in HandleShasta ([#21292](https://github.com/taikoxyz/taiko-mono/issues/21292)) ([e5ce141](https://github.com/taikoxyz/taiko-mono/commit/e5ce1413d60e589b0e37d40ae7a55f72ad8b8d97))
+
+
+### Bug Fixes
+
+* **ci:** fix client CI ([#21432](https://github.com/taikoxyz/taiko-mono/issues/21432)) ([d765e2f](https://github.com/taikoxyz/taiko-mono/commit/d765e2fb855c3227ca4c29129f2e20bfedf2d654))
+* **taiko-client,taiko-client-rs:** default SHASTA fork path and make protocol dir configurable for bindings ([#21376](https://github.com/taikoxyz/taiko-mono/issues/21376)) ([461a0d1](https://github.com/taikoxyz/taiko-mono/commit/461a0d1cdfed9f0b9714255f4389c68fbefd961a))
+* **taiko-client:** add missing error key in SGXVerifier log ([#21424](https://github.com/taikoxyz/taiko-mono/issues/21424)) ([5611c56](https://github.com/taikoxyz/taiko-mono/commit/5611c56b9ff26f895487987e5a797d4159209e27))
+* **taiko-client:** close event filter iterators ([#21371](https://github.com/taikoxyz/taiko-mono/issues/21371)) ([34f9f48](https://github.com/taikoxyz/taiko-mono/commit/34f9f48b07addbbf11e2cc049612f287e8aa0a32))
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+* **taiko-client:** make based proposer working with new WL impl ([#21297](https://github.com/taikoxyz/taiko-mono/issues/21297)) ([e51d832](https://github.com/taikoxyz/taiko-mono/commit/e51d83274f4e74eb7538a1023c5d176537203114))
+* **taiko-client:** mark known canonical shasta/pacaya proposals  ([#21369](https://github.com/taikoxyz/taiko-mono/issues/21369)) ([080bfea](https://github.com/taikoxyz/taiko-mono/commit/080bfea3590b2e41dc783aad57244c9bddb727c3))
+* **taiko-client:** submit proposal to the ShastaInbox ([#21327](https://github.com/taikoxyz/taiko-mono/issues/21327)) ([e531244](https://github.com/taikoxyz/taiko-mono/commit/e53124432ac2af89c7b9d1d8bb139e6afb224d13))
+
+
+### Chores
+
+* **relayer:** fix relayer build ([#21426](https://github.com/taikoxyz/taiko-mono/issues/21426)) ([d0920bf](https://github.com/taikoxyz/taiko-mono/commit/d0920bfc33bf0cf5efc3de03eb3f7411526ccf41))
+* **relayer:** pacaya clean up ([#21407](https://github.com/taikoxyz/taiko-mono/issues/21407)) ([1ba276e](https://github.com/taikoxyz/taiko-mono/commit/1ba276e63afab7c12a53553fde95db34ef4390eb))
+* **taiko-client:** corrected printing shasta fork time ([#21317](https://github.com/taikoxyz/taiko-mono/issues/21317)) ([33b4e34](https://github.com/taikoxyz/taiko-mono/commit/33b4e340155e962eab1dfa2b8932a802d26aafc5))
+* **taiko-client:** rename Shasta fork config accessor ([#21276](https://github.com/taikoxyz/taiko-mono/issues/21276)) ([32aa3ca](https://github.com/taikoxyz/taiko-mono/commit/32aa3cab0e2b643ecb1c7e12fbd28b32963bad68))
+
 ## [2.1.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.0...taiko-alethia-client-v2.1.1) (2026-02-03)
 
 
