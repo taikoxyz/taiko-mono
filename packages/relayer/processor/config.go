@@ -81,7 +81,6 @@ type Config struct {
 
 	hopConfigs []hopConfig
 
-	CacheOption                        int
 	UnprofitableMessageQueueExpiration *string
 
 	TxmgrConfigs *txmgr.CLIConfig
@@ -170,7 +169,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffMaxRetries:                  c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
 		TargetTxHash:                       targetTxHash,
-		CacheOption:                        c.Int(flags.CacheOption.Name),
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.DestRPCUrl.Name),
