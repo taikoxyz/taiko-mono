@@ -1,6 +1,11 @@
 #!/bin/bash
 
-source scripts/common.sh
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+
+source "$PROJECT_ROOT/scripts/common.sh"
 
 # Default to l2_geth if L2_NODE is not set (preserves backward compatibility with dev_net)
 L2_NODE="${L2_NODE:-l2_geth}"
@@ -15,7 +20,7 @@ case "$L2_NODE" in
     # For NMC, we need to dynamically inject the shastaTimestamp into the chainspec
     # because Nethermind uses a static chainspec file unlike taiko-geth which uses CLI flags.
     # We use a template file to avoid modifying the original and to ensure clean state on each run.
-    NMC_CHAINSPEC_DIR="internal/docker/nodes/nmc/chainspec"
+    NMC_CHAINSPEC_DIR="$PROJECT_ROOT/internal/docker/nodes/nmc/chainspec"
     NMC_CHAINSPEC_TEMPLATE="${NMC_CHAINSPEC_DIR}/taiko-devnet.template.json"
     NMC_CHAINSPEC="${NMC_CHAINSPEC_DIR}/taiko-devnet.json"
     
