@@ -34,6 +34,7 @@ pub enum PeerAction {
     DialFailure,
 }
 
+/// Floating-point peer reputation score used by the local scoring model.
 pub type PeerScore = f64;
 /// Default ban threshold from the spec.
 const DEFAULT_BAN_THRESHOLD: PeerScore = -5.0; // spec ban threshold

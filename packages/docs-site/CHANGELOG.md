@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.34.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.34.0...docs-site-v1.34.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
+
+### Chores
+
+* **docs-site:** fix Alethia docs wording consistency ([#21410](https://github.com/taikoxyz/taiko-mono/issues/21410)) ([70a91e0](https://github.com/taikoxyz/taiko-mono/commit/70a91e05fa59eec2bd58ced1ff30c142c66ab64c))
+* **protocol:** merge 3.0.0 back to main ([#21359](https://github.com/taikoxyz/taiko-mono/issues/21359)) ([1df2675](https://github.com/taikoxyz/taiko-mono/commit/1df267517a7369a5381e357dfc29f11339966141))
+
+## [1.34.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.4...docs-site-v1.34.0) (2026-02-24)
+
+
+### Features
+
+* **docs-site:** add a copy from md button and fix titles ([#21364](https://github.com/taikoxyz/taiko-mono/issues/21364)) ([4277910](https://github.com/taikoxyz/taiko-mono/commit/42779105d8a119a8134d7fb1f7b98b767acd5131))
+
+## [1.33.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.3...docs-site-v1.33.4) (2026-02-18)
+
+
+### Chores
+
+* **docs-site:** add facilitator ([#21313](https://github.com/taikoxyz/taiko-mono/issues/21313)) ([ea53330](https://github.com/taikoxyz/taiko-mono/commit/ea533304427ae6cb6920f59a23ac313a4e5c6b86))
+* **repo:** update discord link ([#21282](https://github.com/taikoxyz/taiko-mono/issues/21282)) ([e281608](https://github.com/taikoxyz/taiko-mono/commit/e281608537818e2618cfa0a503dcd3d926515f1d))
+
 ## [1.33.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.2...docs-site-v1.33.3) (2026-02-09)
 
 

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROTOCOL_DIR="${PROTOCOL_DIR:-$DIR/../protocol}"
+PROTOCOL_DIR="${PROTOCOL_DIR:-$DIR/../../protocol}"
 export PROTOCOL_DIR
 
 echo "Starting docker compose services..."
@@ -38,8 +38,23 @@ export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
 export PRECONF_WHITELIST=0x0000000000000000000000000000000000000000
 export REMOTE_SIGNAL_SERVICE=0x1670010000000000000000000000000000000005
 
-docker compose -f tests/docker/docker-compose.test.yaml up -d
-trap "docker compose -f tests/docker/docker-compose.test.yaml down -v" EXIT INT KILL ERR
+# Prefer Docker Compose v2 plugin; fallback to the standalone v1/v2 binary.
+if docker compose version > /dev/null 2>&1; then
+    DOCKER_COMPOSE=(docker compose)
+elif command -v docker-compose > /dev/null 2>&1; then
+    DOCKER_COMPOSE=(docker-compose)
+else
+    echo "ERROR: neither 'docker compose' nor 'docker-compose' is available"
+    exit 1
+fi
+
+COMPOSE_FILE=tests/docker/docker-compose.test.yaml
+cleanup() {
+    "${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" down -v
+}
+
+"${DOCKER_COMPOSE[@]}" -f "$COMPOSE_FILE" up -d
+trap cleanup EXIT INT KILL ERR
 
 # check until L1 node is ready
 until cast chain-id --rpc-url "$L1_WS" 2> /dev/null; do

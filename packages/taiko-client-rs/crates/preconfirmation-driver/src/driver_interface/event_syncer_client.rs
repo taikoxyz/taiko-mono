@@ -1,44 +1,50 @@
 //! Event syncer-backed driver client for runner integration.
 
-use std::sync::Arc;
+use std::{result::Result, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
-use driver::{CanonicalTipState, DriverError, PreconfPayload, sync::event::EventSyncer};
+use driver::{
+    DriverError, PreconfPayload,
+    sync::{ConfirmedSyncSnapshot, event::EventSyncer},
+};
 use preconfirmation_types::uint256_to_u256;
+use protocol::shasta::constants::min_base_fee_for_chain;
+use tokio::sync::OnceCell;
 use tracing::info;
 
 use crate::{
-    Result,
+    Result as ClientResult,
     driver_interface::{DriverClient, PreconfirmationInput},
     error::{DriverApiError, PreconfirmationClientError},
 };
 
-use super::{BlockHeaderProvider, payload::build_taiko_payload_attributes};
+use super::{
+    BlockHeaderProvider,
+    payload::build_taiko_payload_attributes,
+    traits::{DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL, wait_for_confirmed_sync},
+};
 
 /// Provides L2 tip lookups for the driver client.
 #[async_trait]
 pub trait TipProvider: Send + Sync {
-    /// Returns the L2 safe tip block number.
-    async fn safe_tip(&self) -> Result<U256>;
     /// Returns the L2 latest tip block number.
-    async fn latest_tip(&self) -> Result<U256>;
+    async fn latest_tip(&self) -> ClientResult<U256>;
 }
 
-async fn block_by_tag<P>(provider: &P, tag: BlockNumberOrTag) -> Result<U256>
+/// Fetch the latest L2 block number.
+async fn get_latest_block<P>(provider: &P) -> ClientResult<U256>
 where
     P: Provider + Send + Sync,
 {
-    let block = provider.get_block_by_number(tag).await.map_err(DriverApiError::from)?.ok_or_else(
-        || match tag {
-            BlockNumberOrTag::Safe => DriverApiError::MissingSafeBlock,
-            BlockNumberOrTag::Latest => DriverApiError::MissingLatestBlock,
-            _ => DriverApiError::MissingLatestBlock,
-        },
-    )?;
+    let block = provider
+        .get_block_by_number(BlockNumberOrTag::Latest)
+        .await
+        .map_err(DriverApiError::from)?
+        .ok_or(DriverApiError::MissingLatestBlock)?;
     Ok(U256::from(block.number()))
 }
 
@@ -47,14 +53,9 @@ impl<P> TipProvider for P
 where
     P: Provider + Send + Sync,
 {
-    /// Get the current L2 safe tip block number.
-    async fn safe_tip(&self) -> Result<U256> {
-        block_by_tag(self, BlockNumberOrTag::Safe).await
-    }
-
     /// Get the current L2 latest tip block number.
-    async fn latest_tip(&self) -> Result<U256> {
-        block_by_tag(self, BlockNumberOrTag::Latest).await
+    async fn latest_tip(&self) -> ClientResult<U256> {
+        get_latest_block(self).await
     }
 }
 
@@ -70,13 +71,10 @@ pub trait PreconfirmationIngress: Send + Sync {
     async fn submit_preconfirmation_payload(
         &self,
         payload: PreconfPayload,
-    ) -> std::result::Result<(), DriverError>;
+    ) -> Result<(), DriverError>;
 
-    /// Subscribe to canonical proposal id updates.
-    fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64>;
-
-    /// Return the current canonical L2 tip state produced from event sync.
-    fn canonical_tip_state(&self) -> CanonicalTipState;
+    /// Return strict confirmed-sync state derived from inbox core state + custom tables.
+    async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, DriverError>;
 }
 
 #[async_trait]
@@ -88,18 +86,13 @@ where
     async fn submit_preconfirmation_payload(
         &self,
         payload: PreconfPayload,
-    ) -> std::result::Result<(), DriverError> {
+    ) -> Result<(), DriverError> {
         self.submit_preconfirmation_payload(payload).await
     }
 
-    /// Subscribe to canonical proposal id updates.
-    fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64> {
-        self.subscribe_proposal_id()
-    }
-
-    /// Return the current canonical L2 tip state produced from event sync.
-    fn canonical_tip_state(&self) -> CanonicalTipState {
-        self.canonical_tip_state()
+    /// Return strict confirmed-sync state derived from inbox core state + custom tables.
+    async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, DriverError> {
+        EventSyncer::confirmed_sync_snapshot(self).await.map_err(DriverError::from)
     }
 }
 
@@ -109,9 +102,16 @@ where
     E: PreconfirmationIngress + 'static,
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// In-process event syncer used for payload submission and sync status.
     event_syncer: Arc<E>,
+    /// Inbox contract instance used for config/core-state reads.
     inbox: InboxInstance<P>,
+    /// L2 provider abstraction used for header/tip lookups.
     l2_provider: Arc<dyn L2Provider + Send + Sync>,
+    /// Cached chain-specific base-fee clamp used when building payload attributes.
+    min_base_fee_to_clamp: OnceCell<u64>,
+    /// Poll interval for confirmed-sync checks while waiting for event sync readiness.
+    wait_event_sync_poll_interval: Duration,
 }
 
 impl<E, P> EventSyncerDriverClient<E, P>
@@ -119,13 +119,52 @@ where
     E: PreconfirmationIngress + 'static,
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Build a driver client from the provided components and poll interval.
+    pub fn new_with_components_and_poll_interval(
+        event_syncer: Arc<E>,
+        inbox: InboxInstance<P>,
+        l2_provider: Arc<dyn L2Provider + Send + Sync>,
+        wait_event_sync_poll_interval: Duration,
+    ) -> Self {
+        Self {
+            event_syncer,
+            inbox,
+            l2_provider,
+            min_base_fee_to_clamp: OnceCell::new(),
+            wait_event_sync_poll_interval,
+        }
+    }
+
     /// Build a driver client from the provided components.
     pub fn new_with_components(
         event_syncer: Arc<E>,
         inbox: InboxInstance<P>,
         l2_provider: Arc<dyn L2Provider + Send + Sync>,
     ) -> Self {
-        Self { event_syncer, inbox, l2_provider }
+        Self::new_with_components_and_poll_interval(
+            event_syncer,
+            inbox,
+            l2_provider,
+            DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
+        )
+    }
+}
+
+impl<E, P> EventSyncerDriverClient<E, P>
+where
+    E: PreconfirmationIngress + 'static,
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Resolve and cache the chain-specific base-fee clamp once per client instance.
+    async fn cached_min_base_fee_to_clamp(&self) -> ClientResult<u64> {
+        let min_base_fee_to_clamp = self
+            .min_base_fee_to_clamp
+            .get_or_try_init(|| async {
+                let chain_id = self.l2_provider.chain_id().await?;
+                Ok::<u64, PreconfirmationClientError>(min_base_fee_for_chain(chain_id))
+            })
+            .await?;
+        Ok(*min_base_fee_to_clamp)
     }
 }
 
@@ -135,9 +174,13 @@ where
 {
     /// Build a driver client from an EventSyncer and RPC client bundle.
     pub fn from_client(event_syncer: Arc<EventSyncer<P>>, client: rpc::client::Client<P>) -> Self {
-        let l2_provider = client.l2_provider.clone();
-        let l2_provider: Arc<dyn L2Provider + Send + Sync> = Arc::new(l2_provider);
-        Self::new_with_components(event_syncer, client.shasta.inbox, l2_provider)
+        let l2_provider: Arc<dyn L2Provider + Send + Sync> = Arc::new(client.l2_provider.clone());
+        Self::new_with_components_and_poll_interval(
+            event_syncer,
+            client.shasta.inbox,
+            l2_provider,
+            DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
+        )
     }
 }
 
@@ -148,7 +191,7 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     /// Submit a preconfirmation commitment payload to the driver.
-    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
+    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> ClientResult<()> {
         let preconf = &input.commitment.commitment.preconf;
         let block_number = uint256_to_u256(&preconf.block_number).to::<u64>();
         let proposal_id = uint256_to_u256(&preconf.proposal_id).to::<u64>();
@@ -159,10 +202,12 @@ where
         }
 
         let config = self.inbox.getConfig().call().await.map_err(DriverApiError::from)?;
+        let min_base_fee_to_clamp = self.cached_min_base_fee_to_clamp().await?;
         let payload = build_taiko_payload_attributes(
             &input,
             config.basefeeSharingPctg,
             self.l2_provider.as_ref(),
+            min_base_fee_to_clamp,
         )
         .await?;
 
@@ -170,9 +215,7 @@ where
             .submit_preconfirmation_payload(PreconfPayload::new(payload))
             .await
             .map_err(|err| {
-                PreconfirmationClientError::DriverInterface(DriverApiError::ChannelClosed(
-                    err.to_string(),
-                ))
+                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(err))
             })?;
 
         info!(block_number, proposal_id, "submitted preconfirmation payload");
@@ -180,68 +223,47 @@ where
     }
 
     /// Wait for the event syncer to catch up with L1 inbox events.
-    async fn wait_event_sync(&self) -> Result<()> {
+    async fn wait_event_sync(&self) -> ClientResult<()> {
         info!("starting wait for driver to sync with L1 inbox events");
-
-        let mut rx = self.event_syncer.subscribe_proposal_id();
-        loop {
-            let last = *rx.borrow();
-            let core_state =
-                self.inbox.getCoreState().call().await.map_err(DriverApiError::from)?;
-            let next = core_state.nextProposalId.to::<u64>();
-
-            tracing::debug!(
-                last_canonical_proposal_id = last,
-                next_proposal_id = next,
-                "checking sync"
-            );
-
-            if next == 0 {
-                info!("sync complete (no proposals)");
-                return Ok(());
-            }
-
-            let target = next.saturating_sub(1);
-            if last >= target {
-                info!("driver event sync complete");
-                return Ok(());
-            }
-
-            if rx.changed().await.is_err() {
-                return Err(DriverApiError::ChannelClosed(
-                    "proposal id watch channel closed".to_string(),
-                )
-                .into());
-            }
-        }
+        wait_for_confirmed_sync(
+            || async {
+                self.event_syncer.confirmed_sync_snapshot().await.map_err(DriverApiError::Driver)
+            },
+            self.wait_event_sync_poll_interval,
+        )
+        .await?;
+        info!("driver event sync complete");
+        Ok(())
     }
 
     /// Get the current event syncer tip block number.
-    async fn event_sync_tip(&self) -> Result<U256> {
-        match self.event_syncer.canonical_tip_state() {
-            CanonicalTipState::Known(block_number) => Ok(U256::from(block_number)),
-            CanonicalTipState::Unknown => Err(DriverApiError::EventSyncTipUnknown.into()),
-        }
+    async fn event_sync_tip(&self) -> ClientResult<U256> {
+        let snapshot =
+            self.event_syncer.confirmed_sync_snapshot().await.map_err(DriverApiError::Driver)?;
+        super::traits::resolve_event_sync_tip(&snapshot)
     }
 
     /// Get the current preconfirmation tip block number.
-    async fn preconf_tip(&self) -> Result<U256> {
+    async fn preconf_tip(&self) -> ClientResult<U256> {
         self.l2_provider.latest_tip().await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+        },
+        time::Duration,
     };
 
     use alloy_primitives::{Address, U256};
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types::Header as RpcHeader;
     use alloy_transport::mock::Asserter;
-    use driver::CanonicalTipState;
+    use driver::sync::ConfirmedSyncSnapshot;
 
     use super::{EventSyncerDriverClient, PreconfirmationIngress, TipProvider};
     use crate::{
@@ -253,16 +275,11 @@ mod tests {
     };
 
     struct StubL2Provider {
-        safe: U256,
         latest: U256,
     }
 
     #[async_trait::async_trait]
     impl TipProvider for StubL2Provider {
-        async fn safe_tip(&self) -> crate::Result<U256> {
-            Ok(self.safe)
-        }
-
         async fn latest_tip(&self) -> crate::Result<U256> {
             Ok(self.latest)
         }
@@ -273,11 +290,33 @@ mod tests {
         async fn header_by_number(&self, block_number: u64) -> crate::Result<RpcHeader> {
             Err(DriverApiError::MissingBlock { block_number }.into())
         }
+
+        async fn chain_id(&self) -> crate::Result<u64> {
+            Ok(0)
+        }
     }
 
     struct FakeIngress {
         submits: Arc<AtomicUsize>,
-        canonical_tip_state: CanonicalTipState,
+        ready: Arc<AtomicBool>,
+        tip: Arc<AtomicU64>,
+        target_proposal_id: u64,
+    }
+
+    impl FakeIngress {
+        fn new(ready: bool, tip: u64) -> Self {
+            Self {
+                submits: Arc::new(AtomicUsize::new(0)),
+                ready: Arc::new(AtomicBool::new(ready)),
+                tip: Arc::new(AtomicU64::new(tip)),
+                target_proposal_id: 1,
+            }
+        }
+
+        fn with_target_proposal_id(mut self, id: u64) -> Self {
+            self.target_proposal_id = id;
+            self
+        }
     }
 
     #[async_trait::async_trait]
@@ -285,18 +324,23 @@ mod tests {
         async fn submit_preconfirmation_payload(
             &self,
             _payload: driver::PreconfPayload,
-        ) -> std::result::Result<(), driver::DriverError> {
+        ) -> Result<(), driver::DriverError> {
             self.submits.fetch_add(1, Ordering::SeqCst);
             Ok(())
         }
 
-        fn subscribe_proposal_id(&self) -> tokio::sync::watch::Receiver<u64> {
-            let (_tx, rx) = tokio::sync::watch::channel(0u64);
-            rx
-        }
-
-        fn canonical_tip_state(&self) -> CanonicalTipState {
-            self.canonical_tip_state
+        async fn confirmed_sync_snapshot(
+            &self,
+        ) -> Result<ConfirmedSyncSnapshot, driver::DriverError> {
+            let tip = self.tip.load(Ordering::SeqCst);
+            let head_l1_origin_block_id = (tip != u64::MAX).then_some(tip);
+            let target_block =
+                if self.ready.load(Ordering::SeqCst) { Some(0) } else { Some(u64::MAX - 1) };
+            Ok(ConfirmedSyncSnapshot::new(
+                self.target_proposal_id,
+                target_block,
+                head_l1_origin_block_id,
+            ))
         }
     }
 
@@ -307,12 +351,9 @@ mod tests {
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider.clone());
 
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress {
-                submits: Arc::new(AtomicUsize::new(0)),
-                canonical_tip_state: CanonicalTipState::Known(7),
-            }),
+            Arc::new(FakeIngress::new(true, 7)),
             inbox,
-            Arc::new(StubL2Provider { safe: U256::from(10), latest: U256::from(12) }),
+            Arc::new(StubL2Provider { latest: U256::from(12) }),
         );
 
         assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(7));
@@ -320,24 +361,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn event_syncer_driver_client_returns_error_when_tip_unknown() {
+    async fn event_syncer_driver_client_returns_zero_on_genesis_snapshot() {
         let asserter = Asserter::new();
         let provider = ProviderBuilder::new().connect_mocked_client(asserter);
         let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
 
+        // target_proposal_id=0 (fresh genesis), head_l1_origin=None → confirmed tip is genesis(0).
         let client = EventSyncerDriverClient::new_with_components(
-            Arc::new(FakeIngress {
-                submits: Arc::new(AtomicUsize::new(0)),
-                canonical_tip_state: CanonicalTipState::Unknown,
-            }),
+            Arc::new(FakeIngress::new(false, u64::MAX).with_target_proposal_id(0)),
             inbox,
-            Arc::new(StubL2Provider { safe: U256::ZERO, latest: U256::ZERO }),
+            Arc::new(StubL2Provider { latest: U256::from(99) }),
+        );
+
+        let tip = client
+            .event_sync_tip()
+            .await
+            .expect("should return genesis confirmed tip on fresh genesis");
+        assert_eq!(tip, U256::ZERO);
+    }
+
+    #[tokio::test]
+    async fn event_syncer_driver_client_rejects_during_startup_catchup() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter);
+        let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
+
+        // target_proposal_id=1, head_l1_origin=None → startup catch-up window, fail-closed.
+        let client = EventSyncerDriverClient::new_with_components(
+            Arc::new(FakeIngress::new(false, u64::MAX)),
+            inbox,
+            Arc::new(StubL2Provider { latest: U256::from(99) }),
         );
 
         let err = client
             .event_sync_tip()
             .await
-            .expect_err("unknown canonical tip should return explicit error");
+            .expect_err("should reject during startup catch-up window");
         assert!(matches!(
             err,
             crate::PreconfirmationClientError::DriverInterface(DriverApiError::EventSyncTipUnknown)
@@ -348,10 +407,6 @@ mod tests {
 
     #[async_trait::async_trait]
     impl TipProvider for NoopL2Provider {
-        async fn safe_tip(&self) -> crate::Result<U256> {
-            Ok(U256::ZERO)
-        }
-
         async fn latest_tip(&self) -> crate::Result<U256> {
             Ok(U256::ZERO)
         }
@@ -361,6 +416,10 @@ mod tests {
     impl super::BlockHeaderProvider for NoopL2Provider {
         async fn header_by_number(&self, block_number: u64) -> crate::Result<RpcHeader> {
             Err(DriverApiError::MissingBlock { block_number }.into())
+        }
+
+        async fn chain_id(&self) -> crate::Result<u64> {
+            Ok(0)
         }
     }
 
@@ -374,7 +433,9 @@ mod tests {
         let client = EventSyncerDriverClient::new_with_components(
             Arc::new(FakeIngress {
                 submits: submits.clone(),
-                canonical_tip_state: CanonicalTipState::Known(0),
+                ready: Arc::new(AtomicBool::new(true)),
+                tip: Arc::new(AtomicU64::new(0)),
+                target_proposal_id: 1,
             }),
             inbox,
             Arc::new(NoopL2Provider),
@@ -391,5 +452,36 @@ mod tests {
 
         client.submit_preconfirmation(input).await.unwrap();
         assert_eq!(submits.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn event_syncer_driver_client_waits_until_confirmed_sync_ready() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter);
+        let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider.clone());
+
+        let ready = Arc::new(AtomicBool::new(false));
+        let client = EventSyncerDriverClient::new_with_components_and_poll_interval(
+            Arc::new(FakeIngress {
+                submits: Arc::new(AtomicUsize::new(0)),
+                ready: ready.clone(),
+                tip: Arc::new(AtomicU64::new(5)),
+                target_proposal_id: 1,
+            }),
+            inbox,
+            Arc::new(NoopL2Provider),
+            Duration::from_millis(10),
+        );
+
+        let wait_handle = tokio::spawn(async move { client.wait_event_sync().await });
+
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        ready.store(true, Ordering::SeqCst);
+
+        tokio::time::timeout(Duration::from_millis(500), wait_handle)
+            .await
+            .expect("wait_event_sync should complete")
+            .expect("wait handle should join")
+            .expect("wait_event_sync should return ok");
     }
 }

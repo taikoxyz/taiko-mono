@@ -94,12 +94,13 @@ impl LookaheadResolver {
     {
         let client = LookaheadClient::new(inbox_address, provider.clone()).await?;
 
-        let lookahead_cfg = client
+        let lookahead_buffer_size: usize = client
             .lookahead_store()
-            .getLookaheadStoreConfig()
+            .LOOKAHEAD_BUFFER_SIZE()
             .call()
             .await
-            .map_err(LookaheadError::GetLookaheadStoreConfig)?;
+            .map_err(|err| LookaheadError::EventDecode(err.to_string()))?
+            .to::<u64>() as usize;
 
         let preconf_whitelist = PreconfWhitelistInstance::new(
             client
@@ -124,7 +125,7 @@ impl LookaheadResolver {
             fallback_timeline: FallbackTimelineStore::new(),
             cache: Arc::new(DashMap::new()),
             blacklist_history: Arc::new(DashMap::new()),
-            lookahead_buffer_size: lookahead_cfg.lookaheadBufferSize as usize,
+            lookahead_buffer_size,
             genesis_timestamp,
             broadcast_tx: None,
         })
@@ -289,8 +290,10 @@ impl LookaheadResolver {
         self.record_fallback_baseline(epoch_start, epoch_start, fallback_current).await?;
 
         // Insert or update the cached epoch entry.
+        // Refactored LookaheadStore emits LookaheadPosted(epochTimestamp, bytes26 lookaheadHash)
+        // without slots; observer nodes use empty slots and fall back to whitelist.
         let cached = CachedLookaheadEpoch {
-            slots: Arc::new(event.lookaheadSlots),
+            slots: Arc::new(vec![]),
             fallback_whitelist: fallback_current,
             block_timestamp,
         };
@@ -431,11 +434,14 @@ impl LookaheadResolver {
                     let signer = self
                         .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
                         .await?;
-                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
+                    return Ok(PreconfSlotInfo {
+                        signer,
+                        submission_window_end: U256::from(slot.timestamp.to::<u64>()),
+                    });
                 }
                 Ok(PreconfSlotInfo {
                     signer: slot.committer,
-                    submission_window_end: slot.timestamp,
+                    submission_window_end: U256::from(slot.timestamp.to::<u64>()),
                 })
             }
             // Select from next epoch slots.
@@ -452,11 +458,14 @@ impl LookaheadResolver {
                     let signer = self
                         .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
                         .await?;
-                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
+                    return Ok(PreconfSlotInfo {
+                        signer,
+                        submission_window_end: U256::from(slot.timestamp.to::<u64>()),
+                    });
                 }
                 Ok(PreconfSlotInfo {
                     signer: slot.committer,
-                    submission_window_end: slot.timestamp,
+                    submission_window_end: U256::from(slot.timestamp.to::<u64>()),
                 })
             }
             // Fallback to current epoch whitelist operator.
@@ -704,7 +713,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    // Uint import retained if additional fake configs need big ints; currently unused.
+    use alloy::sol_types::private::primitives::aliases::U48;
     use bindings::lookahead_store::ILookaheadStore::LookaheadSlot as BindingLookaheadSlot;
     use dashmap::DashMap;
     use tokio::runtime::Runtime;
@@ -767,7 +776,7 @@ mod tests {
         block
     }
 
-    fn test_resolver_with_cache(
+    struct TestResolverConfig {
         cache: DashMap<u64, CachedLookaheadEpoch>,
         fallback_timeline: FallbackTimelineStore,
         blacklist_history: DashMap<B256, BlacklistTimeline>,
@@ -776,16 +785,18 @@ mod tests {
         block_reader: FakeBlockReader,
         whitelist: FakeWhitelist,
         store: FakeStore,
-    ) -> LookaheadResolver {
+    }
+
+    fn test_resolver_with_cache(config: TestResolverConfig) -> LookaheadResolver {
         LookaheadResolver {
-            client: Arc::new(store),
-            preconf_whitelist: Arc::new(whitelist),
-            block_reader: Arc::new(block_reader),
-            fallback_timeline,
-            cache: Arc::new(cache),
-            blacklist_history: Arc::new(blacklist_history),
-            lookahead_buffer_size,
-            genesis_timestamp,
+            client: Arc::new(config.store),
+            preconf_whitelist: Arc::new(config.whitelist),
+            block_reader: Arc::new(config.block_reader),
+            fallback_timeline: config.fallback_timeline,
+            cache: Arc::new(config.cache),
+            blacklist_history: Arc::new(config.blacklist_history),
+            lookahead_buffer_size: config.lookahead_buffer_size,
+            genesis_timestamp: config.genesis_timestamp,
             broadcast_tx: None,
         }
     }
@@ -799,10 +810,10 @@ mod tests {
             let slot_ts = now;
             let committer = Address::from([0xaa; 20]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot]),
@@ -816,20 +827,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(100, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0xcc; 20]),
                     next: Address::from([0xdd; 20]),
                     addr: Address::from([0x12; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(result, committer);
@@ -855,20 +866,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(200, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(now)).await.unwrap();
             assert_eq!(result, fallback);
@@ -887,10 +898,10 @@ mod tests {
             // Current epoch: one slot earlier than ts; should force cross-epoch selection.
             let fallback_current = Address::from([0xaa; 20]);
             let slot_curr = BindingLookaheadSlot {
-                timestamp: U256::from(epoch_start + 1),
+                timestamp: U48::from(epoch_start + 1),
                 committer: Address::from([0xcc; 20]),
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached_current = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot_curr]),
@@ -902,10 +913,10 @@ mod tests {
             let next_slot_ts = next_epoch_start.saturating_add(10);
             let committer_next = Address::from([0xbb; 20]);
             let slot_next = BindingLookaheadSlot {
-                timestamp: U256::from(next_slot_ts),
+                timestamp: U48::from(next_slot_ts),
                 committer: committer_next,
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached_next = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot_next]),
@@ -920,20 +931,20 @@ mod tests {
             let latest_block = make_block(400, now);
             let blocks = DashMap::new();
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback_current,
                     next: committer_next,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             // Query inside current epoch but after the only current slot; should pick next-epoch
             // slot.
@@ -953,10 +964,10 @@ mod tests {
             let committer = Address::from([0xaa; 20]);
             let root = B256::from([1u8; 32]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: root,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let fallback = Address::from([0xee; 20]);
             let cached = CachedLookaheadEpoch {
@@ -979,20 +990,20 @@ mod tests {
                 map
             };
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
                 blacklist_history,
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(result, fallback);
@@ -1008,10 +1019,10 @@ mod tests {
             let slot_ts = now;
             let committer = Address::from([0xaa; 20]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let cached = CachedLookaheadEpoch {
                 slots: Arc::new(vec![slot]),
@@ -1025,20 +1036,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(101, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0xcc; 20]),
                     next: Address::from([0xdd; 20]),
                     addr: Address::from([0x12; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(info.signer, committer);
@@ -1066,20 +1077,20 @@ mod tests {
             let blocks = DashMap::new();
             blocks.insert(202, latest_block.clone());
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let info = resolver.slot_info_for_timestamp(U256::from(now)).await.unwrap();
             assert_eq!(info.signer, fallback);
@@ -1100,10 +1111,10 @@ mod tests {
             let committer = Address::from([0xaa; 20]);
             let root = B256::from([1u8; 32]);
             let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
+                timestamp: U48::from(slot_ts),
                 committer,
                 registrationRoot: root,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             };
             let fallback = Address::from([0xee; 20]);
             let cached = CachedLookaheadEpoch {
@@ -1125,20 +1136,20 @@ mod tests {
                 map
             };
 
-            let resolver = test_resolver_with_cache(
+            let resolver = test_resolver_with_cache(TestResolverConfig {
                 cache,
-                FallbackTimelineStore::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
                 blacklist_history,
-                2,
-                0,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+                lookahead_buffer_size: 2,
+                genesis_timestamp: 0,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                FakeStore { addr: Address::from([0x56; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x56; 20]) },
+            });
 
             let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
             assert_eq!(info.signer, fallback);
@@ -1159,20 +1170,20 @@ mod tests {
             let latest_block = make_block(1, now);
             let blocks = DashMap::new();
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0x01; 20]),
                     next: Address::from([0x02; 20]),
                     addr: Address::from([0x03; 20]),
                 },
-                FakeStore { addr: Address::from([0x04; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x04; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(too_old_ts)).await;
             assert!(matches!(result, Err(LookaheadError::TooOld(ts)) if ts == too_old_ts));
@@ -1191,20 +1202,20 @@ mod tests {
             let latest_block = make_block(2, now);
             let blocks = DashMap::new();
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: Address::from([0x11; 20]),
                     next: Address::from([0x12; 20]),
                     addr: Address::from([0x13; 20]),
                 },
-                FakeStore { addr: Address::from([0x14; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0x14; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(too_new_ts)).await;
             assert!(matches!(result, Err(LookaheadError::TooNew(ts)) if ts == too_new_ts));
@@ -1226,20 +1237,20 @@ mod tests {
 
             let fallback = Address::from([0xaa; 20]);
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0xbb; 20]),
                 },
-                FakeStore { addr: Address::from([0xcc; 20]) },
-            );
+                store: FakeStore { addr: Address::from([0xcc; 20]) },
+            });
 
             let result = resolver.committer_for_timestamp(U256::from(epoch_start + 20)).await;
             assert_eq!(result.unwrap(), fallback);
@@ -1247,28 +1258,20 @@ mod tests {
     }
 
     #[test]
-    fn ingest_logs_populates_cache_and_resolves_slot() {
+    fn ingest_logs_populates_cache_and_resolves_fallback() {
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             let now = current_unix_timestamp().unwrap();
             let genesis = now.saturating_sub(SECONDS_IN_EPOCH * 3);
             let epoch_start = epoch_start_for(now, genesis);
             let slot_ts = epoch_start + 10;
-            let committer = Address::from([0x21; 20]);
-            let root = B256::from([2u8; 32]);
 
-            // Build a LookaheadPosted log with one slot.
-            let slot = BindingLookaheadSlot {
-                timestamp: U256::from(slot_ts),
-                committer,
-                registrationRoot: root,
-                validatorLeafIndex: U256::ZERO,
-            };
+            // Refactored LookaheadPosted emits only (epochTimestamp, bytes26 lookaheadHash);
+            // slots are not in the event. Observer nodes resolve to whitelist fallback.
             let store_addr = Address::from([0x44; 20]);
             let event = LookaheadPosted {
                 epochTimestamp: U256::from(epoch_start),
-                lookaheadHash: B256::ZERO,
-                lookaheadSlots: vec![slot],
+                lookaheadHash: alloy_primitives::FixedBytes::<26>::ZERO,
             };
             let log_data = event.encode_log_data();
             let inner = alloy_primitives::Log::new_unchecked(
@@ -1293,25 +1296,26 @@ mod tests {
             let blocks = DashMap::new();
             let fallback = Address::from([0x55; 20]);
 
-            let resolver = test_resolver_with_cache(
-                DashMap::new(),
-                FallbackTimelineStore::new(),
-                DashMap::new(),
-                2,
-                genesis,
-                FakeBlockReader { latest: latest_block, blocks },
-                FakeWhitelist {
+            let resolver = test_resolver_with_cache(TestResolverConfig {
+                cache: DashMap::new(),
+                fallback_timeline: FallbackTimelineStore::new(),
+                blacklist_history: DashMap::new(),
+                lookahead_buffer_size: 2,
+                genesis_timestamp: genesis,
+                block_reader: FakeBlockReader { latest: latest_block, blocks },
+                whitelist: FakeWhitelist {
                     current: fallback,
                     next: fallback,
                     addr: Address::from([0x33; 20]),
                 },
-                FakeStore { addr: store_addr },
-            );
+                store: FakeStore { addr: store_addr },
+            });
 
             resolver.ingest_logs(vec![log]).await.unwrap();
 
+            // With empty slots (refactored event), resolution falls back to whitelist operator.
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
-            assert_eq!(result, committer);
+            assert_eq!(result, fallback);
         });
     }
 }

@@ -10,7 +10,9 @@ use tracing::debug;
 /// Thin wrapper around on-chain lookahead contracts resolved via the Inbox configuration.
 #[derive(Clone)]
 pub struct LookaheadClient<P: Provider + Clone> {
+    /// Inbox contract instance used to resolve runtime configuration.
     inbox: InboxInstance<P>,
+    /// LookaheadStore contract instance used for proposer-context queries.
     lookahead_store: LookaheadStoreInstance<P>,
 }
 
@@ -44,7 +46,7 @@ impl<P: Provider + Clone> LookaheadClient<P> {
         epoch_timestamp: U256,
     ) -> Result<ProposerContext> {
         self.lookahead_store
-            .getProposerContext(data, epoch_timestamp)
+            .getProposerContext(epoch_timestamp, data)
             .call()
             .await
             .map_err(LookaheadError::Lookahead)

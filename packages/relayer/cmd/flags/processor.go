@@ -150,13 +150,6 @@ var (
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_PROCESS"},
 	}
-	ForkWindowSeconds = &cli.Uint64Flag{
-		Name:     "forkWindowSeconds",
-		Usage:    "Window in seconds around shastaForkTimestamp to pause processing",
-		Category: processorCategory,
-		Value:    0,
-		EnvVars:  []string{"FORK_WINDOW_SECONDS"},
-	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
@@ -182,5 +175,4 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	MaxMessageRetries,
 	MinFeeToProcess,
 	DestQuotaManagerAddress,
-	ForkWindowSeconds,
 })

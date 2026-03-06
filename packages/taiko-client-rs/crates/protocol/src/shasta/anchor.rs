@@ -14,7 +14,7 @@ use alloy_consensus::{
 };
 use alloy_eips::{BlockId, eip1898::RpcBlockHash, eip2930::AccessList};
 use alloy_provider::Provider;
-use bindings::anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint};
+use bindings::anchor::Anchor::{AnchorInstance, BlockParams, ProposalParams};
 use thiserror::Error;
 use tracing::{info, instrument};
 
@@ -23,12 +23,16 @@ use crate::signer::{FixedKSigner, FixedKSignerError};
 /// Errors emitted by the anchor transaction constructor.
 #[derive(Debug, Error)]
 pub enum AnchorTxConstructorError {
+    /// Invalid signer or fixed-k signing failure.
     #[error(transparent)]
     Signer(#[from] FixedKSignerError),
+    /// Provider call failure while assembling anchor data.
     #[error("provider error: {0}")]
     Provider(String),
+    /// Nonce did not fit into the transaction nonce type.
     #[error("nonce exceeds u64 range")]
     NonceOverflow,
+    /// Base fee did not fit into EIP-1559 fee-cap type.
     #[error("fee cap exceeds u128 range")]
     FeeOverflow,
 }
@@ -36,10 +40,15 @@ pub enum AnchorTxConstructorError {
 /// Parameters required to assemble an `anchorV4` transaction.
 #[derive(Debug)]
 pub struct AnchorV4Input {
+    /// L1 anchor block number included in the checkpoint.
     pub anchor_block_number: u64,
+    /// L1 anchor block hash included in the checkpoint.
     pub anchor_block_hash: B256,
+    /// L1 anchor block state root included in the checkpoint.
     pub anchor_state_root: B256,
+    /// Target L2 height used for logging and call context.
     pub l2_height: u64,
+    /// Base fee used to derive EIP-1559 fee cap.
     pub base_fee: U256,
 }
 
@@ -50,10 +59,15 @@ pub struct AnchorTxConstructor<L2Provider>
 where
     L2Provider: Provider + Clone,
 {
+    /// Provider used for nonce, chain-id, and RPC queries.
     l2_provider: L2Provider,
+    /// Bound Anchor contract instance.
     anchor_instance: AnchorInstance<L2Provider>,
+    /// L2 chain identifier used when signing transactions.
     chain_id: u64,
+    /// Deterministic fixed-k signer for golden-touch transactions.
     signer: FixedKSigner,
+    /// Golden-touch account address used as sender.
     golden_touch_address: Address,
 }
 
@@ -138,13 +152,18 @@ where
             "assembling shasta anchor anchorV4 transaction",
         );
 
-        let checkpoint = Checkpoint {
-            blockNumber: U48::from(anchor_block_number),
-            blockHash: anchor_block_hash,
-            stateRoot: anchor_state_root,
+        // For golden-touch (whitelist) anchors, submissionWindowEnd and rawTxListHash can be 0.
+        let proposal_params = ProposalParams {
+            submissionWindowEnd: U48::from(0u64),
+        };
+        let block_params = BlockParams {
+            anchorBlockNumber: U48::from(anchor_block_number),
+            anchorBlockHash: anchor_block_hash,
+            anchorStateRoot: anchor_state_root,
+            rawTxListHash: B256::ZERO,
         };
 
-        let call_builder = self.anchor_instance.anchorV4(checkpoint);
+        let call_builder = self.anchor_instance.anchorV4(proposal_params, block_params);
 
         let call_builder = call_builder
             .from(self.golden_touch_address)

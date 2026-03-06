@@ -36,9 +36,15 @@ pub enum LookaheadBroadcast {
     /// Newly cached epoch data.
     Epoch(LookaheadEpochUpdate),
     /// Operator registration root was blacklisted.
-    Blacklisted { root: B256 },
+    Blacklisted {
+        /// Registration root that was blacklisted.
+        root: B256,
+    },
     /// Operator registration root was removed from blacklist.
-    Unblacklisted { root: B256 },
+    Unblacklisted {
+        /// Registration root that was removed from blacklist.
+        root: B256,
+    },
 }
 
 /// Epoch update broadcast structure.
@@ -97,50 +103,51 @@ pub fn pick_slot_origin(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::U256;
+    use alloy::sol_types::private::primitives::aliases::U48;
 
     #[test]
     fn pick_slot_prefers_current_then_next_first() {
         let current = vec![
             LookaheadSlot {
-                timestamp: U256::from(200),
+                timestamp: U48::from(200u64),
                 committer: Address::from([1u8; 20]),
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             },
             LookaheadSlot {
-                timestamp: U256::from(240),
+                timestamp: U48::from(240u64),
                 committer: Address::from([2u8; 20]),
                 registrationRoot: B256::ZERO,
-                validatorLeafIndex: U256::ZERO,
+                validatorLeafIndex: 0u16,
             },
         ];
 
         let next_first = LookaheadSlot {
-            timestamp: U256::from(400),
+            timestamp: U48::from(400u64),
             committer: Address::from([3u8; 20]),
             registrationRoot: B256::ZERO,
-            validatorLeafIndex: U256::ZERO,
+            validatorLeafIndex: 0u16,
         };
 
-        let picked = pick_slot_origin(210, &current, Some(&[next_first.clone()])).expect("slot");
+        let picked =
+            pick_slot_origin(210, &current, Some(std::slice::from_ref(&next_first))).expect("slot");
         assert_eq!(picked, SlotOrigin::Current(1));
 
-        let picked_next =
-            pick_slot_origin(300, &current, Some(&[next_first.clone()])).expect("next slot");
+        let picked_next = pick_slot_origin(300, &current, Some(std::slice::from_ref(&next_first)))
+            .expect("next slot");
         assert_eq!(picked_next, SlotOrigin::Next(0));
 
-        let none = pick_slot_origin(500, &current, Some(&[next_first.clone()]));
+        let none = pick_slot_origin(500, &current, Some(std::slice::from_ref(&next_first)));
         assert!(none.is_none());
     }
 
     #[test]
     fn pick_slot_falls_back_when_current_empty_even_if_next_present() {
         let next_first = LookaheadSlot {
-            timestamp: U256::from(400),
+            timestamp: U48::from(400u64),
             committer: Address::from([3u8; 20]),
             registrationRoot: B256::ZERO,
-            validatorLeafIndex: U256::ZERO,
+            validatorLeafIndex: 0u16,
         };
 
         let picked = pick_slot_origin(210, &[], Some(&[next_first]));

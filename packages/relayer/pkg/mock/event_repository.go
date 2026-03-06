@@ -15,18 +15,7 @@ import (
 )
 
 type EventRepository struct {
-	events                                         []*relayer.Event
-	ChainDataSyncedEventByBlockNumberOrGreaterFunc func(
-		ctx context.Context,
-		srcChainId uint64,
-		syncedChainId uint64,
-		blockNumber uint64,
-	) (*relayer.Event, error)
-	LatestChainDataSyncedEventFunc func(
-		ctx context.Context,
-		srcChainId uint64,
-		syncedChainId uint64,
-	) (uint64, error)
+	events                                          []*relayer.Event
 	CheckpointSyncedEventByBlockNumberOrGreaterFunc func(
 		ctx context.Context,
 		chainId uint64,
@@ -204,34 +193,6 @@ func (r *EventRepository) Delete(
 	}
 
 	return nil
-}
-
-func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
-	ctx context.Context,
-	srcChainId uint64,
-	syncedChainId uint64,
-	blockNumber uint64,
-) (*relayer.Event, error) {
-	if r.ChainDataSyncedEventByBlockNumberOrGreaterFunc != nil {
-		return r.ChainDataSyncedEventByBlockNumberOrGreaterFunc(ctx, srcChainId, syncedChainId, blockNumber)
-	}
-
-	return &relayer.Event{
-		ID:      rand.Int(), // nolint: gosec
-		ChainID: MockChainID.Int64(),
-	}, nil
-}
-
-func (r *EventRepository) LatestChainDataSyncedEvent(
-	ctx context.Context,
-	srcChainId uint64,
-	syncedChainId uint64,
-) (uint64, error) {
-	if r.LatestChainDataSyncedEventFunc != nil {
-		return r.LatestChainDataSyncedEventFunc(ctx, srcChainId, syncedChainId)
-	}
-
-	return 5, nil
 }
 
 func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
