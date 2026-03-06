@@ -35,7 +35,7 @@ clap = { version = "4", features = ["derive", "env"] }
 # observability
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = [
-  "http-listener",
+    "http-listener",
 ] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -49,7 +49,7 @@ tower = { version = "0.5", features = ["timeout", "util"] }
 # ethereum
 alloy = "1.4.3"
 alloy-consensus = { version = "1.4.3", default-features = false, features = [
-  "serde",
+    "serde",
 ] }
 alloy-contract = { version = "1.4.3", default-features = false }
 alloy-eips = { version = "1.4.3", default-features = false }
@@ -67,7 +67,7 @@ alloy-rpc-types-eth = { version = "1.4.3", default-features = false }
 alloy-signer = { version = "1.4.3", default-features = false }
 alloy-signer-local = { version = "1.4.3", default-features = false }
 alloy-sol-macro = { version = "1.4.3", default-features = false, features = [
-  "json",
+    "json",
 ] }
 alloy-sol-types = { version = "1.5.0", default-features = false }
 alloy-transport = { version = "1.4.3", default-features = false }
@@ -77,12 +77,12 @@ jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "a575e625374de3403df8517069626d007102cfc8" }
-alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", rev = "a575e625374de3403df8517069626d007102cfc8" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "a575e625374de3403df8517069626d007102cfc8", features = [
-  "serde",
+alethia-reth-consensus = { git = "https://github.com/mskrzypkows/alethia-reth", package = "alethia-reth-consensus", rev = "8a4036dde26ce30204cf515a52d2014f491ba66e" }
+alethia-reth-evm = { git = "https://github.com/mskrzypkows/alethia-reth", package = "alethia-reth-evm", rev = "8a4036dde26ce30204cf515a52d2014f491ba66e" }
+alethia-reth-primitives = { git = "https://github.com/mskrzypkows/alethia-reth", package = "alethia-reth-primitives", rev = "8a4036dde26ce30204cf515a52d2014f491ba66e", features = [
+    "serde",
 ] }
-alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "a575e625374de3403df8517069626d007102cfc8" }
+alethia-reth-rpc = { git = "https://github.com/mskrzypkows/alethia-reth", package = "alethia-reth-rpc", rev = "8a4036dde26ce30204cf515a52d2014f491ba66e" }
 reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.1" }
 
 # types
