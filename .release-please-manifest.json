@@ -4,7 +4,7 @@
   "packages/eventindexer": "0.14.0",
   "packages/ejector": "0.6.1",
   "packages/fork-diff": "0.7.1",
-  "packages/protocol": "2.3.0",
+  "packages/protocol": "2.4.0",
   "packages/relayer": "0.13.0",
   "packages/snaefell-ui": "1.1.0",
   "packages/supplementary-contracts": "1.0.0",
