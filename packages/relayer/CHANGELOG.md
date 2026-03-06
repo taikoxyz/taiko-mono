@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.1](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.0...relayer-v0.13.1) (2026-03-06)
+
+
+### Chores
+
+* **relayer:** fix relayer build ([#21426](https://github.com/taikoxyz/taiko-mono/issues/21426)) ([d0920bf](https://github.com/taikoxyz/taiko-mono/commit/d0920bfc33bf0cf5efc3de03eb3f7411526ccf41))
+* **relayer:** pacaya clean up ([#21407](https://github.com/taikoxyz/taiko-mono/issues/21407)) ([1ba276e](https://github.com/taikoxyz/taiko-mono/commit/1ba276e63afab7c12a53553fde95db34ef4390eb))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2026-03-01)
 
 
