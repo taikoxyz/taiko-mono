@@ -1,9 +1,12 @@
 #!/bin/bash
 
-set -eou pipefail
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 # Load tool commands
-source scripts/common.sh
+source "$PROJECT_ROOT/scripts/common.sh"
 
 # Make sure all the commands are available
 check_command "cast"
@@ -23,14 +26,14 @@ if [ -z "${TAIKO_INTERNAL_SHASTA_TIME:-}" ] || [ -z "${ANVIL_INTERNAL_SHASTA_TIM
 fi
 
 # Start and stop docker-compose
-internal/docker/start.sh
-trap "internal/docker/stop.sh" EXIT INT KILL ERR
+trap "$PROJECT_ROOT/internal/docker/stop.sh" EXIT INT KILL ERR
+"$PROJECT_ROOT/internal/docker/start.sh"
 
 # Deploy L1 contracts
-integration_test/deploy_l1_contract.sh
+"$SCRIPT_DIR/deploy_l1_contract.sh"
 
 # Load environment variables for the upcoming integration tests
-source integration_test/test_env.sh
+source "$SCRIPT_DIR/test_env.sh"
 
 # Make sure environment variables are set
 check_env "L1_HTTP"
