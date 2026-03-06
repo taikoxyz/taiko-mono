@@ -12,8 +12,14 @@ pub const DERIVATION_SOURCE_MAX_BLOCKS: usize = 192;
 /// The maximum anchor block number offset from the proposal origin block number.
 pub const MAX_ANCHOR_OFFSET: u64 = 128;
 
+/// The maximum anchor block number offset for Taiko mainnet.
+pub const MAINNET_MAX_ANCHOR_OFFSET: u64 = 512;
+
 /// The maximum timestamp offset from the proposal origin timestamp.
 pub const TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
+
+/// The maximum timestamp offset for Taiko mainnet.
+pub const MAINNET_TIMESTAMP_MAX_OFFSET: u64 = 12 * 512;
 
 /// The minimum block gas limit.
 pub const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
@@ -60,11 +66,30 @@ pub const TAIKO_HOODI_CHAIN_ID: u64 = 167_013;
 /// Chain ID for Taiko mainnet.
 pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
 
+/// Returns true if the given chain ID corresponds to Taiko mainnet.
+pub const fn is_mainnet(chain_id: u64) -> bool {
+    chain_id == TAIKO_MAINNET_CHAIN_ID
+}
+
 /// Returns the EIP-4396 minimum base-fee clamp for a Taiko chain.
 ///
 /// Taiko mainnet uses a distinct clamp value; all other supported chains use the default.
 pub const fn min_base_fee_for_chain(chain_id: u64) -> u64 {
-    if chain_id == TAIKO_MAINNET_CHAIN_ID { MAINNET_MIN_BASE_FEE } else { MIN_BASE_FEE }
+    if is_mainnet(chain_id) { MAINNET_MIN_BASE_FEE } else { MIN_BASE_FEE }
+}
+
+/// Returns the maximum anchor block number offset for a given Taiko chain ID.
+///
+/// Taiko mainnet allows a larger anchor offset compared to other networks.
+pub const fn max_anchor_offset_for_chain(chain_id: u64) -> u64 {
+    if is_mainnet(chain_id) { MAINNET_MAX_ANCHOR_OFFSET } else { MAX_ANCHOR_OFFSET }
+}
+
+/// Returns the maximum timestamp offset for a given Taiko chain ID.
+///
+/// Taiko mainnet allows a larger timestamp offset compared to other networks.
+pub const fn timestamp_max_offset_for_chain(chain_id: u64) -> u64 {
+    if is_mainnet(chain_id) { MAINNET_TIMESTAMP_MAX_OFFSET } else { TIMESTAMP_MAX_OFFSET }
 }
 
 /// Returns the configured Shasta fork condition for a given Taiko L2 chain ID.
