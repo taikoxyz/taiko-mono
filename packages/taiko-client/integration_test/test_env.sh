@@ -1,13 +1,16 @@
 #!/bin/bash
 
-source internal/docker/docker_env.sh
-source scripts/common.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+source "$PROJECT_ROOT/internal/docker/docker_env.sh"
+source "$PROJECT_ROOT/scripts/common.sh"
 
 SHASTA_FORK_TAIKO_MONO="${SHASTA_FORK_TAIKO_MONO:-../..}"
 
 # get deployed contract address.
-PACAYA_DEPLOYMENT_JSON=$(cat ${PACAYA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
-DEPLOYMENT_JSON=$(cat ${SHASTA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
+PACAYA_DEPLOYMENT_JSON=$(cat "${PACAYA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json")
+DEPLOYMENT_JSON=$(cat "${SHASTA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json")
 export PACAYA_INBOX=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export SHASTA_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
@@ -48,4 +51,4 @@ TREASURY=$TREASURY
 JWT_SECRET=$JWT_SECRET
 VERBOSITY=$VERBOSITY
 TAIKO_INTERNAL_SHASTA_TIME=$TAIKO_INTERNAL_SHASTA_TIME
-ANVIL_INTERNAL_SHASTA_TIME=$ANVIL_INTERNAL_SHASTA_TIME" > integration_test/.env
+ANVIL_INTERNAL_SHASTA_TIME=$ANVIL_INTERNAL_SHASTA_TIME" > "$SCRIPT_DIR/.env"
