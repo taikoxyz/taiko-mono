@@ -114,14 +114,6 @@ var (
 		Required: false,
 		EnvVars:  []string{"TARGET_TX_HASH"},
 	}
-	CacheOption = &cli.IntFlag{
-		Name:     "cacheOption",
-		Usage:    "Cache option. Options: 0 - cache nothing, 1 - cache signal root, 2 - cache state root, 3 - cache both",
-		Category: processorCategory,
-		Required: false,
-		EnvVars:  []string{"CACHE_OPTION"},
-		Value:    3,
-	}
 	UnprofitableMessageQueueExpiration = &cli.StringFlag{
 		Name:     "unprofitableMessageQueueExpiration",
 		Usage:    "Time in seconds for queue message to expire when unprofitable, which will re-route it to be checked again",
@@ -170,7 +162,6 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
-	CacheOption,
 	UnprofitableMessageQueueExpiration,
 	MaxMessageRetries,
 	MinFeeToProcess,

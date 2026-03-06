@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 )
@@ -17,7 +16,6 @@ func newTestProcessor(profitableOnly bool) *Processor {
 
 	prover, _ := proof.New(
 		&mock.Blocker{},
-		encoding.CACHE_NOTHING,
 	)
 
 	return &Processor{
