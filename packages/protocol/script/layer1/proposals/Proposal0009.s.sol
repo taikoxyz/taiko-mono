@@ -56,7 +56,7 @@ contract Proposal0009 is BuildProposal {
         // --- ZK verifiers: Shasta only (raiko zk:v1.16.0) ---
         // We register which proof image/program IDs the Shasta verifiers accept:
         // - "batch" = per-block proof; "shasta-aggregation" = aggregated proof for the Shasta chain.
-        // RISC0: 2 image IDs (batch, shasta-aggregation). SP1: 4 program IDs (2 for proposa(batch blocks), 2 for shasta-aggregation).
+        // RISC0: 2 image IDs (batch, shasta-aggregation). SP1: 4 program IDs (2 for proposal(batch blocks), 2 for shasta-aggregation).
         actions[4] = Controller.Action({
             target: RISC0_SHASTA_VERIFIER,
             value: 0,
