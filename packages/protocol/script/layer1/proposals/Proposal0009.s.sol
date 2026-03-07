@@ -24,20 +24,19 @@ contract Proposal0009 is BuildProposal {
     address public constant SIGNAL_SERVICE_FORK_ROUTER_L2 =
         0x2987F6Bef39b03F8522EC38B36aF0f7422938EAb;
 
-    // ZK verifiers (mainnet, from https://github.com/taikoxyz/raiko/blob/main/host/config/chain_spec_list_default.json)
-    address public constant SP1_PACAYA_VERIFIER = 0xbee1040D0Aab17AE19454384904525aE4A3602B9;
-    address public constant RISC0_PACAYA_VERIFIER = 0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE;
+    // ZK verifiers (mainnet, Shasta only; Based on https://github.com/taikoxyz/taiko-mono/pull/21430)
     address public constant SP1_SHASTA_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
     address public constant RISC0_SHASTA_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
 
-    // SGX attesters (mainnet, same chainspec as ZK verifiers)
+    // SGX attesters (mainnet, reuse existing automata attesters)
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        // 4 Shasta/protocol + 12 ZK (Pacaya agg+batch only; Shasta batch+shasta-agg only) + 3 SGX = 19
-        actions = new Controller.Action[](19);
+        // L1: 4 protocol upgrades + 6 ZK verifier registrations + 3 SGX mrenclave updates = 13
+        actions = new Controller.Action[](13);
 
+        // --- Protocol upgrades (4) ---
         // Upgrade L1 PreconfWhitelist proxy to the Shasta implementation.
         actions[0] = buildUpgradeAction(L1.PRECONF_WHITELIST, PRECONF_WHITELIST_NEW_IMPL);
 
@@ -54,91 +53,44 @@ contract Proposal0009 is BuildProposal {
         // Upgrade L1 Inbox proxy to the Pacaya mainnet implementation.
         actions[3] = buildUpgradeAction(L1.INBOX, PACAYA_MAINNET_INBOX_NEW_IMPL);
 
-        // --- ZK: RISC0 PACAYA (aggregation + batch, no shasta-aggregation) ---
+        // --- ZK verifiers: Shasta only (raiko zk:v1.16.0) ---
+        // We register which proof image/program IDs the Shasta verifiers accept:
+        // - "batch" = per-block proof; "shasta-aggregation" = aggregated proof for the Shasta chain.
+        // RISC0: 2 image IDs (batch, shasta-aggregation). SP1: 4 program IDs (2 for proposa(batch blocks), 2 for shasta-aggregation).
         actions[4] = Controller.Action({
-            target: RISC0_PACAYA_VERIFIER,
+            target: RISC0_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 Risc0Verifier.setImageIdTrusted,
-                (0x33ac277d74776b9199ffe913addadb6a49fafb07153a7faa874593629377d513, true)
+                (0x779c032b91d0730ef13b26eafa47b32df7ebdaa4ed766d587fe905530afa2544, true) // boundless-batch
             )
         });
         actions[5] = Controller.Action({
-            target: RISC0_PACAYA_VERIFIER,
+            target: RISC0_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 Risc0Verifier.setImageIdTrusted,
-                (0x7280f15f5c0a9b1354907d862c0b03caf3f33d65bb83e6db56bbd3cf0dd79fd2, true)
+                (0x26abb0237d10e891443e2a76bd3c1f6704c1ad03c07cb2165f4afcfc64b3cee7, true) // boundless-shasta-aggregation
             )
         });
-        // --- ZK: SP1 PACAYA (sp1-aggregation + sp1-batch, no sp1-shasta-aggregation) ---
+        // SP1 Shasta: sp1-batch (2 program IDs), sp1-shasta-aggregation (2 program IDs)
         actions[6] = Controller.Action({
-            target: SP1_PACAYA_VERIFIER,
+            target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (0x00711b07e4437d1fba25154fc88c2766496448350d0e0a40883163651c6222c1, true)
+                (0x0026ff63d649779a5dbc88c3359ab83399a21fb6ef9b7ec082f77a8a465806e7, true)
             )
         });
         actions[7] = Controller.Action({
-            target: SP1_PACAYA_VERIFIER,
+            target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted,
-                (0x388d83f210df47ee44a2a9f908c276644b2241a8343829021062c6ca1c6222c1, true)
+                (0x137fb1eb125de6973791186659ab83394d10fdb73e6dfb0205eef514465806e7, true)
             )
         });
         actions[8] = Controller.Action({
-            target: SP1_PACAYA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x00d9389b2b0ce723bb0261ba1e77fed3fc97c3a217b09b6689bcd0ffd801657b, true)
-            )
-        });
-        actions[9] = Controller.Action({
-            target: SP1_PACAYA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x6c9c4d954339c8ee604c3743677fed3f64be1d105ec26d9a1379a1ff5801657b, true)
-            )
-        });
-        // --- ZK: RISC0 SHASTA (batch + shasta-aggregation, no pacaya aggregation) ---
-        actions[10] = Controller.Action({
-            target: RISC0_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted,
-                (0x7280f15f5c0a9b1354907d862c0b03caf3f33d65bb83e6db56bbd3cf0dd79fd2, true)
-            )
-        });
-        actions[11] = Controller.Action({
-            target: RISC0_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted,
-                (0x26abb0237d10e891443e2a76bd3c1f6704c1ad03c07cb2165f4afcfc64b3cee7, true)
-            )
-        });
-        // --- ZK: SP1 SHASTA (sp1-batch + sp1-shasta-aggregation, no sp1-aggregation) ---
-        actions[12] = Controller.Action({
-            target: SP1_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x00d9389b2b0ce723bb0261ba1e77fed3fc97c3a217b09b6689bcd0ffd801657b, true)
-            )
-        });
-        actions[13] = Controller.Action({
-            target: SP1_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (0x6c9c4d954339c8ee604c3743677fed3f64be1d105ec26d9a1379a1ff5801657b, true)
-            )
-        });
-        actions[14] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -146,7 +98,7 @@ contract Proposal0009 is BuildProposal {
                 (0x008e24716118be9594358d8882d93d5425f0827cf0a7a4fd0ea2fc4414debfe7, true)
             )
         });
-        actions[15] = Controller.Action({
+        actions[9] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
@@ -155,31 +107,32 @@ contract Proposal0009 is BuildProposal {
             )
         });
 
-        // --- SGX: raiko + gaiko mrenclave (raiko v1.15.0, https://github.com/taikoxyz/raiko/pull/670) ---
-        actions[16] = Controller.Action({
+        // --- SGX attesters: set trusted MR_ENCLAVE (raiko v1.16.0) ---
+        // raiko non-edmm / edmm -> SGXRETH_ATTESTER; gaiko non-edmm -> SGXGETH_ATTESTER
+        actions[10] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
                 "setMrEnclave(bytes32,bool)",
-                0xe4a6a74d2a7b86a14cb8739e33268d5eeef6cd7e6a14cc642d6f8764820169be,
+                0x59bf7d48610cc8a56ba8a390b68c31a1443297869b174aeacac67dc152820f0e,
                 true
             )
         });
-        actions[17] = Controller.Action({
+        actions[11] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
                 "setMrEnclave(bytes32,bool)",
-                0x775e1a01db59b5e892ef3cd883036d6e9630af71bc3b3550be8999eaefd339c1,
+                0xf285b7cbd78d2b96cdc54cfea3e47d8f510a4b4f91b719c97f8bbb90974f805b,
                 true
             )
         });
-        actions[18] = Controller.Action({
+        actions[12] = Controller.Action({
             target: SGXGETH_ATTESTER,
             value: 0,
             data: abi.encodeWithSignature(
                 "setMrEnclave(bytes32,bool)",
-                0xb99907155a0078cfe3e4927692f982a052b1b2ca005fccaebf08f3c8dfe21eb4,
+                0xd1f43acede51c4eb2f66b86cce52682edad80b810b9d87fba3a9b67254c91b77,
                 true
             )
         });

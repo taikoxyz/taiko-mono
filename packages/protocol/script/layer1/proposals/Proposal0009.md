@@ -2,13 +2,13 @@
 
 ## Executive Summary
 
-This proposal (1) upgrades Taiko mainnet protocol contracts to activate Shasta on L1 and L2, (2) registers raiko zk:v1.15.0 RISC0/SP1 image and program IDs on PACAYA and SHASTA verifiers, and (3) updates SGX MR_ENCLAVE values to raiko v1.15.0 (base + edmm for raiko; base for gaiko).
+This proposal (1) upgrades Taiko mainnet protocol contracts to activate Shasta on L1 and L2, (2) registers raiko zk:v1.16.0 RISC0/SP1 image and program IDs on **Shasta** verifiers only, and (3) updates SGX MR_ENCLAVE values to raiko v1.16.0 (non-edmm + edmm for raiko; only non-edmm for gaiko).
 
-It executes **19 L1 actions** from the DAO Controller and **2 L2 actions** through the DelegateController bridge flow.
+It executes **13 L1 actions** from the DAO Controller and **2 L2 actions** through the DelegateController bridge flow.
 
 - **Shasta**: Next generation protocol; see [Achieving stage 1: Shasta is almost here](https://paragraph.com/@taiko-labs/achieving-stage-1-shasta-is-almost-here).
-- **ZK**: Image/program IDs from [raiko RELEASE zk:v1.15.0](https://github.com/taikoxyz/raiko/pull/670/changes).
-- **SGX**: MR_ENCLAVE from [raiko RELEASE v1.15.0 and v1.15.0-edmm](https://github.com/taikoxyz/raiko/pull/670/changes).
+- **ZK**: Shasta only; image/program IDs from [raiko RELEASE zk:v1.16.0](https://github.com/taikoxyz/raiko/pull/674).
+- **SGX**: MR_ENCLAVE from [raiko RELEASE v1.16.0 and v1.16.0-edmm](https://github.com/taikoxyz/raiko/pull/674).
 
 ## Technical Specification
 
@@ -25,12 +25,10 @@ It executes **19 L1 actions** from the DAO Controller and **2 L2 actions** throu
 | `ANCHOR_FORK_ROUTER_L2`         | `0x38e4A497aD70aa0581BAc29747b0Ea7a53258585` | L2 Shasta `anchor_fork_router`         |
 | `SIGNAL_SERVICE_FORK_ROUTER_L2` | `0x2987F6Bef39b03F8522EC38B36aF0f7422938EAb` | L2 Shasta `signal_service_fork_router` |
 
-**ZK verifiers (taiko_mainnet)**
+**ZK verifiers (taiko_mainnet, Shasta only; raiko zk:v1.16.0)**
 
 | Constant                | Value                                        |
 | ----------------------- | -------------------------------------------- |
-| `SP1_PACAYA_VERIFIER`   | `0xbee1040D0Aab17AE19454384904525aE4A3602B9` |
-| `RISC0_PACAYA_VERIFIER` | `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE` |
 | `SP1_SHASTA_VERIFIER`   | `0x96337327648dcFA22b014009cf10A2D5E2F305f6` |
 | `RISC0_SHASTA_VERIFIER` | `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` |
 
@@ -41,7 +39,7 @@ It executes **19 L1 actions** from the DAO Controller and **2 L2 actions** throu
 | `SGXRETH_ATTESTER` | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` |
 | `SGXGETH_ATTESTER` | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` |
 
-### L1 Actions (19 total)
+### L1 Actions (13 total)
 
 **Shasta / protocol (4)**
 
@@ -50,9 +48,9 @@ It executes **19 L1 actions** from the DAO Controller and **2 L2 actions** throu
 3. Upgrade `SIGNAL_SERVICE` proxy (`0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`) to `SIGNAL_SERVICE_FORK_ROUTER_L1`.
 4. Upgrade L1 `INBOX` proxy to `PACAYA_MAINNET_INBOX_NEW_IMPL`.
 
-**ZK verifiers (12)** — Pacaya: RISC0 aggregation + batch, SP1 sp1-aggregation + sp1-batch (no Shasta agg). Shasta: RISC0 batch + shasta-aggregation, SP1 sp1-batch + sp1-shasta-aggregation (no Pacaya agg). raiko zk:v1.15.0.
+**ZK verifiers (6)** — Shasta only. Register proof image/program IDs so Shasta verifiers accept raiko zk:v1.16.0 proofs: _batch_ (per-block) and _shasta-aggregation_ (aggregated). RISC0: 2 image IDs. SP1: 4 program IDs (2 per proof type). [PR 674](https://github.com/taikoxyz/raiko/pull/674).
 
-**SGX (3)** — `setMrEnclave(bytes32,bool)` on attesters: raiko base + raiko edmm on `SGXRETH_ATTESTER`; gaiko base on `SGXGETH_ATTESTER`.
+**SGX (3)** — `setMrEnclave(bytes32,bool)` on attesters: raiko v1.16.0 non-edmm + edmm on `SGXRETH_ATTESTER`; gaiko v1.16.0 non-edmm on `SGXGETH_ATTESTER`.
 
 ### L2 Actions (via bridge + DelegateController)
 
