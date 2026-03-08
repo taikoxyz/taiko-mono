@@ -106,31 +106,33 @@ impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
 impl<P: Provider + Clone> Client<P> {
     /// Create a new `Client` from the given L1 provider and configuration.
     async fn new_with_l1_provider(l1_provider: P, config: ClientConfig) -> Result<Self> {
-        let l2_provider =
-            connect_provider_with_timeout(config.l2_provider_url.clone()).await.map_err(|e| {
-                RpcClientError::Connection(format!(
-                    "L2 HTTP RPC (l2.http) connection failed for {}: {}",
-                    config.l2_provider_url, e
-                ))
-            })?;
-        let jwt_secret = read_jwt_secret(config.jwt_secret.as_path()).ok_or_else(|| {
-            RpcClientError::JwtSecretReadFailed(config.jwt_secret.display().to_string())
+        let ClientConfig {
+            l2_provider_url, l2_auth_provider_url, jwt_secret, inbox_address, ..
+        } = config;
+        let l2_provider_url_display = l2_provider_url.to_string();
+        let l2_provider = connect_provider_with_timeout(l2_provider_url).await.map_err(|e| {
+            RpcClientError::Connection(format!(
+                "L2 HTTP RPC (l2.http) connection failed for {}: {}",
+                l2_provider_url_display, e
+            ))
         })?;
-        let l2_auth_provider =
-            build_jwt_http_provider(config.l2_auth_provider_url.clone(), jwt_secret);
+        let jwt_secret_path = jwt_secret.display().to_string();
+        let jwt_secret = read_jwt_secret(jwt_secret.as_path())
+            .ok_or_else(|| RpcClientError::JwtSecretReadFailed(jwt_secret_path))?;
+        let l2_auth_provider = build_jwt_http_provider(l2_auth_provider_url, jwt_secret);
 
         let chain_id = l2_provider.get_chain_id().await.map_err(|e| {
             RpcClientError::Rpc(format!(
                 "L2 HTTP RPC (l2.http) failed to get chain id from {}: {}",
-                config.l2_provider_url, e
+                l2_provider_url_display, e
             ))
         })?;
 
-        let inbox = InboxInstance::new(config.inbox_address, l1_provider.clone());
+        let inbox = InboxInstance::new(inbox_address, l1_provider.clone());
         let anchor = AnchorInstance::new(get_treasury_address(chain_id), l2_auth_provider.clone());
 
         info!(
-            inbox_address = ?config.inbox_address,
+            inbox_address = ?inbox_address,
             anchor_address = ?anchor.address(),
             "Shasta protocol contract addresses"
         );
