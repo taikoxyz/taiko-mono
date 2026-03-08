@@ -108,37 +108,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
-      - name: Ensure docker compose is available
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          if docker compose version > /dev/null 2>&1; then
-            docker compose version
-            exit 0
-          fi
-
-          if command -v docker-compose > /dev/null 2>&1; then
-            docker-compose version
-            exit 0
-          fi
-
-          ARCH="$(uname -m)"
-          if [ "$ARCH" = "arm64" ]; then
-            ARCH="aarch64"
-          fi
-
-          if [ "$(whoami)" = root ]; then
-            SUDO=""
-          else
-            SUDO="sudo"
-          fi
-
-          $SUDO curl -fsSL \
-            "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" \
-            -o /usr/local/bin/docker-compose
-          $SUDO chmod +x /usr/local/bin/docker-compose
-          docker-compose version
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v1
 
       - name: Set up Go
         uses: actions/setup-go@v6
