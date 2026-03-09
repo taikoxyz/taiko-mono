@@ -23,7 +23,7 @@ pragma solidity ^0.8.24;
 interface IShadowERC20 {
     error SHADOW_MINT_EXCEEDED();
     /// @notice Returns the Shadow contract authorised to call shadowMint.
-    function shadowAddress() external view returns (address);
+    function shadowAddress() external view returns (address shadow_);
 
     /// @notice Mint tokens to a Shadow claim recipient.
     /// @dev    MUST revert with ShadowUnauthorised if the caller is not authorised.
@@ -36,12 +36,12 @@ interface IShadowERC20 {
     /// @dev    The ZK circuit uses this slot together with the holder address to
     ///         recompute the expected storage key inside the proof, preventing
     ///         a malicious prover from substituting an arbitrary storage key.
-    /// @return The storage slot index (e.g. 0 for plain OZ ERC20).
-    function balanceSlot() external pure returns (uint256);
+    /// @return slot_ The storage slot index (e.g. 0 for plain OZ ERC20).
+    function balanceSlot() external pure returns (uint256 slot_);
 
     /// @notice Returns the maximum amount that may be minted in a single Shadow claim.
     /// @dev    Shadow.sol reads this value and rejects any claim where amount exceeds it.
     ///         The client also reads this value to constrain note amounts in deposit files.
-    /// @return The maximum raw token amount (smallest units) per single claim.
-    function maxShadowMintAmount() external view returns (uint256);
+    /// @return maxAmount_ The maximum raw token amount (smallest units) per single claim.
+    function maxShadowMintAmount() external view returns (uint256 maxAmount_);
 }
