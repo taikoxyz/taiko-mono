@@ -262,7 +262,7 @@
   - Upgrade to `0x4e030b19135869F6fd926614754B7F9c184E2B83` @commit`cf55838` @tx`0x78f766ae83ce94ef2293c9c7d81ae514e8fa0a79fbce1530c3c68d7624708795`
   - Upgrade to `0xde813DD3b89702E5Eb186FeE6FBC5dCf02aE6319` @commit`3328024` @tx`0xffedb70a513e71486c3a47079508d3ba87ae5362e7efb3300febac1be69276bc`
   - Upgrade to `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F` @commit`c2a941e` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
-  - Upgrade to `0xB0600e011e02eD35A142B45B506B16A35493c3F5` @commit`` @tx``
+  - Upgrade to `0xB0600e011e02eD35A142B45B506B16A35493c3F5` @commit` @tx`
 
 #### tier_router
 
@@ -552,6 +552,72 @@
 - owner : `controller.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x7486b942c054eb6641ea701f0835d23fa606accad0e96051791da26c56a10771`
+
+## Shasta Contracts
+
+### sgx_verifier_reth
+
+- impl : `0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x5f76012a42f150330fd01824ce6b6c55f9695b2fb2dd3a25f6b9a1a82e90d437`
+
+### sgx_verifier_geth
+
+- impl : `0x08568Df252ecf37D6C3eFD24f6ca3688118697F1`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8e1982ca9273a77d9d39fedf0c17620f28469da9b79a1e6df0bd002f8a25a5fd`
+
+### risc0_verifier
+
+- impl : `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xff70e373b4ff4f0f4a5fdd7b1709d6d3be74ea21426fa05e315d90adb81637a8`
+
+### sp1_verifier
+
+- impl : `0x96337327648dcFA22b014009cf10A2D5E2F305f6`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xe29fb424175bfe33dc401026026bc40e03dc0ee38d833edb33b698f55c89bacb`
+
+### mainnet_verifier
+
+- impl : `0x9cAa4948381590900FCdd8a4F06EB24138eD665d`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x18e0a43926b02144951bc6f0c233667f9f40651a3b86e9b575c09768f9670d13`
+
+### preconf_whitelist_impl
+
+- impl : `0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x55776c3ca4062444e6d852ec3e316c29b2da34eaffdf7030f8ac804aebdc90c0`
+
+### prover_whitelist
+
+- proxy : `0xEa798547d97e345395dA071a0D7ED8144CD612Ae`
+- impl : `0xebb393746A4Eee84Ad14EDFf3764c3F839D1034b`
+- logs:
+  - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x3281686f0d3ce87d69fcc0a0c1a92d87574b29fbd348cd944bf9f38fa5012153`
+  - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x9ae9f5d95306d569099fbf42c0aa730a6b6e84e18f35e5f1a1374025597762d5`
+
+### inbox
+
+- proxy : `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f`
+- impl : `0x0680c84378FA6A7D2F46ADa5A70637Fa2A938d42`
+- logs:
+  - implementation deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x8a7c1e426b8fb8d7c00c7ffd9d1c41e3ce907f57f696f18fe3718abcd234a6de`
+  - proxy deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x7576f1179250453948b37648a748aaade28c40b33e358fa0cbe21be6b0368601`
+
+### signal_service_impl
+
+- impl : `0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0x820ee4ccf25cbbef1bd98df770e5dc4f41adfb6e36fe2401cc458f141cc8b758`
+
+### signal_service_fork_router
+
+- impl : `0x6a4B15E4b0296B2ECE03Ee9Ed74E4A3E3ECA68D6`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbb697a35b8607c49887a310f3fa6ce2c2018b595c71360c6a484a5cf4589bc38`
 
 ## Taiko DAO Specific
 
