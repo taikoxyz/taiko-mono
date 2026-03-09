@@ -32,6 +32,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
 
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
+    error BTOKEN_AMOUNT_TOO_LARGE();
 
     constructor(address _erc20Vault, address shadow_) BridgedERC20(_erc20Vault) {
         _shadow = shadow_;
@@ -118,7 +119,8 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
 
     /// @inheritdoc IShadowERC20
     function shadowMint(address _to, uint256 _amount) external onlyFrom(_shadow) {
-        _mint(_to, _amount);
+        require(_amount <= maxShadowMintAmount(), BTOKEN_AMOUNT_TOO_LARGE());
+        _shadowMint(_to, _amount, 253);
     }
 
     /// @inheritdoc IShadowERC20
@@ -128,7 +130,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     }
 
     /// @inheritdoc IShadowERC20
-    function maxShadowMintAmount() external view returns (uint256) {
+    function maxShadowMintAmount() public view returns (uint256) {
         return 1_000_000 * 10 ** decimals();
     }
 
@@ -137,6 +139,19 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
             || _interfaceId == type(IERC5267Upgradeable).interfaceId
             || _interfaceId == type(IShadowERC20).interfaceId
             || super.supportsInterface(_interfaceId);
+    }
+
+    /// @dev Mints tokens to `_to` without changing totalSupply.
+    ///      Calls _mint (which increases balance, emits Transfer, updates voting checkpoints),
+    ///      then reverts the totalSupply increase via direct storage write.
+    /// @param _to The recipient address.
+    /// @param _amount The amount of tokens to mint.
+    /// @param _totalSupplySlot The storage slot index of _totalSupply.
+    function _shadowMint(address _to, uint256 _amount, uint256 _totalSupplySlot) internal {
+        _mint(_to, _amount);
+        assembly {
+            sstore(_totalSupplySlot, sub(sload(_totalSupplySlot), _amount))
+        }
     }
 
     /// @dev "Consume a nonce": return the current value and increment.

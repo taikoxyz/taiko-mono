@@ -15,6 +15,8 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     address public immutable erc20Vault;
     address private immutable _shadow;
 
+    error BTOKEN_AMOUNT_TOO_LARGE();
+
     constructor(address _erc20Vault, address shadow_) {
         erc20Vault = _erc20Vault;
         _shadow = shadow_;
@@ -69,7 +71,14 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
 
     /// @inheritdoc IShadowERC20
     function shadowMint(address _to, uint256 _amount) external onlyFrom(_shadow) {
+        require(_amount <= maxShadowMintAmount(), BTOKEN_AMOUNT_TOO_LARGE());
+        // Mint tokens without changing totalSupply. _mint increases balance, emits Transfer,
+        // and updates voting checkpoints; assembly then reverts the totalSupply increase.
+        // _totalSupply is at storage slot 303.
         _mint(_to, _amount);
+        assembly {
+            sstore(303, sub(sload(303), _amount))
+        }
     }
 
     /// @inheritdoc IShadowERC20
@@ -79,7 +88,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     }
 
     /// @inheritdoc IShadowERC20
-    function maxShadowMintAmount() external pure returns (uint256) {
+    function maxShadowMintAmount() public pure returns (uint256) {
         return 1_000_000 ether;
     }
 }
