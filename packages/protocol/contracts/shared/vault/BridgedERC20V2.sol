@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./BridgedERC20.sol";
+import "./IShadowERC20.sol";
 import "@openzeppelin/contracts-upgradeable/interfaces/IERC5267Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
@@ -11,12 +12,12 @@ import "./BridgedERC20V2_Layout.sol"; // DO NOT DELETE
 
 /// @title BridgedERC20V2
 /// @notice An upgradeable ERC20 contract that represents tokens bridged from
-/// another chain. This implementation adds ERC20Permit support to BridgedERC20.
+/// another chain. This implementation adds ERC20Permit and IShadowERC20 support to BridgedERC20.
 ///
 /// Most of the code were copied from OZ's ERC20PermitUpgradeable.sol contract.
 ///
 /// @custom:security-contact security@taiko.xyz
-contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradeable {
+contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradeable, IShadowERC20 {
     using CountersUpgradeable for CountersUpgradeable.Counter;
 
     // solhint-disable-next-line var-name-mixedcase
@@ -27,10 +28,15 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     mapping(address account => CountersUpgradeable.Counter counter) private _nonces;
     uint256[49] private __gap;
 
+    address private immutable _shadow;
+
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
+    error SHADOW_UNAUTHORIZED();
 
-    constructor(address _erc20Vault) BridgedERC20(_erc20Vault) { }
+    constructor(address _erc20Vault, address shadow_) BridgedERC20(_erc20Vault) {
+        _shadow = shadow_;
+    }
 
     /// @inheritdoc IBridgedERC20Initializable
     /// @dev This function is called when the bridge deploys a new bridged ERC20 token, so this
@@ -106,9 +112,32 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         return _nonces[owner].current();
     }
 
+    /// @inheritdoc IShadowERC20
+    function shadowAddress() external view returns (address) {
+        return _shadow;
+    }
+
+    /// @inheritdoc IShadowERC20
+    function shadowMint(address _to, uint256 _amount) external {
+        require(msg.sender == _shadow, SHADOW_UNAUTHORIZED());
+        _mint(_to, _amount);
+    }
+
+    /// @inheritdoc IShadowERC20
+    /// @dev _balances is at slot 251 in BridgedERC20V2's storage layout.
+    function balanceSlot() external pure returns (uint256) {
+        return 251;
+    }
+
+    /// @inheritdoc IShadowERC20
+    function maxShadowMintAmount() external view returns (uint256) {
+        return 1_000_000 * 10 ** decimals();
+    }
+
     function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {
         return _interfaceId == type(IERC20PermitUpgradeable).interfaceId
             || _interfaceId == type(IERC5267Upgradeable).interfaceId
+            || _interfaceId == type(IShadowERC20).interfaceId
             || super.supportsInterface(_interfaceId);
     }
 

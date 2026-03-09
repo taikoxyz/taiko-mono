@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/governance/TaikoTokenBase.sol";
 import "src/shared/vault/IBridgedERC20.sol";
+import "src/shared/vault/IShadowERC20.sol";
 
 import "./BridgedTaikoToken_Layout.sol"; // DO NOT DELETE
 
@@ -10,11 +11,15 @@ import "./BridgedTaikoToken_Layout.sol"; // DO NOT DELETE
 /// @notice The TaikoToken on L2 to support checkpoints and voting. For testnets, we do not need to
 /// use this contract.
 /// @custom:security-contact security@taiko.xyz
-contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
+contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     address public immutable erc20Vault;
+    address private immutable _shadow;
 
-    constructor(address _erc20Vault) {
+    error SHADOW_UNAUTHORIZED();
+
+    constructor(address _erc20Vault, address shadow_) {
         erc20Vault = _erc20Vault;
+        _shadow = shadow_;
     }
 
     /// @notice Initializes the contract.
@@ -58,4 +63,26 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     }
 
     function changeMigrationStatus(address, bool) public pure notImplemented { }
+
+    /// @inheritdoc IShadowERC20
+    function shadowAddress() external view returns (address) {
+        return _shadow;
+    }
+
+    /// @inheritdoc IShadowERC20
+    function shadowMint(address _to, uint256 _amount) external {
+        require(msg.sender == _shadow, SHADOW_UNAUTHORIZED());
+        _mint(_to, _amount);
+    }
+
+    /// @inheritdoc IShadowERC20
+    /// @dev _balances is at slot 301 in BridgedTaikoToken's storage layout.
+    function balanceSlot() external pure returns (uint256) {
+        return 301;
+    }
+
+    /// @inheritdoc IShadowERC20
+    function maxShadowMintAmount() external pure returns (uint256) {
+        return 1_000_000 ether;
+    }
 }

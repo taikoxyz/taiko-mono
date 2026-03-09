@@ -5,7 +5,7 @@ import "../CommonTest.sol";
 import "../helpers/CanSayHelloWorld.sol";
 
 contract BridgedERC20V2_WithHelloWorld is BridgedERC20V2, CanSayHelloWorld {
-    constructor(address _erc20Vault) BridgedERC20V2(_erc20Vault) { }
+    constructor(address _erc20Vault) BridgedERC20V2(_erc20Vault, address(0)) { }
 }
 
 contract PrankTaikoInbox { }
