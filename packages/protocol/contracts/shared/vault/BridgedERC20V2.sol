@@ -28,6 +28,8 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     mapping(address account => CountersUpgradeable.Counter counter) private _nonces;
     uint256[49] private __gap;
 
+    uint256 internal constant _TOTAL_SUPPLY_SLOT = 253;
+
     address private immutable _shadow;
     uint256 private immutable _maxShadowMintAmount;
 
@@ -127,7 +129,13 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     /// @inheritdoc IShadowERC20
     function shadowMint(address _to, uint256 _amount) external onlyFrom(_shadow) {
         require(_amount <= maxShadowMintAmount(), SHADOW_MINT_EXCEEDED());
-        _shadowMint(_to, _amount, 253);
+        // Mint tokens without changing totalSupply. _mint increases balance, emits Transfer,
+        // and updates voting checkpoints; assembly then reverts the totalSupply increase.
+        // _totalSupply is at storage slot _TOTAL_SUPPLY_SLOT.
+        _mint(_to, _amount);
+        assembly {
+            sstore(_TOTAL_SUPPLY_SLOT, sub(sload(_TOTAL_SUPPLY_SLOT), _amount))
+        }
     }
 
     /// @inheritdoc IShadowERC20
@@ -146,19 +154,6 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
             || _interfaceId == type(IERC5267Upgradeable).interfaceId
             || _interfaceId == type(IShadowERC20).interfaceId
             || super.supportsInterface(_interfaceId);
-    }
-
-    /// @dev Mints tokens to `_to` without changing totalSupply.
-    ///      Calls _mint (which increases balance, emits Transfer, updates voting checkpoints),
-    ///      then reverts the totalSupply increase via direct storage write.
-    /// @param _to The recipient address.
-    /// @param _amount The amount of tokens to mint.
-    /// @param _totalSupplySlot The storage slot index of _totalSupply.
-    function _shadowMint(address _to, uint256 _amount, uint256 _totalSupplySlot) internal {
-        _mint(_to, _amount);
-        assembly {
-            sstore(_totalSupplySlot, sub(sload(_totalSupplySlot), _amount))
-        }
     }
 
     /// @dev "Consume a nonce": return the current value and increment.
