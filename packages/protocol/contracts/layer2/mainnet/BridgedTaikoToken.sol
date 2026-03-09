@@ -95,6 +95,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     }
 
     function supportsInterface(bytes4 _interfaceId) public pure virtual returns (bool) {
-        return _interfaceId == type(IShadowERC20).interfaceId;
+        return _interfaceId == type(IBridgedERC20).interfaceId
+            || _interfaceId == type(IShadowERC20).interfaceId;
     }
 }
