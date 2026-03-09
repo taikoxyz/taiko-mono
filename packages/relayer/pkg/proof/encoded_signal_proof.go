@@ -12,64 +12,47 @@ import (
 	"github.com/pkg/errors"
 )
 
-type HopParams struct {
+type SignalProofParams struct {
 	ChainID              *big.Int
 	SignalServiceAddress common.Address
-	SignalService        relayer.SignalService
 	Key                  [32]byte
 	Blocker              blocker
 	Caller               relayer.Caller
 	BlockNumber          uint64
 }
 
-func (p *Prover) EncodedSignalProofWithHops(
-	ctx context.Context,
-	hopParams []HopParams,
+func (p *Prover) EncodedSignalProof(ctx context.Context,
+	params SignalProofParams,
 ) ([]byte, error) {
-	return p.abiEncodeSignalProofWithHops(ctx,
-		hopParams,
+	block, err := params.Blocker.BlockByNumber(
+		ctx,
+		new(big.Int).SetUint64(params.BlockNumber),
 	)
-}
-
-func (p *Prover) abiEncodeSignalProofWithHops(ctx context.Context,
-	hopParams []HopParams,
-) ([]byte, error) {
-	hopProofs := []encoding.HopProof{}
-
-	for _, hop := range hopParams {
-		block, err := hop.Blocker.BlockByNumber(
-			ctx,
-			new(big.Int).SetUint64(hop.BlockNumber),
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "p.blockHeader")
-		}
-
-		ethProof, err := p.getProof(
-			ctx,
-			hop.Caller,
-			hop.SignalServiceAddress,
-			common.Bytes2Hex(hop.Key[:]),
-			int64(hop.BlockNumber),
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "hop p.getEncodedMerkleProof")
-		}
-
-		hopProofs = append(hopProofs, encoding.HopProof{
-			BlockID:      block.NumberU64(),
-			ChainID:      hop.ChainID.Uint64(),
-			RootHash:     block.Root(),
-			CacheOption:  encoding.CACHE_NOTHING,
-			AccountProof: ethProof.AccountProof,
-			StorageProof: ethProof.StorageProof[0].Proof,
-		},
-		)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.blockHeader")
 	}
 
-	encodedSignalProof, err := encoding.EncodeHopProofs(hopProofs)
+	ethProof, err := p.getProof(
+		ctx,
+		params.Caller,
+		params.SignalServiceAddress,
+		common.Bytes2Hex(params.Key[:]),
+		int64(params.BlockNumber),
+	)
 	if err != nil {
-		return nil, errors.Wrap(err, "enoding.EncodeHopProofs")
+		return nil, errors.Wrap(err, "p.getProof")
+	}
+
+	encodedSignalProof, err := encoding.EncodeHopProofs([]encoding.HopProof{{
+		BlockID:      block.NumberU64(),
+		ChainID:      params.ChainID.Uint64(),
+		RootHash:     block.Root(),
+		CacheOption:  encoding.CACHE_NOTHING,
+		AccountProof: ethProof.AccountProof,
+		StorageProof: ethProof.StorageProof[0].Proof,
+	}})
+	if err != nil {
+		return nil, errors.Wrap(err, "encoding.EncodeHopProofs")
 	}
 
 	return encodedSignalProof, nil

@@ -58,7 +58,7 @@ func (p *Processor) eventStatusFromMsgHash(
 
 // processMessage prepares and calls `processMessage` on the bridge, given a
 // message from the queue (from the indexer). It will
-// generate a proof, or multiple proofs if hops are needed.
+// generate a source-chain proof.
 // it returns a boolean of whether we should requeue the message or not.
 func (p *Processor) processMessage(
 	ctx context.Context,
@@ -238,50 +238,12 @@ func (p *Processor) processMessage(
 }
 
 // generateEncodedSignalProof takes a MessageSent event and calls a
-// proof generation service to generate a proof for the source call
-// as well as any additional hops required.
+// proof generation service to generate the source-chain proof.
 func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	event *bridge.BridgeMessageSent) ([]byte, error) {
-	var encodedSignalProof []byte
-
-	var err error
-
-	var blockNum = event.Raw.BlockNumber
-
-	// wait for srcChain => destChain header to sync if no hops,
-	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
-	if len(p.hops) > 0 {
-		var hopEthClient = p.srcEthClient
-
-		var hopChainID *big.Int
-
-		for _, hop := range p.hops {
-			event, err := p.waitHeaderSynced(ctx, hopEthClient, hop.chainID.Uint64(), blockNum)
-
-			if err != nil {
-				return nil, errors.Wrap(err, "p.waitHeaderSynced")
-			}
-
-			blockNum = event.SyncedInBlockID
-
-			hopEthClient = hop.ethClient
-
-			hopChainID = hop.chainID
-		}
-
-		event, err := p.waitHeaderSynced(ctx, hopEthClient, hopChainID.Uint64(), blockNum)
-		if err != nil {
-			return nil, err
-		}
-
-		blockNum = event.SyncedInBlockID
-	} else {
-		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
-			return nil, err
-		}
+	if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
+		return nil, err
 	}
-
-	hops := []proof.HopParams{}
 
 	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{
 		Context: ctx,
@@ -295,94 +257,34 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, err
 	}
 
-	// if we have no hops, this is strictly a srcChain => destChain message.
-	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
-	// and generate a proof.
-	if len(p.hops) == 0 {
-		latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
-		if err != nil {
-			return nil, err
-		}
+	latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
+	if err != nil {
+		return nil, err
+	}
 
-		if latestBlockID == 0 {
-			latestBlockID = blockNum
-			slog.Warn("no synced header found; using message block number",
-				"fallbackBlockNum", latestBlockID,
-				"srcChainId", p.srcChainId.Uint64(),
-				"destChainId", p.destChainId.Uint64(),
-			)
-		}
+	if latestBlockID == 0 {
+		latestBlockID = event.Raw.BlockNumber
+		slog.Warn("no synced header found; using message block number",
+			"fallbackBlockNum", latestBlockID,
+			"srcChainId", p.srcChainId.Uint64(),
+			"destChainId", p.destChainId.Uint64(),
+		)
+	}
 
-		hops = append(hops, proof.HopParams{
+	encodedSignalProof, err := p.prover.EncodedSignalProof(
+		ctx,
+		proof.SignalProofParams{
 			ChainID:              p.destChainId,
 			SignalServiceAddress: p.srcSignalServiceAddress,
 			Blocker:              p.srcEthClient,
 			Caller:               p.srcCaller,
-			SignalService:        p.srcSignalService,
 			Key:                  key,
 			BlockNumber:          latestBlockID,
-		})
-	} else {
-		// otherwise, we should just create the first hop in the array, we will append
-		// the rest of the hops after.
-		hops = append(hops, proof.HopParams{
-			ChainID:              p.destChainId,
-			SignalServiceAddress: p.srcSignalServiceAddress,
-			Blocker:              p.srcEthClient,
-			Caller:               p.srcCaller,
-			SignalService:        p.srcSignalService,
-			Key:                  key,
-			BlockNumber:          blockNum,
-		})
-	}
-
-	// if a hop is set, the proof service needs to generate an additional proof
-	// for the signal service intermediary chain in between the source chain
-	// and the destination chain.
-	for _, hop := range p.hops {
-		slog.Info(
-			"adding hop",
-			"hopChainId", hop.chainID.Uint64(),
-			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
-		)
-
-		block, err := hop.ethClient.BlockByNumber(
-			ctx,
-			new(big.Int).SetUint64(blockNum),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		hopStorageSlotKey, err := hop.signalService.GetSignalSlot(&bind.CallOpts{
-			Context: ctx,
 		},
-			hop.chainID.Uint64(),
-			hop.taikoAddress,
-			block.Root(),
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "hopSignalService.GetSignalSlot")
-		}
-
-		hops = append(hops, proof.HopParams{
-			ChainID:              hop.chainID,
-			SignalServiceAddress: hop.signalServiceAddress,
-			Blocker:              hop.ethClient,
-			Caller:               hop.caller,
-			SignalService:        hop.signalService,
-			Key:                  hopStorageSlotKey,
-			BlockNumber:          blockNum,
-		})
-	}
-
-	encodedSignalProof, err = p.prover.EncodedSignalProofWithHops(
-		ctx,
-		hops,
 	)
 
 	if err != nil {
-		slog.Error("error encoding hop proof",
+		slog.Error("error encoding signal proof",
 			"srcChainID", event.Message.SrcChainId,
 			"destChainID", event.Message.DestChainId,
 			"txHash", event.Raw.TxHash.Hex(),
@@ -391,7 +293,7 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"srcOwner", event.Message.SrcOwner.Hex(),
 			"destOwner", event.Message.DestOwner.Hex(),
 			"error", err,
-			"hopsLength", len(hops),
+			"blockNumber", latestBlockID,
 		)
 
 		return nil, err
