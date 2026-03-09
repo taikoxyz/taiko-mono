@@ -33,7 +33,6 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
 
-
     constructor(address _erc20Vault, address shadow_) BridgedERC20(_erc20Vault) {
         _shadow = shadow_;
     }

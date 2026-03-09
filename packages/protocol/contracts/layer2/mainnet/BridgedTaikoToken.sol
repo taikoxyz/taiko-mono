@@ -15,7 +15,6 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     address public immutable erc20Vault;
     address private immutable _shadow;
 
-
     constructor(address _erc20Vault, address shadow_) {
         erc20Vault = _erc20Vault;
         _shadow = shadow_;
