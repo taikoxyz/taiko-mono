@@ -21,6 +21,7 @@ pragma solidity ^0.8.24;
 ///          targetAddress never called delegate(), so its locked tokens carry
 ///          no active voting weight.
 interface IShadowERC20 {
+    error SHADOW_MINT_EXCEEDED();
     /// @notice Returns the Shadow contract authorised to call shadowMint.
     function shadowAddress() external view returns (address);
 

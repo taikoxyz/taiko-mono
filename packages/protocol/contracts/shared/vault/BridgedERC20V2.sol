@@ -29,13 +29,20 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     uint256[49] private __gap;
 
     address private immutable _shadow;
+    uint256 private immutable _maxShadowMintAmount;
 
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
-    error BTOKEN_AMOUNT_TOO_LARGE();
 
-    constructor(address _erc20Vault, address shadow_) BridgedERC20(_erc20Vault) {
+    constructor(
+        address _erc20Vault,
+        address shadow_,
+        uint256 maxShadowMintAmount_
+    )
+        BridgedERC20(_erc20Vault)
+    {
         _shadow = shadow_;
+        _maxShadowMintAmount = maxShadowMintAmount_;
     }
 
     /// @inheritdoc IBridgedERC20Initializable
@@ -119,7 +126,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
 
     /// @inheritdoc IShadowERC20
     function shadowMint(address _to, uint256 _amount) external onlyFrom(_shadow) {
-        require(_amount <= maxShadowMintAmount(), BTOKEN_AMOUNT_TOO_LARGE());
+        require(_amount <= maxShadowMintAmount(), SHADOW_MINT_EXCEEDED());
         _shadowMint(_to, _amount, 253);
     }
 
@@ -131,7 +138,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
 
     /// @inheritdoc IShadowERC20
     function maxShadowMintAmount() public view returns (uint256) {
-        return 1_000_000 * 10 ** decimals();
+        return _maxShadowMintAmount;
     }
 
     function supportsInterface(bytes4 _interfaceId) public pure virtual override returns (bool) {

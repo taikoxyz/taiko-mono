@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "../../shared/CommonTest.sol";
 import "src/layer2/mainnet/BridgedTaikoToken.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/vault/IShadowERC20.sol";
 
 contract BridgedTaikoTokenTest is CommonTest {
     BridgedTaikoToken token;
@@ -13,7 +14,7 @@ contract BridgedTaikoTokenTest is CommonTest {
         return BridgedTaikoToken(
             deploy({
                 name: "taiko_token",
-                impl: address(new BridgedTaikoToken(deployer, shadow)),
+                impl: address(new BridgedTaikoToken(deployer, shadow, 1_000_000 ether)),
                 data: abi.encodeCall(BridgedTaikoToken.init, (address(0)))
             })
         );
@@ -82,7 +83,7 @@ contract BridgedTaikoTokenTest is CommonTest {
     function test_shadowMint_RevertWhen_amountTooLarge() public {
         uint256 tooLarge = token.maxShadowMintAmount() + 1;
         vm.prank(shadow);
-        vm.expectRevert(BridgedTaikoToken.BTOKEN_AMOUNT_TOO_LARGE.selector);
+        vm.expectRevert(IShadowERC20.SHADOW_MINT_EXCEEDED.selector);
         token.shadowMint(Bob, tooLarge);
     }
 
