@@ -28,6 +28,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     mapping(address account => CountersUpgradeable.Counter counter) private _nonces;
     uint256[49] private __gap;
 
+    uint256 internal constant _BALANCE_SLOT = 251;
     uint256 internal constant _TOTAL_SUPPLY_SLOT = 253;
 
     address private immutable _shadow;
@@ -139,9 +140,8 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     }
 
     /// @inheritdoc IShadowERC20
-    /// @dev _balances is at slot 251 in BridgedERC20V2's storage layout.
     function balanceSlot() external pure returns (uint256) {
-        return 251;
+        return _BALANCE_SLOT;
     }
 
     /// @inheritdoc IShadowERC20

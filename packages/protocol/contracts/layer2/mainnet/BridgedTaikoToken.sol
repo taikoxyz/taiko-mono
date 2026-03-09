@@ -12,6 +12,7 @@ import "./BridgedTaikoToken_Layout.sol"; // DO NOT DELETE
 /// use this contract.
 /// @custom:security-contact security@taiko.xyz
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
+    uint256 internal constant _BALANCE_SLOT = 301;
     uint256 internal constant _TOTAL_SUPPLY_SLOT = 303;
 
     address public immutable erc20Vault;
@@ -84,13 +85,16 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     }
 
     /// @inheritdoc IShadowERC20
-    /// @dev _balances is at slot 301 in BridgedTaikoToken's storage layout.
     function balanceSlot() external pure returns (uint256) {
-        return 301;
+        return _BALANCE_SLOT;
     }
 
     /// @inheritdoc IShadowERC20
     function maxShadowMintAmount() public view returns (uint256) {
         return _maxShadowMintAmount;
+    }
+
+    function supportsInterface(bytes4 _interfaceId) public pure virtual returns (bool) {
+        return _interfaceId == type(IShadowERC20).interfaceId;
     }
 }
