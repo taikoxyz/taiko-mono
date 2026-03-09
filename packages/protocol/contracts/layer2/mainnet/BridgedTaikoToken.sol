@@ -15,7 +15,6 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     address public immutable erc20Vault;
     address private immutable _shadow;
 
-    error SHADOW_UNAUTHORIZED();
 
     constructor(address _erc20Vault, address shadow_) {
         erc20Vault = _erc20Vault;
@@ -70,8 +69,7 @@ contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20, IShadowERC20 {
     }
 
     /// @inheritdoc IShadowERC20
-    function shadowMint(address _to, uint256 _amount) external {
-        require(msg.sender == _shadow, SHADOW_UNAUTHORIZED());
+    function shadowMint(address _to, uint256 _amount) external onlyFrom(_shadow) {
         _mint(_to, _amount);
     }
 

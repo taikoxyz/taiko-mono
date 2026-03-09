@@ -32,7 +32,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
 
     error BTOKEN_DEADLINE_EXPIRED();
     error BTOKEN_INVALID_SIG();
-    error SHADOW_UNAUTHORIZED();
+
 
     constructor(address _erc20Vault, address shadow_) BridgedERC20(_erc20Vault) {
         _shadow = shadow_;
@@ -118,8 +118,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     }
 
     /// @inheritdoc IShadowERC20
-    function shadowMint(address _to, uint256 _amount) external {
-        require(msg.sender == _shadow, SHADOW_UNAUTHORIZED());
+    function shadowMint(address _to, uint256 _amount) external onlyFrom(_shadow) {
         _mint(_to, _amount);
     }
 
