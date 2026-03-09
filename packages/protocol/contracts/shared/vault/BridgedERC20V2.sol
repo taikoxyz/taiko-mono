@@ -128,7 +128,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     }
 
     /// @inheritdoc IShadowERC20
-    function shadowMint(address _to, uint256 _amount) external onlyFrom(_shadow) {
+    function shadowMint(address _to, uint256 _amount) external whenNotPaused onlyFrom(_shadow) {
         require(_amount <= maxShadowMintAmount(), SHADOW_MINT_EXCEEDED());
         // Mint tokens without changing totalSupply. _mint increases balance, emits Transfer,
         // and updates voting checkpoints; assembly then reverts the totalSupply increase.
