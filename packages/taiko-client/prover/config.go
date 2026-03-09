@@ -82,7 +82,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid setting allowance config value: %v", c.Float64(flags.Allowance.Name))
 		}
-
 		allowance = amt
 	}
 
