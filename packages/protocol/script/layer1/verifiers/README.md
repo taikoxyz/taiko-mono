@@ -147,6 +147,15 @@ This automatically sets:
 - `MRENCLAVE_ENABLE` - Set to `false` to disable instead of enable (default: `true`)
 - `MRSIGNER_ENABLE` - Set to `false` to disable instead of enable (default: `true`)
 
+### Querying/Verifying SGX related Addresses from Chain
+
+When adding new `--env` entries or verifying previous config, derive `ATTESTATION_ADDRESS` and `PEM_CERTCHAIN_ADDRESS` from the SgxVerifier on-chain:
+
+```bash
+cast call <SGX_VERIFIER> "automataDcapAttestation()(address)" --rpc-url <RPC>
+cast call <ATTESTATION_ADDRESS> "pemCertLib()(address)" --rpc-url <RPC>
+```
+
 ## Examples
 
 ### Example 1: Full Configuration (Original Workflow)
