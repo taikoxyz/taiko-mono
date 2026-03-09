@@ -17,7 +17,7 @@ The bash wrapper provides the same interface as the original script:
 PRIVATE_KEY=$PRIVATE_KEY \
 FORK_URL=https://ethereum-hoodi-rpc.publicnode.com \
 ./script/layer1/verifiers/configure_sgx_verifier.sh \
-  --env tolba-ontake \
+  --env tolba-pacaya \
   --qeid /test/layer1/automata-attestation/assets/0923/identity.json \
   --tcb /test/layer1/automata-attestation/assets/0525/tcb_00606A000000.json \
   --tcb /test/layer1/automata-attestation/assets/0525/tcb_00706A100000.json \
@@ -101,6 +101,8 @@ Use `--env` to load predefined contract addresses:
 
 - `dev-ontake` / `dev-ontake-sgxreth` - Dev network with sgx-reth
 - `dev-pacaya` / `dev-pacaya-sgxreth` - Dev network Pacaya fork with sgx-reth
+- `dev-shasta` / `dev-shasta-sgxreth` - Dev network Shasta with sgx-reth
+- `dev-shasta-sgxgeth` - Dev network Shasta with sgx-geth
 - `dev-sgxgeth` / `dev-pacaya-sgxgeth` - Dev network with sgx-geth
 
 ### Hekla Testnet
@@ -111,19 +113,30 @@ Use `--env` to load predefined contract addresses:
 
 ### Tolba Testnet
 
-- `tolba-ontake` / `tolba-pacaya` / `tolba-pacaya-sgxreth` - Tolba with sgx-reth
+- `tolba-pacaya` / `tolba-pacaya-sgxreth` - Tolba with sgx-reth
 - `tolba-sgxgeth` / `tolba-pacaya-sgxgeth` - Tolba with sgx-geth
+- `tolba-shasta-sgxreth` - Tolba Shasta with sgx-reth
+- `tolba-shasta-sgxgeth` - Tolba Shasta with sgx-geth
+
+### Transition Testnet
+
+- `transition-pacaya-sgxreth` - Transition Pacaya with sgx-reth
+- `transition-pacaya-sgxgeth` - Transition Pacaya with sgx-geth
+- `transition-shasta-sgxreth` - Transition Shasta with sgx-reth
+- `transition-shasta-sgxgeth` - Transition Shasta with sgx-geth
 
 ### Mainnet
 
 - `mainnet` / `mainnet-ontake` / `mainnet-ontake-sgxreth` - Mainnet Ontake with sgx-reth
 - `mainnet-pacaya` / `mainnet-pacaya-sgxreth` - Mainnet Pacaya fork with sgx-reth
 - `mainnet-sgxgeth` / `mainnet-pacaya-sgxgeth` - Mainnet with sgx-geth
+- `mainnet-shasta-sgxreth` - Mainnet Shasta with sgx-reth
+- `mainnet-shasta-sgxgeth` - Mainnet Shasta with sgx-geth
 
 Example:
 
 ```bash
---env tolba-ontake
+--env tolba-pacaya
 ```
 
 This automatically sets:
@@ -152,8 +165,8 @@ This automatically sets:
 When adding new `--env` entries or verifying previous config, derive `ATTESTATION_ADDRESS` and `PEM_CERTCHAIN_ADDRESS` from the SgxVerifier on-chain:
 
 ```bash
-cast call <SGX_VERIFIER> "automataDcapAttestation()(address)" --rpc-url <RPC>
-cast call <ATTESTATION_ADDRESS> "pemCertLib()(address)" --rpc-url <RPC>
+cast call 0x..<SGX_VERIFIER> "automataDcapAttestation()(address)" --rpc-url https://...
+cast call 0x..<ATTESTATION_ADDRESS> "pemCertLib()(address)" --rpc-url https://...
 ```
 
 ## Examples
@@ -166,7 +179,7 @@ This replicates the original workflow shown in the task description:
 PRIVATE_KEY=$PRIVATE_KEY \
 FORK_URL=https://ethereum-hoodi-rpc.publicnode.com \
 ./script/layer1/verifiers/configure_sgx_verifier.sh \
-  --env tolba-ontake \
+  --env tolba-pacaya \
   --qeid /test/layer1/automata-attestation/assets/0923/identity.json \
   --tcb /test/layer1/automata-attestation/assets/0525/tcb_00606A000000.json \
   --tcb /test/layer1/automata-attestation/assets/0525/tcb_00706A100000.json \

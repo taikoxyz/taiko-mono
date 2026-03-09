@@ -30,10 +30,11 @@ Options:
   --toggle-check                Toggle local enclave report check
 
 Available Environments:
-  dev-ontake, dev-pacaya, dev-sgxgeth         - Development networks
-  hekla-ontake, hekla-pacaya, hekla-sgxgeth   - Hekla testnet
-  tolba-pacaya, tolba-sgxgeth                 - Tolba testnet
-  mainnet, mainnet-pacaya, mainnet-sgxgeth    - Mainnet
+  dev-ontake, dev-pacaya, dev-shasta, dev-sgxgeth         - Development networks
+  hekla-ontake, hekla-pacaya, hekla-sgxgeth               - Hekla testnet
+  tolba-pacaya, tolba-sgxgeth, tolba-shasta-sgxreth, tolba-shasta-sgxgeth - Tolba testnet
+  transition-pacaya-sgxreth, transition-pacaya-sgxgeth, transition-shasta-sgxreth, transition-shasta-sgxgeth - Transition network
+  mainnet, mainnet-pacaya, mainnet-sgxgeth, mainnet-shasta-sgxreth, mainnet-shasta-sgxgeth - Mainnet
 
 Examples:
   # Example from the original usage:
@@ -77,7 +78,7 @@ load_env() {
             export ATTESTATION_ADDRESS=0x00A9F4767a69cA3C219854ca1bfD5440930b2beD
             export PEM_CERTCHAIN_ADDRESS=0x795330bA9B6184E13eBb3A4253E00Adb665830F5
             ;;
-        dev-shasta-sgxgeth|dev-shasta-sgxgeth)
+        dev-shasta-sgxgeth)
             export SGX_VERIFIER_ADDRESS=0x6B455442C8C4cAC2e09c40409E8bf7FfcdB1Fc50
             export ATTESTATION_ADDRESS=0xef8AE6522678e44c0eE299d0835238CE5cb8c036
             export PEM_CERTCHAIN_ADDRESS=0x795330bA9B6184E13eBb3A4253E00Adb665830F5
@@ -155,10 +156,11 @@ load_env() {
         *)
             echo "Unknown environment: $1"
             echo "Available environments:"
-            echo "  dev: dev-ontake, dev-pacaya, dev-sgxgeth"
+            echo "  dev: dev-ontake, dev-pacaya, dev-shasta, dev-sgxgeth"
             echo "  hekla: hekla-ontake, hekla-pacaya, hekla-sgxgeth"
-            echo "  tolba: tolba-ontake, tolba-sgxgeth"
-            echo "  mainnet: mainnet, mainnet-pacaya, mainnet-sgxgeth"
+            echo "  tolba: tolba-pacaya, tolba-sgxgeth, tolba-shasta-sgxreth, tolba-shasta-sgxgeth"
+            echo "  transition: transition-pacaya-sgxreth, transition-pacaya-sgxgeth, transition-shasta-sgxreth, transition-shasta-sgxgeth"
+            echo "  mainnet: mainnet, mainnet-pacaya, mainnet-sgxgeth, mainnet-shasta-sgxreth, mainnet-shasta-sgxgeth"
             exit 1
             ;;
     esac
