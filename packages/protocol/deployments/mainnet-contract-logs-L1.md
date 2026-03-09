@@ -619,6 +619,12 @@
 - logs:
   - deployed on Mar 4, 2026 @commit `3c66b0f8d` @tx `0xbb697a35b8607c49887a310f3fa6ce2c2018b595c71360c6a484a5cf4589bc38`
 
+### pacaya_inbox_new_impl
+
+- impl : `0x38Dd73fed93F8051E7A0dDd6FB3b9E7C25668187`
+- logs:
+  - deployed on Mar 4, 2026 @commit `3c66b0f8d`
+
 ## Taiko DAO Specific
 
 ### MainnetDAOController

@@ -13,14 +13,18 @@ contract Proposal0009 is BuildProposal {
     // https://codediff.taiko.xyz/?addr=0xfd019460881e6eec632258222393d5821029b2ac&newimpl=0xdbae46e35c18719e6c78aabf9c8869c4ec84c149&chainid=1
     address public constant PRECONF_WHITELIST_NEW_IMPL = 0xDBae46E35C18719E6c78aaBF9c8869c4eC84c149;
     address public constant PROVER_WHITELIST_PROXY = 0xEa798547d97e345395dA071a0D7ED8144CD612Ae;
+    // https://codediff.taiko.xyz/?addr=0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a&newimpl=0x38Dd73fed93F8051E7A0dDd6FB3b9E7C25668187&chainid=1
     address public constant PACAYA_MAINNET_INBOX_NEW_IMPL =
         0x38Dd73fed93F8051E7A0dDd6FB3b9E7C25668187;
     // https://codediff.taiko.xyz/?addr=0x9e0a24964e5397B566c1ed39258e21aB5E35C77C&newimpl=0x6a4b15e4b0296b2ece03ee9ed74e4a3e3eca68d6&chainid=1
+    // oldFork vs newFork: https://codediff.taiko.xyz/?addr=0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c&newimpl=0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752&chainid=1
     address public constant SIGNAL_SERVICE_FORK_ROUTER_L1 =
         0x6a4B15E4b0296B2ECE03Ee9Ed74E4A3E3ECA68D6;
     // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000010001&newimpl=0x38e4a497ad70aa0581bac29747b0ea7a53258585&chainid=167000
+    // oldFork vs newFork: https://codediff.taiko.xyz/?addr=0xE6d1efcC6AC8969474308C99a3805c332D33a1E0&newimpl=0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA&chainid=167000
     address public constant ANCHOR_FORK_ROUTER_L2 = 0x38e4A497aD70aa0581BAc29747b0Ea7a53258585;
     // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000005&newimpl=0x2987f6bef39b03f8522ec38b36af0f7422938eab&chainid=167000
+    // oldFork vs newFork: https://codediff.taiko.xyz/?addr=0xaea51c413Bd15bBee72737C8094BE942B5208762&newimpl=0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28&chainid=167000
     address public constant SIGNAL_SERVICE_FORK_ROUTER_L2 =
         0x2987F6Bef39b03F8522EC38B36aF0f7422938EAb;
 
