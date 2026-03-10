@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -57,18 +56,6 @@ type ethClient interface {
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
-// hop is a struct which needs to be created based on the config parameters
-// for a hop. Each hop is an intermediary hop - if we are just processing
-// srcChain to destChain, we should have no hops.
-type hop struct {
-	chainID              *big.Int
-	signalServiceAddress common.Address
-	signalService        relayer.SignalService
-	taikoAddress         common.Address
-	ethClient            ethClient
-	caller               relayer.Caller
-}
-
 // Processor is the main struct which handles message processing and queue
 // instantiation
 type Processor struct {
@@ -77,8 +64,6 @@ type Processor struct {
 	eventRepo relayer.EventRepository
 
 	queue queue.Queue
-
-	hops []hop
 
 	srcEthClient  ethClient
 	destEthClient ethClient
@@ -170,54 +155,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
 	if err != nil {
 		return err
-	}
-
-	hops := []hop{}
-
-	// iteraate over all the hop configs and create a hop struct
-	// which can be used to generate hop proofs
-	for _, hopConfig := range cfg.hopConfigs {
-		var hopEthClient *ethclient.Client
-
-		var hopChainID *big.Int
-
-		var hopRpcClient *rpc.Client
-
-		var hopSignalService *signalservice.SignalService
-
-		hopEthClient, err = ethclient.Dial(hopConfig.rpcURL)
-		if err != nil {
-			return err
-		}
-
-		hopChainID, err = hopEthClient.ChainID(context.Background())
-		if err != nil {
-			return err
-		}
-
-		hopSignalService, err = signalservice.NewSignalService(
-			hopConfig.signalServiceAddress,
-			hopEthClient,
-		)
-		if err != nil {
-			return err
-		}
-
-		hopRpcClient, err = rpc.Dial(hopConfig.rpcURL)
-		if err != nil {
-			return err
-		}
-
-		// only support one hop rn, add in array configs
-		// to support more.
-		hops = append(hops, hop{
-			caller:               hopRpcClient,
-			signalServiceAddress: hopConfig.signalServiceAddress,
-			taikoAddress:         hopConfig.taikoAddress,
-			chainID:              hopChainID,
-			signalService:        hopSignalService,
-			ethClient:            hopEthClient,
-		})
 	}
 
 	if cfg.SrcSignalServiceAddress == relayer.ZeroAddress {
@@ -329,7 +266,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	p.hops = hops
 	p.prover = prover
 	p.eventRepo = eventRepository
 
@@ -383,6 +319,12 @@ func (p *Processor) Name() string {
 	return "processor"
 }
 
+// WaitForInterrupt returns whether processor should keep running and wait for
+// shutdown signals after Start() returns.
+func (p *Processor) WaitForInterrupt() bool {
+	return p.targetTxHash == nil
+}
+
 func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
@@ -401,12 +343,7 @@ func (p *Processor) Start() error {
 
 	// if a targetTxHash is set, we only want to process that specific one.
 	if p.targetTxHash != nil {
-		err := p.processSingle(ctx)
-		if err != nil {
-			slog.Error(err.Error())
-		}
-
-		os.Exit(0)
+		return p.processSingle(ctx)
 	}
 
 	// otherwise, we can start the queue, and process messages from it

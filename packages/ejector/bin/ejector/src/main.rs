@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
 
     let beacon_url = Url::parse(&config.beacon_url).expect("Invalid Beacon URL");
 
-    let beacon_client = BeaconClient::new(beacon_url.clone()).await?;
+    let beacon_client = BeaconClient::new(beacon_url).await?;
 
     let handover_slots = config.handover_slots;
 
@@ -89,10 +89,10 @@ async fn main() -> Result<()> {
     let monitor = Monitor::new(
         beacon_client,
         signer,
-        l2_ws_url.clone(),
-        l2_http_url.clone(),
-        l1_ws_url.clone(),
-        l1_http_url.clone(),
+        l2_ws_url,
+        l2_http_url,
+        l1_ws_url,
+        l1_http_url,
         config.eject_after_seconds,
         taiko_wrapper_address,
         whitelist_address,

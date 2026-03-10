@@ -19,18 +19,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue/rabbitmq"
 )
 
-// hopConfig is a config struct that must be provided for an individual
-// hop, when the processor is not configured to only process srcChain => destChain.
-// for instance, when going from L2A to L2B, we have a hop of the shared "L1".
-// the hopConfig in this case should be the L1 signalServiceAddress, taikoAddress,
-// and rpcURL. If we have multiple hops, such as an L3 deployed on L2A to L2B,
-// the hops would be L2A and L1, and multiple configs should be passed in.
-type hopConfig struct {
-	signalServiceAddress common.Address
-	taikoAddress         common.Address
-	rpcURL               string
-}
-
 // Config is a struct used to initialize a processor.
 type Config struct {
 	// address configs
@@ -79,8 +67,6 @@ type Config struct {
 	OpenQueueFunc    func() (queue.Queue, error)
 	OpenDBFunc       func() (db.DB, error)
 
-	hopConfigs []hopConfig
-
 	CacheOption                        int
 	UnprofitableMessageQueueExpiration *string
 
@@ -97,25 +83,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("invalid processorPrivateKey: %w", err)
-	}
-
-	hopSignalServiceAddresses := c.StringSlice(flags.HopSignalServiceAddresses.Name)
-	hopTaikoAddresses := c.StringSlice(flags.HopTaikoAddresses.Name)
-	hopRPCUrls := c.StringSlice(flags.HopRPCUrls.Name)
-
-	if len(hopSignalServiceAddresses) != len(hopTaikoAddresses) ||
-		len(hopSignalServiceAddresses) != len(hopRPCUrls) ||
-		len(hopTaikoAddresses) != len(hopRPCUrls) {
-		return nil, fmt.Errorf("all hop parameters must be of same length")
-	}
-
-	hopConfigs := []hopConfig{}
-	for i, hopSignalServiceAddress := range hopSignalServiceAddresses {
-		hopConfigs = append(hopConfigs, hopConfig{
-			signalServiceAddress: common.HexToAddress(hopSignalServiceAddress),
-			rpcURL:               hopRPCUrls[i],
-			taikoAddress:         common.HexToAddress(hopTaikoAddresses[i]),
-		})
 	}
 
 	var targetTxHash *common.Hash
@@ -138,7 +105,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	return &Config{
-		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
 		SrcSignalServiceAddress:            common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
 		DestTaikoAddress:                   common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
