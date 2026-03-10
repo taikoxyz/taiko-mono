@@ -73,8 +73,7 @@ impl ShastaEnv {
                 Ok(SubscriptionSource::Http(l1_http_url))
             }
             (None, Some(l1_ws)) => {
-                let l1_ws_url =
-                    RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
+                let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
                 Ok(SubscriptionSource::Ws(l1_ws_url))
             }
             (Some(_), Some(_)) => bail!("configure exactly one of L1_HTTP or L1_WS"),
@@ -301,7 +300,9 @@ mod tests {
         let result = ShastaEnv::load_l1_source();
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("configure exactly one of L1_HTTP or L1_WS"));
+        assert!(
+            result.unwrap_err().to_string().contains("configure exactly one of L1_HTTP or L1_WS")
+        );
     }
 
     #[test]
