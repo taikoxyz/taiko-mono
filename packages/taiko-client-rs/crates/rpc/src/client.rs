@@ -70,7 +70,7 @@ pub struct Client<P: Provider + Clone> {
 /// Configuration for the `Client`.
 #[derive(Clone, Debug)]
 pub struct ClientConfig {
-    /// Source describing how to build the L1 provider (WS/HTTP/etc).
+    /// Source describing how to build the L1 provider used by contract calls and event scans.
     pub l1_provider_source: SubscriptionSource,
     /// HTTP endpoint for the L2 public provider.
     pub l2_provider_url: Url,
@@ -86,7 +86,10 @@ impl Client<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     /// Create a new `Client` without a wallet from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
         let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
-            RpcClientError::Connection(format!("L1 WebSocket (l1.ws) connection failed: {}", e))
+            RpcClientError::Connection(format!(
+                "L1 provider source (l1.http or l1.ws) connection failed: {}",
+                e
+            ))
         })?;
         Self::new_with_l1_provider(l1_provider, config).await
     }
@@ -97,7 +100,10 @@ impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
     pub async fn new_with_wallet(config: ClientConfig, private_key: B256) -> Result<Self> {
         let l1_provider =
             config.l1_provider_source.to_provider_with_wallet(private_key).await.map_err(|e| {
-                RpcClientError::Connection(format!("L1 WebSocket (l1.ws) connection failed: {}", e))
+                RpcClientError::Connection(format!(
+                    "L1 provider source (l1.http or l1.ws) connection failed: {}",
+                    e
+                ))
             })?;
         Self::new_with_l1_provider(l1_provider, config).await
     }

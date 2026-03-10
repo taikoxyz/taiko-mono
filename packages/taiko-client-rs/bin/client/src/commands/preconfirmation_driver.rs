@@ -9,7 +9,7 @@ use preconfirmation_driver::{
     rpc::PreconfRpcServerConfig,
 };
 use preconfirmation_net::P2pConfig;
-use rpc::{SubscriptionSource, client::ClientConfig};
+use rpc::client::ClientConfig;
 use tracing::warn;
 
 use crate::{
@@ -36,8 +36,7 @@ pub struct PreconfirmationDriverSubCommand {
 impl PreconfirmationDriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_driver_config(&self) -> Result<DriverConfig> {
-        let l1_source =
-            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
+        let l1_source = self.common_flags.l1_provider_source()?;
         let l2_http = RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?;
         let l2_auth = RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?;
         let l1_beacon = RpcUrl::parse(self.driver_flags.l1_beacon_endpoint.as_str())?;

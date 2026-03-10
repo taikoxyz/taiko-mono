@@ -95,6 +95,13 @@ pub enum CliError {
     #[error("metrics initialization failed: {0}")]
     MetricsInit(#[from] metrics_exporter_prometheus::BuildError),
 
+    /// Invalid L1 transport configuration.
+    ///
+    /// Occurs when CLI arguments or programmatic construction provide zero or multiple
+    /// mutually-exclusive L1 transport endpoints.
+    #[error("exactly one of --l1.http or --l1.ws must be set")]
+    InvalidL1EndpointConfig,
+
     /// Preconfirmation ingress was not enabled on the driver.
     ///
     /// Occurs when the preconfirmation driver command is run but the underlying

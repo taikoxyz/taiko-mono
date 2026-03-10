@@ -4,7 +4,7 @@ use crate::init_tracing;
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use alloy_primitives::{Address, B256};
 use alloy_provider::RootProvider;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig, connect_provider_with_timeout},
@@ -62,6 +62,25 @@ impl fmt::Debug for ShastaEnv {
 }
 
 impl ShastaEnv {
+    fn load_l1_source() -> Result<(SubscriptionSource, RpcUrl)> {
+        let transport = env::var("L1_TRANSPORT").unwrap_or_else(|_| "http".to_string());
+
+        match transport.as_str() {
+            "http" => {
+                let l1_http = env::var("L1_HTTP").context("L1_HTTP env var is required")?;
+                let l1_http_url =
+                    RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
+                Ok((SubscriptionSource::Http(l1_http_url.clone()), l1_http_url))
+            }
+            "ws" => {
+                let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
+                let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
+                Ok((SubscriptionSource::Ws(l1_ws_url.clone()), l1_ws_url))
+            }
+            other => bail!("unsupported L1_TRANSPORT {other}; expected http or ws"),
+        }
+    }
+
     fn load_l2_secondary_endpoints() -> Result<(RpcUrl, RpcUrl)> {
         let l2_ws_1 = env::var("L2_WS_1").context("L2_WS_1 env var is required")?;
         let l2_auth_1 = env::var("L2_AUTH_1").context("L2_AUTH_1 env var is required")?;
@@ -81,7 +100,7 @@ impl ShastaEnv {
         init_tracing("info");
 
         // Read all required endpoints, secrets, and addresses from the harness environment.
-        let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
+        let (l1_source, l1_endpoint_url) = Self::load_l1_source()?;
         let l2_ws_0 = env::var("L2_WS_0").context("L2_WS_0 env var is required")?;
         let l2_auth_0 = env::var("L2_AUTH_0").context("L2_AUTH_0 env var is required")?;
         let jwt_secret = env::var("JWT_SECRET").context("JWT_SECRET env var is required")?;
@@ -93,8 +112,6 @@ impl ShastaEnv {
         let anchor = env::var("TAIKO_ANCHOR").context("TAIKO_ANCHOR env var is required")?;
 
         // Parse raw strings into URLs, paths, and addresses.
-        let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
-        let l1_source = SubscriptionSource::Ws(l1_ws_url.clone());
         let l2_ws_0_url = RpcUrl::parse(l2_ws_0.as_str()).context("invalid L2_WS_0 endpoint")?;
         let l2_auth_0_url =
             RpcUrl::parse(l2_auth_0.as_str()).context("invalid L2_AUTH_0 endpoint")?;
@@ -134,7 +151,7 @@ impl ShastaEnv {
         reset_head_l1_origin(&secondary_client).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
-        let cleanup_provider = connect_provider_with_timeout(l1_ws_url.clone()).await?;
+        let cleanup_provider = connect_provider_with_timeout(l1_endpoint_url.clone()).await?;
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
@@ -179,7 +196,7 @@ impl AsyncTestContext for ShastaEnv {
 
 #[cfg(test)]
 mod tests {
-    use super::ShastaEnv;
+    use super::{ShastaEnv, SubscriptionSource};
     use once_cell::sync::Lazy;
     use std::{env, sync::Mutex};
 
@@ -237,5 +254,44 @@ mod tests {
         let result = ShastaEnv::load_l2_secondary_endpoints();
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn l1_source_defaults_to_http() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _http = EnvGuard::set("L1_HTTP", "http://localhost:18545");
+        let _transport = EnvGuard::set("L1_TRANSPORT", "http");
+
+        let result = ShastaEnv::load_l1_source();
+
+        assert!(result.is_ok());
+        let (source, endpoint) = result.unwrap();
+        assert!(matches!(source, SubscriptionSource::Http(_)));
+        assert_eq!(endpoint.as_str(), "http://localhost:18545/");
+    }
+
+    #[test]
+    fn l1_source_accepts_ws_transport() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _ws = EnvGuard::set("L1_WS", "ws://localhost:18545");
+        let _transport = EnvGuard::set("L1_TRANSPORT", "ws");
+
+        let result = ShastaEnv::load_l1_source();
+
+        assert!(result.is_ok());
+        let (source, endpoint) = result.unwrap();
+        assert!(matches!(source, SubscriptionSource::Ws(_)));
+        assert_eq!(endpoint.as_str(), "ws://localhost:18545/");
+    }
+
+    #[test]
+    fn l1_source_rejects_unknown_transport() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _transport = EnvGuard::set("L1_TRANSPORT", "ipc");
+
+        let result = ShastaEnv::load_l1_source();
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("unsupported L1_TRANSPORT"));
     }
 }

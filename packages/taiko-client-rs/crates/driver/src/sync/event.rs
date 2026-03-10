@@ -1067,8 +1067,8 @@ mod tests {
 
     async fn build_syncer() -> EventSyncer<RootProvider> {
         let client_config = ClientConfig {
-            l1_provider_source: SubscriptionSource::Ws(
-                Url::parse("ws://localhost:8546").expect("valid ws url"),
+            l1_provider_source: SubscriptionSource::Http(
+                Url::parse("http://localhost:8545").expect("valid http url"),
             ),
             l2_provider_url: Url::parse("http://localhost:8545").expect("valid http url"),
             l2_auth_provider_url: Url::parse("http://localhost:8551").expect("valid http url"),

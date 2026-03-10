@@ -3,21 +3,36 @@
 use std::path::PathBuf;
 
 use alloy_primitives::Address;
-use clap::Parser;
+use clap::{ArgGroup, Parser};
+use rpc::SubscriptionSource;
 use tracing::Level;
 use url::Url;
 
+use crate::error::{CliError, Result};
+
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
+#[command(group(
+    ArgGroup::new("l1_endpoint")
+        .args(["l1_http_endpoint", "l1_ws_endpoint"])
+        .required(true)
+        .multiple(false)
+))]
 /// CLI flags shared by proposer and driver-style subcommands.
 pub struct CommonArgs {
-    /// Websocket RPC endpoint of a L1 ethereum node.
+    /// HTTP RPC endpoint of a L1 ethereum node.
+    #[clap(
+        long = "l1.http",
+        env = "L1_HTTP",
+        help = "HTTP RPC endpoint of a L1 ethereum node"
+    )]
+    pub l1_http_endpoint: Option<Url>,
+    /// WebSocket RPC endpoint of a L1 ethereum node.
     #[clap(
         long = "l1.ws",
         env = "L1_WS",
-        required = true,
-        help = "Websocket RPC endpoint of a L1 ethereum node"
+        help = "WebSocket RPC endpoint of a L1 ethereum node"
     )]
-    pub l1_ws_endpoint: Url,
+    pub l1_ws_endpoint: Option<Url>,
     /// HTTP RPC endpoint of a L2 taiko execution engine.
     #[clap(
         long = "l2.http",
@@ -86,6 +101,17 @@ pub struct CommonArgs {
 }
 
 impl CommonArgs {
+    /// Resolve the configured L1 provider source.
+    ///
+    /// Exactly one of `--l1.http` or `--l1.ws` must be provided; clap enforces this invariant.
+    pub fn l1_provider_source(&self) -> Result<SubscriptionSource> {
+        match (&self.l1_http_endpoint, &self.l1_ws_endpoint) {
+            (Some(url), None) => Ok(SubscriptionSource::Http(url.clone())),
+            (None, Some(url)) => Ok(SubscriptionSource::Ws(url.clone())),
+            _ => Err(CliError::InvalidL1EndpointConfig),
+        }
+    }
+
     /// Convert verbosity level to tracing::Level
     pub fn log_level(&self) -> Level {
         match self.verbosity {
@@ -95,5 +121,103 @@ impl CommonArgs {
             3 => Level::DEBUG,
             _ => Level::TRACE,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn required_args() -> [&'static str; 9] {
+        [
+            "common",
+            "--l2.http",
+            "http://localhost:28545",
+            "--l2.auth",
+            "http://localhost:28551",
+            "--jwt.secret",
+            "/tmp/jwt.hex",
+            "--shasta.inbox",
+            "0x0000000000000000000000000000000000000000",
+        ]
+    }
+
+    #[test]
+    fn accepts_http_l1_endpoint() {
+        let args = CommonArgs::try_parse_from([
+            required_args()[0],
+            "--l1.http",
+            "http://localhost:8545",
+            required_args()[1],
+            required_args()[2],
+            required_args()[3],
+            required_args()[4],
+            required_args()[5],
+            required_args()[6],
+            required_args()[7],
+            required_args()[8],
+        ])
+        .expect("http endpoint should parse");
+
+        assert!(matches!(args.l1_provider_source().unwrap(), SubscriptionSource::Http(_)));
+    }
+
+    #[test]
+    fn accepts_ws_l1_endpoint() {
+        let args = CommonArgs::try_parse_from([
+            required_args()[0],
+            "--l1.ws",
+            "ws://localhost:8546",
+            required_args()[1],
+            required_args()[2],
+            required_args()[3],
+            required_args()[4],
+            required_args()[5],
+            required_args()[6],
+            required_args()[7],
+            required_args()[8],
+        ])
+        .expect("ws endpoint should parse");
+
+        assert!(matches!(args.l1_provider_source().unwrap(), SubscriptionSource::Ws(_)));
+    }
+
+    #[test]
+    fn rejects_both_l1_transports() {
+        let result = CommonArgs::try_parse_from([
+            required_args()[0],
+            "--l1.http",
+            "http://localhost:8545",
+            "--l1.ws",
+            "ws://localhost:8546",
+            required_args()[1],
+            required_args()[2],
+            required_args()[3],
+            required_args()[4],
+            required_args()[5],
+            required_args()[6],
+            required_args()[7],
+            required_args()[8],
+        ]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_programmatic_invalid_l1_transport_state() {
+        let args = CommonArgs {
+            l1_http_endpoint: None,
+            l1_ws_endpoint: None,
+            l2_http_endpoint: Url::parse("http://localhost:28545").unwrap(),
+            l2_auth_endpoint: Url::parse("http://localhost:28551").unwrap(),
+            l2_auth_jwt_secret: "/tmp/jwt.hex".into(),
+            shasta_inbox_address: "0x0000000000000000000000000000000000000000".parse().unwrap(),
+            verbosity: 2,
+            metrics_enabled: false,
+            metrics_port: 9090,
+            metrics_addr: "0.0.0.0".to_string(),
+        };
+
+        assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
     }
 }
