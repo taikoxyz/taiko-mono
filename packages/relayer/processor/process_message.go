@@ -58,7 +58,7 @@ func (p *Processor) eventStatusFromMsgHash(
 
 // processMessage prepares and calls `processMessage` on the bridge, given a
 // message from the queue (from the indexer). It will
-// generate a proof, or multiple proofs if hops are needed.
+// generate a source-chain proof.
 // it returns a boolean of whether we should requeue the message or not.
 func (p *Processor) processMessage(
 	ctx context.Context,
@@ -140,38 +140,6 @@ func (p *Processor) processMessage(
 
 	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash); err != nil {
 		return false, msgBody.TimesRetried, err
-	}
-
-	if p.shastaForkTimestamp > 0 && p.forkWindow > 0 {
-		header, err := p.srcEthClient.HeaderByNumber(ctx, new(big.Int).SetUint64(msgBody.Event.Raw.BlockNumber))
-		if err != nil {
-			return false, msgBody.TimesRetried, err
-		}
-
-		blockTs := header.Time
-		if blockTs >= p.shastaForkTimestamp {
-			diff := time.Duration(blockTs-p.shastaForkTimestamp) * time.Second
-			if diff <= p.forkWindow {
-				slog.Info("within shasta fork window, pausing processing",
-					"blockTimestamp", blockTs,
-					"shastaForkTimestamp", p.shastaForkTimestamp,
-					"windowSeconds", p.forkWindow.Seconds(),
-				)
-
-				return true, msgBody.TimesRetried, nil
-			}
-		} else {
-			diff := time.Duration(p.shastaForkTimestamp-blockTs) * time.Second
-			if diff <= p.forkWindow {
-				slog.Info("approaching shasta fork window, pausing processing",
-					"blockTimestamp", blockTs,
-					"shastaForkTimestamp", p.shastaForkTimestamp,
-					"windowSeconds", p.forkWindow.Seconds(),
-				)
-
-				return true, msgBody.TimesRetried, nil
-			}
-		}
 	}
 
 	// check paused status
@@ -270,57 +238,14 @@ func (p *Processor) processMessage(
 }
 
 // generateEncodedSignalProof takes a MessageSent event and calls a
-// proof generation service to generate a proof for the source call
-// as well as any additional hops required.
+// proof generation service to generate the source-chain proof.
 func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 	event *bridge.BridgeMessageSent) ([]byte, error) {
-	var encodedSignalProof []byte
-
-	var err error
-
-	var blockNum = event.Raw.BlockNumber
-
-	signalService, signalServiceAddress, err := p.signalServiceForBlock(ctx, event.Raw.BlockNumber)
-	if err != nil {
+	if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
 		return nil, err
 	}
 
-	// wait for srcChain => destChain header to sync if no hops,
-	// or srcChain => hopChain => hopChain => hopChain => destChain if hops exist.
-	if len(p.hops) > 0 {
-		var hopEthClient = p.srcEthClient
-
-		var hopChainID *big.Int
-
-		for _, hop := range p.hops {
-			event, err := p.waitHeaderSynced(ctx, hopEthClient, hop.chainID.Uint64(), blockNum)
-
-			if err != nil {
-				return nil, errors.Wrap(err, "p.waitHeaderSynced")
-			}
-
-			blockNum = event.SyncedInBlockID
-
-			hopEthClient = hop.ethClient
-
-			hopChainID = hop.chainID
-		}
-
-		event, err := p.waitHeaderSynced(ctx, hopEthClient, hopChainID.Uint64(), blockNum)
-		if err != nil {
-			return nil, err
-		}
-
-		blockNum = event.SyncedInBlockID
-	} else {
-		if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
-			return nil, err
-		}
-	}
-
-	hops := []proof.HopParams{}
-
-	key, err := signalService.GetSignalSlot(&bind.CallOpts{
+	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{
 		Context: ctx,
 	},
 		event.Message.SrcChainId,
@@ -332,94 +257,34 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 		return nil, err
 	}
 
-	// if we have no hops, this is strictly a srcChain => destChain message.
-	// we can grab the latestBlockID, create a singular "hop" of srcChain => destChain,
-	// and generate a proof.
-	if len(p.hops) == 0 {
-		latestBlockID, err := p.latestSyncedBlockID(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
-		if err != nil {
-			return nil, err
-		}
+	latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
+	if err != nil {
+		return nil, err
+	}
 
-		if latestBlockID == 0 {
-			latestBlockID = blockNum
-			slog.Warn("no synced header found; using message block number",
-				"fallbackBlockNum", latestBlockID,
-				"srcChainId", p.srcChainId.Uint64(),
-				"destChainId", p.destChainId.Uint64(),
-			)
-		}
+	if latestBlockID == 0 {
+		latestBlockID = event.Raw.BlockNumber
+		slog.Warn("no synced header found; using message block number",
+			"fallbackBlockNum", latestBlockID,
+			"srcChainId", p.srcChainId.Uint64(),
+			"destChainId", p.destChainId.Uint64(),
+		)
+	}
 
-		hops = append(hops, proof.HopParams{
+	encodedSignalProof, err := p.prover.EncodedSignalProof(
+		ctx,
+		proof.SignalProofParams{
 			ChainID:              p.destChainId,
-			SignalServiceAddress: signalServiceAddress,
+			SignalServiceAddress: p.srcSignalServiceAddress,
 			Blocker:              p.srcEthClient,
 			Caller:               p.srcCaller,
-			SignalService:        signalService,
 			Key:                  key,
 			BlockNumber:          latestBlockID,
-		})
-	} else {
-		// otherwise, we should just create the first hop in the array, we will append
-		// the rest of the hops after.
-		hops = append(hops, proof.HopParams{
-			ChainID:              p.destChainId,
-			SignalServiceAddress: signalServiceAddress,
-			Blocker:              p.srcEthClient,
-			Caller:               p.srcCaller,
-			SignalService:        signalService,
-			Key:                  key,
-			BlockNumber:          blockNum,
-		})
-	}
-
-	// if a hop is set, the proof service needs to generate an additional proof
-	// for the signal service intermediary chain in between the source chain
-	// and the destination chain.
-	for _, hop := range p.hops {
-		slog.Info(
-			"adding hop",
-			"hopChainId", hop.chainID.Uint64(),
-			"hopSignalServiceAddress", hop.signalServiceAddress.Hex(),
-		)
-
-		block, err := hop.ethClient.BlockByNumber(
-			ctx,
-			new(big.Int).SetUint64(blockNum),
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		hopStorageSlotKey, err := hop.signalService.GetSignalSlot(&bind.CallOpts{
-			Context: ctx,
 		},
-			hop.chainID.Uint64(),
-			hop.taikoAddress,
-			block.Root(),
-		)
-		if err != nil {
-			return nil, errors.Wrap(err, "hopSignalService.GetSignalSlot")
-		}
-
-		hops = append(hops, proof.HopParams{
-			ChainID:              hop.chainID,
-			SignalServiceAddress: hop.signalServiceAddress,
-			Blocker:              hop.ethClient,
-			Caller:               hop.caller,
-			SignalService:        hop.signalService,
-			Key:                  hopStorageSlotKey,
-			BlockNumber:          blockNum,
-		})
-	}
-
-	encodedSignalProof, err = p.prover.EncodedSignalProofWithHops(
-		ctx,
-		hops,
 	)
 
 	if err != nil {
-		slog.Error("error encoding hop proof",
+		slog.Error("error encoding signal proof",
 			"srcChainID", event.Message.SrcChainId,
 			"destChainID", event.Message.DestChainId,
 			"txHash", event.Raw.TxHash.Hex(),
@@ -428,44 +293,13 @@ func (p *Processor) generateEncodedSignalProof(ctx context.Context,
 			"srcOwner", event.Message.SrcOwner.Hex(),
 			"destOwner", event.Message.DestOwner.Hex(),
 			"error", err,
-			"hopsLength", len(hops),
+			"blockNumber", latestBlockID,
 		)
 
 		return nil, err
 	}
 
 	return encodedSignalProof, nil
-}
-
-// signalServiceForBlock picks the correct signal service fork based on the
-// block timestamp relative to the Shasta fork.
-func (p *Processor) signalServiceForBlock(
-	ctx context.Context,
-	blockNumber uint64,
-) (relayer.SignalService, common.Address, error) {
-	if p.shastaOldForkSignalService == nil ||
-		p.shastaNewForkSignalService == nil {
-		return p.srcSignalService, p.srcSignalServiceAddress, nil
-	}
-
-	if p.shastaForkTimestamp == 0 {
-		return p.shastaNewForkSignalService, p.srcSignalServiceAddress, nil
-	}
-
-	callCtx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
-
-	defer cancel()
-
-	header, err := p.srcEthClient.HeaderByNumber(callCtx, new(big.Int).SetUint64(blockNumber))
-	if err != nil {
-		return nil, common.Address{}, err
-	}
-
-	if header.Time < p.shastaForkTimestamp {
-		return p.shastaOldForkSignalService, p.srcSignalServiceAddress, nil
-	}
-
-	return p.shastaNewForkSignalService, p.srcSignalServiceAddress, nil
 }
 
 // sendProcessMessageCall calls `bridge.processMessage` with latest nonce

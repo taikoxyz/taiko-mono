@@ -1,5 +1,6 @@
 GIT_COMMIT := $(shell git rev-parse HEAD)
 GIT_DATE := $(shell git show -s --format='%ct')
+GO_BIN := $(shell go env GOPATH)/bin
 
 LD_FLAGS_ARGS +=-X github.com/taikoxyz/taiko-mono/packages/taiko-client/version.GitCommit=$(GIT_COMMIT)
 LD_FLAGS_ARGS +=-X github.com/taikoxyz/taiko-mono/packages/taiko-client/version.GitDate=$(GIT_DATE)
@@ -13,10 +14,10 @@ clean:
 	@rm -rf bin/*
 
 lint:
-	@go install golang.org/x/tools/cmd/goimports@v0.36.0 \
-	&& go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5 \
-	&& goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
-	&& golangci-lint run --timeout 5m
+	@CGO_ENABLED=1 GOTOOLCHAIN=go1.26.0 go install golang.org/x/tools/cmd/goimports@latest \
+	&& CGO_ENABLED=1 GOTOOLCHAIN=go1.26.0 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest \
+	&& PATH="$(GO_BIN):$$PATH" $(GO_BIN)/goimports -local "github.com/taikoxyz/taiko-mono/packages/taiko-client" -w ./ \
+	&& PATH="$(GO_BIN):$$PATH" $(GO_BIN)/golangci-lint run --timeout 10m
 
 test:
 	@PACKAGE=${PACKAGE} \

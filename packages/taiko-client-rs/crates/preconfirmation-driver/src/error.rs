@@ -18,6 +18,14 @@ pub enum PreconfirmationClientError {
     /// Validation failure for a commitment or txlist payload.
     #[error("validation error: {0}")]
     Validation(String),
+    /// Validation failure with a typed classification for structured RPC mapping.
+    #[error("validation error: {kind:?}: {details}")]
+    ValidationWithCode {
+        /// Structured reason for the validation failure.
+        kind: ValidationErrorCode,
+        /// Human-readable details for logs.
+        details: String,
+    },
     /// Storage layer failure (in-memory or persistent).
     #[error("storage error: {0}")]
     Storage(String),
@@ -68,8 +76,9 @@ pub enum DriverApiError {
     /// Latest block not found on the L2 provider.
     #[error("missing latest block")]
     MissingLatestBlock,
-    /// Event sync tip is unknown because `head_l1_origin` has not been established yet.
-    #[error("event sync tip is unknown")]
+    /// Event sync tip is unknown because confirmed sync has not completed yet
+    /// (target_proposal_id > 0 but `head_l1_origin` is still missing).
+    #[error("event sync tip is unknown (confirmed sync not ready)")]
     EventSyncTipUnknown,
     /// Missing transactions in the preconfirmation input.
     #[error("missing transactions for execution payload")]
@@ -80,6 +89,26 @@ pub enum DriverApiError {
     /// Channel closed unexpectedly (used by embedded driver client).
     #[error("channel closed: {0}")]
     ChannelClosed(String),
+}
+
+/// Structured validation failure classifications.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValidationErrorCode {
+    /// Commitment references a stale block number.
+    StaleCommitment,
+    /// Signer mismatch for the expected preconfirmer.
+    SignerMismatch,
+    /// Submission window end does not match the expected slot.
+    SubmissionWindowExpired,
+    /// Validation failure that does not have a specific mapping.
+    Other,
+}
+
+impl PreconfirmationClientError {
+    /// Construct a structured validation error.
+    pub fn validation_error(kind: ValidationErrorCode, details: impl Into<String>) -> Self {
+        Self::ValidationWithCode { kind, details: details.into() }
+    }
 }
 
 impl From<preconfirmation_net::NetworkError> for PreconfirmationClientError {

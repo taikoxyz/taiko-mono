@@ -1,6 +1,11 @@
 #!/bin/bash
 
-source scripts/common.sh
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+
+source "$PROJECT_ROOT/scripts/common.sh"
 
 # Default to l2_geth if L2_NODE is not set (preserves backward compatibility with dev_net)
 L2_NODE="${L2_NODE:-l2_geth}"

@@ -86,27 +86,6 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"ENABLE_TAIKO_L2"},
 	}
-	HopSignalServiceAddresses = &cli.StringSliceFlag{
-		Name:     "hopSignalServiceAddresses",
-		Usage:    "SignalService addresses for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_SIGNAL_SERVICE_ADDRESSES"},
-	}
-	HopTaikoAddresses = &cli.StringSliceFlag{
-		Name:     "hopTaikoAddresses",
-		Usage:    "Taiko addresses for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_TAIKO_ADDRESSES"},
-	}
-	HopRPCUrls = &cli.StringSliceFlag{
-		Name:     "hopRpcUrls",
-		Usage:    "RPC URL for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_RPC_URLS"},
-	}
 	TargetTxHash = &cli.StringFlag{
 		Name:     "targetTxHash",
 		Usage:    "Target transaction hash, set to ignore processing from queue and only process this individual transaction",
@@ -150,13 +129,6 @@ var (
 		Value:    0,
 		EnvVars:  []string{"MIN_FEE_TO_PROCESS"},
 	}
-	ForkWindowSeconds = &cli.Uint64Flag{
-		Name:     "forkWindowSeconds",
-		Usage:    "Window in seconds around shastaForkTimestamp to pause processing",
-		Category: processorCategory,
-		Value:    0,
-		EnvVars:  []string{"FORK_WINDOW_SECONDS"},
-	}
 )
 
 var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
@@ -172,9 +144,6 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	ProfitableOnly,
 	QueuePrefetchCount,
 	EnableTaikoL2,
-	HopRPCUrls,
-	HopSignalServiceAddresses,
-	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
 	CacheOption,
@@ -182,5 +151,4 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	MaxMessageRetries,
 	MinFeeToProcess,
 	DestQuotaManagerAddress,
-	ForkWindowSeconds,
 })

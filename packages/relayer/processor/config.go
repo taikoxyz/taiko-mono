@@ -19,29 +19,16 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue/rabbitmq"
 )
 
-// hopConfig is a config struct that must be provided for an individual
-// hop, when the processor is not configured to only process srcChain => destChain.
-// for instance, when going from L2A to L2B, we have a hop of the shared "L1".
-// the hopConfig in this case should be the L1 signalServiceAddress, taikoAddress,
-// and rpcURL. If we have multiple hops, such as an L3 deployed on L2A to L2B,
-// the hops would be L2A and L1, and multiple configs should be passed in.
-type hopConfig struct {
-	signalServiceAddress common.Address
-	taikoAddress         common.Address
-	rpcURL               string
-}
-
 // Config is a struct used to initialize a processor.
 type Config struct {
 	// address configs
-	SrcSignalServiceAddress           common.Address
-	SrcSignalServiceForkRouterAddress common.Address
-	DestBridgeAddress                 common.Address
-	DestERC721VaultAddress            common.Address
-	DestERC20VaultAddress             common.Address
-	DestERC1155VaultAddress           common.Address
-	DestTaikoAddress                  common.Address
-	DestQuotaManagerAddress           common.Address
+	SrcSignalServiceAddress common.Address
+	DestBridgeAddress       common.Address
+	DestERC721VaultAddress  common.Address
+	DestERC20VaultAddress   common.Address
+	DestERC1155VaultAddress common.Address
+	DestTaikoAddress        common.Address
+	DestQuotaManagerAddress common.Address
 
 	// private key
 	ProcessorPrivateKey *ecdsa.PrivateKey
@@ -74,14 +61,11 @@ type Config struct {
 	QueuePort     uint64
 	QueuePrefetch uint64
 	// rpc configs
-	SrcRPCUrl         string
-	DestRPCUrl        string
-	ETHClientTimeout  uint64
-	ForkWindowSeconds uint64
-	OpenQueueFunc     func() (queue.Queue, error)
-	OpenDBFunc        func() (db.DB, error)
-
-	hopConfigs []hopConfig
+	SrcRPCUrl        string
+	DestRPCUrl       string
+	ETHClientTimeout uint64
+	OpenQueueFunc    func() (queue.Queue, error)
+	OpenDBFunc       func() (db.DB, error)
 
 	CacheOption                        int
 	UnprofitableMessageQueueExpiration *string
@@ -99,25 +83,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("invalid processorPrivateKey: %w", err)
-	}
-
-	hopSignalServiceAddresses := c.StringSlice(flags.HopSignalServiceAddresses.Name)
-	hopTaikoAddresses := c.StringSlice(flags.HopTaikoAddresses.Name)
-	hopRPCUrls := c.StringSlice(flags.HopRPCUrls.Name)
-
-	if len(hopSignalServiceAddresses) != len(hopTaikoAddresses) ||
-		len(hopSignalServiceAddresses) != len(hopRPCUrls) ||
-		len(hopTaikoAddresses) != len(hopRPCUrls) {
-		return nil, fmt.Errorf("all hop parameters must be of same length")
-	}
-
-	hopConfigs := []hopConfig{}
-	for i, hopSignalServiceAddress := range hopSignalServiceAddresses {
-		hopConfigs = append(hopConfigs, hopConfig{
-			signalServiceAddress: common.HexToAddress(hopSignalServiceAddress),
-			rpcURL:               hopRPCUrls[i],
-			taikoAddress:         common.HexToAddress(hopTaikoAddresses[i]),
-		})
 	}
 
 	var targetTxHash *common.Hash
@@ -140,10 +105,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	return &Config{
-		hopConfigs:                         hopConfigs,
 		ProcessorPrivateKey:                processorPrivateKey,
 		SrcSignalServiceAddress:            common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
-		SrcSignalServiceForkRouterAddress:  common.HexToAddress(c.String(flags.SrcSignalServiceForkRouterAddress.Name)),
 		DestTaikoAddress:                   common.HexToAddress(c.String(flags.DestTaikoAddress.Name)),
 		DestBridgeAddress:                  common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
 		DestERC721VaultAddress:             common.HexToAddress(c.String(flags.DestERC721VaultAddress.Name)),
@@ -172,7 +135,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackoffRetryInterval:               c.Uint64(flags.BackOffRetryInterval.Name),
 		BackOffMaxRetries:                  c.Uint64(flags.BackOffMaxRetries.Name),
 		ETHClientTimeout:                   c.Uint64(flags.ETHClientTimeout.Name),
-		ForkWindowSeconds:                  c.Uint64(flags.ForkWindowSeconds.Name),
 		TargetTxHash:                       targetTxHash,
 		CacheOption:                        c.Int(flags.CacheOption.Name),
 		UnprofitableMessageQueueExpiration: unprofitableMessageQueueExpiration,

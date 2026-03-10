@@ -1,6 +1,6 @@
 //! Driver interface trait definitions.
 
-use std::{future::Future, result::Result, time::Duration};
+use std::{result::Result, time::Duration};
 
 use alloy_primitives::U256;
 use alloy_rpc_types::Header as RpcHeader;
@@ -46,6 +46,8 @@ pub trait InboxReader: Clone + Send + Sync {
 pub trait BlockHeaderProvider: Send + Sync {
     /// Fetch the block header for the specified block number.
     async fn header_by_number(&self, block_number: u64) -> ClientResult<RpcHeader>;
+    /// Return the connected L2 chain ID.
+    async fn chain_id(&self) -> ClientResult<u64>;
 }
 
 /// Trait for driving preconfirmation submissions and sync state.
@@ -56,9 +58,30 @@ pub trait DriverClient: Send + Sync {
     /// Await the driver event sync completion signal.
     async fn wait_event_sync(&self) -> ClientResult<()>;
     /// Return the latest confirmed event-sync L2 block number.
+    /// On fresh genesis with no confirmed `head_l1_origin` yet, this resolves to `0`.
     async fn event_sync_tip(&self) -> ClientResult<U256>;
     /// Return the latest preconfirmation tip block number.
     async fn preconf_tip(&self) -> ClientResult<U256>;
+}
+
+/// Resolve the event-sync tip from a [`ConfirmedSyncSnapshot`].
+///
+/// On a fresh genesis chain (`target_proposal_id == 0`) where no confirmed tip exists
+/// (`head_l1_origin == None`), this returns `0`, which is the genesis confirmed boundary.
+/// When `target_proposal_id > 0` but `head_l1_origin` is still unknown (i.e. confirmed
+/// sync has not completed), this returns [`DriverApiError::EventSyncTipUnknown`] to
+/// preserve fail-closed behavior during the startup catch-up window.
+///
+/// This is the single source of truth for the fallback logic so that all
+/// [`DriverClient`] implementations stay consistent.
+pub fn resolve_event_sync_tip(snapshot: &ConfirmedSyncSnapshot) -> ClientResult<U256> {
+    match snapshot.event_sync_tip() {
+        Some(tip) => Ok(U256::from(tip)),
+        // Fresh genesis chain — no proposals confirmed on L1 yet, confirmed boundary is 0.
+        None if snapshot.target_proposal_id == 0 => Ok(U256::ZERO),
+        // Confirmed sync still catching up — reject to stay fail-closed.
+        None => Err(crate::error::DriverApiError::EventSyncTipUnknown.into()),
+    }
 }
 
 /// Wait for strict confirmed-sync readiness by polling a caller-provided snapshot source.
@@ -91,5 +114,41 @@ where
         );
 
         sleep(poll_interval).await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::PreconfirmationClientError;
+
+    #[tokio::test]
+    async fn resolve_returns_snapshot_tip_when_present() {
+        let snapshot = ConfirmedSyncSnapshot::new(1, Some(10), Some(42));
+        let tip = resolve_event_sync_tip(&snapshot).unwrap();
+        assert_eq!(tip, U256::from(42));
+    }
+
+    #[tokio::test]
+    async fn resolve_returns_zero_when_tip_missing_on_genesis_snapshot() {
+        let snapshot = ConfirmedSyncSnapshot::new(0, None, None);
+        let tip = resolve_event_sync_tip(&snapshot).unwrap();
+        assert_eq!(tip, U256::ZERO);
+    }
+
+    #[tokio::test]
+    async fn resolve_rejects_when_confirmed_sync_not_ready() {
+        // target_proposal_id > 0 but head_l1_origin is None → startup catch-up window.
+        let snapshot = ConfirmedSyncSnapshot::new(5, Some(10), None);
+        let err = resolve_event_sync_tip(&snapshot).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                PreconfirmationClientError::DriverInterface(
+                    crate::error::DriverApiError::EventSyncTipUnknown
+                )
+            ),
+            "expected EventSyncTipUnknown, got: {err:?}"
+        );
     }
 }

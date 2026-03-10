@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -31,10 +30,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
-	v4signalservice "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
-	signalserviceforkrouter "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalserviceforkrouter"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -60,18 +57,6 @@ type ethClient interface {
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
 
-// hop is a struct which needs to be created based on the config parameters
-// for a hop. Each hop is an intermediary hop - if we are just processing
-// srcChain to destChain, we should have no hops.
-type hop struct {
-	chainID              *big.Int
-	signalServiceAddress common.Address
-	signalService        relayer.SignalService
-	taikoAddress         common.Address
-	ethClient            ethClient
-	caller               relayer.Caller
-}
-
 // Processor is the main struct which handles message processing and queue
 // instantiation
 type Processor struct {
@@ -80,8 +65,6 @@ type Processor struct {
 	eventRepo relayer.EventRepository
 
 	queue queue.Queue
-
-	hops []hop
 
 	srcEthClient  ethClient
 	destEthClient ethClient
@@ -101,8 +84,6 @@ type Processor struct {
 
 	relayerAddr             common.Address
 	srcSignalServiceAddress common.Address
-	shastaOldForkAddress    common.Address
-	shastaNewForkAddress    common.Address
 
 	confirmations uint64
 
@@ -136,12 +117,6 @@ type Processor struct {
 	processingTxHashMu sync.Mutex
 
 	minFeeToProcess uint64
-
-	shastaForkTimestamp uint64
-	forkWindow          time.Duration
-
-	shastaOldForkSignalService relayer.SignalService
-	shastaNewForkSignalService relayer.SignalService
 }
 
 // InitFromCli creates a new processor from a cli context
@@ -183,109 +158,16 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	hops := []hop{}
-
-	// iteraate over all the hop configs and create a hop struct
-	// which can be used to generate hop proofs
-	for _, hopConfig := range cfg.hopConfigs {
-		var hopEthClient *ethclient.Client
-
-		var hopChainID *big.Int
-
-		var hopRpcClient *rpc.Client
-
-		var hopSignalService *signalservice.SignalService
-
-		hopEthClient, err = ethclient.Dial(hopConfig.rpcURL)
-		if err != nil {
-			return err
-		}
-
-		hopChainID, err = hopEthClient.ChainID(context.Background())
-		if err != nil {
-			return err
-		}
-
-		hopSignalService, err = signalservice.NewSignalService(
-			hopConfig.signalServiceAddress,
-			hopEthClient,
-		)
-		if err != nil {
-			return err
-		}
-
-		hopRpcClient, err = rpc.Dial(hopConfig.rpcURL)
-		if err != nil {
-			return err
-		}
-
-		// only support one hop rn, add in array configs
-		// to support more.
-		hops = append(hops, hop{
-			caller:               hopRpcClient,
-			signalServiceAddress: hopConfig.signalServiceAddress,
-			taikoAddress:         hopConfig.taikoAddress,
-			chainID:              hopChainID,
-			signalService:        hopSignalService,
-			ethClient:            hopEthClient,
-		})
+	if cfg.SrcSignalServiceAddress == relayer.ZeroAddress {
+		return errors.New("srcSignalServiceAddress not provided")
 	}
 
-	var srcSignalService relayer.SignalService
-
-	switch {
-	case cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress:
-		router, err := signalserviceforkrouter.NewSignalServiceForkRouter(
-			cfg.SrcSignalServiceForkRouterAddress,
-			srcEthClient,
-		)
-		if err != nil {
-			return err
-		}
-
-		oldForkAddress, err := router.OldFork(&bind.CallOpts{})
-		if err != nil {
-			return err
-		}
-
-		newForkAddress, err := router.NewFork(&bind.CallOpts{})
-		if err != nil {
-			return err
-		}
-
-		oldForkSignalService, err := v4signalservice.NewSignalService(oldForkAddress, srcEthClient)
-		if err != nil {
-			return err
-		}
-
-		newForkSignalService, err := v4signalservice.NewSignalService(newForkAddress, srcEthClient)
-		if err != nil {
-			return err
-		}
-
-		srcSignalService = oldForkSignalService
-
-		p.shastaOldForkSignalService = oldForkSignalService
-		p.shastaNewForkSignalService = newForkSignalService
-		p.shastaOldForkAddress = oldForkAddress
-		p.shastaNewForkAddress = newForkAddress
-
-		shastaForkTimestamp, err := router.ShastaForkTimestamp(&bind.CallOpts{})
-		if err != nil {
-			return err
-		}
-
-		p.shastaForkTimestamp = shastaForkTimestamp
-	case cfg.SrcSignalServiceAddress != relayer.ZeroAddress:
-		srcSignalService, err = signalservice.NewSignalService(
-			cfg.SrcSignalServiceAddress,
-			srcEthClient,
-		)
-		if err != nil {
-			return err
-		}
-	default:
-		return errors.New("srcSignalService address not provided")
+	srcSignalService, err := signalservice.NewSignalService(
+		cfg.SrcSignalServiceAddress,
+		srcEthClient,
+	)
+	if err != nil {
+		return err
 	}
 
 	destERC20Vault, err := erc20vault.NewERC20Vault(
@@ -385,7 +267,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	p.hops = hops
 	p.prover = prover
 	p.eventRepo = eventRepository
 
@@ -414,9 +295,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.confirmations = cfg.Confirmations
 
 	p.srcSignalServiceAddress = cfg.SrcSignalServiceAddress
-	if cfg.SrcSignalServiceForkRouterAddress != relayer.ZeroAddress {
-		p.srcSignalServiceAddress = cfg.SrcSignalServiceForkRouterAddress
-	}
 
 	p.msgCh = make(chan queue.Message)
 	p.srcCaller = srcRpcClient
@@ -424,10 +302,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 	p.backOffRetryInterval = time.Duration(cfg.BackoffRetryInterval) * time.Second
 	p.backOffMaxRetries = cfg.BackOffMaxRetries
 	p.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
-
-	if cfg.ForkWindowSeconds > 0 {
-		p.forkWindow = time.Duration(cfg.ForkWindowSeconds) * time.Second
-	}
 
 	p.targetTxHash = cfg.TargetTxHash
 
