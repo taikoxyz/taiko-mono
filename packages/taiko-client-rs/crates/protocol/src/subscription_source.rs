@@ -41,6 +41,18 @@ pub enum SubscriptionSourceError {
     /// Private key parsing or wallet construction failure.
     #[error("wallet error: {0}")]
     Wallet(String),
+    /// Invalid HTTP source URL.
+    #[error("invalid http url: {0}")]
+    InvalidHttpUrl(String),
+    /// Invalid WebSocket source URL.
+    #[error("invalid websocket url: {0}")]
+    InvalidWebsocketUrl(String),
+    /// Unsupported source URL scheme.
+    #[error("unsupported subscription source scheme: {0}")]
+    UnsupportedScheme(String),
+    /// Missing source URL scheme.
+    #[error("subscription source must use http://, https://, ws://, or wss://")]
+    MissingScheme,
 }
 
 impl SubscriptionSource {
@@ -142,11 +154,8 @@ impl SubscriptionSource {
     }
 }
 
-/// Try to convert a string to a [`SubscriptionSource`].
-///
-/// Returns an error string if the URL is invalid or if an unsupported URL scheme is used.
 impl TryFrom<&str> for SubscriptionSource {
-    type Error = String;
+    type Error = SubscriptionSourceError;
 
     /// Parse an HTTP URL (`http://` / `https://`) or a WebSocket URL (`ws://` / `wss://`).
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -155,16 +164,16 @@ impl TryFrom<&str> for SubscriptionSource {
                 "http" | "https" => value
                     .parse::<Url>()
                     .map(SubscriptionSource::Http)
-                    .map_err(|e| format!("invalid http url: {e}")),
+                    .map_err(|e| SubscriptionSourceError::InvalidHttpUrl(e.to_string())),
                 "ws" | "wss" => value
                     .parse::<Url>()
                     .map(SubscriptionSource::Ws)
-                    .map_err(|e| format!("invalid websocket url: {e}")),
-                _ => Err(format!("unsupported subscription source scheme: {scheme}")),
+                    .map_err(|e| SubscriptionSourceError::InvalidWebsocketUrl(e.to_string())),
+                _ => Err(SubscriptionSourceError::UnsupportedScheme(scheme.to_string())),
             };
         }
 
-        Err("subscription source must use http://, https://, ws://, or wss://".to_string())
+        Err(SubscriptionSourceError::MissingScheme)
     }
 }
 
@@ -194,33 +203,28 @@ mod tests {
     #[test]
     fn subscription_source_try_from_invalid_http() {
         let result = SubscriptionSource::try_from("http://[invalid");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("invalid http url"));
+        assert!(matches!(result, Err(SubscriptionSourceError::InvalidHttpUrl(_))));
     }
 
     #[test]
     fn subscription_source_try_from_invalid_ws() {
         let result = SubscriptionSource::try_from("ws://[invalid");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("invalid websocket url"));
+        assert!(matches!(result, Err(SubscriptionSourceError::InvalidWebsocketUrl(_))));
     }
 
     #[test]
     fn subscription_source_try_from_unsupported_scheme() {
         let result = SubscriptionSource::try_from("ftp://localhost:8545");
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unsupported subscription source scheme: ftp"));
+        assert!(matches!(
+            result,
+            Err(SubscriptionSourceError::UnsupportedScheme(scheme)) if scheme == "ftp"
+        ));
     }
 
     #[test]
     fn subscription_source_try_from_missing_scheme() {
         let result = SubscriptionSource::try_from("/path/to/socket");
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .contains("subscription source must use http://, https://, ws://, or wss://")
-        );
+        assert!(matches!(result, Err(SubscriptionSourceError::MissingScheme)));
     }
 
     #[tokio::test]

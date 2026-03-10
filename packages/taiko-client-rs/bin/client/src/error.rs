@@ -97,26 +97,10 @@ pub enum CliError {
 
     /// Invalid L1 transport configuration.
     ///
-    /// Occurs when CLI arguments or programmatic construction provide no usable L1 endpoint,
-    /// or when multiple endpoints are configured without an explicit transport selector.
-    #[error(
-        "configure exactly one of --l1.http or --l1.ws, or set --l1.transport / L1_TRANSPORT when both are present"
-    )]
+    /// Occurs when CLI arguments or programmatic construction provide either zero or multiple
+    /// L1 endpoints.
+    #[error("configure exactly one of --l1.http / L1_HTTP or --l1.ws / L1_WS")]
     InvalidL1EndpointConfig,
-
-    /// Explicit L1 transport selector without a matching endpoint.
-    ///
-    /// Occurs when `--l1.transport` / `L1_TRANSPORT` selects a transport but the corresponding
-    /// endpoint was not provided.
-    #[error("{flag} / {env_var} must be set when --l1.transport {transport} is selected")]
-    MissingSelectedL1Endpoint {
-        /// Selected transport name.
-        transport: &'static str,
-        /// Required CLI flag for the selected transport.
-        flag: &'static str,
-        /// Required environment variable for the selected transport.
-        env_var: &'static str,
-    },
 
     /// Preconfirmation ingress was not enabled on the driver.
     ///

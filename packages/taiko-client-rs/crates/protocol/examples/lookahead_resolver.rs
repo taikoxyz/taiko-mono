@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
         .parse::<Address>()
         .context("invalid inbox address")?;
 
-    let source: SubscriptionSource = source.as_str().try_into().map_err(|e: String| anyhow!(e))?;
+    let source: SubscriptionSource = source.as_str().try_into()?;
 
     // Build resolver and start background scanner; hold the handle so the scanner keeps running
     // for the lifetime of the example (it aborts on drop).

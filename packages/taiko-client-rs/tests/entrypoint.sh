@@ -85,6 +85,19 @@ echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"
 
 $DIR/deploy.sh
 
+case "$L1_TRANSPORT" in
+    http)
+        unset L1_WS
+        ;;
+    ws)
+        unset L1_HTTP
+        ;;
+    *)
+        echo "unsupported L1_TRANSPORT $L1_TRANSPORT; expected http or ws"
+        exit 1
+        ;;
+esac
+
 # Export deployed contract addresses and other env vars for tests.
 DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
 export SHASTA_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
