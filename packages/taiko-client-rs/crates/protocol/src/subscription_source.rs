@@ -133,9 +133,7 @@ impl SubscriptionSource {
         let provider = self.to_provider().await?;
         let builder = RobustProviderBuilder::new(provider);
         let builder = if self.is_http() {
-            builder
-                .allow_http_subscriptions(true)
-                .poll_interval(HTTP_SUBSCRIPTION_POLL_INTERVAL)
+            builder.allow_http_subscriptions(true).poll_interval(HTTP_SUBSCRIPTION_POLL_INTERVAL)
         } else {
             builder
         };
@@ -247,9 +245,6 @@ mod tests {
         .await
         .expect("timed out waiting for scanner live notification");
 
-        assert!(matches!(
-            message,
-            Ok(Message::Notification(Notification::SwitchingToLive))
-        ));
+        assert!(matches!(message, Ok(Message::Notification(Notification::SwitchingToLive))));
     }
 }
