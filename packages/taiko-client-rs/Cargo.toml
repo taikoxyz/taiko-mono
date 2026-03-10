@@ -75,6 +75,7 @@ alloy-transport-http = { version = "1.4.3", features = ["hyper", "jwt-auth"] }
 event-scanner = "1.1.0"
 jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
+robust-provider = "1.0.1"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "a575e625374de3403df8517069626d007102cfc8" }

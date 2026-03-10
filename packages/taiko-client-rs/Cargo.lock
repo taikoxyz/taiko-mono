@@ -76,7 +76,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-evm 0.27.3",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "alloy-rlp",
  "alloy-rpc-types-eth",
@@ -108,7 +108,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-genesis",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "auto_impl",
  "reth-chainspec 1.11.1",
@@ -128,7 +128,7 @@ dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-evm",
  "alloy-consensus",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "alloy-sol-types",
  "reth-chainspec 1.11.1",
@@ -208,7 +208,7 @@ dependencies = [
  "alethia-reth-primitives",
  "alloy-consensus",
  "alloy-eips",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-json-rpc",
  "alloy-primitives",
  "alloy-rpc-types-engine",
@@ -290,6 +290,7 @@ dependencies = [
  "alloy-genesis",
  "alloy-json-rpc",
  "alloy-network",
+ "alloy-node-bindings",
  "alloy-provider",
  "alloy-pubsub",
  "alloy-rpc-client",
@@ -495,7 +496,7 @@ checksum = "527b47dc39850c6168002ddc1f7a2063e15d26137c1bb5330f6065a7524c1aa9"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "alloy-sol-types",
  "auto_impl",
@@ -512,7 +513,7 @@ checksum = "b991c370ce44e70a3a9e474087e3d65e42e66f967644ad729dc4cec09a21fd09"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
@@ -538,6 +539,19 @@ dependencies = [
  "borsh",
  "serde",
  "serde_with",
+]
+
+[[package]]
+name = "alloy-hardforks"
+version = "0.2.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3165210652f71dfc094b051602bafd691f506c54050a174b1cba18fb5ef706a3"
+dependencies = [
+ "alloy-chains",
+ "alloy-eip2124",
+ "alloy-primitives",
+ "auto_impl",
+ "dyn-clone",
 ]
 
 [[package]]
@@ -621,13 +635,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-node-bindings"
+version = "1.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "091dc8117d84de3a9ac7ec97f2c4d83987e24d485b478d26aa1ec455d7d52f7d"
+dependencies = [
+ "alloy-genesis",
+ "alloy-hardforks 0.2.13",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-signer",
+ "alloy-signer-local",
+ "k256",
+ "libc",
+ "rand 0.8.5",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "alloy-op-hardforks"
 version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6472c610150c4c4c15be9e1b964c9b78068f933bda25fb9cdf09b9ac2bb66f36"
 dependencies = [
  "alloy-chains",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "auto_impl",
  "serde",
@@ -674,9 +710,11 @@ dependencies = [
  "alloy-json-rpc",
  "alloy-network",
  "alloy-network-primitives",
+ "alloy-node-bindings",
  "alloy-primitives",
  "alloy-pubsub",
  "alloy-rpc-client",
+ "alloy-rpc-types-anvil",
  "alloy-rpc-types-debug",
  "alloy-rpc-types-eth",
  "alloy-rpc-types-trace",
@@ -3315,7 +3353,7 @@ dependencies = [
  "alloy",
  "alloy-consensus",
  "alloy-eips",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
@@ -5312,7 +5350,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-eips",
  "alloy-genesis",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-op-hardforks",
  "alloy-primitives",
  "alloy-sol-types",
@@ -5392,7 +5430,7 @@ dependencies = [
  "alloy-chains",
  "alloy-eips",
  "alloy-genesis",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-op-hardforks",
  "alloy-primitives",
  "kona-genesis",
@@ -7623,7 +7661,7 @@ dependencies = [
  "alloy",
  "alloy-consensus",
  "alloy-eips",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-network",
  "alloy-provider",
  "alloy-rpc-types",
@@ -7697,7 +7735,7 @@ dependencies = [
  "alloy-consensus",
  "alloy-contract",
  "alloy-eips",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "alloy-provider",
  "alloy-rlp",
@@ -7713,6 +7751,7 @@ dependencies = [
  "flate2",
  "k256",
  "rand 0.8.5",
+ "robust-provider",
  "serde",
  "thiserror 2.0.17",
  "tokio",
@@ -9048,7 +9087,7 @@ dependencies = [
  "alloy-chains",
  "alloy-consensus",
  "alloy-eips",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "alloy-rlp",
  "bytes",
@@ -9143,7 +9182,7 @@ version = "1.9.3"
 source = "git+https://github.com/paradigmxyz/reth?tag=v1.9.3#27a8c0f5a6dfb27dea84c5751776ecabdd069646"
 dependencies = [
  "alloy-eip2124",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "auto_impl",
  "once_cell",
@@ -9155,7 +9194,7 @@ version = "1.11.1"
 source = "git+https://github.com/paradigmxyz/reth?tag=v1.11.1#bef3d7b4d1da937fcccc9bbd6f8bd93e16380dc7"
 dependencies = [
  "alloy-eip2124",
- "alloy-hardforks",
+ "alloy-hardforks 0.4.7",
  "alloy-primitives",
  "auto_impl",
  "once_cell",
