@@ -11,7 +11,7 @@ use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::re
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
+    Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
     utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
@@ -180,7 +180,7 @@ pub async fn connect_provider_with_timeout(url: Url) -> Result<RootProvider> {
     match url.scheme() {
         "http" | "https" => Ok(connect_http_with_timeout(url)),
         "ws" | "wss" => ProviderBuilder::default()
-            .connect_ws(WsConnect::new(url.to_string()))
+            .connect_ws(WsConnect::new(url.as_str()))
             .await
             .map_err(|e| RpcClientError::Connection(e.to_string())),
         scheme => Err(RpcClientError::Connection(format!("unsupported RPC scheme: {scheme}"))),
@@ -204,16 +204,6 @@ pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
     let http_hyper = Http::with_client(layer_transport, url);
 
     ProviderBuilder::default().connect_client(RpcClient::new(http_hyper, true))
-}
-
-/// Builds a [`RootProvider`] backed by an IPC transport.
-///
-/// IPC does not require JWT authentication; security relies on filesystem permissions.
-pub async fn build_ipc_provider(path: PathBuf) -> Result<RootProvider> {
-    ProviderBuilder::default()
-        .connect_ipc(IpcConnect::new(path))
-        .await
-        .map_err(|e| RpcClientError::Connection(e.to_string()))
 }
 
 /// Returns the JWT secret for the engine API

@@ -2,7 +2,6 @@
 use std::time::Duration;
 
 use crate::error::Result;
-use alloy::transports::http::reqwest::Url as RpcUrl;
 use async_trait::async_trait;
 use clap::Parser;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
@@ -34,8 +33,8 @@ impl ProposerSubCommand {
 
         Ok(ProposerConfigs {
             l1_provider_source,
-            l2_provider_url: RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?,
-            l2_auth_provider_url: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
+            l2_provider_url: self.common_flags.l2_http_endpoint.clone(),
+            l2_auth_provider_url: self.common_flags.l2_auth_endpoint.clone(),
             jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
             inbox_address: self.common_flags.shasta_inbox_address,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,

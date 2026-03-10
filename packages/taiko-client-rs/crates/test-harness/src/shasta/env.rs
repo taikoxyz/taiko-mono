@@ -62,7 +62,7 @@ impl fmt::Debug for ShastaEnv {
 }
 
 impl ShastaEnv {
-    fn load_l1_source() -> Result<(SubscriptionSource, RpcUrl)> {
+    fn load_l1_source() -> Result<SubscriptionSource> {
         let transport = env::var("L1_TRANSPORT").unwrap_or_else(|_| "http".to_string());
 
         match transport.as_str() {
@@ -70,12 +70,12 @@ impl ShastaEnv {
                 let l1_http = env::var("L1_HTTP").context("L1_HTTP env var is required")?;
                 let l1_http_url =
                     RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
-                Ok((SubscriptionSource::Http(l1_http_url.clone()), l1_http_url))
+                Ok(SubscriptionSource::Http(l1_http_url))
             }
             "ws" => {
                 let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
                 let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
-                Ok((SubscriptionSource::Ws(l1_ws_url.clone()), l1_ws_url))
+                Ok(SubscriptionSource::Ws(l1_ws_url))
             }
             other => bail!("unsupported L1_TRANSPORT {other}; expected http or ws"),
         }
@@ -100,7 +100,7 @@ impl ShastaEnv {
         init_tracing("info");
 
         // Read all required endpoints, secrets, and addresses from the harness environment.
-        let (l1_source, l1_endpoint_url) = Self::load_l1_source()?;
+        let l1_source = Self::load_l1_source()?;
         let l2_ws_0 = env::var("L2_WS_0").context("L2_WS_0 env var is required")?;
         let l2_auth_0 = env::var("L2_AUTH_0").context("L2_AUTH_0 env var is required")?;
         let jwt_secret = env::var("JWT_SECRET").context("JWT_SECRET env var is required")?;
@@ -151,7 +151,7 @@ impl ShastaEnv {
         reset_head_l1_origin(&secondary_client).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
-        let cleanup_provider = connect_provider_with_timeout(l1_endpoint_url.clone()).await?;
+        let cleanup_provider = connect_provider_with_timeout(l1_source.url().clone()).await?;
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
@@ -210,16 +210,25 @@ mod tests {
     impl EnvGuard {
         fn set(key: &'static str, value: &str) -> Self {
             let previous = env::var(key).ok();
-            // SAFETY: tests are serialized with ENV_LOCK and this only mutates
-            // test-scoped environment variables.
+            // SAFETY: ENV_LOCK serializes all process-environment mutations in this module, and
+            // these tests do not read or write the guarded variables outside the lock scope.
             unsafe { env::set_var(key, value) };
+            Self { key, previous }
+        }
+
+        fn unset(key: &'static str) -> Self {
+            let previous = env::var(key).ok();
+            // SAFETY: ENV_LOCK serializes all process-environment mutations in this module, and
+            // these tests do not read or write the guarded variables outside the lock scope.
+            unsafe { env::remove_var(key) };
             Self { key, previous }
         }
     }
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
-            // SAFETY: tests are serialized with ENV_LOCK.
+            // SAFETY: ENV_LOCK serializes all process-environment mutations in this module, and
+            // these tests do not read or write the guarded variables outside the lock scope.
             unsafe {
                 match &self.previous {
                     Some(value) => env::set_var(self.key, value),
@@ -246,10 +255,8 @@ mod tests {
     #[test]
     fn secondary_l2_endpoints_fail_when_unset() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        unsafe {
-            env::remove_var("L2_WS_1");
-            env::remove_var("L2_AUTH_1");
-        }
+        let _ws = EnvGuard::unset("L2_WS_1");
+        let _auth = EnvGuard::unset("L2_AUTH_1");
 
         let result = ShastaEnv::load_l2_secondary_endpoints();
 
@@ -265,9 +272,9 @@ mod tests {
         let result = ShastaEnv::load_l1_source();
 
         assert!(result.is_ok());
-        let (source, endpoint) = result.unwrap();
+        let source = result.unwrap();
         assert!(matches!(source, SubscriptionSource::Http(_)));
-        assert_eq!(endpoint.as_str(), "http://localhost:18545/");
+        assert_eq!(source.url().as_str(), "http://localhost:18545/");
     }
 
     #[test]
@@ -279,9 +286,9 @@ mod tests {
         let result = ShastaEnv::load_l1_source();
 
         assert!(result.is_ok());
-        let (source, endpoint) = result.unwrap();
+        let source = result.unwrap();
         assert!(matches!(source, SubscriptionSource::Ws(_)));
-        assert_eq!(endpoint.as_str(), "ws://localhost:18545/");
+        assert_eq!(source.url().as_str(), "ws://localhost:18545/");
     }
 
     #[test]

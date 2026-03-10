@@ -1,6 +1,5 @@
 //! Preconfirmation driver subcommand.
 
-use alloy::transports::http::reqwest::Url as RpcUrl;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
@@ -37,23 +36,11 @@ impl PreconfirmationDriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_driver_config(&self) -> Result<DriverConfig> {
         let l1_source = self.common_flags.l1_provider_source()?;
-        let l2_http = RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?;
-        let l2_auth = RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?;
-        let l1_beacon = RpcUrl::parse(self.driver_flags.l1_beacon_endpoint.as_str())?;
-
-        let l2_checkpoint = self
-            .driver_flags
-            .l2_checkpoint_endpoint
-            .as_ref()
-            .map(|url| RpcUrl::parse(url.as_str()))
-            .transpose()?;
-
-        let blob_server = self
-            .driver_flags
-            .blob_server_endpoint
-            .as_ref()
-            .map(|url| RpcUrl::parse(url.as_str()))
-            .transpose()?;
+        let l2_http = self.common_flags.l2_http_endpoint.clone();
+        let l2_auth = self.common_flags.l2_auth_endpoint.clone();
+        let l1_beacon = self.driver_flags.l1_beacon_endpoint.clone();
+        let l2_checkpoint = self.driver_flags.l2_checkpoint_endpoint.clone();
+        let blob_server = self.driver_flags.blob_server_endpoint.clone();
 
         let client_cfg = ClientConfig {
             l1_provider_source: l1_source,
