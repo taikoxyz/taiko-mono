@@ -20,18 +20,10 @@ use crate::error::{CliError, Result};
 /// CLI flags shared by proposer and driver-style subcommands.
 pub struct CommonArgs {
     /// HTTP RPC endpoint of a L1 ethereum node.
-    #[clap(
-        long = "l1.http",
-        env = "L1_HTTP",
-        help = "HTTP RPC endpoint of a L1 ethereum node"
-    )]
+    #[clap(long = "l1.http", env = "L1_HTTP", help = "HTTP RPC endpoint of a L1 ethereum node")]
     pub l1_http_endpoint: Option<Url>,
     /// WebSocket RPC endpoint of a L1 ethereum node.
-    #[clap(
-        long = "l1.ws",
-        env = "L1_WS",
-        help = "WebSocket RPC endpoint of a L1 ethereum node"
-    )]
+    #[clap(long = "l1.ws", env = "L1_WS", help = "WebSocket RPC endpoint of a L1 ethereum node")]
     pub l1_ws_endpoint: Option<Url>,
     /// HTTP RPC endpoint of a L2 taiko execution engine.
     #[clap(

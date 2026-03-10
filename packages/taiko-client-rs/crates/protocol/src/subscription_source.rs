@@ -202,10 +202,6 @@ mod tests {
     fn subscription_source_try_from_unsupported_scheme() {
         let result = SubscriptionSource::try_from("ftp://localhost:8545");
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .contains("unsupported subscription source scheme: ftp")
-        );
+        assert!(result.unwrap_err().contains("unsupported subscription source scheme: ftp"));
     }
 }
