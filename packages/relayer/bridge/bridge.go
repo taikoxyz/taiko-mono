@@ -229,7 +229,7 @@ func (b *Bridge) submitBridgeTx(ctx context.Context) error {
 
 	gas, err := b.estimateGas(ctx, message)
 	if err != nil || gas == 0 {
-		slog.Info("gas estimation failed, hardcoding gas limit", "b.estimateGas:", err)
+		slog.Info("gas estimation failed, hardcoding gas limit", "error", err)
 	}
 
 	auth.GasLimit = gas
