@@ -54,6 +54,7 @@ type Config struct {
 	ForceBatchProvingInterval time.Duration
 	ProofPollingInterval      time.Duration
 	Dummy                     bool
+	ProposalWindowSize        uint64
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -126,6 +127,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		BackOffMaxRetries:      c.Uint64(flags.BackOffMaxRetries.Name),
 		BackOffRetryInterval:   c.Duration(flags.BackOffRetryInterval.Name),
 		ProveUnassignedBlocks:  c.Bool(flags.ProveUnassignedBlocks.Name),
+		ProposalWindowSize:     c.Uint64(flags.ProposalWindowSize.Name),
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
 		Allowance:              allowance,
