@@ -104,6 +104,20 @@ pub enum CliError {
     )]
     InvalidL1EndpointConfig,
 
+    /// Explicit L1 transport selector without a matching endpoint.
+    ///
+    /// Occurs when `--l1.transport` / `L1_TRANSPORT` selects a transport but the corresponding
+    /// endpoint was not provided.
+    #[error("{flag} / {env_var} must be set when --l1.transport {transport} is selected")]
+    MissingSelectedL1Endpoint {
+        /// Selected transport name.
+        transport: &'static str,
+        /// Required CLI flag for the selected transport.
+        flag: &'static str,
+        /// Required environment variable for the selected transport.
+        env_var: &'static str,
+    },
+
     /// Preconfirmation ingress was not enabled on the driver.
     ///
     /// Occurs when the preconfirmation driver command is run but the underlying

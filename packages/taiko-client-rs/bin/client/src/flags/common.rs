@@ -111,7 +111,17 @@ impl CommonArgs {
     pub fn l1_provider_source(&self) -> Result<SubscriptionSource> {
         match (self.l1_transport, &self.l1_http_endpoint, &self.l1_ws_endpoint) {
             (Some(L1Transport::Http), Some(url), _) => Ok(SubscriptionSource::Http(url.clone())),
+            (Some(L1Transport::Http), None, _) => Err(CliError::MissingSelectedL1Endpoint {
+                transport: "http",
+                flag: "--l1.http",
+                env_var: "L1_HTTP",
+            }),
             (Some(L1Transport::Ws), _, Some(url)) => Ok(SubscriptionSource::Ws(url.clone())),
+            (Some(L1Transport::Ws), _, None) => Err(CliError::MissingSelectedL1Endpoint {
+                transport: "ws",
+                flag: "--l1.ws",
+                env_var: "L1_WS",
+            }),
             (None, Some(url), None) => Ok(SubscriptionSource::Http(url.clone())),
             (None, None, Some(url)) => Ok(SubscriptionSource::Ws(url.clone())),
             _ => Err(CliError::InvalidL1EndpointConfig),
@@ -257,6 +267,33 @@ mod tests {
         .expect("selector should disambiguate dual L1 endpoints");
 
         assert!(matches!(args.l1_provider_source().unwrap(), SubscriptionSource::Http(_)));
+    }
+
+    #[test]
+    fn rejects_selected_http_transport_without_http_endpoint() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _clear = clear_l1_env();
+        let args = CommonArgs::try_parse_from([
+            required_args()[0],
+            "--l1.transport",
+            "http",
+            "--l1.ws",
+            "ws://localhost:8546",
+            required_args()[1],
+            required_args()[2],
+            required_args()[3],
+            required_args()[4],
+            required_args()[5],
+            required_args()[6],
+            required_args()[7],
+            required_args()[8],
+        ])
+        .expect("selector mismatch should parse before validation");
+
+        assert!(matches!(
+            args.l1_provider_source(),
+            Err(CliError::MissingSelectedL1Endpoint { transport: "http", .. })
+        ));
     }
 
     #[test]
