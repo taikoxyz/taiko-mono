@@ -180,6 +180,7 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 		p.cfg.ForceBatchProvingInterval,
 		cacheMaps,
 		p.flushCacheNotify,
+		new(big.Int).SetUint64(p.cfg.ProposalWindowSize),
 	); err != nil {
 		return fmt.Errorf("failed to initialize Shasta proof submitter: %w", err)
 	}

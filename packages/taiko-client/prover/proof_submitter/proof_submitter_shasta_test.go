@@ -60,6 +60,27 @@ func TestProofDistributionWithOutOfOrderResponses(t *testing.T) {
 	require.Equal(t, 1, len(cacheMap.Keys()))
 }
 
+func TestIsProposalOutOfRange(t *testing.T) {
+	t.Run("count less than one disables range check", func(t *testing.T) {
+		submitter := &ProofSubmitterShasta{proposalWindowSize: big.NewInt(0)}
+		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1000), big.NewInt(1)))
+	})
+
+	t.Run("count equals one only allows next proposal", func(t *testing.T) {
+		submitter := &ProofSubmitterShasta{proposalWindowSize: big.NewInt(1)}
+		lastFinalizedProposalID := big.NewInt(10)
+		require.False(t, submitter.isProposalOutOfRange(big.NewInt(11), lastFinalizedProposalID))
+		require.True(t, submitter.isProposalOutOfRange(big.NewInt(12), lastFinalizedProposalID))
+	})
+
+	t.Run("upper bound is inclusive", func(t *testing.T) {
+		submitter := &ProofSubmitterShasta{proposalWindowSize: big.NewInt(100)}
+		lastFinalizedProposalID := big.NewInt(1000)
+		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1100), lastFinalizedProposalID))
+		require.True(t, submitter.isProposalOutOfRange(big.NewInt(1101), lastFinalizedProposalID))
+	})
+}
+
 func newShastaMetaForTest(id int64) metadata.TaikoProposalMetaData {
 	return metadata.NewTaikoProposalMetadataShasta(
 		&shastaBindings.ShastaInboxClientProposed{
