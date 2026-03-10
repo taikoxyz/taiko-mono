@@ -1,5 +1,3 @@
-#![allow(clippy::too_many_arguments)]
-
 use super::*;
 use crate::{
     P2pConfig,

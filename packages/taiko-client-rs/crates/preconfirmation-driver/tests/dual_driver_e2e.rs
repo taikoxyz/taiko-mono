@@ -31,7 +31,7 @@ use test_harness::{
     BeaconStubServer, PreconfTxList, ShastaEnv, build_preconf_txlist, compute_next_block_base_fee,
     fetch_block_by_number,
     preconfirmation::{
-        EventSyncerDriverClient, SafeTipDriverClient, StaticLookaheadResolver,
+        EventSyncerDriverClient, LoggingDriverClient, StaticLookaheadResolver,
         build_publish_payloads_with_txs, derive_signer, test_p2p_config,
         wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
@@ -96,7 +96,7 @@ impl DriverInstance {
         event_syncer
             .wait_preconf_ingress_ready()
             .await
-            .ok_or_else(|| anyhow!("preconfirmation ingress disabled"))?;
+            .map_err(|err| anyhow!("preconfirmation ingress unavailable: {err}"))?;
 
         Ok(Self { rpc_client, event_syncer, event_handle })
     }
@@ -156,11 +156,11 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
 
     let driver1_embedded =
         EventSyncerDriverClient::new(driver1.event_syncer.clone(), driver1.rpc_client.clone());
-    let driver1_client = SafeTipDriverClient::new(Arc::new(driver1_embedded));
+    let driver1_client = LoggingDriverClient::new(Arc::new(driver1_embedded));
 
     let driver2_embedded =
         EventSyncerDriverClient::new(driver2.event_syncer.clone(), driver2.rpc_client.clone());
-    let driver2_client = SafeTipDriverClient::new(Arc::new(driver2_embedded));
+    let driver2_client = LoggingDriverClient::new(Arc::new(driver2_embedded));
 
     let (signer_sk, signer) = derive_signer(1);
 

@@ -106,7 +106,7 @@ contract ProverWhitelistTest is CommonTest {
     }
 
     function test_whitelistProver_RevertWhen_AlreadyDisabled() public {
-        vm.expectRevert(ProverWhitelist.ProverWhitelistedAlready.selector);
+        vm.expectRevert(ProverWhitelist.ProverNotWhitelisted.selector);
         proverWhitelist.whitelistProver(prover1, false);
     }
 

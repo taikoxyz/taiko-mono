@@ -121,6 +121,7 @@ func (c *Client) ensureGenesisMatched(
 		if err != nil {
 			return err
 		}
+		defer iter.Close()
 		if iter.Next() {
 			l2GenesisHash = iter.Event.BlockHash
 		}
@@ -175,6 +176,7 @@ func (c *Client) filterGenesisBlockVerifiedV2(
 	if err != nil {
 		return common.Hash{}, err
 	}
+	defer iter.Close()
 	if iter.Next() {
 		return iter.Event.BlockHash, nil
 	}
@@ -202,6 +204,7 @@ func (c *Client) filterGenesisBlockVerified(
 	if err != nil {
 		return common.Hash{}, err
 	}
+	defer iter.Close()
 	if iter.Next() {
 		return iter.Event.BlockHash, nil
 	}
@@ -1545,7 +1548,7 @@ func (c *Client) GetProposalByIDShasta(
 		return nil, nil, fmt.Errorf("failed to get synced L1 snippet from anchor transaction: %w", err)
 	}
 
-	end := anchorNumber + manifest.AnchorMaxOffset
+	end := anchorNumber + manifest.AnchorMaxOffsetByChainID(c.L2.ChainID)
 	iter, err := c.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{
 		Start:   anchorNumber,
 		End:     &end,
@@ -1554,6 +1557,7 @@ func (c *Client) GetProposalByIDShasta(
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to filter proposed events from Shasta Inbox: %w", err)
 	}
+	defer iter.Close()
 
 	var (
 		event *shastaBindings.ShastaInboxClientProposed

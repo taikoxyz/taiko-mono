@@ -27,7 +27,7 @@ use test_harness::{
     BeaconStubServer, PreconfTxList, ShastaEnv, TransferPayload, build_preconf_txlist,
     compute_next_block_base_fee, fetch_block_by_number,
     preconfirmation::{
-        EventSyncerDriverClient, SafeTipDriverClient, StaticLookaheadResolver,
+        EventSyncerDriverClient, LoggingDriverClient, StaticLookaheadResolver,
         build_publish_payloads_with_txs, derive_signer, test_p2p_config,
         wait_for_commitment_and_txlist, wait_for_peer_connected,
     },
@@ -223,11 +223,11 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     event_syncer
         .wait_preconf_ingress_ready()
         .await
-        .ok_or_else(|| anyhow!("preconfirmation ingress disabled"))?;
+        .map_err(|err| anyhow!("preconfirmation ingress unavailable: {err}"))?;
 
-    // Set up driver client with safe-tip fallback.
+    // Set up driver client with logging wrapper.
     let embedded_client = EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());
-    let driver_client = SafeTipDriverClient::new(Arc::new(embedded_client));
+    let driver_client = LoggingDriverClient::new(Arc::new(embedded_client));
 
     // Derive signer from deterministic secret key.
     let (signer_sk, signer) = derive_signer(1);

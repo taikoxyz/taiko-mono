@@ -16,7 +16,7 @@ where
     P: alloy_provider::Provider + Clone + Send + Sync + 'static,
 {
     /// Attempt to import cached envelopes if sync is ready.
-    pub(super) async fn maybe_import_from_cache(&mut self) -> Result<()> {
+    pub(crate) async fn maybe_import_from_cache(&mut self) -> Result<()> {
         let _ = self.refresh_sync_ready().await?;
         if !self.sync_ready || self.cache.is_empty() {
             return Ok(());
@@ -152,18 +152,18 @@ where
                     "result" => "issued",
                 )
                 .increment(1);
-                self.publish_unsafe_request(parent_hash).await;
+                self.request_block(parent_hash).await;
             } else {
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
                     "result" => "throttled",
                 )
                 .increment(1);
-                warn!(
+                debug!(
                     block_number,
                     block_hash = %block_hash,
                     parent_hash = %parent_hash,
-                    "throttling duplicate whitelist preconfirmation parent request"
+                    "suppressed duplicate whitelist preconfirmation parent request due to cooldown"
                 );
             }
             return Ok(false);
@@ -212,6 +212,11 @@ where
             end_of_sequencing,
             "inserted whitelist preconfirmation block"
         );
+
+        if let Some(ref highest) = self.highest_unsafe_l2_payload_block_id {
+            let mut guard = highest.lock().await;
+            *guard = block_number.max(*guard);
+        }
 
         Ok(true)
     }

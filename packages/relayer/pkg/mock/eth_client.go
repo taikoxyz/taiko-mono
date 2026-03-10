@@ -153,3 +153,27 @@ func (c *EthClient) BalanceAt(
 func (c *EthClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	return []byte{}, nil
 }
+
+func (c *EthClient) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	return nil, nil
+}
+
+func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	return nil, nil
+}
+
+func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	return nil
+}
+
+func (c *EthClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	return nil, nil
+}
+
+func (c *EthClient) SubscribeFilterLogs(
+	ctx context.Context,
+	query ethereum.FilterQuery,
+	ch chan<- types.Log,
+) (ethereum.Subscription, error) {
+	return nil, nil
+}

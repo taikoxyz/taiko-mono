@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(missing_docs, clippy::missing_docs_in_private_items))]
+#![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
 //! Preconfirmation driver integration library.
 //!
 //! This crate provides the preconfirmation integration layer for the Taiko driver.
@@ -53,7 +55,7 @@ pub use client::{EventLoop, PreconfirmationClient};
 pub use config::PreconfirmationClientConfig;
 pub use driver_interface::{
     ContractInboxReader, DriverClient, EmbeddedDriverClient, EventSyncerDriverClient, InboxReader,
-    PreconfirmationInput,
+    PreconfirmationInput, resolve_event_sync_tip,
 };
 pub use error::{DriverApiError, PreconfirmationClientError, Result};
 pub use metrics::PreconfirmationClientMetrics;

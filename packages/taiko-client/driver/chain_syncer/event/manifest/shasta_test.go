@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -88,8 +89,9 @@ func TestShastaManifestFetcherTestSuite(t *testing.T) {
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
+	chainID := params.TaikoHoodiNetworkID
 	parentTime := uint64(1_000)
-	proposalTimestamp := parentTime + manifest.TimestampMaxOffset + 100
+	proposalTimestamp := parentTime + manifest.TimestampMaxOffsetByChainID(chainID) + 100
 	forkTime := proposalTimestamp - 50
 	proposal := &shastaBindings.ShastaInboxClientProposed{}
 
@@ -100,10 +102,10 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: proposalTimestamp + 1}},
 		},
 	}
-	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime))
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime, chainID))
 
 	// Timestamp below lower bound should fail.
-	expectedLowerBound := max(parentTime+1, proposalTimestamp-manifest.TimestampMaxOffset)
+	expectedLowerBound := max(parentTime+1, proposalTimestamp-manifest.TimestampMaxOffsetByChainID(chainID))
 	expectedLowerBound = max(expectedLowerBound, forkTime)
 	sourcePayload = &ShastaDerivationSourcePayload{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
@@ -111,7 +113,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: expectedLowerBound - 1}},
 		},
 	}
-	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime))
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime, chainID))
 
 	// Valid payload passes.
 	validTimestamp := expectedLowerBound + 10
@@ -121,11 +123,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: validTimestamp}},
 		},
 	}
-	s.True(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime))
+	s.True(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime, chainID))
 	s.Equal(validTimestamp, sourcePayload.BlockPayloads[0].Timestamp)
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
+	chainID := params.TaikoHoodiNetworkID
 	originBlockNumber := uint64(1000)
 	parentAnchorBlockNumber := uint64(900)
 	proposalID := testutils.RandomHash().Big()
@@ -142,7 +145,14 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	}
 
 	proposal := &shastaBindings.ShastaInboxClientProposed{Id: proposalID, Proposer: proposer}
-	result := validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
+	result := validateAnchorBlockNumber(
+		sourcePayload,
+		originBlockNumber,
+		parentAnchorBlockNumber,
+		proposal,
+		false,
+		chainID,
+	)
 	s.False(result)
 
 	// Test 2: Future reference - anchor newer than origin block
@@ -155,11 +165,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		},
 	}
 
-	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
+	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false, chainID)
 	s.False(result)
 
 	// Test 3: Excessive lag - should be adjusted and return false (no progression)
-	lagAnchor := originBlockNumber - manifest.AnchorMaxOffset - 1 // 871, excessive lag
+	lagAnchor := originBlockNumber - manifest.AnchorMaxOffsetByChainID(chainID) - 1 // 871, excessive lag
 	sourcePayload = &ShastaDerivationSourcePayload{
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{
@@ -168,7 +178,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		},
 	}
 
-	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
+	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false, chainID)
 	s.False(result)
 
 	// Test 4: Valid anchor block number - should remain unchanged
@@ -181,7 +191,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		},
 	}
 
-	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
+	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false, chainID)
 	s.True(result)
 	s.Equal(validAnchor, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 
@@ -194,7 +204,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		},
 	}
 
-	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false)
+	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, false, chainID)
 	s.False(result) // Should return false for non-forced inclusion without progression
 
 	// Test 6: Forced inclusion should pass once inherited metadata is applied
@@ -217,14 +227,16 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		parentTime+5,
 		parentAnchorBlockNumber,
 		parentTime,
+		chainID,
 	)
-	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, true)
+	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, true, chainID)
 	s.True(result)
 	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
-	parentTime := uint64(1_000 + manifest.TimestampMaxOffset)
+	chainID := params.TaikoHoodiNetworkID
+	parentTime := 1_000 + manifest.TimestampMaxOffsetByChainID(chainID)
 	parentHeader := &types.Header{
 		Number:   big.NewInt(1),
 		GasLimit: 30_000_000,
@@ -246,13 +258,14 @@ func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 		},
 	}
 
-	expectedLowerBound := max(parentTime+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
+	expectedLowerBound := max(parentTime+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffsetByChainID(chainID))
 	ApplyInheritedMetadata(
 		sourcePayload,
 		&shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer},
 		proposal.Timestamp.Uint64(),
 		900,
 		parentTime-10,
+		chainID,
 	)
 	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
 	s.Equal(uint64(900), sourcePayload.BlockPayloads[0].AnchorBlockNumber)
@@ -275,6 +288,7 @@ func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 		proposal.Timestamp.Uint64(),
 		900,
 		exceedingFork,
+		chainID,
 	)
 	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
 	s.Equal(max(parentTime+1, exceedingFork), sourcePayload.BlockPayloads[0].Timestamp)
@@ -415,6 +429,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 
 	rpcClient := &rpc.Client{
 		ShastaClients: &rpc.ShastaClients{ForkTime: parentTime},
+		L2:            &rpc.EthClient{ChainID: params.TaikoHoodiNetworkID},
 	}
 
 	s.True(ValidateMetadata(
@@ -438,4 +453,22 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 		900,
 		false,
 	))
+}
+
+func (s *ShastaManifestFetcherTestSuite) TestComputeTimestampLowerBoundByChainID() {
+	parentTimestamp := uint64(100)
+	proposalTimestamp := uint64(10_000)
+	forkTime := uint64(0)
+
+	hoodiLowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime, params.TaikoHoodiNetworkID)
+	mainnetLowerBound := ComputeTimestampLowerBound(
+		parentTimestamp,
+		proposalTimestamp,
+		forkTime,
+		params.TaikoMainnetNetworkID,
+	)
+
+	s.Equal(proposalTimestamp-manifest.TimestampMaxOffsetByChainID(params.TaikoHoodiNetworkID), hoodiLowerBound)
+	s.Equal(proposalTimestamp-manifest.TimestampMaxOffsetByChainID(params.TaikoMainnetNetworkID), mainnetLowerBound)
+	s.Less(mainnetLowerBound, hoodiLowerBound)
 }

@@ -1,3 +1,5 @@
+#![cfg_attr(not(test), deny(missing_docs, clippy::missing_docs_in_private_items))]
+#![cfg_attr(test, allow(missing_docs, clippy::missing_docs_in_private_items))]
 //! Networking layer for the preconfirmation P2P stack.
 //!
 //! This crate wires libp2p + discv5 into a small, service-friendly API. It provides:

@@ -65,7 +65,7 @@ async fn submit_proposal(
     Ok((proposal_id, proposal_log))
 }
 
-/// Waits for the event syncer to process a specific proposal using event subscription.
+/// Waits for the event syncer to process a specific proposal using confirmed-sync state polling.
 async fn wait_for_proposal_processed<P>(
     event_syncer: &EventSyncer<P>,
     driver_client: &Client<P>,
@@ -76,13 +76,18 @@ async fn wait_for_proposal_processed<P>(
 where
     P: Provider + Clone + 'static,
 {
-    let mut rx = event_syncer.subscribe_proposal_id();
     let deadline = tokio::time::Instant::now() + timeout;
 
     loop {
-        // Check current value first
-        let current_proposal_id = *rx.borrow();
-        if current_proposal_id >= expected_proposal_id {
+        let target_block = driver_client
+            .last_block_id_by_batch_id(U256::from(expected_proposal_id))
+            .await?
+            .map(|block_number| block_number.to::<u64>());
+        let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
+        if matches!(
+            (target_block, confirmed_head),
+            (Some(target_block), Some(head_block)) if head_block >= target_block
+        ) {
             let l2_head = driver_client.l2_provider.get_block_number().await?;
             if l2_head < l2_head_before {
                 warn!(
@@ -98,12 +103,7 @@ where
             return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}"));
         }
 
-        // Wait for change notification instead of polling
-        match tokio::time::timeout(remaining, rx.changed()).await {
-            Ok(Ok(())) => continue, // Loop back to check new value
-            Ok(Err(_)) => return Err(anyhow!("proposal ID channel closed")),
-            Err(_) => return Err(anyhow!("timed out waiting for proposal {expected_proposal_id}")),
-        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
 
@@ -163,11 +163,6 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
         l2_head_after >= l2_head_before,
         "L2 head should not move backwards after proposal processing"
     );
-    ensure!(
-        event_syncer.last_canonical_proposal_id() >= proposal_id,
-        "canonical proposal id should update"
-    );
-
     syncer_handle.abort();
     beacon_stub.shutdown().await?;
 

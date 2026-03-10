@@ -26,6 +26,7 @@ const SCAN_EPOCH_LOOKBACK: u64 = 3;
 /// Error wrapper used to classify ingest failures; all variants are retryable.
 #[derive(Debug)]
 enum IngestError {
+    /// Ingest failed with an error that should be retried with backoff.
     Retryable(LookaheadError),
 }
 

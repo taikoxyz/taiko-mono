@@ -3,38 +3,33 @@
 use alloy_primitives::{Address, B256, Bytes, U256};
 use serde::{Deserialize, Serialize};
 
-/// Request to publish a signed preconfirmation commitment.
+/// Request to publish a preconfirmation block (commitment + txlist atomically).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PublishCommitmentRequest {
+pub struct PublishBlockRequest {
     /// The SSZ-encoded SignedCommitment bytes.
     pub commitment: Bytes,
-}
-
-/// Request to publish an encoded transaction list separately from the commitment.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PublishTxListRequest {
-    /// The keccak256 hash of the compressed transaction list.
+    /// The keccak256 hash of `tx_list`.
+    ///
+    /// For EOP-only commitments (`raw_tx_list_hash` is zero), callers should
+    /// provide a dummy `tx_list` and its matching hash (typically empty txlist + actual
+    /// keccak256 hash), because the commitment itself does not carry a real
+    /// txlist hash.
     pub tx_list_hash: B256,
     /// The compressed transaction list bytes (RLP list + zlib).
+    ///
+    /// This field is required for EOP-only commitments even though the commitment itself
+    /// does not contain an enforced txlist hash. The node validates this hash against
+    /// this field's value.
     pub tx_list: Bytes,
 }
 
-/// Response for a successful commitment publication.
+/// Response for a successful block publication.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PublishCommitmentResponse {
+pub struct PublishBlockResponse {
     /// The keccak256 hash of the published commitment.
     pub commitment_hash: B256,
-    /// The keccak256 hash of the associated transaction list.
-    pub tx_list_hash: B256,
-}
-
-/// Response for a successful transaction list publication.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PublishTxListResponse {
     /// The keccak256 hash of the published transaction list.
     pub tx_list_hash: B256,
 }
@@ -50,6 +45,7 @@ pub struct PreconfSlotInfo {
 }
 
 impl From<protocol::preconfirmation::PreconfSlotInfo> for PreconfSlotInfo {
+    /// Convert protocol-layer slot info into the RPC wire representation.
     fn from(info: protocol::preconfirmation::PreconfSlotInfo) -> Self {
         Self { signer: info.signer, submission_window_end: info.submission_window_end }
     }
@@ -61,10 +57,11 @@ impl From<protocol::preconfirmation::PreconfSlotInfo> for PreconfSlotInfo {
 pub struct NodeStatus {
     /// Whether the node has completed sync with L1 inbox events.
     pub is_synced_with_inbox: bool,
+    /// The highest confirmed event-sync tip from `head_l1_origin`.
+    /// May be `None` before confirmed sync is available.
+    pub event_sync_tip: Option<U256>,
     /// The highest preconfirmed block number known to this node.
     pub preconf_tip: U256,
-    /// The last canonical proposal ID from L1 inbox events.
-    pub canonical_proposal_id: u64,
     /// Number of connected P2P peers.
     pub peer_count: u64,
     /// This node's libp2p peer ID.
@@ -116,13 +113,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_publish_commitment_request_serde() {
-        let request = PublishCommitmentRequest { commitment: Bytes::from(vec![1, 2, 3]) };
+    fn test_publish_block_request_serde() {
+        let request = PublishBlockRequest {
+            commitment: Bytes::from(vec![1, 2, 3]),
+            tx_list_hash: B256::ZERO,
+            tx_list: Bytes::from(vec![4, 5, 6]),
+        };
 
         let json = serde_json::to_string(&request).unwrap();
-        let parsed: PublishCommitmentRequest = serde_json::from_str(&json).unwrap();
+        let parsed: PublishBlockRequest = serde_json::from_str(&json).unwrap();
 
         assert_eq!(parsed.commitment, request.commitment);
+        assert_eq!(parsed.tx_list_hash, request.tx_list_hash);
+        assert_eq!(parsed.tx_list, request.tx_list);
     }
 
     #[test]
@@ -141,16 +144,16 @@ mod tests {
     fn test_node_status_camel_case() {
         let status = NodeStatus {
             is_synced_with_inbox: true,
+            event_sync_tip: Some(U256::from(90)),
             preconf_tip: U256::from(100),
-            canonical_proposal_id: 42,
             peer_count: 5,
             peer_id: "test-peer-id".to_string(),
         };
 
         let json = serde_json::to_string(&status).unwrap();
         assert!(json.contains("isSyncedWithInbox"));
+        assert!(json.contains("eventSyncTip"));
         assert!(json.contains("preconfTip"));
-        assert!(json.contains("canonicalProposalId"));
     }
 
     #[test]
