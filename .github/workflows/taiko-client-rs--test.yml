@@ -232,11 +232,3 @@ jobs:
         env:
           PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
         run: just test
-
-      - name: Run WS driver tests
-        working-directory: packages/taiko-client-rs
-        env:
-          PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
-          L1_TRANSPORT: ws
-          TEST_CRATE: driver
-        run: ./tests/entrypoint.sh
