@@ -63,8 +63,7 @@ impl fmt::Debug for ShastaEnv {
 
 impl ShastaEnv {
     fn load_l1_source() -> Result<SubscriptionSource> {
-        let l1_ws =
-            env::var("HARNESS_L1_WS").context("HARNESS_L1_WS env var is required")?;
+        let l1_ws = env::var("HARNESS_L1_WS").context("HARNESS_L1_WS env var is required")?;
         let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid HARNESS_L1_WS endpoint")?;
         Ok(SubscriptionSource::Ws(l1_ws_url))
     }
