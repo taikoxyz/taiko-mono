@@ -66,33 +66,19 @@ impl ShastaEnv {
         let l1_http = env::var("L1_HTTP").ok();
         let l1_ws = env::var("L1_WS").ok();
 
-        match env::var("L1_TRANSPORT").ok().as_deref() {
-            Some("http") => {
-                let l1_http =
-                    l1_http.context("L1_HTTP env var is required when L1_TRANSPORT=http")?;
+        match (l1_http, l1_ws) {
+            (Some(l1_http), None) => {
                 let l1_http_url =
                     RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
                 Ok(SubscriptionSource::Http(l1_http_url))
             }
-            Some("ws") => {
-                let l1_ws = l1_ws.context("L1_WS env var is required when L1_TRANSPORT=ws")?;
-                let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
+            (None, Some(l1_ws)) => {
+                let l1_ws_url =
+                    RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
                 Ok(SubscriptionSource::Ws(l1_ws_url))
             }
-            Some(other) => bail!("unsupported L1_TRANSPORT {other}; expected http or ws"),
-            None => match (l1_http, l1_ws) {
-                (Some(l1_http), _) => {
-                    let l1_http_url =
-                        RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
-                    Ok(SubscriptionSource::Http(l1_http_url))
-                }
-                (None, Some(l1_ws)) => {
-                    let l1_ws_url =
-                        RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
-                    Ok(SubscriptionSource::Ws(l1_ws_url))
-                }
-                (None, None) => bail!("L1_HTTP or L1_WS env var is required"),
-            },
+            (Some(_), Some(_)) => bail!("configure exactly one of L1_HTTP or L1_WS"),
+            (None, None) => bail!("L1_HTTP or L1_WS env var is required"),
         }
     }
 
@@ -279,11 +265,10 @@ mod tests {
     }
 
     #[test]
-    fn l1_source_defaults_to_http_when_transport_unset() {
+    fn l1_source_accepts_http_endpoint() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _http = EnvGuard::set("L1_HTTP", "http://localhost:18545");
         let _ws = EnvGuard::unset("L1_WS");
-        let _transport = EnvGuard::unset("L1_TRANSPORT");
 
         let result = ShastaEnv::load_l1_source();
 
@@ -294,11 +279,10 @@ mod tests {
     }
 
     #[test]
-    fn l1_source_accepts_ws_transport() {
+    fn l1_source_accepts_ws_endpoint() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _ws = EnvGuard::set("L1_WS", "ws://localhost:18545");
         let _http = EnvGuard::unset("L1_HTTP");
-        let _transport = EnvGuard::set("L1_TRANSPORT", "ws");
 
         let result = ShastaEnv::load_l1_source();
 
@@ -309,28 +293,26 @@ mod tests {
     }
 
     #[test]
-    fn l1_source_falls_back_to_ws_when_transport_unset() {
+    fn l1_source_rejects_both_endpoints() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _http = EnvGuard::unset("L1_HTTP");
+        let _http = EnvGuard::set("L1_HTTP", "http://localhost:18545");
         let _ws = EnvGuard::set("L1_WS", "ws://localhost:18545");
-        let _transport = EnvGuard::unset("L1_TRANSPORT");
-
-        let result = ShastaEnv::load_l1_source();
-
-        assert!(result.is_ok());
-        let source = result.unwrap();
-        assert!(matches!(source, SubscriptionSource::Ws(_)));
-        assert_eq!(source.url().as_str(), "ws://localhost:18545/");
-    }
-
-    #[test]
-    fn l1_source_rejects_unknown_transport() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _transport = EnvGuard::set("L1_TRANSPORT", "ipc");
 
         let result = ShastaEnv::load_l1_source();
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("unsupported L1_TRANSPORT"));
+        assert!(result.unwrap_err().to_string().contains("configure exactly one of L1_HTTP or L1_WS"));
+    }
+
+    #[test]
+    fn l1_source_rejects_missing_endpoints() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _http = EnvGuard::unset("L1_HTTP");
+        let _ws = EnvGuard::unset("L1_WS");
+
+        let result = ShastaEnv::load_l1_source();
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("L1_HTTP or L1_WS env var is required"));
     }
 }

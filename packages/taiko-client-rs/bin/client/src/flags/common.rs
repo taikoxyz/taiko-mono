@@ -149,8 +149,8 @@ mod tests {
         }
     }
 
-    fn clear_l1_env() -> [EnvGuard; 3] {
-        [EnvGuard::unset("L1_HTTP"), EnvGuard::unset("L1_WS"), EnvGuard::unset("L1_TRANSPORT")]
+    fn clear_l1_env() -> [EnvGuard; 2] {
+        [EnvGuard::unset("L1_HTTP"), EnvGuard::unset("L1_WS")]
     }
 
     fn required_args() -> [&'static str; 9] {
@@ -258,7 +258,6 @@ mod tests {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
         let _http = EnvGuard::set("L1_HTTP", "http://localhost:8545");
         let _ws = EnvGuard::set("L1_WS", "ws://localhost:8546");
-        let _transport = EnvGuard::unset("L1_TRANSPORT");
 
         let args = CommonArgs::try_parse_from(required_args()).expect("env-backed L1 config");
 

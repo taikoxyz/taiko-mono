@@ -7,9 +7,7 @@ export PROTOCOL_DIR
 
 echo "Starting docker compose services..."
 
-export L1_HTTP=http://localhost:18545
-export L1_WS=ws://localhost:18545
-export L1_TRANSPORT=${L1_TRANSPORT:-http}
+export HARNESS_L1_HTTP=${HARNESS_L1_HTTP:-http://localhost:18545}
 export L2_HTTP_0=http://localhost:28545
 export L2_WS_0=ws://localhost:28546
 export L2_AUTH_0=http://localhost:28551
@@ -58,7 +56,7 @@ cleanup() {
 trap cleanup EXIT INT KILL ERR
 
 # check until L1 node is ready
-until cast chain-id --rpc-url "$L1_HTTP" 2> /dev/null; do
+until cast chain-id --rpc-url "$HARNESS_L1_HTTP" 2> /dev/null; do
     sleep 1
 done
 
@@ -85,18 +83,9 @@ echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"
 
 $DIR/deploy.sh
 
-case "$L1_TRANSPORT" in
-    http)
-        unset L1_WS
-        ;;
-    ws)
-        unset L1_HTTP
-        ;;
-    *)
-        echo "unsupported L1_TRANSPORT $L1_TRANSPORT; expected http or ws"
-        exit 1
-        ;;
-esac
+# The test process should see exactly one L1 endpoint to match the client CLI rules.
+export L1_HTTP="$HARNESS_L1_HTTP"
+unset L1_WS
 
 # Export deployed contract addresses and other env vars for tests.
 DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
