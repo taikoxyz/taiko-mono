@@ -60,13 +60,14 @@ impl SubscriptionSource {
         &self,
     ) -> Result<FillProvider<JoinedRecommendedFillers, RootProvider>, SubscriptionSourceError> {
         let builder = ProviderBuilder::new();
-        let provider = match self {
-            SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
-            SubscriptionSource::Ws(url) => builder
-                .connect_ws(WsConnect::new(url.as_str()))
-                .await
-                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
-        };
+        let provider =
+            match self {
+                SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
+                SubscriptionSource::Ws(url) => builder
+                    .connect_ws(WsConnect::new(url.as_str()))
+                    .await
+                    .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
+            };
         Ok(provider)
     }
 
@@ -83,13 +84,14 @@ impl SubscriptionSource {
         let wallet = EthereumWallet::new(signer);
 
         let builder = ProviderBuilder::new().wallet(wallet);
-        let provider = match self {
-            SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
-            SubscriptionSource::Ws(url) => builder
-                .connect_ws(WsConnect::new(url.as_str()))
-                .await
-                .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
-        };
+        let provider =
+            match self {
+                SubscriptionSource::Http(url) => builder.connect_http(url.clone()),
+                SubscriptionSource::Ws(url) => builder
+                    .connect_ws(WsConnect::new(url.as_str()))
+                    .await
+                    .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))?,
+            };
         Ok(provider)
     }
 

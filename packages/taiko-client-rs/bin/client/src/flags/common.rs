@@ -172,11 +172,7 @@ mod tests {
     }
 
     fn clear_l1_env() -> [EnvGuard; 3] {
-        [
-            EnvGuard::unset("L1_HTTP"),
-            EnvGuard::unset("L1_WS"),
-            EnvGuard::unset("L1_TRANSPORT"),
-        ]
+        [EnvGuard::unset("L1_HTTP"), EnvGuard::unset("L1_WS"), EnvGuard::unset("L1_TRANSPORT")]
     }
 
     fn required_args() -> [&'static str; 9] {
