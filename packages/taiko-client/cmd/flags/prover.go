@@ -62,11 +62,12 @@ var (
 	}
 	ProposalWindowSize = &cli.Uint64Flag{
 		Name: "prover.proposal.window.size",
-		Usage: "The proposal window size counted from lastFinalizedProposalID." +
+		Usage: "The proposal window size counted from lastFinalizedProposalID. " +
 			"The proof request will only be triggered" +
-			"when proposalID falls within [lastFinalizedProposalID + 1, lastFinalizedProposalID + proposalWindowSize]." +
-			"This value is ignored if it is less than 1. ",
-		Value:    100,
+			" when proposalID falls within [lastFinalizedProposalID + 1, lastFinalizedProposalID + proposalWindowSize]. " +
+			"This value is ignored if it is less than 1. " +
+			"This flag only works for post Shasta fork. ",
+		Value:    0,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
 	}

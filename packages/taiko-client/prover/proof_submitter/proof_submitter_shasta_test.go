@@ -61,6 +61,11 @@ func TestProofDistributionWithOutOfOrderResponses(t *testing.T) {
 }
 
 func TestIsProposalOutOfRange(t *testing.T) {
+	t.Run("nil window size disables range check", func(t *testing.T) {
+		submitter := &ProofSubmitterShasta{proposalWindowSize: nil}
+		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1000), big.NewInt(1)))
+	})
+
 	t.Run("count less than one disables range check", func(t *testing.T) {
 		submitter := &ProofSubmitterShasta{proposalWindowSize: big.NewInt(0)}
 		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1000), big.NewInt(1)))

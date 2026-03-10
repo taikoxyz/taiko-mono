@@ -192,10 +192,11 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		}
 		if s.isProposalOutOfRange(proposalID, lastFinalizedProposalID) {
 			log.Info(
-				"Skip proof request: proposalID out of allowed range",
+				"Proof request deferred: ErrProposalOutOfAllowedRange",
 				"proposalID", proposalID,
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 				"proposalWindowSize", s.proposalWindowSize,
+				"error", ErrProposalOutOfAllowedRange,
 			)
 			return ErrProposalOutOfAllowedRange
 		}
