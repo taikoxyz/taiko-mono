@@ -11,9 +11,13 @@ pub const DERIVATION_SOURCE_MAX_BLOCKS: usize = 192;
 
 /// The maximum anchor block number offset from the proposal origin block number.
 pub const MAX_ANCHOR_OFFSET: u64 = 128;
+/// The maximum anchor block number offset from the proposal origin block number on mainnet.
+pub const MAX_ANCHOR_OFFSET_MAINNET: u64 = 512;
 
 /// The maximum timestamp offset from the proposal origin timestamp.
 pub const TIMESTAMP_MAX_OFFSET: u64 = 12 * 128;
+/// The maximum timestamp offset from the proposal origin timestamp on mainnet.
+pub const TIMESTAMP_MAX_OFFSET_MAINNET: u64 = 12 * 512;
 
 /// The minimum block gas limit.
 pub const MIN_BLOCK_GAS_LIMIT: u64 = 10_000_000;
@@ -60,6 +64,20 @@ pub const TAIKO_HOODI_CHAIN_ID: u64 = 167_013;
 /// Chain ID for Taiko mainnet.
 pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
 
+/// Returns the maximum anchor block offset for a Taiko chain.
+pub const fn max_anchor_offset_for_chain(chain_id: u64) -> u64 {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID { MAX_ANCHOR_OFFSET_MAINNET } else { MAX_ANCHOR_OFFSET }
+}
+
+/// Returns the maximum timestamp offset for a Taiko chain.
+pub const fn timestamp_max_offset_for_chain(chain_id: u64) -> u64 {
+    if chain_id == TAIKO_MAINNET_CHAIN_ID {
+        TIMESTAMP_MAX_OFFSET_MAINNET
+    } else {
+        TIMESTAMP_MAX_OFFSET
+    }
+}
+
 /// Returns the EIP-4396 minimum base-fee clamp for a Taiko chain.
 ///
 /// Taiko mainnet uses a distinct clamp value; all other supported chains use the default.
@@ -86,5 +104,25 @@ pub fn shasta_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
     match condition {
         ForkCondition::Timestamp(timestamp) => Ok(timestamp),
         _ => Err(ShastaForkConfigError::UnsupportedActivation),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
+        TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain,
+        timestamp_max_offset_for_chain,
+    };
+
+    #[test]
+    fn offsets_are_chain_aware() {
+        assert_eq!(max_anchor_offset_for_chain(TAIKO_HOODI_CHAIN_ID), MAX_ANCHOR_OFFSET);
+        assert_eq!(max_anchor_offset_for_chain(TAIKO_MAINNET_CHAIN_ID), MAX_ANCHOR_OFFSET_MAINNET);
+        assert_eq!(timestamp_max_offset_for_chain(TAIKO_HOODI_CHAIN_ID), TIMESTAMP_MAX_OFFSET);
+        assert_eq!(
+            timestamp_max_offset_for_chain(TAIKO_MAINNET_CHAIN_ID),
+            TIMESTAMP_MAX_OFFSET_MAINNET
+        );
     }
 }

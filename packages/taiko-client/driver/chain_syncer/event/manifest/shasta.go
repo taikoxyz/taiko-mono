@@ -242,7 +242,13 @@ func ValidateMetadata(
 		return false
 	}
 
-	if !validateMetadataTimestamp(sourcePayload, event, proposalTimestamp, rpc.ShastaClients.ForkTime) {
+	if !validateMetadataTimestamp(
+		sourcePayload,
+		event,
+		proposalTimestamp,
+		rpc.ShastaClients.ForkTime,
+		rpc.L2.ChainID,
+	) {
 		return false
 	}
 
@@ -252,6 +258,7 @@ func ValidateMetadata(
 		parentAnchorBlockNumber,
 		event,
 		isForcedInclusion,
+		rpc.L2.ChainID,
 	) {
 		return false
 	}
@@ -273,13 +280,14 @@ func validateMetadataTimestamp(
 	event *shastaBindings.ShastaInboxClientProposed,
 	proposalTimestamp uint64,
 	forkTime uint64,
+	chainID *big.Int,
 ) bool {
 	var (
 		parentTimestamp = sourcePayload.ParentBlock.Time()
 	)
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime, chainID)
 		if lowerBound > proposalTimestamp {
 			log.Info(
 				"Invalid timestamp bounds",
@@ -317,10 +325,12 @@ func validateMetadataTimestamp(
 // 3. fork_timestamp: Blocks must be after the Shasta fork activation
 //
 // Returns the maximum of all three values to ensure all constraints are satisfied.
-func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime uint64) uint64 {
+func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime uint64, chainID *big.Int) uint64 {
+	timestampMaxOffset := manifest.TimestampMaxOffsetByChainID(chainID)
+
 	lowerBound := max(parentTimestamp+1, forkTime)
-	if proposalTimestamp > manifest.TimestampMaxOffset {
-		lowerBound = max(lowerBound, proposalTimestamp-manifest.TimestampMaxOffset)
+	if proposalTimestamp > timestampMaxOffset {
+		lowerBound = max(lowerBound, proposalTimestamp-timestampMaxOffset)
 	}
 
 	return lowerBound
@@ -333,10 +343,12 @@ func validateAnchorBlockNumber(
 	parentAnchorBlockNumber uint64,
 	event *shastaBindings.ShastaInboxClientProposed,
 	isForcedInclusion bool,
+	chainID *big.Int,
 ) bool {
 	var (
 		originalParentAnchorNumber = parentAnchorBlockNumber
 		highestAnchorNumber        = parentAnchorBlockNumber
+		anchorMaxOffset            = manifest.AnchorMaxOffsetByChainID(chainID)
 	)
 	for i := range sourcePayload.BlockPayloads {
 		anchorBlockNumber := sourcePayload.BlockPayloads[i].AnchorBlockNumber
@@ -363,14 +375,14 @@ func validateAnchorBlockNumber(
 			return false
 		}
 
-		if originBlockNumber > manifest.AnchorMaxOffset &&
-			anchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
+		if originBlockNumber > anchorMaxOffset &&
+			anchorBlockNumber < originBlockNumber-anchorMaxOffset {
 			log.Info(
 				"Invalid anchor block number: excessive lag",
 				"proposal", event.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", anchorBlockNumber,
-				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
+				"minRequired", originBlockNumber-anchorMaxOffset,
 			)
 			return false
 		}
@@ -450,6 +462,7 @@ func ApplyInheritedMetadata(
 	timestamp uint64,
 	anchorBlockNumber uint64,
 	forkTime uint64,
+	chainID *big.Int,
 ) {
 	var (
 		parentTimestamp = sourcePayload.ParentBlock.Time()
@@ -460,7 +473,7 @@ func ApplyInheritedMetadata(
 	}
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, forkTime)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, forkTime, chainID)
 
 		sourcePayload.BlockPayloads[i].Timestamp = lowerBound
 		sourcePayload.BlockPayloads[i].Coinbase = event.Proposer
