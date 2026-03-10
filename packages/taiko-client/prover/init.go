@@ -246,7 +246,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 		proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
 		zkVerifiers[producer.ProofTypeZKSP1] = sp1VerifierAddress
 	}
-	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
+	if len(p.cfg.RaikoZKVMHostEndpointPacaya) != 0 && len(zkVerifiers) > 0 {
 		zkvmProducer = &producer.ComposeProofProducer{
 			Verifiers:           zkVerifiers,
 			SgxGethProducer:     sgxGethProducer,
