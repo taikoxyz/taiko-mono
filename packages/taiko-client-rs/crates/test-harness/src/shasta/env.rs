@@ -4,7 +4,7 @@ use crate::init_tracing;
 use alloy::transports::http::reqwest::Url as RpcUrl;
 use alloy_primitives::{Address, B256};
 use alloy_provider::RootProvider;
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use rpc::{
     SubscriptionSource,
     client::{Client, ClientConfig, connect_provider_with_timeout},
@@ -63,22 +63,10 @@ impl fmt::Debug for ShastaEnv {
 
 impl ShastaEnv {
     fn load_l1_source() -> Result<SubscriptionSource> {
-        let l1_http = env::var("L1_HTTP").ok();
-        let l1_ws = env::var("L1_WS").ok();
-
-        match (l1_http, l1_ws) {
-            (Some(l1_http), None) => {
-                let l1_http_url =
-                    RpcUrl::parse(l1_http.as_str()).context("invalid L1_HTTP endpoint")?;
-                Ok(SubscriptionSource::Http(l1_http_url))
-            }
-            (None, Some(l1_ws)) => {
-                let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
-                Ok(SubscriptionSource::Ws(l1_ws_url))
-            }
-            (Some(_), Some(_)) => bail!("configure exactly one of L1_HTTP or L1_WS"),
-            (None, None) => bail!("L1_HTTP or L1_WS env var is required"),
-        }
+        let l1_ws =
+            env::var("HARNESS_L1_WS").context("HARNESS_L1_WS env var is required")?;
+        let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid HARNESS_L1_WS endpoint")?;
+        Ok(SubscriptionSource::Ws(l1_ws_url))
     }
 
     fn load_l2_secondary_endpoints() -> Result<(RpcUrl, RpcUrl)> {
@@ -264,24 +252,9 @@ mod tests {
     }
 
     #[test]
-    fn l1_source_accepts_http_endpoint() {
+    fn l1_source_uses_harness_ws() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _http = EnvGuard::set("L1_HTTP", "http://localhost:18545");
-        let _ws = EnvGuard::unset("L1_WS");
-
-        let result = ShastaEnv::load_l1_source();
-
-        assert!(result.is_ok());
-        let source = result.unwrap();
-        assert!(matches!(source, SubscriptionSource::Http(_)));
-        assert_eq!(source.url().as_str(), "http://localhost:18545/");
-    }
-
-    #[test]
-    fn l1_source_accepts_ws_endpoint() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _ws = EnvGuard::set("L1_WS", "ws://localhost:18545");
-        let _http = EnvGuard::unset("L1_HTTP");
+        let _ws = EnvGuard::set("HARNESS_L1_WS", "ws://localhost:18545");
 
         let result = ShastaEnv::load_l1_source();
 
@@ -292,28 +265,24 @@ mod tests {
     }
 
     #[test]
-    fn l1_source_rejects_both_endpoints() {
+    fn l1_source_rejects_missing_ws() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _http = EnvGuard::set("L1_HTTP", "http://localhost:18545");
-        let _ws = EnvGuard::set("L1_WS", "ws://localhost:18545");
+        let _ws = EnvGuard::unset("HARNESS_L1_WS");
 
         let result = ShastaEnv::load_l1_source();
 
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().to_string().contains("configure exactly one of L1_HTTP or L1_WS")
-        );
     }
 
     #[test]
-    fn l1_source_rejects_missing_endpoints() {
+    fn l1_http_source_can_be_constructed_from_harness_env() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _http = EnvGuard::unset("L1_HTTP");
-        let _ws = EnvGuard::unset("L1_WS");
+        let _http = EnvGuard::set("HARNESS_L1_HTTP", "http://localhost:18545");
 
-        let result = ShastaEnv::load_l1_source();
+        let url = env::var("HARNESS_L1_HTTP").unwrap();
+        let source: SubscriptionSource = url.as_str().try_into().unwrap();
 
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("L1_HTTP or L1_WS env var is required"));
+        assert!(matches!(source, SubscriptionSource::Http(_)));
+        assert_eq!(source.url().as_str(), "http://localhost:18545/");
     }
 }

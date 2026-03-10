@@ -8,6 +8,7 @@ export PROTOCOL_DIR
 echo "Starting docker compose services..."
 
 export HARNESS_L1_HTTP=${HARNESS_L1_HTTP:-http://localhost:18545}
+export HARNESS_L1_WS=${HARNESS_L1_WS:-ws://localhost:18545}
 export L2_HTTP_0=http://localhost:28545
 export L2_WS_0=ws://localhost:28546
 export L2_AUTH_0=http://localhost:28551
@@ -82,10 +83,6 @@ export L2_GENESIS_HASH=$(
 echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"
 
 $DIR/deploy.sh
-
-# The test process should see exactly one L1 endpoint to match the client CLI rules.
-export L1_HTTP="$HARNESS_L1_HTTP"
-unset L1_WS
 
 # Export deployed contract addresses and other env vars for tests.
 DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
