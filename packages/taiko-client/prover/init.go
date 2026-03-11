@@ -218,7 +218,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	}
 	sgxGethProducer := &producer.SgxGethProofProducer{
 		Verifier:            sgxGethVerifierAddress,
-		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+		RaikoHostEndpoint:   p.cfg.RaikoHostEndpointPacaya,
 		ApiKey:              p.cfg.RaikoApiKey,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		Dummy:               p.cfg.Dummy,
@@ -246,11 +246,11 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 		proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
 		zkVerifiers[producer.ProofTypeZKSP1] = sp1VerifierAddress
 	}
-	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 && len(zkVerifiers) > 0 {
+	if len(p.cfg.RaikoZKVMHostEndpointPacaya) != 0 && len(zkVerifiers) > 0 {
 		zkvmProducer = &producer.ComposeProofProducer{
 			Verifiers:           zkVerifiers,
 			SgxGethProducer:     sgxGethProducer,
-			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpointPacaya,
 			ApiKey:              p.cfg.RaikoApiKey,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			ProofType:           producer.ProofTypeZKAny,
@@ -322,7 +322,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 		return producer.ProofTypeSgx, &producer.ComposeProofProducer{
 			SgxGethProducer:     sgxGethProducer,
 			Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeSgx: sgxVerifierAddress},
-			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+			RaikoHostEndpoint:   p.cfg.RaikoHostEndpointPacaya,
 			ProofType:           producer.ProofTypeSgx,
 			ApiKey:              p.cfg.RaikoApiKey,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
@@ -340,7 +340,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 			return producer.ProofTypeOp, &producer.ComposeProofProducer{
 				SgxGethProducer:     sgxGethProducer,
 				Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeOp: opVerifierAddress},
-				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
+				RaikoHostEndpoint:   p.cfg.RaikoHostEndpointPacaya,
 				ProofType:           producer.ProofTypeOp,
 				ApiKey:              p.cfg.RaikoApiKey,
 				Dummy:               true,
