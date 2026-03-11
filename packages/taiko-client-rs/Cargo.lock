@@ -288,7 +288,9 @@ dependencies = [
  "alloy-core",
  "alloy-eips",
  "alloy-genesis",
+ "alloy-json-rpc",
  "alloy-network",
+ "alloy-node-bindings",
  "alloy-provider",
  "alloy-pubsub",
  "alloy-rpc-client",
@@ -298,8 +300,6 @@ dependencies = [
  "alloy-signer-local",
  "alloy-transport",
  "alloy-transport-http",
- "alloy-transport-ipc",
- "alloy-transport-ws",
  "alloy-trie",
 ]
 
@@ -636,9 +636,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-node-bindings"
-version = "1.4.3"
+version = "1.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "287de64d2236ca3f36b5eb03a39903f62a74848ae78a6ec9d0255eebb714f077"
+checksum = "091dc8117d84de3a9ac7ec97f2c4d83987e24d485b478d26aa1ec455d7d52f7d"
 dependencies = [
  "alloy-genesis",
  "alloy-hardforks 0.2.13",
@@ -710,6 +710,7 @@ dependencies = [
  "alloy-json-rpc",
  "alloy-network",
  "alloy-network-primitives",
+ "alloy-node-bindings",
  "alloy-primitives",
  "alloy-pubsub",
  "alloy-rpc-client",
@@ -717,7 +718,6 @@ dependencies = [
  "alloy-rpc-types-debug",
  "alloy-rpc-types-eth",
  "alloy-rpc-types-trace",
- "alloy-rpc-types-txpool",
  "alloy-signer",
  "alloy-sol-types",
  "alloy-transport",
@@ -821,12 +821,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7bdcbf9dfd5eea8bfeb078b1d906da8cd3a39c4d4dbe7a628025648e323611f6"
 dependencies = [
  "alloy-primitives",
- "alloy-rpc-types-anvil",
- "alloy-rpc-types-debug",
  "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
- "alloy-rpc-types-trace",
- "alloy-rpc-types-txpool",
  "alloy-serde",
  "serde",
 ]
@@ -3735,20 +3731,16 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a379baea9e6bccfcf5eaae8b52d2b66b87dcd807ad30a3bcd00cfb895d8321b"
+checksum = "d39e57acc785ab3a610f59942684fc790725d6e4b20d7460db34e899dbe93f77"
 dependencies = [
  "alloy",
- "alloy-node-bindings",
- "anyhow",
  "futures",
  "robust-provider",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
- "tokio-util",
- "tracing",
 ]
 
 [[package]]
@@ -7759,6 +7751,7 @@ dependencies = [
  "flate2",
  "k256",
  "rand 0.8.5",
+ "robust-provider",
  "serde",
  "thiserror 2.0.17",
  "tokio",
@@ -11530,20 +11523,17 @@ dependencies = [
 
 [[package]]
 name = "robust-provider"
-version = "0.2.0"
+version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9154764a69ea2fd9b5511346a75d63820371a0207fbef148e934aa5ec7d05d72"
+checksum = "51b0a08304216d2f44a24a35dbefe4dc7ceb84713818bcd3562bdb20233643f1"
 dependencies = [
  "alloy",
- "alloy-node-bindings",
- "anyhow",
  "backon",
- "futures",
+ "serde_json",
  "thiserror 2.0.17",
  "tokio",
  "tokio-stream",
  "tokio-util",
- "tracing",
 ]
 
 [[package]]

@@ -62,6 +62,12 @@ impl fmt::Debug for ShastaEnv {
 }
 
 impl ShastaEnv {
+    fn load_l1_source() -> Result<SubscriptionSource> {
+        let l1_ws = env::var("HARNESS_L1_WS").context("HARNESS_L1_WS env var is required")?;
+        let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid HARNESS_L1_WS endpoint")?;
+        Ok(SubscriptionSource::Ws(l1_ws_url))
+    }
+
     fn load_l2_secondary_endpoints() -> Result<(RpcUrl, RpcUrl)> {
         let l2_ws_1 = env::var("L2_WS_1").context("L2_WS_1 env var is required")?;
         let l2_auth_1 = env::var("L2_AUTH_1").context("L2_AUTH_1 env var is required")?;
@@ -81,7 +87,7 @@ impl ShastaEnv {
         init_tracing("info");
 
         // Read all required endpoints, secrets, and addresses from the harness environment.
-        let l1_ws = env::var("L1_WS").context("L1_WS env var is required")?;
+        let l1_source = Self::load_l1_source()?;
         let l2_ws_0 = env::var("L2_WS_0").context("L2_WS_0 env var is required")?;
         let l2_auth_0 = env::var("L2_AUTH_0").context("L2_AUTH_0 env var is required")?;
         let jwt_secret = env::var("JWT_SECRET").context("JWT_SECRET env var is required")?;
@@ -93,8 +99,6 @@ impl ShastaEnv {
         let anchor = env::var("TAIKO_ANCHOR").context("TAIKO_ANCHOR env var is required")?;
 
         // Parse raw strings into URLs, paths, and addresses.
-        let l1_ws_url = RpcUrl::parse(l1_ws.as_str()).context("invalid L1_WS endpoint")?;
-        let l1_source = SubscriptionSource::Ws(l1_ws_url.clone());
         let l2_ws_0_url = RpcUrl::parse(l2_ws_0.as_str()).context("invalid L2_WS_0 endpoint")?;
         let l2_auth_0_url =
             RpcUrl::parse(l2_auth_0.as_str()).context("invalid L2_AUTH_0 endpoint")?;
@@ -134,7 +138,7 @@ impl ShastaEnv {
         reset_head_l1_origin(&secondary_client).await?;
 
         // Take a fresh snapshot and activate preconf whitelist before tests run.
-        let cleanup_provider = connect_provider_with_timeout(l1_ws_url.clone()).await?;
+        let cleanup_provider = connect_provider_with_timeout(l1_source.url().clone()).await?;
         let snapshot_id = create_snapshot("setup", &cleanup_provider).await?;
         ensure_preconf_whitelist_active(&client).await?;
 
@@ -179,7 +183,7 @@ impl AsyncTestContext for ShastaEnv {
 
 #[cfg(test)]
 mod tests {
-    use super::ShastaEnv;
+    use super::{ShastaEnv, SubscriptionSource};
     use once_cell::sync::Lazy;
     use std::{env, sync::Mutex};
 
@@ -193,16 +197,25 @@ mod tests {
     impl EnvGuard {
         fn set(key: &'static str, value: &str) -> Self {
             let previous = env::var(key).ok();
-            // SAFETY: tests are serialized with ENV_LOCK and this only mutates
-            // test-scoped environment variables.
+            // SAFETY: ENV_LOCK serializes all process-environment mutations in this module, and
+            // these tests do not read or write the guarded variables outside the lock scope.
             unsafe { env::set_var(key, value) };
+            Self { key, previous }
+        }
+
+        fn unset(key: &'static str) -> Self {
+            let previous = env::var(key).ok();
+            // SAFETY: ENV_LOCK serializes all process-environment mutations in this module, and
+            // these tests do not read or write the guarded variables outside the lock scope.
+            unsafe { env::remove_var(key) };
             Self { key, previous }
         }
     }
 
     impl Drop for EnvGuard {
         fn drop(&mut self) {
-            // SAFETY: tests are serialized with ENV_LOCK.
+            // SAFETY: ENV_LOCK serializes all process-environment mutations in this module, and
+            // these tests do not read or write the guarded variables outside the lock scope.
             unsafe {
                 match &self.previous {
                     Some(value) => env::set_var(self.key, value),
@@ -229,13 +242,46 @@ mod tests {
     #[test]
     fn secondary_l2_endpoints_fail_when_unset() {
         let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        unsafe {
-            env::remove_var("L2_WS_1");
-            env::remove_var("L2_AUTH_1");
-        }
+        let _ws = EnvGuard::unset("L2_WS_1");
+        let _auth = EnvGuard::unset("L2_AUTH_1");
 
         let result = ShastaEnv::load_l2_secondary_endpoints();
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn l1_source_uses_harness_ws() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _ws = EnvGuard::set("HARNESS_L1_WS", "ws://localhost:18545");
+
+        let result = ShastaEnv::load_l1_source();
+
+        assert!(result.is_ok());
+        let source = result.unwrap();
+        assert!(matches!(source, SubscriptionSource::Ws(_)));
+        assert_eq!(source.url().as_str(), "ws://localhost:18545/");
+    }
+
+    #[test]
+    fn l1_source_rejects_missing_ws() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _ws = EnvGuard::unset("HARNESS_L1_WS");
+
+        let result = ShastaEnv::load_l1_source();
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn l1_http_source_can_be_constructed_from_harness_env() {
+        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
+        let _http = EnvGuard::set("HARNESS_L1_HTTP", "http://localhost:18545");
+
+        let url = env::var("HARNESS_L1_HTTP").unwrap();
+        let source: SubscriptionSource = url.as_str().try_into().unwrap();
+
+        assert!(matches!(source, SubscriptionSource::Http(_)));
+        assert_eq!(source.url().as_str(), "http://localhost:18545/");
     }
 }
