@@ -70,6 +70,7 @@ impl From<SubscriptionSourceError> for RpcClientError {
         match err {
             SubscriptionSourceError::Connection(msg) => RpcClientError::Connection(msg),
             SubscriptionSourceError::Wallet(msg) => RpcClientError::Other(anyhow!(msg)),
+            other => RpcClientError::Other(anyhow!(other)),
         }
     }
 }

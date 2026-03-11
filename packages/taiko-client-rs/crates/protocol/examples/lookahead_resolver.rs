@@ -1,7 +1,11 @@
 //! Minimal demo: start `LookaheadResolver` with the built-in event scanner (three-epoch backfill)
 //! and query a committer.
 //!
-//! Run with a WebSocket L1 endpoint and Inbox address:
+//! Run with either an HTTP or WebSocket L1 endpoint and Inbox address:
+//! `cargo run -p protocol --example lookahead_resolver -- \
+//!     --http https://l1.example/rpc \
+//!     --inbox 0x0000000000000000000000000000000000000000`
+//! or
 //! `cargo run -p protocol --example lookahead_resolver -- \
 //!     --ws wss://l1.example/ws \
 //!     --inbox 0x0000000000000000000000000000000000000000`
@@ -21,13 +25,13 @@ use protocol::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let ws = arg("--ws").context("--ws wss://... is required")?;
+    let source = source_arg()?;
     let inbox = arg("--inbox")
         .context("--inbox <address> is required")?
         .parse::<Address>()
         .context("invalid inbox address")?;
 
-    let source: SubscriptionSource = ws.as_str().try_into().map_err(|e: String| anyhow!(e))?;
+    let source: SubscriptionSource = source.as_str().try_into()?;
 
     // Build resolver and start background scanner; hold the handle so the scanner keeps running
     // for the lifetime of the example (it aborts on drop).
@@ -84,4 +88,14 @@ fn arg(flag: &str) -> Option<String> {
         }
     }
     None
+}
+
+// Resolve a single L1 endpoint argument for the example.
+fn source_arg() -> Result<String> {
+    match (arg("--http"), arg("--ws")) {
+        (Some(http), None) => Ok(http),
+        (None, Some(ws)) => Ok(ws),
+        (Some(_), Some(_)) => Err(anyhow!("use either --http or --ws, not both")),
+        (None, None) => Err(anyhow!("--http https://... or --ws wss://... is required")),
+    }
 }
