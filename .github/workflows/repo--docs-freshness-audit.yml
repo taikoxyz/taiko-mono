@@ -82,7 +82,7 @@ jobs:
 
           while IFS= read -r file; do
             case "$file" in
-              AGENTS.md|CLAUDE.md|README.md|*/AGENTS.md|*/CLAUDE.md|*/README.md|docs/*|*/docs/*)
+              AGENTS.md|CLAUDE.md|README.md|*/AGENTS.md|*/CLAUDE.md|*/README.md|*/docs/*)
                 ;;
               *)
                 echo "Unexpected non-doc change detected: $file"
