@@ -1,6 +1,16 @@
 name: Hoodi USDC Faucet UI Build and Checks
 
-on: workflow_call
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/usdc-faucet-ui/**"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
