@@ -6,6 +6,26 @@ import { console2 } from "forge-std/src/console2.sol";
 
 import { ICircleFiatToken, ICircleFiatTokenProxy } from "src/shared/thirdparty/ICircleFiatToken.sol";
 
+/// @title CircleProxyAdminBootstrapper
+/// @notice Temporarily owns a Circle proxy admin slot during initialization handoff.
+/// @custom:security-contact security@taiko.xyz
+contract CircleProxyAdminBootstrapper {
+    address private immutable OWNER;
+
+    /// @dev Sets the caller allowed to release proxy admin ownership.
+    constructor(address _owner) {
+        OWNER = _owner;
+    }
+
+    /// @notice Releases proxy admin ownership to the final admin.
+    /// @param _proxy The Circle proxy whose admin should be transferred.
+    /// @param _newAdmin The final proxy admin.
+    function release(address _proxy, address _newAdmin) external {
+        require(msg.sender == OWNER, "CIRCLE_BOOTSTRAP_NOT_OWNER");
+        ICircleFiatTokenProxy(_proxy).changeAdmin(_newAdmin);
+    }
+}
+
 /// @title CircleArtifactDeployer
 /// @notice Deploys the vendored Circle contracts from the dedicated `out/circle` artifacts.
 /// @custom:security-contact security@taiko.xyz
@@ -23,8 +43,7 @@ abstract contract CircleArtifactDeployer is Script {
 
     bytes32 internal constant PROXY_IMPLEMENTATION_SLOT =
         keccak256("org.zeppelinos.proxy.implementation");
-    bytes32 internal constant PROXY_ADMIN_SLOT =
-        keccak256("org.zeppelinos.proxy.admin");
+    bytes32 internal constant PROXY_ADMIN_SLOT = keccak256("org.zeppelinos.proxy.admin");
 
     uint256 private _circleDeployNonce;
     address internal _lastSignatureCheckerLibrary;
@@ -43,7 +62,11 @@ abstract contract CircleArtifactDeployer is Script {
     }
 
     /// @dev Builds an absolute artifact path from the repo root.
-    function _artifactPath(string memory _relativePath) internal view returns (string memory path_) {
+    function _artifactPath(string memory _relativePath)
+        internal
+        view
+        returns (string memory path_)
+    {
         path_ = string.concat(vm.projectRoot(), _relativePath);
     }
 
@@ -66,7 +89,8 @@ abstract contract CircleArtifactDeployer is Script {
 
     /// @dev Deploys arbitrary creation code with CREATE2 to avoid nonce coupling across tests.
     function _deployCreationCode(bytes memory _code) internal returns (address deployed_) {
-        bytes32 salt = keccak256(abi.encodePacked(block.chainid, _circleDeployNonce++, keccak256(_code)));
+        bytes32 salt =
+            keccak256(abi.encodePacked(block.chainid, _circleDeployNonce++, keccak256(_code)));
         assembly {
             deployed_ := create2(0, add(_code, 0x20), mload(_code), salt)
         }
@@ -80,7 +104,11 @@ abstract contract CircleArtifactDeployer is Script {
         console2.log("Circle SignatureChecker library:", signatureChecker);
         impl_ = _deployCreationCode(
             _hexStringToBytes(
-                _linkLibrary(_rawCreationCode(FIAT_TOKEN_IMPL_ARTIFACT), SIGNATURE_CHECKER_PLACEHOLDER, signatureChecker)
+                _linkLibrary(
+                    _rawCreationCode(FIAT_TOKEN_IMPL_ARTIFACT),
+                    SIGNATURE_CHECKER_PLACEHOLDER,
+                    signatureChecker
+                )
             )
         );
 
@@ -88,7 +116,10 @@ abstract contract CircleArtifactDeployer is Script {
     }
 
     /// @dev Deploys and initializes a FiatToken proxy against an existing implementation.
-    function _deployFiatTokenProxy(address _implementation, FiatTokenDeploymentConfig memory _config)
+    function _deployFiatTokenProxy(
+        address _implementation,
+        FiatTokenDeploymentConfig memory _config
+    )
         internal
         returns (address proxy_)
     {
@@ -96,9 +127,18 @@ abstract contract CircleArtifactDeployer is Script {
             abi.encodePacked(_fiatTokenProxyCreationCode(), abi.encode(_implementation))
         );
 
-        // The proxy constructor sets msg.sender as admin. Move that role away before
+        address initialAdmin = _proxyAdmin(proxy_);
+        address bootstrapAdmin = _config.proxyAdmin;
+
+        // Circle blocks proxy admins from reaching fallback, so if the current admin is also the
+        // intended final admin we first hand admin rights to a temporary helper.
+        if (_config.proxyAdmin == initialAdmin) {
+            bootstrapAdmin = address(new CircleProxyAdminBootstrapper(initialAdmin));
+        }
+
+        // The proxy constructor sets the initial admin directly. Move that role away before
         // calling initialize through the proxy, otherwise fallback delegation is blocked.
-        ICircleFiatTokenProxy(proxy_).changeAdmin(_config.proxyAdmin);
+        ICircleFiatTokenProxy(proxy_).changeAdmin(bootstrapAdmin);
 
         ICircleFiatToken fiatToken = ICircleFiatToken(proxy_);
         fiatToken.initialize(
@@ -114,6 +154,10 @@ abstract contract CircleArtifactDeployer is Script {
         fiatToken.initializeV2(_config.tokenName);
         fiatToken.initializeV2_1(_config.owner);
         fiatToken.initializeV2_2(new address[](0), _config.tokenSymbol);
+
+        if (bootstrapAdmin != _config.proxyAdmin) {
+            CircleProxyAdminBootstrapper(bootstrapAdmin).release(proxy_, _config.proxyAdmin);
+        }
 
         console2.log("Circle FiatTokenProxy:", proxy_);
     }

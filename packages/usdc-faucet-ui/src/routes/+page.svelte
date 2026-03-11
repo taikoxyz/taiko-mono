@@ -34,6 +34,7 @@
   let statusMessage = '';
   let lastClaimHash: Hex | null = null;
   let nowMs = Date.now();
+  let refreshSequence = 0;
 
   $: claimAmountDisplay =
     claimAmount === null ? '' : `${formatTokenAmount(claimAmount, tokenDecimals, 2)} ${tokenSymbol}`;
@@ -124,6 +125,8 @@
   }
 
   async function refreshState(account: GetAccountReturnType) {
+    const refreshId = ++refreshSequence;
+
     connected = account.isConnected;
     currentChainId = account.chainId ?? null;
     accountAddress = account.address ?? null;
@@ -153,6 +156,8 @@
         }),
       ]);
 
+      if (refreshId !== refreshSequence) return;
+
       tokenAddress = resolvedTokenAddress;
       claimAmount = resolvedClaimAmount;
 
@@ -174,6 +179,8 @@
         }),
       ]);
 
+      if (refreshId !== refreshSequence) return;
+
       tokenName = resolvedName;
       tokenSymbol = resolvedSymbol;
       tokenDecimals = resolvedDecimals;
@@ -194,12 +201,16 @@
           }),
         ]);
 
+        if (refreshId !== refreshSequence) return;
+
         walletBalance = resolvedBalance;
         nextClaimAtMs = Number(resolvedNextClaimAt) * 1000;
       }
     } catch (error) {
+      if (refreshId !== refreshSequence) return;
       errorMessage = normalizeError(error);
     } finally {
+      if (refreshId !== refreshSequence) return;
       isRefreshing = false;
     }
   }

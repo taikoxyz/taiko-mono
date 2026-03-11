@@ -37,4 +37,22 @@ contract TestCircleFiatToken is Test, CircleArtifactTestBase {
         assertEq(token.totalSupply(), amount);
         assertEq(token.minterAllowance(address(this)), allowanceBefore - amount);
     }
+
+    function test_deploy_fiat_token_succeeds_when_final_proxy_admin_matches_current_admin()
+        public
+    {
+        FiatTokenDeploymentConfig memory config = _testUSDCConfig();
+        config.proxyAdmin = address(this);
+
+        (address impl, address proxy) = _deployFiatToken(config);
+        ICircleFiatToken token = ICircleFiatToken(proxy);
+
+        assertEq(_proxyImplementation(proxy), impl);
+        assertEq(_proxyAdmin(proxy), address(this));
+        vm.startPrank(address(0xBEEF));
+        assertEq(token.name(), "USD Coin");
+        assertEq(token.symbol(), "USDC");
+        assertEq(token.decimals(), 6);
+        vm.stopPrank();
+    }
 }

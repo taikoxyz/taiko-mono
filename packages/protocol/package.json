@@ -22,7 +22,7 @@
     "layout:l2": "./script/gen-layouts.sh layer2",
     "test:deploy:l1": "./script/layer1/core/deploy_protocol_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
-    "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
+    "fmt:sol": "forge fmt contracts/layer1 contracts/layer2 contracts/shared script test && pnpm solhint 'contracts/layer1/**/*.sol' 'contracts/layer2/**/*.sol' 'contracts/shared/**/*.sol'",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --ignore-errors inconsistent --ignore-errors unused --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category --ignore-errors inconsistent --ignore-errors corrupt && open coverage/index.html",
     "deploy:hoodi:usdc:l1": "FOUNDRY_PROFILE=layer1 forge script script/layer1/hoodi/DeployHoodiL1USDC.s.sol:DeployHoodiL1USDC",
     "validate:hoodi:usdc:l1": "FOUNDRY_PROFILE=layer1 forge script script/layer1/hoodi/ValidateHoodiL1USDC.s.sol:ValidateHoodiL1USDC",
