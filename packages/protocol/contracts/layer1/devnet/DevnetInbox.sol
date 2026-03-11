@@ -18,7 +18,7 @@ contract DevnetInbox is TaikoInbox {
         address _bondToken,
         address _signalService
     )
-        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, 1_770_987_600)
+        TaikoInbox(_wrapper, _verifier, _bondToken, _signalService, 1_773_320_400)
     {
         chainId = _chainId;
         cooldownWindow = _cooldownWindow;

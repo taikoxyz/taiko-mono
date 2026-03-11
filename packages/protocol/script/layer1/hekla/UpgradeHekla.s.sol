@@ -8,7 +8,7 @@ import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/hekla/HeklaInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
-import {DevnetInbox} from "../../../contracts/layer1/devnet/DevnetInbox.sol";
+import { DevnetInbox } from "../../../contracts/layer1/devnet/DevnetInbox.sol";
 
 contract UpgradeHekla is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -21,27 +21,44 @@ contract UpgradeHekla is DeployCapability {
     }
 
     function run() external broadcast {
-        address taikoWrapper = 0xf90baFa5FCaC7645702EF912a5fd61828f5F71ba;
-        address taikoInbox = 0x07700C3bC1B0EE3D311E7D642d364242fd537906;
-        address proofVerifier = 0x2938b19a0F58717eA35dD337b05E21fa9Bf447E5;
+        address taikoWrapper = 0x51273f9117eCeAFBaC891A880587fBe859654aCe;
+        address taikoInbox = 0x079fd827004C7c06617EB32d5a55CC3e6d85e8DD;
+        address proofVerifier = 0x9AaBba3Ae6D4aC3F5487608Da81006454e7933d3;
         address taikoToken = 0xE6F90f363274d9Ea157EBe275A7669f6BA1Ec597;
-        address signalService = 0xa02fB62CF77196D113c2EbC5D6e5316d7D1A7d63;
+        address signalService = 0xAfaC833a3Ba21cbEE2C52023c7Fa0dc3FaC7F2e1;
 
-//        UUPSUpgradeable(taikoWrapper).upgradeTo(
-//            address(new TaikoWrapper(taikoInbox, store, preconfRouter))
-//        );
-//        UUPSUpgradeable(preconfRouter).upgradeTo(
-//            address(
-//                new PreconfRouter(
-//                    taikoWrapper, preconfWhitelist, fallbackPreconfProposer, type(uint64).max
-//                )
-//            )
-//        );
-//        UUPSUpgradeable(preconfWhitelist).upgradeTo(address(new PreconfWhitelist()));
+        //        UUPSUpgradeable(taikoWrapper).upgradeTo(
+        //            address(new TaikoWrapper(taikoInbox, store, preconfRouter))
+        //        );
+        //        UUPSUpgradeable(preconfRouter).upgradeTo(
+        //            address(
+        //                new PreconfRouter(
+        //                    taikoWrapper, preconfWhitelist, fallbackPreconfProposer,
+        // type(uint64).max )
+        //            )
+        //        );
+        //        UUPSUpgradeable(preconfWhitelist).upgradeTo(address(new PreconfWhitelist()));
 
-        address newFork =
-            address(new DevnetInbox(167014, 2 hours, taikoWrapper, proofVerifier, taikoToken, signalService));
-//        address newRouter = address(new PacayaForkRouter(oldFork, newFork));
+        UUPSUpgradeable(proofVerifier)
+            .upgradeTo({
+                newImplementation: address(
+                    new DevnetVerifier(
+                        taikoInbox,
+                        0x17d9Ae481d901DDC08728E0B25307dAea1f8DE9D,
+                        address(0),
+                        0xf92b97Ac8C1D8bfCFCB26CFb153a36aDb99471EF,
+                        0xCF5CA135AC33D6Fc3CE7752e5c7449f6cE4d0925,
+                        0xb179D4038DD6084c548EEf674DAC262F51264e5e
+                    )
+                )
+            });
+
+        address newFork = address(
+            new DevnetInbox(
+                167_014, 2 hours, taikoWrapper, proofVerifier, taikoToken, signalService
+            )
+        );
+        //        address newRouter = address(new PacayaForkRouter(oldFork, newFork));
         UUPSUpgradeable(taikoInbox).upgradeTo(newFork);
     }
 }
