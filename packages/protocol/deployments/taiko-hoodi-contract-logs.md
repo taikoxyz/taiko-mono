@@ -159,6 +159,24 @@
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
 
+### usdc_token
+
+- proxy: `TBD`
+- impl: `TBD`
+- proxyAdmin: `TBD`
+- masterMinter: `TBD`
+- owner: `TBD`
+- logs:
+  - pending deployment; populate from `deployments/hoodi-usdc-l1.json`
+
+### usdc_faucet
+
+- address: `TBD`
+- owner: `TBD`
+- claimAmount: `TBD`
+- logs:
+  - pending deployment; populate from `deployments/hoodi-usdc-l1.json`
+
 ### proof_verifier(Pacaya)
 
 - proxy : `0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59`
@@ -258,6 +276,17 @@
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - upgraded on Feb 4, 2026 at commit `a01f51c`
+
+### usdc_token
+
+- proxy: `TBD`
+- impl: `TBD`
+- proxyAdmin: `TBD`
+- masterMinter: `TBD`
+- owner: `TBD`
+- canonical L1 token: `TBD`
+- logs:
+  - pending deployment; populate from `deployments/hoodi-usdc-l2.json`
   - upgraded on Mar 2, 2026 at commit `a01f51c` 
 
 ### shared_resolver

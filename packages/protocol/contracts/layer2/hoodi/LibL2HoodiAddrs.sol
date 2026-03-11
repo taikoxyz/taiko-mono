@@ -8,4 +8,7 @@ library LibL2HoodiAddrs {
     address public constant HOODI_SIGNAL_SERVICE = 0x1670130000000000000000000000000000000005;
     address public constant HOODI_ANCHOR = 0x1670130000000000000000000000000000010001;
     address public constant HOODI_BRIDGE = 0x1670130000000000000000000000000000000001;
+    address public constant HOODI_ERC20_VAULT = 0x1670130000000000000000000000000000000002;
+    // This placeholder is updated once Hoodi USDC is deployed.
+    address public constant HOODI_USDC_TOKEN = address(0);
 }
