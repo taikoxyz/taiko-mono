@@ -25,11 +25,12 @@
 ### signal_service
 
 - proxy: `0x4c70b7F5E153D497faFa0476575903F9299ed811`
-- impl: `0xF3012Be33Cf09eFFD0fB976f79eE11048b11bbD1`
+- impl: `0x2D0DF6900fBe181bE5246268Aafd1ecb6c4C8B35`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Mar 4, 2026 at commit `a01f51c`
 
 ### bridge
 
@@ -101,6 +102,7 @@
   - updated on Feb 9, 2026 at commit `8051523`
 
 ### ShastaInbox
+
 - proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
 - impl: `0xaDeb8cF142991D2AE46e5Ab6BE3172979fE6D10F`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
@@ -199,6 +201,7 @@
 - impl : `0xD6b1EF918E6d31749424806b65D126C237774970`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
+
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
 
@@ -216,18 +219,20 @@
 ### bridge
 
 - proxy: `0x1670130000000000000000000000000000000001`
-- impl: `0x0167013000000000000000000000000000000001`
+- impl: `0x237506C97895771Ae3177dF31FC40D27c99fD382`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
+  - upgraded on Feb 27, 2026 at commit `a8a3a06`
 
 ### erc20_vault
 
 - proxy: `0x1670130000000000000000000000000000000002`
-- impl: `0x0167013000000000000000000000000000000002`
+- impl: `0x87b43DB6B631F51EE80D098F2c07b7CE5667e0D1`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
+  - updated on Feb 13, 2026 at commit `22ef025`
 
 ### erc721_vault
 
@@ -248,11 +253,12 @@
 ### signal_service
 
 - proxy: `0x1670130000000000000000000000000000000005`
-- impl: `0x771DBE57fED491dFF7b350dAe56025eD2271AFbf`
+- impl: `0x22efa1915629712320C60E90E44CD412F0Ee98FE`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Mar 2, 2026 at commit `a01f51c` 
 
 ### shared_resolver
 
@@ -265,12 +271,13 @@
 ### taiko_anchor
 
 - proxy: `0x1670130000000000000000000000000000010001`
-- impl: `0xdaf8A01b5030e967E20B4e7d1Ab976DA1a6e4cc6`
+- impl: `0x70A65dDf64960b9901Df488825c1CBFBc9AE9685`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - updated on Dec 19, 2025 at commit `7492388`
   - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Mar 2, 2026 at commit `a01f51c` 
 
 ### rollup_resolver
 

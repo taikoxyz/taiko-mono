@@ -19,14 +19,26 @@ type SubcommandApplication interface {
 	Close(context.Context)
 }
 
+// interruptWaiter can be implemented by apps that run as one-shot commands
+// and should return immediately after Start() succeeds.
+type interruptWaiter interface {
+	WaitForInterrupt() bool
+}
+
 func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		ctx, ctxClose := context.WithCancel(context.Background())
-		defer func() { ctxClose() }()
 
 		if err := app.InitFromCli(ctx, c); err != nil {
+			ctxClose()
 			return err
 		}
+
+		defer func() {
+			ctxClose()
+			app.Close(ctx)
+			slog.Info("Application stopped", "name", app.Name())
+		}()
 
 		_, startMetrics := metrics.Serve(ctx, c)
 
@@ -43,11 +55,9 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 			return err
 		}
 
-		defer func() {
-			ctxClose()
-			app.Close(ctx)
-			slog.Info("Application stopped", "name", app.Name())
-		}()
+		if waiter, ok := app.(interruptWaiter); ok && !waiter.WaitForInterrupt() {
+			return nil
+		}
 
 		quitCh := make(chan os.Signal, 1)
 		signal.Notify(quitCh, []os.Signal{

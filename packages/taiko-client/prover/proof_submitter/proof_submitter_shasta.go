@@ -23,6 +23,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
+var ErrProposalOutOfAllowedRange = errors.New("proposalID out of allowed proving range")
+
 // ProofSubmitterShasta is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterShasta struct {
@@ -46,6 +48,7 @@ type ProofSubmitterShasta struct {
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
+	proposalWindowSize        *big.Int
 }
 
 // NewProofSubmitterShasta creates a new Shasta ProofSubmitter instance.
@@ -63,6 +66,7 @@ func NewProofSubmitterShasta(
 	forceBatchProvingInterval time.Duration,
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
+	proposalWindowSize *big.Int,
 ) (*ProofSubmitterShasta, error) {
 	proofSubmitter := &ProofSubmitterShasta{
 		rpc:                    senderOpts.RPCClient,
@@ -85,6 +89,7 @@ func NewProofSubmitterShasta(
 		forceBatchProvingInterval: forceBatchProvingInterval,
 		proofCacheMaps:            proofCacheMaps,
 		flushCacheNotify:          flushCacheNotify,
+		proposalWindowSize:        proposalWindowSize,
 	}
 
 	proofSubmitter.startBackgroundWorkers(ctx)
@@ -144,7 +149,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	if err != nil {
 		return err
 	}
-	proposalID := meta.Shasta().GetEventData().Id
+	proposalID := meta.GetProposalID()
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
 			ProposalID:       proposalID,
@@ -177,14 +182,23 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		}
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
 		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
-		meta.GetProposalID()
-		if fromID.Cmp(meta.GetProposalID()) > 0 {
+		if fromID.Cmp(proposalID) > 0 {
 			log.Info(
 				"Shasta proposal already finalized, skip requesting proof",
-				"proposalID", meta.GetProposalID(),
+				"proposalID", proposalID,
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 			)
 			return nil
+		}
+		if s.isProposalOutOfRange(proposalID, lastFinalizedProposalID) {
+			log.Info(
+				"Proof request deferred: ErrProposalOutOfAllowedRange",
+				"proposalID", proposalID,
+				"lastFinalizedProposalID", lastFinalizedProposalID,
+				"proposalWindowSize", s.proposalWindowSize,
+				"error", ErrProposalOutOfAllowedRange,
+			)
+			return ErrProposalOutOfAllowedRange
 		}
 
 		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
@@ -234,7 +248,8 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	}, backoff.WithContext(backoff.NewConstantBackOff(s.proofPollingInterval), ctx)); err != nil {
 		if !errors.Is(err, proofProducer.ErrZkAnyNotDrawn) &&
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
-			!errors.Is(err, proofProducer.ErrRetry) {
+			!errors.Is(err, proofProducer.ErrRetry) &&
+			!errors.Is(err, ErrProposalOutOfAllowedRange) {
 			log.Error("Failed to request a Shasta proof", "batchID", meta.Shasta().GetEventData().Id, "error", err)
 		} else {
 			log.Debug("Expected Shasta proof generation error", "error", err, "batchID", meta.Shasta().GetEventData().Id)
@@ -243,6 +258,20 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	}
 
 	return nil
+}
+
+// isProposalOutOfRange checks whether proposalID is outside the configured proving window.
+// Valid range is [lastFinalizedProposalID + 1, lastFinalizedProposalID + proposalWindowSize].
+func (s *ProofSubmitterShasta) isProposalOutOfRange(
+	proposalID *big.Int,
+	lastFinalizedProposalID *big.Int,
+) bool {
+	if s.proposalWindowSize == nil || s.proposalWindowSize.Cmp(common.Big1) < 0 {
+		return false
+	}
+
+	maxAllowedProposalID := new(big.Int).Add(lastFinalizedProposalID, s.proposalWindowSize)
+	return proposalID.Cmp(maxAllowedProposalID) > 0 || proposalID.Cmp(lastFinalizedProposalID) <= 0
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.

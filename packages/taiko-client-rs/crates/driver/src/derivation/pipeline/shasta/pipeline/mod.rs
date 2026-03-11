@@ -106,6 +106,8 @@ where
     shasta_fork_timestamp: u64,
     /// Minimum base-fee clamp to use for EIP-4396 calculations on this chain.
     min_base_fee_to_clamp: u64,
+    /// L2 chain ID for chain-aware derivation and validation rules.
+    chain_id: u64,
     /// Initial proposal id used when bootstrapping event sync.
     initial_proposal_id: U256,
 }
@@ -144,6 +146,7 @@ where
             derivation_source_manifest_fetcher: source_manifest_fetcher,
             shasta_fork_timestamp,
             min_base_fee_to_clamp,
+            chain_id,
             initial_proposal_id,
         })
     }
@@ -366,6 +369,7 @@ where
             anchor_block_number: anchor_state.anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
             min_base_fee_to_clamp: self.min_base_fee_to_clamp,
+            chain_id: self.chain_id,
         };
         debug!(
             parent_number = state.header.number,
