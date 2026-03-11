@@ -47,7 +47,7 @@ func (p *Prover) EncodedSignalProof(ctx context.Context,
 		BlockID:      block.NumberU64(),
 		ChainID:      params.ChainID.Uint64(),
 		RootHash:     block.Root(),
-		CacheOption:  encoding.CACHE_NOTHING,
+		CacheOption:  0,
 		AccountProof: ethProof.AccountProof,
 		StorageProof: ethProof.StorageProof[0].Proof,
 	}})
