@@ -621,6 +621,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		blockInfo     = sourcePayload.BlockPayloads[blockIndex]
 		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
 	)
+
 	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
