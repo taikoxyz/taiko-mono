@@ -56,7 +56,7 @@ type DerivationSourceManifest struct {
 
 // AnchorMaxOffsetByChainID returns the maximum anchor offset based on chainID.
 func AnchorMaxOffsetByChainID(chainID *big.Int) uint64 {
-	if chainID != nil && (chainID.Cmp(params.TaikoMainnetNetworkID) == 0 || chainID.Cmp(big.NewInt(167014)) == 0) {
+	if chainID != nil && (chainID.Cmp(params.TaikoMainnetNetworkID) == 0 || chainID.Cmp(big.NewInt(167001)) == 0) {
 		return MainnetAnchorMaxOffset
 	}
 
@@ -65,7 +65,7 @@ func AnchorMaxOffsetByChainID(chainID *big.Int) uint64 {
 
 // TimestampMaxOffsetByChainID returns the maximum timestamp offset based on chainID.
 func TimestampMaxOffsetByChainID(chainID *big.Int) uint64 {
-	if chainID != nil && (chainID.Cmp(params.TaikoMainnetNetworkID) == 0 || chainID.Cmp(big.NewInt(167014)) == 0) {
+	if chainID != nil && (chainID.Cmp(params.TaikoMainnetNetworkID) == 0 || chainID.Cmp(big.NewInt(167001)) == 0) {
 		return MainnetTimestampMaxOffset
 	}
 
