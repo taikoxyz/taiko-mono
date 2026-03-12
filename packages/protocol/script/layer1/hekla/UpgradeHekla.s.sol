@@ -8,6 +8,7 @@ import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/hekla/HeklaInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
+import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
 import { DevnetInbox } from "../../../contracts/layer1/devnet/DevnetInbox.sol";
 
 contract UpgradeHekla is DeployCapability {
