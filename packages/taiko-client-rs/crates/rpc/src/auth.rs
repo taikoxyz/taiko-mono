@@ -6,7 +6,7 @@ use alethia_reth_primitives::{
     engine::types::TaikoExecutionDataSidecar,
     payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
 };
-use alethia_reth_rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList;
+use alethia_reth_rpc_types::PreBuiltTxList as TaikoPreBuiltTxList;
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::{
