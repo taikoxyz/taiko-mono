@@ -924,7 +924,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alethia_reth_primitives::taiko::TAIKO_GOLDEN_TOUCH_ADDRESS;
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, TxKind};

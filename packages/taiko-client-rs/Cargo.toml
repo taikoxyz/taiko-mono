@@ -72,19 +72,17 @@ alloy-sol-macro = { version = "1.4.3", default-features = false, features = [
 alloy-sol-types = { version = "1.5.0", default-features = false }
 alloy-transport = { version = "1.4.3", default-features = false }
 alloy-transport-http = { version = "1.4.3", features = ["hyper", "jwt-auth"] }
-event-scanner = "1.0.0"
+event-scanner = "1.1.0"
 jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
+robust-provider = "1.0.1"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "a575e625374de3403df8517069626d007102cfc8" }
-alethia-reth-evm = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-evm", rev = "a575e625374de3403df8517069626d007102cfc8" }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "a575e625374de3403df8517069626d007102cfc8", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "03fc0929b324aff68ee5bc26f1c0a8169b58060b", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "03fc0929b324aff68ee5bc26f1c0a8169b58060b", features = [
   "serde",
 ] }
-alethia-reth-rpc = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc", rev = "a575e625374de3403df8517069626d007102cfc8" }
-reth-ipc = { git = "https://github.com/paradigmxyz/reth", tag = "v1.11.1" }
-
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "03fc0929b324aff68ee5bc26f1c0a8169b58060b" }
 # types
 anyhow = "1"
 dashmap = "6.1.0"

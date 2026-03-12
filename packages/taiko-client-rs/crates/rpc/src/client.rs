@@ -6,12 +6,12 @@ use std::{
     time::Duration,
 };
 
-use alethia_reth_evm::handler::get_treasury_address;
+use alethia_reth_primitives::taiko::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
-    IpcConnect, Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
+    Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
     utils::JoinedRecommendedFillers,
 };
 use alloy_rpc_types::engine::JwtSecret;
@@ -70,7 +70,7 @@ pub struct Client<P: Provider + Clone> {
 /// Configuration for the `Client`.
 #[derive(Clone, Debug)]
 pub struct ClientConfig {
-    /// Source describing how to build the L1 provider (WS/HTTP/etc).
+    /// Source describing how to build the L1 provider used by contract calls and event scans.
     pub l1_provider_source: SubscriptionSource,
     /// HTTP endpoint for the L2 public provider.
     pub l2_provider_url: Url,
@@ -86,7 +86,10 @@ impl Client<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     /// Create a new `Client` without a wallet from the given configuration.
     pub async fn new(config: ClientConfig) -> Result<Self> {
         let l1_provider = config.l1_provider_source.to_provider().await.map_err(|e| {
-            RpcClientError::Connection(format!("L1 WebSocket (l1.ws) connection failed: {}", e))
+            RpcClientError::Connection(format!(
+                "L1 provider source (l1.http or l1.ws) connection failed: {}",
+                e
+            ))
         })?;
         Self::new_with_l1_provider(l1_provider, config).await
     }
@@ -97,7 +100,10 @@ impl Client<FillProvider<JoinedRecommendedFillersWithWallet, RootProvider>> {
     pub async fn new_with_wallet(config: ClientConfig, private_key: B256) -> Result<Self> {
         let l1_provider =
             config.l1_provider_source.to_provider_with_wallet(private_key).await.map_err(|e| {
-                RpcClientError::Connection(format!("L1 WebSocket (l1.ws) connection failed: {}", e))
+                RpcClientError::Connection(format!(
+                    "L1 provider source (l1.http or l1.ws) connection failed: {}",
+                    e
+                ))
             })?;
         Self::new_with_l1_provider(l1_provider, config).await
     }
@@ -174,7 +180,7 @@ pub async fn connect_provider_with_timeout(url: Url) -> Result<RootProvider> {
     match url.scheme() {
         "http" | "https" => Ok(connect_http_with_timeout(url)),
         "ws" | "wss" => ProviderBuilder::default()
-            .connect_ws(WsConnect::new(url.to_string()))
+            .connect_ws(WsConnect::new(url.as_str()))
             .await
             .map_err(|e| RpcClientError::Connection(e.to_string())),
         scheme => Err(RpcClientError::Connection(format!("unsupported RPC scheme: {scheme}"))),
@@ -198,16 +204,6 @@ pub fn build_jwt_http_provider(url: Url, secret: JwtSecret) -> RootProvider {
     let http_hyper = Http::with_client(layer_transport, url);
 
     ProviderBuilder::default().connect_client(RpcClient::new(http_hyper, true))
-}
-
-/// Builds a [`RootProvider`] backed by an IPC transport.
-///
-/// IPC does not require JWT authentication; security relies on filesystem permissions.
-pub async fn build_ipc_provider(path: PathBuf) -> Result<RootProvider> {
-    ProviderBuilder::default()
-        .connect_ipc(IpcConnect::new(path))
-        .await
-        .map_err(|e| RpcClientError::Connection(e.to_string()))
 }
 
 /// Returns the JWT secret for the engine API

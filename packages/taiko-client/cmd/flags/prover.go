@@ -18,10 +18,17 @@ var (
 	}
 	RaikoHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host",
-		Usage:    "RPC endpoint of a Raiko host service",
+		Usage:    "RPC endpoint of a Raiko host service for post Shasta fork",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
+	}
+	RaikoHostEndpointPacaya = &cli.StringFlag{
+		Name:     "raiko.host.pacaya",
+		Usage:    "RPC endpoint of a Raiko host service for Pacaya fork",
+		Required: true,
+		Category: proverCategory,
+		EnvVars:  []string{"RAIKO_HOST_PACAYA"},
 	}
 )
 
@@ -29,9 +36,15 @@ var (
 var (
 	RaikoZKVMHostEndpoint = &cli.StringFlag{
 		Name:     "raiko.host.zkvm",
-		Usage:    "RPC endpoint of a Raiko ZKVM host service",
+		Usage:    "RPC endpoint of a Raiko ZKVM host service for post Shasta fork",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
+	}
+	RaikoZKVMHostEndpointPacaya = &cli.StringFlag{
+		Name:     "raiko.host.zkvm.pacaya",
+		Usage:    "RPC endpoint of a Raiko ZKVM host service for Pacaya fork",
+		Category: proverCategory,
+		EnvVars:  []string{"RAIKO_HOST_ZKVM_PACAYA"},
 	}
 	RaikoApiKeyPath = &cli.StringFlag{
 		Name:     "raiko.apiKeyPath",
@@ -59,6 +72,17 @@ var (
 		Category: proverCategory,
 		Value:    false,
 		EnvVars:  []string{"PROVER_PROVE_UNASSIGNED_BLOCKS"},
+	}
+	ProposalWindowSize = &cli.Uint64Flag{
+		Name: "prover.proposal.window.size",
+		Usage: "The proposal window size counted from lastFinalizedProposalID. " +
+			"The proof request will only be triggered" +
+			" when proposalID falls within [lastFinalizedProposalID + 1, lastFinalizedProposalID + proposalWindowSize]. " +
+			"This value is ignored if it is less than 1. " +
+			"This flag only works for post Shasta fork. ",
+		Value:    0,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
 	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
@@ -145,4 +169,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
+	ProposalWindowSize,
+	RaikoHostEndpointPacaya,
+	RaikoZKVMHostEndpointPacaya,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

@@ -1,0 +1,16 @@
+{
+  "name": "@taiko/docs-audit",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Dependencies for weekly docs freshness audit workflow",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.2.63",
+    "@types/node": "25.3.3",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,5 +1,5 @@
 use alethia_reth_consensus::validation::ANCHOR_V4_SELECTOR;
-use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+use alethia_reth_primitives::taiko::TAIKO_GOLDEN_TOUCH_ADDRESS;
 use alloy_consensus::{
     TxEnvelope,
     transaction::{SignerRecoverable, Transaction as _},

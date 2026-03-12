@@ -152,7 +152,7 @@ func TestGenerateEncodedSignalProofUsesDestChainCheckpoint(t *testing.T) {
 	}
 
 	ethClient := &mock.EthClient{}
-	prover, err := proof.New(ethClient, 0)
+	prover, err := proof.New(ethClient)
 	assert.Nil(t, err)
 
 	p := &Processor{

@@ -9,7 +9,7 @@ PROTOCOL_DIR="${PROTOCOL_DIR:-$SCRIPT_DIR/../../protocol}"
 
 cd "${PROTOCOL_DIR}" &&
   FOUNDRY_PROFILE=layer1 PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/core/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
-    --fork-url "$L1_HTTP" \
+    --fork-url "$HARNESS_L1_HTTP" \
     --broadcast \
     --ffi \
     --private-key "$PRIVATE_KEY" \
