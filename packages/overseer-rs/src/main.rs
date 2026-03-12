@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
 
     let lookahead_provider = ProviderBuilder::new()
         .with_chain_id(config_inputs.chain_id)
-        .connect_http(rpc_url.clone())
+        .connect_http(rpc_url)
         .erased();
 
     let slot_clock = Arc::new(SlotClock::new(
