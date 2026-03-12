@@ -1069,6 +1069,17 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
+// Copy the shared chain defaults before injecting runtime-specific Shasta settings.
+func newShastaBaseFeeChainConfig(chainID *big.Int, forkTime uint64) *params.ChainConfig {
+	config := *params.NetworkIDToChainConfigOrDefault(chainID)
+	if chainID != nil {
+		config.ChainID = chainID
+	}
+	config.ShastaTime = &forkTime
+
+	return &config
+}
+
 // CalculateBaseFeeShasta calculates the base fee after Shasta fork from the L2 protocol.
 func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Header) (*big.Int, error) {
 	// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
@@ -1081,7 +1092,7 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
 	}
-	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime, ChainID: c.L2.ChainID}
+	config := newShastaBaseFeeChainConfig(c.L2.ChainID, c.ShastaClients.ForkTime)
 	log.Info(
 		"Params for Shasta base fee calculation",
 		"parentBlockNumber", l2Head.Number,
