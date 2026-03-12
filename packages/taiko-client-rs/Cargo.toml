@@ -78,11 +78,11 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "dfefeb932ac44019c402064f797135bf40ab805f", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "dfefeb932ac44019c402064f797135bf40ab805f", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "03fc0929b324aff68ee5bc26f1c0a8169b58060b", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "03fc0929b324aff68ee5bc26f1c0a8169b58060b", features = [
   "serde",
 ] }
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "dfefeb932ac44019c402064f797135bf40ab805f" }
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "03fc0929b324aff68ee5bc26f1c0a8169b58060b" }
 # types
 anyhow = "1"
 dashmap = "6.1.0"
