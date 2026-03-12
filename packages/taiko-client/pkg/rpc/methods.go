@@ -1092,6 +1092,7 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 		"elasticityMultiplier", config.ElasticityMultiplier(),
 		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
 		"shastaForkTime", c.ShastaClients.ForkTime,
+		"chainID", config.ChainID,
 	)
 	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil
 }
