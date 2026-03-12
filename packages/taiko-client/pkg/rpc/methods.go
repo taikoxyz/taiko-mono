@@ -1081,7 +1081,7 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
 	}
-	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
+	config := params.NetworkIDToChainConfigOrDefault(c.L2.ChainID)
 	log.Info(
 		"Params for Shasta base fee calculation",
 		"parentBlockNumber", l2Head.Number,
