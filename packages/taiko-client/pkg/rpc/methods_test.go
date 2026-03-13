@@ -3,11 +3,13 @@ package rpc
 import (
 	"context"
 	"crypto/rand"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -17,6 +19,35 @@ import (
 var (
 	testAddress = common.HexToAddress("0x98f86166571FE624778203d87A8eD6fd84695B79")
 )
+
+func TestNewShastaBaseFeeChainConfig(t *testing.T) {
+	chainID := new(big.Int).Set(params.TaikoMainnetNetworkID)
+	forkTime := uint64(1234)
+
+	defaultConfig := params.NetworkIDToChainConfigOrDefault(chainID)
+	originalChainID := new(big.Int).Set(defaultConfig.ChainID)
+	var originalShastaTime *uint64
+	if defaultConfig.ShastaTime != nil {
+		shastaTime := *defaultConfig.ShastaTime
+		originalShastaTime = &shastaTime
+	}
+
+	config := newShastaBaseFeeChainConfig(chainID, forkTime)
+
+	require.NotSame(t, defaultConfig, config)
+	require.Zero(t, config.ChainID.Cmp(chainID))
+	require.NotNil(t, config.ShastaTime)
+	require.Equal(t, forkTime, *config.ShastaTime)
+	require.Equal(t, defaultConfig.ElasticityMultiplier(), config.ElasticityMultiplier())
+	require.Equal(t, defaultConfig.BaseFeeChangeDenominator(), config.BaseFeeChangeDenominator())
+	require.Zero(t, defaultConfig.ChainID.Cmp(originalChainID))
+	if originalShastaTime == nil {
+		require.Nil(t, defaultConfig.ShastaTime)
+	} else {
+		require.NotNil(t, defaultConfig.ShastaTime)
+		require.Equal(t, *originalShastaTime, *defaultConfig.ShastaTime)
+	}
+}
 
 func TestL2AccountNonce(t *testing.T) {
 	client := newTestClientWithTimeout(t)
