@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.7.1...fork-diff-v0.7.2) (2026-03-13)
+
+
+### Bug Fixes
+
+* **fork-diff:** preserve file patch encode error ([#21438](https://github.com/taikoxyz/taiko-mono/issues/21438)) ([fbefc20](https://github.com/taikoxyz/taiko-mono/commit/fbefc203d88ceee3755e21be0e1b2389884f2d12))
+
 ## [0.7.1](https://github.com/taikoxyz/taiko-mono/compare/fork-diff-v0.7.0...fork-diff-v0.7.1) (2026-03-03)
 
 
