@@ -75,6 +75,7 @@ pow_no_space = false
 call_compact_args = true
 
 [lint]
+ignore = ["contracts/thirdparty/circle/**"]
 exclude_lints = [
     "unaliased-plain-import",
     "mixed-case-variable",
@@ -115,6 +116,21 @@ test = "test/shared"
 script = "script/shared"
 out = "out/shared"
 evm_version = "shanghai"
+# Shared bridge integration tests deploy both L1 and L2 stacks in-process and
+# need a higher block gas limit than the default Foundry setting.
+block_gas_limit = 120_000_000
+
+[profile.circle]
+src = "contracts/thirdparty/circle/contracts"
+test = "contracts/thirdparty/circle/test"
+script = "contracts/thirdparty/circle/script"
+out = "out/circle"
+solc_version = "0.6.12"
+optimizer = true
+optimizer_runs = 10000000
+remappings = [
+    "@openzeppelin/=contracts/thirdparty/circle/vendor/@openzeppelin/"
+]
 
 [profile.genesis]
 src = "contracts/layer2"

@@ -22,5 +22,22 @@
         "decimals": 18,
         "type": "ERC20",
         "logoURI": "http://example.com/logo.png"
+    },
+    {
+        "name": "USD Coin",
+        "addresses": {
+            "560048": "0x0000000000000000000000000000000000000000",
+            "167013": "0x0000000000000000000000000000000000000000"
+        },
+        "symbol": "USDC",
+        "decimals": 6,
+        "type": "ERC20",
+        "logoURI": "",
+        "attributes": [
+            {
+                "supported": true,
+                "stablecoin": true
+            }
+        ]
     }
 ]
