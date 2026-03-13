@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../iface/ILookaheadStore.sol";
 import "./LibPreconfConstants.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
@@ -14,17 +13,22 @@ library LibPreconfUtils {
 
     /// @notice Calculates the lookahead hash.
     /// @param _epochTimestamp The timestamp of the epoch.
-    /// @param _lookaheadSlots The lookahead slots array.
-    /// @return The hash of the abi.encoded timestamp and lookahed slots.
+    /// @param _encodedLookahead The lookahead slots array encoded by LibLookaheadEncoder.
+    /// @return hash_ The hash of the abi.encoded timestamp and lookahead slots.
     function calculateLookaheadHash(
         uint256 _epochTimestamp,
-        ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
+        bytes calldata _encodedLookahead
     )
         internal
         pure
-        returns (bytes26)
+        returns (bytes26 hash_)
     {
-        return bytes26(keccak256(abi.encode(_epochTimestamp, _lookaheadSlots)));
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, _epochTimestamp)
+            calldatacopy(add(ptr, 0x20), _encodedLookahead.offset, _encodedLookahead.length)
+            hash_ := keccak256(ptr, add(_encodedLookahead.length, 0x20))
+        }
     }
 
     /// @notice Retrieves the beacon block root that was posted to the execution layer at or after a
