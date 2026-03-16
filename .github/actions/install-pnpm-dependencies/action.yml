@@ -1,6 +1,11 @@
 name: Install pnpm dependencies
 description: Reusable action to install pnpm dependencies
 
+inputs:
+  cache-dependency-path:
+    description: Optional newline-separated list of lockfiles used to key the pnpm cache
+    required: false
+
 runs:
   using: composite
   steps:
@@ -16,10 +21,19 @@ runs:
         run_install: false
 
     - name: Install Node.js
+      if: ${{ inputs.cache-dependency-path == '' }}
       uses: actions/setup-node@v5
       with:
         node-version: 20
         cache: pnpm
+
+    - name: Install Node.js with custom pnpm cache key
+      if: ${{ inputs.cache-dependency-path != '' }}
+      uses: actions/setup-node@v5
+      with:
+        node-version: 20
+        cache: pnpm
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
 
     - name: Install dependencies
       shell: bash
