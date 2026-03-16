@@ -33,7 +33,7 @@ The multisig (`MULTISIG_ADMIN_TAIKO_ETH`) is the immutable `ejectorManager`. It 
 - Ejecters can instantly remove operators via `removeOperator()` / `removeOperatorByAddress()` -- no delay
 - Ejecters can add operators via `addOperator()` (2-epoch activation delay)
 
-This means the multisig (and any ejecters it appoints) can **censor proposers without a DAO vote**. Operator removal is asymmetric: adding takes 2 epochs, removal is instant.
+This means the multisig (and any ejecters it appoints) can **selectively censor proposers without a DAO vote**. Operator removal is asymmetric: adding takes 2 epochs, removal is instant. Note: the contract requires `operatorCount > 1` (`PreconfWhitelist.sol:237`), so the last active operator cannot be removed -- this prevents a full halt but still allows selective censorship.
 
 **Escape hatch:** Permissionless proposing activates after ~25.6 hours if forced inclusions go unprocessed.
 
@@ -65,43 +65,35 @@ Regular DAO proposals go through a timelock, giving users an exit window before 
 
 The trade-off is that an emergency proposal can perform any owner action (including contract upgrades) with no delay, which could be abused if the emergency proposal process is compromised.
 
+Note: the timelock/governor logic lives outside `packages/protocol` and is not verifiable from protocol code alone.
+
 ---
 
-## 4. No Permissionless Fallback for Proof Verification
+## 4. DCAP Attestation Trust Material Is DAO-Gated
 
 **Severity:** Medium (structural gap)
-**File:** `contracts/layer1/verifiers/SgxVerifier.sol`, `Risc0Verifier.sol`, `SP1Verifier.sol`
+**File:** `contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol`, `contracts/layer1/verifiers/SgxVerifier.sol`
 
-The protocol has permissionless fallbacks for proposing (~25.6h) and proving (5 days). However, there is **no equivalent fallback for proof verification**. If all verifier programs/instances are untrusted (whether by DAO action, DAO inaction on expiring SGX instances, or a bug), proofs cannot be verified and the chain halts.
+`MainnetVerifier.sol` requires exactly 2 SGX proofs (SGX-GETH + SGX-RETH, or either SGX + a ZK verifier). ZK verifiers (Risc0/SP1) are **not required for liveness** -- two SGX proofs are sufficient. So the DAO-only trust lists in Risc0Verifier and SP1Verifier do not pose a liveness risk.
 
-**SGX instance expiry:** Each SGX instance is valid for 365 days from registration (`SgxVerifier.sol:28`, enforced at line 186 via `block.timestamp <= validSince + INSTANCE_EXPIRY`). This is a security measure to protect against side-channel attacks by forcing periodic key rotation. After expiry, the instance must be re-attested and registered with a new address.
+However, the "permissionless" SGX instance registration path (`SgxVerifier.registerInstance()`) depends on DCAP trust material maintained by the DAO in `AutomataDcapV3Attestation.sol`:
 
-There are two paths to register SGX instances:
+- `setMrSigner()` / `setMrEnclave()` -- control which enclave measurements are trusted (`onlyOwner`)
+- `configureTcbInfoJson()` -- configures TCB info for attestation validation (`onlyOwner`)
+- `configureQeIdentityJson()` -- configures quoting enclave identity (`onlyOwner`)
+- `addRevokedCertSerialNum()` / `removeRevokedCertSerialNum()` -- manage certificate revocation (`onlyOwner`)
 
-- **Owner-only:** `addInstances()` -- DAO adds trusted instances directly (instant validity)
-- **Permissionless:** `registerInstance()` -- anyone can register an instance by submitting a valid DCAP remote attestation quote, verified on-chain via `AutomataDcapAttestation` (line 113-124)
+So while anyone can call `registerInstance()`, the attestation will only pass if the DAO has configured the correct trust material. If the DAO fails to maintain this (e.g., after Intel TCB updates), permissionless SGX registration stops working, and new instances can only be added via the DAO-only `addInstances()` path.
 
-The permissionless `registerInstance()` path partially mitigates the governance dependency for SGX -- anyone running a valid SGX enclave can self-register without DAO action. However, Risc0Verifier and SP1Verifier have **no equivalent permissionless registration** -- their trusted program lists (`setImageIdTrusted`, `setProgramTrusted`) are strictly `onlyOwner`.
-
----
-
-## 5. Operator Blacklist Overseers
-
-**Severity:** Low
-**File:** `contracts/layer1/preconf/impl/LookaheadStore.sol`
-
-The DAO appoints overseers who can blacklist operators from proposing. While this is DAO-controlled, the overseers themselves operate without per-action governance oversight once appointed. An overseer could blacklist operators unilaterally.
-
-**Escape hatch:** Permissionless proposing fallback (~25.6h) still applies.
+**SGX instance expiry:** Each SGX instance is valid for 365 days (`SgxVerifier.sol:28`), creating a recurring dependency on either permissionless re-attestation (which requires maintained DCAP trust material) or DAO action via `addInstances()`.
 
 ---
 
 ## Summary
 
-| #   | Vector                                       | Severity             | Bypasses DAO?         | Escape Hatch                    | Resolution                                     |
-| --- | -------------------------------------------- | -------------------- | --------------------- | ------------------------------- | ---------------------------------------------- |
-| 1   | Proposer whitelist (multisig ejectorManager) | **High** (temporary) | **Yes**               | Permissionless proposing ~25.6h | Planned: launch permissionless preconfirmation |
-| 2   | Prover whitelist (multisig proverManager)    | **High**             | **Yes**               | Permissionless proving 5 days   | Planned: build a prover market                 |
-| 3   | Emergency proposals bypass timelock          | **Low**              | N/A (by design)       | Regular proposals use timelock  | By design, no action                           |
-| 4   | No permissionless fallback for verification  | **Medium**           | N/A (structural)      | None                            | Yue Wang to confirm and fix                    |
-| 5   | Overseer blacklisting                        | **Low**              | Partially (delegated) | Permissionless proposing ~25.6h | By design, no action                           |
+| #   | Vector                                       | Severity             | Bypasses DAO?    | Escape Hatch                    | Resolution                                     |
+| --- | -------------------------------------------- | -------------------- | ---------------- | ------------------------------- | ---------------------------------------------- |
+| 1   | Proposer whitelist (multisig ejectorManager) | **High** (temporary) | **Yes**          | Permissionless proposing ~25.6h | Planned: launch permissionless preconfirmation |
+| 2   | Prover whitelist (multisig proverManager)    | **High**             | **Yes**          | Permissionless proving 5 days   | Planned: build a prover market                 |
+| 3   | Emergency proposals bypass timelock          | **Low**              | N/A (by design)  | Regular proposals use timelock  | By design, no action                           |
+| 4   | DCAP trust material is DAO-gated             | **Medium**           | N/A (structural) | DAO can add instances directly  | Yue Wang to confirm and fix                    |
