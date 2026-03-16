@@ -69,31 +69,10 @@ Note: the timelock/governor logic lives outside `packages/protocol` and is not v
 
 ---
 
-## 4. DCAP Attestation Trust Material Is DAO-Gated
-
-**Severity:** Medium (structural gap)
-**File:** `contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol`, `contracts/layer1/verifiers/SgxVerifier.sol`
-
-`MainnetVerifier.sol` requires exactly 2 SGX proofs (SGX-GETH + SGX-RETH, or either SGX + a ZK verifier). ZK verifiers (Risc0/SP1) are **not required for liveness** -- two SGX proofs are sufficient. So the DAO-only trust lists in Risc0Verifier and SP1Verifier do not pose a liveness risk.
-
-However, the "permissionless" SGX instance registration path (`SgxVerifier.registerInstance()`) depends on DCAP trust material maintained by the DAO in `AutomataDcapV3Attestation.sol`:
-
-- `setMrSigner()` / `setMrEnclave()` -- control which enclave measurements are trusted (`onlyOwner`)
-- `configureTcbInfoJson()` -- configures TCB info for attestation validation (`onlyOwner`)
-- `configureQeIdentityJson()` -- configures quoting enclave identity (`onlyOwner`)
-- `addRevokedCertSerialNum()` / `removeRevokedCertSerialNum()` -- manage certificate revocation (`onlyOwner`)
-
-So while anyone can call `registerInstance()`, the attestation will only pass if the DAO has configured the correct trust material. If the DAO fails to maintain this (e.g., after Intel TCB updates), permissionless SGX registration stops working, and new instances can only be added via the DAO-only `addInstances()` path.
-
-**SGX instance expiry:** Each SGX instance is valid for 365 days (`SgxVerifier.sol:28`), creating a recurring dependency on either permissionless re-attestation (which requires maintained DCAP trust material) or DAO action via `addInstances()`.
-
----
-
 ## Summary
 
-| #   | Vector                                       | Severity             | Bypasses DAO?    | Escape Hatch                    | Resolution                                     |
-| --- | -------------------------------------------- | -------------------- | ---------------- | ------------------------------- | ---------------------------------------------- |
-| 1   | Proposer whitelist (multisig ejectorManager) | **High** (temporary) | **Yes**          | Permissionless proposing ~25.6h | Planned: launch permissionless preconfirmation |
-| 2   | Prover whitelist (multisig proverManager)    | **High**             | **Yes**          | Permissionless proving 5 days   | Planned: build a prover market                 |
-| 3   | Emergency proposals bypass timelock          | **Low**              | N/A (by design)  | Regular proposals use timelock  | By design, no action                           |
-| 4   | DCAP trust material is DAO-gated             | **Medium**           | N/A (structural) | DAO can add instances directly  | Yue Wang to confirm and fix                    |
+| #   | Vector                                       | Severity             | Bypasses DAO?   | Escape Hatch                    | Resolution                                     |
+| --- | -------------------------------------------- | -------------------- | --------------- | ------------------------------- | ---------------------------------------------- |
+| 1   | Proposer whitelist (multisig ejectorManager) | **High** (temporary) | **Yes**         | Permissionless proposing ~25.6h | Planned: launch permissionless preconfirmation |
+| 2   | Prover whitelist (multisig proverManager)    | **High**             | **Yes**         | Permissionless proving 5 days   | Planned: build a prover market                 |
+| 3   | Emergency proposals bypass timelock          | **Low**              | N/A (by design) | Regular proposals use timelock  | By design, no action                           |
