@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use alloy::{
-    eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash},
+    eips::{BlockId, BlockNumberOrTag},
     primitives::{B256, U256},
     providers::Provider,
     rpc::types::Log,
@@ -241,15 +241,15 @@ where
 
     /// Read the inbox core state at the proposal log's block to extract the last finalized id.
     async fn inbox_last_finalized_proposal_id(&self, log: &Log) -> Result<u64, DerivationError> {
-        let block_hash = log
-            .block_hash
-            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block hash")))?;
+        let block_number = log
+            .block_number
+            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block number")))?;
         let core_state = self
             .rpc
             .shasta
             .inbox
             .getCoreState()
-            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+            .block(BlockId::Number(block_number.into()))
             .call()
             .await?;
         Ok(core_state.lastFinalizedProposalId.to::<u64>())
