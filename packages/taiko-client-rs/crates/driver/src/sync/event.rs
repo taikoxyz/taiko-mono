@@ -364,6 +364,7 @@ where
                             warn!(
                                 ?err,
                                 tx_hash = ?log.transaction_hash,
+                                block_hash = ?log.block_hash,
                                 block_number = log.block_number,
                                 "proposal derivation failed; retrying"
                             );
