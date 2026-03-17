@@ -24,7 +24,7 @@ contract DevnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _proverWhitelist,
+        address _proverMarket,
         address _signalService,
         address _bondToken
     )
@@ -32,7 +32,7 @@ contract DevnetInbox is Inbox {
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
-                proverWhitelist: _proverWhitelist,
+                proverMarket: _proverMarket,
                 signalService: _signalService,
                 bondToken: _bondToken,
                 minBond: 0,

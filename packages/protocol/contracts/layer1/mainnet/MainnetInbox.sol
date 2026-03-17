@@ -26,17 +26,17 @@ contract MainnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _proverWhitelist,
+        address _proverMarket,
         address _signalService,
         address _bondToken
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
-                proverWhitelist: _proverWhitelist,
+                proverMarket: _proverMarket,
                 signalService: _signalService,
                 bondToken: _bondToken,
-                minBond: 0, // During prover whitelist, bonds are not necessary
+                minBond: 0, // During market rollout, proposer bonds are not necessary
                 livenessBond: 0,
                 withdrawalDelay: 1 weeks,
                 provingWindow: 4 hours, // internal target is still to submit every ~2 hours
