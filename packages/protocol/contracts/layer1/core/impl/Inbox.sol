@@ -341,6 +341,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                     commitment.actualProver,
                     firstNewProposalId,
                     uint48(lastProposalId),
+                    proposalAge,
                     state.lastFinalizedTimestamp
                 );
             }
@@ -689,6 +690,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         uint256 _proposalAge
     )
         private
+        view
     {
         if (address(_proverMarket) == address(0)) return;
         _proverMarket.beforeProofSubmission(

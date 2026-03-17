@@ -145,11 +145,14 @@ uint8     internal _numDisplacedEpochs;
 
 `beforeProofSubmission(caller, firstNewProposalId, proposalTimestamp, proposalAge)`:
 
-1. If `permissionlessMode` or `degradedMode` is true: anyone can prove (return immediately).
+1. If `permissionlessMode` is true: anyone can prove (return immediately).
 2. If `proposalAge >= _permissionlessProvingDelay`: anyone can prove.
 3. Look up `proposalEpochs[firstNewProposalId]`:
    - If `epochId == 0`: no epoch assigned (permissionless proposal), anyone can prove.
    - Otherwise: require `caller == epochs[epochId].operator` (exclusive proving window).
+4. `degradedMode` does **not** waive exclusivity for already-assigned proposals. It only prevents
+   new proposals from being assigned, so missed-proof slashing for old liabilities remains
+   meaningful.
 
 ### Fee Model
 
@@ -179,9 +182,10 @@ option on delaying finalization.
 - `missed-proof slash`: if the assigned prover fails to prove before the SLA expires, the market
   slashes an amount that is intentionally much larger than the reserved prover fee for the affected
   proposal interval.
-- The slash is not burned. Part is paid immediately to the rescue prover, and the remainder stays in
-  the prover market as an additional reward pool for the rescue prover that eventually finalizes the
-  fallback proof.
+- If the late proof is submitted by a rescue prover, the slashed bond plus any accumulated rescue
+  reward pool is credited to that prover's in-market bond balance.
+- If the assigned prover submits the proof late themselves, the slashed bond is not returned to
+  them. It is added to `rescueRewardPool` for the next rescue prover.
 
 ### Churn Safety
 

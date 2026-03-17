@@ -1,13 +1,14 @@
-# ProverMarket Review
+# ProverMarket Review (Updated 2026-03-17)
 
 ## Scope
 
-I reviewed the new prover-market path with the assumption that the intended goal is to make proving permissionless for Taiko without introducing a new privileged prover choke point.
+Review of the ProverMarket addition to Taiko's Inbox, with the goal of making proving
+permissionless without introducing new privileged choke points.
 
-Files read:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol`
-- `packages/protocol/contracts/layer1/core/impl/Inbox.sol`
-- `packages/protocol/contracts/layer1/core/iface/IInbox.sol`
+Files reviewed:
+- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol` (540 lines)
+- `packages/protocol/contracts/layer1/core/impl/Inbox.sol` (751 lines)
+- `packages/protocol/contracts/layer1/core/iface/IInbox.sol` (full interface + structs)
 - `packages/protocol/contracts/layer1/core/iface/IProverMarket.sol`
 - `packages/protocol/contracts/layer1/core/libs/LibBonds.sol`
 - `packages/protocol/contracts/layer1/core/libs/LibInboxSetup.sol`
@@ -17,194 +18,425 @@ Files read:
 - `packages/protocol/contracts/layer1/core/libs/LibHashOptimized.sol`
 - `packages/protocol/contracts/shared/common/EssentialContract.sol`
 - `packages/protocol/contracts/shared/libs/LibAddress.sol`
-- `packages/protocol/contracts/shared/signal/SignalService.sol`
-- `packages/protocol/contracts/layer1/core/iface/IProposerChecker.sol`
-- `packages/protocol/contracts/layer1/preconf/impl/PreconfWhitelist.sol`
-- the full `packages/protocol/test/layer1/core/inbox` tree and its local mocks/helpers
-- the pre-market `Inbox` implementation at the parent of commit `ac6e2d494` to compare against live Shasta behavior
+- `packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol`
+- `packages/protocol/contracts/layer1/verifiers/compose/ComposeVerifier.sol`
+- `packages/protocol/contracts/layer1/verifiers/IProofVerifier.sol`
 - `packages/protocol/prover-market-design.md`
+- `packages/protocol/test/layer1/core/inbox/ProverMarket.t.sol` (36 tests)
+- `packages/protocol/test/layer1/core/inbox/InboxProve.t.sol` (22 tests)
 
-Validation run:
-- `forge test --match-path 'test/layer1/core/inbox/*'` from `packages/protocol`
-- Result: 108 tests passed
+Assumptions:
+- All pre-ProverMarket logic is already live as the Shasta fork in production.
+- Every actor except the DAO (owner of upgradeable contracts) may be malicious.
+- A finding is serious if it lets an actor extract value, delay proofs, or halt the chain
+  without DAO intervention.
 
-Working-tree status:
-- Finding 3 has since been fixed locally by replacing the inline proposal-path ETH transfer with internal fee accrual to the recipient's withdrawable market balance.
-- Findings 1, 2, and 4 remain open.
+---
 
-Review assumptions:
-- Everything that existed before the ProverMarket change was already live in the Shasta fork, so regressions against the old `Inbox` liveness model matter.
-- Every actor except the DAO may be malicious.
-- A finding counts as serious if it lets a prover, proposer, or fee recipient extract value, force long proof delays, or halt proposal acceptance without DAO intervention.
+## Status of Previous Findings
 
-## Finding 1: the market removes Shasta's live liveness-enforcement path, but does not replace it
+### Finding 1 (was Critical) -- RESOLVED
 
-Severity: Critical
+**Original**: The market removed Shasta's liveness-enforcement path without a replacement
+slashing mechanism.
 
-The old live Shasta path still had a best-effort late-proof penalty in `Inbox.prove()`: once proving became permissionless, `_processLivenessBond` could debit the assigned party's bond and credit part of it to the actual prover. The new market path explicitly disables that old logic whenever `proverMarket != address(0)`, but `ProverMarket` does not implement a replacement slashing or timeout-settlement mechanism.
+**Current status**: `_maybeSlashLateProof()` (ProverMarket.sol:461-497) now implements
+slashing when `proposalAge >= _permissionlessProvingDelay`. The slashed bond goes to
+`rescueRewardPool` (if operator self-proves late) or to the rescue prover's `bondBalances`
+(if a third party rescues). The active epoch is cleared on slash (line 491-494). This
+matches the design doc's intent.
 
-The regression is visible in two places:
-- `packages/protocol/contracts/layer1/core/impl/Inbox.sol:279-346` only calls `_proverMarket.beforeProofSubmission(...)` before proving and `_proverMarket.onProofAccepted(...)` after proving.
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:362-380` ignores `_caller`, `_actualProver`, `_firstNewProposalId`, and `_finalizedAt`; it only updates `lastFinalizedProposalId` and releases displaced bonds.
+### Finding 3 (was High) -- RESOLVED
 
-This is directly at odds with the design doc:
-- `packages/protocol/prover-market-design.md:15-16` says the market should own "slashing state".
-- `packages/protocol/prover-market-design.md:38-44` says the market is responsible for "tracking liability for slashing and exit".
-- `packages/protocol/prover-market-design.md:146-149` says the prover is still obligated to prove because the "bond [is] at stake".
-- `packages/protocol/prover-market-design.md:205-208` says the market owns bond accounting when enabled.
+**Original**: `onProposalAccepted()` sent ETH to `feeRecipient` during the proposal path,
+creating both revert-based DoS and reentrancy.
 
-What the implementation actually does is pay the active epoch up front on proposal acceptance:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:321-326`
+**Current status**: Fee accounting is now fully internal balance updates
+(ProverMarket.sol:338-344). No external calls in `onProposalAccepted()`. The revert DoS
+and reentrancy surfaces are eliminated.
 
-After that payment, there is no on-chain consequence for the active prover simply refusing to prove. The only fallback is the global permissionless window in `beforeProofSubmission`:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:345-358`
+---
 
-Attack path:
-1. A prover bids low enough to become active.
-2. Proposers keep depositing fee credit and continue proposing.
-3. The market pays the active prover immediately for each accepted proposal.
-4. The active prover stops proving.
-5. Third parties can only rescue the chain after `permissionlessProvingDelay`, and they do so without any reward coming from the assigned prover.
+## Active Findings
 
-Why this matters:
-- The market is supposed to make proving permissionless, but the current implementation creates an exclusive proving window with no performance obligation.
-- It is a regression from the already-live Shasta logic, not just a missing future enhancement.
-- The flat `_minBond` is only a lockup, not an economic penalty. The attacker is risking temporary capital, not a slash proportional to the harm they cause.
+### Finding 2 (Critical): Zero-fee bid creates an irreplaceable epoch
 
-Suggested direction:
-- Reintroduce a late-proof settlement path when the market is enabled.
-- Do not pay the prover irrevocably at proposal-accept time; escrow the fee and settle it based on whether the assigned prover actually proves before the timeout.
-- Make `onProofAccepted` use the timing and attribution fields it currently ignores.
+**Severity**: Critical
 
-## Finding 2: a zero-fee winner can become permanently irreplaceable, and `exit()` does not actually stop future assignments
+The reverse auction requires strictly lower fee to outbid:
 
-Severity: Critical
+```solidity
+// ProverMarket.sol:223-225
+if (state.activeEpochId != 0) {
+    require(_feeInGwei < epochs[state.activeEpochId].feeInGwei, BidFeeTooHigh());
+}
+```
 
-The auction rule is a strict undercut:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:197-200`
+There is no minimum fee, so `feeInGwei = 0` is valid. Once active at 0, no one can
+undercut because `uint64` cannot go below 0. The only escapes are:
 
-There is no lower bound on `_feeInGwei`, so `0` is a valid winning fee. Once an active epoch is at `0`, nobody can outbid it.
+1. The operator voluntarily calls `exit()`, or
+2. The DAO calls `forcePermissionlessMode(true)`.
 
-At the same time, `exit()` does not remove the active epoch from future assignment. It only flips a global flag:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:235-258`
+The `exit()` path now correctly stops new assignments (when exiting with no pending
+replacement, `_retireActiveEpoch` sets `activeEpochId = 0` so proposals become
+permissionless). However, the operator is not obligated to exit. They can hold the
+exclusive position indefinitely at zero fee.
 
-If there is no pending replacement, `onProposalAccepted()` still keeps `state.activeEpochId` unchanged and still assigns the next proposal to that same exiting epoch:
-- transition logic: `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:275-313`
-- assignment logic: `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:315-330`
+**Attack path**:
+1. Attacker bids `feeInGwei = 0`, deposits minimum bond.
+2. Becomes active. All proposals are exclusively assigned to them.
+3. Attacker proves just fast enough to avoid slashing but extracts no fee (they bid 0).
+4. No competitive prover can enter the market without the attacker's cooperation.
+5. If attacker stops proving, every proposal must wait `permissionlessProvingDelay` before
+   a rescue prover can step in. The attacker gets slashed once, but only `_minBond` worth.
 
-This violates the design intent in `packages/protocol/prover-market-design.md:120-128`, which says the exiting operator should stay liable for already-assigned proposals. The implementation keeps assigning new proposals as well.
+**Impact**: The market becomes a monopoly. Competitive proving is disabled until the DAO
+intervenes. This defeats the core goal of permissionless proving.
 
-Attack path:
-1. A malicious prover bids `0`.
-2. The prover becomes active.
-3. The prover stops proving, or calls `exit()`.
-4. No one can create a lower-fee pending epoch, so there is no replacement path through bidding.
-5. New proposals remain exclusively assigned to the same epoch until each proposal individually ages past `permissionlessProvingDelay`.
+**Suggested fix**: Either:
+- Enforce `_feeInGwei >= 1` (minimal floor), or
+- Allow displacement via equal fee + higher bond, or
+- Allow `exit()` to be triggered by a third party after a timeout if the operator is
+  inactive (e.g., hasn't proved for N proposals).
 
-Impact:
-- The proving market becomes DAO-dependent again: the only practical recovery is `forcePermissionlessMode(true)`.
-- The system can be pinned to the full permissionless delay for every proposal.
-- This is especially bad because Finding 1 means the stuck operator is not slashed for causing the delay.
+---
 
-Suggested direction:
-- Disallow `feeInGwei == 0`, or introduce a replacement rule that does not require a strictly lower fee once the floor is reached.
-- If `activeEpochExiting == true` and there is no pending replacement, stop assigning new proposals to the exiting epoch and fall back to immediate permissionless proving for newly accepted proposals.
+### Finding 4 (High): Degraded mode prevents revert but still creates extended delays
 
-## Finding 3: proposal-time fee payment breaks CEI inside the market and gives the active prover both a revert-based DoS and a reentrancy surface
+**Severity**: High (downgraded from original Critical -- the revert path is now mitigated)
 
-Severity: High
+**Original concern**: The 8-slot displaced queue could overflow and revert
+`onProposalAccepted`, halting proposals.
 
-`Inbox.propose()` is on the proposal critical path and calls the market hook synchronously:
-- `packages/protocol/contracts/layer1/core/impl/Inbox.sol:220-223`
+**Current status**: Degraded mode (entered at `_numDisplacedEpochs >= 7`) now prevents the
+overflow by stopping new epoch activations (ProverMarket.sol:302-304, 310-313, 321-324).
+The revert via `TooManyDisplacedEpochs` should no longer be reachable from
+`onProposalAccepted` under normal state transitions.
 
-Inside `onProposalAccepted()`, the market sends ETH to an arbitrary `feeRecipient` before persisting `marketState = state`:
-- fee transfer: `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:321-326`
-- delayed state write: `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:330`
+**Remaining concern**: A deliberate churn attack can force the system into degraded mode:
 
-The ETH helper forwards all remaining gas:
-- `packages/protocol/contracts/shared/libs/LibAddress.sol:52-61`
+1. Attacker bids at fee 100, becomes active.
+2. Before proofs finalize, attacker (or sybils) bids 99, 98, 97... from fresh addresses.
+3. Each proposal triggers displacement of the previous active epoch.
+4. After 7 displacements without any proofs finalizing, degraded mode activates.
+5. While degraded, ALL new proposals become permissionless (no exclusive prover).
 
-Neither `onProposalAccepted()` nor `bid()` nor `exit()` is protected by the market's reentrancy guard.
+In degraded mode, the chain works but the market's value proposition (competitive exclusive
+proving with economic guarantees) is completely bypassed. Provers lose their exclusivity,
+proposers get no fee-credit refunds for unproved proposals, and rescue incentives are
+weakened.
 
-This creates two separate problems.
+**Cost of attack**: 8 x `_minBond` in bond deposits (locked but returned after finalization).
+No permanent capital loss.
 
-First, revert-based DoS:
-- If the active prover points `feeRecipient` at a contract that rejects ETH, every proposal from a proposer with sufficient fee credit will revert in `onProposalAccepted()`.
-- Because the hook is inside `Inbox.propose()`, this blocks proposal acceptance itself, not just fee settlement.
+**Suggested direction**:
+- Consider a cooldown between bids to limit churn velocity.
+- Or make the degraded-mode entry threshold adaptive based on proving throughput.
 
-The important nuance is that this path is gated by `feeCreditBalances[_proposer] >= feeWei` at
-`packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:323-325`, so it does not literally
-block every mathematically possible proposal. It does, however, block the normal fee-bearing path
-that the market is designed around, and the attacker only needs to lock `_minBond` to set it up.
+---
 
-Second, stale-state reentrancy:
-- `onProposalAccepted()` works on a memory copy of `marketState`.
-- A malicious `feeRecipient` can reenter `bid()` or `exit()` before `marketState` is written back.
-- The reentrant call sees the old active/pending epoch layout and can mutate accounting against stale state.
+### Finding 5 (High): Batch proof authorization only checks first unfinalized proposal
 
-One concrete bad path:
-1. There is an active epoch and a pending epoch waiting to activate.
-2. `onProposalAccepted()` starts activating the pending epoch, but has not written `marketState` yet.
-3. The newly active prover's fee-recipient fallback reenters `bid()`.
-4. `bid()` still sees the old `pendingEpochId`, refunds that pending epoch's bond, and creates a new pending epoch based on stale state.
-5. When control returns, the outer `onProposalAccepted()` overwrites `marketState` with its old memory copy, losing the reentrant pending pointer and corrupting the intended bond/epoch invariants.
+**Severity**: High
 
-Even without a profit path, this is enough to break market accounting and make proposal liveness depend on prover-controlled fallback behavior.
+`Inbox.prove()` computes prover authorization based solely on the first newly finalized
+proposal:
 
-Suggested direction:
-- Do not push ETH inside `onProposalAccepted()`. Accrue a receivable for the fee recipient and let them pull it later.
-- If a push model is kept, persist all state before the external call and protect `onProposalAccepted()`, `bid()`, and `exit()` with the same reentrancy lock.
+```solidity
+// Inbox.sol:273-281
+uint48 firstNewProposalId = uint48(state.lastFinalizedProposalId + 1);
+uint48 firstNewProposalTimestamp = commitment.transitions[offset].timestamp;
+proposalAge = block.timestamp - firstNewProposalTimestamp;
 
-## Finding 4: the fixed 8-slot displaced-epoch queue gives adversaries a direct proposal-halt lever
+_checkProverMarket(
+    msg.sender, firstNewProposalId, firstNewProposalTimestamp, proposalAge
+);
+```
 
-Severity: High
+And in ProverMarket:
 
-Displaced epochs are stored in a bounded array:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:80-82`
+```solidity
+// ProverMarket.sol:370-376
+uint48 epochId = proposalEpochs[_firstNewProposalId];
+if (epochId == 0) return;
+require(_caller == epochs[epochId].operator, NotAuthorizedProver());
+```
 
-Every time a pending epoch replaces the active epoch, `onProposalAccepted()` pushes the previous active epoch into that array:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:278-303`
+**Problem**: If a batch covers proposals from multiple epochs, only the first epoch's
+operator is checked. The exclusive windows of all subsequent epochs in the batch are
+bypassed.
 
-Once 8 displaced epochs are waiting, `_addDisplacedEpoch()` reverts:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:405-410`
+**Scenario**:
+- Epoch A (operator: Alice) owns proposals 5-7
+- Epoch B (operator: Bob) owns proposals 8-12
+- Proposals 1-4 are already finalized
 
-Those displaced epochs are only released when enough proposals have been finalized:
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:377-380`
-- `packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:413-429`
+If Alice submits a batch proof covering proposals 5-12:
+- Authorization checks proposal 5 -> epoch A -> Alice is operator -> passes
+- Proposals 8-12 are finalized by Alice, bypassing Bob's exclusivity entirely
+- Bob invested bond for exclusive proving rights that were never honored
 
-That means proposal liveness now depends on bidder churn never outrunning proof finalization. Under the stated threat model, that is not a safe assumption.
+**Worse scenario**: If proposal 5 is old enough that `proposalAge >=
+_permissionlessProvingDelay`, then ANYONE can batch-prove 5-12, even if proposals 8-12
+are well within Bob's exclusive window:
 
-Attack path:
-1. An attacker (or small cartel) seeds an initial active epoch with a fee like `10`.
-2. Before proofs catch up, they keep submitting lower bids `9, 8, 7, ...`.
-3. Each new accepted proposal activates the next pending epoch and displaces the old active epoch.
-4. After eight such replacements, the next `onProposalAccepted()` reverts with `TooManyDisplacedEpochs()`.
-5. Because that revert happens inside `Inbox.propose()`, proposal acceptance halts.
+```solidity
+// ProverMarket.sol:367
+if (_proposalAge >= uint256(_permissionlessProvingDelay)) return;
+```
 
-This does not require a large coalition. A single operator can self-churn through multiple epochs if they pre-fund enough bond.
+**Impact**: Exclusivity guarantees are broken for all but the first proposal in a batch.
+This undermines the market's economic model -- provers bid and lock bond for exclusivity
+they may not actually receive.
 
-`forcePermissionlessMode(true)` does not solve this by itself. In
-`packages/protocol/contracts/layer1/core/impl/ProverMarket.sol:275-281`, `permissionlessMode`
-only makes `needsTransition` true; if a pending epoch still exists, the code still calls
-`_addDisplacedEpoch(state.activeEpochId)`. So the overflow remains reachable even while proving is
-otherwise forced permissionless.
+**Suggested fix**: Either:
+- Check authorization for each distinct epoch in the batch (gas-expensive but correct), or
+- Restrict batch proofs during exclusive windows to single-epoch batches, or
+- Accept this as a design trade-off and document it clearly (provers should prove
+  promptly; batching older proposals with newer ones is an acceptable race condition).
 
-Suggested direction:
-- Remove the hard 8-epoch cap, or at least make the overflow behavior degrade to permissionless mode instead of reverting.
-- If the cap is intentional for gas reasons, the contract needs a proof that churn cannot exceed release under malicious timing. The current design does not have that proof, especially after Finding 1 removes strong incentives to finalize quickly.
+---
 
-## Test coverage gaps
+### Finding 6 (High): Batch proof slashing only penalizes first epoch
 
-The existing `packages/protocol/test/layer1/core/inbox/ProverMarket.t.sol` suite is mostly happy-path and single-step transition coverage. It does not cover the adversarial cases above.
+**Severity**: High (closely related to Finding 5)
 
-Missing tests I would consider mandatory before shipping:
-- active fee `0` followed by no-progress / no-replacement behavior
-- `exit()` on the active epoch when there is no pending replacement
-- malicious `feeRecipient` that reverts on ETH receipt
-- malicious `feeRecipient` that reenters `bid()` or `exit()` during `onProposalAccepted()`
-- repeated active-epoch churn until displaced-epoch capacity is exceeded
-- late proof settlement behavior when the assigned epoch never proves
+`_maybeSlashLateProof()` only inspects `proposalEpochs[_firstNewProposalId]`:
 
-## Bottom line
+```solidity
+// ProverMarket.sol:473-474
+uint48 epochId = proposalEpochs[_firstNewProposalId];
+if (epochId == 0) return;
+```
 
-The current implementation does not yet achieve the stated goal of permissionless proving safely. It replaces the old live Shasta liveness model with a market that controls exclusivity and payments, but not accountability. In the current form, a malicious prover can cheaply lock up exclusivity, delay proofs until the global fallback, and in some cases halt proposal acceptance outright.
+If a rescue prover batch-proves proposals 5-12 where:
+- Epoch A (proposals 5-7) missed its window -> slashed
+- Epoch B (proposals 8-12) ALSO missed its window -> NOT slashed
+
+Epoch B's bond remains intact despite failing its proving obligation. The rescue prover
+only receives Epoch A's slashed bond + the rescue pool.
+
+**Impact**: Provers can strategically delay proving so that their epoch is not the first
+unfinalized one. If another epoch's proposals come first in the batch, only that earlier
+epoch gets slashed. The later epoch escapes accountability.
+
+**Attack path**:
+1. Epoch A owns proposals 5-7, Epoch B owns proposals 8-12.
+2. Both miss their windows.
+3. Rescue prover proves 5-12 in one batch.
+4. Epoch A is slashed. Epoch B is not.
+5. Epoch B's bond is eventually released normally via `_releaseDisplacedBonds`.
+
+**Suggested fix**: Iterate over all distinct epochs in the batch and slash each one that
+missed its window. This adds gas cost proportional to the number of epoch transitions in
+a batch, which is bounded by `MAX_DISPLACED_EPOCHS`.
+
+---
+
+### Finding 7 (Medium): `forcePermissionlessMode` disables slashing entirely
+
+**Severity**: Medium
+
+When the DAO enables permissionless mode:
+
+```solidity
+// ProverMarket.sol:469
+if (_state.permissionlessMode || _proposalAge < uint256(_permissionlessProvingDelay)) {
+    return;
+}
+```
+
+This bypasses `_maybeSlashLateProof` completely. Any epoch that missed its window while
+permissionless mode is active escapes slashing.
+
+**Scenario**:
+1. Active prover collects fees for proposals 100-200 but doesn't prove.
+2. Protocol enters a crisis; DAO enables `forcePermissionlessMode(true)`.
+3. Rescue provers prove proposals 100-200.
+4. `_maybeSlashLateProof` returns early due to `permissionlessMode == true`.
+5. The delinquent prover's bond is never slashed; it's eventually released via
+   `_releaseDisplacedBonds`.
+
+**Impact**: Permissionless mode creates a perverse incentive -- provers are better off if
+the DAO triggers it, since they escape slashing. In extreme cases, a prover could lobby
+for or manufacture conditions that lead to permissionless mode activation.
+
+**Suggested fix**: Decouple permissionless proving from slashing. `permissionlessMode`
+should allow anyone to prove, but `_maybeSlashLateProof` should still slash epochs that
+missed their window regardless of the mode.
+
+---
+
+### Finding 8 (Medium): Slash amount is fixed at `_minBond` regardless of liability
+
+**Severity**: Medium
+
+The entire epoch bond is slashed on a late proof:
+
+```solidity
+// ProverMarket.sol:477
+uint64 slashedAmount = epoch.bondedAmount;
+```
+
+And `epoch.bondedAmount` always equals `_minBond` (set at bid time, line 248). This means:
+
+1. The slash is the same whether the epoch missed the window for 1 proposal or 1000.
+2. A prover assigned to many proposals risks only `_minBond` total, not per-proposal.
+3. If the fee revenue from many proposals exceeds `_minBond`, the prover profits from
+   intentionally not proving and getting slashed.
+
+**Economic analysis**: If epoch fee is F gwei/proposal and the epoch was assigned N
+proposals, total revenue = N * F. Total penalty = _minBond. For the prover, not-proving is
+profitable whenever `N * F > _minBond` (adjusted for rescue prover claiming rescue pool).
+
+The design doc acknowledges this (prover-market-design.md:171-172): "up-front fee
+reservation is only acceptable if the missed-proof slash is materially larger than the fee
+itself." The implementation relies on `_minBond` being set appropriately at deployment, but
+this is not enforced in code.
+
+**Suggested direction**: Consider scaling the bond requirement with the number of assigned
+proposals, or settling fees only after proof submission (pay-on-proof instead of
+pay-on-reserve).
+
+---
+
+### Finding 9 (Medium): Exited epoch with no replacement creates silent permissionless gap
+
+**Severity**: Medium
+
+When the active operator calls `exit()` and there is no pending replacement:
+
+1. `exit()` sets `activeEpochExiting = true` (ProverMarket.sol:279).
+2. On next `onProposalAccepted`, `activeEpochExiting` triggers `_retireActiveEpoch`
+   (line 315), setting `activeEpochId = 0`.
+3. Since `pendingEpochId == 0`, no activation happens.
+4. Line 334: `activeId != 0` is false, so the proposal is NOT assigned to any epoch.
+5. `proposalEpochs[proposalId]` remains 0.
+
+This means the proposal is permissionless from birth -- anyone can prove it immediately.
+This is correct behavior, but there is no event or signal to off-chain systems that the
+market has fallen into a "no active prover" state. Proposals silently become
+permissionless without any `DegradedModeUpdated` or similar signal.
+
+Additionally, the exiting epoch's already-assigned proposals are moved to the displaced
+queue, but they retain their exclusive windows. So the exiting operator keeps exclusivity
+for old proposals while new proposals are wide open. This creates an asymmetry that could
+confuse monitoring.
+
+**Suggested fix**: Emit an event when the market falls into the "no active epoch" state
+so off-chain systems can detect it and bidders can respond.
+
+---
+
+### Finding 10 (Low): `_actualProver` and `_finalizedAt` are unused in `onProofAccepted`
+
+**Severity**: Low / Informational
+
+```solidity
+// ProverMarket.sol:391-392
+_actualProver; // unused but part of interface
+_finalizedAt; // unused but part of interface
+```
+
+Similarly, `_proposalTimestamp` is unused in `beforeProofSubmission` (line 361).
+
+These unused parameters suggest the interface was designed for richer logic that isn't
+implemented yet. The interface should either be trimmed or the TODO for using these
+parameters should be documented.
+
+---
+
+## Test Coverage Gaps
+
+The existing test suite covers happy paths well but lacks adversarial scenarios. Missing
+tests that should be added before shipping:
+
+1. **Zero-fee lock-in**: Bid `feeInGwei = 0`, verify no one can outbid, verify `exit()`
+   works as only escape hatch, verify operator can hold position indefinitely.
+
+2. **Batch proof authorization across epochs**: Prove a batch spanning two epochs, verify
+   that only the first epoch's operator is checked (documents current behavior or tests
+   the fix).
+
+3. **Batch proof slashing across epochs**: Prove a late batch spanning two epochs that
+   both missed their windows, verify slashing behavior for each epoch.
+
+4. **Forced permissionless mode + slashing interaction**: Enable `forcePermissionlessMode`,
+   prove a late proposal, verify whether slashing occurs.
+
+5. **Deliberate churn to degraded mode**: 8 sequential bids without proof finalization,
+   verify degraded mode activation and recovery path.
+
+6. **Exit with no replacement**: Active operator exits with no pending bid, verify next
+   proposals are permissionless and subsequent bid re-establishes market.
+
+7. **Economic profitability of non-proving**: Set up N assigned proposals where
+   `N * fee > _minBond`, verify the economic outcome for the delinquent prover vs rescue
+   prover.
+
+8. **Rescue prover reward accumulation**: Multiple late-self-proofs filling
+   `rescueRewardPool`, then a rescue prover claims the accumulated pool.
+
+9. **Bond release after slashing**: Epoch is slashed, then its proposals are finalized.
+   Verify bond is not double-released via `_releaseDisplacedBonds`.
+
+10. **Concurrent proposal and proof race**: `onProposalAccepted` and `onProofAccepted`
+    interleaving (proposer and prover in same block), verify state consistency.
+
+---
+
+## Architecture Assessment
+
+### What works well
+
+1. **Epoch model**: Clean separation between bidding (pending), serving (active), and
+   settling (displaced) states. The lifecycle is well-defined.
+
+2. **Internal balance accounting**: Fees and bonds tracked via mappings, no ETH transfers
+   on the critical proposal path. This eliminates reentrancy and revert-DoS risks in the
+   hot path.
+
+3. **Degraded mode**: Hysteresis-based safety valve (enter at 7, exit at 0) prevents
+   proposal-path reverts from queue overflow. Good design.
+
+4. **Rescue prover incentive**: The `rescueRewardPool` accumulation + immediate payout
+   creates a meaningful incentive for third parties to rescue the chain.
+
+5. **Immutable config**: Constructor immutables for inbox, bond token, min bond, and
+   permissionless delay. No governance-mutable parameters that could be changed to game
+   the market.
+
+### Design tensions
+
+1. **Pay-on-reserve vs pay-on-proof**: The current model pays the prover at proposal time,
+   before they've done any work. This front-loads revenue and back-loads accountability.
+   The slash is the only check, and it's fixed-size. A pay-on-proof model would align
+   incentives better but adds complexity.
+
+2. **Single-proposal authorization for batches**: The market assigns exclusivity
+   per-proposal, but Inbox proves in batches. These two granularities don't align cleanly.
+   The current approach checks only the first proposal, which creates the issues in
+   Findings 5 and 6.
+
+3. **Permissionless delay as the universal fallback**: The `_permissionlessProvingDelay` is
+   the safety net for every failure mode (operator disappears, zero-fee lock, degraded
+   mode). This means every failure mode imposes the same delay on finalization. There's no
+   graduated response.
+
+---
+
+## Summary Table
+
+| # | Finding | Severity | Status |
+|---|---------|----------|--------|
+| 1 | No slashing mechanism | Critical | **RESOLVED** |
+| 2 | Zero-fee irreplaceable epoch | Critical | **OPEN** (exit path fixed, zero-fee still possible) |
+| 3 | CEI violation / reentrancy in fee path | High | **RESOLVED** |
+| 4 | Displaced queue overflow / degraded mode abuse | High | **OPEN** (revert fixed, churn attack remains) |
+| 5 | Batch proof auth only checks first epoch | High | **NEW** |
+| 6 | Batch proof slashing only penalizes first epoch | High | **NEW** |
+| 7 | `forcePermissionlessMode` disables slashing | Medium | **NEW** |
+| 8 | Slash amount fixed at `_minBond` regardless of liability | Medium | **NEW** |
+| 9 | No event for "market empty" state | Medium | **NEW** |
+| 10 | Unused interface parameters | Low | **NEW** |

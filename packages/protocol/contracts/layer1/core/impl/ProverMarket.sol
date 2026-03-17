@@ -40,6 +40,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint48 nextEpochId;
         bool permissionlessMode;
         bool activeEpochExiting;
+        bool degradedMode;
     }
 
     // ---------------------------------------------------------------
@@ -57,6 +58,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     /// @dev Seconds after which proving becomes permissionless for a proposal.
     uint48 internal immutable _permissionlessProvingDelay;
+
+    /// @dev Maximum displaced epochs tracked for bond release.
+    uint8 internal constant MAX_DISPLACED_EPOCHS = 8;
+
+    /// @dev Enter degraded mode before the displaced queue is full so one slot remains reserved.
+    uint8 internal constant ENTER_DEGRADED_AT = MAX_DISPLACED_EPOCHS - 1;
+
+    /// @dev Exit degraded mode only after the displaced backlog is fully drained.
+    uint8 internal constant EXIT_DEGRADED_AT = 0;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -80,6 +90,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @dev Displaced epochs awaiting bond release after finalization.
     uint48[8] internal _displacedEpochIds;
     uint8 internal _numDisplacedEpochs;
+
+    /// @notice Slashed bond retained in-market and paid out to future rescue provers.
+    uint64 public rescueRewardPool;
 
     uint256[43] private __gap;
 
@@ -118,6 +131,18 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     /// @notice Emitted when emergency permissionless mode changes.
     event PermissionlessModeUpdated(bool enabled);
+
+    /// @notice Emitted when protocol churn safety disables or restores exclusive assignments.
+    event DegradedModeUpdated(bool enabled);
+
+    /// @notice Emitted when a prover misses the exclusive proving window and is slashed.
+    event EpochSlashed(
+        uint48 indexed epochId,
+        address indexed operator,
+        address indexed proofSubmitter,
+        uint64 slashedAmount,
+        uint64 rewardAmount
+    );
 
     // ---------------------------------------------------------------
     // Constructor
@@ -271,50 +296,42 @@ contract ProverMarket is EssentialContract, IProverMarket {
     {
         MarketState memory state = marketState;
 
-        // Check if the active epoch needs to transition.
-        bool needsTransition =
-            state.activeEpochId == 0 || state.activeEpochExiting || state.permissionlessMode;
-
-        if (needsTransition && state.pendingEpochId != 0) {
-            // Move old active to displaced list for bond release tracking.
-            if (state.activeEpochId != 0) {
-                _addDisplacedEpoch(state.activeEpochId);
+        if (!state.permissionlessMode && !state.degradedMode) {
+            if (state.activeEpochId == 0) {
+                if (state.pendingEpochId != 0) {
+                    if (_numDisplacedEpochs >= ENTER_DEGRADED_AT) {
+                        state.degradedMode = true;
+                        emit DegradedModeUpdated(true);
+                    } else {
+                        _activatePendingEpoch(state, _proposalId, _proposalTimestamp);
+                    }
+                }
+            } else if (state.activeEpochExiting) {
+                if (state.pendingEpochId != 0 && _numDisplacedEpochs >= ENTER_DEGRADED_AT) {
+                    _retireActiveEpoch(state);
+                    state.degradedMode = true;
+                    emit DegradedModeUpdated(true);
+                } else {
+                    _retireActiveEpoch(state);
+                    if (state.pendingEpochId != 0) {
+                        _activatePendingEpoch(state, _proposalId, _proposalTimestamp);
+                    }
+                }
+            } else if (state.pendingEpochId != 0) {
+                if (_numDisplacedEpochs >= ENTER_DEGRADED_AT) {
+                    _retireActiveEpoch(state);
+                    state.degradedMode = true;
+                    emit DegradedModeUpdated(true);
+                } else {
+                    _retireActiveEpoch(state);
+                    _activatePendingEpoch(state, _proposalId, _proposalTimestamp);
+                }
             }
-
-            // Activate the pending epoch.
-            uint48 pendingId = state.pendingEpochId;
-            epochs[pendingId].activatedAt = _proposalTimestamp;
-            epochs[pendingId].firstProposalId = _proposalId;
-
-            state.activeEpochId = pendingId;
-            state.pendingEpochId = 0;
-            state.activeEpochExiting = false;
-
-            emit EpochActivated(pendingId, _proposalId);
-        }
-
-        // Also activate pending if it exists and active epoch is running normally
-        // (the pending epoch outbid the active, so it should take over on new proposals).
-        if (
-            !needsTransition && state.pendingEpochId != 0
-                && state.activeEpochId != state.pendingEpochId
-        ) {
-            // Move old active to displaced list.
-            _addDisplacedEpoch(state.activeEpochId);
-
-            uint48 pendingId = state.pendingEpochId;
-            epochs[pendingId].activatedAt = _proposalTimestamp;
-            epochs[pendingId].firstProposalId = _proposalId;
-
-            state.activeEpochId = pendingId;
-            state.pendingEpochId = 0;
-
-            emit EpochActivated(pendingId, _proposalId);
         }
 
         // Assign proposal to the active epoch.
         uint48 activeId = state.activeEpochId;
-        if (activeId != 0 && !state.permissionlessMode) {
+        if (activeId != 0 && !state.permissionlessMode && !state.degradedMode) {
             epochs[activeId].lastAssignedProposalId = _proposalId;
             proposalEpochs[_proposalId] = activeId;
 
@@ -339,6 +356,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     )
         external
         onlyFrom(address(_inbox))
+        view
     {
         _proposalTimestamp; // unused but part of interface
 
@@ -364,20 +382,29 @@ contract ProverMarket is EssentialContract, IProverMarket {
         address _actualProver,
         uint48 _firstNewProposalId,
         uint48 _lastProposalId,
+        uint256 _proposalAge,
         uint48 _finalizedAt
     )
         external
         onlyFrom(address(_inbox))
     {
-        _caller; // unused but part of interface
         _actualProver; // unused but part of interface
-        _firstNewProposalId; // unused but part of interface
         _finalizedAt; // unused but part of interface
 
-        marketState.lastFinalizedProposalId = _lastProposalId;
+        MarketState memory state = marketState;
+        state.lastFinalizedProposalId = _lastProposalId;
+
+        _maybeSlashLateProof(state, _caller, _firstNewProposalId, _proposalAge);
 
         // Release bonds for displaced epochs whose proposals are now fully finalized.
         _releaseDisplacedBonds(_lastProposalId);
+
+        if (state.degradedMode && _numDisplacedEpochs <= EXIT_DEGRADED_AT) {
+            state.degradedMode = false;
+            emit DegradedModeUpdated(false);
+        }
+
+        marketState = state;
     }
 
     /// @inheritdoc IProverMarket
@@ -402,10 +429,77 @@ contract ProverMarket is EssentialContract, IProverMarket {
     // Private Functions
     // ---------------------------------------------------------------
 
+    /// @dev Activates the current pending epoch for new assignments.
+    function _activatePendingEpoch(
+        MarketState memory _state,
+        uint48 _proposalId,
+        uint48 _proposalTimestamp
+    )
+        private
+    {
+        uint48 pendingId = _state.pendingEpochId;
+        epochs[pendingId].activatedAt = _proposalTimestamp;
+        epochs[pendingId].firstProposalId = _proposalId;
+
+        _state.activeEpochId = pendingId;
+        _state.pendingEpochId = 0;
+        _state.activeEpochExiting = false;
+
+        emit EpochActivated(pendingId, _proposalId);
+    }
+
+    /// @dev Retires the active epoch so already-assigned proposals remain tracked but new ones do
+    ///      not attach to it.
+    function _retireActiveEpoch(MarketState memory _state) private {
+        _addDisplacedEpoch(_state.activeEpochId);
+        _state.activeEpochId = 0;
+        _state.activeEpochExiting = false;
+    }
+
+    /// @dev Slashes the owning epoch if the first newly finalized proposal aged into the
+    ///      permissionless window before proof submission.
+    function _maybeSlashLateProof(
+        MarketState memory _state,
+        address _caller,
+        uint48 _firstNewProposalId,
+        uint256 _proposalAge
+    )
+        private
+    {
+        if (_state.permissionlessMode || _proposalAge < uint256(_permissionlessProvingDelay)) {
+            return;
+        }
+
+        uint48 epochId = proposalEpochs[_firstNewProposalId];
+        if (epochId == 0) return;
+
+        Epoch storage epoch = epochs[epochId];
+        uint64 slashedAmount = epoch.bondedAmount;
+        if (slashedAmount == 0) return;
+
+        epoch.bondedAmount = 0;
+
+        uint64 rewardAmount;
+        if (_caller == epoch.operator) {
+            rescueRewardPool += slashedAmount;
+        } else {
+            rewardAmount = rescueRewardPool + slashedAmount;
+            rescueRewardPool = 0;
+            bondBalances[_caller] += rewardAmount;
+        }
+
+        if (_state.activeEpochId == epochId) {
+            _state.activeEpochId = 0;
+            _state.activeEpochExiting = false;
+        }
+
+        emit EpochSlashed(epochId, epoch.operator, _caller, slashedAmount, rewardAmount);
+    }
+
     /// @dev Adds an epoch to the displaced tracking array for future bond release.
     function _addDisplacedEpoch(uint48 _epochId) private {
         uint8 n = _numDisplacedEpochs;
-        require(n < 8, TooManyDisplacedEpochs());
+        require(n < MAX_DISPLACED_EPOCHS, TooManyDisplacedEpochs());
         _displacedEpochIds[n] = _epochId;
         _numDisplacedEpochs = n + 1;
     }
@@ -417,10 +511,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
         for (uint8 i; i < n; ++i) {
             uint48 eid = _displacedEpochIds[i];
             Epoch storage e = epochs[eid];
-            if (e.lastAssignedProposalId <= _lastFinalizedProposalId && e.bondedAmount > 0) {
-                bondBalances[e.operator] += e.bondedAmount;
-                emit BondReleased(eid, e.operator, e.bondedAmount);
-                e.bondedAmount = 0;
+            if (e.lastAssignedProposalId <= _lastFinalizedProposalId) {
+                if (e.bondedAmount > 0) {
+                    bondBalances[e.operator] += e.bondedAmount;
+                    emit BondReleased(eid, e.operator, e.bondedAmount);
+                    e.bondedAmount = 0;
+                }
             } else {
                 _displacedEpochIds[remaining] = eid;
                 ++remaining;

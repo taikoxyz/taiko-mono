@@ -40,7 +40,8 @@ interface IProverMarket {
         uint48 _proposalTimestamp,
         uint256 _proposalAge
     )
-        external;
+        external
+        view;
 
     /// @notice Notifies the market that Inbox accepted a new proposal
     /// @param _proposalId The accepted proposal id
@@ -58,12 +59,14 @@ interface IProverMarket {
     /// @param _actualProver The prover recorded in the commitment
     /// @param _firstNewProposalId The first proposal id that was newly finalized
     /// @param _lastProposalId The last proposal id in the finalized range
+    /// @param _proposalAge The age in seconds of the first newly finalized proposal
     /// @param _finalizedAt The timestamp when finalization occurred
     function onProofAccepted(
         address _caller,
         address _actualProver,
         uint48 _firstNewProposalId,
         uint48 _lastProposalId,
+        uint256 _proposalAge,
         uint48 _finalizedAt
     )
         external;
