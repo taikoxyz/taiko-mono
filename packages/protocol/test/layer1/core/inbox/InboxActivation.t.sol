@@ -115,9 +115,6 @@ contract InboxActivationTest is InboxTestBase {
         assertEq(cfg.proposerChecker, config.proposerChecker, "proposerChecker mismatch");
         assertEq(cfg.signalService, config.signalService, "signalService mismatch");
         assertEq(cfg.bondToken, config.bondToken, "bondToken mismatch");
-        assertEq(cfg.minBond, config.minBond, "minBond mismatch");
-        assertEq(cfg.livenessBond, config.livenessBond, "livenessBond mismatch");
-        assertEq(cfg.withdrawalDelay, config.withdrawalDelay, "withdrawalDelay mismatch");
     }
 }
 

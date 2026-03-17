@@ -36,9 +36,6 @@ contract MainnetInbox is Inbox {
                 proverMarket: _proverMarket,
                 signalService: _signalService,
                 bondToken: _bondToken,
-                minBond: 0, // During market rollout, proposer bonds are not necessary
-                livenessBond: 0,
-                withdrawalDelay: 1 weeks,
                 provingWindow: 4 hours, // internal target is still to submit every ~2 hours
                 // Allows the security council time to intervene if a bug is found.
                 permissionlessProvingDelay: 5 days,
