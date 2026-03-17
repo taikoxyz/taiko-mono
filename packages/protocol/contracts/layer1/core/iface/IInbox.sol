@@ -13,8 +13,8 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
-        /// @notice The prover whitelist contract (address(0) means no whitelist)
-        address proverWhitelist;
+        /// @notice The prover market contract (address(0) means proving is permissionless)
+        address proverMarket;
         /// @notice The signal service contract address
         address signalService;
         /// @notice The ERC20 bond token address
@@ -27,7 +27,8 @@ interface IInbox {
         uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
-        /// @notice The delay after which proving becomes permissionless when whitelist is enabled
+        /// @notice The delay after which proving becomes permissionless when the prover market is
+        /// enabled
         /// @dev Must be greater than provingWindow
         uint48 permissionlessProvingDelay;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.

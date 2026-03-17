@@ -1,218 +1,196 @@
-# ProverMarket Design: Permissionless Proving via Perpetual Reverse Auction
+# ProverMarket Design: First-Class Proving Rights Controller
 
 ## Context
 
-The current prover whitelist (`ProverWhitelist.sol`) is controlled by a multisig, creating a centralization vector. This design replaces it with a permissionless prover market using a perpetual reverse auction. The goal: any prover can compete for the right to prove, with economic guarantees that the chain cannot be halted by malicious provers.
+The current prover whitelist is a privileged allowlist managed outside the market itself. The
+prover market should replace that model entirely, not sit behind the whitelist interface.
+
+This design therefore removes the whitelist abstraction from the proving path and makes
+`ProverMarket` a first-class dependency of `Inbox`.
+
+## Goals
+
+- Remove the manual prover whitelist entirely
+- Make proving authorization explicit in `Inbox`
+- Let the market own prover selection, fee accounting, and slashing state
+- Keep `Inbox` as the source of truth for proposal acceptance and proof finalization
+- Stage the implementation so `Inbox` integration can be reviewed before the market economics are
+  finalized
+
+## Non-Goals For This First Pass
+
+- Finalize the full auction and slashing logic
+- Ship production fee accounting
+- Preserve the old `IProverWhitelist` integration shape
+
+The first implementation pass in this branch is intentionally a skeleton: interfaces, wiring, and
+contract surfaces only.
 
 ## Architecture
 
-**Drop-in replacement.** `ProverMarket` implements `IProverWhitelist` and replaces `ProverWhitelist` as the Inbox's `_proverWhitelist` immutable dependency. **Zero changes to Inbox.sol.**
+`Inbox` should depend on `IProverMarket`, not `IProverWhitelist`.
 
-```
+If `proverMarket == address(0)`, proving is fully permissionless and remains a first-prove-first-win
+path.
+
+```text
+Inbox.propose()
+  -> ProverMarket.onProposalAccepted(...)
+
 Inbox.prove()
-  → _checkProver(msg.sender, proposalAge)
-    → _proverWhitelist.isProverWhitelisted(msg.sender)
-      → ProverMarket returns (isWinner, proverCount)
+  -> ProverMarket.beforeProofSubmission(...)
+  -> Inbox verifies proof and updates state
+  -> ProverMarket.onProofAccepted(...)
 ```
 
-When `proverCount = 1`: only the winner can prove (or wait 5 days for permissionless).
-When `proverCount = 0`: anyone can prove immediately (permissionless fallback).
+This makes the proving market responsible for:
 
-## Core Mechanism
+- deciding whether a proof submission is allowed
+- tracking which epoch owns which proposal interval
+- reserving or accruing prover fees
+- tracking liability for slashing and exit
 
-### State (2 storage slots on hot path)
+`Inbox` remains responsible for:
 
-```solidity
-// Slot 1 (34 bytes, packed)
-struct Winner {
-    address addr;          // 20 bytes
-    uint64  feeInGwei;     // 8 bytes (max ~18.4 ETH)
-    uint48  activeAt;      // 6 bytes (when whitelist enforcement begins)
-}
+- proposal sequencing
+- proof verification
+- finalization state
+- liveness bond handling for permissionless proving paths
 
-// Slot 2 (13 bytes, packed)
-struct MarketState {
-    uint48 lastEjectionTimestamp;  // 6 bytes
-    uint48 cooldownUntil;          // 6 bytes
-    uint8  consecutiveEjections;   // 1 byte (max 255)
-}
-```
+## Core Model
 
-Additional state:
+The market should be modeled around epochs instead of a single mutable "winner".
 
-- `mapping(address => uint64) bonds` — prover bond balances (gwei)
-- `mapping(address => uint256) feeBalances` — claimable ETH for provers
-- `uint48 lastClaimedProposalId` — fee settlement cursor
+Each epoch owns:
 
-### IProverWhitelist Implementation
+- a prover operator
+- a fee recipient
+- a fee quote
+- a locked bond
+- an activation timestamp
+- a proposal interval or equivalent liability cursor
 
-```solidity
-function isProverWhitelisted(address _prover) external view returns (bool, uint256) {
-    Winner memory w = winner;
-    if (w.addr == address(0)) return (false, 0);            // vacant
-    if (block.timestamp < w.activeAt) return (false, 0);     // grace period
-    return (_prover == w.addr, 1);                           // active
-}
-```
+Important consequences:
 
-**2 SLOADs** on the hot path (winner + marketState not needed here). Called every `prove()`.
+- New proposals are assigned to the active epoch when they are accepted by `Inbox`
+- An outbid creates a pending next epoch for future proposals
+- A displaced prover stays liable for the proposals assigned during its epoch until those proposals
+  are proven or the epoch is slashed
+- Emergency logic may remove exclusivity, but may not assign exclusivity to a named prover
 
-### Bidding
+## Required Inbox Changes
 
-```solidity
-function bid(uint64 _feeInGwei) external;
-```
+The prover market cannot be implemented cleanly through a boolean whitelist check. `Inbox` must be
+updated directly.
 
-- Fee must be >0
-- Must have `bonds[msg.sender] >= getRequiredBond()` (escalates after ejections)
-- Must undercut current winner by at least **5%** (`minFeeReductionBps = 500`)
-- Cannot bid during `cooldownUntil` (global cooldown after ejection)
-- Cannot bid if already the winner
-- If vacant: any fee accepted (no minimum reduction)
-- Winner displaced immediately; old winner can withdraw bond
-- New winner's `activeAt = block.timestamp + ACTIVATION_DELAY`
+### Config and Immutable Wiring
 
-**Activation delay (4 hours):** When a new winner takes over after a vacant period, `proverCount` stays 0 for 4 hours. This lets any proposals from the permissionless gap be proven by anyone before the new winner's exclusivity kicks in. Matches `provingWindow`.
+- Replace `Config.proverWhitelist` with `Config.proverMarket`
+- Replace `_proverWhitelist` with `_proverMarket`
+- Update `getConfig()` to return the market address
+- Update mainnet and devnet inbox constructors to take a prover market address
 
-### Ejection (Slashing for Missed Proofs)
+### Proposal Path
 
-```solidity
-function slashAndEject() external;
-```
+After a proposal is accepted and before the `Proposed` event is emitted, `Inbox` should notify the
+market that a new proposal has entered the proving queue.
 
-Permissionless — anyone can call. Reads Inbox public state to verify delinquency:
+The hook should carry enough information for future fee reservation and epoch assignment:
 
-```
-IInbox.CoreState memory state = inbox.getCoreState();
-// Must have unproven proposals
-require(state.lastFinalizedProposalId + 1 < state.nextProposalId);
-// Must have exceeded proving window since last finalization (or winner start)
-uint48 ref = state.lastFinalizedTimestamp > 0
-    ? state.lastFinalizedTimestamp : winner.activeAt;
-require(block.timestamp > ref + inbox.getConfig().provingWindow);
-```
+- proposal id
+- proposer
+- proposal timestamp
 
-On ejection:
+### Proof Path
 
-1. **100% bond slash.** 50% to `msg.sender` (bounty), 50% burned to `address(0xdead)`
-2. Winner cleared → `proverCount = 0` → permissionless proving activates
-3. `consecutiveEjections++` (global counter)
-4. `cooldownUntil = block.timestamp + GLOBAL_COOLDOWN` (1 hour)
+Before a proof is accepted, `Inbox` should ask the market whether the caller may submit the proof
+for the first newly finalized proposal in the batch.
 
-### Voluntary Exit
+The authorization hook should carry enough information to support future policy:
 
-```solidity
-function exit() external;
-```
+- caller
+- first new proposal id
+- first new proposal timestamp
+- proposal age
 
-Only callable by current winner. Clears winner, market goes vacant. No slashing. Winner should ensure pending proposals are proven first (their bond remains locked until withdrawn separately).
+After a proof is accepted and finalization state is updated, `Inbox` should notify the market of
+the newly finalized interval.
 
-### Bond Management
+The completion hook should carry:
 
-```solidity
-function depositBond(uint64 _amount) external;   // TAIKO token, gwei units
-function withdrawBond(uint64 _amount) external;   // reverts if sender is current winner
-```
+- caller
+- actual prover
+- first new proposal id
+- last proposal id
+- finalized timestamp
 
-**Required bond** escalates after ejections:
+## Proposed `IProverMarket` Surface
 
-```
-requiredBond = BASE_BOND * 2^min(consecutiveEjections, MAX_ESCALATION)
-```
+The first pass should add the interface and wire `Inbox` to it. Function bodies in
+`ProverMarket.sol` can remain skeletal until the surface is reviewed.
 
-`consecutiveEjections` decays by 1 per 24 hours without ejection (checked at bid time). Resets to 0 after the winner successfully proves (detected via `lastFinalizedProposalId` advancing during their tenure).
+Expected responsibilities:
 
-### Fee Payment
+- `beforeProofSubmission(...)`
+- `onProposalAccepted(...)`
+- `onProofAccepted(...)`
+- bid lifecycle functions
+- bond management functions
+- fee balance management functions
+- emergency mode functions that only reduce privilege
 
-**Shared ETH pool model** (zero Inbox changes):
+## Fee Model Direction
 
-```solidity
-function depositFee() external payable;              // proposers deposit ETH
-function withdrawFee(uint256 _amount) external;       // proposers withdraw unused
-function claimFees() external;                         // winner claims for proven proposals
-```
+The previous shared global ETH pool design is intentionally dropped.
 
-`claimFees()` flow:
+The next version should instead reserve prover fees against proposer-funded balances when
+proposals are accepted. That accounting requires explicit `Inbox` hooks, which is another reason
+the whitelist-shaped integration is insufficient.
 
-1. Read `inbox.getCoreState().lastFinalizedProposalId`
-2. Calculate `newProposals = lastFinalizedProposalId - lastClaimedProposalId`
-3. Pay `newProposals * winner.feeInGwei * 1 gwei` from pool to winner
-4. If pool insufficient, pay what's available (winner accepted this risk)
+If this remains too large for the first production version, the fee accounting should be staged
+separately rather than hidden behind a misleading "shared pool" placeholder.
 
-**Economic enforcement:** If proposers don't fund the pool, the winner stops proving. After `permissionlessProvingDelay` (5 days), anyone can prove. Proposers are incentivized to pay because they need timely finalization.
+## Emergency Behavior
 
-### Emergency Override
+The market must not reintroduce a hidden whitelist through governance.
 
-```solidity
-function setWinnerOverride(address _newWinner, uint64 _feeInGwei) external onlyOwner;
-```
+Allowed emergency actions:
 
-DAO can intervene in emergencies (e.g., security incident). Sets or clears winner directly.
+- force permissionless proving
+- clear the active market epoch
+- pause new bids
 
-## Anti-Griefing Summary
+Disallowed emergency action:
 
-| Attack                            | Defense                                                       | Cost to Attacker                        |
-| --------------------------------- | ------------------------------------------------------------- | --------------------------------------- |
-| Win & never prove                 | 100% bond slash on ejection                                   | BASE_BOND (32 ETH equiv) per attempt    |
-| Repeated eject-rebid              | Global cooldown (1h) + escalating bond (2x per ejection)      | 32 + 64 + 128 + 256 ETH for 4 cycles    |
-| Sybil after ejection              | Global (not per-address) escalation                           | Fresh address faces same escalated bond |
-| Transition gap                    | 4h activation delay keeps proverCount=0 for backlog           | N/A                                     |
-| Timing attack (prove at deadline) | Accepted — maxProofSubmissionDelay constrains sequential gaps | N/A                                     |
-| Proposer-prover collusion         | Not a problem — security from proof validity + bond           | N/A                                     |
-
-## Parameters
-
-| Parameter                 | Value                        | Rationale                                           |
-| ------------------------- | ---------------------------- | --------------------------------------------------- |
-| `BASE_BOND`               | 32 ETH equiv in TAIKO (gwei) | Same order as ETH validator stake                   |
-| `MIN_FEE_REDUCTION_BPS`   | 500 (5%)                     | Prevents trivial underbids                          |
-| `GLOBAL_COOLDOWN`         | 3600 (1 hour)                | Breaks rebid loops                                  |
-| `ACTIVATION_DELAY`        | 14400 (4 hours)              | Matches provingWindow; lets gap proposals be proven |
-| `SLASH_BOUNTY_BPS`        | 5000 (50%)                   | Incentivizes fast ejection                          |
-| `MAX_ESCALATION`          | 3 (cap at 8x = 256 ETH)      | Prevents bond exceeding honest prover liquidity     |
-| `ESCALATION_DECAY_PERIOD` | 86400 (24 hours)             | Returns to base after healthy operation             |
+- assign proving exclusivity to an arbitrary operator
 
 ## Files
 
 ### New Files
 
-- `contracts/layer1/core/impl/ProverMarket.sol` — main contract
-- `contracts/layer1/core/impl/ProverMarket_Layout.sol` — storage layout
-- `test/layer1/core/ProverMarket.t.sol` — tests
+- `contracts/layer1/core/iface/IProverMarket.sol`
 
 ### Modified Files
 
-- `contracts/layer1/mainnet/MainnetInbox.sol` — pass ProverMarket address as `proverWhitelist` in constructor
+- `contracts/layer1/core/iface/IInbox.sol`
+- `contracts/layer1/core/impl/Inbox.sol`
+- `contracts/layer1/core/impl/ProverMarket.sol`
+- `contracts/layer1/mainnet/MainnetInbox.sol`
+- `contracts/layer1/devnet/DevnetInbox.sol`
 
-### Reference Files (no changes)
+### Removed Or Reworked
 
-- `contracts/layer1/core/iface/IProverWhitelist.sol` — interface to implement
-- `contracts/layer1/core/impl/Inbox.sol` — `_checkProver()` (line 730), `_processLivenessBond()` (line 686)
-- `contracts/layer1/core/impl/ProverWhitelist.sol` — structural template (EssentialContract inheritance, coding conventions)
-- `contracts/layer1/core/libs/LibBonds.sol` — bond pattern reference
-
-## State Transitions
-
-```
-VACANT (proverCount=0)
-  │  bid() → set winner, activeAt = now + ACTIVATION_DELAY
-  ▼
-GRACE (proverCount=0, winner set but not yet active)
-  │  block.timestamp >= activeAt
-  ▼
-ACTIVE (proverCount=1, winner enforced)
-  │                          │
-  │ slashAndEject()          │ exit()
-  │ (slash bond, cooldown)   │ (no slash)
-  ▼                          ▼
-VACANT ◄─────────────────────┘
-  (cooldown period: no bids for 1h after ejection)
-```
+- `contracts/layer1/core/iface/IProverWhitelist.sol`
+- `test/layer1/core/ProverMarket.t.sol`
 
 ## Verification
 
-1. **Unit tests:** Test all state transitions (bid, outbid, eject, exit, grace period)
-2. **Integration test with Inbox:** Deploy ProverMarket as `proverWhitelist`, verify `prove()` works correctly in all modes (winner active, grace period, vacant)
-3. **Anti-griefing tests:** Verify escalating bond, cooldown enforcement, 100% slash
-4. **Fee tests:** Deposit, claim, insufficient pool
-5. **Run:** `forge test --match-path "test/layer1/core/ProverMarket*"`
+This first pass is for interface and wiring review, not production-complete market behavior.
+
+Review focus:
+
+1. Does `Inbox` expose the right market hooks?
+2. Does `IProverMarket` contain the right responsibilities?
+3. Does the `ProverMarket` skeleton reflect the intended boundary between `Inbox` and market
+   logic?
+4. Have all whitelist-specific assumptions been removed from the proving path?

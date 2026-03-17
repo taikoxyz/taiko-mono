@@ -5,8 +5,8 @@ import { IBondManager } from "../iface/IBondManager.sol";
 import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { IProverMarket } from "../iface/IProverMarket.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
@@ -75,8 +75,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The proposer checker contract.
     IProposerChecker internal immutable _proposerChecker;
 
-    /// @notice The prover whitelist contract (address(0) means no whitelist)
-    IProverWhitelist internal immutable _proverWhitelist;
+    /// @notice The prover market contract (address(0) means proving is permissionless)
+    IProverMarket internal immutable _proverMarket;
 
     /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
@@ -96,7 +96,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
 
-    /// @notice The delay after which proving becomes permissionless when whitelist is enabled.
+    /// @notice The delay after which proving becomes permissionless when the prover market is
+    /// enabled.
     uint48 internal immutable _permissionlessProvingDelay;
 
     /// @notice Maximum delay allowed between sequential proofs to remain on time.
@@ -156,7 +157,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
-        _proverWhitelist = IProverWhitelist(_config.proverWhitelist);
+        _proverMarket = IProverMarket(_config.proverMarket);
         _signalService = ISignalService(_config.signalService);
         _bondToken = IERC20(_config.bondToken);
         _minBond = _config.minBond;
@@ -229,14 +230,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
+            _notifyProverMarketOnProposalAccepted(
+                proposal.id, proposal.proposer, proposal.timestamp
+            );
             _emitProposedEvent(proposal);
         }
     }
 
     /// @inheritdoc IInbox
-    /// @dev When the prover whitelist is enabled, only whitelisted
-    ///      provers may prove until a proposal becomes older than `permissionlessProvingDelay`,
-    ///      after which proving becomes permissionless for that proposal.
+    /// @dev When the prover market is enabled, only market-authorized
+    ///      provers may prove until a proposal becomes older than
+    ///      `permissionlessProvingDelay`, after which proving becomes permissionless for that
+    ///      proposal.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
     ///      Transition structs, each with the proposal metadata and end block hash. The proof
     ///      range can start at or before the last finalized proposal to handle race conditions
@@ -278,29 +283,39 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
                 _validateCommitment(state, commitment);
 
-            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-            bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
+            uint48 firstNewProposalId = uint48(state.lastFinalizedProposalId + 1);
+            uint256 proposalAge;
+            {
+                uint48 firstNewProposalTimestamp = commitment.transitions[offset].timestamp;
+                proposalAge = block.timestamp - firstNewProposalTimestamp;
 
-            // ---------------------------------------------------------
-            // 2. Verify parent block-hash continuity and last proposal hash
-            // ---------------------------------------------------------
-            // The parent block hash must match the stored lastFinalizedBlockHash.
-            bytes32 expectedParentHash = offset == 0
-                ? commitment.firstProposalParentBlockHash
-                : commitment.transitions[offset - 1].blockHash;
-            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+                _checkProverMarket(
+                    msg.sender, firstNewProposalId, firstNewProposalTimestamp, proposalAge
+                );
 
-            require(
-                commitment.lastProposalHash == getProposalHash(lastProposalId),
-                LastProposalHashMismatch()
-            );
+                // ---------------------------------------------------------
+                // 2. Verify parent block-hash continuity and last proposal hash
+                // ---------------------------------------------------------
+                // The parent block hash must match the stored lastFinalizedBlockHash.
+                bytes32 expectedParentHash = offset == 0
+                    ? commitment.firstProposalParentBlockHash
+                    : commitment.transitions[offset - 1].blockHash;
+                require(
+                    state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch()
+                );
 
-            // ---------------------------------------------------------
-            // 3. Process bond instruction
-            // ---------------------------------------------------------
-            // Bond transfers only apply when whitelist is not enabled.
-            if (!isWhitelistEnabled) {
-                _processLivenessBond(commitment, offset);
+                require(
+                    commitment.lastProposalHash == getProposalHash(lastProposalId),
+                    LastProposalHashMismatch()
+                );
+
+                // ---------------------------------------------------------
+                // 3. Process bond instruction
+                // ---------------------------------------------------------
+                // Bond transfers only apply when proving is permissionless.
+                if (address(_proverMarket) == address(0)) {
+                    _processLivenessBond(commitment, offset);
+                }
             }
 
             // -----------------------------------------------------------------------------
@@ -326,7 +341,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             emit Proved(
                 commitment.firstProposalId,
-                commitment.firstProposalId + offset,
+                firstNewProposalId,
                 uint48(lastProposalId),
                 commitment.actualProver
             );
@@ -340,6 +355,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 numProposals - offset == 1 ? proposalAge : 0,
                 LibHashOptimized.hashCommitment(commitment),
                 _proof
+            );
+            _notifyProverMarketOnProofAccepted(
+                msg.sender,
+                commitment.actualProver,
+                firstNewProposalId,
+                uint48(lastProposalId),
+                state.lastFinalizedTimestamp
             );
         }
     }
@@ -474,7 +496,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         config_ = Config({
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
-            proverWhitelist: address(_proverWhitelist),
+            proverMarket: address(_proverMarket),
             signalService: address(_signalService),
             bondToken: address(_bondToken),
             minBond: _minBond,
@@ -713,7 +735,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     // ---------------------------------------------------------------
-    // Private View/Pure Functions
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Validates propose function inputs.
@@ -722,28 +744,59 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
-    /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
-    ///      becomes permissionless once a proposal is older than the permissionless delay.
+    /// @dev Checks if the caller is authorized by the prover market.
     /// @param _addr The address of the caller to check.
+    /// @param _firstNewProposalId The first proposal id that would be newly finalized.
+    /// @param _proposalTimestamp The timestamp of the first newly finalized proposal.
     /// @param _proposalAge The age in seconds since the proposal became available for proving.
-    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise.
-    function _checkProver(
+    function _checkProverMarket(
         address _addr,
+        uint48 _firstNewProposalId,
+        uint48 _proposalTimestamp,
         uint256 _proposalAge
     )
         private
-        view
-        returns (bool whitelistEnabled_)
     {
-        if (address(_proverWhitelist) == address(0)) return false;
+        if (address(_proverMarket) == address(0)) return;
+        _proverMarket.beforeProofSubmission(
+            _addr, _firstNewProposalId, _proposalTimestamp, _proposalAge
+        );
+    }
 
-        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
-        if (proverCount == 0) return false;
+    /// @dev Notifies the prover market when a proposal is accepted.
+    /// @param _proposalId The accepted proposal id.
+    /// @param _proposer The proposer that created the proposal.
+    /// @param _proposalTimestamp The proposal timestamp.
+    function _notifyProverMarketOnProposalAccepted(
+        uint48 _proposalId,
+        address _proposer,
+        uint48 _proposalTimestamp
+    )
+        private
+    {
+        if (address(_proverMarket) == address(0)) return;
+        _proverMarket.onProposalAccepted(_proposalId, _proposer, _proposalTimestamp);
+    }
 
-        if (!isWhitelisted) {
-            require(_proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted());
-        }
-        return true;
+    /// @dev Notifies the prover market when a proof is accepted.
+    /// @param _caller The proof transaction sender.
+    /// @param _actualProver The prover recorded in the commitment.
+    /// @param _firstNewProposalId The first newly finalized proposal id.
+    /// @param _lastProposalId The last finalized proposal id in the batch.
+    /// @param _finalizedAt The timestamp when finalization occurred.
+    function _notifyProverMarketOnProofAccepted(
+        address _caller,
+        address _actualProver,
+        uint48 _firstNewProposalId,
+        uint48 _lastProposalId,
+        uint48 _finalizedAt
+    )
+        private
+    {
+        if (address(_proverMarket) == address(0)) return;
+        _proverMarket.onProofAccepted(
+            _caller, _actualProver, _firstNewProposalId, _lastProposalId, _finalizedAt
+        );
     }
 
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
@@ -794,6 +847,5 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
-    error ProverNotWhitelisted();
     error UnprocessedForcedInclusionIsDue();
 }

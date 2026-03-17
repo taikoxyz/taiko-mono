@@ -7,7 +7,6 @@ import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
@@ -35,7 +34,6 @@ abstract contract InboxTestBase is CommonTest {
     MockProofVerifier internal verifier;
     SignalService internal signalService;
     PreconfWhitelist internal proposerChecker;
-    ProverWhitelist internal proverWhitelistContract;
     TestERC20 internal bondToken;
 
     address internal proposer = Bob;
@@ -79,7 +77,7 @@ abstract contract InboxTestBase is CommonTest {
         return IInbox.Config({
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
-            proverWhitelist: address(proverWhitelistContract),
+            proverMarket: address(0),
             signalService: address(signalService),
             bondToken: address(bondToken),
             minBond: MIN_BOND_GWEI,
@@ -109,7 +107,6 @@ abstract contract InboxTestBase is CommonTest {
     function _setupDependencies() internal virtual {
         signalService = _deploySignalService(address(this));
         proposerChecker = _deployProposerChecker();
-        proverWhitelistContract = _deployProverWhitelist();
         _addProposer(proposer);
     }
 
@@ -142,17 +139,6 @@ abstract contract InboxTestBase is CommonTest {
             address(
                 new ERC1967Proxy(
                     address(impl), abi.encodeCall(PreconfWhitelist.init, (address(this)))
-                )
-            )
-        );
-    }
-
-    function _deployProverWhitelist() internal returns (ProverWhitelist) {
-        ProverWhitelist impl = new ProverWhitelist(address(this));
-        return ProverWhitelist(
-            address(
-                new ERC1967Proxy(
-                    address(impl), abi.encodeCall(ProverWhitelist.init, (address(this)))
                 )
             )
         );
