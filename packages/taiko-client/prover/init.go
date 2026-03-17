@@ -393,14 +393,14 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 
 	batch, err := p.rpc.GetBatchByID(p.ctx, startingBatchID)
 	if err != nil {
-		return fmt.Errorf("failed to get batch by ID: %d", startingBatchID)
+		return fmt.Errorf("failed to get batch by ID %d: %w", startingBatchID, err)
 	}
 	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, new(big.Int).SetUint64(batch.LastBlockId))
 	if err != nil {
 		if err.Error() == ethereum.NotFound.Error() {
 			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
 			if err != nil {
-				return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
+				return fmt.Errorf("failed to get L1 head for blockID %d: %w", batch.AnchorBlockId, err)
 			}
 			p.sharedState.SetL1Current(l1Head)
 			return nil
@@ -452,7 +452,7 @@ func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
 
 	_, eventLog, err := p.rpc.GetProposalByIDShasta(p.ctx, startingBatchID)
 	if err != nil {
-		return fmt.Errorf("failed to get proposal by ID: %d", startingBatchID)
+		return fmt.Errorf("failed to get proposal by ID %d: %w", startingBatchID, err)
 	}
 	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, eventLog.BlockHash)
 	if err != nil {
