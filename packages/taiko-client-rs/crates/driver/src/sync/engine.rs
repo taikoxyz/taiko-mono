@@ -274,24 +274,35 @@ fn envelope_into_submission(
     envelope: ExecutionPayloadEnvelopeV2,
 ) -> (ExecutionPayloadInputV2, B256, u64) {
     match envelope.execution_payload {
-        ExecutionPayloadFieldV2::V1(payload) => (
-            // Taiko chains are always post-Shanghai so withdrawals must be non-nil even
-            // when the engine returns a V1 envelope (which omits the withdrawals field).
-            ExecutionPayloadInputV2 {
-                execution_payload: payload.clone(),
-                withdrawals: Some(Vec::new()),
-            },
-            payload.block_hash,
-            payload.block_number,
-        ),
-        ExecutionPayloadFieldV2::V2(payload) => (
-            ExecutionPayloadInputV2 {
-                execution_payload: payload.payload_inner.clone(),
-                withdrawals: Some(payload.withdrawals.clone()),
-            },
-            payload.payload_inner.block_hash,
-            payload.payload_inner.block_number,
-        ),
+        ExecutionPayloadFieldV2::V1(payload) => {
+            let block_hash = payload.block_hash;
+            let block_number = payload.block_number;
+
+            (
+                // Taiko chains are always post-Shanghai so withdrawals must be non-nil even
+                // when the engine returns a V1 envelope (which omits the withdrawals field).
+                ExecutionPayloadInputV2 {
+                    execution_payload: payload,
+                    withdrawals: Some(Vec::new()),
+                },
+                block_hash,
+                block_number,
+            )
+        }
+        ExecutionPayloadFieldV2::V2(payload) => {
+            let execution_payload = payload.payload_inner;
+            let block_hash = execution_payload.block_hash;
+            let block_number = execution_payload.block_number;
+
+            (
+                ExecutionPayloadInputV2 {
+                    execution_payload,
+                    withdrawals: Some(payload.withdrawals),
+                },
+                block_hash,
+                block_number,
+            )
+        }
     }
 }
 
