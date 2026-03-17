@@ -207,7 +207,9 @@ abstract contract ProverMarketTestBase is InboxTestBase {
             commitment: IInbox.Commitment({
                 firstProposalId: _proposals[0].payload.id,
                 firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
-                lastProposalHash: inbox.getProposalHash(_proposals[_proposals.length - 1].payload.id),
+                lastProposalHash: inbox.getProposalHash(
+                    _proposals[_proposals.length - 1].payload.id
+                ),
                 actualProver: _actualProver,
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("recorded-state-root", _proposals.length)),
@@ -603,7 +605,7 @@ contract ProverMarketDegradedModeTest is ProverMarketTestBase {
     function test_onProposalAccepted_entersDegradedModeAndParksPendingBid() external {
         address[9] memory operators =
             [Alice, Bob, Carol, David, Emma, Frank, Grace, Henry, Isabella];
-        uint64 baseFee = 1_000;
+        uint64 baseFee = 1000;
         RecordedProposal memory lastProposal;
 
         for (uint256 i; i < operators.length; ++i) {
@@ -615,8 +617,13 @@ contract ProverMarketDegradedModeTest is ProverMarketTestBase {
             lastProposal = _proposeRecordedOne();
         }
 
-        (uint48 activeEpochId, uint48 pendingEpochId,,, bool permissionless, bool exiting, bool degraded) =
-            market.marketState();
+        (
+            uint48 activeEpochId,
+            uint48 pendingEpochId,,,
+            bool permissionless,
+            bool exiting,
+            bool degraded
+        ) = market.marketState();
         assertEq(activeEpochId, 0);
         assertGt(pendingEpochId, 0);
         assertFalse(permissionless);
@@ -631,7 +638,7 @@ contract ProverMarketDegradedModeTest is ProverMarketTestBase {
     function test_onProofAccepted_clearsDegradedModeAfterBacklogDrains() external {
         address[9] memory operators =
             [Alice, Bob, Carol, David, Emma, Frank, Grace, Henry, Isabella];
-        uint64 baseFee = 1_000;
+        uint64 baseFee = 1000;
         RecordedProposal[] memory proposals = new RecordedProposal[](operators.length);
 
         for (uint256 i; i < operators.length; ++i) {

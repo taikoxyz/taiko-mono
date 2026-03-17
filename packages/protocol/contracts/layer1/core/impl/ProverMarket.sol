@@ -355,8 +355,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint256 _proposalAge
     )
         external
-        onlyFrom(address(_inbox))
         view
+        onlyFrom(address(_inbox))
     {
         _proposalTimestamp; // unused but part of interface
 
