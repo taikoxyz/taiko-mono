@@ -2,10 +2,10 @@
 pragma solidity ^0.8.24;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { ProverMarket } from "src/layer1/core/impl/ProverMarket.sol";
 import { TestERC20 } from "test/mocks/TestERC20.sol";
-import { Test } from "forge-std/src/Test.sol";
 
 // ---------------------------------------------------------------
 // Mock contracts
@@ -105,13 +105,11 @@ contract ProverMarketTest is Test {
             ESCALATION_DECAY_PERIOD
         );
         market = ProverMarket(
-            payable(
-                address(
+            payable(address(
                     new ERC1967Proxy(
                         address(impl), abi.encodeCall(ProverMarket.init, (address(this)))
                     )
-                )
-            )
+                ))
         );
 
         // Mint bond tokens and approve for provers
@@ -428,7 +426,9 @@ contract ProverMarketTest is Test {
 
         assertEq(market.bonds(alice), amount, "bond balance updated");
         assertEq(
-            bondToken.balanceOf(alice), tokensBefore - uint256(amount) * 1 gwei, "tokens transferred"
+            bondToken.balanceOf(alice),
+            tokensBefore - uint256(amount) * 1 gwei,
+            "tokens transferred"
         );
     }
 

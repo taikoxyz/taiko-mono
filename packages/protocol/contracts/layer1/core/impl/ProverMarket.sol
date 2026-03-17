@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -247,8 +247,7 @@ contract ProverMarket is EssentialContract, IProverWhitelist {
 
         IInbox.CoreState memory inboxState = _inbox.getCoreState();
         require(
-            inboxState.lastFinalizedProposalId + 1 < inboxState.nextProposalId,
-            NoPendingProposals()
+            inboxState.lastFinalizedProposalId + 1 < inboxState.nextProposalId, NoPendingProposals()
         );
 
         uint48 referenceTimestamp =
@@ -373,9 +372,7 @@ contract ProverMarket is EssentialContract, IProverWhitelist {
             winner = Winner({ addr: address(0), feeInGwei: 0, activeAt: 0 });
         } else {
             winner = Winner({
-                addr: _newWinner,
-                feeInGwei: _feeInGwei,
-                activeAt: uint48(block.timestamp)
+                addr: _newWinner, feeInGwei: _feeInGwei, activeAt: uint48(block.timestamp)
             });
         }
         emit WinnerOverridden(_newWinner, _feeInGwei);
@@ -395,8 +392,7 @@ contract ProverMarket is EssentialContract, IProverWhitelist {
             ? (block.timestamp - ms.lastEjectionTimestamp) / _escalationDecayPeriod
             : type(uint256).max;
 
-        uint256 decayed =
-            elapsed > ms.consecutiveEjections ? 0 : ms.consecutiveEjections - elapsed;
+        uint256 decayed = elapsed > ms.consecutiveEjections ? 0 : ms.consecutiveEjections - elapsed;
         uint256 escalation = decayed > _maxEscalation ? _maxEscalation : decayed;
 
         requiredBond_ = _baseBond * uint64(1 << escalation);
