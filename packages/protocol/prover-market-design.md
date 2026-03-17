@@ -73,6 +73,7 @@ struct MarketState {
     uint48 nextEpochId;            // monotonic counter for epoch creation
     bool   permissionlessMode;     // emergency override
     bool   activeEpochExiting;     // true if active operator called exit()
+    bool   degradedMode;           // true when churn pressure disables exclusivity for new proposals
 }
 ```
 
@@ -92,7 +93,7 @@ mapping(address => uint64)          public bondBalances;       // gwei
 mapping(address => uint256)         public feeCreditBalances;  // wei
 mapping(uint48 proposalId => uint48 epochId) public proposalEpochs;
 
-// Displaced epoch tracking for bond release (bounded array, max 8)
+// Displaced epoch tracking for bond release (bounded queue, one slot reserved for graceful degrade)
 uint48[8] internal _displacedEpochIds;
 uint8     internal _numDisplacedEpochs;
 ```
@@ -120,18 +121,31 @@ uint8     internal _numDisplacedEpochs;
 4. **Exit**: An operator calls `exit()`.
    - If pending: epoch is cleared, bond refunded immediately.
    - If active: epoch is marked `activeEpochExiting = true`. The operator stays liable for
-     already-assigned proposals. The next proposal triggers activation of the pending epoch (if
-     any).
+     already-assigned proposals.
+   - If a pending replacement exists, the next proposal activates it.
+   - If no replacement exists, new proposals become immediately permissionless instead of being
+     assigned to the exiting epoch.
 
 5. **Bond Release**: When `onProofAccepted` is called, displaced epochs whose
    `lastAssignedProposalId <= lastFinalizedProposalId` get their bond released back to the
    operator's `bondBalances`.
 
+6. **Degraded Mode**: The market reserves one displaced-epoch slot for safe retirement of the
+   current active epoch.
+   - When churn pressure reaches a high watermark, the market stops granting exclusivity for new
+     proposals and enters `degradedMode`.
+   - The current active epoch is retired into the reserved displaced slot so its already-assigned
+     proposals remain slashable and releasable.
+   - While degraded, newly accepted proposals are immediately permissionless and are not assigned
+     to any epoch.
+   - The latest best bid may remain parked as `pendingEpochId`, but it does not activate until the
+     displaced backlog drains below a recovery watermark.
+
 ### Proving Authorization
 
 `beforeProofSubmission(caller, firstNewProposalId, proposalTimestamp, proposalAge)`:
 
-1. If `permissionlessMode` is true: anyone can prove (return immediately).
+1. If `permissionlessMode` or `degradedMode` is true: anyone can prove (return immediately).
 2. If `proposalAge >= _permissionlessProvingDelay`: anyone can prove.
 3. Look up `proposalEpochs[firstNewProposalId]`:
    - If `epochId == 0`: no epoch assigned (permissionless proposal), anyone can prove.
@@ -139,16 +153,21 @@ uint8     internal _numDisplacedEpochs;
 
 ### Fee Model
 
-Fees are reserved **per-proposal at proposal acceptance time**, not at proof time.
+Fees may still be reserved **per-proposal at proposal acceptance time**, not at proof time.
 
 In `onProposalAccepted`:
 - Fee = `epochs[activeId].feeInGwei * 1 gwei` (in wei).
-- If `feeCreditBalances[proposer] >= fee`: deduct from proposer, send to `feeRecipient` immediately.
+- If `feeCreditBalances[proposer] >= fee`: deduct from proposer and accrue it to the epoch's fee
+  recipient balance immediately.
 - If proposer has insufficient credit: **skip fee** (preserves liveness — the chain doesn't halt
   because a proposer forgot to top up). The prover is still obligated to prove (bond at stake).
 
 Proposers deposit fee credits via `depositFeeCredit()` (payable) and withdraw via
 `withdrawFeeCredit(amount)`.
+
+Important constraint: up-front fee reservation is only acceptable if the missed-proof slash is
+materially larger than the fee itself. Otherwise the prover can still treat the fee as a cheap free
+option on delaying finalization.
 
 ### Bond Management
 
@@ -157,6 +176,30 @@ Proposers deposit fee credits via `depositFeeCredit()` (payable) and withdraw vi
 - `withdrawBond(amount)`: requires `bondBalances[sender] >= amount`, transfers out. Bond locked in
   active/pending epochs is tracked separately in `epoch.bondedAmount` (already deducted from
   `bondBalances` at bid time), so `withdrawBond` only sees the free balance.
+- `missed-proof slash`: if the assigned prover fails to prove before the SLA expires, the market
+  slashes an amount that is intentionally much larger than the reserved prover fee for the affected
+  proposal interval.
+- The slash is not burned. Part is paid immediately to the rescue prover, and the remainder stays in
+  the prover market as an additional reward pool for the rescue prover that eventually finalizes the
+  fallback proof.
+
+### Churn Safety
+
+The market must never revert proposal acceptance because prover churn outran proof finalization.
+
+Recommended constants:
+- `MAX_DISPLACED_EPOCHS = 8`
+- `ENTER_DEGRADED_AT = 7` so one slot is always reserved to retire the current active epoch safely
+- `EXIT_DEGRADED_AT = 0` or another low watermark to avoid rapid flapping
+
+Operational rule:
+- In normal mode, active epochs can be displaced by better bids.
+- Once the displaced backlog reaches the high watermark, the market enters `degradedMode` instead
+  of taking one more displacement and risking proposal-path revert.
+- While degraded, new proposals are permissionless; old epoch liabilities still settle normally as
+  proofs arrive.
+- Once enough displaced epochs clear, the market exits degraded mode and the next proposal may
+  activate the best pending bid.
 
 ## Emergency Behavior
 
@@ -226,6 +269,7 @@ The contract is UUPS-upgradeable. `init(address _owner)` sets the owner.
 - `forcePermissionlessMode`: `onlyOwner`
 - `bid`: `whenNotPaused` (can be paused by owner)
 - `depositBond`, `withdrawBond`, `withdrawFeeCredit`: `nonReentrant`
+- automatic `degradedMode`: protocol-triggered safety mode, not a governance-assigned prover role
 
 ## Files
 
@@ -306,9 +350,8 @@ inbox.prove(encodedInput, bytes("proof"));
 
 ## Future Work
 
-- Slashing logic for provers who fail to prove their assigned proposals
-- Multi-epoch bond tracking (currently bounded to 8 displaced epochs)
+- Exact slash formula and reward split for rescue provers
+- Recovery thresholds and hysteresis tuning for `degradedMode`
 - Configurable minimum bond (currently immutable)
-- Fee model refinement (currently pay-on-reserve; could add pay-on-proof or split models)
-- Gas optimization of `onProposalAccepted` (currently does 1 SSTORE for `proposalEpochs` per
-  proposal plus epoch state updates)
+- Fee model refinement (pay-on-reserve vs pay-on-proof vs hybrid)
+- Gas optimization of `onProposalAccepted` and degraded-mode transitions
