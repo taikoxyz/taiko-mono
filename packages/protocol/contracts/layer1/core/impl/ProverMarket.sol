@@ -65,6 +65,21 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint64 reservedBondGwei;
     }
 
+    /// @notice Constructor parameters bundled to avoid stack-too-deep.
+    struct Params {
+        address inboxAddr;
+        address bondTokenAddr;
+        uint64 minBond;
+        uint48 provingWindowSeconds;
+        uint16 bidDiscountBasisPoints;
+        uint64 bondPerProposal;
+        uint64 slashPerProof;
+        uint8 maxBidMultiplier;
+        uint64 maxFee;
+        uint48 bidCooldownSeconds;
+        uint48 provingGracePeriodSeconds;
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -88,6 +103,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
     uint64 internal immutable _bondPerProposalGwei;
     uint64 internal immutable _slashPerProofGwei;
     uint8 internal immutable _maxBidEwmaMultiplier;
+    uint64 internal immutable _maxFeeInGwei;
+    uint48 internal immutable _bidCooldown;
+    uint48 internal immutable _provingGracePeriod;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -114,7 +132,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @notice Pull-based ETH balances claimable by provers and rescuers.
     mapping(address account => uint256) public claimableFees;
 
-    uint256[43] private __gap;
+    /// @notice Earliest timestamp at which a prover may place a new bid after term retirement.
+    mapping(address account => uint48) public bidCooldownUntil;
+
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -140,42 +161,29 @@ contract ProverMarket is EssentialContract, IProverMarket {
     // ---------------------------------------------------------------
 
     /// @notice Initializes immutable contract dependencies.
-    /// @param _inboxAddr The inbox address.
-    /// @param _bondTokenAddr The bond token address.
-    /// @param _minBond The minimum bond in gwei required to bid.
-    /// @param _provingWindowSeconds The exclusive proving window in seconds.
-    /// @param _bidDiscountBasisPoints Minimum fee discount in basis points for new bids.
-    /// @param _bondPerProposal Bond in gwei reserved per funded proposal.
-    /// @param _slashPerProof Minimum slash amount in gwei applied per late funded proposal.
-    /// @param _maxBidMultiplier Maximum multiplier on EWMA for bids when no active or pending term
-    /// exists.
-    constructor(
-        address _inboxAddr,
-        address _bondTokenAddr,
-        uint64 _minBond,
-        uint48 _provingWindowSeconds,
-        uint16 _bidDiscountBasisPoints,
-        uint64 _bondPerProposal,
-        uint64 _slashPerProof,
-        uint8 _maxBidMultiplier
-    )
-        nonZeroAddr(_inboxAddr)
-        nonZeroAddr(_bondTokenAddr)
-        nonZeroValue(_minBond)
-        nonZeroValue(_provingWindowSeconds)
-        nonZeroValue(_bidDiscountBasisPoints)
-        nonZeroValue(_bondPerProposal)
-        nonZeroValue(_slashPerProof)
-        nonZeroValue(_maxBidMultiplier)
+    /// @param _p Bundled constructor parameters.
+    constructor(Params memory _p)
+        nonZeroAddr(_p.inboxAddr)
+        nonZeroAddr(_p.bondTokenAddr)
+        nonZeroValue(_p.minBond)
+        nonZeroValue(_p.provingWindowSeconds)
+        nonZeroValue(_p.bidDiscountBasisPoints)
+        nonZeroValue(_p.bondPerProposal)
+        nonZeroValue(_p.slashPerProof)
+        nonZeroValue(_p.maxBidMultiplier)
+        nonZeroValue(_p.maxFee)
     {
-        _inbox = IInbox(_inboxAddr);
-        _bondToken = IERC20(_bondTokenAddr);
-        _minBondGwei = _minBond;
-        _provingWindow = _provingWindowSeconds;
-        _bidDiscountBps = _bidDiscountBasisPoints;
-        _bondPerProposalGwei = _bondPerProposal;
-        _slashPerProofGwei = _slashPerProof;
-        _maxBidEwmaMultiplier = _maxBidMultiplier;
+        _inbox = IInbox(_p.inboxAddr);
+        _bondToken = IERC20(_p.bondTokenAddr);
+        _minBondGwei = _p.minBond;
+        _provingWindow = _p.provingWindowSeconds;
+        _bidDiscountBps = _p.bidDiscountBasisPoints;
+        _bondPerProposalGwei = _p.bondPerProposal;
+        _slashPerProofGwei = _p.slashPerProof;
+        _maxBidEwmaMultiplier = _p.maxBidMultiplier;
+        _maxFeeInGwei = _p.maxFee;
+        _bidCooldown = _p.bidCooldownSeconds;
+        _provingGracePeriod = _p.provingGracePeriodSeconds;
     }
 
     // ---------------------------------------------------------------
@@ -237,6 +245,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @notice Places or updates a bid for a future proving term.
     /// @param _feeInGwei The fee quote in gwei for each funded assigned proposal.
     function bid(uint64 _feeInGwei) external nonReentrant whenNotPaused nonZeroValue(_feeInGwei) {
+        require(_feeInGwei <= _maxFeeInGwei, BidFeeTooHigh());
+        require(block.timestamp >= bidCooldownUntil[msg.sender], BidCooldownActive());
+
         MarketState memory state = marketState;
 
         if (state.activeTermId != 0) {
@@ -320,6 +331,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     function onProposalAccepted(uint48 _proposalId, address _proposer, uint48 _proposalTimestamp)
         external
         payable
+        nonReentrant
         onlyFrom(address(_inbox))
     {
         if (msg.value != 0) {
@@ -419,6 +431,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @inheritdoc IProverMarket
     function onProofAccepted(address _caller, uint48 _firstNewProposalId, uint48 _lastProposalId)
         external
+        nonReentrant
         onlyFrom(address(_inbox))
     {
         MarketState memory state = marketState;
@@ -509,6 +522,21 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return _maxBidEwmaMultiplier;
     }
 
+    /// @notice Returns the absolute maximum fee in gwei that any bid may quote.
+    function maxFee() external view returns (uint64) {
+        return _maxFeeInGwei;
+    }
+
+    /// @notice Returns the bid cooldown period in seconds after term retirement.
+    function bidCooldown() external view returns (uint48) {
+        return _bidCooldown;
+    }
+
+    /// @notice Returns the grace period in seconds after the exclusive window before slashing.
+    function provingGracePeriod() external view returns (uint48) {
+        return _provingGracePeriod;
+    }
+
     /// @notice Returns the exponentially weighted moving average of retired term fees.
     function feeEwma() external view returns (uint48) {
         return marketState.feeEwmaInGwei;
@@ -554,10 +582,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
         if (_proposalCount == 0) return;
         uint48 ewma = _state.feeEwmaInGwei;
         if (ewma == 0) {
-            _state.feeEwmaInGwei = uint48(_fee);
+            uint256 raw = uint256(_fee);
+            _state.feeEwmaInGwei = raw > type(uint48).max ? type(uint48).max : uint48(raw);
         } else {
             uint256 w = 1024;
-            _state.feeEwmaInGwei = uint48((uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount));
+            uint256 raw = (uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount);
+            _state.feeEwmaInGwei = raw > type(uint48).max ? type(uint48).max : uint48(raw);
         }
     }
 
@@ -581,6 +611,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
         _state.lastRetiredTermId = activeTermId;
         _state.activeTermId = 0;
         _state.activeTermExiting = false;
+
+        if (_bidCooldown != 0) {
+            bidCooldownUntil[activeTerm.prover] = uint48(block.timestamp) + _bidCooldown;
+        }
 
         _releaseQuoteBond(activeTerm.prover, terms[activeTermId].quoteBondGwei);
         terms[activeTermId].quoteBondGwei = 0;
@@ -613,9 +647,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         Term memory term = terms[assignment.termId];
         address assignedProver = term.prover;
-        bool late = block.timestamp >= uint256(assignment.proposalTimestamp) + uint256(_provingWindow);
+        uint256 deadline = uint256(assignment.proposalTimestamp) + uint256(_provingWindow);
+        bool pastExclusiveWindow = block.timestamp >= deadline;
+        bool late = block.timestamp >= deadline + uint256(_provingGracePeriod);
 
-        if (!_forcedPermissionless && !late && _caller != assignedProver) {
+        if (!_forcedPermissionless && !pastExclusiveWindow && _caller != assignedProver) {
             revert NotAuthorizedProver();
         }
 
@@ -629,7 +665,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint256 feeWei = uint256(term.feeInGwei) * 1 gwei;
         if (feeWei != 0) {
             address feeRecipient = assignedProver;
-            if (_caller != assignedProver && (_forcedPermissionless || late)) {
+            if (_caller != assignedProver && (_forcedPermissionless || pastExclusiveWindow)) {
                 feeRecipient = _caller;
             }
             claimableFees[feeRecipient] += feeWei;
@@ -675,4 +711,5 @@ contract ProverMarket is EssentialContract, IProverMarket {
     error BidFeeTooHigh();
     error NotAuthorizedProver();
     error ActiveProverCannotBid();
+    error BidCooldownActive();
 }
