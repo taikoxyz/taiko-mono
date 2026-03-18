@@ -10,6 +10,7 @@ use anyhow::{Context, Result, anyhow, ensure};
 use bindings::inbox::Inbox::Proposed;
 use driver::{
     DriverConfig,
+    config::DEFAULT_EVENT_SYNC_MAX_RETRIES,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
     sync::{SyncStage, engine::PayloadApplier, event::EventSyncer},
 };
@@ -130,6 +131,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
         beacon_stub.endpoint().clone(),
         None,
         None,
+        DEFAULT_EVENT_SYNC_MAX_RETRIES,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
@@ -191,6 +193,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         beacon_endpoint.clone(),
         None,
         None,
+        DEFAULT_EVENT_SYNC_MAX_RETRIES,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
@@ -277,6 +280,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
         beacon_stub.endpoint().clone(),
         None,
         None,
+        DEFAULT_EVENT_SYNC_MAX_RETRIES,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);

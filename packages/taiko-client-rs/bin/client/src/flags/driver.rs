@@ -4,6 +4,8 @@ use clap::Parser;
 use std::time::Duration;
 use url::Url;
 
+use driver::config::DEFAULT_EVENT_SYNC_MAX_RETRIES;
+
 /// Driver-specific CLI arguments.
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
 pub struct DriverArgs {
@@ -15,6 +17,14 @@ pub struct DriverArgs {
         help = "Interval in seconds between retry attempts when sync operations fail"
     )]
     retry_interval_seconds: u64,
+    /// Maximum number of retries for transient event-sync processing failures.
+    #[clap(
+        long = "driver.eventSyncMaxRetries",
+        env = "DRIVER_EVENT_SYNC_MAX_RETRIES",
+        default_value_t = DEFAULT_EVENT_SYNC_MAX_RETRIES,
+        help = "Maximum number of retries for transient event-sync processing failures"
+    )]
+    event_sync_max_retries: usize,
     /// HTTP endpoint of the L1 beacon node.
     #[clap(
         long = "l1.beacon",
@@ -43,5 +53,40 @@ impl DriverArgs {
     /// Retry interval as a [`Duration`].
     pub fn retry_interval(&self) -> Duration {
         Duration::from_secs(self.retry_interval_seconds)
+    }
+
+    /// Maximum number of retries for transient event-sync processing failures.
+    pub fn event_sync_max_retries(&self) -> usize {
+        self.event_sync_max_retries
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn required_args() -> [&'static str; 3] {
+        ["driver", "--l1.beacon", "http://localhost:5052"]
+    }
+
+    #[test]
+    fn uses_default_event_sync_retry_limit() {
+        let args = DriverArgs::try_parse_from(required_args()).expect("driver args should parse");
+
+        assert_eq!(args.event_sync_max_retries(), DEFAULT_EVENT_SYNC_MAX_RETRIES);
+    }
+
+    #[test]
+    fn accepts_explicit_event_sync_retry_limit() {
+        let args = DriverArgs::try_parse_from([
+            required_args()[0],
+            "--driver.eventSyncMaxRetries",
+            "9",
+            required_args()[1],
+            required_args()[2],
+        ])
+        .expect("driver args should parse");
+
+        assert_eq!(args.event_sync_max_retries(), 9);
     }
 }

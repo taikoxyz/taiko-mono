@@ -1,6 +1,7 @@
 //! Event sync logic.
 
 use std::{
+    iter::Take,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -53,6 +54,10 @@ use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+/// Initial backoff delay when event-sync processing hits a transient failure.
+const EVENT_SYNC_RETRY_BASE_MS: u64 = 10;
+/// Upper bound for the exponential backoff between event-sync retries.
+const EVENT_SYNC_RETRY_MAX_DELAY: Duration = Duration::from_secs(12);
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -157,6 +162,13 @@ fn resolve_target_with_optional_finalization(
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
     block_number <= confirmed_tip
+}
+
+/// Build the retry policy for transient event-sync processing failures.
+fn event_sync_retry_strategy(max_retries: usize) -> Take<ExponentialBackoff> {
+    ExponentialBackoff::from_millis(EVENT_SYNC_RETRY_BASE_MS)
+        .max_delay(EVENT_SYNC_RETRY_MAX_DELAY)
+        .take(max_retries)
 }
 
 /// Responsible for following inbox events and updating the L2 execution engine accordingly.
@@ -346,8 +358,7 @@ where
                 "dispatching proposal log to derivation pipeline"
             );
             // Retry proposal processing on transient errors.
-            let retry_strategy =
-                ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
+            let retry_strategy = event_sync_retry_strategy(self.cfg.event_sync_max_retries);
 
             let router = router.clone();
             let proposal_log = log.clone();
@@ -1081,6 +1092,7 @@ mod tests {
             Url::parse("http://localhost:5052").expect("valid beacon url"),
             None,
             None,
+            crate::config::DEFAULT_EVENT_SYNC_MAX_RETRIES,
         );
         cfg.preconfirmation_enabled = true;
 
@@ -1114,6 +1126,18 @@ mod tests {
     #[test]
     fn confirmed_sync_ready_when_target_is_zero() {
         assert!(ConfirmedSyncSnapshot::new(0, None, None).is_ready());
+    }
+
+    #[test]
+    fn event_sync_retry_strategy_is_bounded() {
+        let mut retry_strategy = event_sync_retry_strategy(5);
+
+        assert_eq!(retry_strategy.next(), Some(Duration::from_millis(10)));
+        assert_eq!(retry_strategy.next(), Some(Duration::from_millis(100)));
+        assert_eq!(retry_strategy.next(), Some(Duration::from_secs(1)));
+        assert_eq!(retry_strategy.next(), Some(Duration::from_secs(10)));
+        assert_eq!(retry_strategy.next(), Some(Duration::from_secs(12)));
+        assert_eq!(retry_strategy.next(), None);
     }
 
     #[test]

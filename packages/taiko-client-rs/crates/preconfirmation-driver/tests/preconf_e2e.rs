@@ -14,6 +14,7 @@ use alloy_rpc_types::{BlockNumberOrTag, TransactionReceipt, eth::Block as RpcBlo
 use anyhow::{Context, Result, anyhow, ensure};
 use driver::{
     DriverConfig,
+    config::DEFAULT_EVENT_SYNC_MAX_RETRIES,
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
@@ -210,6 +211,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
         beacon_server.endpoint().clone(),
         None,
         None,
+        DEFAULT_EVENT_SYNC_MAX_RETRIES,
     );
     driver_config.preconfirmation_enabled = true;
 

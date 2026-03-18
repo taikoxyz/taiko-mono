@@ -47,6 +47,7 @@ impl DriverSubCommand {
             l1_beacon,
             l2_checkpoint,
             blob_server,
+            self.driver_flags.event_sync_max_retries(),
         ))
     }
 

@@ -6,6 +6,7 @@ use alloy_rpc_types::Log;
 use anyhow::{Context, Result, ensure};
 use driver::{
     Driver, DriverConfig,
+    config::DEFAULT_EVENT_SYNC_MAX_RETRIES,
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
     sync::engine::PayloadApplier,
 };
@@ -81,6 +82,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
         beacon_endpoint.clone(),
         None,
         None,
+        DEFAULT_EVENT_SYNC_MAX_RETRIES,
     );
     let driver = Driver::new(driver_config).await?;
     let driver_client = driver.rpc_client().clone();

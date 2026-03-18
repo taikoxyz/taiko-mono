@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use bindings::inbox::Inbox::InboxInstance;
 use driver::{
     DriverConfig, PreconfPayload,
+    config::DEFAULT_EVENT_SYNC_MAX_RETRIES,
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{
@@ -374,6 +375,7 @@ impl RealDriverSetup {
             beacon_server.endpoint().clone(),
             None,
             None,
+            DEFAULT_EVENT_SYNC_MAX_RETRIES,
         );
         driver_config.preconfirmation_enabled = true;
 

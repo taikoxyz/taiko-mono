@@ -11,6 +11,7 @@ use alloy_provider::{
 use anyhow::{Context, Result, anyhow, ensure};
 use driver::{
     DriverConfig,
+    config::DEFAULT_EVENT_SYNC_MAX_RETRIES,
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
@@ -79,6 +80,7 @@ impl DriverInstance {
             beacon_endpoint.clone(),
             None,
             None,
+            DEFAULT_EVENT_SYNC_MAX_RETRIES,
         );
         driver_config.preconfirmation_enabled = true;
 

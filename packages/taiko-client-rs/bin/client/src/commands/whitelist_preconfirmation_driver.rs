@@ -85,6 +85,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
             l1_beacon,
             l2_checkpoint,
             blob_server,
+            self.driver_flags.event_sync_max_retries(),
         );
 
         // Enable preconfirmation ingress so whitelist payload imports can reuse the driver queue.
