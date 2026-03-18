@@ -34,8 +34,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint48 nextEpochId;
         bool permissionlessMode;
         bool activeEpochExiting;
-        uint64 feeEwmaInGwei;
-        uint32 activeEpochStartId;
+        uint48 feeEwmaInGwei;
+        uint48 activeEpochStartId;
     }
 
     /// @notice Consolidated prover financial state packed into a single storage slot.
@@ -450,7 +450,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @notice Returns the exponentially weighted moving average of activated epoch fees.
-    function feeEwma() external view returns (uint64) {
+    function feeEwma() external view returns (uint48) {
         return marketState.feeEwmaInGwei;
     }
 
@@ -491,7 +491,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         _state.activeEpochId = pendingId;
         _state.pendingEpochId = 0;
         _state.activeEpochExiting = false;
-        _state.activeEpochStartId = uint32(_proposalId);
+        _state.activeEpochStartId = _proposalId;
 
         emit EpochActivated(pendingId, _proposalId, _proposalTimestamp);
     }
@@ -508,13 +508,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
         pure
     {
         if (_proposalCount == 0) return;
-        uint64 ewma = _state.feeEwmaInGwei;
+        uint48 ewma = _state.feeEwmaInGwei;
         if (ewma == 0) {
-            _state.feeEwmaInGwei = _fee;
+            _state.feeEwmaInGwei = uint48(_fee);
         } else {
             uint256 w = 1024;
             _state.feeEwmaInGwei =
-                uint64((uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount));
+                uint48((uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount));
         }
     }
 
@@ -562,8 +562,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         if (acct.bondBalance < acct.reservedBond) {
             if (_state.activeEpochId == firstEpochId) {
+                _updateFeeEwma(
+                    _state,
+                    epochs[firstEpochId].feeInGwei,
+                    _firstNewProposalId - _state.activeEpochStartId
+                );
                 _state.activeEpochId = 0;
                 _state.activeEpochExiting = false;
+                _state.activeEpochStartId = 0;
                 stateChanged_ = true;
             }
         }

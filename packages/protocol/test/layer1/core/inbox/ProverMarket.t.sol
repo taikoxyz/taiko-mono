@@ -1068,6 +1068,160 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         assertEq(market.slashPerProof(), MARKET_SLASH_PER_PROOF);
     }
 
+    function test_feeEwma_initializedOnFirstEpochRetirement() external {
+        // Alice bids at fee 1000 and gets activated
+        _setupActiveBid(Alice, 1000);
+
+        // Propose a few more to build up proposal count
+        _advanceBlock();
+        _proposeOne();
+        _advanceBlock();
+        _proposeOne();
+
+        // Bob outbids — triggers Alice's epoch retirement on next proposal
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+        vm.prank(Bob);
+        market.bid(500);
+
+        _advanceBlock();
+        _proposeOne(); // retires Alice, activates Bob
+
+        // First EWMA should be set to Alice's fee directly (ewma was 0)
+        assertEq(market.feeEwma(), 1000, "EWMA should be initialized to first epoch's fee");
+    }
+
+    function test_feeEwma_blendsOnSubsequentRetirements() external {
+        // Alice: fee=1000, serves 1 proposal (activation proposal)
+        _setupActiveBid(Alice, 1000);
+
+        // Bob outbids, next proposal retires Alice (1 proposal) and activates Bob
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+        vm.prank(Bob);
+        market.bid(500);
+
+        _advanceBlock();
+        _proposeOne(); // retires Alice (EWMA=1000), activates Bob
+
+        assertEq(market.feeEwma(), 1000, "EWMA after first epoch");
+
+        // Bob serves 1 proposal (the activation one above) then gets retired
+        // Carol outbids to trigger Bob's retirement
+        _depositMarketBond(Carol, MARKET_MIN_BOND_GWEI);
+        vm.prank(Carol);
+        market.bid(200);
+
+        _advanceBlock();
+        _proposeOne(); // retires Bob (1 proposal at fee 500)
+
+        // EWMA = (1000 * 1024 + 500 * 1) / (1024 + 1) = (1024000 + 500) / 1025 = 999
+        assertEq(market.feeEwma(), 999, "EWMA blends toward Bob's lower fee");
+    }
+
+    function test_feeEwma_proposalWeighted() external {
+        // Alice: fee=1000, serves 1 proposal
+        _setupActiveBid(Alice, 1000);
+
+        // Bob outbids
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+        vm.prank(Bob);
+        market.bid(500);
+
+        _advanceBlock();
+        _proposeOne(); // retires Alice (1 proposal), activates Bob, EWMA=1000
+
+        // Bob serves many proposals before retiring
+        for (uint256 i = 0; i < 9; ++i) {
+            _advanceBlock();
+            _proposeOne();
+        }
+        // Bob has now served 10 proposals total (1 activation + 9 more)
+
+        // Carol outbids
+        _depositMarketBond(Carol, MARKET_MIN_BOND_GWEI);
+        vm.prank(Carol);
+        market.bid(200);
+
+        _advanceBlock();
+        _proposeOne(); // retires Bob (10 proposals at fee 500)
+
+        // EWMA = (1000 * 1024 + 500 * 10) / (1024 + 10) = (1024000 + 5000) / 1034 = 995
+        uint64 expectedEwma = uint64((uint256(1000) * 1024 + uint256(500) * 10) / (1024 + 10));
+        assertEq(market.feeEwma(), expectedEwma, "more proposals should shift EWMA more");
+
+        // 10 proposals shifts EWMA more than 1 proposal would have
+        // 1 proposal: (1000*1024 + 500*1) / 1025 = 999
+        // 10 proposals: (1000*1024 + 500*10) / 1034 = 995
+        assertLt(market.feeEwma(), 999, "10 proposals should shift EWMA more than 1");
+    }
+
+    function test_feeEwma_bidCapEnforcedWhenNoActiveOrPending() external {
+        // Build up an EWMA by running one full epoch cycle
+        _setupActiveBid(Alice, 100);
+
+        // Alice exits
+        vm.prank(Alice);
+        market.exit();
+
+        _advanceBlock();
+        _proposeOne(); // retires Alice, EWMA set to 100
+
+        assertEq(market.feeEwma(), 100);
+
+        // Now no active or pending epoch. Max bid should be 10 * 100 = 1000
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+
+        // Bid at exactly 10x should succeed
+        vm.prank(Bob);
+        market.bid(1000);
+    }
+
+    function test_bid_RevertWhen_FeeExceedsEwmaCap() external {
+        // Build up an EWMA by running one full epoch cycle
+        _setupActiveBid(Alice, 100);
+
+        vm.prank(Alice);
+        market.exit();
+
+        _advanceBlock();
+        _proposeOne(); // retires Alice, EWMA set to 100
+
+        // Now no active or pending epoch. Max bid should be 10 * 100 = 1000
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+
+        // Bid above 10x should revert
+        vm.prank(Bob);
+        vm.expectRevert(ProverMarket.BidFeeTooHigh.selector);
+        market.bid(1001);
+    }
+
+    function test_feeEwma_noBidCapWhenEwmaIsZero() external {
+        // Fresh market — EWMA is 0
+        assertEq(market.feeEwma(), 0);
+
+        // Should allow any fee since no EWMA baseline exists
+        _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
+        vm.prank(Alice);
+        market.bid(type(uint64).max); // extreme fee should be allowed
+    }
+
+    function test_feeEwma_noBidCapWhenActiveEpochExists() external {
+        // EWMA=100 from a prior cycle
+        _setupActiveBid(Alice, 100);
+        vm.prank(Alice);
+        market.exit();
+        _advanceBlock();
+        _proposeOne(); // retires, EWMA=100
+
+        // Start a new epoch
+        _setupActiveBid(Bob, 50);
+
+        // Now active epoch exists. EWMA cap should NOT apply — undercut rules govern instead
+        _depositMarketBond(Carol, MARKET_MIN_BOND_GWEI);
+        vm.prank(Carol);
+        // Must undercut Bob's 50 by 5% = max 47
+        market.bid(47);
+    }
+
     function test_epochTransition_outbidAndProve() external {
         // Alice bids (pending), prover outbids (also pending, displaces Alice)
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
