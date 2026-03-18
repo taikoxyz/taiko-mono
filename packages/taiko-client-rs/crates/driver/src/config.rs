@@ -41,6 +41,8 @@ impl DriverConfig {
         blob_server_endpoint: Option<Url>,
         event_sync_max_retries: usize,
     ) -> Self {
+        assert!(event_sync_max_retries > 0, "event_sync_max_retries must be at least 1");
+
         Self {
             client,
             retry_interval,
@@ -81,5 +83,28 @@ mod tests {
         );
 
         assert_eq!(cfg.event_sync_max_retries, DEFAULT_EVENT_SYNC_MAX_RETRIES);
+    }
+
+    #[test]
+    #[should_panic(expected = "event_sync_max_retries must be at least 1")]
+    fn driver_config_rejects_zero_event_sync_retry_limit() {
+        let client = ClientConfig {
+            l1_provider_source: SubscriptionSource::Http(
+                Url::parse("http://localhost:8545").expect("valid l1 url"),
+            ),
+            l2_provider_url: Url::parse("http://localhost:9545").expect("valid l2 http url"),
+            l2_auth_provider_url: Url::parse("http://localhost:9551").expect("valid l2 auth url"),
+            jwt_secret: PathBuf::from("/tmp/jwt.hex"),
+            inbox_address: alloy::primitives::Address::ZERO,
+        };
+
+        let _ = DriverConfig::new(
+            client,
+            Duration::from_secs(12),
+            Url::parse("http://localhost:5052").expect("valid beacon url"),
+            None,
+            None,
+            0,
+        );
     }
 }

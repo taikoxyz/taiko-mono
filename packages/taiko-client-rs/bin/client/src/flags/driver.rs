@@ -22,6 +22,7 @@ pub struct DriverArgs {
         long = "driver.eventSyncMaxRetries",
         env = "DRIVER_EVENT_SYNC_MAX_RETRIES",
         default_value_t = DEFAULT_EVENT_SYNC_MAX_RETRIES,
+        value_parser = clap::value_parser!(usize).range(1..),
         help = "Maximum number of retries for transient event-sync processing failures"
     )]
     event_sync_max_retries: usize,
@@ -88,5 +89,20 @@ mod tests {
         .expect("driver args should parse");
 
         assert_eq!(args.event_sync_max_retries(), 9);
+    }
+
+    #[test]
+    fn rejects_zero_event_sync_retry_limit() {
+        let err = DriverArgs::try_parse_from([
+            required_args()[0],
+            "--driver.eventSyncMaxRetries",
+            "0",
+            required_args()[1],
+            required_args()[2],
+        ])
+        .expect_err("driver args should reject zero retries");
+
+        let rendered = err.to_string();
+        assert!(rendered.contains("driver.eventSyncMaxRetries"));
     }
 }
