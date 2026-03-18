@@ -9,7 +9,13 @@ interface IProverMarket {
     /// @param _proposalId The accepted proposal id.
     /// @param _proposer The proposer that created the proposal.
     /// @param _proposalTimestamp The proposal timestamp.
-    function onProposalAccepted(uint48 _proposalId, address _proposer, uint48 _proposalTimestamp) external payable;
+    function onProposalAccepted(
+        uint48 _proposalId,
+        address _proposer,
+        uint48 _proposalTimestamp
+    )
+        external
+        payable;
 
     /// @notice Notifies the market that Inbox finalized a new proof range.
     /// @dev Validates prover authorization, then handles payout accounting, bond release,
@@ -17,7 +23,12 @@ interface IProverMarket {
     /// @param _caller The account that submitted the proof transaction.
     /// @param _firstNewProposalId The first proposal id that was newly finalized.
     /// @param _lastProposalId The last proposal id in the finalized range.
-    function onProofAccepted(address _caller, uint48 _firstNewProposalId, uint48 _lastProposalId) external;
+    function onProofAccepted(
+        address _caller,
+        uint48 _firstNewProposalId,
+        uint48 _lastProposalId
+    )
+        external;
 
     /// @notice Returns the bond token address used by this market.
     function bondToken() external view returns (address);

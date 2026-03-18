@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import {IProverMarket} from "src/layer1/core/iface/IProverMarket.sol";
-import {IProofVerifier} from "src/layer1/verifiers/IProofVerifier.sol";
-import {ISignalService} from "src/shared/signal/ISignalService.sol";
+import { IProverMarket } from "src/layer1/core/iface/IProverMarket.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock Token", "MOCK") {
@@ -26,20 +26,20 @@ contract MockProverMarket is IProverMarket {
         _provingWindow = provingWindow_;
     }
 
-    function bid(uint64) external {}
-    function exit() external {}
-    function depositBond(uint64) external {}
-    function withdrawBond(uint64) external {}
+    function bid(uint64) external { }
+    function exit() external { }
+    function depositBond(uint64) external { }
+    function withdrawBond(uint64) external { }
 
     function canSubmitProof(address, uint48, uint256) external pure returns (bool) {
         return true;
     }
 
-    function onProposalAccepted(uint48, address, uint48) external payable {}
+    function onProposalAccepted(uint48, address, uint48) external payable { }
 
-    function onProofAccepted(address, uint48, uint48) external {}
-    function forcePermissionlessMode(bool) external {}
-    function creditMigratedBond(address, uint64) external {}
+    function onProofAccepted(address, uint48, uint48) external { }
+    function forcePermissionlessMode(bool) external { }
+    function creditMigratedBond(address, uint64) external { }
 
     function bondToken() external view returns (address) {
         return _bondToken;
@@ -71,7 +71,7 @@ contract MockProverMarket is IProverMarket {
 }
 
 contract MockProofVerifier is IProofVerifier {
-    function verifyProof(uint256, bytes32, bytes calldata) external pure {}
+    function verifyProof(uint256, bytes32, bytes calldata) external pure { }
 }
 
 contract MockSignalService is ISignalService {
@@ -85,13 +85,25 @@ contract MockSignalService is ISignalService {
         emit SignalSent(msg.sender, _signal, slot_, _signal);
     }
 
-    function sendSignalFrom(uint64 _chainId, address _app, bytes32 _signal) external returns (bytes32 slot_) {
+    function sendSignalFrom(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
+        external
+        returns (bytes32 slot_)
+    {
         slot_ = getSignalSlot(_chainId, _app, _signal);
         sentSignals[slot_] = true;
         emit SignalSent(_app, _signal, slot_, _signal);
     }
 
-    function proveSignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes calldata)
+    function proveSignalReceived(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal,
+        bytes calldata
+    )
         external
         returns (uint256)
     {
@@ -101,7 +113,15 @@ contract MockSignalService is ISignalService {
         return 0;
     }
 
-    function verifySignalReceived(uint64 _chainId, address _app, bytes32 _signal, bytes calldata) external view {
+    function verifySignalReceived(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal,
+        bytes calldata
+    )
+        external
+        view
+    {
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         require(sentSignals[slot], "signal not sent");
         require(receivedSignals[slot], "signal not proved");
@@ -115,7 +135,15 @@ contract MockSignalService is ISignalService {
         return sentSignals[_signalSlot];
     }
 
-    function getSignalSlot(uint64 _chainId, address _app, bytes32 _signal) public pure returns (bytes32) {
+    function getSignalSlot(
+        uint64 _chainId,
+        address _app,
+        bytes32 _signal
+    )
+        public
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encodePacked("SIGNAL", _chainId, _app, _signal));
     }
 

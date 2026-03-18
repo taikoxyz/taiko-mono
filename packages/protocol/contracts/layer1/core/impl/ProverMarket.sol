@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {IInbox} from "../iface/IInbox.sol";
-import {IProverMarket} from "../iface/IProverMarket.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EssentialContract} from "src/shared/common/EssentialContract.sol";
-import {LibAddress} from "src/shared/libs/LibAddress.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { IProverMarket } from "../iface/IProverMarket.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 
 /// @title ProverMarket
 /// @notice Perpetual reverse-auction prover market. Provers bid to win exclusive proving rights
@@ -150,11 +150,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
     event PermissionlessModeUpdated(bool enabled);
     event CapExceeded(uint48 proposalId);
     event CapRecovered(uint48 proposalId);
-    event ProverSlashed(address indexed prover, address indexed proofSubmitter, uint64 slashedAmount);
+    event ProverSlashed(
+        address indexed prover, address indexed proofSubmitter, uint64 slashedAmount
+    );
     event FeeCreditDeposited(address indexed account, uint256 amount);
     event FeeCreditWithdrawn(address indexed account, uint256 amount);
     event FeesClaimed(address indexed account, uint256 amount);
-    event ProposalAssignmentSkipped(uint48 indexed proposalId, address indexed proposer, uint8 reason);
+    event ProposalAssignmentSkipped(
+        uint48 indexed proposalId, address indexed proposer, uint8 reason
+    );
 
     // ---------------------------------------------------------------
     // Constructor
@@ -253,7 +257,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
         if (state.activeTermId != 0) {
             Term memory activeTerm = terms[state.activeTermId];
             require(activeTerm.prover != msg.sender, ActiveProverCannotBid());
-            require(_feeInGwei * 10_000 <= uint256(activeTerm.feeInGwei) * (10_000 - _bidDiscountBps), BidFeeTooHigh());
+            require(
+                _feeInGwei * 10_000 <= uint256(activeTerm.feeInGwei) * (10_000 - _bidDiscountBps),
+                BidFeeTooHigh()
+            );
         }
 
         if (state.pendingTermId != 0) {
@@ -267,9 +274,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
                 return;
             }
 
-            require(_feeInGwei * 10_000 <= uint256(pendingTerm.feeInGwei) * (10_000 - _bidDiscountBps), BidFeeTooHigh());
+            require(
+                _feeInGwei * 10_000 <= uint256(pendingTerm.feeInGwei) * (10_000 - _bidDiscountBps),
+                BidFeeTooHigh()
+            );
         } else if (state.activeTermId == 0 && state.feeEwmaInGwei != 0) {
-            require(_feeInGwei <= uint256(_maxBidEwmaMultiplier) * state.feeEwmaInGwei, BidFeeTooHigh());
+            require(
+                _feeInGwei <= uint256(_maxBidEwmaMultiplier) * state.feeEwmaInGwei, BidFeeTooHigh()
+            );
         }
 
         ProverAccount memory acct = proverAccounts[msg.sender];
@@ -328,7 +340,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @inheritdoc IProverMarket
-    function onProposalAccepted(uint48 _proposalId, address _proposer, uint48 _proposalTimestamp)
+    function onProposalAccepted(
+        uint48 _proposalId,
+        address _proposer,
+        uint48 _proposalTimestamp
+    )
         external
         payable
         nonReentrant
@@ -353,7 +369,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         }
 
         if (state.activeTermId == 0 && state.pendingTermId != 0) {
-            stateChanged = _activatePendingTerm(state, _proposalId, _proposalTimestamp) || stateChanged;
+            stateChanged =
+                _activatePendingTerm(state, _proposalId, _proposalTimestamp) || stateChanged;
         }
 
         uint48 activeTermId = state.activeTermId;
@@ -407,7 +424,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @param _firstNewProposalId The first proposal id that would be newly finalized.
     /// @param _lastProposalId The last proposal id in the range.
     /// @return authorized_ True if the caller is authorized to prove the entire range.
-    function canSubmitProof(address _caller, uint48 _firstNewProposalId, uint48 _lastProposalId)
+    function canSubmitProof(
+        address _caller,
+        uint48 _firstNewProposalId,
+        uint48 _lastProposalId
+    )
         public
         view
         returns (bool authorized_)
@@ -429,7 +450,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @inheritdoc IProverMarket
-    function onProofAccepted(address _caller, uint48 _firstNewProposalId, uint48 _lastProposalId)
+    function onProofAccepted(
+        address _caller,
+        uint48 _firstNewProposalId,
+        uint48 _lastProposalId
+    )
         external
         nonReentrant
         onlyFrom(address(_inbox))
@@ -439,7 +464,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint256 rescueClaim;
 
         for (uint48 proposalId = _firstNewProposalId; proposalId <= _lastProposalId; ++proposalId) {
-            rescueClaim += _authorizeAndSettleProposalAssignment(_caller, proposalId, forcedPermissionless);
+            rescueClaim += _authorizeAndSettleProposalAssignment(
+                _caller, proposalId, forcedPermissionless
+            );
         }
 
         if (rescueClaim != 0) {
@@ -543,7 +570,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @inheritdoc IProverMarket
-    function creditMigratedBond(address _account, uint64 _amount) external onlyFrom(address(_inbox)) {
+    function creditMigratedBond(
+        address _account,
+        uint64 _amount
+    )
+        external
+        onlyFrom(address(_inbox))
+    {
         proverAccounts[_account].bondBalance += _amount;
         emit BondDeposited(_account, _amount);
     }
@@ -553,7 +586,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
     // ---------------------------------------------------------------
 
     /// @dev Activates the current pending term for new assignments if it has enough free bond.
-    function _activatePendingTerm(MarketState memory _state, uint48 _proposalId, uint48 _proposalTimestamp)
+    function _activatePendingTerm(
+        MarketState memory _state,
+        uint48 _proposalId,
+        uint48 _proposalTimestamp
+    )
         private
         returns (bool stateChanged_)
     {
@@ -578,7 +615,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @dev Updates the fee EWMA using proposal-weighted blending.
-    function _updateFeeEwma(MarketState memory _state, uint64 _fee, uint256 _proposalCount) private pure {
+    function _updateFeeEwma(
+        MarketState memory _state,
+        uint64 _fee,
+        uint256 _proposalCount
+    )
+        private
+        pure
+    {
         if (_proposalCount == 0) return;
         uint48 ewma = _state.feeEwmaInGwei;
         if (ewma == 0) {
@@ -586,7 +630,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
             _state.feeEwmaInGwei = raw > type(uint48).max ? type(uint48).max : uint48(raw);
         } else {
             uint256 w = 1024;
-            uint256 raw = (uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount);
+            uint256 raw =
+                (uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount);
             _state.feeEwmaInGwei = raw > type(uint48).max ? type(uint48).max : uint48(raw);
         }
     }
@@ -638,7 +683,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @dev Validates authorization for a single funded proposal assignment and settles it.
-    function _authorizeAndSettleProposalAssignment(address _caller, uint48 _proposalId, bool _forcedPermissionless)
+    function _authorizeAndSettleProposalAssignment(
+        address _caller,
+        uint48 _proposalId,
+        bool _forcedPermissionless
+    )
         private
         returns (uint256 rescueClaim_)
     {

@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ICodec} from "../iface/ICodec.sol";
-import {IForcedInclusionStore} from "../iface/IForcedInclusionStore.sol";
-import {IInbox} from "../iface/IInbox.sol";
-import {IProposerChecker} from "../iface/IProposerChecker.sol";
-import {IProverMarket} from "../iface/IProverMarket.sol";
-import {LibBlobs} from "../libs/LibBlobs.sol";
-import {LibBonds} from "../libs/LibBonds.sol";
-import {LibCodec} from "../libs/LibCodec.sol";
-import {LibForcedInclusion} from "../libs/LibForcedInclusion.sol";
-import {LibHashOptimized} from "../libs/LibHashOptimized.sol";
-import {LibInboxSetup} from "../libs/LibInboxSetup.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IProofVerifier} from "src/layer1/verifiers/IProofVerifier.sol";
-import {EssentialContract} from "src/shared/common/EssentialContract.sol";
-import {LibAddress} from "src/shared/libs/LibAddress.sol";
-import {LibMath} from "src/shared/libs/LibMath.sol";
-import {ICheckpointStore} from "src/shared/signal/ICheckpointStore.sol";
-import {ISignalService} from "src/shared/signal/ISignalService.sol";
+import { ICodec } from "../iface/ICodec.sol";
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { IProverMarket } from "../iface/IProverMarket.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBonds } from "../libs/LibBonds.sol";
+import { LibCodec } from "../libs/LibCodec.sol";
+import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
+import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
+import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
+import { LibMath } from "src/shared/libs/LibMath.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
+import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proof verification, and forced inclusion in
@@ -162,8 +162,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @dev Can be called multiple times within the activation window to handle reorgs.
     /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
     function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
-        (uint48 newActivationTimestamp, CoreState memory state, Proposal memory proposal, bytes32 genesisProposalHash) =
-            LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
+        (
+            uint48 newActivationTimestamp,
+            CoreState memory state,
+            Proposal memory proposal,
+            bytes32 genesisProposalHash
+        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
@@ -182,7 +186,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external payable nonReentrant {
+    function propose(
+        bytes calldata _lookahead,
+        bytes calldata _data
+    )
+        external
+        payable
+        nonReentrant
+    {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -192,15 +203,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
-            Proposal memory proposal =
-                _buildProposal(input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId);
+            Proposal memory proposal = _buildProposal(
+                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+            );
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal);
-            _proverMarket.onProposalAccepted{value: msg.value}(proposal.id, proposal.proposer, proposal.timestamp);
+            _proverMarket.onProposalAccepted{
+                value: msg.value
+            }(proposal.id, proposal.proposer, proposal.timestamp);
         }
     }
 
@@ -244,7 +258,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             Commitment memory commitment = input.commitment;
 
             // `offset` is the index of the next-to-finalize proposal in the transitions array.
-            (uint256 numProposals, uint256 lastProposalId, uint48 offset) = _validateCommitment(state, commitment);
+            (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
+                _validateCommitment(state, commitment);
 
             uint48 firstNewProposalId = uint48(state.lastFinalizedProposalId + 1);
             uint256 proposalAge;
@@ -255,11 +270,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 // 2. Verify parent block-hash continuity and last proposal hash
                 // ---------------------------------------------------------
                 // The parent block hash must match the stored lastFinalizedBlockHash.
-                bytes32 expectedParentHash =
-                    offset == 0 ? commitment.firstProposalParentBlockHash : commitment.transitions[offset - 1].blockHash;
-                require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+                bytes32 expectedParentHash = offset == 0
+                    ? commitment.firstProposalParentBlockHash
+                    : commitment.transitions[offset - 1].blockHash;
+                require(
+                    state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch()
+                );
 
-                require(commitment.lastProposalHash == getProposalHash(lastProposalId), LastProposalHashMismatch());
+                require(
+                    commitment.lastProposalHash == getProposalHash(lastProposalId),
+                    LastProposalHashMismatch()
+                );
             }
 
             // -----------------------------------------------------------------------------
@@ -283,7 +304,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
             _coreState = state;
 
-            emit Proved(commitment.firstProposalId, firstNewProposalId, uint48(lastProposalId), commitment.actualProver);
+            emit Proved(
+                commitment.firstProposalId,
+                firstNewProposalId,
+                uint48(lastProposalId),
+                commitment.actualProver
+            );
 
             // ---------------------------------------------------------
             // 5. Verify the proof and settle prover-market state
@@ -291,7 +317,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
             // Single-proposal proofs pass actual age for age-based verification logic.
             _proofVerifier.verifyProof(
-                numProposals - offset == 1 ? proposalAge : 0, LibHashOptimized.hashCommitment(commitment), _proof
+                numProposals - offset == 1 ? proposalAge : 0,
+                LibHashOptimized.hashCommitment(commitment),
+                _proof
             );
             _proverMarket.onProofAccepted(msg.sender, firstNewProposalId, uint48(lastProposalId));
         }
@@ -332,22 +360,38 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc ICodec
-    function encodeProposeInput(IInbox.ProposeInput calldata _input) external pure returns (bytes memory encoded_) {
+    function encodeProposeInput(IInbox.ProposeInput calldata _input)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
         return LibCodec.encodeProposeInput(_input);
     }
 
     /// @inheritdoc ICodec
-    function decodeProposeInput(bytes calldata _data) external pure returns (IInbox.ProposeInput memory input_) {
+    function decodeProposeInput(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.ProposeInput memory input_)
+    {
         return LibCodec.decodeProposeInput(_data);
     }
 
     /// @inheritdoc ICodec
-    function encodeProveInput(IInbox.ProveInput calldata _input) external pure returns (bytes memory encoded_) {
+    function encodeProveInput(IInbox.ProveInput calldata _input)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
         return LibCodec.encodeProveInput(_input);
     }
 
     /// @inheritdoc ICodec
-    function decodeProveInput(bytes calldata _data) external pure returns (IInbox.ProveInput memory input_) {
+    function decodeProveInput(bytes calldata _data)
+        external
+        pure
+        returns (IInbox.ProveInput memory input_)
+    {
         return LibCodec.decodeProveInput(_data);
     }
 
@@ -357,7 +401,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc ICodec
-    function hashCommitment(IInbox.Commitment calldata _commitment) external pure returns (bytes32) {
+    function hashCommitment(IInbox.Commitment calldata _commitment)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashOptimized.hashCommitment(_commitment);
     }
 
@@ -372,7 +420,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function getForcedInclusions(uint48 _start, uint48 _maxCount)
+    function getForcedInclusions(
+        uint48 _start,
+        uint48 _maxCount
+    )
         external
         view
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
@@ -434,14 +485,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         uint48 _nextProposalId,
         uint48 _lastProposalBlockId,
         uint48 _lastFinalizedProposalId
-    ) private returns (Proposal memory proposal_) {
+    )
+        private
+        returns (Proposal memory proposal_)
+    {
         unchecked {
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
             require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
-            require(_ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity());
+            require(
+                _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
+            );
 
-            ConsumptionResult memory result = _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+            ConsumptionResult memory result =
+                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
 
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
@@ -451,7 +508,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!result.allowsPermissionless) {
-                endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender, _lookahead);
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -482,7 +540,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
     /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
     /// and whether permissionless proposals are allowed
-    function _consumeForcedInclusions(address _feeRecipient, uint256 _numForcedInclusionsRequested)
+    function _consumeForcedInclusions(
+        address _feeRecipient,
+        uint256 _numForcedInclusionsRequested
+    )
         private
         returns (ConsumptionResult memory result_)
     {
@@ -498,23 +559,28 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             for (uint256 i; i < maxToInspect; ++i) {
                 IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
                 uint256 timestamp = inclusion.blobSlice.timestamp;
-                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay)) {
+                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay))
+                {
                     break;
                 }
                 ++dueToProcess;
             }
-            require(_numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue());
+            require(
+                _numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue()
+            );
 
-            uint256 toProcess = _numForcedInclusionsRequested.min(available).min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
+            uint256 toProcess = _numForcedInclusionsRequested.min(available)
+                .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
 
             result_.sources = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head) =
-                _dequeueAndProcessForcedInclusions($, _feeRecipient, result_.sources, head, toProcess);
+            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
+                $, _feeRecipient, result_.sources, head, toProcess
+            );
 
-            uint256 permissionlessTimestamp =
-                uint256(_forcedInclusionDelay) * _permissionlessInclusionMultiplier + oldestTimestamp;
+            uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
+                * _permissionlessInclusionMultiplier + oldestTimestamp;
             result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
         }
     }
@@ -534,7 +600,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         DerivationSource[] memory _sources,
         uint48 _head,
         uint256 _toProcess
-    ) private returns (uint48 oldestTimestamp_, uint48 head_) {
+    )
+        private
+        returns (uint48 oldestTimestamp_, uint48 head_)
+    {
         unchecked {
             if (_toProcess == 0) {
                 return (type(uint48).max, _head);
@@ -591,7 +660,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @return numProposals_ The number of proposals in the batch.
     /// @return lastProposalId_ The ID of the last proposal in the batch.
     /// @return offset_ The offset to the first unfinalized proposal.
-    function _validateCommitment(CoreState memory _state, Commitment memory _commitment)
+    function _validateCommitment(
+        CoreState memory _state,
+        Commitment memory _commitment
+    )
         private
         pure
         returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
