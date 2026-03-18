@@ -50,7 +50,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		s.BlobServer.URL(),
+		s.L1HTTPURL(),
 		nil,
 	)
 	s.Nil(err)
@@ -123,7 +123,6 @@ func (s *ProposerTestSuite) SetupTest() {
 	}, nil, nil))
 
 	s.p = p
-	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 	s.cancel = cancel
 }
 

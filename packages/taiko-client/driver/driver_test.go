@@ -75,7 +75,7 @@ func (s *DriverTestSuite) SetupTest() {
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
 		},
-		BlobServerEndpoint:     s.BlobServer.URL(),
+		BlobServerEndpoint:     s.L1HTTPURL(),
 		P2PConfigs:             p2pConfig,
 		P2PSignerConfigs:       p2pSignerConfig,
 		PreconfBlockServerPort: preconfServerPort,
@@ -1343,7 +1343,6 @@ func (s *DriverTestSuite) InitProposer() {
 		},
 	}, nil, nil))
 	s.p = p
-	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 }
 
 func TestDriverTestSuite(t *testing.T) {
