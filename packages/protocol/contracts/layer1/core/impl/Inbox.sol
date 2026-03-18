@@ -12,7 +12,7 @@ import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
-import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
+
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -58,6 +58,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Must be < 12 to avoid derived block timestamps drifting into the future when proposals
     /// happen every L1 slot (Derivation enforces 1s block times).
     uint256 internal constant MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10;
+
+    /// @dev Minimum ring buffer size to keep one slot reserved in capacity calculations.
+    uint48 internal constant MIN_RING_BUFFER_SIZE = 2;
 
     // ---------------------------------------------------------------
     // Immutable Variables
@@ -146,7 +149,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(Config memory _config) {
-        LibInboxSetup.validateConfig(_config);
+        _validateConfig(_config);
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
@@ -762,13 +765,41 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
+    /// @dev Validates the Inbox configuration parameters.
+    /// @param _config The configuration to validate.
+    function _validateConfig(Config memory _config) private pure {
+        require(_config.proofVerifier != address(0), ProofVerifierZero());
+        require(_config.proposerChecker != address(0), ProposerCheckerZero());
+        require(_config.signalService != address(0), SignalServiceZero());
+        require(_config.bondToken != address(0), BondTokenZero());
+        require(_config.provingWindow != 0, ProvingWindowZero());
+        require(
+            _config.permissionlessProvingDelay > _config.provingWindow,
+            PermissionlessProvingDelayTooSmall()
+        );
+        require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
+        require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
+        require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeInGweiZero());
+        require(
+            _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
+        );
+        require(
+            _config.permissionlessInclusionMultiplier > 1,
+            PermissionlessInclusionMultiplierTooSmall()
+        );
+    }
+
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
+    error BasefeeSharingPctgTooLarge();
+    error BondTokenZero();
     error CannotProposeInCurrentBlock();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
+    error ForcedInclusionFeeDoubleThresholdZero();
+    error ForcedInclusionFeeInGweiZero();
     error IncorrectProposalCount();
     error InsufficientBond();
     error LastProposalAlreadyFinalized();
@@ -776,6 +807,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
+    error PermissionlessInclusionMultiplierTooSmall();
+    error PermissionlessProvingDelayTooSmall();
+    error ProofVerifierZero();
+    error ProposerCheckerZero();
     error ProverNotWhitelisted();
+    error ProvingWindowZero();
+    error RingBufferSizeTooSmall();
+    error SignalServiceZero();
     error UnprocessedForcedInclusionIsDue();
 }
