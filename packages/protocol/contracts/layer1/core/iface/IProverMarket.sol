@@ -89,7 +89,8 @@ interface IProverMarket {
     /// @notice Returns the bond token address used by this market
     function bondToken() external view returns (address);
 
-    /// @notice Returns the exclusive proving window in seconds
+    /// @notice Returns the exclusive proving window in seconds. Within this window only the
+    /// assigned prover may prove; after it anyone may prove and the assigned prover is slashed.
     function provingWindow() external view returns (uint48);
 
     /// @notice Returns the fee in gwei that the next proposal will be charged
@@ -99,6 +100,16 @@ interface IProverMarket {
     /// @notice Returns the minimum bond in gwei required to place a bid
     function minBond() external view returns (uint64);
 
-    /// @notice Returns the permissionless proving delay in seconds
-    function permissionlessProvingDelay() external view returns (uint48);
+    /// @notice Returns the minimum bid discount in basis points (e.g. 1000 = 10%)
+    function bidDiscountBps() external view returns (uint16);
+
+    /// @notice Returns the bond in gwei reserved per assigned proposal
+    function bondPerProposal() external view returns (uint64);
+
+    /// @notice Returns the slash amount in gwei per late proof
+    function slashPerProof() external view returns (uint64);
+
+    /// @notice Returns the reserved bond balance for an account in gwei
+    /// @param _account The account to query
+    function reservedBondGwei(address _account) external view returns (uint64);
 }

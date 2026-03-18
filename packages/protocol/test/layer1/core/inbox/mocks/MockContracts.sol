@@ -2,8 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+
 import { IProverMarket } from "src/layer1/core/iface/IProverMarket.sol";
+import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 contract MockERC20 is ERC20 {
@@ -30,9 +31,18 @@ contract MockProverMarket is IProverMarket {
     function depositBond(uint64) external { }
     function withdrawBond(uint64) external { }
     function withdrawFees(uint256) external { }
-    function bondBalances(address) external pure returns (uint64) { return 0; }
-    function feeBalances(address) external pure returns (uint256) { return 0; }
-    function canSubmitProof(address, uint48, uint256) external pure returns (bool) { return true; }
+
+    function bondBalances(address) external pure returns (uint64) {
+        return 0;
+    }
+
+    function feeBalances(address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function canSubmitProof(address, uint48, uint256) external pure returns (bool) {
+        return true;
+    }
 
     function onProposalAccepted(uint48, address _proposer, uint48) external payable {
         if (msg.value > 0) payable(_proposer).transfer(msg.value);
@@ -41,11 +51,38 @@ contract MockProverMarket is IProverMarket {
     function onProofAccepted(address, uint48, uint48, uint256) external { }
     function forcePermissionlessMode(bool) external { }
     function creditMigratedBond(address, uint64) external { }
-    function bondToken() external view returns (address) { return _bondToken; }
-    function provingWindow() external view returns (uint48) { return _provingWindow; }
-    function activeFeeInGwei() external pure returns (uint64) { return 0; }
-    function minBond() external pure returns (uint64) { return 0; }
-    function permissionlessProvingDelay() external pure returns (uint48) { return 0; }
+
+    function bondToken() external view returns (address) {
+        return _bondToken;
+    }
+
+    function provingWindow() external view returns (uint48) {
+        return _provingWindow;
+    }
+
+    function activeFeeInGwei() external pure returns (uint64) {
+        return 0;
+    }
+
+    function minBond() external pure returns (uint64) {
+        return 0;
+    }
+
+    function bidDiscountBps() external pure returns (uint16) {
+        return 500;
+    }
+
+    function reservedBondGwei(address) external pure returns (uint64) {
+        return 0;
+    }
+
+    function bondPerProposal() external pure returns (uint64) {
+        return 0;
+    }
+
+    function slashPerProof() external pure returns (uint64) {
+        return 0;
+    }
 }
 
 contract MockProofVerifier is IProofVerifier {
