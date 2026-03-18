@@ -97,8 +97,7 @@ abstract contract DeployShastaContracts is DeployCapability {
                     proofVerifier,
                     config.preconfWhitelist,
                     address(0),
-                    config.l1SignalService,
-                    config.taikoToken
+                    config.l1SignalService
                 )
             ),
             data: abi.encodeCall(Inbox.init, config.activator)

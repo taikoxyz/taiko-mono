@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { MockProofVerifier } from "./mocks/MockContracts.sol";
+import { MockProofVerifier, MockProverMarket } from "./mocks/MockContracts.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 import { ICodec } from "src/layer1/core/iface/ICodec.sol";
@@ -74,11 +74,8 @@ abstract contract InboxTestBase is CommonTest {
         return IInbox.Config({
             proofVerifier: address(verifier),
             proposerChecker: address(proposerChecker),
-            proverMarket: address(0),
+            proverMarket: address(new MockProverMarket(address(bondToken), 2 hours)),
             signalService: address(signalService),
-            bondToken: address(bondToken),
-            provingWindow: 2 hours,
-            permissionlessProvingDelay: 24 hours,
             maxProofSubmissionDelay: 3 minutes,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
@@ -181,6 +178,7 @@ abstract contract InboxTestBase is CommonTest {
         string memory _benchName
     )
         internal
+        virtual
         returns (ProposedEvent memory payload_)
     {
         bytes memory encodedInput = codec.encodeProposeInput(_input);

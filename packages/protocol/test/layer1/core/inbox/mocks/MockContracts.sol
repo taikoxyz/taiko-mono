@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
+import { IProverMarket } from "src/layer1/core/iface/IProverMarket.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 contract MockERC20 is ERC20 {
@@ -13,6 +14,38 @@ contract MockERC20 is ERC20 {
     function mint(address to, uint256 amount) external {
         _mint(to, amount);
     }
+}
+
+contract MockProverMarket is IProverMarket {
+    address private _bondToken;
+    uint48 private _provingWindow;
+
+    constructor(address bondToken_, uint48 provingWindow_) {
+        _bondToken = bondToken_;
+        _provingWindow = provingWindow_;
+    }
+
+    function bid(uint64) external { }
+    function exit() external { }
+    function depositBond(uint64) external { }
+    function withdrawBond(uint64) external { }
+    function withdrawFees(uint256) external { }
+    function bondBalances(address) external pure returns (uint64) { return 0; }
+    function feeBalances(address) external pure returns (uint256) { return 0; }
+    function canSubmitProof(address, uint48, uint256) external pure returns (bool) { return true; }
+
+    function onProposalAccepted(uint48, address _proposer, uint48) external payable {
+        if (msg.value > 0) payable(_proposer).transfer(msg.value);
+    }
+
+    function onProofAccepted(address, uint48, uint48, uint256) external { }
+    function forcePermissionlessMode(bool) external { }
+    function creditMigratedBond(address, uint64) external { }
+    function bondToken() external view returns (address) { return _bondToken; }
+    function provingWindow() external view returns (uint48) { return _provingWindow; }
+    function activeFeeInGwei() external pure returns (uint64) { return 0; }
+    function minBond() external pure returns (uint64) { return 0; }
+    function permissionlessProvingDelay() external pure returns (uint48) { return 0; }
 }
 
 contract MockProofVerifier is IProofVerifier {

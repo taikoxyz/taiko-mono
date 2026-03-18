@@ -25,8 +25,7 @@ contract DevnetInbox is Inbox {
         address _proofVerifier,
         address _proposerChecker,
         address _proverMarket,
-        address _signalService,
-        address _bondToken
+        address _signalService
     )
         // See `MainnetInbox.sol` for details on the configuration.
         Inbox(Config({
@@ -34,9 +33,6 @@ contract DevnetInbox is Inbox {
                 proposerChecker: _proposerChecker,
                 proverMarket: _proverMarket,
                 signalService: _signalService,
-                bondToken: _bondToken,
-                provingWindow: 4 hours,
-                permissionlessProvingDelay: 5 days,
                 maxProofSubmissionDelay: 3 minutes,
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,
