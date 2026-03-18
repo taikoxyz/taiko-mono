@@ -225,11 +225,13 @@ contract Anchor is EssentialContract {
 
         // Anchor checkpoint data if a fresher L1 block is provided
         if (_blockParams.anchorBlockNumber > _blockState.anchorBlockNumber) {
-            checkpointStore.saveCheckpoint(ICheckpointStore.Checkpoint({
-                blockNumber: _blockParams.anchorBlockNumber,
-                blockHash: _blockParams.anchorBlockHash,
-                stateRoot: _blockParams.anchorStateRoot
-            }));
+            checkpointStore.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: _blockParams.anchorBlockNumber,
+                    blockHash: _blockParams.anchorBlockHash,
+                    stateRoot: _blockParams.anchorStateRoot
+                })
+            );
             _blockState.anchorBlockNumber = _blockParams.anchorBlockNumber;
         }
     }
