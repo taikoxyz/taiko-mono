@@ -27,13 +27,15 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint64 feeInGwei;
     }
 
-    /// @notice Top-level market state shared across epochs (1 slot).
+    /// @notice Top-level market state shared across epochs (1 slot, 32 bytes).
     struct MarketState {
         uint48 activeEpochId;
         uint48 pendingEpochId;
         uint48 nextEpochId;
         bool permissionlessMode;
         bool activeEpochExiting;
+        uint64 feeEwmaInGwei;
+        uint32 activeEpochStartId;
     }
 
     /// @notice Consolidated prover financial state packed into a single storage slot.
@@ -68,6 +70,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     /// @dev Fixed slash amount in gwei per late proof submission.
     uint64 internal immutable _slashPerProofGwei;
+
+    /// @dev Maximum multiplier applied to the fee EWMA when no active or pending bid exists.
+    uint8 internal immutable _maxBidEwmaMultiplier;
 
     // ---------------------------------------------------------------
     // State Variables
@@ -135,6 +140,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// = 10%).
     /// @param _bondPerProposal Bond in gwei reserved per assigned proposal.
     /// @param _slashPerProof Fixed slash amount in gwei per late proof submission.
+    /// @param _maxBidMultiplier Maximum multiplier on EWMA for bids when no active/pending epoch
+    /// exists (e.g. 10 means cap at 10x the EWMA).
     constructor(
         address _inboxAddr,
         address _bondTokenAddr,
@@ -142,7 +149,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint48 _provingWindowSeconds,
         uint16 _bidDiscountBasisPoints,
         uint64 _bondPerProposal,
-        uint64 _slashPerProof
+        uint64 _slashPerProof,
+        uint8 _maxBidMultiplier
     )
         nonZeroAddr(_inboxAddr)
         nonZeroAddr(_bondTokenAddr)
@@ -151,6 +159,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         nonZeroValue(_bidDiscountBasisPoints)
         nonZeroValue(_bondPerProposal)
         nonZeroValue(_slashPerProof)
+        nonZeroValue(_maxBidMultiplier)
     {
         _inbox = IInbox(_inboxAddr);
         _bondToken = IERC20(_bondTokenAddr);
@@ -159,6 +168,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         _bidDiscountBps = _bidDiscountBasisPoints;
         _bondPerProposalGwei = _bondPerProposal;
         _slashPerProofGwei = _slashPerProof;
+        _maxBidEwmaMultiplier = _maxBidMultiplier;
     }
 
     // ---------------------------------------------------------------
@@ -222,6 +232,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
             );
         }
 
+        if (state.activeEpochId == 0 && state.pendingEpochId == 0 && state.feeEwmaInGwei != 0) {
+            require(
+                _feeInGwei <= uint256(_maxBidEwmaMultiplier) * state.feeEwmaInGwei,
+                BidFeeTooHigh()
+            );
+        }
+
         uint48 newEpochId = ++state.nextEpochId;
 
         epochs[newEpochId] = Epoch({ prover: msg.sender, feeInGwei: _feeInGwei });
@@ -279,8 +296,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
                         acct.bondBalance < acct.reservedBond + _bondPerProposalGwei;
                 }
                 if (shouldRetire) {
+                    _updateFeeEwma(
+                        state,
+                        epochs[state.activeEpochId].feeInGwei,
+                        _proposalId - state.activeEpochStartId
+                    );
                     state.activeEpochId = 0;
                     state.activeEpochExiting = false;
+                    state.activeEpochStartId = 0;
                     stateChanged = true;
                 }
             }
@@ -425,6 +448,16 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return _slashPerProofGwei;
     }
 
+    /// @notice Returns the max bid multiplier applied to the EWMA.
+    function maxBidEwmaMultiplier() external view returns (uint8) {
+        return _maxBidEwmaMultiplier;
+    }
+
+    /// @notice Returns the exponentially weighted moving average of activated epoch fees.
+    function feeEwma() external view returns (uint64) {
+        return marketState.feeEwmaInGwei;
+    }
+
     /// @inheritdoc IProverMarket
     function creditMigratedBond(
         address _account,
@@ -462,8 +495,31 @@ contract ProverMarket is EssentialContract, IProverMarket {
         _state.activeEpochId = pendingId;
         _state.pendingEpochId = 0;
         _state.activeEpochExiting = false;
+        _state.activeEpochStartId = uint32(_proposalId);
 
         emit EpochActivated(pendingId, _proposalId, _proposalTimestamp);
+    }
+
+    /// @dev Updates the fee EWMA using proposal-weighted blending.
+    ///      Formula: newEwma = (ewma * W + fee * count) / (W + count), where W = 1024.
+    ///      An epoch that served more proposals has proportionally more influence on the average.
+    function _updateFeeEwma(
+        MarketState memory _state,
+        uint64 _fee,
+        uint256 _proposalCount
+    )
+        private
+        pure
+    {
+        if (_proposalCount == 0) return;
+        uint64 ewma = _state.feeEwmaInGwei;
+        if (ewma == 0) {
+            _state.feeEwmaInGwei = _fee;
+        } else {
+            uint256 w = 1024;
+            _state.feeEwmaInGwei =
+                uint64((uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount));
+        }
     }
 
     /// @dev Handles bond release, authorization, and slashing for a finalized proof range.

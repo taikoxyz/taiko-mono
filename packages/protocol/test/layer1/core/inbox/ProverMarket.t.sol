@@ -60,7 +60,8 @@ abstract contract ProverMarketTestBase is InboxTestBase {
             MARKET_PROVING_WINDOW,
             500, // 5% minimum bid discount
             MARKET_BOND_PER_PROPOSAL,
-            MARKET_SLASH_PER_PROOF
+            MARKET_SLASH_PER_PROOF,
+            10 // max bid = 10x EWMA
         );
         market = ProverMarket(
             address(
@@ -142,7 +143,7 @@ abstract contract ProverMarketTestBase is InboxTestBase {
         vm.prank(_prover);
         market.bid(_feeInGwei);
 
-        (, uint48 pendingEpochId,,,) = market.marketState();
+        (, uint48 pendingEpochId,,,,,) = market.marketState();
         epochId_ = pendingEpochId;
 
         // Propose to activate the epoch
@@ -421,7 +422,7 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         vm.prank(Alice);
         market.bid(100);
 
-        (, uint48 pendingEpochId,,,) = market.marketState();
+        (, uint48 pendingEpochId,,,,,) = market.marketState();
         assertEq(pendingEpochId, 1);
 
         (address prv, uint64 fee) = market.epochs(pendingEpochId);
@@ -441,7 +442,7 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId, uint48 pendingEpochId,,,) = market.marketState();
+        (uint48 activeEpochId, uint48 pendingEpochId,,,,,) = market.marketState();
         assertEq(activeEpochId, 1);
         assertEq(pendingEpochId, 0);
     }
@@ -455,7 +456,7 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         vm.prank(Bob);
         market.bid(50);
 
-        (, uint48 pendingEpochId,,,) = market.marketState();
+        (, uint48 pendingEpochId,,,,,) = market.marketState();
         (address prv,) = market.epochs(pendingEpochId);
         assertEq(prv, Bob);
     }
@@ -492,7 +493,7 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         assertEq(_bondBalance(Alice), MARKET_MIN_BOND_GWEI);
 
         // Bob is now the pending epoch operator
-        (, uint48 pendingEpochId,,,) = market.marketState();
+        (, uint48 pendingEpochId,,,,,) = market.marketState();
         (address prv,) = market.epochs(pendingEpochId);
         assertEq(prv, Bob);
     }
@@ -514,7 +515,7 @@ contract ProverMarketExitTest is ProverMarketTestBase {
         vm.prank(Alice);
         market.exit();
 
-        (, uint48 pendingEpochId,,,) = market.marketState();
+        (, uint48 pendingEpochId,,,,,) = market.marketState();
         assertEq(pendingEpochId, 0);
 
         // Bond unchanged — was never locked
@@ -527,7 +528,7 @@ contract ProverMarketExitTest is ProverMarketTestBase {
         vm.prank(Alice);
         market.exit();
 
-        (,,,, bool exiting) = market.marketState();
+        (,,,, bool exiting,,) = market.marketState();
         assertTrue(exiting);
     }
 
@@ -557,7 +558,7 @@ contract ProverMarketExitTest is ProverMarketTestBase {
         _advanceBlock();
         _proposeRecordedOne();
 
-        (uint48 activeEpochId,,, bool permissionless, bool exiting) = market.marketState();
+        (uint48 activeEpochId,,, bool permissionless, bool exiting,,) = market.marketState();
         assertEq(activeEpochId, 0);
         assertFalse(permissionless);
         assertFalse(exiting);
@@ -577,7 +578,7 @@ contract ProverMarketProposalTest is ProverMarketTestBase {
         _advanceBlock();
         ProposedEvent memory payload = _proposeOne();
 
-        (uint48 activeEpochId,,,,) = market.marketState();
+        (uint48 activeEpochId,,,,,,) = market.marketState();
         assertEq(market.proposalEpochs(payload.id), activeEpochId);
     }
 
@@ -598,7 +599,7 @@ contract ProverMarketProposalTest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId,,,,) = market.marketState();
+        (uint48 activeEpochId,,,,,,) = market.marketState();
         (address prv,) = market.epochs(activeEpochId);
         assertEq(prv, Bob);
     }
@@ -630,7 +631,7 @@ contract ProverMarketProposalTest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId,,,,) = market.marketState();
+        (uint48 activeEpochId,,,,,,) = market.marketState();
         (address prv,) = market.epochs(activeEpochId);
         assertEq(prv, Bob);
     }
@@ -833,7 +834,7 @@ contract ProverMarketProofAcceptedTest is ProverMarketTestBase {
         }
 
         // Now Alice's bond == reserved. A slash will drop bond below reserved.
-        (uint48 activeEpochIdBefore,,,,) = market.marketState();
+        (uint48 activeEpochIdBefore,,,,,,) = market.marketState();
         assertGt(activeEpochIdBefore, 0, "epoch should be active before slash");
 
         // Warp past proving window and prove the first proposal (late)
@@ -841,7 +842,7 @@ contract ProverMarketProofAcceptedTest is ProverMarketTestBase {
         _proveRecordedRangeAs(firstProposal, Bob, Bob);
 
         // After slash, bond < reserved, epoch should be retired
-        (uint48 activeEpochIdAfter,,,,) = market.marketState();
+        (uint48 activeEpochIdAfter,,,,,,) = market.marketState();
         assertEq(
             activeEpochIdAfter, 0, "epoch should be retired after slash drops bond below reserved"
         );
@@ -855,11 +856,11 @@ contract ProverMarketProofAcceptedTest is ProverMarketTestBase {
 contract ProverMarketEmergencyTest is ProverMarketTestBase {
     function test_forcePermissionlessMode_toggles() external {
         market.forcePermissionlessMode(true);
-        (,,, bool permissionless,) = market.marketState();
+        (,,, bool permissionless,,,) = market.marketState();
         assertTrue(permissionless);
 
         market.forcePermissionlessMode(false);
-        (,,, permissionless,) = market.marketState();
+        (,,, permissionless,,,) = market.marketState();
         assertFalse(permissionless);
     }
 
@@ -892,7 +893,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
         // Verify epoch is active
-        (uint48 activeEpochId,,,,) = market.marketState();
+        (uint48 activeEpochId,,,,,,) = market.marketState();
         assertGt(activeEpochId, 0);
 
         // 3. Prove (as the epoch operator)
@@ -985,7 +986,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId,,,,) = market.marketState();
+        (uint48 activeEpochId,,,,,,) = market.marketState();
         assertEq(activeEpochId, 0, "epoch should be auto-retired when bond runs out");
     }
 
@@ -1000,7 +1001,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         ProposedEvent memory p2 = _proposeOne();
 
-        (uint48 activeEpochId,,,,) = market.marketState();
+        (uint48 activeEpochId,,,,,,) = market.marketState();
         assertEq(market.proposalEpochs(p1.id), activeEpochId, "p1 mapped to active epoch");
         assertEq(market.proposalEpochs(p2.id), activeEpochId, "p2 mapped to active epoch");
     }
@@ -1019,7 +1020,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId, uint48 pendingEpochId,,,) = market.marketState();
+        (uint48 activeEpochId, uint48 pendingEpochId,,,,,) = market.marketState();
         assertEq(activeEpochId, 0, "epoch should not activate with insufficient bond");
         assertEq(pendingEpochId, 0, "pending cleared when activation skipped");
     }
@@ -1079,7 +1080,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
-        (uint48 activeEpochId,,,,) = market.marketState();
+        (uint48 activeEpochId,,,,,,) = market.marketState();
         (address prv,) = market.epochs(activeEpochId);
         assertEq(prv, prover, "prover should be active operator");
 
