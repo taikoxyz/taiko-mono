@@ -133,7 +133,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     event FeeCreditDeposited(address indexed account, uint256 amount);
     event FeeCreditWithdrawn(address indexed account, uint256 amount);
     event FeesClaimed(address indexed account, uint256 amount);
-    event ProposalPermissionless(uint48 indexed proposalId, address indexed proposer, uint8 reason);
+    event ProposalAssignmentSkipped(uint48 indexed proposalId, address indexed proposer, uint8 reason);
 
     // ---------------------------------------------------------------
     // Constructor
@@ -331,7 +331,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         bool stateChanged;
 
         if (state.permissionlessReason == _PERMISSIONLESS_FORCED) {
-            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_FORCED_PERMISSIONLESS);
+            emit ProposalAssignmentSkipped(_proposalId, _proposer, _PROPOSAL_FORCED_PERMISSIONLESS);
             return;
         }
 
@@ -347,7 +347,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint48 activeTermId = state.activeTermId;
         if (activeTermId == 0) {
             if (stateChanged) marketState = state;
-            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_NO_ACTIVE_TERM);
+            emit ProposalAssignmentSkipped(_proposalId, _proposer, _PROPOSAL_NO_ACTIVE_TERM);
             return;
         }
 
@@ -359,14 +359,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         if (credit < feeWei) {
             if (stateChanged) marketState = state;
-            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_INSUFFICIENT_CREDIT);
+            emit ProposalAssignmentSkipped(_proposalId, _proposer, _PROPOSAL_INSUFFICIENT_CREDIT);
             return;
         }
 
         if (_availableBond(acct) < liabilityPerProposal) {
             _retireActiveTerm(state);
             marketState = state;
-            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_INSUFFICIENT_BOND);
+            emit ProposalAssignmentSkipped(_proposalId, _proposer, _PROPOSAL_INSUFFICIENT_BOND);
             return;
         }
 
