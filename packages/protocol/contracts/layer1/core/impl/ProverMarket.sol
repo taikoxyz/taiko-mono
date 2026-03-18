@@ -172,14 +172,16 @@ contract ProverMarket is EssentialContract, IProverMarket {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Deposits bond used to back proving obligations.
+    /// @param _amount The bond amount in gwei.
     function depositBond(uint64 _amount) external nonReentrant nonZeroValue(_amount) {
         _bondToken.safeTransferFrom(msg.sender, address(this), uint256(_amount) * 1 gwei);
         bondBalances[msg.sender] += _amount;
         emit BondDeposited(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Withdraws previously deposited bond.
+    /// @param _amount The bond amount in gwei.
     function withdrawBond(uint64 _amount) external nonReentrant nonZeroValue(_amount) {
         require(
             bondBalances[msg.sender] - reservedBondGwei[msg.sender] >= _amount, InsufficientBond()
@@ -189,7 +191,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         emit BondWithdrawn(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Withdraws accrued prover fees.
+    /// @param _amount The amount in wei to withdraw.
     function withdrawFees(uint256 _amount) external nonReentrant nonZeroValue(_amount) {
         require(feeBalances[msg.sender] >= _amount, InsufficientFees());
         feeBalances[msg.sender] -= _amount;
@@ -197,7 +200,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         emit FeesWithdrawn(msg.sender, _amount);
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Places or updates a bid for a future proving epoch.
+    /// @param _feeInGwei The fee quote in gwei for each assigned proposal.
     function bid(uint64 _feeInGwei) external nonReentrant whenNotPaused {
         require(bondBalances[msg.sender] >= _minBondGwei, InsufficientBond());
 
@@ -235,7 +239,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         emit BidPlaced(newEpochId, msg.sender, _feeInGwei);
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Requests exit from the market for the caller's active or pending position.
     function exit() external {
         MarketState memory state = marketState;
 
@@ -316,7 +320,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
         }
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Checks whether a caller is authorized to submit a proof for a given proposal.
+    /// @param _caller The account that would submit the proof.
+    /// @param _firstNewProposalId The first proposal id that would be newly finalized.
+    /// @param _proposalAge The age in seconds of the first newly finalized proposal.
+    /// @return True if the caller is authorized to prove.
     function canSubmitProof(
         address _caller,
         uint48 _firstNewProposalId,
@@ -358,7 +366,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         marketState = state;
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Enables or disables emergency permissionless proving mode.
+    /// @param _enabled True to force permissionless proving, false to restore market enforcement.
     function forcePermissionlessMode(bool _enabled) external onlyOwner {
         marketState.permissionlessMode = _enabled;
         emit PermissionlessModeUpdated(_enabled);
@@ -369,12 +378,12 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return address(_bondToken);
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Returns the exclusive proving window in seconds.
     function provingWindow() external view returns (uint48) {
         return _provingWindow;
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Returns the fee in gwei that the next proposal will be charged.
     function activeFeeInGwei() external view returns (uint64) {
         MarketState memory state = marketState;
         if (state.permissionlessMode) return 0;
@@ -397,22 +406,22 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return 0;
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Returns the minimum bond in gwei required to place a bid.
     function minBond() external view returns (uint64) {
         return _minBondGwei;
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Returns the minimum bid discount in basis points (e.g. 1000 = 10%).
     function bidDiscountBps() external view returns (uint16) {
         return _bidDiscountBps;
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Returns the bond in gwei reserved per assigned proposal.
     function bondPerProposal() external view returns (uint64) {
         return _bondPerProposalGwei;
     }
 
-    /// @inheritdoc IProverMarket
+    /// @notice Returns the slash amount in gwei per late proof.
     function slashPerProof() external view returns (uint64) {
         return _slashPerProofGwei;
     }
