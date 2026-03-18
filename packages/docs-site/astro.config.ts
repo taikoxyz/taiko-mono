@@ -210,6 +210,10 @@ export default defineConfig({
                   label: "Verify a contract",
                   link: "/guides/app-developers/verify-a-contract/",
                 },
+                {
+                  label: "Deploy an AI agent",
+                  link: "/guides/app-developers/deploy-ai-agent/",
+                },
               ],
             },
             {
