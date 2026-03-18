@@ -163,33 +163,60 @@ func (ds *BlobDataSource) GetSidecars(
 func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHashes []common.Hash) (*BlobDataSeq, error) {
 	blobDataSeq := make([]*BlobData, 0, len(blobHashes))
 	for _, blobHash := range blobHashes {
-		requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
+		blobData, err := ds.getBlobByHash(ctx, blobHash)
 		if err != nil {
 			return nil, err
 		}
-		resp, err := resty.New().R().
-			SetResult(BlobServerResponse{}).
-			SetContext(ctx).
-			SetHeader("Content-Type", "application/json").
-			SetHeader("Accept", "application/json").
-			Get(requestURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, err)
-		}
-		if !resp.IsSuccess() {
-			return nil, fmt.Errorf(
-				"unable to connect blobscan endpoint, status code: %v",
-				resp.StatusCode(),
-			)
-		}
-		response := resp.Result().(*BlobServerResponse)
-		blobDataSeq = append(blobDataSeq, &BlobData{
-			BlobHash:      response.VersionedHash,
-			KzgCommitment: response.Commitment,
-			Blob:          response.Data,
-		})
+		blobDataSeq = append(blobDataSeq, blobData)
 	}
 	return &BlobDataSeq{
 		Data: blobDataSeq,
+	}, nil
+}
+
+// GetBlobDataByHash gets the blob data by the given blob hash.
+func (ds *BlobDataSource) getBlobByHash(ctx context.Context, blobHash common.Hash) (*BlobData, error) {
+	requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
+	if err != nil {
+		return nil, err
+	}
+
+	resp, restErr := resty.New().R().
+		SetResult(BlobServerResponse{}).
+		SetContext(ctx).
+		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept", "application/json").
+		Get(requestURL)
+	if restErr == nil && resp.IsSuccess() {
+		response := resp.Result().(*BlobServerResponse)
+		return &BlobData{
+			BlobHash:      response.VersionedHash,
+			KzgCommitment: response.Commitment,
+			Blob:          response.Data,
+		}, nil
+	}
+
+	if restErr == nil {
+		restErr = fmt.Errorf("unable to connect blobscan endpoint, status code: %v", resp.StatusCode())
+	} else {
+		restErr = fmt.Errorf("failed to get blob from server, request URL: %s, err: %w", requestURL, restErr)
+	}
+
+	blob, anvilErr := ds.client.L1.AnvilGetBlobByHash(ctx, blobHash)
+	if anvilErr != nil {
+		return nil, fmt.Errorf(
+			"failed to fetch blob %s from blob server and anvil RPC: %w", blobHash, errors.Join(restErr, anvilErr),
+		)
+	}
+
+	commitment, err := blob.ComputeKZGCommitment()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute KZG commitment for blob %s: %w", blobHash, err)
+	}
+
+	return &BlobData{
+		BlobHash:      blobHash.String(),
+		KzgCommitment: common.Bytes2Hex(commitment[:]),
+		Blob:          blob.String(),
 	}, nil
 }
