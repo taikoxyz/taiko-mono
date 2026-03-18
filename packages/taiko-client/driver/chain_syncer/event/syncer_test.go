@@ -43,7 +43,7 @@ func (s *EventSyncerTestSuite) SetupTest() {
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		s.BlobServer.URL(),
+		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)
 	s.Nil(err)
@@ -262,7 +262,7 @@ func (s *EventSyncerTestSuite) TestKnownBatchSendsProposal() {
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		s.BlobServer.URL(),
+		s.ParseL1HttpURLFromEnv(),
 		proposalCh,
 	)
 	s.Nil(err)
@@ -352,7 +352,6 @@ func (s *EventSyncerTestSuite) initProposer() {
 	}, nil, nil))
 
 	s.p = prop
-	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
 }
 
 func TestEventSyncerTestSuite(t *testing.T) {

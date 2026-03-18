@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -658,4 +659,20 @@ func (c *EthClient) FillTransaction(ctx context.Context, args *TransactionArgs) 
 	}
 
 	return result.Tx, nil
+}
+
+// AnvilGetBlobByHash returns the blob stored by Anvil for the given versioned hash.
+func (c *EthClient) AnvilGetBlobByHash(ctx context.Context, hash common.Hash) (*eth.Blob, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
+	defer cancel()
+
+	var result *eth.Blob
+	if err := c.CallContext(ctxWithTimeout, &result, "anvil_getBlobByHash", hash); err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, ethereum.NotFound
+	}
+
+	return result, nil
 }
