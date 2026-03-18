@@ -100,9 +100,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     event BidPlaced(uint48 indexed epochId, address indexed prover, uint64 feeInGwei);
 
     /// @notice Emitted when a pending epoch becomes active.
-    event EpochActivated(
-        uint48 indexed epochId, uint48 firstProposalId, uint48 activatedAt
-    );
+    event EpochActivated(uint48 indexed epochId, uint48 firstProposalId, uint48 activatedAt);
 
     /// @notice Emitted when a prover exits their position.
     event EpochExited(uint48 indexed epochId);
@@ -234,8 +232,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         if (state.activeEpochId == 0 && state.pendingEpochId == 0 && state.feeEwmaInGwei != 0) {
             require(
-                _feeInGwei <= uint256(_maxBidEwmaMultiplier) * state.feeEwmaInGwei,
-                BidFeeTooHigh()
+                _feeInGwei <= uint256(_maxBidEwmaMultiplier) * state.feeEwmaInGwei, BidFeeTooHigh()
             );
         }
 
@@ -292,8 +289,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
                 if (!shouldRetire) {
                     Epoch memory epoch = epochs[state.activeEpochId];
                     ProverAccount memory acct = proverAccounts[epoch.prover];
-                    shouldRetire =
-                        acct.bondBalance < acct.reservedBond + _bondPerProposalGwei;
+                    shouldRetire = acct.bondBalance < acct.reservedBond + _bondPerProposalGwei;
                 }
                 if (shouldRetire) {
                     _updateFeeEwma(
@@ -584,8 +580,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     {
         uint48 current = _firstProposalId;
         while (current <= _lastProposalId) {
-            uint48 epochId =
-                (current == _firstProposalId) ? _firstEpochId : proposalEpochs[current];
+            uint48 epochId = (current == _firstProposalId) ? _firstEpochId : proposalEpochs[current];
             if (epochId == 0) {
                 ++current;
                 continue;

@@ -20,10 +20,6 @@ pragma solidity ^0.8.26;
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   marketState                    | struct ProverMarket.MarketState                    | Slot: 251  | Offset: 0    | Bytes: 32  
 //   epochs                         | mapping(uint48 => struct ProverMarket.Epoch)       | Slot: 252  | Offset: 0    | Bytes: 32  
-//   bondBalances                   | mapping(address => uint64)                         | Slot: 253  | Offset: 0    | Bytes: 32  
-//   feeCreditBalances              | mapping(address => uint256)                        | Slot: 254  | Offset: 0    | Bytes: 32  
-//   proposalEpochs                 | mapping(uint48 => uint48)                          | Slot: 255  | Offset: 0    | Bytes: 32  
-//   _displacedEpochIds             | uint48[8]                                          | Slot: 256  | Offset: 0    | Bytes: 64  
-//   _numDisplacedEpochs            | uint8                                              | Slot: 258  | Offset: 0    | Bytes: 1   
-//   rescueRewardPool               | uint64                                             | Slot: 258  | Offset: 1    | Bytes: 8   
-//   __gap                          | uint256[43]                                        | Slot: 259  | Offset: 0    | Bytes: 1376
+//   proverAccounts                 | mapping(address => struct ProverMarket.ProverAccount) | Slot: 253  | Offset: 0    | Bytes: 32  
+//   proposalEpochs                 | mapping(uint48 => uint48)                          | Slot: 254  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[46]                                        | Slot: 255  | Offset: 0    | Bytes: 1472

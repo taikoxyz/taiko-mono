@@ -202,7 +202,9 @@ abstract contract ProverMarketTestBase is InboxTestBase {
             commitment: IInbox.Commitment({
                 firstProposalId: _proposals[0].payload.id,
                 firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
-                lastProposalHash: inbox.getProposalHash(_proposals[_proposals.length - 1].payload.id),
+                lastProposalHash: inbox.getProposalHash(
+                    _proposals[_proposals.length - 1].payload.id
+                ),
                 actualProver: _actualProver,
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("recorded-state-root", _proposals.length)),
