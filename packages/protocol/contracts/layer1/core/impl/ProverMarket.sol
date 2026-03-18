@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IInbox } from "../iface/IInbox.sol";
-import { IProverMarket } from "../iface/IProverMarket.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { LibAddress } from "src/shared/libs/LibAddress.sol";
+import {IInbox} from "../iface/IInbox.sol";
+import {IProverMarket} from "../iface/IProverMarket.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {EssentialContract} from "src/shared/common/EssentialContract.sol";
+import {LibAddress} from "src/shared/libs/LibAddress.sol";
 
 /// @title ProverMarket
 /// @notice Perpetual reverse-auction prover market. Provers bid to win exclusive proving rights
-/// for terms of proposals. Lower fee bids displace the current winner. The market handles
-/// authorization, fee accounting, and bond management for proving obligations.
+/// for funded proposals. Lower fee bids displace the current winner. The market handles
+/// authorization, fee-credit accounting, and bond management for proving obligations.
 /// @custom:security-contact security@taiko.xyz
 contract ProverMarket is EssentialContract, IProverMarket {
     using SafeERC20 for IERC20;
@@ -21,18 +21,18 @@ contract ProverMarket is EssentialContract, IProverMarket {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Term identity and proposal range (2 slots).
+    /// @notice Term identity and funded proposal range.
     struct Term {
-        // Slot 0 (32 bytes) — hot path: proof settlement
         address prover;
         uint48 startProposalId;
         uint48 endProposalId;
-        // Slot 1 (14 bytes used) — chain + fee
         uint64 feeInGwei;
         uint48 prevTermId;
+        uint64 quoteBondGwei;
+        uint48 assignedProposalCount;
     }
 
-    /// @notice Top-level market state shared across terms (1 slot, 32 bytes).
+    /// @notice Top-level market state shared across terms.
     struct MarketState {
         uint48 activeTermId;
         uint48 pendingTermId;
@@ -43,7 +43,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint48 lastRetiredTermId;
     }
 
-    /// @notice Tracks cap-exceeded permissionless state (1 slot).
+    /// @notice Legacy degraded-mode state kept for storage compatibility.
     struct CapState {
         uint48 capFeeSnapshotGwei;
         uint48 capStartProposalId;
@@ -58,41 +58,35 @@ contract ProverMarket is EssentialContract, IProverMarket {
         uint64 reservedBond;
     }
 
+    /// @notice Stores explicit assignment data for a funded proposal.
+    struct ProposalAssignment {
+        uint48 termId;
+        uint48 proposalTimestamp;
+        uint64 reservedBondGwei;
+    }
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
-    /// @notice Gas stipend for ETH fee transfers to provers. Matches the Bridge constant.
-    /// Enough for proxy dispatch + event log, low enough to prevent callback abuse.
     uint256 private constant _SEND_ETHER_GAS_LIMIT = 35_000;
+    uint8 private constant _PERMISSIONLESS_FORCED = 1;
+    uint8 private constant _PROPOSAL_NO_ACTIVE_TERM = 1;
+    uint8 private constant _PROPOSAL_INSUFFICIENT_CREDIT = 2;
+    uint8 private constant _PROPOSAL_INSUFFICIENT_BOND = 3;
+    uint8 private constant _PROPOSAL_FORCED_PERMISSIONLESS = 4;
 
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
-    /// @dev Inbox that owns proposal acceptance and proof finalization.
     IInbox internal immutable _inbox;
-
-    /// @dev Bond token that backs prover obligations.
     IERC20 internal immutable _bondToken;
-
-    /// @dev Minimum bond in gwei required to place a bid.
     uint64 internal immutable _minBondGwei;
-
-    /// @dev Exclusive proving window in seconds. Within this window only the assigned prover may
-    /// prove; after it anyone may prove and the assigned prover is slashed.
     uint48 internal immutable _provingWindow;
-
-    /// @dev Minimum fee discount in basis points a new bid must undercut by (e.g. 1000 = 10%).
     uint16 internal immutable _bidDiscountBps;
-
-    /// @dev Bond in gwei reserved per assigned proposal. Released when proven.
     uint64 internal immutable _bondPerProposalGwei;
-
-    /// @dev Fixed slash amount in gwei per late proof submission.
     uint64 internal immutable _slashPerProofGwei;
-
-    /// @dev Maximum multiplier applied to the fee EWMA when no active or pending bid exists.
     uint8 internal immutable _maxBidEwmaMultiplier;
 
     // ---------------------------------------------------------------
@@ -108,46 +102,38 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @notice Consolidated prover account: bond balance and reserved bond.
     mapping(address account => ProverAccount) public proverAccounts;
 
-    /// @notice Cap-exceeded permissionless state.
+    /// @notice Legacy degraded-mode state kept for storage compatibility.
     CapState public capState;
 
-    uint256[46] private __gap;
+    /// @notice Explicit assignment data for funded proposals.
+    mapping(uint48 proposalId => ProposalAssignment) public proposalAssignments;
+
+    /// @notice ETH credits that proposers may spend on future proving fees.
+    mapping(address account => uint256) public feeCredits;
+
+    /// @notice Pull-based ETH balances claimable by provers and rescuers.
+    mapping(address account => uint256) public claimableFees;
+
+    uint256[43] private __gap;
 
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when a bid is placed or updated.
     event BidPlaced(uint48 indexed termId, address indexed prover, uint64 feeInGwei);
-
-    /// @notice Emitted when a pending term becomes active.
     event TermActivated(uint48 indexed termId, uint48 firstProposalId, uint48 activatedAt);
-
-    /// @notice Emitted when a prover exits their position.
     event TermExited(uint48 indexed termId);
-
-    /// @notice Emitted when bond is deposited.
     event BondDeposited(address indexed account, uint64 amount);
-
-    /// @notice Emitted when bond is withdrawn.
     event BondWithdrawn(address indexed account, uint64 amount);
-
-    /// @notice Emitted when a prover fee is charged from proposer ETH.
     event FeeCharged(uint48 indexed proposalId, address indexed proposer, uint64 feeInGwei);
-
-    /// @notice Emitted when emergency permissionless mode changes.
     event PermissionlessModeUpdated(bool enabled);
-
-    /// @notice Emitted when unproven term count reaches the cap threshold.
     event CapExceeded(uint48 proposalId);
-
-    /// @notice Emitted when proofs catch up and cap-exceeded mode clears.
     event CapRecovered(uint48 proposalId);
-
-    /// @notice Emitted when a prover is slashed for missing the proving window.
-    event ProverSlashed(
-        address indexed prover, address indexed proofSubmitter, uint64 slashedAmount
-    );
+    event ProverSlashed(address indexed prover, address indexed proofSubmitter, uint64 slashedAmount);
+    event FeeCreditDeposited(address indexed account, uint256 amount);
+    event FeeCreditWithdrawn(address indexed account, uint256 amount);
+    event FeesClaimed(address indexed account, uint256 amount);
+    event ProposalPermissionless(uint48 indexed proposalId, address indexed proposer, uint8 reason);
 
     // ---------------------------------------------------------------
     // Constructor
@@ -158,12 +144,11 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @param _bondTokenAddr The bond token address.
     /// @param _minBond The minimum bond in gwei required to bid.
     /// @param _provingWindowSeconds The exclusive proving window in seconds.
-    /// @param _bidDiscountBasisPoints Minimum fee discount in basis points for new bids (e.g. 1000
-    /// = 10%).
-    /// @param _bondPerProposal Bond in gwei reserved per assigned proposal.
-    /// @param _slashPerProof Fixed slash amount in gwei per late proof submission.
-    /// @param _maxBidMultiplier Maximum multiplier on EWMA for bids when no active/pending term
-    /// exists (e.g. 10 means cap at 10x the EWMA).
+    /// @param _bidDiscountBasisPoints Minimum fee discount in basis points for new bids.
+    /// @param _bondPerProposal Bond in gwei reserved per funded proposal.
+    /// @param _slashPerProof Minimum slash amount in gwei applied per late funded proposal.
+    /// @param _maxBidMultiplier Maximum multiplier on EWMA for bids when no active or pending term
+    /// exists.
     constructor(
         address _inboxAddr,
         address _bondTokenAddr,
@@ -215,50 +200,89 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @param _amount The bond amount in gwei.
     function withdrawBond(uint64 _amount) external nonReentrant nonZeroValue(_amount) {
         ProverAccount memory acct = proverAccounts[msg.sender];
-        require(acct.bondBalance - acct.reservedBond >= _amount, InsufficientBond());
+        require(_availableBond(acct) >= _amount, InsufficientBond());
         acct.bondBalance -= _amount;
         proverAccounts[msg.sender] = acct;
         _bondToken.safeTransfer(msg.sender, uint256(_amount) * 1 gwei);
         emit BondWithdrawn(msg.sender, _amount);
     }
 
-    /// @notice Places or updates a bid for a future proving term.
-    /// @param _feeInGwei The fee quote in gwei for each assigned proposal.
-    function bid(uint64 _feeInGwei) external nonReentrant whenNotPaused {
-        require(proverAccounts[msg.sender].bondBalance >= _minBondGwei, InsufficientBond());
+    /// @notice Deposits ETH fee credit for future proposal funding.
+    function depositFeeCredit() external payable nonReentrant {
+        require(msg.value != 0, ZERO_VALUE());
+        feeCredits[msg.sender] += msg.value;
+        emit FeeCreditDeposited(msg.sender, msg.value);
+    }
 
+    /// @notice Withdraws unused ETH fee credit.
+    /// @param _amount The amount to withdraw in wei.
+    function withdrawFeeCredit(uint256 _amount) external nonReentrant nonZeroValue(_amount) {
+        uint256 credit = feeCredits[msg.sender];
+        require(credit >= _amount, InsufficientFeeCredit());
+        feeCredits[msg.sender] = credit - _amount;
+        msg.sender.sendEtherAndVerify(_amount, _SEND_ETHER_GAS_LIMIT);
+        emit FeeCreditWithdrawn(msg.sender, _amount);
+    }
+
+    /// @notice Withdraws earned proving fees.
+    /// @param _amount The amount to withdraw in wei.
+    function withdrawClaimableFees(uint256 _amount) external nonReentrant nonZeroValue(_amount) {
+        uint256 claimable = claimableFees[msg.sender];
+        require(claimable >= _amount, InsufficientClaimableFees());
+        claimableFees[msg.sender] = claimable - _amount;
+        msg.sender.sendEtherAndVerify(_amount, _SEND_ETHER_GAS_LIMIT);
+        emit FeesClaimed(msg.sender, _amount);
+    }
+
+    /// @notice Places or updates a bid for a future proving term.
+    /// @param _feeInGwei The fee quote in gwei for each funded assigned proposal.
+    function bid(uint64 _feeInGwei) external nonReentrant whenNotPaused nonZeroValue(_feeInGwei) {
         MarketState memory state = marketState;
 
         if (state.activeTermId != 0) {
-            require(
-                _feeInGwei * 10_000
-                    <= uint256(terms[state.activeTermId].feeInGwei) * (10_000 - _bidDiscountBps),
-                BidFeeTooHigh()
-            );
+            Term memory activeTerm = terms[state.activeTermId];
+            require(activeTerm.prover != msg.sender, ActiveProverCannotBid());
+            require(_feeInGwei * 10_000 <= uint256(activeTerm.feeInGwei) * (10_000 - _bidDiscountBps), BidFeeTooHigh());
         }
 
-        if (state.pendingTermId != 0 && terms[state.pendingTermId].prover != msg.sender) {
-            require(
-                _feeInGwei * 10_000
-                    <= uint256(terms[state.pendingTermId].feeInGwei) * (10_000 - _bidDiscountBps),
-                BidFeeTooHigh()
-            );
+        if (state.pendingTermId != 0) {
+            uint48 pendingTermId = state.pendingTermId;
+            Term memory pendingTerm = terms[pendingTermId];
+
+            if (pendingTerm.prover == msg.sender) {
+                require(_feeInGwei < pendingTerm.feeInGwei, BidFeeTooHigh());
+                terms[pendingTermId].feeInGwei = _feeInGwei;
+                emit BidPlaced(pendingTermId, msg.sender, _feeInGwei);
+                return;
+            }
+
+            require(_feeInGwei * 10_000 <= uint256(pendingTerm.feeInGwei) * (10_000 - _bidDiscountBps), BidFeeTooHigh());
+        } else if (state.activeTermId == 0 && state.feeEwmaInGwei != 0) {
+            require(_feeInGwei <= uint256(_maxBidEwmaMultiplier) * state.feeEwmaInGwei, BidFeeTooHigh());
         }
 
-        if (state.activeTermId == 0 && state.pendingTermId == 0 && state.feeEwmaInGwei != 0) {
-            require(
-                _feeInGwei <= uint256(_maxBidEwmaMultiplier) * state.feeEwmaInGwei, BidFeeTooHigh()
-            );
+        ProverAccount memory acct = proverAccounts[msg.sender];
+        require(_availableBond(acct) >= _minBondGwei, InsufficientBond());
+
+        if (state.pendingTermId != 0) {
+            uint48 pendingTermId = state.pendingTermId;
+            Term memory pendingTerm = terms[pendingTermId];
+            _releaseQuoteBond(pendingTerm.prover, terms[pendingTermId].quoteBondGwei);
+            terms[pendingTermId].quoteBondGwei = 0;
         }
+
+        acct.reservedBond += _minBondGwei;
+        proverAccounts[msg.sender] = acct;
 
         uint48 newTermId = ++state.nextTermId;
-
         terms[newTermId] = Term({
             prover: msg.sender,
             startProposalId: 0,
             endProposalId: 0,
             feeInGwei: _feeInGwei,
-            prevTermId: 0
+            prevTermId: 0,
+            quoteBondGwei: _minBondGwei,
+            assignedProposalCount: 0
         });
 
         state.pendingTermId = newTermId;
@@ -267,12 +291,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
         emit BidPlaced(newTermId, msg.sender, _feeInGwei);
     }
 
-    /// @notice Requests exit from the market for the caller's active or pending position.
+    /// @notice Exits a pending or active proving position.
     function exit() external {
         MarketState memory state = marketState;
 
         if (state.pendingTermId != 0 && terms[state.pendingTermId].prover == msg.sender) {
             uint48 exitedId = state.pendingTermId;
+            _releaseQuoteBond(msg.sender, terms[exitedId].quoteBondGwei);
+            terms[exitedId].quoteBondGwei = 0;
             state.pendingTermId = 0;
             marketState = state;
             emit TermExited(exitedId);
@@ -291,193 +317,136 @@ contract ProverMarket is EssentialContract, IProverMarket {
     }
 
     /// @inheritdoc IProverMarket
-    function onProposalAccepted(
-        uint48 _proposalId,
-        address _proposer,
-        uint48 _proposalTimestamp
-    )
+    function onProposalAccepted(uint48 _proposalId, address _proposer, uint48 _proposalTimestamp)
         external
         payable
         onlyFrom(address(_inbox))
     {
+        if (msg.value != 0) {
+            feeCredits[_proposer] += msg.value;
+            emit FeeCreditDeposited(_proposer, msg.value);
+        }
+
         MarketState memory state = marketState;
-        uint256 feeConsumed;
         bool stateChanged;
 
-        if (state.permissionlessReason == 0) {
-            if (state.activeTermId != 0) {
-                bool shouldRetire = state.activeTermExiting || state.pendingTermId != 0;
-                if (!shouldRetire) {
-                    Term memory term = terms[state.activeTermId];
-                    ProverAccount memory acct = proverAccounts[term.prover];
-                    shouldRetire = acct.bondBalance < acct.reservedBond + _bondPerProposalGwei;
-                }
-                if (shouldRetire) {
-                    terms[state.activeTermId].endProposalId = _proposalId - 1;
-                    _updateFeeEwma(
-                        state,
-                        terms[state.activeTermId].feeInGwei,
-                        _proposalId - terms[state.activeTermId].startProposalId
-                    );
-                    state.lastRetiredTermId = state.activeTermId;
-                    state.activeTermId = 0;
-                    state.activeTermExiting = false;
-                    stateChanged = true;
-
-                    CapState memory cap = capState;
-                    cap.unprovenTermCount++;
-                    if (cap.unprovenTermCount >= 3 && state.permissionlessReason == 0) {
-                        state.permissionlessReason = 2;
-                        cap.capFeeSnapshotGwei = state.feeEwmaInGwei;
-                        cap.capStartProposalId = _proposalId;
-                        cap.capProposalCount = 0;
-                        emit CapExceeded(_proposalId);
-                    }
-                    capState = cap;
-                }
-            }
-
-            if (state.activeTermId == 0 && state.pendingTermId != 0) {
-                _activatePendingTerm(state, _proposalId, _proposalTimestamp);
-                stateChanged = true;
-            }
-
-            uint48 activeId = state.activeTermId;
-            if (activeId != 0) {
-                Term memory term = terms[activeId];
-                address prv = term.prover;
-                ProverAccount memory acct = proverAccounts[prv];
-
-                acct.reservedBond += _bondPerProposalGwei;
-
-                uint256 feeWei = uint256(term.feeInGwei) * 1 gwei;
-                if (feeWei > 0) {
-                    require(msg.value >= feeWei, InsufficientFee());
-                    feeConsumed = feeWei;
-                }
-
-                proverAccounts[prv] = acct;
-
-                if (feeConsumed > 0) {
-                    prv.sendEtherAndVerify(feeConsumed, _SEND_ETHER_GAS_LIMIT);
-                    emit FeeCharged(_proposalId, _proposer, term.feeInGwei);
-                }
-            } else if (state.permissionlessReason == 2) {
-                CapState memory cap = capState;
-                uint256 feeWei = uint256(cap.capFeeSnapshotGwei) * 2 * 1 gwei;
-                if (feeWei > 0) {
-                    require(msg.value >= feeWei, InsufficientFee());
-                    feeConsumed = feeWei;
-                }
-                cap.capProposalCount++;
-                capState = cap;
-            }
-        } else if (state.permissionlessReason == 2) {
-            CapState memory cap = capState;
-            uint256 feeWei = uint256(cap.capFeeSnapshotGwei) * 2 * 1 gwei;
-            if (feeWei > 0) {
-                require(msg.value >= feeWei, InsufficientFee());
-                feeConsumed = feeWei;
-            }
-            cap.capProposalCount++;
-            capState = cap;
+        if (state.permissionlessReason == _PERMISSIONLESS_FORCED) {
+            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_FORCED_PERMISSIONLESS);
+            return;
         }
+
+        if (state.activeTermId != 0 && _shouldRetireActiveTerm(state)) {
+            _retireActiveTerm(state);
+            stateChanged = true;
+        }
+
+        if (state.activeTermId == 0 && state.pendingTermId != 0) {
+            stateChanged = _activatePendingTerm(state, _proposalId, _proposalTimestamp) || stateChanged;
+        }
+
+        uint48 activeTermId = state.activeTermId;
+        if (activeTermId == 0) {
+            if (stateChanged) marketState = state;
+            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_NO_ACTIVE_TERM);
+            return;
+        }
+
+        Term memory term = terms[activeTermId];
+        ProverAccount memory acct = proverAccounts[term.prover];
+        uint64 liabilityPerProposal = _liabilityPerProposal(term.feeInGwei);
+        uint256 feeWei = uint256(term.feeInGwei) * 1 gwei;
+        uint256 credit = feeCredits[_proposer];
+
+        if (credit < feeWei) {
+            if (stateChanged) marketState = state;
+            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_INSUFFICIENT_CREDIT);
+            return;
+        }
+
+        if (_availableBond(acct) < liabilityPerProposal) {
+            _retireActiveTerm(state);
+            marketState = state;
+            emit ProposalPermissionless(_proposalId, _proposer, _PROPOSAL_INSUFFICIENT_BOND);
+            return;
+        }
+
+        feeCredits[_proposer] = credit - feeWei;
+        acct.reservedBond += liabilityPerProposal;
+        proverAccounts[term.prover] = acct;
+
+        ProposalAssignment storage assignment = proposalAssignments[_proposalId];
+        assignment.termId = activeTermId;
+        assignment.proposalTimestamp = _proposalTimestamp;
+        assignment.reservedBondGwei = liabilityPerProposal;
+
+        if (term.assignedProposalCount == 0) {
+            terms[activeTermId].startProposalId = _proposalId;
+        }
+        terms[activeTermId].endProposalId = _proposalId;
+        terms[activeTermId].assignedProposalCount = term.assignedProposalCount + 1;
+
+        emit FeeCharged(_proposalId, _proposer, term.feeInGwei);
 
         if (stateChanged) marketState = state;
-
-        uint256 excess = msg.value - feeConsumed;
-        if (excess > 0) {
-            _proposer.sendEtherAndVerify(excess);
-        }
     }
 
-    /// @notice Checks whether a caller is authorized to submit a proof for a given proposal.
+    /// @notice Checks whether a caller is authorized to submit a proof for a proposal range.
     /// @param _caller The account that would submit the proof.
     /// @param _firstNewProposalId The first proposal id that would be newly finalized.
-    /// @param _proposalAge The age in seconds of the first newly finalized proposal.
-    /// @return True if the caller is authorized to prove.
-    function canSubmitProof(
-        address _caller,
-        uint48 _firstNewProposalId,
-        uint256 _proposalAge
-    )
+    /// @param _lastProposalId The last proposal id in the range.
+    /// @return authorized_ True if the caller is authorized to prove the entire range.
+    function canSubmitProof(address _caller, uint48 _firstNewProposalId, uint48 _lastProposalId)
         public
         view
-        returns (bool)
+        returns (bool authorized_)
     {
-        MarketState memory state = marketState;
-        if (state.permissionlessReason != 0) return true;
+        if (marketState.permissionlessReason == _PERMISSIONLESS_FORCED) return true;
 
-        if (_proposalAge >= uint256(_provingWindow)) return true;
+        for (uint48 proposalId = _firstNewProposalId; proposalId <= _lastProposalId; ++proposalId) {
+            ProposalAssignment memory assignment = proposalAssignments[proposalId];
+            if (assignment.termId == 0) continue;
+            if (
+                block.timestamp < uint256(assignment.proposalTimestamp) + uint256(_provingWindow)
+                    && _caller != terms[assignment.termId].prover
+            ) {
+                return false;
+            }
+        }
 
-        uint48 hint = state.activeTermId != 0 ? state.activeTermId : state.lastRetiredTermId;
-        uint48 termId = _findTermForProposal(_firstNewProposalId, hint);
-
-        if (termId == 0) return true;
-
-        return _caller == terms[termId].prover;
+        return true;
     }
 
     /// @inheritdoc IProverMarket
-    function onProofAccepted(
-        address _caller,
-        uint48 _firstNewProposalId,
-        uint48 _lastProposalId,
-        uint256 _proposalAge
-    )
+    function onProofAccepted(address _caller, uint48 _firstNewProposalId, uint48 _lastProposalId)
         external
         onlyFrom(address(_inbox))
     {
         MarketState memory state = marketState;
-        bool stateChanged;
+        bool forcedPermissionless = state.permissionlessReason == _PERMISSIONLESS_FORCED;
+        uint256 rescueClaim;
 
-        if (state.permissionlessReason != 1) {
-            stateChanged =
-                _settleProof(state, _caller, _firstNewProposalId, _lastProposalId, _proposalAge);
-
-            CapState memory cap = capState;
-            if (cap.unprovenTermCount > 0) {
-                uint8 provenCount =
-                    _countFullyProvenTerms(state, cap.lastProvenProposalId, _lastProposalId);
-                if (provenCount >= cap.unprovenTermCount) {
-                    cap.unprovenTermCount = 0;
-                } else {
-                    cap.unprovenTermCount -= provenCount;
-                }
-                cap.lastProvenProposalId = _lastProposalId;
-                if (cap.unprovenTermCount < 3 && state.permissionlessReason == 2) {
-                    state.permissionlessReason = 0;
-                    stateChanged = true;
-                    emit CapRecovered(_lastProposalId);
-                }
-                capState = cap;
-            }
-
-            if (cap.capProposalCount > 0 && cap.capFeeSnapshotGwei > 0) {
-                _releasePermissionlessEscrow(
-                    _caller, _firstNewProposalId, _lastProposalId
-                );
-            }
+        for (uint48 proposalId = _firstNewProposalId; proposalId <= _lastProposalId; ++proposalId) {
+            rescueClaim += _authorizeAndSettleProposalAssignment(_caller, proposalId, forcedPermissionless);
         }
 
-        if (stateChanged) marketState = state;
+        if (rescueClaim != 0) {
+            proverAccounts[_caller].bondBalance += uint64(rescueClaim);
+        }
+
+        if (state.activeTermId != 0) {
+            Term memory activeTerm = terms[state.activeTermId];
+            ProverAccount memory activeAcct = proverAccounts[activeTerm.prover];
+            if (_availableBond(activeAcct) < _liabilityPerProposal(activeTerm.feeInGwei)) {
+                _retireActiveTerm(state);
+                marketState = state;
+            }
+        }
     }
 
     /// @notice Enables or disables emergency permissionless proving mode.
     /// @param _enabled True to force permissionless proving, false to restore market enforcement.
     function forcePermissionlessMode(bool _enabled) external onlyOwner {
-        marketState.permissionlessReason = _enabled ? 1 : 0;
-        if (!_enabled) {
-            CapState memory cap = capState;
-            uint256 remaining;
-            if (cap.capProposalCount > 0 && cap.capFeeSnapshotGwei > 0) {
-                remaining = uint256(cap.capFeeSnapshotGwei) * 2 * 1 gwei * cap.capProposalCount;
-            }
-            delete capState;
-            if (remaining > 0) {
-                msg.sender.sendEtherAndVerify(remaining, _SEND_ETHER_GAS_LIMIT);
-            }
-        }
+        marketState.permissionlessReason = _enabled ? _PERMISSIONLESS_FORCED : 0;
         emit PermissionlessModeUpdated(_enabled);
     }
 
@@ -491,27 +460,27 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return _provingWindow;
     }
 
-    /// @notice Returns the fee in gwei that the next proposal will be charged.
+    /// @notice Returns the fee in gwei that the next funded proposal will be charged.
     function activeFeeInGwei() external view returns (uint64) {
         MarketState memory state = marketState;
-        if (state.permissionlessReason == 1) return 0;
-        if (state.permissionlessReason == 2) return uint64(state.feeEwmaInGwei) * 2;
+        if (state.permissionlessReason == _PERMISSIONLESS_FORCED) return 0;
 
         if (state.activeTermId != 0) {
+            Term memory activeTerm = terms[state.activeTermId];
             bool wouldRetire = state.activeTermExiting || state.pendingTermId != 0;
             if (!wouldRetire) {
-                ProverAccount memory acct = proverAccounts[terms[state.activeTermId].prover];
-                wouldRetire = acct.bondBalance < acct.reservedBond + _bondPerProposalGwei;
+                ProverAccount memory acct = proverAccounts[activeTerm.prover];
+                wouldRetire = _availableBond(acct) < _liabilityPerProposal(activeTerm.feeInGwei);
             }
-            if (wouldRetire) {
-                if (state.pendingTermId != 0) return terms[state.pendingTermId].feeInGwei;
-                return 0;
-            }
-            return terms[state.activeTermId].feeInGwei;
+            if (!wouldRetire) return activeTerm.feeInGwei;
+            if (state.pendingTermId != 0) return terms[state.pendingTermId].feeInGwei;
+            return 0;
         }
+
         if (state.pendingTermId != 0) {
             return terms[state.pendingTermId].feeInGwei;
         }
+
         return 0;
     }
 
@@ -520,39 +489,33 @@ contract ProverMarket is EssentialContract, IProverMarket {
         return _minBondGwei;
     }
 
-    /// @notice Returns the minimum bid discount in basis points (e.g. 1000 = 10%).
+    /// @notice Returns the minimum bid discount in basis points.
     function bidDiscountBps() external view returns (uint16) {
         return _bidDiscountBps;
     }
 
-    /// @notice Returns the bond in gwei reserved per assigned proposal.
+    /// @notice Returns the base bond in gwei reserved per funded proposal.
     function bondPerProposal() external view returns (uint64) {
         return _bondPerProposalGwei;
     }
 
-    /// @notice Returns the slash amount in gwei per late proof.
+    /// @notice Returns the minimum slash amount in gwei applied per late funded proposal.
     function slashPerProof() external view returns (uint64) {
         return _slashPerProofGwei;
     }
 
-    /// @notice Returns the max bid multiplier applied to the EWMA.
+    /// @notice Returns the max bid multiplier applied to the fee EWMA.
     function maxBidEwmaMultiplier() external view returns (uint8) {
         return _maxBidEwmaMultiplier;
     }
 
-    /// @notice Returns the exponentially weighted moving average of activated term fees.
+    /// @notice Returns the exponentially weighted moving average of retired term fees.
     function feeEwma() external view returns (uint48) {
         return marketState.feeEwmaInGwei;
     }
 
     /// @inheritdoc IProverMarket
-    function creditMigratedBond(
-        address _account,
-        uint64 _amount
-    )
-        external
-        onlyFrom(address(_inbox))
-    {
+    function creditMigratedBond(address _account, uint64 _amount) external onlyFrom(address(_inbox)) {
         proverAccounts[_account].bondBalance += _amount;
         emit BondDeposited(_account, _amount);
     }
@@ -561,227 +524,143 @@ contract ProverMarket is EssentialContract, IProverMarket {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Activates the current pending term for new assignments. Skips activation if the
-    ///      pending prover lacks sufficient bond.
-    function _activatePendingTerm(
-        MarketState memory _state,
-        uint48 _proposalId,
-        uint48 _proposalTimestamp
-    )
+    /// @dev Activates the current pending term for new assignments if it has enough free bond.
+    function _activatePendingTerm(MarketState memory _state, uint48 _proposalId, uint48 _proposalTimestamp)
         private
+        returns (bool stateChanged_)
     {
         uint48 pendingId = _state.pendingTermId;
-        address prv = terms[pendingId].prover;
-        ProverAccount memory acct = proverAccounts[prv];
+        Term memory pendingTerm = terms[pendingId];
+        ProverAccount memory acct = proverAccounts[pendingTerm.prover];
 
-        if (acct.bondBalance < acct.reservedBond + _bondPerProposalGwei) {
+        if (_availableBond(acct) < _liabilityPerProposal(pendingTerm.feeInGwei)) {
+            _releaseQuoteBond(pendingTerm.prover, terms[pendingId].quoteBondGwei);
+            terms[pendingId].quoteBondGwei = 0;
             _state.pendingTermId = 0;
-            return;
+            return true;
         }
 
-        terms[pendingId].startProposalId = _proposalId;
         terms[pendingId].prevTermId = _state.lastRetiredTermId;
-
         _state.activeTermId = pendingId;
         _state.pendingTermId = 0;
         _state.activeTermExiting = false;
 
         emit TermActivated(pendingId, _proposalId, _proposalTimestamp);
+        return true;
     }
 
     /// @dev Updates the fee EWMA using proposal-weighted blending.
-    ///      Formula: newEwma = (ewma * W + fee * count) / (W + count), where W = 1024.
-    ///      A term that served more proposals has proportionally more influence on the average.
-    function _updateFeeEwma(
-        MarketState memory _state,
-        uint64 _fee,
-        uint256 _proposalCount
-    )
-        private
-        pure
-    {
+    function _updateFeeEwma(MarketState memory _state, uint64 _fee, uint256 _proposalCount) private pure {
         if (_proposalCount == 0) return;
         uint48 ewma = _state.feeEwmaInGwei;
         if (ewma == 0) {
             _state.feeEwmaInGwei = uint48(_fee);
         } else {
             uint256 w = 1024;
-            _state.feeEwmaInGwei =
-                uint48((uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount));
+            _state.feeEwmaInGwei = uint48((uint256(ewma) * w + uint256(_fee) * _proposalCount) / (w + _proposalCount));
         }
     }
 
-    /// @dev Handles bond release, authorization, and slashing for a finalized proof range.
-    function _settleProof(
-        MarketState memory _state,
-        address _caller,
-        uint48 _firstNewProposalId,
-        uint48 _lastProposalId,
-        uint256 _proposalAge
-    )
+    /// @dev Returns true if the active term must retire before the next funded assignment.
+    function _shouldRetireActiveTerm(MarketState memory _state) private view returns (bool) {
+        if (_state.activeTermId == 0) return false;
+        if (_state.activeTermExiting || _state.pendingTermId != 0) return true;
+
+        Term memory activeTerm = terms[_state.activeTermId];
+        ProverAccount memory acct = proverAccounts[activeTerm.prover];
+        return _availableBond(acct) < _liabilityPerProposal(activeTerm.feeInGwei);
+    }
+
+    /// @dev Retires the current active term and releases its quote stake.
+    function _retireActiveTerm(MarketState memory _state) private {
+        uint48 activeTermId = _state.activeTermId;
+        if (activeTermId == 0) return;
+
+        Term memory activeTerm = terms[activeTermId];
+        _updateFeeEwma(_state, activeTerm.feeInGwei, activeTerm.assignedProposalCount);
+        _state.lastRetiredTermId = activeTermId;
+        _state.activeTermId = 0;
+        _state.activeTermExiting = false;
+
+        _releaseQuoteBond(activeTerm.prover, terms[activeTermId].quoteBondGwei);
+        terms[activeTermId].quoteBondGwei = 0;
+    }
+
+    /// @dev Releases quote stake reserved for a pending or active term.
+    function _releaseQuoteBond(address _prover, uint64 _amount) private {
+        if (_amount == 0) return;
+        ProverAccount memory acct = proverAccounts[_prover];
+        if (_amount > acct.reservedBond) {
+            _amount = acct.reservedBond;
+        }
+        acct.reservedBond -= _amount;
+        proverAccounts[_prover] = acct;
+    }
+
+    /// @dev Returns the free bond available for new reservations.
+    function _availableBond(ProverAccount memory _acct) private pure returns (uint64 available_) {
+        if (_acct.bondBalance <= _acct.reservedBond) return 0;
+        available_ = _acct.bondBalance - _acct.reservedBond;
+    }
+
+    /// @dev Validates authorization for a single funded proposal assignment and settles it.
+    function _authorizeAndSettleProposalAssignment(address _caller, uint48 _proposalId, bool _forcedPermissionless)
         private
-        returns (bool stateChanged_)
+        returns (uint256 rescueClaim_)
     {
-        uint48 hint = _state.activeTermId != 0 ? _state.activeTermId : _state.lastRetiredTermId;
-        uint48 firstTermId = _findTermForProposal(_firstNewProposalId, hint);
+        ProposalAssignment memory assignment = proposalAssignments[_proposalId];
+        if (assignment.termId == 0) return 0;
 
-        _releaseReservedBond(_firstNewProposalId, _lastProposalId, hint);
+        Term memory term = terms[assignment.termId];
+        address assignedProver = term.prover;
+        bool late = block.timestamp >= uint256(assignment.proposalTimestamp) + uint256(_provingWindow);
 
-        if (_proposalAge < uint256(_provingWindow)) {
-            if (firstTermId != 0) {
-                require(_caller == terms[firstTermId].prover, NotAuthorizedProver());
-            }
-            return false;
+        if (!_forcedPermissionless && !late && _caller != assignedProver) {
+            revert NotAuthorizedProver();
         }
 
-        if (firstTermId == 0) return false;
+        ProverAccount memory acct = proverAccounts[assignedProver];
+        uint64 releasedBond = assignment.reservedBondGwei;
+        if (releasedBond > acct.reservedBond) {
+            releasedBond = acct.reservedBond;
+        }
+        acct.reservedBond -= releasedBond;
 
-        address prv = terms[firstTermId].prover;
-        ProverAccount memory acct = proverAccounts[prv];
-
-        uint64 slashAmount =
-            _slashPerProofGwei < acct.bondBalance ? _slashPerProofGwei : acct.bondBalance;
-
-        if (slashAmount > 0) {
-            acct.bondBalance -= slashAmount;
-            proverAccounts[prv] = acct;
-
-            if (_caller != prv) {
-                proverAccounts[_caller].bondBalance += slashAmount;
+        uint256 feeWei = uint256(term.feeInGwei) * 1 gwei;
+        if (feeWei != 0) {
+            address feeRecipient = assignedProver;
+            if (_caller != assignedProver && (_forcedPermissionless || late)) {
+                feeRecipient = _caller;
             }
-            emit ProverSlashed(prv, _caller, slashAmount);
+            claimableFees[feeRecipient] += feeWei;
         }
 
-        if (acct.bondBalance < acct.reservedBond) {
-            if (_state.activeTermId == firstTermId) {
-                terms[firstTermId].endProposalId = _firstNewProposalId - 1;
-                if (_state.permissionlessReason == 0) {
-                    _updateFeeEwma(
-                        _state,
-                        terms[firstTermId].feeInGwei,
-                        _firstNewProposalId - terms[firstTermId].startProposalId
-                    );
+        if (late) {
+            uint64 slashAmount = assignment.reservedBondGwei;
+            if (slashAmount > acct.bondBalance) {
+                slashAmount = acct.bondBalance;
+            }
+
+            if (slashAmount != 0) {
+                acct.bondBalance -= slashAmount;
+                if (_caller != assignedProver) {
+                    rescueClaim_ = slashAmount;
                 }
-                _state.lastRetiredTermId = firstTermId;
-                _state.activeTermId = 0;
-                _state.activeTermExiting = false;
-                stateChanged_ = true;
+                emit ProverSlashed(assignedProver, _caller, slashAmount);
             }
         }
+
+        proverAccounts[assignedProver] = acct;
+        delete proposalAssignments[_proposalId];
     }
 
-    /// @dev Finds the term that owns a proposal by walking backward from a hint.
-    ///      Max 3 iterations (bounded by cap). Returns 0 if permissionless.
-    function _findTermForProposal(
-        uint48 _proposalId,
-        uint48 _hintTermId
-    )
-        private
-        view
-        returns (uint48 termId_)
-    {
-        uint48 tid = _hintTermId;
-        for (uint8 i; i < 3 && tid != 0; ++i) {
-            uint48 tStart = terms[tid].startProposalId;
-            uint48 tEnd = terms[tid].endProposalId;
-            if (tEnd == 0) tEnd = type(uint48).max;
-            if (_proposalId >= tStart && _proposalId <= tEnd) return tid;
-            tid = terms[tid].prevTermId;
-        }
-    }
-
-    /// @dev Releases reserved bond using term range arithmetic. O(T) where T <= 3.
-    function _releaseReservedBond(
-        uint48 _firstProposalId,
-        uint48 _lastProposalId,
-        uint48 _hintTermId
-    )
-        private
-    {
-        uint48[3] memory tids;
-        uint8 count;
-        uint48 tid = _hintTermId;
-
-        for (uint8 i; i < 3 && tid != 0; ++i) {
-            uint48 tStart = terms[tid].startProposalId;
-            uint48 tEnd = terms[tid].endProposalId;
-            if (tEnd == 0) tEnd = type(uint48).max;
-
-            if (tEnd < _firstProposalId) break;
-            if (tStart <= _lastProposalId) {
-                tids[count++] = tid;
-            }
-            tid = terms[tid].prevTermId;
-        }
-
-        for (uint8 i = count; i > 0;) {
-            --i;
-            tid = tids[i];
-            uint48 tStart = terms[tid].startProposalId;
-            uint48 tEnd = terms[tid].endProposalId;
-            if (tEnd == 0) tEnd = _lastProposalId;
-
-            uint48 overlapStart = tStart > _firstProposalId ? tStart : _firstProposalId;
-            uint48 overlapEnd = tEnd < _lastProposalId ? tEnd : _lastProposalId;
-
-            uint64 releaseAmount = uint64(overlapEnd - overlapStart + 1) * _bondPerProposalGwei;
-            address prv = terms[tid].prover;
-            ProverAccount memory acct = proverAccounts[prv];
-            if (releaseAmount > acct.reservedBond) releaseAmount = acct.reservedBond;
-            acct.reservedBond -= releaseAmount;
-            proverAccounts[prv] = acct;
-        }
-    }
-
-    /// @dev Counts how many terms became fully proven since the last watermark.
-    function _countFullyProvenTerms(
-        MarketState memory _state,
-        uint48 _prevProvenProposalId,
-        uint48 _lastProposalId
-    )
-        private
-        view
-        returns (uint8 count_)
-    {
-        uint48 tid = _state.lastRetiredTermId;
-        for (uint8 i; i < 3 && tid != 0; ++i) {
-            uint48 tEnd = terms[tid].endProposalId;
-            if (tEnd != 0 && tEnd <= _lastProposalId && tEnd > _prevProvenProposalId) {
-                count_++;
-            }
-            tid = terms[tid].prevTermId;
-        }
-    }
-
-    /// @dev Releases escrowed permissionless fees to the proof submitter.
-    ///      Advances capStartProposalId past the released range to prevent replay.
-    function _releasePermissionlessEscrow(
-        address _caller,
-        uint48 _firstNewProposalId,
-        uint48 _lastProposalId
-    )
-        private
-    {
-        CapState memory cap = capState;
-        uint48 capEnd = cap.capStartProposalId + cap.capProposalCount - 1;
-        if (_lastProposalId < cap.capStartProposalId || _firstNewProposalId > capEnd) return;
-
-        uint48 overlapStart =
-            _firstNewProposalId > cap.capStartProposalId
-                ? _firstNewProposalId
-                : cap.capStartProposalId;
-        uint48 overlapEnd = _lastProposalId < capEnd ? _lastProposalId : capEnd;
-
-        uint48 newCapStart = overlapEnd + 1;
-        cap.capProposalCount = capEnd >= newCapStart ? capEnd - newCapStart + 1 : 0;
-        cap.capStartProposalId = newCapStart;
-        capState = cap;
-
-        uint256 payout =
-            uint256(overlapEnd - overlapStart + 1) * uint256(cap.capFeeSnapshotGwei) * 2 * 1 gwei;
-        if (payout > 0) {
-            _caller.sendEtherAndVerify(payout, _SEND_ETHER_GAS_LIMIT);
-        }
+    /// @dev Computes the bond liability reserved and slashed per funded proposal.
+    function _liabilityPerProposal(uint64 _feeInGwei) private view returns (uint64 liability_) {
+        uint256 liability = uint256(_feeInGwei) * 2;
+        if (liability < _bondPerProposalGwei) liability = _bondPerProposalGwei;
+        if (liability < _slashPerProofGwei) liability = _slashPerProofGwei;
+        if (liability > type(uint64).max) liability = type(uint64).max;
+        liability_ = uint64(liability);
     }
 
     // ---------------------------------------------------------------
@@ -790,7 +669,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
     error InsufficientBond();
     error InsufficientFee();
+    error InsufficientFeeCredit();
+    error InsufficientClaimableFees();
     error NoBidToExit();
     error BidFeeTooHigh();
     error NotAuthorizedProver();
+    error ActiveProverCannotBid();
 }
