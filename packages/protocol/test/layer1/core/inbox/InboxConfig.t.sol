@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+
 /// @notice Tests for Inbox configuration
 contract InboxConfigTest is InboxTestBase {
     function test_getConfig_returnsImmutableConfig() public view {
