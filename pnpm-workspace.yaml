@@ -1,7 +1,11 @@
 packages:
   - packages/*
+
+ignoredBuiltDependencies:
+  - '@reown/appkit'
+
 onlyBuiltDependencies:
-  - "@sveltejs/kit"
+  - '@sveltejs/kit'
   - bufferutil
   - es5-ext
   - esbuild

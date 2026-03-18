@@ -42,9 +42,6 @@ abstract contract InboxTestBase is CommonTest {
     uint48 internal constant INITIAL_BLOCK_NUMBER = 100;
     uint48 internal constant INITIAL_BLOCK_TIMESTAMP = 1000;
     address internal constant REMOTE_SIGNAL_SERVICE = address(0xdead);
-    uint64 internal constant MIN_BOND_GWEI = 10_000_000_000;
-    uint64 internal constant LIVENESS_BOND_GWEI = 2_000_000_000;
-    uint48 internal constant WITHDRAWAL_DELAY = 7 days;
 
     function setUp() public virtual override {
         super.setUp();
@@ -80,9 +77,6 @@ abstract contract InboxTestBase is CommonTest {
             proverMarket: address(0),
             signalService: address(signalService),
             bondToken: address(bondToken),
-            minBond: MIN_BOND_GWEI,
-            livenessBond: LIVENESS_BOND_GWEI,
-            withdrawalDelay: WITHDRAWAL_DELAY,
             provingWindow: 2 hours,
             permissionlessProvingDelay: 24 hours,
             maxProofSubmissionDelay: 3 minutes,
@@ -201,7 +195,7 @@ abstract contract InboxTestBase is CommonTest {
         payload_ = _readProposedEvent();
     }
 
-    function _readProposedEvent() internal returns (ProposedEvent memory payload_) {
+    function _readProposedEvent() internal virtual returns (ProposedEvent memory payload_) {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         require(logs.length > 0, "Proposed event not found");
         Vm.Log memory log = logs[logs.length - 1];
@@ -222,28 +216,7 @@ abstract contract InboxTestBase is CommonTest {
         );
     }
 
-    function _seedBondBalances() internal {
-        uint64 initialBond = MIN_BOND_GWEI + LIVENESS_BOND_GWEI;
-
-        bondToken.mint(proposer, _toTokenAmount(initialBond));
-        bondToken.mint(prover, _toTokenAmount(initialBond));
-        bondToken.mint(David, _toTokenAmount(initialBond));
-
-        vm.startPrank(proposer);
-        bondToken.approve(address(inbox), type(uint256).max);
-        inbox.deposit(initialBond);
-        vm.stopPrank();
-
-        vm.startPrank(prover);
-        bondToken.approve(address(inbox), type(uint256).max);
-        inbox.deposit(initialBond);
-        vm.stopPrank();
-
-        vm.startPrank(David);
-        bondToken.approve(address(inbox), type(uint256).max);
-        inbox.deposit(initialBond);
-        vm.stopPrank();
-    }
+    function _seedBondBalances() internal virtual { }
 
     function _toTokenAmount(uint64 _amount) internal pure returns (uint256) {
         return uint256(_amount) * 1 gwei;

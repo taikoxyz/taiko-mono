@@ -19,12 +19,6 @@ interface IInbox {
         address signalService;
         /// @notice The ERC20 bond token address
         address bondToken;
-        /// @notice The minimum bond a proposer is required to have in gwei
-        uint64 minBond;
-        /// @notice The liveness bond amount in gwei
-        uint64 livenessBond;
-        /// @notice The withdrawal delay in seconds
-        uint48 withdrawalDelay;
         /// @notice The proving window in seconds
         uint48 provingWindow;
         /// @notice The delay after which proving becomes permissionless when the prover market is

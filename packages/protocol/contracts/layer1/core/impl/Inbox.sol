@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IBondManager } from "../iface/IBondManager.sol";
 import { ICodec } from "../iface/ICodec.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { IProverMarket } from "../iface/IProverMarket.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { IProverMarket } from "../iface/IProverMarket.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
@@ -14,6 +13,7 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
 import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
@@ -30,13 +30,12 @@ import { ISignalService } from "src/shared/signal/ISignalService.sol";
 ///      - Proposal submission with forced inclusion support
 ///      - Sequential proof verification
 ///      - Ring buffer storage for efficient state management
-///      - Bond accounting and liveness bond processing
 ///      - Finalization of proven proposals with checkpoint syncing
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, EssentialContract {
+contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     using LibAddress for address;
-    using LibBonds for LibBonds.Storage;
     using LibForcedInclusion for LibForcedInclusion.Storage;
+    using SafeERC20 for IERC20;
     using LibMath for uint48;
     using LibMath for uint256;
 
@@ -83,15 +82,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice ERC20 token used as bond.
     IERC20 internal immutable _bondToken;
-
-    /// @notice Minimum bond the proposer is required to have in gwei.
-    uint64 internal immutable _minBond;
-
-    /// @notice Liveness bond amount in gwei.
-    uint64 internal immutable _livenessBond;
-
-    /// @notice Time delay required before withdrawal after request.
-    uint48 internal immutable _withdrawalDelay;
 
     /// @notice The proving window in seconds.
     uint48 internal immutable _provingWindow;
@@ -160,9 +150,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _proverMarket = IProverMarket(_config.proverMarket);
         _signalService = ISignalService(_config.signalService);
         _bondToken = IERC20(_config.bondToken);
-        _minBond = _config.minBond;
-        _livenessBond = _config.livenessBond;
-        _withdrawalDelay = _config.withdrawalDelay;
         _provingWindow = _config.provingWindow;
         _permissionlessProvingDelay = _config.permissionlessProvingDelay;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
@@ -230,10 +217,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
-            _notifyProverMarketOnProposalAccepted(
-                proposal.id, proposal.proposer, proposal.timestamp
-            );
             _emitProposedEvent(proposal);
+            if (address(_proverMarket) != address(0)) {
+                _proverMarket.onProposalAccepted(proposal.id, proposal.proposer, proposal.timestamp);
+            }
         }
     }
 
@@ -308,14 +295,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     commitment.lastProposalHash == getProposalHash(lastProposalId),
                     LastProposalHashMismatch()
                 );
-
-                // ---------------------------------------------------------
-                // 3. Process bond instruction
-                // ---------------------------------------------------------
-                // Bond transfers only apply when proving is permissionless.
-                if (address(_proverMarket) == address(0)) {
-                    _processLivenessBond(commitment, offset);
-                }
             }
 
             // -----------------------------------------------------------------------------
@@ -356,39 +335,32 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 LibHashOptimized.hashCommitment(commitment),
                 _proof
             );
-            _notifyProverMarketOnProofAccepted(
-                msg.sender,
-                commitment.actualProver,
-                firstNewProposalId,
-                uint48(lastProposalId),
-                state.lastFinalizedTimestamp
-            );
+            if (address(_proverMarket) != address(0)) {
+                _proverMarket.onProofAccepted(
+                    msg.sender,
+                    commitment.actualProver,
+                    firstNewProposalId,
+                    uint48(lastProposalId),
+                    proposalAge,
+                    state.lastFinalizedTimestamp
+                );
+            }
         }
     }
 
-    /// @inheritdoc IBondManager
-    function deposit(uint64 _amount) external nonReentrant {
-        _bondStorage.deposit(_bondToken, msg.sender, msg.sender, _amount, true);
-    }
-
-    /// @inheritdoc IBondManager
-    function depositTo(address _recipient, uint64 _amount) external nonReentrant {
-        _bondStorage.deposit(_bondToken, msg.sender, _recipient, _amount, false);
-    }
-
-    /// @inheritdoc IBondManager
-    function withdraw(address _to, uint64 _amount) external nonReentrant {
-        _bondStorage.withdraw(_bondToken, msg.sender, _to, _amount, _minBond, _withdrawalDelay);
-    }
-
-    /// @inheritdoc IBondManager
-    function requestWithdrawal() external nonReentrant {
-        _bondStorage.requestWithdrawal(msg.sender, _withdrawalDelay);
-    }
-
-    /// @inheritdoc IBondManager
-    function cancelWithdrawal() external nonReentrant {
-        _bondStorage.cancelWithdrawal(msg.sender);
+    /// @notice Migrates a user's bond balance from Inbox to the ProverMarket contract.
+    /// @dev One-step migration: reads bond, zeroes it, transfers tokens to market,
+    ///      and credits the bond on ProverMarket.
+    function migrateBond() external nonReentrant {
+        require(address(_proverMarket) != address(0), ProverMarketNotSet());
+        LibBonds.Bond storage bond = _bondStorage.bonds[msg.sender];
+        uint64 balance = bond.balance;
+        require(balance > 0, NoBondToMigrate());
+        bond.balance = 0;
+        bond.withdrawalRequestedAt = 0;
+        uint256 tokenAmount = uint256(balance) * 1 gwei;
+        _bondToken.safeTransfer(address(_proverMarket), tokenAmount);
+        _proverMarket.creditMigratedBond(msg.sender, balance);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -462,11 +434,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // External and Public View Functions
     // ---------------------------------------------------------------
-    /// @inheritdoc IBondManager
-    function getBond(address _address) external view returns (Bond memory bond_) {
-        return _bondStorage.getBond(_address);
-    }
-
     /// @inheritdoc IForcedInclusionStore
     function getCurrentForcedInclusionFee() external view returns (uint64 feeInGwei_) {
         return _forcedInclusionStorage.getCurrentForcedInclusionFee(
@@ -499,9 +466,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             proverMarket: address(_proverMarket),
             signalService: address(_signalService),
             bondToken: address(_bondToken),
-            minBond: _minBond,
-            livenessBond: _livenessBond,
-            withdrawalDelay: _withdrawalDelay,
             provingWindow: _provingWindow,
             permissionlessProvingDelay: _permissionlessProvingDelay,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
@@ -534,7 +498,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Builds proposal and derivation data.
     /// This function also checks:
     /// - If `msg.sender` can propose.
-    /// - If `msg.sender` has sufficient bond.
     /// @param _input The propose input data.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _nextProposalId The proposal ID to assign.
@@ -566,18 +529,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
-            // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
+            // set endOfSubmissionWindowTimestamp = 0
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!result.allowsPermissionless) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
-                if (_minBond > 0) {
-                    // Only if thre is a minimum bond set, execute this check
-                    require(
-                        _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
-                    );
-                }
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -699,29 +656,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @dev Calculates and processes liveness bond settlement if applicable.
-    /// @dev Settlement rules:
-    ///      - On-time (within provingWindow + sequential grace): No bond changes.
-    ///      - Late: Liveness bond slash with 50% credited to the actual prover and 50% burned.
-    /// @param _commitment The commitment data.
-    /// @param _offset The offset to the first unfinalized proposal.
-    function _processLivenessBond(Commitment memory _commitment, uint48 _offset) private {
-        unchecked {
-            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow)
-            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
-
-            // On-time proof - no bond transfer needed.
-            if (block.timestamp <= livenessWindowDeadline) {
-                return;
-            }
-
-            _bondStorage.settleLivenessBond(
-                _commitment.transitions[_offset].proposer, _commitment.actualProver, _livenessBond
-            );
-        }
-    }
-
     /// @dev Emits the Proposed event
     function _emitProposedEvent(Proposal memory _proposal) private {
         emit Proposed(
@@ -756,46 +690,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         uint256 _proposalAge
     )
         private
+        view
     {
         if (address(_proverMarket) == address(0)) return;
         _proverMarket.beforeProofSubmission(
             _addr, _firstNewProposalId, _proposalTimestamp, _proposalAge
-        );
-    }
-
-    /// @dev Notifies the prover market when a proposal is accepted.
-    /// @param _proposalId The accepted proposal id.
-    /// @param _proposer The proposer that created the proposal.
-    /// @param _proposalTimestamp The proposal timestamp.
-    function _notifyProverMarketOnProposalAccepted(
-        uint48 _proposalId,
-        address _proposer,
-        uint48 _proposalTimestamp
-    )
-        private
-    {
-        if (address(_proverMarket) == address(0)) return;
-        _proverMarket.onProposalAccepted(_proposalId, _proposer, _proposalTimestamp);
-    }
-
-    /// @dev Notifies the prover market when a proof is accepted.
-    /// @param _caller The proof transaction sender.
-    /// @param _actualProver The prover recorded in the commitment.
-    /// @param _firstNewProposalId The first newly finalized proposal id.
-    /// @param _lastProposalId The last finalized proposal id in the batch.
-    /// @param _finalizedAt The timestamp when finalization occurred.
-    function _notifyProverMarketOnProofAccepted(
-        address _caller,
-        address _actualProver,
-        uint48 _firstNewProposalId,
-        uint48 _lastProposalId,
-        uint48 _finalizedAt
-    )
-        private
-    {
-        if (address(_proverMarket) == address(0)) return;
-        _proverMarket.onProofAccepted(
-            _caller, _actualProver, _firstNewProposalId, _lastProposalId, _finalizedAt
         );
     }
 
@@ -841,11 +740,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error EmptyBatch();
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
-    error InsufficientBond();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
+    error NoBondToMigrate();
+    error ProverMarketNotSet();
     error UnprocessedForcedInclusionIsDue();
 }

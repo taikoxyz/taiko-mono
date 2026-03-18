@@ -25,7 +25,7 @@ interface IProverMarket {
     /// @notice Deposits proposer fee credit for future proposal reservations
     function depositFeeCredit() external payable;
 
-    /// @notice Withdraws unused proposer fee credit
+    /// @notice Withdraws unused proposer fee credit or accrued prover fees
     /// @param _amount The amount in wei to withdraw
     function withdrawFeeCredit(uint256 _amount) external;
 
@@ -40,7 +40,8 @@ interface IProverMarket {
         uint48 _proposalTimestamp,
         uint256 _proposalAge
     )
-        external;
+        external
+        view;
 
     /// @notice Notifies the market that Inbox accepted a new proposal
     /// @param _proposalId The accepted proposal id
@@ -58,12 +59,14 @@ interface IProverMarket {
     /// @param _actualProver The prover recorded in the commitment
     /// @param _firstNewProposalId The first proposal id that was newly finalized
     /// @param _lastProposalId The last proposal id in the finalized range
+    /// @param _proposalAge The age in seconds of the first newly finalized proposal
     /// @param _finalizedAt The timestamp when finalization occurred
     function onProofAccepted(
         address _caller,
         address _actualProver,
         uint48 _firstNewProposalId,
         uint48 _lastProposalId,
+        uint256 _proposalAge,
         uint48 _finalizedAt
     )
         external;
@@ -71,4 +74,10 @@ interface IProverMarket {
     /// @notice Enables or disables emergency permissionless proving mode
     /// @param _enabled True to force permissionless proving, false to restore market enforcement
     function forcePermissionlessMode(bool _enabled) external;
+
+    /// @notice Credits migrated bond from Inbox to a user's balance
+    /// @dev Only callable by the Inbox contract during bond migration
+    /// @param _account The account to credit the bond to
+    /// @param _amount The bond amount in gwei
+    function creditMigratedBond(address _account, uint64 _amount) external;
 }
