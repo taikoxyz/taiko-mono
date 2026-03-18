@@ -30,7 +30,6 @@ contract MockProverMarket is IProverMarket {
     function exit() external { }
     function depositBond(uint64) external { }
     function withdrawBond(uint64) external { }
-    function withdrawFees(uint256) external { }
 
     function canSubmitProof(address, uint48, uint256) external pure returns (bool) {
         return true;

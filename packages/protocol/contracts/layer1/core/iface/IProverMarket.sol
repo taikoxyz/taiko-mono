@@ -6,8 +6,8 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface IProverMarket {
     /// @notice Notifies the market that Inbox accepted a new proposal
-    /// @dev Receives ETH from proposer via Inbox. Takes the active epoch fee and refunds
-    ///      any excess directly to the proposer.
+    /// @dev Receives ETH from proposer via Inbox. Attempts to forward the active term fee
+    ///      directly to the prover (failure is silent). Refunds any excess to the proposer.
     /// @param _proposalId The accepted proposal id
     /// @param _proposer The proposer that created the proposal
     /// @param _proposalTimestamp The proposal timestamp

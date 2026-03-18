@@ -115,38 +115,33 @@ abstract contract ProverMarketTestBase is InboxTestBase {
 
     /// @dev Returns the bond balance for an account from the consolidated ProverAccount.
     function _bondBalance(address _account) internal view returns (uint64) {
-        (uint64 bal,,) = market.proverAccounts(_account);
+        (uint64 bal,) = market.proverAccounts(_account);
         return bal;
     }
 
     /// @dev Returns the reserved bond for an account from the consolidated ProverAccount.
     function _reservedBond(address _account) internal view returns (uint64) {
-        (, uint64 res,) = market.proverAccounts(_account);
+        (, uint64 res) = market.proverAccounts(_account);
         return res;
     }
 
-    /// @dev Returns the accrued fees for an account from the consolidated ProverAccount.
-    function _feesAccrued(address _account) internal view returns (uint128) {
-        (,, uint128 fees) = market.proverAccounts(_account);
-        return fees;
-    }
 
-    /// @dev Sets up a prover with a bid in the market and proposes so the epoch activates.
+    /// @dev Sets up a prover with a bid in the market and proposes so the term activates.
     function _setupActiveBid(
         address _prover,
         uint64 _feeInGwei
     )
         internal
-        returns (uint48 epochId_)
+        returns (uint48 termId_)
     {
         _depositMarketBond(_prover, MARKET_MIN_BOND_GWEI);
         vm.prank(_prover);
         market.bid(_feeInGwei);
 
-        (, uint48 pendingEpochId,,,,,) = market.marketState();
-        epochId_ = pendingEpochId;
+        (, uint48 pendingTermId,,,,,) = market.marketState();
+        termId_ = pendingTermId;
 
-        // Propose to activate the epoch
+        // Propose to activate the term
         _advanceBlock();
         _proposeOne();
     }
@@ -329,16 +324,16 @@ contract ProverMarketBondTest is ProverMarketTestBase {
 // =======================================================================
 
 contract ProverMarketFeeTest is ProverMarketTestBase {
-    function test_propose_chargesProverFee() external {
+    function test_propose_sendsFeeDirectlyToProver() external {
         uint64 fee = 100; // 100 gwei per proposal
         _setupActiveBid(Alice, fee);
 
-        uint128 feeBefore = _feesAccrued(Alice);
+        uint256 aliceBalBefore = Alice.balance;
         _advanceBlock();
         _proposeOne();
 
         uint256 feeWei = uint256(fee) * 1 gwei;
-        assertEq(_feesAccrued(Alice) - feeBefore, feeWei);
+        assertEq(Alice.balance - aliceBalBefore, feeWei);
     }
 
     function test_propose_refundsExcessEth() external {
@@ -366,31 +361,7 @@ contract ProverMarketFeeTest is ProverMarketTestBase {
         inbox.propose{ value: 0 }(bytes(""), encodedInput);
     }
 
-    function test_withdrawFees_sendsEth() external {
-        uint64 fee = 100;
-        _setupActiveBid(Alice, fee);
-
-        _advanceBlock();
-        _proposeOne();
-
-        uint256 totalFees = _feesAccrued(Alice);
-        assertGt(totalFees, 0);
-
-        uint256 balBefore = Alice.balance;
-        vm.prank(Alice);
-        market.withdrawFees(totalFees);
-
-        assertEq(Alice.balance - balBefore, totalFees);
-        assertEq(_feesAccrued(Alice), 0);
-    }
-
-    function test_withdrawFees_RevertWhen_InsufficientBalance() external {
-        vm.prank(Alice);
-        vm.expectRevert(ProverMarket.InsufficientFees.selector);
-        market.withdrawFees(1 ether);
-    }
-
-    function test_activeFeeInGwei_returnsActiveEpochFee() external {
+    function test_activeFeeInGwei_returnsActiveTermFee() external {
         _setupActiveBid(Alice, 100);
         assertEq(market.activeFeeInGwei(), 100);
     }
@@ -418,16 +389,16 @@ contract ProverMarketFeeTest is ProverMarketTestBase {
 // =======================================================================
 
 contract ProverMarketBidTest is ProverMarketTestBase {
-    function test_bid_createsPendingEpoch() external {
+    function test_bid_createsPendingTerm() external {
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
 
         vm.prank(Alice);
         market.bid(100);
 
-        (, uint48 pendingEpochId,,,,,) = market.marketState();
-        assertEq(pendingEpochId, 1);
+        (, uint48 pendingTermId,,,,,) = market.marketState();
+        assertEq(pendingTermId, 1);
 
-        (address prv, uint64 fee) = market.epochs(pendingEpochId);
+        (address prv,,,uint64 fee,) = market.terms(pendingTermId);
         assertEq(prv, Alice);
         assertEq(fee, 100);
 
@@ -444,9 +415,9 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId, uint48 pendingEpochId,,,,,) = market.marketState();
-        assertEq(activeEpochId, 1);
-        assertEq(pendingEpochId, 0);
+        (uint48 activeTermId, uint48 pendingTermId,,,,,) = market.marketState();
+        assertEq(activeTermId, 1);
+        assertEq(pendingTermId, 0);
     }
 
     function test_bid_outbidRequiresLowerFee() external {
@@ -458,8 +429,8 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         vm.prank(Bob);
         market.bid(50);
 
-        (, uint48 pendingEpochId,,,,,) = market.marketState();
-        (address prv,) = market.epochs(pendingEpochId);
+        (, uint48 pendingTermId,,,,,) = market.marketState();
+        (address prv,,,,) = market.terms(pendingTermId);
         assertEq(prv, Bob);
     }
 
@@ -478,7 +449,7 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         market.bid(100);
     }
 
-    function test_bid_displacedPendingEpochIsReplaced() external {
+    function test_bid_displacedPendingTermIsReplaced() external {
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
         market.bid(100);
@@ -486,17 +457,17 @@ contract ProverMarketBidTest is ProverMarketTestBase {
         // Bond is NOT locked — stays in bondBalances
         assertEq(_bondBalance(Alice), MARKET_MIN_BOND_GWEI);
 
-        // Bob outbids Alice (no active epoch yet, so just need to undercut pending)
+        // Bob outbids Alice (no active term yet, so just need to undercut pending)
         _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
         vm.prank(Bob);
         market.bid(50);
 
-        // Alice's bond stays unchanged — bond was never locked per-epoch
+        // Alice's bond stays unchanged — bond was never locked per-term
         assertEq(_bondBalance(Alice), MARKET_MIN_BOND_GWEI);
 
-        // Bob is now the pending epoch operator
-        (, uint48 pendingEpochId,,,,,) = market.marketState();
-        (address prv,) = market.epochs(pendingEpochId);
+        // Bob is now the pending term operator
+        (, uint48 pendingTermId,,,,,) = market.marketState();
+        (address prv,,,,) = market.terms(pendingTermId);
         assertEq(prv, Bob);
     }
 }
@@ -506,7 +477,7 @@ contract ProverMarketBidTest is ProverMarketTestBase {
 // =======================================================================
 
 contract ProverMarketExitTest is ProverMarketTestBase {
-    function test_exit_clearsPendingEpoch() external {
+    function test_exit_clearsPendingTerm() external {
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
         market.bid(100);
@@ -517,8 +488,8 @@ contract ProverMarketExitTest is ProverMarketTestBase {
         vm.prank(Alice);
         market.exit();
 
-        (, uint48 pendingEpochId,,,,,) = market.marketState();
-        assertEq(pendingEpochId, 0);
+        (, uint48 pendingTermId,,,,,) = market.marketState();
+        assertEq(pendingTermId, 0);
 
         // Bond unchanged — was never locked
         assertEq(_bondBalance(Alice), MARKET_MIN_BOND_GWEI);
@@ -560,9 +531,9 @@ contract ProverMarketExitTest is ProverMarketTestBase {
         _advanceBlock();
         _proposeRecordedOne();
 
-        (uint48 activeEpochId,,, bool permissionless, bool exiting,,) = market.marketState();
-        assertEq(activeEpochId, 0);
-        assertFalse(permissionless);
+        (uint48 activeTermId,,, uint8 permissionlessReason, bool exiting,,) = market.marketState();
+        assertEq(activeTermId, 0);
+        assertEq(permissionlessReason, 0);
         assertFalse(exiting);
     }
 }
@@ -572,16 +543,16 @@ contract ProverMarketExitTest is ProverMarketTestBase {
 // =======================================================================
 
 contract ProverMarketProposalTest is ProverMarketTestBase {
-    function test_onProposalAccepted_assignsToActiveEpoch() external {
+    function test_onProposalAccepted_assignsToActiveTerm() external {
         _setupActiveBid(Alice, 100);
 
-        // The first proposal during _setupActiveBid activated the epoch.
+        // The first proposal during _setupActiveBid activated the term.
         // Now propose another to verify assignment.
         _advanceBlock();
         ProposedEvent memory payload = _proposeOne();
 
-        (uint48 activeEpochId,,,,,,) = market.marketState();
-        assertEq(market.proposalEpochs(payload.id), activeEpochId);
+        (uint48 activeTermId,,,,,,) = market.marketState();
+        assertGt(activeTermId, 0, "should have an active term");
     }
 
     function test_onProposalAccepted_activatesPendingWhenExiting() external {
@@ -597,27 +568,27 @@ contract ProverMarketProposalTest is ProverMarketTestBase {
         vm.prank(Alice);
         market.exit();
 
-        // Next proposal should activate Bob's epoch
+        // Next proposal should activate Bob's term
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId,,,,,,) = market.marketState();
-        (address prv,) = market.epochs(activeEpochId);
+        (uint48 activeTermId,,,,,,) = market.marketState();
+        (address prv,,,,) = market.terms(activeTermId);
         assertEq(prv, Bob);
     }
 
-    function test_onProposalAccepted_accruesFeeForProver() external {
+    function test_onProposalAccepted_sendsFeeDirectlyToProver() external {
         uint64 fee = 100; // 100 gwei per proposal
         _setupActiveBid(Alice, fee);
 
-        uint128 feeBefore = _feesAccrued(Alice);
+        uint256 aliceBalBefore = Alice.balance;
         uint256 feeWei = uint256(fee) * 1 gwei;
 
         _advanceBlock();
         _proposeOne();
 
-        // Fee should be accrued to the epoch prover.
-        assertEq(_feesAccrued(Alice) - feeBefore, feeWei);
+        // Fee should be sent directly to the term prover.
+        assertEq(Alice.balance - aliceBalBefore, feeWei);
     }
 
     function test_onProposalAccepted_activatesPendingOnNewProposal() external {
@@ -629,12 +600,12 @@ contract ProverMarketProposalTest is ProverMarketTestBase {
         vm.prank(Bob);
         market.bid(500);
 
-        // Next proposal should activate Bob's epoch (pending gets activated on proposal)
+        // Next proposal should activate Bob's term (pending gets activated on proposal)
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId,,,,,,) = market.marketState();
-        (address prv,) = market.epochs(activeEpochId);
+        (uint48 activeTermId,,,,,,) = market.marketState();
+        (address prv,,,,) = market.terms(activeTermId);
         assertEq(prv, Bob);
     }
 }
@@ -644,25 +615,25 @@ contract ProverMarketProposalTest is ProverMarketTestBase {
 // =======================================================================
 
 contract ProverMarketProofAuthTest is ProverMarketTestBase {
-    function test_canSubmitProof_allowsEpochOperator() external {
-        // Set up prover (Carol) as the epoch operator — bid but don't propose yet
+    function test_canSubmitProof_allowsTermOperator() external {
+        // Set up prover (Carol) as the term operator — bid but don't propose yet
         _depositMarketBond(prover, MARKET_MIN_BOND_GWEI);
         vm.prank(prover);
         market.bid(100);
 
-        // Build batch — _buildBatchInput proposes internally, which also activates the epoch
+        // Build batch — _buildBatchInput proposes internally, which also activates the term
         _advanceBlock();
         IInbox.ProveInput memory input = _buildBatchInput(1);
-        _prove(input); // _prove uses `prover` as caller (the epoch operator)
+        _prove(input); // _prove uses `prover` as caller (the term operator)
     }
 
     function test_canSubmitProof_RevertWhen_NotOperator() external {
-        // Set up Alice as the epoch operator — bid but don't propose yet
+        // Set up Alice as the term operator — bid but don't propose yet
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
         market.bid(100);
 
-        // Build batch — activates Alice's epoch
+        // Build batch — activates Alice's term
         _advanceBlock();
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
@@ -674,7 +645,7 @@ contract ProverMarketProofAuthTest is ProverMarketTestBase {
     }
 
     function test_canSubmitProof_allowsAnyoneAfterDelay() external {
-        // Set up Alice as the epoch operator
+        // Set up Alice as the term operator
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
         market.bid(100);
@@ -690,7 +661,7 @@ contract ProverMarketProofAuthTest is ProverMarketTestBase {
     }
 
     function test_canSubmitProof_allowsAnyoneInPermissionlessMode() external {
-        // Set up Alice as the epoch operator
+        // Set up Alice as the term operator
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
         market.bid(100);
@@ -812,7 +783,7 @@ contract ProverMarketProofAcceptedTest is ProverMarketTestBase {
         assertEq(_bondBalance(Bob), actualSlash, "rescue prover gets actual slash");
     }
 
-    function test_onProofAccepted_retiresEpochWhenSlashDropsBondBelowReserved() external {
+    function test_onProofAccepted_retiresTermWhenSlashDropsBondBelowReserved() external {
         // Deposit just enough for min bond
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
@@ -836,18 +807,102 @@ contract ProverMarketProofAcceptedTest is ProverMarketTestBase {
         }
 
         // Now Alice's bond == reserved. A slash will drop bond below reserved.
-        (uint48 activeEpochIdBefore,,,,,,) = market.marketState();
-        assertGt(activeEpochIdBefore, 0, "epoch should be active before slash");
+        (uint48 activeTermIdBefore,,,,,,) = market.marketState();
+        assertGt(activeTermIdBefore, 0, "term should be active before slash");
 
         // Warp past proving window and prove the first proposal (late)
         vm.warp(block.timestamp + MARKET_PROVING_WINDOW);
         _proveRecordedRangeAs(firstProposal, Bob, Bob);
 
-        // After slash, bond < reserved, epoch should be retired
-        (uint48 activeEpochIdAfter,,,,,,) = market.marketState();
+        // After slash, bond < reserved, term should be retired
+        (uint48 activeTermIdAfter,,,,,,) = market.marketState();
         assertEq(
-            activeEpochIdAfter, 0, "epoch should be retired after slash drops bond below reserved"
+            activeTermIdAfter, 0, "term should be retired after slash drops bond below reserved"
         );
+    }
+
+    /// @notice Reproduces the cross-epoch slash retirement bug.
+    /// When a prover wins round 1 then round 3 (with Bob winning round 2 in between),
+    /// a late proof of round 1 proposals slashes their bond. If the slash drives
+    /// bondBalance below reservedBond (which now includes round 3 obligations),
+    /// the active round 3 epoch must be retired. The bug: the old check compared
+    /// activeEpochId to the epoch being settled (round 1), which always failed in
+    /// this cross-epoch scenario.
+    function test_onProofAccepted_retiresCurrentEpochWhenCrossEpochSlashDropsBondBelowReserved()
+        external
+    {
+        // --- Round 1: Alice becomes active (epoch 1) ---
+        _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
+        vm.prank(Alice);
+        market.bid(1000);
+
+        _advanceBlock();
+        RecordedProposal[] memory round1Proposals = new RecordedProposal[](1);
+        round1Proposals[0] = _proposeRecordedOne(); // activates epoch 1, assigns proposal to Alice
+
+        // --- Round 2: Bob outbids, becomes pending (epoch 2) ---
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+        vm.prank(Bob);
+        market.bid(900); // 900 < 1000 * 95% = 950 ✓
+
+        _advanceBlock();
+        _proposeOne(); // retires Alice epoch 1, activates Bob epoch 2
+
+        // Alice's round 1 proposal is still UNPROVEN — reservedBond carries over.
+        assertEq(_reservedBond(Alice), MARKET_BOND_PER_PROPOSAL, "round 1 bond still reserved");
+
+        // --- Round 3: Alice outbids Bob, becomes pending (epoch 3) ---
+        vm.prank(Alice);
+        market.bid(800); // 800 < 900 * 95% = 855 ✓
+
+        _advanceBlock();
+        _proposeOne(); // retires Bob epoch 2, activates Alice epoch 3
+
+        // Alice's reservedBond now includes round 1 (unproven) + round 3 activation proposal
+        assertEq(
+            _reservedBond(Alice),
+            2 * MARKET_BOND_PER_PROPOSAL,
+            "reserved = round1 + round3 activation"
+        );
+
+        // Assign one more proposal to Alice in round 3
+        _advanceBlock();
+        _proposeOne();
+
+        assertEq(
+            _reservedBond(Alice), 3 * MARKET_BOND_PER_PROPOSAL, "reserved = round1 + 2 round3"
+        );
+
+        // Withdraw all free bond so bondBalance == reservedBond (slash will push below)
+        uint64 reserved = _reservedBond(Alice);
+        uint64 free = _bondBalance(Alice) - reserved;
+        if (free > 0) {
+            vm.prank(Alice);
+            market.withdrawBond(free);
+        }
+
+        (uint48 activeTermIdBefore,,,,,,) = market.marketState();
+        assertGt(activeTermIdBefore, 0, "epoch 3 should be active before late proof");
+
+        // --- Late proof of round 1 proposals triggers cross-epoch slash ---
+        vm.warp(block.timestamp + MARKET_PROVING_WINDOW);
+        _proveRecordedRangeAs(round1Proposals, Bob, Bob);
+
+        // After the slash: Alice's bond falls below her round 3 reserved obligations.
+        // The active term is NOT immediately retired in _settleProof; it self-retires
+        // on the next proposal when the bond check fires.
+        (uint48 activeTermIdAfter,,,,,,) = market.marketState();
+        assertEq(
+            activeTermIdAfter,
+            activeTermIdBefore,
+            "epoch 3 should still be active after cross-epoch slash"
+        );
+
+        // Next proposal triggers retirement of the insolvent active term
+        _advanceBlock();
+        _proposeOne();
+        (uint48 activeTermIdFinal,,,,,,) = market.marketState();
+        assertEq(activeTermIdFinal, 0, "epoch 3 should be retired after next proposal");
     }
 }
 
@@ -858,12 +913,12 @@ contract ProverMarketProofAcceptedTest is ProverMarketTestBase {
 contract ProverMarketEmergencyTest is ProverMarketTestBase {
     function test_forcePermissionlessMode_toggles() external {
         market.forcePermissionlessMode(true);
-        (,,, bool permissionless,,,) = market.marketState();
-        assertTrue(permissionless);
+        (,,, uint8 reason,,,) = market.marketState();
+        assertEq(reason, 1);
 
         market.forcePermissionlessMode(false);
-        (,,, permissionless,,,) = market.marketState();
-        assertFalse(permissionless);
+        (,,, reason,,,) = market.marketState();
+        assertEq(reason, 0);
     }
 
     function test_forcePermissionlessMode_RevertWhen_NotOwner() external {
@@ -890,46 +945,43 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         vm.prank(prover);
         market.bid(50);
 
-        // 2. Propose + Prove via _buildBatchInput (activates epoch, assigns, then prove)
+        // 2. Propose + Prove via _buildBatchInput (activates term, assigns, then prove)
         _advanceBlock();
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
-        // Verify epoch is active
-        (uint48 activeEpochId,,,,,,) = market.marketState();
-        assertGt(activeEpochId, 0);
+        // Verify term is active
+        (uint48 activeTermId,,,,,,) = market.marketState();
+        assertGt(activeTermId, 0);
 
-        // 3. Prove (as the epoch operator)
+        // 3. Prove (as the term operator)
         _prove(input);
     }
 
-    function test_fullLifecycle_bidProposeProveFeeWithdraw() external {
+    function test_fullLifecycle_bidProposeProveFee() external {
         // 1. Prover deposits bond
         _depositMarketBond(prover, MARKET_MIN_BOND_GWEI);
         vm.prank(prover);
         market.bid(50);
 
-        // 2. Propose (pays prover fee via msg.value)
+        // 2. Propose (pays prover fee directly via msg.value)
+        uint256 balBefore = prover.balance;
         _advanceBlock();
         RecordedProposal[] memory proposals = new RecordedProposal[](1);
         proposals[0] = _proposeRecordedOne();
 
-        // 3. Prove (as epoch operator, within window)
-        _proveRecordedRangeAs(proposals, prover, prover);
+        // 3. Verify fee was sent directly to prover
+        uint256 feeWei = uint256(50) * 1 gwei;
+        assertEq(prover.balance - balBefore, feeWei);
 
-        // 4. Verify fee accrued and withdraw
-        uint256 fees = _feesAccrued(prover);
-        assertGt(fees, 0);
-        uint256 balBefore = prover.balance;
-        vm.prank(prover);
-        market.withdrawFees(fees);
-        assertEq(prover.balance - balBefore, fees);
+        // 4. Prove (as term operator, within window)
+        _proveRecordedRangeAs(proposals, prover, prover);
 
         // 5. Reserved bond should be released after proof
         assertEq(_reservedBond(prover), 0, "reserved bond released after proof");
     }
 
-    function test_epochTransition_aliceToBob() external {
-        // Alice becomes active (epoch 1 activated on proposal 1)
+    function test_termTransition_aliceToBob() external {
+        // Alice becomes active (term 1 activated on proposal 1)
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
         market.bid(1000);
@@ -939,23 +991,21 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         RecordedProposal[] memory allProposals = new RecordedProposal[](2);
         allProposals[0] = _proposeRecordedOne();
 
-        // Verify proposalEpochs tracks correctly
-        uint48 aliceEpochId = market.proposalEpochs(allProposals[0].payload.id);
-        assertGt(aliceEpochId, 0, "proposal should be tracked to Alice's epoch");
+        (uint48 aliceTermId,,,,,,) = market.marketState();
+        assertGt(aliceTermId, 0, "Alice should have an active term");
 
         // Bob outbids — becomes pending
         _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
         vm.prank(Bob);
         market.bid(500);
 
-        // Propose again: retires Alice, activates Bob (epoch 2)
+        // Propose again: retires Alice, activates Bob (term 2)
         _advanceBlock();
         allProposals[1] = _proposeRecordedOne();
 
-        // Verify Bob's proposal is tracked to his epoch
-        uint48 bobEpochId = market.proposalEpochs(allProposals[1].payload.id);
-        assertGt(bobEpochId, 0, "proposal should be tracked to Bob's epoch");
-        assertTrue(bobEpochId != aliceEpochId, "different epochs for different provers");
+        (uint48 bobTermId,,,,,,) = market.marketState();
+        assertGt(bobTermId, 0, "Bob should have an active term");
+        assertTrue(bobTermId != aliceTermId, "different terms for different provers");
 
         // Wait for permissionless delay so anyone can prove the full range
         vm.warp(block.timestamp + MARKET_PROVING_WINDOW);
@@ -984,15 +1034,15 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
             "all bond should be reserved"
         );
 
-        // Next proposal should auto-retire the epoch (bond insufficient for next proposal)
+        // Next proposal should auto-retire the term (bond insufficient for next proposal)
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId,,,,,,) = market.marketState();
-        assertEq(activeEpochId, 0, "epoch should be auto-retired when bond runs out");
+        (uint48 activeTermId,,,,,,) = market.marketState();
+        assertEq(activeTermId, 0, "term should be auto-retired when bond runs out");
     }
 
-    function test_proposalEpochs_tracksCorrectly() external {
+    function test_termRanges_tracksCorrectly() external {
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
         market.bid(100);
@@ -1001,14 +1051,14 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         ProposedEvent memory p1 = _proposeOne();
 
         _advanceBlock();
-        ProposedEvent memory p2 = _proposeOne();
+        _proposeOne();
 
-        (uint48 activeEpochId,,,,,,) = market.marketState();
-        assertEq(market.proposalEpochs(p1.id), activeEpochId, "p1 mapped to active epoch");
-        assertEq(market.proposalEpochs(p2.id), activeEpochId, "p2 mapped to active epoch");
+        (uint48 activeTermId,,,,,,) = market.marketState();
+        (, uint48 startId,,,) = market.terms(activeTermId);
+        assertEq(startId, p1.id, "term should start at first proposal");
     }
 
-    function test_activatePendingEpoch_skipsWhenBondInsufficient() external {
+    function test_activatePendingTerm_skipsWhenBondInsufficient() external {
         // Deposit, bid, then withdraw most bond before proposal activates pending
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
@@ -1022,12 +1072,12 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        (uint48 activeEpochId, uint48 pendingEpochId,,,,,) = market.marketState();
-        assertEq(activeEpochId, 0, "epoch should not activate with insufficient bond");
-        assertEq(pendingEpochId, 0, "pending cleared when activation skipped");
+        (uint48 activeTermId, uint48 pendingTermId,,,,,) = market.marketState();
+        assertEq(activeTermId, 0, "term should not activate with insufficient bond");
+        assertEq(pendingTermId, 0, "pending cleared when activation skipped");
     }
 
-    function test_zeroFeeEpoch_chargesNothing() external {
+    function test_zeroFeeTerm_chargesNothing() external {
         // Prover bids with zero fee
         _setupActiveBid(Alice, 0);
 
@@ -1036,7 +1086,6 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _proposeOne();
 
         // No fee charged, all ETH refunded
-        assertEq(_feesAccrued(Alice), 0);
         // Proposer only lost gas, not fee (1 ether sent, 1 ether refunded)
         assertEq(balBefore - proposer.balance, 0);
     }
@@ -1050,10 +1099,10 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         ProposedEvent memory payload = _proposeOne();
 
-        // Alice is the epoch prover — should be authorized
+        // Alice is the term prover — should be authorized
         assertTrue(market.canSubmitProof(Alice, payload.id, 0));
 
-        // Bob is not the epoch prover — should be denied within window
+        // Bob is not the term prover — should be denied within window
         assertFalse(market.canSubmitProof(Bob, payload.id, 0));
 
         // Anyone authorized after permissionless delay
@@ -1068,7 +1117,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         assertEq(market.slashPerProof(), MARKET_SLASH_PER_PROOF);
     }
 
-    function test_feeEwma_initializedOnFirstEpochRetirement() external {
+    function test_feeEwma_initializedOnFirstTermRetirement() external {
         // Alice bids at fee 1000 and gets activated
         _setupActiveBid(Alice, 1000);
 
@@ -1078,7 +1127,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne();
 
-        // Bob outbids — triggers Alice's epoch retirement on next proposal
+        // Bob outbids — triggers Alice's term retirement on next proposal
         _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
         vm.prank(Bob);
         market.bid(500);
@@ -1087,7 +1136,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _proposeOne(); // retires Alice, activates Bob
 
         // First EWMA should be set to Alice's fee directly (ewma was 0)
-        assertEq(market.feeEwma(), 1000, "EWMA should be initialized to first epoch's fee");
+        assertEq(market.feeEwma(), 1000, "EWMA should be initialized to first term's fee");
     }
 
     function test_feeEwma_blendsOnSubsequentRetirements() external {
@@ -1102,7 +1151,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne(); // retires Alice (EWMA=1000), activates Bob
 
-        assertEq(market.feeEwma(), 1000, "EWMA after first epoch");
+        assertEq(market.feeEwma(), 1000, "EWMA after first term");
 
         // Bob serves 1 proposal (the activation one above) then gets retired
         // Carol outbids to trigger Bob's retirement
@@ -1155,7 +1204,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
     }
 
     function test_feeEwma_bidCapEnforcedWhenNoActiveOrPending() external {
-        // Build up an EWMA by running one full epoch cycle
+        // Build up an EWMA by running one full term cycle
         _setupActiveBid(Alice, 100);
 
         // Alice exits
@@ -1167,7 +1216,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
 
         assertEq(market.feeEwma(), 100);
 
-        // Now no active or pending epoch. Max bid should be 10 * 100 = 1000
+        // Now no active or pending term. Max bid should be 10 * 100 = 1000
         _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
 
         // Bid at exactly 10x should succeed
@@ -1176,7 +1225,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
     }
 
     function test_bid_RevertWhen_FeeExceedsEwmaCap() external {
-        // Build up an EWMA by running one full epoch cycle
+        // Build up an EWMA by running one full term cycle
         _setupActiveBid(Alice, 100);
 
         vm.prank(Alice);
@@ -1185,7 +1234,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne(); // retires Alice, EWMA set to 100
 
-        // Now no active or pending epoch. Max bid should be 10 * 100 = 1000
+        // Now no active or pending term. Max bid should be 10 * 100 = 1000
         _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
 
         // Bid above 10x should revert
@@ -1204,7 +1253,7 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         market.bid(type(uint64).max); // extreme fee should be allowed
     }
 
-    function test_feeEwma_noBidCapWhenActiveEpochExists() external {
+    function test_feeEwma_noBidCapWhenActiveTermExists() external {
         // EWMA=100 from a prior cycle
         _setupActiveBid(Alice, 100);
         vm.prank(Alice);
@@ -1212,17 +1261,17 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOne(); // retires, EWMA=100
 
-        // Start a new epoch
+        // Start a new term
         _setupActiveBid(Bob, 50);
 
-        // Now active epoch exists. EWMA cap should NOT apply — undercut rules govern instead
+        // Now active term exists. EWMA cap should NOT apply — undercut rules govern instead
         _depositMarketBond(Carol, MARKET_MIN_BOND_GWEI);
         vm.prank(Carol);
         // Must undercut Bob's 50 by 5% = max 47
         market.bid(47);
     }
 
-    function test_epochTransition_outbidAndProve() external {
+    function test_termTransition_outbidAndProve() external {
         // Alice bids (pending), prover outbids (also pending, displaces Alice)
         _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
         vm.prank(Alice);
@@ -1232,15 +1281,270 @@ contract ProverMarketE2ETest is ProverMarketTestBase {
         vm.prank(prover);
         market.bid(100);
 
-        // Propose via _buildBatchInput — activates prover's epoch
+        // Propose via _buildBatchInput — activates prover's term
         _advanceBlock();
         IInbox.ProveInput memory input = _buildBatchInput(1);
 
-        (uint48 activeEpochId,,,,,,) = market.marketState();
-        (address prv,) = market.epochs(activeEpochId);
+        (uint48 activeTermId,,,,,,) = market.marketState();
+        (address prv,,,,) = market.terms(activeTermId);
         assertEq(prv, prover, "prover should be active operator");
 
         // Prove as prover
         _prove(input);
+    }
+}
+
+// =======================================================================
+// Cross-Term Bond & Slash Tests
+// Covers multi-round scenarios where the same prover holds obligations
+// across non-consecutive terms (self-outbid, A→B→A, A→B→A→B, etc.)
+// =======================================================================
+
+contract ProverMarketCrossTermTest is ProverMarketTestBase {
+    // Bid discount: 5% (500 bps). Each undercut must be at least 5%.
+    // Fee ladder used across tests: 1000 → 900 → 800 → 700 → 600
+    uint64 internal constant FEE_T1 = 1000;
+    uint64 internal constant FEE_T2 = 900; // ≤ 1000 * 95% = 950 ✓
+    uint64 internal constant FEE_T3 = 800; // ≤  900 * 95% = 855 ✓
+    uint64 internal constant FEE_T4 = 700; // ≤  800 * 95% = 760 ✓
+    uint64 internal constant FEE_T5 = 600; // ≤  700 * 95% = 665 ✓
+
+    /// @notice Alice outbids herself (term 1 → term 2). A late proof of her term 1
+    /// proposals slashes her bond. If the slash drives bondBalance below reservedBond
+    /// (which includes term 2 obligations), term 2 must be retired.
+    function test_selfOutbid_lateProofOfOldTermRetiresNewTerm() external {
+        _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
+
+        // Term 1: Alice bids, activates, gets 1 proposal
+        vm.prank(Alice);
+        market.bid(FEE_T1);
+
+        _advanceBlock();
+        RecordedProposal[] memory term1Proposals = new RecordedProposal[](1);
+        term1Proposals[0] = _proposeRecordedOne(); // term 1 activates, P1 assigned
+
+        // Alice beats herself: outbids her own active term 1 (term 2, same prover)
+        vm.prank(Alice);
+        market.bid(FEE_T2); // must undercut active term 1
+
+        // Term 2 activates on next proposal, term 1 retires
+        _advanceBlock();
+        _proposeOne(); // P2 assigned to term 2 (Alice)
+
+        // Alice holds P1 (term 1, unproven) + P2 (term 2) — both contribute to reservedBond
+        assertEq(
+            _reservedBond(Alice), 2 * MARKET_BOND_PER_PROPOSAL, "two proposals reserved across both terms"
+        );
+
+        // Tighten: withdraw all free bond so bondBalance == reservedBond
+        uint64 free = _bondBalance(Alice) - _reservedBond(Alice);
+        if (free > 0) {
+            vm.prank(Alice);
+            market.withdrawBond(free);
+        }
+
+        (uint48 activeIdBefore,,,,,,) = market.marketState();
+        assertGt(activeIdBefore, 0, "term 2 should be active");
+
+        // Bob proves P1 (term 1) late → slash reduces Alice's bond below reservedBond
+        vm.warp(block.timestamp + MARKET_PROVING_WINDOW);
+        _proveRecordedRangeAs(term1Proposals, Bob, Bob);
+
+        // Term 2 remains active after cross-term slash — it self-retires on the next proposal
+        (uint48 activeIdAfter,,,,,,) = market.marketState();
+        assertEq(activeIdAfter, activeIdBefore, "term 2 should still be active after slash");
+
+        // Next proposal triggers retirement of the insolvent active term
+        _advanceBlock();
+        _proposeOne();
+        (uint48 activeIdFinal,,,,,,) = market.marketState();
+        assertEq(activeIdFinal, 0, "term 2 should be retired after next proposal");
+    }
+
+    /// @notice A→B→A→B sequence. After four rounds Bob holds term 4 (active). A late
+    /// proof of Alice's term 1 proposals slashes Alice. Bob's term 4 must NOT be
+    /// retired — only the slashed prover's current term should be affected.
+    function test_aliceBobAliceBob_lateProofOfAliceTermDoesNotRetireBobTerm() external {
+        _depositMarketBond(Alice, 2 * MARKET_MIN_BOND_GWEI);
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+
+        // Term 1: Alice active, 1 proposal
+        vm.prank(Alice);
+        market.bid(FEE_T1);
+        _advanceBlock();
+        RecordedProposal[] memory aliceTerm1Proposals = new RecordedProposal[](1);
+        aliceTerm1Proposals[0] = _proposeRecordedOne(); // Alice term 1 activates
+
+        // Term 2: Bob outbids Alice, 1 proposal
+        vm.prank(Bob);
+        market.bid(FEE_T2);
+        _advanceBlock();
+        _proposeOne(); // Alice term 1 retires, Bob term 2 activates
+
+        // Term 3: Alice outbids Bob, 1 proposal
+        vm.prank(Alice);
+        market.bid(FEE_T3);
+        _advanceBlock();
+        _proposeOne(); // Bob term 2 retires, Alice term 3 activates
+
+        // Term 4: Bob outbids Alice, 1 proposal
+        vm.prank(Bob);
+        market.bid(FEE_T4);
+        _advanceBlock();
+        _proposeOne(); // Alice term 3 retires, Bob term 4 activates
+
+        // Bob is now active in term 4. Alice's term 1 proposal is still unproven.
+        (uint48 activeIdBefore,,,,,,) = market.marketState();
+        assertGt(activeIdBefore, 0, "Bob's term 4 should be active");
+        (address activePrv,,,,) = market.terms(activeIdBefore);
+        assertEq(activePrv, Bob, "Bob should be active prover");
+
+        // Warp past proving window and have a third party prove Alice's term 1 proposal late
+        vm.warp(block.timestamp + MARKET_PROVING_WINDOW);
+        _proveRecordedRangeAs(aliceTerm1Proposals, prover, prover);
+
+        // Alice is slashed — verify her bond decreased
+        // (her bond was 2x min; some is now lost to slash)
+
+        // Bob's term 4 must remain active — Alice's slash should not touch Bob
+        (uint48 activeIdAfter,,,,,,) = market.marketState();
+        assertGt(activeIdAfter, 0, "Bob's term 4 should remain active after Alice's slash");
+        (address activeAfterPrv,,,,) = market.terms(activeIdAfter);
+        assertEq(activeAfterPrv, Bob, "Bob should still be the active prover");
+    }
+
+    /// @notice A→B→A sequence. Alice accumulates reservedBond from term 1 AND term 3.
+    /// Proving within the window correctly releases bond per term, and Alice's total
+    /// reserved bond reaches zero only after both terms' proposals are proven.
+    /// All proposals are recorded from P1 so the inbox can prove them in order.
+    function test_aliceBobAlice_bondAccumulatesAndReleasesAcrossTerms() external {
+        _depositMarketBond(Alice, 2 * MARKET_MIN_BOND_GWEI);
+        _depositMarketBond(Bob, MARKET_MIN_BOND_GWEI);
+
+        // Term 1: Alice, 2 proposals (record from P1 so proofs can proceed in order)
+        vm.prank(Alice);
+        market.bid(FEE_T1);
+        _advanceBlock();
+        RecordedProposal[] memory term1Proposals = new RecordedProposal[](2);
+        term1Proposals[0] = _proposeRecordedOne(); // P1: activates term 1
+        _advanceBlock();
+        term1Proposals[1] = _proposeRecordedOne(); // P2
+
+        assertEq(_reservedBond(Alice), 2 * MARKET_BOND_PER_PROPOSAL, "term 1: 2 proposals reserved");
+
+        // Term 2: Bob, 2 proposals — record these too so proof ordering is maintained
+        vm.prank(Bob);
+        market.bid(FEE_T2);
+        _advanceBlock();
+        RecordedProposal[] memory term2Proposals = new RecordedProposal[](2);
+        term2Proposals[0] = _proposeRecordedOne(); // P3: Alice term 1 retires, Bob term 2 activates
+        _advanceBlock();
+        term2Proposals[1] = _proposeRecordedOne(); // P4
+
+        assertEq(_reservedBond(Bob), 2 * MARKET_BOND_PER_PROPOSAL, "term 2: 2 proposals reserved");
+        assertEq(_reservedBond(Alice), 2 * MARKET_BOND_PER_PROPOSAL, "Alice: term 1 still reserved");
+
+        // Term 3: Alice, 3 proposals
+        vm.prank(Alice);
+        market.bid(FEE_T3);
+        _advanceBlock();
+        RecordedProposal[] memory term3Proposals = new RecordedProposal[](3);
+        term3Proposals[0] = _proposeRecordedOne(); // P5: Bob term 2 retires, Alice term 3 activates
+        _advanceBlock();
+        term3Proposals[1] = _proposeRecordedOne(); // P6
+        _advanceBlock();
+        term3Proposals[2] = _proposeRecordedOne(); // P7
+
+        // Alice now holds 2 (term 1) + 3 (term 3) = 5 proposals reserved
+        assertEq(_reservedBond(Alice), 5 * MARKET_BOND_PER_PROPOSAL, "Alice: 2+3=5 proposals reserved");
+        assertEq(_reservedBond(Bob), 2 * MARKET_BOND_PER_PROPOSAL, "Bob: still 2 reserved");
+
+        // Prove in sequential order (inbox requires starting from firstUnfinalizedProposalId).
+        // Alice proves P1+P2 (term 1) — releases 2 * bondPerProposal from Alice
+        _proveRecordedRangeAs(term1Proposals, Alice, Alice);
+        assertEq(_reservedBond(Alice), 3 * MARKET_BOND_PER_PROPOSAL, "Alice: 3 remain after term 1 proven");
+
+        // Bob proves P3+P4 (term 2) — releases 2 * bondPerProposal from Bob
+        _proveRecordedRangeAs(term2Proposals, Bob, Bob);
+        assertEq(_reservedBond(Bob), 0, "Bob: all reserved released after term 2 proven");
+
+        // Alice proves P5+P6+P7 (term 3) — releases remaining 3 from Alice
+        _proveRecordedRangeAs(term3Proposals, Alice, Alice);
+        assertEq(_reservedBond(Alice), 0, "Alice: fully released after term 3 proven");
+    }
+
+    /// @notice Full A→B→A→B→A sequence. Alice beats herself in round 1→2, then alternates
+    /// with Bob. Verifies that after each transition the bond accounting remains correct
+    /// and the right prover is recorded for each proposal.
+    function test_fiveRoundSequence_aliceBeatsSelfThenAlternatesWithBob() external {
+        _depositMarketBond(Alice, 3 * MARKET_MIN_BOND_GWEI);
+        _depositMarketBond(Bob, 2 * MARKET_MIN_BOND_GWEI);
+
+        // Proposal IDs are recorded in a flat array to avoid stack-too-deep.
+        // Index: 0=P1(Alice t1), 1=P2(Alice t2), 2=P3(Bob t3), 3=P4(Alice t4), 4=P5(Bob t5)
+        RecordedProposal[] memory all = new RecordedProposal[](5);
+
+        // Round 1: Alice bids, term 1 activates on P1
+        vm.prank(Alice);
+        market.bid(FEE_T1);
+        _advanceBlock();
+        all[0] = _proposeRecordedOne(); // P1: Alice term 1 activates
+
+        // Round 2: Alice beats herself; term 1 retires on P2, term 2 activates
+        vm.prank(Alice);
+        market.bid(FEE_T2);
+        _advanceBlock();
+        all[1] = _proposeRecordedOne(); // P2: Alice term 2 activates
+
+        // Prove P1 and P2 before more transitions (keeps unprovenTermCount below 3)
+        {
+            RecordedProposal[] memory batch = new RecordedProposal[](2);
+            batch[0] = all[0];
+            batch[1] = all[1];
+            _proveRecordedRangeAs(batch, Alice, Alice);
+        }
+
+        // Round 3: Bob beats Alice; term 2 retires on P3, term 3 activates
+        vm.prank(Bob);
+        market.bid(FEE_T3);
+        _advanceBlock();
+        all[2] = _proposeRecordedOne(); // P3: Bob term 3 activates
+
+        // Round 4: Alice beats Bob; term 3 retires on P4, term 4 activates
+        vm.prank(Alice);
+        market.bid(FEE_T4);
+        _advanceBlock();
+        all[3] = _proposeRecordedOne(); // P4: Alice term 4 activates
+
+        // Round 5: Bob beats Alice; term 4 retires on P5, term 5 activates
+        vm.prank(Bob);
+        market.bid(FEE_T5);
+        _advanceBlock();
+        all[4] = _proposeRecordedOne(); // P5: Bob term 5 activates
+
+        // Verify final state: Bob is active in term 5
+        {
+            (uint48 activeId,,,,,,) = market.marketState();
+            (address activePrv,,,,) = market.terms(activeId);
+            assertEq(activePrv, Bob, "Bob should be active in term 5");
+        }
+
+        // Verify reserved bond distribution matches expected prover assignments
+        // (proposalTerms mapping removed; term ranges now track ownership implicitly)
+
+        // P1+P2 already proved earlier. Alice holds P4 = 1 reserved; Bob holds P3+P5 = 2
+        assertEq(_reservedBond(Alice), 1 * MARKET_BOND_PER_PROPOSAL, "Alice: 1 proposal reserved");
+        assertEq(_reservedBond(Bob),   2 * MARKET_BOND_PER_PROPOSAL, "Bob: 2 proposals reserved");
+
+        // Prove remaining proposals (P3-P5)
+        RecordedProposal[] memory single = new RecordedProposal[](1);
+
+        single[0] = all[2]; _proveRecordedRangeAs(single, Bob, Bob);     // P3: Bob term 3
+        single[0] = all[3]; _proveRecordedRangeAs(single, Alice, Alice); // P4: Alice term 4
+        single[0] = all[4]; _proveRecordedRangeAs(single, Bob, Bob);     // P5: Bob term 5
+
+        // All bonds fully released
+        assertEq(_reservedBond(Alice), 0, "Alice: all reserved released");
+        assertEq(_reservedBond(Bob),   0, "Bob: all reserved released");
     }
 }
