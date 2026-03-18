@@ -21,23 +21,26 @@ contract ProverMarket is EssentialContract, IProverMarket {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Market-owned liability interval for a prover epoch.
+    /// @notice Epoch identity — prover address and fee packed into a single storage slot.
     struct Epoch {
         address prover;
         uint64 feeInGwei;
-        uint48 activatedAt;
-        uint48 firstProposalId;
-        uint48 lastProposalId;
     }
 
-    /// @notice Top-level market state shared across epochs.
+    /// @notice Top-level market state shared across epochs (1 slot).
     struct MarketState {
         uint48 activeEpochId;
         uint48 pendingEpochId;
-        uint48 lastFinalizedProposalId;
         uint48 nextEpochId;
         bool permissionlessMode;
         bool activeEpochExiting;
+    }
+
+    /// @notice Consolidated prover financial state packed into a single storage slot.
+    struct ProverAccount {
+        uint64 bondBalance;
+        uint64 reservedBond;
+        uint128 feesAccrued;
     }
 
     // ---------------------------------------------------------------
@@ -76,19 +79,13 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @notice All epochs indexed by epoch id.
     mapping(uint48 epochId => Epoch) public epochs;
 
-    /// @notice Bond balances tracked by account in gwei.
-    mapping(address account => uint64 bondBalance) public bondBalances;
-
-    /// @notice Accrued prover fees tracked by account in wei.
-    mapping(address account => uint256 feeBalance) public feeBalances;
+    /// @notice Consolidated prover account: bond balance, reserved bond, and accrued fees.
+    mapping(address account => ProverAccount) public proverAccounts;
 
     /// @notice Maps proposal id to the epoch that owns it.
     mapping(uint48 proposalId => uint48 epochId) public proposalEpochs;
 
-    /// @notice Bond reserved for unproven proposals, tracked by prover in gwei.
-    mapping(address account => uint64 reserved) public reservedBondGwei;
-
-    uint256[43] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -98,7 +95,9 @@ contract ProverMarket is EssentialContract, IProverMarket {
     event BidPlaced(uint48 indexed epochId, address indexed prover, uint64 feeInGwei);
 
     /// @notice Emitted when a pending epoch becomes active.
-    event EpochActivated(uint48 indexed epochId, uint48 firstProposalId);
+    event EpochActivated(
+        uint48 indexed epochId, uint48 firstProposalId, uint48 activatedAt
+    );
 
     /// @notice Emitted when a prover exits their position.
     event EpochExited(uint48 indexed epochId);
@@ -176,17 +175,17 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @param _amount The bond amount in gwei.
     function depositBond(uint64 _amount) external nonReentrant nonZeroValue(_amount) {
         _bondToken.safeTransferFrom(msg.sender, address(this), uint256(_amount) * 1 gwei);
-        bondBalances[msg.sender] += _amount;
+        proverAccounts[msg.sender].bondBalance += _amount;
         emit BondDeposited(msg.sender, _amount);
     }
 
     /// @notice Withdraws previously deposited bond.
     /// @param _amount The bond amount in gwei.
     function withdrawBond(uint64 _amount) external nonReentrant nonZeroValue(_amount) {
-        require(
-            bondBalances[msg.sender] - reservedBondGwei[msg.sender] >= _amount, InsufficientBond()
-        );
-        bondBalances[msg.sender] -= _amount;
+        ProverAccount memory acct = proverAccounts[msg.sender];
+        require(acct.bondBalance - acct.reservedBond >= _amount, InsufficientBond());
+        acct.bondBalance -= _amount;
+        proverAccounts[msg.sender] = acct;
         _bondToken.safeTransfer(msg.sender, uint256(_amount) * 1 gwei);
         emit BondWithdrawn(msg.sender, _amount);
     }
@@ -194,8 +193,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @notice Withdraws accrued prover fees.
     /// @param _amount The amount in wei to withdraw.
     function withdrawFees(uint256 _amount) external nonReentrant nonZeroValue(_amount) {
-        require(feeBalances[msg.sender] >= _amount, InsufficientFees());
-        feeBalances[msg.sender] -= _amount;
+        require(proverAccounts[msg.sender].feesAccrued >= _amount, InsufficientFees());
+        proverAccounts[msg.sender].feesAccrued -= uint128(_amount);
         msg.sender.sendEtherAndVerify(_amount);
         emit FeesWithdrawn(msg.sender, _amount);
     }
@@ -203,7 +202,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
     /// @notice Places or updates a bid for a future proving epoch.
     /// @param _feeInGwei The fee quote in gwei for each assigned proposal.
     function bid(uint64 _feeInGwei) external nonReentrant whenNotPaused {
-        require(bondBalances[msg.sender] >= _minBondGwei, InsufficientBond());
+        require(proverAccounts[msg.sender].bondBalance >= _minBondGwei, InsufficientBond());
 
         MarketState memory state = marketState;
 
@@ -225,13 +224,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         uint48 newEpochId = ++state.nextEpochId;
 
-        epochs[newEpochId] = Epoch({
-            prover: msg.sender,
-            feeInGwei: _feeInGwei,
-            activatedAt: 0,
-            firstProposalId: 0,
-            lastProposalId: 0
-        });
+        epochs[newEpochId] = Epoch({ prover: msg.sender, feeInGwei: _feeInGwei });
 
         state.pendingEpochId = newEpochId;
         marketState = state;
@@ -280,8 +273,10 @@ contract ProverMarket is EssentialContract, IProverMarket {
             if (state.activeEpochId != 0) {
                 bool shouldRetire = state.activeEpochExiting || state.pendingEpochId != 0;
                 if (!shouldRetire) {
-                    address prv = epochs[state.activeEpochId].prover;
-                    shouldRetire = bondBalances[prv] < reservedBondGwei[prv] + _bondPerProposalGwei;
+                    Epoch memory epoch = epochs[state.activeEpochId];
+                    ProverAccount memory acct = proverAccounts[epoch.prover];
+                    shouldRetire =
+                        acct.bondBalance < acct.reservedBond + _bondPerProposalGwei;
                 }
                 if (shouldRetire) {
                     state.activeEpochId = 0;
@@ -297,18 +292,22 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
             uint48 activeId = state.activeEpochId;
             if (activeId != 0) {
-                address prv = epochs[activeId].prover;
-                reservedBondGwei[prv] += _bondPerProposalGwei;
-                proposalEpochs[_proposalId] = activeId;
-                epochs[activeId].lastProposalId = _proposalId;
+                Epoch memory epoch = epochs[activeId];
+                address prv = epoch.prover;
+                ProverAccount memory acct = proverAccounts[prv];
 
-                uint256 feeWei = uint256(epochs[activeId].feeInGwei) * 1 gwei;
+                acct.reservedBond += _bondPerProposalGwei;
+                proposalEpochs[_proposalId] = activeId;
+
+                uint256 feeWei = uint256(epoch.feeInGwei) * 1 gwei;
                 if (feeWei > 0) {
                     require(msg.value >= feeWei, InsufficientFee());
-                    feeBalances[prv] += feeWei;
+                    acct.feesAccrued += uint128(feeWei);
                     feeConsumed = feeWei;
-                    emit FeeCharged(_proposalId, _proposer, epochs[activeId].feeInGwei);
+                    emit FeeCharged(_proposalId, _proposer, epoch.feeInGwei);
                 }
+
+                proverAccounts[prv] = acct;
             }
         }
 
@@ -338,7 +337,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
 
         if (_proposalAge >= uint256(_provingWindow)) return true;
 
-        uint48 epochId = _findEpochForProposal(_firstNewProposalId);
+        uint48 epochId = proposalEpochs[_firstNewProposalId];
 
         if (epochId == 0) return true;
 
@@ -356,14 +355,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
         onlyFrom(address(_inbox))
     {
         MarketState memory state = marketState;
-        state.lastFinalizedProposalId = _lastProposalId;
+        bool stateChanged;
 
         if (!state.permissionlessMode) {
-            _releaseReservedBond(_firstNewProposalId, _lastProposalId);
-            _checkAndSlash(state, _caller, _firstNewProposalId, _proposalAge);
+            stateChanged =
+                _settleProof(state, _caller, _firstNewProposalId, _lastProposalId, _proposalAge);
         }
 
-        marketState = state;
+        if (stateChanged) marketState = state;
     }
 
     /// @notice Enables or disables emergency permissionless proving mode.
@@ -391,8 +390,8 @@ contract ProverMarket is EssentialContract, IProverMarket {
         if (state.activeEpochId != 0) {
             bool wouldRetire = state.activeEpochExiting || state.pendingEpochId != 0;
             if (!wouldRetire) {
-                address prv = epochs[state.activeEpochId].prover;
-                wouldRetire = bondBalances[prv] < reservedBondGwei[prv] + _bondPerProposalGwei;
+                ProverAccount memory acct = proverAccounts[epochs[state.activeEpochId].prover];
+                wouldRetire = acct.bondBalance < acct.reservedBond + _bondPerProposalGwei;
             }
             if (wouldRetire) {
                 if (state.pendingEpochId != 0) return epochs[state.pendingEpochId].feeInGwei;
@@ -434,7 +433,7 @@ contract ProverMarket is EssentialContract, IProverMarket {
         external
         onlyFrom(address(_inbox))
     {
-        bondBalances[_account] += _amount;
+        proverAccounts[_account].bondBalance += _amount;
         emit BondDeposited(_account, _amount);
     }
 
@@ -453,69 +452,84 @@ contract ProverMarket is EssentialContract, IProverMarket {
     {
         uint48 pendingId = _state.pendingEpochId;
         address prv = epochs[pendingId].prover;
+        ProverAccount memory acct = proverAccounts[prv];
 
-        if (bondBalances[prv] < reservedBondGwei[prv] + _bondPerProposalGwei) {
+        if (acct.bondBalance < acct.reservedBond + _bondPerProposalGwei) {
             _state.pendingEpochId = 0;
             return;
         }
-
-        epochs[pendingId].activatedAt = _proposalTimestamp;
-        epochs[pendingId].firstProposalId = _proposalId;
 
         _state.activeEpochId = pendingId;
         _state.pendingEpochId = 0;
         _state.activeEpochExiting = false;
 
-        emit EpochActivated(pendingId, _proposalId);
+        emit EpochActivated(pendingId, _proposalId, _proposalTimestamp);
     }
 
-    /// @dev Enforces prover authorization and slashes the owning epoch when the proof arrives
-    ///      after the exclusive proving window.
-    function _checkAndSlash(
+    /// @dev Handles bond release, authorization, and slashing for a finalized proof range.
+    ///      Performs the proposalEpochs lookup once for the first proposal, then reuses it for
+    ///      both bond release and authorization/slashing.
+    function _settleProof(
         MarketState memory _state,
         address _caller,
         uint48 _firstNewProposalId,
+        uint48 _lastProposalId,
         uint256 _proposalAge
     )
         private
+        returns (bool stateChanged_)
     {
-        uint48 epochId = _findEpochForProposal(_firstNewProposalId);
+        uint48 firstEpochId = proposalEpochs[_firstNewProposalId];
+
+        _releaseReservedBond(_firstNewProposalId, _lastProposalId, firstEpochId);
 
         if (_proposalAge < uint256(_provingWindow)) {
-            if (epochId != 0) {
-                require(_caller == epochs[epochId].prover, NotAuthorizedProver());
+            if (firstEpochId != 0) {
+                require(_caller == epochs[firstEpochId].prover, NotAuthorizedProver());
             }
-            return;
+            return false;
         }
 
-        if (epochId == 0) return;
+        if (firstEpochId == 0) return false;
 
-        address prv = epochs[epochId].prover;
+        address prv = epochs[firstEpochId].prover;
+        ProverAccount memory acct = proverAccounts[prv];
 
         uint64 slashAmount =
-            _slashPerProofGwei < bondBalances[prv] ? _slashPerProofGwei : bondBalances[prv];
+            _slashPerProofGwei < acct.bondBalance ? _slashPerProofGwei : acct.bondBalance;
 
         if (slashAmount > 0) {
-            bondBalances[prv] -= slashAmount;
+            acct.bondBalance -= slashAmount;
+            proverAccounts[prv] = acct;
+
             if (_caller != prv) {
-                bondBalances[_caller] += slashAmount;
+                proverAccounts[_caller].bondBalance += slashAmount;
             }
             emit ProverSlashed(prv, _caller, slashAmount);
         }
 
-        if (bondBalances[prv] < reservedBondGwei[prv]) {
-            if (_state.activeEpochId == epochId) {
+        if (acct.bondBalance < acct.reservedBond) {
+            if (_state.activeEpochId == firstEpochId) {
                 _state.activeEpochId = 0;
                 _state.activeEpochExiting = false;
+                stateChanged_ = true;
             }
         }
     }
 
     /// @dev Releases reserved bond for proposals in the given range.
-    function _releaseReservedBond(uint48 _firstProposalId, uint48 _lastProposalId) private {
+    ///      Accepts the pre-looked-up epoch id for the first proposal to avoid a duplicate SLOAD.
+    function _releaseReservedBond(
+        uint48 _firstProposalId,
+        uint48 _lastProposalId,
+        uint48 _firstEpochId
+    )
+        private
+    {
         uint48 current = _firstProposalId;
         while (current <= _lastProposalId) {
-            uint48 epochId = proposalEpochs[current];
+            uint48 epochId =
+                (current == _firstProposalId) ? _firstEpochId : proposalEpochs[current];
             if (epochId == 0) {
                 ++current;
                 continue;
@@ -529,18 +543,14 @@ contract ProverMarket is EssentialContract, IProverMarket {
             uint64 count = uint64(current - start);
             uint64 releaseAmount = count * _bondPerProposalGwei;
             address prv = epochs[epochId].prover;
+            ProverAccount memory acct = proverAccounts[prv];
 
-            if (releaseAmount > reservedBondGwei[prv]) {
-                releaseAmount = reservedBondGwei[prv];
+            if (releaseAmount > acct.reservedBond) {
+                releaseAmount = acct.reservedBond;
             }
-            reservedBondGwei[prv] -= releaseAmount;
+            acct.reservedBond -= releaseAmount;
+            proverAccounts[prv] = acct;
         }
-    }
-
-    /// @dev Looks up which epoch owns a proposal via the proposalEpochs mapping.
-    /// @return The epoch id that owns the proposal, or 0 if none.
-    function _findEpochForProposal(uint48 _proposalId) private view returns (uint48) {
-        return proposalEpochs[_proposalId];
     }
 
     // ---------------------------------------------------------------

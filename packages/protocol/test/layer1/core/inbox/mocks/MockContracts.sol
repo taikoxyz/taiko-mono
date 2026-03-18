@@ -32,14 +32,6 @@ contract MockProverMarket is IProverMarket {
     function withdrawBond(uint64) external { }
     function withdrawFees(uint256) external { }
 
-    function bondBalances(address) external pure returns (uint64) {
-        return 0;
-    }
-
-    function feeBalances(address) external pure returns (uint256) {
-        return 0;
-    }
-
     function canSubmitProof(address, uint48, uint256) external pure returns (bool) {
         return true;
     }
@@ -70,10 +62,6 @@ contract MockProverMarket is IProverMarket {
 
     function bidDiscountBps() external pure returns (uint16) {
         return 500;
-    }
-
-    function reservedBondGwei(address) external pure returns (uint64) {
-        return 0;
     }
 
     function bondPerProposal() external pure returns (uint64) {
