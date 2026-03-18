@@ -18,7 +18,7 @@ pragma solidity ^0.8.26;
 //   __reentry                      | uint8                                              | Slot: 201  | Offset: 0    | Bytes: 1   
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
-//   activationTimestamp            | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6   
+//   _activationTimestamp           | uint48                                             | Slot: 251  | Offset: 0    | Bytes: 6   
 //   _coreState                     | struct IInbox.CoreState                            | Slot: 252  | Offset: 0    | Bytes: 64  
 //   _proposalHashes                | mapping(uint256 => bytes32)                        | Slot: 254  | Offset: 0    | Bytes: 32  
 //   _forcedInclusionStorage        | struct LibForcedInclusion.Storage                  | Slot: 255  | Offset: 0    | Bytes: 64  
