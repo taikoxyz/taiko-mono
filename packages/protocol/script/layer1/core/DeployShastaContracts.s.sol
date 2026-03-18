@@ -94,10 +94,7 @@ abstract contract DeployShastaContracts is DeployCapability {
             name: "shasta_inbox",
             impl: address(
                 new MainnetInbox(
-                    proofVerifier,
-                    config.preconfWhitelist,
-                    address(0),
-                    config.l1SignalService
+                    proofVerifier, config.preconfWhitelist, address(0), config.l1SignalService
                 )
             ),
             data: abi.encodeCall(Inbox.init, config.activator)
