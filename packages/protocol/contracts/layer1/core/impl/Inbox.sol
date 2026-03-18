@@ -51,12 +51,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    event InboxActivated(bytes32 lastPacayaBlockHash);
-
-    // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
@@ -125,7 +119,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice The timestamp when the first activation occurred.
+    /// @notice Deprecated: was the activation timestamp. Kept for storage layout compatibility.
     uint48 public activationTimestamp;
 
     /// @notice Persisted core state.
@@ -183,24 +177,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         __Essential_init(_owner);
     }
 
-    /// @notice Activates the inbox so that it can start accepting proposals.
-    /// @dev Can be called multiple times within the activation window to handle reorgs.
-    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
-        (
-            uint48 newActivationTimestamp,
-            CoreState memory state,
-            Proposal memory proposal,
-            bytes32 genesisProposalHash
-        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
-
-        activationTimestamp = newActivationTimestamp;
-        _coreState = state;
-        _setProposalHash(0, genesisProposalHash);
-        _emitProposedEvent(proposal);
-        emit InboxActivated(_lastPacayaBlockHash);
-    }
-
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
@@ -219,8 +195,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 nextProposalId = _coreState.nextProposalId;
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
             uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
-            require(nextProposalId > 0, ActivationRequired());
-
             Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
@@ -782,7 +756,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
-    error ActivationRequired();
     error CannotProposeInCurrentBlock();
     error DeadlineExceeded();
     error EmptyBatch();
