@@ -7,9 +7,8 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface IProverMarket {
     /// @notice Places or updates a bid for a future proving epoch
-    /// @param _feeRecipient The address that should receive proving fees for the bid
     /// @param _feeInGwei The fee quote in gwei for each assigned proposal
-    function bid(address _feeRecipient, uint64 _feeInGwei) external;
+    function bid(uint64 _feeInGwei) external;
 
     /// @notice Requests exit from the market for the caller's active or pending position
     function exit() external;
@@ -22,28 +21,28 @@ interface IProverMarket {
     /// @param _amount The bond amount in gwei
     function withdrawBond(uint64 _amount) external;
 
-    /// @notice Deposits proposer fee credit for future proposal reservations
-    function depositFeeCredit() external payable;
-
-    /// @notice Withdraws unused proposer fee credit or accrued prover fees
+    /// @notice Withdraws accrued prover fees
     /// @param _amount The amount in wei to withdraw
-    function withdrawFeeCredit(uint256 _amount) external;
+    function withdrawFees(uint256 _amount) external;
 
-    /// @notice Checks whether a proof submission is authorized under the current market state
-    /// @param _caller The account submitting the proof transaction
+    /// @notice Checks whether a caller is authorized to submit a proof for a given proposal.
+    /// @dev Intended for off-chain use by provers before submitting a prove transaction.
+    /// @param _caller The account that would submit the proof
     /// @param _firstNewProposalId The first proposal id that would be newly finalized
-    /// @param _proposalTimestamp The timestamp of the first newly finalized proposal
     /// @param _proposalAge The age in seconds of the first newly finalized proposal
-    function beforeProofSubmission(
+    /// @return True if the caller is authorized to prove
+    function canSubmitProof(
         address _caller,
         uint48 _firstNewProposalId,
-        uint48 _proposalTimestamp,
         uint256 _proposalAge
     )
         external
-        view;
+        view
+        returns (bool);
 
     /// @notice Notifies the market that Inbox accepted a new proposal
+    /// @dev Receives ETH from proposer via Inbox. Takes the active epoch fee and refunds
+    ///      any excess directly to the proposer.
     /// @param _proposalId The accepted proposal id
     /// @param _proposer The proposer that created the proposal
     /// @param _proposalTimestamp The proposal timestamp
@@ -52,22 +51,20 @@ interface IProverMarket {
         address _proposer,
         uint48 _proposalTimestamp
     )
-        external;
+        external
+        payable;
 
-    /// @notice Notifies the market that Inbox finalized a new proof range
+    /// @notice Notifies the market that Inbox finalized a new proof range.
+    /// @dev Enforces prover authorization and handles slashing, bond release, and degraded mode.
     /// @param _caller The account that submitted the proof transaction
-    /// @param _actualProver The prover recorded in the commitment
     /// @param _firstNewProposalId The first proposal id that was newly finalized
     /// @param _lastProposalId The last proposal id in the finalized range
     /// @param _proposalAge The age in seconds of the first newly finalized proposal
-    /// @param _finalizedAt The timestamp when finalization occurred
     function onProofAccepted(
         address _caller,
-        address _actualProver,
         uint48 _firstNewProposalId,
         uint48 _lastProposalId,
-        uint256 _proposalAge,
-        uint48 _finalizedAt
+        uint256 _proposalAge
     )
         external;
 
@@ -80,4 +77,28 @@ interface IProverMarket {
     /// @param _account The account to credit the bond to
     /// @param _amount The bond amount in gwei
     function creditMigratedBond(address _account, uint64 _amount) external;
+
+    /// @notice Returns the bond balance for an account in gwei
+    /// @param _account The account to query
+    function bondBalances(address _account) external view returns (uint64);
+
+    /// @notice Returns the accrued fee balance for an account in wei
+    /// @param _account The account to query
+    function feeBalances(address _account) external view returns (uint256);
+
+    /// @notice Returns the bond token address used by this market
+    function bondToken() external view returns (address);
+
+    /// @notice Returns the exclusive proving window in seconds
+    function provingWindow() external view returns (uint48);
+
+    /// @notice Returns the fee in gwei that the next proposal will be charged
+    /// @dev Accounts for pending epoch transitions. Useful for off-chain fee estimation.
+    function activeFeeInGwei() external view returns (uint64);
+
+    /// @notice Returns the minimum bond in gwei required to place a bid
+    function minBond() external view returns (uint64);
+
+    /// @notice Returns the permissionless proving delay in seconds
+    function permissionlessProvingDelay() external view returns (uint48);
 }

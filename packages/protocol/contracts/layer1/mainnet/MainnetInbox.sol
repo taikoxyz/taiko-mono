@@ -27,18 +27,13 @@ contract MainnetInbox is Inbox {
         address _proofVerifier,
         address _proposerChecker,
         address _proverMarket,
-        address _signalService,
-        address _bondToken
+        address _signalService
     )
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverMarket: _proverMarket,
                 signalService: _signalService,
-                bondToken: _bondToken,
-                provingWindow: 4 hours, // internal target is still to submit every ~2 hours
-                // Allows the security council time to intervene if a bug is found.
-                permissionlessProvingDelay: 5 days,
                 maxProofSubmissionDelay: 3 minutes, // We want this to be lower than the expected cadence
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,

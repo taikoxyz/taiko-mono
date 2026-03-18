@@ -80,16 +80,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     /// @notice Signal service responsible for checkpoints.
     ISignalService internal immutable _signalService;
 
-    /// @notice ERC20 token used as bond.
-    IERC20 internal immutable _bondToken;
-
-    /// @notice The proving window in seconds.
-    uint48 internal immutable _provingWindow;
-
-    /// @notice The delay after which proving becomes permissionless when the prover market is
-    /// enabled.
-    uint48 internal immutable _permissionlessProvingDelay;
-
     /// @notice Maximum delay allowed between sequential proofs to remain on time.
     uint48 internal immutable _maxProofSubmissionDelay;
 
@@ -142,16 +132,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
 
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
-    constructor(Config memory _config) {
+    constructor(Config memory _config) nonZeroAddr(_config.proverMarket) {
         LibInboxSetup.validateConfig(_config);
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _proverMarket = IProverMarket(_config.proverMarket);
         _signalService = ISignalService(_config.signalService);
-        _bondToken = IERC20(_config.bondToken);
-        _provingWindow = _config.provingWindow;
-        _permissionlessProvingDelay = _config.permissionlessProvingDelay;
         _maxProofSubmissionDelay = _config.maxProofSubmissionDelay;
         _ringBufferSize = _config.ringBufferSize;
         _basefeeSharingPctg = _config.basefeeSharingPctg;
@@ -199,7 +186,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external payable nonReentrant {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
@@ -218,17 +205,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal);
-            if (address(_proverMarket) != address(0)) {
-                _proverMarket.onProposalAccepted(proposal.id, proposal.proposer, proposal.timestamp);
-            }
+            _proverMarket.onProposalAccepted{ value: msg.value }(
+                proposal.id, proposal.proposer, proposal.timestamp
+            );
         }
     }
 
     /// @inheritdoc IInbox
-    /// @dev When the prover market is enabled, only market-authorized
-    ///      provers may prove until a proposal becomes older than
-    ///      `permissionlessProvingDelay`, after which proving becomes permissionless for that
-    ///      proposal.
+    /// @dev When the prover market is enabled, only market-authorized provers may prove until
+    ///      the permissionless proving delay elapses, after which proving is open to anyone.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
     ///      Transition structs, each with the proposal metadata and end block hash. The proof
     ///      range can start at or before the last finalized proposal to handle race conditions
@@ -273,12 +258,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             uint48 firstNewProposalId = uint48(state.lastFinalizedProposalId + 1);
             uint256 proposalAge;
             {
-                uint48 firstNewProposalTimestamp = commitment.transitions[offset].timestamp;
-                proposalAge = block.timestamp - firstNewProposalTimestamp;
-
-                _checkProverMarket(
-                    msg.sender, firstNewProposalId, firstNewProposalTimestamp, proposalAge
-                );
+                proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
 
                 // ---------------------------------------------------------
                 // 2. Verify parent block-hash continuity and last proposal hash
@@ -335,32 +315,26 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
                 LibHashOptimized.hashCommitment(commitment),
                 _proof
             );
-            if (address(_proverMarket) != address(0)) {
-                _proverMarket.onProofAccepted(
-                    msg.sender,
-                    commitment.actualProver,
-                    firstNewProposalId,
-                    uint48(lastProposalId),
-                    proposalAge,
-                    state.lastFinalizedTimestamp
-                );
-            }
+            _proverMarket.onProofAccepted(
+                msg.sender, firstNewProposalId, uint48(lastProposalId), proposalAge
+            );
         }
     }
 
-    /// @notice Migrates a user's bond balance from Inbox to the ProverMarket contract.
+    /// @notice Migrates a bond balance from Inbox to the ProverMarket contract.
     /// @dev One-step migration: reads bond, zeroes it, transfers tokens to market,
     ///      and credits the bond on ProverMarket.
-    function migrateBond() external nonReentrant {
-        require(address(_proverMarket) != address(0), ProverMarketNotSet());
-        LibBonds.Bond storage bond = _bondStorage.bonds[msg.sender];
+    /// @param _account The address to migrate bond for. If address(0), migrates for msg.sender.
+    function migrateBond(address _account) external nonReentrant {
+        if (_account == address(0)) _account = msg.sender;
+        LibBonds.Bond storage bond = _bondStorage.bonds[_account];
         uint64 balance = bond.balance;
         require(balance > 0, NoBondToMigrate());
         bond.balance = 0;
         bond.withdrawalRequestedAt = 0;
         uint256 tokenAmount = uint256(balance) * 1 gwei;
-        _bondToken.safeTransfer(address(_proverMarket), tokenAmount);
-        _proverMarket.creditMigratedBond(msg.sender, balance);
+        IERC20(_proverMarket.bondToken()).safeTransfer(address(_proverMarket), tokenAmount);
+        _proverMarket.creditMigratedBond(_account, balance);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -465,9 +439,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
             proposerChecker: address(_proposerChecker),
             proverMarket: address(_proverMarket),
             signalService: address(_signalService),
-            bondToken: address(_bondToken),
-            provingWindow: _provingWindow,
-            permissionlessProvingDelay: _permissionlessProvingDelay,
             maxProofSubmissionDelay: _maxProofSubmissionDelay,
             ringBufferSize: _ringBufferSize,
             basefeeSharingPctg: _basefeeSharingPctg,
@@ -678,26 +649,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
-    /// @dev Checks if the caller is authorized by the prover market.
-    /// @param _addr The address of the caller to check.
-    /// @param _firstNewProposalId The first proposal id that would be newly finalized.
-    /// @param _proposalTimestamp The timestamp of the first newly finalized proposal.
-    /// @param _proposalAge The age in seconds since the proposal became available for proving.
-    function _checkProverMarket(
-        address _addr,
-        uint48 _firstNewProposalId,
-        uint48 _proposalTimestamp,
-        uint256 _proposalAge
-    )
-        private
-        view
-    {
-        if (address(_proverMarket) == address(0)) return;
-        _proverMarket.beforeProofSubmission(
-            _addr, _firstNewProposalId, _proposalTimestamp, _proposalAge
-        );
-    }
-
     /// @dev Validates the batch bounds in the Commitment and calculates the offset
     ///      to the first unfinalized proposal.
     /// @param _state The core state.
@@ -746,6 +697,5 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, EssentialContract {
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
     error NoBondToMigrate();
-    error ProverMarketNotSet();
     error UnprocessedForcedInclusionIsDue();
 }
