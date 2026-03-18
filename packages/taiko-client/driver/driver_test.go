@@ -75,7 +75,7 @@ func (s *DriverTestSuite) SetupTest() {
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
 		},
-		BlobServerEndpoint:     s.L1HTTPURL(),
+		BlobServerEndpoint:     s.ParseL1HttpURLFromEnv(),
 		P2PConfigs:             p2pConfig,
 		P2PSignerConfigs:       p2pSignerConfig,
 		PreconfBlockServerPort: preconfServerPort,

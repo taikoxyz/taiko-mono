@@ -50,7 +50,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		s.L1HTTPURL(),
+		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)
 	s.Nil(err)

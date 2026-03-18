@@ -293,7 +293,7 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 	s.Equal(block.Hash(), head.Hash())
 }
 
-func (s *ClientTestSuite) L1HTTPURL() *url.URL {
+func (s *ClientTestSuite) ParseL1HttpURLFromEnv() *url.URL {
 	u, err := url.Parse(os.Getenv("L1_HTTP"))
 	s.Nil(err)
 	return u

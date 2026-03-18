@@ -43,7 +43,7 @@ func (s *EventSyncerTestSuite) SetupTest() {
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		s.L1HTTPURL(),
+		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)
 	s.Nil(err)
@@ -262,7 +262,7 @@ func (s *EventSyncerTestSuite) TestKnownBatchSendsProposal() {
 		s.RPCClient,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		s.L1HTTPURL(),
+		s.ParseL1HttpURLFromEnv(),
 		proposalCh,
 	)
 	s.Nil(err)

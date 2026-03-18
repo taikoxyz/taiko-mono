@@ -45,7 +45,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		state,
 		false,
 		1*time.Hour,
-		s.L1HTTPURL(),
+		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)
 	s.Nil(err)

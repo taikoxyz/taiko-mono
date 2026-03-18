@@ -174,6 +174,7 @@ func (ds *BlobDataSource) getBlobFromServer(ctx context.Context, blobHashes []co
 	}, nil
 }
 
+// GetBlobDataByHash gets the blob data by the given blob hash.
 func (ds *BlobDataSource) getBlobByHash(ctx context.Context, blobHash common.Hash) (*BlobData, error) {
 	requestURL, err := url.JoinPath(ds.blobServerEndpoint.String(), "/blobs/"+blobHash.String())
 	if err != nil {
@@ -203,7 +204,9 @@ func (ds *BlobDataSource) getBlobByHash(ctx context.Context, blobHash common.Has
 
 	blob, anvilErr := ds.client.L1.AnvilGetBlobByHash(ctx, blobHash)
 	if anvilErr != nil {
-		return nil, fmt.Errorf("failed to fetch blob %s from blob server and anvil RPC: %w", blobHash, errors.Join(restErr, anvilErr))
+		return nil, fmt.Errorf(
+			"failed to fetch blob %s from blob server and anvil RPC: %w", blobHash, errors.Join(restErr, anvilErr),
+		)
 	}
 
 	commitment, err := blob.ComputeKZGCommitment()

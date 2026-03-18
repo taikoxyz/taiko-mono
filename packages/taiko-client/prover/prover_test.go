@@ -113,7 +113,7 @@ func (s *ProverTestSuite) SetupTest() {
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
 		},
-		BlobServerEndpoint: s.L1HTTPURL(),
+		BlobServerEndpoint: s.ParseL1HttpURLFromEnv(),
 	}))
 	s.d = d
 
