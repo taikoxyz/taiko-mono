@@ -116,7 +116,6 @@ func (s *ProverTestSuite) SetupTest() {
 		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
 	s.d = d
-	s.Nil(s.d.ShastaIndexer().Start())
 
 	// Init proposer
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
@@ -142,7 +141,6 @@ func (s *ProverTestSuite) SetupTest() {
 
 	s.proposer = prop
 	s.proposer.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
-	s.Nil(s.proposer.ShastaIndexer().Start())
 }
 
 func (s *ProverTestSuite) TestName() {
@@ -177,23 +175,36 @@ func (s *ProverTestSuite) TestInitError() {
 
 func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.ForkIntoShasta(s.proposer, s.d.ChainSyncer().EventSyncer())
+
 	// Init prover
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
-
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
+	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	s.Nil(err)
+	s.Equal(uint64(2), coreState.NextProposalId.Uint64())
+	payload, eventLog, err := s.RPCClient.GetProposalByIDShasta(context.Background(), common.Big1)
+	s.Nil(err)
+	s.NotNil(payload)
+	s.NotNil(eventLog)
+
+	// Prove the first Shasta proposal proposed in `ForkIntoShasta`.
+	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), eventLog.BlockHash)
+	s.Nil(err)
+	meta := metadata.NewTaikoProposalMetadataShasta(payload, header.Time)
+	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), meta, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
-	if m.IsPacaya() {
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
-	}
-	if m.IsPacaya() {
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	} else {
-		s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
-	}
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
+	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+
+	// Propose and prove the second Shasta proposal.
+	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
+	req = <-s.p.proofSubmissionCh
+	s.Nil(s.p.requestProofOp(req.Meta))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
+	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 }
 
 func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
@@ -246,7 +257,7 @@ func (s *ProverTestSuite) TestProveOp() {
 
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
-	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 
 	var (
@@ -323,7 +334,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 			continue
 		}
 		s.Nil(s.p.requestProofOp(req.Meta))
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
 			break
@@ -341,7 +352,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 
 	for req := range s.p.proofSubmissionCh {
 		s.Nil(s.p.requestProofOp(req.Meta))
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
 			break
@@ -357,11 +368,16 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 	)
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:      os.Getenv("L2_AUTH"),
+		JwtSecret:             string(jwtSecret),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -375,6 +391,7 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -396,10 +413,10 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		s.Nil(s.p.requestProofOp(req1.Meta))
 		req2 := <-batchProver.proofSubmissionCh
 		s.Nil(batchProver.requestProofOp(req2.Meta))
-		s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
 	}
-	s.Nil(batchProver.aggregateOpPacaya(<-batchProver.batchesAggregationNotify))
+	s.Nil(batchProver.aggregateOp(<-batchProver.batchesAggregationNotifyPacaya, false))
 	s.ErrorIs(
 		batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh),
 		proofSubmitter.ErrInvalidProof,
@@ -414,11 +431,16 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 	)
 	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
 	s.Nil(err)
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
 	batchProver := new(Prover)
 	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
 		L1WsEndpoint:          os.Getenv("L1_WS"),
 		L2WsEndpoint:          os.Getenv("L2_WS"),
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:      os.Getenv("L2_AUTH"),
+		JwtSecret:             string(jwtSecret),
 		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -432,6 +454,7 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		BackOffRetryInterval:  3 * time.Second,
 		BackOffMaxRetries:     12,
 		SGXProofBufferSize:    uint64(batchSize),
+		ZKVMProofBufferSize:   uint64(batchSize),
 	}, s.txmgr, s.txmgr))
 
 	for i := 0; i < batchSize; i++ {
@@ -451,66 +474,8 @@ func (s *ProverTestSuite) TestAggregateProofs() {
 		req := <-batchProver.proofSubmissionCh
 		s.Nil(batchProver.requestProofOp(req.Meta))
 	}
-	proofType := <-batchProver.batchesAggregationNotify
-	s.Nil(batchProver.aggregateOpPacaya(proofType))
-	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
-}
-
-func (s *ProverTestSuite) TestForceAggregate() {
-	batchSize := 3
-	// Init a batch prover
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
-	s.Nil(err)
-	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
-	s.Nil(err)
-	s.NotZero(decimal)
-	batchProver := new(Prover)
-	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
-		L1ProverPrivKey:       l1ProverPrivKey,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		Allowance: new(big.Int).Exp(
-			big.NewInt(1_000_000_000),
-			new(big.Int).SetUint64(uint64(decimal)),
-			nil,
-		),
-		RPCTimeout:                3 * time.Second,
-		BackOffRetryInterval:      3 * time.Second,
-		BackOffMaxRetries:         12,
-		SGXProofBufferSize:        uint64(batchSize),
-		ForceBatchProvingInterval: 5 * time.Second,
-	}, s.txmgr, s.txmgr))
-
-	for i := 0; i < batchSize-1; i++ {
-		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	}
-
-	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
-	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
-	s.Nil(err)
-	defer func() {
-		sub.Unsubscribe()
-		close(sink)
-	}()
-
-	s.Nil(batchProver.proveOp())
-	req1 := <-batchProver.proofSubmissionCh
-	s.Nil(batchProver.requestProofOp(req1.Meta))
-
-	time.Sleep(5 * time.Second)
-	req2 := <-batchProver.proofSubmissionCh
-	s.Nil(batchProver.requestProofOp(req2.Meta))
-
-	proofType := <-batchProver.batchesAggregationNotify
-	s.Nil(batchProver.aggregateOpPacaya(proofType))
+	proofType := <-batchProver.batchesAggregationNotifyPacaya
+	s.Nil(batchProver.aggregateOp(proofType, false))
 	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
 }
 
@@ -566,7 +531,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 	// Submit a valid proof.
 	s.Nil(s.p.proofSubmitterPacaya.RequestProof(context.Background(), m))
-	s.Nil(s.p.aggregateOpPacaya(<-s.p.batchesAggregationNotify))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
 	batchRes := <-s.p.batchProofGenerationCh
 	res := batchRes.ProofResponses[0]
 	s.Equal(m.Pacaya().GetBatchID().Uint64(), res.Meta.Pacaya().GetBatchID().Uint64())
@@ -582,7 +547,6 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	)
 	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		common.Address{},
@@ -695,6 +659,73 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.False(paused)
 }
 
+func (s *ProverTestSuite) TestForceAggregate() {
+	batchSize := 3
+	restoreMonitorInterval := proofSubmitter.SetProofBufferMonitorInterval(50 * time.Millisecond)
+	defer restoreMonitorInterval()
+	// Init a batch prover
+	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROVER_PRIVATE_KEY")))
+	s.Nil(err)
+	decimal, err := s.RPCClient.PacayaClients.TaikoToken.Decimals(nil)
+	s.Nil(err)
+	s.NotZero(decimal)
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
+	batchProver := new(Prover)
+	s.Nil(InitFromConfig(context.Background(), batchProver, &Config{
+		L1WsEndpoint:          os.Getenv("L1_WS"),
+		L2WsEndpoint:          os.Getenv("L2_WS"),
+		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:      os.Getenv("L2_AUTH"),
+		JwtSecret:             string(jwtSecret),
+		PacayaInboxAddress:    common.HexToAddress(os.Getenv("PACAYA_INBOX")),
+		ShastaInboxAddress:    common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		ProverSetAddress:      common.HexToAddress(os.Getenv("PROVER_SET")),
+		L1ProverPrivKey:       l1ProverPrivKey,
+		Dummy:                 true,
+		ProveUnassignedBlocks: true,
+		Allowance: new(big.Int).Exp(
+			big.NewInt(1_000_000_000),
+			new(big.Int).SetUint64(uint64(decimal)),
+			nil,
+		),
+		RPCTimeout:                3 * time.Second,
+		BackOffRetryInterval:      3 * time.Second,
+		BackOffMaxRetries:         12,
+		SGXProofBufferSize:        uint64(batchSize),
+		ZKVMProofBufferSize:       uint64(batchSize),
+		ForceBatchProvingInterval: 500 * time.Millisecond,
+	}, s.txmgr, s.txmgr))
+
+	for i := 0; i < 1; i++ {
+		_ = s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+	}
+
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, batchSize)
+	sub, err := s.p.rpc.PacayaClients.TaikoInbox.WatchBatchesProved(nil, sink)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
+
+	s.Nil(batchProver.proveOp())
+	req1 := <-batchProver.proofSubmissionCh
+	s.Nil(batchProver.requestProofOp(req1.Meta))
+
+	select {
+	case proofType := <-batchProver.batchesAggregationNotifyPacaya:
+		log.Info("Received agg request", "proofType", proofType)
+		s.Nil(batchProver.aggregateOp(proofType, false))
+	case <-time.After(3 * time.Second):
+		s.Fail("timeout waiting for agg request")
+	}
+	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
+}
+
 func TestProverTestSuite(t *testing.T) {
 	suite.Run(t, new(ProverTestSuite))
 }
@@ -707,11 +738,17 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 	s.Nil(err)
 	s.NotNil(proposerKey)
 
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	s.Nil(err)
+	s.NotEmpty(jwtSecret)
+
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:           os.Getenv("L1_WS"),
 		L2WsEndpoint:           os.Getenv("L2_WS"),
 		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:       os.Getenv("L2_AUTH"),
+		JwtSecret:              string(jwtSecret),
 		PacayaInboxAddress:     common.HexToAddress(os.Getenv("PACAYA_INBOX")),
 		ShastaInboxAddress:     common.HexToAddress(os.Getenv("SHASTA_INBOX")),
 		TaikoAnchorAddress:     common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -729,6 +766,5 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		ZKVMProofBufferSize:    1,
 		BlockConfirmations:     0,
 	}, s.txmgr, s.txmgr))
-	s.Nil(p.shastaIndexer.Start())
 	s.p = p
 }

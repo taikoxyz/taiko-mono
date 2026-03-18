@@ -1,18 +1,15 @@
-use alethia_reth_consensus::validation::ANCHOR_V3_GAS_LIMIT;
+use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy_primitives::Address;
 use protocol::shasta::{
     constants::{
-        BLOCK_GAS_LIMIT_MAX_CHANGE, MAX_ANCHOR_OFFSET, MAX_BLOCK_GAS_LIMIT, MIN_ANCHOR_OFFSET,
-        MIN_BLOCK_GAS_LIMIT, TIMESTAMP_MAX_OFFSET,
+        BLOCK_GAS_LIMIT_MAX_CHANGE, GAS_LIMIT_DENOMINATOR, MAX_BLOCK_GAS_LIMIT,
+        MIN_BLOCK_GAS_LIMIT, max_anchor_offset_for_chain, timestamp_max_offset_for_chain,
     },
     manifest::DerivationSourceManifest,
 };
 use thiserror::Error;
 
-/// Number of basis points used for percentage-based gas limit bounds.
-const GAS_LIMIT_BASIS_POINTS: u64 = 10_000;
-
-/// Input data required to validate and normalise metadata for a single derivation source.
+/// Input data required to validate metadata for a single derivation source.
 #[derive(Debug, Clone, Copy)]
 pub struct ValidationContext {
     /// Timestamp of the parent L2 block.
@@ -27,10 +24,33 @@ pub struct ValidationContext {
     pub proposal_timestamp: u64,
     /// L1 block number in which the proposal was accepted.
     pub origin_block_number: u64,
-    /// Address of the proposer for this set of blocks.
-    pub proposer: Address,
     /// Indicates whether the proposal is a forced inclusion.
     pub is_forced_inclusion: bool,
+    /// Activation timestamp of the Shasta fork.
+    pub fork_timestamp: u64,
+    /// L2 chain ID used for chain-aware validation bounds.
+    pub chain_id: u64,
+}
+
+/// Parameters required to populate inherited metadata for forced/default manifests.
+#[derive(Debug, Clone, Copy)]
+pub struct InheritedMetadataInput {
+    /// Timestamp of the parent block.
+    pub parent_timestamp: u64,
+    /// Proposal timestamp from the L1 proposal event.
+    pub proposal_timestamp: u64,
+    /// Shasta fork activation timestamp for the chain.
+    pub fork_timestamp: u64,
+    /// Proposer coinbase inherited by blocks in forced/default manifests.
+    pub proposer: Address,
+    /// Anchor block number inherited by blocks in forced/default manifests.
+    pub anchor_block_number: u64,
+    /// Number of the parent L2 block.
+    pub parent_block_number: u64,
+    /// Gas limit of the parent L2 block.
+    pub parent_gas_limit: u64,
+    /// L2 chain ID used for chain-aware inherited timestamp bounds.
+    pub chain_id: u64,
 }
 
 /// Errors that can occur during manifest validation.
@@ -44,33 +64,31 @@ pub enum ValidationError {
     DefaultManifest,
 }
 
-/// Validate a derivation source manifest in-place according to the Shasta metadata rules.
-///
-/// The manifest is mutated to clamp timestamps, anchor block numbers, coinbase values, and gas
-/// limits. If the manifest cannot be repaired (for example when forced inclusion protection
-/// triggers), [`ValidationError::DefaultManifest`] is returned and the caller should fall back to
-/// the default manifest.
+/// Validate a derivation source manifest according to the Shasta metadata rules.
 pub fn validate_source_manifest(
-    manifest: &mut DerivationSourceManifest,
+    manifest: &DerivationSourceManifest,
     ctx: &ValidationContext,
 ) -> Result<(), ValidationError> {
     if block_count(manifest) == 0 {
         return Err(ValidationError::EmptyManifest);
     }
 
-    adjust_timestamps(manifest, ctx.parent_timestamp, ctx.proposal_timestamp);
-
-    if !adjust_anchor_numbers(
+    if !validate_timestamps(
+        manifest,
+        ctx.parent_timestamp,
+        ctx.proposal_timestamp,
+        ctx.fork_timestamp,
+        ctx.chain_id,
+    ) || !validate_anchor_numbers(
         manifest,
         ctx.origin_block_number,
         ctx.parent_anchor_block_number,
         ctx.is_forced_inclusion,
-    ) {
+        ctx.chain_id,
+    ) || !validate_gas_limit(manifest, ctx.parent_block_number, ctx.parent_gas_limit)
+    {
         return Err(ValidationError::DefaultManifest);
     }
-
-    adjust_coinbase(manifest, ctx.proposer, ctx.is_forced_inclusion);
-    adjust_gas_limit(manifest, ctx.parent_block_number, ctx.parent_gas_limit);
 
     Ok(())
 }
@@ -79,68 +97,91 @@ pub fn validate_source_manifest(
 pub fn block_count(manifest: &DerivationSourceManifest) -> usize {
     manifest.blocks.len()
 }
-
-// Adjust block timestamps to be within valid bounds.
-fn adjust_timestamps(
-    manifest: &mut DerivationSourceManifest,
+/// Ensure every block timestamp falls within the allowed window derived from the parent block,
+/// proposal timestamp, and fork activation point.
+fn validate_timestamps(
+    manifest: &DerivationSourceManifest,
     parent_timestamp: u64,
     proposal_timestamp: u64,
-) {
+    fork_timestamp: u64,
+    chain_id: u64,
+) -> bool {
     let mut parent_ts = parent_timestamp;
-    for block in &mut manifest.blocks {
-        if block.timestamp > proposal_timestamp {
-            block.timestamp = proposal_timestamp;
+
+    for block in &manifest.blocks {
+        let lower_bound =
+            compute_timestamp_lower_bound(parent_ts, proposal_timestamp, fork_timestamp, chain_id);
+        if lower_bound > proposal_timestamp {
+            return false;
         }
 
-        let lower_bound = parent_ts
-            .saturating_add(1)
-            .max(proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET));
-        if block.timestamp < lower_bound {
-            block.timestamp = lower_bound;
+        if block.timestamp < lower_bound || block.timestamp > proposal_timestamp {
+            return false;
         }
 
         parent_ts = block.timestamp;
     }
+
+    true
 }
 
-// Adjust anchor block numbers to be within valid bounds and ensure progression.
-fn adjust_anchor_numbers(
-    manifest: &mut DerivationSourceManifest,
+/// Compute the minimum valid timestamp for the next block in the sequence.
+fn compute_timestamp_lower_bound(
+    parent_timestamp: u64,
+    proposal_timestamp: u64,
+    fork_timestamp: u64,
+    chain_id: u64,
+) -> u64 {
+    let timestamp_max_offset = timestamp_max_offset_for_chain(chain_id);
+    let lower_bound = parent_timestamp.saturating_add(1);
+
+    // Only tighten the bound when the proposal exceeds the offset.
+    let lower_bound = if proposal_timestamp > timestamp_max_offset {
+        lower_bound.max(proposal_timestamp - timestamp_max_offset)
+    } else {
+        lower_bound
+    };
+
+    lower_bound.max(fork_timestamp)
+}
+
+/// Ensure anchor numbers progress monotonically and remain within the protocol bounds.
+fn validate_anchor_numbers(
+    manifest: &DerivationSourceManifest,
     origin_block_number: u64,
     parent_anchor_block_number: u64,
     is_forced_inclusion: bool,
+    chain_id: u64,
 ) -> bool {
     let mut parent_anchor = parent_anchor_block_number;
     let mut highest_anchor = parent_anchor_block_number;
+    let max_anchor_offset = max_anchor_offset_for_chain(chain_id);
 
-    for block in &mut manifest.blocks {
-        if block.anchor_block_number < parent_anchor {
-            block.anchor_block_number = parent_anchor;
+    for block in &manifest.blocks {
+        let anchor = block.anchor_block_number;
+
+        if anchor < parent_anchor {
+            return false;
         }
 
-        let future_reference_limit = origin_block_number.saturating_sub(MIN_ANCHOR_OFFSET);
-        if block.anchor_block_number >= future_reference_limit {
-            block.anchor_block_number = parent_anchor;
+        if anchor > origin_block_number {
+            return false;
         }
 
-        if origin_block_number > MAX_ANCHOR_OFFSET {
-            let min_allowed = origin_block_number - MAX_ANCHOR_OFFSET;
-            if block.anchor_block_number < min_allowed {
-                block.anchor_block_number = parent_anchor;
+        if origin_block_number > max_anchor_offset {
+            let min_allowed = origin_block_number - max_anchor_offset;
+            if anchor < min_allowed {
+                return false;
             }
         }
 
-        if block.anchor_block_number > highest_anchor {
-            highest_anchor = block.anchor_block_number;
+        if anchor > highest_anchor {
+            highest_anchor = anchor;
         }
 
-        parent_anchor = block.anchor_block_number;
+        parent_anchor = anchor;
     }
 
-    // Non-forced-inclusion proposals must advance the anchor block number to ensure
-    // that each new proposal references a more recent anchor block, maintaining protocol
-    // liveness and preventing replay or stalling attacks. Forced-inclusion proposals are
-    // exempt from this rule to allow for exceptional cases.
     if !is_forced_inclusion && highest_anchor <= parent_anchor_block_number {
         return false;
     }
@@ -148,200 +189,322 @@ fn adjust_anchor_numbers(
     true
 }
 
-// Adjust coinbase values to ensure they are set to the proposer when appropriate.
-fn adjust_coinbase(
-    manifest: &mut DerivationSourceManifest,
-    proposer: Address,
-    is_forced_inclusion: bool,
-) {
-    for block in &mut manifest.blocks {
-        if is_forced_inclusion || block.coinbase == Address::ZERO {
-            block.coinbase = proposer;
-        }
-    }
-}
-
-// Adjust gas limits to be within valid bounds.
-fn adjust_gas_limit(
-    manifest: &mut DerivationSourceManifest,
+/// Ensure each block's gas limit respects both the per-block delta and absolute bounds.
+fn validate_gas_limit(
+    manifest: &DerivationSourceManifest,
     parent_block_number: u64,
     parent_gas_limit: u64,
-) {
-    let mut effective_parent_gas_limit = if parent_block_number == 0 {
-        parent_gas_limit
-    } else {
-        parent_gas_limit.saturating_sub(ANCHOR_V3_GAS_LIMIT)
-    };
+) -> bool {
+    let mut effective_parent_gas_limit =
+        effective_parent_gas_limit(parent_block_number, parent_gas_limit);
 
-    for block in &mut manifest.blocks {
-        if block.gas_limit == 0 {
-            block.gas_limit = effective_parent_gas_limit;
-        }
-
-        let parent = effective_parent_gas_limit as u128;
-        let basis_points = u128::from(GAS_LIMIT_BASIS_POINTS);
-        let lower_factor =
-            u128::from(GAS_LIMIT_BASIS_POINTS.saturating_sub(BLOCK_GAS_LIMIT_MAX_CHANGE));
-        let lower_bound = parent.saturating_mul(lower_factor) / basis_points;
-        let lower_bound = lower_bound.max(MIN_BLOCK_GAS_LIMIT as u128) as u64;
-
-        let upper_factor =
-            u128::from(GAS_LIMIT_BASIS_POINTS.saturating_add(BLOCK_GAS_LIMIT_MAX_CHANGE));
-        let upper_bound = parent.saturating_mul(upper_factor) / basis_points;
-        let upper_bound = upper_bound.min(MAX_BLOCK_GAS_LIMIT as u128) as u64;
-
-        if block.gas_limit < lower_bound {
-            block.gas_limit = lower_bound;
-        }
-
-        if block.gas_limit > upper_bound {
-            block.gas_limit = upper_bound;
+    for block in &manifest.blocks {
+        let (lower_bound, upper_bound) = gas_limit_bounds(effective_parent_gas_limit);
+        if block.gas_limit < lower_bound || block.gas_limit > upper_bound {
+            return false;
         }
 
         effective_parent_gas_limit = block.gas_limit;
+    }
+
+    true
+}
+
+/// Compute the valid gas-limit bounds from the effective parent gas limit.
+fn gas_limit_bounds(parent_gas_limit: u64) -> (u64, u64) {
+    let parent = u128::from(parent_gas_limit);
+    let denominator = u128::from(GAS_LIMIT_DENOMINATOR);
+    let change = u128::from(BLOCK_GAS_LIMIT_MAX_CHANGE);
+    let upper = parent.saturating_mul(denominator.saturating_add(change)) / denominator;
+    let upper = upper.min(u128::from(MAX_BLOCK_GAS_LIMIT)) as u64;
+    let lower = parent.saturating_mul(denominator.saturating_sub(change)) / denominator;
+    let lower = lower.max(u128::from(MIN_BLOCK_GAS_LIMIT)).min(u128::from(upper)) as u64;
+
+    (lower, upper)
+}
+
+/// Compute the parent gas limit after discounting anchor gas for non-genesis parents.
+fn effective_parent_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
+    if parent_block_number == 0 {
+        parent_gas_limit
+    } else {
+        parent_gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
+    }
+}
+
+/// Populate each block with inherited metadata (timestamp, anchor, gas limit, coinbase)
+/// using the parent block’s values so forced-inclusion segments and default manifests have
+/// consistent metadata prior to validation.
+pub fn apply_inherited_metadata(
+    manifest: &mut DerivationSourceManifest,
+    input: InheritedMetadataInput,
+) {
+    let mut parent_ts = input.parent_timestamp;
+    let parent_gas_limit =
+        effective_parent_gas_limit(input.parent_block_number, input.parent_gas_limit);
+
+    for block in &mut manifest.blocks {
+        let lower_bound = compute_timestamp_lower_bound(
+            parent_ts,
+            input.proposal_timestamp,
+            input.fork_timestamp,
+            input.chain_id,
+        );
+        block.timestamp = lower_bound;
+        block.coinbase = input.proposer;
+        block.anchor_block_number = input.anchor_block_number;
+        block.gas_limit = parent_gas_limit;
+        parent_ts = lower_bound;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::{Address, Bytes};
-    use protocol::shasta::manifest::BlockManifest;
+    use alloy_primitives::Address;
+    use protocol::shasta::{
+        constants::{MAX_ANCHOR_OFFSET, TAIKO_HOODI_CHAIN_ID},
+        manifest::BlockManifest,
+    };
 
     use super::*;
 
     fn manifest_with_blocks(blocks: Vec<BlockManifest>) -> DerivationSourceManifest {
-        DerivationSourceManifest { prover_auth_bytes: Bytes::new(), blocks }
+        DerivationSourceManifest { blocks }
     }
 
     #[test]
-    fn adjust_timestamp_bounds() {
+    fn validate_timestamp_bounds() {
         let parent_timestamp = 1_000;
         let proposal_timestamp = 2_000;
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
+        let chain_id = TAIKO_HOODI_CHAIN_ID;
+        let manifest = manifest_with_blocks(vec![BlockManifest {
             timestamp: proposal_timestamp + 100,
             coinbase: Address::ZERO,
             anchor_block_number: 0,
             gas_limit: 0,
             transactions: Vec::new(),
         }]);
+        assert!(!validate_timestamps(&manifest, parent_timestamp, proposal_timestamp, 0, chain_id));
 
-        adjust_timestamps(&mut manifest, parent_timestamp, proposal_timestamp);
-        assert_eq!(manifest.blocks[0].timestamp, proposal_timestamp);
-
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
+        let manifest = manifest_with_blocks(vec![BlockManifest {
             timestamp: parent_timestamp,
             coinbase: Address::ZERO,
             anchor_block_number: 0,
             gas_limit: 0,
             transactions: Vec::new(),
         }]);
-        adjust_timestamps(&mut manifest, parent_timestamp, proposal_timestamp);
-        let lower_bound =
-            (parent_timestamp + 1).max(proposal_timestamp.saturating_sub(TIMESTAMP_MAX_OFFSET));
-        assert_eq!(manifest.blocks[0].timestamp, lower_bound);
+        assert!(!validate_timestamps(&manifest, parent_timestamp, proposal_timestamp, 0, chain_id));
+
+        let lower_bound = (parent_timestamp + 1)
+            .max(proposal_timestamp.saturating_sub(timestamp_max_offset_for_chain(chain_id)));
+        let manifest = manifest_with_blocks(vec![BlockManifest {
+            timestamp: lower_bound + 5,
+            coinbase: Address::ZERO,
+            anchor_block_number: 0,
+            gas_limit: 0,
+            transactions: Vec::new(),
+        }]);
+        assert!(validate_timestamps(&manifest, parent_timestamp, proposal_timestamp, 0, chain_id));
     }
 
     #[test]
-    fn adjust_anchor_numbers_checks_progression() {
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
+    fn validate_anchor_numbers_checks_progression() {
+        let manifest = manifest_with_blocks(vec![BlockManifest {
             anchor_block_number: 50,
             timestamp: 0,
             coinbase: Address::ZERO,
             gas_limit: 0,
             transactions: Vec::new(),
         }]);
+        assert!(!validate_anchor_numbers(&manifest, 100, 60, false, TAIKO_HOODI_CHAIN_ID));
 
-        let ok = adjust_anchor_numbers(&mut manifest, 100, 60, false);
-        assert!(!ok);
-        assert_eq!(manifest.blocks[0].anchor_block_number, 60);
-
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
+        let manifest = manifest_with_blocks(vec![BlockManifest {
             anchor_block_number: 80,
             timestamp: 0,
             coinbase: Address::ZERO,
             gas_limit: 0,
             transactions: Vec::new(),
         }]);
+        assert!(validate_anchor_numbers(&manifest, 100, 60, false, TAIKO_HOODI_CHAIN_ID));
 
-        let ok = adjust_anchor_numbers(&mut manifest, 100, 60, false);
-        assert!(ok);
-        assert_eq!(manifest.blocks[0].anchor_block_number, 80);
+        let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
+        apply_inherited_metadata(
+            &mut manifest,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 1_010,
+                fork_timestamp: 500,
+                proposer: Address::repeat_byte(0x22),
+                anchor_block_number: 1_000 - MAX_ANCHOR_OFFSET,
+                parent_block_number: 2,
+                parent_gas_limit: 30_000_000,
+                chain_id: TAIKO_HOODI_CHAIN_ID,
+            },
+        );
+        assert!(validate_anchor_numbers(
+            &manifest,
+            1_000,
+            1_000 - MAX_ANCHOR_OFFSET,
+            true,
+            TAIKO_HOODI_CHAIN_ID
+        ));
+
+        let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
+        apply_inherited_metadata(
+            &mut manifest,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 1_010,
+                fork_timestamp: 900,
+                proposer: Address::repeat_byte(0x11),
+                anchor_block_number: 60,
+                parent_block_number: 2,
+                parent_gas_limit: 30_000_000,
+                chain_id: TAIKO_HOODI_CHAIN_ID,
+            },
+        );
+        assert!(validate_anchor_numbers(&manifest, 100, 60, true, TAIKO_HOODI_CHAIN_ID));
     }
 
     #[test]
-    fn coinbase_assignment_prioritises_proposer() {
-        let proposer = Address::from([1u8; 20]);
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
+    fn validate_gas_limit_bounds() {
+        let parent_block_number = 1;
+        let parent_gas_limit = 30_000_000;
+        let manifest = manifest_with_blocks(vec![BlockManifest {
+            gas_limit: parent_gas_limit * 2,
+            timestamp: 0,
             coinbase: Address::ZERO,
-            timestamp: 0,
             anchor_block_number: 0,
-            gas_limit: 0,
             transactions: Vec::new(),
         }]);
+        assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
 
-        adjust_coinbase(&mut manifest, proposer, false);
-        assert_eq!(manifest.blocks[0].coinbase, proposer);
-
-        let other = Address::from([2u8; 20]);
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
-            coinbase: other,
-            timestamp: 0,
-            anchor_block_number: 0,
+        let manifest = manifest_with_blocks(vec![BlockManifest {
             gas_limit: 0,
+            timestamp: 0,
+            coinbase: Address::ZERO,
+            anchor_block_number: 0,
             transactions: Vec::new(),
         }]);
+        assert!(!validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
 
-        adjust_coinbase(&mut manifest, proposer, true);
-        assert_eq!(manifest.blocks[0].coinbase, proposer);
+        let manifest = manifest_with_blocks(vec![BlockManifest {
+            gas_limit: parent_gas_limit - ANCHOR_V3_V4_GAS_LIMIT,
+            timestamp: 0,
+            coinbase: Address::ZERO,
+            anchor_block_number: 0,
+            transactions: Vec::new(),
+        }]);
+        assert!(validate_gas_limit(&manifest, parent_block_number, parent_gas_limit));
     }
 
     #[test]
-    fn gas_limit_is_clamped_within_bounds() {
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
-            gas_limit: 0,
-            timestamp: 0,
-            anchor_block_number: 0,
-            coinbase: Address::ZERO,
-            transactions: Vec::new(),
-        }]);
-
-        adjust_gas_limit(&mut manifest, 10, 20_000_000);
-        assert_eq!(manifest.blocks[0].gas_limit, 19_000_000);
-
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
-            gas_limit: 1,
-            timestamp: 0,
-            anchor_block_number: 0,
-            coinbase: Address::ZERO,
-            transactions: Vec::new(),
-        }]);
-
-        adjust_gas_limit(&mut manifest, 0, 20_000_000);
-        assert!(manifest.blocks[0].gas_limit >= MIN_BLOCK_GAS_LIMIT);
-    }
-
-    #[test]
-    fn validate_manifest_returns_default_on_anchor_failure() {
-        let mut manifest = manifest_with_blocks(vec![BlockManifest {
-            anchor_block_number: 1,
-            coinbase: Address::ZERO,
-            timestamp: 0,
-            gas_limit: 0,
-            transactions: Vec::new(),
-        }]);
-
+    fn validate_source_manifest_marks_default() {
         let ctx = ValidationContext {
-            parent_timestamp: 0,
-            parent_gas_limit: 20_000_000,
-            parent_block_number: 1,
-            parent_anchor_block_number: 10,
-            proposal_timestamp: 100,
-            origin_block_number: 20,
-            proposer: Address::from([3u8; 20]),
+            parent_timestamp: 1_000,
+            parent_gas_limit: 30_000_000,
+            parent_block_number: 0,
+            parent_anchor_block_number: 0,
+            proposal_timestamp: 1_010,
+            origin_block_number: 1_000,
             is_forced_inclusion: false,
+            fork_timestamp: 0,
+            chain_id: TAIKO_HOODI_CHAIN_ID,
         };
 
-        let err = validate_source_manifest(&mut manifest, &ctx).unwrap_err();
-        assert_eq!(err, ValidationError::DefaultManifest);
+        let manifest = manifest_with_blocks(Vec::new());
+        assert_eq!(validate_source_manifest(&manifest, &ctx), Err(ValidationError::EmptyManifest));
+
+        let manifest = manifest_with_blocks(vec![BlockManifest {
+            timestamp: ctx.parent_timestamp,
+            coinbase: Address::ZERO,
+            anchor_block_number: ctx.parent_anchor_block_number,
+            gas_limit: 0,
+            transactions: Vec::new(),
+        }]);
+        assert_eq!(
+            validate_source_manifest(&manifest, &ctx),
+            Err(ValidationError::DefaultManifest)
+        );
+    }
+
+    #[test]
+    fn apply_inherited_metadata_sets_fields() {
+        let mut manifest =
+            manifest_with_blocks(vec![BlockManifest::default(), BlockManifest::default()]);
+        apply_inherited_metadata(
+            &mut manifest,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 2_000,
+                fork_timestamp: 1_500,
+                proposer: Address::repeat_byte(0x11),
+                anchor_block_number: 900,
+                parent_block_number: 10,
+                parent_gas_limit: 30_000_000,
+                chain_id: TAIKO_HOODI_CHAIN_ID,
+            },
+        );
+
+        for block in &manifest.blocks {
+            assert_eq!(block.coinbase, Address::repeat_byte(0x11));
+            assert_eq!(block.anchor_block_number, 900);
+            assert_eq!(block.gas_limit, 30_000_000 - ANCHOR_V3_V4_GAS_LIMIT);
+        }
+        assert_eq!(
+            manifest.blocks.first().unwrap().timestamp,
+            compute_timestamp_lower_bound(1_000, 2_000, 1_500, TAIKO_HOODI_CHAIN_ID)
+        );
+    }
+
+    #[test]
+    fn apply_inherited_metadata_respects_fork_lower_bound() {
+        let mut manifest = manifest_with_blocks(vec![BlockManifest::default()]);
+        apply_inherited_metadata(
+            &mut manifest,
+            InheritedMetadataInput {
+                parent_timestamp: 1_000,
+                proposal_timestamp: 1_100,
+                fork_timestamp: 1_200,
+                proposer: Address::repeat_byte(0xAA),
+                anchor_block_number: 50,
+                parent_block_number: 10,
+                parent_gas_limit: 30_000_000,
+                chain_id: TAIKO_HOODI_CHAIN_ID,
+            },
+        );
+
+        assert_eq!(
+            manifest.blocks[0].timestamp,
+            compute_timestamp_lower_bound(1_000, 1_100, 1_200, TAIKO_HOODI_CHAIN_ID)
+        );
+        assert_eq!(manifest.blocks[0].coinbase, Address::repeat_byte(0xAA));
+    }
+
+    #[test]
+    fn mainnet_offsets_expand_validation_window() {
+        use protocol::shasta::constants::TAIKO_MAINNET_CHAIN_ID;
+
+        let parent_timestamp = 100;
+        let proposal_timestamp = 10_000;
+        let hoodi_lower = compute_timestamp_lower_bound(
+            parent_timestamp,
+            proposal_timestamp,
+            0,
+            TAIKO_HOODI_CHAIN_ID,
+        );
+        let mainnet_lower = compute_timestamp_lower_bound(
+            parent_timestamp,
+            proposal_timestamp,
+            0,
+            TAIKO_MAINNET_CHAIN_ID,
+        );
+
+        assert!(mainnet_lower < hoodi_lower);
+        assert_eq!(
+            mainnet_lower,
+            proposal_timestamp
+                .saturating_sub(timestamp_max_offset_for_chain(TAIKO_MAINNET_CHAIN_ID))
+        );
     }
 }

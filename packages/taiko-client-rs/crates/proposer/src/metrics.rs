@@ -1,6 +1,7 @@
 //! Prometheus metrics for tracking proposer.
 
 #[derive(Debug, Clone)]
+/// Metric keys emitted by the proposer service.
 pub struct ProposerMetrics;
 
 impl ProposerMetrics {

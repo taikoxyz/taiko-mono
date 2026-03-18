@@ -174,9 +174,9 @@ func GetBatchProofStatus(
 			"batchID", batchID,
 			"parent", parent.Hash().Hex(),
 			"localBlockHash", lastHeaderInBatch.Hash(),
-			"protocolTransitionBlockHash", common.BytesToHash(transition.BlockHash[:]),
+			"protocolTransitionBlockHash", common.Hash(transition.BlockHash),
 			"localStateRoot", lastHeaderInBatch.Root,
-			"protocolTransitionStateRoot", common.BytesToHash(transition.StateRoot[:]),
+			"protocolTransitionStateRoot", common.Hash(transition.StateRoot),
 		)
 		// Status 2, an invalid proof has been submitted.
 		return &BatchProofStatus{IsSubmitted: true, Invalid: true, ParentHeader: parent}, nil

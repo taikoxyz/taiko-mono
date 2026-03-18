@@ -14,17 +14,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol1"
-	v2 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v2/taikol1"
-	v3 "github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v3/taikoinbox"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/inbox"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
@@ -91,15 +88,13 @@ type Indexer struct {
 	bridge     relayer.Bridge
 	destBridge relayer.Bridge
 
-	signalService relayer.SignalService
+	signalService *signalservice.SignalService
 
 	blockBatchSize      uint64
 	numGoroutines       int
 	subscriptionBackoff time.Duration
 
-	taikol1      *taikol1.TaikoL1
-	taikoL1V2    *v2.TaikoL1
-	taikoInboxV3 *v3.TaikoInbox
+	shastaInbox *inbox.ShastaInboxClient
 
 	queue queue.Queue
 
@@ -176,41 +171,26 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 		return errors.Wrap(err, "bridge.NewBridge")
 	}
 
-	// taikoL1 will only be set when initializing a L1 - L2 indexer
-	var taikoL1 *taikol1.TaikoL1
-
-	var taikoL1V2 *v2.TaikoL1
-
-	var taikoInboxV3 *v3.TaikoInbox
+	var shastaInbox *inbox.ShastaInboxClient
 
 	if cfg.SrcTaikoAddress != ZeroAddress {
 		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
 
-		taikoL1, err = taikol1.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
+		shastaInbox, err = inbox.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
 		if err != nil {
-			return errors.Wrap(err, "taikol1.NewTaikoL1")
-		}
-
-		taikoL1V2, err = v2.NewTaikoL1(cfg.SrcTaikoAddress, srcEthClient)
-		if err != nil {
-			return errors.Wrap(err, "v2.NewTaikoL1")
-		}
-
-		taikoInboxV3, err = v3.NewTaikoInbox(cfg.SrcTaikoAddress, srcEthClient)
-		if err != nil {
-			return errors.Wrap(err, "v3.NewTaikoInbox")
+			return errors.Wrap(err, "inbox.NewShastaInboxClient")
 		}
 	}
 
-	var signalService relayer.SignalService
+	if cfg.SrcSignalServiceAddress == ZeroAddress {
+		return errors.New("srcSignalServiceAddress not provided")
+	}
 
-	if cfg.SrcSignalServiceAddress != ZeroAddress {
-		slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
+	slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
 
-		signalService, err = signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
-		if err != nil {
-			return errors.Wrap(err, "signalservice.NewSignalService")
-		}
+	ss, err := signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
+	if err != nil {
+		return errors.Wrap(err, "signalservice.NewSignalService")
 	}
 
 	srcChainID, err := srcEthClient.ChainID(context.Background())
@@ -228,10 +208,8 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	i.bridge = srcBridge
 	i.destBridge = destBridge
-	i.signalService = signalService
-	i.taikol1 = taikoL1
-	i.taikoL1V2 = taikoL1V2
-	i.taikoInboxV3 = taikoInboxV3
+	i.signalService = ss
+	i.shastaInbox = shastaInbox
 
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.numGoroutines = int(cfg.NumGoroutines)
@@ -362,9 +340,15 @@ func (i *Indexer) filter(ctx context.Context) error {
 		if i.targetBlockNumber != nil {
 			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
 
-			i.latestIndexedBlockNumber = *i.targetBlockNumber
+			if *i.targetBlockNumber == 0 {
+				slog.Error("invalid targetBlockNumber, must be greater than 0", "targetBlockNumber", *i.targetBlockNumber)
 
-			endBlockID = i.latestIndexedBlockNumber + 1
+				return errors.New("targetBlockNumber must be greater than 0")
+			}
+
+			i.latestIndexedBlockNumber = *i.targetBlockNumber - 1
+
+			endBlockID = *i.targetBlockNumber
 		} else {
 			// set the initial processing block back to either 0 or the genesis block again.
 			if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
@@ -425,10 +409,9 @@ func (i *Indexer) filter(ctx context.Context) error {
 					relayer.MessageStatusChangedEventsAfterRetryErrorCount.Inc()
 				}
 
-				// we also want to index chain data synced events.
-				if err := i.withRetry(func() error { return i.indexChainDataSyncedEvents(ctx, filterOpts) }); err != nil {
-					slog.Error("i.indexChainDataSyncedEvents", "error", err)
-					relayer.ChainDataSyncedEventsAfterRetryErrorCount.Inc()
+				if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
+					slog.Error("i.indexCheckpointSavedEvents", "error", err)
+					relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
 				}
 			}
 		case relayer.EventNameMessageProcessed:
@@ -453,6 +436,7 @@ func (i *Indexer) indexMessageSentEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageSent")
 	}
+	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -517,6 +501,7 @@ func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageProcessed")
 	}
+	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -566,6 +551,7 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 	if err != nil {
 		return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
 	}
+	defer events.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
@@ -595,37 +581,31 @@ func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
 	return nil
 }
 
-// indexChainDataSyncedEvents indexes `ChainDataSynced` events on the bridge contract
-// and stores them to the database. It does not add them to any queue. It only indexes
-// the "STATE_ROOT" kind, not the "SIGNAL_ROOT" kind.
-func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
+func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
 	filterOpts *bind.FilterOpts,
 ) error {
-	slog.Info("indexing chainDataSynced events")
+	slog.Info("indexing checkpointSaved events")
 
-	chainDataSyncedEvents, err := i.signalService.FilterChainDataSynced(
+	checkpointEvents, err := i.signalService.FilterCheckpointSaved(
 		filterOpts,
-		[]uint64{i.destChainId.Uint64()}, // only index intended events destination chain
 		nil,
-		[][32]byte{crypto.Keccak256Hash([]byte("STATE_ROOT"))}, // only index state root
 	)
 	if err != nil {
-		return errors.Wrap(err, "bridge.FilterChainDataSynced")
+		return errors.Wrap(err, "signalService.FilterCheckpointSaved")
 	}
+	defer checkpointEvents.Close()
 
 	group, _ := errgroup.WithContext(ctx)
 	group.SetLimit(i.numGoroutines)
 
-	for chainDataSyncedEvents.Next() {
-		event := chainDataSyncedEvents.Event
+	for checkpointEvents.Next() {
+		event := checkpointEvents.Event
 
 		group.Go(func() error {
-			err := i.handleChainDataSyncedEvent(ctx, event, true)
+			err := i.handleCheckpointSavedEvent(ctx, event, true)
 			if err != nil {
-				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
-
-				// log error but always return nil to keep other goroutines active
-				slog.Error("error handling chainDataSynced", "err", err.Error())
+				relayer.CheckpointSavedEventsIndexingErrors.Inc()
+				slog.Error("error handling checkpointSaved", "err", err.Error())
 
 				return err
 			}
@@ -634,7 +614,6 @@ func (i *Indexer) indexChainDataSyncedEvents(ctx context.Context,
 		})
 	}
 
-	// wait for the last of the goroutines to finish
 	if err := group.Wait(); err != nil {
 		return errors.Wrap(err, "group.Wait")
 	}

@@ -32,7 +32,6 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 		nil,
 		nil,
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		nil,
 	)
 	s.Nil(err)

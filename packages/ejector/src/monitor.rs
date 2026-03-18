@@ -12,7 +12,7 @@ use alloy::{
 use eyre::Result;
 use futures_util::StreamExt;
 use tokio::{
-    sync::{Mutex, RwLock},
+    sync::{Mutex, Notify, RwLock},
     time::{interval, sleep},
 };
 use tracing::{debug, error, info, warn};
@@ -129,53 +129,154 @@ pub struct Monitor {
     beacon_client: BeaconClient,
     l1_signer: alloy::signers::local::PrivateKeySigner,
     l2_ws_url: Url,
+    l2_http_url: Url,
     l1_ws_url: Url,
     l1_http_url: Url,
-    target_block_time: Duration,
     eject_after: Duration,
     taiko_wrapper_address: Address,
     whitelist_address: Address,
     handover_slots: u64,
     preconf_router_address: Address,
+    anchor_address: Option<Address>,
     min_operators: u64,
     min_reorg_depth_for_eject: usize,
+    reorg_ejection_enabled: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SyncStatusClass {
+    NotSyncing,
+    Syncing,
+    Unknown,
+}
+
+fn classify_sync_status(value: &serde_json::Value) -> SyncStatusClass {
+    match value {
+        serde_json::Value::Bool(false) | serde_json::Value::Null => SyncStatusClass::NotSyncing,
+        serde_json::Value::Object(_) => SyncStatusClass::Syncing,
+        _ => SyncStatusClass::Unknown,
+    }
+}
+
+fn should_skip_for_sync_class(class: SyncStatusClass) -> bool {
+    matches!(class, SyncStatusClass::Syncing | SyncStatusClass::Unknown)
+}
+
+/// Result of checking if a reorg is due to re-anchoring.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReanchoringCheck {
+    /// Anchor block changed - this is a re-anchoring event, skip ejection
+    ReanchoringDetected { prev_anchor: u64, current_anchor: u64 },
+    /// Anchor block unchanged - proceed with ejection check
+    NoReanchoring,
+    /// First time seeing anchor block - no previous to compare
+    FirstAnchor,
+}
+
+/// Check if a reorg is due to re-anchoring by comparing anchor block numbers.
+fn check_reanchoring(prev_anchor: Option<u64>, current_anchor: u64) -> ReanchoringCheck {
+    match prev_anchor {
+        Some(prev) if prev != current_anchor => {
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: prev, current_anchor }
+        }
+        Some(_) => ReanchoringCheck::NoReanchoring,
+        None => ReanchoringCheck::FirstAnchor,
+    }
+}
+
+/// Check if ejection should be skipped due to a recent chain reset.
+/// Returns true if a chain reset was detected within the grace period (3x eject_after).
+fn should_skip_due_to_chain_reset(chain_reset_at: Option<Instant>, eject_after: Duration) -> bool {
+    chain_reset_at
+        .map(|reset_time| is_within_chain_reset_grace_period(reset_time.elapsed(), eject_after))
+        .unwrap_or(false)
+}
+
+/// Check if elapsed time since chain reset is within the grace period.
+/// Grace period is 3x the eject_after duration.
+fn is_within_chain_reset_grace_period(elapsed: Duration, eject_after: Duration) -> bool {
+    let grace_period = eject_after * 3;
+    elapsed < grace_period
 }
 
 impl Monitor {
+    // Returns true if the node appears to be syncing or if the sync status cannot be determined.
+    async fn should_skip_due_to_sync_status<P>(provider: &P, node_label: &str) -> bool
+    where
+        P: Provider + Clone + Send + Sync + 'static,
+    {
+        match provider.syncing().await {
+            Ok(syncing) => match serde_json::to_value(&syncing) {
+                Ok(value) => {
+                    let class = classify_sync_status(&value);
+                    match class {
+                        SyncStatusClass::NotSyncing => {}
+                        SyncStatusClass::Syncing => {
+                            warn!(node = node_label, "Node is syncing; skipping eject this tick");
+                        }
+                        SyncStatusClass::Unknown => {
+                            warn!(
+                                node = node_label,
+                                "Unexpected sync status format: {value:?}; skipping eject this tick"
+                            );
+                        }
+                    }
+                    should_skip_for_sync_class(class)
+                }
+                Err(e) => {
+                    warn!(
+                        node = node_label,
+                        "Failed to process sync status: {e:?}; skipping eject this tick"
+                    );
+                    true
+                }
+            },
+            Err(e) => {
+                warn!(
+                    node = node_label,
+                    "Failed to query sync status: {e:?}; skipping eject this tick"
+                );
+                true
+            }
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         beacon_client: BeaconClient,
         l1_signer: alloy::signers::local::PrivateKeySigner,
         l2_ws_url: Url,
+        l2_http_url: Url,
         l1_ws_url: Url,
         l1_http_url: Url,
-        target_block_time_secs: u64,
-        eject_after_n_slots_missed: u64,
+        eject_after_seconds: u64,
         taiko_wrapper_address: Address,
         whitelist_address: Address,
         handover_slots: u64,
         preconf_router_address: Address,
+        anchor_address: Option<Address>,
         min_operators: u64,
         min_reorg_depth_for_eject: usize,
+        reorg_ejection_enabled: bool,
     ) -> Self {
-        let target_block_time = Duration::from_secs(target_block_time_secs);
-        let eject_after_secs = target_block_time_secs.saturating_mul(eject_after_n_slots_missed);
-        let eject_after = Duration::from_secs(eject_after_secs);
+        let eject_after = Duration::from_secs(eject_after_seconds);
 
         Self {
             beacon_client,
             l1_signer,
             l2_ws_url,
+            l2_http_url,
             l1_ws_url,
             l1_http_url,
-            target_block_time,
             eject_after,
             taiko_wrapper_address,
             whitelist_address,
             handover_slots,
             preconf_router_address,
+            anchor_address,
             min_operators,
             min_reorg_depth_for_eject,
+            reorg_ejection_enabled,
         }
     }
 
@@ -187,15 +288,23 @@ impl Monitor {
 
         let last_seen = Arc::new(Mutex::new(Instant::now()));
         let last_block_seen = Arc::new(Mutex::new(Instant::now()));
+        let last_l2_head_number = Arc::new(Mutex::new(None::<u64>));
+        let chain_reset_at = Arc::new(Mutex::new(None::<Instant>));
+        let reconnect_notify = Arc::new(Notify::new());
         metrics::set_last_seen_drift_seconds(0);
         metrics::set_last_block_age_seconds(0);
-        let tick = self.target_block_time;
+        // Align watchdog tick with beacon slots to avoid spamming identical responsibility logs.
+        let tick = Duration::from_secs(self.beacon_client.seconds_per_slot);
         let max = self.eject_after;
         let last_seen_for_watch = last_seen.clone();
         let last_block_for_watch = last_block_seen.clone();
+        let last_l2_head_for_watch = last_l2_head_number.clone();
+        let chain_reset_for_watch = chain_reset_at.clone();
+        let reconnect_notify_for_watch = reconnect_notify.clone();
 
         let l1_http_url = self.l1_http_url.clone();
         let l1_ws_url = self.l1_ws_url.clone();
+        let l2_http_url = self.l2_http_url.clone();
         let taiko_wrapper_address = self.taiko_wrapper_address;
         let whitelist_address = self.whitelist_address;
         let signer = self.l1_signer.clone();
@@ -217,6 +326,18 @@ impl Monitor {
 
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
+        let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
+        // Clone for use in main loop (reorg sync status checks and anchor queries)
+        let l2_http_provider_for_reorg = l2_http_provider.clone();
+        // Anchor contract for detecting re-anchoring (only if reorg ejection is enabled and address is configured)
+        let anchor_contract = if self.reorg_ejection_enabled {
+            self.anchor_address
+                .map(|addr| crate::bindings::Anchor::new(addr, l2_http_provider_for_reorg.clone()))
+        } else {
+            None
+        };
+        // Track last known anchor block number to detect re-anchoring
+        let last_anchor_block = Arc::new(Mutex::new(None::<u64>));
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
         let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
@@ -230,6 +351,30 @@ impl Monitor {
             }
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
+                let retry_cache = operator_cache.clone();
+                let retry_whitelist = preconf_whitelist.clone();
+                tokio::spawn(async move {
+                    let mut backoff = Duration::from_secs(5);
+                    let max_backoff = Duration::from_secs(60);
+                    loop {
+                        sleep(backoff).await;
+                        match initialize_eject_metrics(&retry_whitelist).await {
+                            Ok(initialized) => {
+                                let mut cache = retry_cache.write().await;
+                                cache.clear();
+                                for (proposer, sequencer) in initialized {
+                                    cache.upsert(proposer, sequencer);
+                                }
+                                info!("Initialized eject metrics after retry");
+                                break;
+                            }
+                            Err(err) => {
+                                warn!("Failed to initialize eject metrics (retry): {err:?}");
+                                backoff = std::cmp::min(max_backoff, backoff * 2);
+                            }
+                        }
+                    }
+                });
             }
         }
         let preconf_router =
@@ -243,8 +388,10 @@ impl Monitor {
         // watchdog task
         let watchdog_l1_http_url = l1_http_url.clone();
         let watchdog_signer = signer.clone();
+        let mut shared_l2_http_provider = l2_http_provider;
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
+            let mut l2_block_query_failures: u32 = 0;
             loop {
                 ticker.tick().await;
 
@@ -320,43 +467,100 @@ impl Monitor {
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
 
-                    // Query L1 sync state and decide whether to skip this tick.
-                    let mut skip_due_to_l1 = false;
-                    match http_provider.syncing().await {
-                        Ok(syncing) => match serde_json::to_value(&syncing) {
-                            Ok(serde_json::Value::Bool(false)) => {
-                                // Fully synced; proceed to eject
-                            }
-                            Ok(serde_json::Value::Object(_)) => {
-                                warn!("L1 node is syncing; skipping eject this tick");
-                                skip_due_to_l1 = true;
-                            }
-                            Ok(unexpected) => {
-                                warn!(
-                                    "Unexpected L1 sync status format: {unexpected:?}; skipping eject this tick"
-                                );
-                                skip_due_to_l1 = true;
+                    // L2 sanity check: if the L2 node is syncing or its head is advancing, avoid
+                    // ejecting based solely on a stalled WS subscription.
+                    let mut skip_due_to_l2 =
+                        Self::should_skip_due_to_sync_status(&shared_l2_http_provider, "L2").await;
+
+                    if !skip_due_to_l2 {
+                        match shared_l2_http_provider.get_block_number().await {
+                            Ok(l2_head) => {
+                                l2_block_query_failures = 0;
+                                let mut guard = last_l2_head_for_watch.lock().await;
+                                match *guard {
+                                    Some(prev) if l2_head > prev => {
+                                        let ws_staleness =
+                                            last_block_for_watch.lock().await.elapsed();
+                                        warn!(
+                                            prev_l2_head = prev,
+                                            current_l2_head = l2_head,
+                                            ws_staleness_secs = ws_staleness.as_secs(),
+                                            "L2 head advanced while no WS block headers were observed; skipping eject and forcing resubscribe"
+                                        );
+                                        *guard = Some(l2_head);
+                                        skip_due_to_l2 = true;
+                                    }
+                                    Some(prev) if l2_head < prev => {
+                                        warn!(
+                                            prev_l2_head = prev,
+                                            current_l2_head = l2_head,
+                                            "L2 head number decreased; skipping eject and forcing resubscribe"
+                                        );
+                                        *guard = Some(l2_head);
+                                        skip_due_to_l2 = true;
+                                    }
+                                    None => {
+                                        *guard = Some(l2_head);
+                                    }
+                                    _ => {}
+                                }
                             }
                             Err(e) => {
+                                // Recreate the provider on failure to avoid sticking with a bad client.
+                                shared_l2_http_provider =
+                                    ProviderBuilder::new().connect_http(l2_http_url.clone());
+                                l2_block_query_failures = l2_block_query_failures.saturating_add(1);
                                 warn!(
-                                    "Failed to process L1 sync status: {e:?}; skipping eject this tick"
+                                    "Failed to query L2 block number: {e:?}; skipping eject this tick"
                                 );
-                                skip_due_to_l1 = true;
+                                if l2_block_query_failures == 5 {
+                                    error!(
+                                        failures = l2_block_query_failures,
+                                        "Repeated L2 block number failures; check L2 HTTP configuration"
+                                    );
+                                }
+                                skip_due_to_l2 = true;
                             }
-                        },
-                        Err(e) => {
-                            warn!(
-                                "Failed to query L1 sync status: {e:?}; skipping eject this tick"
-                            );
-                            skip_due_to_l1 = true;
                         }
                     }
+
+                    if skip_due_to_l2 {
+                        reconnect_notify_for_watch.notify_one();
+                        *last_seen_for_watch.lock().await = Instant::now();
+                        *last_block_for_watch.lock().await = Instant::now();
+                        metrics::set_last_seen_drift_seconds(0);
+                        continue;
+                    }
+
+                    // Query L1 sync state and decide whether to skip this tick.
+                    let skip_due_to_l1 =
+                        Self::should_skip_due_to_sync_status(&http_provider, "L1").await;
 
                     if skip_due_to_l1 {
                         // Reset timer so we don't immediately eject when node catches up
                         *last_seen_for_watch.lock().await = Instant::now();
                         metrics::set_last_seen_drift_seconds(0);
                         continue;
+                    }
+
+                    // Skip ejection if a chain reset was detected recently (within 3x timeout).
+                    // Chain resets indicate abnormal network state where ejection is inappropriate.
+                    {
+                        let mut guard = chain_reset_for_watch.lock().await;
+                        if should_skip_due_to_chain_reset(*guard, max) {
+                            info!(
+                                "Skipping ejection due to recent chain reset ({:?} ago, grace period {:?})",
+                                guard.map(|t| t.elapsed()),
+                                max * 3
+                            );
+                            // Reset timer to avoid noisy "Max time reached" logs every tick
+                            *last_seen_for_watch.lock().await = Instant::now();
+                            metrics::set_last_seen_drift_seconds(0);
+                            continue;
+                        } else if guard.is_some() {
+                            // Grace period expired, clear the flag
+                            *guard = None;
+                        }
                     }
 
                     if let Err(e) = eject_operator(
@@ -389,7 +593,10 @@ impl Monitor {
                     metrics::inc_ws_reconnections();
                     // sanity
                     match provider.get_block_number().await {
-                        Ok(bn) => info!("WS get_block_number() = {bn}"),
+                        Ok(bn) => {
+                            info!("WS get_block_number() = {bn}");
+                            *last_l2_head_number.lock().await = Some(bn);
+                        }
                         Err(e) => warn!("WS RPC get_block_number failed: {e}"),
                     }
 
@@ -399,8 +606,13 @@ impl Monitor {
                             info!("Subscribed to block stream at {}", self.l2_ws_url);
 
                             loop {
-                                match stream.next().await {
-                                    Some(header) => {
+                                tokio::select! {
+                                    _ = reconnect_notify.notified() => {
+                                        warn!("Reconnect requested; resubscribing to L2 block stream");
+                                        break;
+                                    }
+                                    maybe_header = stream.next() => match maybe_header {
+                                        Some(header) => {
                                         info!(
                                             "New block header: number={:?} hash={:?}, coinbase={:?}",
                                             header.number, header.hash, header.beneficiary
@@ -435,14 +647,40 @@ impl Monitor {
                                             *guard = now;
                                         }
                                         metrics::set_last_block_age_seconds(0);
+
+                                        // Check if block number went backwards (chain rollback)
+                                        let prev_block_number = {
+                                            let guard = last_l2_head_number.lock().await;
+                                            *guard
+                                        };
+                                        let block_went_backwards = prev_block_number
+                                            .map(|prev| tracked_block.number < prev)
+                                            .unwrap_or(false);
+
+                                        {
+                                            let mut guard = last_l2_head_number.lock().await;
+                                            *guard = Some(tracked_block.number);
+                                        }
                                         backoff = Duration::from_secs(1);
 
                                         if outcome.parent_not_found {
-                                            warn!(
-                                                block_number,
-                                                parent_hash = ?tracked_block.parent_hash,
-                                                "Parent not found in local history; tracker was reset"
-                                            );
+                                            // Only mark chain reset if block number actually went backwards.
+                                            // This avoids suppressing ejection for transient WS gaps or reconnects.
+                                            if block_went_backwards {
+                                                warn!(
+                                                    block_number,
+                                                    prev_block = ?prev_block_number,
+                                                    parent_hash = ?tracked_block.parent_hash,
+                                                    "Chain reset detected (block number decreased); delaying ejection."
+                                                );
+                                                *chain_reset_at.lock().await = Some(Instant::now());
+                                            } else {
+                                                warn!(
+                                                    block_number,
+                                                    parent_hash = ?tracked_block.parent_hash,
+                                                    "Parent not found in local history; tracker was reset (not a rollback)."
+                                                );
+                                            }
                                             continue;
                                         }
 
@@ -457,7 +695,26 @@ impl Monitor {
                                                 "Detected L2 reorg"
                                             );
 
-                                            metrics::note_reorg(reorg_depth);
+                                            if let Some(reverted_height) = outcome.reverted_to {
+                                                metrics::note_reorg(reorg_depth, reverted_height);
+                                            } else {
+                                                warn!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    "Reorg detected but revert height missing; revert height metric set to -1"
+                                                );
+                                                metrics::note_reorg(reorg_depth, u64::MAX);
+                                            }
+
+                                            if !self.reorg_ejection_enabled {
+                                                info!(
+                                                    block_number,
+                                                    depth = reorg_depth,
+                                                    "Reorg ejection disabled via flag; skipping operator eject"
+                                                );
+                                                metrics::inc_reorg_skipped();
+                                                continue;
+                                            }
 
                                             if reorg_depth < self.min_reorg_depth_for_eject {
                                                 info!(
@@ -470,29 +727,83 @@ impl Monitor {
                                                 continue;
                                             }
 
-                                            let Some(culprit) = removed_blocks
-                                                .iter()
-                                                .min_by_key(|b| b.number)
-                                                .cloned()
-                                            else {
-                                                warn!(
-                                                    block_number,
-                                                    "Reorg blocks unexpectedly empty after depth check; skipping eject"
-                                                );
-                                                continue;
-                                            };
+                                            // Check if this reorg is due to re-anchoring by comparing anchor block numbers.
+                                            // If anchor block changed, it's a legitimate re-anchoring, not a malicious reorg.
+                                            if let Some(ref anchor) = anchor_contract {
+                                                match anchor.getBlockState().call().await {
+                                                    Ok(block_state) => {
+                                                        let current_anchor: u64 =
+                                                            block_state.anchorBlockNumber.try_into().unwrap_or(0);
+                                                        let mut guard = last_anchor_block.lock().await;
+                                                        let prev_anchor = *guard;
+                                                        match check_reanchoring(prev_anchor, current_anchor) {
+                                                            ReanchoringCheck::ReanchoringDetected {
+                                                                prev_anchor,
+                                                                current_anchor,
+                                                            } => {
+                                                                info!(
+                                                                    block_number,
+                                                                    depth = reorg_depth,
+                                                                    prev_anchor,
+                                                                    current_anchor,
+                                                                    "Anchor block changed (re-anchoring detected); skipping reorg-based eject"
+                                                                );
+                                                                *guard = Some(current_anchor);
+                                                                metrics::inc_reorg_skipped();
+                                                                continue;
+                                                            }
+                                                            ReanchoringCheck::FirstAnchor => {
+                                                                // First reorg before we've established anchor baseline.
+                                                                // Skip ejection to avoid false positives on startup.
+                                                                info!(
+                                                                    block_number,
+                                                                    depth = reorg_depth,
+                                                                    current_anchor,
+                                                                    "First anchor observation during reorg; skipping eject to establish baseline"
+                                                                );
+                                                                *guard = Some(current_anchor);
+                                                                metrics::inc_reorg_skipped();
+                                                                continue;
+                                                            }
+                                                            ReanchoringCheck::NoReanchoring => {
+                                                                *guard = Some(current_anchor);
+                                                            }
+                                                        }
+                                                    }
+                                                    Err(e) => {
+                                                        // If we can't query anchor, fall back to sync status check
+                                                        warn!(
+                                                            block_number,
+                                                            depth = reorg_depth,
+                                                            "Failed to query anchor block state: {e:?}; falling back to sync status check"
+                                                        );
+                                                        if Self::should_skip_due_to_sync_status(
+                                                            &l2_http_provider_for_reorg,
+                                                            "L2 (reorg)",
+                                                        )
+                                                        .await
+                                                        {
+                                                            info!(
+                                                                block_number,
+                                                                depth = reorg_depth,
+                                                                "L2 is syncing (likely re-anchoring); skipping reorg-based eject"
+                                                            );
+                                                            metrics::inc_reorg_skipped();
+                                                            continue;
+                                                        }
+                                                    }
+                                                }
+                                            }
 
-                                            for skipped in removed_blocks
-                                                .iter()
-                                                .filter(|b| b.number != culprit.number)
-                                            {
+                                            for removed in removed_blocks.iter() {
                                                 debug!(
-                                                    block_number = skipped.number,
-                                                    block_hash = ?skipped.hash,
-                                                    "Additional reorged block observed; attributing fault to earliest removed block"
+                                                    block_number = removed.number,
+                                                    block_hash = ?removed.hash,
+                                                    "Block removed due to reorg"
                                                 );
                                             }
 
+                                            let culprit = tracked_block.clone();
                                             let coinbase = culprit.coinbase;
                                             if coinbase.is_zero() {
                                                 warn!(
@@ -566,12 +877,30 @@ impl Monitor {
                                                     );
                                                 }
                                             }
+                                        } else if let Some(ref anchor) = anchor_contract {
+                                            // No reorg: update anchor baseline for future reorg detection.
+                                            // Only log on failure to avoid spamming logs on every block.
+                                            match anchor.getBlockState().call().await {
+                                                Ok(block_state) => {
+                                                    let current_anchor: u64 =
+                                                        block_state.anchorBlockNumber.try_into().unwrap_or(0);
+                                                    let mut guard = last_anchor_block.lock().await;
+                                                    *guard = Some(current_anchor);
+                                                }
+                                                Err(e) => {
+                                                    debug!(
+                                                        block_number,
+                                                        "Failed to query anchor block state: {e:?}"
+                                                    );
+                                                }
+                                            }
                                         }
-                                    }
-                                    None => {
+                                        }
+                                        None => {
                                         warn!("Block stream ended unexpectedly, reconnecting...");
                                         break; // exit inner loop to reconnect
                                     }
+                                }
                                 }
                             }
                         }
@@ -648,7 +977,7 @@ impl Monitor {
                                             cache.upsert(event.proposer, event.sequencer);
                                         }
 
-                                        metrics::ensure_eject_metric_labels(&sequencer_hex);
+                                        metrics::ensure_eject_metric_labels(&proposer_hex);
                                     }
                                     Err(e) => {
                                         warn!("OperatorAdded stream error: {e:?}");
@@ -690,4 +1019,219 @@ pub async fn are_preconfs_enabled(
     let preconf_router = taiko_wrapper.preconfRouter().call().await?;
 
     Ok(!preconf_router.is_zero())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Monitor;
+    use super::{
+        ReanchoringCheck, SyncStatusClass, check_reanchoring, classify_sync_status,
+        is_within_chain_reset_grace_period, should_skip_due_to_chain_reset,
+        should_skip_for_sync_class,
+    };
+    use alloy::providers::ProviderBuilder;
+    use serde_json::json;
+    use std::time::{Duration, Instant};
+    use wiremock::matchers::{body_partial_json, method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    async fn run_sync_status_check_with_response(response: ResponseTemplate) -> bool {
+        let server = MockServer::start().await;
+        let expected_body = json!({ "method": "eth_syncing" });
+
+        Mock::given(method("POST"))
+            .and(path("/"))
+            .and(body_partial_json(&expected_body))
+            .respond_with(response)
+            .mount(&server)
+            .await;
+
+        let url = alloy::transports::http::reqwest::Url::parse(&server.uri())
+            .expect("mock server url should parse");
+        let provider = ProviderBuilder::new().connect_http(url);
+
+        Monitor::should_skip_due_to_sync_status(&provider, "L2").await
+    }
+
+    #[test]
+    fn classify_sync_status_cases() {
+        assert_eq!(classify_sync_status(&json!(false)), SyncStatusClass::NotSyncing);
+        assert_eq!(classify_sync_status(&serde_json::Value::Null), SyncStatusClass::NotSyncing);
+        assert_eq!(
+            classify_sync_status(&json!({"startingBlock": "0x1"})),
+            SyncStatusClass::Syncing
+        );
+        assert_eq!(classify_sync_status(&json!("weird")), SyncStatusClass::Unknown);
+        assert_eq!(classify_sync_status(&json!(123)), SyncStatusClass::Unknown);
+    }
+
+    #[test]
+    fn should_skip_for_sync_class_returns_expected() {
+        assert!(!should_skip_for_sync_class(SyncStatusClass::NotSyncing));
+        assert!(should_skip_for_sync_class(SyncStatusClass::Syncing));
+        assert!(should_skip_for_sync_class(SyncStatusClass::Unknown));
+    }
+
+    #[tokio::test]
+    async fn should_skip_when_syncing_response_is_object() {
+        let response = ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": {
+                "startingBlock": "0x1",
+                "currentBlock": "0x2",
+                "highestBlock": "0x3"
+            }
+        }));
+        let skip = run_sync_status_check_with_response(response).await;
+        assert!(skip);
+    }
+
+    #[tokio::test]
+    async fn should_skip_on_rpc_error() {
+        let response = ResponseTemplate::new(200).set_body_json(json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "error": {
+                "code": -32000,
+                "message": "boom"
+            }
+        }));
+        let skip = run_sync_status_check_with_response(response).await;
+        assert!(skip);
+    }
+
+    #[tokio::test]
+    async fn should_skip_on_malformed_json() {
+        let response = ResponseTemplate::new(200).set_body_raw("not-json", "application/json");
+        let skip = run_sync_status_check_with_response(response).await;
+        assert!(skip);
+    }
+
+    #[test]
+    fn check_reanchoring_detects_anchor_change() {
+        // When anchor changes from 100 to 200, it's a re-anchoring event
+        let result = check_reanchoring(Some(100), 200);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 100, current_anchor: 200 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_no_change() {
+        // When anchor stays the same, no re-anchoring
+        let result = check_reanchoring(Some(100), 100);
+        assert_eq!(result, ReanchoringCheck::NoReanchoring);
+    }
+
+    #[test]
+    fn check_reanchoring_first_anchor() {
+        // When there's no previous anchor, it's the first time we're seeing it
+        let result = check_reanchoring(None, 100);
+        assert_eq!(result, ReanchoringCheck::FirstAnchor);
+    }
+
+    #[test]
+    fn check_reanchoring_detects_backward_anchor_change() {
+        // Re-anchoring can also go backwards (e.g., reorg to earlier L1 block)
+        let result = check_reanchoring(Some(200), 100);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 200, current_anchor: 100 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_zero_anchor() {
+        // Zero anchor should still work
+        let result = check_reanchoring(Some(100), 0);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 100, current_anchor: 0 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_from_zero() {
+        // Going from zero to non-zero
+        let result = check_reanchoring(Some(0), 100);
+        assert_eq!(
+            result,
+            ReanchoringCheck::ReanchoringDetected { prev_anchor: 0, current_anchor: 100 }
+        );
+    }
+
+    #[test]
+    fn check_reanchoring_zero_unchanged() {
+        // Zero anchor staying at zero
+        let result = check_reanchoring(Some(0), 0);
+        assert_eq!(result, ReanchoringCheck::NoReanchoring);
+    }
+
+    #[test]
+    fn chain_reset_no_reset_should_not_skip() {
+        // When there's no chain reset, should not skip ejection
+        let result = should_skip_due_to_chain_reset(None, Duration::from_secs(48));
+        assert!(!result);
+    }
+
+    #[test]
+    fn chain_reset_recent_should_skip() {
+        // When chain reset happened recently (within 3x timeout), should skip ejection
+        let reset_time = Instant::now();
+        let eject_after = Duration::from_secs(48);
+        let result = should_skip_due_to_chain_reset(Some(reset_time), eject_after);
+        assert!(result);
+    }
+
+    #[test]
+    fn chain_reset_grace_period_boundary_within() {
+        // Test that elapsed time just under grace period still skips
+        let eject_after = Duration::from_secs(48);
+        let grace_period = eject_after * 3; // 144 seconds
+
+        // 1ms before grace period expires - should still skip
+        let elapsed = grace_period - Duration::from_millis(1);
+        assert!(is_within_chain_reset_grace_period(elapsed, eject_after));
+    }
+
+    #[test]
+    fn chain_reset_grace_period_boundary_expired() {
+        // Test that elapsed time at or beyond grace period does not skip
+        let eject_after = Duration::from_secs(48);
+        let grace_period = eject_after * 3; // 144 seconds
+
+        // Exactly at grace period - should NOT skip (elapsed >= grace_period)
+        assert!(!is_within_chain_reset_grace_period(grace_period, eject_after));
+
+        // 1ms after grace period - should NOT skip
+        let elapsed = grace_period + Duration::from_millis(1);
+        assert!(!is_within_chain_reset_grace_period(elapsed, eject_after));
+    }
+
+    #[test]
+    fn chain_reset_grace_period_is_3x_timeout() {
+        // Verify the grace period calculation: should be 3x the eject_after duration
+        let eject_after = Duration::from_secs(96);
+
+        // Just under 3x should skip
+        let just_under_3x = Duration::from_secs(287);
+        assert!(is_within_chain_reset_grace_period(just_under_3x, eject_after));
+
+        // Exactly 3x should NOT skip
+        let exactly_3x = Duration::from_secs(288);
+        assert!(!is_within_chain_reset_grace_period(exactly_3x, eject_after));
+
+        // Over 3x should NOT skip
+        let over_3x = Duration::from_secs(289);
+        assert!(!is_within_chain_reset_grace_period(over_3x, eject_after));
+    }
+
+    #[test]
+    fn chain_reset_zero_elapsed_should_skip() {
+        // Immediately after chain reset (0 elapsed) should skip
+        let eject_after = Duration::from_secs(48);
+        assert!(is_within_chain_reset_grace_period(Duration::ZERO, eject_after));
+    }
 }

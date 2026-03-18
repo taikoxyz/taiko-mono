@@ -18,4 +18,5 @@ type Submitter interface {
 	RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error
 	BatchSubmitProofs(ctx context.Context, proofsWithHeaders *proofProducer.BatchProofs) error
 	AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error
+	FlushCache(ctx context.Context, proofType proofProducer.ProofType) error
 }

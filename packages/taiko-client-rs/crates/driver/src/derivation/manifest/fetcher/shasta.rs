@@ -8,7 +8,7 @@ use tracing::{debug, instrument};
 
 use super::{ManifestFetcher, ManifestFetcherError};
 
-// Helper to decode a manifest from sidecars using the derivation manifest decoder.
+/// Decode a Shasta derivation-source manifest from blob sidecars.
 fn decode_manifest_from_sidecars(
     sidecars: &[BlobTransactionSidecar],
     offset: usize,
@@ -32,8 +32,10 @@ fn decode_manifest_from_sidecars(
         .map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
 }
 
+/// Fetcher for Shasta derivation source manifests from blob sidecars.
 #[derive(Clone)]
 pub struct ShastaSourceManifestFetcher {
+    /// Blob data source used to fetch sidecars.
     blob_source: Arc<BlobDataSource>,
 }
 
@@ -46,6 +48,7 @@ impl ShastaSourceManifestFetcher {
 
 #[async_trait]
 impl ManifestFetcher for ShastaSourceManifestFetcher {
+    /// The type of manifest produced by this fetcher.
     type Manifest = DerivationSourceManifest;
 
     /// Access the underlying blob data source.

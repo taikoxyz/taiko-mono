@@ -21,6 +21,8 @@ var (
 	EventNameBatchesVerified     = "BatchesVerified"
 	EventNameBlockAssigned       = "BlockAssigned"
 	EventNameBlockVerified       = "BlockVerified"
+	EventNameProved              = "Proved"
+	EventNameProposed            = "Proposed"
 	EventNameMessageSent         = "MessageSent"
 	EventNameSwap                = "Swap"
 	EventNameMint                = "Mint"
@@ -128,4 +130,6 @@ type EventRepository interface {
 	) (uint64, error)
 	GetBlockProvenBy(ctx context.Context, blockID int) ([]*Event, error)
 	GetBlockProposedBy(ctx context.Context, blockID int) (*Event, error)
+	GetProposalProposedBy(ctx context.Context, proposalID int) (*Event, error)
+	GetProposalProvedBy(ctx context.Context, proposalID int) (*Event, error)
 }

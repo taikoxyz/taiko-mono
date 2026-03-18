@@ -3,12 +3,10 @@ package processor
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -31,8 +29,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc20vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/erc721vault"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/quotamanager"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
@@ -48,6 +46,7 @@ type ethClient interface {
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	ChainID(ctx context.Context) (*big.Int, error)
@@ -55,18 +54,6 @@ type ethClient interface {
 	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
-}
-
-// hop is a struct which needs to be created based on the config parameters
-// for a hop. Each hop is an intermediary hop - if we are just processing
-// srcChain to destChain, we should have no hops.
-type hop struct {
-	chainID              *big.Int
-	signalServiceAddress common.Address
-	signalService        relayer.SignalService
-	taikoAddress         common.Address
-	ethClient            ethClient
-	caller               relayer.Caller
 }
 
 // Processor is the main struct which handles message processing and queue
@@ -77,8 +64,6 @@ type Processor struct {
 	eventRepo relayer.EventRepository
 
 	queue queue.Queue
-
-	hops []hop
 
 	srcEthClient  ethClient
 	destEthClient ethClient
@@ -172,52 +157,8 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	hops := []hop{}
-
-	// iteraate over all the hop configs and create a hop struct
-	// which can be used to generate hop proofs
-	for _, hopConfig := range cfg.hopConfigs {
-		var hopEthClient *ethclient.Client
-
-		var hopChainID *big.Int
-
-		var hopRpcClient *rpc.Client
-
-		var hopSignalService *signalservice.SignalService
-
-		hopEthClient, err = ethclient.Dial(hopConfig.rpcURL)
-		if err != nil {
-			return err
-		}
-
-		hopChainID, err = hopEthClient.ChainID(context.Background())
-		if err != nil {
-			return err
-		}
-
-		hopSignalService, err = signalservice.NewSignalService(
-			hopConfig.signalServiceAddress,
-			hopEthClient,
-		)
-		if err != nil {
-			return err
-		}
-
-		hopRpcClient, err = rpc.Dial(hopConfig.rpcURL)
-		if err != nil {
-			return err
-		}
-
-		// only support one hop rn, add in array configs
-		// to support more.
-		hops = append(hops, hop{
-			caller:               hopRpcClient,
-			signalServiceAddress: hopConfig.signalServiceAddress,
-			taikoAddress:         hopConfig.taikoAddress,
-			chainID:              hopChainID,
-			signalService:        hopSignalService,
-			ethClient:            hopEthClient,
-		})
+	if cfg.SrcSignalServiceAddress == relayer.ZeroAddress {
+		return errors.New("srcSignalServiceAddress not provided")
 	}
 
 	srcSignalService, err := signalservice.NewSignalService(
@@ -284,7 +225,7 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	prover, err := proof.New(srcEthClient, p.cfg.CacheOption)
+	prover, err := proof.New(srcEthClient)
 	if err != nil {
 		return err
 	}
@@ -325,7 +266,6 @@ func InitFromConfig(ctx context.Context, p *Processor, cfg *Config) error {
 		return err
 	}
 
-	p.hops = hops
 	p.prover = prover
 	p.eventRepo = eventRepository
 
@@ -379,6 +319,12 @@ func (p *Processor) Name() string {
 	return "processor"
 }
 
+// WaitForInterrupt returns whether processor should keep running and wait for
+// shutdown signals after Start() returns.
+func (p *Processor) WaitForInterrupt() bool {
+	return p.targetTxHash == nil
+}
+
 func (p *Processor) Close(ctx context.Context) {
 	p.cancel()
 
@@ -397,12 +343,7 @@ func (p *Processor) Start() error {
 
 	// if a targetTxHash is set, we only want to process that specific one.
 	if p.targetTxHash != nil {
-		err := p.processSingle(ctx)
-		if err != nil {
-			slog.Error(err.Error())
-		}
-
-		os.Exit(0)
+		return p.processSingle(ctx)
 	}
 
 	// otherwise, we can start the queue, and process messages from it
@@ -415,6 +356,14 @@ func (p *Processor) Start() error {
 	}
 
 	go func() {
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(p.backOffRetryInterval),
+				p.backOffMaxRetries,
+			),
+			ctx,
+		)
+
 		if err := backoff.Retry(func() error {
 			slog.Info("attempting backoff queue subscription")
 			if err := p.queue.Subscribe(ctx, p.msgCh, &p.wg); err != nil {
@@ -423,7 +372,7 @@ func (p *Processor) Start() error {
 			}
 
 			return nil
-		}, backoff.WithContext(backoff.NewConstantBackOff(1*time.Second), ctx)); err != nil {
+		}, bo); err != nil {
 			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
 		}
 	}()
@@ -509,18 +458,9 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				}
 
 				if shouldRequeue {
-					// we want to negatively acknowledge the message
+					// we want to negatively acknowledge the message and let the broker requeue it
 					if err := p.queue.Nack(ctx, m, true); err != nil {
 						slog.Error("Err nacking message", "err", err.Error())
-					}
-
-					marshalledMsg, err := json.Marshal(msg)
-					if err != nil {
-						slog.Error("err marshaling queue message", "err", err.Error())
-					} else {
-						if err := p.queue.Publish(ctx, p.queueName(), marshalledMsg, nil, nil); err != nil {
-							slog.Error("err publishing to queue", "err", err.Error())
-						}
 					}
 				} else {
 					// otherwise if no error, we can acknowledge it successfully.

@@ -50,12 +50,13 @@ async fn eject_operator_internal(
         return Ok(());
     }
 
+    //since this pulls from active_operator_count which pulls from operatorMapping, operator_hex == proposer_hex
     let operator_hex = format!("{operator:#x}");
     metrics::ensure_eject_metric_labels(&operator_hex);
 
     info!(reason = reason, operator = %operator_hex, "Sending removeOperator transaction");
 
-    let pending = preconf_whitelist.removeOperator(operator, true).send().await?;
+    let pending = preconf_whitelist.removeOperator(U256::from(info.index)).send().await?;
     let tx_hash = pending.tx_hash();
     info!(
         reason = reason,
@@ -149,8 +150,8 @@ where
             if let Some(set) = seen.as_deref_mut() {
                 let inserted = set.insert((addr, info.sequencerAddress));
                 if inserted {
-                    let sequencer_addr = info.sequencerAddress.to_string();
-                    metrics::ensure_eject_metric_labels(&sequencer_addr);
+                    let proposer_addr = addr.to_string();
+                    metrics::ensure_eject_metric_labels(&proposer_addr);
                 }
             }
             count += 1;

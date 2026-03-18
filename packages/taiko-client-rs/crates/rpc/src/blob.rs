@@ -13,14 +13,20 @@ use thiserror::Error;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::beacon::{BeaconClient, BeaconSidecar};
+use crate::{
+    beacon::{BeaconClient, BeaconSidecar},
+    client::DEFAULT_HTTP_TIMEOUT,
+};
 
 /// Error type returned when fetching blobs.
 #[derive(Debug, Error)]
 pub enum BlobDataError {
     /// The remote server responded with an unexpected status code.
     #[error("blob server returned status {status}")]
-    HttpStatus { status: u16 },
+    HttpStatus {
+        /// HTTP status code returned by the remote endpoint.
+        status: u16,
+    },
     /// Error when communicating with the beacon endpoint.
     #[error("beacon error: {0}")]
     Beacon(String),
@@ -32,22 +38,30 @@ pub enum BlobDataError {
     Other(#[from] anyhow::Error),
 }
 
+/// Wire format for a blob sidecar response returned by a blob server.
 #[derive(Debug, Deserialize)]
 struct BlobServerResponse {
+    /// Versioned hash reported by the blob server.
     #[serde(rename = "versioned_hash", alias = "versionedHash")]
     versioned_hash: String,
+    /// Hex-encoded KZG commitment.
     #[serde(rename = "commitment")]
     commitment: String,
+    /// Optional hex-encoded KZG proof.
     #[serde(rename = "proof", alias = "kzg_proof")]
     proof: Option<String>,
+    /// Hex-encoded blob payload.
     data: String,
 }
 
 /// A data source capable of fetching blob sidecars from a public HTTP endpoint.
 #[derive(Debug)]
 pub struct BlobDataSource {
+    /// Optional beacon client used as the primary blob source.
     beacon: Option<Arc<BeaconClient>>,
+    /// Optional fallback blob-server endpoint.
     blob_server_endpoint: Option<Url>,
+    /// Lazily constructed HTTP client for blob-server requests.
     client: OnceCell<HttpClient>,
 }
 
@@ -69,7 +83,10 @@ impl BlobDataSource {
     /// Access the HTTP client used for blob fetches.
     fn http_client(&self) -> Result<&HttpClient, BlobDataError> {
         self.client.get_or_try_init(|| {
-            HttpClient::builder().build().map_err(|err| BlobDataError::Other(err.into()))
+            HttpClient::builder()
+                .timeout(DEFAULT_HTTP_TIMEOUT)
+                .build()
+                .map_err(|err| BlobDataError::Other(err.into()))
         })
     }
 
@@ -114,6 +131,20 @@ impl BlobDataSource {
         Err(BlobDataError::Beacon("no beacon or blob server available for blob retrieval".into()))
     }
 
+    /// Look up the execution-layer block number associated with a given timestamp via the beacon
+    /// endpoint.
+    pub async fn execution_block_number_by_timestamp(
+        &self,
+        timestamp: u64,
+    ) -> Result<u64, BlobDataError> {
+        let beacon = self
+            .beacon
+            .as_ref()
+            .ok_or_else(|| BlobDataError::Beacon("beacon endpoint not configured".into()))?;
+        beacon.execution_block_number_by_timestamp(timestamp).await
+    }
+
+    /// Fetch blob sidecars from the configured blob-server endpoint.
     async fn fetch_from_blob_server(
         &self,
         endpoint: &Url,
@@ -124,7 +155,7 @@ impl BlobDataSource {
 
         for hash in blob_hashes {
             let url = endpoint
-                .join(&format!("/blobs/{}", hash))
+                .join(&format!("/blobs/{hash}"))
                 .map_err(|err| BlobDataError::Other(err.into()))?;
             debug!(hash = ?hash, url = url.as_str(), "requesting blob sidecar from endpoint");
 
@@ -183,6 +214,7 @@ impl BlobDataSource {
         Ok(blobs)
     }
 
+    /// Match requested blob hashes to fetched beacon sidecars in order.
     fn match_beacon_sidecars(
         sidecars: &[BeaconSidecar],
         blob_hashes: &[B256],
@@ -223,14 +255,13 @@ impl BlobDataSource {
     }
 }
 
-// Helper functions for parsing hex-encoded data from the blob server.
-// Parses a hex-encoded blob into a `Blob`.
+/// Parse a hex-encoded blob server payload into a fixed-size `Blob`.
 fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
     let bytes = decode_hex(value)?;
     Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
 }
 
-// Decodes a hex string, optionally prefixed with "0x", into a byte vector.
+/// Decode hex text (with optional `0x`) into raw bytes.
 fn decode_hex(value: &str) -> Result<Vec<u8>, BlobDataError> {
     let mut stripped = value.trim_start_matches("0x").to_owned();
     if stripped.len() % 2 == 1 {

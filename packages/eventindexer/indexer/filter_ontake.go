@@ -24,6 +24,7 @@ func filterFuncOntake(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterTransitionProved")
 			}
+			defer transitionProvedEvents.Close()
 
 			err = i.saveTransitionProvedEventsV2(ctx, chainID, transitionProvedEvents)
 			if err != nil {
@@ -38,6 +39,7 @@ func filterFuncOntake(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterTransitionContested")
 			}
+			defer transitionContestedEvents.Close()
 
 			err = i.saveTransitionContestedEventsV2(ctx, chainID, transitionContestedEvents)
 			if err != nil {
@@ -52,6 +54,7 @@ func filterFuncOntake(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterBlockProposed")
 			}
+			defer blockProposedEvents.Close()
 
 			err = i.saveBlockProposedEventsV2(ctx, chainID, blockProposedEvents)
 			if err != nil {
@@ -66,6 +69,7 @@ func filterFuncOntake(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterBlockVerified")
 			}
+			defer blockVerifiedEvents.Close()
 
 			err = i.saveBlockVerifiedEventsV2(ctx, chainID, blockVerifiedEvents)
 			if err != nil {
@@ -82,6 +86,7 @@ func filterFuncOntake(
 			if err != nil {
 				return errors.Wrap(err, "i.bridge.FilterMessageSent")
 			}
+			defer messagesSent.Close()
 
 			err = i.saveMessageSentEvents(ctx, chainID, messagesSent)
 			if err != nil {

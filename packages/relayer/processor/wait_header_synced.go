@@ -8,9 +8,9 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 )
 
-// waitHeaderSynced waits for an event to appear in the database from the indexer
-// for the type "ChainDataSynced" to be greater or less than the given blockNum.
-// this is used to make sure a valid proof can be generated and verified on chain.
+// waitHeaderSynced waits for a CheckpointSaved event to appear in the database
+// from the indexer that is greater or equal to the given blockNum.
+// This is used to make sure a valid proof can be generated and verified on chain.
 func (p *Processor) waitHeaderSynced(
 	ctx context.Context,
 	ethClient ethClient,
@@ -22,19 +22,13 @@ func (p *Processor) waitHeaderSynced(
 		return nil, err
 	}
 
-	// check once before ticker interval
-	event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
-		ctx,
-		hopChainId,
-		chainId.Uint64(),
-		blockNum,
-	)
+	event, err := p.eventRepo.CheckpointSyncedEventByBlockNumberOrGreater(ctx, hopChainId, chainId.Uint64(), blockNum)
 	if err != nil {
 		return nil, err
 	}
 
 	if event != nil {
-		slog.Info("chainDataSynced done",
+		slog.Info("checkpointSynced done",
 			"syncedBlockID", event.BlockID,
 			"blockIDWaitingFor", blockNum,
 		)
@@ -50,18 +44,13 @@ func (p *Processor) waitHeaderSynced(
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-ticker.C:
-			event, err := p.eventRepo.ChainDataSyncedEventByBlockNumberOrGreater(
-				ctx,
-				hopChainId,
-				chainId.Uint64(),
-				blockNum,
-			)
+			event, err := p.eventRepo.CheckpointSyncedEventByBlockNumberOrGreater(ctx, hopChainId, chainId.Uint64(), blockNum)
 			if err != nil {
 				return nil, err
 			}
 
 			if event != nil {
-				slog.Info("chainDataSynced done",
+				slog.Info("checkpointSynced done",
 					"syncedBlockID", event.BlockID,
 					"blockIDWaitingFor", blockNum,
 				)

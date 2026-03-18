@@ -11,6 +11,10 @@ import { IBridge, IMessageInvocable } from "src/shared/bridge/IBridge.sol";
 import { Controller } from "src/shared/governance/Controller.sol";
 
 abstract contract BuildProposal is Script {
+    address public constant TAIKO_DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a; // controller.taiko.eth
+    address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800; // token.taiko.eth
+    address public constant TAIKO_FOUNDATION_TREASURY = 0x363e846B91AF677Fb82f709b6c35BD1AaFc6B3Da; // treasury.taiko.eth
+
     error TargetIsZeroAddress();
     error TargetIsDAOController();
     error DelegateControllerNotSelfOwned();
@@ -37,11 +41,17 @@ abstract contract BuildProposal is Script {
     }
 
     function buildL1Actions() internal pure virtual returns (Controller.Action[] memory);
+
     function buildL2Actions()
         internal
         pure
         virtual
-        returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory);
+        returns (uint64 l2ExecutionId, uint32 l2GasLimit, Controller.Action[] memory actions)
+    {
+        l2ExecutionId = 0;
+        l2GasLimit = 0;
+        actions = new Controller.Action[](0);
+    }
 
     function logProposalAction(string memory proposalId) internal {
         Controller.Action[] memory allActions = _buildAllActions();
@@ -107,6 +117,20 @@ abstract contract BuildProposal is Script {
     {
         return Controller.Action({
             target: _target, value: 0, data: abi.encodeCall(UUPSUpgradeable.upgradeTo, (_newImpl))
+        });
+    }
+
+    function buildERC20TransferAction(
+        address _token,
+        address _to,
+        uint256 _amount
+    )
+        internal
+        pure
+        returns (Controller.Action memory)
+    {
+        return Controller.Action({
+            target: _token, value: 0, data: abi.encodeCall(IERC20.transfer, (_to, _amount))
         });
     }
 

@@ -145,6 +145,10 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             // Cross-epoch or fallback proposers must provide correct nextLookahead
             _validateLookahead(_nextEpochTimestamp, _data.nextLookahead, nextLookaheadHash);
         } else {
+            if (!isLookaheadRequired()) {
+                // Skip posting on slot 0 when the lookahead is not required yet.
+                return;
+            }
             // Lookahead not posted yet - must post it now
             _updateLookaheadForNextEpoch(_nextEpochTimestamp, _context, _data);
         }
@@ -395,9 +399,8 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
     function isLookaheadRequired() public view returns (bool) {
         uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp(0);
         if (block.timestamp == epochTimestamp) {
-            // Lookahead for the next epoch is not required to be posted in the first slot
-            // of the current epoch because the offchain node may not have sufficient time
-            // to build the lookahead.
+            // Do not require posting the next-epoch lookahead in the first slot of the current
+            // epoch, as the off-chain builder may not have sufficient time to construct it.
             return false;
         }
         uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -515,20 +518,23 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         (operatorData_, slasherCommitment_) =
             _validateOperator(prevEpochTimestamp, _registrationRoot, _minCollateral, _slasher);
 
-        // Apply lookahead-specific blacklist validation
-
+        // Apply lookahead-specific blacklist validation.
+        // Reference timestamp = prevEpochTimestamp (start of the epoch immediately before the
+        // current epoch; i.e. two epochs before the target epoch).
         BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
 
-        // To make it into the lookahead, either the operator is not blacklisted, or blacklisted
-        // in the previous or the current epoch.
-        bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
-            || blacklistTimestamps.blacklistedAt > prevEpochTimestamp;
-        // If unblacklisted, the operator must have been unblacklisted before the start of the
-        // previous epoch
-        // in order to make it into the lookahead.
-        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
-            && blacklistTimestamps.unBlacklistedAt < prevEpochTimestamp;
-        require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
+        uint48 blacklistedAt = blacklistTimestamps.blacklistedAt;
+        uint48 unblacklistedAt = blacklistTimestamps.unBlacklistedAt;
+
+        // Eligible if not blacklisted as of the reference timestamp.
+        bool eligible = blacklistedAt == 0 || blacklistedAt > prevEpochTimestamp;
+        if (!eligible) {
+            // If unblacklisted, the unblacklist must be after the latest blacklist and before the
+            // reference timestamp.
+            eligible = unblacklistedAt != 0 && unblacklistedAt > blacklistedAt
+                && unblacklistedAt < prevEpochTimestamp;
+        }
+        require(eligible, OperatorHasBeenBlacklisted());
     }
 
     function _validateLookaheadPoster(
@@ -640,7 +646,38 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         returns (ISlasher.Commitment memory)
     {
         return ISlasher.Commitment({
-            commitmentType: 0, payload: abi.encode(_lookahead), slasher: lookaheadSlasher
+            commitmentType: LibPreconfConstants.LOOKAHEAD_COMMITMENT_TYPE,
+            payload: abi.encode(_lookahead),
+            slasher: lookaheadSlasher
         });
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error CommitmentSignerMismatch();
+    error CommitterMismatch();
+    error InvalidLookahead();
+    error InvalidLookaheadEpoch();
+    error InvalidLookaheadTimestamp();
+    error InvalidSlotIndex();
+    error InvalidSlotTimestamp();
+    error InvalidValidatorLeafIndex();
+    error LookaheadNotRequired();
+    error NotInbox();
+    error OperatorHasBeenBlacklisted();
+    error OperatorHasBeenSlashed();
+    error OperatorHasInsufficientCollateral();
+    error OperatorHasNotOptedIn();
+    error OperatorHasNotRegistered();
+    error OperatorHasUnregistered();
+    error PosterHasBeenSlashed();
+    error PosterHasInsufficientCollateral();
+    error PosterHasNotOptedIn();
+    error PosterHasUnregistered();
+    error ProposerIsNotPreconfer();
+    error ProposerIsNotFallbackPreconfer();
+    error SlasherIsNotLookaheadSlasher();
+    error SlotTimestampIsNotIncrementing();
 }

@@ -15,7 +15,18 @@ import (
 )
 
 type EventRepository struct {
-	events []*relayer.Event
+	events                                          []*relayer.Event
+	CheckpointSyncedEventByBlockNumberOrGreaterFunc func(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+		blockNumber uint64,
+	) (*relayer.Event, error)
+	LatestCheckpointSyncedEventFunc func(
+		ctx context.Context,
+		chainId uint64,
+		syncedChainId uint64,
+	) (uint64, error)
 }
 
 func NewEventRepository() *EventRepository {
@@ -184,23 +195,31 @@ func (r *EventRepository) Delete(
 	return nil
 }
 
-func (r *EventRepository) ChainDataSyncedEventByBlockNumberOrGreater(
+func (r *EventRepository) CheckpointSyncedEventByBlockNumberOrGreater(
 	ctx context.Context,
-	srcChainId uint64,
+	chainId uint64,
 	syncedChainId uint64,
 	blockNumber uint64,
 ) (*relayer.Event, error) {
+	if r.CheckpointSyncedEventByBlockNumberOrGreaterFunc != nil {
+		return r.CheckpointSyncedEventByBlockNumberOrGreaterFunc(ctx, chainId, syncedChainId, blockNumber)
+	}
+
 	return &relayer.Event{
 		ID:      rand.Int(), // nolint: gosec
 		ChainID: MockChainID.Int64(),
 	}, nil
 }
 
-func (r *EventRepository) LatestChainDataSyncedEvent(
+func (r *EventRepository) LatestCheckpointSyncedEvent(
 	ctx context.Context,
-	srcChainId uint64,
+	chainId uint64,
 	syncedChainId uint64,
 ) (uint64, error) {
+	if r.LatestCheckpointSyncedEventFunc != nil {
+		return r.LatestCheckpointSyncedEventFunc(ctx, chainId, syncedChainId)
+	}
+
 	return 5, nil
 }
 

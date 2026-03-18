@@ -1,9 +1,8 @@
 //! Transaction builder for constructing proposal transactions.
 
-use std::{sync::Arc, time::SystemTime};
-
+use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy::{
-    consensus::SidecarBuilder,
+    consensus::{BlobTransactionSidecar, SidecarBuilder},
     primitives::{
         Address, Bytes,
         aliases::{U24, U48},
@@ -12,11 +11,10 @@ use alloy::{
     rpc::types::TransactionRequest,
 };
 use alloy_network::TransactionBuilder4844;
-use bindings::codec_optimized::{IInbox::ProposeInput, LibBlobs::BlobReference};
-use event_indexer::{indexer::ShastaEventIndexer, interface::ShastaProposeInputReader};
+use bindings::inbox::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use protocol::shasta::{
     BlobCoder,
-    constants::MIN_ANCHOR_OFFSET,
+    constants::MAX_BLOCK_GAS_LIMIT,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 use rpc::client::ClientWithWallet;
@@ -24,7 +22,7 @@ use tracing::info;
 
 use crate::{
     error::{ProposerError, Result},
-    proposer::TransactionsLists,
+    proposer::{EngineBuildContext, TransactionLists, current_unix_timestamp},
 };
 
 /// A transaction builder for Shasta `propose` transactions.
@@ -33,85 +31,86 @@ pub struct ShastaProposalTransactionBuilder {
     pub rpc_provider: ClientWithWallet,
     /// The address of the suggested fee recipient for the proposed L2 block.
     pub l2_suggested_fee_recipient: Address,
-    /// The event indexer to read cached propose input params.
-    pub event_indexer: Arc<ShastaEventIndexer>,
 }
 
 impl ShastaProposalTransactionBuilder {
     /// Creates a new `ShastaProposalTransactionBuilder`.
-    pub fn new(
-        rpc_provider: ClientWithWallet,
-        event_indexer: Arc<ShastaEventIndexer>,
-        l2_suggested_fee_recipient: Address,
-    ) -> Self {
-        Self { rpc_provider, event_indexer, l2_suggested_fee_recipient }
+    pub fn new(rpc_provider: ClientWithWallet, l2_suggested_fee_recipient: Address) -> Self {
+        Self { rpc_provider, l2_suggested_fee_recipient }
     }
 
     /// Build a Shasta `propose` transaction with the given L2 transactions.
-    pub async fn build(&self, txs_lists: TransactionsLists) -> Result<TransactionRequest> {
-        let config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
-
-        // Read cached propose input params from the event indexer.
-        let cached_input_params = self
-            .event_indexer
-            .read_shasta_propose_input()
-            .ok_or(ProposerError::ProposeInputUnavailable)?;
-
-        info!(
-            core_state = ?cached_input_params.core_state,
-            proposals_count = cached_input_params.proposals.len(),
-            transition_records_count = cached_input_params.transition_records.len(),
-            checkpoint = ?cached_input_params.checkpoint,
-            "cached propose input params"
-        );
-
-        // Ensure the current L1 head is sufficiently advanced.
-        let current_l1_head = self.rpc_provider.l1_provider.get_block_number().await?;
-        if current_l1_head <= MIN_ANCHOR_OFFSET {
-            return Err(ProposerError::L1HeadTooLow {
-                current: current_l1_head,
-                minimum: MIN_ANCHOR_OFFSET,
-            });
-        }
-
-        // Build the block manifests.
-        let block_manifests = txs_lists
-            .iter()
-            .map(|txs| BlockManifest {
-                timestamp: SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs(),
-                coinbase: self.l2_suggested_fee_recipient,
-                anchor_block_number: current_l1_head - (MIN_ANCHOR_OFFSET + 1),
-                gas_limit: 0, /* Use 0 for gas limit as it will be set as its parent's gas
-                               * limit during derivation. */
-                transactions: txs.iter().map(|tx| tx.clone().into()).collect(),
-            })
-            .collect::<Vec<BlockManifest>>();
+    ///
+    /// If `engine_params` is provided (engine mode), those parameters will be used directly.
+    /// Otherwise, the current L1 head, current timestamp, and MAX_BLOCK_GAS_LIMIT are used.
+    pub async fn build(
+        &self,
+        txs_lists: TransactionLists,
+        engine_params: Option<EngineBuildContext>,
+    ) -> Result<TransactionRequest> {
+        // Use provided engine params or derive defaults.
+        // For engine mode, subtract anchor gas from the manifest gas limit since the
+        // driver's validation expects gas_limit = parent_gas_limit - anchor_gas.
+        //
+        // Note: For the first block after genesis, this subtraction creates a mismatch
+        // with driver validation (which doesn't subtract for genesis parent), causing
+        // a fallback to default manifest. This is acceptable and self-corrects from
+        // the second block onward.
+        let (anchor_block_number, timestamp, gas_limit) = match engine_params {
+            Some(params) => (
+                params.anchor_block_number,
+                params.timestamp,
+                params.gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT),
+            ),
+            None => (
+                self.rpc_provider.l1_provider.get_block_number().await?,
+                current_unix_timestamp(),
+                MAX_BLOCK_GAS_LIMIT,
+            ),
+        };
 
         // Build the proposal manifest.
-        let manifest =
-            DerivationSourceManifest { prover_auth_bytes: Bytes::new(), blocks: block_manifests };
+        let manifest = DerivationSourceManifest {
+            blocks: txs_lists
+                .iter()
+                .enumerate()
+                .map(|(index, txs)| {
+                    info!(
+                        block_index = index,
+                        tx_count = txs.len(),
+                        timestamp,
+                        anchor_block_number,
+                        gas_limit,
+                        coinbase = ?self.l2_suggested_fee_recipient,
+                        "setting up derivation source manifest block"
+                    );
+                    BlockManifest {
+                        timestamp,
+                        coinbase: self.l2_suggested_fee_recipient,
+                        anchor_block_number,
+                        gas_limit,
+                        transactions: txs.iter().cloned().map(Into::into).collect(),
+                    }
+                })
+                .collect::<Vec<BlockManifest>>(),
+        };
 
         // Build the blob sidecar from the proposal manifest.
-        let sidecar = SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
-            .build()
-            .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
+        let sidecar: BlobTransactionSidecar =
+            SidecarBuilder::<BlobCoder>::from_slice(&manifest.encode_and_compress()?)
+                .build()
+                .map_err(|e| ProposerError::Sidecar(e.to_string()))?;
 
         // Build the propose input.
         let input = ProposeInput {
             deadline: U48::ZERO,
-            coreState: cached_input_params.core_state,
-            parentProposals: cached_input_params.proposals,
             blobReference: BlobReference {
                 blobStartIndex: 0,
                 numBlobs: sidecar.blobs.len() as u16,
                 offset: U24::ZERO,
             },
-            transitionRecords: cached_input_params.transition_records,
-            checkpoint: cached_input_params.checkpoint,
-            numForcedInclusions: config.minForcedInclusionCount.to(),
+            // Include all forced inclusions in the source manifest.
+            numForcedInclusions: u16::MAX,
         };
 
         // Build the transaction request with blob sidecar.
@@ -121,7 +120,7 @@ impl ShastaProposalTransactionBuilder {
             .inbox
             .propose(
                 Bytes::new(),
-                self.rpc_provider.shasta.codec.encodeProposeInput(input).call().await?,
+                self.rpc_provider.shasta.inbox.encodeProposeInput(input).call().await?,
             )
             .into_transaction_request()
             .with_blob_sidecar(sidecar);

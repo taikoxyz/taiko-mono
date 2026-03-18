@@ -10,7 +10,6 @@
   let validInput = false;
 
   export let hasEnoughEth: boolean = false;
-  export let exceedsQuota: boolean = false;
 
   const reset = () => {
     $recipientAddress = null;
@@ -27,4 +26,4 @@
 
 <ChainSelector type={ChainSelectorType.COMBINED} />
 
-<TokenInput bind:validInput bind:hasEnoughEth bind:exceedsQuota />
+<TokenInput bind:validInput bind:hasEnoughEth />

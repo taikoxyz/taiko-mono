@@ -1,5 +1,102 @@
 # Changelog
 
+## [1.34.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.34.0...docs-site-v1.34.1) (2026-03-03)
+
+
+### Bug Fixes
+
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
+
+### Chores
+
+* **docs-site:** fix Alethia docs wording consistency ([#21410](https://github.com/taikoxyz/taiko-mono/issues/21410)) ([70a91e0](https://github.com/taikoxyz/taiko-mono/commit/70a91e05fa59eec2bd58ced1ff30c142c66ab64c))
+* **protocol:** merge 3.0.0 back to main ([#21359](https://github.com/taikoxyz/taiko-mono/issues/21359)) ([1df2675](https://github.com/taikoxyz/taiko-mono/commit/1df267517a7369a5381e357dfc29f11339966141))
+
+## [1.34.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.4...docs-site-v1.34.0) (2026-02-24)
+
+
+### Features
+
+* **docs-site:** add a copy from md button and fix titles ([#21364](https://github.com/taikoxyz/taiko-mono/issues/21364)) ([4277910](https://github.com/taikoxyz/taiko-mono/commit/42779105d8a119a8134d7fb1f7b98b767acd5131))
+
+## [1.33.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.3...docs-site-v1.33.4) (2026-02-18)
+
+
+### Chores
+
+* **docs-site:** add facilitator ([#21313](https://github.com/taikoxyz/taiko-mono/issues/21313)) ([ea53330](https://github.com/taikoxyz/taiko-mono/commit/ea533304427ae6cb6920f59a23ac313a4e5c6b86))
+* **repo:** update discord link ([#21282](https://github.com/taikoxyz/taiko-mono/issues/21282)) ([e281608](https://github.com/taikoxyz/taiko-mono/commit/e281608537818e2618cfa0a503dcd3d926515f1d))
+
+## [1.33.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.2...docs-site-v1.33.3) (2026-02-09)
+
+
+### Chores
+
+* **docs-site:** add erc 8004 addresses to docs ([#21283](https://github.com/taikoxyz/taiko-mono/issues/21283)) ([b5c868c](https://github.com/taikoxyz/taiko-mono/commit/b5c868cf2d5681ffcc9415fd2dad5eac83bd23df))
+* **docs-site:** fix release version ([#21269](https://github.com/taikoxyz/taiko-mono/issues/21269)) ([df82dc7](https://github.com/taikoxyz/taiko-mono/commit/df82dc7ee10dc95a3e6d697f03680867d3a3dc9e))
+* **docs-site:** replace ERCXXXVault placeholder with actual vault names ([#21303](https://github.com/taikoxyz/taiko-mono/issues/21303)) ([3e48a4c](https://github.com/taikoxyz/taiko-mono/commit/3e48a4c6e301eeefb4c3cb0e8f0ce289ff614268))
+
+
+### Documentation
+
+* **docs-site:** update zk coverage and rpc explorer entries ([#21288](https://github.com/taikoxyz/taiko-mono/issues/21288)) ([19948bf](https://github.com/taikoxyz/taiko-mono/commit/19948bf7e768a58b7c93f6690ef6dc043eae0fd7))
+
+## [1.33.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.1...docs-site-v1.33.2) (2026-02-01)
+
+
+### Chores
+
+* **docs-site:** add erc8004 v1.0 addresses ([#21234](https://github.com/taikoxyz/taiko-mono/issues/21234)) ([2ff43d5](https://github.com/taikoxyz/taiko-mono/commit/2ff43d5cb328c0ed9827ccba764387146b817833))
+
+## [1.33.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.33.0...docs-site-v1.33.1) (2026-01-27)
+
+
+### Chores
+
+* **docs-site:** add ERC6538 and ERC5564 addresses ([#21209](https://github.com/taikoxyz/taiko-mono/issues/21209)) ([b4a854e](https://github.com/taikoxyz/taiko-mono/commit/b4a854eaf602a77f11c9be78483ecbdff2873a02))
+
+## [1.33.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.6...docs-site-v1.33.0) (2026-01-23)
+
+
+### Features
+
+* **repo, docs-site:** add auto-lint pre-commit step ([#20844](https://github.com/taikoxyz/taiko-mono/issues/20844)) ([3b21918](https://github.com/taikoxyz/taiko-mono/commit/3b219185fb6f55d3dd60bf5bb3bac63d7a7e52d0))
+
+
+### Documentation
+
+* **docs-site:** add openfort wallet infrastructure to developer tools ([#21208](https://github.com/taikoxyz/taiko-mono/issues/21208)) ([86cdfdc](https://github.com/taikoxyz/taiko-mono/commit/86cdfdc624aeff2485032dd14ca64cba94dcfbf1))
+
+## [1.32.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.5...docs-site-v1.32.6) (2025-11-24)
+
+
+### Chores
+
+* **docs-site:** add growthepie Taiko Alethia link card to developer tools ([#20792](https://github.com/taikoxyz/taiko-mono/issues/20792)) ([20f401c](https://github.com/taikoxyz/taiko-mono/commit/20f401c459e63c891d7f72ddafde451b8dc08327))
+
+## [1.32.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.4...docs-site-v1.32.5) (2025-11-13)
+
+
+### Bug Fixes
+
+* **docs-site:** replace broken link with working ([#20715](https://github.com/taikoxyz/taiko-mono/issues/20715)) ([9723b53](https://github.com/taikoxyz/taiko-mono/commit/9723b53467c012c13e19ec40c47d98aa5c504085))
+
+
+### Chores
+
+* **docs-site:** remove taiko hekla ([#20718](https://github.com/taikoxyz/taiko-mono/issues/20718)) ([683e062](https://github.com/taikoxyz/taiko-mono/commit/683e06236692d05ba686404e6457aeacceedd8ac))
+
+## [1.32.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.3...docs-site-v1.32.4) (2025-11-12)
+
+
+### Chores
+
+* **deps:** bump astro from 4.13.1 to 5.14.3 ([#20662](https://github.com/taikoxyz/taiko-mono/issues/20662)) ([09a2e4a](https://github.com/taikoxyz/taiko-mono/commit/09a2e4a246e8bc36642190ad15568bd4a2a0d33d))
+* **docs-site:** add other erc8004 contract addresses for taiko hoodi ([#20703](https://github.com/taikoxyz/taiko-mono/issues/20703)) ([8fec23b](https://github.com/taikoxyz/taiko-mono/commit/8fec23bcfcf0999e9fe85fb9f0ff8737182adffd))
+* **docs-site:** fix build ([#20696](https://github.com/taikoxyz/taiko-mono/issues/20696)) ([f94e90f](https://github.com/taikoxyz/taiko-mono/commit/f94e90f50e68fc4d2e4c6626d43d612306077610))
+* **docs-site:** update taiko inbox contract address for hoodi ([#20710](https://github.com/taikoxyz/taiko-mono/issues/20710)) ([3fbcb11](https://github.com/taikoxyz/taiko-mono/commit/3fbcb11f885f62462b6720988babb48ccc82aba4))
+
 ## [1.32.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.32.2...docs-site-v1.32.3) (2025-11-07)
 
 

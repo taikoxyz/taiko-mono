@@ -1,6 +1,9 @@
 #!/bin/bash
 
-source internal/docker/docker_env.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+source "$PROJECT_ROOT/internal/docker/docker_env.sh"
 
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 export FOUNDRY_PROFILE="layer1"
@@ -25,6 +28,7 @@ export L2_CHAIN_ID=167001
 export PROVER_SET_ADMIN=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
 export SHASTA_INITIALIZER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+export PRECONF_WHITELIST=0x0000000000000000000000000000000000000000
 
 # Get the hash of the L2 genesis block.
 export L2_GENESIS_HASH=$(
@@ -33,6 +37,6 @@ export L2_GENESIS_HASH=$(
         -X POST \
         -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","id":0,"method":"eth_getBlockByNumber","params":["0x0", false]}' \
-        $L2_HTTP | jq .result.hash | sed 's/\"//g'
+        "$L2_HTTP" | jq .result.hash | sed 's/\"//g'
 )
 echo "L2_GENESIS_HASH: $L2_GENESIS_HASH"

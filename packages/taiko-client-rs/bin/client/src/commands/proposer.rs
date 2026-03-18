@@ -1,13 +1,10 @@
 //! Proposer Subcommand.
 use std::time::Duration;
 
-use alloy::transports::http::reqwest::Url as RpcUrl;
-use anyhow::Result;
+use crate::error::Result;
 use async_trait::async_trait;
 use clap::Parser;
-use event_indexer::metrics::IndexerMetrics;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
-use rpc::SubscriptionSource;
 
 use crate::{
     commands::Subcommand,
@@ -24,6 +21,7 @@ pub struct ProposerSubCommand {
     /// Common CLI arguments.
     #[command(flatten)]
     pub common_flags: CommonArgs,
+    /// Proposer-specific CLI arguments.
     #[command(flatten)]
     pub proposer_flags: ProposerArgs,
 }
@@ -31,19 +29,19 @@ pub struct ProposerSubCommand {
 impl ProposerSubCommand {
     /// Build proposer configuration from command-line arguments.
     fn build_config(&self) -> Result<ProposerConfigs> {
-        let l1_provider_source =
-            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
+        let l1_provider_source = self.common_flags.l1_provider_source()?;
 
         Ok(ProposerConfigs {
             l1_provider_source,
-            l2_provider_url: RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?,
-            l2_auth_provider_url: RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?,
+            l2_provider_url: self.common_flags.l2_http_endpoint.clone(),
+            l2_auth_provider_url: self.common_flags.l2_auth_endpoint.clone(),
             jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
             inbox_address: self.common_flags.shasta_inbox_address,
             l2_suggested_fee_recipient: self.proposer_flags.l2_suggested_fee_recipient,
             propose_interval: Duration::from_secs(self.proposer_flags.propose_interval),
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
             gas_limit: self.proposer_flags.gas_limit,
+            use_engine_mode: self.proposer_flags.use_engine_mode,
         })
     }
 
@@ -60,19 +58,18 @@ impl ProposerSubCommand {
 
 #[async_trait]
 impl Subcommand for ProposerSubCommand {
-    // Return a reference to the common CLI arguments.
+    /// Return a reference to the common CLI arguments.
     fn common_args(&self) -> &CommonArgs {
         &self.common_flags
     }
 
-    // Register proposer and indexer metrics.
+    /// Register proposer metrics before runtime startup.
     fn register_metrics(&self) -> Result<()> {
         ProposerMetrics::init();
-        IndexerMetrics::init();
         Ok(())
     }
 
-    // Run the proposer software.
+    /// Execute the proposer subcommand flow.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
         self.init_metrics()?;

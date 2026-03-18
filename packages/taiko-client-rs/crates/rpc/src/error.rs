@@ -43,12 +43,14 @@ pub enum RpcClientError {
 
 // Manual From implementation for RpcError
 impl From<RpcError<TransportErrorKind>> for RpcClientError {
+    /// Convert transport-backed RPC errors into the generic RPC client error.
     fn from(err: RpcError<TransportErrorKind>) -> Self {
         RpcClientError::Rpc(err.to_string())
     }
 }
 
 impl From<TransportError<TransportErrorKind>> for RpcClientError {
+    /// Convert low-level transport errors into the generic RPC client error.
     fn from(err: TransportError<TransportErrorKind>) -> Self {
         RpcClientError::Rpc(err.to_string())
     }
@@ -56,16 +58,19 @@ impl From<TransportError<TransportErrorKind>> for RpcClientError {
 
 // Manual From implementation for alloy contract Error
 impl From<alloy::contract::Error> for RpcClientError {
+    /// Convert contract call errors into the contract-specific RPC client variant.
     fn from(err: alloy::contract::Error) -> Self {
         RpcClientError::Contract(err.to_string())
     }
 }
 
 impl From<SubscriptionSourceError> for RpcClientError {
+    /// Convert subscription source errors into RPC client error variants.
     fn from(err: SubscriptionSourceError) -> Self {
         match err {
             SubscriptionSourceError::Connection(msg) => RpcClientError::Connection(msg),
             SubscriptionSourceError::Wallet(msg) => RpcClientError::Other(anyhow!(msg)),
+            other => RpcClientError::Other(anyhow!(other)),
         }
     }
 }

@@ -41,7 +41,6 @@ func (s *EventSyncerTestSuite) SetupTest() {
 	syncer, err := NewSyncer(
 		context.Background(),
 		s.RPCClient,
-		s.ShastaStateIndexer,
 		state2,
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
@@ -240,6 +239,56 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 
 	s.True(hasNoneAnchorTxs)
 	s.Zero(balanceAfter.Cmp(balance))
+}
+
+func (s *EventSyncerTestSuite) TestKnownBatchSendsProposal() {
+	ctx := context.Background()
+
+	// Record L1 head before proposing so we know where to reset the cursor.
+	l1HeadBefore, err := s.RPCClient.L1.HeaderByNumber(ctx, nil)
+	s.Nil(err)
+
+	// Insert blocks using the default syncer (no channel) — normal insertion path.
+	s.ProposeAndInsertValidBlock(s.p, s.s)
+
+	// Create a new syncer WITH a proposal channel to capture known-batch proposals.
+	// This simulates a restart: fresh syncer state, but blocks already in canonical chain.
+	proposalCh := make(chan *encoding.LastSeenProposal, 10)
+	state2, err := state.New(ctx, s.RPCClient)
+	s.Nil(err)
+
+	syncer2, err := NewSyncer(
+		ctx,
+		s.RPCClient,
+		state2,
+		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
+		s.BlobServer.URL(),
+		proposalCh,
+	)
+	s.Nil(err)
+
+	// Reset L1Current to before the proposal to force reprocessing of the same events.
+	state2.SetL1Current(l1HeadBefore)
+
+	// Process L1 blocks — should hit the known-batch fast path since blocks exist.
+	s.Nil(syncer2.ProcessL1Blocks(ctx))
+
+	// Wait for proposals while draining the channel.
+	// Known-batch proposals should have PreconfChainReorged=false (not a reorg)
+	// and a valid LastBlockID so the preconf server can advance its canonical tip.
+	proposalCount := 0
+	deadline := time.After(1 * time.Second)
+	for {
+		select {
+		case proposal := <-proposalCh:
+			s.False(proposal.PreconfChainReorged, "Known batch should not be marked as reorged")
+			s.Greater(proposal.LastBlockID, uint64(0))
+			proposalCount++
+		case <-deadline:
+			s.Greater(proposalCount, 0, "Expected at least one proposal from known-batch fast path")
+			return
+		}
+	}
 }
 
 func (s *EventSyncerTestSuite) initProposer() {

@@ -86,41 +86,12 @@ var (
 		Category: processorCategory,
 		EnvVars:  []string{"ENABLE_TAIKO_L2"},
 	}
-	HopSignalServiceAddresses = &cli.StringSliceFlag{
-		Name:     "hopSignalServiceAddresses",
-		Usage:    "SignalService addresses for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_SIGNAL_SERVICE_ADDRESSES"},
-	}
-	HopTaikoAddresses = &cli.StringSliceFlag{
-		Name:     "hopTaikoAddresses",
-		Usage:    "Taiko addresses for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_TAIKO_ADDRESSES"},
-	}
-	HopRPCUrls = &cli.StringSliceFlag{
-		Name:     "hopRpcUrls",
-		Usage:    "RPC URL for the intermediary chains",
-		Required: false,
-		Category: processorCategory,
-		EnvVars:  []string{"HOP_RPC_URLS"},
-	}
 	TargetTxHash = &cli.StringFlag{
 		Name:     "targetTxHash",
 		Usage:    "Target transaction hash, set to ignore processing from queue and only process this individual transaction",
 		Category: processorCategory,
 		Required: false,
 		EnvVars:  []string{"TARGET_TX_HASH"},
-	}
-	CacheOption = &cli.IntFlag{
-		Name:     "cacheOption",
-		Usage:    "Cache option. Options: 0 - cache nothing, 1 - cache signal root, 2 - cache state root, 3 - cache both",
-		Category: processorCategory,
-		Required: false,
-		EnvVars:  []string{"CACHE_OPTION"},
-		Value:    3,
 	}
 	UnprofitableMessageQueueExpiration = &cli.StringFlag{
 		Name:     "unprofitableMessageQueueExpiration",
@@ -165,12 +136,8 @@ var ProcessorFlags = MergeFlags(CommonFlags, QueueFlags, TxmgrFlags, []cli.Flag{
 	ProfitableOnly,
 	QueuePrefetchCount,
 	EnableTaikoL2,
-	HopRPCUrls,
-	HopSignalServiceAddresses,
-	HopTaikoAddresses,
 	DestBridgeAddress,
 	TargetTxHash,
-	CacheOption,
 	UnprofitableMessageQueueExpiration,
 	MaxMessageRetries,
 	MinFeeToProcess,
