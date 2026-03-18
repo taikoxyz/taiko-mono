@@ -120,7 +120,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
 
     /// @notice Deprecated: was the activation timestamp. Kept for storage layout compatibility.
-    uint48 public activationTimestamp;
+    uint48 internal _activationTimestamp;
 
     /// @notice Persisted core state.
     CoreState internal _coreState;
