@@ -13,6 +13,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
 /// - ACTIVATOR: Address to set as initial inbox owner
+/// - L2_GENESIS_HASH: Genesis block hash for inbox initialization
 /// - PROVERS: Comma-separated list of prover addresses
 /// - SHASTA_FORK_TIMESTAMP: Unix timestamp for the Shasta fork
 contract DeployShastaMainnet is DeployShastaContracts {
@@ -33,6 +34,7 @@ contract DeployShastaMainnet is DeployShastaContracts {
 
         // Load deployment-specific values from environment
         config.activator = vm.envAddress("ACTIVATOR");
+        config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
         config.provers = vm.envAddress("PROVERS", ",");
         config.shastaForkTimestamp = uint64(vm.envUint("SHASTA_FORK_TIMESTAMP"));
     }

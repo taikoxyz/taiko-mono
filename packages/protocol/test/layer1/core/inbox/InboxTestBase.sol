@@ -9,7 +9,6 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
-import { LibHashOptimized } from "src/layer1/core/libs/LibHashOptimized.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
@@ -64,7 +63,6 @@ abstract contract InboxTestBase is CommonTest {
         inbox = _deployInbox();
         codec = ICodec(address(inbox));
         _setSignalServiceSyncer(address(inbox));
-        _activateInbox(inbox, bytes32(uint256(1)));
 
         _seedBondBalances();
 
@@ -118,38 +116,14 @@ abstract contract InboxTestBase is CommonTest {
     // Deploy helpers (internal - state-changing)
     // ---------------------------------------------------------------
 
-    /// @dev Simulates the activation that would have been done before upgrading to this impl.
-    /// Sets up the core state and genesis proposal hash via vm.store.
-    function _activateInbox(Inbox _inbox, bytes32 _lastPacayaBlockHash) internal {
-        // Slot 251: activationTimestamp
-        vm.store(address(_inbox), bytes32(uint256(251)), bytes32(uint256(uint48(block.timestamp))));
-
-        // Slot 252: CoreState packed fields (right-aligned, low-to-high offset)
-        // nextProposalId=1, lastProposalBlockId=1, lastFinalizedProposalId=0,
-        // lastFinalizedTimestamp=block.timestamp, lastCheckpointTimestamp=0
-        bytes32 coreStateSlot252 = bytes32(
-            uint256(1) // nextProposalId
-                | (uint256(1) << 48) // lastProposalBlockId
-                | (uint256(0) << 96) // lastFinalizedProposalId
-                | (uint256(uint48(block.timestamp)) << 144) // lastFinalizedTimestamp
-                | (uint256(0) << 192) // lastCheckpointTimestamp
-        );
-        vm.store(address(_inbox), bytes32(uint256(252)), coreStateSlot252);
-
-        // Slot 253: lastFinalizedBlockHash
-        vm.store(address(_inbox), bytes32(uint256(253)), _lastPacayaBlockHash);
-
-        // Set genesis proposal hash in the ring buffer mapping at slot 254
-        // mapping slot = keccak256(abi.encode(key, slot))
-        // key = 0 % ringBufferSize = 0
-        IInbox.Proposal memory genesisProposal;
-        bytes32 genesisHash = LibHashOptimized.hashProposal(genesisProposal);
-        bytes32 mappingSlot = keccak256(abi.encode(uint256(0), uint256(254)));
-        vm.store(address(_inbox), mappingSlot, genesisHash);
-    }
-
     function _deployProxy(address _impl) internal returns (Inbox) {
-        return Inbox(address(new ERC1967Proxy(_impl, abi.encodeCall(Inbox.init, (address(this))))));
+        return Inbox(
+            address(
+                new ERC1967Proxy(
+                    _impl, abi.encodeCall(Inbox.init, (address(this), bytes32(uint256(1))))
+                )
+            )
+        );
     }
 
     function _deploySignalService(address _authorizedSyncer) internal returns (SignalService) {
