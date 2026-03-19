@@ -38,8 +38,6 @@ impl DriverConfig {
         blob_server_endpoint: Option<Url>,
         event_sync_max_retries: usize,
     ) -> Self {
-        assert!(event_sync_max_retries > 0, "event_sync_max_retries must be at least 1");
-
         Self {
             client,
             retry_interval,
