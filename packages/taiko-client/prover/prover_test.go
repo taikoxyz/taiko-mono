@@ -223,7 +223,7 @@ func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
 				ProofType:         proofProducer.ProofTypeOp,
 				SgxGethBatchProof: []byte{},
 			})
-		})
+		}, nil)
 	})
 }
 

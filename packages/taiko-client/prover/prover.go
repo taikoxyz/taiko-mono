@@ -253,7 +253,10 @@ func (p *Prover) eventLoop() {
 		case <-p.ctx.Done():
 			return
 		case batchProof := <-p.batchProofGenerationCh:
-			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) }, func() error { return p.clearProofBuffer(batchProof) })
+			p.withRetry(
+				func() error { return p.submitProofAggregationOp(batchProof) },
+				func() error { return p.clearProofBuffer(batchProof) },
+			)
 		case req := <-p.proofSubmissionCh:
 			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
 		case <-p.proveNotify:
@@ -364,8 +367,8 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
-			if err := submitter.ClearProofBuffers(p.ctx, batchProof); err != nil {
-				// 如果我们clear buffer失败了的话，我们把error抛出去，进入下一次重试
+			if err := submitter.ClearProofBuffers(batchProof); err != nil {
+				// If clearing the proof buffer fails, return the error and retry in the next attempt.
 				return err
 			}
 			return nil
@@ -393,7 +396,7 @@ func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs) error {
 	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
-	return submitter.ClearProofBuffers(p.ctx, batchProof)
+	return submitter.ClearProofBuffers(batchProof)
 }
 
 // Name returns the application name.

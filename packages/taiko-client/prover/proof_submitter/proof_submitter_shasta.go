@@ -382,7 +382,6 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesShasta(ctx, batchProof),
 		batchProof,
 	); err != nil {
-		proofBuffer.ClearItems(uint64ProposalIDs...)
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -394,11 +393,14 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		return err
 	}
 
-	proofBuffer.ClearItems(uint64ProposalIDs...)
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 
 	return nil
+}
+
+func (s *ProofSubmitterShasta) ClearProofBuffers(batchProof *proofProducer.BatchProofs) error {
+	return clearProofBufferItems(s.proofBuffers, batchProof)
 }
 
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
