@@ -253,33 +253,33 @@ func (p *Prover) eventLoop() {
 		case <-p.ctx.Done():
 			return
 		case batchProof := <-p.batchProofGenerationCh:
-			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
+			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) }, nil)
 		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
+			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
 		case proofType := <-p.batchesAggregationNotifyPacaya:
-			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
+			p.withRetry(func() error { return p.aggregateOp(proofType, false) }, nil)
 		case proofType := <-p.batchesAggregationNotifyShasta:
-			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
+			p.withRetry(func() error { return p.aggregateOp(proofType, true) }, nil)
 		case proofType := <-p.flushCacheNotify:
-			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
+			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) }, nil)
 		case e := <-batchesVerifiedCh:
 			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
 			}
 		case e := <-batchesProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) })
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) }, nil)
 		case m := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
+			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) }, nil)
 		case <-batchProposedCh:
 			reqProving()
 		case <-shastaProposedCh:
 			reqProving()
 		case e := <-shastaProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) })
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) }, nil)
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -389,7 +389,7 @@ func (p *Prover) ProverAddress() common.Address {
 }
 
 // withRetry retries the given function with prover backoff policy.
-func (p *Prover) withRetry(f func() error) {
+func (p *Prover) withRetry(f func() error, callback func() error) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
@@ -402,6 +402,10 @@ func (p *Prover) withRetry(f func() error) {
 			p.ctx,
 		)
 		if err := backoff.Retry(f, bo); err != nil {
+			if callback != nil {
+				callbackErr := callback()
+				log.Error("Callback failed", "error", callbackErr)
+			}
 			log.Error("Operation failed", "error", err)
 		}
 	}()
