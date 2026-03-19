@@ -176,10 +176,11 @@ where
     ///
     /// Errors are logged but never propagated so payload application can proceed even when the
     /// mapping is unavailable.
-    async fn finalized_block_hash_for(&self, last_finalized_proposal_id: u64) -> Option<B256> {
-        if last_finalized_proposal_id == 0 {
-            return None;
-        }
+    async fn finalized_block_hash_for(
+        &self,
+        maybe_last_finalized_proposal_id: Option<u64>,
+    ) -> Option<B256> {
+        let last_finalized_proposal_id = maybe_last_finalized_proposal_id?;
 
         let block_number = match self
             .rpc
@@ -251,9 +252,8 @@ where
         let mut outcomes = Vec::new();
         // Best-effort lookup of the last finalized block hash; missing data should not block
         // payload application.
-        let finalized_block_hash = self
-            .finalized_block_hash_for(meta.last_finalized_proposal_id.unwrap_or_default())
-            .await;
+        let finalized_block_hash =
+            self.finalized_block_hash_for(meta.last_finalized_proposal_id).await;
         info!(
             proposal_id = meta.proposal_id,
             segment_count = segments_total,
