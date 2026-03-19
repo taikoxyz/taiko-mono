@@ -10,7 +10,6 @@ use alloy::{
 use alloy_consensus::TxEnvelope;
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
-use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
 use metrics::{counter, gauge};
@@ -54,6 +53,54 @@ use bundle::{BundleMeta, SourceManifestSegment};
 use state::ParentState;
 
 pub use bundle::ShastaProposalBundle;
+
+/// Query inbox core state at the provided L1 block hash and return the finalized proposal id.
+///
+/// Failures are downgraded to `None` so proposal derivation can proceed without finalized
+/// forkchoice hints.
+async fn try_last_finalized_proposal_id_at_block<P>(
+    rpc: &Client<P>,
+    block_hash: B256,
+) -> Option<u64>
+where
+    P: Provider + Clone + 'static,
+{
+    match rpc
+        .shasta
+        .inbox
+        .getCoreState()
+        .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+        .call()
+        .await
+    {
+        Ok(core_state) => Some(core_state.lastFinalizedProposalId.to::<u64>()),
+        Err(err) => {
+            warn!(
+                l1_block_hash = ?block_hash,
+                error = %err,
+                "failed to query last finalized proposal id from inbox core state"
+            );
+            None
+        }
+    }
+}
+
+/// Build proposal-wide metadata shared across manifest segments and payload derivation.
+fn build_bundle_meta(
+    event: &ProposedEventContext,
+    last_finalized_proposal_id: Option<u64>,
+) -> BundleMeta {
+    BundleMeta {
+        proposal_id: event.event.id.to::<u64>(),
+        last_finalized_proposal_id,
+        proposal_timestamp: event.l1_timestamp,
+        l1_block_number: event.l1_block_number,
+        l1_block_hash: event.l1_block_hash,
+        origin_block_number: event.l1_block_number.saturating_sub(1),
+        proposer: event.event.proposer,
+        basefee_sharing_pctg: event.event.basefeeSharingPctg,
+    }
+}
 
 /// Convert a derivation source's blob slice into ordered blob hashes for manifest fetch.
 fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {
@@ -240,19 +287,16 @@ where
     }
 
     /// Read the inbox core state at the proposal log's block to extract the last finalized id.
-    async fn inbox_last_finalized_proposal_id(&self, log: &Log) -> Result<u64, DerivationError> {
-        let block_hash = log
-            .block_hash
-            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block hash")))?;
-        let core_state = self
-            .rpc
-            .shasta
-            .inbox
-            .getCoreState()
-            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
-            .call()
-            .await?;
-        Ok(core_state.lastFinalizedProposalId.to::<u64>())
+    ///
+    /// Missing block hash or inbox-query failures are treated as absence of finalization data so
+    /// derivation can continue without finalized forkchoice hints.
+    async fn inbox_last_finalized_proposal_id(&self, log: &Log) -> Option<u64> {
+        let Some(block_hash) = log.block_hash else {
+            warn!("proposal log missing block hash; skipping finalized proposal id lookup");
+            return None;
+        };
+
+        try_last_finalized_proposal_id_at_block(&self.rpc, block_hash).await
     }
 
     /// Fetch and decode a single manifest from the blob store.
@@ -283,7 +327,7 @@ where
     async fn build_manifest_from_event(
         &self,
         event: &ProposedEventContext,
-        last_finalized_proposal_id: u64,
+        last_finalized_proposal_id: Option<u64>,
     ) -> Result<ShastaProposalBundle, DerivationError> {
         let sources = &event.event.sources;
         let proposal_id = event.event.id.to::<u64>();
@@ -317,21 +361,14 @@ where
 
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
-            meta: BundleMeta {
-                proposal_id,
-                last_finalized_proposal_id,
-                proposal_timestamp: event.l1_timestamp,
-                l1_block_number: event.l1_block_number,
-                l1_block_hash: event.l1_block_hash,
-                origin_block_number: event.l1_block_number.saturating_sub(1),
-                proposer: event.event.proposer,
-                basefee_sharing_pctg: event.event.basefeeSharingPctg,
-            },
+            meta: build_bundle_meta(event, last_finalized_proposal_id),
             sources: manifest_segments,
         };
 
-        gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
-            .set(bundle.meta.last_finalized_proposal_id as f64);
+        if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
+            gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
+                .set(last_finalized_proposal_id as f64);
+        }
 
         info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
         Ok(bundle)
@@ -393,8 +430,8 @@ where
     #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
-        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
-        self.build_manifest_from_event(&event, last_finalized_proposal_id).await
+        self.build_manifest_from_event(&event, self.inbox_last_finalized_proposal_id(log).await)
+            .await
     }
 
     // Convert a manifest into execution engine blocks for block production.
@@ -454,7 +491,7 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
         let proposal_id = event.event.id.to::<u64>();
-        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
+        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await;
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
@@ -488,12 +525,25 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy::primitives::{
-        B256, FixedBytes,
-        aliases::{U24, U48},
+    use alloy::{
+        primitives::{
+            Address, B256, Bytes, FixedBytes,
+            aliases::{U24, U48},
+        },
+        sol_types::SolCall,
     };
-    use bindings::inbox::LibBlobs::BlobSlice;
+    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_transport::mock::Asserter;
+    use bindings::{
+        anchor::Anchor::AnchorInstance,
+        inbox::{
+            IInbox,
+            Inbox::{InboxInstance, getCoreStateCall},
+            LibBlobs::BlobSlice,
+        },
+    };
     use protocol::shasta::manifest::{BlockManifest, DerivationSourceManifest};
+    use rpc::client::{Client, ShastaProtocolInstance};
 
     fn sample_derivation_source(
         blob_hashes: Vec<FixedBytes<32>>,
@@ -507,6 +557,38 @@ mod tests {
                 timestamp: U48::from(0u64),
             },
         }
+    }
+
+    fn sample_event_context() -> ProposedEventContext {
+        ProposedEventContext {
+            event: Proposed {
+                id: U48::from(11u64),
+                proposer: Address::from([2u8; 20]),
+                parentProposalHash: FixedBytes::from([3u8; 32]),
+                endOfSubmissionWindowTimestamp: U48::from(4u64),
+                basefeeSharingPctg: 5,
+                sources: vec![sample_derivation_source(vec![], false)],
+            },
+            l1_block_number: 10,
+            l1_block_hash: B256::from([6u8; 32]),
+            l1_timestamp: 7,
+        }
+    }
+
+    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+        let l1_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+        let l2_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
     #[test]
@@ -531,5 +613,49 @@ mod tests {
         let validated = validate_forced_inclusion_manifest(1, &source, manifest);
 
         assert_eq!(validated.blocks.len(), 1);
+    }
+
+    #[test]
+    fn bundle_meta_preserves_absent_finalized_proposal_id() {
+        let event = sample_event_context();
+
+        let meta = build_bundle_meta(&event, None);
+
+        assert_eq!(meta.proposal_id, 11);
+        assert_eq!(meta.last_finalized_proposal_id, None);
+        assert_eq!(meta.origin_block_number, 9);
+    }
+
+    #[tokio::test]
+    async fn finalized_proposal_id_at_block_returns_some_on_success() {
+        let asserter = Asserter::new();
+        let client = mock_client_with_l1_asserter(asserter.clone());
+        let core_state = IInbox::CoreState {
+            nextProposalId: U48::from(9u64),
+            lastProposalBlockId: U48::from(8u64),
+            lastFinalizedProposalId: U48::from(7u64),
+            lastFinalizedTimestamp: U48::from(6u64),
+            lastCheckpointTimestamp: U48::from(5u64),
+            lastFinalizedBlockHash: FixedBytes::from([4u8; 32]),
+        };
+        let encoded = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        asserter.push_success(&encoded);
+
+        let proposal_id =
+            try_last_finalized_proposal_id_at_block(&client, B256::from([1u8; 32])).await;
+
+        assert_eq!(proposal_id, Some(7));
+    }
+
+    #[tokio::test]
+    async fn finalized_proposal_id_at_block_returns_none_on_rpc_error() {
+        let asserter = Asserter::new();
+        let client = mock_client_with_l1_asserter(asserter.clone());
+        asserter.push_failure_msg("boom");
+
+        let proposal_id =
+            try_last_finalized_proposal_id_at_block(&client, B256::from([1u8; 32])).await;
+
+        assert_eq!(proposal_id, None);
     }
 }

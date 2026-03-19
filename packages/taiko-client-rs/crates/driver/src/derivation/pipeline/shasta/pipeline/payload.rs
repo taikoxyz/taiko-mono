@@ -251,8 +251,9 @@ where
         let mut outcomes = Vec::new();
         // Best-effort lookup of the last finalized block hash; missing data should not block
         // payload application.
-        let finalized_block_hash =
-            self.finalized_block_hash_for(meta.last_finalized_proposal_id).await;
+        let finalized_block_hash = self
+            .finalized_block_hash_for(meta.last_finalized_proposal_id.unwrap_or_default())
+            .await;
         info!(
             proposal_id = meta.proposal_id,
             segment_count = segments_total,

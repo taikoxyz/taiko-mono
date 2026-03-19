@@ -25,8 +25,8 @@ pub struct ShastaProposalBundle {
 pub(super) struct BundleMeta {
     /// Proposal id emitted by the inbox event.
     pub(super) proposal_id: u64,
-    /// Last finalized proposal id from proposal core state.
-    pub(super) last_finalized_proposal_id: u64,
+    /// Last finalized proposal id from proposal core state, if the lookup succeeded.
+    pub(super) last_finalized_proposal_id: Option<u64>,
     /// Proposal timestamp sourced from the emitting L1 block.
     pub(super) proposal_timestamp: u64,
     /// L1 block number that emitted the proposal event.
