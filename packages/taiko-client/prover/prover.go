@@ -385,6 +385,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	return nil
 }
 
+// clearProofBuffer clears the buffered proof items for the batch from the matching submitter.
 func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs) error {
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
 		return fmt.Errorf("empty batch proof")
@@ -409,7 +410,7 @@ func (p *Prover) ProverAddress() common.Address {
 	return p.txmgr.From()
 }
 
-// withRetry retries the given function with prover backoff policy.
+// withRetry retries the given function with prover backoff policy and runs callback if retries are exhausted.
 func (p *Prover) withRetry(f func() error, callback func() error) {
 	p.wg.Add(1)
 	go func() {

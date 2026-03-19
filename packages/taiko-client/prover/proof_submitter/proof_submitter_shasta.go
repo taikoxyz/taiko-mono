@@ -399,6 +399,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	return nil
 }
 
+// ClearProofBuffers removes the submitted proof items from the Shasta proof buffer.
 func (s *ProofSubmitterShasta) ClearProofBuffers(batchProof *proofProducer.BatchProofs) error {
 	return clearProofBufferItems(s.proofBuffers, batchProof)
 }

@@ -355,6 +355,7 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	return nil
 }
 
+// ClearProofBuffers removes the submitted proof items from the Pacaya proof buffer.
 func (s *ProofSubmitterPacaya) ClearProofBuffers(batchProof *proofProducer.BatchProofs) error {
 	return clearProofBufferItems(s.proofBuffers, batchProof)
 }

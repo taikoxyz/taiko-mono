@@ -8,6 +8,7 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
+// clearProofBufferItems removes the specified proof items from the matching proof buffer.
 func clearProofBufferItems(
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	batchProof *proofProducer.BatchProofs,
