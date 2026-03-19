@@ -253,7 +253,7 @@ func (p *Prover) eventLoop() {
 		case <-p.ctx.Done():
 			return
 		case batchProof := <-p.batchProofGenerationCh:
-			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) }, nil)
+			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) }, func() error { return p.clearProofBuffer(batchProof) })
 		case req := <-p.proofSubmissionCh:
 			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
 		case <-p.proveNotify:
@@ -349,21 +349,25 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	}
 
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
-			log.Error(
-				"Proof submission reverted",
-				"blockIDs", batchProof.BatchIDs,
-				"proofType", batchProof.ProofType,
-				"error", err,
-			)
-			return nil
-		} else if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+		if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Warn(
 				"Detected proven blocks",
 				"blockIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
+			return nil
+		} else if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
+			log.Error(
+				"Proof submission reverted",
+				"blockIDs", batchProof.BatchIDs,
+				"proofType", batchProof.ProofType,
+				"error", err,
+			)
+			if err := submitter.ClearProofBuffers(p.ctx, batchProof); err != nil {
+				// 如果我们clear buffer失败了的话，我们把error抛出去，进入下一次重试
+				return err
+			}
 			return nil
 		}
 		log.Error(
@@ -376,6 +380,20 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	}
 
 	return nil
+}
+
+func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs) error {
+	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
+		return fmt.Errorf("empty batch proof")
+	}
+	submitter := p.proofSubmitterPacaya
+	if batchProof.ProofResponses[0].Meta.IsShasta() {
+		submitter = p.proofSubmitterShasta
+	}
+	if utils.IsNil(submitter) {
+		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
+	}
+	return submitter.ClearProofBuffers(p.ctx, batchProof)
 }
 
 // Name returns the application name.

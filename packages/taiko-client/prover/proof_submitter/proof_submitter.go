@@ -338,7 +338,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesPacaya(batchProof),
 		batchProof,
 	); err != nil {
-		proofBuffer.ClearItems(uint64BatchIDs...)
 		// Resend the proof request
 		for _, proofResp := range batchProof.ProofResponses {
 			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
@@ -352,6 +351,33 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
+
+	return nil
+}
+
+func (s *ProofSubmitterPacaya) ClearProofBuffers(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
+	log.Info(
+		"Clear proof buffers",
+		"size", len(batchProof.ProofResponses),
+		"firstID", batchProof.BatchIDs[0],
+		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
+		"proofType", batchProof.ProofType,
+	)
+	var (
+		uint64BatchIDs []uint64
+	)
+	if len(batchProof.ProofResponses) == 0 {
+		return proofProducer.ErrInvalidLength
+	}
+	proofBuffer, exist := s.proofBuffers[batchProof.ProofType]
+	if !exist {
+		return fmt.Errorf("unexpected proof type to clear: %s", batchProof.ProofType)
+	}
+
+	// Extract all block IDs in the batches.
+	for _, proof := range batchProof.ProofResponses {
+		uint64BatchIDs = append(uint64BatchIDs, proof.BatchID.Uint64())
+	}
 
 	// Clear the items in the buffer.
 	proofBuffer.ClearItems(uint64BatchIDs...)

@@ -19,4 +19,5 @@ type Submitter interface {
 	BatchSubmitProofs(ctx context.Context, proofsWithHeaders *proofProducer.BatchProofs) error
 	AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error
 	FlushCache(ctx context.Context, proofType proofProducer.ProofType) error
+	ClearProofBuffers(ctx context.Context, batchProof *proofProducer.BatchProofs) error
 }
