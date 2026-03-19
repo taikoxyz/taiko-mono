@@ -381,6 +381,9 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		)
 		return err
 	}
+	if err := submitter.ClearProofBuffers(batchProof); err != nil {
+		return fmt.Errorf("failed to clear proof buffers after successful submission: %w", err)
+	}
 
 	return nil
 }
@@ -426,7 +429,9 @@ func (p *Prover) withRetry(f func() error, callback func() error) {
 		if err := backoff.Retry(f, bo); err != nil {
 			if callback != nil {
 				callbackErr := callback()
-				log.Error("Callback failed", "error", callbackErr)
+				if callbackErr != nil {
+					log.Error("Callback failed", "error", callbackErr)
+				}
 			}
 			log.Error("Operation failed", "error", err)
 		}
