@@ -286,19 +286,6 @@ where
         Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
-    /// Read the inbox core state at the proposal log's block to extract the last finalized id.
-    ///
-    /// Missing block hash or inbox-query failures are treated as absence of finalization data so
-    /// derivation can continue without finalized forkchoice hints.
-    async fn inbox_last_finalized_proposal_id(&self, log: &Log) -> Option<u64> {
-        let Some(block_hash) = log.block_hash else {
-            warn!("proposal log missing block hash; skipping finalized proposal id lookup");
-            return None;
-        };
-
-        try_last_finalized_proposal_id_at_block(&self.rpc, block_hash).await
-    }
-
     /// Fetch and decode a single manifest from the blob store.
     ///
     /// The caller is responsible for providing the correct fetcher implementation for
@@ -430,8 +417,11 @@ where
     #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
-        self.build_manifest_from_event(&event, self.inbox_last_finalized_proposal_id(log).await)
-            .await
+        self.build_manifest_from_event(
+            &event,
+            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await,
+        )
+        .await
     }
 
     // Convert a manifest into execution engine blocks for block production.
@@ -491,7 +481,8 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
         let proposal_id = event.event.id.to::<u64>();
-        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await;
+        let last_finalized_proposal_id =
+            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await;
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
