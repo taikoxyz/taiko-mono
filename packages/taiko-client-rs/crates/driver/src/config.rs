@@ -5,9 +5,6 @@ use std::time::Duration;
 use alloy::transports::http::reqwest::Url;
 use rpc::client::ClientConfig;
 
-/// Default maximum number of event-sync retries for transient processing failures.
-pub const DEFAULT_EVENT_SYNC_MAX_RETRIES: usize = 10;
-
 /// Configuration for the Shasta driver.
 #[derive(Clone, Debug)]
 pub struct DriverConfig {
@@ -79,10 +76,10 @@ mod tests {
             Url::parse("http://localhost:5052").expect("valid beacon url"),
             None,
             None,
-            DEFAULT_EVENT_SYNC_MAX_RETRIES,
+            10,
         );
 
-        assert_eq!(cfg.event_sync_max_retries, DEFAULT_EVENT_SYNC_MAX_RETRIES);
+        assert_eq!(cfg.event_sync_max_retries, 10);
     }
 
     #[test]

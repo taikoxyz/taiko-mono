@@ -1,10 +1,8 @@
 //! Driver-specific CLI flags.
 
 use clap::Parser;
-use std::time::Duration;
+use std::{num::NonZeroUsize, time::Duration};
 use url::Url;
-
-use driver::config::DEFAULT_EVENT_SYNC_MAX_RETRIES;
 
 /// Driver-specific CLI arguments.
 #[derive(Parser, Clone, Debug, PartialEq, Eq)]
@@ -21,11 +19,10 @@ pub struct DriverArgs {
     #[clap(
         long = "driver.eventSyncMaxRetries",
         env = "DRIVER_EVENT_SYNC_MAX_RETRIES",
-        default_value_t = DEFAULT_EVENT_SYNC_MAX_RETRIES,
-        value_parser = clap::value_parser!(usize).range(1..),
+        default_value = "10",
         help = "Maximum number of retries for transient event-sync processing failures"
     )]
-    event_sync_max_retries: usize,
+    event_sync_max_retries: NonZeroUsize,
     /// HTTP endpoint of the L1 beacon node.
     #[clap(
         long = "l1.beacon",
@@ -58,7 +55,7 @@ impl DriverArgs {
 
     /// Maximum number of retries for transient event-sync processing failures.
     pub fn event_sync_max_retries(&self) -> usize {
-        self.event_sync_max_retries
+        self.event_sync_max_retries.get()
     }
 }
 
@@ -74,7 +71,7 @@ mod tests {
     fn uses_default_event_sync_retry_limit() {
         let args = DriverArgs::try_parse_from(required_args()).expect("driver args should parse");
 
-        assert_eq!(args.event_sync_max_retries(), DEFAULT_EVENT_SYNC_MAX_RETRIES);
+        assert_eq!(args.event_sync_max_retries(), 10);
     }
 
     #[test]

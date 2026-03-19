@@ -1092,7 +1092,7 @@ mod tests {
             Url::parse("http://localhost:5052").expect("valid beacon url"),
             None,
             None,
-            crate::config::DEFAULT_EVENT_SYNC_MAX_RETRIES,
+            10,
         );
         cfg.preconfirmation_enabled = true;
 
