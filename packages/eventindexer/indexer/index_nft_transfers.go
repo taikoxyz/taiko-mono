@@ -35,8 +35,10 @@ func getParsedERC1155ABI() (*abi.ABI, error) {
 	parsedERC1155ABIOnce.Do(func() {
 		parsedERC1155ABI, parsedERC1155ABIErr = abi.JSON(strings.NewReader(erc1155.ABI))
 	})
-	if parsedERC1155ABIErr != nil {
-		return nil, errors.Wrap(parsedERC1155ABIErr, "abi.JSON(strings.NewReader)")
+
+	err := parsedERC1155ABIErr
+	if err != nil {
+		return nil, errors.Wrap(err, "abi.JSON(strings.NewReader)")
 	}
 
 	return &parsedERC1155ABI, nil

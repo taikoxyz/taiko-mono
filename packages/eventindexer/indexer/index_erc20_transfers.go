@@ -38,8 +38,10 @@ func getParsedERC20ABI() (*abi.ABI, error) {
 	parsedERC20ABIOnce.Do(func() {
 		parsedERC20ABI, parsedERC20ABIErr = abi.JSON(strings.NewReader(erc20ABI))
 	})
-	if parsedERC20ABIErr != nil {
-		return nil, errors.Wrap(parsedERC20ABIErr, "abi.JSON(strings.NewReader)")
+
+	err := parsedERC20ABIErr
+	if err != nil {
+		return nil, errors.Wrap(err, "abi.JSON(strings.NewReader)")
 	}
 
 	return &parsedERC20ABI, nil
@@ -49,8 +51,10 @@ func getParsedTransferABI() (*abi.ABI, error) {
 	parsedTransferABIOnce.Do(func() {
 		parsedTransferABI, parsedTransferABIErr = abi.JSON(strings.NewReader(transferEventABI))
 	})
-	if parsedTransferABIErr != nil {
-		return nil, errors.Wrap(parsedTransferABIErr, "abi.JSON(strings.NewReader)")
+
+	err := parsedTransferABIErr
+	if err != nil {
+		return nil, errors.Wrap(err, "abi.JSON(strings.NewReader)")
 	}
 
 	return &parsedTransferABI, nil
