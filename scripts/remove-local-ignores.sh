@@ -26,9 +26,11 @@ remove_skip_worktree "$PROTOCOL_DIR/gas-reports"
 remove_skip_worktree "$PROTOCOL_DIR/layout"
 
 # Remove from *_Layout.sol files using pattern matching
-if git ls-files "$PROTOCOL_DIR/contracts/**/*_Layout.sol" &>/dev/null; then
+layout_files=$(git ls-files "$PROTOCOL_DIR/contracts/" | grep '_Layout\.sol$' || true)
+
+if [ -n "$layout_files" ]; then
     echo "  → Re-enabling tracking for *_Layout.sol files"
-    git ls-files "$PROTOCOL_DIR/contracts/**/*_Layout.sol" | xargs git update-index --no-skip-worktree 2>/dev/null || true
+    echo "$layout_files" | xargs git update-index --no-skip-worktree 2>/dev/null || true
 fi
 
 echo "✅ Local git ignores removed successfully!"
