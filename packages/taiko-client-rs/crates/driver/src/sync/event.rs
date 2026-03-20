@@ -338,6 +338,7 @@ where
     #[instrument(skip(self, log), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(&self, log: &Log) -> Result<bool, SyncError> {
         let Some(block_hash) = log.block_hash else {
+            error!(?log.transaction_hash, block_number = log.block_number, "proposal log missing block hash");
             return Ok(false);
         };
 
