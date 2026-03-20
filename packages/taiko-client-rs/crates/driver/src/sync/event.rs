@@ -338,7 +338,12 @@ where
     #[instrument(skip(self, log), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(&self, log: &Log) -> Result<bool, SyncError> {
         let Some(block_hash) = log.block_hash else {
-            error!(?log.transaction_hash, block_number = log.block_number, "proposal log missing block hash");
+            // A log without its source block hash cannot be proven orphaned, so keep it retryable.
+            error!(
+                ?log.transaction_hash,
+                block_number = log.block_number,
+                "proposal log missing block hash"
+            );
             return Ok(false);
         };
 
@@ -349,7 +354,29 @@ where
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
 
-        Ok(block.is_none())
+        // If the block is still resolvable, the failure came from downstream processing, not a
+        // reorg that removed the source log.
+        if block.is_some() {
+            return Ok(false);
+        }
+
+        let Some(log_block_number) = log.block_number else {
+            // We already proved the block hash is gone, and without a block number there is no
+            // head-height guard we can apply before classifying it as orphaned.
+            return Ok(true);
+        };
+
+        // A transiently lagging provider can return `None` for a block that has not yet reached
+        // the provider's visible head. Only classify the log as orphaned once the head has caught
+        // up to or passed the log's block number.
+        let chain_head = self
+            .rpc
+            .l1_provider
+            .get_block_number()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        Ok(chain_head >= log_block_number)
     }
 
     /// Process a batch of proposal logs from the event scanner.
@@ -1290,6 +1317,7 @@ mod tests {
             ..build_syncer().await
         };
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&1u64);
 
         let is_orphaned = syncer
             .is_permanently_orphaned_proposal_log(&sample_event_log_with_block_hash(B256::from(
@@ -1299,6 +1327,26 @@ mod tests {
             .expect("block lookup should succeed");
 
         assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_chain_head_is_behind_missing_block() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&0u64);
+
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(&sample_event_log_with_block_hash(B256::from(
+                [5u8; 32],
+            )))
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(!is_orphaned);
     }
 
     #[tokio::test]
@@ -1370,6 +1418,7 @@ mod tests {
         let later_tx_hash = B256::from([0x22; 32]);
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&2u64);
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
