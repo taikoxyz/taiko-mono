@@ -50,7 +50,7 @@ use alloy_rpc_types_engine::PayloadId;
 use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
 
 /// Result of processing a single proposal log inside `process_log_batch`.
-enum ProposalLogProcessing {
+enum ProposalLogResult {
     /// The proposal log derived successfully into one or more engine outcomes.
     Processed(Vec<EngineBlockOutcome>),
     /// The proposal log was proven orphaned by an L1 reorg and should be skipped.
@@ -424,7 +424,7 @@ where
                     };
 
                     match router_call {
-                        Ok(outcomes) => Ok(ProposalLogProcessing::Processed(outcomes)),
+                        Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
                         Err(err) => match syncer
                             .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
                             .await
@@ -439,7 +439,7 @@ where
                                     transaction_hash = ?log.transaction_hash,
                                     "skipping permanently orphaned proposal log",
                                 );
-                                Ok(ProposalLogProcessing::SkippedOrphaned)
+                                Ok(ProposalLogResult::SkippedOrphaned)
                             }
                             Ok(false) => {
                                 warn!(
@@ -471,7 +471,7 @@ where
                 other => SyncError::Other(anyhow!(other)),
             })?;
 
-            let ProposalLogProcessing::Processed(outcomes) = processing else {
+            let ProposalLogResult::Processed(outcomes) = processing else {
                 continue;
             };
 
