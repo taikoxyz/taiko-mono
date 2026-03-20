@@ -435,7 +435,7 @@ where
                                 warn!(
                                     ?err,
                                     block_number = log.block_number,
-                                    block_hash = ?log.block_hash,
+                                    block_hash = ?block_hash,
                                     transaction_hash = ?log.transaction_hash,
                                     "skipping permanently orphaned proposal log",
                                 );
