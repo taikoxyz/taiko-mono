@@ -335,22 +335,12 @@ where
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
     /// no longer exists on the provider.
     #[cfg_attr(not(test), allow(dead_code))]
-    #[instrument(skip(self, log), level = "debug")]
-    async fn is_permanently_orphaned_proposal_log(&self, log: &Log) -> Result<bool, SyncError> {
-        let Some(block_hash) = log.block_hash else {
-            // A log without its source block hash cannot be retried, so
-            // surface it as a hard sync error instead of misclassifying it as orphaned.
-            error!(
-                ?log.transaction_hash,
-                block_number = log.block_number,
-                "proposal log missing block hash"
-            );
-            return Err(SyncError::MissingProposalLogBlockHash {
-                tx_hash: log.transaction_hash,
-                block_number: log.block_number,
-            });
-        };
-
+    #[instrument(skip(self), level = "debug")]
+    async fn is_permanently_orphaned_proposal_log(
+        &self,
+        block_hash: B256,
+        log_block_number: Option<u64>,
+    ) -> Result<bool, SyncError> {
         let block = self
             .rpc
             .l1_provider
@@ -364,7 +354,7 @@ where
             return Ok(false);
         }
 
-        let Some(log_block_number) = log.block_number else {
+        let Some(log_block_number) = log_block_number else {
             // We already proved the block hash is gone, and without a block number there is no
             // head-height guard we can apply before classifying it as orphaned.
             return Ok(true);
@@ -405,7 +395,7 @@ where
                 "dispatching proposal log to derivation pipeline"
             );
 
-            if log.block_hash.is_none() {
+            let Some(block_hash) = log.block_hash else {
                 error!(
                     ?log.transaction_hash,
                     block_number = log.block_number,
@@ -415,7 +405,7 @@ where
                     tx_hash: log.transaction_hash,
                     block_number: log.block_number,
                 });
-            }
+            };
 
             // Retry proposal processing on transient errors.
             let retry_strategy =
@@ -436,7 +426,10 @@ where
 
                     match router_call {
                         Ok(outcomes) => Ok(ProposalLogProcessing::Processed(outcomes)),
-                        Err(err) => match syncer.is_permanently_orphaned_proposal_log(&log).await {
+                        Err(err) => match syncer
+                            .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
+                            .await
+                        {
                             Ok(true) => {
                                 counter!(DriverMetrics::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL)
                                     .increment(1);
@@ -1336,10 +1329,12 @@ mod tests {
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&1u64);
 
+        let log = sample_event_log_with_block_hash(B256::from([1u8; 32]));
         let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(&sample_event_log_with_block_hash(B256::from(
-                [1u8; 32],
-            )))
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
             .await
             .expect("block lookup should succeed");
 
@@ -1356,10 +1351,12 @@ mod tests {
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&0u64);
 
+        let log = sample_event_log_with_block_hash(B256::from([5u8; 32]));
         let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(&sample_event_log_with_block_hash(B256::from(
-                [5u8; 32],
-            )))
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
             .await
             .expect("block lookup should succeed");
 
@@ -1375,10 +1372,12 @@ mod tests {
         };
         asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
 
+        let log = sample_event_log_with_block_hash(B256::from([2u8; 32]));
         let is_orphaned = syncer
-            .is_permanently_orphaned_proposal_log(&sample_event_log_with_block_hash(B256::from(
-                [2u8; 32],
-            )))
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
             .await
             .expect("block lookup should succeed");
 
@@ -1394,41 +1393,16 @@ mod tests {
         };
         asserter.push_failure_msg("boom");
 
+        let log = sample_event_log_with_block_hash(B256::from([3u8; 32]));
         let err = syncer
-            .is_permanently_orphaned_proposal_log(&sample_event_log_with_block_hash(B256::from(
-                [3u8; 32],
-            )))
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
             .await
             .expect_err("rpc lookup failure should be surfaced");
 
         assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
-    }
-
-    #[tokio::test]
-    async fn proposal_log_without_block_hash_is_fatal() {
-        let syncer = EventSyncer {
-            rpc: mock_client_with_l1_asserter(Asserter::new()),
-            ..build_syncer().await
-        };
-
-        let err = syncer
-            .is_permanently_orphaned_proposal_log(&Log {
-                inner: alloy::primitives::Log::empty(),
-                block_hash: None,
-                block_number: Some(1),
-                block_timestamp: None,
-                transaction_hash: Some(B256::from([4u8; 32])),
-                transaction_index: Some(0),
-                log_index: Some(0),
-                removed: false,
-            })
-            .await
-            .expect_err("missing block hash should be fatal");
-
-        assert!(matches!(
-            err,
-            SyncError::MissingProposalLogBlockHash { tx_hash: Some(_), block_number: Some(1) }
-        ));
     }
 
     #[tokio::test]
