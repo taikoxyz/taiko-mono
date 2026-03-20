@@ -83,6 +83,15 @@ pub enum SyncError {
         block_number: Option<u64>,
     },
 
+    /// Event sync: proposal log is missing the source block hash required for reorg checks.
+    #[error("proposal log missing block hash in block {block_number:?}, tx {tx_hash:?}")]
+    MissingProposalLogBlockHash {
+        /// Optional transaction hash carrying the incomplete log.
+        tx_hash: Option<B256>,
+        /// Optional block number carrying the incomplete log.
+        block_number: Option<u64>,
+    },
+
     /// Event sync: derivation failed.
     #[error("derivation failed")]
     Derivation(#[from] DerivationError),

@@ -27,6 +27,9 @@ impl DriverMetrics {
     pub const EVENT_PROPOSALS_TOTAL: &'static str = "driver_event_proposals_total";
     /// Counter tracking skipped proposals (e.g. zero ID, below initial ID).
     pub const EVENT_PROPOSALS_SKIPPED_TOTAL: &'static str = "driver_event_proposals_skipped_total";
+    /// Counter tracking orphaned proposal logs skipped after L1 reorg detection.
+    pub const EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL: &'static str =
+        "driver_event_orphaned_proposal_logs_total";
     /// Counter tracking derived or confirmed L2 blocks per proposal.
     pub const EVENT_DERIVED_BLOCKS_TOTAL: &'static str = "driver_event_derived_blocks_total";
     /// Counter tracking proposals resolved entirely via canonical chain detection.
@@ -139,6 +142,11 @@ impl DriverMetrics {
             Self::EVENT_PROPOSALS_SKIPPED_TOTAL,
             Unit::Count,
             "Proposal logs skipped before derivation"
+        );
+        metrics::describe_counter!(
+            Self::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL,
+            Unit::Count,
+            "Proposal logs skipped because their source L1 block was reorged away"
         );
         metrics::describe_counter!(
             Self::EVENT_DERIVED_BLOCKS_TOTAL,
@@ -262,6 +270,7 @@ impl DriverMetrics {
         metrics::counter!(Self::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_PROPOSALS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_PROPOSALS_SKIPPED_TOTAL).absolute(0);
+        metrics::counter!(Self::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL).absolute(0);
         metrics::counter!(Self::EVENT_DERIVED_BLOCKS_TOTAL).absolute(0);
         metrics::gauge!(Self::DERIVATION_LAST_FINALIZED_PROPOSAL_ID).set(0.0);
         metrics::counter!(Self::DERIVATION_CANONICAL_HITS_TOTAL).absolute(0);
