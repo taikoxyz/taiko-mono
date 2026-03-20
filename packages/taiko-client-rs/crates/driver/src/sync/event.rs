@@ -1302,6 +1302,63 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct MockRetryBatchPath {
+        fail_once_tx_hashes: StdArc<Mutex<HashSet<B256>>>,
+        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
+    }
+
+    impl MockRetryBatchPath {
+        fn new(fail_once_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
+            Self {
+                fail_once_tx_hashes: StdArc::new(Mutex::new(
+                    fail_once_tx_hashes.into_iter().collect(),
+                )),
+                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn seen_tx_hashes(&self) -> Vec<B256> {
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for MockRetryBatchPath {
+        fn kind(&self) -> ProductionPathKind {
+            ProductionPathKind::L1Events
+        }
+
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("mock retry batch path only supports L1 proposal logs");
+            };
+
+            let tx_hash =
+                log.transaction_hash.expect("test proposal log should always include tx hash");
+            self.seen_tx_hashes
+                .lock()
+                .expect("seen tx hashes mutex should not be poisoned")
+                .push(tx_hash);
+
+            if self
+                .fail_once_tx_hashes
+                .lock()
+                .expect("fail-once tx hashes mutex should not be poisoned")
+                .remove(&tx_hash)
+            {
+                return Err(DriverError::Other(anyhow!("mock retryable proposal failure")));
+            }
+
+            Ok(vec![sample_engine_outcome(
+                log.block_number.expect("test proposal log should always include block number"),
+            )])
+        }
+    }
+
     fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
         let l1_provider =
             ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
@@ -1458,6 +1515,34 @@ mod tests {
             SyncError::MissingProposalLogBlockHash { tx_hash: Some(_), block_number: Some(1) }
         ));
         assert!(path.seen_tx_hashes().is_empty());
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_retries_when_orphan_recheck_errors() {
+        let retry_block_hash = B256::from([0x51; 32]);
+        let retry_tx_hash = B256::from([0x61; 32]);
+        let asserter = Asserter::new();
+        asserter.push_failure_msg("boom");
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockRetryBatchPath::new([retry_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, retry_block_hash, retry_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(()))),
+            "recheck rpc errors should keep the log retryable until a later attempt succeeds",
+        );
+        assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
     }
 
     #[tokio::test]
