@@ -334,7 +334,6 @@ where
 
     /// Return whether a failed proposal log is permanently orphaned because its source L1 block
     /// no longer exists on the provider.
-    #[cfg_attr(not(test), allow(dead_code))]
     #[instrument(skip(self), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(
         &self,
