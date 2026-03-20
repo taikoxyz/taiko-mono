@@ -338,13 +338,17 @@ where
     #[instrument(skip(self, log), level = "debug")]
     async fn is_permanently_orphaned_proposal_log(&self, log: &Log) -> Result<bool, SyncError> {
         let Some(block_hash) = log.block_hash else {
-            // A log without its source block hash cannot be proven orphaned, so keep it retryable.
+            // A log without its source block hash cannot be retried, so
+            // surface it as a hard sync error instead of misclassifying it as orphaned.
             error!(
                 ?log.transaction_hash,
                 block_number = log.block_number,
                 "proposal log missing block hash"
             );
-            return Ok(false);
+            return Err(SyncError::MissingProposalLogBlockHash {
+                tx_hash: log.transaction_hash,
+                block_number: log.block_number,
+            });
         };
 
         let block = self
@@ -400,6 +404,19 @@ where
                 transaction_hash = ?log.transaction_hash,
                 "dispatching proposal log to derivation pipeline"
             );
+
+            if log.block_hash.is_none() {
+                error!(
+                    ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal log missing block hash"
+                );
+                return Err(SyncError::MissingProposalLogBlockHash {
+                    tx_hash: log.transaction_hash,
+                    block_number: log.block_number,
+                });
+            }
+
             // Retry proposal processing on transient errors.
             let retry_strategy =
                 ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
@@ -1388,13 +1405,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proposal_log_without_block_hash_is_not_orphaned() {
+    async fn proposal_log_without_block_hash_is_fatal() {
         let syncer = EventSyncer {
             rpc: mock_client_with_l1_asserter(Asserter::new()),
             ..build_syncer().await
         };
 
-        let is_orphaned = syncer
+        let err = syncer
             .is_permanently_orphaned_proposal_log(&Log {
                 inner: alloy::primitives::Log::empty(),
                 block_hash: None,
@@ -1406,9 +1423,12 @@ mod tests {
                 removed: false,
             })
             .await
-            .expect("missing block hash should not error");
+            .expect_err("missing block hash should be fatal");
 
-        assert!(!is_orphaned);
+        assert!(matches!(
+            err,
+            SyncError::MissingProposalLogBlockHash { tx_hash: Some(_), block_number: Some(1) }
+        ));
     }
 
     #[tokio::test]
@@ -1442,6 +1462,29 @@ mod tests {
             "orphaned log should be skipped so a later log in the same batch still processes",
         );
         assert_eq!(path.seen_tx_hashes(), vec![orphaned_tx_hash, later_tx_hash]);
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_fails_when_proposal_log_missing_block_hash() {
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(Asserter::new()),
+            ..build_syncer().await
+        };
+        let path = MockBatchPath::new([]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let mut log = sample_proposed_log(1, B256::from([0x31; 32]), B256::from([0x41; 32]));
+        log.block_hash = None;
+
+        let err = syncer
+            .process_log_batch(router, vec![log])
+            .await
+            .expect_err("missing block hash should fail the batch");
+
+        assert!(matches!(
+            err,
+            SyncError::MissingProposalLogBlockHash { tx_hash: Some(_), block_number: Some(1) }
+        ));
+        assert!(path.seen_tx_hashes().is_empty());
     }
 
     #[tokio::test]
