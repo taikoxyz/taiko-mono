@@ -119,7 +119,8 @@ abstract contract DeployShastaContracts is DeployCapability {
                 )
             ),
             data: abi.encodeCall(
-                Inbox.init, (config.initialInboxOwner, config.l2GenesisHash, uint48(block.timestamp))
+                Inbox.init,
+                (config.initialInboxOwner, config.l2GenesisHash, uint48(block.timestamp))
             )
         });
         console2.log("ShastaInbox deployed:", shastaInbox);
