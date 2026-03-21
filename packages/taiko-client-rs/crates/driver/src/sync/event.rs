@@ -42,12 +42,20 @@ use crate::{
     metrics::DriverMetrics,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
-        ProductionInput, ProductionRouter,
+        ProductionInput, ProductionRouter, path::EngineBlockOutcome,
     },
 };
 
 use alloy_rpc_types_engine::PayloadId;
 use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
+
+/// Result of processing a single proposal log inside `process_log_batch`.
+enum ProposalLogResult {
+    /// The proposal log derived successfully into one or more engine outcomes.
+    Processed(Vec<EngineBlockOutcome>),
+    /// The proposal log was proven orphaned by an L1 reorg and should be skipped.
+    SkippedOrphaned,
+}
 
 /// Default timeout for preconfirmation payload submission.
 ///
@@ -324,6 +332,46 @@ where
         });
     }
 
+    /// Return whether a failed proposal log is permanently orphaned because its source L1 block
+    /// no longer exists on the provider.
+    #[instrument(skip(self), level = "debug")]
+    async fn is_permanently_orphaned_proposal_log(
+        &self,
+        block_hash: B256,
+        log_block_number: Option<u64>,
+    ) -> Result<bool, SyncError> {
+        let block = self
+            .rpc
+            .l1_provider
+            .get_block_by_hash(block_hash)
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        // If the block is still resolvable, the failure came from downstream processing, not a
+        // reorg that removed the source log.
+        if block.is_some() {
+            return Ok(false);
+        }
+
+        let Some(log_block_number) = log_block_number else {
+            // We already proved the block hash is gone, and without a block number there is no
+            // head-height guard we can apply before classifying it as orphaned.
+            return Ok(true);
+        };
+
+        // A transiently lagging provider can return `None` for a block that has not yet reached
+        // the provider's visible head. Only classify the log as orphaned once the head has caught
+        // up to or passed the log's block number.
+        let chain_head = self
+            .rpc
+            .l1_provider
+            .get_block_number()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        Ok(chain_head >= log_block_number)
+    }
+
     /// Process a batch of proposal logs from the event scanner.
     async fn process_log_batch(
         &self,
@@ -345,32 +393,75 @@ where
                 transaction_hash = ?log.transaction_hash,
                 "dispatching proposal log to derivation pipeline"
             );
+
+            let Some(block_hash) = log.block_hash else {
+                error!(
+                    ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal log missing block hash"
+                );
+                return Err(SyncError::MissingProposalLogBlockHash {
+                    tx_hash: log.transaction_hash,
+                    block_number: log.block_number,
+                });
+            };
+
             // Retry proposal processing on transient errors.
             let retry_strategy =
                 ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
+            let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
-            let outcomes = Retry::spawn(retry_strategy, move || {
+            let processing = Retry::spawn(retry_strategy, move || {
                 let router = router.clone();
                 let log = proposal_log.clone();
                 async move {
-                    // Lock router so L1 proposals and preconf inputs cannot interleave.
-                    let router_guard = router.lock().await;
-                    let outcomes = router_guard
-                        .produce(ProductionInput::L1ProposalLog(log.clone()))
-                        .await
-                        .map_err(|err| {
-                            warn!(
-                                ?err,
-                                tx_hash = ?log.transaction_hash,
-                                block_number = log.block_number,
-                                "proposal derivation failed; retrying"
-                            );
-                            err
-                        })?;
+                    let router_call = {
+                        // Lock router so L1 proposals and preconf inputs cannot interleave.
+                        let router_guard = router.lock().await;
+                        router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
+                    };
 
-                    Ok(outcomes)
+                    match router_call {
+                        Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
+                        Err(err) => match syncer
+                            .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
+                            .await
+                        {
+                            Ok(true) => {
+                                counter!(DriverMetrics::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL)
+                                    .increment(1);
+                                warn!(
+                                    ?err,
+                                    block_number = log.block_number,
+                                    block_hash = ?block_hash,
+                                    transaction_hash = ?log.transaction_hash,
+                                    "skipping permanently orphaned proposal log",
+                                );
+                                Ok(ProposalLogResult::SkippedOrphaned)
+                            }
+                            Ok(false) => {
+                                warn!(
+                                    ?err,
+                                    tx_hash = ?log.transaction_hash,
+                                    block_number = log.block_number,
+                                    "proposal derivation failed; retrying"
+                                );
+                                Err(err)
+                            }
+                            Err(recheck_err) => {
+                                warn!(
+                                    ?err,
+                                    ?recheck_err,
+                                    tx_hash = ?log.transaction_hash,
+                                    block_number = log.block_number,
+                                    "proposal derivation failed and orphaned-log recheck errored; retrying"
+                                );
+                                Err(err)
+                            }
+                        },
+                    }
                 }
             })
             .await
@@ -379,6 +470,10 @@ where
                 DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
                 other => SyncError::Other(anyhow!(other)),
             })?;
+
+            let ProposalLogResult::Processed(outcomes) = processing else {
+                continue;
+            };
 
             if let Some(last_outcome) = outcomes.last() {
                 gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
@@ -993,24 +1088,41 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{
+        collections::HashSet,
+        path::PathBuf,
+        sync::{Arc as StdArc, Mutex},
+        time::Duration,
+    };
 
     use super::*;
     use alethia_reth_primitives::payload::attributes::{
         RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
     };
     use alloy::{
-        primitives::{Address, B256, Bytes, U256},
+        primitives::{
+            Address, B256, Bytes, FixedBytes, U256,
+            aliases::{U24, U48},
+        },
         transports::http::reqwest::Url,
     };
     use alloy_provider::{ProviderBuilder, RootProvider};
-    use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+    use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
     use alloy_transport::mock::Asserter;
-    use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
+    use async_trait::async_trait;
+    use bindings::{
+        anchor::Anchor::AnchorInstance,
+        inbox::{IInbox::DerivationSource, Inbox::InboxInstance, LibBlobs::BlobSlice},
+    };
     use rpc::{
         SubscriptionSource,
         blob::BlobDataSource,
         client::{Client, ClientConfig, ShastaProtocolInstance},
+    };
+
+    use crate::{
+        production::{BlockProductionPath, ProductionInput, ProductionPathKind, ProductionRouter},
+        sync::engine::EngineBlockOutcome,
     };
 
     fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
@@ -1049,20 +1161,7 @@ mod tests {
     }
 
     fn mock_client() -> Client<RootProvider> {
-        let l1_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
-        let l2_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
-        let l2_auth_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
-        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
-        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
-        let shasta = ShastaProtocolInstance { inbox, anchor };
-
-        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+        mock_client_with_l1_asserter(Asserter::new())
     }
 
     async fn build_syncer() -> EventSyncer<RootProvider> {
@@ -1097,6 +1196,353 @@ mod tests {
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
+    }
+
+    fn sample_event_log_with_block_hash(block_hash: B256) -> Log {
+        Log {
+            inner: alloy::primitives::Log::empty(),
+            block_hash: Some(block_hash),
+            block_number: Some(1),
+            block_timestamp: None,
+            transaction_hash: Some(B256::from([9u8; 32])),
+            transaction_index: Some(0),
+            log_index: Some(0),
+            removed: false,
+        }
+    }
+
+    fn sample_derivation_source() -> DerivationSource {
+        DerivationSource {
+            isForcedInclusion: false,
+            blobSlice: BlobSlice {
+                blobHashes: vec![FixedBytes::ZERO],
+                offset: U24::ZERO,
+                timestamp: U48::ZERO,
+            },
+        }
+    }
+
+    fn sample_proposed_log(proposal_id: u64, block_hash: B256, transaction_hash: B256) -> Log {
+        let proposed = Proposed {
+            id: U48::from(proposal_id),
+            proposer: Address::from([proposal_id as u8; 20]),
+            parentProposalHash: FixedBytes::from([proposal_id as u8; 32]),
+            endOfSubmissionWindowTimestamp: U48::from(1u64),
+            basefeeSharingPctg: 0,
+            sources: vec![sample_derivation_source()],
+        };
+
+        Log {
+            inner: alloy::primitives::Log::new_from_event_unchecked(Address::ZERO, proposed)
+                .reserialize(),
+            block_hash: Some(block_hash),
+            block_number: Some(proposal_id),
+            block_timestamp: None,
+            transaction_hash: Some(transaction_hash),
+            transaction_index: Some(0),
+            log_index: Some(0),
+            removed: false,
+        }
+    }
+
+    fn sample_engine_outcome(block_number: u64) -> EngineBlockOutcome {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.number = block_number;
+        block.header.hash = B256::from([block_number as u8; 32]);
+        EngineBlockOutcome { block, payload_id: PayloadId::new([block_number as u8; 8]) }
+    }
+
+    #[derive(Clone)]
+    struct MockBatchPath {
+        orphaned_tx_hashes: StdArc<HashSet<B256>>,
+        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
+    }
+
+    impl MockBatchPath {
+        fn new(orphaned_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
+            Self {
+                orphaned_tx_hashes: StdArc::new(orphaned_tx_hashes.into_iter().collect()),
+                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn seen_tx_hashes(&self) -> Vec<B256> {
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for MockBatchPath {
+        fn kind(&self) -> ProductionPathKind {
+            ProductionPathKind::L1Events
+        }
+
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("mock batch path only supports L1 proposal logs");
+            };
+
+            let tx_hash =
+                log.transaction_hash.expect("test proposal log should always include tx hash");
+            self.seen_tx_hashes
+                .lock()
+                .expect("seen tx hashes mutex should not be poisoned")
+                .push(tx_hash);
+
+            if self.orphaned_tx_hashes.contains(&tx_hash) {
+                return Err(DriverError::Other(anyhow!("mock orphaned proposal failure")));
+            }
+
+            Ok(vec![sample_engine_outcome(
+                log.block_number.expect("test proposal log should always include block number"),
+            )])
+        }
+    }
+
+    #[derive(Clone)]
+    struct MockRetryBatchPath {
+        fail_once_tx_hashes: StdArc<Mutex<HashSet<B256>>>,
+        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
+    }
+
+    impl MockRetryBatchPath {
+        fn new(fail_once_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
+            Self {
+                fail_once_tx_hashes: StdArc::new(Mutex::new(
+                    fail_once_tx_hashes.into_iter().collect(),
+                )),
+                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn seen_tx_hashes(&self) -> Vec<B256> {
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for MockRetryBatchPath {
+        fn kind(&self) -> ProductionPathKind {
+            ProductionPathKind::L1Events
+        }
+
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("mock retry batch path only supports L1 proposal logs");
+            };
+
+            let tx_hash =
+                log.transaction_hash.expect("test proposal log should always include tx hash");
+            self.seen_tx_hashes
+                .lock()
+                .expect("seen tx hashes mutex should not be poisoned")
+                .push(tx_hash);
+
+            if self
+                .fail_once_tx_hashes
+                .lock()
+                .expect("fail-once tx hashes mutex should not be poisoned")
+                .remove(&tx_hash)
+            {
+                return Err(DriverError::Other(anyhow!("mock retryable proposal failure")));
+            }
+
+            Ok(vec![sample_engine_outcome(
+                log.block_number.expect("test proposal log should always include block number"),
+            )])
+        }
+    }
+
+    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+        let l1_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+        let l2_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    #[tokio::test]
+    async fn orphaned_proposal_log_is_permanent_when_l1_block_is_missing() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&1u64);
+
+        let log = sample_event_log_with_block_hash(B256::from([1u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_chain_head_is_behind_missing_block() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&0u64);
+
+        let log = sample_event_log_with_block_hash(B256::from([5u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_l1_block_still_exists() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+
+        let log = sample_event_log_with_block_hash(B256::from([2u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_reorg_check_is_transient_on_rpc_error() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_failure_msg("boom");
+
+        let log = sample_event_log_with_block_hash(B256::from([3u8; 32]));
+        let err = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect_err("rpc lookup failure should be surfaced");
+
+        assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_skips_orphaned_proposal_log_and_continues_batch() {
+        let orphaned_block_hash = B256::from([0x11; 32]);
+        let orphaned_tx_hash = B256::from([0x21; 32]);
+        let later_tx_hash = B256::from([0x22; 32]);
+        let asserter = Asserter::new();
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&2u64);
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockBatchPath::new([orphaned_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![
+                    sample_proposed_log(1, orphaned_block_hash, orphaned_tx_hash),
+                    sample_proposed_log(2, B256::from([0x12; 32]), later_tx_hash),
+                ],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(()))),
+            "orphaned log should be skipped so a later log in the same batch still processes",
+        );
+        assert_eq!(path.seen_tx_hashes(), vec![orphaned_tx_hash, later_tx_hash]);
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_fails_when_proposal_log_missing_block_hash() {
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(Asserter::new()),
+            ..build_syncer().await
+        };
+        let path = MockBatchPath::new([]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let mut log = sample_proposed_log(1, B256::from([0x31; 32]), B256::from([0x41; 32]));
+        log.block_hash = None;
+
+        let err = syncer
+            .process_log_batch(router, vec![log])
+            .await
+            .expect_err("missing block hash should fail the batch");
+
+        assert!(matches!(
+            err,
+            SyncError::MissingProposalLogBlockHash { tx_hash: Some(_), block_number: Some(1) }
+        ));
+        assert!(path.seen_tx_hashes().is_empty());
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_retries_when_orphan_recheck_errors() {
+        let retry_block_hash = B256::from([0x51; 32]);
+        let retry_tx_hash = B256::from([0x61; 32]);
+        let asserter = Asserter::new();
+        asserter.push_failure_msg("boom");
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockRetryBatchPath::new([retry_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, retry_block_hash, retry_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(()))),
+            "recheck rpc errors should keep the log retryable until a later attempt succeeds",
+        );
+        assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
     }
 
     #[tokio::test]

@@ -20,7 +20,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -570,16 +569,6 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 // Name returns the application name.
 func (p *Proposer) Name() string {
 	return "proposer"
-}
-
-// RegisterTxMgrSelectorToBlobServer registers the tx manager selector to the given blob server,
-// should only be used for testing.
-func (p *Proposer) RegisterTxMgrSelectorToBlobServer(blobServer *testutils.MemoryBlobServer) {
-	p.txmgrSelector = utils.NewTxMgrSelector(
-		testutils.NewMemoryBlobTxMgr(p.rpc, p.txmgrSelector.TxMgr(), blobServer),
-		testutils.NewMemoryBlobTxMgr(p.rpc, p.txmgrSelector.PrivateTxMgr(), blobServer),
-		nil,
-	)
 }
 
 // GetParentMetaHash returns the latest parent meta hash.
