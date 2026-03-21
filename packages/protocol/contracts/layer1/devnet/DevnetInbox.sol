@@ -24,22 +24,15 @@ contract DevnetInbox is Inbox {
     constructor(
         address _proofVerifier,
         address _proposerChecker,
-        address _proverWhitelist,
-        address _signalService,
-        address _bondToken
+        address _proverMarket,
+        address _signalService
     )
         // See `MainnetInbox.sol` for details on the configuration.
         Inbox(Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
-                proverWhitelist: _proverWhitelist,
+                proverMarket: _proverMarket,
                 signalService: _signalService,
-                bondToken: _bondToken,
-                minBond: 0,
-                livenessBond: 0,
-                withdrawalDelay: 1 weeks,
-                provingWindow: 4 hours,
-                permissionlessProvingDelay: 5 days,
                 maxProofSubmissionDelay: 3 minutes,
                 ringBufferSize: _RING_BUFFER_SIZE,
                 basefeeSharingPctg: 75,

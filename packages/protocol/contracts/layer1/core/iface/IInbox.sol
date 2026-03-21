@@ -13,23 +13,10 @@ interface IInbox {
         address proofVerifier;
         /// @notice The proposer checker contract
         address proposerChecker;
-        /// @notice The prover whitelist contract (address(0) means no whitelist)
-        address proverWhitelist;
+        /// @notice The prover market contract (must be non-zero)
+        address proverMarket;
         /// @notice The signal service contract address
         address signalService;
-        /// @notice The ERC20 bond token address
-        address bondToken;
-        /// @notice The minimum bond a proposer is required to have in gwei
-        uint64 minBond;
-        /// @notice The liveness bond amount in gwei
-        uint64 livenessBond;
-        /// @notice The withdrawal delay in seconds
-        uint48 withdrawalDelay;
-        /// @notice The proving window in seconds
-        uint48 provingWindow;
-        /// @notice The delay after which proving becomes permissionless when whitelist is enabled
-        /// @dev Must be greater than provingWindow
-        uint48 permissionlessProvingDelay;
         /// @notice Maximum delay allowed between consecutive proofs to still be on time.
         /// @dev Must be shorter than the expected proposal cadence to prevent backlog growth.
         uint48 maxProofSubmissionDelay;
@@ -194,7 +181,7 @@ interface IInbox {
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _data The encoded ProposeInput struct.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external;
+    function propose(bytes calldata _lookahead, bytes calldata _data) external payable;
 
     /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     /// @param _data The encoded ProveInput struct.

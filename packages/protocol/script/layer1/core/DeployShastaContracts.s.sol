@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import { MainnetVerifier } from "../../../contracts/layer1/mainnet/MainnetVerifier.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
@@ -70,16 +69,10 @@ abstract contract DeployShastaContracts is DeployCapability {
         require(config.sgxGethAutomataProxy != address(0), "SGX_GETH_AUTOMATA_PROXY not set");
         require(config.r0Groth16Verifier != address(0), "R0_GROTH16_VERIFIER not set");
         require(config.sp1PlonkVerifier != address(0), "SP1_PLONK_VERIFIER not set");
-        require(config.provers.length != 0, "PROVERS not set");
         require(config.oldSignalServiceImpl != address(0), "OLD_SIGNAL_SERVICE_IMPL not set");
         require(config.shastaForkTimestamp != 0, "SHASTA_FORK_TIMESTAMP not set");
         require(config.preconfWhitelist != address(0), "PRECONF_WHITELIST not set");
-        require(config.proverManager != address(0), "PROVER_MANAGER not set");
         require(config.ejectorManager != address(0), "EJECTOR_MANAGER not set");
-
-        for (uint256 i = 0; i < config.provers.length; ++i) {
-            require(config.provers[i] != address(0), "PROVERS contains zero address");
-        }
     }
 
     function _deploy(DeploymentConfig memory config) internal {
@@ -95,31 +88,13 @@ abstract contract DeployShastaContracts is DeployCapability {
         address preconfWhitelist = address(new PreconfWhitelist(config.ejectorManager));
         console2.log("PreconfWhitelist deployed:", preconfWhitelist);
 
-        // Set `msg.sender` as the owner by setting the owner to address(0)
-        address proverWhitelist = deployProxy({
-            name: "prover_whitelist",
-            impl: address(new ProverWhitelist(config.proverManager)),
-            data: abi.encodeCall(ProverWhitelist.init, address(0))
-        });
-        console2.log("ProverWhitelist deployed:", proverWhitelist);
-
-        for (uint256 i = 0; i < config.provers.length; ++i) {
-            console2.log("Add prover into ProverWhitelist:", config.provers[i]);
-            ProverWhitelist(proverWhitelist).whitelistProver(config.provers[i], true);
-        }
-        Ownable2StepUpgradeable(proverWhitelist).transferOwnership(config.contractOwner);
-
         // We set the activator as the initial owner of the inbox to allow activation.
         // Ownership will be later transferred to the DAO.
         address shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
                 new MainnetInbox(
-                    proofVerifier,
-                    config.preconfWhitelist,
-                    proverWhitelist,
-                    config.l1SignalService,
-                    config.taikoToken
+                    proofVerifier, config.preconfWhitelist, address(0), config.l1SignalService
                 )
             ),
             data: abi.encodeCall(Inbox.init, config.activator)

@@ -98,12 +98,6 @@ contract InboxActivationTest is InboxTestBase {
         IInbox.Config memory cfg = inbox.getConfig();
 
         // Verify key config values match what was set during construction
-        assertEq(cfg.provingWindow, config.provingWindow, "provingWindow mismatch");
-        assertEq(
-            cfg.permissionlessProvingDelay,
-            config.permissionlessProvingDelay,
-            "permissionlessProvingDelay mismatch"
-        );
         assertEq(cfg.ringBufferSize, config.ringBufferSize, "ringBufferSize mismatch");
         assertEq(cfg.basefeeSharingPctg, config.basefeeSharingPctg, "basefeeSharingPctg mismatch");
         assertEq(
@@ -114,10 +108,6 @@ contract InboxActivationTest is InboxTestBase {
         assertEq(cfg.proofVerifier, config.proofVerifier, "proofVerifier mismatch");
         assertEq(cfg.proposerChecker, config.proposerChecker, "proposerChecker mismatch");
         assertEq(cfg.signalService, config.signalService, "signalService mismatch");
-        assertEq(cfg.bondToken, config.bondToken, "bondToken mismatch");
-        assertEq(cfg.minBond, config.minBond, "minBond mismatch");
-        assertEq(cfg.livenessBond, config.livenessBond, "livenessBond mismatch");
-        assertEq(cfg.withdrawalDelay, config.withdrawalDelay, "withdrawalDelay mismatch");
     }
 }
 
@@ -144,30 +134,6 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         cfg.signalService = address(0);
 
         vm.expectRevert(LibInboxSetup.SignalServiceZero.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_BondTokenZero() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.bondToken = address(0);
-
-        vm.expectRevert(LibInboxSetup.BondTokenZero.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_ProvingWindowZero() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.provingWindow = 0;
-
-        vm.expectRevert(LibInboxSetup.ProvingWindowZero.selector);
-        new Inbox(cfg);
-    }
-
-    function test_validateConfig_RevertWhen_PermissionlessProvingDelayTooSmall() public {
-        IInbox.Config memory cfg = _buildConfig();
-        cfg.permissionlessProvingDelay = cfg.provingWindow;
-
-        vm.expectRevert(LibInboxSetup.PermissionlessProvingDelayTooSmall.selector);
         new Inbox(cfg);
     }
 
