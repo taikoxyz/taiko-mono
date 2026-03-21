@@ -118,7 +118,7 @@ abstract contract DeployShastaContracts is DeployCapability {
                     config.taikoToken
                 )
             ),
-            data: abi.encodeCall(Inbox.init, (config.activator, config.l2GenesisHash))
+            data: abi.encodeCall(Inbox.init, (config.activator, config.l2GenesisHash, uint48(block.timestamp)))
         });
         console2.log("ShastaInbox deployed:", shastaInbox);
 

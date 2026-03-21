@@ -177,10 +177,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Initializes the inbox with owner and genesis state.
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The block hash used as the genesis finalized block hash
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+    function init(
+        address _owner,
+        bytes32 _genesisBlockHash,
+        uint48 _activationTimestamp
+    )
+        external
+        initializer
+    {
         __Essential_init(_owner);
 
-        activationTimestamp = uint48(block.timestamp);
+        activationTimestamp = _activationTimestamp;
         _coreState.nextProposalId = 1;
         _coreState.lastProposalBlockId = 1;
         _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
