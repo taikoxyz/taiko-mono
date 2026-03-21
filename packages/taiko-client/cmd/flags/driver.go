@@ -34,7 +34,7 @@ var (
 	// blob server endpoint
 	BlobServerEndpoint = &cli.StringFlag{
 		Name:     "blob.server",
-		Usage:    "Blob sidecar storage server",
+		Usage:    "Blob sidecar storage server, or an Anvil RPC endpoint which is the same as the L1 endpoint",
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SERVER"},
 	}

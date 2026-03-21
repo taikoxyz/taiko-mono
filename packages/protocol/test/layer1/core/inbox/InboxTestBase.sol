@@ -120,7 +120,10 @@ abstract contract InboxTestBase is CommonTest {
         return Inbox(
             address(
                 new ERC1967Proxy(
-                    _impl, abi.encodeCall(Inbox.init, (address(this), bytes32(uint256(1))))
+                    _impl,
+                    abi.encodeCall(
+                        Inbox.init, (address(this), bytes32(uint256(1)), uint48(block.timestamp))
+                    )
                 )
             )
         );
