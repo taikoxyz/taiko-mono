@@ -25,7 +25,7 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     struct DeploymentConfig {
         address contractOwner;
-        address activator;
+        address initialInboxOwner;
         bytes32 l2GenesisHash;
         uint64 l2ChainId;
         address l1SignalService;
@@ -60,7 +60,7 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     function _validateConfig(DeploymentConfig memory config) internal pure {
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
-        require(config.activator != address(0), "ACTIVATOR not set");
+        require(config.initialInboxOwner != address(0), "INITIAL_INBOX_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
         require(config.l2ChainId != 0, "L2_CHAIN_ID not set");
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
@@ -118,7 +118,7 @@ abstract contract DeployShastaContracts is DeployCapability {
                     config.taikoToken
                 )
             ),
-            data: abi.encodeCall(Inbox.init, (config.activator, config.l2GenesisHash))
+            data: abi.encodeCall(Inbox.init, (config.initialInboxOwner, config.l2GenesisHash))
         });
         console2.log("ShastaInbox deployed:", shastaInbox);
 
