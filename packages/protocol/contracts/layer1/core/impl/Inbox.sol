@@ -122,7 +122,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice The activation timestamp of the inbox.
+    /// @notice The activation timestamp of the inbox. After Shasta is activated, this variable
+    /// can be set to 0, but we need to keep this variable for client backward compatibility.
     uint48 public activationTimestamp;
 
     /// @notice Persisted core state.
