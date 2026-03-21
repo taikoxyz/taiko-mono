@@ -19,7 +19,11 @@ pragma solidity ^0.8.26;
 //   __paused                       | uint8                                              | Slot: 201  | Offset: 1    | Bytes: 1   
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   marketState                    | struct ProverMarket.MarketState                    | Slot: 251  | Offset: 0    | Bytes: 32  
-//   epochs                         | mapping(uint48 => struct ProverMarket.Epoch)       | Slot: 252  | Offset: 0    | Bytes: 32  
+//   terms                          | mapping(uint48 => struct ProverMarket.Term)        | Slot: 252  | Offset: 0    | Bytes: 32  
 //   proverAccounts                 | mapping(address => struct ProverMarket.ProverAccount) | Slot: 253  | Offset: 0    | Bytes: 32  
-//   proposalEpochs                 | mapping(uint48 => uint48)                          | Slot: 254  | Offset: 0    | Bytes: 32  
-//   __gap                          | uint256[46]                                        | Slot: 255  | Offset: 0    | Bytes: 1472
+//   capState                       | struct ProverMarket.CapState                       | Slot: 254  | Offset: 0    | Bytes: 32  
+//   proposalAssignments            | mapping(uint48 => struct ProverMarket.ProposalAssignment) | Slot: 255  | Offset: 0    | Bytes: 32  
+//   feeCredits                     | mapping(address => uint256)                        | Slot: 256  | Offset: 0    | Bytes: 32  
+//   claimableFees                  | mapping(address => uint256)                        | Slot: 257  | Offset: 0    | Bytes: 32  
+//   bidCooldownUntil               | mapping(address => uint48)                         | Slot: 258  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[42]                                        | Slot: 259  | Offset: 0    | Bytes: 1344

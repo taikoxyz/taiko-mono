@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {InboxTestBase} from "./InboxTestBase.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Vm} from "forge-std/src/Vm.sol";
-import {IInbox} from "src/layer1/core/iface/IInbox.sol";
-import {Inbox} from "src/layer1/core/impl/Inbox.sol";
-import {ProverMarket} from "src/layer1/core/impl/ProverMarket.sol";
-import {EssentialContract} from "src/shared/common/EssentialContract.sol";
+import { InboxTestBase } from "./InboxTestBase.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Vm } from "forge-std/src/Vm.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
+import { ProverMarket } from "src/layer1/core/impl/ProverMarket.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 contract RejectEtherBidder {
     ProverMarket internal immutable _market;
@@ -42,6 +42,7 @@ abstract contract ProverMarketTestBase is InboxTestBase {
 
     uint64 internal constant MARKET_MIN_BOND_GWEI = 1_000_000_000;
     uint48 internal constant MARKET_PROVING_WINDOW = 2 hours;
+    uint48 internal constant MARKET_PROVING_GRACE = 5 minutes;
     uint64 internal constant MARKET_BOND_PER_PROPOSAL = 100_000_000;
     uint64 internal constant MARKET_SLASH_PER_PROOF = 500_000_000;
 
@@ -66,20 +67,30 @@ abstract contract ProverMarketTestBase is InboxTestBase {
     }
 
     function _deployInbox() internal virtual override returns (Inbox) {
-        address predictedInboxProxy = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
+        address predictedInboxProxy =
+            vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 3);
 
         ProverMarket marketImpl = new ProverMarket(
-            predictedInboxProxy,
-            address(bondToken),
-            MARKET_MIN_BOND_GWEI,
-            MARKET_PROVING_WINDOW,
-            500,
-            MARKET_BOND_PER_PROPOSAL,
-            MARKET_SLASH_PER_PROOF,
-            10
+            ProverMarket.Params({
+                inboxAddr: predictedInboxProxy,
+                bondTokenAddr: address(bondToken),
+                minBond: MARKET_MIN_BOND_GWEI,
+                provingWindowSeconds: MARKET_PROVING_WINDOW,
+                bidDiscountBasisPoints: 500,
+                bondPerProposal: MARKET_BOND_PER_PROPOSAL,
+                slashPerProof: MARKET_SLASH_PER_PROOF,
+                maxBidMultiplier: 10,
+                maxFee: 10_000_000_000,
+                bidCooldownSeconds: 1 hours,
+                provingGracePeriodSeconds: 5 minutes
+            })
         );
         market = ProverMarket(
-            address(new ERC1967Proxy(address(marketImpl), abi.encodeCall(ProverMarket.init, (address(this)))))
+            address(
+                new ERC1967Proxy(
+                    address(marketImpl), abi.encodeCall(ProverMarket.init, (address(this)))
+                )
+            )
         );
 
         config.proverMarket = address(market);
@@ -146,17 +157,34 @@ abstract contract ProverMarketTestBase is InboxTestBase {
         bond_ = MARKET_MIN_BOND_GWEI + _liabilityForFee(_feeInGwei);
     }
 
-    function _bondForAssignments(uint64 _feeInGwei, uint64 _assignmentCount) internal pure returns (uint64 bond_) {
+    function _bondForAssignments(
+        uint64 _feeInGwei,
+        uint64 _assignmentCount
+    )
+        internal
+        pure
+        returns (uint64 bond_)
+    {
         bond_ = MARKET_MIN_BOND_GWEI + _liabilityForFee(_feeInGwei) * _assignmentCount;
     }
 
-    function _placePendingBid(address _prover, uint64 _feeInGwei, uint64 _bondAmount) internal {
+    function _placePendingBid(
+        address _prover,
+        uint64 _feeInGwei,
+        uint64 _bondAmount
+    )
+        internal
+    {
         _depositMarketBond(_prover, _bondAmount);
         vm.prank(_prover);
         market.bid(_feeInGwei);
     }
 
-    function _setupActiveBidWithValue(address _prover, uint64 _feeInGwei, uint256 _proposalValue)
+    function _setupActiveBidWithValue(
+        address _prover,
+        uint64 _feeInGwei,
+        uint256 _proposalValue
+    )
         internal
         returns (uint48 termId_)
     {
@@ -167,11 +195,20 @@ abstract contract ProverMarketTestBase is InboxTestBase {
         _proposeOneWithValue(_proposalValue);
     }
 
-    function _setupActiveBid(address _prover, uint64 _feeInGwei) internal returns (uint48 termId_) {
+    function _setupActiveBid(
+        address _prover,
+        uint64 _feeInGwei
+    )
+        internal
+        returns (uint48 termId_)
+    {
         termId_ = _setupActiveBidWithValue(_prover, _feeInGwei, uint256(_feeInGwei) * 1 gwei);
     }
 
-    function _proposeAndDecodeWithGas(IInbox.ProposeInput memory _input, string memory _benchName)
+    function _proposeAndDecodeWithGas(
+        IInbox.ProposeInput memory _input,
+        string memory _benchName
+    )
         internal
         override
         returns (ProposedEvent memory payload_)
@@ -181,7 +218,7 @@ abstract contract ProverMarketTestBase is InboxTestBase {
         vm.startPrank(proposer);
 
         if (bytes(_benchName).length > 0) vm.startSnapshotGas("shasta-propose", _benchName);
-        inbox.propose{value: 1 ether}(bytes(""), encodedInput);
+        inbox.propose{ value: 1 ether }(bytes(""), encodedInput);
         if (bytes(_benchName).length > 0) vm.stopSnapshotGas();
 
         vm.stopPrank();
@@ -193,16 +230,22 @@ abstract contract ProverMarketTestBase is InboxTestBase {
         bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
         vm.recordLogs();
         vm.prank(proposer);
-        inbox.propose{value: _value}(bytes(""), encodedInput);
+        inbox.propose{ value: _value }(bytes(""), encodedInput);
         payload_ = _readProposedEvent();
     }
 
-    function _proposeRecordedOneWithValue(uint256 _value) internal returns (RecordedProposal memory proposal_) {
+    function _proposeRecordedOneWithValue(uint256 _value)
+        internal
+        returns (RecordedProposal memory proposal_)
+    {
         proposal_.payload = _proposeOneWithValue(_value);
         proposal_.timestamp = uint48(block.timestamp);
     }
 
-    function _buildRecordedProofInput(RecordedProposal[] memory _proposals, address _actualProver)
+    function _buildRecordedProofInput(
+        RecordedProposal[] memory _proposals,
+        address _actualProver
+    )
         internal
         view
         returns (IInbox.ProveInput memory input_)
@@ -222,7 +265,9 @@ abstract contract ProverMarketTestBase is InboxTestBase {
             commitment: IInbox.Commitment({
                 firstProposalId: _proposals[0].payload.id,
                 firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
-                lastProposalHash: inbox.getProposalHash(_proposals[_proposals.length - 1].payload.id),
+                lastProposalHash: inbox.getProposalHash(
+                    _proposals[_proposals.length - 1].payload.id
+                ),
                 actualProver: _actualProver,
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256(abi.encode("recorded-state-root", _proposals.length)),
@@ -231,7 +276,11 @@ abstract contract ProverMarketTestBase is InboxTestBase {
         });
     }
 
-    function _proveRecordedRangeAs(RecordedProposal[] memory _proposals, address _caller, address _actualProver)
+    function _proveRecordedRangeAs(
+        RecordedProposal[] memory _proposals,
+        address _caller,
+        address _actualProver
+    )
         internal
     {
         IInbox.ProveInput memory input = _buildRecordedProofInput(_proposals, _actualProver);
@@ -258,7 +307,7 @@ contract ProverMarketBondAndCreditTest is ProverMarketTestBase {
     function test_depositFeeCredit_creditsBalance() external {
         vm.deal(Alice, 2 ether);
         vm.prank(Alice);
-        market.depositFeeCredit{value: 2 ether}();
+        market.depositFeeCredit{ value: 2 ether }();
         assertEq(_feeCredit(Alice), 2 ether);
     }
 
@@ -267,7 +316,7 @@ contract ProverMarketBondAndCreditTest is ProverMarketTestBase {
 
         vm.deal(Alice, 1 ether);
         vm.prank(Alice);
-        market.depositFeeCredit{value: 1 ether}();
+        market.depositFeeCredit{ value: 1 ether }();
 
         uint256 balanceBefore = Alice.balance;
         vm.prank(Alice);
@@ -349,7 +398,8 @@ contract ProverMarketBidAndAssignmentTest is ProverMarketTestBase {
         _advanceBlock();
         ProposedEvent memory proposal_ = _proposeOneWithValue(uint256(100) * 1 gwei);
 
-        (uint48 termId, uint48 timestamp, uint64 reservedBondGwei) = market.proposalAssignments(proposal_.id);
+        (uint48 termId, uint48 timestamp, uint64 reservedBondGwei) =
+            market.proposalAssignments(proposal_.id);
 
         assertGt(termId, 0);
         assertEq(timestamp, uint48(block.timestamp));
@@ -459,7 +509,7 @@ contract ProverMarketSettlementTest is ProverMarketTestBase {
         _advanceBlock();
         proposals[0] = _proposeRecordedOneWithValue(uint256(100) * 1 gwei);
 
-        vm.warp(block.timestamp + MARKET_PROVING_WINDOW);
+        vm.warp(block.timestamp + MARKET_PROVING_WINDOW + MARKET_PROVING_GRACE);
         _proveRecordedRangeAs(proposals, Bob, Bob);
 
         assertEq(_claimableFees(Bob), uint256(100) * 1 gwei);
@@ -496,7 +546,7 @@ contract ProverMarketSettlementTest is ProverMarketTestBase {
         _advanceBlock();
         proposals[1] = _proposeRecordedOneWithValue(uint256(90) * 1 gwei);
 
-        vm.warp(proposals[1].timestamp + MARKET_PROVING_WINDOW);
+        vm.warp(proposals[1].timestamp + MARKET_PROVING_WINDOW + MARKET_PROVING_GRACE);
         _proveRecordedRangeAs(proposals, Carol, Carol);
 
         assertEq(_claimableFees(Carol), uint256(190) * 1 gwei);
@@ -505,7 +555,9 @@ contract ProverMarketSettlementTest is ProverMarketTestBase {
         assertEq(_reservedBond(Bob), 0);
     }
 
-    function test_onProofAccepted_retiresActiveTermWhenLateSlashLeavesOutstandingLiability() external {
+    function test_onProofAccepted_retiresActiveTermWhenLateSlashLeavesOutstandingLiability()
+        external
+    {
         RecordedProposal[] memory firstProposalOnly = new RecordedProposal[](1);
 
         _placePendingBid(Alice, 100, _bondForAssignments(100, 2));
@@ -515,12 +567,71 @@ contract ProverMarketSettlementTest is ProverMarketTestBase {
         _advanceBlock();
         _proposeOneWithValue(uint256(100) * 1 gwei);
 
-        vm.warp(firstProposalOnly[0].timestamp + MARKET_PROVING_WINDOW);
+        vm.warp(firstProposalOnly[0].timestamp + MARKET_PROVING_WINDOW + MARKET_PROVING_GRACE);
         _proveRecordedRangeAs(firstProposalOnly, Bob, Bob);
 
         (uint48 activeTermId,,,,,,) = market.marketState();
         assertEq(activeTermId, 0);
         assertEq(_reservedBond(Alice), _liabilityForFee(100));
+    }
+}
+
+contract ProverMarketHardeningTest is ProverMarketTestBase {
+    function test_bid_RevertWhen_FeeExceedsMaxFee() external {
+        _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
+        vm.prank(Alice);
+        vm.expectRevert(ProverMarket.BidFeeTooHigh.selector);
+        market.bid(10_000_000_001);
+    }
+
+    function test_bid_RevertWhen_CooldownActive() external {
+        _placePendingBid(Alice, 100, _bondForOneAssignment(100));
+        _advanceBlock();
+        _proposeOneWithValue(uint256(100) * 1 gwei);
+
+        _placePendingBid(Bob, 90, _bondForOneAssignment(90));
+        _advanceBlock();
+        _proposeOneWithValue(uint256(90) * 1 gwei);
+
+        uint48 cooldownEnd = market.bidCooldownUntil(Alice);
+        assertTrue(cooldownEnd > 0);
+
+        _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
+        vm.prank(Alice);
+        vm.expectRevert(ProverMarket.BidCooldownActive.selector);
+        market.bid(80);
+    }
+
+    function test_bid_succeedsAfterCooldownExpires() external {
+        _placePendingBid(Alice, 100, _bondForOneAssignment(100));
+        _advanceBlock();
+        _proposeOneWithValue(uint256(100) * 1 gwei);
+
+        _placePendingBid(Bob, 90, _bondForOneAssignment(90));
+        _advanceBlock();
+        _proposeOneWithValue(uint256(90) * 1 gwei);
+
+        uint48 cooldownEnd = market.bidCooldownUntil(Alice);
+        vm.warp(cooldownEnd);
+
+        _depositMarketBond(Alice, MARKET_MIN_BOND_GWEI);
+        vm.prank(Alice);
+        market.bid(80);
+    }
+
+    function test_onProofAccepted_withinGracePeriodDoesNotSlash() external {
+        RecordedProposal[] memory proposals = new RecordedProposal[](1);
+
+        _placePendingBid(Alice, 100, _bondForOneAssignment(100));
+        _advanceBlock();
+        proposals[0] = _proposeRecordedOneWithValue(uint256(100) * 1 gwei);
+
+        uint64 bondBefore = _bondBalance(Alice);
+        vm.warp(block.timestamp + MARKET_PROVING_WINDOW + 1);
+        _proveRecordedRangeAs(proposals, Bob, Bob);
+
+        assertEq(_bondBalance(Alice), bondBefore);
+        assertEq(_claimableFees(Bob), uint256(100) * 1 gwei);
     }
 }
 
