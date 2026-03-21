@@ -122,8 +122,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice Deprecated: was the activation timestamp. Kept for storage layout compatibility.
-    uint48 internal _activationTimestamp;
+    /// @notice The activation timestamp of the inbox. After Shasta is activated, this variable
+    /// can be set to 0, but we need to keep this variable for client backward compatibility.
+    uint48 public activationTimestamp;
 
     /// @notice Persisted core state.
     CoreState internal _coreState;
@@ -177,9 +178,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Initializes the inbox with owner and genesis state.
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The block hash used as the genesis finalized block hash
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+    function init(
+        address _owner,
+        bytes32 _genesisBlockHash,
+        uint48 _activationTimestamp
+    )
+        external
+        initializer
+    {
         __Essential_init(_owner);
 
+        activationTimestamp = _activationTimestamp;
         _coreState.nextProposalId = 1;
         _coreState.lastProposalBlockId = 1;
         _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
