@@ -122,8 +122,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice Deprecated: was the activation timestamp. Kept for storage layout compatibility.
-    uint48 internal _activationTimestamp;
+    /// @notice The activation timestamp of the inbox.
+    uint48 public activationTimestamp;
 
     /// @notice Persisted core state.
     CoreState internal _coreState;
@@ -180,6 +180,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Essential_init(_owner);
 
+        activationTimestamp = uint48(block.timestamp);
         _coreState.nextProposalId = 1;
         _coreState.lastProposalBlockId = 1;
         _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
