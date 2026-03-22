@@ -45,6 +45,8 @@ impl ProposerSubCommand {
             receipt_timeout: Duration::from_secs(self.proposer_flags.receipt_timeout),
             max_tip_bump_retries: self.proposer_flags.max_tip_bump_retries,
             tip_bump_percentage: self.proposer_flags.tip_bump_percentage,
+            min_max_fee_per_gas_gwei: self.proposer_flags.min_max_fee_per_gas_gwei,
+            min_priority_fee_per_gas_gwei: self.proposer_flags.min_priority_fee_per_gas_gwei,
         })
     }
 

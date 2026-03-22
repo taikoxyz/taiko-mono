@@ -182,7 +182,16 @@ impl Proposer {
             .get_transaction_count(signer)
             .block_id(BlockNumberOrTag::Latest.into())
             .await?;
-        let mut current_request = transaction_request.nonce(nonce);
+        // Estimate fees and enforce a minimum floor to prevent near-zero fees on devnets.
+        let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
+        let min_max_fee = self.cfg.min_max_fee_per_gas_gwei as u128 * 1_000_000_000;
+        let min_priority_fee = self.cfg.min_priority_fee_per_gas_gwei as u128 * 1_000_000_000;
+        let max_fee = fee_estimate.max_fee_per_gas.max(min_max_fee);
+        let priority_fee = fee_estimate.max_priority_fee_per_gas.max(min_priority_fee);
+        let mut current_request = transaction_request
+            .nonce(nonce)
+            .max_fee_per_gas(max_fee)
+            .max_priority_fee_per_gas(priority_fee);
         let mut tip_multiplier = 100u64; // starts at 100% (no bump)
 
         for attempt in 0..=self.cfg.max_tip_bump_retries {
@@ -196,11 +205,14 @@ impl Proposer {
                     "receipt timeout, resubmitting with bumped tip"
                 );
 
-                // Get current fee estimates from the provider.
+                // Get current fee estimates, apply bump, and enforce minimum floor.
                 let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
                 let multiplier = tip_multiplier as u128;
-                let bumped_priority_fee = fee_estimate.max_priority_fee_per_gas * multiplier / 100;
-                let bumped_max_fee = fee_estimate.max_fee_per_gas * multiplier / 100;
+                let bumped_priority_fee = (fee_estimate.max_priority_fee_per_gas * multiplier /
+                    100)
+                .max(min_priority_fee);
+                let bumped_max_fee =
+                    (fee_estimate.max_fee_per_gas * multiplier / 100).max(min_max_fee);
 
                 current_request = current_request
                     .max_priority_fee_per_gas(bumped_priority_fee)
@@ -227,9 +239,12 @@ impl Proposer {
                         let multiplier = tip_multiplier as u128;
                         current_request = current_request
                             .max_priority_fee_per_gas(
-                                fee_estimate.max_priority_fee_per_gas * multiplier / 100,
+                                (fee_estimate.max_priority_fee_per_gas * multiplier / 100)
+                                    .max(min_priority_fee),
                             )
-                            .max_fee_per_gas(fee_estimate.max_fee_per_gas * multiplier / 100);
+                            .max_fee_per_gas(
+                                (fee_estimate.max_fee_per_gas * multiplier / 100).max(min_max_fee),
+                            );
                         continue;
                     }
                     return Err(err.into());

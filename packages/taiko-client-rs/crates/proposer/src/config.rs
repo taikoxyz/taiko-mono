@@ -39,4 +39,8 @@ pub struct ProposerConfigs {
     pub max_tip_bump_retries: u32,
     /// Percentage to increase the priority fee by on each retry (e.g. 20 means +20%).
     pub tip_bump_percentage: u64,
+    /// Minimum max fee per gas in gwei. Ensures txs aren't sent with near-zero fees on devnets.
+    pub min_max_fee_per_gas_gwei: u64,
+    /// Minimum priority fee per gas in gwei.
+    pub min_priority_fee_per_gas_gwei: u64,
 }

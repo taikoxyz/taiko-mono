@@ -69,4 +69,20 @@ pub struct ProposerArgs {
         help = "Percentage to increase priority fee on each retry"
     )]
     pub tip_bump_percentage: u64,
+    /// Minimum max fee per gas in gwei. Prevents near-zero fees on low-activity chains.
+    #[clap(
+        long = "propose.minMaxFeePerGas",
+        env = "PROPOSE_MIN_MAX_FEE_PER_GAS",
+        default_value = "1",
+        help = "Minimum max fee per gas in gwei"
+    )]
+    pub min_max_fee_per_gas_gwei: u64,
+    /// Minimum priority fee per gas in gwei.
+    #[clap(
+        long = "propose.minPriorityFeePerGas",
+        env = "PROPOSE_MIN_PRIORITY_FEE_PER_GAS",
+        default_value = "1",
+        help = "Minimum priority fee per gas in gwei"
+    )]
+    pub min_priority_fee_per_gas_gwei: u64,
 }

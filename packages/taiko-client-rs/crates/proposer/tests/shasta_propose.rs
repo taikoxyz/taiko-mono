@@ -21,6 +21,8 @@ fn base_proposer_config(env: &ShastaEnv) -> ProposerConfigs {
         receipt_timeout: Duration::from_secs(180),
         max_tip_bump_retries: 3,
         tip_bump_percentage: 20,
+        min_max_fee_per_gas_gwei: 1,
+        min_priority_fee_per_gas_gwei: 1,
     }
 }
 
