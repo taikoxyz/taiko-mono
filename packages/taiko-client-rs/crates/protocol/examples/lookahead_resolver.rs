@@ -75,7 +75,6 @@ async fn main() -> Result<()> {
         .context("failed to resolve committer")?;
 
     println!("Committer for timestamp {now}: {signer:?}");
-
     Ok(())
 }
 
