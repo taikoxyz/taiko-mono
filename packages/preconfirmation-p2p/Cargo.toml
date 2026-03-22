@@ -29,18 +29,18 @@ tokio = { version = "1", features = ["full"] }
 
 # Networking / P2P
 discv5 = "0.10"
-kona-gossip = { git = "https://github.com/op-rs/kona", package = "kona-gossip", tag = "kona-client/v1.2.4", default-features = false }
-kona-peers = { git = "https://github.com/op-rs/kona", package = "kona-peers", tag = "kona-client/v1.2.4", default-features = false }
+kona-gossip = { git = "https://github.com/ethereum-optimism/optimism", package = "kona-gossip", tag = "kona-node/v1.2.9", default-features = false }
+kona-peers = { git = "https://github.com/ethereum-optimism/optimism", package = "kona-peers", tag = "kona-node/v1.2.9", default-features = false }
 libp2p = { version = "0.56", default-features = false, features = [
-    "tcp",
-    "quic",
-    "dns",
-    "gossipsub",
-    "request-response",
-    "ping",
-    "identify",
-    "autonat",
-    "relay",
+  "tcp",
+  "quic",
+  "dns",
+  "gossipsub",
+  "request-response",
+  "ping",
+  "identify",
+  "autonat",
+  "relay",
 ] }
 libp2p-allow-block-list = "0.6"
 libp2p-connection-limits = "0.6"
@@ -51,7 +51,9 @@ reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", package = "reth
 
 # Metrics / observability
 metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.15", default-features = false, features = ["http-listener"] }
+metrics-exporter-prometheus = { version = "0.15", default-features = false, features = [
+  "http-listener",
+] }
 
 # Crypto / serialization / types
 ipnet = "2"

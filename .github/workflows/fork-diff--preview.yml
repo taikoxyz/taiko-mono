@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy-fork-diff-preview:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') && github.event.pull_request.head.repo.fork == false}}
     runs-on: [arc-runner-set]
     steps:
       - name: Checkout repository

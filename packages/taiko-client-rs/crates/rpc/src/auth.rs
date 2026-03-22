@@ -6,7 +6,7 @@ use alethia_reth_primitives::{
     engine::types::TaikoExecutionDataSidecar,
     payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
 };
-use alethia_reth_rpc::eth::auth::PreBuiltTxList as TaikoPreBuiltTxList;
+use alethia_reth_rpc_types::PreBuiltTxList as TaikoPreBuiltTxList;
 use alloy_primitives::{Address, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::{
@@ -17,7 +17,10 @@ use anyhow::anyhow;
 use serde_json::Value;
 
 use super::client::Client;
-use crate::error::{Result, RpcClientError};
+use crate::{
+    error::{Result, RpcClientError},
+    l1_origin::EngineRpcL1Origin,
+};
 
 /// Re-export of Taiko's pre-built transaction list type using untyped transactions.
 pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
@@ -121,9 +124,14 @@ impl<P: Provider + Clone> Client<P> {
 
     /// Update the execution engine's L1 origin metadata for a given block.
     pub async fn update_l1_origin(&self, origin: &RpcL1Origin) -> Result<Option<RpcL1Origin>> {
+        let origin = EngineRpcL1Origin::from(origin.clone());
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed(TaikoAuthMethod::UpdateL1Origin.as_str()), (origin,))
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
+                Cow::Borrowed(TaikoAuthMethod::UpdateL1Origin.as_str()),
+                (origin,),
+            )
             .await
+            .map(|origin| origin.map(Into::into))
             .map_err(Into::into)
     }
 
@@ -134,11 +142,12 @@ impl<P: Provider + Clone> Client<P> {
         signature: FixedBytes<65>,
     ) -> Result<Option<RpcL1Origin>> {
         self.l2_auth_provider
-            .raw_request(
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
                 Cow::Borrowed(TaikoAuthMethod::SetL1OriginSignature.as_str()),
                 (block_id, signature),
             )
             .await
+            .map(|origin| origin.map(Into::into))
             .map_err(Into::into)
     }
 
@@ -172,12 +181,13 @@ impl<P: Provider + Clone> Client<P> {
         proposal_id: U256,
     ) -> Result<Option<RpcL1Origin>> {
         self.l2_auth_provider
-            .raw_request(
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
                 Cow::Borrowed(TaikoAuthMethod::LastL1OriginByBatchId.as_str()),
                 (proposal_id,),
             )
             .await
             .or_else(handle_ignorable_origin_error)
+            .map(|origin| origin.map(Into::into))
     }
 
     /// Fetch the last block id that corresponds to the provided batch id via the authenticated

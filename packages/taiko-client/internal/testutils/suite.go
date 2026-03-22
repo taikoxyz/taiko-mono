@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"math/big"
+	"net/url"
 	"os"
 	"strconv"
 	"sync"
@@ -34,7 +35,6 @@ type ClientTestSuite struct {
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
-	BlobServer          *MemoryBlobServer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -105,8 +105,6 @@ func (s *ClientTestSuite) SetupTest() {
 		s.testnetL1SnapshotID = s.SetL1Snapshot()
 		s.resetToBaseBlock(l1ProposerPrivKey)
 	})
-
-	s.BlobServer = NewMemoryBlobServer()
 }
 
 func (s *ClientTestSuite) enableProver(key *ecdsa.PrivateKey, address common.Address) {
@@ -216,7 +214,7 @@ func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) txmgr.TxMana
 		},
 	)
 	s.Nil(err)
-	return NewMemoryBlobTxMgr(s.RPCClient, txmgr, s.BlobServer)
+	return txmgr
 }
 
 func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
@@ -231,7 +229,6 @@ func (s *ClientTestSuite) TearDownTest() {
 	s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
 	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
 	s.Nil(err)
-	s.BlobServer.Close()
 }
 
 func (s *ClientTestSuite) TearDownSuite() {
@@ -294,6 +291,12 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(block.Hash(), head.Hash())
+}
+
+func (s *ClientTestSuite) ParseL1HttpURLFromEnv() *url.URL {
+	u, err := url.Parse(os.Getenv("L1_HTTP"))
+	s.Nil(err)
+	return u
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {

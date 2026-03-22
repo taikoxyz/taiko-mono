@@ -176,10 +176,11 @@ where
     ///
     /// Errors are logged but never propagated so payload application can proceed even when the
     /// mapping is unavailable.
-    async fn finalized_block_hash_for(&self, last_finalized_proposal_id: u64) -> Option<B256> {
-        if last_finalized_proposal_id == 0 {
-            return None;
-        }
+    async fn finalized_block_hash_for(
+        &self,
+        maybe_last_finalized_proposal_id: Option<u64>,
+    ) -> Option<B256> {
+        let last_finalized_proposal_id = maybe_last_finalized_proposal_id?;
 
         let block_number = match self
             .rpc
@@ -924,7 +925,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, TxKind};

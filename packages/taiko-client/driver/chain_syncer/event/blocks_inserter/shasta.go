@@ -9,11 +9,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
@@ -23,6 +25,51 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
+
+// tryLastFinalizedCheckpointShasta tries to fetch the last finalized checkpoint for the given proposal ID.
+// If the last finalized checkpoint is found and valid, it returns the checkpoint, otherwise it returns nil without
+// error.
+func tryLastFinalizedCheckpointShasta(
+	ctx context.Context,
+	proposalID *big.Int,
+	getCoreState func(*bind.CallOpts) (*shastaBindings.IInboxCoreState, error),
+	lastBlockIDByBatchID func(context.Context, *big.Int) (*hexutil.Big, error),
+	headerByNumber func(context.Context, *big.Int) (*types.Header, error),
+) (*verifiedCheckpoint, error) {
+	coreState, err := getCoreState(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		log.Warn(
+			"Failed to fetch Shasta core state for finalized checkpoint, continue inserting blocks",
+			"proposalID", proposalID,
+			"error", err,
+		)
+		return nil, nil
+	}
+
+	if coreState.LastFinalizedProposalId.Cmp(proposalID) < 0 {
+		return nil, nil
+	}
+
+	blockID, err := lastBlockIDByBatchID(ctx, coreState.LastFinalizedProposalId)
+	if err != nil {
+		log.Warn(
+			"Fail to fetch last block ID for finalized proposal, but continue inserting blocks",
+			"finalizedProposalID", coreState.LastFinalizedProposalId,
+			"error", err,
+		)
+		return nil, nil
+	}
+
+	lastFinalizedHeader, err := headerByNumber(ctx, blockID.ToInt())
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch last finalized block header (%d): %w", blockID.ToInt(), err)
+	}
+
+	return &verifiedCheckpoint{
+		BlockID:   lastFinalizedHeader.Number,
+		BlockHash: lastFinalizedHeader.Hash(),
+	}, nil
+}
 
 // Shasta is responsible for inserting Shasta blocks to the L2 execution engine.
 type Shasta struct {
@@ -75,9 +122,8 @@ func (i *Shasta) InsertBlocksWithManifest(
 	var (
 		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
 		// to the channel.
-		latestSeenProposal  = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
-		lastFinalizedHeader *types.Header
-		meta                = metadata.Shasta()
+		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
+		meta               = metadata.Shasta()
 	)
 
 	log.Debug(
@@ -87,37 +133,24 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"invalidManifest", sourcePayload.Default,
 	)
 
-	coreState, err := i.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx, BlockHash: metadata.GetRawBlockHash()})
+	batchSafeCheckpoint, err := tryLastFinalizedCheckpointShasta(
+		ctx,
+		meta.GetEventData().Id,
+		func(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
+			opts.BlockHash = metadata.GetRawBlockHash()
+			return i.rpc.GetCoreStateShasta(opts)
+		},
+		i.rpc.L2Engine.LastBlockIDByBatchID,
+		i.rpc.L2.HeaderByNumber,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch Shasta core state: %w", err)
-	}
-	if coreState.LastFinalizedProposalId.Cmp(meta.GetEventData().Id) >= 0 {
-		blockID, err := i.rpc.L2Engine.LastBlockIDByBatchID(ctx, coreState.LastFinalizedProposalId)
-		if err == nil {
-			if lastFinalizedHeader, err = i.rpc.L2.HeaderByNumber(ctx, blockID.ToInt()); err != nil {
-				return nil, fmt.Errorf("failed to fetch last finalized block header (%d): %w", blockID.ToInt(), err)
-			}
-		} else {
-			log.Warn(
-				"Fail to fetch last block ID for finalized proposal, but continue inserting blocks",
-				"finalizedProposalID", coreState.LastFinalizedProposalId,
-				"error", err,
-			)
-		}
+		return nil, err
 	}
 
 	var (
-		parent              = sourcePayload.ParentBlock.Header()
-		lastPayloadData     *engine.ExecutableData
-		batchSafeCheckpoint *verifiedCheckpoint
+		parent          = sourcePayload.ParentBlock.Header()
+		lastPayloadData *engine.ExecutableData
 	)
-
-	if lastFinalizedHeader != nil {
-		batchSafeCheckpoint = &verifiedCheckpoint{
-			BlockID:   lastFinalizedHeader.Number,
-			BlockHash: lastFinalizedHeader.Hash(),
-		}
-	}
 
 	for j := range sourcePayload.BlockPayloads {
 		log.Debug(
