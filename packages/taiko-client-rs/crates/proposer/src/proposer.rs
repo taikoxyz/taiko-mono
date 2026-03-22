@@ -191,8 +191,11 @@ impl Proposer {
         let mut current_request = transaction_request
             .nonce(nonce)
             .max_fee_per_gas(max_fee)
-            .max_priority_fee_per_gas(priority_fee);
+            .max_priority_fee_per_gas(priority_fee)
+            .max_fee_per_blob_gas(min_max_fee);
         let mut tip_multiplier = 100u64; // starts at 100% (no bump)
+        // Blob tx replacements require >= 2x blob fee bump (geth blobPriceBump = 100%).
+        let mut blob_fee_multiplier = 100u64;
 
         for attempt in 0..=self.cfg.max_tip_bump_retries {
             if attempt > 0 {
@@ -206,17 +209,22 @@ impl Proposer {
                 );
 
                 // Get current fee estimates, apply bump, and enforce minimum floor.
+                // Blob txs require >= 2x blob fee bump per geth's blobPriceBump.
                 let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
                 let multiplier = tip_multiplier as u128;
+                blob_fee_multiplier += 100; // +100% each retry (geth requires >= 2x)
                 let bumped_priority_fee = (fee_estimate.max_priority_fee_per_gas * multiplier /
                     100)
                 .max(min_priority_fee);
                 let bumped_max_fee =
                     (fee_estimate.max_fee_per_gas * multiplier / 100).max(min_max_fee);
+                let bumped_blob_fee =
+                    (min_max_fee * blob_fee_multiplier as u128 / 100).max(min_max_fee);
 
                 current_request = current_request
                     .max_priority_fee_per_gas(bumped_priority_fee)
-                    .max_fee_per_gas(bumped_max_fee);
+                    .max_fee_per_gas(bumped_max_fee)
+                    .max_fee_per_blob_gas(bumped_blob_fee);
             }
 
             let pending_tx = match self
@@ -234,9 +242,12 @@ impl Proposer {
                         // Reactively bump fees and retry, like op-txmgr.
                         warn!(attempt, nonce, "transaction underpriced, bumping fees and retrying");
                         tip_multiplier += self.cfg.tip_bump_percentage;
+                        blob_fee_multiplier += 100; // +100% (geth requires >= 2x for blob txs)
                         let fee_estimate =
                             self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
                         let multiplier = tip_multiplier as u128;
+                        let bumped_blob_fee =
+                            (min_max_fee * blob_fee_multiplier as u128 / 100).max(min_max_fee);
                         current_request = current_request
                             .max_priority_fee_per_gas(
                                 (fee_estimate.max_priority_fee_per_gas * multiplier / 100)
@@ -244,7 +255,8 @@ impl Proposer {
                             )
                             .max_fee_per_gas(
                                 (fee_estimate.max_fee_per_gas * multiplier / 100).max(min_max_fee),
-                            );
+                            )
+                            .max_fee_per_blob_gas(bumped_blob_fee);
                         continue;
                     }
                     return Err(err.into());
