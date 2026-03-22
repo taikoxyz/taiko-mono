@@ -176,7 +176,12 @@ impl Proposer {
         // On each timeout, resubmit with the same nonce and a bumped priority fee.
         // Pin the nonce upfront so retries replace the original tx rather than queue behind it.
         let signer = self.rpc_provider.l1_provider.default_signer_address();
-        let nonce = self.rpc_provider.l1_provider.get_transaction_count(signer).await?;
+        let nonce = self
+            .rpc_provider
+            .l1_provider
+            .get_transaction_count(signer)
+            .block_id(BlockNumberOrTag::Latest.into())
+            .await?;
         let mut current_request = transaction_request.nonce(nonce);
         let mut tip_multiplier = 100u64; // starts at 100% (no bump)
 
