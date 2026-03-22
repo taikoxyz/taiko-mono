@@ -15,7 +15,7 @@ contract DevnetInbox is Inbox {
     // Constants
     // ---------------------------------------------------------------
     /// @dev Ring buffer size for storing proposal hashes.
-    uint48 private constant _RING_BUFFER_SIZE = 100;
+    uint48 private constant _RING_BUFFER_SIZE = 10_000_000;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -29,7 +29,8 @@ contract DevnetInbox is Inbox {
         address _bondToken
     )
         // See `MainnetInbox.sol` for details on the configuration.
-        Inbox(Config({
+        Inbox(
+            Config({
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 proverWhitelist: _proverWhitelist,
@@ -47,7 +48,8 @@ contract DevnetInbox is Inbox {
                 forcedInclusionFeeInGwei: 1_000_000,
                 forcedInclusionFeeDoubleThreshold: 50,
                 permissionlessInclusionMultiplier: 160
-            }))
+            })
+        )
     { }
 
     // ---------------------------------------------------------------
