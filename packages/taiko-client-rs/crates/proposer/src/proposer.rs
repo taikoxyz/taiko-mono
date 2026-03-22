@@ -202,11 +202,37 @@ impl Proposer {
                     .max_fee_per_gas(bumped_max_fee);
             }
 
-            let pending_tx =
-                self.rpc_provider.l1_provider.send_transaction(current_request.clone()).await?;
+            let pending_tx = match self
+                .rpc_provider
+                .l1_provider
+                .send_transaction(current_request.clone())
+                .await
+            {
+                Ok(tx) => tx,
+                Err(err) => {
+                    let err_str = err.to_string();
+                    if err_str.contains("replacement transaction underpriced") ||
+                        err_str.contains("underpriced")
+                    {
+                        // Reactively bump fees and retry, like op-txmgr.
+                        warn!(attempt, nonce, "transaction underpriced, bumping fees and retrying");
+                        tip_multiplier += self.cfg.tip_bump_percentage;
+                        let fee_estimate =
+                            self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
+                        let multiplier = tip_multiplier as u128;
+                        current_request = current_request
+                            .max_priority_fee_per_gas(
+                                fee_estimate.max_priority_fee_per_gas * multiplier / 100,
+                            )
+                            .max_fee_per_gas(fee_estimate.max_fee_per_gas * multiplier / 100);
+                        continue;
+                    }
+                    return Err(err.into());
+                }
+            };
 
             let tx_hash = *pending_tx.tx_hash();
-            info!(%tx_hash, attempt, "proposal transaction sent");
+            info!(%tx_hash, attempt, nonce, "proposal transaction sent");
             counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
 
             // Wait for receipt with timeout.
