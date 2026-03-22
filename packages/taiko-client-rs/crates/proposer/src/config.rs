@@ -33,4 +33,10 @@ pub struct ProposerConfigs {
     /// Whether to use Engine API mode for payload building.
     /// When true, uses FCU + get_payload instead of tx_pool_content_with_min_tip.
     pub use_engine_mode: bool,
+    /// Timeout for waiting for a proposal transaction receipt before retrying with a bumped tip.
+    pub receipt_timeout: Duration,
+    /// Maximum number of tip bump retries before giving up on a proposal transaction.
+    pub max_tip_bump_retries: u32,
+    /// Percentage to increase the priority fee by on each retry (e.g. 20 means +20%).
+    pub tip_bump_percentage: u64,
 }

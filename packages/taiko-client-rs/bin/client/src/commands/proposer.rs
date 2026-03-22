@@ -42,6 +42,9 @@ impl ProposerSubCommand {
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
             gas_limit: self.proposer_flags.gas_limit,
             use_engine_mode: self.proposer_flags.use_engine_mode,
+            receipt_timeout: Duration::from_secs(self.proposer_flags.receipt_timeout),
+            max_tip_bump_retries: self.proposer_flags.max_tip_bump_retries,
+            tip_bump_percentage: self.proposer_flags.tip_bump_percentage,
         })
     }
 

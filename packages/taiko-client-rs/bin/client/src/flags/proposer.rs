@@ -45,4 +45,28 @@ pub struct ProposerArgs {
         help = "Use Engine API mode for payload building (FCU + get_payload)"
     )]
     pub use_engine_mode: bool,
+    /// Timeout in seconds for waiting for a proposal transaction receipt before retrying.
+    #[clap(
+        long = "propose.receiptTimeout",
+        env = "PROPOSE_RECEIPT_TIMEOUT",
+        default_value = "180",
+        help = "Timeout in seconds for waiting for a proposal tx receipt before retrying with bumped tip"
+    )]
+    pub receipt_timeout: u64,
+    /// Maximum number of tip bump retries before giving up on a proposal transaction.
+    #[clap(
+        long = "propose.maxTipBumpRetries",
+        env = "PROPOSE_MAX_TIP_BUMP_RETRIES",
+        default_value = "3",
+        help = "Maximum number of tip bump retries before giving up"
+    )]
+    pub max_tip_bump_retries: u32,
+    /// Percentage to increase the priority fee by on each retry (e.g. 20 means +20%).
+    #[clap(
+        long = "propose.tipBumpPercentage",
+        env = "PROPOSE_TIP_BUMP_PERCENTAGE",
+        default_value = "20",
+        help = "Percentage to increase priority fee on each retry"
+    )]
+    pub tip_bump_percentage: u64,
 }

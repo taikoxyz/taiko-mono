@@ -33,7 +33,7 @@ use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::ProposerConfigs,
@@ -172,32 +172,85 @@ impl Proposer {
             transaction_request = transaction_request.with_gas_limit(gas_limit);
         }
 
-        // Send transaction using provider with wallet filler.
-        // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the
-        // transaction.
-        let pending_tx =
-            self.rpc_provider.l1_provider.send_transaction(transaction_request).await?;
+        // Send transaction with tip-bumping retry loop.
+        // On each timeout, resubmit with the same nonce and a bumped priority fee.
+        let mut current_request = transaction_request;
+        let mut tip_multiplier = 100u64; // starts at 100% (no bump)
 
-        info!(tx_hash = %pending_tx.tx_hash(), "proposal transaction sent");
-        counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
+        for attempt in 0..=self.cfg.max_tip_bump_retries {
+            if attempt > 0 {
+                // Bump the priority fee for replacement transaction.
+                tip_multiplier += self.cfg.tip_bump_percentage;
+                warn!(
+                    attempt,
+                    tip_multiplier_pct = tip_multiplier,
+                    "receipt timeout, resubmitting with bumped tip"
+                );
 
-        let receipt = pending_tx.get_receipt().await?;
+                // Get current fee estimates from the provider.
+                let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
+                let multiplier = tip_multiplier as u128;
+                let bumped_priority_fee = fee_estimate.max_priority_fee_per_gas * multiplier / 100;
+                let bumped_max_fee = fee_estimate.max_fee_per_gas * multiplier / 100;
 
-        if receipt.status() {
-            info!(
-                tx_hash = %receipt.transaction_hash,
-                gas_used = receipt.gas_used,
-                "proposal transaction mined successfully"
-            );
-            counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
+                current_request = current_request
+                    .max_priority_fee_per_gas(bumped_priority_fee)
+                    .max_fee_per_gas(bumped_max_fee);
+            }
 
-            // Record gas used
-            histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
-        } else {
-            error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
-            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+            let pending_tx =
+                self.rpc_provider.l1_provider.send_transaction(current_request.clone()).await?;
+
+            let tx_hash = *pending_tx.tx_hash();
+            info!(%tx_hash, attempt, "proposal transaction sent");
+            counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
+
+            // Wait for receipt with timeout.
+            let receipt_result =
+                tokio::time::timeout(self.cfg.receipt_timeout, pending_tx.get_receipt()).await;
+
+            match receipt_result {
+                Ok(Ok(receipt)) => {
+                    if receipt.status() {
+                        info!(
+                            tx_hash = %receipt.transaction_hash,
+                            gas_used = receipt.gas_used,
+                            attempt,
+                            "proposal transaction mined successfully"
+                        );
+                        counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
+                        histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
+                    } else {
+                        error!(
+                            tx_hash = %receipt.transaction_hash,
+                            attempt,
+                            "proposal transaction failed"
+                        );
+                        counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+                    }
+                    return Ok(());
+                }
+                Ok(Err(e)) => {
+                    // RPC error while polling receipt — don't retry, propagate.
+                    return Err(e.into());
+                }
+                Err(_) => {
+                    // Timeout — loop will retry with bumped tip if attempts remain.
+                    warn!(
+                        %tx_hash,
+                        attempt,
+                        timeout_secs = self.cfg.receipt_timeout.as_secs(),
+                        "timed out waiting for proposal receipt"
+                    );
+                }
+            }
         }
 
+        error!(
+            max_retries = self.cfg.max_tip_bump_retries,
+            "proposal transaction not mined after all tip bump retries"
+        );
+        counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
         Ok(())
     }
 

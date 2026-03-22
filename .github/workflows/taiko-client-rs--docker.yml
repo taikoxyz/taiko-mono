@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, proposer-rs-retry]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:

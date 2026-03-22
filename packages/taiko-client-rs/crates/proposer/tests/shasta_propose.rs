@@ -18,6 +18,9 @@ fn base_proposer_config(env: &ShastaEnv) -> ProposerConfigs {
         l1_proposer_private_key: env.l1_proposer_private_key,
         gas_limit: None,
         use_engine_mode: false,
+        receipt_timeout: Duration::from_secs(180),
+        max_tip_bump_retries: 3,
+        tip_bump_percentage: 20,
     }
 }
 
