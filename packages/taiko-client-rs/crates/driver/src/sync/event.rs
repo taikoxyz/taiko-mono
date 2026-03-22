@@ -757,12 +757,15 @@ where
     /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
-        let finalized_block = self
+        let finalized_block = match self
             .rpc
             .l1_provider
             .get_block_by_number(BlockNumberOrTag::Finalized)
             .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        {
+            Ok(block) => block,
+            Err(_) => return Ok(None),
+        };
 
         let Some(finalized_block) = finalized_block else {
             return Ok(None);
