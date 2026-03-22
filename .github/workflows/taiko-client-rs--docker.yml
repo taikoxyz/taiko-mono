@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main, improve-try_finalized_l1_snapshot]
+    branches: [main]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
