@@ -152,9 +152,6 @@ jobs:
 
           sudo apt-get install -y --no-install-recommends build-essential
 
-      - name: Install pnpm dependencies
-        uses: ./.github/actions/install-pnpm-dependencies
-
       - uses: actions/checkout@v6
         with:
           repository: taikoxyz/taiko-mono
@@ -166,6 +163,14 @@ jobs:
           repository: taikoxyz/taiko-mono
           path: ${{ env.SHASTA_FORK_TAIKO_MONO_DIR }}
           ref: taiko-alethia-protocol-v3.0.0
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+        with:
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}/pnpm-lock.yaml
+            ${{ env.SHASTA_FORK_TAIKO_MONO_DIR }}/pnpm-lock.yaml
 
       - name: Install pnpm dependencies for pacaya fork taiko-mono
         working-directory: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
