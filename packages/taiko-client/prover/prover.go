@@ -360,9 +360,10 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 				"error", err,
 			)
 			return nil
-		} else if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
+		} else if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) ||
+			strings.Contains(err.Error(), transaction.ErrUnretryableSubmission.Error()) {
 			log.Error(
-				"Proof submission reverted",
+				"Proof submission reverted or unretryable",
 				"blockIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,

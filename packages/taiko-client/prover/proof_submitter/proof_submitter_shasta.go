@@ -382,9 +382,6 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesShasta(ctx, batchProof),
 		batchProof,
 	); err != nil {
-		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-			return nil
-		}
 		metrics.ProverAggregationSubmissionErrorCounter.Add(1)
 		return err
 	}

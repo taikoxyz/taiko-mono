@@ -338,9 +338,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesPacaya(batchProof),
 		batchProof,
 	); err != nil {
-		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-			return nil
-		}
 		metrics.ProverAggregationSubmissionErrorCounter.Add(1)
 		return err
 	}
