@@ -13,7 +13,7 @@ func clearProofBufferItems(
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	batchProof *proofProducer.BatchProofs,
 ) error {
-	if len(batchProof.ProofResponses) == 0 {
+	if len(batchProof.ProofResponses) == 0 || len(batchProof.BatchIDs) == 0 {
 		return proofProducer.ErrInvalidLength
 	}
 	log.Info(
