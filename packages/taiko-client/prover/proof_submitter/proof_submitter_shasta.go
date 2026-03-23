@@ -382,10 +382,6 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesShasta(ctx, batchProof),
 		batchProof,
 	); err != nil {
-		// Resend the proof request
-		for _, proofResp := range batchProof.ProofResponses {
-			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
-		}
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil
 		}
@@ -400,8 +396,17 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 }
 
 // ClearProofBuffers removes the submitted proof items from the Shasta proof buffer.
-func (s *ProofSubmitterShasta) ClearProofBuffers(batchProof *proofProducer.BatchProofs) error {
-	return clearProofBufferItems(s.proofBuffers, batchProof)
+func (s *ProofSubmitterShasta) ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error {
+	if err := clearProofBufferItems(s.proofBuffers, batchProof); err != nil {
+		return err
+	}
+	if resend {
+		// Resend the proof request
+		for _, proofResp := range batchProof.ProofResponses {
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
+		}
+	}
+	return nil
 }
 
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,

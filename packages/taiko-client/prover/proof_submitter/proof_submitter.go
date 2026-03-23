@@ -338,10 +338,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesPacaya(batchProof),
 		batchProof,
 	); err != nil {
-		// Resend the proof request
-		for _, proofResp := range batchProof.ProofResponses {
-			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
-		}
 		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
 			return nil
 		}
@@ -355,8 +351,17 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 }
 
 // ClearProofBuffers removes the submitted proof items from the Pacaya proof buffer.
-func (s *ProofSubmitterPacaya) ClearProofBuffers(batchProof *proofProducer.BatchProofs) error {
-	return clearProofBufferItems(s.proofBuffers, batchProof)
+func (s *ProofSubmitterPacaya) ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error {
+	if err := clearProofBufferItems(s.proofBuffers, batchProof); err != nil {
+		return err
+	}
+	if resend {
+		// Resend the proof request
+		for _, proofResp := range batchProof.ProofResponses {
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
+		}
+	}
+	return nil
 }
 
 // AggregateProofsByType read all data from buffer and aggregate them.

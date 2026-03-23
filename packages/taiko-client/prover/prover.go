@@ -255,7 +255,7 @@ func (p *Prover) eventLoop() {
 		case batchProof := <-p.batchProofGenerationCh:
 			p.withRetry(
 				func() error { return p.submitProofAggregationOp(batchProof) },
-				func() error { return p.clearProofBuffer(batchProof) },
+				func() error { return p.clearProofBuffer(batchProof, true) },
 			)
 		case req := <-p.proofSubmissionCh:
 			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
@@ -367,7 +367,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
-			if err := submitter.ClearProofBuffers(batchProof); err != nil {
+			if err := submitter.ClearProofBuffers(batchProof, true); err != nil {
 				// If clearing the proof buffer fails, return the error and retry in the next attempt.
 				return err
 			}
@@ -381,7 +381,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		)
 		return err
 	}
-	if err := submitter.ClearProofBuffers(batchProof); err != nil {
+	if err := submitter.ClearProofBuffers(batchProof, false); err != nil {
 		return fmt.Errorf("failed to clear proof buffers after successful submission: %w", err)
 	}
 
@@ -389,7 +389,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 }
 
 // clearProofBuffer clears the buffered proof items for the batch from the matching submitter.
-func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs) error {
+func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs, resend bool) error {
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
 		return fmt.Errorf("empty batch proof")
 	}
@@ -400,7 +400,7 @@ func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs) error {
 	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
-	return submitter.ClearProofBuffers(batchProof)
+	return submitter.ClearProofBuffers(batchProof, resend)
 }
 
 // Name returns the application name.
