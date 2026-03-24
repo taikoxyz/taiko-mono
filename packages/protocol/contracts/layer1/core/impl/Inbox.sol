@@ -269,8 +269,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
-            bytes32 parentProposalHash =
-                _proposalHashes[(nextProposalId - 1) % _ringBufferSize];
+            bytes32 parentProposalHash;
+            {
+                uint256 rbs = _ringBufferSize;
+                assembly {
+                    mstore(0x00, mod(sub(nextProposalId, 1), rbs))
+                    mstore(0x20, _proposalHashes.slot)
+                    parentProposalHash := sload(keccak256(0x00, 0x40))
+                }
+            }
             Proposal memory proposal = Proposal({
                 id: nextProposalId,
                 timestamp: uint48(block.timestamp),
