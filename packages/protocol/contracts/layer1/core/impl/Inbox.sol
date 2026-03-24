@@ -221,19 +221,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
 
             uint48 nextProposalId;
-            uint48 lastProposalBlockId;
-            uint48 lastFinalizedProposalId;
             uint256 coreSlot;
             assembly {
                 coreSlot := sload(_coreState.slot)
                 nextProposalId := and(coreSlot, 0xffffffffffff)
-                lastProposalBlockId := and(shr(48, coreSlot), 0xffffffffffff)
-                lastFinalizedProposalId := and(shr(96, coreSlot), 0xffffffffffff)
             }
             require(nextProposalId > 0, ActivationRequired());
-            require(block.number > lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
+                block.number > (coreSlot >> 48) & 0xffffffffffff, CannotProposeInCurrentBlock()
+            );
+            require(
+                _ringBufferSize > nextProposalId - ((coreSlot >> 96) & 0xffffffffffff),
+                NotEnoughCapacity()
             );
 
             // Fast path: empty queue + single blob — build entire sources chain in assembly
