@@ -803,32 +803,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Private Pure Functions
     // ---------------------------------------------------------------
 
-    /// @dev Decodes ProposeInput directly from calldata using assembly,
-    /// avoiding the calldata→memory copy overhead of LibCodec.decodeProposeInput.
-    /// Packed format (15 bytes): deadline(6) | blobStartIndex(2) | numBlobs(2) | offset(3) |
-    /// numForcedInclusions(2)
-    function _decodeProposeInputCalldata(bytes calldata _data)
-        private
-        pure
-        returns (ProposeInput memory input_)
-    {
-        assembly {
-            let word := calldataload(_data.offset)
-            // deadline: top 6 bytes (bits 255-208)
-            mstore(input_, shr(208, word))
-            // numForcedInclusions: 2 bytes at offset 13 (bits 151-136)
-            mstore(add(input_, 0x40), and(shr(136, word), 0xffff))
-            // BlobReference: pointer is pre-allocated at input_ + 0x20
-            let blobRef := mload(add(input_, 0x20))
-            // blobStartIndex: 2 bytes at offset 6 (bits 207-192)
-            mstore(blobRef, and(shr(192, word), 0xffff))
-            // numBlobs: 2 bytes at offset 8 (bits 191-176)
-            mstore(add(blobRef, 0x20), and(shr(176, word), 0xffff))
-            // offset: 3 bytes at offset 10 (bits 175-152)
-            mstore(add(blobRef, 0x40), and(shr(152, word), 0xffffff))
-        }
-    }
-
     /// @dev Decodes Commitment directly from calldata using assembly,
     /// avoiding the calldata→memory copy of LibCodec.decodeProveInput.
     /// Packed format: firstProposalId(6) | firstProposalParentBlockHash(32) | lastProposalHash(32)
