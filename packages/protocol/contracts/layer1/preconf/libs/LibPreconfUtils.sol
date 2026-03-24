@@ -86,20 +86,24 @@ library LibPreconfUtils {
 
     /// @notice Calculates the timestamp of a future epoch based on the genesis timestamp.
     /// @param _epochOffset The offset from the current epoch.
-    /// @return The timestamp of the future epoch.
-    function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint48) {
-        uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        uint256 timePassed = block.timestamp - genesisTimestamp;
+    /// @return result_ The timestamp of the future epoch.
+    function getEpochTimestamp(uint256 _epochOffset) internal view returns (uint48 result_) {
         /// forge-lint: disable-start(divide-before-multiply)
-        uint256 timePassedUptoCurrentEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
-            * LibPreconfConstants.SECONDS_IN_EPOCH;
-        /// forge-lint: disable-end
+        assembly {
+            // Inline getGenesisTimestamp(block.chainid) — avoids Solidity if/else chain
+            let genesis := 0
+            switch chainid()
+            case 1 { genesis := 1606824023 } // ETHEREUM_MAINNET
+            case 17000 { genesis := 1695902400 } // ETHEREUM_HOLESKY
+            case 7014190335 { genesis := 1718967660 } // ETHEREUM_HELDER
+            case 560048 { genesis := 1742213400 } // ETHEREUM_HOODI
 
-        // Safe: epoch timestamps derived from block.timestamp always fit in uint48
-        return uint48(
-            genesisTimestamp + timePassedUptoCurrentEpoch
-                + _epochOffset * LibPreconfConstants.SECONDS_IN_EPOCH
-        );
+            let timePassed := sub(timestamp(), genesis)
+            // (timePassed / 384) * 384 — round down to epoch boundary
+            let epochTime := mul(div(timePassed, 384), 384)
+            result_ := add(genesis, add(epochTime, mul(_epochOffset, 384)))
+        }
+        /// forge-lint: disable-end
     }
 
     /// @notice Calculates the timestamp of the epoch containing the provided slot timestamp .
