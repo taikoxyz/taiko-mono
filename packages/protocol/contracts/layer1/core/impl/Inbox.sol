@@ -208,15 +208,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _packedInput Packed fields: deadline(48)|blobStartIndex(16)|numBlobs(16)|blobOffset(24)|unused
     function proposeFast(uint256 _packedInput) external {
         unchecked {
-            // Inline nonReentrant
-            assembly {
-                let slot := 0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b
-                if eq(tload(slot), 2) {
-                    mstore(0x00, 0x37ed32e8)
-                    revert(0x1c, 0x04)
-                }
-                tstore(slot, 2)
-            }
+            // No nonReentrant needed — only external call is STATICCALL (cannot re-enter)
 
             uint48 nextProposalId;
             uint256 coreSlot;
@@ -326,9 +318,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     )
                 )
                 sstore(currentSlot, proposalHash)
-
-                // Unlock nonReentrant
-                tstore(0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b, 1)
             }
         }
     }
