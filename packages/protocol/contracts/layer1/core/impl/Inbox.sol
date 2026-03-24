@@ -500,9 +500,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // 2. Verify parent block-hash continuity and last proposal hash
             // ---------------------------------------------------------
             // The parent block hash must match the stored lastFinalizedBlockHash.
-            bytes32 expectedParentHash = offset == 0
-                ? commitment.firstProposalParentBlockHash
-                : commitment.transitions[offset - 1].blockHash;
+            bytes32 expectedParentHash;
+            assembly {
+                let transitions := mload(add(commitment, 0xc0))
+                switch offset
+                case 0 {
+                    expectedParentHash := mload(add(commitment, 0x20))
+                }
+                default {
+                    let tPtr := mload(add(transitions, add(0x20, mul(sub(offset, 1), 0x20))))
+                    expectedParentHash := mload(add(tPtr, 0x40)) // blockHash
+                }
+            }
             {
                 uint256 rbs = _ringBufferSize;
                 assembly {
@@ -532,10 +541,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 uint256 livenessWindowDeadline = a > b ? a : b;
 
                 if (block.timestamp > livenessWindowDeadline) {
+                    address proposer;
+                    assembly {
+                        let transitions := mload(add(commitment, 0xc0))
+                        let tPtr := mload(add(transitions, add(0x20, mul(offset, 0x20))))
+                        proposer := mload(tPtr) // proposer at offset 0
+                    }
                     _bondStorage.settleLivenessBond(
-                        commitment.transitions[offset].proposer,
-                        commitment.actualProver,
-                        _livenessBond
+                        proposer, commitment.actualProver, _livenessBond
                     );
                 }
             }
@@ -543,7 +556,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
-            bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
+            bytes32 lastBlockHash;
+            assembly {
+                let transitions := mload(add(commitment, 0xc0))
+                let tPtr := mload(add(transitions, add(0x20, mul(sub(numProposals, 1), 0x20))))
+                lastBlockHash := mload(add(tPtr, 0x40))
+            }
             _signalService.saveCheckpoint(
                 ICheckpointStore.Checkpoint({
                     blockNumber: commitment.endBlockNumber,
