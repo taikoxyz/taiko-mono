@@ -330,7 +330,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
-            // Build keccak256 hash buffer directly — skip Proposal struct allocation
+            // Build keccak256 hash buffer at 0x00 — reduces peak memory allocation
             // Layout matches abi.encode(Proposal) for 1-source-1-blobHash case
             uint8 bfsPctg = _basefeeSharingPctg;
             bytes32 parentProposalHash;
@@ -339,62 +339,67 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(0x00, mod(sub(nextProposalId, 1), rbs))
                 mstore(0x20, _proposalHashes.slot)
                 parentProposalHash := sload(keccak256(0x00, 0x40))
-                // Note: 0x20 still contains _proposalHashes.slot for reuse below
 
-                let ptr := mload(0x40) // scratch space
-
-                // Proposal static fields (9 words)
-                mstore(ptr, nextProposalId) // id
-                mstore(add(ptr, 0x20), timestamp()) // timestamp
-                mstore(add(ptr, 0x40), endOfSubmissionWindowTimestamp)
-                mstore(add(ptr, 0x60), caller()) // proposer
-                mstore(add(ptr, 0x80), parentProposalHash)
-                let pbn := sub(number(), 1)
-                mstore(add(ptr, 0xa0), pbn) // originBlockNumber
-                mstore(add(ptr, 0xc0), blockhash(pbn)) // originBlockHash
-                mstore(add(ptr, 0xe0), bfsPctg) // basefeeSharingPctg
-                mstore(add(ptr, 0x100), 0x120) // offset to sources array
-
-                // Sources array header (2 words)
-                mstore(add(ptr, 0x120), 1) // length = 1
-                mstore(add(ptr, 0x140), 0x20) // offset to sources[0]
-
-                // Fast path: known contiguous memory layout from blob assembly above.
-                // Layout (numBlobs=1): [blobHashes(2w)] [BlobSlice(3w)] [DS(2w)] [sources(2w)]
-                // sources = fmp + 0xe0, so fixed offsets from sources:
-                mstore(add(ptr, 0x160), 0) // isForcedInclusion = false
-                mstore(add(ptr, 0x180), 0x40) // offset to blobSlice
-                mstore(add(ptr, 0x1a0), 0x60) // offset to blobHashes
-                mstore(add(ptr, 0x1c0), mload(sub(sources, 0x80))) // BlobSlice.offset
-                mstore(add(ptr, 0x1e0), mload(sub(sources, 0x60))) // BlobSlice.timestamp
-                mstore(add(ptr, 0x200), 1) // blobHashes length = 1
-                mstore(add(ptr, 0x220), mload(sub(sources, 0xc0))) // blobHashes[0]
-
-                let proposalHash := keccak256(ptr, 0x240)
-
-                // Update coreState: nextProposalId and lastProposalBlockId
-                let cleared := and(coreSlot, not(0xffffffffffffffffffffffff))
-                let newValue :=
-                    or(or(cleared, add(nextProposalId, 1)), shl(48, number()))
-                sstore(_coreState.slot, newValue)
-
-                // Write proposal hash to mapping: _proposalHashes[nextProposalId % rbs]
-                // 0x20 still has _proposalHashes.slot from parent hash read above
+                // Pre-compute current proposal's storage slot before overwriting 0x00
                 mstore(0x00, mod(nextProposalId, rbs))
-                sstore(keccak256(0x00, 0x40), proposalHash)
+                let currentSlot := keccak256(0x00, 0x40)
 
-                // ProposedFast: LOG2 — proposer derivable from tx sender
-                if queueEmpty {
-                    mstore(ptr, mload(sub(sources, 0xc0))) // blobHash
-                    mstore(
-                        add(ptr, 0x20),
+                // Copy blob data to final hash buffer positions BEFORE overwriting lower memory
+                // Blob data lives at sub(sources, 0xc0/0x80/0x60) from earlier assembly block
+                mstore(0x1c0, mload(sub(sources, 0x80))) // BlobSlice.offset
+                mstore(0x1e0, mload(sub(sources, 0x60))) // BlobSlice.timestamp
+                mstore(0x220, mload(sub(sources, 0xc0))) // blobHashes[0]
+
+                // Proposal static fields at 0x00 (9 words)
+                mstore(0x00, nextProposalId) // id
+                mstore(0x20, timestamp()) // timestamp
+                mstore(0x40, endOfSubmissionWindowTimestamp)
+                mstore(0x60, caller()) // proposer
+                mstore(0x80, parentProposalHash)
+                let pbn := sub(number(), 1)
+                mstore(0xa0, pbn) // originBlockNumber
+                mstore(0xc0, blockhash(pbn)) // originBlockHash
+                mstore(0xe0, bfsPctg) // basefeeSharingPctg
+                mstore(0x100, 0x120) // offset to sources array
+
+                // Sources array header + DerivationSource
+                mstore(0x120, 1) // length = 1
+                mstore(0x140, 0x20) // offset to sources[0]
+                mstore(0x160, 0) // isForcedInclusion = false
+                mstore(0x180, 0x40) // offset to blobSlice
+                mstore(0x1a0, 0x60) // offset to blobHashes
+                // 0x1c0, 0x1e0, 0x220 already written above
+                mstore(0x200, 1) // blobHashes length = 1
+
+                let proposalHash := keccak256(0x00, 0x240)
+
+                // Update coreState
+                sstore(
+                    _coreState.slot,
+                    or(
                         or(
-                            or(shl(248, bfsPctg), shl(224, mload(sub(sources, 0x80)))),
-                            shl(176, mload(sub(sources, 0x60)))
+                            and(coreSlot, not(0xffffffffffffffffffffffff)),
+                            add(nextProposalId, 1)
+                        ),
+                        shl(48, number())
+                    )
+                )
+
+                // Write proposal hash
+                sstore(currentSlot, proposalHash)
+
+                // ProposedFast: LOG1 — reuse blob values from hash buffer
+                if queueEmpty {
+                    mstore(0x00, mload(0x220)) // blobHash
+                    mstore(
+                        0x20,
+                        or(
+                            or(shl(248, bfsPctg), shl(224, mload(0x1c0))),
+                            shl(176, mload(0x1e0))
                         )
-                    ) // packed: bfsPctg(8)|blobOffset(24)|blobTimestamp(48)
+                    )
                     log1(
-                        ptr,
+                        0x00,
                         0x40,
                         0xb6e7fc6f187bda234056eaa6e88b58a194e0e8c50c9671830330abe0ef4eee76
                     )
