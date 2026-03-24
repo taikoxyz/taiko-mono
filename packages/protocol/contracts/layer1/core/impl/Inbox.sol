@@ -375,16 +375,31 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     blockHash: lastBlockHash
                 })
             );
-            state.lastCheckpointTimestamp = uint48(block.timestamp);
-
             // ---------------------------------------------------------
             // 5. Update core state and emit event
             // ---------------------------------------------------------
-            state.lastFinalizedProposalId = uint48(lastProposalId);
-            state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedBlockHash = lastBlockHash;
-
-            _coreState = state;
+            // Write packed slot 252: preserve nextProposalId (bits 0-47) and
+            // lastProposalBlockId (bits 48-95), update lastFinalizedProposalId (96-143),
+            // lastFinalizedTimestamp (144-191), lastCheckpointTimestamp (192-239)
+            {
+                uint256 ts48 = block.timestamp & 0xffffffffffff;
+                assembly {
+                    // Read current slot to preserve bits 0-95
+                    let slot := sload(_coreState.slot)
+                    let preserved := and(slot, 0xffffffffffffffffffffffff) // bits 0-95
+                    let newSlot :=
+                        or(
+                            or(
+                                or(preserved, shl(96, and(lastProposalId, 0xffffffffffff))),
+                                shl(144, ts48)
+                            ),
+                            shl(192, ts48)
+                        )
+                    sstore(_coreState.slot, newSlot)
+                    // Write slot 253: lastFinalizedBlockHash
+                    sstore(add(_coreState.slot, 1), lastBlockHash)
+                }
+            }
 
             emit Proved(
                 commitment.firstProposalId,
