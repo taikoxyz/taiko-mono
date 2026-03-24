@@ -370,7 +370,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 // Update coreState: nextProposalId and lastProposalBlockId
                 let cleared := and(coreSlot, not(0xffffffffffffffffffffffff))
                 let newValue :=
-                    or(or(cleared, add(nextProposalId, 1)), shl(48, and(number(), 0xffffffffffff)))
+                    or(or(cleared, add(nextProposalId, 1)), shl(48, number()))
                 sstore(_coreState.slot, newValue)
 
                 // Write proposal hash to mapping: _proposalHashes[nextProposalId % rbs]
