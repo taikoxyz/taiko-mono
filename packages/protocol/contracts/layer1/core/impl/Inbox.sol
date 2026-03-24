@@ -312,7 +312,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             uint48 endOfSubmissionWindowTimestamp;
-            if (!allowsPermissionless) {
+            if (!queueEmpty && !allowsPermissionless) {
                 endOfSubmissionWindowTimestamp = _checkProposer(msg.sender, _lookahead);
                 if (_minBond > 0) {
                     require(
@@ -324,8 +324,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Build keccak256 hash buffer at 0x00 — reduces peak memory allocation
             // Layout matches abi.encode(Proposal) for 1-source-1-blobHash case
             uint8 bfsPctg = _basefeeSharingPctg;
+            address checker = address(_proposerChecker);
             bytes32 parentProposalHash;
             assembly {
+                // Fast path: inline proposer check as raw STATICCALL — skip virtual dispatch
+                if queueEmpty {
+                    // checkProposerMinimal(address) @ 0x240 (past hash buffer end)
+                    mstore(0x240, 0xff7a929700000000000000000000000000000000000000000000000000000000)
+                    mstore(0x244, caller())
+                    if iszero(staticcall(gas(), checker, 0x240, 0x24, 0, 0)) {
+                        returndatacopy(0, 0, returndatasize())
+                        revert(0, returndatasize())
+                    }
+                }
                 // Read parent proposal hash from ring buffer
                 mstore(0x00, mod(sub(nextProposalId, 1), rbs))
                 mstore(0x20, _proposalHashes.slot)
