@@ -611,17 +611,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         returns (Proposal memory proposal_)
     {
         unchecked {
-            ConsumptionResult memory result =
+            (DerivationSource[] memory sources, bool allowsPermissionless) =
                 _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
 
-            result.sources[result.sources.length - 1] =
+            sources[sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
             // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
-            if (!result.allowsPermissionless) {
+            if (!allowsPermissionless) {
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
                 if (_minBond > 0) {
@@ -643,7 +643,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
-                sources: result.sources
+                sources: sources
             });
         }
     }
@@ -658,14 +658,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// source
     /// @param _feeRecipient Address to receive accumulated fees
     /// @param _numForcedInclusionsRequested Maximum number of forced inclusions to consume
-    /// @return result_ ConsumptionResult with sources array (size: processed + 1, last slot empty)
-    /// and whether permissionless proposals are allowed
+    /// @return sources_ Sources array (size: processed + 1, last slot empty for normal source)
+    /// @return allowsPermissionless_ Whether permissionless proposals are allowed
     function _consumeForcedInclusions(
         address _feeRecipient,
         uint256 _numForcedInclusionsRequested
     )
         private
-        returns (ConsumptionResult memory result_)
+        returns (DerivationSource[] memory sources_, bool allowsPermissionless_)
     {
         unchecked {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
@@ -685,8 +685,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             // Fast path: empty queue — no forced inclusions to inspect or process
             if (available == 0) {
-                result_.sources = new DerivationSource[](1);
-                return result_;
+                sources_ = new DerivationSource[](1);
+                return (sources_, false);
             }
 
             uint256 dueToProcess;
@@ -707,17 +707,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint256 toProcess = _numForcedInclusionsRequested.min(available)
                 .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
 
-            result_.sources = new DerivationSource[](toProcess + 1);
+            sources_ = new DerivationSource[](toProcess + 1);
 
             if (toProcess != 0) {
                 uint48 oldestTimestamp;
                 (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                    $, _feeRecipient, result_.sources, head, toProcess
+                    $, _feeRecipient, sources_, head, toProcess
                 );
 
                 uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
                     * _permissionlessInclusionMultiplier + oldestTimestamp;
-                result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
+                allowsPermissionless_ = block.timestamp > permissionlessTimestamp;
             }
         }
     }
