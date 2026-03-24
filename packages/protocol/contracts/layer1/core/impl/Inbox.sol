@@ -771,36 +771,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @dev Calculates and processes liveness bond settlement if applicable.
-    /// @dev Settlement rules:
-    ///      - On-time (within provingWindow + sequential grace): No bond changes.
-    ///      - Late: Liveness bond slash with 50% credited to the actual prover and 50% burned.
-    /// @param _commitment The commitment data.
-    /// @param _offset The offset to the first unfinalized proposal.
-    /// @param _lastFinalizedTimestamp The last finalized timestamp from cached CoreState.
-    function _processLivenessBond(
-        Commitment memory _commitment,
-        uint48 _offset,
-        uint48 _lastFinalizedTimestamp
-    )
-        private
-    {
-        unchecked {
-            uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
-                    + _provingWindow)
-            .max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
-
-            // On-time proof - no bond transfer needed.
-            if (block.timestamp <= livenessWindowDeadline) {
-                return;
-            }
-
-            _bondStorage.settleLivenessBond(
-                _commitment.transitions[_offset].proposer, _commitment.actualProver, _livenessBond
-            );
-        }
-    }
-
     /// @dev Emits the Proposed event
     function _emitProposedEvent(Proposal memory _proposal) private {
         emit Proposed(
@@ -811,67 +781,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             _proposal.basefeeSharingPctg,
             _proposal.sources
         );
-    }
-
-    // ---------------------------------------------------------------
-    // Private View/Pure Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
-    ///      becomes permissionless once a proposal is older than the permissionless delay.
-    /// @param _addr The address of the caller to check.
-    /// @param _proposalAge The age in seconds since the proposal became available for proving.
-    /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise.
-    function _checkProver(
-        address _addr,
-        uint256 _proposalAge
-    )
-        private
-        view
-        returns (bool whitelistEnabled_)
-    {
-        if (address(_proverWhitelist) == address(0)) return false;
-
-        (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
-        if (proverCount == 0) return false;
-
-        if (!isWhitelisted) {
-            require(_proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted());
-        }
-        return true;
-    }
-
-    /// @dev Validates the batch bounds in the Commitment and calculates the offset
-    ///      to the first unfinalized proposal.
-    /// @param _state The core state.
-    /// @param _commitment The commitment data.
-    /// @return numProposals_ The number of proposals in the batch.
-    /// @return lastProposalId_ The ID of the last proposal in the batch.
-    /// @return offset_ The offset to the first unfinalized proposal.
-    function _validateCommitment(
-        CoreState memory _state,
-        Commitment memory _commitment
-    )
-        private
-        pure
-        returns (uint256 numProposals_, uint256 lastProposalId_, uint48 offset_)
-    {
-        unchecked {
-            uint256 firstUnfinalizedId = _state.lastFinalizedProposalId + 1;
-
-            numProposals_ = _commitment.transitions.length;
-            require(numProposals_ > 0, EmptyBatch());
-            require(_commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
-
-            lastProposalId_ = _commitment.firstProposalId + numProposals_ - 1;
-            require(lastProposalId_ < _state.nextProposalId, LastProposalIdTooLarge());
-            require(lastProposalId_ >= firstUnfinalizedId, LastProposalAlreadyFinalized());
-
-            // Calculate offset to first unfinalized proposal.
-            // Some proposals in _commitment.transitions[] may already be finalized.
-            // The offset points to the first proposal that will be finalized.
-            offset_ = uint48(firstUnfinalizedId - _commitment.firstProposalId);
-        }
     }
 
     // ---------------------------------------------------------------
