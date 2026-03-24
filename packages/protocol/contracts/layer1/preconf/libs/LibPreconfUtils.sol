@@ -3,10 +3,13 @@ pragma solidity ^0.8.24;
 
 import "../iface/ILookaheadStore.sol";
 import "./LibPreconfConstants.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
 
 /// @title LibPreconfUtils
 /// @custom:security-contact security@taiko.xyz
 library LibPreconfUtils {
+    using SafeCastUpgradeable for uint256;
+
     uint256 private constant _MAX_QUERIES = 32;
 
     /// @notice Calculates the lookahead hash.
