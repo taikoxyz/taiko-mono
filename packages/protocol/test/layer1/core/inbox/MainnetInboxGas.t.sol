@@ -104,6 +104,11 @@ contract MainnetInboxGasTest is InboxTestBase {
     /// @notice Measures propose() gas with real PreconfWhitelist, SignalService,
     /// and ring buffer reuse after finalization — matching real mainnet steady state.
     function test_mainnetInbox_propose_gas() public {
+        // Set authorized proposer for proposeFastMin direct check
+        inbox.setAuthorizedProposer(proposer);
+        // Warm the slot by reading it
+        inbox.authorizedProposer();
+
         _setBlobHashes(8);
 
         // Phase 1: Propose 2 blocks then prove them to free capacity.

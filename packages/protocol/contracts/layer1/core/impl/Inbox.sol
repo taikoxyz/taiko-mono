@@ -146,7 +146,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Storage for bond balances.
     LibBonds.Storage private _bondStorage;
 
-    uint256[43] private __gap;
+    /// @dev Cached authorized proposer for fast-path check (avoids STATICCALL through proxy).
+    address public authorizedProposer;
+
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -186,6 +189,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         __Essential_init(_owner);
     }
 
+    /// @dev Sets the authorized proposer for proposeFastMin direct check.
+    function setAuthorizedProposer(address _proposer) external onlyOwner {
+        authorizedProposer = _proposer;
+    }
+
     /// @notice Activates the inbox so that it can start accepting proposals.
     /// @dev Can be called multiple times within the activation window to handle reorgs.
     /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
@@ -212,7 +220,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint256 coreSlot;
             uint256 rbs = _ringBufferSize;
             uint8 bfsPctg = _basefeeSharingPctg;
-            address checker = address(_proposerChecker);
             assembly {
                 coreSlot := sload(_coreState.slot)
                 nextProposalId := and(coreSlot, 0xffffffffffff)
@@ -242,12 +249,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 // blobOffset = 0, already zero at 0x1c0 (fresh memory)
                 mstore(0x1e0, timestamp())
 
-                // Proposer check
-                mstore(0x00, 0x36c79ff400000000000000000000000000000000000000000000000000000000)
-                mstore(0x04, caller())
-                if iszero(staticcall(gas(), checker, 0x00, 0x24, 0, 0)) {
-                    returndatacopy(0, 0, returndatasize())
-                    revert(0, returndatasize())
+                // Direct proposer check — single SLOAD, no cross-contract call
+                // authorizedProposer at slot 258
+                if iszero(eq(sload(258), caller())) {
+                    mstore(0x00, 0x11a6a3c2) // InvalidProposer()
+                    revert(0x1c, 0x04)
                 }
 
                 // Read parent proposal hash
