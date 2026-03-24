@@ -295,9 +295,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -------------------------------------------------------------------------------
             Commitment memory commitment = input.commitment;
 
-            // `offset` is the index of the next-to-finalize proposal in the transitions array.
-            (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateCommitment(state, commitment);
+            uint256 numProposals = commitment.transitions.length;
+            require(numProposals > 0, EmptyBatch());
+            require(
+                commitment.firstProposalId <= uint256(state.lastFinalizedProposalId) + 1,
+                FirstProposalIdTooLarge()
+            );
+
+            uint256 lastProposalId = commitment.firstProposalId + numProposals - 1;
+            require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
+            require(
+                lastProposalId >= uint256(state.lastFinalizedProposalId) + 1,
+                LastProposalAlreadyFinalized()
+            );
+
+            uint48 offset =
+                uint48(uint256(state.lastFinalizedProposalId) + 1 - commitment.firstProposalId);
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
             bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
