@@ -230,6 +230,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 nextProposalId;
             uint256 coreSlot;
             uint256 rbs = _ringBufferSize;
+            bool queueEmpty;
             assembly {
                 coreSlot := sload(_coreState.slot)
                 nextProposalId := and(coreSlot, 0xffffffffffff)
@@ -248,17 +249,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     mstore(0x00, 0xeaabac9b) // NotEnoughCapacity()
                     revert(0x1c, 0x04)
                 }
+                // Check if forced inclusion queue is empty (head == tail)
+                let packed := sload(add(_forcedInclusionStorage.slot, 1))
+                queueEmpty := eq(and(packed, 0xffffffffffff), and(shr(48, packed), 0xffffffffffff))
             }
 
             // Fast path: empty queue + single blob — build entire sources chain in assembly
             DerivationSource[] memory sources;
             bool allowsPermissionless;
             {
-                bool queueEmpty;
-                assembly {
-                    let packed := sload(add(_forcedInclusionStorage.slot, 1))
-                    queueEmpty := eq(and(packed, 0xffffffffffff), and(shr(48, packed), 0xffffffffffff))
-                }
                 if (queueEmpty) {
                     // Build: blobHashes[1] + BlobSlice + DerivationSource + sources[1] in assembly
                     assembly {
