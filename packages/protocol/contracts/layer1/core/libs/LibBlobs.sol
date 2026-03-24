@@ -39,12 +39,15 @@ library LibBlobs {
         view
         returns (BlobSlice memory)
     {
-        require(_blobReference.numBlobs > 0, NoBlobs());
+        uint256 numBlobs = _blobReference.numBlobs;
+        require(numBlobs > 0, NoBlobs());
 
-        bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
-        for (uint256 i; i < _blobReference.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
-            require(blobHashes[i] != 0, BlobNotFound());
+        bytes32[] memory blobHashes = new bytes32[](numBlobs);
+        uint256 startIndex = _blobReference.blobStartIndex;
+        for (uint256 i; i < numBlobs; ++i) {
+            bytes32 h = blobhash(startIndex + i);
+            require(h != 0, BlobNotFound());
+            blobHashes[i] = h;
         }
 
         return BlobSlice({
