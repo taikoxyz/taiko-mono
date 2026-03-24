@@ -568,15 +568,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
-            uint256 parentBlockNumber = block.number - 1;
             proposal_ = Proposal({
                 id: _nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
                 parentProposalHash: getProposalHash(_nextProposalId - 1),
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
+                originBlockNumber: uint48(block.number - 1),
+                originBlockHash: blockhash(block.number - 1),
                 basefeeSharingPctg: _basefeeSharingPctg,
                 sources: result.sources
             });
