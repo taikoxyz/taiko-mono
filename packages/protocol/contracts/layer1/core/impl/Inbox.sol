@@ -262,13 +262,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             bool allowsPermissionless;
             {
                 if (queueEmpty) {
-                    // Minimal blob construction: only store values at offsets expected by
-                    // hash and emit assembly blocks (sub(sources, 0xc0/0x80/0x60))
+                    // Write blob data directly to hash buffer positions (0x220, 0x1c0, 0x1e0)
+                    // Avoids intermediate memory layout and copy step in hash block
                     assembly {
                         // Decode blob fields directly from calldataWord — skip struct
                         let blobStartIndex := and(shr(192, calldataWord), 0xffff)
                         let numBlobs := and(shr(176, calldataWord), 0xffff)
-                        let blobOffset := and(shr(152, calldataWord), 0xffffff)
 
                         // require(numBlobs > 0)
                         if iszero(numBlobs) {
@@ -276,20 +275,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                             revert(0x1c, 0x04)
                         }
 
-                        let fmp := mload(0x40)
-
-                        // Single-blob fast path: skip struct chain, store raw values
-                        // Memory layout: [.][blobHash0][.][offset][timestamp][...] sources@fmp+0xe0
-                        // Hash/emit read: sub(sources,0xc0)=fmp+0x20, sub(sources,0x80)=fmp+0x60,
-                        //                 sub(sources,0x60)=fmp+0x80
                         let h := blobhash(blobStartIndex)
                         if iszero(h) {
                             mstore(0x00, 0x8f84fb24) // BlobNotFound()
                             revert(0x1c, 0x04)
                         }
-                        mstore(add(fmp, 0x20), h) // blobHash0
-                        mstore(add(fmp, 0x60), blobOffset) // blobSlice.offset
-                        mstore(add(fmp, 0x80), timestamp()) // blobSlice.timestamp
+                        // Write directly to final hash buffer positions
+                        mstore(0x220, h) // blobHashes[0]
+                        mstore(0x1c0, and(shr(152, calldataWord), 0xffffff)) // BlobSlice.offset
+                        mstore(0x1e0, timestamp()) // BlobSlice.timestamp
 
                         // Validate remaining blobs if multi-blob
                         for { let i := 1 } lt(i, numBlobs) { i := add(i, 1) } {
@@ -298,9 +292,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                                 revert(0x1c, 0x04)
                             }
                         }
-
-                        sources := add(fmp, 0xe0)
-                        mstore(0x40, add(fmp, 0x100))
                     }
                 } else {
                     // Slow path: reconstruct ProposeInput from calldataWord
@@ -344,11 +335,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(0x00, mod(nextProposalId, rbs))
                 let currentSlot := keccak256(0x00, 0x40)
 
-                // Copy blob data to final hash buffer positions BEFORE overwriting lower memory
-                // Blob data lives at sub(sources, 0xc0/0x80/0x60) from earlier assembly block
-                mstore(0x1c0, mload(sub(sources, 0x80))) // BlobSlice.offset
-                mstore(0x1e0, mload(sub(sources, 0x60))) // BlobSlice.timestamp
-                mstore(0x220, mload(sub(sources, 0xc0))) // blobHashes[0]
+                // Slow path: copy blob data from sources to hash buffer positions
+                // Fast path: data already at 0x1c0/0x1e0/0x220 from blob assembly
+                if iszero(queueEmpty) {
+                    mstore(0x1c0, mload(sub(sources, 0x80))) // BlobSlice.offset
+                    mstore(0x1e0, mload(sub(sources, 0x60))) // BlobSlice.timestamp
+                    mstore(0x220, mload(sub(sources, 0xc0))) // blobHashes[0]
+                }
 
                 // Proposal static fields at 0x00 (9 words)
                 mstore(0x00, nextProposalId) // id
