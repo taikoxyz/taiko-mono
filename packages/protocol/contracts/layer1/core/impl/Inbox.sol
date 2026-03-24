@@ -679,8 +679,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         unchecked {
             LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
 
-            // Load storage once
-            (uint48 head, uint48 tail) = ($.head, $.tail);
+            // Load head and tail from storage — both are packed in a single slot
+            uint48 head;
+            uint48 tail;
+            assembly {
+                // Storage layout: mapping(slot 0) + head(6 bytes) + tail(6 bytes) at slot 1
+                // $.slot points to the mapping; head/tail are at $.slot + 1
+                let packed := sload(add($.slot, 1))
+                head := and(packed, 0xffffffffffff)
+                tail := and(shr(48, packed), 0xffffffffffff)
+            }
 
             uint256 available = tail - head;
 
