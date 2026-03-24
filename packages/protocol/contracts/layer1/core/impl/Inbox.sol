@@ -349,21 +349,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(add(ptr, 0x120), 1) // length = 1
                 mstore(add(ptr, 0x140), 0x20) // offset to sources[0]
 
-                // sources[0] DerivationSource (2 words)
-                let src0 := mload(add(sources, 0x20))
-                mstore(add(ptr, 0x160), 0) // isForcedInclusion = false (fast path)
+                // Fast path: known contiguous memory layout from blob assembly above.
+                // Layout (numBlobs=1): [blobHashes(2w)] [BlobSlice(3w)] [DS(2w)] [sources(2w)]
+                // sources = fmp + 0xe0, so fixed offsets from sources:
+                mstore(add(ptr, 0x160), 0) // isForcedInclusion = false
                 mstore(add(ptr, 0x180), 0x40) // offset to blobSlice
-
-                // BlobSlice (3 words)
-                let bs := mload(add(src0, 0x20))
                 mstore(add(ptr, 0x1a0), 0x60) // offset to blobHashes
-                mstore(add(ptr, 0x1c0), mload(add(bs, 0x20))) // offset
-                mstore(add(ptr, 0x1e0), mload(add(bs, 0x40))) // timestamp
-
-                // blobHashes array (2 words)
-                let blobHashesArr := mload(bs)
-                mstore(add(ptr, 0x200), 1) // length = 1
-                mstore(add(ptr, 0x220), mload(add(blobHashesArr, 0x20))) // blobHashes[0]
+                mstore(add(ptr, 0x1c0), mload(sub(sources, 0x80))) // BlobSlice.offset
+                mstore(add(ptr, 0x1e0), mload(sub(sources, 0x60))) // BlobSlice.timestamp
+                mstore(add(ptr, 0x200), 1) // blobHashes length = 1
+                mstore(add(ptr, 0x220), mload(sub(sources, 0xc0))) // blobHashes[0]
 
                 let proposalHash := keccak256(ptr, 0x240)
 
