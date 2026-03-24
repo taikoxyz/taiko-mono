@@ -300,7 +300,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                _processLivenessBond(commitment, offset);
+                _processLivenessBond(commitment, offset, state.lastFinalizedTimestamp);
             }
 
             // -----------------------------------------------------------------------------
@@ -683,11 +683,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      - Late: Liveness bond slash with 50% credited to the actual prover and 50% burned.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
-    function _processLivenessBond(Commitment memory _commitment, uint48 _offset) private {
+    /// @param _lastFinalizedTimestamp The last finalized timestamp from cached CoreState.
+    function _processLivenessBond(
+        Commitment memory _commitment,
+        uint48 _offset,
+        uint48 _lastFinalizedTimestamp
+    )
+        private
+    {
         unchecked {
             uint256 livenessWindowDeadline = (_commitment.transitions[_offset].timestamp
                     + _provingWindow)
-            .max(_coreState.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+            .max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
 
             // On-time proof - no bond transfer needed.
             if (block.timestamp <= livenessWindowDeadline) {
