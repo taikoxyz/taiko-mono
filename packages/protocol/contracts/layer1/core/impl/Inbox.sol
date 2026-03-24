@@ -259,7 +259,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             bool allowsPermissionless;
             {
                 if (queueEmpty) {
-                    // Build: blobHashes[1] + BlobSlice + DerivationSource + sources[1] in assembly
+                    // Minimal blob construction: only store values at offsets expected by
+                    // hash and emit assembly blocks (sub(sources, 0xc0/0x80/0x60))
                     assembly {
                         let blobRef := mload(add(input, 0x20))
                         let numBlobs := mload(add(blobRef, 0x20))
@@ -271,34 +272,29 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
                         let fmp := mload(0x40)
 
-                        // blobHashes array at fmp
-                        mstore(fmp, numBlobs) // length
-                        for { let i := 0 } lt(i, numBlobs) { i := add(i, 1) } {
-                            let h := blobhash(add(mload(blobRef), i))
-                            if iszero(h) {
+                        // Single-blob fast path: skip struct chain, store raw values
+                        // Memory layout: [.][blobHash0][.][offset][timestamp][...] sources@fmp+0xe0
+                        // Hash/emit read: sub(sources,0xc0)=fmp+0x20, sub(sources,0x80)=fmp+0x60,
+                        //                 sub(sources,0x60)=fmp+0x80
+                        let h := blobhash(mload(blobRef))
+                        if iszero(h) {
+                            mstore(0x00, 0x8f84fb24) // BlobNotFound()
+                            revert(0x1c, 0x04)
+                        }
+                        mstore(add(fmp, 0x20), h) // blobHash0
+                        mstore(add(fmp, 0x60), mload(add(blobRef, 0x40))) // blobSlice.offset
+                        mstore(add(fmp, 0x80), timestamp()) // blobSlice.timestamp
+
+                        // Validate remaining blobs if multi-blob
+                        for { let i := 1 } lt(i, numBlobs) { i := add(i, 1) } {
+                            if iszero(blobhash(add(mload(blobRef), i))) {
                                 mstore(0x00, 0x8f84fb24) // BlobNotFound()
                                 revert(0x1c, 0x04)
                             }
-                            mstore(add(fmp, add(0x20, mul(i, 0x20))), h)
                         }
 
-                        // BlobSlice struct after blobHashes
-                        let blobSlicePtr := add(fmp, add(0x20, mul(numBlobs, 0x20)))
-                        mstore(blobSlicePtr, fmp) // blobHashes pointer
-                        mstore(add(blobSlicePtr, 0x20), mload(add(blobRef, 0x40))) // offset
-                        mstore(add(blobSlicePtr, 0x40), timestamp())
-
-                        // DerivationSource after BlobSlice
-                        let ds := add(blobSlicePtr, 0x60)
-                        mstore(ds, 0) // isForcedInclusion = false
-                        mstore(add(ds, 0x20), blobSlicePtr) // blobSlice pointer
-
-                        // sources array after DerivationSource
-                        sources := add(ds, 0x40)
-                        mstore(sources, 1) // length = 1
-                        mstore(add(sources, 0x20), ds)
-
-                        mstore(0x40, add(sources, 0x40))
+                        sources := add(fmp, 0xe0)
+                        mstore(0x40, add(fmp, 0x100))
                     }
                 } else {
                     LibBlobs.BlobSlice memory blobSlice =
