@@ -322,15 +322,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     blockHash: lastBlockHash
                 })
             );
-            uint48 now48 = uint48(block.timestamp);
-            uint48 lastProposalId48 = uint48(lastProposalId);
-            state.lastCheckpointTimestamp = now48;
+            state.lastCheckpointTimestamp = uint48(block.timestamp);
 
             // ---------------------------------------------------------
             // 5. Update core state and emit event
             // ---------------------------------------------------------
-            state.lastFinalizedProposalId = lastProposalId48;
-            state.lastFinalizedTimestamp = now48;
+            state.lastFinalizedProposalId = uint48(lastProposalId);
+            state.lastFinalizedTimestamp = uint48(block.timestamp);
             state.lastFinalizedBlockHash = lastBlockHash;
 
             _coreState = state;
@@ -338,7 +336,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             emit Proved(
                 commitment.firstProposalId,
                 commitment.firstProposalId + offset,
-                lastProposalId48,
+                uint48(lastProposalId),
                 commitment.actualProver
             );
 
