@@ -392,7 +392,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 // Write proposal hash
                 sstore(currentSlot, proposalHash)
 
-                // ProposedFast: LOG1 — reuse blob values from hash buffer
+                // ProposedFast: LOG0 — no topics, identified by contract address
                 if queueEmpty {
                     mstore(0x00, mload(0x220)) // blobHash
                     mstore(
@@ -402,11 +402,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                             shl(176, mload(0x1e0))
                         )
                     )
-                    log1(
-                        0x00,
-                        0x40,
-                        0xb6e7fc6f187bda234056eaa6e88b58a194e0e8c50c9671830330abe0ef4eee76
-                    )
+                    log0(0x00, 0x40)
                 }
             }
 
