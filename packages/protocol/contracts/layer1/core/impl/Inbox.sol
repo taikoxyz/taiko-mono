@@ -216,20 +216,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             _validateProposeInput(input);
 
-            CoreState memory state = _coreState;
-            require(state.nextProposalId > 0, ActivationRequired());
+            uint48 nextProposalId = _coreState.nextProposalId;
+            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
+            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
+            require(nextProposalId > 0, ActivationRequired());
 
             Proposal memory proposal = _buildProposal(
-                input,
-                _lookahead,
-                state.nextProposalId,
-                state.lastProposalBlockId,
-                state.lastFinalizedProposalId
+                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
 
-            state.nextProposalId += 1;
-            state.lastProposalBlockId = uint48(block.number);
-            _coreState = state;
+            _coreState.nextProposalId = nextProposalId + 1;
+            _coreState.lastProposalBlockId = uint48(block.number);
             _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
 
             _emitProposedEvent(proposal);
