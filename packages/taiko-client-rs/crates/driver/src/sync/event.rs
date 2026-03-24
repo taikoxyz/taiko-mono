@@ -5,7 +5,7 @@ const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
 
 use std::{
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
@@ -185,8 +185,8 @@ where
     blob_source: Arc<BlobDataSource>,
     /// Optional preconfirmation ingress sender for external producers.
     preconf_tx: Option<PreconfSender>,
-    /// Optional preconfirmation ingress receiver consumed by the sync loop.
-    preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
+    /// Preconfirmation ingress receiver, moved exactly once into the ingress loop.
+    preconf_rx: Mutex<Option<PreconfReceiver>>,
     /// Indicates whether strict preconfirmation ingress gating has been satisfied and
     /// the ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
@@ -247,7 +247,7 @@ where
     fn spawn_preconf_ingress(
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
-        rx: Arc<AsyncMutex<PreconfReceiver>>,
+        mut rx: PreconfReceiver,
         rpc: Client<P>,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
@@ -259,7 +259,6 @@ where
                 queue_capacity = PRECONF_CHANNEL_CAPACITY,
                 "started preconfirmation ingress loop"
             );
-            let mut rx = rx.lock().await;
             // Signal that the ingress loop is ready to accept submissions.
             ready_flag.store(true, Ordering::Release);
             ready_notify.notify_waiters();
@@ -521,7 +520,7 @@ where
         );
         let (preconf_tx, preconf_rx) = if cfg.preconfirmation_enabled {
             let (tx, rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
-            (Some(tx), Some(Arc::new(AsyncMutex::new(rx))))
+            (Some(tx), Some(rx))
         } else {
             (None, None)
         };
@@ -532,7 +531,7 @@ where
             checkpoint_resume_head,
             blob_source,
             preconf_tx,
-            preconf_rx,
+            preconf_rx: Mutex::new(preconf_rx),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
@@ -1076,15 +1075,22 @@ where
                     continue;
                 }
                 let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
-                if confirmed_sync_ready && let Some(rx) = self.preconf_rx.clone() {
-                    self.spawn_preconf_ingress(
-                        router.clone(),
-                        rx,
-                        self.rpc.clone(),
-                        self.preconf_ingress_ready.clone(),
-                        self.preconf_ingress_notify.clone(),
-                    );
-                    preconf_ingress_spawned = true;
+                if confirmed_sync_ready {
+                    let rx = self
+                        .preconf_rx
+                        .lock()
+                        .expect("preconfirmation receiver lock should not be poisoned")
+                        .take();
+                    if let Some(rx) = rx {
+                        self.spawn_preconf_ingress(
+                            router.clone(),
+                            rx,
+                            self.rpc.clone(),
+                            self.preconf_ingress_ready.clone(),
+                            self.preconf_ingress_notify.clone(),
+                        );
+                        preconf_ingress_spawned = true;
+                    }
                 }
             }
         }
@@ -1198,7 +1204,7 @@ mod tests {
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
             blob_source: Arc::new(blob_source),
             preconf_tx: Some(preconf_tx),
-            preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
+            preconf_rx: Mutex::new(Some(preconf_rx)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
