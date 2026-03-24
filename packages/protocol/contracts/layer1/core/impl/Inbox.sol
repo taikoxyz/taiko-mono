@@ -469,7 +469,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 offset := sub(lfpiPlus1, mload(commitment))
             }
 
-            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
+            uint256 proposalAge;
+            assembly {
+                // transitions = commitment.transitions (pointer at offset 0xc0)
+                let transitions := mload(add(commitment, 0xc0))
+                // transitions[offset] pointer (skip length word + offset pointers)
+                let tPtr := mload(add(transitions, add(0x20, mul(offset, 0x20))))
+                // timestamp is at offset 0x20 in Transition struct
+                proposalAge := sub(timestamp(), mload(add(tPtr, 0x20)))
+            }
             bool isWhitelistEnabled;
             {
                 IProverWhitelist pw = _proverWhitelist;
