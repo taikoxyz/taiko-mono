@@ -32,26 +32,52 @@ library LibBlobs {
     // ---------------------------------------------------------------
 
     /// @dev Validates a blob locator and converts it to a blob slice.
+    /// @dev Uses assembly to avoid Solidity's zero-initialization of the bytes32[] array
+    ///      and the BlobSlice struct, since every slot is written before being read.
+    ///      Original Solidity: new bytes32[](numBlobs) + loop + BlobSlice{...}
     /// @param _blobReference The blob locator to validate.
-    /// @return The blob slice.
+    /// @return slice_ The blob slice.
     function validateBlobReference(BlobReference memory _blobReference)
         internal
         view
-        returns (BlobSlice memory)
+        returns (BlobSlice memory slice_)
     {
-        require(_blobReference.numBlobs > 0, NoBlobs());
+        uint256 numBlobs = _blobReference.numBlobs;
+        require(numBlobs > 0, NoBlobs());
 
-        bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
-        for (uint256 i; i < _blobReference.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
-            require(blobHashes[i] != 0, BlobNotFound());
+        assembly {
+            let ptr := mload(0x40)
+
+            // Allocate bytes32[] array: [length, hash0, hash1, ...]
+            let blobHashesPtr := ptr
+            mstore(ptr, numBlobs)
+            ptr := add(ptr, 0x20)
+
+            let startIdx := and(mload(add(_blobReference, 0x00)), 0xffff) // blobStartIndex
+
+            for { let i := 0 } lt(i, numBlobs) { i := add(i, 1) } {
+                let h := blobhash(add(startIdx, i))
+                if iszero(h) {
+                    // revert BlobNotFound()
+                    mstore(0x00, 0xf765f45e) // BlobNotFound() selector
+                    revert(0x1c, 0x04)
+                }
+                mstore(ptr, h)
+                ptr := add(ptr, 0x20)
+            }
+
+            // Allocate BlobSlice struct: [blobHashes_ptr, offset, timestamp]
+            // Original Solidity: BlobSlice({blobHashes, offset, timestamp})
+            slice_ := ptr
+            mstore(ptr, blobHashesPtr)
+            mstore(add(ptr, 0x20), and(mload(add(_blobReference, 0x40)), 0xffffff)) // offset
+            // (uint24)
+            mstore(add(ptr, 0x40), and(timestamp(), 0xffffffffffff)) // uint48(block.timestamp)
+            ptr := add(ptr, 0x60)
+
+            // Update free memory pointer
+            mstore(0x40, ptr)
         }
-
-        return BlobSlice({
-            blobHashes: blobHashes,
-            offset: _blobReference.offset,
-            timestamp: uint48(block.timestamp)
-        });
     }
 
     // ---------------------------------------------------------------

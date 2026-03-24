@@ -156,6 +156,60 @@ contract InboxHashFuzzTest is Test {
         assertEq(optHash, refHash, "hash mismatch");
     }
 
+    /// @notice Reference implementation of validateBlobReference (original Solidity)
+    function _validateBlobReferenceReference(LibBlobs.BlobReference memory _blobReference)
+        internal
+        view
+        returns (LibBlobs.BlobSlice memory)
+    {
+        require(_blobReference.numBlobs > 0);
+
+        bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
+        for (uint256 i; i < _blobReference.numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
+            require(blobHashes[i] != 0);
+        }
+
+        return LibBlobs.BlobSlice({
+            blobHashes: blobHashes,
+            offset: _blobReference.offset,
+            timestamp: uint48(block.timestamp)
+        });
+    }
+
+    /// @notice Fuzz test: assembly validateBlobReference vs reference Solidity
+    function test_fuzz_validateBlobReference(
+        uint16 _blobStartIndex,
+        uint24 _offset
+    )
+        public
+    {
+        // Use 1-3 blobs (bounded to avoid huge arrays)
+        uint16 numBlobs = uint16(bound(uint256(_blobStartIndex) % 3 + 1, 1, 3));
+        _blobStartIndex = 0; // blobhash only works with index starting from 0 in tests
+
+        // Set up blob hashes
+        bytes32[] memory hashes = new bytes32[](numBlobs);
+        for (uint256 i; i < numBlobs; ++i) {
+            hashes[i] = keccak256(abi.encode("blob", i, _offset));
+        }
+        vm.blobhashes(hashes);
+
+        LibBlobs.BlobReference memory ref =
+            LibBlobs.BlobReference({ blobStartIndex: _blobStartIndex, numBlobs: numBlobs, offset: _offset });
+
+        LibBlobs.BlobSlice memory refSlice = _validateBlobReferenceReference(ref);
+        LibBlobs.BlobSlice memory optSlice = LibBlobs.validateBlobReference(ref);
+
+        // Compare all fields
+        assertEq(optSlice.blobHashes.length, refSlice.blobHashes.length, "blobHashes length mismatch");
+        for (uint256 i; i < refSlice.blobHashes.length; ++i) {
+            assertEq(optSlice.blobHashes[i], refSlice.blobHashes[i], "blobHash mismatch");
+        }
+        assertEq(optSlice.offset, refSlice.offset, "offset mismatch");
+        assertEq(optSlice.timestamp, refSlice.timestamp, "timestamp mismatch");
+    }
+
     /// @notice Gas benchmark: hashProposal for single source, single blob
     function test_hashProposal_gas_singleSource() public {
         IInbox.DerivationSource[] memory sources = new IInbox.DerivationSource[](1);
