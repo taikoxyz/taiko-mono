@@ -259,7 +259,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             uint32 _latestActivationEpoch = latestActivationEpoch;
 
             if (_operatorCount == 0) return address(0);
-            uint256 randomNumber = _getRandomNumber(randomnessTs);
+            // Inline _getRandomNumber: beacon root at epoch start stays constant throughout epoch
+            uint256 randomNumber =
+                uint256(LibPreconfUtils.getBeaconBlockRootAtOrAfter(randomnessTs));
             if (_epochTimestamp >= _latestActivationEpoch) {
                 // Fast path: This means all operators are active, so we can just select one without
                 // checking
