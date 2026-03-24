@@ -628,14 +628,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             result_.sources = new DerivationSource[](toProcess + 1);
 
-            uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, result_.sources, head, toProcess
-            );
+            if (toProcess != 0) {
+                uint48 oldestTimestamp;
+                (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
+                    $, _feeRecipient, result_.sources, head, toProcess
+                );
 
-            uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
-                * _permissionlessInclusionMultiplier + oldestTimestamp;
-            result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
+                uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
+                    * _permissionlessInclusionMultiplier + oldestTimestamp;
+                result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
+            }
         }
     }
 
