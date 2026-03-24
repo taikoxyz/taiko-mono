@@ -527,6 +527,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Core propose logic shared by all propose variants (propose, proposeV2,
     /// proposeSimple, proposeCompact). Reads/writes CoreState, builds proposal,
     /// hashes, stores, and emits the Proposed event.
+    /// @dev Inlines the former _buildProposal logic to eliminate function call overhead
+    ///      and allow better stack management by the compiler.
     function _proposeCore(ProposeInput memory _input, bytes calldata _lookahead) private {
         unchecked {
             // Gas optimization: read the packed CoreState slot once via assembly instead of
@@ -554,57 +556,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
             require(nextProposalId > 0, ActivationRequired());
 
-            Proposal memory proposal = _buildProposal(
-                _input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
-            );
-
-            // Gas optimization: write both modified fields in a single SSTORE by
-            // updating the packed slot directly.
-            // Original Solidity:
-            //   _coreState.nextProposalId = nextProposalId + 1;
-            //   _coreState.lastProposalBlockId = uint48(block.number);
-            assembly {
-                let mask48 := 0xffffffffffff
-                // Clear the nextProposalId (bits 0-47) and lastProposalBlockId (bits 48-95)
-                let cleared := and(packedCoreSlot, not(or(mask48, shl(48, mask48))))
-                // Pack new values: (nextProposalId + 1) in bits 0-47, block.number in bits 48-95
-                let newPacked :=
-                    or(cleared, or(add(nextProposalId, 1), shl(48, and(number(), mask48))))
-                sstore(coreRef.slot, newPacked)
-            }
-            // Gas optimization: inline _setProposalHash to avoid function call overhead.
-            // Original Solidity: _setProposalHash(proposal.id, _hashAndEmitProposal(proposal));
-            _proposalHashes[uint256(proposal.id) % _ringBufferSize] =
-                _hashAndEmitProposal(proposal);
-        }
-    }
-
-    /// @dev Builds proposal and derivation data.
-    /// This function also checks:
-    /// - If `msg.sender` can propose.
-    /// - If `msg.sender` has sufficient bond.
-    /// @param _input The propose input data.
-    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
-    /// @param _nextProposalId The proposal ID to assign.
-    /// @param _lastProposalBlockId The last block number where a proposal was made.
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
-    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp set.
-    function _buildProposal(
-        ProposeInput memory _input,
-        bytes calldata _lookahead,
-        uint48 _nextProposalId,
-        uint48 _lastProposalBlockId,
-        uint48 _lastFinalizedProposalId
-    )
-        private
-        returns (Proposal memory proposal_)
-    {
-        unchecked {
+            // ── Build proposal (inlined from former _buildProposal) ──
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
-            require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
+            require(block.number > lastProposalBlockId, CannotProposeInCurrentBlock());
             require(
-                _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
+                _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
             );
 
             (DerivationSource[] memory sources, bool allowsPermissionless) =
@@ -634,20 +591,36 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
-            proposal_ = Proposal({
-                id: _nextProposalId,
+            Proposal memory proposal = Proposal({
+                id: nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                // Gas optimization: inline getProposalHash to avoid public function call overhead
                 parentProposalHash: _proposalHashes[
-                    uint256(_nextProposalId - 1) % _ringBufferSize
+                    uint256(nextProposalId - 1) % _ringBufferSize
                 ],
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
                 sources: sources
             });
+
+            // Gas optimization: write both modified fields in a single SSTORE by
+            // updating the packed slot directly.
+            // Original Solidity:
+            //   _coreState.nextProposalId = nextProposalId + 1;
+            //   _coreState.lastProposalBlockId = uint48(block.number);
+            assembly {
+                let mask48 := 0xffffffffffff
+                // Clear the nextProposalId (bits 0-47) and lastProposalBlockId (bits 48-95)
+                let cleared := and(packedCoreSlot, not(or(mask48, shl(48, mask48))))
+                // Pack new values: (nextProposalId + 1) in bits 0-47, block.number in bits 48-95
+                let newPacked :=
+                    or(cleared, or(add(nextProposalId, 1), shl(48, and(number(), mask48))))
+                sstore(coreRef.slot, newPacked)
+            }
+            _proposalHashes[uint256(nextProposalId) % _ringBufferSize] =
+                _hashAndEmitProposal(proposal);
         }
     }
 
