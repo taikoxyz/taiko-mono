@@ -232,7 +232,36 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
             );
 
-            Proposal memory proposal = _buildProposal(input, _lookahead, nextProposalId);
+            // Inline _buildProposal for gas savings
+            (DerivationSource[] memory sources, bool allowsPermissionless) =
+                _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
+
+            sources[sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
+
+            uint48 endOfSubmissionWindowTimestamp;
+            if (!allowsPermissionless) {
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+                if (_minBond > 0) {
+                    require(
+                        _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
+                    );
+                }
+            }
+
+            uint256 parentBlockNumber = block.number - 1;
+            Proposal memory proposal = Proposal({
+                id: nextProposalId,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                parentProposalHash: _proposalHashes[(nextProposalId - 1) % _ringBufferSize],
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: sources
+            });
 
             // Update nextProposalId and lastProposalBlockId in the packed slot
             assembly {
