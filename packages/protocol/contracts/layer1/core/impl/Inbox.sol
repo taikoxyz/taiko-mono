@@ -307,8 +307,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             uint48 endOfSubmissionWindowTimestamp;
             if (!allowsPermissionless) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
+                endOfSubmissionWindowTimestamp = _checkProposer(msg.sender, _lookahead);
                 if (_minBond > 0) {
                     require(
                         _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
@@ -1028,6 +1027,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // Reentrancy Guard Override (Transient Storage)
     // ---------------------------------------------------------------
+
+    /// @dev Virtual hook for proposer authorization check. Default uses high-level external call.
+    /// Override in subcontracts for optimized implementations (e.g., assembly STATICCALL).
+    function _checkProposer(
+        address _sender,
+        bytes calldata _lookahead
+    )
+        internal
+        virtual
+        returns (uint48)
+    {
+        return _proposerChecker.checkProposer(_sender, _lookahead);
+    }
 
     /// @dev Override to use transient storage for reentrancy guard, saving ~5700 gas per call.
     /// Uses slot keccak256("inbox.reentrancy.lock") to avoid collisions.

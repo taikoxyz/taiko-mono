@@ -58,6 +58,36 @@ contract MainnetInbox is Inbox {
     // Internal Functions
     // ---------------------------------------------------------------
 
+    /// @dev Assembly STATICCALL to proposerChecker — avoids Solidity ABI overhead.
+    /// Safe because PreconfWhitelist.checkProposer is view.
+    function _checkProposer(
+        address _sender,
+        bytes calldata _lookahead
+    )
+        internal
+        override
+        returns (uint48 result_)
+    {
+        address checker = address(_proposerChecker);
+        assembly {
+            let ptr := mload(0x40)
+            // checkProposer(address,bytes) selector = 0xac0004da
+            mstore(ptr, 0xac0004da00000000000000000000000000000000000000000000000000000000)
+            mstore(add(ptr, 0x04), _sender)
+            mstore(add(ptr, 0x24), 0x40) // offset to bytes
+            mstore(add(ptr, 0x44), _lookahead.length)
+            calldatacopy(add(ptr, 0x64), _lookahead.offset, _lookahead.length)
+
+            if iszero(
+                staticcall(gas(), checker, ptr, add(0x64, _lookahead.length), ptr, 0x20)
+            ) {
+                returndatacopy(ptr, 0, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            result_ := mload(ptr)
+        }
+    }
+
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
     }
