@@ -207,7 +207,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-            ProposeInput memory input = _decodeProposeInputCalldata(_data);
+            // Inline calldata decode to avoid function call overhead
+            ProposeInput memory input;
+            assembly {
+                let word := calldataload(_data.offset)
+                mstore(input, shr(208, word))
+                mstore(add(input, 0x40), and(shr(136, word), 0xffff))
+                let blobRef := mload(add(input, 0x20))
+                mstore(blobRef, and(shr(192, word), 0xffff))
+                mstore(add(blobRef, 0x20), and(shr(176, word), 0xffff))
+                mstore(add(blobRef, 0x40), and(shr(152, word), 0xffffff))
+            }
             require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
 
             uint48 nextProposalId;
