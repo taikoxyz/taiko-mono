@@ -244,9 +244,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
             uint256 rbs = _ringBufferSize;
-            require(
-                rbs > nextProposalId - ((coreSlot >> 96) & 0xffffffffffff), NotEnoughCapacity()
-            );
+            assembly {
+                // require(rbs > nextProposalId - lastFinalizedProposalId)
+                if iszero(gt(rbs, sub(nextProposalId, and(shr(96, coreSlot), 0xffffffffffff)))) {
+                    mstore(0x00, 0xeaabac9b) // NotEnoughCapacity()
+                    revert(0x1c, 0x04)
+                }
+            }
 
             // Fast path: empty queue + single blob — build entire sources chain in assembly
             DerivationSource[] memory sources;
