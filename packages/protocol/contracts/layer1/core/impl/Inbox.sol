@@ -236,32 +236,60 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
             );
 
-            // Inline forced inclusion processing — fast path for empty queue
+            // Fast path: empty queue + single blob — build entire sources chain in assembly
             DerivationSource[] memory sources;
             bool allowsPermissionless;
-            LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference);
             {
                 bool queueEmpty;
                 assembly {
                     let packed := sload(add(_forcedInclusionStorage.slot, 1))
-                    let head := and(packed, 0xffffffffffff)
-                    let tail := and(shr(48, packed), 0xffffffffffff)
-                    queueEmpty := eq(head, tail)
+                    queueEmpty := eq(and(packed, 0xffffffffffff), and(shr(48, packed), 0xffffffffffff))
                 }
                 if (queueEmpty) {
-                    // Assembly allocation: [arr: len=1, ptr] [ds: false, blobSlice]
+                    // Build: blobHashes[1] + BlobSlice + DerivationSource + sources[1] in assembly
                     assembly {
+                        let blobRef := mload(add(input, 0x20))
+                        let numBlobs := mload(add(blobRef, 0x20))
+                        // require(numBlobs > 0)
+                        if iszero(numBlobs) {
+                            mstore(0x00, 0x27a0cc69) // NoBlobs()
+                            revert(0x1c, 0x04)
+                        }
+
                         let fmp := mload(0x40)
-                        sources := fmp
-                        mstore(fmp, 1) // array length = 1
-                        let ds := add(fmp, 0x40)
-                        mstore(add(fmp, 0x20), ds) // array[0] = pointer to ds
+
+                        // blobHashes array at fmp
+                        mstore(fmp, numBlobs) // length
+                        for { let i := 0 } lt(i, numBlobs) { i := add(i, 1) } {
+                            let h := blobhash(add(mload(blobRef), i))
+                            if iszero(h) {
+                                mstore(0x00, 0x8f84fb24) // BlobNotFound()
+                                revert(0x1c, 0x04)
+                            }
+                            mstore(add(fmp, add(0x20, mul(i, 0x20))), h)
+                        }
+
+                        // BlobSlice struct after blobHashes
+                        let blobSlicePtr := add(fmp, add(0x20, mul(numBlobs, 0x20)))
+                        mstore(blobSlicePtr, fmp) // blobHashes pointer
+                        mstore(add(blobSlicePtr, 0x20), mload(add(blobRef, 0x40))) // offset
+                        mstore(add(blobSlicePtr, 0x40), and(timestamp(), 0xffffffffffff))
+
+                        // DerivationSource after BlobSlice
+                        let ds := add(blobSlicePtr, 0x60)
                         mstore(ds, 0) // isForcedInclusion = false
-                        mstore(add(ds, 0x20), blobSlice) // blobSlice pointer
-                        mstore(0x40, add(ds, 0x40))
+                        mstore(add(ds, 0x20), blobSlicePtr) // blobSlice pointer
+
+                        // sources array after DerivationSource
+                        sources := add(ds, 0x40)
+                        mstore(sources, 1) // length = 1
+                        mstore(add(sources, 0x20), ds)
+
+                        mstore(0x40, add(sources, 0x40))
                     }
                 } else {
+                    LibBlobs.BlobSlice memory blobSlice =
+                        LibBlobs.validateBlobReference(input.blobReference);
                     (sources, allowsPermissionless) =
                         _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
                     sources[sources.length - 1] = DerivationSource(false, blobSlice);
