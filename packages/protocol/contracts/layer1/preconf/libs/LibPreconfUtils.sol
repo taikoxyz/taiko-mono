@@ -34,24 +34,32 @@ library LibPreconfUtils {
     /// N + 3, etc.) until it finds a block that contains the root for the Nth block or the target
     /// timestamp exceeds the current block timestamp.
     /// @dev Caller should verify the returned value is not 0.
-    /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
+    /// @param _timestamp The timestamp for which the beacon block root is to be retrieved.
     /// @return The beacon block root as a bytes32 value.
-    function getBeaconBlockRootAtOrAfter(uint256 timestamp) internal view returns (bytes32) {
-        if (timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
+    function getBeaconBlockRootAtOrAfter(uint256 _timestamp) internal view returns (bytes32) {
+        if (_timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
             return bytes32(0);
         }
-        timestamp = timestamp + LibPreconfConstants.SECONDS_IN_SLOT;
-        uint256 currentTimestamp = block.timestamp;
-
-        for (uint256 i; i < _MAX_QUERIES && timestamp <= currentTimestamp; ++i) {
-            bytes32 root = getBeaconBlockRootAt(timestamp);
-            if (root != 0) return root;
-
-            unchecked {
-                timestamp += LibPreconfConstants.SECONDS_IN_SLOT;
+        bytes32 root;
+        assembly {
+            let ts := add(_timestamp, 12) // SECONDS_IN_SLOT
+            let ct := timestamp() // block.timestamp
+            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
+                if gt(ts, ct) { break }
+                mstore(0x00, ts)
+                if staticcall(
+                    gas(), 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02, 0x00, 0x20, 0x00, 0x20
+                ) {
+                    let r := mload(0x00)
+                    if r {
+                        root := r
+                        break
+                    }
+                }
+                ts := add(ts, 12) // SECONDS_IN_SLOT
             }
         }
-        return bytes32(0);
+        return root;
     }
 
     /// @notice Retrieves the beacon block root at a specific timestamp.
