@@ -216,17 +216,30 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
             require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
 
-            uint48 nextProposalId = _coreState.nextProposalId;
-            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
-            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
+            uint48 nextProposalId;
+            uint48 lastProposalBlockId;
+            uint48 lastFinalizedProposalId;
+            uint256 coreSlot;
+            assembly {
+                coreSlot := sload(_coreState.slot)
+                nextProposalId := and(coreSlot, 0xffffffffffff)
+                lastProposalBlockId := and(shr(48, coreSlot), 0xffffffffffff)
+                lastFinalizedProposalId := and(shr(96, coreSlot), 0xffffffffffff)
+            }
             require(nextProposalId > 0, ActivationRequired());
 
             Proposal memory proposal = _buildProposal(
                 input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
             );
 
-            _coreState.nextProposalId = nextProposalId + 1;
-            _coreState.lastProposalBlockId = uint48(block.number);
+            // Update nextProposalId and lastProposalBlockId in the packed slot
+            assembly {
+                // Clear bits 0-95 (nextProposalId + lastProposalBlockId) and set new values
+                let cleared := and(coreSlot, not(0xffffffffffffffffffffffff))
+                let newValue :=
+                    or(or(cleared, add(nextProposalId, 1)), shl(48, and(number(), 0xffffffffffff)))
+                sstore(_coreState.slot, newValue)
+            }
             _proposalHashes[proposal.id % _ringBufferSize] =
                 LibHashOptimized.hashProposal(proposal);
 
