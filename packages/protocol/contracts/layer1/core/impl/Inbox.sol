@@ -232,11 +232,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             assembly {
                 coreSlot := sload(_coreState.slot)
                 nextProposalId := and(coreSlot, 0xffffffffffff)
+                // require(nextProposalId > 0)
+                if iszero(nextProposalId) {
+                    mstore(0x00, 0xba74d80f) // ActivationRequired()
+                    revert(0x1c, 0x04)
+                }
+                // require(block.number > lastProposalBlockId)
+                if iszero(gt(number(), and(shr(48, coreSlot), 0xffffffffffff))) {
+                    mstore(0x00, 0x92a2f43a) // CannotProposeInCurrentBlock()
+                    revert(0x1c, 0x04)
+                }
             }
-            require(nextProposalId > 0, ActivationRequired());
-            require(
-                block.number > (coreSlot >> 48) & 0xffffffffffff, CannotProposeInCurrentBlock()
-            );
             require(
                 _ringBufferSize > nextProposalId - ((coreSlot >> 96) & 0xffffffffffff),
                 NotEnoughCapacity()
