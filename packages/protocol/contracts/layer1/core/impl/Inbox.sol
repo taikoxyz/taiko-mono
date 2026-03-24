@@ -313,7 +313,23 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 uint48(uint256(state.lastFinalizedProposalId) + 1 - commitment.firstProposalId);
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-            bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
+            bool isWhitelistEnabled;
+            {
+                IProverWhitelist pw = _proverWhitelist;
+                if (address(pw) != address(0)) {
+                    (bool isWhitelisted, uint256 proverCount) =
+                        pw.isProverWhitelisted(msg.sender);
+                    if (proverCount > 0) {
+                        if (!isWhitelisted) {
+                            require(
+                                proposalAge > uint256(_permissionlessProvingDelay),
+                                ProverNotWhitelisted()
+                            );
+                        }
+                        isWhitelistEnabled = true;
+                    }
+                }
+            }
 
             // ---------------------------------------------------------
             // 2. Verify parent block-hash continuity and last proposal hash
