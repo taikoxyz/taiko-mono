@@ -1,5 +1,8 @@
 //! Event sync logic.
 
+/// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
+const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
+
 use std::{
     sync::{
         Arc,
@@ -757,12 +760,15 @@ where
     /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
-        let finalized_block = self
-            .rpc
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Finalized)
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let finalized_block =
+            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(block) => block,
+                // Geth returns JSON-RPC error -32000 "finalized block not found" on fresh
+                // devnets before the beacon chain has finalized its first block. Treat this
+                // specific error as "not yet available" rather than a fatal failure.
+                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => return Ok(None),
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            };
 
         let Some(finalized_block) = finalized_block else {
             return Ok(None);
