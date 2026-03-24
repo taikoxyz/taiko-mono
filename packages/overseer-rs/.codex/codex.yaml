@@ -1,6 +1,0 @@
-model: gpt-5-codex
-system_prompt: ./.codex/prompts/system.md
-tools:
-  - name: terminal
-  - name: apply_patch
-working_directory: .

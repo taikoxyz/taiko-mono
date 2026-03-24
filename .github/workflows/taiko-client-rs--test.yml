@@ -208,6 +208,9 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            ${{ env.PROTOCOL_FORK_DIR }}/pnpm-lock.yaml
 
       - name: Setup just
         uses: extractions/setup-just@v3

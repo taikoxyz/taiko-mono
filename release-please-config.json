@@ -81,23 +81,6 @@
       ]
     },
     "packages/fork-diff": {},
-    "packages/overseer-rs": {
-      "package-name": "overseer-rs",
-      "release-type": "simple",
-      "component": "overseer-rs",
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "Cargo.toml",
-          "jsonpath": "$.package.version"
-        },
-        {
-          "type": "toml",
-          "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name == \"overseer-rs\" && !@.source)].version"
-        }
-      ]
-    },
     "packages/protocol": {
       "package-name": "taiko-alethia-protocol"
     },

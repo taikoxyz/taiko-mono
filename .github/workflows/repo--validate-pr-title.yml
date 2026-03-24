@@ -36,7 +36,6 @@ jobs:
             eventindexer
             fork-diff
             geth-rpc-gateway
-            overseer-rs
             preconfirmation-p2p
             protocol
             relayer

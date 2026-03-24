@@ -39,14 +39,16 @@ alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
 alloy-sol-types = { workspace = true }
 event-scanner = { workspace = true, optional = true }
-robust-provider = { workspace = true, optional = true, features = ["http-subscription"] }
+robust-provider = { workspace = true, optional = true, features = [
+  "http-subscription",
+] }
 
 # crypto
 k256 = { workspace = true }
 
 # taiko
 alethia-reth-consensus = { workspace = true }
-alethia-reth-evm = { workspace = true }
+alethia-reth-primitives = { workspace = true }
 bindings = { path = "../bindings" }
 
 # types
