@@ -330,7 +330,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             // Build keccak256 hash buffer directly — skip Proposal struct allocation
             // Layout matches abi.encode(Proposal) for 1-source-1-blobHash case
-            bytes32 proposalHash;
             uint8 bfsPctg = _basefeeSharingPctg;
             assembly {
                 let ptr := mload(0x40) // scratch space
@@ -367,12 +366,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(add(ptr, 0x200), 1) // length = 1
                 mstore(add(ptr, 0x220), mload(add(blobHashesArr, 0x20))) // blobHashes[0]
 
-                proposalHash := keccak256(ptr, 0x240) // 18 * 32 = 576
-            }
+                let proposalHash := keccak256(ptr, 0x240)
 
-            // Update coreState and write proposal hash to ring buffer in single assembly block
-            assembly {
-                // Update nextProposalId and lastProposalBlockId in the packed slot
+                // Update coreState: nextProposalId and lastProposalBlockId
                 let cleared := and(coreSlot, not(0xffffffffffffffffffffffff))
                 let newValue :=
                     or(or(cleared, add(nextProposalId, 1)), shl(48, and(number(), 0xffffffffffff)))
