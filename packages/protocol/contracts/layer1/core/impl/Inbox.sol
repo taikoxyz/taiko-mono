@@ -204,6 +204,95 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
+    /// @notice Minimal fast-path propose — single blob at index 0, offset 0, no deadline.
+    /// No parameters needed — saves calldata and decoding overhead.
+    function proposeFastMin() external payable {
+        unchecked {
+            uint48 nextProposalId;
+            uint256 coreSlot;
+            uint256 rbs = _ringBufferSize;
+            uint8 bfsPctg = _basefeeSharingPctg;
+            address checker = address(_proposerChecker);
+            assembly {
+                coreSlot := sload(_coreState.slot)
+                nextProposalId := and(coreSlot, 0xffffffffffff)
+                if iszero(gt(number(), and(shr(48, coreSlot), 0xffffffffffff))) {
+                    mstore(0x00, 0x92a2f43a)
+                    revert(0x1c, 0x04)
+                }
+                if iszero(gt(rbs, sub(nextProposalId, and(shr(96, coreSlot), 0xffffffffffff)))) {
+                    mstore(0x00, 0xeaabac9b)
+                    revert(0x1c, 0x04)
+                }
+
+                // Require forced inclusion queue is empty
+                let packed := sload(add(_forcedInclusionStorage.slot, 1))
+                if iszero(eq(and(packed, 0xffffffffffff), and(shr(48, packed), 0xffffffffffff))) {
+                    mstore(0x00, 0x27a0cc69)
+                    revert(0x1c, 0x04)
+                }
+
+                // Single blob at index 0
+                let h := blobhash(0)
+                if iszero(h) {
+                    mstore(0x00, 0x8f84fb24)
+                    revert(0x1c, 0x04)
+                }
+                mstore(0x220, h)
+                // blobOffset = 0, already zero at 0x1c0 (fresh memory)
+                mstore(0x1e0, timestamp())
+
+                // Proposer check
+                mstore(0x00, 0x36c79ff400000000000000000000000000000000000000000000000000000000)
+                mstore(0x04, caller())
+                if iszero(staticcall(gas(), checker, 0x00, 0x24, 0, 0)) {
+                    returndatacopy(0, 0, returndatasize())
+                    revert(0, returndatasize())
+                }
+
+                // Read parent proposal hash
+                mstore(0x00, mod(sub(nextProposalId, 1), rbs))
+                mstore(0x20, _proposalHashes.slot)
+                let parentProposalHash := sload(keccak256(0x00, 0x40))
+
+                mstore(0x00, mod(nextProposalId, rbs))
+                let currentSlot := keccak256(0x00, 0x40)
+
+                // Hash buffer at 0x00
+                mstore(0x00, nextProposalId)
+                mstore(0x20, timestamp())
+                mstore(0x40, 0)
+                mstore(0x60, caller())
+                mstore(0x80, parentProposalHash)
+                let pbn := sub(number(), 1)
+                mstore(0xa0, pbn)
+                mstore(0xc0, blockhash(pbn))
+                mstore(0xe0, bfsPctg)
+                mstore(0x100, 0x120)
+                mstore(0x120, 1)
+                mstore(0x140, 0x20)
+                // 0x160 = isForcedInclusion = 0 — memory already zero
+                mstore(0x180, 0x40)
+                mstore(0x1a0, 0x60)
+                mstore(0x200, 1)
+
+                let proposalHash := keccak256(0x00, 0x240)
+
+                sstore(
+                    _coreState.slot,
+                    or(
+                        or(
+                            and(coreSlot, not(0xffffffffffffffffffffffff)),
+                            add(nextProposalId, 1)
+                        ),
+                        shl(48, number())
+                    )
+                )
+                sstore(currentSlot, proposalHash)
+            }
+        }
+    }
+
     /// @notice Fast-path propose — single blob, no forced inclusions, no lookahead.
     /// @param _packedInput Packed fields: deadline(48)|blobStartIndex(16)|numBlobs(16)|blobOffset(24)|unused
     function proposeFast(uint256 _packedInput) external payable {

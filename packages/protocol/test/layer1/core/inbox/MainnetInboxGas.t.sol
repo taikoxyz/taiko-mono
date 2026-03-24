@@ -94,11 +94,9 @@ contract MainnetInboxGasTest is InboxTestBase {
 
     /// @dev Propose with gas measurement only — no event decoding needed.
     function _proposeWithGas(string memory _benchName) internal {
-        // Packed: deadline(48)=0 | blobStartIndex(16)=0 | numBlobs(16)=1 | blobOffset(24)=0
-        uint256 packedInput = uint256(1) << 176; // numBlobs=1 at bits 176-191
         vm.startPrank(proposer);
         vm.startSnapshotGas("shasta-propose", _benchName);
-        inbox.proposeFast(packedInput);
+        inbox.proposeFastMin();
         vm.stopSnapshotGas();
         vm.stopPrank();
     }
