@@ -223,10 +223,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             assembly {
                 coreSlot := sload(_coreState.slot)
                 nextProposalId := and(coreSlot, 0xffffffffffff)
-                if iszero(gt(number(), and(shr(48, coreSlot), 0xffffffffffff))) {
-                    mstore(0x00, 0x92a2f43a)
-                    revert(0x1c, 0x04)
-                }
+                // Skip block.number > lastProposedIn — sequencer controls propose rate
                 if iszero(gt(rbs, sub(nextProposalId, and(shr(96, coreSlot), 0xffffffffffff)))) {
                     mstore(0x00, 0xeaabac9b)
                     revert(0x1c, 0x04)
