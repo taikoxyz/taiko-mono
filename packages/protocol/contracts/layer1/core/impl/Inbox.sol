@@ -335,7 +335,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
                 // Proposal static fields (9 words)
                 mstore(ptr, nextProposalId) // id
-                mstore(add(ptr, 0x20), and(timestamp(), 0xffffffffffff)) // timestamp
+                mstore(add(ptr, 0x20), timestamp()) // timestamp
                 mstore(add(ptr, 0x40), endOfSubmissionWindowTimestamp)
                 mstore(add(ptr, 0x60), caller()) // proposer
                 mstore(add(ptr, 0x80), parentProposalHash)
