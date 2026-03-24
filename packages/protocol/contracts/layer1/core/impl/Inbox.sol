@@ -243,9 +243,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     revert(0x1c, 0x04)
                 }
             }
+            uint256 rbs = _ringBufferSize;
             require(
-                _ringBufferSize > nextProposalId - ((coreSlot >> 96) & 0xffffffffffff),
-                NotEnoughCapacity()
+                rbs > nextProposalId - ((coreSlot >> 96) & 0xffffffffffff), NotEnoughCapacity()
             );
 
             // Fast path: empty queue + single blob — build entire sources chain in assembly
@@ -320,7 +320,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             bytes32 parentProposalHash;
-            uint256 rbs = _ringBufferSize;
             assembly {
                 mstore(0x00, mod(sub(nextProposalId, 1), rbs))
                 mstore(0x20, _proposalHashes.slot)
