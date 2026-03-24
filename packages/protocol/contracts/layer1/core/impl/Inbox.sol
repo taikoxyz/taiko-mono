@@ -571,17 +571,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // lastProposalBlockId (bits 48-95), update lastFinalizedProposalId (96-143),
             // lastFinalizedTimestamp (144-191), lastCheckpointTimestamp (192-239)
             {
-                uint256 ts48 = block.timestamp & 0xffffffffffff;
                 assembly {
                     // Preserve bits 0-95 (nextProposalId + lastProposalBlockId) from cached read
                     let preserved := and(coreSlot0, 0xffffffffffffffffffffffff)
+                    let ts := timestamp()
                     let newSlot :=
                         or(
                             or(
-                                or(preserved, shl(96, and(lastProposalId, 0xffffffffffff))),
-                                shl(144, ts48)
+                                or(preserved, shl(96, lastProposalId)),
+                                shl(144, ts)
                             ),
-                            shl(192, ts48)
+                            shl(192, ts)
                         )
                     sstore(_coreState.slot, newSlot)
                     // Write slot 253: lastFinalizedBlockHash
