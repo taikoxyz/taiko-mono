@@ -1,6 +1,4 @@
 {
-  "mainnet_propose": "36989",
-  "propose_after_ring_buffer_wrap": "37374",
-  "propose_forced_inclusion": "52949",
-  "propose_single": "61674"
+  "mainnet_propose": "5073",
+  "propose_single": "44901"
 }

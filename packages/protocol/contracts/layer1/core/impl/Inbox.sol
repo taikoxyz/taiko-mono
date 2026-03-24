@@ -214,8 +214,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      3. Updates core state and emits `Proposed` event
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
-    function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
+    function propose(bytes calldata _lookahead, bytes calldata _data) external {
         unchecked {
+            // Inline nonReentrant — avoid 3 virtual function dispatches
+            assembly {
+                let slot := 0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b
+                if eq(tload(slot), 2) {
+                    mstore(0x00, 0x37ed32e8) // REENTRANT_CALL()
+                    revert(0x1c, 0x04)
+                }
+                tstore(slot, 2) // _TRUE
+            }
+
             // Decode calldata as raw word — avoid ProposeInput struct allocation in fast path
             uint256 calldataWord;
             assembly {
@@ -405,6 +415,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     _basefeeSharingPctg,
                     sources
                 );
+            }
+
+            // Unlock nonReentrant
+            assembly {
+                tstore(0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b, 1)
             }
         }
     }
