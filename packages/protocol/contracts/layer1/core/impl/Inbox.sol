@@ -440,16 +440,33 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             Commitment memory commitment = _decodeCommitmentCalldata(_data);
 
             uint256 numProposals = commitment.transitions.length;
-            require(numProposals > 0, EmptyBatch());
-
-            uint256 lastProposalId = commitment.firstProposalId + numProposals - 1;
+            uint256 lastProposalId;
             uint48 offset;
-            {
-                uint256 lfpi = (coreSlot0 >> 96) & 0xffffffffffff;
-                require(commitment.firstProposalId <= lfpi + 1, FirstProposalIdTooLarge());
-                require(lastProposalId < (coreSlot0 & 0xffffffffffff), LastProposalIdTooLarge());
-                require(lastProposalId >= lfpi + 1, LastProposalAlreadyFinalized());
-                offset = uint48(lfpi + 1 - commitment.firstProposalId);
+            assembly {
+                // require(numProposals > 0)
+                if iszero(numProposals) {
+                    mstore(0x00, 0xc2e5347d) // EmptyBatch()
+                    revert(0x1c, 0x04)
+                }
+                lastProposalId := add(sub(numProposals, 1), mload(commitment))
+                let lfpi := and(shr(96, coreSlot0), 0xffffffffffff)
+                let lfpiPlus1 := add(lfpi, 1)
+                // require(firstProposalId <= lfpi + 1)
+                if gt(mload(commitment), lfpiPlus1) {
+                    mstore(0x00, 0x63db3a41) // FirstProposalIdTooLarge()
+                    revert(0x1c, 0x04)
+                }
+                // require(lastProposalId < nextProposalId)
+                if iszero(lt(lastProposalId, and(coreSlot0, 0xffffffffffff))) {
+                    mstore(0x00, 0x677c56f1) // LastProposalIdTooLarge()
+                    revert(0x1c, 0x04)
+                }
+                // require(lastProposalId >= lfpi + 1)
+                if lt(lastProposalId, lfpiPlus1) {
+                    mstore(0x00, 0x302865ce) // LastProposalAlreadyFinalized()
+                    revert(0x1c, 0x04)
+                }
+                offset := sub(lfpiPlus1, mload(commitment))
             }
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
