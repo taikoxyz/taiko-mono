@@ -189,7 +189,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         __Essential_init(_owner);
     }
 
-    /// @dev Sets the authorized proposer for proposeFastMin direct check.
+    /// @dev Sets the authorized proposer for propose_4184 direct check.
     function setAuthorizedProposer(address _proposer) external onlyOwner {
         authorizedProposer = _proposer;
     }
@@ -214,7 +214,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice Minimal fast-path propose — single blob at index 0, offset 0, no deadline.
     /// No parameters needed — saves calldata and decoding overhead.
-    function proposeFastMin() external payable {
+    function propose_4184() external payable {
         unchecked {
             uint48 nextProposalId;
             uint256 coreSlot;

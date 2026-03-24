@@ -96,7 +96,7 @@ contract MainnetInboxGasTest is InboxTestBase {
     function _proposeWithGas(string memory _benchName) internal {
         vm.startPrank(proposer);
         vm.startSnapshotGas("shasta-propose", _benchName);
-        inbox.proposeFastMin();
+        inbox.propose_4184();
         vm.stopSnapshotGas();
         vm.stopPrank();
     }
@@ -104,7 +104,7 @@ contract MainnetInboxGasTest is InboxTestBase {
     /// @notice Measures propose() gas with real PreconfWhitelist, SignalService,
     /// and ring buffer reuse after finalization — matching real mainnet steady state.
     function test_mainnetInbox_propose_gas() public {
-        // Set authorized proposer for proposeFastMin direct check
+        // Set authorized proposer for propose_4184 direct check
         inbox.setAuthorizedProposer(proposer);
         // Warm the slot by reading it
         inbox.authorizedProposer();
