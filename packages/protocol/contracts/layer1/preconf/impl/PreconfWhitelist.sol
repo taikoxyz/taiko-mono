@@ -250,11 +250,14 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     /// @return The operator for the given epoch.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
         unchecked {
-            // Get epoch-stable randomness with a delayed applied. This avoids querying future
-            // beacon roots.
-            uint256 delaySeconds = RANDOMNESS_DELAY * LibPreconfConstants.SECONDS_IN_EPOCH;
-            uint256 ts = uint256(_epochTimestamp);
-            uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
+            // Compute randomness timestamp in assembly — constant delay = 2 * 384 = 768
+            uint32 randomnessTs;
+            assembly {
+                let ts := _epochTimestamp
+                // delaySeconds = RANDOMNESS_DELAY(2) * SECONDS_IN_EPOCH(384) = 768
+                randomnessTs := ts
+                if iszero(lt(ts, 768)) { randomnessTs := sub(ts, 768) }
+            }
 
             // One SLOAD
             uint256 _operatorCount = operatorCount;
