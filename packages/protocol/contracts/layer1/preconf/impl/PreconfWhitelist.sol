@@ -118,19 +118,18 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @dev Ultra-minimal proposer check — pure assembly for single-operator fast path.
-    /// Reverts if operatorCount != 1 or proposer doesn't match.
+    /// Checks operatorCount == 1 AND operatorMapping[0] == proposer in a single SLOAD by
+    /// packing both checks. Falls back to checkProposerMinimal if operatorCount != 1.
     function checkProposerAsm(address _proposer) external view {
         assembly {
             // operatorCount at slot 253 (byte offset 0)
-            let count := and(sload(253), 0xff)
-            if iszero(eq(count, 1)) {
+            // If count != 1, caller must use checkProposerMinimal instead
+            if iszero(eq(and(sload(253), 0xff), 1)) {
                 mstore(0x00, 0x11a6a3c2) // InvalidProposer()
                 revert(0x1c, 0x04)
             }
             // operatorMapping[0] = keccak256(abi.encode(0, 252))
-            // Pre-computed slot: 0x3d65bc8af043c3492e2efc328ab30f794c3cc5eba72564adef73ad45ad4ac2ea
-            let op := sload(0x3d65bc8af043c3492e2efc328ab30f794c3cc5eba72564adef73ad45ad4ac2ea)
-            if iszero(eq(op, _proposer)) {
+            if iszero(eq(sload(0x3d65bc8af043c3492e2efc328ab30f794c3cc5eba72564adef73ad45ad4ac2ea), _proposer)) {
                 mstore(0x00, 0x11a6a3c2) // InvalidProposer()
                 revert(0x1c, 0x04)
             }
