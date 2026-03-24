@@ -217,7 +217,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _proposeCore(input, _lookahead);
     }
 
-
     /// @notice Most gas-efficient propose for the common case: 1 blob at index 0, no forced
     /// inclusions, no deadline, no lookahead. Takes zero parameters.
     /// Saves ~2,000+ gas vs propose() by eliminating all calldata/encoding overhead.
