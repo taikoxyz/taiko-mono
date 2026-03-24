@@ -230,7 +230,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             _proposalHashes[proposal.id % _ringBufferSize] =
                 LibHashOptimized.hashProposal(proposal);
 
-            _emitProposedEvent(proposal);
+            emit Proposed(
+                proposal.id,
+                proposal.proposer,
+                proposal.parentProposalHash,
+                proposal.endOfSubmissionWindowTimestamp,
+                proposal.basefeeSharingPctg,
+                proposal.sources
+            );
         }
     }
 
