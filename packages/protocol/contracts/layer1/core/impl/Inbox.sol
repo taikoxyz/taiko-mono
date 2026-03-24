@@ -574,7 +574,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                parentProposalHash: getProposalHash(_nextProposalId - 1),
+                parentProposalHash: _proposalHashes[(_nextProposalId - 1) % _ringBufferSize],
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
