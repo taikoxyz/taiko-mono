@@ -320,17 +320,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
-            bytes32 parentProposalHash;
-            assembly {
-                mstore(0x00, mod(sub(nextProposalId, 1), rbs))
-                mstore(0x20, _proposalHashes.slot)
-                parentProposalHash := sload(keccak256(0x00, 0x40))
-            }
-
             // Build keccak256 hash buffer directly — skip Proposal struct allocation
             // Layout matches abi.encode(Proposal) for 1-source-1-blobHash case
             uint8 bfsPctg = _basefeeSharingPctg;
+            bytes32 parentProposalHash;
             assembly {
+                // Read parent proposal hash from ring buffer
+                mstore(0x00, mod(sub(nextProposalId, 1), rbs))
+                mstore(0x20, _proposalHashes.slot)
+                parentProposalHash := sload(keccak256(0x00, 0x40))
+                // Note: 0x20 still contains _proposalHashes.slot for reuse below
+
                 let ptr := mload(0x40) // scratch space
 
                 // Proposal static fields (9 words)
@@ -369,8 +369,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 sstore(_coreState.slot, newValue)
 
                 // Write proposal hash to mapping: _proposalHashes[nextProposalId % rbs]
+                // 0x20 still has _proposalHashes.slot from parent hash read above
                 mstore(0x00, mod(nextProposalId, rbs))
-                mstore(0x20, _proposalHashes.slot)
                 sstore(keccak256(0x00, 0x40), proposalHash)
             }
 
