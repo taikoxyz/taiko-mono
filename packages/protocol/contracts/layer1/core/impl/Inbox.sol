@@ -374,14 +374,43 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 sstore(keccak256(0x00, 0x40), proposalHash)
             }
 
-            emit Proposed(
-                nextProposalId,
-                msg.sender,
-                parentProposalHash,
-                endOfSubmissionWindowTimestamp,
-                _basefeeSharingPctg,
-                sources
-            );
+            if (queueEmpty) {
+                // Assembly emit for single-source single-blob fast path
+                // Avoids Solidity's nested struct ABI encoding overhead
+                assembly {
+                    let ptr := mload(0x40)
+                    mstore(ptr, parentProposalHash)
+                    mstore(add(ptr, 0x20), endOfSubmissionWindowTimestamp)
+                    mstore(add(ptr, 0x40), bfsPctg)
+                    mstore(add(ptr, 0x60), 0x80) // offset to sources[]
+                    mstore(add(ptr, 0x80), 1) // sources length
+                    mstore(add(ptr, 0xa0), 0x20) // offset to sources[0]
+                    mstore(add(ptr, 0xc0), 0) // isForcedInclusion
+                    mstore(add(ptr, 0xe0), 0x40) // offset to blobSlice
+                    mstore(add(ptr, 0x100), 0x60) // offset to blobHashes
+                    mstore(add(ptr, 0x120), mload(sub(sources, 0x80))) // blobSlice.offset
+                    mstore(add(ptr, 0x140), mload(sub(sources, 0x60))) // blobSlice.timestamp
+                    mstore(add(ptr, 0x160), 1) // blobHashes length
+                    mstore(add(ptr, 0x180), mload(sub(sources, 0xc0))) // blobHashes[0]
+                    log3(
+                        ptr,
+                        0x1a0,
+                        // keccak256("Proposed(uint48,address,bytes32,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])")
+                        0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213,
+                        nextProposalId,
+                        caller()
+                    )
+                }
+            } else {
+                emit Proposed(
+                    nextProposalId,
+                    msg.sender,
+                    parentProposalHash,
+                    endOfSubmissionWindowTimestamp,
+                    _basefeeSharingPctg,
+                    sources
+                );
+            }
         }
     }
 
