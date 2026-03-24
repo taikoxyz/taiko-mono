@@ -229,11 +229,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Inline forced inclusion processing — fast path for empty queue
             DerivationSource[] memory sources;
             bool allowsPermissionless;
+            LibBlobs.BlobSlice memory blobSlice =
+                LibBlobs.validateBlobReference(input.blobReference);
             {
                 bool queueEmpty;
                 assembly {
-                    // Check if forced inclusion queue is empty (head == tail)
-                    // Storage layout: _forcedInclusionStorage has mapping at slot 0, head+tail at slot 1
                     let packed := sload(add(_forcedInclusionStorage.slot, 1))
                     let head := and(packed, 0xffffffffffff)
                     let tail := and(shr(48, packed), 0xffffffffffff)
@@ -241,14 +241,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
                 if (queueEmpty) {
                     sources = new DerivationSource[](1);
+                    sources[0] = DerivationSource(false, blobSlice);
                 } else {
                     (sources, allowsPermissionless) =
                         _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
+                    sources[sources.length - 1] = DerivationSource(false, blobSlice);
                 }
             }
-
-            sources[sources.length - 1] =
-                DerivationSource(false, LibBlobs.validateBlobReference(input.blobReference));
 
             uint48 endOfSubmissionWindowTimestamp;
             if (!allowsPermissionless) {
