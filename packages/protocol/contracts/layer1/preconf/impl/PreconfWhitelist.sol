@@ -110,8 +110,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         // Inline epochStartTimestamp(0) to avoid public function dispatch
         address operator =
             _getOperatorForEpoch(uint32(LibPreconfUtils.getEpochTimestamp()));
-        require(operator != address(0), InvalidProposer());
-        require(operator == _proposer, InvalidProposer());
+        // Combined check: operator must be non-zero AND equal to _proposer
+        require(operator == _proposer && operator != address(0), InvalidProposer());
         // Slashing is not enabled for whitelisted preconfers, so we return 0
         endOfSubmissionWindowTimestamp_ = 0;
     }
