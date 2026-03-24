@@ -248,7 +248,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 msg.sender,
                 proposal.parentProposalHash,
                 proposal.endOfSubmissionWindowTimestamp,
-                proposal.basefeeSharingPctg,
+                _basefeeSharingPctg,
                 proposal.sources
             );
         }
