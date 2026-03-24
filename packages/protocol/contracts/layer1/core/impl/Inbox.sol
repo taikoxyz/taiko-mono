@@ -317,6 +317,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             // Build keccak256 hash buffer directly — skip Proposal struct allocation
             // Layout matches abi.encode(Proposal) for 1-source-1-blobHash case
+            uint8 bfsPctg = _basefeeSharingPctg;
             bytes32 parentProposalHash;
             assembly {
                 // Read parent proposal hash from ring buffer
@@ -336,7 +337,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 let pbn := sub(number(), 1)
                 mstore(add(ptr, 0xa0), pbn) // originBlockNumber
                 mstore(add(ptr, 0xc0), blockhash(pbn)) // originBlockHash
-                mstore(add(ptr, 0xe0), _basefeeSharingPctg) // basefeeSharingPctg
+                mstore(add(ptr, 0xe0), bfsPctg) // basefeeSharingPctg
                 mstore(add(ptr, 0x100), 0x120) // offset to sources array
 
                 // Sources array header (2 words)
@@ -371,7 +372,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 if queueEmpty {
                     mstore(ptr, parentProposalHash)
                     mstore(add(ptr, 0x20), endOfSubmissionWindowTimestamp)
-                    mstore(add(ptr, 0x40), _basefeeSharingPctg)
+                    mstore(add(ptr, 0x40), bfsPctg)
                     mstore(add(ptr, 0x60), 0x80)
                     mstore(add(ptr, 0x80), 1)
                     mstore(add(ptr, 0xa0), 0x20)
