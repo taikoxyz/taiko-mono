@@ -495,19 +495,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             bytes32 expectedParentHash = offset == 0
                 ? commitment.firstProposalParentBlockHash
                 : commitment.transitions[offset - 1].blockHash;
-            require(
-                _coreState.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch()
-            );
-
             {
-                bytes32 storedHash;
                 uint256 rbs = _ringBufferSize;
                 assembly {
+                    // require(_coreState.lastFinalizedBlockHash == expectedParentHash)
+                    if iszero(eq(sload(add(_coreState.slot, 1)), expectedParentHash)) {
+                        mstore(0x00, 0x198070b3) // ParentBlockHashMismatch()
+                        revert(0x1c, 0x04)
+                    }
+                    // require(commitment.lastProposalHash == _proposalHashes[lastProposalId % rbs])
                     mstore(0x00, mod(lastProposalId, rbs))
                     mstore(0x20, _proposalHashes.slot)
-                    storedHash := sload(keccak256(0x00, 0x40))
+                    if iszero(eq(mload(add(commitment, 0x40)), sload(keccak256(0x00, 0x40)))) {
+                        mstore(0x00, 0xf904c2fd) // LastProposalHashMismatch()
+                        revert(0x1c, 0x04)
+                    }
                 }
-                require(commitment.lastProposalHash == storedHash, LastProposalHashMismatch());
             }
 
             // ---------------------------------------------------------
