@@ -603,8 +603,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
             // Single-proposal proofs pass actual age for age-based verification logic.
-            bytes32 commitmentHash;
             if (numProposals == 1) {
+                bytes32 commitmentHash;
                 assembly {
                     let ptr := mload(0x40)
                     mstore(ptr, 0x20)
@@ -623,12 +623,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     mstore(add(ptr, 0x160), mload(add(t0, 0x40)))
                     commitmentHash := keccak256(ptr, 0x180)
                 }
+                // Single proposal: numProposals - offset is always 1 when offset == 0
+                _proofVerifier.verifyProof(proposalAge, commitmentHash, _proof);
             } else {
-                commitmentHash = LibHashOptimized.hashCommitment(commitment);
+                _proofVerifier.verifyProof(
+                    numProposals - offset == 1 ? proposalAge : 0,
+                    LibHashOptimized.hashCommitment(commitment),
+                    _proof
+                );
             }
-            _proofVerifier.verifyProof(
-                numProposals - offset == 1 ? proposalAge : 0, commitmentHash, _proof
-            );
         }
     }
 
