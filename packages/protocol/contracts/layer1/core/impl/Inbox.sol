@@ -299,7 +299,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
             require(
-                commitment.lastProposalHash == getProposalHash(lastProposalId),
+                commitment.lastProposalHash
+                    == _proposalHashes[lastProposalId % _ringBufferSize],
                 LastProposalHashMismatch()
             );
 
