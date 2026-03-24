@@ -867,6 +867,28 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     // ---------------------------------------------------------------
+    // Reentrancy Guard Override (Transient Storage)
+    // ---------------------------------------------------------------
+
+    /// @dev Override to use transient storage for reentrancy guard, saving ~5700 gas per call.
+    /// Uses slot keccak256("inbox.reentrancy.lock") to avoid collisions.
+    function _storeReentryLock(uint8 _reentry) internal virtual override {
+        assembly {
+            // keccak256("inbox.reentrancy.lock")
+            tstore(0x691f39feb0fa536d498d67e7a80a2cc597ecf24f8dbb2e2d1c0d4bb3e5cfe1be, _reentry)
+        }
+    }
+
+    /// @dev Override to use transient storage for reentrancy guard.
+    function _loadReentryLock() internal view virtual override returns (uint8 reentry_) {
+        assembly {
+            reentry_ := tload(
+                0x691f39feb0fa536d498d67e7a80a2cc597ecf24f8dbb2e2d1c0d4bb3e5cfe1be
+            )
+        }
+    }
+
+    // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
     error ActivationRequired();
