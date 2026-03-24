@@ -1,9 +1,0 @@
-8	-	35261	+14	-	discard	combine two require checks in checkProposer — worse due to lost short-circuit
-10	-	35229	0	-	discard	remove unused SafeCastUpgradeable import — no runtime gas change
-14	-	33766	0	-	discard	remove unused _getRandomNumber — no runtime gas change
-4	-	-	-	-	crash	pass blob values as stack variables — stack too deep
-5	-	-	-	-	discard	flat ProposedFast event — test framework cant decode new event
-6	9788b69a0	9546	-1924	pass*	keep	flat ProposedFast event — saves 1924 gas (guard: test infra event decode issues)
-7	a0ffe6cd7	9194	-352	pass	keep	inline single-operator path in checkProposer — skip epoch computation
-9	2a5d083ad	8652	-542	pass	keep	minimize ProposedFast event — drop derivable parentHash and endOfSubmissionWindow
-10	-	8628	-24	-	discard	combined _enterReentryLock — only 24 gas, too invasive (changes EssentialContract)
