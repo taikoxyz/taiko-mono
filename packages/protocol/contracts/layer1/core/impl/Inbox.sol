@@ -227,7 +227,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             _coreState.nextProposalId = nextProposalId + 1;
             _coreState.lastProposalBlockId = uint48(block.number);
-            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
+            _proposalHashes[proposal.id % _ringBufferSize] =
+                LibHashOptimized.hashProposal(proposal);
 
             _emitProposedEvent(proposal);
         }
