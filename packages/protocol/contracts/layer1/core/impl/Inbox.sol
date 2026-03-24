@@ -584,12 +584,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
-            emit Proved(
-                commitment.firstProposalId,
-                commitment.firstProposalId + offset,
-                uint48(lastProposalId),
-                commitment.actualProver
-            );
+            assembly {
+                let fpi := mload(commitment)
+                let fmp := mload(0x40)
+                mstore(fmp, fpi)
+                mstore(add(fmp, 0x20), add(fpi, offset))
+                mstore(add(fmp, 0x40), lastProposalId)
+                log2(
+                    fmp,
+                    0x60,
+                    0xa274dcaff3629ec7d69d144038e97732516ff306fcbf8a2bc9423d106779a2f0,
+                    mload(add(commitment, 0x60))
+                )
+            }
 
             // ---------------------------------------------------------
             // 6. Verify the proof
