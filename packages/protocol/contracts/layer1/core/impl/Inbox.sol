@@ -240,12 +240,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     or(or(cleared, add(nextProposalId, 1)), shl(48, and(number(), 0xffffffffffff)))
                 sstore(_coreState.slot, newValue)
             }
-            _proposalHashes[proposal.id % _ringBufferSize] =
+            _proposalHashes[nextProposalId % _ringBufferSize] =
                 LibHashOptimized.hashProposal(proposal);
 
             emit Proposed(
-                proposal.id,
-                proposal.proposer,
+                nextProposalId,
+                msg.sender,
                 proposal.parentProposalHash,
                 proposal.endOfSubmissionWindowTimestamp,
                 proposal.basefeeSharingPctg,
