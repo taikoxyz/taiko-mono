@@ -221,6 +221,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 nextProposalId;
             uint256 coreSlot;
             uint256 rbs = _ringBufferSize;
+            uint8 bfsPctg = _basefeeSharingPctg;
+            address checker = address(_proposerChecker);
             assembly {
                 // Deadline check
                 let dl := shr(208, _packedInput)
@@ -249,7 +251,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 // Require forced inclusion queue is empty
                 let packed := sload(add(_forcedInclusionStorage.slot, 1))
                 if iszero(eq(and(packed, 0xffffffffffff), and(shr(48, packed), 0xffffffffffff))) {
-                    mstore(0x00, 0x27a0cc69) // revert — must use propose() when queue non-empty
+                    mstore(0x00, 0x27a0cc69)
                     revert(0x1c, 0x04)
                 }
 
@@ -274,11 +276,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                         revert(0x1c, 0x04)
                     }
                 }
-            }
 
-            uint8 bfsPctg = _basefeeSharingPctg;
-            address checker = address(_proposerChecker);
-            assembly {
                 // Inline proposer check
                 mstore(0x240, 0xff7a929700000000000000000000000000000000000000000000000000000000)
                 mstore(0x244, caller())
@@ -299,7 +297,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 // Hash buffer at 0x00
                 mstore(0x00, nextProposalId)
                 mstore(0x20, timestamp())
-                mstore(0x40, 0) // endOfSubmissionWindowTimestamp
+                mstore(0x40, 0)
                 mstore(0x60, caller())
                 mstore(0x80, parentProposalHash)
                 let pbn := sub(number(), 1)
@@ -328,10 +326,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     )
                 )
                 sstore(currentSlot, proposalHash)
-            }
 
-            // Unlock nonReentrant
-            assembly {
+                // Unlock nonReentrant
                 tstore(0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b, 1)
             }
         }
