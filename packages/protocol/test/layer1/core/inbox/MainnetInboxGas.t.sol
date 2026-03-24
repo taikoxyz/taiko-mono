@@ -17,7 +17,7 @@ contract TestMainnetInbox is Inbox {
 
     function _checkProposer(
         address _sender,
-        bytes calldata _lookahead
+        bytes calldata
     )
         internal
         override
@@ -26,19 +26,15 @@ contract TestMainnetInbox is Inbox {
         address checker = address(_proposerChecker);
         assembly {
             let ptr := mload(0x40)
-            mstore(ptr, 0xac0004da00000000000000000000000000000000000000000000000000000000)
+            // checkProposerMinimal(address) — selector 0xff7a9297
+            mstore(ptr, 0xff7a929700000000000000000000000000000000000000000000000000000000)
             mstore(add(ptr, 0x04), _sender)
-            mstore(add(ptr, 0x24), 0x40)
-            mstore(add(ptr, 0x44), _lookahead.length)
-            calldatacopy(add(ptr, 0x64), _lookahead.offset, _lookahead.length)
 
-            if iszero(
-                staticcall(gas(), checker, ptr, add(0x64, _lookahead.length), ptr, 0x20)
-            ) {
+            if iszero(staticcall(gas(), checker, ptr, 0x24, 0x00, 0x00)) {
                 returndatacopy(ptr, 0, returndatasize())
                 revert(ptr, returndatasize())
             }
-            result_ := mload(ptr)
+            result_ := 0
         }
     }
 

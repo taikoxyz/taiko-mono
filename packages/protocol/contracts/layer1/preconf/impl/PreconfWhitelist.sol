@@ -107,19 +107,28 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         override(IProposerChecker)
         returns (uint48 endOfSubmissionWindowTimestamp_)
     {
+        _verifyProposer(_proposer);
+        endOfSubmissionWindowTimestamp_ = 0;
+    }
+
+    /// @dev Minimal proposer check — no bytes parameter, less calldata encoding overhead.
+    /// @param _proposer The address to verify.
+    function checkProposerMinimal(address _proposer) external view {
+        _verifyProposer(_proposer);
+    }
+
+    function _verifyProposer(address _proposer) internal view {
         // Single-operator fast path: skip epoch computation and _getOperatorForEpoch call
         uint256 count = operatorCount;
         if (count == 1) {
             require(operatorMapping[0] == _proposer, InvalidProposer());
-            return 0;
+            return;
         }
 
         address operator =
             _getOperatorForEpoch(uint32(LibPreconfUtils.getEpochTimestamp()));
         require(operator != address(0), InvalidProposer());
         require(operator == _proposer, InvalidProposer());
-        // Slashing is not enabled for whitelisted preconfers, so we return 0
-        endOfSubmissionWindowTimestamp_ = 0;
     }
 
     /// @inheritdoc IPreconfWhitelist
