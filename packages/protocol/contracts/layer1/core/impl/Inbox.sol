@@ -206,7 +206,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice Fast-path propose — single blob, no forced inclusions, no lookahead.
     /// @param _packedInput Packed fields: deadline(48)|blobStartIndex(16)|numBlobs(16)|blobOffset(24)|unused
-    function proposeFast(uint256 _packedInput) external {
+    function proposeFast(uint256 _packedInput) external payable {
         unchecked {
             // No nonReentrant needed — only external call is STATICCALL (cannot re-enter)
 
