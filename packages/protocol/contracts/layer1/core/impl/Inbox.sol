@@ -578,7 +578,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     or(cleared, or(add(nextProposalId, 1), shl(48, and(number(), mask48))))
                 sstore(coreRef.slot, newPacked)
             }
-            _setProposalHash(proposal.id, _hashAndEmitProposal(proposal));
+            // Gas optimization: inline _setProposalHash to avoid function call overhead.
+            // Original Solidity: _setProposalHash(proposal.id, _hashAndEmitProposal(proposal));
+            _proposalHashes[uint256(proposal.id) % _ringBufferSize] =
+                _hashAndEmitProposal(proposal);
         }
     }
 
@@ -642,7 +645,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                parentProposalHash: getProposalHash(_nextProposalId - 1),
+                // Gas optimization: inline getProposalHash to avoid public function call overhead
+                parentProposalHash: _proposalHashes[
+                    uint256(_nextProposalId - 1) % _ringBufferSize
+                ],
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
