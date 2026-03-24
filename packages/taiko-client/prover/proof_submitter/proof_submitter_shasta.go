@@ -354,12 +354,10 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	}
 	var (
 		latestProvenBlockID = common.Big0
-		uint64ProposalIDs   []uint64
 		lowestProposalID    uint64
 	)
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
-		uint64ProposalIDs = append(uint64ProposalIDs, proof.BatchID.Uint64())
 		currentLastBlockID := proof.Opts.ShastaOptions().L2BlockNums[len(proof.Opts.ShastaOptions().L2BlockNums)-1]
 		if currentLastBlockID.Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = currentLastBlockID
@@ -382,22 +380,27 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesShasta(ctx, batchProof),
 		batchProof,
 	); err != nil {
-		proofBuffer.ClearItems(uint64ProposalIDs...)
-		// Resend the proof request
-		for _, proofResp := range batchProof.ProofResponses {
-			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
-		}
-		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-			return nil
-		}
 		metrics.ProverAggregationSubmissionErrorCounter.Add(1)
 		return err
 	}
 
-	proofBuffer.ClearItems(uint64ProposalIDs...)
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
 
+	return nil
+}
+
+// ClearProofBuffers removes the submitted proof items from the Shasta proof buffer.
+func (s *ProofSubmitterShasta) ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error {
+	if err := clearProofBufferItems(s.proofBuffers, batchProof); err != nil {
+		return err
+	}
+	if resend {
+		// Resend the proof request
+		for _, proofResp := range batchProof.ProofResponses {
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
+		}
+	}
 	return nil
 }
 
