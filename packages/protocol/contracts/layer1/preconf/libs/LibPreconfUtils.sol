@@ -55,14 +55,15 @@ library LibPreconfUtils {
     }
 
     /// @notice Retrieves the beacon block root at a specific timestamp.
-    /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
+    /// @param _ts The timestamp for which the beacon block root is to be retrieved.
     /// @return root_ The beacon block root as a bytes32 value.
-    function getBeaconBlockRootAt(uint256 timestamp) internal view returns (bytes32 root_) {
-        (bool success, bytes memory result) =
-            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT.staticcall(abi.encode(timestamp));
-
-        if (success && result.length > 0) {
-            root_ = abi.decode(result, (bytes32));
+    function getBeaconBlockRootAt(uint256 _ts) internal view returns (bytes32 root_) {
+        assembly {
+            mstore(0x00, _ts)
+            if staticcall(gas(), 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02, 0x00, 0x20, 0x00, 0x20)
+            {
+                root_ := mload(0x00)
+            }
         }
     }
 
