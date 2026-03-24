@@ -42,6 +42,23 @@ library LibBlobs {
         uint256 numBlobs = _blobReference.numBlobs;
         require(numBlobs > 0, NoBlobs());
 
+        // Fast path: single blob (common case)
+        if (numBlobs == 1) {
+            bytes32 h = blobhash(_blobReference.blobStartIndex);
+            require(h != 0, BlobNotFound());
+            bytes32[] memory blobHashes;
+            assembly {
+                blobHashes := mload(0x40)
+                mstore(blobHashes, 1) // length = 1
+                mstore(add(blobHashes, 0x20), h) // blobHashes[0]
+                mstore(0x40, add(blobHashes, 0x40)) // update free memory pointer
+            }
+            slice_.blobHashes = blobHashes;
+            slice_.offset = _blobReference.offset;
+            slice_.timestamp = uint48(block.timestamp);
+            return slice_;
+        }
+
         bytes32[] memory blobHashes = new bytes32[](numBlobs);
         uint256 startIndex = _blobReference.blobStartIndex;
         for (uint256 i; i < numBlobs; ++i) {
