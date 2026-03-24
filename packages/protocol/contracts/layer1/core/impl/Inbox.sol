@@ -44,12 +44,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Result from consuming forced inclusions
-    struct ConsumptionResult {
-        DerivationSource[] sources;
-        bool allowsPermissionless;
-    }
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -622,60 +616,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // Private State-Changing Functions
     // ---------------------------------------------------------------
-
-    /// @dev Builds proposal and derivation data.
-    /// This function also checks:
-    /// - If `msg.sender` can propose.
-    /// - If `msg.sender` has sufficient bond.
-    /// @param _input The propose input data.
-    /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
-    /// @param _nextProposalId The proposal ID to assign.
-    /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp set.
-    function _buildProposal(
-        ProposeInput memory _input,
-        bytes calldata _lookahead,
-        uint48 _nextProposalId
-    )
-        private
-        returns (Proposal memory proposal_)
-    {
-        unchecked {
-            (DerivationSource[] memory sources, bool allowsPermissionless) =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
-
-            sources[sources.length - 1] =
-                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
-
-            // If forced inclusion is old enough, allow anyone to propose
-            // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
-            // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp;
-            if (!allowsPermissionless) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
-                if (_minBond > 0) {
-                    // Only if there is a minimum bond set, execute this check
-                    require(
-                        _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
-                    );
-                }
-            }
-
-            // Use previous block as the origin for the proposal to be able to call `blockhash`
-            uint256 parentBlockNumber = block.number - 1;
-            proposal_ = Proposal({
-                id: _nextProposalId,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
-                proposer: msg.sender,
-                parentProposalHash: _proposalHashes[(_nextProposalId - 1) % _ringBufferSize],
-                originBlockNumber: uint48(parentBlockNumber),
-                originBlockHash: blockhash(parentBlockNumber),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: sources
-            });
-        }
-    }
 
     /// @dev Stores a proposal hash in the ring buffer
     /// Overwrites any existing hash at the calculated buffer slot
