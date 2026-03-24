@@ -459,14 +459,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 offset := sub(lfpiPlus1, mload(commitment))
             }
 
-            uint256 proposalAge;
+            uint256 transitionTimestamp;
             assembly {
                 // transitions = commitment.transitions (pointer at offset 0xc0)
                 let transitions := mload(add(commitment, 0xc0))
                 // transitions[offset] pointer (skip length word + offset pointers)
                 let tPtr := mload(add(transitions, add(0x20, mul(offset, 0x20))))
                 // timestamp is at offset 0x20 in Transition struct
-                proposalAge := sub(timestamp(), mload(add(tPtr, 0x20)))
+                transitionTimestamp := mload(add(tPtr, 0x20))
             }
             bool isWhitelistEnabled;
             {
@@ -477,7 +477,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     if (proverCount > 0) {
                         if (!isWhitelisted) {
                             require(
-                                proposalAge > uint256(_permissionlessProvingDelay),
+                                block.timestamp > transitionTimestamp + uint256(_permissionlessProvingDelay),
                                 ProverNotWhitelisted()
                             );
                         }
@@ -525,7 +525,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                uint256 a = (block.timestamp - proposalAge) + _provingWindow;
+                uint256 a = transitionTimestamp + _provingWindow;
                 // lastFinalizedTimestamp is at bits 144-191
                 uint256 b = ((coreSlot0 >> 144) & 0xffffffffffff) + _maxProofSubmissionDelay;
                 uint256 livenessWindowDeadline = a > b ? a : b;
@@ -624,8 +624,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     commitmentHash := keccak256(ptr, 0x180)
                 }
                 // Single proposal: numProposals - offset is always 1 when offset == 0
-                _proofVerifier.verifyProof(proposalAge, commitmentHash, _proof);
+                _proofVerifier.verifyProof(block.timestamp - transitionTimestamp, commitmentHash, _proof);
             } else {
+                uint256 proposalAge = block.timestamp - transitionTimestamp;
                 _proofVerifier.verifyProof(
                     numProposals - offset == 1 ? proposalAge : 0,
                     LibHashOptimized.hashCommitment(commitment),
