@@ -340,17 +340,10 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
 
 // submitProofAggregationOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
-	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
-		return fmt.Errorf("empty batch proof")
+	submitter, err := p.getSubmitter(batchProof)
+	if err != nil {
+		return err
 	}
-	submitter := p.proofSubmitterPacaya
-	if batchProof.ProofResponses[0].Meta.IsShasta() {
-		submitter = p.proofSubmitterShasta
-	}
-	if utils.IsNil(submitter) {
-		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
-	}
-
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
 		if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Warn(
@@ -391,17 +384,26 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 
 // clearProofBuffer clears the buffered proof items for the batch from the matching submitter.
 func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs, resend bool) error {
+	submitter, err := p.getSubmitter(batchProof)
+	if err != nil {
+		return err
+	}
+	return submitter.ClearProofBuffers(batchProof, resend)
+}
+
+// getSubmitter returns the mapping proof submitter if it can be found.
+func (p *Prover) getSubmitter(batchProof *proofProducer.BatchProofs) (proofSubmitter.Submitter, error) {
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
-		return fmt.Errorf("empty batch proof")
+		return nil, fmt.Errorf("empty batch proof")
 	}
 	submitter := p.proofSubmitterPacaya
 	if batchProof.ProofResponses[0].Meta.IsShasta() {
 		submitter = p.proofSubmitterShasta
 	}
 	if utils.IsNil(submitter) {
-		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
+		return nil, fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
-	return submitter.ClearProofBuffers(batchProof, resend)
+	return submitter, nil
 }
 
 // Name returns the application name.
