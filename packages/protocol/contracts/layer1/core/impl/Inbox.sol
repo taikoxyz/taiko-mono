@@ -351,7 +351,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
                 // sources[0] DerivationSource (2 words)
                 let src0 := mload(add(sources, 0x20))
-                mstore(add(ptr, 0x160), mload(src0)) // isForcedInclusion
+                mstore(add(ptr, 0x160), 0) // isForcedInclusion = false (fast path)
                 mstore(add(ptr, 0x180), 0x40) // offset to blobSlice
 
                 // BlobSlice (3 words)
