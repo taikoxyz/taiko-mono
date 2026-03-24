@@ -307,7 +307,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(0x100, 0x120)
                 mstore(0x120, 1)
                 mstore(0x140, 0x20)
-                mstore(0x160, 0)
+                // 0x160 = isForcedInclusion = 0 — memory already zero (never written)
                 mstore(0x180, 0x40)
                 mstore(0x1a0, 0x60)
                 mstore(0x200, 1)
