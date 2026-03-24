@@ -1,5 +1,13 @@
 {
-  "propose_after_ring_buffer_wrap": "44867",
-  "propose_forced_inclusion": "59032",
-  "propose_single": "71167"
+  "proposeCompact_gas_1_forced_inclusion": "54420",
+  "proposeCompact_gas_3blobs": "65476",
+  "proposeCompact_gas_baseline": "63973",
+  "proposeSimple_gas_baseline": "63465",
+  "propose_after_ring_buffer_wrap": "43876",
+  "propose_forced_inclusion": "58615",
+  "propose_gas_1_forced_inclusion": "55135",
+  "propose_gas_3blobs": "68188",
+  "propose_gas_baseline": "66696",
+  "propose_gas_second_propose": "40396",
+  "propose_single": "70176"
 }

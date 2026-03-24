@@ -1,0 +1,4 @@
+InboxProposeGasTest:test_propose_gas_1_forced_inclusion() (gas: 315045)
+InboxProposeGasTest:test_propose_gas_3blobs() (gas: 96424)
+InboxProposeGasTest:test_propose_gas_baseline() (gas: 93854)
+InboxProposeGasTest:test_propose_gas_second_propose() (gas: 161676)
