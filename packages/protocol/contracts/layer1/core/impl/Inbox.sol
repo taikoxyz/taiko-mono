@@ -314,11 +314,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint
             // -----------------------------------------------------------------------------
+            bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
             _signalService.saveCheckpoint(
                 ICheckpointStore.Checkpoint({
                     blockNumber: commitment.endBlockNumber,
                     stateRoot: commitment.endStateRoot,
-                    blockHash: commitment.transitions[numProposals - 1].blockHash
+                    blockHash: lastBlockHash
                 })
             );
             state.lastCheckpointTimestamp = uint48(block.timestamp);
@@ -328,7 +329,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
+            state.lastFinalizedBlockHash = lastBlockHash;
 
             _coreState = state;
 
