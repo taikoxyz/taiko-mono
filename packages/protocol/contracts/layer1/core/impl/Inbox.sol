@@ -207,17 +207,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
-            // Inline calldata decode + deadline check in single assembly block
-            ProposeInput memory input;
+            // Decode calldata as raw word — avoid ProposeInput struct allocation in fast path
+            uint256 calldataWord;
             assembly {
-                let word := calldataload(_data.offset)
-                let dl := shr(208, word)
-                mstore(input, dl)
-                mstore(add(input, 0x40), and(shr(136, word), 0xffff))
-                let blobRef := mload(add(input, 0x20))
-                mstore(blobRef, and(shr(192, word), 0xffff))
-                mstore(add(blobRef, 0x20), and(shr(176, word), 0xffff))
-                mstore(add(blobRef, 0x40), and(shr(152, word), 0xffffff))
+                calldataWord := calldataload(_data.offset)
+                let dl := shr(208, calldataWord)
                 // require(deadline == 0 || block.timestamp <= deadline)
                 if dl {
                     if gt(timestamp(), dl) {
@@ -262,8 +256,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     // Minimal blob construction: only store values at offsets expected by
                     // hash and emit assembly blocks (sub(sources, 0xc0/0x80/0x60))
                     assembly {
-                        let blobRef := mload(add(input, 0x20))
-                        let numBlobs := mload(add(blobRef, 0x20))
+                        // Decode blob fields directly from calldataWord — skip struct
+                        let blobStartIndex := and(shr(192, calldataWord), 0xffff)
+                        let numBlobs := and(shr(176, calldataWord), 0xffff)
+                        let blobOffset := and(shr(152, calldataWord), 0xffffff)
+
                         // require(numBlobs > 0)
                         if iszero(numBlobs) {
                             mstore(0x00, 0x27a0cc69) // NoBlobs()
@@ -276,18 +273,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                         // Memory layout: [.][blobHash0][.][offset][timestamp][...] sources@fmp+0xe0
                         // Hash/emit read: sub(sources,0xc0)=fmp+0x20, sub(sources,0x80)=fmp+0x60,
                         //                 sub(sources,0x60)=fmp+0x80
-                        let h := blobhash(mload(blobRef))
+                        let h := blobhash(blobStartIndex)
                         if iszero(h) {
                             mstore(0x00, 0x8f84fb24) // BlobNotFound()
                             revert(0x1c, 0x04)
                         }
                         mstore(add(fmp, 0x20), h) // blobHash0
-                        mstore(add(fmp, 0x60), mload(add(blobRef, 0x40))) // blobSlice.offset
+                        mstore(add(fmp, 0x60), blobOffset) // blobSlice.offset
                         mstore(add(fmp, 0x80), timestamp()) // blobSlice.timestamp
 
                         // Validate remaining blobs if multi-blob
                         for { let i := 1 } lt(i, numBlobs) { i := add(i, 1) } {
-                            if iszero(blobhash(add(mload(blobRef), i))) {
+                            if iszero(blobhash(add(blobStartIndex, i))) {
                                 mstore(0x00, 0x8f84fb24) // BlobNotFound()
                                 revert(0x1c, 0x04)
                             }
@@ -297,6 +294,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                         mstore(0x40, add(fmp, 0x100))
                     }
                 } else {
+                    // Slow path: reconstruct ProposeInput from calldataWord
+                    ProposeInput memory input;
+                    assembly {
+                        let blobRef := mload(add(input, 0x20))
+                        mstore(blobRef, and(shr(192, calldataWord), 0xffff))
+                        mstore(add(blobRef, 0x20), and(shr(176, calldataWord), 0xffff))
+                        mstore(add(blobRef, 0x40), and(shr(152, calldataWord), 0xffffff))
+                        mstore(add(input, 0x40), and(shr(136, calldataWord), 0xffff))
+                    }
                     LibBlobs.BlobSlice memory blobSlice =
                         LibBlobs.validateBlobReference(input.blobReference);
                     (sources, allowsPermissionless) =
