@@ -302,7 +302,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	)
 	var (
 		latestProvenBlockID = common.Big0
-		uint64BatchIDs      []uint64
 	)
 	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
@@ -326,7 +325,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
-		uint64BatchIDs = append(uint64BatchIDs, proof.BatchID.Uint64())
 		if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID())
 		}

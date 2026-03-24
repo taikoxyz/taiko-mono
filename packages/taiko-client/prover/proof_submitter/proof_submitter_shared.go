@@ -13,14 +13,14 @@ func clearProofBufferItems(
 	proofBuffers map[proofProducer.ProofType]*proofProducer.ProofBuffer,
 	batchProof *proofProducer.BatchProofs,
 ) error {
-	if len(batchProof.ProofResponses) == 0 || len(batchProof.BatchIDs) == 0 {
+	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
 	}
 	log.Info(
 		"Clear proof buffers",
 		"size", len(batchProof.ProofResponses),
-		"firstID", batchProof.BatchIDs[0],
-		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
+		"firstID", batchProof.ProofResponses[0].BatchID,
+		"lastID", batchProof.ProofResponses[len(batchProof.BatchIDs)-1].BatchID,
 		"proofType", batchProof.ProofType,
 	)
 

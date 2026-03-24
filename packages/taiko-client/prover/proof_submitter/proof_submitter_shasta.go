@@ -354,12 +354,10 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 	}
 	var (
 		latestProvenBlockID = common.Big0
-		uint64ProposalIDs   []uint64
 		lowestProposalID    uint64
 	)
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
-		uint64ProposalIDs = append(uint64ProposalIDs, proof.BatchID.Uint64())
 		currentLastBlockID := proof.Opts.ShastaOptions().L2BlockNums[len(proof.Opts.ShastaOptions().L2BlockNums)-1]
 		if currentLastBlockID.Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = currentLastBlockID
