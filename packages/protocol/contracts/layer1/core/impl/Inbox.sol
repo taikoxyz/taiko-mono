@@ -602,10 +602,31 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
             // Single-proposal proofs pass actual age for age-based verification logic.
+            bytes32 commitmentHash;
+            if (numProposals == 1) {
+                assembly {
+                    let ptr := mload(0x40)
+                    mstore(ptr, 0x20)
+                    mstore(add(ptr, 0x20), mload(commitment))
+                    mstore(add(ptr, 0x40), mload(add(commitment, 0x20)))
+                    mstore(add(ptr, 0x60), mload(add(commitment, 0x40)))
+                    mstore(add(ptr, 0x80), mload(add(commitment, 0x60)))
+                    mstore(add(ptr, 0xa0), mload(add(commitment, 0x80)))
+                    mstore(add(ptr, 0xc0), mload(add(commitment, 0xa0)))
+                    mstore(add(ptr, 0xe0), 0xe0)
+                    mstore(add(ptr, 0x100), 1)
+                    let transitions := mload(add(commitment, 0xc0))
+                    let t0 := mload(add(transitions, 0x20))
+                    mstore(add(ptr, 0x120), mload(t0))
+                    mstore(add(ptr, 0x140), mload(add(t0, 0x20)))
+                    mstore(add(ptr, 0x160), mload(add(t0, 0x40)))
+                    commitmentHash := keccak256(ptr, 0x180)
+                }
+            } else {
+                commitmentHash = LibHashOptimized.hashCommitment(commitment);
+            }
             _proofVerifier.verifyProof(
-                numProposals - offset == 1 ? proposalAge : 0,
-                LibHashOptimized.hashCommitment(commitment),
-                _proof
+                numProposals - offset == 1 ? proposalAge : 0, commitmentHash, _proof
             );
         }
     }
