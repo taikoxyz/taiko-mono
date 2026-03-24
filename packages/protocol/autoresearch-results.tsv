@@ -1,0 +1,103 @@
+# metric_direction: lower_is_better
+iteration	commit	metric	delta	guard	status	description
+0	e63416599	46500	0	pass	baseline	initial state — propose=44867 prove=81678 combined=46500
+1	-	47154	+654	skip	discard	load _coreState into memory once in propose() — full struct write costs more (2 slots vs 1)
+2	c9628912f	46497	-3	pass	keep	pass lastFinalizedTimestamp to _processLivenessBond — avoid SLOAD in prove()
+3	1688dbb70	46471	-26	pass	keep	inline _validateProposeInput — propose -26 gas
+4	76a2a6014	46386	-85	pass	keep	inline _setProposalHash in propose() — propose -85 gas
+5	58d708687	46357	-29	pass	keep	inline _emitProposedEvent in propose() — propose -29 gas
+6	fe2290d12	46199	-158	pass	keep	skip _dequeueAndProcessForcedInclusions when toProcess==0 — propose -158 gas
+7	ed70af72d	45832	-367	pass	keep	early return from _consumeForcedInclusions when queue empty — propose -367 gas
+8	f738a0029	45831	-1	pass	keep	cache transitions[numProposals-1].blockHash in prove() — prove -15 gas
+9	-	0	0	-	crash	cache uint48 casts in prove() — stack too deep
+10	-	45832	+1	-	discard	inline block.number-1 — no improvement (compiler already optimizes)
+11	99657c9e2	45774	-57	pass	keep	direct mapping access instead of getProposalHash — propose -57 gas
+12	4d9c1ee7f	45773	-1	pass	keep	direct mapping access in prove() — prove -74 gas
+13	660159cca	45571	-202	pass	keep	EfficientHashLib fast path for hashProposal — propose -202 gas
+14	7fd1022d1	45499	-72	pass	keep	cache numBlobs and startIndex in validateBlobReference — propose -72 gas
+15	a3d09f1a5	45356	-143	pass	keep	assembly read/write of _coreState packed slot in propose() — propose -143 gas
+16	173daac71	45355	-1	pass	keep	inline _validateCommitment in prove() — prove -35 gas
+17	51a9d4dda	45354	-1	pass	keep	inline _checkProver in prove() — prove -50 gas
+18	7f8fcf12f	45353	-1	pass	keep	inline _processLivenessBond in prove() — prove -34 gas
+19	d536a55be	45324	-29	pass	keep	assembly write-back of _coreState in prove() — prove -1485 gas
+20	706f8dfbf	45323	-1	pass	keep	replace LibMath.max with inline ternary in prove — prove -32 gas
+21	-	45324	+1	-	discard	hashCommitment single-transition fast path — increased code size negated loop savings
+22	a84f5b775	42228	-3095	pass	keep	transient storage reentrancy guard (TSTORE/TLOAD) — propose -3095 gas
+23	e04dc8328	42221	-7	pass	keep	assembly read of _coreState packed slot in prove() — prove -348 gas
+24	1ffd5a6c2	41870	-351	pass	keep	raw assembly keccak256 for hashProposal fast path — propose -351 gas
+25	19ccea432	41862	-8	pass	keep	raw assembly keccak256 for hashCommitment single-transition — prove -389 gas
+26	-	41863	+1	-	discard	decodeCommitment direct — extra indirection, compiler already inlines wrapper
+27	5d18f995d	41823	-39	pass	keep	named return variable in validateBlobReference — propose -39 gas
+28	d7df58a9e	41797	-26	pass	keep	use stack vars instead of struct reads in propose emit — propose -26 gas
+29	bf929e3ee	41797	0	pass	keep	remove dead code (_validateCommitment, _checkProver, _processLivenessBond) — cleanup
+30	f9ebc96ff	41788	-9	pass	keep	use immutable _basefeeSharingPctg in emit instead of struct read — propose -9 gas
+31	aaae286c3	41787	-1	pass	keep	derive timestamp from proposalAge to avoid array re-deref in prove — prove -68 gas
+32	ca28022ef	41588	-199	pass	keep	calldata-native assembly decode for ProposeInput — propose -199 gas
+33	0a997d52f	41579	-9	pass	keep	calldata-native assembly decode for Commitment in prove() — prove -447 gas
+34	554fbafae	41568	-11	pass	keep	assembly read of forced inclusion head/tail as single SLOAD — propose -11 gas
+35	5ddcc2b51	41558	-10	pass	keep	move propose checks from _buildProposal to propose() — propose -10 gas
+36	65465697c	41512	-46	pass	keep	eliminate ConsumptionResult struct, return values directly — propose -46 gas
+37	e34d64333	41253	-259	pass	keep	inline _buildProposal into propose() — propose -259 gas
+38	e1aadb19e	41253	0	pass	keep	remove dead _buildProposal and ConsumptionResult struct — cleanup
+39	9066fbf98	41148	-105	pass	keep	inline empty-queue fast path in propose() — propose -105 gas
+40	ecf24ea2b	41141	-7	pass	keep	inline block.number-1 to avoid local variable — propose -7 gas
+41	-	41143	+2	-	discard	reorder hash computation before SSTOREs — no improvement
+42	44714d0f5	41140	-1	pass	keep	use sources[0] in empty-queue fast path — propose -1 gas
+43	49fc0a5c5	41125	-15	pass	keep	emit from stack vars instead of struct reads — propose -15 gas
+44	bfa00ff73	40812	-313	pass	keep	assembly single-blob fast path in validateBlobReference — propose -313 gas
+45	5f595d0d3	40515	-297	pass	keep	assembly DerivationSource array alloc in empty-queue path — propose -297 gas
+46	-	40717	+202	-	discard	assembly Proposal struct construction — Solidity struct literal already efficient
+47	d354b3bf6	40477	-38	pass	keep	assembly ring buffer hash write — propose -38 gas
+48	77a7ba62f	40445	-32	pass	keep	assembly parent proposal hash read — propose -32 gas
+49	ea660f3c7	40445	0	pass	keep	assembly proposal hash read in prove() — prove -8 gas
+50	-	0	0	-	crash	decode calldata fields directly to stack — stack too deep at _lookahead
+51	-	40471	+26	-	discard	assembly full BlobSlice construction — compiler named return is cheaper
+52	18528a6c4	40444	-1	pass	keep	cache lastFinalizedProposalId in scoped block in prove() — prove -27 gas
+53	-	40445	+1	-	discard	assembly read of lastFinalizedBlockHash — Solidity struct access already efficient
+54	dee2d7eb6	40401	-43	pass	keep	inline _decodeProposeInputCalldata into propose() — propose -43 gas
+55	1c18e71b5	40401	0	pass	keep	remove dead _decodeProposeInputCalldata — cleanup
+56	34ef12891	39880	-521	pass	keep	eliminate Proposal struct, hash directly from locals — propose -521 gas
+57	36e856f9e	39822	-58	pass	keep	all-in-one assembly for empty-queue sources chain — propose -58 gas
+58	c122c1933	39800	-22	pass	keep	eliminate lastProposalBlockId and lastFinalizedProposalId locals — propose -22 gas
+59	fd5cfb03a	39772	-28	pass	keep	assembly deadline check avoids MLOAD — propose -28 gas
+60	5e78a3979	39769	-3	pass	keep	assembly require checks for activation and block number — propose -3 gas
+61	-	39769	0	-	discard	merge parent hash read with hash computation assembly — no improvement
+62	ab692c8ea	39762	-7	pass	keep	cache _ringBufferSize once in propose() — propose -7 gas
+63	52bdc4a10	39753	-9	pass	keep	assembly NotEnoughCapacity check in propose() — propose -9 gas
+64	-	39753	0	-	discard	use bfsPctg local in emit instead of immutable — compiler already optimizes immutable reads
+65	877839e23	39750	-3	pass	keep	merge coreState checks into single assembly block — propose -3 gas
+66	-	39750	0	-	discard	inline _decodeCommitmentCalldata into prove() — compiler already inlines
+67	5b9967f91	39750	0	pass	keep	assembly batch bounds checks in prove() — prove -36 gas
+68	c983571a2	39749	-1	pass	keep	assembly parent hash and proposal hash checks in prove() — prove -16 gas
+69	57f75d38d	39748	-1	pass	keep	assembly transitions[offset].timestamp access in prove() — prove -44 gas
+70	f6c5f424e	39748	0	pass	keep	assembly array accesses in prove() for expectedParentHash, proposer, lastBlockHash — prove -22 gas
+71	c953ca011	39744	-4	pass	keep	merge hash computation and state update assembly blocks — propose -4 gas
+72	-	39745	+1	-	discard	cache proposalTimestamp to avoid subtraction — extra local costs more
+73	-	39757	+13	-	discard	assembly InsufficientBond check — extra local bool + code size costs more
+74	5e97c9074	39743	-1	pass	keep	inline hashCommitment single-transition path in prove() — prove -44 gas
+75	658bd2783	39741	-2	pass	keep	merge queue-empty check into coreState assembly block — propose -2 gas
+76	31831f5bb	39735	-6	pass	keep	skip redundant uint48 mask on timestamp in blob assembly — propose -6 gas
+77	f880792af	39729	-6	pass	keep	skip redundant uint48 mask on proposal timestamp — propose -6 gas
+78	b3bd7d1f2	39723	-6	pass	keep	skip redundant uint48 mask on block.number in coreState write — propose -6 gas
+79	79f61f48e	39723	0	pass	keep	skip redundant uint48 masks in prove() coreState write — prove -23 gas
+80	-	39737	+14	-	discard	re-decode blob fields from calldata instead of memory struct — CALLDATALOAD overhead worse
+81	70096d186	39719	-4	pass	keep	use constant 0 for isForcedInclusion in hash — propose -4 gas
+82	fe63a1db5	39677	-42	pass	keep	fixed-offset memory reads in hash computation — propose -42 gas
+83	-	39677	0	-	discard	use sources+0x40 as hash buffer instead of mload(0x40) — same cost
+84	76fc944f3	39668	-9	pass	keep	merge parent hash read with hash+state assembly, reuse 0x20 — propose -9 gas
+85	-	39679	+11	-	discard	re-read blobhash() in hash computation — BLOBHASH opcode + indirection costs more
+86	-	39674	+6	-	discard	read BlobSlice.offset from calldata — calldataload+shift+mask costs more than mload+sub
+87	-	39668	0	-	discard	various micro-optimizations explored — no viable improvements found
+88	8bd8aaa78	39666	-2	pass	keep	assembly emit Proved event using log2 — prove -95 gas
+89	aabedf29a	39665	-1	pass	keep	split verifyProof by numProposals, skip ternary — prove -36 gas
+90	-	39665	0	-	discard	assembly transitions.length read — compiler already optimal
+91	-	39666	+1	-	discard	merge batch validation and proposalAge assembly blocks — optimizer less efficient on large blocks
+92	-	39665	0	-	discard	merge expectedParentHash computation and hash verification assembly blocks — no improvement
+93	62a413c08	39665	0	pass	keep	store transitionTimestamp instead of proposalAge — prove -10 gas
+94	4687bbc27	39111	-554	pass	keep	assembly emit for Proposed event in fast path — propose -554 gas
+95	-	39163	+52	-	discard	fold emit into hash assembly block — optimizer less efficient on larger block
+96	-	39157	+46	-	discard	assembly saveCheckpoint call — prove -291 but propose +52 from optimizer spillover
+97	-	39162	+51	-	discard	replace switch with conditional override — prove -29 but propose +52 from optimizer spillover
+98	354792bc7	38936	-175	pass	keep	minimal blob construction in fast path — propose -174 gas
+99	-	38958	+22	-	discard	read calldata directly in blob assembly — CALLDATALOAD+shifts more expensive than struct reads
+100	-	38936	0	-	discard	various micro-optimizations explored — no viable improvements found (stack too deep, optimizer spillover, costs > savings)
