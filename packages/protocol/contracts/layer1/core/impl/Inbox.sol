@@ -50,6 +50,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     event InboxActivated(bytes32 lastPacayaBlockHash);
 
+    /// @notice Gas-efficient Proposed event for the fast path (single blob, no forced inclusions).
+    /// @dev Flat encoding avoids nested DerivationSource[] ABI overhead (~1800 gas saved).
+    ///      Off-chain indexers should handle both Proposed and ProposedFast events.
+    event ProposedFast(
+        uint48 indexed id,
+        address indexed proposer,
+        bytes32 parentProposalHash,
+        uint48 endOfSubmissionWindowTimestamp,
+        uint8 basefeeSharingPctg,
+        bytes32 blobHash,
+        uint24 blobOffset,
+        uint48 blobTimestamp
+    );
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -374,25 +388,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(0x00, mod(nextProposalId, rbs))
                 sstore(keccak256(0x00, 0x40), proposalHash)
 
-                // Inline event emit for fast path — avoids re-entering assembly block
+                // ProposedFast: flat event — avoids nested DerivationSource[] ABI overhead
                 if queueEmpty {
                     mstore(ptr, parentProposalHash)
                     mstore(add(ptr, 0x20), endOfSubmissionWindowTimestamp)
                     mstore(add(ptr, 0x40), bfsPctg)
-                    mstore(add(ptr, 0x60), 0x80)
-                    mstore(add(ptr, 0x80), 1)
-                    mstore(add(ptr, 0xa0), 0x20)
-                    mstore(add(ptr, 0xc0), 0)
-                    mstore(add(ptr, 0xe0), 0x40)
-                    mstore(add(ptr, 0x100), 0x60)
-                    mstore(add(ptr, 0x120), mload(sub(sources, 0x80)))
-                    mstore(add(ptr, 0x140), mload(sub(sources, 0x60)))
-                    mstore(add(ptr, 0x160), 1)
-                    mstore(add(ptr, 0x180), mload(sub(sources, 0xc0)))
+                    mstore(add(ptr, 0x60), mload(sub(sources, 0xc0))) // blobHash
+                    mstore(add(ptr, 0x80), mload(sub(sources, 0x80))) // blobOffset
+                    mstore(add(ptr, 0xa0), mload(sub(sources, 0x60))) // blobTimestamp
                     log3(
                         ptr,
-                        0x1a0,
-                        0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213,
+                        0xc0,
+                        0x19df75353bc750e4ee94caa9efabfcd1f34b9a5d128d8234dd527943f606085c,
                         nextProposalId,
                         caller()
                     )

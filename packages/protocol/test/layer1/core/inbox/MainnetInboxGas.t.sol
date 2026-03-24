@@ -89,6 +89,23 @@ contract MainnetInboxGasTest is InboxTestBase {
         return _deployProxy(impl);
     }
 
+    /// @dev Propose without event decoding — for warmup proposes that emit ProposedFast.
+    function _proposeRaw() internal {
+        bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
+        vm.prank(proposer);
+        inbox.propose(bytes(""), encodedInput);
+    }
+
+    /// @dev Propose with gas measurement only — no event decoding needed.
+    function _proposeWithGas(string memory _benchName) internal {
+        bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
+        vm.startPrank(proposer);
+        vm.startSnapshotGas("shasta-propose", _benchName);
+        inbox.propose(bytes(""), encodedInput);
+        vm.stopSnapshotGas();
+        vm.stopPrank();
+    }
+
     /// @notice Measures propose() gas with real PreconfWhitelist, SignalService,
     /// and ring buffer reuse after finalization — matching real mainnet steady state.
     function test_mainnetInbox_propose_gas() public {
@@ -96,22 +113,27 @@ contract MainnetInboxGasTest is InboxTestBase {
 
         // Phase 1: Propose 2 blocks then prove them to free capacity.
         // genesis=id0 at slot 0, proposal id=1 at slot 1, id=2 at slot 2
-        ProposedEvent memory p1 = _proposeAndDecode(_defaultProposeInput());
+        _proposeRaw();
         uint48 p1Timestamp = uint48(block.timestamp);
         _advanceBlock();
-        ProposedEvent memory p2 = _proposeAndDecode(_defaultProposeInput());
+        _proposeRaw();
         uint48 p2Timestamp = uint48(block.timestamp);
 
         // Prove 1-2 → lastFinalizedProposalId=2, nextProposalId=3
+        // _transitionFor only needs proposer, which we know
         IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
-        transitions[0] = _transitionFor(p1, p1Timestamp, keccak256("checkpoint1"));
-        transitions[1] = _transitionFor(p2, p2Timestamp, keccak256("blockHash2"));
+        transitions[0] = IInbox.Transition({
+            proposer: proposer, timestamp: p1Timestamp, blockHash: keccak256("checkpoint1")
+        });
+        transitions[1] = IInbox.Transition({
+            proposer: proposer, timestamp: p2Timestamp, blockHash: keccak256("blockHash2")
+        });
 
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             commitment: IInbox.Commitment({
-                firstProposalId: p1.id,
+                firstProposalId: 1, // first proposal after genesis
                 firstProposalParentBlockHash: inbox.getCoreState().lastFinalizedBlockHash,
-                lastProposalHash: inbox.getProposalHash(p2.id),
+                lastProposalHash: inbox.getProposalHash(2),
                 actualProver: prover,
                 endBlockNumber: uint48(block.number),
                 endStateRoot: keccak256("stateRoot"),
@@ -124,15 +146,15 @@ contract MainnetInboxGasTest is InboxTestBase {
         // Phase 2: Propose 3 more to fill remaining slots and wrap around.
         // id=3 → slot 3, id=4 → slot 4, id=5 → slot 0 (reuse genesis slot)
         _advanceBlock();
-        _proposeAndDecode(_defaultProposeInput());
+        _proposeRaw();
         _advanceBlock();
-        _proposeAndDecode(_defaultProposeInput());
+        _proposeRaw();
         _advanceBlock();
-        _proposeAndDecode(_defaultProposeInput());
+        _proposeRaw();
 
         // Phase 3: Measured propose — id=6 writes to slot 6%5=1 (nonzero from proposal 1).
         // Capacity: rbs(5) > 6-2=4 ✓. Steady-state: nonzero→nonzero SSTORE.
         _advanceBlock();
-        _proposeAndDecodeWithGas(_defaultProposeInput(), "mainnet_propose");
+        _proposeWithGas("mainnet_propose");
     }
 }
