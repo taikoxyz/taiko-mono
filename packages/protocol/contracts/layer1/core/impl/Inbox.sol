@@ -51,13 +51,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     event InboxActivated(bytes32 lastPacayaBlockHash);
 
     /// @notice Gas-efficient Proposed event for the fast path (single blob, no forced inclusions).
-    /// @dev Flat encoding avoids nested DerivationSource[] ABI overhead (~1800 gas saved).
+    /// @dev Minimal data: parentProposalHash and endOfSubmissionWindowTimestamp are derivable
+    ///      on-chain (from previous proposal and proposerChecker state respectively).
     ///      Off-chain indexers should handle both Proposed and ProposedFast events.
     event ProposedFast(
         uint48 indexed id,
         address indexed proposer,
-        bytes32 parentProposalHash,
-        uint48 endOfSubmissionWindowTimestamp,
         uint8 basefeeSharingPctg,
         bytes32 blobHash,
         uint24 blobOffset,
@@ -388,18 +387,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(0x00, mod(nextProposalId, rbs))
                 sstore(keccak256(0x00, 0x40), proposalHash)
 
-                // ProposedFast: flat event — avoids nested DerivationSource[] ABI overhead
+                // ProposedFast: minimal data — derivable fields omitted
                 if queueEmpty {
-                    mstore(ptr, parentProposalHash)
-                    mstore(add(ptr, 0x20), endOfSubmissionWindowTimestamp)
-                    mstore(add(ptr, 0x40), bfsPctg)
-                    mstore(add(ptr, 0x60), mload(sub(sources, 0xc0))) // blobHash
-                    mstore(add(ptr, 0x80), mload(sub(sources, 0x80))) // blobOffset
-                    mstore(add(ptr, 0xa0), mload(sub(sources, 0x60))) // blobTimestamp
+                    mstore(ptr, bfsPctg)
+                    mstore(add(ptr, 0x20), mload(sub(sources, 0xc0))) // blobHash
+                    mstore(add(ptr, 0x40), mload(sub(sources, 0x80))) // blobOffset
+                    mstore(add(ptr, 0x60), mload(sub(sources, 0x60))) // blobTimestamp
                     log3(
                         ptr,
-                        0xc0,
-                        0x19df75353bc750e4ee94caa9efabfcd1f34b9a5d128d8234dd527943f606085c,
+                        0x80,
+                        0xd032a7ce48b98abadf44b5e8600a8086ae8ecb64f9c3b068b8d7bd7f3fd142d7,
                         nextProposalId,
                         caller()
                     )
