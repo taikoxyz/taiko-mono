@@ -260,12 +260,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
+            bytes32 parentProposalHash =
+                _proposalHashes[(nextProposalId - 1) % _ringBufferSize];
             Proposal memory proposal = Proposal({
                 id: nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                parentProposalHash: _proposalHashes[(nextProposalId - 1) % _ringBufferSize],
+                parentProposalHash: parentProposalHash,
                 originBlockNumber: uint48(block.number - 1),
                 originBlockHash: blockhash(block.number - 1),
                 basefeeSharingPctg: _basefeeSharingPctg,
@@ -286,10 +288,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             emit Proposed(
                 nextProposalId,
                 msg.sender,
-                proposal.parentProposalHash,
-                proposal.endOfSubmissionWindowTimestamp,
+                parentProposalHash,
+                endOfSubmissionWindowTimestamp,
                 _basefeeSharingPctg,
-                proposal.sources
+                sources
             );
         }
     }
