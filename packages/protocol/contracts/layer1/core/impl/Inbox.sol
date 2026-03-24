@@ -214,7 +214,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         unchecked {
             ProposeInput memory input = LibCodec.decodeProposeInput(_data);
-            _validateProposeInput(input);
+            require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
 
             uint48 nextProposalId = _coreState.nextProposalId;
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
@@ -722,12 +722,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
     // Private View/Pure Functions
     // ---------------------------------------------------------------
-
-    /// @dev Validates propose function inputs.
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
 
     /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
     ///      becomes permissionless once a proposal is older than the permissionless delay.
