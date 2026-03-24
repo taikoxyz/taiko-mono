@@ -264,6 +264,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             uint32 _latestActivationEpoch = latestActivationEpoch;
 
             if (_operatorCount == 0) return address(0);
+            // Single operator: skip beacon root lookup — result is deterministic
+            if (_operatorCount == 1) return operatorMapping[0];
             // Inline _getRandomNumber: beacon root at epoch start stays constant throughout epoch
             uint256 randomNumber =
                 uint256(LibPreconfUtils.getBeaconBlockRootAtOrAfter(randomnessTs));
