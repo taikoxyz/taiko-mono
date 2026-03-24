@@ -56,7 +56,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      Off-chain indexers should handle both Proposed and ProposedFast events.
     event ProposedFast(
         uint48 indexed id,
-        address indexed proposer,
         bytes32 blobHash,
         uint256 packed // bfsPctg(8) | blobOffset(24) | blobTimestamp(48) in top 80 bits
     );
@@ -385,7 +384,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(0x00, mod(nextProposalId, rbs))
                 sstore(keccak256(0x00, 0x40), proposalHash)
 
-                // ProposedFast: pack bfsPctg|blobOffset|blobTimestamp into one word
+                // ProposedFast: LOG2 — proposer derivable from tx sender
                 if queueEmpty {
                     mstore(ptr, mload(sub(sources, 0xc0))) // blobHash
                     mstore(
@@ -395,12 +394,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                             shl(176, mload(sub(sources, 0x60)))
                         )
                     ) // packed: bfsPctg(8)|blobOffset(24)|blobTimestamp(48)
-                    log3(
+                    log2(
                         ptr,
                         0x40,
-                        0x54d9b99d2158b0e424405f7f6b9d47399af2561abb5f142e292fcf4023f74458,
-                        nextProposalId,
-                        caller()
+                        0xd87c354a13242c4a737f6bbfff109ce25d17029ec59fe72d5f7fd7d7288010bb,
+                        nextProposalId
                     )
                 }
             }
