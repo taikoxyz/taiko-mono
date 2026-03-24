@@ -359,7 +359,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                uint256 a = commitment.transitions[offset].timestamp + _provingWindow;
+                uint256 a = (block.timestamp - proposalAge) + _provingWindow;
                 // lastFinalizedTimestamp is at bits 144-191
                 uint256 b = ((coreSlot0 >> 144) & 0xffffffffffff) + _maxProofSubmissionDelay;
                 uint256 livenessWindowDeadline = a > b ? a : b;
