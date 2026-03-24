@@ -608,6 +608,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
+
+            // Fast path: empty queue — no forced inclusions to inspect or process
+            if (available == 0) {
+                result_.sources = new DerivationSource[](1);
+                return result_;
+            }
+
             uint256 dueToProcess;
             uint256 maxToInspect = available.min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
             for (uint256 i; i < maxToInspect; ++i) {
