@@ -365,21 +365,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             uint256 numProposals = commitment.transitions.length;
             require(numProposals > 0, EmptyBatch());
-            // lastFinalizedProposalId at bits 96-143, nextProposalId at bits 0-47
-            require(
-                commitment.firstProposalId <= ((coreSlot0 >> 96) & 0xffffffffffff) + 1,
-                FirstProposalIdTooLarge()
-            );
 
             uint256 lastProposalId = commitment.firstProposalId + numProposals - 1;
-            require(lastProposalId < (coreSlot0 & 0xffffffffffff), LastProposalIdTooLarge());
-            require(
-                lastProposalId >= ((coreSlot0 >> 96) & 0xffffffffffff) + 1,
-                LastProposalAlreadyFinalized()
-            );
-
-            uint48 offset =
-                uint48(((coreSlot0 >> 96) & 0xffffffffffff) + 1 - commitment.firstProposalId);
+            uint48 offset;
+            {
+                uint256 lfpi = (coreSlot0 >> 96) & 0xffffffffffff;
+                require(commitment.firstProposalId <= lfpi + 1, FirstProposalIdTooLarge());
+                require(lastProposalId < (coreSlot0 & 0xffffffffffff), LastProposalIdTooLarge());
+                require(lastProposalId >= lfpi + 1, LastProposalAlreadyFinalized());
+                offset = uint48(lfpi + 1 - commitment.firstProposalId);
+            }
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
             bool isWhitelistEnabled;
