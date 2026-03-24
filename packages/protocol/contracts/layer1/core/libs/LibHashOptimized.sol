@@ -84,29 +84,44 @@ library LibHashOptimized {
             IInbox.Transition[] memory transitions = _commitment.transitions;
             uint256 transitionsLength = transitions.length;
 
-            // Commitment layout (abi.encode):
-            // [0] offset to commitment (0x20)
-            //
-            // Commitment static section (starts at word 1):
-            // [1] firstProposalId
-            // [2] firstProposalParentBlockHash
-            // [3] lastProposalHash
-            // [4] actualProver
-            // [5] endBlockNumber
-            // [6] endStateRoot
-            // [7] offset to transitions (0xe0)
-            //
-            // Transitions array (starts at word 8):
-            // [8] length
-            // [9...] transition elements (3 words each)
+            // Fast path: single transition (common prove_single case)
+            // Uses raw assembly to avoid EfficientHashLib overhead
+            if (transitionsLength == 1) {
+                bytes32 result;
+                assembly {
+                    let ptr := mload(0x40)
+
+                    // [0] offset to commitment (0x20)
+                    mstore(ptr, 0x20)
+                    // Commitment static fields [1-7]
+                    mstore(add(ptr, 0x20), mload(_commitment)) // firstProposalId
+                    mstore(add(ptr, 0x40), mload(add(_commitment, 0x20))) // firstProposalParentBlockHash
+                    mstore(add(ptr, 0x60), mload(add(_commitment, 0x40))) // lastProposalHash
+                    mstore(add(ptr, 0x80), mload(add(_commitment, 0x60))) // actualProver
+                    mstore(add(ptr, 0xa0), mload(add(_commitment, 0x80))) // endBlockNumber
+                    mstore(add(ptr, 0xc0), mload(add(_commitment, 0xa0))) // endStateRoot
+                    mstore(add(ptr, 0xe0), 0xe0) // offset to transitions
+
+                    // Transitions array [8-11]
+                    mstore(add(ptr, 0x100), 1) // length = 1
+                    // transitions[0]: pointer chase from transitions array
+                    let t0 := mload(add(transitions, 0x20))
+                    mstore(add(ptr, 0x120), mload(t0)) // proposer
+                    mstore(add(ptr, 0x140), mload(add(t0, 0x20))) // timestamp
+                    mstore(add(ptr, 0x160), mload(add(t0, 0x40))) // blockHash
+
+                    result := keccak256(ptr, 0x180) // 12 * 32 = 384
+                }
+                return result;
+            }
+
+            // General case: variable-length transitions
+            // abi.encode layout: 9 fixed words + 3 words per transition
             uint256 totalWords = 9 + transitionsLength * 3;
 
             bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
 
-            // Top-level head
             EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
-
-            // Commitment static fields
             EfficientHashLib.set(buffer, 1, bytes32(uint256(_commitment.firstProposalId)));
             EfficientHashLib.set(buffer, 2, _commitment.firstProposalParentBlockHash);
             EfficientHashLib.set(buffer, 3, _commitment.lastProposalHash);
@@ -114,8 +129,6 @@ library LibHashOptimized {
             EfficientHashLib.set(buffer, 5, bytes32(uint256(_commitment.endBlockNumber)));
             EfficientHashLib.set(buffer, 6, _commitment.endStateRoot);
             EfficientHashLib.set(buffer, 7, bytes32(uint256(0xe0)));
-
-            // Transitions array
             EfficientHashLib.set(buffer, 8, bytes32(transitionsLength));
 
             uint256 base = 9;
