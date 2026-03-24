@@ -280,28 +280,54 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             }
 
             bytes32 parentProposalHash;
-            {
-                uint256 rbs = _ringBufferSize;
-                assembly {
-                    mstore(0x00, mod(sub(nextProposalId, 1), rbs))
-                    mstore(0x20, _proposalHashes.slot)
-                    parentProposalHash := sload(keccak256(0x00, 0x40))
-                }
-            }
-            Proposal memory proposal = Proposal({
-                id: nextProposalId,
-                timestamp: uint48(block.timestamp),
-                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
-                proposer: msg.sender,
-                parentProposalHash: parentProposalHash,
-                originBlockNumber: uint48(block.number - 1),
-                originBlockHash: blockhash(block.number - 1),
-                basefeeSharingPctg: _basefeeSharingPctg,
-                sources: sources
-            });
-
-            bytes32 proposalHash = LibHashOptimized.hashProposal(proposal);
             uint256 rbs = _ringBufferSize;
+            assembly {
+                mstore(0x00, mod(sub(nextProposalId, 1), rbs))
+                mstore(0x20, _proposalHashes.slot)
+                parentProposalHash := sload(keccak256(0x00, 0x40))
+            }
+
+            // Build keccak256 hash buffer directly — skip Proposal struct allocation
+            // Layout matches abi.encode(Proposal) for 1-source-1-blobHash case
+            bytes32 proposalHash;
+            uint8 bfsPctg = _basefeeSharingPctg;
+            assembly {
+                let ptr := mload(0x40) // scratch space
+
+                // Proposal static fields (9 words)
+                mstore(ptr, nextProposalId) // id
+                mstore(add(ptr, 0x20), and(timestamp(), 0xffffffffffff)) // timestamp
+                mstore(add(ptr, 0x40), endOfSubmissionWindowTimestamp)
+                mstore(add(ptr, 0x60), caller()) // proposer
+                mstore(add(ptr, 0x80), parentProposalHash)
+                let pbn := sub(number(), 1)
+                mstore(add(ptr, 0xa0), pbn) // originBlockNumber
+                mstore(add(ptr, 0xc0), blockhash(pbn)) // originBlockHash
+                mstore(add(ptr, 0xe0), bfsPctg) // basefeeSharingPctg
+                mstore(add(ptr, 0x100), 0x120) // offset to sources array
+
+                // Sources array header (2 words)
+                mstore(add(ptr, 0x120), 1) // length = 1
+                mstore(add(ptr, 0x140), 0x20) // offset to sources[0]
+
+                // sources[0] DerivationSource (2 words)
+                let src0 := mload(add(sources, 0x20))
+                mstore(add(ptr, 0x160), mload(src0)) // isForcedInclusion
+                mstore(add(ptr, 0x180), 0x40) // offset to blobSlice
+
+                // BlobSlice (3 words)
+                let bs := mload(add(src0, 0x20))
+                mstore(add(ptr, 0x1a0), 0x60) // offset to blobHashes
+                mstore(add(ptr, 0x1c0), mload(add(bs, 0x20))) // offset
+                mstore(add(ptr, 0x1e0), mload(add(bs, 0x40))) // timestamp
+
+                // blobHashes array (2 words)
+                let blobHashesArr := mload(bs)
+                mstore(add(ptr, 0x200), 1) // length = 1
+                mstore(add(ptr, 0x220), mload(add(blobHashesArr, 0x20))) // blobHashes[0]
+
+                proposalHash := keccak256(ptr, 0x240) // 18 * 32 = 576
+            }
 
             // Update coreState and write proposal hash to ring buffer in single assembly block
             assembly {
@@ -312,7 +338,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 sstore(_coreState.slot, newValue)
 
                 // Write proposal hash to mapping: _proposalHashes[nextProposalId % rbs]
-                // Mapping slot = keccak256(abi.encode(key, mappingSlot))
                 mstore(0x00, mod(nextProposalId, rbs))
                 mstore(0x20, _proposalHashes.slot)
                 sstore(keccak256(0x00, 0x40), proposalHash)
