@@ -287,7 +287,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
 
-            CoreState memory state = _coreState;
+            // Read packed _coreState slot via assembly to avoid memory struct allocation
+            uint256 coreSlot0;
+            assembly {
+                coreSlot0 := sload(_coreState.slot)
+            }
+
             ProveInput memory input = LibCodec.decodeProveInput(_data);
 
             // -------------------------------------------------------------------------------
@@ -297,20 +302,21 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             uint256 numProposals = commitment.transitions.length;
             require(numProposals > 0, EmptyBatch());
+            // lastFinalizedProposalId at bits 96-143, nextProposalId at bits 0-47
             require(
-                commitment.firstProposalId <= uint256(state.lastFinalizedProposalId) + 1,
+                commitment.firstProposalId <= ((coreSlot0 >> 96) & 0xffffffffffff) + 1,
                 FirstProposalIdTooLarge()
             );
 
             uint256 lastProposalId = commitment.firstProposalId + numProposals - 1;
-            require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
+            require(lastProposalId < (coreSlot0 & 0xffffffffffff), LastProposalIdTooLarge());
             require(
-                lastProposalId >= uint256(state.lastFinalizedProposalId) + 1,
+                lastProposalId >= ((coreSlot0 >> 96) & 0xffffffffffff) + 1,
                 LastProposalAlreadyFinalized()
             );
 
             uint48 offset =
-                uint48(uint256(state.lastFinalizedProposalId) + 1 - commitment.firstProposalId);
+                uint48(((coreSlot0 >> 96) & 0xffffffffffff) + 1 - commitment.firstProposalId);
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
             bool isWhitelistEnabled;
@@ -338,7 +344,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             bytes32 expectedParentHash = offset == 0
                 ? commitment.firstProposalParentBlockHash
                 : commitment.transitions[offset - 1].blockHash;
-            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+            require(
+                _coreState.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch()
+            );
 
             require(
                 commitment.lastProposalHash
@@ -352,7 +360,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
                 uint256 a = commitment.transitions[offset].timestamp + _provingWindow;
-                uint256 b = uint256(state.lastFinalizedTimestamp) + _maxProofSubmissionDelay;
+                // lastFinalizedTimestamp is at bits 144-191
+                uint256 b = ((coreSlot0 >> 144) & 0xffffffffffff) + _maxProofSubmissionDelay;
                 uint256 livenessWindowDeadline = a > b ? a : b;
 
                 if (block.timestamp > livenessWindowDeadline) {
@@ -384,9 +393,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             {
                 uint256 ts48 = block.timestamp & 0xffffffffffff;
                 assembly {
-                    // Read current slot to preserve bits 0-95
-                    let slot := sload(_coreState.slot)
-                    let preserved := and(slot, 0xffffffffffffffffffffffff) // bits 0-95
+                    // Preserve bits 0-95 (nextProposalId + lastProposalBlockId) from cached read
+                    let preserved := and(coreSlot0, 0xffffffffffffffffffffffff)
                     let newSlot :=
                         or(
                             or(
