@@ -293,12 +293,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 coreSlot0 := sload(_coreState.slot)
             }
 
-            ProveInput memory input = LibCodec.decodeProveInput(_data);
-
             // -------------------------------------------------------------------------------
             // 1. Validate batch bounds and calculate offset of the first unfinalized proposal
             // -------------------------------------------------------------------------------
-            Commitment memory commitment = input.commitment;
+            Commitment memory commitment = _decodeCommitmentCalldata(_data);
 
             uint256 numProposals = commitment.transitions.length;
             require(numProposals > 0, EmptyBatch());
@@ -810,6 +808,69 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             mstore(add(blobRef, 0x20), and(shr(176, word), 0xffff))
             // offset: 3 bytes at offset 10 (bits 175-152)
             mstore(add(blobRef, 0x40), and(shr(152, word), 0xffffff))
+        }
+    }
+
+    /// @dev Decodes Commitment directly from calldata using assembly,
+    /// avoiding the calldata→memory copy of LibCodec.decodeProveInput.
+    /// Packed format: firstProposalId(6) | firstProposalParentBlockHash(32) | lastProposalHash(32)
+    /// | actualProver(20) | endBlockNumber(6) | endStateRoot(32) | transitionsLength(2)
+    /// | [proposer(20) | timestamp(6) | blockHash(32)] per transition
+    function _decodeCommitmentCalldata(bytes calldata _data)
+        private
+        pure
+        returns (Commitment memory c_)
+    {
+        assembly {
+            let off := _data.offset
+
+            // Static fields
+            mstore(c_, shr(208, calldataload(off))) // firstProposalId (6 bytes)
+            off := add(off, 6)
+            mstore(add(c_, 0x20), calldataload(off)) // firstProposalParentBlockHash (32 bytes)
+            off := add(off, 32)
+            mstore(add(c_, 0x40), calldataload(off)) // lastProposalHash (32 bytes)
+            off := add(off, 32)
+            mstore(add(c_, 0x60), shr(96, calldataload(off))) // actualProver (20 bytes)
+            off := add(off, 20)
+            mstore(add(c_, 0x80), shr(208, calldataload(off))) // endBlockNumber (6 bytes)
+            off := add(off, 6)
+            mstore(add(c_, 0xa0), calldataload(off)) // endStateRoot (32 bytes)
+            off := add(off, 32)
+
+            // Transitions array
+            let tLen := shr(240, calldataload(off)) // transitionsLength (2 bytes)
+            off := add(off, 2)
+
+            // Allocate transitions array: [length, ptr0, ptr1, ...]
+            let fmp := mload(0x40)
+            let arrPtr := fmp
+            mstore(arrPtr, tLen) // array length
+            fmp := add(arrPtr, add(0x20, mul(tLen, 0x20))) // space for length + pointers
+
+            // Allocate and populate each Transition struct
+            for { let i := 0 } lt(i, tLen) { i := add(i, 1) } {
+                let tPtr := fmp
+                // Store pointer in array
+                mstore(add(arrPtr, add(0x20, mul(i, 0x20))), tPtr)
+
+                // proposer (20 bytes)
+                mstore(tPtr, shr(96, calldataload(off)))
+                off := add(off, 20)
+                // timestamp (6 bytes)
+                mstore(add(tPtr, 0x20), shr(208, calldataload(off)))
+                off := add(off, 6)
+                // blockHash (32 bytes)
+                mstore(add(tPtr, 0x40), calldataload(off))
+                off := add(off, 32)
+
+                fmp := add(fmp, 0x60) // 3 words per Transition
+            }
+
+            // Store transitions array pointer in commitment
+            mstore(add(c_, 0xc0), arrPtr)
+            // Update free memory pointer
+            mstore(0x40, fmp)
         }
     }
 
