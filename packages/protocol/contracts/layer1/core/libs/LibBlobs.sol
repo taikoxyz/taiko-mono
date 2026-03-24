@@ -33,11 +33,11 @@ library LibBlobs {
 
     /// @dev Validates a blob locator and converts it to a blob slice.
     /// @param _blobReference The blob locator to validate.
-    /// @return The blob slice.
+    /// @return slice_ The blob slice.
     function validateBlobReference(BlobReference memory _blobReference)
         internal
         view
-        returns (BlobSlice memory)
+        returns (BlobSlice memory slice_)
     {
         uint256 numBlobs = _blobReference.numBlobs;
         require(numBlobs > 0, NoBlobs());
@@ -50,11 +50,9 @@ library LibBlobs {
             blobHashes[i] = h;
         }
 
-        return BlobSlice({
-            blobHashes: blobHashes,
-            offset: _blobReference.offset,
-            timestamp: uint48(block.timestamp)
-        });
+        slice_.blobHashes = blobHashes;
+        slice_.offset = _blobReference.offset;
+        slice_.timestamp = uint48(block.timestamp);
     }
 
     // ---------------------------------------------------------------
