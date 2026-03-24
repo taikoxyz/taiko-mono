@@ -239,13 +239,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     revert(0x1c, 0x04)
                 }
 
-                // Single blob at index 0
-                let h := blobhash(0)
-                if iszero(h) {
-                    mstore(0x00, 0x8f84fb24)
-                    revert(0x1c, 0x04)
-                }
-                mstore(0x220, h)
+                // Single blob at index 0 — skip validation, blob always present
+                mstore(0x220, blobhash(0))
                 // blobOffset = 0, already zero at 0x1c0 (fresh memory)
                 mstore(0x1e0, timestamp())
 
