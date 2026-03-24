@@ -197,7 +197,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
-        _emitProposedEvent(proposal);
+        _hashAndEmitProposal(proposal);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -578,9 +578,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     or(cleared, or(add(nextProposalId, 1), shl(48, and(number(), mask48))))
                 sstore(coreRef.slot, newPacked)
             }
-            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
-
-            _emitProposedEvent(proposal);
+            _setProposalHash(proposal.id, _hashAndEmitProposal(proposal));
         }
     }
 
@@ -789,35 +787,63 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @dev Emits the Proposed event using assembly to avoid Solidity's ABI encoder overhead
-    ///      for encoding the nested dynamic DerivationSource[] data.
-    ///      Original Solidity:
-    ///        emit Proposed(id, proposer, parentProposalHash, endOfSubmissionWindowTimestamp,
-    ///                      basefeeSharingPctg, sources);
-    ///      Event data layout (non-indexed):
-    ///        [0]: parentProposalHash
-    ///        [1]: endOfSubmissionWindowTimestamp
-    ///        [2]: basefeeSharingPctg
-    ///        [3]: 0x80 (offset to sources = 4 * 32)
-    ///        [4..]: sources encoding (same nested format as in hashProposal)
-    function _emitProposedEvent(Proposal memory _proposal) private {
+    /// @dev Computes hashProposal AND emits the Proposed event in a single pass.
+    ///      Builds the full ABI encoding of the Proposal (identical to LibHashOptimized.hashProposal),
+    ///      computes keccak256 for the proposal hash, then overwrites a portion of the buffer
+    ///      to form the event data layout and emits via LOG3.
+    ///      This avoids traversing the nested DerivationSource[] array twice (once for hashing,
+    ///      once for event emission).
+    ///
+    ///      Hash buffer layout (abi.encode(Proposal)):
+    ///        [0x00]:        0x20 (outer offset)
+    ///        [0x20..0x100]: 8 static fields
+    ///        [0x120]:       0x120 (offset to sources)
+    ///        [0x140..]:     sources encoding
+    ///
+    ///      After hashing, overwrite [0xC0..0x120] to form event data:
+    ///        [0xC0]:  parentProposalHash
+    ///        [0xE0]:  endOfSubmissionWindowTimestamp
+    ///        [0x100]: basefeeSharingPctg
+    ///        [0x120]: 0x80 (offset to sources = 4*32)
+    ///        [0x140..]: sources encoding (already in place from hash buffer)
+    ///
+    /// @param _proposal The proposal to hash and emit.
+    /// @return proposalHash_ The keccak256 hash of the proposal.
+    function _hashAndEmitProposal(Proposal memory _proposal)
+        private
+        returns (bytes32 proposalHash_)
+    {
+        /// forge-lint: disable-start(asm-keccak256)
         assembly {
             let ptr := mload(0x40)
 
-            // Static non-indexed data
-            mstore(ptr, mload(add(_proposal, 0x80))) // parentProposalHash
-            mstore(add(ptr, 0x20), mload(add(_proposal, 0x40))) // endOfSubmissionWindowTimestamp
-            mstore(add(ptr, 0x40), mload(add(_proposal, 0xe0))) // basefeeSharingPctg
-            mstore(add(ptr, 0x60), 0x80) // offset to sources array
+            // ── Step 1: Build full ABI encoding for hashProposal ──
+            // Word 0: outer offset
+            mstore(ptr, 0x20)
 
-            // Sources array encoding
+            // Words 1-8: Proposal static fields
+            // Original Solidity: keccak256(abi.encode(_proposal))
+            mstore(add(ptr, 0x20), mload(_proposal))
+            mstore(add(ptr, 0x40), mload(add(_proposal, 0x20)))
+            mstore(add(ptr, 0x60), mload(add(_proposal, 0x40)))
+            mstore(add(ptr, 0x80), mload(add(_proposal, 0x60)))
+            mstore(add(ptr, 0xa0), mload(add(_proposal, 0x80)))
+            mstore(add(ptr, 0xc0), mload(add(_proposal, 0xa0)))
+            mstore(add(ptr, 0xe0), mload(add(_proposal, 0xc0)))
+            mstore(add(ptr, 0x100), mload(add(_proposal, 0xe0)))
+
+            // Word 9: offset to sources = 0x120
+            mstore(add(ptr, 0x120), 0x120)
+
+            // Sources array
             let sourcesArrPtr := mload(add(_proposal, 0x100))
             let numSources := mload(sourcesArrPtr)
 
-            let base := add(ptr, 0x80)
-            mstore(base, numSources) // sources.length
+            // Word 10: sources.length
+            mstore(add(ptr, 0x140), numSources)
 
-            let offsetArea := add(base, 0x20)
+            // Source offsets + data
+            let offsetArea := add(ptr, 0x160)
             let dataArea := add(offsetArea, mul(numSources, 0x20))
             let curDataOffset := mul(numSources, 0x20)
 
@@ -829,11 +855,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 let blobHashesPtr := mload(blobSlicePtr)
                 let numHashes := mload(blobHashesPtr)
 
-                mstore(dataArea, mload(srcPtr)) // isForcedInclusion
-                mstore(add(dataArea, 0x20), 0x40) // offset to blobSlice
-                mstore(add(dataArea, 0x40), 0x60) // offset to blobHashes
-                mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20))) // offset
-                mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40))) // timestamp
+                mstore(dataArea, mload(srcPtr))
+                mstore(add(dataArea, 0x20), 0x40)
+                mstore(add(dataArea, 0x40), 0x60)
+                mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
+                mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
                 mstore(add(dataArea, 0xa0), numHashes)
 
                 for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
@@ -848,12 +874,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 curDataOffset := add(curDataOffset, sourceBytes)
             }
 
-            let dataSize := sub(dataArea, ptr)
+            // ── Step 2: Hash the full buffer ──
+            proposalHash_ := keccak256(ptr, sub(dataArea, ptr))
+
+            // ── Step 3: Overwrite [0xC0..0x120] with event header, reuse sources at [0x140..] ──
+            // Event data starts at ptr+0xC0, sources encoding at ptr+0x140 is already correct.
+            mstore(add(ptr, 0xc0), mload(add(_proposal, 0x80)))  // parentProposalHash
+            mstore(add(ptr, 0xe0), mload(add(_proposal, 0x40)))  // endOfSubmissionWindowTimestamp
+            mstore(add(ptr, 0x100), mload(add(_proposal, 0xe0))) // basefeeSharingPctg
+            mstore(add(ptr, 0x120), 0x80) // offset to sources = 4 * 32
+
+            // Sources data at ptr+0x140 is unchanged — reused from the hash buffer
 
             // LOG3: topic0 = event sig, topic1 = id, topic2 = proposer
             log3(
-                ptr,
-                dataSize,
+                add(ptr, 0xc0),
+                sub(dataArea, add(ptr, 0xc0)),
                 // Proposed(uint48,address,bytes32,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])
                 0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213,
                 mload(_proposal), // id
