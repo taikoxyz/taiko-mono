@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 import "../verifiers/compose/ComposeVerifier.sol";
 
 /// @title MainnetVerifier
-/// @notice SGX-GETH or SGX-RETH + (the other SGX or RISC0 or SP1) verifier
+/// @notice SGX-GETH + (SGX-RETH or RISC0 or SP1), or SGX-RETH + (RISC0 or SP1) verifier
 /// @custom:security-contact security@taiko.xyz
 contract MainnetVerifier is ComposeVerifier {
     /// @notice Creates a new MainnetVerifier instance
@@ -29,9 +29,9 @@ contract MainnetVerifier is ComposeVerifier {
     { }
 
     /// @notice Check if the provided verifiers are sufficient
-    /// @dev Requires exactly 2 verifiers:
+    /// @dev Requires exactly 2 verifiers in ascending verifier ID order:
     /// SGX-GETH + (SGX-RETH or RISC0 or SP1), or
-    /// SGX-RETH + (SGX-GETH or RISC0 or SP1)
+    /// SGX-RETH + (RISC0 or SP1)
     function areVerifiersSufficient(address[] memory _verifiers)
         internal
         view
@@ -46,8 +46,7 @@ contract MainnetVerifier is ComposeVerifier {
         }
 
         if (_verifiers[0] == sgxRethVerifier) {
-            return _verifiers[1] == sgxGethVerifier || _verifiers[1] == risc0RethVerifier
-                || _verifiers[1] == sp1RethVerifier;
+            return _verifiers[1] == risc0RethVerifier || _verifiers[1] == sp1RethVerifier;
         }
 
         return false;

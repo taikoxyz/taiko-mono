@@ -551,7 +551,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 endOfSubmissionWindowTimestamp =
                     _proposerChecker.checkProposer(msg.sender, _lookahead);
                 if (_minBond > 0) {
-                    // Only if thre is a minimum bond set, execute this check
+                    // Only if there is a minimum bond set, execute this check
                     require(
                         _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
                     );

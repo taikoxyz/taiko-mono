@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract ProverWhitelistTest is CommonTest {
@@ -130,6 +131,11 @@ contract ProverWhitelistTest is CommonTest {
     function test_whitelistProver_RevertWhen_AlreadyDisabled() public {
         vm.expectRevert(ProverWhitelist.ProverNotWhitelisted.selector);
         proverWhitelist.whitelistProver(prover1, false);
+    }
+
+    function test_whitelistProver_RevertWhen_ProverIsZeroAddress() public {
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
+        proverWhitelist.whitelistProver(address(0), true);
     }
 
     // ---------------------------------------------------------------

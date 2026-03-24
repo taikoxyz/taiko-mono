@@ -78,6 +78,8 @@ contract ProverWhitelist is EssentialContract, IProverWhitelist {
         external
         onlyOwnerOrProverManager
     {
+        require(_prover != address(0), ZERO_ADDRESS());
+
         bool currentStatus = _provers[_prover];
         if (_enabled) {
             require(!currentStatus, ProverWhitelistedAlready());

@@ -119,6 +119,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         external
         onlyOwnerOrEjectorManager
     {
+        require(_ejecter != address(0), ZERO_ADDRESS());
+
         ejecters[_ejecter] = _isEjecter;
         emit EjecterUpdated(_ejecter, _isEjecter);
     }
