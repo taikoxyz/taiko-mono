@@ -392,17 +392,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 // Write proposal hash
                 sstore(currentSlot, proposalHash)
 
-                // ProposedFast: LOG0 — no topics, identified by contract address
+                // ProposedFast: LOG0 with 1 word — blobHash derivable from BLOBHASH
                 if queueEmpty {
-                    mstore(0x00, mload(0x220)) // blobHash
                     mstore(
-                        0x20,
+                        0x00,
                         or(
                             or(shl(248, bfsPctg), shl(224, mload(0x1c0))),
                             shl(176, mload(0x1e0))
                         )
                     )
-                    log0(0x00, 0x40)
+                    log0(0x00, 0x20)
                 }
             }
 
