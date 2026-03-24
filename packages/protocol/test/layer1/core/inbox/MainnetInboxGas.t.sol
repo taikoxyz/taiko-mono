@@ -26,8 +26,8 @@ contract TestMainnetInbox is Inbox {
         address checker = address(_proposerChecker);
         assembly {
             let ptr := mload(0x40)
-            // checkProposerMinimal(address) — selector 0xff7a9297
-            mstore(ptr, 0xff7a929700000000000000000000000000000000000000000000000000000000)
+            // checkProposerAsm(address) — selector 0x36c79ff4
+            mstore(ptr, 0x36c79ff400000000000000000000000000000000000000000000000000000000)
             mstore(add(ptr, 0x04), _sender)
 
             if iszero(staticcall(gas(), checker, ptr, 0x24, 0x00, 0x00)) {

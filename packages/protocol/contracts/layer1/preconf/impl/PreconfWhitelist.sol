@@ -117,6 +117,31 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _verifyProposer(_proposer);
     }
 
+    /// @dev Ultra-minimal proposer check — pure assembly for single-operator fast path.
+    /// Reverts if operatorCount != 1 or proposer doesn't match.
+    function checkProposerAsm(address _proposer) external view {
+        assembly {
+            // Load operatorCount from storage
+            // operatorCount is at slot keccak256(operatorMapping.slot) offset... no,
+            // operatorCount is a standalone variable. Need to find its slot.
+            // operatorMapping is at slot 1 (after operators at slot 0)
+            // operatorCount is at slot 2
+            let count := and(sload(operatorCount.slot), 0xff)
+            if iszero(eq(count, 1)) {
+                mstore(0x00, 0x11a6a3c2) // InvalidProposer()
+                revert(0x1c, 0x04)
+            }
+            // Load operatorMapping[0]
+            mstore(0x00, 0)
+            mstore(0x20, operatorMapping.slot)
+            let op := sload(keccak256(0x00, 0x40))
+            if iszero(eq(op, _proposer)) {
+                mstore(0x00, 0x11a6a3c2) // InvalidProposer()
+                revert(0x1c, 0x04)
+            }
+        }
+    }
+
     function _verifyProposer(address _proposer) internal view {
         // Single-operator fast path: skip epoch computation and _getOperatorForEpoch call
         uint256 count = operatorCount;

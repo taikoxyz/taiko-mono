@@ -270,7 +270,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
 
                 // Inline proposer check — use 0x00 scratch space (overwritten by hash buffer later)
-                mstore(0x00, 0xff7a929700000000000000000000000000000000000000000000000000000000)
+                // checkProposerAsm(address) — selector 0x36c79ff4
+                mstore(0x00, 0x36c79ff400000000000000000000000000000000000000000000000000000000)
                 mstore(0x04, caller())
                 if iszero(staticcall(gas(), checker, 0x00, 0x24, 0, 0)) {
                     returndatacopy(0, 0, returndatasize())
