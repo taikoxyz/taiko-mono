@@ -240,8 +240,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     queueEmpty := eq(head, tail)
                 }
                 if (queueEmpty) {
-                    sources = new DerivationSource[](1);
-                    sources[0] = DerivationSource(false, blobSlice);
+                    // Assembly allocation: [arr: len=1, ptr] [ds: false, blobSlice]
+                    assembly {
+                        let fmp := mload(0x40)
+                        sources := fmp
+                        mstore(fmp, 1) // array length = 1
+                        let ds := add(fmp, 0x40)
+                        mstore(add(fmp, 0x20), ds) // array[0] = pointer to ds
+                        mstore(ds, 0) // isForcedInclusion = false
+                        mstore(add(ds, 0x20), blobSlice) // blobSlice pointer
+                        mstore(0x40, add(ds, 0x40))
+                    }
                 } else {
                     (sources, allowsPermissionless) =
                         _consumeForcedInclusions(msg.sender, input.numForcedInclusions);
