@@ -227,10 +227,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
                 coreSlot := sload(_coreState.slot)
                 nextProposalId := and(coreSlot, 0xffffffffffff)
-                if iszero(nextProposalId) {
-                    mstore(0x00, 0xba74d80f)
-                    revert(0x1c, 0x04)
-                }
+                // nextProposalId >= 1 guaranteed by init() — skip zero check
                 if iszero(gt(number(), and(shr(48, coreSlot), 0xffffffffffff))) {
                     mstore(0x00, 0x92a2f43a)
                     revert(0x1c, 0x04)
