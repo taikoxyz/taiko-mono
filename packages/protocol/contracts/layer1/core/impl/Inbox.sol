@@ -351,7 +351,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // Bond transfers only apply when whitelist is not enabled.
             if (!isWhitelistEnabled) {
-                _processLivenessBond(commitment, offset, state.lastFinalizedTimestamp);
+                uint256 livenessWindowDeadline = (commitment.transitions[offset].timestamp
+                        + _provingWindow)
+                .max(uint256(state.lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+
+                if (block.timestamp > livenessWindowDeadline) {
+                    _bondStorage.settleLivenessBond(
+                        commitment.transitions[offset].proposer,
+                        commitment.actualProver,
+                        _livenessBond
+                    );
+                }
             }
 
             // -----------------------------------------------------------------------------
