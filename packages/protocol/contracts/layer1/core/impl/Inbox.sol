@@ -564,8 +564,23 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
             );
 
-            (DerivationSource[] memory sources, bool allowsPermissionless) =
-                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+            // Gas optimization: inline the empty-queue fast path to avoid
+            // _consumeForcedInclusions function call overhead in the common case.
+            // Original Solidity:
+            //   (DerivationSource[] memory sources, bool allowsPermissionless) =
+            //       _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+            DerivationSource[] memory sources;
+            bool allowsPermissionless;
+            {
+                LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
+                if ($.head == $.tail) {
+                    // Common path: empty forced inclusion queue
+                    sources = new DerivationSource[](1);
+                } else {
+                    (sources, allowsPermissionless) =
+                        _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+                }
+            }
 
             sources[sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
