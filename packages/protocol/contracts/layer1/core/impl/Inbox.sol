@@ -283,16 +283,23 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 sources: sources
             });
 
-            // Update nextProposalId and lastProposalBlockId in the packed slot
+            bytes32 proposalHash = LibHashOptimized.hashProposal(proposal);
+            uint256 rbs = _ringBufferSize;
+
+            // Update coreState and write proposal hash to ring buffer in single assembly block
             assembly {
-                // Clear bits 0-95 (nextProposalId + lastProposalBlockId) and set new values
+                // Update nextProposalId and lastProposalBlockId in the packed slot
                 let cleared := and(coreSlot, not(0xffffffffffffffffffffffff))
                 let newValue :=
                     or(or(cleared, add(nextProposalId, 1)), shl(48, and(number(), 0xffffffffffff)))
                 sstore(_coreState.slot, newValue)
+
+                // Write proposal hash to mapping: _proposalHashes[nextProposalId % rbs]
+                // Mapping slot = keccak256(abi.encode(key, mappingSlot))
+                mstore(0x00, mod(nextProposalId, rbs))
+                mstore(0x20, _proposalHashes.slot)
+                sstore(keccak256(0x00, 0x40), proposalHash)
             }
-            _proposalHashes[nextProposalId % _ringBufferSize] =
-                LibHashOptimized.hashProposal(proposal);
 
             emit Proposed(
                 nextProposalId,
