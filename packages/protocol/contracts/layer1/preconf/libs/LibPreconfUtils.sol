@@ -35,31 +35,41 @@ library LibPreconfUtils {
     /// timestamp exceeds the current block timestamp.
     /// @dev Caller should verify the returned value is not 0.
     /// @param _timestamp The timestamp for which the beacon block root is to be retrieved.
-    /// @return The beacon block root as a bytes32 value.
-    function getBeaconBlockRootAtOrAfter(uint256 _timestamp) internal view returns (bytes32) {
-        if (_timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
-            return bytes32(0);
-        }
-        bytes32 root;
+    /// @return root_ The beacon block root as a bytes32 value.
+    function getBeaconBlockRootAtOrAfter(uint256 _timestamp) internal view returns (bytes32 root_) {
         assembly {
-            let ts := add(_timestamp, 12) // SECONDS_IN_SLOT
-            let ct := timestamp() // block.timestamp
-            for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
-                if gt(ts, ct) { break }
-                mstore(0x00, ts)
-                if staticcall(
-                    gas(), 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02, 0x00, 0x20, 0x00, 0x20
-                ) {
-                    let r := mload(0x00)
-                    if r {
-                        root := r
-                        break
+            // Inline genesis timestamp check — avoids Solidity if/else dispatch
+            let genesis := 0
+            switch chainid()
+            case 1 { genesis := 1606824023 }
+            case 17000 { genesis := 1695902400 }
+            case 7014190335 { genesis := 1718967660 }
+            case 560048 { genesis := 1742213400 }
+
+            if iszero(lt(_timestamp, genesis)) {
+                let ts := add(_timestamp, 12) // SECONDS_IN_SLOT
+                let ct := timestamp()
+                for { let i := 0 } lt(i, 32) { i := add(i, 1) } {
+                    if gt(ts, ct) { break }
+                    mstore(0x00, ts)
+                    if staticcall(
+                        gas(),
+                        0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02,
+                        0x00,
+                        0x20,
+                        0x00,
+                        0x20
+                    ) {
+                        let r := mload(0x00)
+                        if r {
+                            root_ := r
+                            break
+                        }
                     }
+                    ts := add(ts, 12)
                 }
-                ts := add(ts, 12) // SECONDS_IN_SLOT
             }
         }
-        return root;
     }
 
     /// @notice Retrieves the beacon block root at a specific timestamp.
