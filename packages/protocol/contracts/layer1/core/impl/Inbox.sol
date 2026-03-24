@@ -286,7 +286,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                         let blobSlicePtr := add(fmp, add(0x20, mul(numBlobs, 0x20)))
                         mstore(blobSlicePtr, fmp) // blobHashes pointer
                         mstore(add(blobSlicePtr, 0x20), mload(add(blobRef, 0x40))) // offset
-                        mstore(add(blobSlicePtr, 0x40), and(timestamp(), 0xffffffffffff))
+                        mstore(add(blobSlicePtr, 0x40), timestamp())
 
                         // DerivationSource after BlobSlice
                         let ds := add(blobSlicePtr, 0x60)
