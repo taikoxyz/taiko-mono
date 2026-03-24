@@ -789,16 +789,77 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @dev Emits the Proposed event
+    /// @dev Emits the Proposed event using assembly to avoid Solidity's ABI encoder overhead
+    ///      for encoding the nested dynamic DerivationSource[] data.
+    ///      Original Solidity:
+    ///        emit Proposed(id, proposer, parentProposalHash, endOfSubmissionWindowTimestamp,
+    ///                      basefeeSharingPctg, sources);
+    ///      Event data layout (non-indexed):
+    ///        [0]: parentProposalHash
+    ///        [1]: endOfSubmissionWindowTimestamp
+    ///        [2]: basefeeSharingPctg
+    ///        [3]: 0x80 (offset to sources = 4 * 32)
+    ///        [4..]: sources encoding (same nested format as in hashProposal)
     function _emitProposedEvent(Proposal memory _proposal) private {
-        emit Proposed(
-            _proposal.id,
-            _proposal.proposer,
-            _proposal.parentProposalHash,
-            _proposal.endOfSubmissionWindowTimestamp,
-            _proposal.basefeeSharingPctg,
-            _proposal.sources
-        );
+        assembly {
+            let ptr := mload(0x40)
+
+            // Static non-indexed data
+            mstore(ptr, mload(add(_proposal, 0x80))) // parentProposalHash
+            mstore(add(ptr, 0x20), mload(add(_proposal, 0x40))) // endOfSubmissionWindowTimestamp
+            mstore(add(ptr, 0x40), mload(add(_proposal, 0xe0))) // basefeeSharingPctg
+            mstore(add(ptr, 0x60), 0x80) // offset to sources array
+
+            // Sources array encoding
+            let sourcesArrPtr := mload(add(_proposal, 0x100))
+            let numSources := mload(sourcesArrPtr)
+
+            let base := add(ptr, 0x80)
+            mstore(base, numSources) // sources.length
+
+            let offsetArea := add(base, 0x20)
+            let dataArea := add(offsetArea, mul(numSources, 0x20))
+            let curDataOffset := mul(numSources, 0x20)
+
+            for { let i := 0 } lt(i, numSources) { i := add(i, 1) } {
+                mstore(add(offsetArea, mul(i, 0x20)), curDataOffset)
+
+                let srcPtr := mload(add(add(sourcesArrPtr, 0x20), mul(i, 0x20)))
+                let blobSlicePtr := mload(add(srcPtr, 0x20))
+                let blobHashesPtr := mload(blobSlicePtr)
+                let numHashes := mload(blobHashesPtr)
+
+                mstore(dataArea, mload(srcPtr)) // isForcedInclusion
+                mstore(add(dataArea, 0x20), 0x40) // offset to blobSlice
+                mstore(add(dataArea, 0x40), 0x60) // offset to blobHashes
+                mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20))) // offset
+                mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40))) // timestamp
+                mstore(add(dataArea, 0xa0), numHashes)
+
+                for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
+                    mstore(
+                        add(add(dataArea, 0xc0), mul(j, 0x20)),
+                        mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
+                    )
+                }
+
+                let sourceBytes := mul(add(6, numHashes), 0x20)
+                dataArea := add(dataArea, sourceBytes)
+                curDataOffset := add(curDataOffset, sourceBytes)
+            }
+
+            let dataSize := sub(dataArea, ptr)
+
+            // LOG3: topic0 = event sig, topic1 = id, topic2 = proposer
+            log3(
+                ptr,
+                dataSize,
+                // Proposed(uint48,address,bytes32,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])
+                0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213,
+                mload(_proposal), // id
+                mload(add(_proposal, 0x60)) // proposer
+            )
+        }
     }
 
     // ---------------------------------------------------------------
