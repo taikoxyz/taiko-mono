@@ -227,10 +227,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 lastFinalizedProposalId := and(shr(96, coreSlot), 0xffffffffffff)
             }
             require(nextProposalId > 0, ActivationRequired());
-
-            Proposal memory proposal = _buildProposal(
-                input, _lookahead, nextProposalId, lastProposalBlockId, lastFinalizedProposalId
+            require(block.number > lastProposalBlockId, CannotProposeInCurrentBlock());
+            require(
+                _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
             );
+
+            Proposal memory proposal = _buildProposal(input, _lookahead, nextProposalId);
 
             // Update nextProposalId and lastProposalBlockId in the packed slot
             assembly {
@@ -599,27 +601,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _input The propose input data.
     /// @param _lookahead Encoded data forwarded to the proposer checker (i.e. lookahead payloads).
     /// @param _nextProposalId The proposal ID to assign.
-    /// @param _lastProposalBlockId The last block number where a proposal was made.
-    /// @param _lastFinalizedProposalId The ID of the last finalized proposal.
     /// @return proposal_ The proposal with final endOfSubmissionWindowTimestamp set.
     function _buildProposal(
         ProposeInput memory _input,
         bytes calldata _lookahead,
-        uint48 _nextProposalId,
-        uint48 _lastProposalBlockId,
-        uint48 _lastFinalizedProposalId
+        uint48 _nextProposalId
     )
         private
         returns (Proposal memory proposal_)
     {
         unchecked {
-            // Enforce one propose call per Ethereum block to prevent spam attacks that could
-            // deplete the ring buffer
-            require(block.number > _lastProposalBlockId, CannotProposeInCurrentBlock());
-            require(
-                _ringBufferSize > _nextProposalId - _lastFinalizedProposalId, NotEnoughCapacity()
-            );
-
             ConsumptionResult memory result =
                 _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
 
