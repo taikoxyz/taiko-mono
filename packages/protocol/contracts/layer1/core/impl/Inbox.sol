@@ -229,6 +229,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             uint48 nextProposalId;
             uint256 coreSlot;
+            uint256 rbs = _ringBufferSize;
             assembly {
                 coreSlot := sload(_coreState.slot)
                 nextProposalId := and(coreSlot, 0xffffffffffff)
@@ -242,9 +243,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     mstore(0x00, 0x92a2f43a) // CannotProposeInCurrentBlock()
                     revert(0x1c, 0x04)
                 }
-            }
-            uint256 rbs = _ringBufferSize;
-            assembly {
                 // require(rbs > nextProposalId - lastFinalizedProposalId)
                 if iszero(gt(rbs, sub(nextProposalId, and(shr(96, coreSlot), 0xffffffffffff)))) {
                     mstore(0x00, 0xeaabac9b) // NotEnoughCapacity()
