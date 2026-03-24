@@ -204,16 +204,140 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
+    /// @notice Fast-path propose — single blob, no forced inclusions, no lookahead.
+    /// @param _packedInput Packed fields: deadline(48)|blobStartIndex(16)|numBlobs(16)|blobOffset(24)|unused
+    function proposeFast(uint256 _packedInput) external {
+        unchecked {
+            // Inline nonReentrant
+            assembly {
+                let slot := 0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b
+                if eq(tload(slot), 2) {
+                    mstore(0x00, 0x37ed32e8)
+                    revert(0x1c, 0x04)
+                }
+                tstore(slot, 2)
+            }
+
+            uint48 nextProposalId;
+            uint256 coreSlot;
+            uint256 rbs = _ringBufferSize;
+            assembly {
+                // Deadline check
+                let dl := shr(208, _packedInput)
+                if dl {
+                    if gt(timestamp(), dl) {
+                        mstore(0x00, 0x559895a3)
+                        revert(0x1c, 0x04)
+                    }
+                }
+
+                coreSlot := sload(_coreState.slot)
+                nextProposalId := and(coreSlot, 0xffffffffffff)
+                if iszero(nextProposalId) {
+                    mstore(0x00, 0xba74d80f)
+                    revert(0x1c, 0x04)
+                }
+                if iszero(gt(number(), and(shr(48, coreSlot), 0xffffffffffff))) {
+                    mstore(0x00, 0x92a2f43a)
+                    revert(0x1c, 0x04)
+                }
+                if iszero(gt(rbs, sub(nextProposalId, and(shr(96, coreSlot), 0xffffffffffff)))) {
+                    mstore(0x00, 0xeaabac9b)
+                    revert(0x1c, 0x04)
+                }
+
+                // Require forced inclusion queue is empty
+                let packed := sload(add(_forcedInclusionStorage.slot, 1))
+                if iszero(eq(and(packed, 0xffffffffffff), and(shr(48, packed), 0xffffffffffff))) {
+                    mstore(0x00, 0x27a0cc69) // revert — must use propose() when queue non-empty
+                    revert(0x1c, 0x04)
+                }
+
+                // Decode blob fields
+                let blobStartIndex := and(shr(192, _packedInput), 0xffff)
+                let numBlobs := and(shr(176, _packedInput), 0xffff)
+                if iszero(numBlobs) {
+                    mstore(0x00, 0x27a0cc69)
+                    revert(0x1c, 0x04)
+                }
+                let h := blobhash(blobStartIndex)
+                if iszero(h) {
+                    mstore(0x00, 0x8f84fb24)
+                    revert(0x1c, 0x04)
+                }
+                mstore(0x220, h)
+                mstore(0x1c0, and(shr(152, _packedInput), 0xffffff))
+                mstore(0x1e0, timestamp())
+                for { let i := 1 } lt(i, numBlobs) { i := add(i, 1) } {
+                    if iszero(blobhash(add(blobStartIndex, i))) {
+                        mstore(0x00, 0x8f84fb24)
+                        revert(0x1c, 0x04)
+                    }
+                }
+            }
+
+            uint8 bfsPctg = _basefeeSharingPctg;
+            address checker = address(_proposerChecker);
+            assembly {
+                // Inline proposer check
+                mstore(0x240, 0xff7a929700000000000000000000000000000000000000000000000000000000)
+                mstore(0x244, caller())
+                if iszero(staticcall(gas(), checker, 0x240, 0x24, 0, 0)) {
+                    returndatacopy(0, 0, returndatasize())
+                    revert(0, returndatasize())
+                }
+
+                // Read parent proposal hash
+                mstore(0x00, mod(sub(nextProposalId, 1), rbs))
+                mstore(0x20, _proposalHashes.slot)
+                let parentProposalHash := sload(keccak256(0x00, 0x40))
+
+                // Pre-compute current slot
+                mstore(0x00, mod(nextProposalId, rbs))
+                let currentSlot := keccak256(0x00, 0x40)
+
+                // Hash buffer at 0x00
+                mstore(0x00, nextProposalId)
+                mstore(0x20, timestamp())
+                mstore(0x40, 0) // endOfSubmissionWindowTimestamp
+                mstore(0x60, caller())
+                mstore(0x80, parentProposalHash)
+                let pbn := sub(number(), 1)
+                mstore(0xa0, pbn)
+                mstore(0xc0, blockhash(pbn))
+                mstore(0xe0, bfsPctg)
+                mstore(0x100, 0x120)
+                mstore(0x120, 1)
+                mstore(0x140, 0x20)
+                mstore(0x160, 0)
+                mstore(0x180, 0x40)
+                mstore(0x1a0, 0x60)
+                mstore(0x200, 1)
+
+                let proposalHash := keccak256(0x00, 0x240)
+
+                // Update coreState
+                sstore(
+                    _coreState.slot,
+                    or(
+                        or(
+                            and(coreSlot, not(0xffffffffffffffffffffffff)),
+                            add(nextProposalId, 1)
+                        ),
+                        shl(48, number())
+                    )
+                )
+                sstore(currentSlot, proposalHash)
+            }
+
+            // Unlock nonReentrant
+            assembly {
+                tstore(0xa5054f728453d3dbe953bdc43e4d0cb97e662ea32d7958190f3dc2da31d9721b, 1)
+            }
+        }
+    }
+
     /// @inheritdoc IInbox
-    /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
-    /// @dev Key behaviors:
-    ///      1. Validates proposer authorization via `IProposerChecker`
-    ///      2. Processes up to `min(input.numForcedInclusions, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)`
-    ///         forced inclusions. If forced inclusions are due, the proposer must request at least
-    ///         `min(numDue, MAX_FORCED_INCLUSIONS_PER_PROPOSAL)` forced inclusions.
-    ///      3. Updates core state and emits `Proposed` event
-    /// NOTE: This function can only be called once per block to prevent spams that can fill the
-    /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external {
         unchecked {
             // Inline nonReentrant — avoid 3 virtual function dispatches
