@@ -1,12 +1,12 @@
 //! Whitelist preconfirmation envelope importer.
 
-use std::sync::Arc;
+use std::sync::{Arc, atomic::AtomicU64};
 
 use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use driver::sync::event::EventSyncer;
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -57,7 +57,7 @@ where
     /// Beacon client used for EOS epoch validation.
     pub(crate) beacon_client: Arc<BeaconClient>,
     /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
-    pub(crate) highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
+    pub(crate) highest_unsafe_l2_payload_block_id: Option<Arc<AtomicU64>>,
 }
 
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
@@ -90,7 +90,7 @@ where
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
-    highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
+    highest_unsafe_l2_payload_block_id: Option<Arc<AtomicU64>>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.

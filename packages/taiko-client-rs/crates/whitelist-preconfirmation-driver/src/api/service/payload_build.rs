@@ -1,5 +1,7 @@
 //! Payload build/signing helpers used by `build_preconf_block`.
 
+use std::sync::atomic::Ordering;
+
 use super::*;
 
 impl<P> WhitelistApiService<P>
@@ -129,6 +131,6 @@ where
 
     /// Update highest unsafe block tracking on each insertion/reorg point.
     pub(super) async fn update_highest_unsafe(&self, block_number: u64) {
-        *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
+        self.highest_unsafe_l2_payload_block_id.store(block_number, Ordering::Relaxed);
     }
 }

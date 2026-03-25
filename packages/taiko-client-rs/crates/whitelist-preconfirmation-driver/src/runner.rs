@@ -1,6 +1,10 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    net::SocketAddr,
+    sync::{Arc, atomic::AtomicU64},
+    time::Instant,
+};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
@@ -9,7 +13,6 @@ use driver::{DriverConfig, map_driver_error};
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
-use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use crate::{
@@ -153,7 +156,8 @@ impl WhitelistPreconfirmationDriverRunner {
                     0
                 }
             };
-            let shared_highest = Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
+            let shared_highest =
+                Arc::new(AtomicU64::new(initial_highest_unsafe_l2_payload_block_id));
 
             let rest_sequencer_fetcher = WhitelistSequencerFetcher::new(
                 self.config.whitelist_address,

@@ -1,5 +1,7 @@
 //! Status and websocket-subscription helpers for the REST handler.
 
+use std::sync::atomic::Ordering;
+
 use super::*;
 
 impl<P> WhitelistApiService<P>
@@ -9,7 +11,7 @@ where
     /// Build the current status snapshot served by the REST `/status` route.
     pub(super) async fn get_status_snapshot(&self) -> Result<WhitelistStatus> {
         let head_l1_origin = self.rpc.head_l1_origin().await?;
-        let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
+        let highest_unsafe = self.highest_unsafe_l2_payload_block_id.load(Ordering::Relaxed);
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
             .cache_state

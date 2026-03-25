@@ -1,6 +1,9 @@
 //! Whitelist preconfirmation API service implementation.
 
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::{Arc, atomic::AtomicU64},
+    time::Instant,
+};
 
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
@@ -75,7 +78,7 @@ where
     /// Local peer ID string.
     local_peer_id: String,
     /// Highest unsafe payload block ID tracked by this node (shared with importer).
-    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+    highest_unsafe_l2_payload_block_id: Arc<AtomicU64>,
     /// Cached lookahead status used for fee-recipient validation.
     lookahead_status: RwLock<Option<LookaheadStatus>>,
     /// Shared cache state used to back `/status` and EOS visibility.
@@ -102,7 +105,7 @@ where
     /// Pre-built fetcher for cached whitelist operator lookups.
     pub(crate) sequencer_fetcher: WhitelistSequencerFetcher<P>,
     /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
-    pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+    pub(crate) highest_unsafe_l2_payload_block_id: Arc<AtomicU64>,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared preconfirmation cache state.
