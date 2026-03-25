@@ -397,10 +397,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint + 5. Update core state
             // -----------------------------------------------------------------------------
+            // Cache last block hash — accessed twice (checkpoint + state write-back)
+            bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
             {
-                // Cache last block hash — accessed twice (checkpoint + state update)
-                bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
-
                 // Assembly external call — avoids Solidity ABI encoder for Checkpoint struct.
                 // Original Solidity: _signalService.saveCheckpoint(Checkpoint({...}));
                 ISignalService ss = _signalService;
@@ -423,40 +422,29 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                         revert(ptr, returndatasize())
                     }
                 }
-
-                uint48 ts = uint48(block.timestamp);
-                state.lastCheckpointTimestamp = ts;
-                state.lastFinalizedProposalId = uint48(lastProposalId);
-                state.lastFinalizedTimestamp = ts;
-                state.lastFinalizedBlockHash = lastBlockHash;
             }
 
-            // Assembly write-back — reads fields from memory struct and does 2 SSTOREs,
-            // avoiding Solidity's struct-to-storage encoder overhead.
-            // Original Solidity: _coreState = state;
-            // CoreState memory layout: [0x00] nextProposalId, [0x20] lastProposalBlockId,
-            //   [0x40] lastFinalizedProposalId, [0x60] lastFinalizedTimestamp,
-            //   [0x80] lastCheckpointTimestamp, [0xa0] lastFinalizedBlockHash
+            // Assembly CoreState write-back — packs updated fields directly from stack
+            // without intermediate Solidity MSTOREs to the memory struct.
+            // Original Solidity: state.lastFinalizedProposalId = ...; _coreState = state;
             {
                 CoreState storage coreRef = _coreState;
                 assembly {
                     let mask48 := 0xffffffffffff
+                    let ts := and(timestamp(), mask48)
                     let packed :=
                         or(
                             or(
-                                or(
-                                    and(mload(state), mask48),
-                                    shl(48, and(mload(add(state, 0x20)), mask48))
-                                ),
-                                shl(96, and(mload(add(state, 0x40)), mask48))
+                                and(mload(state), mask48),
+                                shl(48, and(mload(add(state, 0x20)), mask48))
                             ),
                             or(
-                                shl(144, and(mload(add(state, 0x60)), mask48)),
-                                shl(192, and(mload(add(state, 0x80)), mask48))
+                                shl(96, and(lastProposalId, mask48)),
+                                or(shl(144, ts), shl(192, ts))
                             )
                         )
                     sstore(coreRef.slot, packed)
-                    sstore(add(coreRef.slot, 1), mload(add(state, 0xa0)))
+                    sstore(add(coreRef.slot, 1), lastBlockHash)
                 }
             }
 
@@ -480,6 +468,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
+            // Assembly external call — avoids Solidity ABI encoder overhead for bytes calldata.
+            // Original Solidity: _proofVerifier.verifyProof(age, hash, _proof);
             // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
             // Single-proposal proofs pass actual age for age-based verification logic.
             _proofVerifier.verifyProof(
