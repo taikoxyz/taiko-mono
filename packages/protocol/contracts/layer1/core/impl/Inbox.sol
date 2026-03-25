@@ -768,9 +768,99 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     or(cleared, or(add(nextProposalId, 1), shl(48, and(number(), mask48))))
                 sstore(coreRef.slot, newPacked)
             }
+            // Gas optimization: inline _hashAndEmitProposal to eliminate function call overhead.
+            // Original Solidity: bytes32 proposalHash = _hashAndEmitProposal(proposal);
             {
-                bytes32 proposalHash = _hashAndEmitProposal(proposal);
+                bytes32 proposalHash;
                 assembly {
+                    let ptr := mload(0x40)
+                    mstore(ptr, 0x20)
+                    mstore(add(ptr, 0x20), mload(proposal))
+                    mstore(add(ptr, 0x40), mload(add(proposal, 0x20)))
+                    mstore(add(ptr, 0x60), mload(add(proposal, 0x40)))
+                    mstore(add(ptr, 0x80), mload(add(proposal, 0x60)))
+                    mstore(add(ptr, 0xa0), mload(add(proposal, 0x80)))
+                    mstore(add(ptr, 0xc0), mload(add(proposal, 0xa0)))
+                    mstore(add(ptr, 0xe0), mload(add(proposal, 0xc0)))
+                    mstore(add(ptr, 0x100), mload(add(proposal, 0xe0)))
+                    mstore(add(ptr, 0x120), 0x120)
+
+                    let sourcesArrPtr := mload(add(proposal, 0x100))
+                    let numSources := mload(sourcesArrPtr)
+                    mstore(add(ptr, 0x140), numSources)
+
+                    let offsetArea := add(ptr, 0x160)
+                    let dataArea := add(offsetArea, mul(numSources, 0x20))
+
+                    switch eq(numSources, 1)
+                    case 1 {
+                        mstore(offsetArea, 0x20)
+                        let srcPtr := mload(add(sourcesArrPtr, 0x20))
+                        let blobSlicePtr := mload(add(srcPtr, 0x20))
+                        let blobHashesPtr := mload(blobSlicePtr)
+                        let numHashes := mload(blobHashesPtr)
+                        mstore(dataArea, mload(srcPtr))
+                        mstore(add(dataArea, 0x20), 0x40)
+                        mstore(add(dataArea, 0x40), 0x60)
+                        mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
+                        mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
+                        mstore(add(dataArea, 0xa0), numHashes)
+                        switch eq(numHashes, 1)
+                        case 1 {
+                            mstore(add(dataArea, 0xc0), mload(add(blobHashesPtr, 0x20)))
+                        }
+                        default {
+                            for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
+                                mstore(
+                                    add(add(dataArea, 0xc0), mul(j, 0x20)),
+                                    mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
+                                )
+                            }
+                        }
+                        dataArea := add(dataArea, mul(add(6, numHashes), 0x20))
+                    }
+                    default {
+                        let curDataOffset := mul(numSources, 0x20)
+                        for { let i := 0 } lt(i, numSources) { i := add(i, 1) } {
+                            mstore(add(offsetArea, mul(i, 0x20)), curDataOffset)
+                            let srcPtr := mload(add(add(sourcesArrPtr, 0x20), mul(i, 0x20)))
+                            let blobSlicePtr := mload(add(srcPtr, 0x20))
+                            let blobHashesPtr := mload(blobSlicePtr)
+                            let numHashes := mload(blobHashesPtr)
+                            mstore(dataArea, mload(srcPtr))
+                            mstore(add(dataArea, 0x20), 0x40)
+                            mstore(add(dataArea, 0x40), 0x60)
+                            mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
+                            mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
+                            mstore(add(dataArea, 0xa0), numHashes)
+                            for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
+                                mstore(
+                                    add(add(dataArea, 0xc0), mul(j, 0x20)),
+                                    mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
+                                )
+                            }
+                            let sourceBytes := mul(add(6, numHashes), 0x20)
+                            dataArea := add(dataArea, sourceBytes)
+                            curDataOffset := add(curDataOffset, sourceBytes)
+                        }
+                    }
+
+                    proposalHash := keccak256(ptr, sub(dataArea, ptr))
+
+                    // Emit Proposed event reusing the hash buffer
+                    mstore(add(ptr, 0xc0), mload(add(proposal, 0x80)))
+                    mstore(add(ptr, 0xe0), mload(add(proposal, 0x40)))
+                    mstore(add(ptr, 0x100), mload(add(proposal, 0xe0)))
+                    mstore(add(ptr, 0x120), 0x80)
+                    log3(
+                        add(ptr, 0xc0),
+                        sub(dataArea, add(ptr, 0xc0)),
+                        0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213,
+                        mload(proposal),
+                        mload(add(proposal, 0x60))
+                    )
+
+                    // Write proposal hash to ring buffer
                     mstore(0x00, mod(nextProposalId, ringBufSize))
                     mstore(0x20, _proposalHashes.slot)
                     sstore(keccak256(0x00, 0x40), proposalHash)
