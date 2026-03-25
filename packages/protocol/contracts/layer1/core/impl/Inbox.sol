@@ -289,12 +289,35 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -------------------------------------------------------------------------------
             Commitment memory commitment = input.commitment;
 
-            // `offset` is the index of the next-to-finalize proposal in the transitions array.
-            (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
-                _validateCommitment(state, commitment);
+            // Inline _validateCommitment — saves ~30 gas from JUMP overhead
+            uint256 firstUnfinalizedId = state.lastFinalizedProposalId + 1;
+            uint256 numProposals = commitment.transitions.length;
+            require(numProposals > 0, EmptyBatch());
+            require(commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
+            uint256 lastProposalId = commitment.firstProposalId + numProposals - 1;
+            require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
+            require(lastProposalId >= firstUnfinalizedId, LastProposalAlreadyFinalized());
+            uint48 offset = uint48(firstUnfinalizedId - commitment.firstProposalId);
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-            bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
+
+            // Inline _checkProver — saves ~30 gas from JUMP overhead
+            bool isWhitelistEnabled;
+            {
+                IProverWhitelist pw = _proverWhitelist;
+                if (address(pw) != address(0)) {
+                    (bool isWhitelisted, uint256 proverCount) = pw.isProverWhitelisted(msg.sender);
+                    if (proverCount != 0) {
+                        if (!isWhitelisted) {
+                            require(
+                                proposalAge > uint256(_permissionlessProvingDelay),
+                                ProverNotWhitelisted()
+                            );
+                        }
+                        isWhitelistEnabled = true;
+                    }
+                }
+            }
 
             // ---------------------------------------------------------
             // 2. Verify parent block-hash continuity and last proposal hash
@@ -305,8 +328,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 : commitment.transitions[offset - 1].blockHash;
             require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
 
+            // Inline getProposalHash — saves ~30 gas from public→internal JUMP overhead
             require(
-                commitment.lastProposalHash == getProposalHash(lastProposalId),
+                commitment.lastProposalHash
+                    == _proposalHashes[lastProposalId % _ringBufferSize],
                 LastProposalHashMismatch()
             );
 
