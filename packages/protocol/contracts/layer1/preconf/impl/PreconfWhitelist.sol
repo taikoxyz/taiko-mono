@@ -98,6 +98,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @inheritdoc IProposerChecker
+    /// @dev Gas-optimized: inlines epochStartTimestamp, _getOperatorForEpoch, _getRandomNumber,
+    ///      and getBeaconBlockRootAtOrAfter to eliminate redundant getGenesisTimestamp calls,
+    ///      SafeCast overhead, and internal function JUMP costs.
     function checkProposer(
         address _proposer,
         bytes calldata
@@ -107,9 +110,85 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         override(IProposerChecker)
         returns (uint48 endOfSubmissionWindowTimestamp_)
     {
-        address operator = _getOperatorForEpoch(epochStartTimestamp(0));
-        require(operator != address(0), InvalidProposer());
-        require(operator == _proposer, InvalidProposer());
+        // --- Inline epochStartTimestamp(0) → getEpochTimestamp(0) ---
+        // Original: epochStartTimestamp(0) → LibPreconfUtils.getEpochTimestamp()
+        //   → getGenesisTimestamp(block.chainid) + epoch floor calculation + SafeCast.toUint48
+        uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
+        uint256 epochTs;
+        unchecked {
+            uint256 timePassed = block.timestamp - genesisTimestamp;
+            epochTs = genesisTimestamp
+                + (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
+                    * LibPreconfConstants.SECONDS_IN_EPOCH;
+        }
+
+        // --- Inline _getOperatorForEpoch(uint32(epochTs)) ---
+        // Original: computes delaySeconds, reads operatorCount + latestActivationEpoch,
+        //   calls _getRandomNumber → getBeaconBlockRootAtOrAfter (which calls
+        //   getGenesisTimestamp AGAIN). By inlining we skip the second genesis lookup.
+        unchecked {
+            // RANDOMNESS_DELAY (2) * SECONDS_IN_EPOCH (384) = 768, constant-folded
+            uint256 randomnessTs =
+                epochTs >= LibPreconfConstants.TWO_EPOCHS ? epochTs - LibPreconfConstants.TWO_EPOCHS : epochTs;
+
+            // 1 SLOAD: operatorCount + latestActivationEpoch are packed in the same slot
+            uint256 count = operatorCount;
+            require(count != 0, InvalidProposer());
+
+            // --- Inline _getRandomNumber → getBeaconBlockRootAtOrAfter ---
+            // Skip genesis check: randomnessTs is derived from block.timestamp ≥ genesis,
+            // so randomnessTs ≥ 0 (genesis=0 for unknown chains) is always true.
+            bytes32 beaconRoot;
+            {
+                address beacon = LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT;
+                uint256 slotDuration = LibPreconfConstants.SECONDS_IN_SLOT;
+                assembly {
+                    let ts := add(randomnessTs, slotDuration)
+                    let current := timestamp()
+                    let ptr := mload(0x40)
+                    for {
+                        let i := 0
+                    } and(lt(i, 32), iszero(gt(ts, current))) { i := add(i, 1) } {
+                        mstore(ptr, ts)
+                        let success := staticcall(gas(), beacon, ptr, 32, ptr, 32)
+                        if and(success, gt(returndatasize(), 0)) {
+                            let root := mload(ptr)
+                            if root {
+                                beaconRoot := root
+                                break
+                            }
+                        }
+                        ts := add(ts, slotDuration)
+                    }
+                }
+            }
+
+            uint32 _latestActivationEpoch = latestActivationEpoch;
+
+            address operator;
+            if (uint32(epochTs) >= _latestActivationEpoch) {
+                // Fast path: all operators active
+                operator = operatorMapping[uint256(beaconRoot) % count];
+            } else {
+                // Slow path: check which operators are active
+                uint32 epochTs32 = uint32(epochTs);
+                address[] memory candidates = new address[](count);
+                uint256 activeCount;
+                for (uint256 i; i < count; ++i) {
+                    address op = operatorMapping[i];
+                    uint32 activeSince = operators[op].activeSince;
+                    if (activeSince != 0 && epochTs32 >= activeSince) {
+                        candidates[activeCount++] = op;
+                    }
+                }
+                if (activeCount != 0) {
+                    operator = candidates[uint256(beaconRoot) % activeCount];
+                }
+            }
+
+            require(operator == _proposer, InvalidProposer());
+        }
+
         // Slashing is not enabled for whitelisted preconfers, so we return 0
         endOfSubmissionWindowTimestamp_ = 0;
     }
