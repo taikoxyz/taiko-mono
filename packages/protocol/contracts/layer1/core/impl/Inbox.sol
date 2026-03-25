@@ -301,9 +301,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
 
-            // Inline _checkProver — saves ~30 gas from JUMP overhead
-            bool isWhitelistEnabled;
+            // Inline _checkProver + _processLivenessBond in a single scope to reduce stack depth.
+            // Uses memory `state` to avoid redundant SLOAD of _coreState.lastFinalizedTimestamp.
             {
+                bool isWhitelistEnabled;
                 IProverWhitelist pw = _proverWhitelist;
                 if (address(pw) != address(0)) {
                     (bool isWhitelisted, uint256 proverCount) = pw.isProverWhitelisted(msg.sender);
@@ -317,61 +318,60 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                         isWhitelistEnabled = true;
                     }
                 }
+
+                if (!isWhitelistEnabled) {
+                    uint256 livenessWindowDeadline = (
+                        commitment.transitions[offset].timestamp + _provingWindow
+                    ).max(state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+
+                    if (block.timestamp > livenessWindowDeadline) {
+                        _bondStorage.settleLivenessBond(
+                            commitment.transitions[offset].proposer,
+                            commitment.actualProver,
+                            _livenessBond
+                        );
+                    }
+                }
             }
 
             // ---------------------------------------------------------
             // 2. Verify parent block-hash continuity and last proposal hash
             // ---------------------------------------------------------
-            // The parent block hash must match the stored lastFinalizedBlockHash.
-            bytes32 expectedParentHash = offset == 0
-                ? commitment.firstProposalParentBlockHash
-                : commitment.transitions[offset - 1].blockHash;
-            require(state.lastFinalizedBlockHash == expectedParentHash, ParentBlockHashMismatch());
+            require(
+                state.lastFinalizedBlockHash
+                    == (
+                        offset == 0
+                            ? commitment.firstProposalParentBlockHash
+                            : commitment.transitions[offset - 1].blockHash
+                    ),
+                ParentBlockHashMismatch()
+            );
 
-            // Inline getProposalHash — saves ~30 gas from public→internal JUMP overhead
             require(
                 commitment.lastProposalHash
                     == _proposalHashes[lastProposalId % _ringBufferSize],
                 LastProposalHashMismatch()
             );
 
-            // ---------------------------------------------------------
-            // 3. Process bond instruction
-            // ---------------------------------------------------------
-            // Inline _processLivenessBond — avoids redundant SLOAD of _coreState.lastFinalizedTimestamp
-            // by using the memory copy `state` we already loaded.
-            if (!isWhitelistEnabled) {
-                uint256 livenessWindowDeadline = (
-                    commitment.transitions[offset].timestamp + _provingWindow
-                ).max(state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
-
-                if (block.timestamp > livenessWindowDeadline) {
-                    _bondStorage.settleLivenessBond(
-                        commitment.transitions[offset].proposer,
-                        commitment.actualProver,
-                        _livenessBond
-                    );
-                }
+            // -----------------------------------------------------------------------------
+            // 4. Sync checkpoint + 5. Update core state
+            // -----------------------------------------------------------------------------
+            {
+                // Cache last block hash — accessed twice (checkpoint + state update)
+                bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
+                _signalService.saveCheckpoint(
+                    ICheckpointStore.Checkpoint({
+                        blockNumber: commitment.endBlockNumber,
+                        stateRoot: commitment.endStateRoot,
+                        blockHash: lastBlockHash
+                    })
+                );
+                uint48 ts = uint48(block.timestamp);
+                state.lastCheckpointTimestamp = ts;
+                state.lastFinalizedProposalId = uint48(lastProposalId);
+                state.lastFinalizedTimestamp = ts;
+                state.lastFinalizedBlockHash = lastBlockHash;
             }
-
-            // -----------------------------------------------------------------------------
-            // 4. Sync checkpoint
-            // -----------------------------------------------------------------------------
-            _signalService.saveCheckpoint(
-                ICheckpointStore.Checkpoint({
-                    blockNumber: commitment.endBlockNumber,
-                    stateRoot: commitment.endStateRoot,
-                    blockHash: commitment.transitions[numProposals - 1].blockHash
-                })
-            );
-            state.lastCheckpointTimestamp = uint48(block.timestamp);
-
-            // ---------------------------------------------------------
-            // 5. Update core state and emit event
-            // ---------------------------------------------------------
-            state.lastFinalizedProposalId = uint48(lastProposalId);
-            state.lastFinalizedTimestamp = uint48(block.timestamp);
-            state.lastFinalizedBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
             _coreState = state;
 
