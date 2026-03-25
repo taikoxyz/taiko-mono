@@ -196,6 +196,26 @@ interface IInbox {
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
+    /// @notice Most gas-efficient propose for the common case: 1 blob at index 0, no forced
+    /// inclusions, no deadline, no lookahead. Takes zero parameters.
+    function proposeDefault() external;
+
+    /// @notice Gas-efficient propose with explicit parameters instead of encoded bytes.
+    /// @dev Does not support deadlines. Callers migrating from propose() with non-zero deadlines
+    /// will silently lose deadline-based stale-transaction protection. Use propose() if a deadline
+    /// is required.
+    /// @param _blobStartIndex Starting blob index in this transaction (usually 0).
+    /// @param _numBlobs Number of consecutive blobs for this proposal.
+    /// @param _offset Field-element offset within the blob data.
+    /// @param _numForcedInclusions Number of forced inclusions to process (0 if none due).
+    function proposeCompact(
+        uint16 _blobStartIndex,
+        uint16 _numBlobs,
+        uint24 _offset,
+        uint16 _numForcedInclusions
+    )
+        external;
+
     /// @notice Verifies a batch proof covering multiple consecutive proposals and finalizes them.
     /// @param _data The encoded ProveInput struct.
     /// @param _proof The validity proof for the batch of proposals.

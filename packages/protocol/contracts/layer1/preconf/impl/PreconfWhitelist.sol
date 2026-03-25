@@ -53,6 +53,7 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
     // ---------------------------------------------------------------
 
     constructor(address _owner) {
+        require(_owner != address(0), ZeroAddress());
         _transferOwnership(_owner);
     }
 
@@ -156,6 +157,8 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
                 }
             }
 
+            // Note: if beaconRoot == 0 (no root found), operator selection defaults to index 0.
+            // This matches the behavior of the original getBeaconBlockRootAtOrAfter.
             uint32 _latestActivationEpoch = latestActivationEpoch;
 
             address operator;
@@ -358,4 +361,5 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
     error OperatorAlreadyExists();
     error NoActiveOperatorRemaining();
     error NotOwnerOrEjecter();
+    error ZeroAddress();
 }

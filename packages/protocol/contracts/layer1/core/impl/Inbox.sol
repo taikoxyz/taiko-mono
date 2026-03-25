@@ -207,9 +207,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _propose(input, _lookahead);
     }
 
-    /// @notice Most gas-efficient propose for the common case: 1 blob at index 0, no forced
-    /// inclusions, no deadline, no lookahead. Takes zero parameters.
-    /// Saves ~2,000+ gas vs propose() by eliminating all calldata/encoding overhead.
+    /// @inheritdoc IInbox
     function proposeDefault() external nonReentrant {
         // Hardcoded: deadline=0, blobStartIndex=0, numBlobs=1, offset=0, numForcedInclusions=0
         ProposeInput memory input;
@@ -218,16 +216,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _propose(input, msg.data[0:0]);
     }
 
-    /// @notice Gas-efficient propose with explicit parameters instead of encoded bytes.
-    /// @dev Skips the LibCodec encoding/decoding overhead and bytes calldata ABI overhead.
-    /// Use when blob configuration or forced inclusions differ from the proposeDefault() defaults.
-    /// @dev Does not support deadlines. Callers migrating from propose() with non-zero deadlines
-    /// will silently lose deadline-based stale-transaction protection. Use propose() if a deadline
-    /// is required.
-    /// @param _blobStartIndex Starting blob index in this transaction (usually 0).
-    /// @param _numBlobs Number of consecutive blobs for this proposal.
-    /// @param _offset Field-element offset within the blob data.
-    /// @param _numForcedInclusions Number of forced inclusions to process (0 if none due).
+    /// @inheritdoc IInbox
     function proposeCompact(
         uint16 _blobStartIndex,
         uint16 _numBlobs,

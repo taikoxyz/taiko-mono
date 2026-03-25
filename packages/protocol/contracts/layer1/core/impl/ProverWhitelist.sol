@@ -35,6 +35,7 @@ contract ProverWhitelist is Ownable2Step, IProverWhitelist {
     /// @notice Initializes the contract with the given owner
     /// @param _owner The owner of this contract
     constructor(address _owner) {
+        require(_owner != address(0), ZeroAddress());
         _transferOwnership(_owner);
     }
 
@@ -82,4 +83,5 @@ contract ProverWhitelist is Ownable2Step, IProverWhitelist {
     error ProverWhitelistedAlready();
     /// @dev Reverts when attempting to disable a prover that is not whitelisted.
     error ProverNotWhitelisted();
+    error ZeroAddress();
 }

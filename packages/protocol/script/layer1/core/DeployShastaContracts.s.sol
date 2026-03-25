@@ -71,7 +71,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         require(config.provers.length != 0, "PROVERS not set");
         require(config.oldSignalServiceImpl != address(0), "OLD_SIGNAL_SERVICE_IMPL not set");
         require(config.shastaForkTimestamp != 0, "SHASTA_FORK_TIMESTAMP not set");
-        require(config.preconfWhitelist != address(0), "PRECONF_WHITELIST not set");
+        // config.preconfWhitelist is optional — if zero, _deploy creates a fresh one
 
         for (uint256 i = 0; i < config.provers.length; ++i) {
             require(config.provers[i] != address(0), "PROVERS contains zero address");
@@ -88,8 +88,11 @@ abstract contract DeployShastaContracts is DeployCapability {
         );
         console2.log("MainnetVerifier deployed:", proofVerifier);
 
-        address preconfWhitelist = address(new PreconfWhitelist(config.contractOwner));
-        console2.log("PreconfWhitelist deployed:", preconfWhitelist);
+        address preconfWhitelist = config.preconfWhitelist;
+        if (preconfWhitelist == address(0)) {
+            preconfWhitelist = address(new PreconfWhitelist(config.contractOwner));
+            console2.log("PreconfWhitelist deployed:", preconfWhitelist);
+        }
 
         // Deploy ProverWhitelist (non-upgradeable, no proxy)
         ProverWhitelist proverWl = new ProverWhitelist(msg.sender);
