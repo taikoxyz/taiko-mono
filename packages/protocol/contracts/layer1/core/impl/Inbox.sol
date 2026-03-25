@@ -18,7 +18,6 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
-import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 /// @title Inbox
@@ -750,7 +749,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             //   _proposalHashes[uint256(nextProposalId) % _ringBufferSize] = hash;
             bytes32 parentProposalHash;
             uint48 ringBufSize = _ringBufferSize;
-            /// forge-lint: disable-start(asm-keccak256)
+            // forge-lint: disable-start(asm-keccak256)
             assembly {
                 mstore(0x00, mod(sub(nextProposalId, 1), ringBufSize))
                 mstore(0x20, _proposalHashes.slot)
@@ -1048,7 +1047,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         private
         returns (bytes32 proposalHash_)
     {
-        /// forge-lint: disable-start(asm-keccak256)
+        // forge-lint: disable-start(asm-keccak256)
         assembly {
             let ptr := mload(0x40)
 

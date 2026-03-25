@@ -104,12 +104,14 @@ contract PreconfWhitelist is Ownable, IPreconfWhitelist, IProposerChecker {
         //   → getGenesisTimestamp(block.chainid) + epoch floor calculation + SafeCast.toUint48
         uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 epochTs;
+        // forge-lint: disable-start(divide-before-multiply)
         unchecked {
             uint256 timePassed = block.timestamp - genesisTimestamp;
             epochTs = genesisTimestamp
                 + (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
                     * LibPreconfConstants.SECONDS_IN_EPOCH;
         }
+        // forge-lint: disable-end
 
         // --- Inline _getOperatorForEpoch(uint32(epochTs)) ---
         // Original: computes delaySeconds, reads operatorCount + latestActivationEpoch,

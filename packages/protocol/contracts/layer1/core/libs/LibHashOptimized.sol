@@ -35,7 +35,7 @@ library LibHashOptimized {
         pure
         returns (bytes32 result_)
     {
-        /// forge-lint: disable-start(asm-keccak256)
+        // forge-lint: disable-start(asm-keccak256)
         assembly {
             let ptr := mload(0x40)
 
@@ -131,7 +131,7 @@ library LibHashOptimized {
         pure
         returns (bytes32 result_)
     {
-        /// forge-lint: disable-start(asm-keccak256)
+        // forge-lint: disable-start(asm-keccak256)
         assembly {
             let ptr := mload(0x40)
 

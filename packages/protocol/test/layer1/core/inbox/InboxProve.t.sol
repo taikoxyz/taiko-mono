@@ -744,7 +744,7 @@ contract InboxProveTest is InboxTestBase {
         bytes32 _blockHash
     )
         internal
-        view
+        pure
         returns (IInbox.Transition[] memory transitions_)
     {
         transitions_ = new IInbox.Transition[](1);
