@@ -672,6 +672,21 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
+            // Gas optimization: read parentProposalHash from ring buffer using assembly
+            // scratch space, avoiding Solidity's memory allocation for mapping key encoding.
+            // Also write the new proposal hash using assembly.
+            // Original Solidity:
+            //   parentProposalHash: _proposalHashes[uint256(nextProposalId - 1) % _ringBufferSize]
+            //   _proposalHashes[uint256(nextProposalId) % _ringBufferSize] = hash;
+            bytes32 parentProposalHash;
+            uint48 ringBufSize = _ringBufferSize;
+            /// forge-lint: disable-start(asm-keccak256)
+            assembly {
+                mstore(0x00, mod(sub(nextProposalId, 1), ringBufSize))
+                mstore(0x20, _proposalHashes.slot)
+                parentProposalHash := sload(keccak256(0x00, 0x40))
+            }
+
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
             Proposal memory proposal = Proposal({
@@ -679,9 +694,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                parentProposalHash: _proposalHashes[
-                    uint256(nextProposalId - 1) % _ringBufferSize
-                ],
+                parentProposalHash: parentProposalHash,
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 basefeeSharingPctg: _basefeeSharingPctg,
@@ -702,8 +715,15 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                     or(cleared, or(add(nextProposalId, 1), shl(48, and(number(), mask48))))
                 sstore(coreRef.slot, newPacked)
             }
-            _proposalHashes[uint256(nextProposalId) % _ringBufferSize] =
-                _hashAndEmitProposal(proposal);
+            {
+                bytes32 proposalHash = _hashAndEmitProposal(proposal);
+                assembly {
+                    mstore(0x00, mod(nextProposalId, ringBufSize))
+                    mstore(0x20, _proposalHashes.slot)
+                    sstore(keccak256(0x00, 0x40), proposalHash)
+                }
+            }
+            /// forge-lint: disable-end(asm-keccak256)
         }
     }
 
