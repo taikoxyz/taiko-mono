@@ -704,27 +704,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 parentProposalHash := sload(keccak256(0x00, 0x40))
             }
 
-            // Gas optimization: construct Proposal struct in assembly to avoid Solidity's
-            // struct literal memory allocation overhead.
-            // Original Solidity: Proposal memory proposal = Proposal({id: ..., ...});
-            Proposal memory proposal;
-            {
-                uint8 bfsPctg = _basefeeSharingPctg;
-                assembly {
-                    proposal := mload(0x40)
-                    mstore(0x40, add(proposal, 0x120)) // 9 fields × 32 bytes = 288
-                    mstore(proposal, nextProposalId) // id
-                    mstore(add(proposal, 0x20), and(timestamp(), 0xffffffffffff)) // timestamp
-                    mstore(add(proposal, 0x40), endOfSubmissionWindowTimestamp)
-                    mstore(add(proposal, 0x60), caller()) // proposer = msg.sender
-                    mstore(add(proposal, 0x80), parentProposalHash)
-                    let pbn := sub(number(), 1)
-                    mstore(add(proposal, 0xa0), pbn) // originBlockNumber
-                    mstore(add(proposal, 0xc0), blockhash(pbn)) // originBlockHash
-                    mstore(add(proposal, 0xe0), bfsPctg) // basefeeSharingPctg
-                    mstore(add(proposal, 0x100), sources) // sources pointer
-                }
-            }
+            // Use previous block as the origin for the proposal to be able to call `blockhash`
+            uint256 parentBlockNumber = block.number - 1;
+            Proposal memory proposal = Proposal({
+                id: nextProposalId,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
+                proposer: msg.sender,
+                parentProposalHash: parentProposalHash,
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                basefeeSharingPctg: _basefeeSharingPctg,
+                sources: sources
+            });
 
             // Gas optimization: write both modified fields in a single SSTORE by
             // updating the packed slot directly.
