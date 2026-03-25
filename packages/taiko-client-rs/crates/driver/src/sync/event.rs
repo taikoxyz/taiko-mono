@@ -233,6 +233,8 @@ where
     let Some(origin) = rpc.l1_origin_by_id(U256::from(block_number)).await? else {
         return Ok(false);
     };
+    // Treat a zero build-payload id as an uninitialized origin record so we fail closed and
+    // re-submit rather than falsely acknowledging a materialized payload.
     if origin.build_payload_args_id == [0u8; 8] ||
         origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
     {
@@ -1116,6 +1118,11 @@ where
         let mut scanner_live = false;
 
         loop {
+            if !preconf_ingress_spawned {
+                // A reconnect re-enters historical sync and must wait for a fresh
+                // `SwitchingToLive` notification before probing ingress readiness.
+                scanner_live = false;
+            }
             let mut scanner = match self
                 .cfg
                 .client
@@ -1225,6 +1232,9 @@ where
             }
 
             if let Some(block_number) = last_seen_l1_block_number {
+                // Step back one block so reconnect does not miss logs if the stream ended after
+                // yielding only part of the last block's notifications. Replaying that boundary
+                // block is safe because proposal processing is idempotent.
                 reconnect_start_tag = BlockNumberOrTag::Number(block_number.saturating_sub(1));
             }
             warn!(

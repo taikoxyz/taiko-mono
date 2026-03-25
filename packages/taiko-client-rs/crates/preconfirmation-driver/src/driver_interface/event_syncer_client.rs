@@ -83,7 +83,19 @@ const DEFAULT_PRECONF_SUBMISSION_RETRY_POLICY: PreconfirmationSubmissionRetryPol
         max_delay: Duration::from_secs(2),
     };
 
-/// Retry a preconfirmation submission when the event syncer reports a response timeout.
+/// Return retry metadata for timeout errors that indicate transient submission backpressure.
+fn retryable_preconfirmation_timeout(err: &DriverError) -> Option<(&'static str, Duration)> {
+    match err {
+        DriverError::PreconfEnqueueTimeout { waited } => Some(("enqueue", *waited)),
+        DriverError::PreconfResponseTimeout { waited } => Some(("response", *waited)),
+        _ => None,
+    }
+}
+
+/// Retry a preconfirmation submission when the event syncer reports a retryable timeout.
+///
+/// With the current 12-second embedded driver timeout, the default policy allows up to roughly
+/// 39 seconds of wall-clock latency before surfacing the final error.
 async fn submit_preconfirmation_payload_with_retry<F, Fut>(
     policy: PreconfirmationSubmissionRetryPolicy,
     block_number: u64,
@@ -100,21 +112,28 @@ where
     loop {
         match submit().await {
             Ok(()) => return Ok(()),
-            Err(DriverError::PreconfResponseTimeout { waited }) if attempt < policy.retry_limit => {
+            Err(err) => {
+                let Some((timeout_kind, waited)) = retryable_preconfirmation_timeout(&err) else {
+                    return Err(err);
+                };
+                if attempt >= policy.retry_limit {
+                    return Err(err);
+                }
+
                 attempt += 1;
                 warn!(
                     block_number,
                     proposal_id,
                     attempt,
                     retry_limit = policy.retry_limit,
+                    timeout_kind,
                     waited_secs = waited.as_secs_f64(),
                     retry_in_secs = delay.as_secs_f64(),
-                    "preconfirmation response timed out; retrying submission"
+                    "preconfirmation submission timed out; retrying"
                 );
                 sleep(delay).await;
                 delay = (delay * 2).min(policy.max_delay);
             }
-            Err(err) => return Err(err),
         }
     }
 }
@@ -431,6 +450,59 @@ mod tests {
         .await;
 
         assert!(result.is_ok(), "timeout retries should eventually succeed");
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn submit_preconfirmation_payload_with_retry_retries_enqueue_timeouts() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let policy = super::PreconfirmationSubmissionRetryPolicy {
+            retry_limit: 2,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(2),
+        };
+
+        let result = super::submit_preconfirmation_payload_with_retry(policy, 7, 11, || {
+            let attempts = Arc::clone(&attempts);
+            async move {
+                let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+                if attempt < 2 {
+                    Err(driver::DriverError::PreconfEnqueueTimeout {
+                        waited: Duration::from_secs(12),
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+        })
+        .await;
+
+        assert!(result.is_ok(), "enqueue timeout retries should eventually succeed");
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn submit_preconfirmation_payload_with_retry_returns_last_timeout_after_exhaustion() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let policy = super::PreconfirmationSubmissionRetryPolicy {
+            retry_limit: 2,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(2),
+        };
+
+        let err = super::submit_preconfirmation_payload_with_retry(policy, 7, 11, || {
+            let attempts = Arc::clone(&attempts);
+            async move {
+                attempts.fetch_add(1, Ordering::SeqCst);
+                Err(driver::DriverError::PreconfResponseTimeout {
+                    waited: Duration::from_secs(12),
+                })
+            }
+        })
+        .await
+        .expect_err("persistent response timeouts should surface after exhausting retries");
+
+        assert!(matches!(err, driver::DriverError::PreconfResponseTimeout { .. }));
         assert_eq!(attempts.load(Ordering::SeqCst), 3);
     }
 
