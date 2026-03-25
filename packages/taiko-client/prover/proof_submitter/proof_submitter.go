@@ -302,7 +302,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 	)
 	var (
 		latestProvenBlockID = common.Big0
-		uint64BatchIDs      []uint64
 	)
 	if len(batchProof.ProofResponses) == 0 {
 		return proofProducer.ErrInvalidLength
@@ -326,7 +325,6 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 
 	// Extract all block IDs and the highest block ID in the batches.
 	for _, proof := range batchProof.ProofResponses {
-		uint64BatchIDs = append(uint64BatchIDs, proof.BatchID.Uint64())
 		if new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID()).Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = new(big.Int).SetUint64(proof.Meta.Pacaya().GetLastBlockID())
 		}
@@ -338,24 +336,26 @@ func (s *ProofSubmitterPacaya) BatchSubmitProofs(ctx context.Context, batchProof
 		s.txBuilder.BuildProveBatchesPacaya(batchProof),
 		batchProof,
 	); err != nil {
-		proofBuffer.ClearItems(uint64BatchIDs...)
-		// Resend the proof request
-		for _, proofResp := range batchProof.ProofResponses {
-			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
-		}
-		if err.Error() == transaction.ErrUnretryableSubmission.Error() {
-			return nil
-		}
 		metrics.ProverAggregationSubmissionErrorCounter.Add(1)
 		return err
 	}
 
 	metrics.ProverSentProofCounter.Add(float64(len(batchProof.BatchIDs)))
 	metrics.ProverLatestProvenBlockIDGauge.Set(float64(latestProvenBlockID.Uint64()))
+	return nil
+}
 
-	// Clear the items in the buffer.
-	proofBuffer.ClearItems(uint64BatchIDs...)
-
+// ClearProofBuffers removes the submitted proof items from the Pacaya proof buffer.
+func (s *ProofSubmitterPacaya) ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error {
+	if err := clearProofBufferItems(s.proofBuffers, batchProof); err != nil {
+		return err
+	}
+	if resend {
+		// Resend the proof request
+		for _, proofResp := range batchProof.ProofResponses {
+			s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proofResp.Meta}
+		}
+	}
 	return nil
 }
 

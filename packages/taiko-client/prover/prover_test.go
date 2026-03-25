@@ -195,7 +195,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
-	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 
 	// Propose and prove the second Shasta proposal.
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
@@ -203,7 +203,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta, true))
-	s.Nil(s.p.proofSubmitterShasta.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 }
 
 func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
@@ -223,7 +223,7 @@ func (s *ProverTestSuite) TestSubmitProofAggregationOp() {
 				ProofType:         proofProducer.ProofTypeOp,
 				SgxGethBatchProof: []byte{},
 			})
-		})
+		}, nil)
 	})
 }
 
@@ -257,7 +257,7 @@ func (s *ProverTestSuite) TestProveOp() {
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
-	s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 
 	var (
 		blockHash  common.Hash
@@ -334,7 +334,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 		}
 		s.Nil(s.p.requestProofOp(req.Meta))
 		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+		s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head2.Number().Uint64() {
 			break
 		}
@@ -352,7 +352,7 @@ func (s *ProverTestSuite) TestProveMultiBlobBatch() {
 	for req := range s.p.proofSubmissionCh {
 		s.Nil(s.p.requestProofOp(req.Meta))
 		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+		s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 		if req.Meta.Pacaya().GetLastBlockID() >= l2Head3.Number().Uint64() {
 			break
 		}
@@ -413,13 +413,15 @@ func (s *ProverTestSuite) TestAggregateProofsAlreadyProved() {
 		req2 := <-batchProver.proofSubmissionCh
 		s.Nil(batchProver.requestProofOp(req2.Meta))
 		s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyPacaya, false))
-		s.Nil(s.p.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-s.p.batchProofGenerationCh))
+		s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 	}
 	s.Nil(batchProver.aggregateOp(<-batchProver.batchesAggregationNotifyPacaya, false))
+	batchProof := <-batchProver.batchProofGenerationCh
 	s.ErrorIs(
-		batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh),
+		batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), batchProof),
 		proofSubmitter.ErrInvalidProof,
 	)
+	s.Nil(batchProver.proofSubmitterPacaya.ClearProofBuffers(batchProof, false))
 }
 
 func (s *ProverTestSuite) TestAggregateProofs() {
@@ -722,7 +724,7 @@ func (s *ProverTestSuite) TestForceAggregate() {
 	case <-time.After(3 * time.Second):
 		s.Fail("timeout waiting for agg request")
 	}
-	s.Nil(batchProver.proofSubmitterPacaya.BatchSubmitProofs(context.Background(), <-batchProver.batchProofGenerationCh))
+	s.Nil(batchProver.submitProofAggregationOp(<-batchProver.batchProofGenerationCh))
 }
 
 func TestProverTestSuite(t *testing.T) {

@@ -253,33 +253,36 @@ func (p *Prover) eventLoop() {
 		case <-p.ctx.Done():
 			return
 		case batchProof := <-p.batchProofGenerationCh:
-			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
+			p.withRetry(
+				func() error { return p.submitProofAggregationOp(batchProof) },
+				func() error { return p.clearProofBuffer(batchProof, true) },
+			)
 		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
+			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
 		case proofType := <-p.batchesAggregationNotifyPacaya:
-			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
+			p.withRetry(func() error { return p.aggregateOp(proofType, false) }, nil)
 		case proofType := <-p.batchesAggregationNotifyShasta:
-			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
+			p.withRetry(func() error { return p.aggregateOp(proofType, true) }, nil)
 		case proofType := <-p.flushCacheNotify:
-			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
+			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) }, nil)
 		case e := <-batchesVerifiedCh:
 			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
 				log.Error("Failed to handle new BatchesVerified event", "error", err)
 			}
 		case e := <-batchesProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) })
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) }, nil)
 		case m := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
+			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) }, nil)
 		case <-batchProposedCh:
 			reqProving()
 		case <-shastaProposedCh:
 			reqProving()
 		case e := <-shastaProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) })
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) }, nil)
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -337,33 +340,31 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
 
 // submitProofAggregationOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
-	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
-		return fmt.Errorf("empty batch proof")
+	submitter, err := p.getSubmitter(batchProof)
+	if err != nil {
+		return err
 	}
-	submitter := p.proofSubmitterPacaya
-	if batchProof.ProofResponses[0].Meta.IsShasta() {
-		submitter = p.proofSubmitterShasta
-	}
-	if utils.IsNil(submitter) {
-		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
-	}
-
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
-			log.Error(
-				"Proof submission reverted",
-				"blockIDs", batchProof.BatchIDs,
-				"proofType", batchProof.ProofType,
-				"error", err,
-			)
-			return nil
-		} else if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+		if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Warn(
 				"Detected proven blocks",
 				"blockIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
+			return nil
+		} else if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) ||
+			strings.Contains(err.Error(), transaction.ErrUnretryableSubmission.Error()) {
+			log.Error(
+				"Proof submission reverted or unretryable",
+				"blockIDs", batchProof.BatchIDs,
+				"proofType", batchProof.ProofType,
+				"error", err,
+			)
+			if err := submitter.ClearProofBuffers(batchProof, true); err != nil {
+				// If clearing the proof buffer fails, return the error and retry in the next attempt.
+				return err
+			}
 			return nil
 		}
 		log.Error(
@@ -374,8 +375,35 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		)
 		return err
 	}
+	if err := submitter.ClearProofBuffers(batchProof, false); err != nil {
+		return fmt.Errorf("failed to clear proof buffers after successful submission: %w", err)
+	}
 
 	return nil
+}
+
+// clearProofBuffer clears the buffered proof items for the batch from the matching submitter.
+func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs, resend bool) error {
+	submitter, err := p.getSubmitter(batchProof)
+	if err != nil {
+		return err
+	}
+	return submitter.ClearProofBuffers(batchProof, resend)
+}
+
+// getSubmitter returns the mapping proof submitter if it can be found.
+func (p *Prover) getSubmitter(batchProof *proofProducer.BatchProofs) (proofSubmitter.Submitter, error) {
+	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
+		return nil, fmt.Errorf("empty batch proof")
+	}
+	submitter := p.proofSubmitterPacaya
+	if batchProof.ProofResponses[0].Meta.IsShasta() {
+		submitter = p.proofSubmitterShasta
+	}
+	if utils.IsNil(submitter) {
+		return nil, fmt.Errorf("submitter not found: %s", batchProof.ProofType)
+	}
+	return submitter, nil
 }
 
 // Name returns the application name.
@@ -388,8 +416,8 @@ func (p *Prover) ProverAddress() common.Address {
 	return p.txmgr.From()
 }
 
-// withRetry retries the given function with prover backoff policy.
-func (p *Prover) withRetry(f func() error) {
+// withRetry retries the given function with prover backoff policy and runs callback if retries are exhausted.
+func (p *Prover) withRetry(f func() error, callback func() error) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
@@ -402,6 +430,12 @@ func (p *Prover) withRetry(f func() error) {
 			p.ctx,
 		)
 		if err := backoff.Retry(f, bo); err != nil {
+			if callback != nil {
+				callbackErr := callback()
+				if callbackErr != nil {
+					log.Error("Callback failed", "error", callbackErr)
+				}
+			}
 			log.Error("Operation failed", "error", err)
 		}
 	}()
