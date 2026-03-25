@@ -22,7 +22,10 @@ use preconfirmation_driver::{
 };
 use preconfirmation_types::uint256_to_u256;
 use rpc::client::{Client, ClientConfig};
-use tokio::{sync::{Mutex, Notify}, task::JoinHandle};
+use tokio::{
+    sync::{Mutex, Notify},
+    task::JoinHandle,
+};
 use tracing::{info, warn};
 
 use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
