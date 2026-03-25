@@ -935,15 +935,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Word 10: sources.length
             mstore(add(ptr, 0x140), numSources)
 
-            // Source offsets + data
+            // Gas optimization: specialize for 1 source (common propose path).
+            // Avoids outer loop overhead (JUMPDEST/LT/JUMPI/ADD/JUMP ~40 gas).
+            // Falls back to generic loop for forced inclusion batches (>1 source).
             let offsetArea := add(ptr, 0x160)
             let dataArea := add(offsetArea, mul(numSources, 0x20))
-            let curDataOffset := mul(numSources, 0x20)
 
-            for { let i := 0 } lt(i, numSources) { i := add(i, 1) } {
-                mstore(add(offsetArea, mul(i, 0x20)), curDataOffset)
+            switch eq(numSources, 1)
+            case 1 {
+                // ── Fast path: 1 source (no forced inclusions) ──
+                mstore(offsetArea, 0x20) // curDataOffset = 1 * 0x20
 
-                let srcPtr := mload(add(add(sourcesArrPtr, 0x20), mul(i, 0x20)))
+                let srcPtr := mload(add(sourcesArrPtr, 0x20))
                 let blobSlicePtr := mload(add(srcPtr, 0x20))
                 let blobHashesPtr := mload(blobSlicePtr)
                 let numHashes := mload(blobHashesPtr)
@@ -955,16 +958,52 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
                 mstore(add(dataArea, 0xa0), numHashes)
 
-                for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
-                    mstore(
-                        add(add(dataArea, 0xc0), mul(j, 0x20)),
-                        mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
-                    )
+                // Specialize for 1 blob hash (most common) — avoids inner loop overhead
+                switch eq(numHashes, 1)
+                case 1 {
+                    mstore(add(dataArea, 0xc0), mload(add(blobHashesPtr, 0x20)))
+                }
+                default {
+                    for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
+                        mstore(
+                            add(add(dataArea, 0xc0), mul(j, 0x20)),
+                            mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
+                        )
+                    }
                 }
 
-                let sourceBytes := mul(add(6, numHashes), 0x20)
-                dataArea := add(dataArea, sourceBytes)
-                curDataOffset := add(curDataOffset, sourceBytes)
+                dataArea := add(dataArea, mul(add(6, numHashes), 0x20))
+            }
+            default {
+                // ── Generic path: multiple sources (forced inclusions) ──
+                let curDataOffset := mul(numSources, 0x20)
+
+                for { let i := 0 } lt(i, numSources) { i := add(i, 1) } {
+                    mstore(add(offsetArea, mul(i, 0x20)), curDataOffset)
+
+                    let srcPtr := mload(add(add(sourcesArrPtr, 0x20), mul(i, 0x20)))
+                    let blobSlicePtr := mload(add(srcPtr, 0x20))
+                    let blobHashesPtr := mload(blobSlicePtr)
+                    let numHashes := mload(blobHashesPtr)
+
+                    mstore(dataArea, mload(srcPtr))
+                    mstore(add(dataArea, 0x20), 0x40)
+                    mstore(add(dataArea, 0x40), 0x60)
+                    mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
+                    mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
+                    mstore(add(dataArea, 0xa0), numHashes)
+
+                    for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
+                        mstore(
+                            add(add(dataArea, 0xc0), mul(j, 0x20)),
+                            mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
+                        )
+                    }
+
+                    let sourceBytes := mul(add(6, numHashes), 0x20)
+                    dataArea := add(dataArea, sourceBytes)
+                    curDataOffset := add(curDataOffset, sourceBytes)
+                }
             }
 
             // ── Step 2: Hash the full buffer ──
