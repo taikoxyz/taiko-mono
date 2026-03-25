@@ -91,19 +91,16 @@ abstract contract DeployShastaContracts is DeployCapability {
         address preconfWhitelist = address(new PreconfWhitelist(config.contractOwner));
         console2.log("PreconfWhitelist deployed:", preconfWhitelist);
 
-        // Set `msg.sender` as the owner by setting the owner to address(0)
-        address proverWhitelist = deployProxy({
-            name: "prover_whitelist",
-            impl: address(new ProverWhitelist()),
-            data: abi.encodeCall(ProverWhitelist.init, address(0))
-        });
+        // Deploy ProverWhitelist (non-upgradeable, no proxy)
+        ProverWhitelist proverWl = new ProverWhitelist(msg.sender);
+        address proverWhitelist = address(proverWl);
         console2.log("ProverWhitelist deployed:", proverWhitelist);
 
         for (uint256 i = 0; i < config.provers.length; ++i) {
             console2.log("Add prover into ProverWhitelist:", config.provers[i]);
-            ProverWhitelist(proverWhitelist).whitelistProver(config.provers[i], true);
+            proverWl.whitelistProver(config.provers[i], true);
         }
-        Ownable2StepUpgradeable(proverWhitelist).transferOwnership(config.contractOwner);
+        proverWl.transferOwnership(config.contractOwner);
 
         // We set the activator as the initial owner of the inbox to allow activation.
         // Ownership will be later transferred to the DAO.

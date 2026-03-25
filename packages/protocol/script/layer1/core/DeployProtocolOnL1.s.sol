@@ -177,12 +177,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
 
-        // Deploy prover whitelist
-        address proverWhitelist = deployProxy({
-            name: "prover_whitelist",
-            impl: address(new ProverWhitelist()),
-            data: abi.encodeCall(ProverWhitelist.init, (config.contractOwner))
-        });
+        // Deploy prover whitelist (non-upgradeable, no proxy)
+        address proverWhitelist = address(new ProverWhitelist(config.contractOwner));
         console2.log("ProverWhitelist deployed:", proverWhitelist);
 
         // Get dependencies

@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../iface/IProverWhitelist.sol";
-import "src/shared/common/EssentialContract.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./ProverWhitelist_Layout.sol"; // DO NOT DELETE
+import "../iface/IProverWhitelist.sol";
 
 /// @title ProverWhitelist
-/// @notice Contract for managing whitelisted provers using a mapping
+/// @notice Non-upgradeable contract for managing whitelisted provers.
 /// @custom:security-contact security@taiko.xyz
-contract ProverWhitelist is EssentialContract, IProverWhitelist {
+contract ProverWhitelist is Ownable, IProverWhitelist {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -19,8 +18,6 @@ contract ProverWhitelist is EssentialContract, IProverWhitelist {
 
     /// @notice The total number of whitelisted provers
     uint256 public proverCount;
-
-    uint256[48] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -32,14 +29,18 @@ contract ProverWhitelist is EssentialContract, IProverWhitelist {
     event ProverWhitelisted(address indexed prover, bool enabled);
 
     // ---------------------------------------------------------------
-    // External Functions
+    // Constructor
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the contract
+    /// @notice Initializes the contract with the given owner
     /// @param _owner The owner of this contract
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
+    constructor(address _owner) {
+        _transferOwnership(_owner);
     }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
 
     /// @notice Enables or disables a prover
     /// @param _prover The address of the prover to update
