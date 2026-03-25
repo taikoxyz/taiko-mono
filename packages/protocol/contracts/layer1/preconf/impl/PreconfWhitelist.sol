@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { IPreconfWhitelist } from "../iface/IPreconfWhitelist.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { LibPreconfConstants } from "../libs/LibPreconfConstants.sol";
 import { LibPreconfUtils } from "../libs/LibPreconfUtils.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 
 /// @title PreconfWhitelist
 /// @notice Non-upgradeable operator whitelist for proposer authorization.
