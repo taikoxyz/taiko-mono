@@ -1219,6 +1219,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 returndatacopy(ptr, 0, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // Ensure callee returned at least 32 bytes — matches Solidity ABI decoder
+            // behavior. Without this, a misconfigured checker returning empty data would
+            // leave stale selector bytes in the return buffer.
+            if lt(returndatasize(), 32) {
+                revert(0, 0)
+            }
 
             endOfSubmissionWindowTimestamp_ := mload(ptr)
         }
