@@ -27,7 +27,7 @@ use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::timeout,
+    time::{sleep, timeout},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -216,6 +216,67 @@ pub struct PreconfJob {
     respond_to: oneshot::Sender<Result<(), DriverError>>,
 }
 
+/// Return whether the provided preconfirmation payload already materialized into the local L2
+/// chain state.
+///
+/// Materialization requires both the per-block L1 origin record and the execution header to match
+/// the payload attributes previously submitted to the engine.
+async fn preconfirmation_payload_is_materialized<P>(
+    rpc: &Client<P>,
+    payload: &PreconfPayload,
+) -> Result<bool, DriverError>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    let block_number = payload.block_number();
+    let expected_payload = payload.payload();
+    let Some(origin) = rpc.l1_origin_by_id(U256::from(block_number)).await? else {
+        return Ok(false);
+    };
+    if origin.build_payload_args_id == [0u8; 8] ||
+        origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
+    {
+        return Ok(false);
+    }
+
+    let Some(block) = rpc
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Number(block_number))
+        .await
+        .map_err(|err| DriverError::Rpc(RpcClientError::Provider(err.to_string())))?
+    else {
+        return Ok(false);
+    };
+    let header = &block.header;
+
+    if origin.l2_block_hash != B256::ZERO && header.hash != origin.l2_block_hash {
+        return Ok(false);
+    }
+    if header.number != block_number {
+        return Ok(false);
+    }
+    if header.beneficiary != expected_payload.payload_attributes.suggested_fee_recipient {
+        return Ok(false);
+    }
+    if header.mix_hash != expected_payload.payload_attributes.prev_randao {
+        return Ok(false);
+    }
+    if header.gas_limit != expected_payload.block_metadata.gas_limit {
+        return Ok(false);
+    }
+    if header.timestamp != expected_payload.payload_attributes.timestamp {
+        return Ok(false);
+    }
+    if header.extra_data != expected_payload.block_metadata.extra_data {
+        return Ok(false);
+    }
+
+    Ok(matches!(
+        header.base_fee_per_gas,
+        Some(base_fee) if U256::from(base_fee) == expected_payload.base_fee_per_gas
+    ))
+}
+
 impl<P> EventSyncer<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -267,6 +328,29 @@ where
                 gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
+                match preconfirmation_payload_is_materialized(&rpc, job.payload.as_ref()).await {
+                    Ok(true) => {
+                        debug!(
+                            block_number,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                            "acknowledging already materialized preconfirmation payload"
+                        );
+                        let _ = job.respond_to.send(Ok(()));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
+                    }
+                    Ok(false) => {}
+                    Err(err) => {
+                        error!(
+                            ?err,
+                            block_number, "failed to check preconfirmation materialization state"
+                        );
+                        let _ = job.respond_to.send(Err(err));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
+                    }
+                }
+
                 let router_guard = router.lock().await;
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
@@ -624,6 +708,15 @@ where
         // Reject early if strict ingress gating is not satisfied yet.
         if !self.preconf_ingress_ready.load(Ordering::Acquire) {
             return Err(DriverError::PreconfIngressNotReady);
+        }
+
+        if preconfirmation_payload_is_materialized(&self.rpc, &payload).await? {
+            debug!(
+                block_number = payload.block_number(),
+                build_payload_args_id = %PayloadId::new(payload.payload().l1_origin.build_payload_args_id),
+                "skipping already materialized preconfirmation payload"
+            );
+            return Ok(());
         }
 
         let block_number = payload.block_number();
@@ -1016,85 +1109,131 @@ where
         let derivation = Arc::new(derivation_pipeline);
         let router = self.build_router(derivation.clone());
 
-        let mut scanner = self
-            .cfg
-            .client
-            .l1_provider_source
-            .to_event_scanner_from_tag(start_tag)
-            .await
-            .map_err(|err| SyncError::EventScannerInit(err.to_string()))?;
-        let filter = EventFilter::new()
-            .contract_address(self.cfg.client.inbox_address)
-            .event(Proposed::SIGNATURE);
-
-        let mut stream = scanner.subscribe(filter).stream(
-            &scanner.start().await.map_err(|err| SyncError::EventScannerInit(err.to_string()))?,
-        );
-
-        info!("event scanner started; listening for inbox proposals");
+        let mut reconnect_start_tag = start_tag;
 
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
 
-        while let Some(message) = stream.next().await {
-            debug!(?message, "received inbox proposal message from event scanner");
-            match message {
-                Ok(ScannerMessage::Data(logs)) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
-                    counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
-                    self.process_log_batch(router.clone(), logs).await?;
+        loop {
+            let mut scanner = match self
+                .cfg
+                .client
+                .l1_provider_source
+                .to_event_scanner_from_tag(reconnect_start_tag)
+                .await
+            {
+                Ok(scanner) => scanner,
+                Err(err) => {
+                    warn!(
+                        ?err,
+                        start_tag = ?reconnect_start_tag,
+                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        "failed to initialize event scanner; retrying"
+                    );
+                    sleep(self.cfg.retry_interval).await;
+                    continue;
                 }
-                Ok(ScannerMessage::Notification(notification)) => {
-                    info!(?notification, "event scanner notification");
-                    if matches!(notification, Notification::SwitchingToLive) {
-                        // Scanner live is necessary but not sufficient: confirmed-sync readiness
-                        // must also pass before ingress opens.
-                        scanner_live = true;
+            };
+            let filter = EventFilter::new()
+                .contract_address(self.cfg.client.inbox_address)
+                .event(Proposed::SIGNATURE);
+            let subscription = scanner.subscribe(filter);
+            let proof = match scanner.start().await {
+                Ok(proof) => proof,
+                Err(err) => {
+                    warn!(
+                        ?err,
+                        start_tag = ?reconnect_start_tag,
+                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        "failed to start event scanner; retrying"
+                    );
+                    sleep(self.cfg.retry_interval).await;
+                    continue;
+                }
+            };
+            let mut stream = subscription.stream(&proof);
+
+            info!(
+                start_tag = ?reconnect_start_tag,
+                "event scanner started; listening for inbox proposals"
+            );
+
+            let mut last_seen_l1_block_number = None;
+
+            while let Some(message) = stream.next().await {
+                debug!(?message, "received inbox proposal message from event scanner");
+                match message {
+                    Ok(ScannerMessage::Data(logs)) => {
+                        if let Some(block_number) = logs.last().and_then(|log| log.block_number) {
+                            last_seen_l1_block_number = Some(block_number);
+                        }
+                        counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
+                        counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
+                        self.process_log_batch(router.clone(), logs).await?;
+                    }
+                    Ok(ScannerMessage::Notification(notification)) => {
+                        info!(?notification, "event scanner notification");
+                        if matches!(notification, Notification::SwitchingToLive) {
+                            // Scanner live is necessary but not sufficient: confirmed-sync
+                            // readiness must also pass before ingress
+                            // opens.
+                            scanner_live = true;
+                        }
+                    }
+                    Err(err) => {
+                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                        error!(?err, "error receiving proposal logs from event scanner");
+                        continue;
                     }
                 }
-                Err(err) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    error!(?err, "error receiving proposal logs from event scanner");
-                    continue;
+
+                if should_probe_confirmed_sync(
+                    self.cfg.preconfirmation_enabled,
+                    preconf_ingress_spawned,
+                    scanner_live,
+                ) {
+                    let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
+                    if let Err(err) = &confirmed_sync_probe {
+                        counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL)
+                            .increment(1);
+                        warn!(
+                            ?err,
+                            "confirmed-sync probe failed; keeping preconfirmation ingress closed"
+                        );
+                        continue;
+                    }
+                    let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
+                    if confirmed_sync_ready {
+                        let rx = self
+                            .preconf_rx
+                            .lock()
+                            .expect("preconfirmation receiver lock should not be poisoned")
+                            .take();
+                        if let Some(rx) = rx {
+                            self.spawn_preconf_ingress(
+                                router.clone(),
+                                rx,
+                                self.rpc.clone(),
+                                self.preconf_ingress_ready.clone(),
+                                self.preconf_ingress_notify.clone(),
+                            );
+                            preconf_ingress_spawned = true;
+                        }
+                    }
                 }
             }
 
-            if should_probe_confirmed_sync(
-                self.cfg.preconfirmation_enabled,
-                preconf_ingress_spawned,
-                scanner_live,
-            ) {
-                let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
-                if let Err(err) = &confirmed_sync_probe {
-                    counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL).increment(1);
-                    warn!(
-                        ?err,
-                        "confirmed-sync probe failed; keeping preconfirmation ingress closed"
-                    );
-                    continue;
-                }
-                let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
-                if confirmed_sync_ready {
-                    let rx = self
-                        .preconf_rx
-                        .lock()
-                        .expect("preconfirmation receiver lock should not be poisoned")
-                        .take();
-                    if let Some(rx) = rx {
-                        self.spawn_preconf_ingress(
-                            router.clone(),
-                            rx,
-                            self.rpc.clone(),
-                            self.preconf_ingress_ready.clone(),
-                            self.preconf_ingress_notify.clone(),
-                        );
-                        preconf_ingress_spawned = true;
-                    }
-                }
+            if let Some(block_number) = last_seen_l1_block_number {
+                reconnect_start_tag = BlockNumberOrTag::Number(block_number.saturating_sub(1));
             }
+            warn!(
+                start_tag = ?reconnect_start_tag,
+                retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                "event scanner stream ended; reconnecting"
+            );
+            sleep(self.cfg.retry_interval).await;
         }
-        Ok(())
     }
 }
 
