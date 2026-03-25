@@ -25,6 +25,8 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     struct DeploymentConfig {
         address contractOwner;
+        address proverManager;
+        address ejectorManager;
         address activator;
         uint64 l2ChainId;
         address l1SignalService;
@@ -72,6 +74,8 @@ abstract contract DeployShastaContracts is DeployCapability {
         require(config.oldSignalServiceImpl != address(0), "OLD_SIGNAL_SERVICE_IMPL not set");
         require(config.shastaForkTimestamp != 0, "SHASTA_FORK_TIMESTAMP not set");
         require(config.preconfWhitelist != address(0), "PRECONF_WHITELIST not set");
+        require(config.proverManager != address(0), "PROVER_MANAGER not set");
+        require(config.ejectorManager != address(0), "EJECTOR_MANAGER not set");
 
         for (uint256 i = 0; i < config.provers.length; ++i) {
             require(config.provers[i] != address(0), "PROVERS contains zero address");
@@ -88,13 +92,13 @@ abstract contract DeployShastaContracts is DeployCapability {
         );
         console2.log("MainnetVerifier deployed:", proofVerifier);
 
-        address preconfWhitelist = address(new PreconfWhitelist());
+        address preconfWhitelist = address(new PreconfWhitelist(config.ejectorManager));
         console2.log("PreconfWhitelist deployed:", preconfWhitelist);
 
         // Set `msg.sender` as the owner by setting the owner to address(0)
         address proverWhitelist = deployProxy({
             name: "prover_whitelist",
-            impl: address(new ProverWhitelist()),
+            impl: address(new ProverWhitelist(config.proverManager)),
             data: abi.encodeCall(ProverWhitelist.init, address(0))
         });
         console2.log("ProverWhitelist deployed:", proverWhitelist);
