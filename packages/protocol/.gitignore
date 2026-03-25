@@ -49,3 +49,4 @@ jspm_packages
 secrets*.yml
 .defender
 .platform
+autoresearch-results.tsv
