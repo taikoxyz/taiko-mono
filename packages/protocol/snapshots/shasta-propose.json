@@ -1,4 +1,6 @@
 {
+  "checkProposer_gas_3operators": "2684",
+  "checkProposer_gas_baseline": "4793",
   "proposeCompact_gas_1_forced_inclusion": "51871",
   "proposeCompact_gas_3blobs": "58458",
   "proposeCompact_gas_baseline": "56956",
