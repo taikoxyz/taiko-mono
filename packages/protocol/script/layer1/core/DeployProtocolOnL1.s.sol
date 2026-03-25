@@ -168,16 +168,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         private
         returns (address shastaInbox)
     {
-        // Deploy whitelist
+        // Deploy whitelist (non-upgradeable, no proxy)
         address whitelist = config.preconfWhitelist;
         if (whitelist == address(0)) {
-            whitelist = deployProxy({
-                name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
-            });
-        } else {
-            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
+            PreconfWhitelist wl = new PreconfWhitelist(config.contractOwner);
+            whitelist = address(wl);
         }
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
