@@ -208,7 +208,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
         ProposeInput memory input = LibCodec.decodeProposeInput(_data);
         _validateProposeInput(input);
-        _proposeCore(input, _lookahead);
+        _propose(input, _lookahead);
     }
 
     /// @notice Most gas-efficient propose for the common case: 1 blob at index 0, no forced
@@ -219,7 +219,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         ProposeInput memory input;
         input.blobReference.numBlobs = 1;
         // Empty calldata slice — equivalent to passing empty bytes without memory allocation.
-        _proposeCore(input, msg.data[0:0]);
+        _propose(input, msg.data[0:0]);
     }
 
     /// @notice Gas-efficient propose with explicit parameters instead of encoded bytes.
@@ -245,7 +245,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         });
         input.numForcedInclusions = _numForcedInclusions;
         // Empty calldata slice — equivalent to passing empty bytes without memory allocation.
-        _proposeCore(input, msg.data[0:0]);
+        _propose(input, msg.data[0:0]);
     }
 
     /// @inheritdoc IInbox
@@ -298,41 +298,11 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             require(lastProposalId >= firstUnfinalizedId, LastProposalAlreadyFinalized());
             uint48 offset = uint48(firstUnfinalizedId - commitment.firstProposalId);
 
-            // Cache offset transition timestamp — accessed 2x (proposalAge + liveness bond).
-            uint48 offsetTimestamp = commitment.transitions[offset].timestamp;
-            uint256 proposalAge = block.timestamp - offsetTimestamp;
+            uint256 proposalAge =
+                block.timestamp - commitment.transitions[offset].timestamp;
 
-            // Inline _checkProver + _processLivenessBond in a single scope to reduce stack depth.
-            // Uses memory `state` to avoid redundant SLOAD of _coreState.lastFinalizedTimestamp.
-            {
-                bool isWhitelistEnabled;
-                IProverWhitelist pw = _proverWhitelist;
-                if (address(pw) != address(0)) {
-                    (bool isWhitelisted, uint256 proverCount) = pw.isProverWhitelisted(msg.sender);
-                    if (proverCount != 0) {
-                        if (!isWhitelisted) {
-                            require(
-                                proposalAge > uint256(_permissionlessProvingDelay),
-                                ProverNotWhitelisted()
-                            );
-                        }
-                        isWhitelistEnabled = true;
-                    }
-                }
-
-                if (!isWhitelistEnabled) {
-                    uint256 livenessWindowDeadline = (
-                        uint256(offsetTimestamp) + _provingWindow
-                    ).max(state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
-
-                    if (block.timestamp > livenessWindowDeadline) {
-                        _bondStorage.settleLivenessBond(
-                            commitment.transitions[offset].proposer,
-                            commitment.actualProver,
-                            _livenessBond
-                        );
-                    }
-                }
+            if (!_checkProver(msg.sender, proposalAge)) {
+                _processLivenessBond(commitment, offset, state.lastFinalizedTimestamp);
             }
 
             // ---------------------------------------------------------
@@ -563,7 +533,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// hashes, stores, and emits the Proposed event.
     /// @dev Inlines the former _buildProposal logic to eliminate function call overhead
     ///      and allow better stack management by the compiler.
-    function _proposeCore(ProposeInput memory _input, bytes calldata _lookahead) private {
+    function _propose(ProposeInput memory _input, bytes calldata _lookahead) private {
         unchecked {
             uint48 nextProposalId = _coreState.nextProposalId;
             uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
@@ -776,6 +746,32 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
+    }
+
+    /// @dev Settles the liveness bond if the proof is submitted after the liveness window.
+    /// @param _commitment The commitment data.
+    /// @param _offset The offset to the first unfinalized proposal.
+    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
+    function _processLivenessBond(
+        Commitment memory _commitment,
+        uint48 _offset,
+        uint48 _lastFinalizedTimestamp
+    )
+        private
+    {
+        unchecked {
+            uint256 livenessWindowDeadline = (
+                uint256(_commitment.transitions[_offset].timestamp) + _provingWindow
+            ).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
+
+            if (block.timestamp > livenessWindowDeadline) {
+                _bondStorage.settleLivenessBond(
+                    _commitment.transitions[_offset].proposer,
+                    _commitment.actualProver,
+                    _livenessBond
+                );
+            }
+        }
     }
 
     /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
