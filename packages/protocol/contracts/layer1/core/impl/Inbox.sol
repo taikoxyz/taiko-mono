@@ -443,12 +443,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
-            emit Proved(
-                commitment.firstProposalId,
-                commitment.firstProposalId + offset,
-                uint48(lastProposalId),
-                commitment.actualProver
-            );
+            // Assembly event emission — avoids Solidity ABI encoder overhead.
+            // Original Solidity: emit Proved(firstId, firstId+offset, lastId, actualProver);
+            assembly {
+                let ptr := mload(0x40)
+                let firstId := mload(commitment) // Commitment.firstProposalId at offset 0x00
+                mstore(ptr, firstId)
+                mstore(add(ptr, 0x20), add(firstId, offset))
+                mstore(add(ptr, 0x40), and(lastProposalId, 0xffffffffffff))
+                // Proved(uint48,uint48,uint48,address indexed)
+                log2(
+                    ptr,
+                    96,
+                    0xa274dcaff3629ec7d69d144038e97732516ff306fcbf8a2bc9423d106779a2f0,
+                    mload(add(commitment, 0x60)) // actualProver
+                )
+            }
 
             // ---------------------------------------------------------
             // 6. Verify the proof
