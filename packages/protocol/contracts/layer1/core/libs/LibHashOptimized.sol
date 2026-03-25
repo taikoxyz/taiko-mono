@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 /// @title LibHashOptimized
 /// @notice Optimized hashing functions using Solady's EfficientHashLib(when more efficient than keccak256)

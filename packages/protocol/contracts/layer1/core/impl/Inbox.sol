@@ -299,7 +299,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             require(lastProposalId >= firstUnfinalizedId, LastProposalAlreadyFinalized());
             uint48 offset = uint48(firstUnfinalizedId - commitment.firstProposalId);
 
-            uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
+            // Cache offset transition timestamp — accessed 2x (proposalAge + liveness bond).
+            // Avoids repeated array bounds check + memory indirection.
+            uint48 offsetTimestamp = commitment.transitions[offset].timestamp;
+            uint256 proposalAge = block.timestamp - offsetTimestamp;
 
             // Inline _checkProver + _processLivenessBond in a single scope to reduce stack depth.
             // Uses memory `state` to avoid redundant SLOAD of _coreState.lastFinalizedTimestamp.
@@ -321,7 +324,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
                 if (!isWhitelistEnabled) {
                     uint256 livenessWindowDeadline = (
-                        commitment.transitions[offset].timestamp + _provingWindow
+                        uint256(offsetTimestamp) + _provingWindow
                     ).max(state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
 
                     if (block.timestamp > livenessWindowDeadline) {
