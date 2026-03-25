@@ -494,9 +494,7 @@ mod tests {
             let attempts = Arc::clone(&attempts);
             async move {
                 attempts.fetch_add(1, Ordering::SeqCst);
-                Err(driver::DriverError::PreconfResponseTimeout {
-                    waited: Duration::from_secs(12),
-                })
+                Err(driver::DriverError::PreconfResponseTimeout { waited: Duration::from_secs(12) })
             }
         })
         .await
