@@ -147,15 +147,15 @@ contract InboxProposeGasTest is InboxTestBase {
         _proposeAndDecodeWithGas(_defaultProposeInput(), "propose_gas_second_propose");
     }
 
-    /// @notice proposeSimple(): zero parameters, 1 blob, no forced inclusions.
-    function test_proposeSimple_gas_baseline() public {
+    /// @notice proposeDefault(): zero parameters, 1 blob, no forced inclusions.
+    function test_proposeDefault_gas_baseline() public {
         _setBlobHashes(1);
         // Warm up the proxy's implementation slot (same as _proposeAndDecodeWithGas does
         // via codec.encodeProposeInput which is an external call to the inbox proxy).
         inbox.getConfig();
         vm.startPrank(proposer);
-        vm.startSnapshotGas("shasta-propose", "proposeSimple_gas_baseline");
-        inbox.proposeSimple();
+        vm.startSnapshotGas("shasta-propose", "proposeDefault_gas_baseline");
+        inbox.proposeDefault();
         vm.stopSnapshotGas();
         vm.stopPrank();
     }

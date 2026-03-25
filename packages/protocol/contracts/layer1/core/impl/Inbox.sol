@@ -214,7 +214,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Most gas-efficient propose for the common case: 1 blob at index 0, no forced
     /// inclusions, no deadline, no lookahead. Takes zero parameters.
     /// Saves ~2,000+ gas vs propose() by eliminating all calldata/encoding overhead.
-    function proposeSimple() external nonReentrant {
+    function proposeDefault() external nonReentrant {
         // Hardcoded: deadline=0, blobStartIndex=0, numBlobs=1, offset=0, numForcedInclusions=0
         ProposeInput memory input;
         input.blobReference.numBlobs = 1;
@@ -224,7 +224,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice Gas-efficient propose with explicit parameters instead of encoded bytes.
     /// @dev Skips the LibCodec encoding/decoding overhead and bytes calldata ABI overhead.
-    /// Use when blob configuration or forced inclusions differ from the proposeSimple() defaults.
+    /// Use when blob configuration or forced inclusions differ from the proposeDefault() defaults.
     /// @param _blobStartIndex Starting blob index in this transaction (usually 0).
     /// @param _numBlobs Number of consecutive blobs for this proposal.
     /// @param _offset Field-element offset within the blob data.
@@ -529,7 +529,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
 
     /// @dev Core propose logic shared by all propose variants (propose, proposeV2,
-    /// proposeSimple, proposeCompact). Reads/writes CoreState, builds proposal,
+    /// proposeDefault, proposeCompact). Reads/writes CoreState, builds proposal,
     /// hashes, stores, and emits the Proposed event.
     /// @dev Inlines the former _buildProposal logic to eliminate function call overhead
     ///      and allow better stack management by the compiler.
@@ -726,28 +726,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @dev Emits the Proposed event
-    function _emitProposedEvent(Proposal memory _proposal) private {
-        emit Proposed(
-            _proposal.id,
-            _proposal.proposer,
-            _proposal.parentProposalHash,
-            _proposal.endOfSubmissionWindowTimestamp,
-            _proposal.basefeeSharingPctg,
-            _proposal.sources
-        );
-    }
-
-    // ---------------------------------------------------------------
-    // Private View/Pure Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Validates propose function inputs.
-    /// @param _input The ProposeInput to validate
-    function _validateProposeInput(ProposeInput memory _input) private view {
-        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
     /// @dev Settles the liveness bond if the proof is submitted after the liveness window.
     /// @param _commitment The commitment data.
     /// @param _offset The offset to the first unfinalized proposal.
@@ -772,6 +750,28 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 );
             }
         }
+    }
+
+    /// @dev Emits the Proposed event
+    function _emitProposedEvent(Proposal memory _proposal) private {
+        emit Proposed(
+            _proposal.id,
+            _proposal.proposer,
+            _proposal.parentProposalHash,
+            _proposal.endOfSubmissionWindowTimestamp,
+            _proposal.basefeeSharingPctg,
+            _proposal.sources
+        );
+    }
+
+    // ---------------------------------------------------------------
+    // Private View/Pure Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Validates propose function inputs.
+    /// @param _input The ProposeInput to validate
+    function _validateProposeInput(ProposeInput memory _input) private view {
+        require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
     /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
