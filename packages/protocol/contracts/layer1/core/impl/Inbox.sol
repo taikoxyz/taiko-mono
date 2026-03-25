@@ -400,13 +400,30 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             {
                 // Cache last block hash — accessed twice (checkpoint + state update)
                 bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
-                _signalService.saveCheckpoint(
-                    ICheckpointStore.Checkpoint({
-                        blockNumber: commitment.endBlockNumber,
-                        stateRoot: commitment.endStateRoot,
-                        blockHash: lastBlockHash
-                    })
-                );
+
+                // Assembly external call — avoids Solidity ABI encoder for Checkpoint struct.
+                // Original Solidity: _signalService.saveCheckpoint(Checkpoint({...}));
+                ISignalService ss = _signalService;
+                assembly {
+                    let ptr := mload(0x40)
+                    // saveCheckpoint((uint48,bytes32,bytes32)) = 0xc9a0b8c8
+                    // Static tuple — no offset pointer needed
+                    mstore(
+                        ptr,
+                        0xc9a0b8c800000000000000000000000000000000000000000000000000000000
+                    )
+                    // Checkpoint struct order: (blockNumber, blockHash, stateRoot)
+                    // Commitment layout: [0x80] endBlockNumber, [0xa0] endStateRoot
+                    mstore(add(ptr, 4), mload(add(commitment, 0x80))) // blockNumber
+                    mstore(add(ptr, 36), lastBlockHash) // blockHash
+                    mstore(add(ptr, 68), mload(add(commitment, 0xa0))) // stateRoot
+
+                    if iszero(call(gas(), ss, 0, ptr, 100, 0, 0)) {
+                        returndatacopy(ptr, 0, returndatasize())
+                        revert(ptr, returndatasize())
+                    }
+                }
+
                 uint48 ts = uint48(block.timestamp);
                 state.lastCheckpointTimestamp = ts;
                 state.lastFinalizedProposalId = uint48(lastProposalId);
