@@ -137,25 +137,11 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _deployProposerChecker() internal returns (PreconfWhitelist) {
-        PreconfWhitelist impl = new PreconfWhitelist();
-        return PreconfWhitelist(
-            address(
-                new ERC1967Proxy(
-                    address(impl), abi.encodeCall(PreconfWhitelist.init, (address(this)))
-                )
-            )
-        );
+        return new PreconfWhitelist(address(this));
     }
 
     function _deployProverWhitelist() internal returns (ProverWhitelist) {
-        ProverWhitelist impl = new ProverWhitelist();
-        return ProverWhitelist(
-            address(
-                new ERC1967Proxy(
-                    address(impl), abi.encodeCall(ProverWhitelist.init, (address(this)))
-                )
-            )
-        );
+        return new ProverWhitelist(address(this));
     }
 
     function _addProposer(address _proposer) internal {
