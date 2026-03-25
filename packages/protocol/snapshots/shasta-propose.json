@@ -1,15 +1,6 @@
 {
   "checkProposer_gas_3operators": "3149",
-  "checkProposer_gas_baseline": "5258",
-  "proposeCompact_gas_1_forced_inclusion": "50094",
-  "proposeCompact_gas_3blobs": "60911",
-  "proposeCompact_gas_baseline": "59971",
-  "proposeSimple_gas_baseline": "59463",
-  "propose_after_ring_buffer_wrap": "39874",
-  "propose_forced_inclusion": "54289",
-  "propose_gas_1_forced_inclusion": "50809",
-  "propose_gas_3blobs": "63623",
-  "propose_gas_baseline": "62694",
-  "propose_gas_second_propose": "36394",
-  "propose_single": "66174"
+  "checkProposer_gas_baseline": "5261",
+  "checkProposer_v2_gas_3operators": "2670",
+  "checkProposer_v2_gas_baseline": "4779"
 }
