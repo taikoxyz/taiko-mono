@@ -338,9 +338,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // ---------------------------------------------------------
             // 3. Process bond instruction
             // ---------------------------------------------------------
-            // Bond transfers only apply when whitelist is not enabled.
+            // Inline _processLivenessBond — avoids redundant SLOAD of _coreState.lastFinalizedTimestamp
+            // by using the memory copy `state` we already loaded.
             if (!isWhitelistEnabled) {
-                _processLivenessBond(commitment, offset);
+                uint256 livenessWindowDeadline = (
+                    commitment.transitions[offset].timestamp + _provingWindow
+                ).max(state.lastFinalizedTimestamp + _maxProofSubmissionDelay);
+
+                if (block.timestamp > livenessWindowDeadline) {
+                    _bondStorage.settleLivenessBond(
+                        commitment.transitions[offset].proposer,
+                        commitment.actualProver,
+                        _livenessBond
+                    );
+                }
             }
 
             // -----------------------------------------------------------------------------
