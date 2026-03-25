@@ -642,16 +642,33 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             {
                 LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
                 if ($.head == $.tail) {
-                    // Common path: empty forced inclusion queue
-                    sources = new DerivationSource[](1);
+                    // Gas optimization: allocate DerivationSource[1] and set element 0
+                    // in assembly, avoiding Solidity's `new` zero-init, array bounds
+                    // check in `sources[sources.length - 1]`, and DerivationSource struct
+                    // allocation.
+                    // Original Solidity:
+                    //   sources = new DerivationSource[](1);
+                    //   sources[0] = DerivationSource(false, blobSlice);
+                    LibBlobs.BlobSlice memory blobSlice =
+                        LibBlobs.validateBlobReference(_input.blobReference);
+                    assembly {
+                        let arr := mload(0x40)
+                        mstore(arr, 1) // length = 1
+                        let elem := add(arr, 0x40) // element struct after [length][elem0_ptr]
+                        mstore(add(arr, 0x20), elem) // sources[0] = ptr to element
+                        mstore(elem, 0) // isForcedInclusion = false
+                        mstore(add(elem, 0x20), blobSlice) // blobSlice pointer
+                        mstore(0x40, add(elem, 0x40)) // update free memory pointer
+                        sources := arr
+                    }
                 } else {
                     (sources, allowsPermissionless) =
                         _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+                    sources[sources.length - 1] = DerivationSource(
+                        false, LibBlobs.validateBlobReference(_input.blobReference)
+                    );
                 }
             }
-
-            sources[sources.length - 1] =
-                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
             // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
