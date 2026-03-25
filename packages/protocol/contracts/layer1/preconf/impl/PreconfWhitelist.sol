@@ -136,14 +136,15 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
                 assembly {
                     let ts := add(randomnessTs, slotDuration)
                     let current := timestamp()
-                    let ptr := mload(0x40)
+                    // Use scratch space at 0x00 (safe in view context, avoids
+                    // free-memory-pointer concerns across compiler versions).
                     for {
                         let i := 0
                     } and(lt(i, 32), iszero(gt(ts, current))) { i := add(i, 1) } {
-                        mstore(ptr, ts)
-                        let success := staticcall(gas(), beacon, ptr, 32, ptr, 32)
+                        mstore(0x00, ts)
+                        let success := staticcall(gas(), beacon, 0x00, 32, 0x00, 32)
                         if and(success, gt(returndatasize(), 0)) {
-                            let root := mload(ptr)
+                            let root := mload(0x00)
                             if root {
                                 beaconRoot := root
                                 break

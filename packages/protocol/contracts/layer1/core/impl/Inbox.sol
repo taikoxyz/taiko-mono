@@ -221,6 +221,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Gas-efficient propose with explicit parameters instead of encoded bytes.
     /// @dev Skips the LibCodec encoding/decoding overhead and bytes calldata ABI overhead.
     /// Use when blob configuration or forced inclusions differ from the proposeDefault() defaults.
+    /// @dev Does not support deadlines. Callers migrating from propose() with non-zero deadlines
+    /// will silently lose deadline-based stale-transaction protection. Use propose() if a deadline
+    /// is required.
     /// @param _blobStartIndex Starting blob index in this transaction (usually 0).
     /// @param _numBlobs Number of consecutive blobs for this proposal.
     /// @param _offset Field-element offset within the blob data.

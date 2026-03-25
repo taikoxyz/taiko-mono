@@ -39,7 +39,10 @@ contract PreconfWhitelistGasTest is CommonTest {
         require(selected == operator, "operator not selected");
     }
 
-    /// @notice Baseline: checkProposer with 1 active operator (fast path).
+    /// @notice Baseline: checkProposer with 1 active operator.
+    /// @dev This hits the slow path (epochTs < latestActivationEpoch) because the operator was
+    /// recently added. The 3-operator test is cheaper because additional epoch advancement
+    /// puts it on the fast path. The naming reflects operator count, not path cost.
     function test_checkProposer_gas_baseline() public {
         // Warm up
         whitelist.getOperatorForCurrentEpoch();
