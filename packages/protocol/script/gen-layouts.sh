@@ -30,7 +30,6 @@ contracts_shared=(
 
 # Layer 1 contracts
 contracts_layer1=(
-"contracts/layer1/core/impl/ProverWhitelist.sol:ProverWhitelist"
 "contracts/layer1/mainnet/TaikoToken.sol:TaikoToken"
 "contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol:AutomataDcapV3Attestation"
 "contracts/layer1/devnet/DevnetInbox.sol:DevnetInbox"
@@ -39,7 +38,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/MainnetERC20Vault.sol:MainnetERC20Vault"
 "contracts/layer1/mainnet/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/MainnetERC721Vault.sol:MainnetERC721Vault"
-"contracts/layer1/preconf/impl/PreconfWhitelist.sol:PreconfWhitelist"
 "contracts/layer1/preconf/impl/LookaheadStore.sol:LookaheadStore"
 "contracts/layer1/mainnet/MainnetDAOController.sol:MainnetDAOController"
 )
