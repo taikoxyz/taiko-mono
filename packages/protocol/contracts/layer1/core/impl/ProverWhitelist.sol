@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
-import "../iface/IProverWhitelist.sol";
+import { IProverWhitelist } from "../iface/IProverWhitelist.sol";
 
 /// @title ProverWhitelist
 /// @notice Non-upgradeable contract for managing whitelisted provers.
