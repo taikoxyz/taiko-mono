@@ -35,7 +35,7 @@ contract TestPreconfWhitelist is CommonTest {
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Bob);
 
-        (uint32 activeSince, uint8 index, address sequencer) = whitelist.operators(Bob);
+        (uint32 activeSince,, uint8 index, address sequencer) = whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 0);
         assertEq(sequencer, _sequencer(Bob));
@@ -192,11 +192,11 @@ contract TestPreconfWhitelist is CommonTest {
         assertEq(whitelist.operatorMapping(1), Carol);
         assertEq(whitelist.operatorMapping(2), address(0));
 
-        (uint32 activeSince, uint8 index,) = whitelist.operators(Carol);
+        (uint32 activeSince,, uint8 index,) = whitelist.operators(Carol);
         assertEq(index, 1);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
 
-        (activeSince, index,) = whitelist.operators(Bob);
+        (activeSince,, index,) = whitelist.operators(Bob);
         assertEq(activeSince, 0);
         assertEq(index, 0);
     }
@@ -225,7 +225,7 @@ contract TestPreconfWhitelist is CommonTest {
 
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Carol);
-        (uint32 activeSince, uint8 index,) = whitelist.operators(Bob);
+        (uint32 activeSince,, uint8 index,) = whitelist.operators(Bob);
         assertEq(activeSince, 0);
         assertEq(index, 0);
     }

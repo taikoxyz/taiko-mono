@@ -13,6 +13,7 @@ import { LibPreconfUtils } from "../libs/LibPreconfUtils.sol";
 contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
     struct OperatorInfo {
         uint32 activeSince; // Epoch when the operator becomes active.
+        uint32 deprecatedInactiveSince; // Deprecated. Kept for ABI compatibility with Go bindings.
         uint8 index; // Index in operatorMapping.
         address sequencerAddress; // Sequencer address for this operator (for off-chain use).
     }
