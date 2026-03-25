@@ -109,60 +109,70 @@ library LibHashOptimized {
         }
     }
 
-    /// @notice Optimized hashing for commitment data.
+    /// @notice Optimized hashing for commitment data using direct assembly.
+    /// @dev Uses scratch memory at the free pointer (without advancing it) to build
+    ///      the ABI encoding buffer, matching the layout of keccak256(abi.encode(_commitment)).
+    ///      This avoids EfficientHashLib.malloc/set/hash/free overhead.
+    ///
+    ///      ABI encoding layout:
+    ///      [0] 0x20 (outer offset to tuple)
+    ///      [1] firstProposalId
+    ///      [2] firstProposalParentBlockHash
+    ///      [3] lastProposalHash
+    ///      [4] actualProver
+    ///      [5] endBlockNumber
+    ///      [6] endStateRoot
+    ///      [7] 0xe0 (offset to transitions array)
+    ///      [8] transitions.length
+    ///      [9...] transition elements (3 words each: proposer, timestamp, blockHash)
     /// @param _commitment The commitment data to hash.
-    /// @return The hash of the commitment.
-    function hashCommitment(IInbox.Commitment memory _commitment) internal pure returns (bytes32) {
-        unchecked {
-            IInbox.Transition[] memory transitions = _commitment.transitions;
-            uint256 transitionsLength = transitions.length;
+    /// @return result_ The keccak256 hash matching keccak256(abi.encode(_commitment)).
+    function hashCommitment(IInbox.Commitment memory _commitment)
+        internal
+        pure
+        returns (bytes32 result_)
+    {
+        /// forge-lint: disable-start(asm-keccak256)
+        assembly {
+            let ptr := mload(0x40)
 
-            // Commitment layout (abi.encode):
-            // [0] offset to commitment (0x20)
-            //
-            // Commitment static section (starts at word 1):
-            // [1] firstProposalId
-            // [2] firstProposalParentBlockHash
-            // [3] lastProposalHash
-            // [4] actualProver
-            // [5] endBlockNumber
-            // [6] endStateRoot
-            // [7] offset to transitions (0xe0)
-            //
-            // Transitions array (starts at word 8):
-            // [8] length
-            // [9...] transition elements (3 words each)
-            uint256 totalWords = 9 + transitionsLength * 3;
+            // Word 0: outer offset
+            mstore(ptr, 0x20)
 
-            bytes32[] memory buffer = EfficientHashLib.malloc(totalWords);
+            // Words 1-6: Commitment static fields
+            // Commitment memory layout: firstProposalId(0x00), firstProposalParentBlockHash(0x20),
+            //   lastProposalHash(0x40), actualProver(0x60), endBlockNumber(0x80),
+            //   endStateRoot(0xa0), transitionsPtr(0xc0)
+            mstore(add(ptr, 0x20), mload(_commitment)) // firstProposalId
+            mstore(add(ptr, 0x40), mload(add(_commitment, 0x20))) // firstProposalParentBlockHash
+            mstore(add(ptr, 0x60), mload(add(_commitment, 0x40))) // lastProposalHash
+            mstore(add(ptr, 0x80), mload(add(_commitment, 0x60))) // actualProver
+            mstore(add(ptr, 0xa0), mload(add(_commitment, 0x80))) // endBlockNumber
+            mstore(add(ptr, 0xc0), mload(add(_commitment, 0xa0))) // endStateRoot
 
-            // Top-level head
-            EfficientHashLib.set(buffer, 0, bytes32(uint256(0x20)));
-
-            // Commitment static fields
-            EfficientHashLib.set(buffer, 1, bytes32(uint256(_commitment.firstProposalId)));
-            EfficientHashLib.set(buffer, 2, _commitment.firstProposalParentBlockHash);
-            EfficientHashLib.set(buffer, 3, _commitment.lastProposalHash);
-            EfficientHashLib.set(buffer, 4, bytes32(uint256(uint160(_commitment.actualProver))));
-            EfficientHashLib.set(buffer, 5, bytes32(uint256(_commitment.endBlockNumber)));
-            EfficientHashLib.set(buffer, 6, _commitment.endStateRoot);
-            EfficientHashLib.set(buffer, 7, bytes32(uint256(0xe0)));
+            // Word 7: offset to transitions array = 7 * 32 = 0xe0
+            mstore(add(ptr, 0xe0), 0xe0)
 
             // Transitions array
-            EfficientHashLib.set(buffer, 8, bytes32(transitionsLength));
+            let transitionsArrPtr := mload(add(_commitment, 0xc0))
+            let numTransitions := mload(transitionsArrPtr)
 
-            uint256 base = 9;
-            for (uint256 i; i < transitionsLength; ++i) {
-                IInbox.Transition memory transition = transitions[i];
-                EfficientHashLib.set(buffer, base, bytes32(uint256(uint160(transition.proposer))));
-                EfficientHashLib.set(buffer, base + 1, bytes32(uint256(transition.timestamp)));
-                EfficientHashLib.set(buffer, base + 2, transition.blockHash);
-                base += 3;
+            // Word 8: transitions.length
+            mstore(add(ptr, 0x100), numTransitions)
+
+            // Words 9+: transition elements (3 words each)
+            let writePos := add(ptr, 0x120)
+            for { let i := 0 } lt(i, numTransitions) { i := add(i, 1) } {
+                // Each Transition is a struct pointer in the array
+                let transPtr := mload(add(add(transitionsArrPtr, 0x20), mul(i, 0x20)))
+                // Transition layout: proposer(0x00), timestamp(0x20), blockHash(0x40)
+                mstore(writePos, mload(transPtr)) // proposer
+                mstore(add(writePos, 0x20), mload(add(transPtr, 0x20))) // timestamp
+                mstore(add(writePos, 0x40), mload(add(transPtr, 0x40))) // blockHash
+                writePos := add(writePos, 0x60)
             }
 
-            bytes32 result = EfficientHashLib.hash(buffer);
-            EfficientHashLib.free(buffer);
-            return result;
+            result_ := keccak256(ptr, sub(writePos, ptr))
         }
     }
 }
