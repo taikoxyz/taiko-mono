@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 import "../iface/IProverWhitelist.sol";
 
 /// @title ProverWhitelist
 /// @notice Non-upgradeable contract for managing whitelisted provers.
 /// @custom:security-contact security@taiko.xyz
-contract ProverWhitelist is Ownable, IProverWhitelist {
+contract ProverWhitelist is Ownable2Step, IProverWhitelist {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------

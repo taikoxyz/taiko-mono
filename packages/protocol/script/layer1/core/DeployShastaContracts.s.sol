@@ -109,7 +109,7 @@ abstract contract DeployShastaContracts is DeployCapability {
             impl: address(
                 new MainnetInbox(
                     proofVerifier,
-                    config.preconfWhitelist,
+                    preconfWhitelist,
                     proverWhitelist,
                     config.l1SignalService,
                     config.taikoToken

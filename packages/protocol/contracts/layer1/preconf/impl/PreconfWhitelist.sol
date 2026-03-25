@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { IPreconfWhitelist } from "../iface/IPreconfWhitelist.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { LibPreconfConstants } from "../libs/LibPreconfConstants.sol";
 import { LibPreconfUtils } from "../libs/LibPreconfUtils.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 
 /// @title PreconfWhitelist
 /// @notice Non-upgradeable operator whitelist for proposer authorization.
 /// @custom:security-contact security@taiko.xyz
-contract PreconfWhitelist is Ownable, IPreconfWhitelist, IProposerChecker {
+contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
     struct OperatorInfo {
         uint32 activeSince; // Epoch when the operator becomes active.
         uint8 index; // Index in operatorMapping.
