@@ -34,67 +34,35 @@ library LibPreconfUtils {
     /// N + 3, etc.) until it finds a block that contains the root for the Nth block or the target
     /// timestamp exceeds the current block timestamp.
     /// @dev Caller should verify the returned value is not 0.
-    /// @param _timestamp The timestamp for which the beacon block root is to be retrieved.
+    /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
     /// @return The beacon block root as a bytes32 value.
-    function getBeaconBlockRootAtOrAfter(uint256 _timestamp) internal view returns (bytes32) {
-        if (_timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
+    function getBeaconBlockRootAtOrAfter(uint256 timestamp) internal view returns (bytes32) {
+        if (timestamp < LibPreconfConstants.getGenesisTimestamp(block.chainid)) {
             return bytes32(0);
         }
+        timestamp = timestamp + LibPreconfConstants.SECONDS_IN_SLOT;
+        uint256 currentTimestamp = block.timestamp;
 
-        // Gas optimization: use assembly for the beacon root queries to avoid per-iteration
-        // function call overhead. The loop may execute up to _MAX_QUERIES times for missed slots.
-        // Original Solidity:
-        //   _timestamp = _timestamp + LibPreconfConstants.SECONDS_IN_SLOT;
-        //   uint256 currentTimestamp = block.timestamp;
-        //   for (uint256 i; i < _MAX_QUERIES && _timestamp <= currentTimestamp; ++i) {
-        //       bytes32 root = getBeaconBlockRootAt(_timestamp);
-        //       if (root != 0) return root;
-        //       unchecked { _timestamp += LibPreconfConstants.SECONDS_IN_SLOT; }
-        //   }
-        //   return bytes32(0);
-        address beacon = LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT;
-        uint256 slotDuration = LibPreconfConstants.SECONDS_IN_SLOT;
-        bytes32 result;
-        assembly {
-            let ts := add(_timestamp, slotDuration)
-            let current := timestamp() // block.timestamp
-            let ptr := mload(0x40)
-            for { let i := 0 } and(lt(i, _MAX_QUERIES), iszero(gt(ts, current))) { i := add(i, 1) }
-            {
-                mstore(ptr, ts)
-                let success := staticcall(gas(), beacon, ptr, 32, ptr, 32)
-                if and(success, gt(returndatasize(), 0)) {
-                    let root := mload(ptr)
-                    if root {
-                        result := root
-                        break
-                    }
-                }
-                ts := add(ts, slotDuration)
+        for (uint256 i; i < _MAX_QUERIES && timestamp <= currentTimestamp; ++i) {
+            bytes32 root = getBeaconBlockRootAt(timestamp);
+            if (root != 0) return root;
+
+            unchecked {
+                timestamp += LibPreconfConstants.SECONDS_IN_SLOT;
             }
         }
-        return result;
+        return bytes32(0);
     }
 
     /// @notice Retrieves the beacon block root at a specific timestamp.
-    /// @param _ts The timestamp for which the beacon block root is to be retrieved.
+    /// @param timestamp The timestamp for which the beacon block root is to be retrieved.
     /// @return root_ The beacon block root as a bytes32 value.
-    function getBeaconBlockRootAt(uint256 _ts) internal view returns (bytes32 root_) {
-        // Gas optimization: use assembly for the staticcall to avoid Solidity's
-        // abi.encode/abi.decode memory allocation overhead. This function may be called
-        // up to 32 times per propose (missed slot retries), so savings compound.
-        // Original Solidity:
-        //   (bool success, bytes memory result) =
-        //       LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT.staticcall(abi.encode(_ts));
-        //   if (success && result.length > 0) {
-        //       root_ = abi.decode(result, (bytes32));
-        //   }
-        address beacon = LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT;
-        assembly {
-            let ptr := mload(0x40)
-            mstore(ptr, _ts)
-            let success := staticcall(gas(), beacon, ptr, 32, ptr, 32)
-            if and(success, gt(returndatasize(), 0)) { root_ := mload(ptr) }
+    function getBeaconBlockRootAt(uint256 timestamp) internal view returns (bytes32 root_) {
+        (bool success, bytes memory result) =
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT.staticcall(abi.encode(timestamp));
+
+        if (success && result.length > 0) {
+            root_ = abi.decode(result, (bytes32));
         }
     }
 
