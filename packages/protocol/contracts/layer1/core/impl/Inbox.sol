@@ -288,33 +288,25 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // -------------------------------------------------------------------------------
             Commitment memory commitment = input.commitment;
 
-            // Inline _validateCommitment — saves ~30 gas from JUMP overhead
-            uint256 firstUnfinalizedId = state.lastFinalizedProposalId + 1;
-            uint256 numProposals = commitment.transitions.length;
-            require(numProposals > 0, EmptyBatch());
-            require(commitment.firstProposalId <= firstUnfinalizedId, FirstProposalIdTooLarge());
-            uint256 lastProposalId = commitment.firstProposalId + numProposals - 1;
-            require(lastProposalId < state.nextProposalId, LastProposalIdTooLarge());
-            require(lastProposalId >= firstUnfinalizedId, LastProposalAlreadyFinalized());
-            uint48 offset = uint48(firstUnfinalizedId - commitment.firstProposalId);
+            (uint256 numProposals, uint256 lastProposalId, uint48 offset) =
+                _validateCommitment(state, commitment);
 
             uint256 proposalAge =
                 block.timestamp - commitment.transitions[offset].timestamp;
 
             if (!_checkProver(msg.sender, proposalAge)) {
-                _processLivenessBond(commitment, offset, state.lastFinalizedTimestamp);
+                _processLivenessBond(commitment, offset);
             }
 
             // ---------------------------------------------------------
             // 2. Verify parent block-hash continuity and last proposal hash
             // ---------------------------------------------------------
+            bytes32 expectedParentBlockHash = offset == 0
+                ? commitment.firstProposalParentBlockHash
+                : commitment.transitions[offset - 1].blockHash;
+
             require(
-                state.lastFinalizedBlockHash
-                    == (
-                        offset == 0
-                            ? commitment.firstProposalParentBlockHash
-                            : commitment.transitions[offset - 1].blockHash
-                    ),
+                state.lastFinalizedBlockHash == expectedParentBlockHash,
                 ParentBlockHashMismatch()
             );
 
@@ -324,7 +316,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             );
 
             // -----------------------------------------------------------------------------
-            // 4. Sync checkpoint + 5. Update core state
+            // 3. Sync checkpoint & update core state
             // -----------------------------------------------------------------------------
             bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
 
@@ -351,7 +343,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             );
 
             // ---------------------------------------------------------
-            // 6. Verify the proof
+            // 4. Verify the proof
             // ---------------------------------------------------------
             // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
             // Single-proposal proofs pass actual age for age-based verification logic.
@@ -723,32 +715,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             _bondStorage.settleLivenessBond(
                 _commitment.transitions[_offset].proposer, _commitment.actualProver, _livenessBond
             );
-        }
-    }
-
-    /// @dev Settles the liveness bond if the proof is submitted after the liveness window.
-    /// @param _commitment The commitment data.
-    /// @param _offset The offset to the first unfinalized proposal.
-    /// @param _lastFinalizedTimestamp The timestamp of the last finalized proposal.
-    function _processLivenessBond(
-        Commitment memory _commitment,
-        uint48 _offset,
-        uint48 _lastFinalizedTimestamp
-    )
-        private
-    {
-        unchecked {
-            uint256 livenessWindowDeadline = (
-                uint256(_commitment.transitions[_offset].timestamp) + _provingWindow
-            ).max(uint256(_lastFinalizedTimestamp) + _maxProofSubmissionDelay);
-
-            if (block.timestamp > livenessWindowDeadline) {
-                _bondStorage.settleLivenessBond(
-                    _commitment.transitions[_offset].proposer,
-                    _commitment.actualProver,
-                    _livenessBond
-                );
-            }
         }
     }
 
