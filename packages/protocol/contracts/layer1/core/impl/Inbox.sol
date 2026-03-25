@@ -379,11 +379,20 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 ParentBlockHashMismatch()
             );
 
-            require(
-                commitment.lastProposalHash
-                    == _proposalHashes[lastProposalId % _ringBufferSize],
-                LastProposalHashMismatch()
-            );
+            // Assembly ring buffer read — same pattern as propose path.
+            // Original Solidity: _proposalHashes[lastProposalId % _ringBufferSize]
+            {
+                bytes32 storedHash;
+                uint48 ringBufSize = _ringBufferSize;
+                assembly {
+                    mstore(0x00, mod(lastProposalId, ringBufSize))
+                    mstore(0x20, _proposalHashes.slot)
+                    storedHash := sload(keccak256(0x00, 0x40))
+                }
+                require(
+                    commitment.lastProposalHash == storedHash, LastProposalHashMismatch()
+                );
+            }
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint + 5. Update core state
