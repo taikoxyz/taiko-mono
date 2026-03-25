@@ -1,15 +1,13 @@
 {
-  "checkProposer_gas_3operators": "2684",
-  "checkProposer_gas_baseline": "4793",
-  "proposeCompact_gas_1_forced_inclusion": "49609",
-  "proposeCompact_gas_3blobs": "55532",
-  "proposeCompact_gas_baseline": "54469",
-  "proposeSimple_gas_baseline": "53961",
-  "propose_after_ring_buffer_wrap": "38592",
-  "propose_forced_inclusion": "53524",
-  "propose_gas_1_forced_inclusion": "50044",
-  "propose_gas_3blobs": "57964",
-  "propose_gas_baseline": "56912",
-  "propose_gas_second_propose": "35112",
-  "propose_single": "60392"
+  "proposeCompact_gas_1_forced_inclusion": "51871",
+  "proposeCompact_gas_3blobs": "58458",
+  "proposeCompact_gas_baseline": "56956",
+  "proposeSimple_gas_baseline": "56448",
+  "propose_after_ring_buffer_wrap": "41358",
+  "propose_forced_inclusion": "56065",
+  "propose_gas_1_forced_inclusion": "52585",
+  "propose_gas_3blobs": "61170",
+  "propose_gas_baseline": "59678",
+  "propose_gas_second_propose": "37878",
+  "propose_single": "63158"
 }

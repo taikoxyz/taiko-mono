@@ -18,6 +18,7 @@ import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
+import { ICheckpointStore } from "src/shared/signal/ICheckpointStore.sol";
 import { ISignalService } from "src/shared/signal/ISignalService.sol";
 
 /// @title Inbox
@@ -190,7 +191,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
-        _hashAndEmitProposal(proposal);
+        _emitProposedEvent(proposal);
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
@@ -205,37 +206,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
-        // Gas optimization: decode ProposeInput directly from calldata using assembly.
-        // Avoids the implicit calldata→memory copy (LibCodec.decodeProposeInput takes bytes memory)
-        // and LibPackUnpack function call overhead (5 separate unpack calls).
-        // Original Solidity:
-        //   ProposeInput memory input = LibCodec.decodeProposeInput(_data);
-        //   _validateProposeInput(input);
-        ProposeInput memory input;
-        assembly {
-            // Layout: deadline(6) | blobStartIndex(2) | numBlobs(2) | offset(3) |
-            // numForcedInclusions(2) = 15 bytes total
-            let packed := calldataload(_data.offset)
-
-            // ProposeInput memory layout: [0x00] deadline, [0x20] blobReference ptr, [0x40]
-            // numForcedInclusions. BlobReference is a separate memory allocation accessed via
-            // pointer.
-            // deadline: bytes 0-5 (6 bytes), right-aligned
-            mstore(input, shr(208, packed))
-            // blobReference: read the pointer Solidity stored at input+0x20
-            let blobRef := mload(add(input, 0x20))
-            // blobStartIndex: bytes 6-7 (2 bytes)
-            mstore(blobRef, and(shr(192, packed), 0xffff))
-            // numBlobs: bytes 8-9 (2 bytes)
-            mstore(add(blobRef, 0x20), and(shr(176, packed), 0xffff))
-            // offset: bytes 10-12 (3 bytes)
-            mstore(add(blobRef, 0x40), and(shr(152, packed), 0xffffff))
-            // numForcedInclusions: bytes 13-14 (2 bytes)
-            mstore(add(input, 0x40), and(shr(136, packed), 0xffff))
-        }
-
-        // Inline _validateProposeInput — saves JUMP overhead
-        require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
+        ProposeInput memory input = LibCodec.decodeProposeInput(_data);
+        _validateProposeInput(input);
         _proposeCore(input, _lookahead);
     }
 
@@ -308,7 +280,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _proof Validity proof for the batch of proposals
     function prove(bytes calldata _data, bytes calldata _proof) external {
         unchecked {
-
             CoreState memory state = _coreState;
             ProveInput memory input = LibCodec.decodeProveInput(_data);
 
@@ -328,7 +299,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             uint48 offset = uint48(firstUnfinalizedId - commitment.firstProposalId);
 
             // Cache offset transition timestamp — accessed 2x (proposalAge + liveness bond).
-            // Avoids repeated array bounds check + memory indirection.
             uint48 offsetTimestamp = commitment.transitions[offset].timestamp;
             uint256 proposalAge = block.timestamp - offsetTimestamp;
 
@@ -378,97 +348,41 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 ParentBlockHashMismatch()
             );
 
-            // Assembly ring buffer read — same pattern as propose path.
-            // Original Solidity: _proposalHashes[lastProposalId % _ringBufferSize]
-            {
-                bytes32 storedHash;
-                uint48 ringBufSize = _ringBufferSize;
-                assembly {
-                    mstore(0x00, mod(lastProposalId, ringBufSize))
-                    mstore(0x20, _proposalHashes.slot)
-                    storedHash := sload(keccak256(0x00, 0x40))
-                }
-                require(
-                    commitment.lastProposalHash == storedHash, LastProposalHashMismatch()
-                );
-            }
+            require(
+                commitment.lastProposalHash == getProposalHash(lastProposalId),
+                LastProposalHashMismatch()
+            );
 
             // -----------------------------------------------------------------------------
             // 4. Sync checkpoint + 5. Update core state
             // -----------------------------------------------------------------------------
-            // Cache last block hash — accessed twice (checkpoint + state write-back)
             bytes32 lastBlockHash = commitment.transitions[numProposals - 1].blockHash;
-            {
-                // Assembly external call — avoids Solidity ABI encoder for Checkpoint struct.
-                // Original Solidity: _signalService.saveCheckpoint(Checkpoint({...}));
-                ISignalService ss = _signalService;
-                assembly {
-                    let ptr := mload(0x40)
-                    // saveCheckpoint((uint48,bytes32,bytes32)) = 0xc9a0b8c8
-                    // Static tuple — no offset pointer needed
-                    mstore(
-                        ptr,
-                        0xc9a0b8c800000000000000000000000000000000000000000000000000000000
-                    )
-                    // Checkpoint struct order: (blockNumber, blockHash, stateRoot)
-                    // Commitment layout: [0x80] endBlockNumber, [0xa0] endStateRoot
-                    mstore(add(ptr, 4), mload(add(commitment, 0x80))) // blockNumber
-                    mstore(add(ptr, 36), lastBlockHash) // blockHash
-                    mstore(add(ptr, 68), mload(add(commitment, 0xa0))) // stateRoot
 
-                    if iszero(call(gas(), ss, 0, ptr, 100, 0, 0)) {
-                        returndatacopy(ptr, 0, returndatasize())
-                        revert(ptr, returndatasize())
-                    }
-                }
-            }
+            _signalService.saveCheckpoint(
+                ICheckpointStore.Checkpoint({
+                    blockNumber: commitment.endBlockNumber,
+                    stateRoot: commitment.endStateRoot,
+                    blockHash: lastBlockHash
+                })
+            );
 
-            // Assembly CoreState write-back — packs updated fields directly from stack
-            // without intermediate Solidity MSTOREs to the memory struct.
-            // Original Solidity: state.lastFinalizedProposalId = ...; _coreState = state;
-            {
-                CoreState storage coreRef = _coreState;
-                assembly {
-                    let mask48 := 0xffffffffffff
-                    let ts := and(timestamp(), mask48)
-                    let packed :=
-                        or(
-                            or(
-                                and(mload(state), mask48),
-                                shl(48, and(mload(add(state, 0x20)), mask48))
-                            ),
-                            or(
-                                shl(96, and(lastProposalId, mask48)),
-                                or(shl(144, ts), shl(192, ts))
-                            )
-                        )
-                    sstore(coreRef.slot, packed)
-                    sstore(add(coreRef.slot, 1), lastBlockHash)
-                }
-            }
+            state.lastFinalizedProposalId = uint48(lastProposalId);
+            state.lastFinalizedTimestamp = uint48(block.timestamp);
+            state.lastCheckpointTimestamp = uint48(block.timestamp);
+            state.lastFinalizedBlockHash = lastBlockHash;
 
-            // Assembly event emission — avoids Solidity ABI encoder overhead.
-            // Original Solidity: emit Proved(firstId, firstId+offset, lastId, actualProver);
-            assembly {
-                let ptr := mload(0x40)
-                let firstId := mload(commitment) // Commitment.firstProposalId at offset 0x00
-                mstore(ptr, firstId)
-                mstore(add(ptr, 0x20), add(firstId, offset))
-                mstore(add(ptr, 0x40), and(lastProposalId, 0xffffffffffff))
-                // Proved(uint48,uint48,uint48,address indexed)
-                log2(
-                    ptr,
-                    96,
-                    0xa274dcaff3629ec7d69d144038e97732516ff306fcbf8a2bc9423d106779a2f0,
-                    mload(add(commitment, 0x60)) // actualProver
-                )
-            }
+            _coreState = state;
+
+            emit Proved(
+                commitment.firstProposalId,
+                commitment.firstProposalId + offset,
+                uint48(lastProposalId),
+                commitment.actualProver
+            );
 
             // ---------------------------------------------------------
             // 6. Verify the proof
             // ---------------------------------------------------------
-            // Assembly external call — avoids Solidity ABI encoder overhead for bytes calldata.
-            // Original Solidity: _proofVerifier.verifyProof(age, hash, _proof);
             // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
             // Single-proposal proofs pass actual age for age-based verification logic.
             _proofVerifier.verifyProof(
@@ -651,29 +565,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      and allow better stack management by the compiler.
     function _proposeCore(ProposeInput memory _input, bytes calldata _lookahead) private {
         unchecked {
-            // Gas optimization: read the packed CoreState slot once via assembly instead of
-            // 3 individual Solidity field reads which may generate multiple SLOADs.
-            // Original Solidity:
-            //   uint48 nextProposalId = _coreState.nextProposalId;
-            //   uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
-            //   uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
-            uint48 nextProposalId;
-            uint48 lastProposalBlockId;
-            uint48 lastFinalizedProposalId;
-            uint256 packedCoreSlot;
-            CoreState storage coreRef = _coreState;
-            assembly {
-                packedCoreSlot := sload(coreRef.slot)
-                // CoreState packing (right-aligned in slot):
-                //   bits [0..47]:   nextProposalId
-                //   bits [48..95]:  lastProposalBlockId
-                //   bits [96..143]: lastFinalizedProposalId
-                //   bits [144..191]: lastFinalizedTimestamp
-                //   bits [192..239]: lastCheckpointTimestamp
-                nextProposalId := and(packedCoreSlot, 0xffffffffffff)
-                lastProposalBlockId := and(shr(48, packedCoreSlot), 0xffffffffffff)
-                lastFinalizedProposalId := and(shr(96, packedCoreSlot), 0xffffffffffff)
-            }
+            uint48 nextProposalId = _coreState.nextProposalId;
+            uint48 lastProposalBlockId = _coreState.lastProposalBlockId;
+            uint48 lastFinalizedProposalId = _coreState.lastFinalizedProposalId;
             require(nextProposalId > 0, ActivationRequired());
 
             // ── Build proposal (inlined from former _buildProposal) ──
@@ -684,54 +578,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
             );
 
-            // Gas optimization: inline the empty-queue fast path to avoid
-            // _consumeForcedInclusions function call overhead in the common case.
-            // Original Solidity:
-            //   (DerivationSource[] memory sources, bool allowsPermissionless) =
-            //       _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
-            DerivationSource[] memory sources;
-            bool allowsPermissionless;
-            {
-                LibForcedInclusion.Storage storage $ = _forcedInclusionStorage;
-                if ($.head == $.tail) {
-                    // Gas optimization: allocate DerivationSource[1] and set element 0
-                    // in assembly, avoiding Solidity's `new` zero-init, array bounds
-                    // check in `sources[sources.length - 1]`, and DerivationSource struct
-                    // allocation.
-                    // Original Solidity:
-                    //   sources = new DerivationSource[](1);
-                    //   sources[0] = DerivationSource(false, blobSlice);
-                    LibBlobs.BlobSlice memory blobSlice =
-                        LibBlobs.validateBlobReference(_input.blobReference);
-                    assembly {
-                        let arr := mload(0x40)
-                        mstore(arr, 1) // length = 1
-                        let elem := add(arr, 0x40) // element struct after [length][elem0_ptr]
-                        mstore(add(arr, 0x20), elem) // sources[0] = ptr to element
-                        mstore(elem, 0) // isForcedInclusion = false
-                        mstore(add(elem, 0x20), blobSlice) // blobSlice pointer
-                        mstore(0x40, add(elem, 0x40)) // update free memory pointer
-                        sources := arr
-                    }
-                } else {
-                    (sources, allowsPermissionless) =
-                        _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
-                    sources[sources.length - 1] = DerivationSource(
-                        false, LibBlobs.validateBlobReference(_input.blobReference)
-                    );
-                }
-            }
+            (DerivationSource[] memory sources, bool allowsPermissionless) =
+                _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
+
+            sources[sources.length - 1] =
+                DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
             // If forced inclusion is old enough, allow anyone to propose
             // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!allowsPermissionless) {
-                // Gas optimization: use assembly for the external staticcall to avoid
-                // Solidity's ABI encoding/decoding overhead for the calldata and returndata.
-                // Original Solidity:
-                //   endOfSubmissionWindowTimestamp =
-                //       _proposerChecker.checkProposer(msg.sender, _lookahead);
                 endOfSubmissionWindowTimestamp = _checkProposerOptimized(msg.sender, _lookahead);
                 if (_minBond > 0) {
                     // Only if there is a minimum bond set, execute this check
@@ -741,147 +598,24 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 }
             }
 
-            // Gas optimization: read parentProposalHash from ring buffer using assembly
-            // scratch space, avoiding Solidity's memory allocation for mapping key encoding.
-            // Also write the new proposal hash using assembly.
-            // Original Solidity:
-            //   parentProposalHash: _proposalHashes[uint256(nextProposalId - 1) % _ringBufferSize]
-            //   _proposalHashes[uint256(nextProposalId) % _ringBufferSize] = hash;
-            bytes32 parentProposalHash;
-            uint48 ringBufSize = _ringBufferSize;
-            // forge-lint: disable-start(asm-keccak256)
-            assembly {
-                mstore(0x00, mod(sub(nextProposalId, 1), ringBufSize))
-                mstore(0x20, _proposalHashes.slot)
-                parentProposalHash := sload(keccak256(0x00, 0x40))
-            }
-
             // Use previous block as the origin for the proposal to be able to call `blockhash`
             Proposal memory proposal = Proposal({
                 id: nextProposalId,
                 timestamp: uint48(block.timestamp),
                 endOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
-                parentProposalHash: parentProposalHash,
+                parentProposalHash: getProposalHash(nextProposalId - 1),
                 originBlockNumber: uint48(block.number - 1),
                 originBlockHash: blockhash(block.number - 1),
                 basefeeSharingPctg: _basefeeSharingPctg,
                 sources: sources
             });
 
-            // Gas optimization: write both modified fields in a single SSTORE by
-            // updating the packed slot directly.
-            // Original Solidity:
-            //   _coreState.nextProposalId = nextProposalId + 1;
-            //   _coreState.lastProposalBlockId = uint48(block.number);
-            assembly {
-                let mask48 := 0xffffffffffff
-                // Clear the nextProposalId (bits 0-47) and lastProposalBlockId (bits 48-95)
-                let cleared := and(packedCoreSlot, not(or(mask48, shl(48, mask48))))
-                // Pack new values: (nextProposalId + 1) in bits 0-47, block.number in bits 48-95
-                let newPacked :=
-                    or(cleared, or(add(nextProposalId, 1), shl(48, and(number(), mask48))))
-                sstore(coreRef.slot, newPacked)
-            }
-            // Gas optimization: inline _hashAndEmitProposal to eliminate function call overhead.
-            // Original Solidity: bytes32 proposalHash = _hashAndEmitProposal(proposal);
-            {
-                bytes32 proposalHash;
-                assembly {
-                    let ptr := mload(0x40)
-                    mstore(ptr, 0x20)
-                    mstore(add(ptr, 0x20), mload(proposal))
-                    mstore(add(ptr, 0x40), mload(add(proposal, 0x20)))
-                    mstore(add(ptr, 0x60), mload(add(proposal, 0x40)))
-                    mstore(add(ptr, 0x80), mload(add(proposal, 0x60)))
-                    mstore(add(ptr, 0xa0), mload(add(proposal, 0x80)))
-                    mstore(add(ptr, 0xc0), mload(add(proposal, 0xa0)))
-                    mstore(add(ptr, 0xe0), mload(add(proposal, 0xc0)))
-                    mstore(add(ptr, 0x100), mload(add(proposal, 0xe0)))
-                    mstore(add(ptr, 0x120), 0x120)
+            _coreState.nextProposalId = nextProposalId + 1;
+            _coreState.lastProposalBlockId = uint48(block.number);
 
-                    let sourcesArrPtr := mload(add(proposal, 0x100))
-                    let numSources := mload(sourcesArrPtr)
-                    mstore(add(ptr, 0x140), numSources)
-
-                    let offsetArea := add(ptr, 0x160)
-                    let dataArea := add(offsetArea, mul(numSources, 0x20))
-
-                    switch eq(numSources, 1)
-                    case 1 {
-                        mstore(offsetArea, 0x20)
-                        let srcPtr := mload(add(sourcesArrPtr, 0x20))
-                        let blobSlicePtr := mload(add(srcPtr, 0x20))
-                        let blobHashesPtr := mload(blobSlicePtr)
-                        let numHashes := mload(blobHashesPtr)
-                        mstore(dataArea, mload(srcPtr))
-                        mstore(add(dataArea, 0x20), 0x40)
-                        mstore(add(dataArea, 0x40), 0x60)
-                        mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
-                        mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
-                        mstore(add(dataArea, 0xa0), numHashes)
-                        switch eq(numHashes, 1)
-                        case 1 {
-                            mstore(add(dataArea, 0xc0), mload(add(blobHashesPtr, 0x20)))
-                        }
-                        default {
-                            for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
-                                mstore(
-                                    add(add(dataArea, 0xc0), mul(j, 0x20)),
-                                    mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
-                                )
-                            }
-                        }
-                        dataArea := add(dataArea, mul(add(6, numHashes), 0x20))
-                    }
-                    default {
-                        let curDataOffset := mul(numSources, 0x20)
-                        for { let i := 0 } lt(i, numSources) { i := add(i, 1) } {
-                            mstore(add(offsetArea, mul(i, 0x20)), curDataOffset)
-                            let srcPtr := mload(add(add(sourcesArrPtr, 0x20), mul(i, 0x20)))
-                            let blobSlicePtr := mload(add(srcPtr, 0x20))
-                            let blobHashesPtr := mload(blobSlicePtr)
-                            let numHashes := mload(blobHashesPtr)
-                            mstore(dataArea, mload(srcPtr))
-                            mstore(add(dataArea, 0x20), 0x40)
-                            mstore(add(dataArea, 0x40), 0x60)
-                            mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
-                            mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
-                            mstore(add(dataArea, 0xa0), numHashes)
-                            for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
-                                mstore(
-                                    add(add(dataArea, 0xc0), mul(j, 0x20)),
-                                    mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
-                                )
-                            }
-                            let sourceBytes := mul(add(6, numHashes), 0x20)
-                            dataArea := add(dataArea, sourceBytes)
-                            curDataOffset := add(curDataOffset, sourceBytes)
-                        }
-                    }
-
-                    proposalHash := keccak256(ptr, sub(dataArea, ptr))
-
-                    // Emit Proposed event reusing the hash buffer
-                    mstore(add(ptr, 0xc0), mload(add(proposal, 0x80)))
-                    mstore(add(ptr, 0xe0), mload(add(proposal, 0x40)))
-                    mstore(add(ptr, 0x100), mload(add(proposal, 0xe0)))
-                    mstore(add(ptr, 0x120), 0x80)
-                    log3(
-                        add(ptr, 0xc0),
-                        sub(dataArea, add(ptr, 0xc0)),
-                        0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213,
-                        mload(proposal),
-                        mload(add(proposal, 0x60))
-                    )
-
-                    // Write proposal hash to ring buffer
-                    mstore(0x00, mod(nextProposalId, ringBufSize))
-                    mstore(0x20, _proposalHashes.slot)
-                    sstore(keccak256(0x00, 0x40), proposalHash)
-                }
-            }
-            /// forge-lint: disable-end(asm-keccak256)
+            _setProposalHash(proposal.id, LibHashOptimized.hashProposal(proposal));
+            _emitProposedEvent(proposal);
         }
     }
 
@@ -913,7 +647,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
             uint256 available = tail - head;
 
-            // Gas optimization: when the forced inclusion queue is empty, skip all computation
+            // When the forced inclusion queue is empty, skip all computation
             // (min/max, loop, dequeue call, permissionless check) and return directly.
             // This is the most common path in production.
             if (available == 0) {
@@ -1021,154 +755,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         }
     }
 
-    /// @dev Computes hashProposal AND emits the Proposed event in a single pass.
-    ///      Builds the full ABI encoding of the Proposal (identical to LibHashOptimized.hashProposal),
-    ///      computes keccak256 for the proposal hash, then overwrites a portion of the buffer
-    ///      to form the event data layout and emits via LOG3.
-    ///      This avoids traversing the nested DerivationSource[] array twice (once for hashing,
-    ///      once for event emission).
-    ///
-    ///      Hash buffer layout (abi.encode(Proposal)):
-    ///        [0x00]:        0x20 (outer offset)
-    ///        [0x20..0x100]: 8 static fields
-    ///        [0x120]:       0x120 (offset to sources)
-    ///        [0x140..]:     sources encoding
-    ///
-    ///      After hashing, overwrite [0xC0..0x120] to form event data:
-    ///        [0xC0]:  parentProposalHash
-    ///        [0xE0]:  endOfSubmissionWindowTimestamp
-    ///        [0x100]: basefeeSharingPctg
-    ///        [0x120]: 0x80 (offset to sources = 4*32)
-    ///        [0x140..]: sources encoding (already in place from hash buffer)
-    ///
-    /// @param _proposal The proposal to hash and emit.
-    /// @return proposalHash_ The keccak256 hash of the proposal.
-    function _hashAndEmitProposal(Proposal memory _proposal)
-        private
-        returns (bytes32 proposalHash_)
-    {
-        // forge-lint: disable-start(asm-keccak256)
-        assembly {
-            let ptr := mload(0x40)
-
-            // ── Step 1: Build full ABI encoding for hashProposal ──
-            // Word 0: outer offset
-            mstore(ptr, 0x20)
-
-            // Words 1-8: Proposal static fields
-            // Original Solidity: keccak256(abi.encode(_proposal))
-            mstore(add(ptr, 0x20), mload(_proposal))
-            mstore(add(ptr, 0x40), mload(add(_proposal, 0x20)))
-            mstore(add(ptr, 0x60), mload(add(_proposal, 0x40)))
-            mstore(add(ptr, 0x80), mload(add(_proposal, 0x60)))
-            mstore(add(ptr, 0xa0), mload(add(_proposal, 0x80)))
-            mstore(add(ptr, 0xc0), mload(add(_proposal, 0xa0)))
-            mstore(add(ptr, 0xe0), mload(add(_proposal, 0xc0)))
-            mstore(add(ptr, 0x100), mload(add(_proposal, 0xe0)))
-
-            // Word 9: offset to sources = 0x120
-            mstore(add(ptr, 0x120), 0x120)
-
-            // Sources array
-            let sourcesArrPtr := mload(add(_proposal, 0x100))
-            let numSources := mload(sourcesArrPtr)
-
-            // Word 10: sources.length
-            mstore(add(ptr, 0x140), numSources)
-
-            // Gas optimization: specialize for 1 source (common propose path).
-            // Avoids outer loop overhead (JUMPDEST/LT/JUMPI/ADD/JUMP ~40 gas).
-            // Falls back to generic loop for forced inclusion batches (>1 source).
-            let offsetArea := add(ptr, 0x160)
-            let dataArea := add(offsetArea, mul(numSources, 0x20))
-
-            switch eq(numSources, 1)
-            case 1 {
-                // ── Fast path: 1 source (no forced inclusions) ──
-                mstore(offsetArea, 0x20) // curDataOffset = 1 * 0x20
-
-                let srcPtr := mload(add(sourcesArrPtr, 0x20))
-                let blobSlicePtr := mload(add(srcPtr, 0x20))
-                let blobHashesPtr := mload(blobSlicePtr)
-                let numHashes := mload(blobHashesPtr)
-
-                mstore(dataArea, mload(srcPtr))
-                mstore(add(dataArea, 0x20), 0x40)
-                mstore(add(dataArea, 0x40), 0x60)
-                mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
-                mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
-                mstore(add(dataArea, 0xa0), numHashes)
-
-                // Specialize for 1 blob hash (most common) — avoids inner loop overhead
-                switch eq(numHashes, 1)
-                case 1 {
-                    mstore(add(dataArea, 0xc0), mload(add(blobHashesPtr, 0x20)))
-                }
-                default {
-                    for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
-                        mstore(
-                            add(add(dataArea, 0xc0), mul(j, 0x20)),
-                            mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
-                        )
-                    }
-                }
-
-                dataArea := add(dataArea, mul(add(6, numHashes), 0x20))
-            }
-            default {
-                // ── Generic path: multiple sources (forced inclusions) ──
-                let curDataOffset := mul(numSources, 0x20)
-
-                for { let i := 0 } lt(i, numSources) { i := add(i, 1) } {
-                    mstore(add(offsetArea, mul(i, 0x20)), curDataOffset)
-
-                    let srcPtr := mload(add(add(sourcesArrPtr, 0x20), mul(i, 0x20)))
-                    let blobSlicePtr := mload(add(srcPtr, 0x20))
-                    let blobHashesPtr := mload(blobSlicePtr)
-                    let numHashes := mload(blobHashesPtr)
-
-                    mstore(dataArea, mload(srcPtr))
-                    mstore(add(dataArea, 0x20), 0x40)
-                    mstore(add(dataArea, 0x40), 0x60)
-                    mstore(add(dataArea, 0x60), mload(add(blobSlicePtr, 0x20)))
-                    mstore(add(dataArea, 0x80), mload(add(blobSlicePtr, 0x40)))
-                    mstore(add(dataArea, 0xa0), numHashes)
-
-                    for { let j := 0 } lt(j, numHashes) { j := add(j, 1) } {
-                        mstore(
-                            add(add(dataArea, 0xc0), mul(j, 0x20)),
-                            mload(add(add(blobHashesPtr, 0x20), mul(j, 0x20)))
-                        )
-                    }
-
-                    let sourceBytes := mul(add(6, numHashes), 0x20)
-                    dataArea := add(dataArea, sourceBytes)
-                    curDataOffset := add(curDataOffset, sourceBytes)
-                }
-            }
-
-            // ── Step 2: Hash the full buffer ──
-            proposalHash_ := keccak256(ptr, sub(dataArea, ptr))
-
-            // ── Step 3: Overwrite [0xC0..0x120] with event header, reuse sources at [0x140..] ──
-            // Event data starts at ptr+0xC0, sources encoding at ptr+0x140 is already correct.
-            mstore(add(ptr, 0xc0), mload(add(_proposal, 0x80)))  // parentProposalHash
-            mstore(add(ptr, 0xe0), mload(add(_proposal, 0x40)))  // endOfSubmissionWindowTimestamp
-            mstore(add(ptr, 0x100), mload(add(_proposal, 0xe0))) // basefeeSharingPctg
-            mstore(add(ptr, 0x120), 0x80) // offset to sources = 4 * 32
-
-            // Sources data at ptr+0x140 is unchanged — reused from the hash buffer
-
-            // LOG3: topic0 = event sig, topic1 = id, topic2 = proposer
-            log3(
-                add(ptr, 0xc0),
-                sub(dataArea, add(ptr, 0xc0)),
-                // Proposed(uint48,address,bytes32,uint48,uint8,(bool,(bytes32[],uint24,uint48))[])
-                0x7c4c4523e17533e451df15762a093e0693a2cd8b279fe54c6cd3777ed5771213,
-                mload(_proposal), // id
-                mload(add(_proposal, 0x60)) // proposer
-            )
-        }
+    /// @dev Emits the Proposed event
+    function _emitProposedEvent(Proposal memory _proposal) private {
+        emit Proposed(
+            _proposal.id,
+            _proposal.proposer,
+            _proposal.parentProposalHash,
+            _proposal.endOfSubmissionWindowTimestamp,
+            _proposal.basefeeSharingPctg,
+            _proposal.sources
+        );
     }
 
     // ---------------------------------------------------------------
