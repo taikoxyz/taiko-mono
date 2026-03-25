@@ -589,7 +589,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Otherwise, only the current preconfer can propose
             uint48 endOfSubmissionWindowTimestamp;
             if (!allowsPermissionless) {
-                endOfSubmissionWindowTimestamp = _checkProposerOptimized(msg.sender, _lookahead);
+                endOfSubmissionWindowTimestamp =
+                    _proposerChecker.checkProposer(msg.sender, _lookahead);
                 if (_minBond > 0) {
                     // Only if there is a minimum bond set, execute this check
                     require(
@@ -775,54 +776,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
-    }
-
-    /// @dev Gas-optimized external call to _proposerChecker.checkProposer using assembly.
-    /// Avoids Solidity's automatic memory allocation for ABI encoding/decoding of the
-    /// calldata and returndata buffers.
-    /// Original Solidity: _proposerChecker.checkProposer(_proposer, _lookahead)
-    /// @param _proposer The proposer address to check.
-    /// @param _lookahead The lookahead data forwarded to the checker.
-    /// @return endOfSubmissionWindowTimestamp_ The result from checkProposer.
-    function _checkProposerOptimized(
-        address _proposer,
-        bytes calldata _lookahead
-    )
-        private
-        returns (uint48 endOfSubmissionWindowTimestamp_)
-    {
-        address checker = address(_proposerChecker);
-        assembly {
-            // Layout: [selector(4)] [address(32)] [bytes_offset(32)] [bytes_length(32)]
-            // [bytes_data...]
-            let ptr := mload(0x40)
-            // checkProposer(address,bytes) selector = 0xac0004da
-            mstore(ptr, 0xac0004da00000000000000000000000000000000000000000000000000000000)
-            mstore(add(ptr, 4), _proposer)
-            mstore(add(ptr, 36), 64) // offset to bytes data
-            mstore(add(ptr, 68), _lookahead.length)
-            calldatacopy(add(ptr, 100), _lookahead.offset, _lookahead.length)
-
-            let calldataSize := add(100, _lookahead.length)
-            // Use `call` (not staticcall) — checkProposer is non-view because
-            // implementations like LookaheadStore may persist state (e.g. next-epoch
-            // lookahead) during proposer validation.
-            let success := call(gas(), checker, 0, ptr, calldataSize, ptr, 32)
-
-            if iszero(success) {
-                // Bubble up the revert reason
-                returndatacopy(ptr, 0, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            // Ensure callee returned at least 32 bytes — matches Solidity ABI decoder
-            // behavior. Without this, a misconfigured checker returning empty data would
-            // leave stale selector bytes in the return buffer.
-            if lt(returndatasize(), 32) {
-                revert(0, 0)
-            }
-
-            endOfSubmissionWindowTimestamp_ := mload(ptr)
-        }
     }
 
     /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
