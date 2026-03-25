@@ -1194,13 +1194,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         bytes calldata _lookahead
     )
         private
-        view
         returns (uint48 endOfSubmissionWindowTimestamp_)
     {
         address checker = address(_proposerChecker);
         assembly {
-            // Encode: checkProposer(address,bytes) selector = 0x41cb1440
-            // Layout: [selector(4)] [address(32)] [bytes_offset(32)] [bytes_length(32)] [bytes_data...]
+            // Layout: [selector(4)] [address(32)] [bytes_offset(32)] [bytes_length(32)]
+            // [bytes_data...]
             let ptr := mload(0x40)
             // checkProposer(address,bytes) selector = 0xac0004da
             mstore(ptr, 0xac0004da00000000000000000000000000000000000000000000000000000000)
@@ -1210,8 +1209,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             calldatacopy(add(ptr, 100), _lookahead.offset, _lookahead.length)
 
             let calldataSize := add(100, _lookahead.length)
-            // staticcall since checkProposer is view
-            let success := staticcall(gas(), checker, ptr, calldataSize, ptr, 32)
+            // Use `call` (not staticcall) — checkProposer is non-view because
+            // implementations like LookaheadStore may persist state (e.g. next-epoch
+            // lookahead) during proposer validation.
+            let success := call(gas(), checker, 0, ptr, calldataSize, ptr, 32)
 
             if iszero(success) {
                 // Bubble up the revert reason
