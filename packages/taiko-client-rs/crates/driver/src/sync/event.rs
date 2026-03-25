@@ -1167,10 +1167,8 @@ where
             {
                 Ok(scanner) => scanner,
                 Err(err) => {
-                    let err = resolve_event_scanner_setup_error(
-                        scanner_started_once,
-                        err.to_string(),
-                    )?;
+                    let err =
+                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
@@ -1191,10 +1189,8 @@ where
                     proof
                 }
                 Err(err) => {
-                    let err = resolve_event_scanner_setup_error(
-                        scanner_started_once,
-                        err.to_string(),
-                    )?;
+                    let err =
+                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
                     warn!(
                         error = %err,
                         start_tag = ?reconnect_start_tag,
@@ -1278,7 +1274,8 @@ where
             }
 
             if let Some(block_number) = last_seen_l1_block_number {
-                let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await {
+                let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
+                {
                     Ok(snapshot) => snapshot.map(|snapshot| snapshot.block_number),
                     Err(err) => {
                         warn!(
