@@ -59,6 +59,13 @@ func tryLastFinalizedCheckpointShasta(
 		)
 		return nil, nil
 	}
+	if blockID == nil {
+		log.Warn(
+			"No last block ID found for finalized proposal, continue inserting blocks",
+			"finalizedProposalID", coreState.LastFinalizedProposalId,
+		)
+		return nil, nil
+	}
 
 	lastFinalizedHeader, err := headerByNumber(ctx, blockID.ToInt())
 	if err != nil {

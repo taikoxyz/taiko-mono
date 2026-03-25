@@ -1204,6 +1204,13 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 		)
 		return
 	}
+	if blockID == nil {
+		log.Error(
+			"No last block ID found for shasta proposal",
+			"proposalId", recordedProposal.Id,
+		)
+		return
+	}
 
 	header, err := s.rpc.L1.HeaderByHash(ctx, eventLog.BlockHash)
 	if err != nil {

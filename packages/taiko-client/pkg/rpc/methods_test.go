@@ -3,10 +3,12 @@ package rpc
 import (
 	"context"
 	"crypto/rand"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
@@ -64,6 +66,25 @@ func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 	progress, err := client.L2ExecutionEngineSyncProgress(context.Background())
 	require.Nil(t, err)
 	require.NotNil(t, progress)
+}
+
+func TestRequiredBatchLastBlockNumber(t *testing.T) {
+	proposalID := big.NewInt(12)
+
+	t.Run("nil block ID", func(t *testing.T) {
+		blockNumber, err := requiredBatchLastBlockNumber(proposalID, nil)
+		require.Nil(t, blockNumber)
+		require.ErrorContains(t, err, "no last block ID found for proposal ID 12")
+	})
+
+	t.Run("valid block ID", func(t *testing.T) {
+		blockID := (*hexutil.Big)(big.NewInt(34))
+
+		blockNumber, err := requiredBatchLastBlockNumber(proposalID, blockID)
+		require.NoError(t, err)
+		require.NotNil(t, blockNumber)
+		require.Zero(t, blockNumber.Cmp(big.NewInt(34)))
+	})
 }
 
 func TestGetProtocolStateVariables(t *testing.T) {

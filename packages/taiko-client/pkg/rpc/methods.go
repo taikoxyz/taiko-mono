@@ -1526,6 +1526,14 @@ func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInbox
 	return &state, nil
 }
 
+func requiredBatchLastBlockNumber(proposalID *big.Int, blockID *hexutil.Big) (*big.Int, error) {
+	if blockID == nil {
+		return nil, fmt.Errorf("no last block ID found for proposal ID %d", proposalID)
+	}
+
+	return blockID.ToInt(), nil
+}
+
 // GetProposalByIDShasta gets the proposal by ID from Shasta Inbox contract.
 func (c *Client) GetProposalByIDShasta(
 	ctx context.Context,
@@ -1539,9 +1547,14 @@ func (c *Client) GetProposalByIDShasta(
 		return nil, nil, fmt.Errorf("failed to get last block ID by batch ID %d: %w", proposalID, err)
 	}
 
-	block, err := c.L2.BlockByNumber(ctxWithTimeout, blockID.ToInt())
+	blockNumber, err := requiredBatchLastBlockNumber(proposalID, blockID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get L2 block by ID %d: %w", blockID.ToInt(), err)
+		return nil, nil, err
+	}
+
+	block, err := c.L2.BlockByNumber(ctxWithTimeout, blockNumber)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get L2 block by ID %d: %w", blockNumber, err)
 	}
 
 	_, anchorNumber, _, err := c.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
