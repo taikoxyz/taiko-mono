@@ -206,8 +206,37 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// NOTE: This function can only be called once per block to prevent spams that can fill the
     /// ring buffer.
     function propose(bytes calldata _lookahead, bytes calldata _data) external nonReentrant {
-        ProposeInput memory input = LibCodec.decodeProposeInput(_data);
-        _validateProposeInput(input);
+        // Gas optimization: decode ProposeInput directly from calldata using assembly.
+        // Avoids the implicit calldata→memory copy (LibCodec.decodeProposeInput takes bytes memory)
+        // and LibPackUnpack function call overhead (5 separate unpack calls).
+        // Original Solidity:
+        //   ProposeInput memory input = LibCodec.decodeProposeInput(_data);
+        //   _validateProposeInput(input);
+        ProposeInput memory input;
+        assembly {
+            // Layout: deadline(6) | blobStartIndex(2) | numBlobs(2) | offset(3) |
+            // numForcedInclusions(2) = 15 bytes total
+            let packed := calldataload(_data.offset)
+
+            // ProposeInput memory layout: [0x00] deadline, [0x20] blobReference ptr, [0x40]
+            // numForcedInclusions. BlobReference is a separate memory allocation accessed via
+            // pointer.
+            // deadline: bytes 0-5 (6 bytes), right-aligned
+            mstore(input, shr(208, packed))
+            // blobReference: read the pointer Solidity stored at input+0x20
+            let blobRef := mload(add(input, 0x20))
+            // blobStartIndex: bytes 6-7 (2 bytes)
+            mstore(blobRef, and(shr(192, packed), 0xffff))
+            // numBlobs: bytes 8-9 (2 bytes)
+            mstore(add(blobRef, 0x20), and(shr(176, packed), 0xffff))
+            // offset: bytes 10-12 (3 bytes)
+            mstore(add(blobRef, 0x40), and(shr(152, packed), 0xffffff))
+            // numForcedInclusions: bytes 13-14 (2 bytes)
+            mstore(add(input, 0x40), and(shr(136, packed), 0xffff))
+        }
+
+        // Inline _validateProposeInput — saves JUMP overhead
+        require(input.deadline == 0 || block.timestamp <= input.deadline, DeadlineExceeded());
         _proposeCore(input, _lookahead);
     }
 
