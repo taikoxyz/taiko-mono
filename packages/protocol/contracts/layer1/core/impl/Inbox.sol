@@ -536,9 +536,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             // Enforce one propose call per Ethereum block to prevent spam attacks that could
             // deplete the ring buffer
             require(block.number > lastProposalBlockId, CannotProposeInCurrentBlock());
-            require(
-                _ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity()
-            );
+            require(_ringBufferSize > nextProposalId - lastFinalizedProposalId, NotEnoughCapacity());
 
             (DerivationSource[] memory sources, bool allowsPermissionless) =
                 _consumeForcedInclusions(msg.sender, _input.numForcedInclusions);
@@ -639,9 +637,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             sources_ = new DerivationSource[](toProcess + 1);
 
             uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
-                $, _feeRecipient, sources_, head, toProcess
-            );
+            (oldestTimestamp, head) =
+                _dequeueAndProcessForcedInclusions($, _feeRecipient, sources_, head, toProcess);
 
             uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
                 * _permissionlessInclusionMultiplier + oldestTimestamp;

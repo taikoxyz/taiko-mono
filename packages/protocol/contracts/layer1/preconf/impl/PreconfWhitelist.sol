@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IPreconfWhitelist } from "../iface/IPreconfWhitelist.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { LibPreconfConstants } from "../libs/LibPreconfConstants.sol";
 import { LibPreconfUtils } from "../libs/LibPreconfUtils.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 
 /// @title PreconfWhitelist
 /// @notice Non-upgradeable operator whitelist for proposer authorization.
@@ -107,9 +107,8 @@ contract PreconfWhitelist is Ownable, IPreconfWhitelist, IProposerChecker {
         // forge-lint: disable-start(divide-before-multiply)
         unchecked {
             uint256 timePassed = block.timestamp - genesisTimestamp;
-            epochTs = genesisTimestamp
-                + (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
-                    * LibPreconfConstants.SECONDS_IN_EPOCH;
+            epochTs = genesisTimestamp + (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
+                * LibPreconfConstants.SECONDS_IN_EPOCH;
         }
         // forge-lint: disable-end
 
@@ -119,8 +118,9 @@ contract PreconfWhitelist is Ownable, IPreconfWhitelist, IProposerChecker {
         //   getGenesisTimestamp AGAIN). By inlining we skip the second genesis lookup.
         unchecked {
             // RANDOMNESS_DELAY (2) * SECONDS_IN_EPOCH (384) = 768, constant-folded
-            uint256 randomnessTs =
-                epochTs >= LibPreconfConstants.TWO_EPOCHS ? epochTs - LibPreconfConstants.TWO_EPOCHS : epochTs;
+            uint256 randomnessTs = epochTs >= LibPreconfConstants.TWO_EPOCHS
+                ? epochTs - LibPreconfConstants.TWO_EPOCHS
+                : epochTs;
 
             // 1 SLOAD: operatorCount + latestActivationEpoch packed in same slot
             uint256 count = operatorCount;

@@ -24,8 +24,8 @@ contract PreconfWhitelistGasTest is CommonTest {
 
         // Warp past the randomness delay so operators can be active
         vm.warp(
-            LibPreconfConstants.SECONDS_IN_SLOT
-                + LibPreconfConstants.SECONDS_IN_EPOCH * whitelist.RANDOMNESS_DELAY()
+            LibPreconfConstants.SECONDS_IN_SLOT + LibPreconfConstants.SECONDS_IN_EPOCH
+                * whitelist.RANDOMNESS_DELAY()
         );
 
         // Add operator (deployer is already the prank sender and is the owner)
