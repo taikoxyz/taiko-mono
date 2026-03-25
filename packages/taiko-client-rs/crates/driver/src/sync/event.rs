@@ -164,6 +164,39 @@ fn resolve_target_with_optional_finalization(
     }
 }
 
+/// Resolve the reconnect start block after a scanner interruption.
+///
+/// - Rewind one block from the last seen height to cover partial delivery from the boundary block.
+/// - If a finalized L1 block exists behind that overlap point, rewind all the way to finalized so
+///   reconnect replays the entire reorg-unsafe window.
+/// - If finalization is unavailable, fall back to the original startup anchor to avoid skipping
+///   potentially replaced historical logs on fresh chains.
+fn resolve_reconnect_start_block(
+    last_seen_l1_block_number: u64,
+    finalized_l1_block_number: Option<u64>,
+    startup_anchor_block_number: u64,
+) -> u64 {
+    let overlap_start_block_number = last_seen_l1_block_number.saturating_sub(1);
+    finalized_l1_block_number
+        .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
+}
+
+/// Convert a scanner setup error into either a fatal startup error or a retryable reconnect error.
+///
+/// Before the first successful scanner start, setup failures must fail fast so callers waiting on
+/// ingress readiness observe a clear startup error. After the scanner has started once, the same
+/// failures are treated as transient reconnect errors.
+fn resolve_event_scanner_setup_error(
+    scanner_started_once: bool,
+    error_message: String,
+) -> Result<String, SyncError> {
+    if scanner_started_once {
+        Ok(error_message)
+    } else {
+        Err(SyncError::EventScannerInit(error_message))
+    }
+}
+
 /// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
@@ -1112,10 +1145,12 @@ where
         let router = self.build_router(derivation.clone());
 
         let mut reconnect_start_tag = start_tag;
+        let startup_anchor_block_number = anchor_block_number;
 
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
+        let mut scanner_started_once = false;
 
         loop {
             if !preconf_ingress_spawned {
@@ -1132,8 +1167,12 @@ where
             {
                 Ok(scanner) => scanner,
                 Err(err) => {
+                    let err = resolve_event_scanner_setup_error(
+                        scanner_started_once,
+                        err.to_string(),
+                    )?;
                     warn!(
-                        ?err,
+                        error = %err,
                         start_tag = ?reconnect_start_tag,
                         retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
                         "failed to initialize event scanner; retrying"
@@ -1147,10 +1186,17 @@ where
                 .event(Proposed::SIGNATURE);
             let subscription = scanner.subscribe(filter);
             let proof = match scanner.start().await {
-                Ok(proof) => proof,
+                Ok(proof) => {
+                    scanner_started_once = true;
+                    proof
+                }
                 Err(err) => {
+                    let err = resolve_event_scanner_setup_error(
+                        scanner_started_once,
+                        err.to_string(),
+                    )?;
                     warn!(
-                        ?err,
+                        error = %err,
                         start_tag = ?reconnect_start_tag,
                         retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
                         "failed to start event scanner; retrying"
@@ -1232,10 +1278,22 @@ where
             }
 
             if let Some(block_number) = last_seen_l1_block_number {
-                // Step back one block so reconnect does not miss logs if the stream ended after
-                // yielding only part of the last block's notifications. Replaying that boundary
-                // block is safe because proposal processing is idempotent.
-                reconnect_start_tag = BlockNumberOrTag::Number(block_number.saturating_sub(1));
+                let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await {
+                    Ok(snapshot) => snapshot.map(|snapshot| snapshot.block_number),
+                    Err(err) => {
+                        warn!(
+                            ?err,
+                            fallback_start_block = startup_anchor_block_number,
+                            "failed to resolve finalized reconnect anchor; rewinding to startup anchor"
+                        );
+                        None
+                    }
+                };
+                reconnect_start_tag = BlockNumberOrTag::Number(resolve_reconnect_start_block(
+                    block_number,
+                    reconnect_finalized_block_number,
+                    startup_anchor_block_number,
+                ));
             }
             warn!(
                 start_tag = ?reconnect_start_tag,
@@ -1835,5 +1893,34 @@ mod tests {
         let (target, safe) = resolve_target_with_optional_finalization(50, Some(120));
         assert_eq!(target, 50);
         assert_eq!(safe, 120);
+    }
+
+    #[test]
+    fn reconnect_start_rewinds_to_finalized_when_finalized_is_behind_last_seen() {
+        let reconnect_start = resolve_reconnect_start_block(120, Some(80), 10);
+        assert_eq!(reconnect_start, 80);
+    }
+
+    #[test]
+    fn reconnect_start_keeps_one_block_overlap_when_finalized_is_ahead() {
+        let reconnect_start = resolve_reconnect_start_block(120, Some(240), 10);
+        assert_eq!(reconnect_start, 119);
+    }
+
+    #[test]
+    fn reconnect_start_falls_back_to_startup_anchor_without_finalization() {
+        let reconnect_start = resolve_reconnect_start_block(120, None, 10);
+        assert_eq!(reconnect_start, 10);
+    }
+
+    #[test]
+    fn scanner_setup_errors_fail_fast_before_first_successful_start() {
+        let err = resolve_event_scanner_setup_error(false, "boom".into())
+            .expect_err("startup scanner errors should fail fast");
+        assert!(matches!(err, SyncError::EventScannerInit(reason) if reason == "boom"));
+
+        let err = resolve_event_scanner_setup_error(true, "boom".into())
+            .expect("post-start scanner errors should be retryable");
+        assert_eq!(err, "boom");
     }
 }
