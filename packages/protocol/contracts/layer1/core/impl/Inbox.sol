@@ -414,7 +414,34 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 state.lastFinalizedBlockHash = lastBlockHash;
             }
 
-            _coreState = state;
+            // Assembly write-back — reads fields from memory struct and does 2 SSTOREs,
+            // avoiding Solidity's struct-to-storage encoder overhead.
+            // Original Solidity: _coreState = state;
+            // CoreState memory layout: [0x00] nextProposalId, [0x20] lastProposalBlockId,
+            //   [0x40] lastFinalizedProposalId, [0x60] lastFinalizedTimestamp,
+            //   [0x80] lastCheckpointTimestamp, [0xa0] lastFinalizedBlockHash
+            {
+                CoreState storage coreRef = _coreState;
+                assembly {
+                    let mask48 := 0xffffffffffff
+                    let packed :=
+                        or(
+                            or(
+                                or(
+                                    and(mload(state), mask48),
+                                    shl(48, and(mload(add(state, 0x20)), mask48))
+                                ),
+                                shl(96, and(mload(add(state, 0x40)), mask48))
+                            ),
+                            or(
+                                shl(144, and(mload(add(state, 0x60)), mask48)),
+                                shl(192, and(mload(add(state, 0x80)), mask48))
+                            )
+                        )
+                    sstore(coreRef.slot, packed)
+                    sstore(add(coreRef.slot, 1), mload(add(state, 0xa0)))
+                }
+            }
 
             emit Proved(
                 commitment.firstProposalId,
