@@ -90,9 +90,12 @@ struct EventStreamStartPoint {
 fn should_probe_confirmed_sync(
     preconfirmation_enabled: bool,
     preconf_ingress_spawned: bool,
+    preconf_ingress_ready: bool,
     scanner_live: bool,
 ) -> bool {
-    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live
+    preconfirmation_enabled
+        && scanner_live
+        && (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
@@ -1240,6 +1243,7 @@ where
                 if should_probe_confirmed_sync(
                     self.cfg.preconfirmation_enabled,
                     preconf_ingress_spawned,
+                    self.preconf_ingress_ready.load(Ordering::Acquire),
                     scanner_live,
                 ) {
                     let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
@@ -1268,9 +1272,20 @@ where
                                 self.preconf_ingress_notify.clone(),
                             );
                             preconf_ingress_spawned = true;
+                        } else if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
+                            info!(
+                                "re-opened preconfirmation ingress after scanner reconnect"
+                            );
+                            self.preconf_ingress_notify.notify_waiters();
                         }
                     }
                 }
+            }
+
+            // A dropped scanner forces a historical replay window again, so close ingress until
+            // the next live scanner transition and confirmed-sync probe re-open it.
+            if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
+                info!("closing preconfirmation ingress during event scanner reconnect");
             }
 
             if let Some(block_number) = last_seen_l1_block_number {
@@ -1803,6 +1818,15 @@ mod tests {
     fn confirmed_sync_ready_reflects_snapshot_readiness() {
         let ready = resolve_confirmed_sync_ready(ConfirmedSyncSnapshot::new(0, None, None));
         assert!(ready, "resolved readiness should mirror snapshot readiness");
+    }
+
+    #[test]
+    fn confirmed_sync_probe_rearms_when_ingress_gate_closes_after_spawn() {
+        assert!(should_probe_confirmed_sync(true, true, false, true));
+        assert!(!should_probe_confirmed_sync(true, true, true, true));
+        assert!(should_probe_confirmed_sync(true, false, false, true));
+        assert!(!should_probe_confirmed_sync(true, false, false, false));
+        assert!(!should_probe_confirmed_sync(false, true, false, true));
     }
 
     #[test]
