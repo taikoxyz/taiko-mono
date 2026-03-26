@@ -93,9 +93,7 @@ fn should_probe_confirmed_sync(
     preconf_ingress_ready: bool,
     scanner_live: bool,
 ) -> bool {
-    preconfirmation_enabled
-        && scanner_live
-        && (!preconf_ingress_spawned || !preconf_ingress_ready)
+    preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
@@ -1273,9 +1271,7 @@ where
                             );
                             preconf_ingress_spawned = true;
                         } else if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
-                            info!(
-                                "re-opened preconfirmation ingress after scanner reconnect"
-                            );
+                            info!("re-opened preconfirmation ingress after scanner reconnect");
                             self.preconf_ingress_notify.notify_waiters();
                         }
                     }
