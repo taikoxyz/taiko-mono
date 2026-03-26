@@ -30,6 +30,9 @@ use tracing::{info, warn};
 
 use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
 
+/// Fast event-sync poll interval used by the harness to keep E2E waits responsive.
+const HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
+
 /// A mock driver client that records submissions for test verification.
 ///
 /// This client:
@@ -183,7 +186,13 @@ where
 {
     /// Create a new client backed by the driver event syncer.
     pub fn new(event_syncer: Arc<EventSyncer<P>>, client: Client<P>) -> Self {
-        Self { inner: RuntimeEventSyncerDriverClient::from_client(event_syncer, client) }
+        Self {
+            inner: RuntimeEventSyncerDriverClient::from_client_with_poll_interval(
+                event_syncer,
+                client,
+                HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL,
+            ),
+        }
     }
 }
 

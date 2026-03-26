@@ -246,13 +246,27 @@ impl<P> EventSyncerDriverClient<EventSyncer<P>, P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Build a driver client from an EventSyncer and RPC client bundle.
-    pub fn from_client(event_syncer: Arc<EventSyncer<P>>, client: rpc::client::Client<P>) -> Self {
+    /// Build a driver client from an EventSyncer and RPC client bundle with a custom
+    /// `wait_event_sync` poll interval.
+    pub fn from_client_with_poll_interval(
+        event_syncer: Arc<EventSyncer<P>>,
+        client: rpc::client::Client<P>,
+        wait_event_sync_poll_interval: Duration,
+    ) -> Self {
         let l2_provider: Arc<dyn L2Provider + Send + Sync> = Arc::new(client.l2_provider.clone());
         Self::new_with_components_and_poll_interval(
             event_syncer,
             client.shasta.inbox,
             l2_provider,
+            wait_event_sync_poll_interval,
+        )
+    }
+
+    /// Build a driver client from an EventSyncer and RPC client bundle.
+    pub fn from_client(event_syncer: Arc<EventSyncer<P>>, client: rpc::client::Client<P>) -> Self {
+        Self::from_client_with_poll_interval(
+            event_syncer,
+            client,
             DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
         )
     }
