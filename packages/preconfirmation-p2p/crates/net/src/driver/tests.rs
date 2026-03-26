@@ -155,7 +155,7 @@ fn driver_from_parts(
     let config = libp2p::swarm::Config::with_tokio_executor();
     let swarm = Swarm::new(parts.transport, parts.behaviour, peer_id, config);
 
-    cfg.validate_request_rate_limits();
+    cfg.validate_request_rate_limits().expect("valid request rate-limit config for test");
 
     let (events_tx, events_rx) = mpsc::channel(256);
     let (cmd_tx, cmd_rx) = mpsc::channel(256);
@@ -175,7 +175,8 @@ fn driver_from_parts(
             request_limiter: RequestRateLimiter::new(
                 cfg.request_window,
                 cfg.max_requests_per_window,
-            ),
+            )
+            .expect("valid request rate-limit config for test"),
             pending_requests: HashMap::new(),
             validator: Box::new(LookaheadValidationAdapter::new(None, lookahead)),
             discovery_rx: None,

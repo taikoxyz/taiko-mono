@@ -9,6 +9,7 @@
 //! The Kona connection gater from `kona_gossip` is used for low-level connection
 //! management, while this module focuses on application-level reputation.
 
+use anyhow::ensure;
 use libp2p::PeerId;
 use reth_network_types::peers::reputation::ReputationChangeWeights;
 use std::{
@@ -257,12 +258,16 @@ pub enum ReqRespKind {
 
 impl RequestRateLimiter {
     /// Creates a new `RequestRateLimiter` with a specified period and max requests.
-    pub fn new(window: Duration, max_requests: u32) -> Self {
-        debug_assert!(window > Duration::ZERO, "RequestRateLimiter window must be > 0");
-        debug_assert!(max_requests > 0, "RequestRateLimiter max_requests must be > 0");
+    pub fn new(window: Duration, max_requests: u32) -> anyhow::Result<Self> {
+        ensure!(window > Duration::ZERO, "RequestRateLimiter window must be > 0, got {:?}", window);
+        ensure!(
+            max_requests > 0,
+            "RequestRateLimiter max_requests must be > 0, got {}",
+            max_requests
+        );
         let rate = reth_tokio_util::ratelimit::Rate::new(max_requests as u64, window);
         let horizon = window * 4;
-        Self { rate, horizon, state: HashMap::new() }
+        Ok(Self { rate, horizon, state: HashMap::new() })
     }
 
     /// Drop idle limiters whose buckets have not been used within the horizon.
@@ -354,7 +359,8 @@ mod tests {
     /// Allows within quota then limits until bucket refills.
     #[tokio::test]
     async fn request_rate_limiter_under_and_over_limit() {
-        let mut rl = RequestRateLimiter::new(Duration::from_secs(1), 2);
+        let mut rl =
+            RequestRateLimiter::new(Duration::from_secs(1), 2).expect("valid rate-limit config");
         let peer = PeerId::random();
 
         for _ in 0..2 {
@@ -386,7 +392,8 @@ mod tests {
     /// Buckets are independent per peer.
     #[tokio::test]
     async fn request_rate_limiter_is_per_peer() {
-        let mut rl = RequestRateLimiter::new(Duration::from_secs(5), 1);
+        let mut rl =
+            RequestRateLimiter::new(Duration::from_secs(5), 1).expect("valid rate-limit config");
         let a = PeerId::random();
         let b = PeerId::random();
 
@@ -413,7 +420,7 @@ mod tests {
     #[tokio::test]
     async fn request_rate_limiter_evicts_idle_entries() {
         let window = Duration::from_millis(100);
-        let mut rl = RequestRateLimiter::new(window, 2);
+        let mut rl = RequestRateLimiter::new(window, 2).expect("valid rate-limit config");
         let a = PeerId::random();
         let b = PeerId::random();
 
@@ -436,5 +443,18 @@ mod tests {
 
         assert_eq!(rl.state.len(), 1);
         assert!(rl.state.contains_key(&(b, ReqRespKind::Head)));
+    }
+
+    #[test]
+    fn request_rate_limiter_rejects_invalid_limits() {
+        let err = RequestRateLimiter::new(Duration::ZERO, 1);
+        assert!(err.is_err(), "zero window must be rejected");
+        let err = err.err().expect("error expected");
+        assert!(err.to_string().contains("window"));
+
+        let err = RequestRateLimiter::new(Duration::from_secs(1), 0);
+        assert!(err.is_err(), "zero max_requests must be rejected");
+        let err = err.err().expect("error expected");
+        assert!(err.to_string().contains("max_requests"));
     }
 }

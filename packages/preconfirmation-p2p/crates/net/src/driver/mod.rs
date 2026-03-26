@@ -115,6 +115,8 @@ impl NetworkDriver {
         validator: Box<dyn ValidationAdapter>,
         storage: Option<Arc<dyn PreconfStorage>>,
     ) -> anyhow::Result<(Self, NetworkHandle)> {
+        cfg.validate_request_rate_limits()?;
+
         let dial_factor =
             NonZeroU8::new(cfg.dial_concurrency_factor).unwrap_or(NonZeroU8::new(1).unwrap());
 
@@ -150,8 +152,6 @@ impl NetworkDriver {
 
         let _ = events_tx.try_send(NetworkEvent::Started);
 
-        cfg.validate_request_rate_limits();
-
         let mut discovery_rx = None;
         if cfg.enable_discovery {
             discovery_rx = spawn_discovery(cfg.discv5_listen, cfg.bootnodes.clone()).ok();
@@ -171,7 +171,7 @@ impl NetworkDriver {
                 request_limiter: RequestRateLimiter::new(
                     cfg.request_window,
                     cfg.max_requests_per_window,
-                ),
+                )?,
                 pending_requests: HashMap::new(),
                 validator,
                 discovery_rx,

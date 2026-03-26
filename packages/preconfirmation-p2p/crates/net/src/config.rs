@@ -12,6 +12,7 @@ use std::{
 
 use crate::reputation::ReputationConfig;
 use alloy_primitives::Address;
+use anyhow::ensure;
 use libp2p::Multiaddr;
 
 /// Configuration for the P2P.
@@ -217,9 +218,18 @@ impl Default for NetworkConfig {
 
 impl NetworkConfig {
     /// Ensure rate-limit parameters are sane before constructing a limiter.
-    pub(crate) fn validate_request_rate_limits(&self) {
-        debug_assert!(self.request_window > Duration::ZERO, "request_window must be > 0");
-        debug_assert!(self.max_requests_per_window > 0, "max_requests_per_window must be > 0");
+    pub(crate) fn validate_request_rate_limits(&self) -> anyhow::Result<()> {
+        ensure!(
+            self.request_window > Duration::ZERO,
+            "request_window must be > 0, got {:?}",
+            self.request_window
+        );
+        ensure!(
+            self.max_requests_per_window > 0,
+            "max_requests_per_window must be > 0, got {}",
+            self.max_requests_per_window
+        );
+        Ok(())
     }
 }
 
@@ -239,5 +249,34 @@ impl Default for RateLimitConfig {
     /// Provides default rate limit settings: 10s window, 8 requests.
     fn default() -> Self {
         Self { window: Duration::from_secs(10), max_requests: 8 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn validate_request_rate_limits_accepts_defaults() {
+        let cfg = NetworkConfig::default();
+        assert!(cfg.validate_request_rate_limits().is_ok());
+    }
+
+    #[test]
+    fn validate_request_rate_limits_rejects_zero_window() {
+        let cfg = NetworkConfig { request_window: Duration::ZERO, ..Default::default() };
+        let err =
+            cfg.validate_request_rate_limits().expect_err("zero request_window must be rejected");
+        assert!(err.to_string().contains("request_window"));
+    }
+
+    #[test]
+    fn validate_request_rate_limits_rejects_zero_max_requests() {
+        let cfg = NetworkConfig { max_requests_per_window: 0, ..Default::default() };
+        let err = cfg
+            .validate_request_rate_limits()
+            .expect_err("zero max_requests_per_window must be rejected");
+        assert!(err.to_string().contains("max_requests_per_window"));
     }
 }
