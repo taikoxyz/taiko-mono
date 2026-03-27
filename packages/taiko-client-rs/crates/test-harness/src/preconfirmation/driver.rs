@@ -8,33 +8,30 @@
 
 use std::{sync::Arc, time::Duration};
 
-use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::U256;
 use alloy_provider::{Provider, RootProvider};
 use anyhow::Result as AnyhowResult;
 use async_trait::async_trait;
-use bindings::inbox::Inbox::InboxInstance;
 use driver::{
-    DriverConfig, PreconfPayload,
+    DriverConfig,
     sync::{SyncStage, event::EventSyncer},
 };
 use preconfirmation_driver::{
-    DriverClient, PreconfirmationInput, Result,
-    driver_interface::payload::build_taiko_payload_attributes,
-    error::{DriverApiError, PreconfirmationClientError},
-    resolve_event_sync_tip,
+    DriverClient, EventSyncerDriverClient as RuntimeEventSyncerDriverClient, PreconfirmationInput,
+    Result,
 };
 use preconfirmation_types::uint256_to_u256;
-use protocol::shasta::constants::min_base_fee_for_chain;
 use rpc::client::{Client, ClientConfig};
 use tokio::{
     sync::{Mutex, Notify},
     task::JoinHandle,
-    time::sleep,
 };
 use tracing::{info, warn};
 
 use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
+
+/// Fast event-sync poll interval used by the harness to keep E2E waits responsive.
+const HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
 
 /// A mock driver client that records submissions for test verification.
 ///
@@ -176,14 +173,11 @@ impl DriverClient for MockDriverClient {
 }
 
 /// Driver client that submits payloads directly to an in-process EventSyncer.
-#[derive(Clone)]
 pub struct EventSyncerDriverClient<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    event_syncer: Arc<EventSyncer<P>>,
-    inbox: InboxInstance<P>,
-    l2_provider: RootProvider,
+    inner: RuntimeEventSyncerDriverClient<EventSyncer<P>, P>,
 }
 
 impl<P> EventSyncerDriverClient<P>
@@ -192,7 +186,13 @@ where
 {
     /// Create a new client backed by the driver event syncer.
     pub fn new(event_syncer: Arc<EventSyncer<P>>, client: Client<P>) -> Self {
-        Self { event_syncer, inbox: client.shasta.inbox, l2_provider: client.l2_provider }
+        Self {
+            inner: RuntimeEventSyncerDriverClient::from_client_with_poll_interval(
+                event_syncer,
+                client,
+                HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL,
+            ),
+        }
     }
 }
 
@@ -202,73 +202,19 @@ where
     P: Provider + Clone + Send + Sync + 'static,
 {
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
-        let preconf = &input.commitment.commitment.preconf;
-        let block_number = uint256_to_u256(&preconf.block_number).to::<u64>();
-        let proposal_id = uint256_to_u256(&preconf.proposal_id).to::<u64>();
-
-        if input.should_skip_driver_submission() {
-            tracing::debug!(block_number, proposal_id, "skipping EOP-only preconfirmation");
-            return Ok(());
-        }
-
-        let config = self.inbox.getConfig().call().await.map_err(DriverApiError::from)?;
-        let min_base_fee_to_clamp = min_base_fee_for_chain(
-            self.l2_provider.get_chain_id().await.map_err(DriverApiError::from)?,
-        );
-        let payload = build_taiko_payload_attributes(
-            &input,
-            config.basefeeSharingPctg,
-            &self.l2_provider,
-            min_base_fee_to_clamp,
-        )
-        .await?;
-
-        self.event_syncer
-            .submit_preconfirmation_payload(PreconfPayload::new(payload))
-            .await
-            .map_err(|err| {
-                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(err))
-            })?;
-
-        info!(block_number, proposal_id, "submitted preconfirmation payload");
-        Ok(())
+        self.inner.submit_preconfirmation(input).await
     }
 
     async fn wait_event_sync(&self) -> Result<()> {
-        info!("starting wait for driver to sync with L1 inbox events");
-        loop {
-            if self
-                .event_syncer
-                .confirmed_sync_snapshot()
-                .await
-                .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?
-                .is_ready()
-            {
-                info!("driver event sync complete");
-                return Ok(());
-            }
-
-            sleep(Duration::from_millis(200)).await;
-        }
+        self.inner.wait_event_sync().await
     }
 
     async fn event_sync_tip(&self) -> Result<U256> {
-        let snapshot = self
-            .event_syncer
-            .confirmed_sync_snapshot()
-            .await
-            .map_err(|err| DriverApiError::Driver(driver::DriverError::from(err)))?;
-        resolve_event_sync_tip(&snapshot)
+        self.inner.event_sync_tip().await
     }
 
     async fn preconf_tip(&self) -> Result<U256> {
-        let block = self
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(DriverApiError::from)?
-            .ok_or(DriverApiError::MissingLatestBlock)?;
-        Ok(U256::from(block.number()))
+        self.inner.preconf_tip().await
     }
 }
 
