@@ -582,6 +582,61 @@ func (p *L2SyncProgress) IsSyncing() bool {
 	return p.CurrentBlockID.Cmp(p.HighestOriginBlockID) < 0
 }
 
+func latestPacayaBatchID(numBatches uint64) (uint64, bool) {
+	if numBatches == 0 {
+		return 0, false
+	}
+
+	return numBatches - 1, true
+}
+
+// fetchHighestOriginBlockIDFromContracts resolves the latest L1-derived origin block ID used by
+// both L2ExecutionEngineSyncProgress and FetchHighestOriginBlockIDFromL1 so the Shasta/Pacaya
+// dispatch and edge-case handling stay consistent.
+func (c *Client) fetchHighestOriginBlockIDFromContracts(ctx context.Context) (*big.Int, error) {
+	coreState, err := c.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	// If the next proposal ID is 1, it means there is no Shasta proposal has been made on L2 yet.
+	if coreState.NextProposalId.Cmp(common.Big1) > 0 {
+		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(
+			ctx,
+			new(big.Int).Sub(coreState.NextProposalId, common.Big1),
+		)
+		if err != nil &&
+			err.Error() != ethereum.NotFound.Error() &&
+			err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
+			return nil, err
+		}
+		// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
+		// we set the highest origin block ID to max uint64.
+		if l1Origin == nil {
+			return new(big.Int).SetUint64(^uint64(0)), nil
+		}
+		return l1Origin.BlockID, nil
+	}
+
+	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	latestBatchID, ok := latestPacayaBatchID(stateVars.Stats2.NumBatches)
+	if !ok {
+		// Fresh Pacaya chain: there is no on-chain batch yet, so no L1-derived target exists.
+		return nil, nil
+	}
+
+	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, latestBatchID)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(big.Int).SetUint64(batch.LastBlockId), nil
+}
+
 // L2ExecutionEngineSyncProgress fetches the sync progress of the given L2 execution engine.
 func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProgress, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
@@ -598,44 +653,11 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
-		coreState, err := c.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		highestOriginBlockID, err := c.fetchHighestOriginBlockIDFromContracts(ctx)
 		if err != nil {
 			return err
 		}
-
-		// If the next proposal ID is 1, it means there is no Shasta proposal has been made on L2 yet.
-		if coreState.NextProposalId.Cmp(common.Big1) > 0 {
-			l1Origin, err := c.L2Engine.LastL1OriginByBatchID(
-				ctx,
-				new(big.Int).Sub(coreState.NextProposalId, common.Big1),
-			)
-			if err != nil &&
-				err.Error() != ethereum.NotFound.Error() &&
-				err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
-				return err
-			}
-			// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
-			// we set the highest origin block ID to max uint64.
-			if l1Origin == nil {
-				progress.HighestOriginBlockID = new(big.Int).SetUint64(^uint64(0)) // Max uint64
-				return nil
-			}
-			progress.HighestOriginBlockID = l1Origin.BlockID
-			return nil
-		}
-		// Try get the highest block ID from the Pacaya protocol state variables.
-		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return err
-		}
-
-		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
-		if err != nil {
-			return err
-		}
-
-		progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)
-
+		progress.HighestOriginBlockID = highestOriginBlockID
 		return nil
 	})
 	g.Go(func() error {
@@ -703,38 +725,7 @@ func (c *Client) FetchHighestOriginBlockIDFromL1(ctx context.Context) (*big.Int,
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	coreState, err := c.GetCoreStateShasta(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, err
-	}
-
-	if coreState.NextProposalId.Cmp(common.Big1) > 0 {
-		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(
-			ctxWithTimeout,
-			new(big.Int).Sub(coreState.NextProposalId, common.Big1),
-		)
-		if err != nil &&
-			err.Error() != ethereum.NotFound.Error() &&
-			err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
-			return nil, err
-		}
-		if l1Origin == nil {
-			return new(big.Int).SetUint64(^uint64(0)), nil
-		}
-		return l1Origin.BlockID, nil
-	}
-
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, err
-	}
-
-	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, stateVars.Stats2.NumBatches-1)
-	if err != nil {
-		return nil, err
-	}
-
-	return new(big.Int).SetUint64(batch.LastBlockId), nil
+	return c.fetchHighestOriginBlockIDFromContracts(ctxWithTimeout)
 }
 
 // GetProtocolStateVariablesPacaya gets the protocol states from Pacaya TaikoInbox contract.

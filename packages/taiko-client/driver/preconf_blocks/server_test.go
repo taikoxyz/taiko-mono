@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -16,6 +17,55 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
+
+func TestShouldCachePayloadForSync(t *testing.T) {
+	tests := []struct {
+		name                string
+		localProgress       *rpc.L2SyncProgress
+		highestOriginBlock  *big.Int
+		shouldCacheEnvelope bool
+	}{
+		{
+			name:                "beacon syncing always caches",
+			localProgress:       &rpc.L2SyncProgress{SyncProgress: &ethereum.SyncProgress{}},
+			highestOriginBlock:  big.NewInt(10),
+			shouldCacheEnvelope: true,
+		},
+		{
+			name:                "missing L1 target cache is fail closed",
+			localProgress:       &rpc.L2SyncProgress{CurrentBlockID: big.NewInt(10)},
+			highestOriginBlock:  nil,
+			shouldCacheEnvelope: true,
+		},
+		{
+			name:                "missing current block id caches",
+			localProgress:       &rpc.L2SyncProgress{},
+			highestOriginBlock:  big.NewInt(10),
+			shouldCacheEnvelope: true,
+		},
+		{
+			name:                "local chain behind cached target caches",
+			localProgress:       &rpc.L2SyncProgress{CurrentBlockID: big.NewInt(9)},
+			highestOriginBlock:  big.NewInt(10),
+			shouldCacheEnvelope: true,
+		},
+		{
+			name:                "local chain caught up can import",
+			localProgress:       &rpc.L2SyncProgress{CurrentBlockID: big.NewInt(10)},
+			highestOriginBlock:  big.NewInt(10),
+			shouldCacheEnvelope: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldCachePayloadForSync(tt.localProgress, tt.highestOriginBlock)
+			if got != tt.shouldCacheEnvelope {
+				t.Fatalf("shouldCachePayloadForSync() = %v, want %v", got, tt.shouldCacheEnvelope)
+			}
+		})
+	}
+}
 
 type PreconfBlockAPIServerTestSuite struct {
 	testutils.ClientTestSuite

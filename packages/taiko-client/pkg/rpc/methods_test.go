@@ -66,6 +66,27 @@ func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 	require.NotNil(t, progress)
 }
 
+func TestLatestPacayaBatchID(t *testing.T) {
+	tests := []struct {
+		name       string
+		numBatches uint64
+		want       uint64
+		ok         bool
+	}{
+		{name: "no batches", numBatches: 0, want: 0, ok: false},
+		{name: "first batch", numBatches: 1, want: 0, ok: true},
+		{name: "multiple batches", numBatches: 7, want: 6, ok: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := latestPacayaBatchID(tt.numBatches)
+			require.Equal(t, tt.ok, ok)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestGetProtocolStateVariables(t *testing.T) {
 	client := newTestClient(t)
 	_, err := client.GetLastVerifiedTransitionPacaya(context.Background())

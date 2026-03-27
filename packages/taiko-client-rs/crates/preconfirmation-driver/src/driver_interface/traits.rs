@@ -85,8 +85,9 @@ pub fn resolve_event_sync_tip(snapshot: &ConfirmedSyncSnapshot) -> ClientResult<
 }
 
 /// Maximum consecutive snapshot errors before propagating during startup.
-/// This allows transient L1 blips (a few missed polls) without masking persistent
-/// local failures (geth/auth down).
+/// This allows transient L1 blips without masking persistent local failures
+/// (geth/auth down). The worst-case retry window is roughly
+/// `MAX_CONSECUTIVE_SNAPSHOT_ERRORS * poll_interval`.
 const MAX_CONSECUTIVE_SNAPSHOT_ERRORS: u32 = 5;
 
 /// Wait for strict confirmed-sync readiness by polling a caller-provided snapshot source.
