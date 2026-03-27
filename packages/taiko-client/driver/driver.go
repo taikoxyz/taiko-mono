@@ -197,6 +197,7 @@ func (d *Driver) Start() error {
 		}()
 
 		go d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
+		d.preconfBlockServer.StartBackgroundL1Refresh(d.ctx)
 	}
 
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {

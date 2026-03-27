@@ -662,6 +662,81 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	return progress, nil
 }
 
+// L2ExecutionEngineSyncProgressLocal fetches only the local L2 sync state (no L1 calls).
+// This is safe to call even when L1 is unreachable.
+func (c *Client) L2ExecutionEngineSyncProgressLocal(ctx context.Context) (*L2SyncProgress, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
+	var progress = new(L2SyncProgress)
+	g, ctx := errgroup.WithContext(ctxWithTimeout)
+
+	g.Go(func() error {
+		var err error
+		progress.SyncProgress, err = c.L2.SyncProgress(ctx)
+		return err
+	})
+	g.Go(func() error {
+		headL1Origin, err := c.L2.HeadL1Origin(ctx)
+		if err != nil {
+			if err.Error() == ethereum.NotFound.Error() {
+				progress.CurrentBlockID = common.Big0
+				return nil
+			}
+			return err
+		}
+		progress.CurrentBlockID = headL1Origin.BlockID
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return progress, nil
+}
+
+// FetchHighestOriginBlockIDFromL1 fetches the highest origin block ID by querying L1 contracts
+// and the local L2 engine. This method is called from a background goroutine only—never from
+// the gossip hot path. Any error (L1 or L2) simply means the background cache is not updated.
+func (c *Client) FetchHighestOriginBlockIDFromL1(ctx context.Context) (*big.Int, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
+	coreState, err := c.GetCoreStateShasta(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, err
+	}
+
+	if coreState.NextProposalId.Cmp(common.Big1) > 0 {
+		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(
+			ctxWithTimeout,
+			new(big.Int).Sub(coreState.NextProposalId, common.Big1),
+		)
+		if err != nil &&
+			err.Error() != ethereum.NotFound.Error() &&
+			err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
+			return nil, err
+		}
+		if l1Origin == nil {
+			return new(big.Int).SetUint64(^uint64(0)), nil
+		}
+		return l1Origin.BlockID, nil
+	}
+
+	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, err
+	}
+
+	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, stateVars.Stats2.NumBatches-1)
+	if err != nil {
+		return nil, err
+	}
+
+	return new(big.Int).SetUint64(batch.LastBlockId), nil
+}
+
 // GetProtocolStateVariablesPacaya gets the protocol states from Pacaya TaikoInbox contract.
 func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	Stats1 pacayaBindings.ITaikoInboxStats1

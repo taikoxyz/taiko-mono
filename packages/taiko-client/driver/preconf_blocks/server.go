@@ -95,6 +95,15 @@ type PreconfBlockAPIServer struct {
 	// Sync readiness gate for preconfirmation inserts.
 	syncReady bool
 
+	// Cached L1-derived sync state, refreshed by a background goroutine.
+	// The hot path (OnUnsafeL2Payload) only reads from this cache—never calls L1 directly.
+	cachedHighestOriginBlockID   *big.Int
+	cachedHighestOriginBlockIDMu sync.RWMutex
+
+	// Allow all active operator sequencer addresses in P2P validation.
+	allowAllSequencers          bool
+	allActiveSequencerAddresses []common.Address
+
 	// Mutex for P2P message handlers
 	mutex sync.Mutex
 }
@@ -229,6 +238,42 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
+// StartBackgroundL1Refresh starts a background goroutine that periodically
+// fetches the highest origin block ID from L1 and updates the cache.
+// This keeps the L1-derived sync state warm so the gossip hot path never needs
+// to call L1 directly.
+func (s *PreconfBlockAPIServer) StartBackgroundL1Refresh(ctx context.Context) {
+	go func() {
+		// Prime the cache immediately so it is warm before the first gossip message arrives.
+		if highestOriginBlockID, err := s.rpc.FetchHighestOriginBlockIDFromL1(ctx); err != nil {
+			log.Warn("Initial L1 sync cache prime failed", "error", err)
+		} else {
+			s.cachedHighestOriginBlockIDMu.Lock()
+			s.cachedHighestOriginBlockID = highestOriginBlockID
+			s.cachedHighestOriginBlockIDMu.Unlock()
+		}
+
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				highestOriginBlockID, err := s.rpc.FetchHighestOriginBlockIDFromL1(ctx)
+				if err != nil {
+					log.Debug("Background L1 sync refresh failed", "error", err)
+					continue
+				}
+				s.cachedHighestOriginBlockIDMu.Lock()
+				s.cachedHighestOriginBlockID = highestOriginBlockID
+				s.cachedHighestOriginBlockIDMu.Unlock()
+			}
+		}
+	}()
+}
+
 // configureRoutes contains all routes which will be used by the HTTP / WS server.
 func (s *PreconfBlockAPIServer) configureRoutes() {
 	// HTTP routes
@@ -318,13 +363,26 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
-	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	// Check local L2 sync state (no L1 dependency — always works if geth is up).
+	localProgress, err := s.rpc.L2ExecutionEngineSyncProgressLocal(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
+		return fmt.Errorf("failed to get local L2 sync progress: %w", err)
 	}
 
-	if progress.IsSyncing() {
+	// If L2 EE is beacon-syncing, cache and return.
+	if localProgress.SyncProgress != nil {
+		s.tryPutEnvelopeIntoCache(msg, from)
+		return nil
+	}
+
+	// L1-derived sync check: read from background-refreshed cache only (no L1 call on hot path).
+	s.cachedHighestOriginBlockIDMu.RLock()
+	highestOriginBlockID := s.cachedHighestOriginBlockID
+	s.cachedHighestOriginBlockIDMu.RUnlock()
+
+	if highestOriginBlockID != nil &&
+		localProgress.CurrentBlockID != nil &&
+		localProgress.CurrentBlockID.Cmp(highestOriginBlockID) < 0 {
 		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
@@ -762,12 +820,12 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
-				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+				localProgress, err := s.rpc.L2ExecutionEngineSyncProgressLocal(ctx)
 				if err != nil {
-					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
+					return fmt.Errorf("failed to get local L2 sync progress: %w", err)
 				}
 
-				if progress.IsSyncing() {
+				if localProgress.SyncProgress != nil {
 					log.Debug("Parent payload not in the cache, but the node is syncing, skip publishing L2Request")
 					return nil
 				}
@@ -791,7 +849,15 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					}
 				}
 
-				tip := progress.HighestOriginBlockID.Uint64()
+				// Use cached L1-derived highest origin block ID for staleness check.
+				// This is best-effort: if no cached value exists, skip the staleness filter.
+				s.cachedHighestOriginBlockIDMu.RLock()
+				cachedTip := s.cachedHighestOriginBlockID
+				s.cachedHighestOriginBlockIDMu.RUnlock()
+				var tip uint64
+				if cachedTip != nil {
+					tip = cachedTip.Uint64()
+				}
 
 				if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
 					log.Debug(

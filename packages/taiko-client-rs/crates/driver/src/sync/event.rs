@@ -269,8 +269,8 @@ where
     };
     // Treat a zero build-payload id as an uninitialized origin record so we fail closed and
     // re-submit rather than falsely acknowledging a materialized payload.
-    if origin.build_payload_args_id == [0u8; 8] ||
-        origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
+    if origin.build_payload_args_id == [0u8; 8]
+        || origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
     {
         return Ok(false);
     }
@@ -670,7 +670,7 @@ where
     /// - otherwise readiness requires both:
     ///   - `last_block_id_by_batch_id(target)` exists
     ///   - `head_l1_origin` exists and `head >= target_block`
-    pub async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, SyncError> {
+    pub async fn next_proposal_id(&self) -> Result<u64, SyncError> {
         let core_state = self
             .rpc
             .shasta
@@ -679,7 +679,17 @@ where
             .call()
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
-        let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+        Ok(core_state.nextProposalId.to::<u64>())
+    }
+
+    /// Return strict confirmed-sync state using a caller-provided target proposal id.
+    ///
+    /// This keeps the L1 core-state read separate from local engine/auth table lookups so callers
+    /// can cache only the L1-derived target while still surfacing local failures immediately.
+    pub async fn confirmed_sync_snapshot_for_target(
+        &self,
+        target_proposal_id: u64,
+    ) -> Result<ConfirmedSyncSnapshot, SyncError> {
         build_confirmed_sync_snapshot(
             target_proposal_id,
             |target| async move {
@@ -694,6 +704,15 @@ where
             },
         )
         .await
+    }
+
+    /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
+    ///
+    /// This fetches the current `nextProposalId` from L1 and then evaluates the local
+    /// engine/auth-derived readiness checks against that target.
+    pub async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, SyncError> {
+        let target_proposal_id = self.next_proposal_id().await?.saturating_sub(1);
+        self.confirmed_sync_snapshot_for_target(target_proposal_id).await
     }
 
     /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts
@@ -858,8 +877,8 @@ where
                 .l2_provider
                 .get_block_number()
                 .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? ==
-                0
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
+                == 0
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(

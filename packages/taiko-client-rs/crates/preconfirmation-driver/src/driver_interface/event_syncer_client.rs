@@ -147,8 +147,15 @@ pub trait PreconfirmationIngress: Send + Sync {
         payload: PreconfPayload,
     ) -> Result<(), DriverError>;
 
-    /// Return strict confirmed-sync state derived from inbox core state + custom tables.
-    async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, DriverError>;
+    /// Return the next proposal id from the L1 inbox contract.
+    async fn next_proposal_id(&self) -> Result<u64, DriverError>;
+
+    /// Return strict confirmed-sync state for the provided target proposal id using local
+    /// engine/auth state only.
+    async fn confirmed_sync_snapshot_for_target(
+        &self,
+        target_proposal_id: u64,
+    ) -> Result<ConfirmedSyncSnapshot, DriverError>;
 }
 
 #[async_trait]
@@ -164,9 +171,20 @@ where
         self.submit_preconfirmation_payload(payload).await
     }
 
-    /// Return strict confirmed-sync state derived from inbox core state + custom tables.
-    async fn confirmed_sync_snapshot(&self) -> Result<ConfirmedSyncSnapshot, DriverError> {
-        EventSyncer::confirmed_sync_snapshot(self).await.map_err(DriverError::from)
+    /// Return the next proposal id from the L1 inbox contract.
+    async fn next_proposal_id(&self) -> Result<u64, DriverError> {
+        EventSyncer::next_proposal_id(self).await.map_err(DriverError::from)
+    }
+
+    /// Return strict confirmed-sync state for the provided target proposal id using local
+    /// engine/auth state only.
+    async fn confirmed_sync_snapshot_for_target(
+        &self,
+        target_proposal_id: u64,
+    ) -> Result<ConfirmedSyncSnapshot, DriverError> {
+        EventSyncer::confirmed_sync_snapshot_for_target(self, target_proposal_id)
+            .await
+            .map_err(DriverError::from)
     }
 }
 
@@ -186,6 +204,8 @@ where
     min_base_fee_to_clamp: OnceCell<u64>,
     /// Poll interval for confirmed-sync checks while waiting for event sync readiness.
     wait_event_sync_poll_interval: Duration,
+    /// Cached next proposal id for fallback during transient L1 failures.
+    cached_next_proposal_id: Arc<tokio::sync::Mutex<Option<u64>>>,
 }
 
 impl<E, P> EventSyncerDriverClient<E, P>
@@ -206,6 +226,7 @@ where
             l2_provider,
             min_base_fee_to_clamp: OnceCell::new(),
             wait_event_sync_poll_interval,
+            cached_next_proposal_id: Arc::new(tokio::sync::Mutex::new(None)),
         }
     }
 
@@ -239,6 +260,38 @@ where
             })
             .await?;
         Ok(*min_base_fee_to_clamp)
+    }
+
+    async fn next_proposal_id_with_cache(&self) -> ClientResult<u64> {
+        match self.event_syncer.next_proposal_id().await {
+            Ok(id) => {
+                *self.cached_next_proposal_id.lock().await = Some(id);
+                Ok(id)
+            }
+            Err(err) => {
+                let cached = self.cached_next_proposal_id.lock().await;
+                if let Some(id) = *cached {
+                    warn!(
+                        error = %err,
+                        cached_next_proposal_id = id,
+                        "next_proposal_id failed, using cached value"
+                    );
+                    Ok(id)
+                } else {
+                    Err(DriverApiError::Driver(err).into())
+                }
+            }
+        }
+    }
+
+    async fn confirmed_sync_snapshot_with_cached_target(
+        &self,
+    ) -> ClientResult<ConfirmedSyncSnapshot> {
+        let target_proposal_id = self.next_proposal_id_with_cache().await?.saturating_sub(1);
+        self.event_syncer
+            .confirmed_sync_snapshot_for_target(target_proposal_id)
+            .await
+            .map_err(|err| DriverApiError::Driver(err).into())
     }
 }
 
@@ -321,9 +374,7 @@ where
     async fn wait_event_sync(&self) -> ClientResult<()> {
         info!("starting wait for driver to sync with L1 inbox events");
         wait_for_confirmed_sync(
-            || async {
-                self.event_syncer.confirmed_sync_snapshot().await.map_err(DriverApiError::Driver)
-            },
+            || async { self.confirmed_sync_snapshot_with_cached_target().await },
             self.wait_event_sync_poll_interval,
         )
         .await?;
@@ -332,9 +383,11 @@ where
     }
 
     /// Get the current event syncer tip block number.
+    ///
+    /// On transient L1 failures, falls back to the last known proposal target while always
+    /// re-running the local engine/auth checks. Local failures are propagated immediately.
     async fn event_sync_tip(&self) -> ClientResult<U256> {
-        let snapshot =
-            self.event_syncer.confirmed_sync_snapshot().await.map_err(DriverApiError::Driver)?;
+        let snapshot = self.confirmed_sync_snapshot_with_cached_target().await?;
         super::traits::resolve_event_sync_tip(&snapshot)
     }
 
@@ -396,6 +449,8 @@ mod tests {
         ready: Arc<AtomicBool>,
         tip: Arc<AtomicU64>,
         target_proposal_id: u64,
+        fail_next_proposal_id: Arc<AtomicBool>,
+        fail_local_snapshot: Arc<AtomicBool>,
     }
 
     impl FakeIngress {
@@ -405,6 +460,8 @@ mod tests {
                 ready: Arc::new(AtomicBool::new(ready)),
                 tip: Arc::new(AtomicU64::new(tip)),
                 target_proposal_id: 1,
+                fail_next_proposal_id: Arc::new(AtomicBool::new(false)),
+                fail_local_snapshot: Arc::new(AtomicBool::new(false)),
             }
         }
 
@@ -424,15 +481,26 @@ mod tests {
             Ok(())
         }
 
-        async fn confirmed_sync_snapshot(
+        async fn next_proposal_id(&self) -> Result<u64, driver::DriverError> {
+            if self.fail_next_proposal_id.load(Ordering::SeqCst) {
+                return Err(driver::DriverError::PreconfIngressNotReady);
+            }
+            Ok(self.target_proposal_id.saturating_add(1))
+        }
+
+        async fn confirmed_sync_snapshot_for_target(
             &self,
+            target_proposal_id: u64,
         ) -> Result<ConfirmedSyncSnapshot, driver::DriverError> {
+            if self.fail_local_snapshot.load(Ordering::SeqCst) {
+                return Err(driver::DriverError::PreconfIngressNotReady);
+            }
             let tip = self.tip.load(Ordering::SeqCst);
             let head_l1_origin_block_id = (tip != u64::MAX).then_some(tip);
             let target_block =
                 if self.ready.load(Ordering::SeqCst) { Some(0) } else { Some(u64::MAX - 1) };
             Ok(ConfirmedSyncSnapshot::new(
-                self.target_proposal_id,
+                target_proposal_id,
                 target_block,
                 head_l1_origin_block_id,
             ))
@@ -600,6 +668,61 @@ mod tests {
         ));
     }
 
+    #[tokio::test]
+    async fn event_syncer_driver_client_does_not_fallback_on_local_snapshot_error() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter);
+        let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
+
+        let ingress = Arc::new(FakeIngress::new(true, 7));
+        let client = EventSyncerDriverClient::new_with_components(
+            ingress.clone(),
+            inbox,
+            Arc::new(NoopL2Provider),
+        );
+
+        // Warm the cache with a successful read.
+        assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(7));
+
+        // A local snapshot failure should be propagated, not masked by cached tip data.
+        ingress.fail_local_snapshot.store(true, Ordering::SeqCst);
+        let err = client
+            .event_sync_tip()
+            .await
+            .expect_err("local snapshot failures must not fall back to cached tips");
+        assert!(matches!(
+            err,
+            crate::PreconfirmationClientError::DriverInterface(DriverApiError::Driver(
+                driver::DriverError::PreconfIngressNotReady
+            ))
+        ));
+    }
+
+    #[tokio::test]
+    async fn event_syncer_driver_client_uses_cached_target_on_l1_failure() {
+        let asserter = Asserter::new();
+        let provider = ProviderBuilder::new().connect_mocked_client(asserter);
+        let inbox = bindings::inbox::Inbox::InboxInstance::new(Address::ZERO, provider);
+
+        let ingress = Arc::new(FakeIngress::new(true, 7));
+        let client = EventSyncerDriverClient::new_with_components(
+            ingress.clone(),
+            inbox,
+            Arc::new(NoopL2Provider),
+        );
+
+        assert_eq!(client.event_sync_tip().await.unwrap(), U256::from(7));
+
+        ingress.fail_next_proposal_id.store(true, Ordering::SeqCst);
+        ingress.tip.store(9, Ordering::SeqCst);
+
+        let tip = client
+            .event_sync_tip()
+            .await
+            .expect("cached next_proposal_id should keep L1 outages from stalling tip reads");
+        assert_eq!(tip, U256::from(9));
+    }
+
     struct NoopL2Provider;
 
     #[async_trait::async_trait]
@@ -633,6 +756,8 @@ mod tests {
                 ready: Arc::new(AtomicBool::new(true)),
                 tip: Arc::new(AtomicU64::new(0)),
                 target_proposal_id: 1,
+                fail_next_proposal_id: Arc::new(AtomicBool::new(false)),
+                fail_local_snapshot: Arc::new(AtomicBool::new(false)),
             }),
             inbox,
             Arc::new(NoopL2Provider),
@@ -664,6 +789,8 @@ mod tests {
                 ready: ready.clone(),
                 tip: Arc::new(AtomicU64::new(5)),
                 target_proposal_id: 1,
+                fail_next_proposal_id: Arc::new(AtomicBool::new(false)),
+                fail_local_snapshot: Arc::new(AtomicBool::new(false)),
             }),
             inbox,
             Arc::new(NoopL2Provider),

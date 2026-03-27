@@ -1,13 +1,14 @@
 //! Embedded driver client for direct in-process communication via channels.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use alloy_primitives::U256;
 use alloy_provider::Provider;
 use async_trait::async_trait;
 use rpc::client::Client;
-use tokio::sync::{mpsc, watch};
-use tracing::info;
+use tokio::sync::{Mutex, mpsc, watch};
+use tracing::{info, warn};
 
 use crate::error::{DriverApiError, Result};
 
@@ -95,6 +96,9 @@ pub struct EmbeddedDriverClient<I: InboxReader> {
     inbox_reader: I,
     /// Poll interval for `wait_event_sync`.
     wait_event_sync_poll_interval: Duration,
+    /// Cached next_proposal_id for fallback during transient L1 failures.
+    /// Only the L1 contract call is cached — L2 engine calls are always executed live.
+    cached_next_proposal_id: Arc<Mutex<Option<u64>>>,
 }
 
 impl<I: InboxReader> EmbeddedDriverClient<I> {
@@ -119,7 +123,13 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
         inbox_reader: I,
         wait_event_sync_poll_interval: Duration,
     ) -> Self {
-        Self { input_tx, preconf_tip_rx, inbox_reader, wait_event_sync_poll_interval }
+        Self {
+            input_tx,
+            preconf_tip_rx,
+            inbox_reader,
+            wait_event_sync_poll_interval,
+            cached_next_proposal_id: Arc::new(Mutex::new(None)),
+        }
     }
 
     /// Returns a reference to the inbox reader.
@@ -160,8 +170,41 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     }
 
     /// Returns the current confirmed event-sync L2 block number.
+    ///
+    /// The L1 contract call (`get_next_proposal_id`) is attempted first. On failure,
+    /// the last known proposal ID is used so that a transient L1 outage does not stall
+    /// gossip processing. Local L2 engine calls are always executed and their errors
+    /// propagated immediately.
     async fn event_sync_tip(&self) -> Result<U256> {
-        let snapshot = self.inbox_reader.confirmed_sync_snapshot().await?;
+        // Try L1 call; on failure, fall back to cached proposal ID.
+        let next_proposal_id = match self.inbox_reader.get_next_proposal_id().await {
+            Ok(id) => {
+                *self.cached_next_proposal_id.lock().await = Some(id);
+                id
+            }
+            Err(err) => {
+                let cached = self.cached_next_proposal_id.lock().await;
+                if let Some(cached_id) = *cached {
+                    warn!(
+                        error = %err,
+                        cached_next_proposal_id = cached_id,
+                        "L1 unreachable for next_proposal_id, using cached value"
+                    );
+                    cached_id
+                } else {
+                    return Err(err);
+                }
+            }
+        };
+
+        // L2 engine calls — always execute, propagate errors immediately.
+        let target_proposal_id = next_proposal_id.saturating_sub(1);
+        let snapshot = driver::sync::build_confirmed_sync_snapshot(
+            target_proposal_id,
+            |target| self.inbox_reader.get_last_block_id_by_batch_id(target),
+            || self.inbox_reader.get_head_l1_origin_block_id(),
+        )
+        .await?;
         super::traits::resolve_event_sync_tip(&snapshot)
     }
 
@@ -364,5 +407,90 @@ mod tests {
         preconf_tip_tx.send(U256::from(42)).unwrap();
         let tip = client.event_sync_tip().await.expect("genesis returns zero despite preconf tip");
         assert_eq!(tip, U256::ZERO);
+    }
+
+    /// Mock inbox reader that can simulate L1 failures on get_next_proposal_id.
+    #[derive(Clone)]
+    struct FailableInboxReader {
+        inner: MockInboxReader,
+        fail_l1: Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl FailableInboxReader {
+        fn new(next_proposal_id: u64, head_l1_origin: Option<u64>) -> Self {
+            Self {
+                inner: MockInboxReader::new(next_proposal_id, Some(100), head_l1_origin),
+                fail_l1: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            }
+        }
+
+        fn set_fail_l1(&self, fail: bool) {
+            self.fail_l1.store(fail, Ordering::SeqCst);
+        }
+    }
+
+    #[async_trait]
+    impl InboxReader for FailableInboxReader {
+        async fn get_next_proposal_id(&self) -> Result<u64> {
+            if self.fail_l1.load(Ordering::SeqCst) {
+                Err(crate::error::DriverApiError::EventSyncTipUnknown.into())
+            } else {
+                self.inner.get_next_proposal_id().await
+            }
+        }
+
+        async fn get_last_block_id_by_batch_id(&self, proposal_id: u64) -> Result<Option<u64>> {
+            self.inner.get_last_block_id_by_batch_id(proposal_id).await
+        }
+
+        async fn get_head_l1_origin_block_id(&self) -> Result<Option<u64>> {
+            self.inner.get_head_l1_origin_block_id().await
+        }
+    }
+
+    #[tokio::test]
+    async fn test_event_sync_tip_uses_cache_on_l1_failure() {
+        let inbox_reader = FailableInboxReader::new(5, Some(42));
+        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
+        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let client = EmbeddedDriverClient::new_with_poll_interval(
+            input_tx,
+            preconf_tip_rx,
+            inbox_reader.clone(),
+            Duration::from_millis(10),
+        );
+
+        // First call succeeds and populates the cache.
+        let tip = client.event_sync_tip().await.unwrap();
+        assert_eq!(tip, U256::from(42));
+
+        // Simulate L1 failure — should fall back to cached proposal ID.
+        inbox_reader.set_fail_l1(true);
+        let tip = client.event_sync_tip().await.unwrap();
+        assert_eq!(tip, U256::from(42));
+
+        // L1 recovers — should use fresh value again.
+        inbox_reader.set_fail_l1(false);
+        inbox_reader.inner.set_head_l1_origin(Some(99));
+        let tip = client.event_sync_tip().await.unwrap();
+        assert_eq!(tip, U256::from(99));
+    }
+
+    #[tokio::test]
+    async fn test_event_sync_tip_propagates_error_when_cache_cold() {
+        let inbox_reader = FailableInboxReader::new(5, Some(42));
+        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
+        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let client = EmbeddedDriverClient::new_with_poll_interval(
+            input_tx,
+            preconf_tip_rx,
+            inbox_reader.clone(),
+            Duration::from_millis(10),
+        );
+
+        // L1 fails before any successful call — no cache, should propagate error.
+        inbox_reader.set_fail_l1(true);
+        let result = client.event_sync_tip().await;
+        assert!(result.is_err());
     }
 }

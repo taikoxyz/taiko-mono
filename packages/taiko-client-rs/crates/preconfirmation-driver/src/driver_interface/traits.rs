@@ -7,7 +7,7 @@ use alloy_rpc_types::Header as RpcHeader;
 use async_trait::async_trait;
 use driver::sync::{ConfirmedSyncSnapshot, build_confirmed_sync_snapshot};
 use tokio::time::sleep;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::error::Result as ClientResult;
 
@@ -84,7 +84,16 @@ pub fn resolve_event_sync_tip(snapshot: &ConfirmedSyncSnapshot) -> ClientResult<
     }
 }
 
+/// Maximum consecutive snapshot errors before propagating during startup.
+/// This allows transient L1 blips (a few missed polls) without masking persistent
+/// local failures (geth/auth down).
+const MAX_CONSECUTIVE_SNAPSHOT_ERRORS: u32 = 5;
+
 /// Wait for strict confirmed-sync readiness by polling a caller-provided snapshot source.
+///
+/// Transient errors are retried up to [`MAX_CONSECUTIVE_SNAPSHOT_ERRORS`] times.
+/// If the error persists beyond that, it is propagated—this avoids masking
+/// persistent local failures (e.g. broken geth/auth) as transient L1 outages.
 pub(crate) async fn wait_for_confirmed_sync<F, Fut, E>(
     mut snapshot: F,
     poll_interval: Duration,
@@ -92,9 +101,33 @@ pub(crate) async fn wait_for_confirmed_sync<F, Fut, E>(
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<ConfirmedSyncSnapshot, E>>,
+    E: std::fmt::Display,
 {
+    let mut consecutive_errors: u32 = 0;
     loop {
-        let sync_snapshot = snapshot().await?;
+        let sync_snapshot = match snapshot().await {
+            Ok(s) => {
+                consecutive_errors = 0;
+                s
+            }
+            Err(err) => {
+                consecutive_errors += 1;
+                if consecutive_errors > MAX_CONSECUTIVE_SNAPSHOT_ERRORS {
+                    warn!(
+                        consecutive_errors,
+                        "confirmed sync snapshot failed repeatedly, propagating: {err}"
+                    );
+                    return Err(err);
+                }
+                warn!(
+                    consecutive_errors,
+                    max = MAX_CONSECUTIVE_SNAPSHOT_ERRORS,
+                    "confirmed sync snapshot failed, retrying: {err}"
+                );
+                sleep(poll_interval).await;
+                continue;
+            }
+        };
 
         if sync_snapshot.is_ready() {
             info!(
