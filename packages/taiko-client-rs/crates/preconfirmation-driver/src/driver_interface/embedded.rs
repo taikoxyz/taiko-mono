@@ -136,6 +136,40 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
     pub fn inbox_reader(&self) -> &I {
         &self.inbox_reader
     }
+
+    async fn next_proposal_id_with_cache(&self) -> Result<u64> {
+        match self.inbox_reader.get_next_proposal_id().await {
+            Ok(id) => {
+                *self.cached_next_proposal_id.lock().await = Some(id);
+                Ok(id)
+            }
+            Err(err) => {
+                let cached = self.cached_next_proposal_id.lock().await;
+                if let Some(cached_id) = *cached {
+                    warn!(
+                        error = %err,
+                        cached_next_proposal_id = cached_id,
+                        "L1 unreachable for next_proposal_id, using cached value"
+                    );
+                    Ok(cached_id)
+                } else {
+                    Err(err)
+                }
+            }
+        }
+    }
+
+    async fn confirmed_sync_snapshot_with_cached_target(
+        &self,
+    ) -> Result<driver::sync::ConfirmedSyncSnapshot> {
+        let target_proposal_id = self.next_proposal_id_with_cache().await?.saturating_sub(1);
+        driver::sync::build_confirmed_sync_snapshot(
+            target_proposal_id,
+            |target| self.inbox_reader.get_last_block_id_by_batch_id(target),
+            || self.inbox_reader.get_head_l1_origin_block_id(),
+        )
+        .await
+    }
 }
 
 #[async_trait]
@@ -158,10 +192,13 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     /// - Otherwise, readiness requires both:
     ///   - `lastBlockIDByBatchID(nextProposalId - 1)` exists
     ///   - `head_l1_origin` exists and `head >= target_block`.
+    ///
+    /// The L1 target proposal read uses the same cached fallback as `event_sync_tip()` so a
+    /// transient L1 outage during startup does not break readiness once a target has been seen.
     async fn wait_event_sync(&self) -> Result<()> {
         info!("starting wait for driver to sync with L1 inbox events");
         wait_for_confirmed_sync(
-            || self.inbox_reader.confirmed_sync_snapshot(),
+            || self.confirmed_sync_snapshot_with_cached_target(),
             self.wait_event_sync_poll_interval,
         )
         .await?;
@@ -176,35 +213,7 @@ impl<I: InboxReader + 'static> DriverClient for EmbeddedDriverClient<I> {
     /// gossip processing. Local L2 engine calls are always executed and their errors
     /// propagated immediately.
     async fn event_sync_tip(&self) -> Result<U256> {
-        // Try L1 call; on failure, fall back to cached proposal ID.
-        let next_proposal_id = match self.inbox_reader.get_next_proposal_id().await {
-            Ok(id) => {
-                *self.cached_next_proposal_id.lock().await = Some(id);
-                id
-            }
-            Err(err) => {
-                let cached = self.cached_next_proposal_id.lock().await;
-                if let Some(cached_id) = *cached {
-                    warn!(
-                        error = %err,
-                        cached_next_proposal_id = cached_id,
-                        "L1 unreachable for next_proposal_id, using cached value"
-                    );
-                    cached_id
-                } else {
-                    return Err(err);
-                }
-            }
-        };
-
-        // L2 engine calls — always execute, propagate errors immediately.
-        let target_proposal_id = next_proposal_id.saturating_sub(1);
-        let snapshot = driver::sync::build_confirmed_sync_snapshot(
-            target_proposal_id,
-            |target| self.inbox_reader.get_last_block_id_by_batch_id(target),
-            || self.inbox_reader.get_head_l1_origin_block_id(),
-        )
-        .await?;
+        let snapshot = self.confirmed_sync_snapshot_with_cached_target().await?;
         super::traits::resolve_event_sync_tip(&snapshot)
     }
 
@@ -492,5 +501,34 @@ mod tests {
         inbox_reader.set_fail_l1(true);
         let result = client.event_sync_tip().await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_wait_event_sync_uses_cache_on_l1_failure() {
+        let inbox_reader = FailableInboxReader::new(5, Some(99));
+        let (input_tx, _) = mpsc::channel::<PreconfirmationInput>(16);
+        let (_, preconf_tip_rx) = watch::channel(U256::ZERO);
+        let client = EmbeddedDriverClient::new_with_poll_interval(
+            input_tx,
+            preconf_tip_rx,
+            inbox_reader.clone(),
+            Duration::from_millis(10),
+        );
+
+        let wait_client = client.clone();
+        let wait_handle = tokio::spawn(async move { wait_client.wait_event_sync().await });
+
+        tokio::time::sleep(Duration::from_millis(15)).await;
+        inbox_reader.set_fail_l1(true);
+        inbox_reader.inner.set_head_l1_origin(Some(100));
+
+        let result = tokio::time::timeout(Duration::from_millis(120), wait_handle)
+            .await
+            .expect("wait_event_sync should complete before timeout")
+            .expect("wait_event_sync task should not panic");
+        assert!(
+            result.is_ok(),
+            "cached target should keep wait_event_sync alive during L1 outages"
+        );
     }
 }

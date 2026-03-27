@@ -272,10 +272,6 @@ func (s *PreconfBlockAPIServer) StartBackgroundL1Refresh(ctx context.Context) {
 }
 
 func shouldCachePayloadForSync(localProgress *rpc.L2SyncProgress, highestOriginBlockID *big.Int) bool {
-	if localProgress == nil {
-		return true
-	}
-
 	if localProgress.SyncProgress != nil {
 		return true
 	}
@@ -844,6 +840,9 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					return fmt.Errorf("failed to get local L2 sync progress: %w", err)
 				}
 
+				// Only local beacon-sync state is a hard blocker here. L1-derived lag is checked
+				// below via the cached highest origin block ID so transient L1 outages do not
+				// turn parent-request handling into a hard failure.
 				if localProgress.SyncProgress != nil {
 					log.Debug("Parent payload not in the cache, but the node is syncing, skip publishing L2Request")
 					return nil
