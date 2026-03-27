@@ -1279,6 +1279,11 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
+	currentEpochTimestamp, err := c.PacayaClients.PreconfWhitelist.EpochStartTimestamp(opts, big.NewInt(0))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current epoch timestamp: %w", err)
+	}
+
 	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
@@ -1294,7 +1299,7 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 		}
-		if opInfo.InactiveSince == 0 {
+		if opInfo.InactiveSince == 0 && opInfo.ActiveSince != 0 && opInfo.ActiveSince <= currentEpochTimestamp {
 			operators = append(operators, opInfo.SequencerAddress)
 		}
 	}

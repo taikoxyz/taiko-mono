@@ -76,6 +76,9 @@ type PreconfBlockAPIServer struct {
 	// P2P network for preconfirmation block propagation
 	p2pNode   *p2p.NodeP2P
 	p2pSigner p2p.Signer
+	// P2P signer allowlist runtime configuration
+	allowAllSequencers          bool
+	allActiveSequencerAddresses []common.Address
 	// WebSocket server for preconfirmation block notifications
 	ws *webSocketSever
 	// Lookahead information for the current and next operator
@@ -175,6 +178,22 @@ func (s *PreconfBlockAPIServer) SetP2PNode(p2pNode *p2p.NodeP2P) {
 // SetP2PSigner sets the P2P signer for the preconfirmation block server.
 func (s *PreconfBlockAPIServer) SetP2PSigner(p2pSigner p2p.Signer) {
 	s.p2pSigner = p2pSigner
+}
+
+// SetAllowAllSequencers toggles the all-active-sequencers P2P allowlist mode.
+func (s *PreconfBlockAPIServer) SetAllowAllSequencers(allow bool) {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	s.allowAllSequencers = allow
+}
+
+// UpdateActiveSequencerAddresses updates the cached active sequencer addresses used by P2P validation.
+func (s *PreconfBlockAPIServer) UpdateActiveSequencerAddresses(addresses []common.Address) {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	s.allActiveSequencerAddresses = append([]common.Address(nil), addresses...)
 }
 
 // SetSyncReady toggles readiness for preconfirmation inserts.
@@ -1000,6 +1019,12 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
+
+	if s.allowAllSequencers && len(s.allActiveSequencerAddresses) > 0 {
+		log.Debug("Active operator addresses as P2P sequencer", "addresses", s.allActiveSequencerAddresses)
+
+		return append([]common.Address(nil), s.allActiveSequencerAddresses...)
+	}
 
 	log.Debug(
 		"Operator addresses as P2P sequencer",

@@ -42,6 +42,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
+		s.True(c.P2PAllowAllSequencers)
 		s.Equal(l2CheckPoint, c.L2CheckPoint)
 		s.Nil(new(Driver).InitFromCli(context.Background(), ctx))
 
@@ -61,6 +62,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.P2PSync.Name,
+		"--" + flags.P2PAllowAllSequencers.Name,
 		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
 		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
 		"--" + p2pFlags.DiscoveryPathName, "memory",
@@ -99,6 +101,7 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
+		&cli.BoolFlag{Name: flags.P2PAllowAllSequencers.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.CheckPointSyncURL.Name},
