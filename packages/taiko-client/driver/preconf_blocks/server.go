@@ -248,6 +248,19 @@ func (s *PreconfBlockAPIServer) PrimeL1SyncCache(ctx context.Context) error {
 	return nil
 }
 
+// SetCachedHighestOriginBlockID overrides the cached L1-derived sync target.
+func (s *PreconfBlockAPIServer) SetCachedHighestOriginBlockID(blockID *big.Int) {
+	s.cachedHighestOriginBlockIDMu.Lock()
+	defer s.cachedHighestOriginBlockIDMu.Unlock()
+
+	if blockID == nil {
+		s.cachedHighestOriginBlockID = nil
+		return
+	}
+
+	s.cachedHighestOriginBlockID = new(big.Int).Set(blockID)
+}
+
 // StartBackgroundL1Refresh starts a background goroutine that periodically
 // fetches the highest origin block ID from L1 and updates the cache.
 // This keeps the L1-derived sync state warm so the gossip hot path never needs
