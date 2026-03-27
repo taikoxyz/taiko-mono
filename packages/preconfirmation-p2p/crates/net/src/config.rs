@@ -255,7 +255,6 @@ impl Default for RateLimitConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
 
     #[test]
     fn validate_request_rate_limits_accepts_defaults() {

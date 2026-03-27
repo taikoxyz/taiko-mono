@@ -259,10 +259,10 @@ pub enum ReqRespKind {
 impl RequestRateLimiter {
     /// Creates a new `RequestRateLimiter` with a specified period and max requests.
     pub fn new(window: Duration, max_requests: u32) -> anyhow::Result<Self> {
-        ensure!(window > Duration::ZERO, "RequestRateLimiter window must be > 0, got {:?}", window);
+        ensure!(window > Duration::ZERO, "request_window must be > 0, got {:?}", window);
         ensure!(
             max_requests > 0,
-            "RequestRateLimiter max_requests must be > 0, got {}",
+            "max_requests_per_window must be > 0, got {}",
             max_requests
         );
         let rate = reth_tokio_util::ratelimit::Rate::new(max_requests as u64, window);
@@ -450,11 +450,11 @@ mod tests {
         let err = RequestRateLimiter::new(Duration::ZERO, 1);
         assert!(err.is_err(), "zero window must be rejected");
         let err = err.err().expect("error expected");
-        assert!(err.to_string().contains("window"));
+        assert!(err.to_string().contains("request_window"));
 
         let err = RequestRateLimiter::new(Duration::from_secs(1), 0);
         assert!(err.is_err(), "zero max_requests must be rejected");
         let err = err.err().expect("error expected");
-        assert!(err.to_string().contains("max_requests"));
+        assert!(err.to_string().contains("max_requests_per_window"));
     }
 }
