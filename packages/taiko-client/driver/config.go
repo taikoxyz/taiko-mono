@@ -46,12 +46,18 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var (
-		p2pSync      = c.Bool(flags.P2PSync.Name)
-		l2CheckPoint = c.String(flags.CheckPointSyncURL.Name)
+		p2pSync               = c.Bool(flags.P2PSync.Name)
+		p2pAllowAllSequencers = c.Bool(flags.P2PAllowAllSequencers.Name)
+		l2CheckPoint          = c.String(flags.CheckPointSyncURL.Name)
+		preconfWhitelist      = common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name))
 	)
 
 	if p2pSync && len(l2CheckPoint) == 0 {
 		return nil, errors.New("empty L2 check point URL")
+	}
+
+	if p2pAllowAllSequencers && preconfWhitelist == (common.Address{}) {
+		return nil, errors.New("--p2p.allow-all-sequencers requires --preconfirmation.whitelist to be set")
 	}
 
 	var beaconEndpoint string
@@ -91,7 +97,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			PacayaInboxAddress:      common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
 			ShastaInboxAddress:      common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 			TaikoAnchorAddress:      common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-			PreconfWhitelistAddress: common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name)),
+			PreconfWhitelistAddress: preconfWhitelist,
 			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:               string(jwtSecret),
 			Timeout:                 c.Duration(flags.RPCTimeout.Name),
@@ -136,7 +142,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
 		P2PSync:                       p2pSync,
 		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
-		P2PAllowAllSequencers:         c.Bool(flags.P2PAllowAllSequencers.Name),
+		P2PAllowAllSequencers:         p2pAllowAllSequencers,
 		BlobServerEndpoint:            blobServerEndpoint,
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,

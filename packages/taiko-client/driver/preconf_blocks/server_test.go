@@ -147,6 +147,10 @@ func (s *PreconfBlockAPIServerTestSuite) TestP2PSequencerAddresses() {
 	s.s.UpdateActiveSequencerAddresses(active)
 
 	s.Equal(active, s.s.P2PSequencerAddresses())
+
+	s.s.UpdateActiveSequencerAddresses(nil)
+
+	s.Empty(s.s.P2PSequencerAddresses())
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {

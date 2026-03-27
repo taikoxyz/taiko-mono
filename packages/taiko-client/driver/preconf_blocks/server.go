@@ -1020,10 +1020,20 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
-	if s.allowAllSequencers && len(s.allActiveSequencerAddresses) > 0 {
-		log.Debug("Active operator addresses as P2P sequencer", "addresses", s.allActiveSequencerAddresses)
+	if s.allowAllSequencers {
+		if len(s.allActiveSequencerAddresses) > 0 {
+			log.Debug("Active operator addresses as P2P sequencer", "addresses", s.allActiveSequencerAddresses)
 
-		return append([]common.Address(nil), s.allActiveSequencerAddresses...)
+			return append([]common.Address(nil), s.allActiveSequencerAddresses...)
+		}
+
+		log.Warn("Allow-all-sequencers mode enabled but active operator cache is empty")
+		return nil
+	}
+
+	if s.lookahead == nil {
+		log.Warn("Lookahead information not initialized for P2P sequencer addresses")
+		return nil
 	}
 
 	log.Debug(

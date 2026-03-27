@@ -42,7 +42,6 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
-		s.True(c.P2PAllowAllSequencers)
 		s.Equal(l2CheckPoint, c.L2CheckPoint)
 		s.Nil(new(Driver).InitFromCli(context.Background(), ctx))
 
@@ -62,7 +61,6 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",
 		"--" + flags.P2PSync.Name,
-		"--" + flags.P2PAllowAllSequencers.Name,
 		"--" + flags.CheckPointSyncURL.Name, l2CheckPoint,
 		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
 		"--" + p2pFlags.DiscoveryPathName, "memory",
@@ -89,6 +87,47 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 	}), "empty L2 check point URL")
 }
 
+func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencersRequiresWhitelist() {
+	app := s.SetupApp()
+	s.ErrorContains(app.Run([]string{
+		"TestNewConfigFromCliContext",
+		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
+		"--" + flags.P2PAllowAllSequencers.Name,
+	}), "--p2p.allow-all-sequencers requires --preconfirmation.whitelist to be set")
+}
+
+func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencers() {
+	app := s.SetupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		s.Nil(err)
+		s.True(c.P2PAllowAllSequencers)
+
+		return err
+	}
+
+	s.Nil(app.Run([]string{
+		"TestNewConfigFromCliContextAllowAllSequencers",
+		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
+		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
+		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
+		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
+		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
+		"--" + flags.PreconfWhitelistAddress.Name, taikoAnchor,
+		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
+		"--" + flags.P2PSyncTimeout.Name, "120s",
+		"--" + flags.RPCTimeout.Name, "5s",
+		"--" + flags.P2PAllowAllSequencers.Name,
+		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
+		"--" + p2pFlags.DiscoveryPathName, "memory",
+		"--" + p2pFlags.PeerstorePathName, "memory",
+		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
+	}))
+}
+
 func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = flags.MergeFlags([]cli.Flag{
@@ -99,6 +138,7 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.PacayaInboxAddress.Name},
 		&cli.StringFlag{Name: flags.ShastaInboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
+		&cli.StringFlag{Name: flags.PreconfWhitelistAddress.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
 		&cli.BoolFlag{Name: flags.P2PAllowAllSequencers.Name},
