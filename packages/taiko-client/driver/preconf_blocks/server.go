@@ -234,6 +234,20 @@ func (s *PreconfBlockAPIServer) Shutdown(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
 }
 
+// PrimeL1SyncCache synchronously refreshes the cached L1-derived sync target.
+func (s *PreconfBlockAPIServer) PrimeL1SyncCache(ctx context.Context) error {
+	highestOriginBlockID, err := s.rpc.FetchHighestOriginBlockIDFromL1(ctx)
+	if err != nil {
+		return err
+	}
+
+	s.cachedHighestOriginBlockIDMu.Lock()
+	s.cachedHighestOriginBlockID = highestOriginBlockID
+	s.cachedHighestOriginBlockIDMu.Unlock()
+
+	return nil
+}
+
 // StartBackgroundL1Refresh starts a background goroutine that periodically
 // fetches the highest origin block ID from L1 and updates the cache.
 // This keeps the L1-derived sync state warm so the gossip hot path never needs
@@ -242,12 +256,8 @@ func (s *PreconfBlockAPIServer) StartBackgroundL1Refresh(ctx context.Context) {
 	go func() {
 		// Prime the cache immediately. Until the first successful refresh populates the cache,
 		// ingress keeps payloads cached and does not import them.
-		if highestOriginBlockID, err := s.rpc.FetchHighestOriginBlockIDFromL1(ctx); err != nil {
+		if err := s.PrimeL1SyncCache(ctx); err != nil {
 			log.Warn("Initial L1 sync cache prime failed", "error", err)
-		} else {
-			s.cachedHighestOriginBlockIDMu.Lock()
-			s.cachedHighestOriginBlockID = highestOriginBlockID
-			s.cachedHighestOriginBlockIDMu.Unlock()
 		}
 
 		ticker := time.NewTicker(monitorLatestProposalOnChainInterval)
@@ -258,14 +268,9 @@ func (s *PreconfBlockAPIServer) StartBackgroundL1Refresh(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				highestOriginBlockID, err := s.rpc.FetchHighestOriginBlockIDFromL1(ctx)
-				if err != nil {
+				if err := s.PrimeL1SyncCache(ctx); err != nil {
 					log.Debug("Background L1 sync refresh failed", "error", err)
-					continue
 				}
-				s.cachedHighestOriginBlockIDMu.Lock()
-				s.cachedHighestOriginBlockID = highestOriginBlockID
-				s.cachedHighestOriginBlockIDMu.Unlock()
 			}
 		}
 	}()

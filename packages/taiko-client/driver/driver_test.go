@@ -100,6 +100,10 @@ func (s *DriverTestSuite) SetupTest() {
 	s.InitProposer()
 }
 
+func (s *DriverTestSuite) primePreconfL1SyncCache() {
+	s.Nil(s.d.preconfBlockServer.PrimeL1SyncCache(context.Background()))
+}
+
 func (s *DriverTestSuite) TestName() {
 	s.Equal("driver", s.d.Name())
 }
@@ -589,6 +593,7 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksNotReorg() {
 func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
+	s.primePreconfL1SyncCache()
 
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -837,6 +842,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
+	s.primePreconfL1SyncCache()
 
 	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -976,6 +982,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
 	s.Equal(l2Head1.Number().Uint64(), headL1Origin.BlockID.Uint64())
+	s.primePreconfL1SyncCache()
 
 	l2Head3, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -1207,6 +1214,7 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 
 	// Simulate the first post-beacon event sync enabling preconf imports.
 	s.d.preconfBlockServer.SetSyncReady(true)
+	s.primePreconfL1SyncCache()
 	s.Nil(s.d.preconfBlockServer.ImportPendingBlocksFromCache(context.Background()))
 
 	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
