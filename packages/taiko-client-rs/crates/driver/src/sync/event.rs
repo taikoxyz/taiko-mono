@@ -877,7 +877,8 @@ where
                 .l2_provider
                 .get_block_number()
                 .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? == 0
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? ==
+                0
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(
