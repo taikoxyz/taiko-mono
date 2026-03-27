@@ -262,6 +262,7 @@ where
         Ok(*min_base_fee_to_clamp)
     }
 
+    /// Returns the next proposal id, falling back to the cached value during transient L1 errors.
     async fn next_proposal_id_with_cache(&self) -> ClientResult<u64> {
         match self.event_syncer.next_proposal_id().await {
             Ok(id) => {
@@ -284,6 +285,7 @@ where
         }
     }
 
+    /// Builds a confirmed-sync snapshot using the cached target proposal id when L1 is unreachable.
     async fn confirmed_sync_snapshot_with_cached_target(
         &self,
     ) -> ClientResult<ConfirmedSyncSnapshot> {

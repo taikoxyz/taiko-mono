@@ -136,6 +136,7 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
         &self.inbox_reader
     }
 
+    /// Returns the next proposal id, falling back to the cached value during transient L1 errors.
     async fn next_proposal_id_with_cache(&self) -> Result<u64> {
         match self.inbox_reader.get_next_proposal_id().await {
             Ok(id) => {
@@ -158,6 +159,7 @@ impl<I: InboxReader> EmbeddedDriverClient<I> {
         }
     }
 
+    /// Builds a confirmed-sync snapshot using the cached target proposal id when L1 is unreachable.
     async fn confirmed_sync_snapshot_with_cached_target(
         &self,
     ) -> Result<driver::sync::ConfirmedSyncSnapshot> {
