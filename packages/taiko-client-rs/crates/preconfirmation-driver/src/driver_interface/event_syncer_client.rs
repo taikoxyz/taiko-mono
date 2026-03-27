@@ -1,6 +1,6 @@
 //! Event syncer-backed driver client for runner integration.
 
-use std::{result::Result, sync::Arc, time::Duration};
+use std::{future::Future, result::Result, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::U256;
@@ -13,8 +13,8 @@ use driver::{
 };
 use preconfirmation_types::uint256_to_u256;
 use protocol::shasta::constants::min_base_fee_for_chain;
-use tokio::sync::OnceCell;
-use tracing::info;
+use tokio::{sync::OnceCell, time::sleep};
+use tracing::{info, warn};
 
 use crate::{
     Result as ClientResult,
@@ -63,6 +63,80 @@ where
 pub trait L2Provider: BlockHeaderProvider + TipProvider {}
 
 impl<T> L2Provider for T where T: BlockHeaderProvider + TipProvider {}
+
+/// Retry policy applied to timed-out preconfirmation submissions.
+#[derive(Clone, Copy, Debug)]
+struct PreconfirmationSubmissionRetryPolicy {
+    /// Number of retry attempts allowed after the initial timed-out submission.
+    retry_limit: usize,
+    /// Delay used before the first retry attempt.
+    base_delay: Duration,
+    /// Upper bound for exponential backoff between retry attempts.
+    max_delay: Duration,
+}
+
+/// Default retry policy applied when a preconfirmation submission times out.
+const DEFAULT_PRECONF_SUBMISSION_RETRY_POLICY: PreconfirmationSubmissionRetryPolicy =
+    PreconfirmationSubmissionRetryPolicy {
+        retry_limit: 2,
+        base_delay: Duration::from_secs(1),
+        max_delay: Duration::from_secs(2),
+    };
+
+/// Return retry metadata for timeout errors that indicate transient submission backpressure.
+fn retryable_preconfirmation_timeout(err: &DriverError) -> Option<(&'static str, Duration)> {
+    match err {
+        DriverError::PreconfEnqueueTimeout { waited } => Some(("enqueue", *waited)),
+        DriverError::PreconfResponseTimeout { waited } => Some(("response", *waited)),
+        _ => None,
+    }
+}
+
+/// Retry a preconfirmation submission when the event syncer reports a retryable timeout.
+///
+/// With the current 12-second embedded driver timeout, the default policy allows up to roughly
+/// 39 seconds of wall-clock latency before surfacing the final error.
+async fn submit_preconfirmation_payload_with_retry<F, Fut>(
+    policy: PreconfirmationSubmissionRetryPolicy,
+    block_number: u64,
+    proposal_id: u64,
+    mut submit: F,
+) -> Result<(), DriverError>
+where
+    F: FnMut() -> Fut,
+    Fut: Future<Output = Result<(), DriverError>>,
+{
+    let mut delay = policy.base_delay;
+    let mut attempt = 0usize;
+
+    loop {
+        match submit().await {
+            Ok(()) => return Ok(()),
+            Err(err) => {
+                let Some((timeout_kind, waited)) = retryable_preconfirmation_timeout(&err) else {
+                    return Err(err);
+                };
+                if attempt >= policy.retry_limit {
+                    return Err(err);
+                }
+
+                attempt += 1;
+                warn!(
+                    block_number,
+                    proposal_id,
+                    attempt,
+                    retry_limit = policy.retry_limit,
+                    timeout_kind,
+                    waited_secs = waited.as_secs_f64(),
+                    retry_in_secs = delay.as_secs_f64(),
+                    "preconfirmation submission timed out; retrying"
+                );
+                sleep(delay).await;
+                delay = (delay * 2).min(policy.max_delay);
+            }
+        }
+    }
+}
 
 /// Minimal interface needed from the driver event syncer.
 #[async_trait]
@@ -172,13 +246,27 @@ impl<P> EventSyncerDriverClient<EventSyncer<P>, P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Build a driver client from an EventSyncer and RPC client bundle.
-    pub fn from_client(event_syncer: Arc<EventSyncer<P>>, client: rpc::client::Client<P>) -> Self {
+    /// Build a driver client from an EventSyncer and RPC client bundle with a custom
+    /// `wait_event_sync` poll interval.
+    pub fn from_client_with_poll_interval(
+        event_syncer: Arc<EventSyncer<P>>,
+        client: rpc::client::Client<P>,
+        wait_event_sync_poll_interval: Duration,
+    ) -> Self {
         let l2_provider: Arc<dyn L2Provider + Send + Sync> = Arc::new(client.l2_provider.clone());
         Self::new_with_components_and_poll_interval(
             event_syncer,
             client.shasta.inbox,
             l2_provider,
+            wait_event_sync_poll_interval,
+        )
+    }
+
+    /// Build a driver client from an EventSyncer and RPC client bundle.
+    pub fn from_client(event_syncer: Arc<EventSyncer<P>>, client: rpc::client::Client<P>) -> Self {
+        Self::from_client_with_poll_interval(
+            event_syncer,
+            client,
             DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL,
         )
     }
@@ -211,12 +299,19 @@ where
         )
         .await?;
 
-        self.event_syncer
-            .submit_preconfirmation_payload(PreconfPayload::new(payload))
-            .await
-            .map_err(|err| {
-                PreconfirmationClientError::DriverInterface(DriverApiError::Driver(err))
-            })?;
+        let payload = PreconfPayload::new(payload);
+        submit_preconfirmation_payload_with_retry(
+            DEFAULT_PRECONF_SUBMISSION_RETRY_POLICY,
+            block_number,
+            proposal_id,
+            || {
+                let event_syncer = Arc::clone(&self.event_syncer);
+                let payload = payload.clone();
+                async move { event_syncer.submit_preconfirmation_payload(payload).await }
+            },
+        )
+        .await
+        .map_err(|err| PreconfirmationClientError::DriverInterface(DriverApiError::Driver(err)))?;
 
         info!(block_number, proposal_id, "submitted preconfirmation payload");
         Ok(())
@@ -342,6 +437,108 @@ mod tests {
                 head_l1_origin_block_id,
             ))
         }
+    }
+
+    #[tokio::test]
+    async fn submit_preconfirmation_payload_with_retry_retries_timeouts() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let policy = super::PreconfirmationSubmissionRetryPolicy {
+            retry_limit: 2,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(2),
+        };
+
+        let result = super::submit_preconfirmation_payload_with_retry(policy, 7, 11, || {
+            let attempts = Arc::clone(&attempts);
+            async move {
+                let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+                if attempt < 2 {
+                    Err(driver::DriverError::PreconfResponseTimeout {
+                        waited: Duration::from_secs(12),
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+        })
+        .await;
+
+        assert!(result.is_ok(), "timeout retries should eventually succeed");
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn submit_preconfirmation_payload_with_retry_retries_enqueue_timeouts() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let policy = super::PreconfirmationSubmissionRetryPolicy {
+            retry_limit: 2,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(2),
+        };
+
+        let result = super::submit_preconfirmation_payload_with_retry(policy, 7, 11, || {
+            let attempts = Arc::clone(&attempts);
+            async move {
+                let attempt = attempts.fetch_add(1, Ordering::SeqCst);
+                if attempt < 2 {
+                    Err(driver::DriverError::PreconfEnqueueTimeout {
+                        waited: Duration::from_secs(12),
+                    })
+                } else {
+                    Ok(())
+                }
+            }
+        })
+        .await;
+
+        assert!(result.is_ok(), "enqueue timeout retries should eventually succeed");
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn submit_preconfirmation_payload_with_retry_returns_last_timeout_after_exhaustion() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let policy = super::PreconfirmationSubmissionRetryPolicy {
+            retry_limit: 2,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(2),
+        };
+
+        let err = super::submit_preconfirmation_payload_with_retry(policy, 7, 11, || {
+            let attempts = Arc::clone(&attempts);
+            async move {
+                attempts.fetch_add(1, Ordering::SeqCst);
+                Err(driver::DriverError::PreconfResponseTimeout { waited: Duration::from_secs(12) })
+            }
+        })
+        .await
+        .expect_err("persistent response timeouts should surface after exhausting retries");
+
+        assert!(matches!(err, driver::DriverError::PreconfResponseTimeout { .. }));
+        assert_eq!(attempts.load(Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn submit_preconfirmation_payload_with_retry_stops_on_non_timeout_error() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let policy = super::PreconfirmationSubmissionRetryPolicy {
+            retry_limit: 2,
+            base_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(2),
+        };
+
+        let err = super::submit_preconfirmation_payload_with_retry(policy, 7, 11, || {
+            let attempts = Arc::clone(&attempts);
+            async move {
+                attempts.fetch_add(1, Ordering::SeqCst);
+                Err(driver::DriverError::PreconfIngressNotReady)
+            }
+        })
+        .await
+        .expect_err("non-timeout driver errors should not be retried");
+
+        assert!(matches!(err, driver::DriverError::PreconfIngressNotReady));
+        assert_eq!(attempts.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
