@@ -269,8 +269,8 @@ where
     };
     // Treat a zero build-payload id as an uninitialized origin record so we fail closed and
     // re-submit rather than falsely acknowledging a materialized payload.
-    if origin.build_payload_args_id == [0u8; 8]
-        || origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
+    if origin.build_payload_args_id == [0u8; 8] ||
+        origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
     {
         return Ok(false);
     }
@@ -877,8 +877,7 @@ where
                 .l2_provider
                 .get_block_number()
                 .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-                == 0
+                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? == 0
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(
