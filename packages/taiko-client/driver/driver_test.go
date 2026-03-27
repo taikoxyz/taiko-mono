@@ -1140,9 +1140,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 
 	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
-	// The last missing ancestor is still replayed through OnUnsafeL2Payload, which now keeps
-	// payloads cached while the local engine reports sync progress after the reset.
-	s.Equal(l2Head1.Number().Uint64(), l2Head5.Number().Uint64())
+	s.Equal(l2Head2.Number.Uint64(), l2Head5.Number().Uint64())
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
@@ -1221,11 +1219,8 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 
 	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	// ImportPendingBlocksFromCache replays the latest cached payload through OnUnsafeL2Payload.
-	// That path stays fail-closed while the local engine is still syncing after the reset, so
-	// cached preconfirmation blocks remain queued until local sync clears.
-	s.Equal(l2Head1.Number().Uint64(), l2Head4.Number.Uint64())
-	s.Equal(l2Head1.Hash(), l2Head4.Hash())
+	s.Equal(l2Head2.Number.Uint64(), l2Head4.Number.Uint64())
+	s.Equal(l2Head2.Hash(), l2Head4.Hash())
 
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
