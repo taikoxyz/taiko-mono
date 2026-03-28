@@ -115,6 +115,9 @@ impl Proposer {
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
+        // The RPC client wallet and tx-manager signer are both derived from the same
+        // proposer key, so all L1 proposal submissions must continue to flow through
+        // tx-manager to avoid splitting nonce management across two send paths.
         let tx_manager =
             ProposalTxManager::new(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.

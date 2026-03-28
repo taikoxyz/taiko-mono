@@ -99,6 +99,8 @@ fn proposal_candidate(built_tx: &BuiltProposalTx) -> TxCandidate {
         tx_data: built_tx.call_data().clone(),
         blobs: Arc::new(built_tx.blob_payload().blobs().to_vec()),
         to: Some(built_tx.to()),
+        // `base-tx-manager` treats 0 as "auto-estimate gas" and will replace it
+        // with `max(estimate_gas, gas_limit_floor)` during tx crafting.
         gas_limit: built_tx.gas_limit().unwrap_or_default(),
         value: U256::ZERO,
     }
