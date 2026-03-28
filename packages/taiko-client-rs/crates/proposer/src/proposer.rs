@@ -11,7 +11,7 @@ use alloy::{
     eips::BlockNumberOrTag,
     primitives::{B256, Bytes, U256},
     providers::{Provider, WalletProvider},
-    rpc::types::{Block, Transaction},
+    rpc::types::{Block, Transaction, TransactionRequest},
 };
 use alloy_consensus::{
     TxEnvelope,
@@ -136,9 +136,7 @@ fn bumped_replacement_fee(
 fn is_retryable_replacement_error(error: &str) -> bool {
     let error = error.to_ascii_lowercase();
 
-    error.contains("replacement transaction underpriced") ||
-        error.contains("underpriced") ||
-        error.contains("replacementnotallowed")
+    error.contains("underpriced") || error.contains("replacementnotallowed")
 }
 
 /// Parameters for computing the next fee bump after a retry-trigger event.
@@ -179,6 +177,14 @@ fn try_bump_fees(
         ),
         params.bumps_used + 1,
     ))
+}
+
+/// Mutable fee-bumping state threaded through the retry loop.
+struct BumpState {
+    /// Current EIP-1559 fee caps for the in-flight transaction.
+    fees: ProposalFeeState,
+    /// Number of fee bumps consumed so far.
+    bumps_used: u32,
 }
 
 /// Proposer loop that builds and submits Shasta proposals at a fixed interval.
@@ -277,8 +283,8 @@ impl Proposer {
         }
     }
 
-    /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
-    /// Fetch transactions and submit a proposal once.
+    /// Fetch transactions and submit a proposal, retrying with bumped fees on underpriced errors
+    /// and receipt timeouts.
     pub async fn fetch_and_propose(&self) -> Result<ProposalOutcome> {
         // Fetch transactions based on mode.
         // Engine mode also returns the parameters used for the anchor transaction.
@@ -289,7 +295,6 @@ impl Proposer {
             (self.fetch_pool_content().await?, None)
         };
 
-        // Record number of transactions in the pool
         let tx_count: usize = pool_content.iter().map(|list| list.len()).sum();
         gauge!(ProposerMetrics::TX_POOL_SIZE).set(tx_count as f64);
         info!(
@@ -303,14 +308,11 @@ impl Proposer {
         let mut transaction_request =
             self.transaction_builder.build(pool_content, engine_params).await?;
 
-        // Set gas limit if configured, otherwise let the provider estimate it.
         if let Some(gas_limit) = self.cfg.gas_limit {
             transaction_request = transaction_request.with_gas_limit(gas_limit);
         }
 
-        // Send transaction with tip-bumping retry loop.
-        // On each timeout, resubmit with the same nonce and a bumped priority fee.
-        // Pin the nonce upfront so retries replace the original tx rather than queue behind it.
+        // Pin the nonce so retries replace the original tx rather than queue behind it.
         let signer = self.rpc_provider.l1_provider.default_signer_address();
         let nonce = self
             .rpc_provider
@@ -318,33 +320,29 @@ impl Proposer {
             .get_transaction_count(signer)
             .block_id(BlockNumberOrTag::Latest.into())
             .await?;
-        // Estimate fees and enforce a minimum floor to prevent near-zero fees on devnets.
+
+        // Estimate fees and enforce minimum floors to prevent near-zero fees on devnets.
         let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
         let min_max_fee = self.cfg.min_max_fee_per_gas_gwei as u128 * 1_000_000_000;
         let min_priority_fee = self.cfg.min_priority_fee_per_gas_gwei as u128 * 1_000_000_000;
-        let mut current_fees = ProposalFeeState::from_estimate(
-            fee_estimate.max_fee_per_gas,
-            fee_estimate.max_priority_fee_per_gas,
-            min_max_fee,
-            min_priority_fee,
-        );
+
+        let mut state = BumpState {
+            fees: ProposalFeeState::from_estimate(
+                fee_estimate.max_fee_per_gas,
+                fee_estimate.max_priority_fee_per_gas,
+                min_max_fee,
+                min_priority_fee,
+            ),
+            bumps_used: 0,
+        };
         let mut current_request = transaction_request
             .nonce(nonce)
-            .max_fee_per_gas(current_fees.max_fee_per_gas)
-            .max_priority_fee_per_gas(current_fees.max_priority_fee_per_gas)
-            .max_fee_per_blob_gas(current_fees.max_fee_per_blob_gas);
-        let mut bumps_used = 0u32;
-        let retry_exhausted = || {
-            error!(
-                max_retries = self.cfg.max_tip_bump_retries,
-                "proposal transaction not mined after all tip bump retries"
-            );
-            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
-            Ok(ProposalOutcome::RetryExhausted)
-        };
+            .max_fee_per_gas(state.fees.max_fee_per_gas)
+            .max_priority_fee_per_gas(state.fees.max_priority_fee_per_gas)
+            .max_fee_per_blob_gas(state.fees.max_fee_per_blob_gas);
 
         loop {
-            let attempt = bumps_used;
+            let attempt = state.bumps_used;
             let pending_tx = match self
                 .rpc_provider
                 .l1_provider
@@ -355,31 +353,14 @@ impl Proposer {
                 Err(err) => {
                     let err_str = err.to_string();
                     if is_retryable_replacement_error(&err_str) {
-                        // Reactively bump fees and retry, like op-txmgr.
                         warn!(attempt, nonce, "transaction underpriced, bumping fees and retrying");
-                        let fee_estimate =
-                            self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
-                        let Some((next_fees, next_bumps_used)) = try_bump_fees(
-                            current_fees,
-                            RetryBumpParams {
-                                estimated_max_fee_per_gas: fee_estimate.max_fee_per_gas,
-                                estimated_priority_fee_per_gas: fee_estimate
-                                    .max_priority_fee_per_gas,
-                                tip_bump_percentage: self.cfg.tip_bump_percentage,
-                                min_max_fee_per_gas: min_max_fee,
-                                min_priority_fee_per_gas: min_priority_fee,
-                                bumps_used,
-                                max_bumps: self.cfg.max_tip_bump_retries,
-                            },
-                        ) else {
-                            return retry_exhausted();
+                        let Some(updated) = self
+                            .bump_fees_and_update(&mut state, current_request, min_max_fee, min_priority_fee)
+                            .await?
+                        else {
+                            return Ok(ProposalOutcome::RetryExhausted);
                         };
-                        current_fees = next_fees;
-                        bumps_used = next_bumps_used;
-                        current_request = current_request
-                            .max_priority_fee_per_gas(current_fees.max_priority_fee_per_gas)
-                            .max_fee_per_gas(current_fees.max_fee_per_gas)
-                            .max_fee_per_blob_gas(current_fees.max_fee_per_blob_gas);
+                        current_request = updated;
                         continue;
                     }
                     return Err(err.into());
@@ -390,7 +371,6 @@ impl Proposer {
             info!(%tx_hash, attempt, nonce, "proposal transaction sent");
             counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
 
-            // Wait for receipt with timeout.
             let receipt_result =
                 tokio::time::timeout(self.cfg.receipt_timeout, pending_tx.get_receipt()).await;
 
@@ -416,48 +396,69 @@ impl Proposer {
                     return Ok(ProposalOutcome::Mined);
                 }
                 Ok(Err(e)) => {
-                    // RPC error while polling receipt — don't retry, propagate.
                     return Err(e.into());
                 }
                 Err(_) => {
-                    // Timeout — loop will retry with bumped tip if attempts remain.
                     warn!(
                         %tx_hash,
                         attempt,
                         timeout_secs = self.cfg.receipt_timeout.as_secs(),
-                        "timed out waiting for proposal receipt"
+                        "timed out waiting for proposal receipt, resubmitting with bumped tip"
                     );
-                    let fee_estimate =
-                        self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
-                    let Some((next_fees, next_bumps_used)) = try_bump_fees(
-                        current_fees,
-                        RetryBumpParams {
-                            estimated_max_fee_per_gas: fee_estimate.max_fee_per_gas,
-                            estimated_priority_fee_per_gas: fee_estimate.max_priority_fee_per_gas,
-                            tip_bump_percentage: self.cfg.tip_bump_percentage,
-                            min_max_fee_per_gas: min_max_fee,
-                            min_priority_fee_per_gas: min_priority_fee,
-                            bumps_used,
-                            max_bumps: self.cfg.max_tip_bump_retries,
-                        },
-                    ) else {
-                        return retry_exhausted();
+                    let Some(updated) = self
+                        .bump_fees_and_update(&mut state, current_request, min_max_fee, min_priority_fee)
+                        .await?
+                    else {
+                        return Ok(ProposalOutcome::RetryExhausted);
                     };
-                    current_fees = next_fees;
-                    bumps_used = next_bumps_used;
-                    current_request = current_request
-                        .max_priority_fee_per_gas(current_fees.max_priority_fee_per_gas)
-                        .max_fee_per_gas(current_fees.max_fee_per_gas)
-                        .max_fee_per_blob_gas(current_fees.max_fee_per_blob_gas);
-                    warn!(
-                        attempt = bumps_used,
-                        tip_bump_percentage = self.cfg.tip_bump_percentage,
-                        nonce,
-                        "receipt timeout, resubmitting with bumped tip"
-                    );
+                    current_request = updated;
                 }
             }
         }
+    }
+
+    /// Re-estimate fees, bump the fee state, and return the updated request.
+    ///
+    /// Returns `Ok(Some(request))` with bumped fee caps when retry budget remains.
+    /// Returns `Ok(None)` when the budget is exhausted, after logging and recording the failure.
+    async fn bump_fees_and_update(
+        &self,
+        state: &mut BumpState,
+        request: TransactionRequest,
+        min_max_fee: u128,
+        min_priority_fee: u128,
+    ) -> Result<Option<TransactionRequest>> {
+        let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
+
+        let Some((next_fees, next_bumps_used)) = try_bump_fees(
+            state.fees,
+            RetryBumpParams {
+                estimated_max_fee_per_gas: fee_estimate.max_fee_per_gas,
+                estimated_priority_fee_per_gas: fee_estimate.max_priority_fee_per_gas,
+                tip_bump_percentage: self.cfg.tip_bump_percentage,
+                min_max_fee_per_gas: min_max_fee,
+                min_priority_fee_per_gas: min_priority_fee,
+                bumps_used: state.bumps_used,
+                max_bumps: self.cfg.max_tip_bump_retries,
+            },
+        ) else {
+            error!(
+                max_retries = self.cfg.max_tip_bump_retries,
+                "proposal transaction not mined after all tip bump retries"
+            );
+            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+            return Ok(None);
+        };
+
+        state.fees = next_fees;
+        state.bumps_used = next_bumps_used;
+
+        let updated = request
+            .max_fee_per_gas(state.fees.max_fee_per_gas)
+            .max_priority_fee_per_gas(state.fees.max_priority_fee_per_gas)
+            .max_fee_per_blob_gas(state.fees.max_fee_per_blob_gas);
+
+        Ok(Some(updated))
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
