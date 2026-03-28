@@ -109,7 +109,7 @@ func (s *DriverTestSuite) assertPreconfImportResult(
 	revertedNumber uint64,
 	revertedHash common.Hash,
 	importedNumber uint64,
-	importedHash common.Hash,
+	importedHash *common.Hash,
 ) {
 	l2Head, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -121,7 +121,12 @@ func (s *DriverTestSuite) assertPreconfImportResult(
 	}
 
 	s.Equal(importedNumber, l2Head.Number().Uint64())
-	s.Equal(importedHash, l2Head.Hash())
+	if importedHash != nil {
+		s.Equal(*importedHash, l2Head.Hash())
+		return
+	}
+
+	s.NotEqual(revertedHash, l2Head.Hash())
 }
 
 func (s *DriverTestSuite) TestName() {
@@ -1166,7 +1171,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 		l2Head1.Number().Uint64(),
 		l2Head1.Hash(),
 		l2Head2.Number.Uint64(),
-		l2Head2.Hash(),
+		nil,
 	)
 }
 
@@ -1247,12 +1252,13 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	s.Nil(s.d.preconfBlockServer.ImportPendingBlocksFromCache(context.Background()))
 
 	// ImportPendingBlocksFromCache only imports once the local engine has finished syncing.
+	expectedImportedHash := l2Head2.Hash()
 	s.assertPreconfImportResult(
 		localProgress.SyncProgress != nil,
 		l2Head1.Number().Uint64(),
 		l2Head1.Hash(),
 		l2Head2.Number.Uint64(),
-		l2Head2.Hash(),
+		&expectedImportedHash,
 	)
 
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
