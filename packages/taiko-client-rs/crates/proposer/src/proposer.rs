@@ -40,7 +40,7 @@ use crate::{
     error::{ProposerError, Result},
     metrics::ProposerMetrics,
     transaction_builder::ShastaProposalTransactionBuilder,
-    tx_manager_adapter::{ProposalOutcome, ProposalTxManager},
+    tx_manager_adapter::ProposalTxManager,
 };
 
 /// Type alias for batches of transaction lists fetched from the txpool.
@@ -52,6 +52,8 @@ pub type TransactionLists = Vec<Vec<Transaction>>;
 pub struct EngineBuildContext {
     /// The L1 block number used for the anchor transaction.
     pub anchor_block_number: u64,
+    /// The L2 parent block number used to derive the proposal payload.
+    pub parent_block_number: u64,
     /// The timestamp used for the payload.
     pub timestamp: u64,
     /// The gas limit for the block.
@@ -195,7 +197,7 @@ impl Proposer {
         }
 
         record_submission_attempt();
-        Ok(map_submission_outcome(self.tx_manager.send_proposal(proposal_tx).await?))
+        Ok(record_submission_outcome(self.tx_manager.send_proposal(proposal_tx).await?))
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
@@ -398,6 +400,7 @@ impl Proposer {
             payload_attributes,
             EngineBuildContext {
                 anchor_block_number,
+                parent_block_number: parent.header.number,
                 timestamp,
                 gas_limit: parent.header.gas_limit,
             },
@@ -496,10 +499,10 @@ impl Proposer {
     }
 }
 
-/// Map the adapter outcome into proposer metrics, logging, and the outer-loop-facing result.
-fn map_submission_outcome(outcome: ProposalOutcome) -> ProposalSendOutcome {
-    match outcome {
-        ProposalOutcome::ConfirmedReceipt { receipt } => {
+/// Record metrics and logs for a proposer submission outcome.
+fn record_submission_outcome(outcome: ProposalSendOutcome) -> ProposalSendOutcome {
+    match &outcome {
+        ProposalSendOutcome::ConfirmedReceipt { receipt } => {
             if receipt.status() {
                 info!(
                     tx_hash = %receipt.transaction_hash,
@@ -514,18 +517,17 @@ fn map_submission_outcome(outcome: ProposalOutcome) -> ProposalSendOutcome {
                 error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
                 counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
             }
-
-            ProposalSendOutcome::ConfirmedReceipt { receipt }
         }
-        ProposalOutcome::RetryExhausted => {
+        ProposalSendOutcome::RetryExhausted => {
             // `base-tx-manager` can exhaust retries before any publish succeeds
             // (for example on repeated pre-publish RPC failures), so this
             // outcome does not prove the proposal ever reached L1.
             warn!("proposal transaction retries exhausted before confirmation");
             counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
-            ProposalSendOutcome::RetryExhausted
         }
     }
+
+    outcome
 }
 
 /// Record that the proposer started an L1 submission attempt for a built proposal.
@@ -564,10 +566,10 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        ProposalSendOutcome, current_unix_timestamp, map_submission_outcome,
-        next_shasta_proposal_id, record_submission_attempt,
+        ProposalSendOutcome, current_unix_timestamp, next_shasta_proposal_id,
+        record_submission_attempt, record_submission_outcome,
     };
-    use crate::{metrics::ProposerMetrics, tx_manager_adapter::ProposalOutcome};
+    use crate::metrics::ProposerMetrics;
     use protocol::shasta::encode_extra_data;
 
     #[test]
@@ -583,7 +585,7 @@ mod tests {
     #[test]
     fn retry_exhausted_submission_outcome_stays_non_fatal() {
         assert_eq!(
-            map_submission_outcome(ProposalOutcome::RetryExhausted),
+            record_submission_outcome(ProposalSendOutcome::RetryExhausted),
             ProposalSendOutcome::RetryExhausted
         );
     }
@@ -591,7 +593,7 @@ mod tests {
     #[test]
     fn confirmed_receipt_submission_outcome_preserves_receipt_status() {
         let receipt = receipt_with_status(false, B256::repeat_byte(0x44));
-        let outcome = map_submission_outcome(ProposalOutcome::ConfirmedReceipt {
+        let outcome = record_submission_outcome(ProposalSendOutcome::ConfirmedReceipt {
             receipt: Box::new(receipt),
         });
 

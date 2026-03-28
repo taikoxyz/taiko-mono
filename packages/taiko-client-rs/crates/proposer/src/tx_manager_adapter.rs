@@ -16,23 +16,9 @@ use tokio::time::timeout;
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
+    proposer::ProposalSendOutcome,
     transaction_builder::BuiltProposalTx,
 };
-
-/// Outcome returned after the adapter hands a proposal to `base-tx-manager`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ProposalOutcome {
-    /// The proposal transaction reached the required confirmation depth.
-    ///
-    /// This does not imply successful EVM execution. Callers must still inspect
-    /// `receipt.inner.status()` to distinguish success from an on-chain revert.
-    ConfirmedReceipt {
-        /// Final confirmed receipt returned by the tx-manager.
-        receipt: Box<TransactionReceipt>,
-    },
-    /// The tx-manager exhausted its bounded retry/confirmation budget.
-    RetryExhausted,
-}
 
 /// Proposer-owned adapter that translates built proposal transactions into tx-manager sends.
 #[derive(Debug)]
@@ -86,22 +72,27 @@ impl ProposalTxManager<SimpleTxManager> {
 
 impl<M: TxManager> ProposalTxManager<M> {
     /// Send a proposer-owned built transaction through the tx-manager and classify its outcome.
-    pub(crate) async fn send_proposal(&self, proposal: BuiltProposalTx) -> Result<ProposalOutcome> {
-        let candidate = proposal_candidate(&proposal);
+    pub(crate) async fn send_proposal(
+        &self,
+        proposal: BuiltProposalTx,
+    ) -> Result<ProposalSendOutcome> {
+        let candidate = proposal_candidate(proposal);
         classify_send_result(self.tx_manager.send(candidate).await)
     }
 }
 
 /// Translate a proposer-owned built proposal transaction into a `base-tx-manager` candidate.
 #[must_use]
-fn proposal_candidate(built_tx: &BuiltProposalTx) -> TxCandidate {
+fn proposal_candidate(built_tx: BuiltProposalTx) -> TxCandidate {
+    let (to, tx_data, gas_limit, blob_payload) = built_tx.into_parts();
+
     TxCandidate {
-        tx_data: built_tx.call_data().clone(),
-        blobs: Arc::new(built_tx.blob_payload().blobs().to_vec()),
-        to: Some(built_tx.to()),
+        tx_data,
+        blobs: Arc::new(blob_payload.into_blobs()),
+        to: Some(to),
         // `base-tx-manager` treats 0 as "auto-estimate gas" and will replace it
         // with `max(estimate_gas, gas_limit_floor)` during tx crafting.
-        gas_limit: built_tx.gas_limit().unwrap_or_default(),
+        gas_limit: gas_limit.unwrap_or_default(),
         value: U256::ZERO,
     }
 }
@@ -109,10 +100,10 @@ fn proposal_candidate(built_tx: &BuiltProposalTx) -> TxCandidate {
 /// Classify the tx-manager send result into proposer-level outcomes or errors.
 fn classify_send_result(
     result: base_tx_manager::TxManagerResult<TransactionReceipt>,
-) -> Result<ProposalOutcome> {
+) -> Result<ProposalSendOutcome> {
     match result {
-        Ok(receipt) => Ok(ProposalOutcome::ConfirmedReceipt { receipt: Box::new(receipt) }),
-        Err(err) if is_retry_exhausted(&err) => Ok(ProposalOutcome::RetryExhausted),
+        Ok(receipt) => Ok(ProposalSendOutcome::ConfirmedReceipt { receipt: Box::new(receipt) }),
+        Err(err) if is_retry_exhausted(&err) => Ok(ProposalSendOutcome::RetryExhausted),
         Err(err) => Err(err.into()),
     }
 }
@@ -145,10 +136,11 @@ mod tests {
     use crate::{
         config::ProposerConfigs,
         error::ProposerError,
+        proposer::ProposalSendOutcome,
         transaction_builder::{BuiltProposalTx, ProposalBlobPayload},
     };
 
-    use super::{ProposalOutcome, ProposalTxManager, proposal_candidate};
+    use super::{ProposalTxManager, proposal_candidate};
 
     impl<M: TxManager> ProposalTxManager<M> {
         /// Construct the adapter directly from a test tx-manager implementation.
@@ -193,11 +185,13 @@ mod tests {
             proposal_blob_payload_from_blobs(vec![Blob::ZERO]),
         )
         .with_gas_limit(210_000);
+        let expected_to = built.to();
+        let expected_data = built.call_data().clone();
 
-        let candidate = proposal_candidate(&built);
+        let candidate = proposal_candidate(built);
 
-        assert_eq!(candidate.to, Some(Address::repeat_byte(0x11)));
-        assert_eq!(candidate.tx_data, Bytes::from_static(b"inbox-propose-call"));
+        assert_eq!(candidate.to, Some(expected_to));
+        assert_eq!(candidate.tx_data, expected_data);
         assert_eq!(candidate.gas_limit, 210_000);
     }
 
@@ -211,7 +205,7 @@ mod tests {
             blob_payload.clone(),
         );
 
-        let candidate = proposal_candidate(&built);
+        let candidate = proposal_candidate(built);
 
         assert_eq!(candidate.blobs.as_ref(), blob_payload.blobs());
         assert_eq!(candidate.gas_limit, 0);
@@ -297,7 +291,7 @@ mod tests {
             .await
             .expect("send timeout should stay on the proposer retry path");
 
-        assert_eq!(outcome, ProposalOutcome::RetryExhausted);
+        assert_eq!(outcome, ProposalSendOutcome::RetryExhausted);
     }
 
     #[tokio::test]
@@ -311,7 +305,7 @@ mod tests {
             .await
             .expect("bounded retry exhaustion should stay on the proposer retry path");
 
-        assert_eq!(outcome, ProposalOutcome::RetryExhausted);
+        assert_eq!(outcome, ProposalSendOutcome::RetryExhausted);
     }
 
     #[tokio::test]
@@ -325,7 +319,7 @@ mod tests {
             .await
             .expect("mined proposal should return a proposer success outcome");
 
-        assert_eq!(outcome, ProposalOutcome::ConfirmedReceipt { receipt: Box::new(receipt) });
+        assert_eq!(outcome, ProposalSendOutcome::ConfirmedReceipt { receipt: Box::new(receipt) });
     }
 
     #[tokio::test]
@@ -341,7 +335,7 @@ mod tests {
 
         assert_eq!(
             outcome,
-            ProposalOutcome::ConfirmedReceipt { receipt: Box::new(receipt.clone()) }
+            ProposalSendOutcome::ConfirmedReceipt { receipt: Box::new(receipt.clone()) }
         );
         assert!(!receipt.inner.status(), "caller still needs to inspect receipt.status()");
     }

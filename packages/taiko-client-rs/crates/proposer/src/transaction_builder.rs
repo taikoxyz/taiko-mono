@@ -42,6 +42,11 @@ impl ProposalBlobPayload {
     pub(crate) fn blobs(&self) -> &[Blob] {
         &self.sidecar.blobs
     }
+
+    /// Consume the payload and return the owned blobs for tx-manager submission.
+    pub(crate) fn into_blobs(self) -> Vec<Blob> {
+        self.sidecar.blobs
+    }
 }
 
 /// A proposer-owned proposal transaction prepared for adapter-backed submission.
@@ -105,9 +110,9 @@ impl BuiltProposalTx {
         }
     }
 
-    /// Return the internal blob payload for crate-local adapters.
-    pub(crate) fn blob_payload(&self) -> &ProposalBlobPayload {
-        &self.blob_payload
+    /// Consume the built proposal into the parts needed by the tx-manager adapter.
+    pub(crate) fn into_parts(self) -> (Address, Bytes, Option<u64>, ProposalBlobPayload) {
+        (self.to, self.call_data, self.gas_limit, self.blob_payload)
     }
 
     /// Return a copy of this transaction with an explicit gas-limit override attached.
@@ -226,7 +231,11 @@ impl ShastaProposalTransactionBuilder {
 ///
 /// This keeps the manifest aligned with the driver-side validation for engine-built payloads.
 fn engine_manifest_gas_limit(engine_params: EngineBuildContext) -> u64 {
-    engine_params.gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
+    if engine_params.parent_block_number == 0 {
+        engine_params.gas_limit
+    } else {
+        engine_params.gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
+    }
 }
 
 /// Derive the manifest gas limit for non-engine mode from the canonical parent block.
@@ -243,7 +252,9 @@ fn non_engine_manifest_gas_limit(parent_block_number: u64, parent_gas_limit: u64
 
 #[cfg(test)]
 mod tests {
-    use super::{ShastaProposalTransactionBuilder, non_engine_manifest_gas_limit};
+    use super::{
+        ShastaProposalTransactionBuilder, engine_manifest_gas_limit, non_engine_manifest_gas_limit,
+    };
     use alloy::{
         consensus::{BlobTransactionSidecar, Header as ConsensusHeader, TxEnvelope},
         eips::eip4844::{Blob, env_settings::EnvKzgSettings},
@@ -270,7 +281,17 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
 
-    use crate::transaction_builder::{BuiltProposalTx, ProposalBlobPayload};
+    use crate::{
+        proposer::EngineBuildContext,
+        transaction_builder::{BuiltProposalTx, ProposalBlobPayload},
+    };
+
+    impl BuiltProposalTx {
+        /// Return the internal blob payload for crate-local tests.
+        pub(crate) fn blob_payload(&self) -> &ProposalBlobPayload {
+            &self.blob_payload
+        }
+    }
 
     impl ProposalBlobPayload {
         /// Build a blob payload from raw blobs for unit tests.
@@ -508,6 +529,19 @@ mod tests {
     #[test]
     fn manifest_gas_limit_keeps_genesis_parent_limit_in_non_engine_mode() {
         assert_eq!(non_engine_manifest_gas_limit(0, 45_000_000), 45_000_000);
+    }
+
+    #[test]
+    fn manifest_gas_limit_keeps_genesis_parent_limit_in_engine_mode() {
+        assert_eq!(
+            engine_manifest_gas_limit(EngineBuildContext {
+                anchor_block_number: 7,
+                parent_block_number: 0,
+                timestamp: 1_234,
+                gas_limit: 45_000_000,
+            }),
+            45_000_000
+        );
     }
 
     #[tokio::test]
