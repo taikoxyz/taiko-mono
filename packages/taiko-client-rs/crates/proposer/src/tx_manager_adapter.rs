@@ -115,8 +115,7 @@ fn classify_send_result(
 /// Return `true` when the tx-manager exhausted a bounded retry path and the outer proposer loop
 /// should continue.
 fn is_retry_exhausted(err: &TxManagerError) -> bool {
-    err.is_retryable() ||
-        matches!(err, TxManagerError::SendTimeout | TxManagerError::MempoolDeadlineExpired)
+    matches!(err, TxManagerError::SendTimeout | TxManagerError::MempoolDeadlineExpired)
 }
 
 #[cfg(test)]
@@ -324,17 +323,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn tx_manager_retryable_terminal_error_maps_to_retry_exhausted() {
+    async fn tx_manager_retryable_rpc_error_surfaces_to_proposer_error() {
         let adapter = ProposalTxManager::from_tx_manager_for_tests(MockTxManager::new(Err(
             TxManagerError::Rpc("bounded retries exhausted on provider errors".into()),
         )));
 
-        let outcome = adapter
+        let err = adapter
             .send_proposal(sample_built_proposal())
             .await
-            .expect("retryable terminal errors should keep the outer proposer loop alive");
+            .expect_err("retryable rpc errors should surface so callers can distinguish them");
 
-        assert_eq!(outcome, ProposalOutcome::RetryExhausted);
+        assert!(matches!(err, ProposerError::TxManager(TxManagerError::Rpc(_))));
     }
 
     #[tokio::test]
