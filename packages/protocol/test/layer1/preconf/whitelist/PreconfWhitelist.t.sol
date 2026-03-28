@@ -5,21 +5,24 @@ import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
 import { IPreconfWhitelist } from "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import { PreconfWhitelist } from "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import { LibPreconfConstants } from "src/layer1/preconf/libs/LibPreconfConstants.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { MockBeaconBlockRoot } from "test/layer1/preconf/mocks/MockBeaconBlockRoot.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
 contract TestPreconfWhitelist is CommonTest {
     PreconfWhitelist internal whitelist;
     address internal whitelistOwner;
+    address internal ejectorManager;
     address internal ejecter;
 
     function setUpOnEthereum() internal virtual override {
         whitelistOwner = Alice;
+        ejectorManager = makeAddr("ejectorManager");
         ejecter = makeAddr("ejecter");
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(ejectorManager)),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner))
             })
         );
@@ -281,6 +284,29 @@ contract TestPreconfWhitelist is CommonTest {
         vm.expectRevert(PreconfWhitelist.InvalidOperatorIndex.selector);
         vm.prank(ejecter);
         whitelist.removeOperator(0);
+    }
+
+    function test_setEjecter_allowedForEjectorManager() external {
+        vm.expectEmit();
+        emit IPreconfWhitelist.EjecterUpdated(ejecter, true);
+        vm.prank(ejectorManager);
+        whitelist.setEjecter(ejecter, true);
+
+        vm.expectRevert(PreconfWhitelist.InvalidOperatorIndex.selector);
+        vm.prank(ejecter);
+        whitelist.removeOperator(0);
+    }
+
+    function test_setEjecter_RevertWhen_CallerIsNotAuthorized() external {
+        vm.prank(Carol);
+        vm.expectRevert(PreconfWhitelist.NotOwnerOrEjectorManager.selector);
+        whitelist.setEjecter(ejecter, true);
+    }
+
+    function test_setEjecter_RevertWhen_EjecterIsZeroAddress() external {
+        vm.prank(whitelistOwner);
+        vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
+        whitelist.setEjecter(address(0), true);
     }
 
     function test_constantsHaveExpectedValues() external view {
