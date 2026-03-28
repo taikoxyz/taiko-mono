@@ -252,34 +252,33 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // If the parent is genesis, return the initial base fee.
-        if parent.number() == 0 {
-            return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
-        }
+        self.calculate_next_shasta_block_base_fee_for_parent(&parent).await
+    }
 
-        // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
+    /// Calculate the base fee for the next L2 block from a specific parent snapshot.
+    async fn calculate_next_shasta_block_base_fee_for_parent(
+        &self,
+        parent: &Block,
+    ) -> Result<U256> {
         let parent_number = parent.number();
-        let grandparent_number = parent_number.saturating_sub(1);
-        let grandparent = self
-            .rpc_provider
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(grandparent_number))
-            .await?
-            .ok_or(ProposerError::ParentBlockNotFound(grandparent_number))?;
-        let parent_block_time_delta_secs =
-            parent.header.timestamp.saturating_sub(grandparent.header.timestamp);
-        let parent_base_fee_per_gas =
-            parent.header.inner.base_fee_per_gas.ok_or(ProposerError::MissingParentBaseFee {
-                parent_block_number: parent_number,
-            })?;
+        let grandparent = if parent_number == 0 {
+            None
+        } else {
+            let grandparent_number = parent_number.saturating_sub(1);
+            Some(
+                self.rpc_provider
+                    .l2_provider
+                    .get_block_by_number(BlockNumberOrTag::Number(grandparent_number))
+                    .await?
+                    .ok_or(ProposerError::ParentBlockNotFound(grandparent_number))?,
+            )
+        };
 
-        // Pass explicit parent base fee + chain clamp to mirror current EIP-4396 API semantics.
-        Ok(U256::from(calculate_next_block_eip4396_base_fee(
-            &parent.header.inner,
-            parent_block_time_delta_secs,
-            parent_base_fee_per_gas,
+        calculate_next_shasta_block_base_fee_from_parent(
+            parent,
+            grandparent.as_ref(),
             self.min_base_fee_to_clamp,
-        )))
+        )
     }
 
     /// Build forkchoice state from L2 chain.
@@ -336,7 +335,7 @@ impl Proposer {
         let proposal_id = next_shasta_proposal_id(parent.header.number, &parent.header.extra_data)?;
 
         // Calculate base fee for the new block.
-        let base_fee = self.calculate_next_shasta_block_base_fee().await?;
+        let base_fee = self.calculate_next_shasta_block_base_fee_for_parent(parent).await?;
 
         // Get latest L1 block for anchor transaction.
         let l1_block = self
@@ -499,6 +498,34 @@ impl Proposer {
     }
 }
 
+/// Calculate the next Shasta base fee from a fixed parent snapshot and its grandparent.
+fn calculate_next_shasta_block_base_fee_from_parent(
+    parent: &Block,
+    grandparent: Option<&Block>,
+    min_base_fee_to_clamp: u64,
+) -> Result<U256> {
+    if parent.number() == 0 {
+        return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
+    }
+
+    let grandparent =
+        grandparent.ok_or(ProposerError::ParentBlockNotFound(parent.number().saturating_sub(1)))?;
+    let parent_block_time_delta_secs =
+        parent.header.timestamp.saturating_sub(grandparent.header.timestamp);
+    let parent_base_fee_per_gas = parent
+        .header
+        .inner
+        .base_fee_per_gas
+        .ok_or(ProposerError::MissingParentBaseFee { parent_block_number: parent.number() })?;
+
+    Ok(U256::from(calculate_next_block_eip4396_base_fee(
+        &parent.header.inner,
+        parent_block_time_delta_secs,
+        parent_base_fee_per_gas,
+        min_base_fee_to_clamp,
+    )))
+}
+
 /// Record metrics and logs for a proposer submission outcome.
 fn record_submission_outcome(outcome: ProposalSendOutcome) -> ProposalSendOutcome {
     match &outcome {
@@ -556,18 +583,25 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
 
 #[cfg(test)]
 mod tests {
+    use alethia_reth_consensus::eip4396::calculate_next_block_eip4396_base_fee;
     use alloy::{
-        consensus::{Eip658Value, Receipt, ReceiptEnvelope, ReceiptWithBloom},
-        primitives::{Address, B256, Bloom, Bytes},
+        consensus::{
+            Eip658Value, Header as ConsensusHeader, Receipt, ReceiptEnvelope, ReceiptWithBloom,
+        },
+        primitives::{Address, B256, Bloom, Bytes, U256},
     };
-    use alloy_rpc_types::TransactionReceipt;
+    use alloy_rpc_types::{
+        TransactionReceipt,
+        eth::{Block as RpcBlock, Header as RpcHeader},
+    };
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
 
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        ProposalSendOutcome, current_unix_timestamp, next_shasta_proposal_id,
-        record_submission_attempt, record_submission_outcome,
+        ProposalSendOutcome, calculate_next_shasta_block_base_fee_from_parent,
+        current_unix_timestamp, next_shasta_proposal_id, record_submission_attempt,
+        record_submission_outcome,
     };
     use crate::metrics::ProposerMetrics;
     use protocol::shasta::encode_extra_data;
@@ -638,6 +672,51 @@ mod tests {
             next_shasta_proposal_id(1, &Bytes::from_static(&[0x12, 0x34])),
             Err(crate::error::ProposerError::InvalidExtraData)
         ));
+    }
+
+    #[test]
+    fn base_fee_calculation_uses_supplied_parent_snapshot() {
+        let grandparent = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x11),
+                inner: ConsensusHeader { number: 1, timestamp: 100, ..Default::default() },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+        let parent = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x22),
+                inner: ConsensusHeader {
+                    number: 2,
+                    timestamp: 112,
+                    gas_limit: 45_000_000,
+                    base_fee_per_gas: Some(2_000_000_000),
+                    ..Default::default()
+                },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+
+        let expected = U256::from(calculate_next_block_eip4396_base_fee(
+            &parent.header.inner,
+            parent.header.timestamp.saturating_sub(grandparent.header.timestamp),
+            parent.header.inner.base_fee_per_gas.expect("parent should define a base fee"),
+            1_000_000_000,
+        ));
+
+        assert_eq!(
+            calculate_next_shasta_block_base_fee_from_parent(
+                &parent,
+                Some(&grandparent),
+                1_000_000_000
+            )
+            .expect("parent snapshot should determine the next base fee"),
+            expected
+        );
     }
 
     /// Build a minimal receipt with the requested execution status.
