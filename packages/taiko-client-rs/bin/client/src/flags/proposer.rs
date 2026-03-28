@@ -45,4 +45,50 @@ pub struct ProposerArgs {
         help = "Use Engine API mode for payload building (FCU + get_payload)"
     )]
     pub use_engine_mode: bool,
+    /// Inactive until the tx-manager-backed proposer send path lands: interval in seconds between
+    /// tx-manager resubmissions for an unconfirmed proposal transaction.
+    #[clap(
+        long = "propose.retryInterval",
+        env = "PROPOSE_RETRY_INTERVAL",
+        default_value = "48",
+        help = "Inactive until the tx-manager-backed proposer send path lands: interval in seconds between tx-manager resubmissions for an unconfirmed proposal transaction"
+    )]
+    pub retry_interval: u64,
+    /// Inactive until the tx-manager-backed proposer send path lands: maximum time in seconds to
+    /// wait before giving up for that epoch. When enabled, this bounds both confirmation polling
+    /// and not-in-mempool waiting.
+    #[clap(
+        long = "propose.confirmationTimeout",
+        env = "PROPOSE_CONFIRMATION_TIMEOUT",
+        default_value = "180",
+        help = "Inactive until the tx-manager-backed proposer send path lands: maximum time in seconds to wait before giving up for that epoch; when enabled, this bounds both confirmation polling and not-in-mempool waiting"
+    )]
+    pub confirmation_timeout: u64,
+    /// Inactive until the tx-manager-backed proposer send path lands: minimum priority fee floor
+    /// in gwei for proposal transactions.
+    #[clap(
+        long = "propose.minTipCap",
+        env = "PROPOSE_MIN_TIP_CAP",
+        default_value = "1",
+        help = "Inactive until the tx-manager-backed proposer send path lands: minimum priority fee floor in gwei for proposal transactions"
+    )]
+    pub min_tip_cap_gwei: u64,
+    /// Inactive until the tx-manager-backed proposer send path lands: minimum base fee floor in
+    /// gwei for proposal transactions.
+    #[clap(
+        long = "propose.minBaseFee",
+        env = "PROPOSE_MIN_BASE_FEE",
+        default_value = "1",
+        help = "Inactive until the tx-manager-backed proposer send path lands: minimum base fee floor in gwei for proposal transactions"
+    )]
+    pub min_base_fee_gwei: u64,
+    /// Inactive until the tx-manager-backed proposer send path lands: minimum blob base fee floor
+    /// in gwei for blob proposal transactions.
+    #[clap(
+        long = "propose.minBlobFee",
+        env = "PROPOSE_MIN_BLOB_FEE",
+        default_value = "1",
+        help = "Inactive until the tx-manager-backed proposer send path lands: minimum blob base fee floor in gwei for blob proposal transactions"
+    )]
+    pub min_blob_fee_gwei: u64,
 }

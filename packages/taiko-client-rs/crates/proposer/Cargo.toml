@@ -23,6 +23,7 @@ alloy-network = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+base-tx-manager = { workspace = true }
 
 # taiko
 alethia-reth-consensus = { workspace = true }
@@ -44,4 +45,5 @@ serial_test = { workspace = true }
 test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
+tower = { workspace = true }
 tracing-subscriber = { workspace = true }

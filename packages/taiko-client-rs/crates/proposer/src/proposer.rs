@@ -18,8 +18,8 @@ use alloy_consensus::{
     transaction::{Recovered, SignerRecoverable, TransactionInfo},
 };
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
-use alloy_network::TransactionBuilder;
-use alloy_rpc_types::Transaction as RpcTransaction;
+use alloy_provider::RootProvider;
+use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ForkchoiceState, PayloadAttributes as EthPayloadAttributes,
 };
@@ -33,16 +33,15 @@ use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
     metrics::ProposerMetrics,
     transaction_builder::ShastaProposalTransactionBuilder,
+    tx_manager_adapter::{ProposalOutcome, ProposalTxManager},
 };
-
-use alloy_provider::RootProvider;
 
 /// Type alias for batches of transaction lists fetched from the txpool.
 pub type TransactionLists = Vec<Vec<Transaction>>;
@@ -59,12 +58,28 @@ pub struct EngineBuildContext {
     pub gas_limit: u64,
 }
 
+/// Outcome returned by the proposer after one submission attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProposalSendOutcome {
+    /// The proposal reached a confirmed receipt through the tx-manager.
+    ///
+    /// Callers must inspect `receipt.status()` to distinguish success from an on-chain revert.
+    ConfirmedReceipt {
+        /// Confirmed receipt returned by the tx-manager-backed submission path.
+        receipt: Box<TransactionReceipt>,
+    },
+    /// The tx-manager exhausted its bounded retry budget and the proposer loop should continue.
+    RetryExhausted,
+}
+
 /// Proposer loop that builds and submits Shasta proposals at a fixed interval.
 pub struct Proposer {
     /// RPC client bundle with signing wallet for L1 submission.
     rpc_provider: ClientWithWallet,
     /// Builder that converts txpool content into proposal transactions.
     transaction_builder: ShastaProposalTransactionBuilder,
+    /// Tx-manager responsible for proposal submission and retry handling.
+    tx_manager: ProposalTxManager,
     /// Optional anchor constructor used in engine mode.
     anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
     /// Chain-specific minimum base fee used by EIP-4396 clamping.
@@ -100,6 +115,7 @@ impl Proposer {
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
+        let tx_manager = ProposalTxManager::new(&cfg).await?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.
         let min_base_fee_to_clamp =
             min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
@@ -120,6 +136,7 @@ impl Proposer {
         Ok(Self {
             rpc_provider,
             transaction_builder,
+            tx_manager,
             anchor_constructor,
             min_base_fee_to_clamp,
             cfg,
@@ -135,7 +152,9 @@ impl Proposer {
             interval.tick().await;
             info!(epoch, "proposer epoch");
 
-            self.fetch_and_propose().await?;
+            if matches!(self.fetch_and_propose().await?, ProposalSendOutcome::RetryExhausted) {
+                info!(epoch, "proposal retries exhausted; continuing proposer loop");
+            }
 
             epoch += 1;
         }
@@ -143,7 +162,7 @@ impl Proposer {
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
     /// Fetch transactions and submit a proposal once.
-    pub async fn fetch_and_propose(&self) -> Result<()> {
+    pub async fn fetch_and_propose(&self) -> Result<ProposalSendOutcome> {
         // Fetch transactions based on mode.
         // Engine mode also returns the parameters used for the anchor transaction.
         let (pool_content, engine_params) = if self.cfg.use_engine_mode {
@@ -164,41 +183,14 @@ impl Proposer {
             "fetched transaction pool content"
         );
 
-        let mut transaction_request =
-            self.transaction_builder.build(pool_content, engine_params).await?;
+        let mut proposal_tx = self.transaction_builder.build(pool_content, engine_params).await?;
 
         // Set gas limit if configured, otherwise let the provider estimate it.
         if let Some(gas_limit) = self.cfg.gas_limit {
-            transaction_request = transaction_request.with_gas_limit(gas_limit);
+            proposal_tx = proposal_tx.with_gas_limit(gas_limit);
         }
 
-        // Send transaction using provider with wallet filler.
-        // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the
-        // transaction.
-        let pending_tx =
-            self.rpc_provider.l1_provider.send_transaction(transaction_request).await?;
-
-        info!(tx_hash = %pending_tx.tx_hash(), "proposal transaction sent");
-        counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
-
-        let receipt = pending_tx.get_receipt().await?;
-
-        if receipt.status() {
-            info!(
-                tx_hash = %receipt.transaction_hash,
-                gas_used = receipt.gas_used,
-                "proposal transaction mined successfully"
-            );
-            counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
-
-            // Record gas used
-            histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
-        } else {
-            error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
-            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
-        }
-
-        Ok(())
+        Ok(map_submission_outcome(self.tx_manager.send_proposal(proposal_tx).await?))
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
@@ -334,9 +326,7 @@ impl Proposer {
         let basefee_sharing_pctg = inbox_config.basefeeSharingPctg;
 
         // Get proposal ID from parent's extra data and increment.
-        let proposal_id = decode_shasta_proposal_id(&parent.header.extra_data)
-            .ok_or(ProposerError::InvalidExtraData)? +
-            1;
+        let proposal_id = next_shasta_proposal_id(parent.header.number, &parent.header.extra_data)?;
 
         // Calculate base fee for the new block.
         let base_fee = self.calculate_next_shasta_block_base_fee().await?;
@@ -501,16 +491,75 @@ impl Proposer {
     }
 }
 
+/// Map the adapter outcome into proposer metrics, logging, and the outer-loop-facing result.
+fn map_submission_outcome(outcome: ProposalOutcome) -> ProposalSendOutcome {
+    match outcome {
+        ProposalOutcome::ConfirmedReceipt { receipt } => {
+            counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
+
+            if receipt.status() {
+                info!(
+                    tx_hash = %receipt.transaction_hash,
+                    gas_used = receipt.gas_used,
+                    "proposal transaction mined successfully"
+                );
+                counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
+
+                // Record gas used once the confirmed receipt shows successful execution.
+                histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
+            } else {
+                error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
+                counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+            }
+
+            ProposalSendOutcome::ConfirmedReceipt { receipt }
+        }
+        ProposalOutcome::RetryExhausted => {
+            // `base-tx-manager` can exhaust retries before any publish succeeds
+            // (for example on repeated pre-publish RPC failures), so this
+            // outcome does not prove the proposal ever reached L1.
+            warn!("proposal transaction retries exhausted before confirmation");
+            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+            ProposalSendOutcome::RetryExhausted
+        }
+    }
+}
+
 /// Returns the current UNIX timestamp in seconds.
 pub(crate) fn current_unix_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
 }
 
+/// Derive the next proposal id from the parent block header.
+///
+/// Shasta stores the previous proposal id in the parent block extra data. On a fresh chain the
+/// genesis parent may still have empty extra data, so the first proposal starts at id `1`.
+fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) -> Result<u64> {
+    if parent_block_number == 0 {
+        return Ok(1);
+    }
+
+    decode_shasta_proposal_id(parent_extra_data)
+        .map(|proposal_id| proposal_id + 1)
+        .ok_or(ProposerError::InvalidExtraData)
+}
+
 #[cfg(test)]
 mod tests {
+    use alloy::{
+        consensus::{Eip658Value, Receipt, ReceiptEnvelope, ReceiptWithBloom},
+        primitives::{Address, B256, Bloom, Bytes},
+    };
+    use alloy_rpc_types::TransactionReceipt;
+
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::current_unix_timestamp;
+    use super::{
+        ProposalSendOutcome, current_unix_timestamp, map_submission_outcome,
+        next_shasta_proposal_id,
+    };
+    use crate::tx_manager_adapter::ProposalOutcome;
+    use protocol::shasta::encode_extra_data;
 
     #[test]
     fn current_unix_timestamp_tracks_system_time() {
@@ -520,5 +569,78 @@ mod tests {
 
         assert!(timestamp >= before);
         assert!(timestamp <= after);
+    }
+
+    #[test]
+    fn retry_exhausted_submission_outcome_stays_non_fatal() {
+        assert_eq!(
+            map_submission_outcome(ProposalOutcome::RetryExhausted),
+            ProposalSendOutcome::RetryExhausted
+        );
+    }
+
+    #[test]
+    fn confirmed_receipt_submission_outcome_preserves_receipt_status() {
+        let receipt = receipt_with_status(false, B256::repeat_byte(0x44));
+        let outcome = map_submission_outcome(ProposalOutcome::ConfirmedReceipt {
+            receipt: Box::new(receipt),
+        });
+
+        assert!(matches!(
+            outcome,
+            ProposalSendOutcome::ConfirmedReceipt { receipt } if !receipt.status()
+        ));
+    }
+
+    #[test]
+    fn next_shasta_proposal_id_starts_from_one_for_empty_genesis_extra_data() {
+        assert_eq!(
+            next_shasta_proposal_id(0, &Bytes::new()).expect("empty genesis extra data is valid"),
+            1
+        );
+    }
+
+    #[test]
+    fn next_shasta_proposal_id_increments_encoded_parent_proposal_id() {
+        assert_eq!(
+            next_shasta_proposal_id(7, &encode_extra_data(15, 9))
+                .expect("encoded proposal id should decode"),
+            10
+        );
+    }
+
+    #[test]
+    fn next_shasta_proposal_id_rejects_non_genesis_invalid_extra_data() {
+        assert!(matches!(
+            next_shasta_proposal_id(1, &Bytes::from_static(&[0x12, 0x34])),
+            Err(crate::error::ProposerError::InvalidExtraData)
+        ));
+    }
+
+    /// Build a minimal receipt with the requested execution status.
+    fn receipt_with_status(success: bool, tx_hash: B256) -> TransactionReceipt {
+        let inner = ReceiptEnvelope::Legacy(ReceiptWithBloom {
+            receipt: Receipt {
+                status: Eip658Value::Eip658(success),
+                cumulative_gas_used: 21_000,
+                logs: vec![],
+            },
+            logs_bloom: Bloom::ZERO,
+        });
+
+        TransactionReceipt {
+            inner,
+            transaction_hash: tx_hash,
+            transaction_index: Some(0),
+            block_hash: Some(B256::ZERO),
+            block_number: Some(1),
+            gas_used: 21_000,
+            effective_gas_price: 1_000_000_000,
+            blob_gas_used: None,
+            blob_gas_price: None,
+            from: Address::ZERO,
+            to: Some(Address::ZERO),
+            contract_address: None,
+        }
     }
 }

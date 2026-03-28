@@ -6,3 +6,4 @@ pub mod error;
 pub mod metrics;
 pub mod proposer;
 pub mod transaction_builder;
+pub(crate) mod tx_manager_adapter;
