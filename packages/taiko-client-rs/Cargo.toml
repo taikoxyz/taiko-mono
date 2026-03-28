@@ -37,6 +37,7 @@ metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = [
   "http-listener",
 ] }
+metrics-util = "0.19"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

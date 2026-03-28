@@ -115,7 +115,8 @@ impl Proposer {
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
-        let tx_manager = ProposalTxManager::new(&cfg).await?;
+        let tx_manager =
+            ProposalTxManager::new(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.
         let min_base_fee_to_clamp =
             min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
@@ -190,6 +191,7 @@ impl Proposer {
             proposal_tx = proposal_tx.with_gas_limit(gas_limit);
         }
 
+        record_submission_attempt();
         Ok(map_submission_outcome(self.tx_manager.send_proposal(proposal_tx).await?))
     }
 
@@ -495,8 +497,6 @@ impl Proposer {
 fn map_submission_outcome(outcome: ProposalOutcome) -> ProposalSendOutcome {
     match outcome {
         ProposalOutcome::ConfirmedReceipt { receipt } => {
-            counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
-
             if receipt.status() {
                 info!(
                     tx_hash = %receipt.transaction_hash,
@@ -525,6 +525,11 @@ fn map_submission_outcome(outcome: ProposalOutcome) -> ProposalSendOutcome {
     }
 }
 
+/// Record that the proposer started an L1 submission attempt for a built proposal.
+fn record_submission_attempt() {
+    counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
+}
+
 /// Returns the current UNIX timestamp in seconds.
 pub(crate) fn current_unix_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
@@ -551,14 +556,15 @@ mod tests {
         primitives::{Address, B256, Bloom, Bytes},
     };
     use alloy_rpc_types::TransactionReceipt;
+    use metrics_util::debugging::{DebugValue, DebuggingRecorder};
 
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
         ProposalSendOutcome, current_unix_timestamp, map_submission_outcome,
-        next_shasta_proposal_id,
+        next_shasta_proposal_id, record_submission_attempt,
     };
-    use crate::tx_manager_adapter::ProposalOutcome;
+    use crate::{metrics::ProposerMetrics, tx_manager_adapter::ProposalOutcome};
     use protocol::shasta::encode_extra_data;
 
     #[test]
@@ -590,6 +596,18 @@ mod tests {
             outcome,
             ProposalSendOutcome::ConfirmedReceipt { receipt } if !receipt.status()
         ));
+    }
+
+    #[test]
+    fn submission_attempt_increments_sent_metric() {
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        metrics::with_local_recorder(&recorder, || {
+            record_submission_attempt();
+        });
+
+        assert_eq!(counter_value(&snapshotter, ProposerMetrics::PROPOSALS_SENT), Some(1));
     }
 
     #[test]
@@ -642,5 +660,17 @@ mod tests {
             to: Some(Address::ZERO),
             contract_address: None,
         }
+    }
+
+    fn counter_value(
+        snapshotter: &metrics_util::debugging::Snapshotter,
+        metric_name: &str,
+    ) -> Option<u64> {
+        snapshotter.snapshot().into_vec().into_iter().find_map(|(key, _, _, value)| {
+            (key.key().name() == metric_name).then(|| match value {
+                DebugValue::Counter(value) => value,
+                other => panic!("expected counter for {metric_name}, got {other:?}"),
+            })
+        })
     }
 }

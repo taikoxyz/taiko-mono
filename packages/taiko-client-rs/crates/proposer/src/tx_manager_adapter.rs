@@ -6,6 +6,7 @@ use alloy::{
     network::EthereumWallet, primitives::U256, providers::Provider,
     signers::local::PrivateKeySigner,
 };
+use alloy_provider::RootProvider;
 use alloy_rpc_types::TransactionReceipt;
 use base_tx_manager::{
     BaseTxMetrics, RpcErrorClassifier, SimpleTxManager, TxCandidate, TxManager, TxManagerError,
@@ -17,7 +18,6 @@ use crate::{
     error::{ProposerError, Result},
     transaction_builder::BuiltProposalTx,
 };
-use rpc::client::connect_provider_with_timeout;
 
 /// Outcome returned after the adapter hands a proposal to `base-tx-manager`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,19 +43,22 @@ pub(crate) struct ProposalTxManager<M = SimpleTxManager> {
 
 impl ProposalTxManager<SimpleTxManager> {
     /// Build the proposer tx-manager adapter from proposer configuration.
-    pub(crate) async fn new(cfg: &ProposerConfigs) -> Result<Self> {
+    pub(crate) async fn new(cfg: &ProposerConfigs, provider: RootProvider) -> Result<Self> {
         let tx_manager_config = cfg.to_tx_manager_config().map_err(|err| {
             ProposerError::from(TxManagerError::InvalidConfig(format!(
                 "invalid proposer tx-manager config: {err}"
             )))
         })?;
-        let provider = connect_provider_with_timeout(cfg.l1_provider_source.url().clone())
-            .await
-            .map_err(|err| {
-                ProposerError::from(TxManagerError::Rpc(format!(
-                    "failed to connect proposer tx-manager L1 provider: {err}"
-                )))
-            })?;
+        Self::new_with_provider(cfg, provider, tx_manager_config).await
+    }
+
+    /// Build the proposer tx-manager adapter from proposer configuration and an existing L1 root
+    /// provider.
+    async fn new_with_provider(
+        cfg: &ProposerConfigs,
+        provider: RootProvider,
+        tx_manager_config: base_tx_manager::TxManagerConfig,
+    ) -> Result<Self> {
         let chain_id = timeout(tx_manager_config.network_timeout, provider.get_chain_id())
             .await
             .map_err(|_| ProposerError::from(TxManagerError::Rpc("get_chain_id timed out".into())))?
@@ -126,7 +129,9 @@ mod tests {
         consensus::{Eip658Value, Receipt, ReceiptEnvelope, ReceiptWithBloom},
         eips::eip4844::Blob,
         primitives::{Address, B256, Bloom, Bytes},
-        transports::http::reqwest::Url,
+        providers::ProviderBuilder,
+        rpc::client::RpcClient,
+        transports::{http::reqwest::Url, mock::Asserter},
     };
     use alloy_rpc_types::TransactionReceipt;
     use base_tx_manager::{
@@ -148,6 +153,23 @@ mod tests {
         fn from_tx_manager_for_tests(tx_manager: M) -> Self {
             Self { tx_manager }
         }
+    }
+
+    #[tokio::test]
+    async fn new_with_provider_accepts_existing_root_provider() {
+        let asserter = Asserter::new();
+        asserter.push_success(&1u64);
+        asserter.push_success(&1u64);
+        let provider = ProviderBuilder::default().connect_client(RpcClient::mocked(asserter));
+
+        let config = proposal_tx_manager_config_for_tests();
+        let tx_manager_config = config
+            .to_tx_manager_config()
+            .expect("test config should produce a valid tx-manager config");
+
+        ProposalTxManager::new_with_provider(&config, provider, tx_manager_config)
+            .await
+            .expect("existing root provider should be reusable");
     }
 
     /// Build a test blob payload without exposing production-side constructors.
@@ -393,6 +415,10 @@ mod tests {
             min_base_fee_gwei: 3,
             min_blob_fee_gwei: 4,
         }
+    }
+
+    fn proposal_tx_manager_config_for_tests() -> ProposerConfigs {
+        proposer_config_for_tx_manager_mapping()
     }
 
     fn sample_built_proposal() -> BuiltProposalTx {
