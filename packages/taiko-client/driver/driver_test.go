@@ -104,6 +104,26 @@ func (s *DriverTestSuite) setPreconfL1SyncCache(blockID uint64) {
 	s.d.preconfBlockServer.SetCachedHighestOriginBlockID(new(big.Int).SetUint64(blockID))
 }
 
+func (s *DriverTestSuite) assertPreconfImportResult(
+	wasSyncing bool,
+	revertedNumber uint64,
+	revertedHash common.Hash,
+	importedNumber uint64,
+	importedHash common.Hash,
+) {
+	l2Head, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	if wasSyncing {
+		s.Equal(revertedNumber, l2Head.Number().Uint64())
+		s.Equal(revertedHash, l2Head.Hash())
+		return
+	}
+
+	s.Equal(importedNumber, l2Head.Number().Uint64())
+	s.Equal(importedHash, l2Head.Hash())
+}
+
 func (s *DriverTestSuite) TestName() {
 	s.Equal("driver", s.d.Name())
 }
@@ -1136,11 +1156,18 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 
 	block = getBlock(l2Head1.Number().Uint64() + 2)
 	s.NotNil(block)
+	localProgress, err := s.d.rpc.L2ExecutionEngineSyncProgressLocal(context.Background())
+	s.Nil(err)
 	insertPayloadFromBlock(block, false)
 
-	l2Head5, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head2.Number.Uint64(), l2Head5.Number().Uint64())
+	// Importing cached preconfirmation blocks is only allowed once the local engine is not syncing.
+	s.assertPreconfImportResult(
+		localProgress.SyncProgress != nil,
+		l2Head1.Number().Uint64(),
+		l2Head1.Hash(),
+		l2Head2.Number.Uint64(),
+		l2Head2.Hash(),
+	)
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
@@ -1215,12 +1242,18 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	// Simulate the first post-beacon event sync enabling preconf imports.
 	s.d.preconfBlockServer.SetSyncReady(true)
 	s.setPreconfL1SyncCache(headL1Origin.BlockID.Uint64())
+	localProgress, err := s.d.rpc.L2ExecutionEngineSyncProgressLocal(context.Background())
+	s.Nil(err)
 	s.Nil(s.d.preconfBlockServer.ImportPendingBlocksFromCache(context.Background()))
 
-	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(l2Head2.Number.Uint64(), l2Head4.Number.Uint64())
-	s.Equal(l2Head2.Hash(), l2Head4.Hash())
+	// ImportPendingBlocksFromCache only imports once the local engine has finished syncing.
+	s.assertPreconfImportResult(
+		localProgress.SyncProgress != nil,
+		l2Head1.Number().Uint64(),
+		l2Head1.Hash(),
+		l2Head2.Number.Uint64(),
+		l2Head2.Hash(),
+	)
 
 	headL1Origin, err = s.RPCClient.L2.HeadL1Origin(context.Background())
 	s.Nil(err)
