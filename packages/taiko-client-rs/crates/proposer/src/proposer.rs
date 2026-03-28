@@ -132,6 +132,15 @@ fn bumped_replacement_fee(
         .max(strictly_above_previous)
 }
 
+/// Returns true when an RPC error indicates that a replacement transaction fee bump was too low.
+fn is_retryable_replacement_error(error: &str) -> bool {
+    let error = error.to_ascii_lowercase();
+
+    error.contains("replacement transaction underpriced") ||
+        error.contains("underpriced") ||
+        error.contains("replacementnotallowed")
+}
+
 /// Proposer loop that builds and submits Shasta proposals at a fixed interval.
 pub struct Proposer {
     /// RPC client bundle with signing wallet for L1 submission.
@@ -319,9 +328,7 @@ impl Proposer {
                 Ok(tx) => tx,
                 Err(err) => {
                     let err_str = err.to_string();
-                    if err_str.contains("replacement transaction underpriced") ||
-                        err_str.contains("underpriced")
-                    {
+                    if is_retryable_replacement_error(&err_str) {
                         // Reactively bump fees and retry, like op-txmgr.
                         warn!(attempt, nonce, "transaction underpriced, bumping fees and retrying");
                         let fee_estimate =
@@ -705,7 +712,7 @@ pub(crate) fn current_unix_timestamp() -> u64 {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::{ProposalFeeState, current_unix_timestamp};
+    use super::{ProposalFeeState, current_unix_timestamp, is_retryable_replacement_error};
 
     #[test]
     fn current_unix_timestamp_tracks_system_time() {
@@ -745,5 +752,16 @@ mod tests {
         assert_eq!(next.max_priority_fee_per_gas, 18);
         assert_eq!(next.max_fee_per_gas, 180);
         assert_eq!(next.max_fee_per_blob_gas, 64);
+    }
+
+    #[test]
+    fn replacement_error_matcher_accepts_known_provider_variants() {
+        assert!(is_retryable_replacement_error("replacement transaction underpriced"));
+        assert!(is_retryable_replacement_error("ReplacementNotAllowed"));
+    }
+
+    #[test]
+    fn replacement_error_matcher_rejects_unrelated_errors() {
+        assert!(!is_retryable_replacement_error("insufficient funds for gas * price + value"));
     }
 }
