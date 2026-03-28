@@ -146,6 +146,15 @@ pub struct Proposer {
     cfg: ProposerConfigs,
 }
 
+/// Outcome of a single proposal submission attempt.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProposalOutcome {
+    /// A proposal transaction was mined and the receipt was observed.
+    Mined,
+    /// The proposer exhausted its configured retries without a receipt and will continue looping.
+    RetryExhausted,
+}
+
 impl Proposer {
     /// Creates a new proposer instance.
     #[instrument(skip(cfg), fields(inbox_address = ?cfg.inbox_address))]
@@ -208,7 +217,12 @@ impl Proposer {
             interval.tick().await;
             info!(epoch, "proposer epoch");
 
-            self.fetch_and_propose().await?;
+            match self.fetch_and_propose().await? {
+                ProposalOutcome::Mined => {}
+                ProposalOutcome::RetryExhausted => {
+                    warn!(epoch, "proposal retries exhausted; continuing proposer loop");
+                }
+            }
 
             epoch += 1;
         }
@@ -216,7 +230,7 @@ impl Proposer {
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
     /// Fetch transactions and submit a proposal once.
-    pub async fn fetch_and_propose(&self) -> Result<()> {
+    pub async fn fetch_and_propose(&self) -> Result<ProposalOutcome> {
         // Fetch transactions based on mode.
         // Engine mode also returns the parameters used for the anchor transaction.
         let (pool_content, engine_params) = if self.cfg.use_engine_mode {
@@ -356,7 +370,7 @@ impl Proposer {
                         );
                         counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
                     }
-                    return Ok(());
+                    return Ok(ProposalOutcome::Mined);
                 }
                 Ok(Err(e)) => {
                     // RPC error while polling receipt — don't retry, propagate.
@@ -379,7 +393,7 @@ impl Proposer {
             "proposal transaction not mined after all tip bump retries"
         );
         counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
-        Ok(())
+        Ok(ProposalOutcome::RetryExhausted)
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
