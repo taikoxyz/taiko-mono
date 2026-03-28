@@ -59,6 +59,79 @@ pub struct EngineBuildContext {
     pub gas_limit: u64,
 }
 
+/// Tracks the most recently submitted EIP-1559 fee caps for proposal transactions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ProposalFeeState {
+    /// The current max fee per gas in wei.
+    max_fee_per_gas: u128,
+    /// The current max priority fee per gas in wei.
+    max_priority_fee_per_gas: u128,
+    /// The current max fee per blob gas in wei.
+    max_fee_per_blob_gas: u128,
+}
+
+impl ProposalFeeState {
+    /// Creates the initial fee state from a fresh fee estimate and configured minimum floors.
+    fn from_estimate(
+        estimated_max_fee_per_gas: u128,
+        estimated_priority_fee_per_gas: u128,
+        min_max_fee_per_gas: u128,
+        min_priority_fee_per_gas: u128,
+    ) -> Self {
+        Self {
+            max_fee_per_gas: estimated_max_fee_per_gas.max(min_max_fee_per_gas),
+            max_priority_fee_per_gas: estimated_priority_fee_per_gas.max(min_priority_fee_per_gas),
+            max_fee_per_blob_gas: min_max_fee_per_gas,
+        }
+    }
+
+    /// Returns the next replacement fee state, ensuring retries never drop below the last sent tx.
+    fn bumped_replacement_fees(
+        self,
+        estimated_max_fee_per_gas: u128,
+        estimated_priority_fee_per_gas: u128,
+        tip_bump_percentage: u64,
+        min_max_fee_per_gas: u128,
+        min_priority_fee_per_gas: u128,
+    ) -> Self {
+        Self {
+            max_fee_per_gas: bumped_replacement_fee(
+                self.max_fee_per_gas,
+                estimated_max_fee_per_gas,
+                tip_bump_percentage,
+                min_max_fee_per_gas,
+            ),
+            max_priority_fee_per_gas: bumped_replacement_fee(
+                self.max_priority_fee_per_gas,
+                estimated_priority_fee_per_gas,
+                tip_bump_percentage,
+                min_priority_fee_per_gas,
+            ),
+            max_fee_per_blob_gas: self.max_fee_per_blob_gas.saturating_mul(2),
+        }
+    }
+}
+
+/// Returns a bumped replacement fee that stays above the last submitted value.
+fn bumped_replacement_fee(
+    previous_fee: u128,
+    estimated_fee: u128,
+    tip_bump_percentage: u64,
+    minimum_fee: u128,
+) -> u128 {
+    let multiplier = 100u128 + u128::from(tip_bump_percentage);
+    let estimate_floor = estimated_fee.max(minimum_fee);
+    let previous_floor = previous_fee.max(minimum_fee);
+    let strictly_above_previous =
+        if tip_bump_percentage == 0 { previous_floor } else { previous_floor.saturating_add(1) };
+
+    estimate_floor
+        .saturating_mul(multiplier)
+        .div_ceil(100)
+        .max(previous_floor.saturating_mul(multiplier).div_ceil(100))
+        .max(strictly_above_previous)
+}
+
 /// Proposer loop that builds and submits Shasta proposals at a fixed interval.
 pub struct Proposer {
     /// RPC client bundle with signing wallet for L1 submission.
@@ -186,45 +259,41 @@ impl Proposer {
         let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
         let min_max_fee = self.cfg.min_max_fee_per_gas_gwei as u128 * 1_000_000_000;
         let min_priority_fee = self.cfg.min_priority_fee_per_gas_gwei as u128 * 1_000_000_000;
-        let max_fee = fee_estimate.max_fee_per_gas.max(min_max_fee);
-        let priority_fee = fee_estimate.max_priority_fee_per_gas.max(min_priority_fee);
+        let mut current_fees = ProposalFeeState::from_estimate(
+            fee_estimate.max_fee_per_gas,
+            fee_estimate.max_priority_fee_per_gas,
+            min_max_fee,
+            min_priority_fee,
+        );
         let mut current_request = transaction_request
             .nonce(nonce)
-            .max_fee_per_gas(max_fee)
-            .max_priority_fee_per_gas(priority_fee)
-            .max_fee_per_blob_gas(min_max_fee);
-        let mut tip_multiplier = 100u64; // starts at 100% (no bump)
-        // Blob tx replacements require >= 2x blob fee bump (geth blobPriceBump = 100%).
-        let mut blob_fee_multiplier = 100u64;
+            .max_fee_per_gas(current_fees.max_fee_per_gas)
+            .max_priority_fee_per_gas(current_fees.max_priority_fee_per_gas)
+            .max_fee_per_blob_gas(current_fees.max_fee_per_blob_gas);
 
         for attempt in 0..=self.cfg.max_tip_bump_retries {
             if attempt > 0 {
-                // Bump the priority fee for replacement transaction.
-                tip_multiplier += self.cfg.tip_bump_percentage;
                 warn!(
                     attempt,
-                    tip_multiplier_pct = tip_multiplier,
+                    tip_bump_percentage = self.cfg.tip_bump_percentage,
                     nonce,
                     "receipt timeout, resubmitting with bumped tip"
                 );
 
-                // Get current fee estimates, apply bump, and enforce minimum floor.
-                // Blob txs require >= 2x blob fee bump per geth's blobPriceBump.
+                // Refresh fee estimates, then bump relative to the last sent replacement tx.
                 let fee_estimate = self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
-                let multiplier = tip_multiplier as u128;
-                blob_fee_multiplier += 100; // +100% each retry (geth requires >= 2x)
-                let bumped_priority_fee = (fee_estimate.max_priority_fee_per_gas * multiplier /
-                    100)
-                .max(min_priority_fee);
-                let bumped_max_fee =
-                    (fee_estimate.max_fee_per_gas * multiplier / 100).max(min_max_fee);
-                let bumped_blob_fee =
-                    (min_max_fee * blob_fee_multiplier as u128 / 100).max(min_max_fee);
+                current_fees = current_fees.bumped_replacement_fees(
+                    fee_estimate.max_fee_per_gas,
+                    fee_estimate.max_priority_fee_per_gas,
+                    self.cfg.tip_bump_percentage,
+                    min_max_fee,
+                    min_priority_fee,
+                );
 
                 current_request = current_request
-                    .max_priority_fee_per_gas(bumped_priority_fee)
-                    .max_fee_per_gas(bumped_max_fee)
-                    .max_fee_per_blob_gas(bumped_blob_fee);
+                    .max_priority_fee_per_gas(current_fees.max_priority_fee_per_gas)
+                    .max_fee_per_gas(current_fees.max_fee_per_gas)
+                    .max_fee_per_blob_gas(current_fees.max_fee_per_blob_gas);
             }
 
             let pending_tx = match self
@@ -241,22 +310,19 @@ impl Proposer {
                     {
                         // Reactively bump fees and retry, like op-txmgr.
                         warn!(attempt, nonce, "transaction underpriced, bumping fees and retrying");
-                        tip_multiplier += self.cfg.tip_bump_percentage;
-                        blob_fee_multiplier += 100; // +100% (geth requires >= 2x for blob txs)
                         let fee_estimate =
                             self.rpc_provider.l1_provider.estimate_eip1559_fees().await?;
-                        let multiplier = tip_multiplier as u128;
-                        let bumped_blob_fee =
-                            (min_max_fee * blob_fee_multiplier as u128 / 100).max(min_max_fee);
+                        current_fees = current_fees.bumped_replacement_fees(
+                            fee_estimate.max_fee_per_gas,
+                            fee_estimate.max_priority_fee_per_gas,
+                            self.cfg.tip_bump_percentage,
+                            min_max_fee,
+                            min_priority_fee,
+                        );
                         current_request = current_request
-                            .max_priority_fee_per_gas(
-                                (fee_estimate.max_priority_fee_per_gas * multiplier / 100)
-                                    .max(min_priority_fee),
-                            )
-                            .max_fee_per_gas(
-                                (fee_estimate.max_fee_per_gas * multiplier / 100).max(min_max_fee),
-                            )
-                            .max_fee_per_blob_gas(bumped_blob_fee);
+                            .max_priority_fee_per_gas(current_fees.max_priority_fee_per_gas)
+                            .max_fee_per_gas(current_fees.max_fee_per_gas)
+                            .max_fee_per_blob_gas(current_fees.max_fee_per_blob_gas);
                         continue;
                     }
                     return Err(err.into());
@@ -625,7 +691,7 @@ pub(crate) fn current_unix_timestamp() -> u64 {
 mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::current_unix_timestamp;
+    use super::{ProposalFeeState, current_unix_timestamp};
 
     #[test]
     fn current_unix_timestamp_tracks_system_time() {
@@ -635,5 +701,35 @@ mod tests {
 
         assert!(timestamp >= before);
         assert!(timestamp <= after);
+    }
+
+    #[test]
+    fn replacement_bump_stays_above_previous_fees_when_estimate_drops() {
+        let current = ProposalFeeState {
+            max_fee_per_gas: 100,
+            max_priority_fee_per_gas: 10,
+            max_fee_per_blob_gas: 32,
+        };
+
+        let next = current.bumped_replacement_fees(70, 7, 20, 1, 1);
+
+        assert_eq!(next.max_priority_fee_per_gas, 12);
+        assert_eq!(next.max_fee_per_gas, 120);
+        assert_eq!(next.max_fee_per_blob_gas, 64);
+    }
+
+    #[test]
+    fn replacement_bump_uses_fresh_estimate_when_it_exceeds_previous_floor() {
+        let current = ProposalFeeState {
+            max_fee_per_gas: 100,
+            max_priority_fee_per_gas: 10,
+            max_fee_per_blob_gas: 32,
+        };
+
+        let next = current.bumped_replacement_fees(150, 15, 20, 1, 1);
+
+        assert_eq!(next.max_priority_fee_per_gas, 18);
+        assert_eq!(next.max_fee_per_gas, 180);
+        assert_eq!(next.max_fee_per_blob_gas, 64);
     }
 }
