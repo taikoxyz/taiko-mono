@@ -81,7 +81,7 @@ impl<M: TxManager> ProposalTxManager<M> {
     }
 }
 
-/// Translate a proposer-owned built proposal transaction into a `base-tx-manager` candidate.
+/// Translate a proposer-owned built proposal transaction into a tx-manager candidate.
 #[must_use]
 fn proposal_candidate(built_tx: BuiltProposalTx) -> TxCandidate {
     let (to, tx_data, gas_limit, blob_payload) = built_tx.into_parts();
@@ -90,7 +90,7 @@ fn proposal_candidate(built_tx: BuiltProposalTx) -> TxCandidate {
         tx_data,
         blobs: Arc::new(blob_payload.into_blobs()),
         to: Some(to),
-        // `base-tx-manager` treats 0 as "auto-estimate gas" and will replace it
+        // tx-manager treats 0 as "auto-estimate gas" and will replace it
         // with `max(estimate_gas, gas_limit_floor)` during tx crafting.
         gas_limit: gas_limit.unwrap_or_default(),
         value: U256::ZERO,

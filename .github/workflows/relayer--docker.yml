@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: [main, proposer-retry-2]
+    branches: [main]
     tags:
       - "relayer-v*"
     paths:
