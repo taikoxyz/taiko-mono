@@ -28,20 +28,19 @@
 
 Get started with Taiko Alethia:
 
-- [Taiko Alethia docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started.
+- [Taiko Alethia docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started (source: [taiko-docs](https://github.com/taikoxyz/taiko-docs)).
 - [Protocol specs](./packages/protocol/docs/README.md) — In-depth specifications of the Taiko Alethia protocol for deeper understanding.
 - [Smart contracts](./packages/protocol/contracts/) — Taiko Alethia protocol smart contracts, fully documented with NatSpec.
 
 ## Packages
 
 > [!TIP]
-> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments)!
+> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments) for the latest versions.
 
 | Package                                                       | Description                                                        |
 | :------------------------------------------------------------ | :----------------------------------------------------------------- |
 | [balance-monitor](./packages/balance-monitor)                 | Service that monitors Ethereum L1/L2 addresses and token balances. |
 | [bridge-ui](./packages/bridge-ui)                             | Bridge UI.                                                         |
-| [docs-site](./packages/docs-site)                             | End user documentation site.                                       |
 | [ejector](./packages/ejector)                                 | Preconfirmation ejector service for operators with issues.         |
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
