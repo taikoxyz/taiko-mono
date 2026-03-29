@@ -42,7 +42,7 @@ pub struct ProposerConfigs {
     /// Optional override for tx-manager receipt polling.
     ///
     /// This exists to keep integration tests responsive without changing proposer runtime defaults
-    /// inherited from `base-tx-manager`.
+    /// inherited from tx-manager.
     pub receipt_query_interval: Option<Duration>,
     /// Minimum priority fee floor, expressed in gwei, applied to proposal transactions.
     pub min_tip_cap_gwei: u64,
