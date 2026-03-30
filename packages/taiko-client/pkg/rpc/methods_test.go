@@ -123,6 +123,59 @@ func TestWaitTillL2ExecutionEngineSyncedContextErr(t *testing.T) {
 	require.ErrorContains(t, err, "context canceled")
 }
 
+func TestIsPreconfOperatorActiveAtEpoch(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name                 string
+		activeSince          uint32
+		inactiveSince        uint32
+		currentEpochStart    uint32
+		expectedActiveStatus bool
+	}{
+		{
+			name:                 "active when activation epoch has started",
+			activeSince:          100,
+			inactiveSince:        0,
+			currentEpochStart:    100,
+			expectedActiveStatus: true,
+		},
+		{
+			name:                 "inactive when activation epoch is in the future",
+			activeSince:          101,
+			inactiveSince:        0,
+			currentEpochStart:    100,
+			expectedActiveStatus: false,
+		},
+		{
+			name:                 "inactive when removed",
+			activeSince:          100,
+			inactiveSince:        150,
+			currentEpochStart:    200,
+			expectedActiveStatus: false,
+		},
+		{
+			name:                 "inactive when never activated",
+			activeSince:          0,
+			inactiveSince:        0,
+			currentEpochStart:    100,
+			expectedActiveStatus: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(
+				t,
+				tc.expectedActiveStatus,
+				isPreconfOperatorActiveAtEpoch(tc.activeSince, tc.inactiveSince, tc.currentEpochStart),
+			)
+		})
+	}
+}
+
 // randomHash generates a random blob of data and returns it as a hash.
 func randomHash() common.Hash {
 	var hash common.Hash

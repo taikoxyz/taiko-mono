@@ -128,6 +128,31 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
 }
 
+func (s *PreconfBlockAPIServerTestSuite) TestP2PSequencerAddresses() {
+	curr := common.HexToAddress("0xAAA0000000000000000000000000000000000000")
+	next := common.HexToAddress("0xBBB0000000000000000000000000000000000000")
+	active := []common.Address{
+		common.HexToAddress("0x1110000000000000000000000000000000000000"),
+		common.HexToAddress("0x2220000000000000000000000000000000000000"),
+	}
+
+	s.s.UpdateLookahead(&Lookahead{
+		CurrOperator: curr,
+		NextOperator: next,
+	})
+
+	s.Equal([]common.Address{curr, next}, s.s.P2PSequencerAddresses())
+
+	s.s.SetAllowAllSequencers(true)
+	s.s.UpdateActiveSequencerAddresses(active)
+
+	s.Equal(active, s.s.P2PSequencerAddresses())
+
+	s.s.UpdateActiveSequencerAddresses(nil)
+
+	s.Empty(s.s.P2PSequencerAddresses())
+}
+
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {
 	s.Nil(s.s.Shutdown(context.Background()))
 }
