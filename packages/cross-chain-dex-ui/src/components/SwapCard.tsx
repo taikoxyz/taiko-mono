@@ -22,7 +22,7 @@ interface SwapCardProps {
   onFundWallet?: () => void;
 }
 
-export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
+export function SwapCard({ onSetupWallet, onFundWallet: _onFundWallet }: SwapCardProps) {
   const { smartWallet, isConnected } = useSmartWallet();
   const { ethReserve, tokenReserve, isLoading: reservesLoading } = useDexReserves();
   const { ethBalance, usdcBalance } = useTokenBalances(smartWallet);

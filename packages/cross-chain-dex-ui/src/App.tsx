@@ -35,7 +35,6 @@ function AppContent() {
   const [hasShownFundModal, setHasShownFundModal] = useState(false);
   // Accept both L1 and L2 as valid networks
   const isWrongNetwork = isConnected && chainId !== surgeL1Chain.id && chainId !== surgeL2Chain.id;
-  const hasInsufficientFunds = smartWallet && ethBalance === 0n && usdcBalance === 0n;
 
   // Auto-show network setup if on wrong network
   useEffect(() => {

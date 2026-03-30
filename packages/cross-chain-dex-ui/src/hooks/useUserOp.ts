@@ -29,6 +29,7 @@ interface UseUserOpReturn {
   executeBridgeOutNative: (params: ExecuteBridgeNativeParams) => Promise<boolean>;
   executeAddLiquidity: (params: ExecuteAddLiquidityParams) => Promise<boolean>;
   executeRemoveLiquidity: (params: { smartWallet: Address }) => Promise<boolean>;
+  executeWithdraw: (params: { owner: Address; smartWallet: Address; ethBalance: bigint; usdcBalance: bigint }) => Promise<boolean>;
   executeCreateL2Wallet: (params: { owner: Address; smartWallet: Address }) => Promise<boolean>;
   isPending: boolean;
   error: Error | null;
