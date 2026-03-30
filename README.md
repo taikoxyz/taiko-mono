@@ -1,41 +1,31 @@
 <p align="center">
-  <img src="./.github/taiko-icon-blk.svg" width="80" alt="Logo for Taiko" />
+  <img src="./.github/SurgeLogoOnly.svg" width="80" alt="Surge Logo" />
 </p>
 
 <h1 align="center">
-  Taiko Alethia
+  Surge Rollup Framework
 </h1>
 
 <p align="center">
-  The first based rollup.
+  A high-performance rollup framework built on a modified Taiko Alethia stack, featuring realtime proving, synchronous composability, Gigagas performance, and Stage 2 trustless security.
 </p>
 
 <div align="center">
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/taikoxyz?style=social)](https://twitter.com/taikoxyz)
-[![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/taikoxyz)
-[![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
-
-[![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
-[![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
+[![Twitter Follow](https://img.shields.io/twitter/follow/Nethermind?style=social)](https://x.com/Nethermind)
+[![Discord](https://img.shields.io/discord/629004402170134531?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.com/invite/PaCMRFdvWT)
 
 </div>
 
-> [!WARNING]
-> The `main` branch is under active development for the next Shasta fork. For the latest version of the Taiko Alethia protocol contracts (Pacaya fork), please use the [`taiko-alethia-protocol-v2.3.1`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v2.3.1) branch. The release process involves security measures that the `main` branch does not guarantee.
+Learn more at [surge.wtf](https://www.surge.wtf) or check out the official docs at [docs.surge.wtf](https://docs.surge.wtf).
 
 ## Documentation
 
-Get started with Taiko Alethia:
-
-- [Taiko Alethia docs](https://docs.taiko.xyz) — High-level concepts, guides, resources, and reference pages for getting started.
-- [Protocol specs](./packages/protocol/docs/README.md) — In-depth specifications of the Taiko Alethia protocol for deeper understanding.
-- [Smart contracts](./packages/protocol/contracts/) — Taiko Alethia protocol smart contracts, fully documented with NatSpec.
+- [Surge docs](https://docs.surge.wtf) — High-level concepts, guides, resources, and reference pages for getting started.
+- [Protocol specs](./packages/protocol/docs/Derivation.md) — In-depth specifications of the protocol for deeper understanding.
+- [Smart contracts](./packages/protocol/contracts/) — Protocol smart contracts, fully documented with NatSpec.
 
 ## Packages
-
-> [!TIP]
-> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments)!
 
 | Package                                                       | Description                                                        |
 | :------------------------------------------------------------ | :----------------------------------------------------------------- |
@@ -46,23 +36,29 @@ Get started with Taiko Alethia:
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
-| [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
+| [protocol](./packages/protocol)                               | Surge protocol smart contracts.                                    |
 | [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |
-| [snaefell-ui](./packages/snaefell-ui)                         | Snaefell UI.                                                       |
-| [supplementary-contracts](./packages/supplementary-contracts) | Supplementary contracts not part of the Taiko Alethia protocol.    |
-| [taiko-client](./packages/taiko-client)                       | Taiko Alethia client implementation in Go.                         |
-| [taiko-client-rs](./packages/taiko-client-rs)                 | Taiko Alethia client implementation in Rust.                       |
-| [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
+| [supplementary-contracts](./packages/supplementary-contracts) | Supplementary contracts not part of the core protocol.             |
+| [taiko-client](./packages/taiko-client)                       | Client implementation in Go.                                       |
+| [taiko-client-rs](./packages/taiko-client-rs)                 | Client implementation in Rust.                                     |
 | [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
+
+## Related Repositories
+
+- [Nethermind](https://github.com/NethermindEth/nethermind): The Nethermind execution client.
+- [Raiko](https://github.com/NethermindEth/raiko): Surge's prover client.
+- [Surge Documentation](https://github.com/NethermindEth/surge-docs): Comprehensive documentation for Surge, including setup guides and technical details.
+- [Simple Surge Node](https://github.com/NethermindEth/simple-surge-node): A simplified presetup docker compose of a Surge node for developers.
+- [Alethia Reth](https://github.com/NethermindEth/alethia-reth): A high-performance Rust execution client for the Surge framework.
 
 ## Issues
 
-If you find a bug or have a feature request, please [open an issue](https://github.com/taikoxyz/taiko-mono/issues/new/choose).
+If you find a bug or have a feature request, please [open an issue](https://github.com/NethermindEth/surge/issues/).
 
 ## Contributing
 
-Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute. You can also check out our grants cycle at [https://taiko.xyz/grant-program](https://taiko.xyz/grant-program).
+Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute.
 
 ## Getting support
 
-Reach out to the community on [Discord](https://discord.gg/taikoxyz) if you need any help!
+Reach out to the community on [Discord](https://discord.com/invite/PaCMRFdvWT) if you need any help!
