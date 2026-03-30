@@ -25,6 +25,13 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_SYNC_TIMEOUT"},
 	}
+	P2PAllowAllSequencers = &cli.BoolFlag{
+		Name:     "p2p.allow-all-sequencers",
+		Usage:    "Allow all currently active preconfirmation sequencer addresses in P2P signer validation",
+		Value:    false,
+		Category: driverCategory,
+		EnvVars:  []string{"P2P_ALLOW_ALL_SEQUENCERS"},
+	}
 	CheckPointSyncURL = &cli.StringFlag{
 		Name:     "p2p.checkPointSyncUrl",
 		Usage:    "HTTP RPC endpoint of another synced L2 execution engine node",
@@ -82,6 +89,7 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	JWTSecret,
 	P2PSync,
 	P2PSyncTimeout,
+	P2PAllowAllSequencers,
 	CheckPointSyncURL,
 	BlobServerEndpoint,
 	PreconfBlockServerPort,
