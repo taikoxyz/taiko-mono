@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.34.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.34.1...docs-site-v1.34.2) (2026-03-30)
+
+
+### Chores
+
+* **protocol:** merge 3.0.0 back to main ([#21484](https://github.com/taikoxyz/taiko-mono/issues/21484)) ([e337ff2](https://github.com/taikoxyz/taiko-mono/commit/e337ff2231eb1c42eadf8ae56ea84e453607405b))
+
 ## [1.34.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.34.0...docs-site-v1.34.1) (2026-03-03)
 
 
