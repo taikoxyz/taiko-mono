@@ -68,6 +68,7 @@ export function Header({ onSetupWallet }: HeaderProps) {
   }, [smartWallet, ownerAddress, ethBalance, usdcBalance, executeWithdraw]);
 
   return (
+    <>
     <header className="w-full px-6 py-3 flex items-center justify-between border-b border-surge-border/30 bg-surge-dark/50 backdrop-blur-sm relative z-10">
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 bg-gradient-to-br from-surge-primary to-surge-secondary rounded-lg shadow-lg shadow-surge-primary/20" />
@@ -162,7 +163,8 @@ export function Header({ onSetupWallet }: HeaderProps) {
         )}
       </div>
 
-      <DisclaimerModal isOpen={isDisclaimerOpen} onAccept={onAccept} onCancel={onCancel} />
     </header>
+    <DisclaimerModal isOpen={isDisclaimerOpen} onAccept={onAccept} onCancel={onCancel} />
+    </>
   );
 }

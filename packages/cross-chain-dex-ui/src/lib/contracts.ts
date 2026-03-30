@@ -20,6 +20,17 @@ export const SafeProxyFactoryABI = [
   },
 ] as const;
 
+export const SafeProxyFactoryFullABI = [
+  ...SafeProxyFactoryABI,
+  {
+    type: 'function',
+    name: 'proxyCreationCode',
+    inputs: [],
+    outputs: [{ name: '', type: 'bytes' }],
+    stateMutability: 'view',
+  },
+] as const;
+
 export const SafeABI = [
   {
     type: 'function',

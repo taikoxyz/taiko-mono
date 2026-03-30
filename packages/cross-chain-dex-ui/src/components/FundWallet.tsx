@@ -1,4 +1,6 @@
-import { Address } from 'viem';
+import { useState } from 'react';
+import { Address, parseEther } from 'viem';
+import { useWalletClient } from 'wagmi';
 import toast from 'react-hot-toast';
 import { surgeL1Chain } from '../lib/config';
 import { L1_NATIVE_SYMBOL } from '../lib/constants';
@@ -25,7 +27,29 @@ export function FundWallet({
   onCreateL2Wallet,
   isCreatingL2Wallet = false,
 }: FundWalletProps) {
+  const { data: walletClient } = useWalletClient();
+  const [isFunding, setIsFunding] = useState(false);
+
   if (!isOpen) return null;
+
+  const hasFunds = parseFloat(ethBalance) > 0 || parseFloat(usdcBalance) > 0;
+
+  const fundWallet = async () => {
+    if (!walletClient) return;
+    setIsFunding(true);
+    try {
+      const hash = await walletClient.sendTransaction({
+        to: smartWallet,
+        value: parseEther('0.01'),
+      });
+      toast.success(`Sent 0.01 ${L1_NATIVE_SYMBOL} (tx: ${hash.slice(0, 10)}...)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Transfer failed';
+      if (!msg.includes('rejected')) toast.error(msg);
+    } finally {
+      setIsFunding(false);
+    }
+  };
 
   const copyAddress = () => {
     navigator.clipboard.writeText(smartWallet);
@@ -87,12 +111,22 @@ export function FundWallet({
           </div>
         </div>
 
+        {parseFloat(ethBalance) < 0.01 && (
+          <button
+            onClick={fundWallet}
+            disabled={isFunding || !walletClient}
+            className="w-full py-3 mb-4 bg-surge-primary/80 hover:bg-surge-primary disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+          >
+            {isFunding ? 'Sending...' : `Send 0.01 ${L1_NATIVE_SYMBOL} from EOA`}
+          </button>
+        )}
+
         <div className="text-xs text-gray-500 mb-4">
           <strong>Note:</strong> Send funds on {surgeL1Chain.name} (Chain ID: {surgeL1Chain.id})
         </div>
 
-        {/* L2 Safe status / creation */}
-        {!l2WalletExists && onCreateL2Wallet && (
+        {/* L2 Safe status / creation — only show after wallet is funded */}
+        {hasFunds && !l2WalletExists && onCreateL2Wallet && (
           <div className="mb-4">
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 text-xs text-yellow-400 mb-3">
               Your Safe wallet does not yet exist on L2. Create it via the bridge to enable L2 DEX operations.
@@ -113,12 +147,20 @@ export function FundWallet({
           </div>
         )}
 
-        <button
-          onClick={onClose}
-          className="w-full py-3 bg-surge-primary hover:bg-surge-secondary text-white rounded-lg font-medium transition-colors"
-        >
-          I've Funded My Wallet
-        </button>
+        {hasFunds && (
+          <button
+            onClick={onClose}
+            className={`w-full py-3 rounded-lg font-medium transition-colors ${
+              l2WalletExists || !onCreateL2Wallet
+                ? 'bg-surge-primary hover:bg-surge-secondary text-white'
+                : 'bg-surge-card border border-surge-border/50 text-gray-400 hover:text-white hover:border-surge-border'
+            }`}
+          >
+            {l2WalletExists || !onCreateL2Wallet
+              ? 'Done'
+              : 'Skip L2 wallet setup for now'}
+          </button>
+        )}
       </div>
     </div>
   );

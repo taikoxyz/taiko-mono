@@ -134,7 +134,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	if s.latestSeenProposal != nil {
-		if s.fork == fork.Shasta {
+		if s.fork == fork.Shasta || s.fork == fork.RealTime {
 			if len(parent.Transactions()) > 0 && bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) {
 				parentProposalID, err := core.DecodeShastaProposalID(parent.Extra())
 				if err != nil {

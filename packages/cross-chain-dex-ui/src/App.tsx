@@ -121,6 +121,7 @@ function AppContent() {
           {activeTab === 'bridge' && (
             <BridgeCard
               onSetupWallet={() => setShowWalletSetup(true)}
+              onFundWallet={() => setShowFundWallet(true)}
             />
           )}
           {activeTab === 'liquidity' && (
