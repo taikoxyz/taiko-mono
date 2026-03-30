@@ -1,0 +1,7 @@
+node_modules
+dist
+package-lock.json
+.env
+.env.local
+.env.*.local
+*.md
