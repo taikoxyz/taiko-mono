@@ -462,20 +462,13 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 			return nil, ctxWithTimeout.Err()
 		}
 
-		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID)
+		l1Origin, err := c.L2Engine.LastCertainL1OriginByBatchID(ctxWithTimeout, batchID)
 		if err != nil {
-			if err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
-				log.Warn(
-					"Proposal last block uncertain, keep retrying",
-					"batchID", batchID,
-				)
-			} else {
-				log.Debug(
-					"Fetch Shasta block header from L2 execution engine not found, keep retrying",
-					"batchID", batchID,
-					"error", err,
-				)
-			}
+			log.Debug(
+				"Fetch Shasta block header from L2 execution engine not found, keep retrying",
+				"batchID", batchID,
+				"error", err,
+			)
 			continue
 		}
 
