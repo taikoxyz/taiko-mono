@@ -684,17 +684,24 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 			Stats1 pacayaBindings.ITaikoInboxStats1
 			Stats2 pacayaBindings.ITaikoInboxStats2
 		})
-		err error
 	)
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
-		return err
+		stats1, err := c.PacayaClients.TaikoInbox.GetStats1(opts)
+		if err != nil {
+			return err
+		}
+		states.Stats1 = stats1
+		return nil
 	})
 	g.Go(func() error {
-		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
-		return err
+		stats2, err := c.PacayaClients.TaikoInbox.GetStats2(opts)
+		if err != nil {
+			return err
+		}
+		states.Stats2 = stats2
+		return nil
 	})
 
 	return states, g.Wait()
@@ -1314,17 +1321,24 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	var (
 		head uint64
 		tail uint64
-		err  error
 	)
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
+		res, err := c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return err
+		}
+		head = res
+		return nil
 	})
 	g.Go(func() error {
-		tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
+		res, err := c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return err
+		}
+		tail = res
+		return nil
 	})
 	if err := g.Wait(); err != nil {
 		return nil, nil, encoding.TryParsingCustomError(err)
