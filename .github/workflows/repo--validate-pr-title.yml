@@ -29,7 +29,6 @@ jobs:
             main
             deps
             deps-dev
-            docs-site
             branding
             bridge-ui
             ejector

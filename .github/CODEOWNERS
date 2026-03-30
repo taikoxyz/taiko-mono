@@ -14,7 +14,6 @@
 /packages/relayer/**            @YoGhurt111 @davidtaikocha @MatusKysel
 
 # Frontend applications
-/packages/docs-site/**          @RogerLamTd @ggonzalez94
 /packages/bridge-ui/**          @RogerLamTd @ggonzalez94
 
 # Infrastructure and tools
