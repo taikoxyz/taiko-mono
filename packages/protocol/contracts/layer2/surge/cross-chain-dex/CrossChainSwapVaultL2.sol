@@ -13,7 +13,8 @@ interface ISwapTokenL2 {
 interface ISimpleDEX {
     function swapETHForToken(uint256 _minTokenOut) external payable returns (uint256);
     function swapTokenForETH(uint256 _tokenIn, uint256 _minETHOut) external returns (uint256);
-    function addLiquidity(uint256 _tokenAmount) external payable;
+    function addLiquidity(uint256 _tokenAmount, address _provider) external payable;
+    function removeLiquidity(address _provider) external returns (uint256, uint256);
     function token() external view returns (IERC20);
 }
 
@@ -33,7 +34,8 @@ contract CrossChainSwapVaultL2 {
         BRIDGE,
         SWAP_ETH_TO_TOKEN,
         SWAP_TOKEN_TO_ETH,
-        ADD_LIQUIDITY
+        ADD_LIQUIDITY,
+        REMOVE_LIQUIDITY
     }
 
     // ---------------------------------------------------------------
@@ -102,8 +104,8 @@ contract CrossChainSwapVaultL2 {
         if (msg.sender != bridge) revert ONLY_BRIDGE();
 
         IBridge.Context memory ctx = IBridge(bridge).context();
-        if (ctx.from != l1Vault) revert INVALID_SENDER();
         if (l1Vault == address(0)) revert L1_VAULT_NOT_SET();
+        if (ctx.from != l1Vault) revert INVALID_SENDER();
 
         Action action = abi.decode(_data, (Action));
 
@@ -115,6 +117,8 @@ contract CrossChainSwapVaultL2 {
             _handleSwapTokenToETH(_data);
         } else if (action == Action.ADD_LIQUIDITY) {
             _handleAddLiquidity(_data);
+        } else if (action == Action.REMOVE_LIQUIDITY) {
+            _handleRemoveLiquidity(_data);
         } else {
             revert UNKNOWN_ACTION();
         }
@@ -171,16 +175,32 @@ contract CrossChainSwapVaultL2 {
 
     /// @dev Add liquidity: mint tokens, add to DEX (1 message, done)
     function _handleAddLiquidity(bytes calldata _data) internal {
-        (, uint256 tokenAmount) = abi.decode(_data, (Action, uint256));
+        (, address provider, uint256 tokenAmount) = abi.decode(_data, (Action, address, uint256));
 
         // Mint bridged tokens to this contract
         swapToken.mint(address(this), tokenAmount);
 
         // Approve DEX and add liquidity
         swapTokenERC20.approve(address(dex), tokenAmount);
-        dex.addLiquidity{ value: msg.value }(tokenAmount);
+        dex.addLiquidity{ value: msg.value }(tokenAmount, provider);
 
         emit LiquidityAdded(msg.value, tokenAmount);
+    }
+
+    /// @dev Remove liquidity: pull from DEX, burn tokens, send ETH + completion to L1
+    function _handleRemoveLiquidity(bytes calldata _data) internal {
+        (, address provider) = abi.decode(_data, (Action, address));
+
+        (uint256 ethAmount, uint256 tokenAmount) = dex.removeLiquidity(provider);
+
+        // Burn the returned tokens
+        if (tokenAmount > 0) {
+            swapToken.burn(address(this), tokenAmount);
+        }
+
+        // Send completion message with ETH back to L1 vault
+        bytes memory completionData = abi.encode(Action.REMOVE_LIQUIDITY, provider, tokenAmount);
+        _sendMessageToL1(completionData, ethAmount);
     }
 
     // ---------------------------------------------------------------

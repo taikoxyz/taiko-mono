@@ -28,6 +28,17 @@ func New(taikoAnchor common.Address, chainID *big.Int, rpc *rpc.Client) (*Anchor
 		err                error
 	)
 
+	if rpc.RealTimeClients != nil && rpc.RealTimeClients.Anchor != nil {
+		if goldenTouchAddress, err = rpc.RealTimeClients.Anchor.GOLDENTOUCHADDRESS(nil); err == nil {
+			return &AnchorTxValidator{
+				taikoAnchorAddress: taikoAnchor,
+				goldenTouchAddress: goldenTouchAddress,
+				chainID:            chainID,
+				rpc:                rpc,
+			}, nil
+		}
+	}
+
 	if rpc.ShastaClients != nil && rpc.ShastaClients.Anchor != nil {
 		if goldenTouchAddress, err = rpc.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil); err == nil {
 			return &AnchorTxValidator{
@@ -39,8 +50,12 @@ func New(taikoAnchor common.Address, chainID *big.Int, rpc *rpc.Client) (*Anchor
 		}
 	}
 
-	if goldenTouchAddress, err = rpc.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil); err != nil {
-		return nil, fmt.Errorf("failed to get golden touch address: %w", err)
+	if rpc.PacayaClients != nil && rpc.PacayaClients.TaikoAnchor != nil {
+		if goldenTouchAddress, err = rpc.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil); err != nil {
+			return nil, fmt.Errorf("failed to get golden touch address: %w", err)
+		}
+	} else {
+		return nil, fmt.Errorf("no anchor client available to get golden touch address")
 	}
 
 	return &AnchorTxValidator{
@@ -78,7 +93,7 @@ func (v *AnchorTxValidator) ValidateAnchorTx(tx *types.Transaction) error {
 	}
 
 	switch method.Name {
-	case "anchor", "anchorV2", "anchorV3", "anchorV4":
+	case "anchor", "anchorV2", "anchorV3", "anchorV4", "anchorV4WithSignalSlots":
 	default:
 		return fmt.Errorf("invalid anchor transaction method: %s", method.Name)
 	}

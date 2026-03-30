@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	realtimeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/realtime"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/fork"
 )
 
 const (
@@ -45,6 +47,13 @@ type ShastaClients struct {
 	ForkTime uint64
 }
 
+// RealTimeClients contains all smart contract clients for RealTime proving.
+type RealTimeClients struct {
+	Inbox        *realtimeBindings.RealTimeInboxClient
+	Anchor       *realtimeBindings.RealTimeAnchor
+	InboxAddress common.Address
+}
+
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
 	// Geth ethclient clients
@@ -56,8 +65,11 @@ type Client struct {
 	// Beacon clients
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
-	PacayaClients *PacayaClients
-	ShastaClients *ShastaClients
+	PacayaClients   *PacayaClients
+	ShastaClients   *ShastaClients
+	RealTimeClients *RealTimeClients
+	// GenesisL1Height is the L1 block height where L2 genesis was initialized.
+	GenesisL1Height uint64
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -70,6 +82,8 @@ type ClientConfig struct {
 	L2CheckPoint                string
 	PacayaInboxAddress          common.Address
 	ShastaInboxAddress          common.Address
+	RealTimeInboxAddress        common.Address
+	Fork                        string
 	TaikoWrapperAddress         common.Address
 	TaikoAnchorAddress          common.Address
 	TaikoTokenAddress           common.Address
@@ -80,6 +94,7 @@ type ClientConfig struct {
 	JwtSecret                   string
 	Timeout                     time.Duration
 	ShastaForkTime              uint64
+	GenesisL1Height             uint64
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -146,25 +161,59 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		L2Engine:     l2AuthClient,
 	}
 
-	// Initialize all smart contract clients.
-	if err := c.initPacayaClients(cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
-	}
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
-	// Initialize the fork height numbers.
-	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
-		return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
-	}
-	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
-	}
 
-	// Ensure that the genesis block hash of L1 and L2 match.
-	if cfg.PacayaInboxAddress != (common.Address{}) {
-		if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
-			return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
+	// Initialize only the fork-specific smart contract clients.
+	switch cfg.Fork {
+	case fork.Pacaya:
+		if err := c.initPacayaClients(cfg); err != nil {
+			return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
 		}
+		if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
+			return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
+		}
+		// Fetch genesis height from the Pacaya contract.
+		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get protocol state variables: %w", err)
+		}
+		c.GenesisL1Height = stateVars.Stats1.GenesisHeight
+		// Ensure that the genesis block hash of L1 and L2 match.
+		if cfg.PacayaInboxAddress != (common.Address{}) {
+			if err := c.ensureGenesisMatched(ctxWithTimeout, cfg.PacayaInboxAddress); err != nil {
+				return nil, fmt.Errorf("failed to ensure genesis block matched: %w", err)
+			}
+		}
+	case fork.Shasta:
+		if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
+			return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+		}
+		c.GenesisL1Height = cfg.GenesisL1Height
+	case fork.RealTime:
+		if err := c.initRealTimeClients(cfg); err != nil {
+			return nil, fmt.Errorf("failed to initialize RealTime clients: %w", err)
+		}
+		c.GenesisL1Height = cfg.GenesisL1Height
+	default:
+		// Backwards compat (no fork set): initialize all clients.
+		if err := c.initPacayaClients(cfg); err != nil {
+			return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
+		}
+		if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
+			return nil, fmt.Errorf("failed to initialize fork height configs: %w", err)
+		}
+		if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
+			return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+		}
+		if err := c.initRealTimeClients(cfg); err != nil {
+			return nil, fmt.Errorf("failed to initialize RealTime clients: %w", err)
+		}
+		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get protocol state variables: %w", err)
+		}
+		c.GenesisL1Height = stateVars.Stats1.GenesisHeight
 	}
 
 	return c, nil
@@ -270,6 +319,27 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	return nil
 }
 
+// initRealTimeClients initializes all RealTime smart contract clients.
+func (c *Client) initRealTimeClients(cfg *ClientConfig) error {
+	if cfg.RealTimeInboxAddress == (common.Address{}) {
+		return nil
+	}
+	realTimeInbox, err := realtimeBindings.NewRealTimeInboxClient(cfg.RealTimeInboxAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create RealTimeInbox client: %w", err)
+	}
+	realTimeAnchor, err := realtimeBindings.NewRealTimeAnchor(cfg.TaikoAnchorAddress, c.L2)
+	if err != nil {
+		return fmt.Errorf("failed to create RealTimeAnchor client: %w", err)
+	}
+	c.RealTimeClients = &RealTimeClients{
+		Inbox:        realTimeInbox,
+		Anchor:       realTimeAnchor,
+		InboxAddress: cfg.RealTimeInboxAddress,
+	}
+	return nil
+}
+
 // initShastaClients initializes all Shasta smart contract clients.
 func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error {
 	shastaInbox, err := shastaBindings.NewShastaInboxClient(cfg.ShastaInboxAddress, c.L1)
@@ -326,16 +396,10 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 		Shasta: protocolConfigs.ForkHeights.Shasta,
 	}
 
-	// ShastaClients may not yet be initialized here; guard the log value.
-	var shastaForkTime uint64
-	if c.ShastaClients != nil {
-		shastaForkTime = c.ShastaClients.ForkTime
-	}
 	log.Info(
 		"Fork height configs",
 		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
 		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
-		"shastaForkTime", shastaForkTime,
 	)
 
 	return nil

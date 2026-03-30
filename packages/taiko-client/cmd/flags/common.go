@@ -71,16 +71,20 @@ var (
 	PacayaInboxAddress = &cli.StringFlag{
 		Name:     "pacayaInbox",
 		Usage:    "Inbox contract `address` for Pacaya protocol",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"PACAYA_INBOX"},
 	}
 	ShastaInboxAddress = &cli.StringFlag{
 		Name:     "shastaInbox",
 		Usage:    "Inbox contract `address` for Shasta protocol",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"SHASTA_INBOX"},
+	}
+	RealTimeInboxAddress = &cli.StringFlag{
+		Name:     "realtimeInbox",
+		Usage:    "RealTimeInbox contract `address`",
+		Category: commonCategory,
+		EnvVars:  []string{"REALTIME_INBOX"},
 	}
 	TaikoAnchorAddress = &cli.StringFlag{
 		Name:     "taikoAnchor",
@@ -168,6 +172,13 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_SHASTA_TIME"},
 	}
+	GenesisL1Height = &cli.Uint64Flag{
+		Name:     "genesis.l1Height",
+		Usage:    "L1 block height of the L2 genesis (required for shasta and realtime forks)",
+		Value:    0,
+		Category: commonCategory,
+		EnvVars:  []string{"GENESIS_L1_HEIGHT"},
+	}
 )
 
 // CommonFlags All common flags.
@@ -178,8 +189,10 @@ var CommonFlags = []cli.Flag{
 	ShastaInboxAddress,
 	TaikoAnchorAddress,
 	// Optional
+	RealTimeInboxAddress,
 	ProverSetAddress,
 	ShastaForkTime,
+	GenesisL1Height,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,

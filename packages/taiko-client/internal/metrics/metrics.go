@@ -78,6 +78,9 @@ var (
 		Name:    "driver_preconf_build_preconf_block_duration",
 		Buckets: HistogramBuckets,
 	})
+	DriverPreconfStaleReorgCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "driver_preconf_stale_reorg",
+	})
 
 	// Proposer
 	ProposerProposeEpochCounter    = factory.NewCounter(prometheus.CounterOpts{Name: "proposer_epoch"})

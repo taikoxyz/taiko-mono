@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { WagmiProvider } from 'wagmi';
-import { useAccount } from 'wagmi';
+import { useAccount, useSwitchChain } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 
-import { config, surgeL1Chain } from './lib/config';
+import { config, surgeL1Chain, surgeL2Chain } from './lib/config';
 import { Header } from './components/Header';
 import { SwapCard } from './components/SwapCard';
 import { BridgeCard } from './components/BridgeCard';
@@ -12,6 +12,8 @@ import { LiquidityCard } from './components/LiquidityCard';
 import { SmartWalletSetup } from './components/SmartWalletSetup';
 import { NetworkSetup } from './components/NetworkSetup';
 import { FundWallet } from './components/FundWallet';
+import { TxStatusOverlay } from './components/TxStatusOverlay';
+import { TxStatusProvider, useTxStatus } from './context/TxStatusContext';
 import { useSmartWallet } from './hooks/useSmartWallet';
 import { useTokenBalances } from './hooks/useTokenBalances';
 import { ActiveTab } from './types';
@@ -19,17 +21,20 @@ import { ActiveTab } from './types';
 const queryClient = new QueryClient();
 
 function AppContent() {
-  const { smartWallet, isConnected, isLoading } = useSmartWallet();
+  const { txStatus, setTxStatus } = useTxStatus();
+  const { smartWallet, isConnected, isLoading, ownerAddress, createSmartWallet, isCreating, l2WalletExists, createL2Wallet, isCreatingL2Wallet } = useSmartWallet();
   const { chainId } = useAccount();
-  const { ethBalance, usdcBalance, ethFormatted, usdcFormatted } = useTokenBalances(smartWallet);
+  const { switchChainAsync } = useSwitchChain();
+  const { ethBalance, usdcBalance, ethFormatted, usdcFormatted, isLoading: balancesLoading } = useTokenBalances(smartWallet);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('swap');
   const [showWalletSetup, setShowWalletSetup] = useState(false);
+  const [dismissedWalletSetup, setDismissedWalletSetup] = useState(false);
   const [showNetworkSetup, setShowNetworkSetup] = useState(false);
   const [showFundWallet, setShowFundWallet] = useState(false);
   const [hasShownFundModal, setHasShownFundModal] = useState(false);
-
-  const isWrongNetwork = isConnected && chainId !== surgeL1Chain.id;
+  // Accept both L1 and L2 as valid networks
+  const isWrongNetwork = isConnected && chainId !== surgeL1Chain.id && chainId !== surgeL2Chain.id;
   const hasInsufficientFunds = smartWallet && ethBalance === 0n && usdcBalance === 0n;
 
   // Auto-show network setup if on wrong network
@@ -41,35 +46,49 @@ function AppContent() {
     }
   }, [isWrongNetwork]);
 
-  // Auto-show wallet setup if connected, on correct network, but no smart wallet
+  // Auto-switch to L1 when on swap/liquidity tabs
   useEffect(() => {
-    if (isConnected && !isWrongNetwork && !smartWallet && !isLoading) {
-      setShowWalletSetup(true);
+    if ((activeTab === 'swap' || activeTab === 'liquidity') && chainId === surgeL2Chain.id && isConnected) {
+      switchChainAsync({ chainId: surgeL1Chain.id }).catch(() => {});
     }
-  }, [isConnected, isWrongNetwork, smartWallet, isLoading]);
+  }, [activeTab, chainId, isConnected, switchChainAsync]);
 
-  // Auto-show fund wallet modal if smart wallet has no funds (only once per session)
+  // Reset dismissed flag when wallet connects/disconnects or smart wallet changes
   useEffect(() => {
-    if (smartWallet && hasInsufficientFunds && !hasShownFundModal && !isLoading) {
+    setDismissedWalletSetup(false);
+  }, [isConnected, ownerAddress]);
+
+  // Auto-show wallet setup if connected, on correct network, but no smart wallet
+  // Auto-close when wallet is created
+  useEffect(() => {
+    if (isConnected && !isWrongNetwork && !smartWallet && !isLoading && !dismissedWalletSetup) {
+      setShowWalletSetup(true);
+    } else if (smartWallet && showWalletSetup) {
+      setShowWalletSetup(false);
+    }
+  }, [isConnected, isWrongNetwork, smartWallet, isLoading, showWalletSetup, dismissedWalletSetup]);
+
+  // Auto-show fund wallet modal when:
+  // 1. Wallet has no funds (needs funding), OR
+  // 2. Wallet has funds but L2 wallet doesn't exist (needs L2 creation)
+  // Only once per session
+  useEffect(() => {
+    if (!smartWallet || hasShownFundModal || balancesLoading || isLoading || showNetworkSetup || showWalletSetup) return;
+    const needsFunding = ethBalance === 0n && usdcBalance === 0n;
+    const needsL2 = !l2WalletExists;
+    if (needsFunding || needsL2) {
       setShowFundWallet(true);
       setHasShownFundModal(true);
     }
-  }, [smartWallet, hasInsufficientFunds, hasShownFundModal, isLoading]);
+  }, [smartWallet, ethBalance, usdcBalance, balancesLoading, hasShownFundModal, isLoading, l2WalletExists, showNetworkSetup, showWalletSetup]);
 
   return (
-    <div className="min-h-screen bg-surge-dark flex flex-col">
+    <div className="h-screen overflow-hidden bg-surge-dark flex flex-col">
       <Header onSetupWallet={() => setShowWalletSetup(true)} />
 
-      <main className="flex-1 flex flex-col items-center justify-center px-4 py-8">
-        <div className="text-center mb-6">
-          <h2 className="text-3xl font-bold text-white mb-2">Cross-Chain DEX</h2>
-          <p className="text-gray-400">
-            L1 swaps powered by L2 liquidity. Real bridging, no mock minting.
-          </p>
-        </div>
-
-        {/* Tab Navigation */}
-        <div className="flex gap-1 mb-6 bg-surge-card/50 rounded-xl p-1 border border-surge-border/30">
+      <main className="flex-1 min-h-0 relative flex items-center justify-center px-4">
+        {/* Tab Navigation — absolutely positioned near header, independent of card */}
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 flex gap-1 bg-surge-card/50 rounded-xl p-1 border border-surge-border/30 z-10">
           {(['swap', 'liquidity', 'bridge'] as ActiveTab[]).map((tab) => (
             <button
               key={tab}
@@ -85,28 +104,30 @@ function AppContent() {
           ))}
         </div>
 
-        {/* Active Panel */}
-        {activeTab === 'swap' && (
-          <SwapCard
-            onSetupWallet={() => setShowWalletSetup(true)}
-            onFundWallet={() => setShowFundWallet(true)}
-          />
-        )}
-        {activeTab === 'bridge' && (
-          <BridgeCard
-            onSetupWallet={() => setShowWalletSetup(true)}
-          />
-        )}
-        {activeTab === 'liquidity' && (
-          <LiquidityCard
-            onSetupWallet={() => setShowWalletSetup(true)}
-          />
-        )}
+        {/* Footer tagline — absolutely positioned at bottom */}
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
+          <p className="text-sm text-gray-400">Powered by Surge Protocol</p>
+          <p className="text-sm text-gray-500 mt-1">L1 swaps through L2 liquidity • Real time cross chain settlement</p>
+        </div>
 
-        {/* Pool Info */}
-        <div className="mt-8 text-center text-sm text-gray-500">
-          <p>Powered by Surge Protocol</p>
-          <p className="mt-1">0.3% swap fee • Real token bridging • Cross-chain settlement</p>
+        {/* Active Panel — centered in full main area */}
+        <div className="w-full flex items-center justify-center">
+          {activeTab === 'swap' && (
+            <SwapCard
+              onSetupWallet={() => setShowWalletSetup(true)}
+              onFundWallet={() => setShowFundWallet(true)}
+            />
+          )}
+          {activeTab === 'bridge' && (
+            <BridgeCard
+              onSetupWallet={() => setShowWalletSetup(true)}
+            />
+          )}
+          {activeTab === 'liquidity' && (
+            <LiquidityCard
+              onSetupWallet={() => setShowWalletSetup(true)}
+            />
+          )}
         </div>
       </main>
 
@@ -117,7 +138,13 @@ function AppContent() {
 
       <SmartWalletSetup
         isOpen={showWalletSetup && !isWrongNetwork}
-        onClose={() => setShowWalletSetup(false)}
+        onClose={() => {
+          setShowWalletSetup(false);
+          setDismissedWalletSetup(true);
+        }}
+        ownerAddress={ownerAddress}
+        isCreating={isCreating}
+        createSmartWallet={createSmartWallet}
       />
 
       {smartWallet && (
@@ -127,8 +154,17 @@ function AppContent() {
           smartWallet={smartWallet}
           ethBalance={ethFormatted}
           usdcBalance={usdcFormatted}
+          l2WalletExists={l2WalletExists}
+          onCreateL2Wallet={createL2Wallet}
+          isCreatingL2Wallet={isCreatingL2Wallet}
         />
       )}
+
+      {/* Full-screen transaction status overlay */}
+      <TxStatusOverlay
+        state={txStatus}
+        onClose={() => setTxStatus({ phase: 'idle' })}
+      />
 
       <Toaster
         position="bottom-right"
@@ -160,7 +196,9 @@ function App() {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <AppContent />
+        <TxStatusProvider>
+          <AppContent />
+        </TxStatusProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

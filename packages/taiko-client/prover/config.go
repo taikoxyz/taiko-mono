@@ -96,6 +96,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
+	if !c.IsSet(flags.PacayaInboxAddress.Name) {
+		return nil, fmt.Errorf("--pacayaInbox is required for prover")
+	}
+
 	return &Config{
 		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
 		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),

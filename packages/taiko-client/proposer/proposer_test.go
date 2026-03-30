@@ -42,7 +42,7 @@ type ProposerTestSuite struct {
 func (s *ProposerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
-	state2, err := state.New(context.Background(), s.RPCClient)
+	state2, err := state.New(context.Background(), s.RPCClient, "pacaya")
 	s.Nil(err)
 
 	syncer, err := event.NewSyncer(
@@ -52,6 +52,7 @@ func (s *ProposerTestSuite) SetupTest() {
 		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
 		s.BlobServer.URL(),
 		nil,
+		"pacaya",
 	)
 	s.Nil(err)
 	s.s = syncer

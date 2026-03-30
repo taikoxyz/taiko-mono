@@ -30,13 +30,6 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    /// @notice POC: Signer that can set signal slots with proof
-    address internal constant SIGNER = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
-
-    // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
 
@@ -262,13 +255,6 @@ contract SignalService is EssentialContract, ISignalService {
             return;
         }
 
-        // POC: Check if this is a signature-based proof (65 bytes = signature length)
-        if (_proof.length == 65) {
-            require(ECDSA.recover(slot, _proof) == SIGNER, "Invalid signature proof");
-            return;
-        }
-
-        // Otherwise, use merkle proof verification
         HopProof[] memory proofs = abi.decode(_proof, (HopProof[]));
         if (proofs.length != 1) revert SS_INVALID_PROOF_LENGTH();
 

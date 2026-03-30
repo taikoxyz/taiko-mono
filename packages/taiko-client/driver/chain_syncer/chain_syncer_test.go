@@ -39,7 +39,7 @@ type ChainSyncerTestSuite struct {
 func (s *ChainSyncerTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
-	state, err := state.New(context.Background(), s.RPCClient)
+	state, err := state.New(context.Background(), s.RPCClient, "pacaya")
 	s.Nil(err)
 
 	syncer, err := New(
@@ -50,6 +50,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		1*time.Hour,
 		s.BlobServer.URL(),
 		nil,
+		"pacaya",
 	)
 	s.Nil(err)
 	s.s = syncer
@@ -250,7 +251,7 @@ func (s *ChainSyncerTestSuite) TestShastaDerivationFetchDoesNotBlockPreconf() {
 
 	preconfErrCh := make(chan error, 1)
 	go func() {
-		_, err := s.s.EventSyncer().BlocksInserterShasta().InsertPreconfBlocksFromEnvelopes(
+		_, err := s.s.EventSyncer().BlocksInserter().InsertPreconfBlocksFromEnvelopes(
 			ctx,
 			[]*preconf.Envelope{{Payload: payload}},
 			false,

@@ -68,6 +68,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		)
 	}
 
+	if !c.IsSet(flags.PacayaInboxAddress.Name) {
+		return nil, fmt.Errorf("--pacayaInbox is required for proposer")
+	}
+
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),

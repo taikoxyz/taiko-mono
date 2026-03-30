@@ -281,6 +281,12 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
+	// For shasta/realtime forks, PacayaClients is not initialized.
+	// Use the genesis L1 height that was set during client initialization.
+	if c.PacayaClients == nil {
+		return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(c.GenesisL1Height))
+	}
+
 	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
 		return nil, err
@@ -582,6 +588,11 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
+		// For realtime fork, ShastaClients and PacayaClients are not initialized.
+		if c.ShastaClients == nil {
+			progress.HighestOriginBlockID = new(big.Int).SetUint64(^uint64(0))
+			return nil
+		}
 		coreState, err := c.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return err
@@ -985,7 +996,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 				0,
 				errors.New("failed to parse parentGasUsed from anchorV2 / anchorV3 transaction calldata")
 		}
-	case "anchorV4":
+	case "anchorV4", "anchorV4WithSignalSlots":
 		args := map[string]interface{}{}
 
 		if err := method.Inputs.UnpackIntoMap(args, tx.Data()[4:]); err != nil {
@@ -1043,7 +1054,7 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 		l1StateRoot = root
 	default:
 		return common.Hash{}, 0, 0, fmt.Errorf(
-			"invalid method name for anchor / anchorV2 / anchorV3 / anchorV4 transaction: %s",
+			"invalid method name for anchor / anchorV2 / anchorV3 / anchorV4 / anchorV4WithSignalSlots transaction: %s",
 			method.Name,
 		)
 	}
@@ -1063,7 +1074,11 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
 	}
-	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime}
+	var shastaForkTime uint64
+	if c.ShastaClients != nil {
+		shastaForkTime = c.ShastaClients.ForkTime
+	}
+	config := &params.ChainConfig{ShastaTime: &shastaForkTime}
 	log.Info(
 		"Params for Shasta base fee calculation",
 		"parentBlockNumber", l2Head.Number,
@@ -1073,7 +1088,7 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 		"parentTime", l2Head.Time-parentBlock.Time,
 		"elasticityMultiplier", config.ElasticityMultiplier(),
 		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
-		"shastaForkTime", c.ShastaClients.ForkTime,
+		"shastaForkTime", shastaForkTime,
 	)
 	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil
 }
@@ -1149,7 +1164,7 @@ func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, er
 
 // GetPreconfWhiteListOperator resolves the current preconfirmation whitelist operator address.
 func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.PreconfWhitelist == nil {
+	if c.PacayaClients == nil || c.PacayaClients.PreconfWhitelist == nil {
 		return common.Address{}, errors.New("preconfirmations whitelist contract is not set")
 	}
 
@@ -1175,7 +1190,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.PreconfWhitelist == nil {
+	if c.PacayaClients == nil || c.PacayaClients.PreconfWhitelist == nil {
 		return common.Address{}, errors.New("preconfirmation whitelist contract is not set")
 	}
 
@@ -1395,6 +1410,9 @@ func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, er
 
 // GetPreconfRouterConfig returns the PreconfRouter config.
 func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IPreconfRouterConfig, error) {
+	if c.PacayaClients == nil {
+		return nil, fmt.Errorf("PacayaClients not initialized (non-pacaya fork)")
+	}
 	if c.PacayaClients.PreconfRouter == nil {
 		preconfRouterAddr, err := c.GetPreconfRouterPacaya(opts)
 		if err != nil {
@@ -1458,6 +1476,12 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (
 	*shastaBindings.AnchorBlockState,
 	error,
 ) {
+	if c.ShastaClients == nil || c.ShastaClients.Anchor == nil {
+		return &shastaBindings.AnchorBlockState{
+			AnchorBlockNumber: new(big.Int),
+		}, nil
+	}
+
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}

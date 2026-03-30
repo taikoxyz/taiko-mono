@@ -25,6 +25,8 @@ import (
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/fork"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -37,12 +39,17 @@ type Syncer struct {
 	progressTracker    *beaconsync.SyncProgressTracker        // Sync progress tracker
 	txListDecompressor *txListDecompressor.TxListDecompressor // Transactions list decompressor
 
-	// Blocks inserters
-	blocksInserterPacaya blocksInserter.Inserter // Pacaya blocks inserter
-	blocksInserterShasta blocksInserter.Inserter // Shasta blocks inserter
+	// Fork selector: "pacaya", "shasta", or "realtime"
+	fork string
 
-	lastInsertedBatchID *big.Int
-	reorgDetectedFlag   bool
+	// Blocks inserters (only the one matching fork is populated)
+	blocksInserterPacaya   blocksInserter.Inserter // Pacaya blocks inserter
+	blocksInserterShasta   blocksInserter.Inserter // Shasta blocks inserter
+	blocksInserterRealTime blocksInserter.Inserter // RealTime blocks inserter
+
+	lastInsertedBatchID      *big.Int
+	lastInsertedProposalHash common.Hash // Track RealTime chain head
+	reorgDetectedFlag        bool
 
 	// Shasta derivation source fetcher
 	derivationSourceFetcher *shastaManifest.ShastaDerivationSourceFetcher
@@ -56,6 +63,7 @@ func NewSyncer(
 	progressTracker *beaconsync.SyncProgressTracker,
 	blobServerEndpoint *url.URL,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
+	forkStr string,
 ) (*Syncer, error) {
 	constructor, err := anchorTxConstructor.New(client)
 	if err != nil {
@@ -67,13 +75,19 @@ func NewSyncer(
 		txListDecompressor = txListDecompressor.NewTxListDecompressor(rpc.BlockMaxTxListBytes)
 	)
 
-	return &Syncer{
-		ctx:                ctx,
-		rpc:                client,
-		state:              state,
-		progressTracker:    progressTracker,
-		txListDecompressor: txListDecompressor,
-		blocksInserterPacaya: blocksInserter.NewBlocksInserterPacaya(
+	s := &Syncer{
+		ctx:                     ctx,
+		rpc:                     client,
+		state:                   state,
+		progressTracker:         progressTracker,
+		txListDecompressor:      txListDecompressor,
+		fork:                    forkStr,
+		derivationSourceFetcher: shastaManifest.NewDerivationSourceFetcher(client, blobDataSource),
+	}
+
+	switch forkStr {
+	case fork.Pacaya:
+		s.blocksInserterPacaya = blocksInserter.NewBlocksInserterPacaya(
 			client,
 			progressTracker,
 			blobDataSource,
@@ -82,15 +96,24 @@ func NewSyncer(
 			txlistFetcher.NewCalldataFetcher(client),
 			txlistFetcher.NewBlobFetcher(client, blobDataSource),
 			latestSeenProposalCh,
-		),
-		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(
+		)
+	case fork.Shasta:
+		s.blocksInserterShasta = blocksInserter.NewBlocksInserterShasta(
 			client,
 			progressTracker,
 			constructor,
 			latestSeenProposalCh,
-		),
-		derivationSourceFetcher: shastaManifest.NewDerivationSourceFetcher(client, blobDataSource),
-	}, nil
+		)
+	case fork.RealTime:
+		s.blocksInserterRealTime = blocksInserter.NewBlocksInserterRealTime(
+			client,
+			progressTracker,
+			constructor,
+			latestSeenProposalCh,
+		)
+	}
+
+	return s, nil
 }
 
 // ProcessL1Blocks fetches all `TaikoInbox.BatchProposed` events between given
@@ -144,6 +167,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		OnBatchProposedEvent: s.onBatchProposed,
+		Fork:                 s.fork,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create event iterator: %w", err)
@@ -169,10 +193,16 @@ func (s *Syncer) onBatchProposed(
 	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
-	if meta.IsPacaya() {
+	switch s.fork {
+	case fork.Pacaya:
 		return s.processPacayaBatch(ctx, meta, endIter)
+	case fork.Shasta:
+		return s.processShastaProposal(ctx, meta, endIter)
+	case fork.RealTime:
+		return s.processRealTimeProposal(ctx, meta, endIter)
+	default:
+		return fmt.Errorf("unknown fork %q in onBatchProposed", s.fork)
 	}
-	return s.processShastaProposal(ctx, meta, endIter)
 }
 
 // processShastaProposal processes a Shasta proposal event, and tries inserting
@@ -416,6 +446,160 @@ func (s *Syncer) processShastaProposal(
 	return nil
 }
 
+// processRealTimeProposal processes a RealTime proposal event, and tries inserting
+// the proposed blocks to the L2 execution engine.
+func (s *Syncer) processRealTimeProposal(
+	ctx context.Context,
+	metadata metadata.TaikoProposalMetaData,
+	endIter eventIterator.EndBatchProposedEventIterFunc,
+) error {
+	var (
+		meta = metadata.RealTime()
+		err  error
+	)
+
+	proposalHash := common.BytesToHash(meta.GetEventData().ProposalHash[:])
+	lastFinalizedBlockHash := common.BytesToHash(meta.GetEventData().LastFinalizedBlockHash[:])
+
+	log.Info(
+		"New RealTime Proposed event",
+		"proposalHash", proposalHash,
+		"lastFinalizedBlockHash", lastFinalizedBlockHash,
+		"derivationSources", len(meta.GetEventData().Sources),
+		"l1Height", meta.GetRawBlockHeight(),
+		"l1Hash", meta.GetRawBlockHash(),
+	)
+
+	// Skip proposals we have already inserted by checking the lastInsertedProposalHash.
+	if s.lastInsertedProposalHash != (common.Hash{}) && s.lastInsertedProposalHash == proposalHash {
+		log.Debug(
+			"Skip already inserted RealTime proposal",
+			"proposalHash", proposalHash,
+			"lastInsertedProposalHash", s.lastInsertedProposalHash,
+		)
+		return nil
+	}
+
+	// Check for L1 reorg if not just finishing P2P sync.
+	if !s.progressTracker.Triggered() {
+		reorgCheckResult, err := s.checkReorgRealTime(ctx)
+		if err != nil {
+			return err
+		}
+
+		if reorgCheckResult.IsReorged {
+			log.Info(
+				"Reset L1Current cursor due to L1 reorg (RealTime)",
+				"l1CurrentHeightOld", s.state.GetL1Current().Number,
+				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
+			)
+			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
+			s.lastInsertedProposalHash = common.Hash{}
+			s.reorgDetectedFlag = true
+			endIter()
+
+			return nil
+		}
+	}
+
+	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
+	// only happen when testing.
+	if meta.GetTimestamp() > uint64(time.Now().Unix()) {
+		log.Warn(
+			"Future L2 block, waiting",
+			"L2BlockTimestamp", meta.GetTimestamp(),
+			"now", time.Now().Unix(),
+		)
+		time.Sleep(time.Until(time.Unix(int64(meta.GetTimestamp()), 0)))
+	}
+
+	// For RealTime proposals, use the lastFinalizedBlockHash from the event as parent
+	// (not the latest L2 head, which may have advanced via preconf blocks).
+	var parent *types.Block
+	if parent, err = s.rpc.L2.BlockByHash(ctx, lastFinalizedBlockHash); err != nil {
+		return fmt.Errorf("failed to fetch parent block by lastFinalizedBlockHash %s: %w", lastFinalizedBlockHash, err)
+	}
+
+	log.Info(
+		"RealTime proposal parent block",
+		"proposalHash", proposalHash,
+		"parentBlockID", parent.Number(),
+		"parentHash", parent.Hash(),
+	)
+
+	// RealTime proposals have a single derivation source (isForcedInclusion is always false).
+	if len(meta.GetEventData().Sources) == 0 {
+		return fmt.Errorf("RealTime proposal has no derivation sources, proposalHash: %s", proposalHash)
+	}
+
+	// Fetch the derivation source payload (single source, index 0).
+	sourcePayload, err := s.derivationSourceFetcher.FetchRealTime(ctx, meta, 0)
+	if err != nil {
+		return fmt.Errorf("failed to fetch RealTime derivation payload: %w", err)
+	}
+	sourcePayload.ParentBlock = parent
+
+	log.Info(
+		"Parent block info for RealTime derivation payload",
+		"proposalHash", proposalHash,
+		"blocks", len(sourcePayload.BlockPayloads),
+		"parentBlockID", sourcePayload.ParentBlock.Number(),
+		"parentHash", sourcePayload.ParentBlock.Hash(),
+		"parentGasLimit", sourcePayload.ParentBlock.GasLimit(),
+		"parentTimestamp", sourcePayload.ParentBlock.Time(),
+	)
+
+	latestBlockState, err := s.rpc.GetShastaAnchorState(
+		&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
+	)
+	if err != nil {
+		return err
+	}
+	lastAnchorBlockNumber := latestBlockState.AnchorBlockNumber.Uint64()
+
+	// For RealTime, if the payload is marked as default (invalid manifest), apply inherited metadata.
+	// RealTime has no forced inclusion, so isForcedInclusion is always false.
+	if sourcePayload.Default {
+		sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
+			{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
+		}
+		var shastaForkTime uint64
+		if s.rpc.ShastaClients != nil {
+			shastaForkTime = s.rpc.ShastaClients.ForkTime
+		}
+		shastaManifest.ApplyInheritedMetadataRealTime(
+			sourcePayload,
+			meta,
+			lastAnchorBlockNumber,
+			shastaForkTime,
+		)
+		log.Info(
+			"Use default RealTime derivation payload",
+			"proposalHash", proposalHash,
+			"anchorBlockNumber", lastAnchorBlockNumber,
+		)
+	}
+
+	// Insert new blocks to L2 EE's chain.
+	_, err = s.blocksInserterRealTime.InsertBlocksWithManifest(
+		ctx,
+		metadata,
+		sourcePayload,
+		endIter,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert RealTime blocks: %w", err)
+	}
+
+	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
+	s.lastInsertedProposalHash = proposalHash
+
+	if s.progressTracker.Triggered() {
+		s.progressTracker.ClearMeta()
+	}
+	return nil
+}
+
 // processPacayaBatch processes a Pacaya batch event, and tries inserting
 // the proposed blocks to the L2 execution engine.
 func (s *Syncer) processPacayaBatch(
@@ -490,7 +674,7 @@ func (s *Syncer) processPacayaBatch(
 		"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
 		"blocks", len(meta.Pacaya().GetBlocks()),
 	)
-	pacayaInserter := s.BlocksInserterPacaya()
+	pacayaInserter := s.blocksInserterPacaya.(*blocksInserter.Pacaya)
 	// Fetch txList bytes before taking the inserter lock to avoid blocking preconf inserts on slow blob downloads.
 	txListBytes, err := pacayaInserter.FetchTxListBytes(ctx, meta.Pacaya())
 	if err != nil {
@@ -677,12 +861,66 @@ func (s *Syncer) checkReorgShasta(
 	return reorgCheckResult, nil
 }
 
-// BlocksInserterPacaya returns the Pacaya blocks inserter.
-func (s *Syncer) BlocksInserterPacaya() *blocksInserter.Pacaya {
-	return s.blocksInserterPacaya.(*blocksInserter.Pacaya)
+// checkReorgRealTime checks whether the L1 chain has been reorged by comparing the on-chain
+// lastFinalizedBlockHash with the corresponding L2 block. If the L2 block doesn't exist,
+// a reorg is detected and we reset to genesis.
+func (s *Syncer) checkReorgRealTime(ctx context.Context) (*rpc.ReorgCheckResult, error) {
+	// If the L2 chain is at genesis, we don't need to check L1 reorg.
+	if s.state.GetL1Current().Number == s.state.GenesisL1Height {
+		return new(rpc.ReorgCheckResult), nil
+	}
+
+	if s.rpc.RealTimeClients == nil {
+		return new(rpc.ReorgCheckResult), nil
+	}
+
+	// Get the on-chain lastFinalizedBlockHash from RealTimeInbox.
+	lastFinalizedBlockHash, err := s.rpc.RealTimeClients.Inbox.GetLastFinalizedBlockHash(
+		&bind.CallOpts{Context: ctx},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lastFinalizedBlockHash: %w", err)
+	}
+
+	hash := common.BytesToHash(lastFinalizedBlockHash[:])
+	if hash == (common.Hash{}) {
+		return new(rpc.ReorgCheckResult), nil
+	}
+
+	// Check if this finalized block exists in the L2 chain.
+	header, err := s.rpc.L2.HeaderByHash(ctx, hash)
+	if err != nil || header == nil {
+		log.Info(
+			"RealTime finalized block not found in L2, reorg detected",
+			"lastFinalizedBlockHash", hash,
+		)
+
+		reorgCheckResult := &rpc.ReorgCheckResult{IsReorged: true}
+		reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(ctx, common.Big0)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch L1 genesis header: %w", err)
+		}
+		reorgCheckResult.LastHandledBatchIDToReset = common.Big0
+		return reorgCheckResult, nil
+	}
+
+	return new(rpc.ReorgCheckResult), nil
 }
 
-// BlocksInserterShasta returns the Shasta blocks inserter.
-func (s *Syncer) BlocksInserterShasta() *blocksInserter.Shasta {
-	return s.blocksInserterShasta.(*blocksInserter.Shasta)
+// BlocksInserter returns the active blocks inserter for the configured fork.
+// The returned value satisfies the PreconfBlockChainSyncer interface
+// (InsertPreconfBlocksFromEnvelopes) and may be nil if the fork is unknown.
+func (s *Syncer) BlocksInserter() interface {
+	InsertPreconfBlocksFromEnvelopes(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
+} {
+	switch s.fork {
+	case fork.Pacaya:
+		return s.blocksInserterPacaya.(*blocksInserter.Pacaya)
+	case fork.Shasta:
+		return s.blocksInserterShasta.(*blocksInserter.Shasta)
+	case fork.RealTime:
+		return s.blocksInserterRealTime.(*blocksInserter.RealTime)
+	default:
+		return nil
+	}
 }

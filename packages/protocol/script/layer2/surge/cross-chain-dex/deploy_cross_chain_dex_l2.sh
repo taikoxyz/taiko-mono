@@ -3,15 +3,19 @@
 # This script deploys the Cross-Chain DEX L2 contracts (vault-based, no mock minting).
 set -e
 
-# Private key for deployment
-export PRIVATE_KEY=${PRIVATE_KEY:-"0x94eb3102993b41ec55c241060f47daa0f6372e2e3ad7e91612ae36c364042e44"}
+# Foundry keystore account for deployment
+export ACCOUNT=${ACCOUNT:-"surge_gnosis_deployer"}
+export PASSWORD_FILE=${PASSWORD_FILE:-"/tmp/.keystore-pw"}
 
 # Network configuration
-export L1_RPC=${L1_RPC:-"http://178.79.140.153:32003"}
-export L2_RPC=${L2_RPC:-"http://178.79.140.153:8547"}
+export L1_RPC=${L1_RPC:-"https://billowing-lingering-vineyard.xdai.quiknode.pro/2392c42ed17769448758d0139b99996a806bb17e"}
+export L2_RPC=${L2_RPC:-"http://45.33.84.128:8547"}
 
 # Bridge addresses
 export L2_BRIDGE=${L2_BRIDGE:-"0x7633740000000000000000000000000000000001"}
+
+# Token decimals (must match L1 token; default 18)
+export TOKEN_DECIMALS=${TOKEN_DECIMALS:-"18"}
 
 # Get chain IDs from RPCs
 echo "Getting chain IDs from RPCs..."
@@ -21,6 +25,10 @@ export L1_CHAIN_ID
 
 echo "L1 Chain ID: $L1_CHAIN_ID"
 echo "L2 Chain ID: $L2_CHAIN_ID"
+
+# Resolve account address for --sender
+SENDER=$(cast wallet address --account "$ACCOUNT" --password-file "$PASSWORD_FILE")
+echo "Deployer: $SENDER"
 echo ""
 
 # Broadcast transactions
@@ -58,4 +66,6 @@ forge script ./script/layer2/surge/cross-chain-dex/DeployCrossChainDexL2.s.sol:D
     --fork-url $L2_RPC \
     $BROADCAST_ARG \
     $LOG_LEVEL \
-    --private-key $PRIVATE_KEY
+    --account $ACCOUNT \
+    --password-file $PASSWORD_FILE \
+    --sender $SENDER

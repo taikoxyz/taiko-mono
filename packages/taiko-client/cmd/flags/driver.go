@@ -5,6 +5,8 @@ import (
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
 	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/fork"
 )
 
 // Optional flags used by driver.
@@ -72,6 +74,13 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"TAIKO_WRAPPER"},
 	}
+	Fork = &cli.StringFlag{
+		Name:     "fork",
+		Usage:    `Active protocol fork: "pacaya", "shasta", or "realtime"`,
+		Value:    fork.RealTime,
+		Category: driverCategory,
+		EnvVars:  []string{"FORK"},
+	}
 )
 
 // DriverFlags All driver flags.
@@ -89,4 +98,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerCORSOrigins,
 	PreconfWhitelistAddress,
 	DriverTaikoWrapperAddress,
+	Fork,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

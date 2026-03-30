@@ -21,7 +21,8 @@ contract CrossChainSwapVaultL1 {
         BRIDGE,
         SWAP_ETH_TO_TOKEN,
         SWAP_TOKEN_TO_ETH,
-        ADD_LIQUIDITY
+        ADD_LIQUIDITY,
+        REMOVE_LIQUIDITY
     }
 
     // ---------------------------------------------------------------
@@ -34,7 +35,7 @@ contract CrossChainSwapVaultL1 {
     address public immutable admin;
     address public l2Vault;
 
-    uint32 public constant GAS_LIMIT = 1_000_000;
+    uint32 public constant GAS_LIMIT = 2_000_000;
 
     // ---------------------------------------------------------------
     // Events
@@ -45,6 +46,8 @@ contract CrossChainSwapVaultL1 {
     event SwapETHForTokenInitiated(address indexed user, uint256 ethAmount, uint256 minTokenOut, bytes32 msgHash);
     event SwapTokenForETHInitiated(address indexed user, uint256 tokenAmount, uint256 minETHOut, bytes32 msgHash);
     event LiquidityAddedToL2(address indexed user, uint256 ethAmount, uint256 tokenAmount, bytes32 msgHash);
+    event LiquidityRemovedFromL2(address indexed user, bytes32 msgHash);
+    event LiquidityRemovalCompleted(address indexed recipient, uint256 ethAmount, uint256 tokenAmount);
     event SwapETHForTokenCompleted(address indexed recipient, uint256 tokenAmount);
     event SwapTokenForETHCompleted(address indexed recipient, uint256 ethAmount);
 
@@ -164,10 +167,20 @@ contract CrossChainSwapVaultL1 {
         // Lock canonical tokens
         swapToken.safeTransferFrom(msg.sender, address(this), _tokenAmount);
 
-        bytes memory data = abi.encode(Action.ADD_LIQUIDITY, _tokenAmount);
+        bytes memory data = abi.encode(Action.ADD_LIQUIDITY, msg.sender, _tokenAmount);
         bytes32 msgHash = _sendMessageToL2(data, msg.value);
 
         emit LiquidityAddedToL2(msg.sender, msg.value, _tokenAmount, msgHash);
+    }
+
+    /// @notice Remove all liquidity from the L2 DEX. Returns ETH + tokens to caller on L1.
+    function removeLiquidityFromL2() external {
+        if (l2Vault == address(0)) revert L2_VAULT_NOT_SET();
+
+        bytes memory data = abi.encode(Action.REMOVE_LIQUIDITY, msg.sender);
+        bytes32 msgHash = _sendMessageToL2(data, 0);
+
+        emit LiquidityRemovedFromL2(msg.sender, msgHash);
     }
 
     // ---------------------------------------------------------------
@@ -197,6 +210,18 @@ contract CrossChainSwapVaultL1 {
                 if (!success) revert ETH_TRANSFER_FAILED();
             }
             emit SwapTokenForETHCompleted(recipient, msg.value);
+        } else if (action == Action.REMOVE_LIQUIDITY) {
+            // Completion: L2 removed liquidity, forward ETH + release tokens to recipient
+            (, address recipient, uint256 tokenAmount) = abi.decode(_data, (Action, address, uint256));
+            if (tokenAmount > 0) {
+                if (swapToken.balanceOf(address(this)) < tokenAmount) revert INSUFFICIENT_TOKEN_BALANCE();
+                swapToken.safeTransfer(recipient, tokenAmount);
+            }
+            if (msg.value > 0) {
+                (bool success,) = recipient.call{ value: msg.value }("");
+                if (!success) revert ETH_TRANSFER_FAILED();
+            }
+            emit LiquidityRemovalCompleted(recipient, msg.value, tokenAmount);
         }
         // BRIDGE and ADD_LIQUIDITY don't have L2→L1 completions
     }

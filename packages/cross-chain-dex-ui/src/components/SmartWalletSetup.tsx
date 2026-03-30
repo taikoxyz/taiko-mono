@@ -1,22 +1,15 @@
-import { useEffect } from 'react';
-import { useSmartWallet } from '../hooks/useSmartWallet';
 import toast from 'react-hot-toast';
+import { Address } from 'viem';
 
 interface SmartWalletSetupProps {
   isOpen: boolean;
   onClose: () => void;
+  ownerAddress?: Address;
+  isCreating: boolean;
+  createSmartWallet: () => Promise<void>;
 }
 
-export function SmartWalletSetup({ isOpen, onClose }: SmartWalletSetupProps) {
-  const { createSmartWallet, isCreating, ownerAddress, smartWallet } = useSmartWallet();
-
-  // Auto-close modal when smart wallet is created
-  useEffect(() => {
-    if (smartWallet && isOpen) {
-      onClose();
-    }
-  }, [smartWallet, isOpen, onClose]);
-
+export function SmartWalletSetup({ isOpen, onClose, ownerAddress, isCreating, createSmartWallet }: SmartWalletSetupProps) {
   if (!isOpen) return null;
 
   const handleCreate = async () => {
@@ -29,16 +22,16 @@ export function SmartWalletSetup({ isOpen, onClose }: SmartWalletSetupProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-surge-card/90 backdrop-blur-xl border border-surge-border/50 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl hover-glow">
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+      <div className="bg-surge-card border border-surge-border/50 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl hover-glow">
         <h2 className="text-xl font-bold text-white mb-2">Setup Surge Smart Wallet</h2>
         <p className="text-gray-400 text-sm mb-6">
-          A smart wallet (UserOpsSubmitter) is required to execute cross-chain swaps. Your connected EOA wallet will sign UserOps that the smart wallet executes.
+          A Safe smart wallet is required to execute cross-chain swaps. Your connected wallet will sign transactions that the Safe executes.
         </p>
 
         <div>
           <p className="text-sm text-gray-400 mb-4">
-            This will deploy a new UserOpsSubmitter contract with your connected wallet as the owner.
+            This will deploy a new Safe wallet with your connected wallet as the owner.
           </p>
           <div className="bg-surge-dark rounded-lg p-3 mb-4">
             <div className="text-xs text-gray-500 mb-1">Owner (your EOA)</div>

@@ -54,7 +54,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.d = d
 
 	// Init calldata syncer
-	testState, err := state.New(context.Background(), s.RPCClient)
+	testState, err := state.New(context.Background(), s.RPCClient, "pacaya")
 	s.Nil(err)
 	s.Nil(testState.ResetL1Current(context.Background(), common.Big0))
 
@@ -66,6 +66,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 		tracker,
 		nil,
 		nil,
+		"pacaya",
 	)
 	s.Nil(err)
 

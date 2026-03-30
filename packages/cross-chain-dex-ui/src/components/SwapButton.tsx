@@ -7,6 +7,7 @@ interface SwapButtonProps {
   hasInsufficientBalance: boolean;
   hasInsufficientLiquidity: boolean;
   hasAmount: boolean;
+  exceedsSwapLimit?: string;
 }
 
 export function SwapButton({
@@ -18,24 +19,26 @@ export function SwapButton({
   hasInsufficientBalance,
   hasInsufficientLiquidity,
   hasAmount,
+  exceedsSwapLimit,
 }: SwapButtonProps) {
   const getButtonText = () => {
     if (isLoading) return 'Swapping...';
     if (!isConnected) return 'Connect Wallet';
     if (!hasSmartWallet) return 'Setup Smart Wallet First';
     if (!hasAmount) return 'Enter Amount';
+    if (exceedsSwapLimit) return exceedsSwapLimit;
     if (hasInsufficientLiquidity) return 'Insufficient Liquidity';
     if (hasInsufficientBalance) return 'Insufficient Balance';
     return 'Swap';
   };
 
-  const isDisabled = disabled || isLoading || !isConnected || !hasSmartWallet || !hasAmount || hasInsufficientBalance || hasInsufficientLiquidity;
+  const isDisabled = disabled || isLoading || !isConnected || !hasSmartWallet || !hasAmount || hasInsufficientBalance || hasInsufficientLiquidity || !!exceedsSwapLimit;
 
   return (
     <button
       onClick={onClick}
       disabled={isDisabled}
-      className={`w-full py-4 rounded-xl font-semibold text-lg transition-all duration-200 ${
+      className={`w-full py-3 rounded-xl font-semibold text-base transition-all duration-200 ${
         isDisabled
           ? 'bg-surge-card/50 text-gray-500 cursor-not-allowed border border-surge-border/30'
           : 'bg-gradient-to-r from-surge-primary to-surge-secondary text-white hover:shadow-lg hover:shadow-surge-primary/30 hover:scale-[1.02] active:scale-[0.98]'

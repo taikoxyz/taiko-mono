@@ -1,26 +1,35 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Address, Hex } from 'viem';
-import { useWalletClient } from 'wagmi';
-import toast from 'react-hot-toast';
+import { useWalletClient, useSwitchChain } from 'wagmi';
 import { SwapDirection } from '../types';
 import {
   buildSwapUserOps,
   buildBridgeUserOps,
   buildBridgeNativeUserOps,
+  buildBridgeOutNativeUserOps,
   buildAddLiquidityUserOps,
-  computeUserOpsDigest,
+  buildRemoveLiquidityUserOps,
+  buildWithdrawUserOps,
+  buildCreateL2SafeOps,
+  userOpsToSafeTx,
   sendUserOpToBuilder,
   calculateMinOutput,
   queryUserOpStatus,
 } from '../lib/userOp';
+import { getSafeNonce, buildSafeTxTypedData, buildExecTransactionCalldata } from '../lib/safeOp';
 import { UserOp } from '../types';
-import { DEFAULT_SLIPPAGE } from '../lib/constants';
+import { CHAIN_ID, L2_CHAIN_ID, DEFAULT_SLIPPAGE } from '../lib/constants';
+import { l1PublicClient, l2PublicClient } from '../lib/config';
+import { useTxStatus } from '../context/TxStatusContext';
 
 interface UseUserOpReturn {
   executeSwap: (params: ExecuteSwapParams) => Promise<boolean>;
   executeBridge: (params: ExecuteBridgeParams) => Promise<boolean>;
   executeBridgeNative: (params: ExecuteBridgeNativeParams) => Promise<boolean>;
+  executeBridgeOutNative: (params: ExecuteBridgeNativeParams) => Promise<boolean>;
   executeAddLiquidity: (params: ExecuteAddLiquidityParams) => Promise<boolean>;
+  executeRemoveLiquidity: (params: { smartWallet: Address }) => Promise<boolean>;
+  executeCreateL2Wallet: (params: { owner: Address; smartWallet: Address }) => Promise<boolean>;
   isPending: boolean;
   error: Error | null;
 }
@@ -53,47 +62,148 @@ interface ExecuteAddLiquidityParams {
 
 export function useUserOp(): UseUserOpReturn {
   const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
+  const { setTxStatus } = useTxStatus();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const txHashRef = useRef<string | undefined>(undefined);
 
-  // Clean up polling on unmount
   useEffect(() => {
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
 
-  const pollStatus = useCallback((userOpId: number, toastId: string = 'swap'): Promise<boolean> => {
+  const pollStatus = useCallback((userOpId: number): Promise<boolean> => {
     return new Promise((resolve) => {
-      toast.loading('Sending to builder...', { id: toastId });
+      setTxStatus({ phase: 'sequencing' });
+
+      // Phase ordering: sequencing(0) < proving(1) < proposing(2) < complete(3)
+      // proving comes before proposing because the ZK proof is generated before L1 submission
+      const phaseOrder: Record<string, number> = {
+        sequencing: 0, proving: 1, proposing: 2, complete: 3, rejected: 3,
+      };
+      let highestPhase = 0;
+      let hasSeenProving = false;
+      let pollCount = 0;
+      const MAX_POLLS = 60; // 1 minute at 1s intervals
 
       pollIntervalRef.current = setInterval(async () => {
+        pollCount++;
+        if (pollCount > MAX_POLLS) {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setTxStatus({ phase: 'rejected', errorMessage: 'Transaction timed out' });
+          setError(new Error('Transaction timed out'));
+          setIsPending(false);
+          resolve(false);
+          return;
+        }
+
         const status = await queryUserOpStatus(userOpId);
         if (!status) return;
 
-        if (status.status === 'Processing') {
-          toast.loading(`Processing (tx: ${status.tx_hash.slice(0, 10)}...)`, { id: toastId });
+        if (status.status === 'Pending') {
+          if (highestPhase <= phaseOrder.sequencing) {
+            setTxStatus({ phase: 'sequencing' });
+          }
+        } else if (status.status === 'ProvingBlock') {
+          hasSeenProving = true;
+          if (phaseOrder.proving > highestPhase) {
+            highestPhase = phaseOrder.proving;
+            setTxStatus({ phase: 'proving' });
+          }
+        } else if (status.status === 'Processing') {
+          txHashRef.current = status.tx_hash;
+          // Only show "proposing" after proving has been seen
+          // Before proving, Processing means "sequencing"
+          if (hasSeenProving && phaseOrder.proposing > highestPhase) {
+            highestPhase = phaseOrder.proposing;
+            setTxStatus({ phase: 'proposing' });
+          } else if (!hasSeenProving && highestPhase <= phaseOrder.sequencing) {
+            setTxStatus({ phase: 'sequencing' });
+          }
         } else if (status.status === 'Executed') {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
-          toast.success('Executed successfully!', { id: toastId });
+          setTxStatus({ phase: 'complete', txHash: txHashRef.current });
           setIsPending(false);
           resolve(true);
         } else if (status.status === 'Rejected') {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
-          toast.error(`Rejected: ${status.reason}`, { id: toastId });
+          setTxStatus({ phase: 'rejected', errorMessage: status.reason });
           setError(new Error(status.reason));
           setIsPending(false);
           resolve(false);
         }
-        // Pending: keep polling
       }, 1000);
     });
-  }, []);
+  }, [setTxStatus]);
+
+  const executeGenericOps = useCallback(
+    async (ops: UserOp[], smartWallet: Address, chainId?: number): Promise<boolean> => {
+      if (!walletClient) {
+        setTxStatus({ phase: 'rejected', errorMessage: 'Wallet not connected' });
+        return false;
+      }
+
+      setIsPending(true);
+      setError(null);
+      txHashRef.current = undefined;
+
+      try {
+        setTxStatus({ phase: 'signing' });
+
+        // Determine which chain this Safe lives on
+        const targetChainId = chainId ?? CHAIN_ID;
+        const publicClient = targetChainId === L2_CHAIN_ID ? l2PublicClient : l1PublicClient;
+
+        // Switch chain if needed (e.g. bridge-out: signing on L2)
+        if (chainId !== undefined && chainId !== walletClient.chain?.id) {
+          await switchChainAsync({ chainId });
+        }
+
+        // Fetch nonce from the Safe on the correct chain
+        const nonce = await getSafeNonce(publicClient, smartWallet);
+
+        // Convert ops to a single SafeTxParams
+        const safeTx = userOpsToSafeTx(ops);
+
+        // Build Safe EIP-712 typed data
+        const typedData = buildSafeTxTypedData(smartWallet, targetChainId, nonce, safeTx);
+
+        const signature = await walletClient.signTypedData(typedData);
+
+        // Encode execTransaction calldata
+        const calldata = buildExecTransactionCalldata(safeTx, signature as Hex);
+
+        const result = await sendUserOpToBuilder(smartWallet, calldata, chainId);
+
+        if (result.success && result.userOpId !== undefined) {
+          return await pollStatus(result.userOpId);
+        } else if (result.success) {
+          setTxStatus({ phase: 'complete' });
+          setIsPending(false);
+          return true;
+        } else {
+          setTxStatus({ phase: 'rejected', errorMessage: result.error || 'Failed to submit' });
+          setError(new Error(result.error || 'Failed to submit'));
+          setIsPending(false);
+          return false;
+        }
+      } catch (err) {
+        console.error('Operation failed:', err);
+        const msg = err instanceof Error ? err.message : 'Operation failed';
+        setTxStatus({ phase: 'rejected', errorMessage: msg });
+        setError(err instanceof Error ? err : new Error(msg));
+        setIsPending(false);
+        return false;
+      }
+    },
+    [walletClient, switchChainAsync, pollStatus, setTxStatus]
+  );
 
   const executeSwap = useCallback(
     async ({
@@ -103,114 +213,17 @@ export function useUserOp(): UseUserOpReturn {
       smartWallet,
       slippage = DEFAULT_SLIPPAGE,
     }: ExecuteSwapParams): Promise<boolean> => {
-      if (!walletClient) {
-        toast.error('Wallet not connected');
-        return false;
-      }
-
-      setIsPending(true);
-      setError(null);
-
-      try {
-        // Calculate minimum output with slippage
-        const minAmountOut = calculateMinOutput(expectedAmountOut, slippage);
-
-        // Build UserOp(s)
-        const ops = buildSwapUserOps(direction, amountIn, minAmountOut, smartWallet);
-
-        toast.loading('Signing transaction...', { id: 'swap' });
-
-        // Compute digest
-        const digest = computeUserOpsDigest(ops);
-        console.log('UserOps:', ops);
-        console.log('Digest to sign:', digest);
-        console.log('Signer address:', walletClient.account.address);
-
-        // Sign the digest using signMessage (standard personal_sign)
-        // The contract uses MessageHashUtils.toEthSignedMessageHash to add the Ethereum prefix
-        // before recovering the signer address
-        const signature = await walletClient.signMessage({
-          message: { raw: digest as `0x${string}` },
-        });
-        console.log('Signature:', signature);
-
-        // Send to builder RPC
-        const result = await sendUserOpToBuilder(smartWallet, ops, signature as Hex);
-
-        if (result.success && result.userOpId !== undefined) {
-          // Poll for status
-          return await pollStatus(result.userOpId, 'swap');
-        } else if (result.success) {
-          // No ID returned, can't poll - just show success
-          toast.success('Swap submitted successfully!', { id: 'swap' });
-          setIsPending(false);
-          return true;
-        } else {
-          toast.error(result.error || 'Failed to submit swap', { id: 'swap' });
-          setError(new Error(result.error || 'Failed to submit swap'));
-          setIsPending(false);
-          return false;
-        }
-      } catch (err) {
-        console.error('Swap failed:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Swap failed';
-        toast.error(errorMessage, { id: 'swap' });
-        setError(err instanceof Error ? err : new Error(errorMessage));
-        setIsPending(false);
-        return false;
-      }
+      const minAmountOut = calculateMinOutput(expectedAmountOut, slippage);
+      const ops = buildSwapUserOps(direction, amountIn, minAmountOut, smartWallet);
+      return executeGenericOps(ops, smartWallet);
     },
-    [walletClient, pollStatus]
-  );
-
-  const executeGenericOps = useCallback(
-    async (ops: UserOp[], smartWallet: Address, toastId: string, successMsg: string): Promise<boolean> => {
-      if (!walletClient) {
-        toast.error('Wallet not connected');
-        return false;
-      }
-
-      setIsPending(true);
-      setError(null);
-
-      try {
-        toast.loading('Signing transaction...', { id: toastId });
-
-        const digest = computeUserOpsDigest(ops);
-        const signature = await walletClient.signMessage({
-          message: { raw: digest as `0x${string}` },
-        });
-
-        const result = await sendUserOpToBuilder(smartWallet, ops, signature as Hex);
-
-        if (result.success && result.userOpId !== undefined) {
-          return await pollStatus(result.userOpId, toastId);
-        } else if (result.success) {
-          toast.success(successMsg, { id: toastId });
-          setIsPending(false);
-          return true;
-        } else {
-          toast.error(result.error || 'Failed to submit', { id: toastId });
-          setError(new Error(result.error || 'Failed to submit'));
-          setIsPending(false);
-          return false;
-        }
-      } catch (err) {
-        console.error('Operation failed:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Operation failed';
-        toast.error(errorMessage, { id: toastId });
-        setError(err instanceof Error ? err : new Error(errorMessage));
-        setIsPending(false);
-        return false;
-      }
-    },
-    [walletClient, pollStatus]
+    [executeGenericOps]
   );
 
   const executeBridge = useCallback(
     async ({ amount, recipient, smartWallet }: ExecuteBridgeParams): Promise<boolean> => {
       const ops = buildBridgeUserOps(amount, recipient);
-      return executeGenericOps(ops, smartWallet, 'bridge', 'Bridge submitted successfully!');
+      return executeGenericOps(ops, smartWallet);
     },
     [executeGenericOps]
   );
@@ -218,7 +231,15 @@ export function useUserOp(): UseUserOpReturn {
   const executeBridgeNative = useCallback(
     async ({ amount, recipient, smartWallet }: ExecuteBridgeNativeParams): Promise<boolean> => {
       const ops = buildBridgeNativeUserOps(amount, recipient, smartWallet);
-      return executeGenericOps(ops, smartWallet, 'bridge', 'xDAI bridge submitted!');
+      return executeGenericOps(ops, smartWallet);
+    },
+    [executeGenericOps]
+  );
+
+  const executeBridgeOutNative = useCallback(
+    async ({ amount, recipient, smartWallet }: ExecuteBridgeNativeParams): Promise<boolean> => {
+      const ops = buildBridgeOutNativeUserOps(amount, recipient, smartWallet);
+      return executeGenericOps(ops, smartWallet, L2_CHAIN_ID);
     },
     [executeGenericOps]
   );
@@ -226,7 +247,59 @@ export function useUserOp(): UseUserOpReturn {
   const executeAddLiquidity = useCallback(
     async ({ ethAmount, tokenAmount, smartWallet }: ExecuteAddLiquidityParams): Promise<boolean> => {
       const ops = buildAddLiquidityUserOps(ethAmount, tokenAmount);
-      return executeGenericOps(ops, smartWallet, 'liquidity', 'Liquidity addition submitted!');
+      return executeGenericOps(ops, smartWallet);
+    },
+    [executeGenericOps]
+  );
+
+  const executeRemoveLiquidity = useCallback(
+    async ({ smartWallet }: { smartWallet: Address }): Promise<boolean> => {
+      const ops = buildRemoveLiquidityUserOps();
+      return executeGenericOps(ops, smartWallet);
+    },
+    [executeGenericOps]
+  );
+
+  const executeWithdraw = useCallback(
+    async ({ owner, smartWallet, ethBalance, usdcBalance }: { owner: Address; smartWallet: Address; ethBalance: bigint; usdcBalance: bigint }): Promise<boolean> => {
+      if (!walletClient) return false;
+
+      const ops = buildWithdrawUserOps(owner, ethBalance, usdcBalance);
+      if (ops.length === 0) return false;
+
+      setIsPending(true);
+      setError(null);
+
+      try {
+        const nonce = await getSafeNonce(l1PublicClient, smartWallet);
+        const safeTx = userOpsToSafeTx(ops);
+        const typedData = buildSafeTxTypedData(smartWallet, CHAIN_ID, nonce, safeTx);
+        const signature = await walletClient.signTypedData(typedData);
+        const calldata = buildExecTransactionCalldata(safeTx, signature as Hex);
+
+        await walletClient.sendTransaction({
+          to: smartWallet,
+          data: calldata,
+          chain: walletClient.chain,
+          account: walletClient.account,
+        });
+
+        setIsPending(false);
+        return true;
+      } catch (err) {
+        console.error('Withdraw failed:', err);
+        setError(err instanceof Error ? err : new Error('Withdraw failed'));
+        setIsPending(false);
+        return false;
+      }
+    },
+    [walletClient]
+  );
+
+  const executeCreateL2Wallet = useCallback(
+    async ({ owner, smartWallet }: { owner: Address; smartWallet: Address }): Promise<boolean> => {
+      const ops = buildCreateL2SafeOps(owner, smartWallet);
+      return executeGenericOps(ops, smartWallet);
     },
     [executeGenericOps]
   );
@@ -235,7 +308,11 @@ export function useUserOp(): UseUserOpReturn {
     executeSwap,
     executeBridge,
     executeBridgeNative,
+    executeBridgeOutNative,
     executeAddLiquidity,
+    executeRemoveLiquidity,
+    executeWithdraw,
+    executeCreateL2Wallet,
     isPending,
     error,
   };

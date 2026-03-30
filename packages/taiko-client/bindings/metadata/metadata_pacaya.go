@@ -49,6 +49,16 @@ func (m *TaikoDataBlockMetadataPacaya) IsShasta() bool {
 	return false
 }
 
+// RealTime implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) RealTime() TaikoProposalMetaDataRealTime {
+	return nil
+}
+
+// IsRealTime implements TaikoProposalMetaData interface.
+func (m *TaikoDataBlockMetadataPacaya) IsRealTime() bool {
+	return false
+}
+
 // GetTxListHash returns the hash of calldata txlist.
 func (m *TaikoDataBlockMetadataPacaya) GetTxListHash() common.Hash {
 	return m.TxsHash

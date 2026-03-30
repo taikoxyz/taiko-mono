@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	realtimeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/realtime"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -16,6 +17,8 @@ type TaikoProposalMetaData interface {
 	IsPacaya() bool
 	Shasta() TaikoProposalMetaDataShasta
 	IsShasta() bool
+	RealTime() TaikoProposalMetaDataRealTime
+	IsRealTime() bool
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
@@ -56,6 +59,19 @@ type TaikoProposalMetaDataShasta interface {
 	GetBlobHashes(int) []common.Hash
 	GetBlobTimestamp(int) uint64
 	GetTimestamp() uint64
+	GetRawBlockHeight() *big.Int
+	GetRawBlockHash() common.Hash
+	GetLog() *types.Log
+}
+
+type TaikoProposalMetaDataRealTime interface {
+	GetEventData() *realtimeBindings.RealTimeInboxClientProposedAndProved
+	GetBlobHashes(int) []common.Hash
+	GetBlobTimestamp(int) uint64
+	GetTimestamp() uint64
+	GetMaxAnchorBlockNumber() uint64
+	GetSignalSlots() [][32]byte
+	GetCheckpoint() realtimeBindings.ICheckpointStoreCheckpoint
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetLog() *types.Log

@@ -10,10 +10,10 @@ export default {
         'surge-primary': '#10b981',      // Emerald green
         'surge-secondary': '#06b6d4',    // Cyan blue
         'surge-accent': '#22d3ee',       // Light cyan
-        'surge-dark': '#0a1628',         // Deep navy
-        'surge-card': '#0f2847',         // Dark blue card
-        'surge-card-hover': '#153459',   // Lighter blue on hover
-        'surge-border': '#1e4976',       // Blue border
+        'surge-dark': '#06090e',         // Near-black base
+        'surge-card': '#0b1219',         // Dark charcoal card
+        'surge-card-hover': '#0f1a25',   // Slightly lifted hover
+        'surge-border': '#182030',       // Subtle dark border
         'surge-text': '#e2e8f0',         // Light gray text
         'surge-muted': '#64748b',        // Muted text
       },

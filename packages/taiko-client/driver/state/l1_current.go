@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/fork"
 )
 
 // GetL1Current reads the L1 current cursor concurrent safely.
@@ -56,18 +57,17 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	}
 
 	var proposedIn *big.Int
-	// Fetch the block info from Pacaya TaikoInbox contract, and set the L1 height.
-	if block.Time() < s.rpc.ShastaClients.ForkTime {
+	switch s.Fork {
+	case fork.Pacaya:
 		batch, err := s.FindBatchForBlockID(ctx, blockID.Uint64())
 		if err != nil {
 			return fmt.Errorf("failed to find batch for block ID (%d): %w", blockID, err)
 		}
 		proposedIn = new(big.Int).SetUint64(batch.AnchorBlockId)
-	} else {
+	case fork.Shasta, fork.RealTime:
 		if block.Transactions().Len() == 0 {
 			return fmt.Errorf("no transactions found in block %d", blockID)
 		}
-		// Fetch the anchor block number from the anchorV4 transaction for Shasta blocks.
 		_, anchorBlockNumber, _, err := s.rpc.GetSyncedL1SnippetFromAnchor(block.Transactions()[0])
 		if err != nil {
 			return fmt.Errorf("failed to decode anchorV4 block params: %w", err)

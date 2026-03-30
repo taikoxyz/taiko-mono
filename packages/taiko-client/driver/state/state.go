@@ -14,8 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	realtimeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/realtime"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/fork"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -34,6 +36,9 @@ type State struct {
 	PacayaForkHeight *big.Int
 	ShastaForkTime   uint64
 
+	// Fork identifier
+	Fork string
+
 	// RPC clients
 	rpc *rpc.Client
 
@@ -41,8 +46,8 @@ type State struct {
 }
 
 // New creates a new driver state instance.
-func New(ctx context.Context, rpc *rpc.Client) (*State, error) {
-	s := &State{rpc: rpc}
+func New(ctx context.Context, rpc *rpc.Client, fork string) (*State, error) {
+	s := &State{rpc: rpc, Fork: fork}
 
 	if err := s.init(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize driver state: %w", err)
@@ -60,17 +65,22 @@ func (s *State) Close() {
 
 // init fetches the latest status and initializes the state instance.
 func (s *State) init(ctx context.Context) error {
-	if err := s.initGenesisHeight(ctx); err != nil {
-		return fmt.Errorf("failed to initialize genesis height: %w", err)
-	}
-	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Ontake)
-	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Pacaya)
-	s.ShastaForkTime = s.rpc.ShastaClients.ForkTime
+	s.initGenesisHeight()
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
-	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
-	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
-	log.Info("Shasta fork timestamp", "time", s.ShastaForkTime)
+
+	switch s.Fork {
+	case fork.Pacaya:
+		s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Ontake)
+		s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Pacaya)
+		log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
+		log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
+	case fork.Shasta:
+		s.ShastaForkTime = s.rpc.ShastaClients.ForkTime
+		log.Info("Shasta fork timestamp", "time", s.ShastaForkTime)
+	case fork.RealTime:
+		// No additional fork constants needed for RealTime
+	}
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
@@ -103,34 +113,66 @@ func (s *State) eventLoop(ctx context.Context) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	var (
-		// Channels for subscriptions.
-		l1HeadCh                = make(chan *types.Header, 10)
-		l2HeadCh                = make(chan *types.Header, 10)
-		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
-		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
-		proposedShastaCh        = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
-		provedShastaCh          = make(chan *shastaBindings.ShastaInboxClientProved, 10)
+	// Shared channels (always active).
+	l1HeadCh := make(chan *types.Header, 10)
+	l2HeadCh := make(chan *types.Header, 10)
+	l1HeadSub := rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
+	l2HeadSub := rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
 
-		// Subscriptions.
-		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
-		l2HeadSub                  = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
+	// Fork-specific channels and subscriptions (nil channels are never selected).
+	var (
+		batchesProvedPacayaCh          chan *pacayaBindings.TaikoInboxClientBatchesProved
+		batchesVerifiedPacayaCh        chan *pacayaBindings.TaikoInboxClientBatchesVerified
+		proposedShastaCh               chan *shastaBindings.ShastaInboxClientProposed
+		provedShastaCh                 chan *shastaBindings.ShastaInboxClientProved
+		proposedAndProvedRealTimeCh    chan *realtimeBindings.RealTimeInboxClientProposedAndProved
+		l2BatchesVerifiedPacayaSub     event.Subscription
+		l2BatchesProvedPacayaSub       event.Subscription
+		l2ProposedShastaSub            event.Subscription
+		l2ProvedShastaSub              event.Subscription
+		l2ProposedAndProvedRealTimeSub event.Subscription
+	)
+
+	switch s.Fork {
+	case fork.Pacaya:
+		batchesProvedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
+		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
 		l2BatchesVerifiedPacayaSub = rpc.SubscribeBatchesVerifiedPacaya(
 			s.rpc.PacayaClients.TaikoInbox,
 			batchesVerifiedPacayaCh,
 		)
 		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
-		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
-		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
-	)
+	case fork.Shasta:
+		proposedShastaCh = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
+		provedShastaCh = make(chan *shastaBindings.ShastaInboxClientProved, 10)
+		l2ProposedShastaSub = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
+		l2ProvedShastaSub = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
+	case fork.RealTime:
+		proposedAndProvedRealTimeCh = make(chan *realtimeBindings.RealTimeInboxClientProposedAndProved, 10)
+		l2ProposedAndProvedRealTimeSub = rpc.SubscribeProposedAndProvedRealTime(
+			s.rpc.RealTimeClients.Inbox,
+			proposedAndProvedRealTimeCh,
+		)
+	}
 
 	defer func() {
 		l1HeadSub.Unsubscribe()
 		l2HeadSub.Unsubscribe()
-		l2BatchesVerifiedPacayaSub.Unsubscribe()
-		l2BatchesProvedPacayaSub.Unsubscribe()
-		l2ProposedShastaSub.Unsubscribe()
-		l2ProvedShastaSub.Unsubscribe()
+		if l2BatchesVerifiedPacayaSub != nil {
+			l2BatchesVerifiedPacayaSub.Unsubscribe()
+		}
+		if l2BatchesProvedPacayaSub != nil {
+			l2BatchesProvedPacayaSub.Unsubscribe()
+		}
+		if l2ProposedShastaSub != nil {
+			l2ProposedShastaSub.Unsubscribe()
+		}
+		if l2ProvedShastaSub != nil {
+			l2ProvedShastaSub.Unsubscribe()
+		}
+		if l2ProposedAndProvedRealTimeSub != nil {
+			l2ProposedAndProvedRealTimeSub.Unsubscribe()
+		}
 	}()
 
 	for {
@@ -163,6 +205,17 @@ func (s *State) eventLoop(ctx context.Context) {
 				"lastVerifiedBatchID", e.BatchId,
 				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
+		case e := <-proposedAndProvedRealTimeCh:
+			if e != nil {
+				log.Info(
+					"✅ RealTime proposed and proved",
+					"proposalHash", common.Hash(e.ProposalHash),
+					"lastFinalizedBlockHash", common.Hash(e.LastFinalizedBlockHash),
+					"checkpointBlockNumber", e.Checkpoint.BlockNumber,
+					"checkpointBlockHash", common.Hash(e.Checkpoint.BlockHash),
+					"checkpointStateRoot", common.Hash(e.Checkpoint.StateRoot),
+				)
+			}
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
 			s.l1HeadsFeed.Send(newHead)
@@ -220,13 +273,8 @@ func (s *State) IsPacaya(num *big.Int) bool {
 	return s.PacayaForkHeight.Cmp(num) <= 0
 }
 
-// initGenesisHeight fetches the genesis height from the current protocol.
-func (s *State) initGenesisHeight(ctx context.Context) error {
-	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to get protocol state variables: %w", err)
-	}
-
-	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
-	return nil
+// initGenesisHeight reads the genesis L1 height from the RPC client, which was
+// set during client initialization (from contract for pacaya, from config for shasta/realtime).
+func (s *State) initGenesisHeight() {
+	s.GenesisL1Height = new(big.Int).SetUint64(s.rpc.GenesisL1Height)
 }

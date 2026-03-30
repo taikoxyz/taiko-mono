@@ -23,7 +23,7 @@ type DriverStateTestSuite struct {
 func (s *DriverStateTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 	s.ctx, s.cancel = context.WithCancel(context.Background())
-	state, err := New(s.ctx, s.RPCClient)
+	state, err := New(s.ctx, s.RPCClient, "pacaya")
 	s.Nil(err)
 	s.s = state
 }
@@ -61,7 +61,7 @@ func (s *DriverStateTestSuite) TestSubL1HeadsFeed() {
 func (s *DriverStateTestSuite) TestNewDriverContextErr() {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	state, err := New(ctx, s.RPCClient)
+	state, err := New(ctx, s.RPCClient, "pacaya")
 	s.Nil(state)
 	s.ErrorContains(err, "context canceled")
 }

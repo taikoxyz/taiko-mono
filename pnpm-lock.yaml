@@ -406,8 +406,8 @@ importers:
         specifier: github:Vectorized/solady#v0.1.24
         version: https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d
       sp1-contracts:
-        specifier: github:succinctlabs/sp1-contracts#v5.0.0
-        version: sp1-contracts#v5.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306
+        specifier: github:succinctlabs/sp1-contracts#v6.0.0
+        version: sp1-contracts#v6.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1b102609d616d760afd6eadfe2def48c88ab9e3b
       urc:
         specifier: github:eth-fabric/urc#main
         version: urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/132bc796a27721252984923a76760bed24643205
@@ -9763,8 +9763,8 @@ packages:
     resolution: {integrity: sha512-i5uvt8C3ikiWeNZSVZNWcfZPItFQOsYTUAOkcUPGd8DqDy1uOUikjt5dG+uRlwyvR108Fb9DOd4GvXfT0N2/uQ==}
     engines: {node: '>= 12'}
 
-  sp1-contracts#v5.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306:
-    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306}
+  sp1-contracts#v6.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1b102609d616d760afd6eadfe2def48c88ab9e3b:
+    resolution: {tarball: https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1b102609d616d760afd6eadfe2def48c88ab9e3b}
     version: 0.0.0
 
   space-separated-tokens@2.0.2:
@@ -16789,7 +16789,7 @@ snapshots:
 
   '@types/react@19.2.2':
     dependencies:
-      csstype: 3.1.3
+      csstype: 3.2.3
 
   '@types/sax@1.2.7':
     dependencies:
@@ -25804,7 +25804,7 @@ snapshots:
 
   source-map@0.7.6: {}
 
-  sp1-contracts#v5.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306: {}
+  sp1-contracts#v6.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/1b102609d616d760afd6eadfe2def48c88ab9e3b: {}
 
   space-separated-tokens@2.0.2: {}
 

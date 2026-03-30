@@ -24,12 +24,11 @@ export function useTokenBalances(smartWallet: Address | null): TokenBalances {
     if (!smartWallet) {
       setEthBalance(0n);
       setUsdcBalance(0n);
-      setIsLoading(false);
+      // Don't set isLoading=false here — stay loading until we have a real wallet
       return;
     }
 
     try {
-      setIsLoading(true);
       setError(null);
 
       // Fetch ETH balance

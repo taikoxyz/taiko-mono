@@ -11,6 +11,11 @@ import { useTokenBalances } from '../hooks/useTokenBalances';
 import { useUserOp } from '../hooks/useUserOp';
 import { SwapDirection } from '../types';
 import { ETH_TOKEN, USDC_TOKEN } from '../lib/constants';
+import { DisclaimerModal } from './DisclaimerModal';
+import { useDisclaimer } from '../hooks/useDisclaimer';
+import { WarningBanner } from './WarningBanner';
+
+const MAX_SWAP_AMOUNT = 1; // $1 max per swap
 
 interface SwapCardProps {
   onSetupWallet: () => void;
@@ -22,6 +27,7 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
   const { ethReserve, tokenReserve, isLoading: reservesLoading } = useDexReserves();
   const { ethBalance, usdcBalance } = useTokenBalances(smartWallet);
   const { executeSwap, isPending } = useUserOp();
+  const { isDisclaimerOpen, requireDisclaimer, onAccept, onCancel } = useDisclaimer();
 
   const [direction, setDirection] = useState<SwapDirection>('ETH_TO_USDC');
   const [inputAmount, setInputAmount] = useState('');
@@ -47,6 +53,9 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
   const outputBalance = direction === 'ETH_TO_USDC' ? usdcBalance : ethBalance;
 
   const hasInsufficientBalance = amountIn > inputBalance;
+  const exceedsSwapLimit = amountIn > parseUnits(String(MAX_SWAP_AMOUNT), inputToken.decimals)
+    ? `Max ${MAX_SWAP_AMOUNT} ${inputToken.symbol} per swap`
+    : undefined;
 
   const handleSwapDirection = useCallback(() => {
     setDirection((prev) => (prev === 'ETH_TO_USDC' ? 'USDC_TO_ETH' : 'ETH_TO_USDC'));
@@ -69,8 +78,9 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
   }, [smartWallet, amountIn, direction, quote.amountOut, executeSwap]);
 
   return (
-    <div className="w-full max-w-md mx-auto relative z-10">
-      <div className="bg-surge-card/80 backdrop-blur-xl border border-surge-border/50 rounded-2xl p-5 space-y-4 shadow-xl shadow-black/20 hover-glow">
+    <div className="flex flex-col md:flex-row items-start gap-4 justify-center w-full relative z-10">
+      {/* Left panel — inputs */}
+      <div className="w-full md:max-w-md bg-surge-card/80 border border-surge-border/50 rounded-2xl p-4 space-y-3 shadow-xl shadow-black/20 hover-glow transition-all duration-[1000ms] ease-[cubic-bezier(0.16,1,0.3,1)]">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">Swap</h2>
@@ -78,6 +88,7 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
             <span className="text-xs text-gray-400">Loading reserves...</span>
           )}
         </div>
+        <WarningBanner />
 
         {/* Input Token */}
         <TokenInput
@@ -125,15 +136,9 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
           showMax={false}
         />
 
-        {/* Swap Details */}
-        <SwapDetails quote={quote} direction={direction} amountIn={amountIn} />
-
-        {/* Swap Path Visualization */}
-        <SwapPath direction={direction} show={amountIn > 0n} />
-
         {/* Swap Button */}
         <SwapButton
-          onClick={isConnected && !smartWallet ? onSetupWallet : handleSwap}
+          onClick={isConnected && !smartWallet ? onSetupWallet : () => requireDisclaimer(handleSwap)}
           disabled={false}
           isLoading={isPending}
           isConnected={isConnected}
@@ -141,17 +146,20 @@ export function SwapCard({ onSetupWallet, onFundWallet }: SwapCardProps) {
           hasInsufficientBalance={hasInsufficientBalance}
           hasInsufficientLiquidity={quote.insufficientLiquidity}
           hasAmount={amountIn > 0n}
+          exceedsSwapLimit={exceedsSwapLimit}
         />
 
-        {/* Smart Wallet Info */}
-        {isConnected && smartWallet && (
-          <div className="text-center">
-            <p className="text-xs text-gray-500">
-              Swapping via Smart Wallet: {smartWallet.slice(0, 8)}...{smartWallet.slice(-6)}
-            </p>
-          </div>
-        )}
       </div>
+
+      {/* Right panel — trade details (shown when amount is entered) */}
+      {amountIn > 0n && (
+        <div className="w-full md:max-w-sm bg-surge-card/80 border border-surge-border/50 rounded-2xl p-4 space-y-3 shadow-xl shadow-black/20 animate-panel-in">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Trade Details</h3>
+          <SwapDetails quote={quote} direction={direction} amountIn={amountIn} />
+          <SwapPath direction={direction} show={true} />
+        </div>
+      )}
+      <DisclaimerModal isOpen={isDisclaimerOpen} onAccept={onAccept} onCancel={onCancel} />
     </div>
   );
 }

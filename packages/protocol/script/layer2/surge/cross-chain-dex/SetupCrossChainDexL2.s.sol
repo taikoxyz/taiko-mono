@@ -9,13 +9,11 @@ import { console2 } from "forge-std/src/console2.sol";
 /// @title SetupCrossChainDexL2
 /// @notice Script to set L1 vault on L2 vault after deployment
 contract SetupCrossChainDexL2 is Script {
-    uint256 internal immutable privateKey = vm.envUint("PRIVATE_KEY");
     address internal immutable l1Vault = vm.envAddress("L1_VAULT");
     address internal immutable l2Vault = vm.envAddress("L2_VAULT");
 
     modifier broadcast() {
-        require(privateKey != 0, "invalid private key");
-        vm.startBroadcast(privateKey);
+        vm.startBroadcast();
         _;
         vm.stopBroadcast();
     }

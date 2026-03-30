@@ -37,4 +37,21 @@ export interface DexReserves {
 
 export type SwapDirection = 'ETH_TO_USDC' | 'USDC_TO_ETH';
 
+export type BridgeDirection = 'L1_TO_L2' | 'L2_TO_L1';
+
 export type ActiveTab = 'swap' | 'bridge' | 'liquidity';
+
+export type TxOverlayPhase =
+  | 'idle'
+  | 'signing'
+  | 'sequencing'
+  | 'proposing'
+  | 'proving'
+  | 'complete'
+  | 'rejected';
+
+export interface TxOverlayState {
+  phase: TxOverlayPhase;
+  txHash?: string;
+  errorMessage?: string;
+}

@@ -2,13 +2,45 @@ import {
   encodeFunctionData,
   encodeAbiParameters,
   keccak256,
+  encodePacked,
   Address,
   Hex,
-  hexToBytes,
 } from 'viem';
 import { UserOp, SwapDirection } from '../types';
-import { CrossChainSwapVaultL1ABI, BridgeABI, ERC20ABI, UserOpsSubmitterABI } from './contracts';
-import { L1_VAULT, L1_BRIDGE, L2_CHAIN_ID, USDC_TOKEN, BUILDER_RPC_URL } from './constants';
+import { CrossChainSwapVaultL1ABI, BridgeABI, ERC20ABI, SafeProxyFactoryABI } from './contracts';
+import { L1_VAULT, L1_BRIDGE, L2_BRIDGE, L2_CHAIN_ID, CHAIN_ID, USDC_TOKEN, BUILDER_RPC_URL, L2_RELAY, SAFE_PROXY_FACTORY, SAFE_SINGLETON, SAFE_FALLBACK_HANDLER } from './constants';
+import { SafeTxParams, buildMultiSendSafeTx, buildSafeSetupCalldata } from './safeOp';
+
+// ---------------------------------------------------------------
+// Safe tx conversion
+// ---------------------------------------------------------------
+
+/**
+ * Convert UserOp[] to a single SafeTxParams.
+ * Single op: direct CALL. Multiple ops: wrap in MultiSend DELEGATECALL.
+ */
+export function userOpsToSafeTx(ops: UserOp[]): SafeTxParams {
+  if (ops.length === 1) {
+    return {
+      to: ops[0].target,
+      value: ops[0].value,
+      data: ops[0].data,
+      operation: 0, // CALL
+    };
+  }
+  // Multiple ops: use MultiSend
+  const safeTxs: SafeTxParams[] = ops.map(op => ({
+    to: op.target,
+    value: op.value,
+    data: op.data,
+    operation: 0 as const,
+  }));
+  return buildMultiSendSafeTx(safeTxs);
+}
+
+// ---------------------------------------------------------------
+// UserOp Builders
+// ---------------------------------------------------------------
 
 /**
  * Build UserOp(s) for a swap
@@ -117,7 +149,7 @@ export function buildBridgeNativeUserOps(
           {
             id: 0n,
             fee: 0n,
-            gasLimit: 0,
+            gasLimit: 1_000_000,
             from: zeroAddr,
             srcChainId: 0n,
             srcOwner: sender,
@@ -131,6 +163,39 @@ export function buildBridgeNativeUserOps(
       }),
     },
   ];
+}
+
+/**
+ * Build UserOp(s) for bridging native currency from L2 to L1 via the L2 bridge
+ */
+export function buildBridgeOutNativeUserOps(
+  amount: bigint,
+  recipient: Address,
+  sender: Address
+): UserOp[] {
+  const zeroAddr = '0x0000000000000000000000000000000000000000' as Address;
+
+  return [{
+    target: L2_BRIDGE,
+    value: amount,
+    data: encodeFunctionData({
+      abi: BridgeABI,
+      functionName: 'sendMessage',
+      args: [{
+        id: 0n,
+        fee: 0n,
+        gasLimit: 1_000_000,
+        from: zeroAddr,
+        srcChainId: 0n,
+        srcOwner: sender,
+        destChainId: BigInt(CHAIN_ID),
+        destOwner: recipient,
+        to: recipient,
+        value: amount,
+        data: '0x',
+      }],
+    }),
+  }];
 }
 
 /**
@@ -168,40 +233,129 @@ export function buildAddLiquidityUserOps(
 }
 
 /**
- * Compute the digest for signing UserOps
- * This matches: keccak256(abi.encode(ops))
+ * Build UserOp(s) for withdrawing all funds from the Safe to the owner EOA
  */
-export function computeUserOpsDigest(ops: UserOp[]): Hex {
-  const encoded = encodeAbiParameters(
-    [
-      {
-        type: 'tuple[]',
-        components: [
-          { name: 'target', type: 'address' },
-          { name: 'value', type: 'uint256' },
-          { name: 'data', type: 'bytes' },
-        ],
-      },
-    ],
-    [ops.map((op) => ({ target: op.target, value: op.value, data: op.data }))]
-  );
+export function buildWithdrawUserOps(
+  owner: Address,
+  ethBalance: bigint,
+  usdcBalance: bigint
+): UserOp[] {
+  const ops: UserOp[] = [];
 
-  return keccak256(encoded);
+  if (usdcBalance > 0n) {
+    const usdcAddress = USDC_TOKEN.address;
+    if (usdcAddress) {
+      ops.push({
+        target: usdcAddress,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: ERC20ABI,
+          functionName: 'transfer',
+          args: [owner, usdcBalance],
+        }),
+      });
+    }
+  }
+
+  if (ethBalance > 0n) {
+    ops.push({
+      target: owner,
+      value: ethBalance,
+      data: '0x',
+    });
+  }
+
+  return ops;
 }
 
 /**
- * Convert hex string to byte array for RPC
+ * Build UserOp(s) for removing all liquidity from L2 DEX
  */
-export function hexToByteArray(hex: Hex): number[] {
-  return Array.from(hexToBytes(hex));
+export function buildRemoveLiquidityUserOps(): UserOp[] {
+  return [
+    {
+      target: L1_VAULT,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: CrossChainSwapVaultL1ABI,
+        functionName: 'removeLiquidityFromL2',
+        args: [],
+      }),
+    },
+  ];
 }
+
+/**
+ * Build UserOp(s) for creating a Safe on L2 via bridge + relay.
+ * The L1 Safe calls bridge.sendMessage targeting the CrossChainRelay on L2,
+ * which forwards to SafeProxyFactory.createProxyWithNonce.
+ */
+export function buildCreateL2SafeOps(owner: Address, sender: Address): UserOp[] {
+  const zeroAddr = '0x0000000000000000000000000000000000000000' as Address;
+
+  // Build the same initializer and saltNonce as L1 creation
+  const initializer = buildSafeSetupCalldata(owner, SAFE_FALLBACK_HANDLER);
+  const saltNonce = BigInt(keccak256(encodePacked(['address'], [owner])));
+
+  // The call the relay will forward to the factory
+  const createProxyCalldata = encodeFunctionData({
+    abi: SafeProxyFactoryABI,
+    functionName: 'createProxyWithNonce',
+    args: [SAFE_SINGLETON, initializer, saltNonce],
+  });
+
+  // Encode for relay: abi.encode(target, callData)
+  const relayPayload = encodeAbiParameters(
+    [{ type: 'address' }, { type: 'bytes' }],
+    [SAFE_PROXY_FACTORY, createProxyCalldata],
+  );
+
+  // Bridge requires onMessageInvocation selector
+  const onMessageInvocationData = encodeFunctionData({
+    abi: [{
+      type: 'function',
+      name: 'onMessageInvocation',
+      inputs: [{ name: '_data', type: 'bytes' }],
+      outputs: [],
+      stateMutability: 'payable',
+    }],
+    functionName: 'onMessageInvocation',
+    args: [relayPayload],
+  });
+
+  return [{
+    target: L1_BRIDGE,
+    value: 0n,
+    data: encodeFunctionData({
+      abi: BridgeABI,
+      functionName: 'sendMessage',
+      args: [{
+        id: 0n,
+        fee: 0n,
+        gasLimit: 2_000_000,
+        from: zeroAddr,
+        srcChainId: 0n,
+        srcOwner: sender,
+        destChainId: BigInt(L2_CHAIN_ID),
+        destOwner: sender,
+        to: L2_RELAY,
+        value: 0n,
+        data: onMessageInvocationData,
+      }],
+    }),
+  }];
+}
+
+// ---------------------------------------------------------------
+// Builder RPC
+// ---------------------------------------------------------------
 
 /**
  * Get the builder RPC URL (use proxy in development to avoid CORS)
  */
 function getBuilderUrl(): string {
-  // Use proxy in development to avoid CORS issues
-  if (BUILDER_RPC_URL.includes('localhost') && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  // Always use Vite proxy in dev to avoid CORS issues
+  if (import.meta.env.DEV) {
     return '/api/builder';
   }
   return BUILDER_RPC_URL;
@@ -212,24 +366,14 @@ function getBuilderUrl(): string {
  */
 export async function sendUserOpToBuilder(
   submitter: Address,
-  ops: UserOp[],
-  signature: Hex
+  calldata: Hex,
+  chainId?: number
 ): Promise<{ success: boolean; result?: unknown; error?: string; userOpId?: number }> {
   try {
     const builderUrl = getBuilderUrl();
     console.log('Sending UserOp to:', builderUrl);
     console.log('Submitter:', submitter);
-    console.log('Ops count:', ops.length);
-
-    // Encode the full executeBatch(ops, signature) calldata
-    const calldata = encodeFunctionData({
-      abi: UserOpsSubmitterABI,
-      functionName: 'executeBatch',
-      args: [
-        ops.map((op) => ({ target: op.target, value: op.value, data: op.data })),
-        signature,
-      ],
-    });
+    console.log('ChainId:', chainId);
 
     const response = await fetch(builderUrl, {
       method: 'POST',
@@ -240,6 +384,7 @@ export async function sendUserOpToBuilder(
         params: {
           submitter,
           calldata,
+          ...(chainId ? { chainId } : {}),
         },
         id: 1,
       }),
@@ -263,7 +408,7 @@ export async function sendUserOpToBuilder(
     let json;
     try {
       json = JSON.parse(text);
-    } catch (parseError) {
+    } catch {
       console.error('Failed to parse builder response:', text);
       return { success: false, error: `Invalid JSON response: ${text.slice(0, 100)}` };
     }
@@ -288,6 +433,7 @@ export async function sendUserOpToBuilder(
 export type UserOpStatus =
   | { status: 'Pending' }
   | { status: 'Processing'; tx_hash: string }
+  | { status: 'ProvingBlock'; block_id: number }
   | { status: 'Rejected'; reason: string }
   | { status: 'Executed' };
 

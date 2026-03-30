@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	realtimeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/realtime"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -110,6 +111,24 @@ func SubscribeProvedShasta(
 		sub, err := taikoInbox.WatchProved(nil, ch, nil)
 		if err != nil {
 			log.Error("Create Shasta Inbox.Proved subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
+// SubscribeProposedAndProvedRealTime subscribes the RealTimeInbox's ProposedAndProved events.
+func SubscribeProposedAndProvedRealTime(
+	realTimeInbox *realtimeBindings.RealTimeInboxClient,
+	ch chan *realtimeBindings.RealTimeInboxClientProposedAndProved,
+) event.Subscription {
+	return SubscribeEvent("ProposedAndProved", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := realTimeInbox.WatchProposedAndProved(nil, ch, nil)
+		if err != nil {
+			log.Error("Create RealTimeInbox.ProposedAndProved subscription error", "error", err)
 			return nil, err
 		}
 

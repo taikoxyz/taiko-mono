@@ -50,6 +50,16 @@ func (m *TaikoProposalMetadataShasta) IsShasta() bool {
 	return true
 }
 
+// RealTime implements TaikoProposalMetaData interface.
+func (m *TaikoProposalMetadataShasta) RealTime() TaikoProposalMetaDataRealTime {
+	return nil
+}
+
+// IsRealTime implements TaikoProposalMetaData interface.
+func (m *TaikoProposalMetadataShasta) IsRealTime() bool {
+	return false
+}
+
 // GetRawBlockHeight returns the raw L1 block height.
 func (m *TaikoProposalMetadataShasta) GetRawBlockHeight() *big.Int {
 	return new(big.Int).SetUint64(m.Raw.BlockNumber)

@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/fork"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -50,8 +51,8 @@ const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid re
 // monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with Pacaya on-chain state.
 const monitorLatestProposalOnChainInterval = 10 * time.Second
 
-// preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
-type preconfBlockChainSyncer interface {
+// PreconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
+type PreconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromEnvelopes(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
 }
 
@@ -67,11 +68,11 @@ type preconfBlockChainSyncer interface {
 // @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
-	echo                          *echo.Echo
-	rpc                           *rpc.Client
-	pacayaChainSyncer             preconfBlockChainSyncer
-	shastaChainSyncer             preconfBlockChainSyncer
-	anchorValidator               *validator.AnchorTxValidator
+	echo            *echo.Echo
+	rpc             *rpc.Client
+	fork            string
+	chainSyncer     PreconfBlockChainSyncer
+	anchorValidator *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
 	// P2P network for preconfirmation block propagation
 	p2pNode   *p2p.NodeP2P
@@ -102,8 +103,8 @@ func New(
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
 	taikoAnchorAddress common.Address,
-	pacayaChainSyncer preconfBlockChainSyncer,
-	shastaChainSyncer preconfBlockChainSyncer,
+	fork string,
+	chainSyncer PreconfBlockChainSyncer,
 	cli *rpc.Client,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
@@ -136,11 +137,11 @@ func New(
 	}
 
 	server := &PreconfBlockAPIServer{
-		echo:                          echo.New(),
-		anchorValidator:               anchorValidator,
-		pacayaChainSyncer:             pacayaChainSyncer,
-		shastaChainSyncer:             shastaChainSyncer,
-		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
+		echo:            echo.New(),
+		anchorValidator: anchorValidator,
+		fork:            fork,
+		chainSyncer:     chainSyncer,
+		ws:              &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
 		rpc:                           cli,
 		envelopesCache:                newEnvelopeQueue(),
 		preconfOperatorAddress:        preconfOperatorAddress,
@@ -218,6 +219,7 @@ func (s *PreconfBlockAPIServer) configureRoutes() {
 	s.echo.GET("/healthz", s.HealthCheck)
 	s.echo.GET("/status", s.GetStatus)
 	s.echo.POST("/preconfBlocks", s.BuildPreconfBlock)
+	s.echo.POST("/reorgStaleBlock", s.ReorgStaleBlock)
 
 	// WebSocket routes
 	s.echo.GET("/ws", s.ws.handleWebSocket)
@@ -856,12 +858,14 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 
 // ValidateExecutionPayload validates the execution payload.
 func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionPayload) error {
-	if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeights.Pacaya) {
-		return fmt.Errorf(
-			"block number %d is less than the Pacaya fork height %d",
-			payload.BlockNumber,
-			s.rpc.PacayaClients.ForkHeights.Pacaya,
-		)
+	if s.rpc.PacayaClients != nil {
+		if payload.BlockNumber < eth.Uint64Quantity(s.rpc.PacayaClients.ForkHeights.Pacaya) {
+			return fmt.Errorf(
+				"block number %d is less than the Pacaya fork height %d",
+				payload.BlockNumber,
+				s.rpc.PacayaClients.ForkHeights.Pacaya,
+			)
+		}
 	}
 	if payload.Timestamp == 0 {
 		return errors.New("non-zero timestamp is required")
@@ -1047,10 +1051,13 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
-			if proposal.IsPacaya() {
+			switch s.fork {
+			case fork.Pacaya:
 				s.recordLatestSeenProposalPacaya(proposal)
-			} else {
+			case fork.Shasta:
 				s.recordLatestSeenProposalShasta(proposal)
+			case fork.RealTime:
+				s.recordLatestSeenProposalRealTime(proposal)
 			}
 		case <-ticker.C:
 			s.monitorLatestProposalOnChain(ctx)
@@ -1065,10 +1072,13 @@ func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context
 		return
 	}
 
-	if proposal.IsPacaya() {
+	switch s.fork {
+	case fork.Pacaya:
 		s.monitorPacayaProposalOnChain(ctx, proposal)
-	} else {
+	case fork.Shasta:
 		s.monitorShastaProposalOnChain(ctx, proposal)
+	case fork.RealTime:
+		// No on-chain proposal monitoring needed for realtime fork
 	}
 }
 
@@ -1239,6 +1249,37 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encodin
 		log.Info(
 			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
 			"proposalId", proposal.Shasta().GetEventData().Id,
+			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+		)
+
+		metrics.DriverReorgsByProposalCounter.Inc()
+	}
+}
+
+// recordLatestSeenProposalRealTime records the latest seen RealTime proposal.
+func (s *PreconfBlockAPIServer) recordLatestSeenProposalRealTime(proposal *encoding.LastSeenProposal) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	proposalHash := proposal.RealTime().GetEventData().ProposalHash
+	log.Info(
+		"Received latest realtime proposal seen in event",
+		"proposalHash", common.Hash(proposalHash),
+		"lastBlockId", proposal.LastBlockID,
+	)
+
+	s.latestSeenProposal = proposal
+
+	if proposal.LastBlockID != 0 {
+		metrics.DriverLastSeenBlockInProposalGauge.Set(float64(proposal.LastBlockID))
+	}
+
+	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
+	if s.latestSeenProposal.PreconfChainReorged {
+		s.highestUnsafeL2PayloadBlockID = proposal.LastBlockID
+		log.Info(
+			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
+			"proposalHash", common.Hash(proposalHash),
 			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
 
@@ -1491,8 +1532,7 @@ func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloa
 	})
 }
 
-// insertPreconfBlocksFromEnvelopes inserts the given preconfirmation block envelopes into the L2 EE chain,
-// splitting them into Pacaya and Shasta batches based on the fork height.
+// insertPreconfBlocksFromEnvelopes inserts the given preconfirmation block envelopes into the L2 EE chain.
 func (s *PreconfBlockAPIServer) insertPreconfBlocksFromEnvelopes(
 	ctx context.Context,
 	envelopes []*preconf.Envelope,
@@ -1501,58 +1541,7 @@ func (s *PreconfBlockAPIServer) insertPreconfBlocksFromEnvelopes(
 	if len(envelopes) == 0 {
 		return []*types.Header{}, nil
 	}
-
-	var (
-		pacayaBatch, shastaBatch = s.splitEnvelopesByFork(envelopes)
-		pacayaHeaders            = make([]*types.Header, 0)
-		shastaHeaders            = make([]*types.Header, 0)
-		result                   []*types.Header
-		err                      error
-	)
-
-	if len(pacayaBatch) != 0 {
-		if pacayaHeaders, err = s.pacayaChainSyncer.InsertPreconfBlocksFromEnvelopes(
-			ctx,
-			pacayaBatch,
-			fromCache,
-		); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(shastaBatch) != 0 {
-		if shastaHeaders, err = s.shastaChainSyncer.InsertPreconfBlocksFromEnvelopes(
-			ctx,
-			shastaBatch,
-			fromCache,
-		); err != nil {
-			return nil, err
-		}
-	}
-
-	result = append(result, pacayaHeaders...)
-	result = append(result, shastaHeaders...)
-	return result, nil
-}
-
-// splitEnvelopesByFork splits the given envelopes into two batches, one for Pacaya and one for Shasta,
-// based on the fork height.
-func (s *PreconfBlockAPIServer) splitEnvelopesByFork(
-	envelopes []*preconf.Envelope,
-) (pacaya []*preconf.Envelope, shasta []*preconf.Envelope) {
-	pacaya = []*preconf.Envelope{}
-	shasta = []*preconf.Envelope{}
-
-	for _, envelope := range envelopes {
-		if uint64(envelope.Payload.Timestamp) < s.rpc.ShastaClients.ForkTime {
-			pacaya = append(pacaya, envelope)
-			continue
-		}
-
-		shasta = append(shasta, envelope)
-	}
-
-	return pacaya, shasta
+	return s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, envelopes, fromCache)
 }
 
 // webSocketSever is a WebSocket server that handles incoming connections,

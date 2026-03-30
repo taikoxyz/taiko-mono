@@ -12,6 +12,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	realtimeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/realtime"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -135,6 +136,10 @@ var (
 	ShastaProposedEventTopic common.Hash
 	ShastaProvedEventTopic   common.Hash
 
+	// RealTime proving
+	RealTimeInboxABI                   *abi.ABI
+	RealTimeProposedAndProvedEventTopic common.Hash
+
 	customErrorMaps []map[string]abi.Error
 )
 
@@ -241,6 +246,12 @@ func init() {
 		log.Crit("Get BondManager ABI error", "error", err)
 	}
 
+	if RealTimeInboxABI, err = realtimeBindings.RealTimeInboxClientMetaData.GetAbi(); err != nil {
+		log.Crit("Failed to get RealTimeInbox ABI", "error", err)
+	}
+
+	RealTimeProposedAndProvedEventTopic = RealTimeInboxABI.Events["ProposedAndProved"].ID
+
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
@@ -263,6 +274,7 @@ func init() {
 		ShastaInboxABI.Errors,
 		ShastaAnchorABI.Errors,
 		BondManagerABI.Errors,
+		RealTimeInboxABI.Errors,
 	}
 }
 

@@ -33,8 +33,8 @@ export function TokenInput({
   };
 
   return (
-    <div className="bg-surge-dark/50 rounded-xl p-4 border border-surge-border/20">
-      <div className="flex justify-between items-center mb-3">
+    <div className="bg-surge-dark/50 rounded-xl p-3 border border-surge-border/20">
+      <div className="flex justify-between items-center mb-2">
         <span className="text-sm text-gray-400">{label}</span>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-400">

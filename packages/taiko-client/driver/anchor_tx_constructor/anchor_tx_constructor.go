@@ -14,6 +14,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	realtimeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/realtime"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -113,6 +114,43 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 			BlockHash:   anchorBlockHash,
 			StateRoot:   anchorStateRoot,
 		},
+	)
+}
+
+// AssembleAnchorV4WithSignalSlotsTx assembles a signed RealTimeAnchor.anchorV4WithSignalSlots transaction.
+func (c *AnchorTxConstructor) AssembleAnchorV4WithSignalSlotsTx(
+	ctx context.Context,
+	parent *types.Header,
+	anchorBlockNumber *big.Int,
+	anchorBlockHash common.Hash,
+	anchorStateRoot common.Hash,
+	signalSlots [][32]byte,
+	l2Height *big.Int,
+	baseFee *big.Int,
+) (*types.Transaction, error) {
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
+	if err != nil {
+		return nil, err
+	}
+
+	log.Info(
+		"AnchorV4WithSignalSlots arguments",
+		"l2Height", l2Height,
+		"anchorBlockId", anchorBlockNumber,
+		"anchorStateRoot", anchorStateRoot,
+		"parentGasUsed", parent.GasUsed,
+		"parentHash", parent.Hash(),
+		"signalSlots", len(signalSlots),
+	)
+
+	return c.rpc.RealTimeClients.Anchor.AnchorV4WithSignalSlots(
+		opts,
+		realtimeBindings.ICheckpointStoreCheckpoint{
+			BlockNumber: anchorBlockNumber,
+			BlockHash:   anchorBlockHash,
+			StateRoot:   anchorStateRoot,
+		},
+		signalSlots,
 	)
 }
 

@@ -73,6 +73,115 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 	)
 }
 
+// FetchRealTime fetches the derivation source payload for RealTime proposals.
+func (f *ShastaDerivationSourceFetcher) FetchRealTime(
+	ctx context.Context,
+	meta metadata.TaikoProposalMetaDataRealTime,
+	derivationIdx int,
+) (*ShastaDerivationSourcePayload, error) {
+	// If there is no blob hash, or its offset is invalid, return the default payload.
+	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
+		meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
+			uint64(manifest.BlobBytes-64) {
+		return &ShastaDerivationSourcePayload{Default: true}, nil
+	}
+
+	blobHashes := meta.GetBlobHashes(derivationIdx)
+	// Use L1 block timestamp instead of blob slice timestamp (zeroed in RealTimeInbox
+	// so it doesn't become part of the proven proposal hash).
+	b, err := f.dataSource.GetBlobBytes(ctx, meta.GetTimestamp(), blobHashes)
+	if err != nil {
+		if errors.Is(err, rpc.ErrInvalidBlobBytes) {
+			return &ShastaDerivationSourcePayload{Default: true}, nil
+		}
+		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
+	}
+	log.Info(
+		"Fetch RealTime sidecars",
+		"l1Height", meta.GetRawBlockHeight(),
+		"sidecars", len(blobHashes),
+	)
+
+	return f.manifestFromBlobBytesRealTime(
+		b,
+		meta,
+		derivationIdx,
+	)
+}
+
+// manifestFromBlobBytesRealTime constructs the derivation payload from the given blob bytes for RealTime proposals.
+func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytesRealTime(
+	b []byte,
+	meta metadata.TaikoProposalMetaDataRealTime,
+	derivationIdx int,
+) (*ShastaDerivationSourcePayload, error) {
+	var (
+		offset                   = int(meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64())
+		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
+		derivationSourceManifest = new(manifest.DerivationSourceManifest)
+	)
+	version, size, err := ExtractVersionAndSize(b, offset)
+	if err != nil {
+		log.Warn("Failed to extract version or size in blob bytes, use default payload instead", "err", err)
+		return defaultPayload, nil
+	}
+
+	if version != manifest.ShastaPayloadVersion {
+		log.Warn("Unsupported manifest version, use default payload instead", "version", version)
+		return defaultPayload, nil
+	}
+
+	log.Info("Extracted manifest version and size from RealTime blobs", "version", version, "size", size)
+
+	start := offset + 64
+	if start > len(b) || uint64(len(b)-start) < size {
+		log.Warn(
+			"Invalid manifest bounds in blob bytes, use default payload instead",
+			"version", version,
+			"offset", offset,
+			"size", size,
+			"blobLen", len(b),
+		)
+		return defaultPayload, nil
+	}
+	encoded, err := utils.Decompress(b[start : start+int(size)])
+	if err != nil {
+		log.Warn(
+			"Failed to decompress manifest bytes, use default payload instead",
+			"version", version,
+			"offset", offset,
+			"size", size,
+			"error", err,
+		)
+		return defaultPayload, nil
+	}
+
+	if err = rlp.DecodeBytes(encoded, derivationSourceManifest); err != nil {
+		log.Warn("Failed to decode derivation source manifest bytes, use default payload instead", "error", err)
+		return defaultPayload, nil
+	}
+
+	// RealTime always has a single source, no forced-inclusion check needed.
+
+	if len(derivationSourceManifest.Blocks) > manifest.ProposalMaxBlocks {
+		log.Warn(
+			"Too many blocks in the manifest, use default payload instead",
+			"blocks", len(derivationSourceManifest.Blocks),
+			"max", manifest.ProposalMaxBlocks,
+		)
+		return defaultPayload, nil
+	}
+
+	payload := &ShastaDerivationSourcePayload{
+		BlockPayloads: make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
+	}
+	for i, block := range derivationSourceManifest.Blocks {
+		payload.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}
+	}
+
+	return payload, nil
+}
+
 // manifestFromBlobBytes constructs the derivation payload from the given blob bytes.
 func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 	b []byte,
@@ -464,6 +573,35 @@ func ApplyInheritedMetadata(
 
 		sourcePayload.BlockPayloads[i].Timestamp = lowerBound
 		sourcePayload.BlockPayloads[i].Coinbase = event.Proposer
+		sourcePayload.BlockPayloads[i].AnchorBlockNumber = anchorBlockNumber
+		sourcePayload.BlockPayloads[i].GasLimit = parentGasLimit
+
+		parentTimestamp = lowerBound
+	}
+}
+
+// ApplyInheritedMetadataRealTime assigns anchor, gas limit, and timestamp values to each block
+// for RealTime proposals. RealTime does not have a proposer field on the event, so coinbase is
+// left as zero (it is expected to come from the blob manifest).
+func ApplyInheritedMetadataRealTime(
+	sourcePayload *ShastaDerivationSourcePayload,
+	meta metadata.TaikoProposalMetaDataRealTime,
+	anchorBlockNumber uint64,
+	forkTime uint64,
+) {
+	var (
+		timestamp      = meta.GetTimestamp()
+		parentTimestamp = sourcePayload.ParentBlock.Time()
+		parentGasLimit  = sourcePayload.ParentBlock.GasLimit()
+	)
+	if sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+		parentGasLimit -= consensus.AnchorV3V4GasLimit
+	}
+
+	for i := range sourcePayload.BlockPayloads {
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, forkTime)
+
+		sourcePayload.BlockPayloads[i].Timestamp = lowerBound
 		sourcePayload.BlockPayloads[i].AnchorBlockNumber = anchorBlockNumber
 		sourcePayload.BlockPayloads[i].GasLimit = parentGasLimit
 

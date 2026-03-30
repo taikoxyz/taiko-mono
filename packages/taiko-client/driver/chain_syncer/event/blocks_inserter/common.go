@@ -206,7 +206,12 @@ func createExecutionPayloads(
 		return nil, fmt.Errorf("failed to create a new payload: %w", err)
 	}
 	if execStatus.Status != engine.VALID {
-		return nil, fmt.Errorf("unexpected NewPayload response status: %s", execStatus.Status)
+		validationErr := ""
+		if execStatus.ValidationError != nil {
+			validationErr = *execStatus.ValidationError
+		}
+		return nil, fmt.Errorf("unexpected NewPayload response status: %s, validationError: %s, latestValidHash: %v",
+			execStatus.Status, validationErr, execStatus.LatestValidHash)
 	}
 
 	return payload, nil

@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/fork"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -88,7 +89,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
 
-	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
+	if d.state, err = state.New(d.ctx, d.rpc, cfg.Fork); err != nil {
 		return fmt.Errorf("failed to create driver state: %w", err)
 	}
 
@@ -110,33 +111,46 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
 		latestSeenProposalCh,
+		cfg.Fork,
 	); err != nil {
 		return fmt.Errorf("failed to create L2 chain syncer: %w", err)
 	}
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
+	var ontakeForkHeight, pacayaForkHeight uint64
+	var shastaForkTime uint64
+	if d.rpc.PacayaClients != nil {
+		ontakeForkHeight = d.rpc.PacayaClients.ForkHeights.Ontake
+		pacayaForkHeight = d.rpc.PacayaClients.ForkHeights.Pacaya
+	}
+	if d.rpc.ShastaClients != nil {
+		shastaForkTime = d.rpc.ShastaClients.ForkTime
+	}
 	d.chainConfig = config.NewChainConfig(
 		d.rpc.L2.ChainID,
-		d.rpc.PacayaClients.ForkHeights.Ontake,
-		d.rpc.PacayaClients.ForkHeights.Pacaya,
-		d.rpc.ShastaClients.ForkTime,
+		ontakeForkHeight,
+		pacayaForkHeight,
+		shastaForkTime,
 	)
 
-	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
-		return fmt.Errorf("failed to get protocol configs: %w", err)
+	if d.rpc.PacayaClients != nil {
+		if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
+			return fmt.Errorf("failed to get protocol configs: %w", err)
+		}
+		config.ReportProtocolConfigs(d.protocolConfig)
 	}
-
-	config.ReportProtocolConfigs(d.protocolConfig)
 
 	if d.PreconfBlockServerPort > 0 {
 		// Initialize the preconfirmation block server.
+		// Select the appropriate chain syncer based on the fork.
+		chainSyncer := d.l2ChainSyncer.EventSyncer().BlocksInserter()
 		if d.preconfBlockServer, err = preconfBlocks.New(
 			d.PreconfBlockServerCORSOrigins,
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
-			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
-			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
+			cfg.Fork,
+			chainSyncer,
 			d.rpc,
 			latestSeenProposalCh,
 		); err != nil {
@@ -304,10 +318,11 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
-	var (
-		ticker          = time.NewTicker(protocolStatusReportInterval)
+	var maxNumProposals uint64
+	if d.protocolConfig != nil {
 		maxNumProposals = d.protocolConfig.MaxProposals()
-	)
+	}
+	ticker := time.NewTicker(protocolStatusReportInterval)
 	d.wg.Add(1)
 
 	defer func() {
@@ -327,6 +342,12 @@ func (d *Driver) reportProtocolStatus() {
 
 // reportStatus reports some status for Pacaya or Shasta protocol.
 func (d *Driver) reportStatus(maxNumProposals uint64) {
+	// If RealTime fork is active, report RealTime status.
+	if d.Fork == fork.RealTime && d.rpc.RealTimeClients != nil {
+		d.reportProtocolStatusRealTime()
+		return
+	}
+
 	proposal, err := d.rpc.GetShastaProposalHash(&bind.CallOpts{Context: d.ctx}, common.Big1)
 	if err != nil {
 		log.Debug("Failed to get Shasta proposal hash", "error", err)
@@ -363,6 +384,20 @@ func (d *Driver) reportProtocolStatusShasta() {
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		"lastFinalizedTimestamp", coreState.LastFinalizedTimestamp,
 		"nextProposalID", coreState.NextProposalId,
+	)
+}
+
+// reportProtocolStatusRealTime reports the RealTimeInbox status.
+func (d *Driver) reportProtocolStatusRealTime() {
+	lastFinalizedBlockHash, err := d.rpc.RealTimeClients.Inbox.GetLastFinalizedBlockHash(&bind.CallOpts{Context: d.ctx})
+	if err != nil {
+		log.Debug("Failed to get RealTimeInbox last finalized block hash", "error", err)
+		return
+	}
+
+	log.Info(
+		"📖 RealTime protocol status",
+		"lastFinalizedBlockHash", common.Hash(lastFinalizedBlockHash),
 	)
 }
 
@@ -525,6 +560,11 @@ func (d *Driver) cacheLookaheadLoop() {
 
 		lastSlot = currentSlot
 		seenBlockNumber = latestSeenBlockNumber
+
+		// Realtime fork has no whitelist contract — skip operator resolution.
+		if d.Fork == fork.RealTime {
+			return nil
+		}
 
 		currOp, err := d.rpc.GetPreconfWhiteListOperator(nil)
 		if err != nil {

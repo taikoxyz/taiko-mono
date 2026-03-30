@@ -1,5 +1,8 @@
 import { Address } from 'viem';
 import toast from 'react-hot-toast';
+import { surgeL1Chain } from '../lib/config';
+import { L1_NATIVE_SYMBOL } from '../lib/constants';
+import { WarningBannerWrapped } from './WarningBanner';
 
 interface FundWalletProps {
   isOpen: boolean;
@@ -7,9 +10,21 @@ interface FundWalletProps {
   smartWallet: Address;
   ethBalance: string;
   usdcBalance: string;
+  l2WalletExists?: boolean;
+  onCreateL2Wallet?: () => Promise<void>;
+  isCreatingL2Wallet?: boolean;
 }
 
-export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalance }: FundWalletProps) {
+export function FundWallet({
+  isOpen,
+  onClose,
+  smartWallet,
+  ethBalance,
+  usdcBalance,
+  l2WalletExists = false,
+  onCreateL2Wallet,
+  isCreatingL2Wallet = false,
+}: FundWalletProps) {
   if (!isOpen) return null;
 
   const copyAddress = () => {
@@ -18,8 +33,8 @@ export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalan
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-surge-card/90 backdrop-blur-xl border border-surge-border/50 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl hover-glow">
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+      <div className="bg-surge-card border border-surge-border/50 rounded-2xl p-6 w-full max-w-md mx-4 shadow-2xl hover-glow">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center">
             <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,12 +43,14 @@ export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalan
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">Fund Your Smart Wallet</h2>
-            <p className="text-sm text-gray-400">Add xDAI or USDC to start swapping</p>
+            <p className="text-sm text-gray-400">Add {L1_NATIVE_SYMBOL} or USDC to start swapping</p>
           </div>
         </div>
 
+        <WarningBannerWrapped />
+
         <p className="text-gray-400 text-sm mb-6">
-          Your smart wallet needs funds to execute swaps. Send xDAI or USDC to the address below.
+          Your smart wallet needs funds to execute swaps. Send {L1_NATIVE_SYMBOL} or USDC to the address below.
         </p>
 
         {/* Smart Wallet Address */}
@@ -57,9 +74,9 @@ export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalan
         {/* Current Balances */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div className="bg-surge-dark rounded-lg p-3">
-            <div className="text-xs text-gray-500 mb-1">xDAI Balance</div>
+            <div className="text-xs text-gray-500 mb-1">{L1_NATIVE_SYMBOL} Balance</div>
             <div className="text-lg font-semibold text-white">
-              {parseFloat(ethBalance).toFixed(4)} xDAI
+              {parseFloat(ethBalance).toFixed(4)} {L1_NATIVE_SYMBOL}
             </div>
           </div>
           <div className="bg-surge-dark rounded-lg p-3">
@@ -71,8 +88,30 @@ export function FundWallet({ isOpen, onClose, smartWallet, ethBalance, usdcBalan
         </div>
 
         <div className="text-xs text-gray-500 mb-4">
-          <strong>Note:</strong> Send funds on Gnosis (Chain ID: 100)
+          <strong>Note:</strong> Send funds on {surgeL1Chain.name} (Chain ID: {surgeL1Chain.id})
         </div>
+
+        {/* L2 Safe status / creation */}
+        {!l2WalletExists && onCreateL2Wallet && (
+          <div className="mb-4">
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 text-xs text-yellow-400 mb-3">
+              Your Safe wallet does not yet exist on L2. Create it via the bridge to enable L2 DEX operations.
+            </div>
+            <button
+              onClick={onCreateL2Wallet}
+              disabled={isCreatingL2Wallet}
+              className="w-full py-3 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
+            >
+              {isCreatingL2Wallet ? 'Creating L2 Wallet...' : 'Create L2 Wallet'}
+            </button>
+          </div>
+        )}
+
+        {l2WalletExists && (
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 text-xs text-green-400 mb-4">
+            L2 Safe wallet is active at the same address.
+          </div>
+        )}
 
         <button
           onClick={onClose}

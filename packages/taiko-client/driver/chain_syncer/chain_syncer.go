@@ -48,12 +48,13 @@ func New(
 	p2pSyncTimeout time.Duration,
 	blobServerEndpoint *url.URL,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
+	fork string,
 ) (*L2ChainSyncer, error) {
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
 
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
-	eventSyncer, err := event.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint, latestSeenProposalCh)
+	eventSyncer, err := event.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint, latestSeenProposalCh, fork)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event syncer: %w", err)
 	}

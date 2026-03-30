@@ -10,7 +10,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
-  background: linear-gradient(135deg, #0a1628 0%, #0d2137 25%, #0a1a2e 50%, #071822 75%, #050d14 100%);
+  background: linear-gradient(135deg, #06090e 0%, #080d14 30%, #06090e 60%, #050810 100%);
   background-attachment: fixed;
 }
 
@@ -28,7 +28,7 @@ body {
   transform: translateX(-50%);
   width: 100%;
   height: 600px;
-  background: radial-gradient(ellipse at center top, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.08) 35%, transparent 70%);
+  background: radial-gradient(ellipse at center top, rgba(16, 185, 129, 0.09) 0%, rgba(6, 182, 212, 0.05) 40%, transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -40,8 +40,8 @@ body {
   left: 0;
   width: 100%;
   height: 400px;
-  background: radial-gradient(ellipse at bottom left, rgba(6, 182, 212, 0.06) 0%, transparent 60%),
-              radial-gradient(ellipse at bottom right, rgba(16, 185, 129, 0.05) 0%, transparent 60%);
+  background: radial-gradient(ellipse at bottom left, rgba(6, 182, 212, 0.04) 0%, transparent 60%),
+              radial-gradient(ellipse at bottom right, rgba(16, 185, 129, 0.04) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
@@ -52,11 +52,11 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0a1628;
+  background: #06090e;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e4976;
+  background: #182030;
   border-radius: 4px;
 }
 
@@ -77,9 +77,9 @@ input[type='number'] {
 
 /* Glass effect for cards */
 .glass-card {
-  background: rgba(15, 40, 71, 0.6);
+  background: rgba(11, 18, 25, 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(30, 73, 118, 0.5);
+  border: 1px solid rgba(24, 32, 48, 0.6);
 }
 
 /* Hover glow effect for cards and modals */
@@ -111,4 +111,35 @@ input[type='number'] {
 
 .glow-button:hover::before {
   left: 100%;
+}
+
+/* Toast spinner animation */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Fade-up animation (used for overlay complete buttons) */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.4s ease-out;
+}
+
+/* Right panel slide-in animation */
+@keyframes panelSlideIn {
+  from { opacity: 0; transform: translateX(-32px) scale(0.96); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.animate-panel-in {
+  animation: panelSlideIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Pulse ring for active timeline node */
+@keyframes pulseRing {
+  0%   { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(1.55); opacity: 0; }
 }

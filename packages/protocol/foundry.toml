@@ -37,6 +37,7 @@ remappings = [
     # For Azure TDX
     "solady/utils/=node_modules/solady/src/utils/",
     "openzeppelin-contracts/contracts/=node_modules/@openzeppelin/contracts-v5/",
+    "@safe/=lib/safe-smart-account/contracts/",
 ]
 
 # Do not change the block_gas_limit value, TaikoL2.t.sol depends on it.
@@ -59,6 +60,7 @@ fs_permissions = [
 # 5574: Contract code size is xxx bytes and exceeds 24576 byte
 # 5740: Unreachable code
 ignored_error_codes = [2394, 3860, 5574, 5740]
+libs = ["node_modules", "lib"]
 
 [fmt]
 bracket_spacing = true
@@ -129,6 +131,22 @@ test = "test/shared"
 script = "script/shared"
 out = "out/shared"
 evm_version = "shanghai"
+remappings = [
+    "@safe/=lib/safe-smart-account/contracts/",
+    "forge-std/=node_modules/forge-std/",
+    "openzeppelin/=node_modules/@openzeppelin/",
+    "@openzeppelin=node_modules/@openzeppelin",
+    "@openzeppelin-upgrades/contracts/=node_modules/@openzeppelin/contracts-upgradeable/",
+    "@solady/=node_modules/solady/",
+    "solady/src/=node_modules/solady/src/",
+    "solady/utils/=node_modules/solady/src/utils/",
+    "@optimism/=node_modules/optimism/",
+    "openzeppelin-contracts/contracts/=node_modules/@openzeppelin/contracts-v5/",
+    "ds-test/=node_modules/ds-test/",
+    "src/=contracts/",
+    "test/=test/",
+    "script/=script/",
+]
 
 [profile.genesis]
 src = "contracts/layer2"

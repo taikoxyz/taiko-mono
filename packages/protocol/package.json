@@ -61,7 +61,7 @@
     "risc0-ethereum": "github:risc0/risc0-ethereum#v3.0.0",
     "solady": "github:Vectorized/solady#v0.1.24",
     "urc": "github:eth-fabric/urc#main",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v6.0.0",
     "azure-tdx-verifier": "github:Hyodar/azure-tdx-verifier#master"
   }
 }

@@ -3,21 +3,25 @@
 # This script deploys the Cross-Chain DEX L1 contracts (vault-based).
 set -e
 
-# Private key for deployment
-export PRIVATE_KEY=${PRIVATE_KEY:-"0x94eb3102993b41ec55c241060f47daa0f6372e2e3ad7e91612ae36c364042e44"}
+# Foundry keystore account for deployment
+export ACCOUNT=${ACCOUNT:-"surge_gnosis_deployer"}
+export PASSWORD_FILE=${PASSWORD_FILE:-"/tmp/.keystore-pw"}
 
 # Network configuration
-export L1_RPC=${L1_RPC:-"http://178.79.140.153:32003"}
-export L2_RPC=${L2_RPC:-"http://178.79.140.153:8547"}
+export L1_RPC=${L1_RPC:-"https://billowing-lingering-vineyard.xdai.quiknode.pro/2392c42ed17769448758d0139b99996a806bb17e"}
+export L2_RPC=${L2_RPC:-"http://45.33.84.128:8547"}
 
 # Bridge addresses
-export L1_BRIDGE=${L1_BRIDGE:-"0xC935D1c64591Aa954F34eB49Ea6175D06A8F21Eb"}
+export L1_BRIDGE=${L1_BRIDGE:-"0xc1e59A201cE4CD58590FC3Ab45081921cF186550"}
 
 # Existing token address (set to use an existing ERC20 like real USDC instead of deploying)
 # If not set, a new SwapToken will be deployed
 export SWAP_TOKEN=${SWAP_TOKEN:-""}
 
-# Initial token supply (1 million tokens with 18 decimals)
+# Token decimals (default 18; set to 6 for real USDC)
+export TOKEN_DECIMALS=${TOKEN_DECIMALS:-"18"}
+
+# Initial token supply (1 million tokens — raw units, must account for decimals)
 # Only used when deploying a new token (SWAP_TOKEN is not set)
 export INITIAL_TOKEN_SUPPLY=${INITIAL_TOKEN_SUPPLY:-"1000000000000000000000000"}
 
@@ -29,6 +33,10 @@ export L2_CHAIN_ID
 
 echo "L1 Chain ID: $L1_CHAIN_ID"
 echo "L2 Chain ID: $L2_CHAIN_ID"
+
+# Resolve account address for --sender
+SENDER=$(cast wallet address --account "$ACCOUNT" --password-file "$PASSWORD_FILE")
+echo "Deployer: $SENDER"
 echo ""
 
 # Broadcast transactions
@@ -70,4 +78,6 @@ forge script ./script/layer1/surge/cross-chain-dex/DeployCrossChainDexL1.s.sol:D
     --fork-url $L1_RPC \
     $BROADCAST_ARG \
     $LOG_LEVEL \
-    --private-key $PRIVATE_KEY
+    --account $ACCOUNT \
+    --password-file $PASSWORD_FILE \
+    --sender $SENDER

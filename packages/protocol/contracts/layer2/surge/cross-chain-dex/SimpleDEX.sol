@@ -40,11 +40,18 @@ contract SimpleDEX {
     /// @notice Token reserve in the pool
     uint256 public reserveToken;
 
+    /// @notice Total liquidity shares outstanding
+    uint256 public totalShares;
+
+    /// @notice Liquidity shares per provider address
+    mapping(address provider => uint256 shares) public liquiditySharesOf;
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
-    event LiquidityAdded(address indexed provider, uint256 ethAmount, uint256 tokenAmount);
+    event LiquidityAdded(address indexed provider, uint256 ethAmount, uint256 tokenAmount, uint256 shares);
+    event LiquidityRemoved(address indexed provider, uint256 ethAmount, uint256 tokenAmount, uint256 shares);
     event LiquidityProviderSet(address indexed provider);
     event SwapETHForToken(address indexed user, uint256 ethIn, uint256 tokenOut);
     event SwapTokenForETH(address indexed user, uint256 tokenIn, uint256 ethOut);
@@ -57,6 +64,7 @@ contract SimpleDEX {
     error INSUFFICIENT_OUTPUT();
     error INSUFFICIENT_LIQUIDITY();
     error ZERO_AMOUNT();
+    error NO_LIQUIDITY();
     error ETH_TRANSFER_FAILED();
 
     // ---------------------------------------------------------------
@@ -80,18 +88,72 @@ contract SimpleDEX {
         emit LiquidityProviderSet(_provider);
     }
 
-    /// @notice Adds liquidity to the pool
+    /// @notice Adds liquidity to the pool and attributes shares to _provider
     /// @param _tokenAmount Amount of tokens to add
-    function addLiquidity(uint256 _tokenAmount) external payable {
+    /// @param _provider Address to credit liquidity shares to
+    function addLiquidity(uint256 _tokenAmount, address _provider) external payable {
         if (msg.sender != admin && msg.sender != liquidityProvider) revert ONLY_ADMIN();
         if (msg.value == 0 || _tokenAmount == 0) revert ZERO_AMOUNT();
 
         token.safeTransferFrom(msg.sender, address(this), _tokenAmount);
 
+        uint256 shares;
+        if (totalShares == 0) {
+            shares = msg.value;
+        } else {
+            shares = (msg.value * totalShares) / reserveETH;
+        }
+
+        liquiditySharesOf[_provider] += shares;
+        totalShares += shares;
+
         reserveETH += msg.value;
         reserveToken += _tokenAmount;
 
-        emit LiquidityAdded(msg.sender, msg.value, _tokenAmount);
+        emit LiquidityAdded(_provider, msg.value, _tokenAmount, shares);
+    }
+
+    /// @notice Removes all liquidity for _provider, sends ETH and tokens to msg.sender
+    /// @param _provider Address whose liquidity to remove
+    /// @return ethAmount_ ETH returned
+    /// @return tokenAmount_ Tokens returned
+    function removeLiquidity(address _provider)
+        external
+        returns (uint256 ethAmount_, uint256 tokenAmount_)
+    {
+        if (msg.sender != admin && msg.sender != liquidityProvider) revert ONLY_ADMIN();
+
+        uint256 shares = liquiditySharesOf[_provider];
+        if (shares == 0) revert NO_LIQUIDITY();
+
+        ethAmount_ = (shares * reserveETH) / totalShares;
+        tokenAmount_ = (shares * reserveToken) / totalShares;
+
+        liquiditySharesOf[_provider] = 0;
+        totalShares -= shares;
+        reserveETH -= ethAmount_;
+        reserveToken -= tokenAmount_;
+
+        (bool success,) = msg.sender.call{ value: ethAmount_ }("");
+        if (!success) revert ETH_TRANSFER_FAILED();
+        token.safeTransfer(msg.sender, tokenAmount_);
+
+        emit LiquidityRemoved(_provider, ethAmount_, tokenAmount_, shares);
+    }
+
+    /// @notice Returns the current liquidity position for a provider
+    /// @param _provider Address to query
+    /// @return ethAmount_ ETH value of position
+    /// @return tokenAmount_ Token value of position
+    function getLiquidity(address _provider)
+        external
+        view
+        returns (uint256 ethAmount_, uint256 tokenAmount_)
+    {
+        uint256 shares = liquiditySharesOf[_provider];
+        if (shares == 0 || totalShares == 0) return (0, 0);
+        ethAmount_ = (shares * reserveETH) / totalShares;
+        tokenAmount_ = (shares * reserveToken) / totalShares;
     }
 
     /// @notice Swaps ETH for tokens

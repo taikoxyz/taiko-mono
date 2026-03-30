@@ -29,7 +29,7 @@ func (s *PreconfBlockAPIServerTestSuite) SetupTest() {
 		nil,
 		common.Address{},
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		nil,
+		"pacaya",
 		nil,
 		s.RPCClient,
 		nil,
