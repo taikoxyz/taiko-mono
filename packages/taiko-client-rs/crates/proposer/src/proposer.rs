@@ -267,7 +267,7 @@ impl Proposer {
             Some(
                 self.rpc_provider
                     .l2_provider
-                    .get_block_by_number(BlockNumberOrTag::Number(grandparent_number))
+                    .get_block_by_hash(parent.header.parent_hash)
                     .await?
                     .ok_or(ProposerError::ParentBlockNotFound(grandparent_number))?,
             )
@@ -588,15 +588,10 @@ fn is_operational_submission_error(err: &ProposerError) -> bool {
 mod tests {
     use alethia_reth_consensus::eip4396::calculate_next_block_eip4396_base_fee;
     use alloy::{
-        consensus::{
-            Eip658Value, Header as ConsensusHeader, Receipt, ReceiptEnvelope, ReceiptWithBloom,
-        },
-        primitives::{Address, B256, Bloom, Bytes, U256},
+        consensus::Header as ConsensusHeader,
+        primitives::{B256, Bytes, U256},
     };
-    use alloy_rpc_types::{
-        TransactionReceipt,
-        eth::{Block as RpcBlock, Header as RpcHeader},
-    };
+    use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use base_tx_manager::TxManagerError;
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
 
@@ -695,6 +690,7 @@ mod tests {
                 hash: B256::repeat_byte(0x22),
                 inner: ConsensusHeader {
                     number: 2,
+                    parent_hash: grandparent.header.hash,
                     timestamp: 112,
                     gas_limit: 45_000_000,
                     base_fee_per_gas: Some(2_000_000_000),
@@ -723,6 +719,7 @@ mod tests {
             expected
         );
     }
+
     fn counter_value(
         snapshotter: &metrics_util::debugging::Snapshotter,
         metric_name: &str,
