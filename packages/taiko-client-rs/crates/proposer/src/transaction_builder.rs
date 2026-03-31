@@ -39,6 +39,7 @@ impl ProposalBlobPayload {
     }
 
     /// Return the blobs that will be translated into the tx-manager candidate payload.
+    #[cfg(test)]
     pub(crate) fn blobs(&self) -> &[Blob] {
         &self.sidecar.blobs
     }
@@ -77,26 +78,6 @@ impl BuiltProposalTx {
     /// Create a new proposer-owned built transaction.
     pub(crate) fn new(to: Address, call_data: Bytes, blob_payload: ProposalBlobPayload) -> Self {
         Self { to, call_data, gas_limit: None, blob_payload }
-    }
-
-    /// Return the inbox destination for this proposal transaction.
-    pub fn to(&self) -> Address {
-        self.to
-    }
-
-    /// Return the ABI-encoded calldata for this proposal transaction.
-    pub fn call_data(&self) -> &Bytes {
-        &self.call_data
-    }
-
-    /// Return the optional gas-limit override that should be applied on submission.
-    pub fn gas_limit(&self) -> Option<u64> {
-        self.gas_limit
-    }
-
-    /// Return the number of blobs carried by this proposal transaction.
-    pub fn blob_count(&self) -> usize {
-        self.blob_payload.blobs().len()
     }
 
     /// Return the blob sidecar variant needed by integration tests and beacon stubs.

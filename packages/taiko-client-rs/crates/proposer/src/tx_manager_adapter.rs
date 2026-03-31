@@ -149,14 +149,14 @@ mod tests {
 
     #[test]
     fn proposal_candidate_carries_call_data_to_inbox_destination() {
+        let expected_to = Address::repeat_byte(0x11);
+        let expected_data = Bytes::from_static(b"inbox-propose-call");
         let built = BuiltProposalTx::new(
-            Address::repeat_byte(0x11),
-            Bytes::from_static(b"inbox-propose-call"),
+            expected_to,
+            expected_data.clone(),
             ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO]),
         )
         .with_gas_limit(210_000);
-        let expected_to = built.to();
-        let expected_data = built.call_data().clone();
 
         let candidate = proposal_candidate(built);
 
@@ -352,9 +352,9 @@ mod tests {
             .clone()
             .expect("adapter should send one tx candidate");
 
-        assert_eq!(candidate.to, Some(proposal.to()));
-        assert_eq!(candidate.tx_data, proposal.call_data().clone());
-        assert_eq!(candidate.gas_limit, proposal.gas_limit().expect("sample has a gas limit"));
+        assert_eq!(candidate.to, Some(Address::repeat_byte(0x33)));
+        assert_eq!(candidate.tx_data, Bytes::from_static(b"propose-call"));
+        assert_eq!(candidate.gas_limit, 210_000);
         assert_eq!(candidate.value, alloy::primitives::U256::ZERO);
         assert_eq!(candidate.blobs.as_ref(), proposal.blob_payload().blobs());
     }
