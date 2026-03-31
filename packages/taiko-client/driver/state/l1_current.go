@@ -119,21 +119,47 @@ func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacay
 	if err != nil {
 		return nil, fmt.Errorf("failed to get protocol state variables: %w", err)
 	}
+	return findBatchForBlockIDByCount(
+		blockID,
+		stateVars.Stats2.NumBatches,
+		func(batchID uint64) (*pacayaBindings.ITaikoInboxBatch, error) {
+			batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(batchID))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get batch by ID %d: %w", batchID, err)
+			}
 
-	var (
-		lastBatchID = stateVars.Stats2.NumBatches - 1
-		lastBatch   *pacayaBindings.ITaikoInboxBatch
+			return batch, nil
+		},
 	)
-	batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get batch by ID %d: %w", lastBatchID, err)
-	}
-	lastBatch = batch
+}
 
-	for {
-		batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID-1))
+func findBatchForBlockIDByCount(
+	blockID uint64,
+	numBatches uint64,
+	getBatchByID func(batchID uint64) (*pacayaBindings.ITaikoInboxBatch, error),
+) (*pacayaBindings.ITaikoInboxBatch, error) {
+	if numBatches == 0 {
+		return nil, errors.New("no batches found")
+	}
+
+	return findBatchForBlockIDFromLatest(blockID, numBatches-1, getBatchByID)
+}
+
+func findBatchForBlockIDFromLatest(
+	blockID uint64,
+	lastBatchID uint64,
+	getBatchByID func(batchID uint64) (*pacayaBindings.ITaikoInboxBatch, error),
+) (*pacayaBindings.ITaikoInboxBatch, error) {
+	lastBatch, err := getBatchByID(lastBatchID)
+	if err != nil {
+		return nil, err
+	}
+
+	for lastBatchID > 0 {
+		prevBatchID := lastBatchID - 1
+		batch, err := getBatchByID(prevBatchID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get batch by ID %d: %w", lastBatchID-1, err)
+			return nil, err
 		}
 
 		if batch.LastBlockId < blockID {
@@ -141,7 +167,8 @@ func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacay
 		}
 
 		lastBatch = batch
-		lastBatchID = batch.BatchId
-		continue
+		lastBatchID = prevBatchID
 	}
+
+	return lastBatch, nil
 }
