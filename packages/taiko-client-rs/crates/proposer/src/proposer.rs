@@ -23,6 +23,7 @@ use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ForkchoiceState, PayloadAttributes as EthPayloadAttributes,
 };
+use base_tx_manager::TxManagerError;
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, calculate_shasta_difficulty,
@@ -158,8 +159,15 @@ impl Proposer {
             interval.tick().await;
             info!(epoch, "proposer epoch");
 
-            if matches!(self.fetch_and_propose().await?, ProposalSendOutcome::RetryExhausted) {
-                info!(epoch, "proposal retries exhausted; continuing proposer loop");
+            match self.fetch_and_propose().await {
+                Ok(ProposalSendOutcome::RetryExhausted) => {
+                    warn!(epoch, "proposal retries exhausted; continuing proposer loop");
+                }
+                Ok(ProposalSendOutcome::ConfirmedReceipt { .. }) => {}
+                Err(err) if is_operational_submission_error(&err) => {
+                    warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
+                }
+                Err(err) => return Err(err),
             }
 
             epoch += 1;
@@ -581,6 +589,21 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
         .ok_or(ProposerError::InvalidExtraData)
 }
 
+/// Return `true` when a surfaced proposer error should be logged and retried on the next epoch.
+fn is_operational_submission_error(err: &ProposerError) -> bool {
+    matches!(
+        err,
+        ProposerError::TxManager(tx_err)
+            if !matches!(
+                tx_err,
+                TxManagerError::InvalidConfig(_)
+                    | TxManagerError::InvalidSafeAbortNonceTooLowCount
+                    | TxManagerError::Sign(_)
+                    | TxManagerError::Unsupported(_)
+            )
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use alethia_reth_consensus::eip4396::calculate_next_block_eip4396_base_fee;
@@ -594,16 +617,17 @@ mod tests {
         TransactionReceipt,
         eth::{Block as RpcBlock, Header as RpcHeader},
     };
+    use base_tx_manager::TxManagerError;
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
 
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
         ProposalSendOutcome, calculate_next_shasta_block_base_fee_from_parent,
-        current_unix_timestamp, next_shasta_proposal_id, record_submission_attempt,
-        record_submission_outcome,
+        current_unix_timestamp, is_operational_submission_error, next_shasta_proposal_id,
+        record_submission_attempt, record_submission_outcome,
     };
-    use crate::metrics::ProposerMetrics;
+    use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::encode_extra_data;
 
     #[test]
@@ -647,6 +671,29 @@ mod tests {
         });
 
         assert_eq!(counter_value(&snapshotter, ProposerMetrics::PROPOSALS_SENT), Some(1));
+    }
+
+    #[test]
+    fn tx_manager_operational_errors_keep_the_proposer_loop_running() {
+        assert!(is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Rpc(
+            "provider timed out".into(),
+        ))));
+        assert!(is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::NonceTooLow,
+        )));
+        assert!(is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
+        )));
+    }
+
+    #[test]
+    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Sign(
+            "wallet rejected signing".into(),
+        ))));
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::InvalidConfig("bad fee limit".into()),
+        )));
     }
 
     #[test]
