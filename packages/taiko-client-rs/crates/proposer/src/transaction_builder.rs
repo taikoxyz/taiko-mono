@@ -47,6 +47,17 @@ impl ProposalBlobPayload {
     pub(crate) fn into_blobs(self) -> Vec<Blob> {
         self.sidecar.blobs
     }
+
+    #[cfg(test)]
+    pub(crate) fn from_test_blobs(blobs: Vec<Blob>) -> Self {
+        Self::new(
+            BlobTransactionSidecar::try_from_blobs_with_settings(
+                blobs,
+                alloy::eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
+            )
+            .expect("test blobs should produce a blob sidecar"),
+        )
+    }
 }
 
 /// A proposer-owned proposal transaction prepared for adapter-backed submission.
@@ -256,8 +267,8 @@ mod tests {
         ShastaProposalTransactionBuilder, engine_manifest_gas_limit, non_engine_manifest_gas_limit,
     };
     use alloy::{
-        consensus::{BlobTransactionSidecar, Header as ConsensusHeader, TxEnvelope},
-        eips::eip4844::{Blob, env_settings::EnvKzgSettings},
+        consensus::{Header as ConsensusHeader, TxEnvelope},
+        eips::eip4844::Blob,
         network::TransactionBuilder4844,
         primitives::{Address, Bytes},
         rpc::{
@@ -293,25 +304,12 @@ mod tests {
         }
     }
 
-    impl ProposalBlobPayload {
-        /// Build a blob payload from raw blobs for unit tests.
-        fn from_blobs(blobs: Vec<Blob>) -> Self {
-            Self {
-                sidecar: BlobTransactionSidecar::try_from_blobs_with_settings(
-                    blobs,
-                    EnvKzgSettings::Default.get(),
-                )
-                .expect("test blobs should produce a blob sidecar"),
-            }
-        }
-    }
-
     #[test]
     fn built_proposal_tx_exposes_blob_sidecar_and_transaction_request() {
         let built = BuiltProposalTx::new(
             Address::repeat_byte(0x44),
             Bytes::from_static(b"blobbed-proposal"),
-            ProposalBlobPayload::from_blobs(vec![Blob::ZERO]),
+            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO]),
         )
         .with_gas_limit(210_000);
 

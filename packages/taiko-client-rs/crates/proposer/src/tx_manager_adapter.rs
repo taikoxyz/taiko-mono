@@ -147,23 +147,12 @@ mod tests {
             .expect("existing root provider should be reusable");
     }
 
-    /// Build a test blob payload without exposing production-side constructors.
-    fn proposal_blob_payload_from_blobs(blobs: Vec<Blob>) -> ProposalBlobPayload {
-        ProposalBlobPayload::new(
-            alloy::consensus::BlobTransactionSidecar::try_from_blobs_with_settings(
-                blobs,
-                alloy::eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
-            )
-            .expect("test blobs should produce a blob sidecar"),
-        )
-    }
-
     #[test]
     fn proposal_candidate_carries_call_data_to_inbox_destination() {
         let built = BuiltProposalTx::new(
             Address::repeat_byte(0x11),
             Bytes::from_static(b"inbox-propose-call"),
-            proposal_blob_payload_from_blobs(vec![Blob::ZERO]),
+            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO]),
         )
         .with_gas_limit(210_000);
         let expected_to = built.to();
@@ -179,7 +168,7 @@ mod tests {
     #[test]
     fn proposal_candidate_preserves_blob_payload() {
         let blob_payload =
-            proposal_blob_payload_from_blobs(vec![Blob::ZERO, Blob::repeat_byte(0x22)]);
+            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO, Blob::repeat_byte(0x22)]);
         let built = BuiltProposalTx::new(
             Address::repeat_byte(0x22),
             Bytes::from_static(b"blobbed-proposal"),
@@ -399,7 +388,7 @@ mod tests {
         BuiltProposalTx::new(
             Address::repeat_byte(0x33),
             Bytes::from_static(b"propose-call"),
-            proposal_blob_payload_from_blobs(vec![Blob::ZERO]),
+            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO]),
         )
         .with_gas_limit(210_000)
     }
