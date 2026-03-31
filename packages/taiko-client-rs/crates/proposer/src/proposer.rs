@@ -573,14 +573,11 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
 fn is_operational_submission_error(err: &ProposerError) -> bool {
     matches!(
         err,
-        ProposerError::TxManager(tx_err)
-            if !matches!(
-                tx_err,
-                TxManagerError::InvalidConfig(_)
-                    | TxManagerError::InvalidSafeAbortNonceTooLowCount
-                    | TxManagerError::Sign(_)
-                    | TxManagerError::Unsupported(_)
-            )
+        ProposerError::TxManager(
+            TxManagerError::Rpc(_) |
+                TxManagerError::SendTimeout |
+                TxManagerError::MempoolDeadlineExpired
+        )
     )
 }
 
@@ -632,15 +629,21 @@ mod tests {
             "provider timed out".into(),
         ))));
         assert!(is_operational_submission_error(&ProposerError::TxManager(
-            TxManagerError::NonceTooLow,
+            TxManagerError::SendTimeout,
         )));
         assert!(is_operational_submission_error(&ProposerError::TxManager(
-            TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
+            TxManagerError::MempoolDeadlineExpired,
         )));
     }
 
     #[test]
     fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::NonceTooLow,
+        )));
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
+        )));
         assert!(!is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Sign(
             "wallet rejected signing".into(),
         ))));
