@@ -61,20 +61,6 @@ pub struct EngineBuildContext {
     pub gas_limit: u64,
 }
 
-/// Outcome returned by the proposer after one submission attempt.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProposalSendOutcome {
-    /// The proposal reached a confirmed receipt through the tx-manager.
-    ///
-    /// Callers must inspect `receipt.status()` to distinguish success from an on-chain revert.
-    ConfirmedReceipt {
-        /// Confirmed receipt returned by the tx-manager-backed submission path.
-        receipt: Box<TransactionReceipt>,
-    },
-    /// The tx-manager exhausted its bounded retry budget and the proposer loop should continue.
-    RetryExhausted,
-}
-
 /// Proposer loop that builds and submits Shasta proposals at a fixed interval.
 pub struct Proposer {
     /// RPC client bundle with signing wallet for L1 submission.
@@ -160,11 +146,16 @@ impl Proposer {
             info!(epoch, "proposer epoch");
 
             match self.fetch_and_propose().await {
-                Ok(ProposalSendOutcome::RetryExhausted) => {
-                    warn!(epoch, "proposal retries exhausted; continuing proposer loop");
+                Ok(receipt) => {
+                    info!(
+                        epoch,
+                        tx_hash = %receipt.transaction_hash,
+                        execution_succeeded = receipt.status(),
+                        "proposal attempt completed"
+                    );
                 }
-                Ok(ProposalSendOutcome::ConfirmedReceipt { .. }) => {}
                 Err(err) if is_operational_submission_error(&err) => {
+                    counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
                     warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
                 }
                 Err(err) => return Err(err),
@@ -176,7 +167,7 @@ impl Proposer {
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
     /// Fetch transactions and submit a proposal once.
-    pub async fn fetch_and_propose(&self) -> Result<ProposalSendOutcome> {
+    pub async fn fetch_and_propose(&self) -> Result<TransactionReceipt> {
         // Fetch transactions based on mode.
         // Engine mode also returns the parameters used for the anchor transaction.
         let (pool_content, engine_params) = if self.cfg.use_engine_mode {
@@ -205,7 +196,7 @@ impl Proposer {
         }
 
         record_submission_attempt();
-        Ok(record_submission_outcome(self.tx_manager.send_proposal(proposal_tx).await?))
+        Ok(record_submission_receipt(self.tx_manager.send_proposal(proposal_tx).await?))
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
@@ -534,35 +525,24 @@ fn calculate_next_shasta_block_base_fee_from_parent(
     )))
 }
 
-/// Record metrics and logs for a proposer submission outcome.
-fn record_submission_outcome(outcome: ProposalSendOutcome) -> ProposalSendOutcome {
-    match &outcome {
-        ProposalSendOutcome::ConfirmedReceipt { receipt } => {
-            if receipt.status() {
-                info!(
-                    tx_hash = %receipt.transaction_hash,
-                    gas_used = receipt.gas_used,
-                    "proposal transaction mined successfully"
-                );
-                counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
+/// Record metrics and logs for a proposer submission receipt.
+fn record_submission_receipt(receipt: TransactionReceipt) -> TransactionReceipt {
+    if receipt.status() {
+        info!(
+            tx_hash = %receipt.transaction_hash,
+            gas_used = receipt.gas_used,
+            "proposal transaction mined successfully"
+        );
+        counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
 
-                // Record gas used once the confirmed receipt shows successful execution.
-                histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
-            } else {
-                error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
-                counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
-            }
-        }
-        ProposalSendOutcome::RetryExhausted => {
-            // `base-tx-manager` can exhaust retries before any publish succeeds
-            // (for example on repeated pre-publish RPC failures), so this
-            // outcome does not prove the proposal ever reached L1.
-            warn!("proposal transaction retries exhausted before confirmation");
-            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
-        }
+        // Record gas used once the confirmed receipt shows successful execution.
+        histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
+    } else {
+        error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
+        counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
     }
 
-    outcome
+    receipt
 }
 
 /// Record that the proposer started an L1 submission attempt for a built proposal.
@@ -623,9 +603,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use super::{
-        ProposalSendOutcome, calculate_next_shasta_block_base_fee_from_parent,
-        current_unix_timestamp, is_operational_submission_error, next_shasta_proposal_id,
-        record_submission_attempt, record_submission_outcome,
+        calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
+        is_operational_submission_error, next_shasta_proposal_id, record_submission_attempt,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::encode_extra_data;
@@ -638,27 +617,6 @@ mod tests {
 
         assert!(timestamp >= before);
         assert!(timestamp <= after);
-    }
-
-    #[test]
-    fn retry_exhausted_submission_outcome_stays_non_fatal() {
-        assert_eq!(
-            record_submission_outcome(ProposalSendOutcome::RetryExhausted),
-            ProposalSendOutcome::RetryExhausted
-        );
-    }
-
-    #[test]
-    fn confirmed_receipt_submission_outcome_preserves_receipt_status() {
-        let receipt = receipt_with_status(false, B256::repeat_byte(0x44));
-        let outcome = record_submission_outcome(ProposalSendOutcome::ConfirmedReceipt {
-            receipt: Box::new(receipt),
-        });
-
-        assert!(matches!(
-            outcome,
-            ProposalSendOutcome::ConfirmedReceipt { receipt } if !receipt.status()
-        ));
     }
 
     #[test]
@@ -765,34 +723,6 @@ mod tests {
             expected
         );
     }
-
-    /// Build a minimal receipt with the requested execution status.
-    fn receipt_with_status(success: bool, tx_hash: B256) -> TransactionReceipt {
-        let inner = ReceiptEnvelope::Legacy(ReceiptWithBloom {
-            receipt: Receipt {
-                status: Eip658Value::Eip658(success),
-                cumulative_gas_used: 21_000,
-                logs: vec![],
-            },
-            logs_bloom: Bloom::ZERO,
-        });
-
-        TransactionReceipt {
-            inner,
-            transaction_hash: tx_hash,
-            transaction_index: Some(0),
-            block_hash: Some(B256::ZERO),
-            block_number: Some(1),
-            gas_used: 21_000,
-            effective_gas_price: 1_000_000_000,
-            blob_gas_used: None,
-            blob_gas_price: None,
-            from: Address::ZERO,
-            to: Some(Address::ZERO),
-            contract_address: None,
-        }
-    }
-
     fn counter_value(
         snapshotter: &metrics_util::debugging::Snapshotter,
         metric_name: &str,

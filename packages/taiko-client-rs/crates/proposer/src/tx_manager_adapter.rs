@@ -16,7 +16,6 @@ use tokio::time::timeout;
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
-    proposer::ProposalSendOutcome,
     transaction_builder::BuiltProposalTx,
 };
 
@@ -71,13 +70,13 @@ impl ProposalTxManager<SimpleTxManager> {
 }
 
 impl<M: TxManager> ProposalTxManager<M> {
-    /// Send a proposer-owned built transaction through the tx-manager and classify its outcome.
+    /// Send a proposer-owned built transaction through the tx-manager.
     pub(crate) async fn send_proposal(
         &self,
         proposal: BuiltProposalTx,
-    ) -> Result<ProposalSendOutcome> {
+    ) -> Result<TransactionReceipt> {
         let candidate = proposal_candidate(proposal);
-        classify_send_result(self.tx_manager.send(candidate).await)
+        self.tx_manager.send(candidate).await.map_err(Into::into)
     }
 }
 
@@ -95,23 +94,6 @@ fn proposal_candidate(built_tx: BuiltProposalTx) -> TxCandidate {
         gas_limit: gas_limit.unwrap_or_default(),
         value: U256::ZERO,
     }
-}
-
-/// Classify the tx-manager send result into proposer-level outcomes or errors.
-fn classify_send_result(
-    result: base_tx_manager::TxManagerResult<TransactionReceipt>,
-) -> Result<ProposalSendOutcome> {
-    match result {
-        Ok(receipt) => Ok(ProposalSendOutcome::ConfirmedReceipt { receipt: Box::new(receipt) }),
-        Err(err) if is_retry_exhausted(&err) => Ok(ProposalSendOutcome::RetryExhausted),
-        Err(err) => Err(err.into()),
-    }
-}
-
-/// Return `true` when the tx-manager exhausted a bounded retry path and the outer proposer loop
-/// should continue.
-fn is_retry_exhausted(err: &TxManagerError) -> bool {
-    matches!(err, TxManagerError::SendTimeout | TxManagerError::MempoolDeadlineExpired)
 }
 
 #[cfg(test)]
@@ -136,7 +118,6 @@ mod tests {
     use crate::{
         config::ProposerConfigs,
         error::ProposerError,
-        proposer::ProposalSendOutcome,
         transaction_builder::{BuiltProposalTx, ProposalBlobPayload},
     };
 
@@ -281,35 +262,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn tx_manager_timeout_maps_to_retry_exhausted() {
+    async fn tx_manager_timeout_surfaces_to_proposer_error() {
         let adapter = ProposalTxManager::from_tx_manager_for_tests(MockTxManager::new(Err(
             TxManagerError::SendTimeout,
         )));
 
-        let outcome = adapter
+        let err = adapter
             .send_proposal(sample_built_proposal())
             .await
-            .expect("send timeout should stay on the proposer retry path");
+            .expect_err("send timeout should surface to the outer proposer loop");
 
-        assert_eq!(outcome, ProposalSendOutcome::RetryExhausted);
+        assert!(matches!(err, ProposerError::TxManager(TxManagerError::SendTimeout)));
     }
 
     #[tokio::test]
-    async fn tx_manager_mempool_deadline_maps_to_retry_exhausted() {
+    async fn tx_manager_mempool_deadline_surfaces_to_proposer_error() {
         let adapter = ProposalTxManager::from_tx_manager_for_tests(MockTxManager::new(Err(
             TxManagerError::MempoolDeadlineExpired,
         )));
 
-        let outcome = adapter
+        let err = adapter
             .send_proposal(sample_built_proposal())
             .await
-            .expect("bounded retry exhaustion should stay on the proposer retry path");
+            .expect_err("bounded retry exhaustion should surface to the outer proposer loop");
 
-        assert_eq!(outcome, ProposalSendOutcome::RetryExhausted);
+        assert!(matches!(err, ProposerError::TxManager(TxManagerError::MempoolDeadlineExpired)));
     }
 
     #[tokio::test]
-    async fn tx_manager_successful_send_maps_to_confirmed_receipt_outcome() {
+    async fn tx_manager_successful_send_returns_receipt() {
         let receipt = receipt_with_status(true, B256::repeat_byte(0x77));
         let adapter =
             ProposalTxManager::from_tx_manager_for_tests(MockTxManager::new(Ok(receipt.clone())));
@@ -317,13 +298,13 @@ mod tests {
         let outcome = adapter
             .send_proposal(sample_built_proposal())
             .await
-            .expect("mined proposal should return a proposer success outcome");
+            .expect("mined proposal should return its receipt");
 
-        assert_eq!(outcome, ProposalSendOutcome::ConfirmedReceipt { receipt: Box::new(receipt) });
+        assert_eq!(outcome, receipt);
     }
 
     #[tokio::test]
-    async fn tx_manager_confirmed_receipt_outcome_preserves_reverted_receipt_status() {
+    async fn tx_manager_receipt_preserves_reverted_receipt_status() {
         let receipt = receipt_with_status(false, B256::repeat_byte(0x55));
         let adapter =
             ProposalTxManager::from_tx_manager_for_tests(MockTxManager::new(Ok(receipt.clone())));
@@ -333,11 +314,8 @@ mod tests {
             .await
             .expect("confirmed reverted receipts should still be surfaced to the caller");
 
-        assert_eq!(
-            outcome,
-            ProposalSendOutcome::ConfirmedReceipt { receipt: Box::new(receipt.clone()) }
-        );
-        assert!(!receipt.inner.status(), "caller still needs to inspect receipt.status()");
+        assert_eq!(outcome, receipt);
+        assert!(!outcome.inner.status(), "caller still needs to inspect receipt.status()");
     }
 
     #[tokio::test]
@@ -349,7 +327,7 @@ mod tests {
         let err = adapter
             .send_proposal(sample_built_proposal())
             .await
-            .expect_err("retryable rpc errors should surface so callers can distinguish them");
+            .expect_err("retryable rpc errors should surface to the outer proposer loop");
 
         assert!(matches!(err, ProposerError::TxManager(TxManagerError::Rpc(_))));
     }
