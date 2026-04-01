@@ -25,7 +25,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -949,10 +948,7 @@ func InsertPreconfBlockFromEnvelope(
 		safeCheckpoint, err = tryLastFinalizedCheckpointShasta(
 			ctx,
 			nil,
-			func(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
-				opts.BlockHash = envelope.Payload.BlockHash
-				return cli.GetCoreStateShasta(opts)
-			},
+			cli.GetCoreStateShasta,
 			cli.L2Engine.LastBlockIDByBatchID,
 			cli.L2.HeaderByNumber,
 		)
