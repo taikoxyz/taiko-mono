@@ -428,6 +428,17 @@ func (s *Syncer) processPacayaBatch(
 		return nil
 	}
 
+	// Skip Pacaya batches whose timestamp is at or after the Shasta fork time.
+	if s.rpc.ShastaClients.ForkTime > 0 && timestamp >= s.rpc.ShastaClients.ForkTime {
+		log.Debug(
+			"Skip Pacaya batch after Shasta fork time",
+			"batchID", meta.Pacaya().GetBatchID(),
+			"timestamp", timestamp,
+			"shastaForkTime", s.rpc.ShastaClients.ForkTime,
+		)
+		return nil
+	}
+
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
