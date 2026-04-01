@@ -65,17 +65,13 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 		feeRecipient common.Address
 		wantErr      error
 	}{
-		// Inside CurrRanges, before handover point
-		{name: "curr allowed early slot", globalSlot: 10, feeRecipient: curr, wantErr: nil},
+		// Inside CurrRanges.
+		{name: "curr allowed in curr range", globalSlot: 10, feeRecipient: curr, wantErr: nil},
+		{name: "next rejected in curr range", globalSlot: 10, feeRecipient: next, wantErr: errInvalidCurrOperator},
 
-		// Inside CurrRanges, at handover threshold
-		{name: "next allowed at handover slot", globalSlot: 28, feeRecipient: next, wantErr: nil},
-
-		// Inside CurrRanges, after threshold
-		{name: "next allowed after handover", globalSlot: 30, feeRecipient: next, wantErr: nil},
-
-		// Inside NextRanges (next epoch)
-		{name: "next allowed next epoch", globalSlot: 33, feeRecipient: next, wantErr: nil},
+		// Inside NextRanges.
+		{name: "next allowed in next range", globalSlot: 33, feeRecipient: next, wantErr: nil},
+		{name: "curr rejected in next range", globalSlot: 33, feeRecipient: curr, wantErr: errInvalidNextOperator},
 
 		// Slot outside all ranges (invalid)
 		{

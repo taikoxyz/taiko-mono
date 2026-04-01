@@ -1079,14 +1079,20 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Addre
 	// Check if the fee recipient is the current operator.
 	for _, r := range s.lookahead.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
-			return nil
+			if feeRecipient == s.lookahead.CurrOperator {
+				return nil
+			}
+			return errInvalidCurrOperator
 		}
 	}
 
 	// Check if the fee recipient is the next operator.
 	for _, r := range s.lookahead.NextRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
-			return nil
+			if feeRecipient == s.lookahead.NextOperator {
+				return nil
+			}
+			return errInvalidNextOperator
 		}
 	}
 

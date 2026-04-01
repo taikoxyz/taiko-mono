@@ -200,7 +200,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"isForcedInclusion", isForcedInclusion,
 	)
 
-	// Check if the fee recipient the current operator or the next operator if its in handover window.
+	// Check if feeRecipient matches the operator allowed for the current lookahead slot window.
 	if s.rpc.L1Beacon != nil {
 		if err := s.CheckLookaheadHandover(reqBody.ExecutableData.FeeRecipient, s.rpc.L1Beacon.CurrentSlot()); err != nil {
 			return s.returnError(c, http.StatusBadRequest, err)
