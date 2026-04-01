@@ -944,6 +944,8 @@ func InsertPreconfBlockFromEnvelope(
 		safeCheckpoint *verifiedCheckpoint
 	)
 
+	// The checkpoint lookup must use the rpc.Client for this L1 environment.
+	// Passing a client from another L1 network would make the cached checkpoint invalid.
 	if envelope.Payload.Timestamp >= eth.Uint64Quantity(cli.ShastaClients.ForkTime) {
 		safeCheckpoint, err = getShastaCheckpoint(ctx, cli)
 		if err != nil {

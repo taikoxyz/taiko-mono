@@ -132,6 +132,9 @@ func getShastaCache() *checkpointCache {
 }
 
 // getPacayaCheckpoint returns the latest cached or freshly loaded Pacaya checkpoint.
+// The caller must pass the rpc.Client for the target L1 environment. In particular,
+// cli must not come from a different L1 network, because the cached checkpoint is only
+// valid for the chain context behind that client.
 func getPacayaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpoint, error) {
 	return getPacayaCache().getOrFetch(ctx, func(ctx context.Context) (*verifiedCheckpoint, error) {
 		lastVerifiedTS, err := cli.GetLastVerifiedTransitionPacaya(ctx)
@@ -147,6 +150,9 @@ func getPacayaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpo
 }
 
 // getShastaCheckpoint returns the latest cached or freshly loaded Shasta checkpoint.
+// The caller must pass the rpc.Client for the target L1 environment. In particular,
+// cli must not come from a different L1 network, because the cached checkpoint is only
+// valid for the chain context behind that client.
 func getShastaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpoint, error) {
 	return getShastaCache().getOrFetch(ctx, func(ctx context.Context) (*verifiedCheckpoint, error) {
 		return tryLastFinalizedCheckpointShasta(
