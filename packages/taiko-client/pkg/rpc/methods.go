@@ -27,8 +27,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
-	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	legacyBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
@@ -40,29 +39,17 @@ var (
 	defaultWaitTimeout = 3 * time.Minute
 )
 
-// GetProtocolConfigs gets the protocol configs from Pacaya TaikoInbox contract.
+// GetProtocolConfigs gets the protocol configs from the inbox contract.
 func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	configs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
+	configs, err := c.GetProtocolConfigsShasta(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	var shastaForkTime uint64
-	if c.ShastaClients != nil {
-		shastaForkTime = c.ShastaClients.ForkTime
-	}
-
-	return config.NewPacayaProtocolConfigs(&configs, shastaForkTime), nil
+	return config.NewShastaProtocolConfigs(configs), nil
 }
 
-// GetProtocolConfigsShasta gets the protocol configs from Shasta Inbox contract.
+// GetProtocolConfigsShasta gets the protocol configs from the inbox contract.
 func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -79,141 +66,7 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 	return &configs, nil
 }
 
-// ensureGenesisMatched fetches the L2 genesis block from Pacaya TaikoInbox contract,
-// and checks whether the fetched genesis is same to the node local genesis.
-func (c *Client) ensureGenesisMatched(
-	ctx context.Context,
-	pacayaInbox common.Address,
-) error {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return err
-	}
-
-	genesisHeight := stateVars.Stats1.GenesisHeight
-
-	// Fetch the node's genesis block.
-	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
-	if err != nil {
-		return err
-	}
-
-	log.Info("Genesis height", "height", genesisHeight, "nodeGenesisHash", nodeGenesis.Hash())
-
-	var (
-		l2GenesisHash common.Hash
-		filterOpts    = &bind.FilterOpts{Start: genesisHeight, End: &genesisHeight, Context: ctxWithTimeout}
-	)
-
-	protocolConfigs, err := c.GetProtocolConfigs(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return err
-	}
-
-	// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
-	if protocolConfigs.ForkHeightsPacaya() == 0 {
-		// Fetch the genesis `BatchesVerified` event.
-		log.Info("Filtering batchesVerified events from Pacaya TaikoInbox contract")
-		iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
-		if err != nil {
-			return err
-		}
-		defer iter.Close()
-		if iter.Next() {
-			l2GenesisHash = iter.Event.BlockHash
-		}
-		if iter.Error() != nil {
-			return iter.Error()
-		}
-	} else if protocolConfigs.ForkHeightsOntake() == 0 {
-		log.Info("Filtering blockVerifiedV2 events from Pacaya TaikoInbox contract")
-		if l2GenesisHash, err = c.filterGenesisBlockVerifiedV2(ctx, filterOpts, pacayaInbox); err != nil {
-			return err
-		}
-	} else {
-		log.Info("Filtering blockVerified events from Pacaya TaikoInbox contract")
-		if l2GenesisHash, err = c.filterGenesisBlockVerified(ctx, filterOpts, pacayaInbox); err != nil {
-			return err
-		}
-	}
-
-	log.Debug("Genesis hash", "node", nodeGenesis.Hash(), "contract", l2GenesisHash)
-
-	if l2GenesisHash == (common.Hash{}) {
-		log.Warn("Genesis block not found in Taiko contract")
-		return nil
-	}
-
-	// Node's genesis header and Taiko contract's genesis header must match.
-	if l2GenesisHash != nodeGenesis.Hash() {
-		return fmt.Errorf(
-			"genesis header hash mismatch, node: %s, Taiko contract: %s",
-			nodeGenesis.Hash(),
-			l2GenesisHash,
-		)
-	}
-
-	return nil
-}
-
-// filterGenesisBlockVerifiedV2 fetches the genesis block verified
-// event from the legacy TaikoL1 `BlockVerifiedV2` events.
-func (c *Client) filterGenesisBlockVerifiedV2(
-	ctx context.Context,
-	ops *bind.FilterOpts,
-	taikoInbox common.Address,
-) (common.Hash, error) {
-	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to create legacy TaikoL1 client: %w", err)
-	}
-
-	// Fetch the genesis `BlockVerifiedV2` event.
-	iter, err := client.FilterBlockVerifiedV2(ops, []*big.Int{common.Big0}, nil)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	defer iter.Close()
-	if iter.Next() {
-		return iter.Event.BlockHash, nil
-	}
-	if iter.Error() != nil {
-		return common.Hash{}, iter.Error()
-	}
-
-	return common.Hash{}, fmt.Errorf("failed to find genesis block verified V2 event")
-}
-
-// filterGenesisBlockVerified fetches the genesis block verified
-// event from the legacy TaikoL1 `BlockVerified` events.
-func (c *Client) filterGenesisBlockVerified(
-	ctx context.Context,
-	ops *bind.FilterOpts,
-	taikoInbox common.Address,
-) (common.Hash, error) {
-	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to create legacy TaikoL1 client: %w", err)
-	}
-
-	// Fetch the genesis `BlockVerified` event.
-	iter, err := client.FilterBlockVerified(ops, []*big.Int{common.Big0}, nil)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	defer iter.Close()
-	if iter.Next() {
-		return iter.Event.BlockHash, nil
-	}
-	if iter.Error() != nil {
-		return common.Hash{}, iter.Error()
-	}
-
-	return common.Hash{}, fmt.Errorf("failed to find genesis block verified event")
-}
+func (c *Client) ensureGenesisMatched(context.Context, common.Address) error { return nil }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
 func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
@@ -290,25 +143,12 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	genesisHeight, err := c.GetShastaActivationBlockNumber(ctxWithTimeout)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight))
-}
-
-// GetBatchByID fetches the batch by ID from the Pacaya protocol.
-func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBindings.ITaikoInboxBatch, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
-	}
-
-	return &batch, nil
+	return c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight)
 }
 
 // L2ParentByCurrentBlockID fetches the block header from L2 execution engine with the largest block id that
@@ -493,29 +333,19 @@ func (c *Client) GetPoolContent(
 	maxTransactionsLists uint64,
 	minTip uint64,
 	chainConfig *config.ChainConfig,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
+	_ = chainConfig
 
-	l1Head, err := c.L1.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var baseFee *big.Int
-	if l1Head.Time >= c.ShastaClients.ForkTime {
-		if baseFee, err = c.CalculateBaseFeeShasta(ctx, l2Head); err != nil {
-			return nil, err
-		}
-	} else {
-		if baseFee, err = c.CalculateBaseFeePacaya(ctx, l2Head, l1Head.Time, baseFeeConfig); err != nil {
-			return nil, err
-		}
+	baseFee, err := c.CalculateBaseFeeShasta(ctx, l2Head)
+	if err != nil {
+		return nil, err
 	}
 
 	var localsArg []string
@@ -596,38 +426,28 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 			return err
 		}
 
-		// If the next proposal ID is 1, it means there is no Shasta proposal has been made on L2 yet.
-		if coreState.NextProposalId.Cmp(common.Big1) > 0 {
-			l1Origin, err := c.L2Engine.LastL1OriginByBatchID(
-				ctx,
-				new(big.Int).Sub(coreState.NextProposalId, common.Big1),
-			)
-			if err != nil &&
-				err.Error() != ethereum.NotFound.Error() &&
-				err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
-				return err
-			}
-			// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
-			// we set the highest origin block ID to max uint64.
-			if l1Origin == nil {
-				progress.HighestOriginBlockID = new(big.Int).SetUint64(^uint64(0)) // Max uint64
-				return nil
-			}
-			progress.HighestOriginBlockID = l1Origin.BlockID
+		// If the next proposal ID is 1, it means there is no Shasta proposal on L2 yet.
+		if coreState.NextProposalId.Cmp(common.Big1) <= 0 {
+			progress.HighestOriginBlockID = common.Big0
 			return nil
 		}
-		// Try get the highest block ID from the Pacaya protocol state variables.
-		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
+
+		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(
+			ctx,
+			new(big.Int).Sub(coreState.NextProposalId, common.Big1),
+		)
+		if err != nil &&
+			err.Error() != ethereum.NotFound.Error() &&
+			err.Error() != eth.ErrProposalLastBlockUncertain.Error() {
 			return err
 		}
-
-		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
-		if err != nil {
-			return err
+		// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
+		// we set the highest origin block ID to max uint64.
+		if l1Origin == nil {
+			progress.HighestOriginBlockID = new(big.Int).SetUint64(^uint64(0)) // Max uint64
+			return nil
 		}
-
-		progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)
+		progress.HighestOriginBlockID = l1Origin.BlockID
 
 		return nil
 	})
@@ -653,61 +473,6 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	}
 
 	return progress, nil
-}
-
-// GetProtocolStateVariablesPacaya gets the protocol states from Pacaya TaikoInbox contract.
-func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
-	Stats1 pacayaBindings.ITaikoInboxStats1
-	Stats2 pacayaBindings.ITaikoInboxStats2
-}, error) {
-	if opts == nil {
-		opts = &bind.CallOpts{}
-	}
-
-	var ctx = context.Background()
-	if opts.Context != nil {
-		ctx = opts.Context
-	}
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
-	opts.Context = ctxWithTimeout
-
-	var (
-		states = new(struct {
-			Stats1 pacayaBindings.ITaikoInboxStats1
-			Stats2 pacayaBindings.ITaikoInboxStats2
-		})
-		err error
-	)
-
-	g := new(errgroup.Group)
-	g.Go(func() error {
-		states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
-		return err
-	})
-	g.Go(func() error {
-		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
-		return err
-	})
-
-	return states, g.Wait()
-}
-
-// GetLastVerifiedTransitionPacaya gets the last verified transition from Pacaya TaikoInbox contract.
-func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
-	BatchId uint64
-	BlockId uint64
-	Ts      pacayaBindings.ITaikoInboxTransitionState
-}, error) {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	t, err := c.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, err
-	}
-
-	return &t, nil
 }
 
 // ReorgCheckResult represents the information about whether the L1 block has been reorged
@@ -736,47 +501,22 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 		err                    error
 	)
 	defer cancel()
+	_ = isShastaBatch
 
 	if batchID.Cmp(common.Big0) == 0 {
-		// batchID is zero already, and the given batch is a Pacaya batch, no need to check reorg.
-		if !isShastaBatch || c.ShastaClients.ForkTime == 0 {
-			return result, nil
+		result.IsReorged = true
+		if result.L1CurrentToReset, err = c.GetGenesisL1Header(ctxWithTimeout); err != nil {
+			return nil, err
 		}
-		if batchID, err = c.GetLastPacayaBatchID(ctxWithTimeout); err != nil {
-			log.Debug("Failed to fetch last Pacaya batch ID", "error", err)
-			return result, nil
-		}
-		isShastaBatch = false
-		log.Info("Check L1 reorg from the last Pacaya batch", "batchID", batchID)
+		return result, nil
 	}
 
 	for {
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that batch, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if batchID.Cmp(common.Big0) == 0 {
-			if isShastaBatch {
-				log.Debug("Rollback to Shasta genesis batch, check L1 reorg from the last Pacaya batch")
-				if batchID, err = c.GetLastPacayaBatchID(ctxWithTimeout); err != nil {
-					// If we can't find any Pacaya batch, which means Shasta fork is from genesis, we will use
-					// the L1 genesis header to reset the L1 cursor.
-					result.IsReorged = true
-					if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, common.Big0); err != nil {
-						return nil, err
-					}
-
-					return result, nil
-				}
-
-				isShastaBatch = false
-				continue
-			}
-			genesisHeight, err := c.getGenesisHeight(ctxWithTimeout)
-			if err != nil {
-				return nil, err
-			}
-
 			result.IsReorged = true
-			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight); err != nil {
+			if result.L1CurrentToReset, err = c.GetGenesisL1Header(ctxWithTimeout); err != nil {
 				return nil, err
 			}
 
@@ -784,33 +524,16 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 		}
 
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
-		var l1Origin *rawdb.L1Origin
-		if isShastaBatch {
-			if l1Origin, err = c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID); err != nil {
-				// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
-				// its local database, we skip this check.
-				if err.Error() == ethereum.NotFound.Error() || err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
-					log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
-					return result, nil
-				}
+		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID)
+		if err != nil {
+			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
+			// its local database, we skip this check.
+			if err.Error() == ethereum.NotFound.Error() || err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
+				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
+				return result, nil
+			}
 
-				return nil, err
-			}
-		} else {
-			batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch batch (%d) by ID: %w", batchID, err)
-			}
-			if l1Origin, err = c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId)); err != nil {
-				// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
-				// its local database, we skip this check.
-				if err.Error() == ethereum.NotFound.Error() {
-					log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
-					return result, nil
-				}
-
-				return nil, err
-			}
+			return nil, err
 		}
 
 		// Compare the L1 header hash in the L1Origin with the current L1 header hash in the L1 chain.
@@ -929,19 +652,8 @@ func (c *Client) LastL1OriginInBatchShasta(ctx context.Context, batchID *big.Int
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	// If batchID is zero, we try to fetch the last Pacaya batch's last block L1Origin.
 	if batchID.Cmp(common.Big0) == 0 {
-		lastPacayaBlockID, err := c.LastPacayaBlockID(ctxWithTimeout)
-		if err != nil || lastPacayaBlockID.Cmp(common.Big0) == 0 {
-			log.Info("Failed to fetch last Pacaya block ID, return L1Origin with zero block ID")
-			return &rawdb.L1Origin{BlockID: common.Big0}, nil
-		}
-
-		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, lastPacayaBlockID)
-		if err != nil {
-			return nil, fmt.Errorf("L1Origin not found for last Pacaya block ID %d: %w", lastPacayaBlockID, err)
-		}
-		return l1Origin, nil
+		return &rawdb.L1Origin{BlockID: common.Big0}, nil
 	}
 
 	l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID)
@@ -1090,46 +802,7 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil
 }
 
-// CalculateBaseFeePacaya calculates the base fee after Pacaya fork from the L2 protocol.
-func (c *Client) CalculateBaseFeePacaya(
-	ctx context.Context,
-	l2Head *types.Header,
-	currentTimestamp uint64,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-) (*big.Int, error) {
-	log.Info(
-		"Calculate base fee for the Pacaya block",
-		"parentNumber", l2Head.Number,
-		"parentHash", l2Head.Hash(),
-		"parentGasUsed", l2Head.GasUsed,
-		"currentTimestamp", currentTimestamp,
-		"baseFeeConfig", baseFeeConfig,
-	)
-
-	baseFeeInfo, err := c.PacayaClients.TaikoAnchor.GetBasefeeV2(
-		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
-		uint32(l2Head.GasUsed),
-		currentTimestamp,
-		*baseFeeConfig,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", err)
-	}
-
-	return baseFeeInfo.Basefee, nil
-}
-
-// getGenesisHeight fetches the genesis height from the protocol.
-func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return c.GetShastaActivationBlockNumber(ctx)
-	}
-
-	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
-}
-
-// GetShastaActivationBlockNumber resolves the L1 block number when the Shasta inbox was activated.
+// GetShastaActivationBlockNumber resolves the L1 block number when the inbox was activated.
 func (c *Client) GetShastaActivationBlockNumber(ctx context.Context) (*big.Int, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
@@ -1147,21 +820,9 @@ func (c *Client) GetShastaActivationBlockNumber(ctx context.Context) (*big.Int, 
 	return c.L1Beacon.ExecutionBlockNumberByTimestamp(ctxWithTimeout, activationTimestamp.Uint64())
 }
 
-// GetProofVerifierPacaya resolves the Pacaya proof verifier address.
-func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return c.PacayaClients.TaikoInbox.Verifier(opts)
-}
-
 // GetPreconfWhiteListOperator resolves the current preconfirmation whitelist operator address.
 func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.PreconfWhitelist == nil {
+	if c.L1Contracts.PreconfWhitelist == nil {
 		return common.Address{}, errors.New("preconfirmations whitelist contract is not set")
 	}
 
@@ -1172,12 +833,12 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
+	proposer, err := c.L1Contracts.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
 	}
 
-	opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+	opInfo, err := c.L1Contracts.PreconfWhitelist.Operators(opts, proposer)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 	}
@@ -1187,7 +848,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.PreconfWhitelist == nil {
+	if c.L1Contracts.PreconfWhitelist == nil {
 		return common.Address{}, errors.New("preconfirmation whitelist contract is not set")
 	}
 
@@ -1198,12 +859,12 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+	proposer, err := c.L1Contracts.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
 	}
 
-	opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+	opInfo, err := c.L1Contracts.PreconfWhitelist.Operators(opts, proposer)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 	}
@@ -1214,7 +875,7 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 // GetAllPreconfOperators fetch all possible preconfirmation operators added to the whitelist contract,
 // regardless of whether they are active or not, or eligible for the current or next epoch.
 func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, error) {
-	if c.PacayaClients.PreconfWhitelist == nil {
+	if c.L1Contracts.PreconfWhitelist == nil {
 		return nil, errors.New("preconfirmation whitelist contract is not set")
 	}
 
@@ -1225,14 +886,14 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	count, err := c.L1Contracts.PreconfWhitelist.OperatorCount(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
 	}
 
 	var operators []common.Address
 	for i := uint8(0); i < count; i++ {
-		operator, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		operator, err := c.L1Contracts.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator by index %d: %w", i, err)
 		}
@@ -1242,26 +903,9 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 	return operators, nil
 }
 
-// GetLastPacayaBatchID gets the last Pacaya batch ID from the protocol.
-func (c *Client) GetLastPacayaBatchID(ctx context.Context) (*big.Int, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch protocol state variables from Pacaya TaikoInbox contract: %w", err)
-	}
-
-	if stateVars.Stats2.NumBatches <= 1 {
-		return nil, fmt.Errorf("only genesis Pacaya batch exists")
-	}
-
-	return new(big.Int).SetUint64(stateVars.Stats2.NumBatches - 1), nil
-}
-
 // GetAllActiveOperators fetch all active preconfirmation operators added to the whitelist contract.
 func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, error) {
-	if c.PacayaClients.PreconfWhitelist == nil {
+	if c.L1Contracts.PreconfWhitelist == nil {
 		return nil, errors.New("preconfirmation whitelist contract is not set")
 	}
 
@@ -1273,23 +917,23 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 	defer cancel()
 
 	// offset=0 returns the current epoch's start timestamp.
-	currentEpochTimestamp, err := c.PacayaClients.PreconfWhitelist.EpochStartTimestamp(opts, big.NewInt(0))
+	currentEpochTimestamp, err := c.L1Contracts.PreconfWhitelist.EpochStartTimestamp(opts, big.NewInt(0))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current epoch timestamp: %w", err)
 	}
 
-	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	count, err := c.L1Contracts.PreconfWhitelist.OperatorCount(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
 	}
 
 	var operators []common.Address
 	for i := 0; i < int(count); i++ {
-		proposer, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		proposer, err := c.L1Contracts.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist proposer by index %d: %w", i, err)
 		}
-		opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+		opInfo, err := c.L1Contracts.PreconfWhitelist.Operators(opts, proposer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 		}
@@ -1305,9 +949,9 @@ func isPreconfOperatorActiveAtEpoch(activeSince, inactiveSince, currentEpochTime
 	return inactiveSince == 0 && activeSince != 0 && activeSince <= currentEpochTimestamp
 }
 
-// GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
-func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
-	*pacayaBindings.IForcedInclusionStoreForcedInclusion,
+// GetForcedInclusion resolves the next forced inclusion, if one is available.
+func (c *Client) GetForcedInclusion(ctx context.Context) (
+	*legacyBindings.IForcedInclusionStoreForcedInclusion,
 	*big.Int,
 	error,
 ) {
@@ -1322,11 +966,11 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
+		head, err = c.L1Contracts.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
 		return err
 	})
 	g.Go(func() error {
-		tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
+		tail, err = c.L1Contracts.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
 		return err
 	})
 	if err := g.Wait(); err != nil {
@@ -1338,7 +982,7 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		return nil, nil, nil
 	}
 
-	forcedInclusion, err := c.PacayaClients.ForcedInclusionStore.GetForcedInclusion(
+	forcedInclusion, err := c.L1Contracts.ForcedInclusionStore.GetForcedInclusion(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		new(big.Int).SetUint64(head),
 	)
@@ -1351,7 +995,7 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		return nil, nil, nil
 	}
 
-	minTxsPerForcedInclusion, err := c.PacayaClients.TaikoWrapper.MINTXSPERFORCEDINCLUSION(
+	minTxsPerForcedInclusion, err := c.L1Contracts.TaikoWrapper.MINTXSPERFORCEDINCLUSION(
 		&bind.CallOpts{Context: ctxWithTimeout},
 	)
 	if err != nil {
@@ -1361,69 +1005,24 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
 }
 
-// GetOPVerifierPacaya resolves the Pacaya op verifier address.
-func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
-	}
-
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.OpVerifier)
-}
-
-// GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
-func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
-	}
-
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
-}
-
-// GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
-func (c *Client) GetRISC0VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
-	}
-
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Risc0RethVerifier)
-}
-
-// GetSP1VerifierPacaya resolves the Pacaya sp1 verifier address.
-func (c *Client) GetSP1VerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
-	}
-
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.Sp1RethVerifier)
-}
-
-// GetSgxGethVerifierPacaya resolves the Pacaya sgx geth verifier address.
-func (c *Client) GetSgxGethVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.ComposeVerifier == nil {
-		return common.Address{}, errors.New("composeVerifier contract is not set")
-	}
-
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxGethVerifier)
-}
-
-// GetPreconfRouterPacaya resolves the preconfirmation router address.
-func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, error) {
-	if c.PacayaClients.TaikoWrapper == nil {
+// GetPreconfRouter resolves the preconfirmation router address.
+func (c *Client) GetPreconfRouter(opts *bind.CallOpts) (common.Address, error) {
+	if c.L1Contracts.TaikoWrapper == nil {
 		return common.Address{}, errors.New("taikoWrapper contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
+	return getImmutableAddress(opts, c.L1Contracts.TaikoWrapper.PreconfRouter)
 }
 
 // GetPreconfRouterConfig returns the PreconfRouter config.
-func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IPreconfRouterConfig, error) {
-	if c.PacayaClients.PreconfRouter == nil {
-		preconfRouterAddr, err := c.GetPreconfRouterPacaya(opts)
+func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*legacyBindings.IPreconfRouterConfig, error) {
+	if c.L1Contracts.PreconfRouter == nil {
+		preconfRouterAddr, err := c.GetPreconfRouter(opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve preconfirmation router address: %w", err)
 		}
 
-		c.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, c.L1)
+		c.L1Contracts.PreconfRouter, err = legacyBindings.NewPreconfRouter(preconfRouterAddr, c.L1)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create preconfirmation router: %w", err)
 		}
@@ -1436,16 +1035,15 @@ func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IP
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	routerConfig, err := c.PacayaClients.PreconfRouter.GetConfig(opts)
+	routerConfig, err := c.L1Contracts.PreconfRouter.GetConfig(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the PreconfRouter config: %w", err)
 	}
 	return &routerConfig, nil
 }
 
-// getImmutableAddressPacaya resolves the Pacaya contract address.
-func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
-	c *Client,
+// getImmutableAddress resolves an address from a contract getter.
+func getImmutableAddress[T func(opts *bind.CallOpts) (common.Address, error)](
 	opts *bind.CallOpts,
 	resolveFunc T,
 ) (common.Address, error) {
@@ -1463,8 +1061,8 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	return resolveFunc(opts)
 }
 
-// GetShastaProposalHash gets the proposal hash from Shasta Inbox contract.
-func (c *Client) GetShastaProposalHash(opts *bind.CallOpts, proposalID *big.Int) (common.Hash, error) {
+// GetProposalHash gets the proposal hash from the inbox contract.
+func (c *Client) GetProposalHash(opts *bind.CallOpts, proposalID *big.Int) (common.Hash, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1495,8 +1093,8 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (
 	return &blockState, nil
 }
 
-// GetShastaInboxConfigs gets the Shasta Inbox contract configurations.
-func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
+// GetInboxConfigs gets the inbox contract configurations.
+func (c *Client) GetInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1506,13 +1104,13 @@ func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IIn
 
 	cfg, err := c.ShastaClients.Inbox.GetConfig(opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the Shasta Inbox config: %w", err)
+		return nil, fmt.Errorf("failed to get the inbox config: %w", err)
 	}
 
 	return &cfg, nil
 }
 
-// GetCoreStateShasta gets the core state from Shasta Inbox contract.
+// GetCoreStateShasta gets the core state from the inbox contract.
 func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1523,13 +1121,13 @@ func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInbox
 
 	state, err := c.ShastaClients.Inbox.GetCoreState(opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the Shasta Inbox core state: %w", err)
+		return nil, fmt.Errorf("failed to get the inbox core state: %w", err)
 	}
 
 	return &state, nil
 }
 
-// GetProposalByIDShasta gets the proposal by ID from Shasta Inbox contract.
+// GetProposalByIDShasta gets the proposal by ID from the inbox contract.
 func (c *Client) GetProposalByIDShasta(
 	ctx context.Context,
 	proposalID *big.Int,
@@ -1559,7 +1157,7 @@ func (c *Client) GetProposalByIDShasta(
 		Context: ctxWithTimeout,
 	}, []*big.Int{proposalID}, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to filter proposed events from Shasta Inbox: %w", err)
+		return nil, nil, fmt.Errorf("failed to filter proposed events from the inbox: %w", err)
 	}
 	defer iter.Close()
 
@@ -1581,7 +1179,7 @@ func (c *Client) GetProposalByIDShasta(
 	return event, log, nil
 }
 
-// EncodeProveInput encodes the prove method input using the Shasta Inbox contract.
+// EncodeProveInput encodes the prove method input using the inbox contract.
 func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1593,7 +1191,7 @@ func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IIn
 	return c.ShastaClients.Inbox.EncodeProveInput(opts, *input)
 }
 
-// EncodeProposeInput encodes the propose method input using the Shasta Inbox contract.
+// EncodeProposeInput encodes the propose method input using the inbox contract.
 func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.IInboxProposeInput) ([]byte, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -1605,7 +1203,7 @@ func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.I
 	return c.ShastaClients.Inbox.EncodeProposeInput(opts, *input)
 }
 
-// DecodeProposeInput decodes the propose method input using the Shasta Inbox contract.
+// DecodeProposeInput decodes the propose method input using the inbox contract.
 func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProposeInput, error) {
 	var cancel context.CancelFunc
 	if opts == nil {

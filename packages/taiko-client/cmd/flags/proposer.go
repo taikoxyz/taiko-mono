@@ -23,7 +23,7 @@ var (
 	}
 	L1ProposerPrivKey = &cli.StringFlag{
 		Name:     "l1.proposerPrivKey",
-		Usage:    "Private key of the L1 proposer, who will send transactions to Pacaya / Shasta inbox",
+		Usage:    "Private key of the L1 proposer, who will send transactions to the inbox",
 		Required: true,
 		Category: proposerCategory,
 		EnvVars:  []string{"L1_PROPOSER_PRIV_KEY"},

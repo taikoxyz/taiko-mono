@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,8 +15,7 @@ func newTestClient(t *testing.T) *Client {
 	client, err := NewClient(context.Background(), &ClientConfig{
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
-		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+		InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
@@ -31,12 +31,16 @@ func newTestClient(t *testing.T) *Client {
 	return client
 }
 
+func TestNewClientShastaOnlyConfig(t *testing.T) {
+	_, ok := reflect.TypeOf(ClientConfig{}).FieldByName("InboxAddress")
+	require.True(t, ok)
+}
+
 func newTestClientWithTimeout(t *testing.T) *Client {
 	client, err := NewClient(context.Background(), &ClientConfig{
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
-		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+		InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),

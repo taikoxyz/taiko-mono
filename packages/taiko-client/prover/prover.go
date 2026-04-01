@@ -17,13 +17,11 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
@@ -34,7 +32,6 @@ import (
 // eventHandlers contains all event handlers which will be used by the prover.
 type eventHandlers struct {
 	batchProposedHandler     handler.BatchProposedHandler
-	batchesVerifiedHandler   handler.BatchesVerifiedHandler
 	batchesProvedHandler     handler.BatchesProvedHandler
 	assignmentExpiredHandler handler.AssignmentExpiredHandler
 }
@@ -57,12 +54,10 @@ type Prover struct {
 	eventHandlers *eventHandlers
 
 	// Proof submitters
-	proofSubmitterPacaya proofSubmitter.Submitter
 	proofSubmitterShasta proofSubmitter.Submitter
 
 	assignmentExpiredCh            chan metadata.TaikoProposalMetaData
 	proveNotify                    chan struct{}
-	batchesAggregationNotifyPacaya chan proofProducer.ProofType
 	batchesAggregationNotifyShasta chan proofProducer.ProofType
 	flushCacheNotify               chan proofProducer.ProofType
 
@@ -106,8 +101,7 @@ func InitFromConfig(
 		L2Endpoint:         cfg.L2WsEndpoint,
 		L2EngineEndpoint:   cfg.L2EngineEndpoint,
 		JwtSecret:          cfg.JwtSecret,
-		PacayaInboxAddress: cfg.PacayaInboxAddress,
-		ShastaInboxAddress: cfg.ShastaInboxAddress,
+		InboxAddress:       cfg.InboxAddress,
 		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
 		TaikoTokenAddress:  cfg.TaikoTokenAddress,
 		ProverSetAddress:   cfg.ProverSetAddress,
@@ -129,7 +123,6 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 	p.flushCacheNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
@@ -139,8 +132,7 @@ func InitFromConfig(
 
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
-		p.cfg.PacayaInboxAddress,
-		p.cfg.ShastaInboxAddress,
+		p.cfg.InboxAddress,
 		p.cfg.ProverSetAddress,
 	)
 	if txMgr != nil {
@@ -172,10 +164,7 @@ func InitFromConfig(
 		}
 	}
 
-	// Proof submitters
-	if err := p.initPacayaProofSubmitter(txBuilder); err != nil {
-		return err
-	}
+	// Proof submitter
 	if err := p.initShastaProofSubmitter(ctx, txBuilder); err != nil {
 		return err
 	}
@@ -191,7 +180,7 @@ func InitFromConfig(
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
 	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.PacayaInboxAddress} {
+	for _, contract := range []common.Address{p.cfg.InboxAddress} {
 		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
 			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
 		}
@@ -228,22 +217,13 @@ func (p *Prover) eventLoop() {
 
 	// Channels
 	chBufferSize := p.protocolConfigs.MaxProposals()
-	batchProposedCh := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, chBufferSize)
-	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
-	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
 	shastaProposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
 	shastaProvedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
 
 	// Subscriptions
-	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
-	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
-	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
 	shastaProposedSub := rpc.SubscribeProposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
 	shastaProvedSub := rpc.SubscribeProvedShasta(p.rpc.ShastaClients.Inbox, shastaProvedCh)
 	defer func() {
-		batchProposedSub.Unsubscribe()
-		batchesVerifiedSub.Unsubscribe()
-		batchesProvedSub.Unsubscribe()
 		shastaProposedSub.Unsubscribe()
 		shastaProvedSub.Unsubscribe()
 	}()
@@ -263,22 +243,12 @@ func (p *Prover) eventLoop() {
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
-		case proofType := <-p.batchesAggregationNotifyPacaya:
-			p.withRetry(func() error { return p.aggregateOp(proofType, false) }, nil)
 		case proofType := <-p.batchesAggregationNotifyShasta:
-			p.withRetry(func() error { return p.aggregateOp(proofType, true) }, nil)
+			p.withRetry(func() error { return p.aggregateOp(proofType) }, nil)
 		case proofType := <-p.flushCacheNotify:
 			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) }, nil)
-		case e := <-batchesVerifiedCh:
-			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
-				log.Error("Failed to handle new BatchesVerified event", "error", err)
-			}
-		case e := <-batchesProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) }, nil)
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) }, nil)
-		case <-batchProposedCh:
-			reqProving()
 		case <-shastaProposedCh:
 			reqProving()
 		case e := <-shastaProvedCh:
@@ -311,13 +281,8 @@ func (p *Prover) proveOp() error {
 }
 
 // aggregateOp aggregates all proofs in buffer.
-func (p *Prover) aggregateOp(proofType proofProducer.ProofType, isShasta bool) error {
-	var err error
-	if isShasta {
-		err = p.proofSubmitterShasta.AggregateProofsByType(p.ctx, proofType)
-	} else {
-		err = p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType)
-	}
+func (p *Prover) aggregateOp(proofType proofProducer.ProofType) error {
+	err := p.proofSubmitterShasta.AggregateProofsByType(p.ctx, proofType)
 	if err != nil {
 		log.Error("Failed to aggregate proofs", "error", err, "proofType", proofType)
 		return err
@@ -327,15 +292,7 @@ func (p *Prover) aggregateOp(proofType proofProducer.ProofType, isShasta bool) e
 
 // requestProofOp requests a new proof generation operation.
 func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
-	if meta.IsShasta() {
-		return p.proofSubmitterShasta.RequestProof(p.ctx, meta)
-	}
-	if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
-		log.Error("Request new batch proof error", "batchID", meta.Pacaya().GetBatchID(), "error", err)
-		return err
-	}
-
-	return nil
+	return p.proofSubmitterShasta.RequestProof(p.ctx, meta)
 }
 
 // submitProofAggregationOp performs a batch proof submission operation.
@@ -396,14 +353,10 @@ func (p *Prover) getSubmitter(batchProof *proofProducer.BatchProofs) (proofSubmi
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
 		return nil, fmt.Errorf("empty batch proof")
 	}
-	submitter := p.proofSubmitterPacaya
-	if batchProof.ProofResponses[0].Meta.IsShasta() {
-		submitter = p.proofSubmitterShasta
-	}
-	if utils.IsNil(submitter) {
+	if p.proofSubmitterShasta == nil {
 		return nil, fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
-	return submitter, nil
+	return p.proofSubmitterShasta, nil
 }
 
 // Name returns the application name.

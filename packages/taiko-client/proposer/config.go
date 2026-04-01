@@ -72,8 +72,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),
 			L2Endpoint:                  c.String(flags.L2WSEndpoint.Name),
-			PacayaInboxAddress:          common.HexToAddress(c.String(flags.PacayaInboxAddress.Name)),
-			ShastaInboxAddress:          common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
+			InboxAddress:                common.HexToAddress(c.String(flags.InboxAddress.Name)),
 			TaikoWrapperAddress:         common.HexToAddress(c.String(flags.TaikoWrapperAddress.Name)),
 			ForcedInclusionStoreAddress: common.HexToAddress(c.String(flags.ForcedInclusionStoreAddress.Name)),
 			TaikoAnchorAddress:          common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),

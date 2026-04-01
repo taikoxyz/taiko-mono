@@ -17,11 +17,11 @@ func (s *ProverSharedStateTestSuite) SetupTest() {
 	s.state = New()
 }
 
-func (s *ProverSharedStateTestSuite) TestLastHandledBlockID() {
+func (s *ProverSharedStateTestSuite) TestLastHandledShastaBatchID() {
 	newLastHandledBlockID := uint64(1024)
-	s.NotEqual(newLastHandledBlockID, s.state.GetLastHandledPacayaBatchID())
-	s.state.SetLastHandledPacayaBatchID(newLastHandledBlockID)
-	s.Equal(newLastHandledBlockID, s.state.GetLastHandledPacayaBatchID())
+	s.NotEqual(newLastHandledBlockID, s.state.GetLastHandledShastaBatchID())
+	s.state.SetLastHandledShastaBatchID(newLastHandledBlockID)
+	s.Equal(newLastHandledBlockID, s.state.GetLastHandledShastaBatchID())
 }
 
 func (s *ProverSharedStateTestSuite) TestL1Current() {

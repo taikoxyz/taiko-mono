@@ -24,7 +24,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 	end eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	if !meta.IsShasta() {
-		log.Debug("Skip non-Shasta Proposed event", "batchID", meta.Pacaya().GetBatchID())
+		log.Debug("Skip non-Shasta Proposed event")
 		return nil
 	}
 	if meta.Shasta().GetEventData().Id.Cmp(common.Big0) == 0 {

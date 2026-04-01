@@ -11,7 +11,7 @@ import (
 var (
 	L1ProverPrivKey = &cli.StringFlag{
 		Name:     "l1.proverPrivKey",
-		Usage:    "Private key of L1 prover, who will send transactions to Pacaya / Shasta inbox",
+		Usage:    "Private key of L1 prover, who will send transactions to the inbox",
 		Required: true,
 		Category: proverCategory,
 		EnvVars:  []string{"L1_PROVER_PRIV_KEY"},
@@ -23,13 +23,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST"},
 	}
-	RaikoHostEndpointPacaya = &cli.StringFlag{
-		Name:     "raiko.host.pacaya",
-		Usage:    "RPC endpoint of a Raiko host service for Pacaya fork",
-		Required: true,
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_HOST_PACAYA"},
-	}
 )
 
 // Optional flags used by prover.
@@ -39,12 +32,6 @@ var (
 		Usage:    "RPC endpoint of a Raiko ZKVM host service for post Shasta fork",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
-	}
-	RaikoZKVMHostEndpointPacaya = &cli.StringFlag{
-		Name:     "raiko.host.zkvm.pacaya",
-		Usage:    "RPC endpoint of a Raiko ZKVM host service for Pacaya fork",
-		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_HOST_ZKVM_PACAYA"},
 	}
 	RaikoApiKeyPath = &cli.StringFlag{
 		Name:     "raiko.apiKeyPath",
@@ -170,6 +157,4 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
 	ProposalWindowSize,
-	RaikoHostEndpointPacaya,
-	RaikoZKVMHostEndpointPacaya,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

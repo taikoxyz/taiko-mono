@@ -9,7 +9,7 @@ import (
 )
 
 // TxListDecompressor is responsible for validating and decompressing
-// the transactions list in a Pacaya TaikoInbox.proposeBatch transaction.
+// the transactions list in a legacy TaikoInbox.proposeBatch transaction.
 type TxListDecompressor struct {
 	maxBytesPerTxList uint64
 }
@@ -19,8 +19,8 @@ func NewTxListDecompressor(maxBytesPerTxList uint64) *TxListDecompressor {
 	return &TxListDecompressor{maxBytesPerTxList: maxBytesPerTxList}
 }
 
-// TryDecompress validates and decompresses whether the transactions list in the
-// Pacaya TaikoInbox.proposeBatch transaction's input data is valid, the rules are:
+// TryDecompress validates and decompresses whether the transactions list in a
+// legacy TaikoInbox.proposeBatch transaction is valid. The rules are:
 // - If the transaction list is empty, it's valid.
 // - If the transaction list is not empty:
 //  1. If the transaction list is using calldata, the compressed bytes of the transaction list must be

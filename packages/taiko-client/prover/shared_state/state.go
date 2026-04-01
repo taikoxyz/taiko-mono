@@ -8,7 +8,6 @@ import (
 
 // SharedState represents the internal state of a prover.
 type SharedState struct {
-	lastHandledBatchID       atomic.Uint64
 	lastHandledShastaBatchID atomic.Uint64
 	l1Current                atomic.Value
 }
@@ -16,16 +15,6 @@ type SharedState struct {
 // New creates a new prover shared state instance.
 func New() *SharedState {
 	return new(SharedState)
-}
-
-// GetLastHandledPacayaBatchID returns the last handled batch ID.
-func (s *SharedState) GetLastHandledPacayaBatchID() uint64 {
-	return s.lastHandledBatchID.Load()
-}
-
-// SetLastHandledPacayaBatchID sets the last handled batch ID.
-func (s *SharedState) SetLastHandledPacayaBatchID(batchID uint64) {
-	s.lastHandledBatchID.Store(batchID)
 }
 
 // GetLastHandledShastaBatchID returns the last handled Shasta batch ID.

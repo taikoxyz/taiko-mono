@@ -43,7 +43,6 @@ type Driver struct {
 	l2ChainSyncer      *chainSyncer.L2ChainSyncer
 	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
 	state              *state.State
-	chainConfig        *config.ChainConfig
 	protocolConfig     config.ProtocolConfigs
 
 	l1HeadCh  chan *types.Header
@@ -115,13 +114,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	}
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
-	d.chainConfig = config.NewChainConfig(
-		d.rpc.L2.ChainID,
-		d.rpc.PacayaClients.ForkHeights.Ontake,
-		d.rpc.PacayaClients.ForkHeights.Pacaya,
-		d.rpc.ShastaClients.ForkTime,
-	)
-
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
@@ -135,7 +127,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
-			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
 			d.rpc,
 			latestSeenProposalCh,
@@ -334,36 +325,17 @@ func (d *Driver) reportProtocolStatus() {
 	}
 }
 
-// reportStatus reports some status for Pacaya or Shasta protocol.
+// reportStatus reports Shasta protocol status.
 func (d *Driver) reportStatus(maxNumProposals uint64) {
-	proposal, err := d.rpc.GetShastaProposalHash(&bind.CallOpts{Context: d.ctx}, common.Big1)
-	if err != nil {
-		log.Debug("Failed to get Shasta proposal hash", "error", err)
-	}
-	// If chain has forked into Shasta fork, report Shasta status instead.
-	if proposal != (common.Hash{}) {
-		d.reportProtocolStatusShasta()
-		return
-	}
-	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
-	if err != nil {
-		log.Error("Failed to get protocol state variables", "error", err)
-		return
-	}
-
-	log.Info(
-		"📖 Pacaya protocol status",
-		"lastVerifiedBatchID", vars.Stats2.LastVerifiedBatchId,
-		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
-		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
-	)
+	_ = maxNumProposals
+	d.reportProtocolStatusShasta()
 }
 
 // reportProtocolStatusShasta reports some status for Shasta protocol.
 func (d *Driver) reportProtocolStatusShasta() {
 	coreState, err := d.rpc.GetCoreStateShasta(&bind.CallOpts{Context: d.ctx})
 	if err != nil {
-		log.Debug("Failed to get Shasta Inbox core state", "error", err)
+		log.Debug("Failed to get inbox core state", "error", err)
 		return
 	}
 

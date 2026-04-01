@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
@@ -21,7 +21,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
-	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 type EventHandlerTestSuite struct {
@@ -45,8 +44,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L1Endpoint:         os.Getenv("L1_WS"),
 			L2Endpoint:         os.Getenv("L2_WS"),
 			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress: common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
 		},
@@ -81,9 +79,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -128,29 +124,19 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.proposer = prop
 }
 
-func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
-	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
-	handler := NewBatchesProvedEventHandler(s.RPCClient, proofRequestBodyCh)
+func (s *EventHandlerTestSuite) TestBatchesProvedHandleShasta() {
+	handler := NewBatchesProvedEventHandler(s.RPCClient)
 
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
-	s.True(m.IsPacaya())
+	s.ForkIntoShasta(s.proposer, s.eventSyncer)
+	meta := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
+	s.True(meta.IsShasta())
 
-	batch, err := s.RPCClient.GetBatchByID(context.Background(), m.Pacaya().GetBatchID())
-	s.Nil(err)
-
-	block, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId))
-	s.Nil(err)
-
-	s.Nil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesProved{
-		BatchIds: []uint64{m.Pacaya().GetBatchID().Uint64()},
-		Transitions: []pacayaBindings.ITaikoInboxTransition{{
-			ParentHash: block.ParentHash,
-			BlockHash:  block.Hash(),
-			StateRoot:  testutils.RandomHash(),
-		}},
+	s.Nil(handler.HandleShasta(context.Background(), &shastaBindings.ShastaInboxClientProved{
+		FirstNewProposalId: new(big.Int).Set(meta.Shasta().GetEventData().Id),
+		LastProposalId:     new(big.Int).Set(meta.Shasta().GetEventData().Id),
+		ActualProver:       s.proposer.ProverSetAddress,
 	}))
 
-	s.Equal(m, (<-proofRequestBodyCh).Meta)
 }
 
 func TestEventHandlerTestSuite(t *testing.T) {

@@ -417,8 +417,8 @@ func validateGasLimit(
 	parentBlockNumber *big.Int,
 	parentGasLimit uint64,
 ) bool {
-	// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-	// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
+	// NOTE: When the parent block is not the genesis block, its gas limit always contains the
+	// legacy or Shasta anchor transaction gas limit, which always equals consensus.AnchorV3V4GasLimit.
 	// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
 	// the real gas limit from parent block metadata.
 	if parentBlockNumber.Cmp(common.Big0) != 0 {

@@ -74,10 +74,8 @@ func (s *ProposerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
-			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
@@ -88,8 +86,6 @@ func (s *ProposerTestSuite) SetupTest() {
 		ProposeInterval:         1024 * time.Hour,
 		MaxTxListsPerEpoch:      1,
 		ProposeBatchTxGasLimit:  10_000_000,
-		BlobAllowed:             true,
-		FallbackToCalldata:      true,
 		TxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
@@ -127,20 +123,11 @@ func (s *ProposerTestSuite) SetupTest() {
 }
 
 func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
-	s.p.txBuilder = builder.NewBuilderWithFallback(
+	s.p.txBuilder = builder.NewBlobTransactionBuilder(
 		s.p.rpc,
-		s.p.L1ProposerPrivKey,
+		common.HexToAddress(os.Getenv("INBOX")),
 		s.TestAddr,
-		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
-		common.HexToAddress(os.Getenv("PROVER_SET")),
 		10_000_000,
-		s.p.chainConfig,
-		s.p.txmgrSelector,
-		true,
-		true,
-		true,
 	)
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
@@ -196,18 +183,20 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		s.Nil(err)
 	}
 
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
 	// Empty mempool at first.
 	for {
 		poolContent, err := s.RPCClient.GetPoolContent(
 			context.Background(),
 			s.p.proposerAddress,
-			s.p.protocolConfigs.BlockMaxGasLimit(),
+			uint32(l2Head.GasLimit),
 			rpc.BlockMaxTxListBytes,
 			[]common.Address{},
 			10,
 			0,
 			s.p.chainConfig,
-			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -243,6 +232,9 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	}
 	s.Equal(txsCountForEachSender*len(privateKeys), len(allTxs))
 
+	l2Head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
 	for _, testCase := range []struct {
 		blockMaxGasLimit     uint32
 		blockMaxTxListBytes  uint64
@@ -250,19 +242,19 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		txLengthList         []int
 	}{
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit(),
+			uint32(l2Head.GasLimit),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxTxListsPerEpoch,
 			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit(),
+			uint32(l2Head.GasLimit),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxTxListsPerEpoch * uint64(len(privateKeys)),
 			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
-			s.p.protocolConfigs.BlockMaxGasLimit() / 50,
+			uint32(l2Head.GasLimit) / 50,
 			rpc.BlockMaxTxListBytes,
 			200,
 			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
@@ -277,7 +269,6 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 			testCase.maxTransactionsLists,
 			0,
 			s.p.chainConfig,
-			s.p.protocolConfigs.BaseFeeConfig(),
 		)
 		s.Nil(err)
 
@@ -327,17 +318,19 @@ func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 		s.Nil(err)
 	}
 
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
 	for i := 0; i < 3 && len(preBuiltTxList) == 0; i++ {
 		preBuiltTxList, err = s.RPCClient.GetPoolContent(
 			context.Background(),
 			p.proposerAddress,
-			p.protocolConfigs.BlockMaxGasLimit(),
+			uint32(l2Head.GasLimit),
 			rpc.BlockMaxTxListBytes,
 			[]common.Address{},
 			p.MaxTxListsPerEpoch,
 			0,
 			p.chainConfig,
-			p.protocolConfigs.BaseFeeConfig(),
 		)
 		time.Sleep(time.Second)
 	}

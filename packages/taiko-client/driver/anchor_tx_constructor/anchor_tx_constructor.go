@@ -13,15 +13,14 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/signer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// AnchorTxConstructor is responsible for assembling the anchor transaction (TaikoAnchor.anchorV3) in
-// each L2 block, which must be the first transaction, and its sender must be the golden touch account.
+// AnchorTxConstructor is responsible for assembling the Shasta anchor transaction
+// in each L2 block, which must be the first transaction, and its sender must be
+// the golden touch account.
 type AnchorTxConstructor struct {
 	rpc    *rpc.Client
 	signer *signer.FixedKSigner
@@ -35,47 +34,6 @@ func New(rpc *rpc.Client) (*AnchorTxConstructor, error) {
 	}
 
 	return &AnchorTxConstructor{rpc, signer}, nil
-}
-
-// AssembleAnchorV3Tx assembles a signed TaikoAnchor.anchorV3 transaction.
-func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
-	ctx context.Context,
-	// Parameters of the TaikoAnchor.anchorV3 transaction.
-	anchorBlockID *big.Int,
-	anchorStateRoot common.Hash,
-	parent *types.Header,
-	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
-	signalSlots [][32]byte,
-	// Height of the L2 block which including the TaikoAnchor.anchorV3 transaction.
-	l2Height *big.Int,
-	baseFee *big.Int,
-) (*types.Transaction, error) {
-	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create transaction options: %w", err)
-	}
-
-	log.Info(
-		"AnchorV3 arguments",
-		"l2Height", l2Height,
-		"anchorBlockId", anchorBlockID,
-		"anchorStateRoot", anchorStateRoot,
-		"parentGasUsed", parent.GasUsed,
-		"parentHash", parent.Hash(),
-		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
-		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
-		"signalSlots", len(signalSlots),
-		"baseFee", utils.WeiToGWei(baseFee),
-	)
-
-	return c.rpc.PacayaClients.TaikoAnchor.AnchorV3(
-		opts,
-		anchorBlockID.Uint64(),
-		anchorStateRoot,
-		uint32(parent.GasUsed),
-		*baseFeeConfig,
-		signalSlots,
-	)
 }
 
 // AssembleAnchorV4Tx assembles a signed ShastaAnchor.anchorV4 transaction.
@@ -116,8 +74,8 @@ func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	)
 }
 
-// transactOpts is a utility method to create some transact options of the anchor transaction in given L2 block with
-// golden touch account's private key.
+// transactOpts is a utility method to create transact options for an anchor
+// transaction in the given L2 block with the golden touch account's private key.
 func (c *AnchorTxConstructor) transactOpts(
 	ctx context.Context,
 	l2Height *big.Int,
@@ -175,7 +133,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign ShastaAnchor.anchorV4 transaction using K = 1 and K = 2")
 		}
 	}
 

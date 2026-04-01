@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"crypto/rand"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -11,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 var (
@@ -68,7 +69,7 @@ func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 
 func TestGetProtocolStateVariables(t *testing.T) {
 	client := newTestClient(t)
-	_, err := client.GetLastVerifiedTransitionPacaya(context.Background())
+	_, err := client.GetProtocolConfigsShasta(nil)
 	require.Nil(t, err)
 }
 
@@ -94,13 +95,13 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	opts.NoSend = true
 	opts.GasLimit = 1_000_000
 
-	tx, err := client.PacayaClients.TaikoAnchor.AnchorV3(
+	tx, err := client.ShastaClients.Anchor.AnchorV4(
 		opts,
-		l1Height,
-		l1StateRoot,
-		parentGasUsed,
-		pacayaBindings.LibSharedDataBaseFeeConfig{},
-		[][32]byte{},
+		shastaBindings.ICheckpointStoreCheckpoint{
+			BlockNumber: new(big.Int).SetUint64(l1Height),
+			BlockHash:   randomHash(),
+			StateRoot:   l1StateRoot,
+		},
 	)
 	require.Nil(t, err)
 

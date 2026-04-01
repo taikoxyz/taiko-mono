@@ -15,20 +15,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// RaikoBatches represents the JSON body of RaikoRequestProofBodyV3Pacaya's `Batches` field.
-type RaikoBatches struct {
-	BatchID                *big.Int `json:"batch_id"`
-	L1InclusionBlockNumber *big.Int `json:"l1_inclusion_block_number"`
-}
-
-// RaikoRequestProofBodyV3Pacaya represents the JSON body for requesting the proof.
-type RaikoRequestProofBodyV3Pacaya struct {
-	Batches   []*RaikoBatches `json:"batches"`
-	Prover    string          `json:"prover"`
-	Aggregate bool            `json:"aggregate"`
-	Type      ProofType       `json:"proof_type"`
-}
-
 type RaikoCheckpoint struct {
 	BlockNum  *big.Int `json:"block_number"`
 	BlockHash string   `json:"block_hash"`
@@ -54,9 +40,7 @@ type RaikoRequestProofBodyV3Shasta struct {
 
 // ComposeProofProducer generates a compose proof for the given block.
 type ComposeProofProducer struct {
-	// We use Verifiers for Pacaya proof
-	Verifiers map[ProofType]common.Address
-	// We use VerifierIDs for Shasta proof
+	// VerifierIDs are used for Shasta proof requests.
 	VerifierIDs         map[ProofType]uint8
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
@@ -112,12 +96,8 @@ func (s *ComposeProofProducer) RequestProof(
 				return err
 			} else {
 				proofType = resp.ProofType
-				// Note: we mark the `IsRethProofGenerated` with true to record if it is first time generated
-				if opts.IsShasta() {
-					opts.ShastaOptions().RethProofGenerated = true
-				} else {
-					opts.PacayaOptions().RethProofGenerated = true
-				}
+				// Note: we mark `RethProofGenerated` with true to record if it is first time generated.
+				opts.ShastaOptions().RethProofGenerated = true
 				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 				if ProofTypeZKSP1 != proofType {
 					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
@@ -131,12 +111,8 @@ func (s *ComposeProofProducer) RequestProof(
 		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
 			return err
 		} else {
-			// Note: we mark the `IsGethProofGenerated` with true to record if it is the first time generated
-			if opts.IsShasta() {
-				opts.ShastaOptions().GethProofGenerated = true
-			} else {
-				opts.PacayaOptions().GethProofGenerated = true
-			}
+			// Note: we mark `GethProofGenerated` with true to record if it is the first time generated.
+			opts.ShastaOptions().GethProofGenerated = true
 			return nil
 		}
 	})
@@ -164,20 +140,13 @@ func (s *ComposeProofProducer) Aggregate(
 		return nil, ErrInvalidLength
 	}
 	proofType := items[0].ProofType
-	isShasta := items[0].Meta.IsShasta()
 	var (
 		verifierID uint8
 		verifier   common.Address
 		exist      bool
 	)
-	if isShasta {
-		if verifierID, exist = s.VerifierIDs[proofType]; !exist {
-			return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
-		}
-	} else {
-		if verifier, exist = s.Verifiers[proofType]; !exist {
-			return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
-		}
+	if verifierID, exist = s.VerifierIDs[proofType]; !exist {
+		return nil, fmt.Errorf("unknown proof type from raiko %s", proofType)
 	}
 
 	log.Info(
@@ -206,13 +175,8 @@ func (s *ComposeProofProducer) Aggregate(
 		if sgxGethBatchProofs, err = s.SgxGethProducer.Aggregate(ctx, items, requestAt); err != nil {
 			return err
 		} else {
-			// Note: we mark the `IsGethProofAggregationGenerated` in the first item with true
-			// to record if it is first time generated
-			if items[0].Opts.IsShasta() {
-				items[0].Opts.ShastaOptions().GethProofAggregationGenerated = true
-			} else {
-				items[0].Opts.PacayaOptions().GethProofAggregationGenerated = true
-			}
+			// Note: we mark `GethProofAggregationGenerated` in the first item with true.
+			items[0].Opts.ShastaOptions().GethProofAggregationGenerated = true
 			return nil
 		}
 	})
@@ -233,13 +197,8 @@ func (s *ComposeProofProducer) Aggregate(
 			); err != nil {
 				return err
 			} else {
-				// Note: we mark the `IsRethProofAggregationGenerated` in the first item with true
-				// to record if it is first time generated
-				if items[0].Opts.IsShasta() {
-					items[0].Opts.ShastaOptions().RethProofAggregationGenerated = true
-				} else {
-					items[0].Opts.PacayaOptions().RethProofAggregationGenerated = true
-				}
+				// Note: we mark `RethProofAggregationGenerated` in the first item with true.
+				items[0].Opts.ShastaOptions().RethProofAggregationGenerated = true
 				batchProofs = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 			}
 		}
@@ -280,57 +239,35 @@ func (s *ComposeProofProducer) requestBatchProof(
 	var (
 		output     *RaikoRequestProofBodyResponseV2
 		err        error
-		batches    = make([]*RaikoBatches, 0, len(opts))
 		proposals  = make([]*RaikoProposals, 0, len(opts))
 		start, end *big.Int
 	)
 
-	if metas[0].IsShasta() {
-		for i, meta := range metas {
-			proposals = append(proposals, &RaikoProposals{
-				ProposalId:             meta.Shasta().GetEventData().Id,
-				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
-				Checkpoint: &RaikoCheckpoint{
-					BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
-					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
-					StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
-				},
-				LastAnchorBlockNumber: opts[i].ShastaOptions().LastAnchorBlockNumber,
-			})
-		}
-		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
-			ctx,
-			s.RaikoHostEndpoint+"/v3/proof/batch/shasta",
-			s.ApiKey,
-			RaikoRequestProofBodyV3Shasta{
-				Type:      proofType,
-				Proposals: proposals,
-				Prover:    opts[0].GetProverAddress().Hex()[2:],
-				Aggregate: isAggregation,
+	for i, meta := range metas {
+		proposals = append(proposals, &RaikoProposals{
+			ProposalId:             meta.Shasta().GetEventData().Id,
+			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
+			L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
+			Checkpoint: &RaikoCheckpoint{
+				BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
+				BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
+				StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
 			},
-		)
-		start, end = proposals[0].ProposalId, proposals[len(proposals)-1].ProposalId
-	} else {
-		for _, meta := range metas {
-			batches = append(batches, &RaikoBatches{
-				BatchID:                meta.Pacaya().GetBatchID(),
-				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-			})
-		}
-		output, err = requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
-			ctx,
-			s.RaikoHostEndpoint+"/v3/proof/batch",
-			s.ApiKey,
-			RaikoRequestProofBodyV3Pacaya{
-				Type:      proofType,
-				Batches:   batches,
-				Prover:    opts[0].GetProverAddress().Hex()[2:],
-				Aggregate: isAggregation,
-			},
-		)
-		start, end = batches[0].BatchID, batches[len(batches)-1].BatchID
+			LastAnchorBlockNumber: opts[i].ShastaOptions().LastAnchorBlockNumber,
+		})
 	}
+	output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
+		ctx,
+		s.RaikoHostEndpoint+"/v3/proof/batch/shasta",
+		s.ApiKey,
+		RaikoRequestProofBodyV3Shasta{
+			Type:      proofType,
+			Proposals: proposals,
+			Prover:    opts[0].GetProverAddress().Hex()[2:],
+			Aggregate: isAggregation,
+		},
+	)
+	start, end = proposals[0].ProposalId, proposals[len(proposals)-1].ProposalId
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,7 @@ import (
 func (s *ProverTestSuite) TestSetApprovalAmount() {
 	data, err := encoding.TaikoTokenABI.Pack(
 		"approve",
-		s.p.cfg.PacayaInboxAddress,
+		s.p.cfg.InboxAddress,
 		common.Big0,
 	)
 	s.Nil(err)
@@ -24,7 +24,7 @@ func (s *ProverTestSuite) TestSetApprovalAmount() {
 	})
 	s.Nil(err)
 
-	allowance, err := s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.PacayaInboxAddress)
+	allowance, err := s.p.rpc.L1Contracts.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.InboxAddress)
 	s.Nil(err)
 
 	s.Equal(0, allowance.Cmp(common.Big0))
@@ -35,10 +35,14 @@ func (s *ProverTestSuite) TestSetApprovalAmount() {
 
 	s.p.cfg.Allowance = amt
 
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.PacayaInboxAddress))
+	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.InboxAddress))
 
-	allowance, err = s.p.rpc.PacayaClients.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.PacayaInboxAddress)
+	allowance, err = s.p.rpc.L1Contracts.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.InboxAddress)
 	s.Nil(err)
 
 	s.Equal(0, amt.Cmp(allowance))
+}
+
+func (s *ProverTestSuite) TestInitUsesShastaSubmitterOnly() {
+	s.NotNil(s.p.proofSubmitterShasta)
 }

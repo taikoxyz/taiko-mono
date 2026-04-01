@@ -19,14 +19,14 @@ import (
 type EndBatchProposedEventIterFunc func()
 
 // OnBatchProposedEvent represents the callback function which will be called
-// when a Pacaya or Shasta proposal event is iterated.
+// when a Shasta proposal event is iterated.
 type OnBatchProposedEvent func(
 	context.Context,
 	metadata.TaikoProposalMetaData,
 	EndBatchProposedEventIterFunc,
 ) error
 
-// BatchProposedIterator iterates the emitted Pacaya or Shasta proposal events in the chain,
+// BatchProposedIterator iterates the emitted Shasta proposal events in the chain,
 // with the awareness of reorganization.
 type BatchProposedIterator struct {
 	blockBatchIterator *chainIterator.BlockBatchIterator
@@ -103,18 +103,8 @@ func assembleBatchProposedIteratorCallback(
 	) error {
 		var (
 			endHeight         = end.Number.Uint64()
-			lastPacayaBatchID uint64
 			lastShastaBatchID uint64
 		)
-
-		// Iterate the BatchProposed events.
-		iterPacaya, err := rpcClient.PacayaClients.TaikoInbox.FilterBatchProposed(
-			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx},
-		)
-		if err != nil {
-			return err
-		}
-		defer iterPacaya.Close()
 
 		iterShasta, err := rpcClient.ShastaClients.Inbox.FilterProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx}, nil, nil,
@@ -123,52 +113,6 @@ func assembleBatchProposedIteratorCallback(
 			return err
 		}
 		defer iterShasta.Close()
-
-		for iterPacaya.Next() {
-			event := iterPacaya.Event
-			log.Debug("Processing BatchProposed event", "batch", event.Meta.BatchId, "l1BlockHeight", event.Raw.BlockNumber)
-
-			if lastPacayaBatchID != 0 && event.Meta.BatchId != lastPacayaBatchID+1 {
-				log.Warn(
-					"BatchProposed event is not continuous, rescan the L1 chain",
-					"fromL1Block", start.Number,
-					"toL1Block", endHeight,
-					"lastScannedBatchID", lastPacayaBatchID,
-					"currentScannedBatchID", event.Meta.BatchId,
-				)
-				return fmt.Errorf(
-					"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
-					lastPacayaBatchID, event.Meta.BatchId,
-				)
-			}
-
-			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {
-				log.Warn("Error while processing BatchProposed events, keep retrying", "error", err)
-				return err
-			}
-
-			if eventIter.isEnd {
-				log.Debug("BatchProposedIterator is ended", "start", start.Number, "end", endHeight)
-				endFunc()
-				return nil
-			}
-
-			current, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
-			if err != nil {
-				return err
-			}
-
-			log.Debug("Updating current block cursor for processing BatchProposed events", "block", current.Number)
-
-			lastPacayaBatchID = event.Meta.BatchId
-
-			updateCurrentFunc(current)
-		}
-
-		// Check if there is any error during the Pacaya iteration.
-		if iterPacaya.Error() != nil {
-			return iterPacaya.Error()
-		}
 
 		for iterShasta.Next() {
 			event := iterShasta.Event

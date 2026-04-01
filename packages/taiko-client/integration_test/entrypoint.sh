@@ -17,13 +17,8 @@ if [ "${L2_NODE:-}" == "l2_nmc" ]; then
   check_command "jq"
 fi
 
-# Ensure Shasta fork activation times are set for taiko-geth (L2) and Anvil (L1).
-if [ -z "${TAIKO_INTERNAL_SHASTA_TIME:-}" ] || [ -z "${ANVIL_INTERNAL_SHASTA_TIME:-}" ]; then
-  # Set L2 Shsata fork activation time to current timestamp - 1 hour, and make the L1 timestamp one hour earlier.
-  NOW=$(date -u +%s)
-  export TAIKO_INTERNAL_SHASTA_TIME=$((NOW - 3600))
-  export ANVIL_INTERNAL_SHASTA_TIME=$((NOW - 7200))
-fi
+# Keep Shasta active from genesis in the integration test environment.
+export TAIKO_INTERNAL_SHASTA_TIME=0
 
 # Start and stop docker-compose
 trap "$PROJECT_ROOT/internal/docker/stop.sh" EXIT INT KILL ERR
@@ -41,8 +36,7 @@ check_env "L1_WS"
 check_env "L2_HTTP"
 check_env "L2_WS"
 check_env "L2_AUTH"
-check_env "PACAYA_INBOX"
-check_env "SHASTA_INBOX"
+check_env "INBOX"
 check_env "TAIKO_WRAPPER"
 check_env "FORCED_INCLUSION_STORE"
 check_env "PROVER_SET"
@@ -55,10 +49,8 @@ check_env "TREASURY"
 check_env "JWT_SECRET"
 check_env "VERBOSITY"
 check_env "TAIKO_INTERNAL_SHASTA_TIME"
-check_env "ANVIL_INTERNAL_SHASTA_TIME"
 
 echo "TAIKO_INTERNAL_SHASTA_TIME=$TAIKO_INTERNAL_SHASTA_TIME"
-echo "ANVIL_INTERNAL_SHASTA_TIME=$ANVIL_INTERNAL_SHASTA_TIME"
 
 RUN_TESTS=${RUN_TESTS:-false}
 PACKAGE=${PACKAGE:-...}

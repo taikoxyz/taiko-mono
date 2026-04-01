@@ -30,16 +30,6 @@ func NewTaikoProposalMetadataShasta(
 	}
 }
 
-// Pacaya implements TaikoProposalMetaData interface.
-func (m *TaikoProposalMetadataShasta) Pacaya() TaikoBatchMetaDataPacaya {
-	return nil
-}
-
-// IsPacaya implements TaikoProposalMetaData interface.
-func (m *TaikoProposalMetadataShasta) IsPacaya() bool {
-	return false
-}
-
 // Shasta implements TaikoProposalMetaData interface.
 func (m *TaikoProposalMetadataShasta) Shasta() TaikoProposalMetaDataShasta {
 	return m

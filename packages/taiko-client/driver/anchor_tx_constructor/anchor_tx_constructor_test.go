@@ -13,35 +13,11 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 func TestGasLimit(t *testing.T) {
 	require.Greater(t, consensus.AnchorGasLimit, uint64(0))
-}
-
-func TestAssembleAnchorV3Tx(t *testing.T) {
-	client := newTestClient(t)
-	l1Head, err := client.L1.HeaderByNumber(context.Background(), nil)
-	require.Nil(t, err)
-
-	c, err := New(client)
-	require.Nil(t, err)
-	head, err := client.L2.HeaderByNumber(context.Background(), nil)
-	require.Nil(t, err)
-	tx, err := c.AssembleAnchorV3Tx(
-		context.Background(),
-		l1Head.Number,
-		l1Head.Hash(),
-		head,
-		&pacayaBindings.LibSharedDataBaseFeeConfig{},
-		[][32]byte{},
-		common.Big1,
-		common.Big256,
-	)
-	require.Nil(t, err)
-	require.NotNil(t, tx)
 }
 
 func TestAssembleAnchorV4Tx(t *testing.T) {
@@ -70,7 +46,7 @@ func TestAssembleAnchorV4Tx(t *testing.T) {
 func TestNewAnchorTransactor(t *testing.T) {
 	client := newTestClient(t)
 
-	goldenTouchAddress, err := client.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
+	goldenTouchAddress, err := client.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil)
 	require.Nil(t, err)
 
 	c, err := New(client)
@@ -149,8 +125,7 @@ func newTestClient(t *testing.T) *rpc.Client {
 	client, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
-		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+		InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),

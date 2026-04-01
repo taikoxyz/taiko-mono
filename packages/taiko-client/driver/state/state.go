@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -29,10 +28,8 @@ type State struct {
 	l1Current atomic.Value // Current L1 block sync cursor
 
 	// Constants
-	GenesisL1Height  *big.Int
-	OnTakeForkHeight *big.Int
-	PacayaForkHeight *big.Int
-	ShastaForkTime   uint64
+	GenesisL1Height *big.Int
+	ShastaForkTime  uint64
 
 	// RPC clients
 	rpc *rpc.Client
@@ -63,13 +60,9 @@ func (s *State) init(ctx context.Context) error {
 	if err := s.initGenesisHeight(ctx); err != nil {
 		return fmt.Errorf("failed to initialize genesis height: %w", err)
 	}
-	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Ontake)
-	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Pacaya)
 	s.ShastaForkTime = s.rpc.ShastaClients.ForkTime
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
-	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
-	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
 	log.Info("Shasta fork timestamp", "time", s.ShastaForkTime)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
@@ -105,30 +98,21 @@ func (s *State) eventLoop(ctx context.Context) {
 
 	var (
 		// Channels for subscriptions.
-		l1HeadCh                = make(chan *types.Header, 10)
-		l2HeadCh                = make(chan *types.Header, 10)
-		batchesProvedPacayaCh   = make(chan *pacayaBindings.TaikoInboxClientBatchesProved, 10)
-		batchesVerifiedPacayaCh = make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, 10)
-		proposedShastaCh        = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
-		provedShastaCh          = make(chan *shastaBindings.ShastaInboxClientProved, 10)
+		l1HeadCh         = make(chan *types.Header, 10)
+		l2HeadCh         = make(chan *types.Header, 10)
+		proposedShastaCh = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
+		provedShastaCh   = make(chan *shastaBindings.ShastaInboxClientProved, 10)
 
 		// Subscriptions.
-		l1HeadSub                  = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
-		l2HeadSub                  = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2BatchesVerifiedPacayaSub = rpc.SubscribeBatchesVerifiedPacaya(
-			s.rpc.PacayaClients.TaikoInbox,
-			batchesVerifiedPacayaCh,
-		)
-		l2BatchesProvedPacayaSub = rpc.SubscribeBatchesProvedPacaya(s.rpc.PacayaClients.TaikoInbox, batchesProvedPacayaCh)
-		l2ProposedShastaSub      = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
-		l2ProvedShastaSub        = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
+		l1HeadSub           = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
+		l2HeadSub           = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
+		l2ProposedShastaSub = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
+		l2ProvedShastaSub   = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
 	)
 
 	defer func() {
 		l1HeadSub.Unsubscribe()
 		l2HeadSub.Unsubscribe()
-		l2BatchesVerifiedPacayaSub.Unsubscribe()
-		l2BatchesProvedPacayaSub.Unsubscribe()
 		l2ProposedShastaSub.Unsubscribe()
 		l2ProvedShastaSub.Unsubscribe()
 	}()
@@ -137,8 +121,6 @@ func (s *State) eventLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-batchesProvedPacayaCh:
-			log.Info("✅ Pacaya batches proven", "batchIDs", e.BatchIds, "verifier", e.Verifier)
 		case e := <-provedShastaCh:
 			coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
 			if err != nil {
@@ -156,12 +138,6 @@ func (s *State) eventLoop(ctx context.Context) {
 				"lastBatchID", e.LastProposalId,
 				"checkpointNumber", header.Number,
 				"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
-			)
-		case e := <-batchesVerifiedPacayaCh:
-			log.Info(
-				"📈 Pacaya batches verified",
-				"lastVerifiedBatchID", e.BatchId,
-				"lastVerifiedBlockHash", common.Hash(e.BlockHash),
 			)
 		case newHead := <-l1HeadCh:
 			s.setL1Head(newHead)
@@ -212,21 +188,13 @@ func (s *State) SubL1HeadsFeed(ch chan *types.Header) event.Subscription {
 	return s.l1HeadsFeed.Subscribe(ch)
 }
 
-// IsPacaya returns whether num is either equal to the Pacaya block or greater.
-func (s *State) IsPacaya(num *big.Int) bool {
-	if s.PacayaForkHeight == nil || num == nil {
-		return false
-	}
-	return s.PacayaForkHeight.Cmp(num) <= 0
-}
-
 // initGenesisHeight fetches the genesis height from the current protocol.
 func (s *State) initGenesisHeight(ctx context.Context) error {
-	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+	genesisHeight, err := s.rpc.GetShastaActivationBlockNumber(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get protocol state variables: %w", err)
+		return fmt.Errorf("failed to get Shasta activation block number: %w", err)
 	}
 
-	s.GenesisL1Height = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+	s.GenesisL1Height = genesisHeight
 	return nil
 }

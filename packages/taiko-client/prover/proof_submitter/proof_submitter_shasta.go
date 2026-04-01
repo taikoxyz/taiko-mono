@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -24,6 +25,15 @@ import (
 )
 
 var ErrProposalOutOfAllowedRange = errors.New("proposalID out of allowed proving range")
+
+// SenderOptions is the options for the transaction sender.
+type SenderOptions struct {
+	RPCClient        *rpc.Client
+	Txmgr            txmgr.TxManager
+	PrivateTxmgr     txmgr.TxManager
+	ProverSetAddress common.Address
+	GasLimit         uint64
+}
 
 // ProofSubmitterShasta is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
@@ -80,7 +90,6 @@ func NewProofSubmitterShasta(
 			senderOpts.RPCClient,
 			senderOpts.Txmgr,
 			senderOpts.PrivateTxmgr,
-			senderOpts.ProverSetAddress,
 			senderOpts.GasLimit,
 		),
 		proverAddress:             senderOpts.Txmgr.From(),
@@ -326,7 +335,7 @@ func (s *ProofSubmitterShasta) handleProofResponse(
 	return nil
 }
 
-// BatchSubmitProofs submits the given batch proofs to the Shasta Inbox smart contract.
+// BatchSubmitProofs submits the given batch proofs to the inbox contract.
 func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
 		"Batch submit Shasta batches proofs",
@@ -374,7 +383,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		return fmt.Errorf("failed to wait parent transition verified: %w", err)
 	}
 
-	// Build the Shasta Inbox.prove transaction and send it to the L1 node.
+	// Build the inbox prove transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
 		s.txBuilder.BuildProveBatchesShasta(ctx, batchProof),

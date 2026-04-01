@@ -64,8 +64,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
-			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
@@ -112,15 +111,9 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 
 	s.shastaProposalBuilder = builder.NewBlobTransactionBuilder(
 		s.RPCClient,
-		l1ProposerPrivKey,
-		common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
-		common.HexToAddress(os.Getenv("PROVER_SET")),
+		common.HexToAddress(os.Getenv("INBOX")),
 		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		1_000_000,
-		nil,
-		true,
 	)
 }
 
@@ -156,7 +149,6 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	b, err := builder.SplitToBlobs([]byte{0x1})
@@ -202,7 +194,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -258,7 +249,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{testTx1}, {testTx2}},
-		common.Address{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -307,7 +297,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		txBatch,
-		common.Address{},
 	)
 	s.Nil(err)
 
@@ -356,7 +345,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		txBatch,
-		common.Address{},
 	)
 	s.Nil(err)
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -422,7 +410,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
 	s.Nil(err)
 
-	inbox := common.HexToAddress(os.Getenv("SHASTA_INBOX"))
+	inbox := common.HexToAddress(os.Getenv("INBOX"))
 	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{
@@ -444,7 +432,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	txCandidate.GasLimit = 0
@@ -502,7 +489,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
 	s.Nil(err)
 
-	inbox := common.HexToAddress(os.Getenv("SHASTA_INBOX"))
+	inbox := common.HexToAddress(os.Getenv("INBOX"))
 	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{
@@ -524,7 +511,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
-		common.Address{},
 	)
 	s.Nil(err)
 	txCandidate.GasLimit = 0
