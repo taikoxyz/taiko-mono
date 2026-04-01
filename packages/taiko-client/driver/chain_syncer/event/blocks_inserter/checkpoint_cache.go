@@ -167,7 +167,10 @@ func getShastaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpo
 
 // isOlderCheckpoint reports whether the new checkpoint would move the cache backwards.
 func isOlderCheckpoint(newCheckpoint, currentCheckpoint *verifiedCheckpoint) bool {
-	if newCheckpoint == nil || newCheckpoint.BlockID == nil || currentCheckpoint == nil || currentCheckpoint.BlockID == nil {
+	if newCheckpoint == nil ||
+		newCheckpoint.BlockID == nil ||
+		currentCheckpoint == nil ||
+		currentCheckpoint.BlockID == nil {
 		return false
 	}
 
