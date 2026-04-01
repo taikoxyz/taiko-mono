@@ -945,25 +945,14 @@ func InsertPreconfBlockFromEnvelope(
 	)
 
 	if envelope.Payload.Timestamp >= eth.Uint64Quantity(cli.ShastaClients.ForkTime) {
-		safeCheckpoint, err = tryLastFinalizedCheckpointShasta(
-			ctx,
-			nil,
-			cli.GetCoreStateShasta,
-			cli.L2Engine.LastBlockIDByBatchID,
-			cli.L2.HeaderByNumber,
-		)
+		safeCheckpoint, err = getShastaCheckpoint(ctx, cli)
 		if err != nil {
 			log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
 		}
 	} else {
-		lastVerifiedTS, err := cli.GetLastVerifiedTransitionPacaya(ctx)
+		safeCheckpoint, err = getPacayaCheckpoint(ctx, cli)
 		if err != nil {
 			log.Warn("Failed to fetch last verified block of Pacaya", "error", err)
-		} else {
-			safeCheckpoint = &verifiedCheckpoint{
-				BlockID:   new(big.Int).SetUint64(lastVerifiedTS.BlockId),
-				BlockHash: lastVerifiedTS.Ts.BlockHash,
-			}
 		}
 	}
 
