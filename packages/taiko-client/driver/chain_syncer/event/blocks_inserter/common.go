@@ -953,16 +953,17 @@ func InsertPreconfBlockFromEnvelope(
 			cli.L2.HeaderByNumber,
 		)
 		if err != nil {
-			return nil, err
+			log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
 		}
 	} else {
 		lastVerifiedTS, err := cli.GetLastVerifiedTransitionPacaya(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch last verified block: %w", err)
-		}
-		safeCheckpoint = &verifiedCheckpoint{
-			BlockID:   new(big.Int).SetUint64(lastVerifiedTS.BlockId),
-			BlockHash: lastVerifiedTS.Ts.BlockHash,
+			log.Warn("Failed to fetch last verified block of Pacaya", "error", err)
+		} else {
+			safeCheckpoint = &verifiedCheckpoint{
+				BlockID:   new(big.Int).SetUint64(lastVerifiedTS.BlockId),
+				BlockHash: lastVerifiedTS.Ts.BlockHash,
+			}
 		}
 	}
 
