@@ -264,17 +264,11 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgRollbackToGenesis() {
-	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Less(l2Head1.Time, s.RPCClient.ShastaClients.ForkTime)
 	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	testnetL1SnapshotID := s.SetL1Snapshot()
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	l2Head2, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Less(l2Head2.Time, s.RPCClient.ShastaClients.ForkTime)
 	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 
 	var m metadata.TaikoProposalMetaData
@@ -285,7 +279,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgRollbackToGenesis() {
 	s.True(m.IsShasta())
 	l2Head3, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Greater(l2Head3.Time, s.RPCClient.ShastaClients.ForkTime)
 
 	headL1Origin, err := s.RPCClient.L2Engine.LastL1OriginByBatchID(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
@@ -317,7 +310,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgRollbackToGenesis() {
 
 	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.Greater(l2Head4.Time, s.RPCClient.ShastaClients.ForkTime)
 
 	s.InitShastaGenesisProposal()
 
@@ -1106,10 +1098,8 @@ func (s *DriverTestSuite) InitProposer() {
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
-			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),

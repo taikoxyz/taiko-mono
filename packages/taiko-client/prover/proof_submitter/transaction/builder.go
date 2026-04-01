@@ -21,18 +21,16 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 
 // ProveBatchesTxBuilder is responsible for building Shasta prove transactions.
 type ProveBatchesTxBuilder struct {
-	rpc              *rpc.Client
-	inboxAddress     common.Address
-	proverSetAddress common.Address
+	rpc          *rpc.Client
+	inboxAddress common.Address
 }
 
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
 func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
 	inboxAddress common.Address,
-	proverSetAddress common.Address,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc: rpc, inboxAddress: inboxAddress, proverSetAddress: proverSetAddress}
+	return &ProveBatchesTxBuilder{rpc: rpc, inboxAddress: inboxAddress}
 }
 
 // BuildProveBatchesShasta creates a new inbox prove transaction.
@@ -145,14 +143,9 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			return nil, encoding.TryParsingCustomError(err)
 		}
 
-		to := a.inboxAddress
-		if a.proverSetAddress != rpc.ZeroAddress {
-			to = a.proverSetAddress
-		}
-
 		return &txmgr.TxCandidate{
 			TxData:   data,
-			To:       &to,
+			To:       &a.inboxAddress,
 			Blobs:    nil,
 			GasLimit: txOpts.GasLimit,
 			Value:    txOpts.Value,

@@ -79,12 +79,6 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_DUMMY"},
 	}
-	Allowance = &cli.Float64Flag{
-		Name:     "prover.allowance",
-		Usage:    "Amount without decimal to approve TaikoInbox contract for TaikoToken usage",
-		Category: proverCategory,
-		EnvVars:  []string{"PROVER_ALLOWANCE"},
-	}
 	ProofPollingInterval = &cli.DurationFlag{
 		Name:     "prover.proofPollingInterval",
 		Usage:    "Time interval to poll proofs from raiko host",
@@ -146,8 +140,6 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	StartingBatchID,
 	Dummy,
 	ProveUnassignedBlocks,
-	TaikoTokenAddress,
-	Allowance,
 	ProofPollingInterval,
 	LocalProposerAddresses,
 	BlockConfirmations,

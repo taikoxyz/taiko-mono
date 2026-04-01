@@ -56,13 +56,11 @@ var (
 	// Ontake fork
 	TaikoL1ABI      *abi.ABI
 	TaikoL2ABI      *abi.ABI
-	TaikoTokenABI   *abi.ABI
 	LibProposingABI *abi.ABI
 	LibProvingABI   *abi.ABI
 	LibUtilsABI     *abi.ABI
 	LibVerifyingABI *abi.ABI
 	SGXVerifierABI  *abi.ABI
-	ProverSetABI    *abi.ABI
 	ForkRouterABI   *abi.ABI
 
 	// Legacy L1 contracts
@@ -73,8 +71,6 @@ var (
 	ResolverBaseABI         *abi.ABI
 	ComposeVerifierABI      *abi.ABI
 	LegacyForkRouterABI     *abi.ABI
-	LegacyTaikoTokenABI     *abi.ABI
-	LegacyProverSetABI      *abi.ABI
 
 	// Shasta fork
 	ShastaInboxABI           *abi.ABI
@@ -97,10 +93,6 @@ func init() {
 		log.Crit("Get TaikoL2 ABI error", "error", err)
 	}
 
-	if TaikoTokenABI, err = ontakeBindings.TaikoTokenMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoToken ABI error", "error", err)
-	}
-
 	if LibProposingABI, err = ontakeBindings.LibProposingMetaData.GetAbi(); err != nil {
 		log.Crit("Get LibProposing ABI error", "error", err)
 	}
@@ -119,10 +111,6 @@ func init() {
 
 	if SGXVerifierABI, err = ontakeBindings.SgxVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get SGXVerifier ABI error", "error", err)
-	}
-
-	if ProverSetABI, err = ontakeBindings.ProverSetMetaData.GetAbi(); err != nil {
-		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
 	if ForkRouterABI, err = ontakeBindings.ForkRouterMetaData.GetAbi(); err != nil {
@@ -157,14 +145,6 @@ func init() {
 		log.Crit("Get ForkRouter ABI error", "error", err)
 	}
 
-	if LegacyTaikoTokenABI, err = legacyBindings.TaikoTokenMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoToken ABI error", "error", err)
-	}
-
-	if LegacyProverSetABI, err = legacyBindings.ProverSetMetaData.GetAbi(); err != nil {
-		log.Crit("Get ProverSet ABI error", "error", err)
-	}
-
 	if ShastaInboxABI, err = shastaBindings.ShastaInboxClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get inbox ABI error", "error", err)
 	}
@@ -197,7 +177,6 @@ func init() {
 		LibUtilsABI.Errors,
 		LibVerifyingABI.Errors,
 		SGXVerifierABI.Errors,
-		ProverSetABI.Errors,
 		ForkRouterABI.Errors,
 		TaikoInboxABI.Errors,
 		TaikoWrapperABI.Errors,
@@ -206,8 +185,6 @@ func init() {
 		ResolverBaseABI.Errors,
 		ComposeVerifierABI.Errors,
 		LegacyForkRouterABI.Errors,
-		LegacyTaikoTokenABI.Errors,
-		LegacyProverSetABI.Errors,
 		ShastaInboxABI.Errors,
 		ShastaAnchorABI.Errors,
 		BondManagerABI.Errors,

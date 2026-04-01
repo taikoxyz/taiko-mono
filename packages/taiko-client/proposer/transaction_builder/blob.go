@@ -69,9 +69,6 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
 	gasLimit := l2Head.GasLimit - consensus.AnchorV3V4GasLimit
-	if l2Head.Time < b.rpc.ShastaClients.ForkTime {
-		gasLimit = manifest.MaxBlockGasLimit
-	}
 
 	for i, txs := range txBatch {
 		log.Info(

@@ -123,12 +123,7 @@ func (p *Proposer) InitFromConfig(
 	}
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
-	p.chainConfig = config.NewChainConfig(
-		p.rpc.L2.ChainID,
-		0,
-		0,
-		p.rpc.ShastaClients.ForkTime,
-	)
+	p.chainConfig = config.NewChainConfig(p.rpc.L2.ChainID, 0)
 	p.txBuilder = builder.NewBlobTransactionBuilder(
 		p.rpc,
 		cfg.InboxAddress,
@@ -435,15 +430,12 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("failed to get current epoch preconfer address: %w", err)
 	}
 
-	// it needs to be either us, or the proverSet we propose through
-	if operator != p.proposerAddress &&
-		operator != p.ProverSetAddress {
+	if operator != p.proposerAddress {
 		log.Info(
 			"Preconfirmation is activated and proposer isn't the current epoch preconfer, skip proposing",
 			"time", time.Now(),
 			"currentEpochOperator", operator.Hex(),
 			"proposer", p.proposerAddress.Hex(),
-			"proverSet", p.ProverSetAddress.Hex(),
 		)
 		return false, nil
 	}

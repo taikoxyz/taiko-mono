@@ -28,11 +28,10 @@ var ErrProposalOutOfAllowedRange = errors.New("proposalID out of allowed proving
 
 // SenderOptions is the options for the transaction sender.
 type SenderOptions struct {
-	RPCClient        *rpc.Client
-	Txmgr            txmgr.TxManager
-	PrivateTxmgr     txmgr.TxManager
-	ProverSetAddress common.Address
-	GasLimit         uint64
+	RPCClient    *rpc.Client
+	Txmgr        txmgr.TxManager
+	PrivateTxmgr txmgr.TxManager
+	GasLimit     uint64
 }
 
 // ProofSubmitterShasta is responsible requesting proofs for the given L2

@@ -16,7 +16,6 @@ var (
 	l2Endpoint      = "http://localhost:9545"
 	inbox           = common.HexToAddress("0x00000000000000000000000000000000000000aa")
 	taikoAnchor     = common.HexToAddress("0x00000000000000000000000000000000000000bb")
-	taikoToken      = common.HexToAddress("0x00000000000000000000000000000000000000cc")
 	proposeInterval = "10s"
 	rpcTimeout      = "5s"
 )
@@ -32,7 +31,6 @@ func (s *ProposerTestSuite) TestProposerConfigShastaOnlySurface() {
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
-		&cli.StringFlag{Name: flags.TaikoTokenAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProposerPrivKey.Name},
 		&cli.StringFlag{Name: flags.L2SuggestedFeeRecipient.Name},
 		&cli.DurationFlag{Name: flags.MinProposingInternal.Name},
@@ -48,7 +46,6 @@ func (s *ProposerTestSuite) TestProposerConfigShastaOnlySurface() {
 		s.Equal(l2Endpoint, c.L2Endpoint)
 		s.Equal(inbox.String(), c.InboxAddress.String())
 		s.Equal(taikoAnchor.String(), c.TaikoAnchorAddress.String())
-		s.Equal(taikoToken.String(), c.TaikoTokenAddress.String())
 		s.Equal(goldenTouchAddress, crypto.PubkeyToAddress(c.L1ProposerPrivKey.PublicKey))
 		s.Equal(goldenTouchAddress, c.L2SuggestedFeeRecipient)
 		s.Equal(float64(10), c.ProposeInterval.Seconds())
@@ -62,7 +59,6 @@ func (s *ProposerTestSuite) TestProposerConfigShastaOnlySurface() {
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.InboxAddress.Name, inbox.Hex(),
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor.Hex(),
-		"--" + flags.TaikoTokenAddress.Name, taikoToken.Hex(),
 		"--" + flags.L1ProposerPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.L2SuggestedFeeRecipient.Name, goldenTouchAddress.Hex(),
 		"--" + flags.ProposeInterval.Name, proposeInterval,
@@ -99,7 +95,6 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
-		&cli.StringFlag{Name: flags.TaikoTokenAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProposerPrivKey.Name},
 		&cli.StringFlag{Name: flags.L2SuggestedFeeRecipient.Name},
 		&cli.DurationFlag{Name: flags.MinProposingInternal.Name},

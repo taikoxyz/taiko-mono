@@ -5,8 +5,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/urfave/cli/v2"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
@@ -82,13 +80,6 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_ANCHOR"},
 	}
-	TaikoTokenAddress = &cli.StringFlag{
-		Name:     "taikoToken",
-		Usage:    "TaikoToken contract `address`",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_TOKEN"},
-	}
 
 	// Optional flags used by all client software.
 	// Logging
@@ -148,19 +139,6 @@ var (
 		Value:    12 * time.Second,
 		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
-	ProverSetAddress = &cli.StringFlag{
-		Name:     "proverSet",
-		Usage:    "ProverSet contract `address`",
-		Value:    rpc.ZeroAddress.Hex(),
-		Category: commonCategory,
-		EnvVars:  []string{"PROVER_SET"},
-	}
-	ShastaForkTime = &cli.Uint64Flag{
-		Name:     "shasta.time",
-		Usage:    "Shasta hardfork activation timestamp (unix seconds)",
-		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_SHASTA_TIME"},
-	}
 )
 
 // CommonFlags All common flags.
@@ -170,8 +148,6 @@ var CommonFlags = []cli.Flag{
 	InboxAddress,
 	TaikoAnchorAddress,
 	// Optional
-	ProverSetAddress,
-	ShastaForkTime,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,

@@ -66,8 +66,6 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 	return &configs, nil
 }
 
-func (c *Client) ensureGenesisMatched(context.Context, common.Address) error { return nil }
-
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
 func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 	start := time.Now()
@@ -786,7 +784,8 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
 	}
-	config := &params.ChainConfig{ShastaTime: &c.ShastaClients.ForkTime, ChainID: c.L2.ChainID}
+	shastaTime := uint64(0)
+	config := &params.ChainConfig{ShastaTime: &shastaTime, ChainID: c.L2.ChainID}
 	log.Info(
 		"Params for Shasta base fee calculation",
 		"parentBlockNumber", l2Head.Number,
@@ -796,7 +795,6 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 		"parentTime", l2Head.Time-parentBlock.Time,
 		"elasticityMultiplier", config.ElasticityMultiplier(),
 		"baseFeeMaxChangeDenominator", config.BaseFeeChangeDenominator(),
-		"shastaForkTime", c.ShastaClients.ForkTime,
 		"chainID", config.ChainID,
 	)
 	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil

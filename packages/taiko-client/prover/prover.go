@@ -103,10 +103,7 @@ func InitFromConfig(
 		JwtSecret:          cfg.JwtSecret,
 		InboxAddress:       cfg.InboxAddress,
 		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
-		TaikoTokenAddress:  cfg.TaikoTokenAddress,
-		ProverSetAddress:   cfg.ProverSetAddress,
 		Timeout:            cfg.RPCTimeout,
-		ShastaForkTime:     cfg.ShastaForkTime,
 	}); err != nil {
 		return err
 	}
@@ -133,7 +130,6 @@ func InitFromConfig(
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
 		p.cfg.InboxAddress,
-		p.cfg.ProverSetAddress,
 	)
 	if txMgr != nil {
 		p.txmgr = txMgr
@@ -179,14 +175,7 @@ func InitFromConfig(
 
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
-	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.InboxAddress} {
-		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
-			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
-		}
-	}
-
-	// 2. Start the main event loop of the prover.
+	// Start the main event loop of the prover.
 	go p.eventLoop()
 
 	return nil

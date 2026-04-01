@@ -29,7 +29,6 @@ type State struct {
 
 	// Constants
 	GenesisL1Height *big.Int
-	ShastaForkTime  uint64
 
 	// RPC clients
 	rpc *rpc.Client
@@ -60,10 +59,8 @@ func (s *State) init(ctx context.Context) error {
 	if err := s.initGenesisHeight(ctx); err != nil {
 		return fmt.Errorf("failed to initialize genesis height: %w", err)
 	}
-	s.ShastaForkTime = s.rpc.ShastaClients.ForkTime
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
-	log.Info("Shasta fork timestamp", "time", s.ShastaForkTime)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)

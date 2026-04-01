@@ -325,7 +325,6 @@ func (s *Syncer) processShastaProposal(
 				meta.GetEventData(),
 				meta.GetTimestamp(),
 				lastAnchorBlockNumber,
-				s.rpc.ShastaClients.ForkTime,
 				s.rpc.L2.ChainID,
 			)
 		}
@@ -349,7 +348,6 @@ func (s *Syncer) processShastaProposal(
 				meta.GetEventData(),
 				meta.GetTimestamp(),
 				lastAnchorBlockNumber,
-				s.rpc.ShastaClients.ForkTime,
 				s.rpc.L2.ChainID,
 			)
 			log.Info(

@@ -17,7 +17,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
@@ -29,9 +28,6 @@ type Config struct {
 	JwtSecret                 string
 	InboxAddress              common.Address
 	TaikoAnchorAddress        common.Address
-	TaikoTokenAddress         common.Address
-	ProverSetAddress          common.Address
-	ShastaForkTime            uint64
 	L1ProverPrivKey           *ecdsa.PrivateKey
 	StartingBatchID           *big.Int
 	BackOffMaxRetries         uint64
@@ -39,7 +35,6 @@ type Config struct {
 	ProveUnassignedBlocks     bool
 	RPCTimeout                time.Duration
 	ProveBatchesGasLimit      uint64
-	Allowance                 *big.Int
 	RaikoHostEndpoint         string
 	RaikoZKVMHostEndpoint     string
 	RaikoApiKey               string
@@ -76,20 +71,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		startingBatchID = new(big.Int).SetUint64(c.Uint64(flags.StartingBatchID.Name))
 	}
 
-	var allowance = common.Big0
-	if c.IsSet(flags.Allowance.Name) {
-		amt, err := utils.EtherToWei(c.Float64(flags.Allowance.Name))
-		if err != nil {
-			return nil, fmt.Errorf(
-				"invalid setting allowance config value %v: %w",
-				c.Float64(flags.Allowance.Name),
-				err,
-			)
-		}
-
-		allowance = amt
-	}
-
 	if c.IsSet(flags.RaikoApiKeyPath.Name) {
 		raikoApiKey, err = file.ReadFileAsBytes(c.String(flags.RaikoApiKeyPath.Name))
 		if err != nil {
@@ -116,9 +97,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		JwtSecret:              string(jwtSecret),
 		InboxAddress:           common.HexToAddress(c.String(flags.InboxAddress.Name)),
 		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
-		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
-		ShastaForkTime:         c.Uint64(flags.ShastaForkTime.Name),
 		L1ProverPrivKey:        l1ProverPrivKey,
 		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
@@ -132,7 +110,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProposalWindowSize:     c.Uint64(flags.ProposalWindowSize.Name),
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
-		Allowance:              allowance,
 		LocalProposerAddresses: localProposerAddresses,
 		BlockConfirmations:     c.Uint64(flags.BlockConfirmations.Name),
 		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),

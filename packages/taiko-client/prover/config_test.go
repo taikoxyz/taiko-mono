@@ -17,7 +17,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	l2HttpEndpoint := "http://localhost:10545"
 	inbox := common.HexToAddress("0x00000000000000000000000000000000000000aa")
 	taikoAnchor := common.HexToAddress("0x00000000000000000000000000000000000000bb")
-	taikoToken := common.HexToAddress("0x00000000000000000000000000000000000000cc")
 
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
@@ -26,7 +25,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
-		&cli.StringFlag{Name: flags.TaikoTokenAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
@@ -43,7 +41,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		s.Equal(l2HttpEndpoint, c.L2HttpEndpoint)
 		s.Equal(inbox.String(), c.InboxAddress.String())
 		s.Equal(taikoAnchor.String(), c.TaikoAnchorAddress.String())
-		s.Equal(taikoToken.String(), c.TaikoTokenAddress.String())
 		s.Equal("http://raiko.host", c.RaikoHostEndpoint)
 		s.Equal("http://raiko.zkvm", c.RaikoZKVMHostEndpoint)
 		s.Equal("secret-key", c.RaikoApiKey)
@@ -62,7 +59,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		"--" + flags.L2HTTPEndpoint.Name, l2HttpEndpoint,
 		"--" + flags.InboxAddress.Name, inbox.Hex(),
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor.Hex(),
-		"--" + flags.TaikoTokenAddress.Name, taikoToken.Hex(),
 		"--" + flags.L1ProverPrivKey.Name, encoding.GoldenTouchPrivKey,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.RaikoHostEndpoint.Name, "http://raiko.host",
@@ -94,7 +90,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.BoolFlag{Name: flags.Dummy.Name},
 		&cli.BoolFlag{Name: flags.ProveUnassignedBlocks.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
-		&cli.StringFlag{Name: flags.Allowance.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}
 	app.Flags = append(app.Flags, flags.TxmgrFlags...)

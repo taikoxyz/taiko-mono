@@ -18,7 +18,6 @@ import (
 type BatchProposedEventHandler struct {
 	sharedState            *state.SharedState
 	proverAddress          common.Address
-	proverSetAddress       common.Address
 	rpc                    *rpc.Client
 	localProposerAddresses []common.Address
 	assignmentExpiredCh    chan<- metadata.TaikoProposalMetaData
@@ -32,7 +31,6 @@ type BatchProposedEventHandler struct {
 type NewBatchProposedEventHandlerOps struct {
 	SharedState            *state.SharedState
 	ProverAddress          common.Address
-	ProverSetAddress       common.Address
 	RPC                    *rpc.Client
 	LocalProposerAddresses []common.Address
 	AssignmentExpiredCh    chan metadata.TaikoProposalMetaData
@@ -47,7 +45,6 @@ func NewBatchProposedEventHandler(opts *NewBatchProposedEventHandlerOps) *BatchP
 	return &BatchProposedEventHandler{
 		opts.SharedState,
 		opts.ProverAddress,
-		opts.ProverSetAddress,
 		opts.RPC,
 		opts.LocalProposerAddresses,
 		opts.AssignmentExpiredCh,
@@ -73,6 +70,5 @@ func (h *BatchProposedEventHandler) Handle(
 // shouldProve checks whether the current running prover is assigned to prove the proposed batch.
 func (h *BatchProposedEventHandler) shouldProve(assignedProver common.Address) bool {
 	return assignedProver == h.proverAddress ||
-		assignedProver == h.proverSetAddress ||
 		slices.Contains(h.localProposerAddresses, assignedProver)
 }

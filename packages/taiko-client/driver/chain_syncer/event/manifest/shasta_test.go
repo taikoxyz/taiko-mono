@@ -92,7 +92,6 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	chainID := params.TaikoHoodiNetworkID
 	parentTime := uint64(1_000)
 	proposalTimestamp := parentTime + manifest.TimestampMaxOffsetByChainID(chainID) + 100
-	forkTime := proposalTimestamp - 50
 	proposal := &shastaBindings.ShastaInboxClientProposed{}
 
 	// Timestamp above proposal timestamp should fail.
@@ -102,18 +101,17 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: proposalTimestamp + 1}},
 		},
 	}
-	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime, chainID))
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, chainID))
 
 	// Timestamp below lower bound should fail.
 	expectedLowerBound := max(parentTime+1, proposalTimestamp-manifest.TimestampMaxOffsetByChainID(chainID))
-	expectedLowerBound = max(expectedLowerBound, forkTime)
 	sourcePayload = &ShastaDerivationSourcePayload{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
 		BlockPayloads: []*ShastaBlockPayload{
 			{BlockManifest: manifest.BlockManifest{Timestamp: expectedLowerBound - 1}},
 		},
 	}
-	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime, chainID))
+	s.False(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, chainID))
 
 	// Valid payload passes.
 	validTimestamp := expectedLowerBound + 10
@@ -123,7 +121,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 			{BlockManifest: manifest.BlockManifest{Timestamp: validTimestamp}},
 		},
 	}
-	s.True(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, forkTime, chainID))
+	s.True(validateMetadataTimestamp(sourcePayload, proposal, proposalTimestamp, chainID))
 	s.Equal(validTimestamp, sourcePayload.BlockPayloads[0].Timestamp)
 }
 
@@ -226,7 +224,6 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 		proposal,
 		parentTime+5,
 		parentAnchorBlockNumber,
-		parentTime,
 		chainID,
 	)
 	result = validateAnchorBlockNumber(sourcePayload, originBlockNumber, parentAnchorBlockNumber, proposal, true, chainID)
@@ -264,7 +261,6 @@ func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 		&shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer},
 		proposal.Timestamp.Uint64(),
 		900,
-		parentTime-10,
 		chainID,
 	)
 	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
@@ -273,7 +269,7 @@ func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 	s.Equal(sourcePayload.BlockPayloads[0].GasLimit, sourcePayload.BlockPayloads[1].GasLimit)
 	s.Greater(sourcePayload.BlockPayloads[1].Timestamp, sourcePayload.BlockPayloads[0].Timestamp)
 
-	// When lower bound exceeds proposal timestamp, metadata still uses the computed lower bound.
+	// When the proposal timestamp does not advance, metadata still uses the computed lower bound.
 	proposal.Timestamp = big.NewInt(int64(parentTime))
 	sourcePayload = &ShastaDerivationSourcePayload{
 		ParentBlock: parentBlock,
@@ -281,17 +277,15 @@ func (s *ShastaManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 			{BlockManifest: manifest.BlockManifest{}},
 		},
 	}
-	exceedingFork := proposal.Timestamp.Uint64() + 1
 	ApplyInheritedMetadata(
 		sourcePayload,
 		&shastaBindings.ShastaInboxClientProposed{Proposer: proposal.Proposer},
 		proposal.Timestamp.Uint64(),
 		900,
-		exceedingFork,
 		chainID,
 	)
 	s.Equal(proposer, sourcePayload.BlockPayloads[0].Coinbase)
-	s.Equal(max(parentTime+1, exceedingFork), sourcePayload.BlockPayloads[0].Timestamp)
+	s.Equal(parentTime+1, sourcePayload.BlockPayloads[0].Timestamp)
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
@@ -428,7 +422,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 	proposalTimestamp := proposal.Timestamp.Uint64()
 
 	rpcClient := &rpc.Client{
-		ShastaClients: &rpc.ShastaClients{ForkTime: parentTime},
+		ShastaClients: &rpc.ShastaClients{},
 		L2:            &rpc.EthClient{ChainID: params.TaikoHoodiNetworkID},
 	}
 
@@ -458,13 +452,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadata() {
 func (s *ShastaManifestFetcherTestSuite) TestComputeTimestampLowerBoundByChainID() {
 	parentTimestamp := uint64(100)
 	proposalTimestamp := uint64(10_000)
-	forkTime := uint64(0)
 
-	hoodiLowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime, params.TaikoHoodiNetworkID)
+	hoodiLowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, params.TaikoHoodiNetworkID)
 	mainnetLowerBound := ComputeTimestampLowerBound(
 		parentTimestamp,
 		proposalTimestamp,
-		forkTime,
 		params.TaikoMainnetNetworkID,
 	)
 

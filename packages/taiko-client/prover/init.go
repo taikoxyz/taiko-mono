@@ -5,79 +5,15 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	cmap "github.com/orcaman/concurrent-map/v2"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
-
-// setApprovalAmount will set the allowance on the TaikoToken contract for the
-// configured proverAddress as owner and the contract as spender,
-// if `--prover.allowance` flag is provided for allowance.
-func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address) error {
-	// Skip setting approval amount if `--prover.allowance` flag is not set.
-	if p.cfg.Allowance == nil || p.cfg.Allowance.Cmp(common.Big0) != 1 {
-		log.Info("Skipping setting approval, `--prover.allowance` flag not set")
-		return nil
-	}
-
-	// Check the existing allowance for the contract.
-	allowance, err := p.rpc.L1Contracts.TaikoToken.Allowance(&bind.CallOpts{Context: ctx}, p.ProverAddress(), contract)
-	if err != nil {
-		return err
-	}
-
-	log.Info("Existing allowance for the contract", "allowance", utils.WeiToEther(allowance), "contract", contract)
-
-	// If the existing allowance is greater or equal to the configured allowance, skip setting allowance.
-	if allowance.Cmp(p.cfg.Allowance) >= 0 {
-		log.Info(
-			"Skipping setting allowance, allowance already greater or equal",
-			"allowance", utils.WeiToEther(allowance),
-			"approvalAmount", p.cfg.Allowance,
-			"contract", contract,
-		)
-		return nil
-	}
-
-	log.Info("Approving the contract for taiko token", "allowance", p.cfg.Allowance, "contract", contract)
-	data, err := encoding.TaikoTokenABI.Pack("approve", contract, p.cfg.Allowance)
-	if err != nil {
-		return err
-	}
-
-	receipt, err := p.txmgr.Send(ctx, txmgr.TxCandidate{TxData: data, To: &p.cfg.TaikoTokenAddress})
-	if err != nil {
-		return err
-	}
-	if receipt.Status != types.ReceiptStatusSuccessful {
-		return fmt.Errorf("failed to approve allowance for contract (%s): %s", contract, receipt.TxHash.Hex())
-	}
-
-	log.Info("Approved the contract for taiko token", "txHash", receipt.TxHash.Hex(), "contract", contract)
-
-	// Check the new allowance for the contract.
-	if allowance, err = p.rpc.L1Contracts.TaikoToken.Allowance(
-		&bind.CallOpts{Context: ctx},
-		p.ProverAddress(),
-		contract,
-	); err != nil {
-		return err
-	}
-
-	log.Info("New allowance for the contract", "allowance", utils.WeiToEther(allowance), "contract", contract)
-
-	return nil
-}
 
 // initShastaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
 func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
@@ -166,11 +102,10 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 		p.batchesAggregationNotifyShasta,
 		p.proofSubmissionCh,
 		&proofSubmitter.SenderOptions{
-			RPCClient:        p.rpc,
-			Txmgr:            p.txmgr,
-			PrivateTxmgr:     p.privateTxmgr,
-			ProverSetAddress: p.cfg.ProverSetAddress,
-			GasLimit:         p.cfg.ProveBatchesGasLimit,
+			RPCClient:    p.rpc,
+			Txmgr:        p.txmgr,
+			PrivateTxmgr: p.privateTxmgr,
+			GasLimit:     p.cfg.ProveBatchesGasLimit,
 		},
 		txBuilder,
 		p.cfg.ProofPollingInterval,
@@ -247,7 +182,6 @@ func (p *Prover) initEventHandlers() error {
 	opts := &handler.NewBatchProposedEventHandlerOps{
 		SharedState:            p.sharedState,
 		ProverAddress:          p.ProverAddress(),
-		ProverSetAddress:       p.cfg.ProverSetAddress,
 		RPC:                    p.rpc,
 		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
 		AssignmentExpiredCh:    p.assignmentExpiredCh,

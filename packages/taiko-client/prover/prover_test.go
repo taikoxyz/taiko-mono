@@ -121,9 +121,7 @@ func (s *ProverTestSuite) SetupTest() {
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -153,7 +151,6 @@ func (s *ProverTestSuite) TestInitError() {
 		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
 		InboxAddress:          common.HexToAddress(os.Getenv("INBOX")),
 		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:     common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		L1ProverPrivKey:       l1ProverPrivKey,
 		Dummy:                 true,
 		ProveUnassignedBlocks: true,
@@ -217,28 +214,6 @@ func (s *ProverTestSuite) TestGetSubmitterShastaOnly() {
 	})
 }
 
-func (s *ProverTestSuite) TestSetApprovalAlreadySetHigher() {
-	s.p.cfg.Allowance = common.Big256
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.InboxAddress))
-
-	originalAllowance, err := s.p.rpc.L1Contracts.TaikoToken.Allowance(
-		nil,
-		s.p.ProverAddress(),
-		s.p.cfg.InboxAddress,
-	)
-	s.Nil(err)
-	s.NotZero(originalAllowance.Uint64())
-
-	s.p.cfg.Allowance = new(big.Int).Sub(originalAllowance, common.Big1)
-
-	s.Nil(s.p.setApprovalAmount(context.Background(), s.p.cfg.InboxAddress))
-
-	allowance, err := s.p.rpc.L1Contracts.TaikoToken.Allowance(nil, s.p.ProverAddress(), s.p.cfg.InboxAddress)
-	s.Nil(err)
-
-	s.Zero(allowance.Cmp(originalAllowance))
-}
-
 func (s *ProverTestSuite) TearDownTest() {
 	defer s.ClientTestSuite.TearDownTest()
 
@@ -253,9 +228,6 @@ func TestProverTestSuite(t *testing.T) {
 }
 
 func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey) {
-	decimal, err := s.RPCClient.L1Contracts.TaikoToken.Decimals(nil)
-	s.Nil(err)
-
 	proposerKey, err := crypto.ToECDSA(common.FromHex(os.Getenv("L1_PROPOSER_PRIVATE_KEY")))
 	s.Nil(err)
 	s.NotNil(proposerKey)
@@ -273,13 +245,10 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 		JwtSecret:              string(jwtSecret),
 		InboxAddress:           common.HexToAddress(os.Getenv("INBOX")),
 		TaikoAnchorAddress:     common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:      common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		ProverSetAddress:       common.HexToAddress(os.Getenv("PROVER_SET")),
 		L1ProverPrivKey:        key,
 		Dummy:                  true,
 		ProveUnassignedBlocks:  true,
 		LocalProposerAddresses: []common.Address{crypto.PubkeyToAddress(proposerKey.PublicKey)},
-		Allowance:              new(big.Int).Exp(big.NewInt(1_000_000_100), new(big.Int).SetUint64(uint64(decimal)), nil),
 		RPCTimeout:             3 * time.Second,
 		BackOffRetryInterval:   3 * time.Second,
 		BackOffMaxRetries:      12,

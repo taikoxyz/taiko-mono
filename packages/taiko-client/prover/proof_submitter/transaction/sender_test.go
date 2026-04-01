@@ -18,7 +18,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
@@ -36,7 +35,6 @@ func (s *TransactionTestSuite) SetupTest() {
 	s.builder = NewProveBatchesTxBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("INBOX")),
-		rpc.ZeroAddress,
 	)
 
 	txmgr, err := txmgr.NewSimpleTxManager(

@@ -246,7 +246,6 @@ func ValidateMetadata(
 		sourcePayload,
 		event,
 		proposalTimestamp,
-		rpc.ShastaClients.ForkTime,
 		rpc.L2.ChainID,
 	) {
 		return false
@@ -279,7 +278,6 @@ func validateMetadataTimestamp(
 	sourcePayload *ShastaDerivationSourcePayload,
 	event *shastaBindings.ShastaInboxClientProposed,
 	proposalTimestamp uint64,
-	forkTime uint64,
 	chainID *big.Int,
 ) bool {
 	var (
@@ -287,14 +285,13 @@ func validateMetadataTimestamp(
 	)
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime, chainID)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, chainID)
 		if lowerBound > proposalTimestamp {
 			log.Info(
 				"Invalid timestamp bounds",
 				"blockIndex", i,
 				"proposalTimestamp", proposalTimestamp,
 				"lowerBound", lowerBound,
-				"forkTime", forkTime,
 			)
 			return false
 		}
@@ -322,13 +319,11 @@ func validateMetadataTimestamp(
 // The lower bound is determined by taking the maximum of three constraints:
 // 1. parent_timestamp + 1: Blocks must progress forward in time
 // 2. proposal_timestamp - TIMESTAMP_MAX_OFFSET: Blocks cannot be too far in the past relative to the proposal
-// 3. fork_timestamp: Blocks must be after the Shasta fork activation
-//
 // Returns the maximum of all three values to ensure all constraints are satisfied.
-func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime uint64, chainID *big.Int) uint64 {
+func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp uint64, chainID *big.Int) uint64 {
 	timestampMaxOffset := manifest.TimestampMaxOffsetByChainID(chainID)
 
-	lowerBound := max(parentTimestamp+1, forkTime)
+	lowerBound := parentTimestamp + 1
 	if proposalTimestamp > timestampMaxOffset {
 		lowerBound = max(lowerBound, proposalTimestamp-timestampMaxOffset)
 	}
@@ -461,7 +456,6 @@ func ApplyInheritedMetadata(
 	event *shastaBindings.ShastaInboxClientProposed,
 	timestamp uint64,
 	anchorBlockNumber uint64,
-	forkTime uint64,
 	chainID *big.Int,
 ) {
 	var (
@@ -473,7 +467,7 @@ func ApplyInheritedMetadata(
 	}
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, forkTime, chainID)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, chainID)
 
 		sourcePayload.BlockPayloads[i].Timestamp = lowerBound
 		sourcePayload.BlockPayloads[i].Coinbase = event.Proposer

@@ -15,22 +15,13 @@ type ChainConfig struct {
 	ChainID *big.Int
 	// Ontake switch block (nil = no fork, 0 = already on ontake)
 	OntakeForkHeight *big.Int
-	// Shasta switch time (unix seconds pointer)
-	// Semantics: nil = not enabled; 0 = activated at genesis
-	ShastaForkTime *uint64
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(
-	chainID *big.Int,
-	ontakeForkHeight uint64,
-	_ uint64,
-	shastaForkTime uint64,
-) *ChainConfig {
+func NewChainConfig(chainID *big.Int, ontakeForkHeight uint64) *ChainConfig {
 	cfg := &ChainConfig{
 		ChainID:          chainID,
 		OntakeForkHeight: new(big.Int).SetUint64(ontakeForkHeight),
-		ShastaForkTime:   &shastaForkTime,
 	}
 
 	log.Info("")
@@ -64,13 +55,7 @@ func (c *ChainConfig) Description() string {
 	// Create a list of forks with a short description of them.
 	banner += "Hard forks (block based):\n"
 	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.OntakeForkHeight)
-	// Shasta is timestamp-based
-	banner += "\nHard forks (time based):\n"
-	shastaTimeStr := "-"
-	if c.ShastaForkTime != nil {
-		shastaTimeStr = fmt.Sprintf("@%d", *c.ShastaForkTime)
-	}
-	banner += fmt.Sprintf(" - Shasta:                   %s\n", shastaTimeStr)
+	banner += " - Shasta:                   active\n"
 	banner += "\n"
 
 	return banner
@@ -79,15 +64,6 @@ func (c *ChainConfig) Description() string {
 // IsOntake returns whether num is either equal to the Ontake block or greater.
 func (c *ChainConfig) IsOntake(num *big.Int) bool {
 	return isBlockForked(c.OntakeForkHeight, num)
-}
-
-// IsShasta returns whether the given timestamp has reached the Shasta fork time.
-// Semantics: nil time = not enabled; 0 = activated at genesis.
-func (c *ChainConfig) IsShasta(timestamp uint64) bool {
-	if c.ShastaForkTime == nil {
-		return false
-	}
-	return timestamp >= *c.ShastaForkTime
 }
 
 // isBlockForked returns whether a fork scheduled at block s is active at the

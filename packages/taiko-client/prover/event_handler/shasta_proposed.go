@@ -170,7 +170,6 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 			"Expired Shasta batch is not provable by current prover",
 			"batchID", meta.Shasta().GetEventData().Id,
 			"currentProver", h.proverAddress,
-			"currentProverSet", h.proverSetAddress,
 			"designatedProver", designatedProver,
 			"localProposerAddresses", h.localProposerAddresses,
 		)

@@ -81,9 +81,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -134,9 +132,8 @@ func (s *EventHandlerTestSuite) TestBatchesProvedHandleShasta() {
 	s.Nil(handler.HandleShasta(context.Background(), &shastaBindings.ShastaInboxClientProved{
 		FirstNewProposalId: new(big.Int).Set(meta.Shasta().GetEventData().Id),
 		LastProposalId:     new(big.Int).Set(meta.Shasta().GetEventData().Id),
-		ActualProver:       s.proposer.ProverSetAddress,
+		ActualProver:       crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey),
 	}))
-
 }
 
 func TestEventHandlerTestSuite(t *testing.T) {

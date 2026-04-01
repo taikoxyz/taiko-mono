@@ -232,21 +232,14 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 }
 
 func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyncer) {
-	defer s.L1Mine()
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
+	s.InitShastaGenesisProposal()
 
-	// Already forked into Shasta (timestamp-based).
-	if head.Time >= s.RPCClient.ShastaClients.ForkTime {
-		log.Debug("Already forked into Shasta")
-		s.InitShastaGenesisProposal()
+	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	s.Nil(err)
+	if coreState.NextProposalId.Cmp(common.Big1) > 0 {
 		return
 	}
 
-	s.SetNextBlockTimestamp(s.RPCClient.ShastaClients.ForkTime)
-	s.L1Mine()
-
-	s.InitShastaGenesisProposal()
 	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
 
@@ -260,24 +253,19 @@ func (s *ClientTestSuite) InitShastaGenesisProposal() {
 		txMgr = s.TxMgr("initShastaGenesisProposal", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
 		inbox = common.HexToAddress(os.Getenv("INBOX"))
 	)
-	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	proposalHash, err := s.RPCClient.ShastaClients.Inbox.GetProposalHash(nil, common.Big0)
 	s.Nil(err)
-
-	if l1Head.Time >= s.RPCClient.ShastaClients.ForkTime {
-		proposalHash, err := s.RPCClient.ShastaClients.Inbox.GetProposalHash(nil, common.Big0)
-		s.Nil(err)
-		if proposalHash != (common.Hash{}) {
-			return
-		}
-		l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-		s.Nil(err)
-
-		data, err := encoding.ShastaInboxABI.Pack("activate", l2Head.Hash())
-		s.Nil(err)
-		_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
-		s.Nil(err)
+	if proposalHash != (common.Hash{}) {
 		return
 	}
+
+	l2Head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	data, err := encoding.ShastaInboxABI.Pack("activate", l2Head.Hash())
+	s.Nil(err)
+	_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
+	s.Nil(err)
 }
 
 // RandomHash generates a random blob of data and returns it as a hash.

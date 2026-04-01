@@ -12,8 +12,7 @@ import (
 )
 
 func TestChainConfigDescriptionIsShastaOnly(t *testing.T) {
-	forkTime := uint64(123456)
-	cfg := NewChainConfig(big.NewInt(167001), 0, 42, forkTime)
+	cfg := NewChainConfig(big.NewInt(167001), 0)
 
 	desc := cfg.Description()
 	require.Contains(t, desc, "Shasta")

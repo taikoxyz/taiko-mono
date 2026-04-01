@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -24,8 +23,6 @@ const (
 type L1Contracts struct {
 	TaikoWrapper         *legacyBindings.TaikoWrapperClient
 	ForcedInclusionStore *legacyBindings.ForcedInclusionStore
-	TaikoToken           *legacyBindings.TaikoToken
-	ProverSet            *legacyBindings.ProverSet
 	PreconfWhitelist     *legacyBindings.PreconfWhitelist
 	PreconfRouter        *legacyBindings.PreconfRouter
 }
@@ -36,8 +33,6 @@ type ShastaClients struct {
 	Anchor          *shastaBindings.ShastaAnchor
 	ComposeVerifier *shastaBindings.ComposeVerifier
 	InboxAddress    common.Address
-	// ForkTime is the Shasta hardfork activation timestamp (unix seconds). Optional.
-	ForkTime uint64
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -66,14 +61,11 @@ type ClientConfig struct {
 	InboxAddress                common.Address
 	TaikoWrapperAddress         common.Address
 	TaikoAnchorAddress          common.Address
-	TaikoTokenAddress           common.Address
 	ForcedInclusionStoreAddress common.Address
 	PreconfWhitelistAddress     common.Address
-	ProverSetAddress            common.Address
 	L2EngineEndpoint            string
 	JwtSecret                   string
 	Timeout                     time.Duration
-	ShastaForkTime              uint64
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -156,25 +148,12 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 // initL1Contracts initializes the shared L1 helper contracts.
 func (c *Client) initL1Contracts(cfg *ClientConfig) error {
 	var (
-		taikoToken           *legacyBindings.TaikoToken
-		proverSet            *legacyBindings.ProverSet
 		taikoWrapper         *legacyBindings.TaikoWrapperClient
 		forcedInclusionStore *legacyBindings.ForcedInclusionStore
 		preconfWhitelist     *legacyBindings.PreconfWhitelist
 		preconfRouter        *legacyBindings.PreconfRouter
 		err                  error
 	)
-	if cfg.TaikoTokenAddress.Hex() != ZeroAddress.Hex() {
-		if taikoToken, err = legacyBindings.NewTaikoToken(cfg.TaikoTokenAddress, c.L1); err != nil {
-			return fmt.Errorf("failed to create new instance of TaikoToken: %w", err)
-		}
-	}
-	if cfg.ProverSetAddress.Hex() != ZeroAddress.Hex() {
-		if proverSet, err = legacyBindings.NewProverSet(cfg.ProverSetAddress, c.L1); err != nil {
-			return fmt.Errorf("failed to create new instance of ProverSet: %w", err)
-		}
-	}
-
 	if cfg.TaikoWrapperAddress.Hex() != ZeroAddress.Hex() {
 		if taikoWrapper, err = legacyBindings.NewTaikoWrapperClient(cfg.TaikoWrapperAddress, c.L1); err != nil {
 			return fmt.Errorf("failed to create new instance of TaikoWrapperClient: %w", err)
@@ -212,8 +191,6 @@ func (c *Client) initL1Contracts(cfg *ClientConfig) error {
 	}
 
 	c.L1Contracts = &L1Contracts{
-		TaikoToken:           taikoToken,
-		ProverSet:            proverSet,
 		TaikoWrapper:         taikoWrapper,
 		ForcedInclusionStore: forcedInclusionStore,
 		PreconfWhitelist:     preconfWhitelist,
@@ -243,26 +220,11 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	if err != nil {
 		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
 	}
-	// Initialize Shasta clients with a fork-time value determined by precedence:
-	// 1) CLI flag (cfg.ShastaForkTime)
-	// 2) Env var TAIKO_INTERNAL_SHASTA_TIME
-	forkTime := cfg.ShastaForkTime
-	if forkTime == 0 {
-		if v := os.Getenv("TAIKO_INTERNAL_SHASTA_TIME"); v != "" {
-			if parsed, err := strconv.ParseUint(v, 10, 64); err == nil {
-				forkTime = parsed
-			} else {
-				log.Error("Failed to parse TAIKO_INTERNAL_SHASTA_TIME, using 0", "env", v, "err", err)
-			}
-		}
-	}
-
 	c.ShastaClients = &ShastaClients{
 		Inbox:           inbox,
 		Anchor:          shastaAnchor,
 		ComposeVerifier: composeVerifier,
 		InboxAddress:    cfg.InboxAddress,
-		ForkTime:        forkTime,
 	}
 
 	return nil
