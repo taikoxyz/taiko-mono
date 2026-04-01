@@ -93,9 +93,9 @@ pub struct NetworkConfig {
     pub reputation_ban: f64,
     /// Exponential-decay halflife for scores. Determines how quickly peer scores decay over time.
     pub reputation_halflife: Duration,
-    /// Fixed (tumbling) window size for req/resp rate limiting.
+    /// Token-bucket refill period for req/resp rate limiting.
     pub request_window: Duration,
-    /// Maximum number of requests allowed per peer within the `request_window`.
+    /// Number of tokens added per peer/protocol bucket within each `request_window`.
     pub max_requests_per_window: u32,
     /// Maximum concurrent inbound+outbound req/resp streams (libp2p request-response config).
     pub max_reqresp_concurrent_streams: usize,
@@ -225,18 +225,18 @@ impl NetworkConfig {
 
 /// Rate limit configuration for req/resp protocols.
 ///
-/// This struct defines the parameters for a fixed (tumbling) window rate limiter
-/// that restricts the number of requests a peer can make within a given time window.
+/// This struct defines the parameters for the per-peer/per-protocol token-bucket limiter used by
+/// req/resp handling.
 #[derive(Debug, Clone, Copy)]
 pub struct RateLimitConfig {
-    /// The duration of the rate limiting window.
+    /// The token-bucket refill period.
     pub window: Duration,
-    /// Maximum number of requests allowed per peer within the window.
+    /// Number of tokens added per peer/protocol bucket within each refill period.
     pub max_requests: u32,
 }
 
 impl Default for RateLimitConfig {
-    /// Provides default rate limit settings: 10s window, 8 requests.
+    /// Provides default rate limit settings: 10s refill period, 8 tokens.
     fn default() -> Self {
         Self { window: Duration::from_secs(10), max_requests: 8 }
     }

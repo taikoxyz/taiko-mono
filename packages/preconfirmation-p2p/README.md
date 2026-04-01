@@ -7,9 +7,9 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 - `crates/types`: Spec-driven SSZ types and helpers (hashing/signing/validation). Provides
   topic/protocol ID helpers used by the network.
 - `crates/net`: libp2p transport + behaviours (ping, identify, gossipsub, req/resp) and
-  scaffolds for discovery (`discovery`, now backed by `reth-discv5` behind the `reth-discovery`
-  feature) and peer reputation. Kona gossipsub presets + connection gater are always applied;
-  req/resp uses SSZ with libp2p varint framing and per-message size caps. Public API:
+  discovery scaffolds backed by `reth-discv5`, plus peer reputation. Kona gossipsub presets +
+  connection gater are always applied; req/resp uses SSZ with libp2p varint framing, per-message
+  size caps, and per-peer/per-protocol token-bucket rate limiting. Public API:
   `P2pConfig`, `P2pNode`, `P2pHandle`, `NetworkCommand` (publish/request), `NetworkEvent`
   (gossip/req-resp/lifecycle).
 - `crates/net/examples/p2p-node.rs`: Minimal CLI example that starts the node and logs
@@ -27,21 +27,22 @@ Project for the Taiko permissionless preconfirmation P2P layer (libp2p + discv5,
 
 ## Upstream reuse and compatibility
 
-- Discovery is backed by `reth-discv5` (git tag `v1.9.3`) behind the `reth-discovery` feature.
+- Discovery is backed by `reth-discv5` (git tag `v1.9.3`) and toggled at runtime via
+  `P2pConfig.enable_discovery`.
 - Gossip and gating reuse Kona (`kona-client/v1.2.4`): gossipsub presets (mesh/score/heartbeat,
   max transmit size tied to `preconfirmation_types::MAX_GOSSIP_SIZE_BYTES`) and the connection
   gater (blocked subnets/redial limits).
 - Reputation weights come from reth (`ReputationChangeWeights`); bans mirror to libp2p IDs.
 - Req/resp: SSZ messages framed with libp2p unsigned-varint lengths, protocol IDs and size caps
-  from `preconfirmation_types`; per-peer fixed-window rate limiting lives in `P2pConfig.rate_limit`.
+  from `preconfirmation_types`; per-peer/per-protocol token-bucket rate limiting is configured via
+  `P2pConfig.rate_limit`.
 - This package is library-only; runnable smoke testing lives in `crates/net/examples/p2p-node.rs`.
 
 ## Reputation & Scoring
 
 - Default: local `PeerReputationStore` with decay/thresholds, libp2p block-list enforcement, and
   rate limiting.
-- Upstream request-rate limiter swap: still local; no compatible upstream rate-limit module is
-  published for our libp2p/reth/Lighthouse versions, so no code change here yet.
+- Req/resp rate limiting uses `reth-tokio-util` token buckets with per-peer/per-protocol state.
 - `kona-presets`: (removed, always on). Gossipsub config now comes from Kona’s preset helper.
 - `reth-peers`: always on. Reputation is keyed by reth `PeerId` when conversion succeeds; bans are
   mirrored to libp2p `PeerId`. Scoring still uses the local decay/threshold logic and falls back to
@@ -63,18 +64,15 @@ preconfirmation-net = { path = "packages/preconfirmation-p2p/crates/net" }
 Key types: `P2pConfig`, `P2pNode`, `P2pHandle`, `NetworkCommand`, `NetworkEvent`, and the SSZ
 message types in `preconfirmation_p2p_types` (e.g., `SignedCommitment`, `RawTxListGossip`).
 
-Feature switches:
+Compile-time and runtime switches:
 
-- `reth-discovery`: use reth-discv5 wrapper for peer discovery (default on in p2p-net).
-- `kona-presets`: (removed, always on).
-- `kona-gater`: (removed, always on). Gossip scoring/gating is handled by Kona gossipsub; the
-  local reputation backend focuses on request/response and dial behaviour.
-- Req/resp rate limiting now uses upstream `reth-tokio-util` token buckets (per-peer, per-protocol).
+- `quic-transport`: enables QUIC transport support for `enable_quic`.
+- `enable_discovery`: runtime toggle for discv5 peer discovery.
+- Kona gossipsub defaults and the Kona connection gater are always on.
 - Discovery uses conservative discv5 timing defaults (aligned with prior production tuning).
 - Connection caps and dial concurrency are configured directly (defaults match prior production
   values).
-- `real-transport-test`: the real TCP integration test now runs by default with retries; enable
-  this feature only to disable the test in constrained environments.
+- Real TCP integration tests run by default with retries.
 
 Typical flow:
 
