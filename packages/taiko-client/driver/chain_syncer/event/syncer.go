@@ -333,7 +333,7 @@ func (s *Syncer) processShastaProposal(
 
 		var lastAnchorBlockNumber uint64
 		if s.rpc.L2.ChainID.Cmp(new(big.Int).SetUint64(167_000)) == 0 &&
-			meta.GetEventData().Id.Uint64() < manifest.MainnetAnchorCheckSkipProposalOffset {
+			meta.GetEventData().Id.Uint64() <= manifest.MainnetAnchorCheckSkipProposalOffset {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
 				sourcePayload.ParentBlock.Transactions()[0],
 			); err != nil {
