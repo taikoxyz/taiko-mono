@@ -34,21 +34,27 @@ We are **not** revoking the IDs added in `Proposal0009` in this emergency change
 | `SGXRETH_ATTESTER`      | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` |
 | `SGXGETH_ATTESTER`      | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` |
 
-### Placeholder IDs To Fill
+### Prover / attester IDs (from release build logs)
 
-Replace the placeholder constants in [`Proposal0010.s.sol`](./Proposal0010.s.sol) before generating calldata or running dryruns:
+These values are set in [`Proposal0010.s.sol`](./Proposal0010.s.sol). Cross-check against your CI/container output before signing.
 
-| Constant                                         | Current placeholder        |
-| ------------------------------------------------ | -------------------------- |
-| `RISC0_BATCH_IMAGE_ID`                           | `bytes32(uint256(0x1001))` |
-| `RISC0_SHASTA_AGGREGATION_IMAGE_ID`              | `bytes32(uint256(0x1002))` |
-| `SP1_BATCH_PROGRAM_VKEY_BN256`                   | `bytes32(uint256(0x2001))` |
-| `SP1_BATCH_PROGRAM_VKEY_HASH_BYTES`              | `bytes32(uint256(0x2002))` |
-| `SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_BN256`      | `bytes32(uint256(0x2003))` |
-| `SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_HASH_BYTES` | `bytes32(uint256(0x2004))` |
-| `SGXRETH_MR_ENCLAVE_NON_EDMM`                    | `bytes32(uint256(0x3001))` |
-| `SGXRETH_MR_ENCLAVE_EDMM`                        | `bytes32(uint256(0x3002))` |
-| `SGXGETH_MR_ENCLAVE_NON_EDMM`                    | `bytes32(uint256(0x3003))` |
+| Constant                                         | Value (hex `bytes32`)                                                                                 |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `RISC0_BATCH_IMAGE_ID`                           | `0x46efe5e0c74976548ee6856789fbfb4929b8f2f9118a119c57ced6e1062e727b` (`boundless-batch`)              |
+| `RISC0_SHASTA_AGGREGATION_IMAGE_ID`              | `0xdfbce2039ad8b78b236b5a9dceba5d8cee0d9e4638fc8f1fe11a0b2d8bfa039e` (`boundless-shasta-aggregation`) |
+| `SP1_BATCH_PROGRAM_VKEY_BN256`                   | `0x0079682c7b5af614273de79761aaad20d1c8e1a65091388b81be836632d382f8`                                  |
+| `SP1_BATCH_PROGRAM_VKEY_HASH_BYTES`              | `0x3cb4163d56bd850967bcf2ec1aaad20d0e470d324244e22e037d06cc32d382f8`                                  |
+| `SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_BN256`      | `0x0002ac747570512099ca19c17f5a3b9f39697e5617a19ff2f2b2464229a50c7c`                                  |
+| `SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_HASH_BYTES` | `0x01563a3a5c1448263943382f75a3b9f34b4bf2b05e867fcb65648c8429a50c7c`                                  |
+| `SGXRETH_MR_ENCLAVE_NON_EDMM`                    | `0x8f73135b83a84126c7fff37ea02f9363e134aea0f6446b13e198b20d94e75099`                                  |
+| `SGXRETH_MR_ENCLAVE_EDMM`                        | `0x72258d3cae0e9901d0efc1f630064f1c44f11950bd25fee0b62ec8df84532da2`                                  |
+| `SGXGETH_MR_ENCLAVE_NON_EDMM`                    | `0x398be8424f27802b38e6e8d3413bf6a0b187349e68522a218f5bfc00279006ac` (gaiko non-EDMM)                 |
+
+**Notes**
+
+- The SP1 build also emits keys for `sp1-aggregation`; this proposal only whitelists **`sp1-batch`** and **`sp1-shasta-aggregation`** on `SP1_SHASTA_VERIFIER`, consistent with the nine L1 actions below.
+- If the build prints `detected old compiler flags: recompile the ELF for additional security`, treat it as a toolchain hardening warning; the IDs above still match the ELF that was built.
+- `SGXGETH_MR_ENCLAVE_NON_EDMM` is the **gaiko** non-EDMM `MR_ENCLAVE` from your build; re-check if the gaiko binary changes.
 
 ### L1 Actions (9 total)
 
