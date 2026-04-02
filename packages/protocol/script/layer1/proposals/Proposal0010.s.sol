@@ -55,7 +55,9 @@ contract Proposal0010 is BuildProposal {
         actions[2] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_BATCH_PROGRAM_VKEY_BN256, true))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_BATCH_PROGRAM_VKEY_BN256, true)
+            )
         });
         actions[3] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
@@ -75,7 +77,8 @@ contract Proposal0010 is BuildProposal {
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted, (SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
+                SP1Verifier.setProgramTrusted,
+                (SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
             )
         });
 
@@ -90,7 +93,9 @@ contract Proposal0010 is BuildProposal {
         actions[7] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
-            data: abi.encodeWithSignature("setMrEnclave(bytes32,bool)", SGXRETH_MR_ENCLAVE_EDMM, true)
+            data: abi.encodeWithSignature(
+                "setMrEnclave(bytes32,bool)", SGXRETH_MR_ENCLAVE_EDMM, true
+            )
         });
         actions[8] = Controller.Action({
             target: SGXGETH_ATTESTER,
