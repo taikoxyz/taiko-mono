@@ -26,8 +26,6 @@ contract Proposal0010 is BuildProposal {
     bytes32 public constant SGXRETH_MR_ENCLAVE_EDMM = bytes32(uint256(0x3002));
     bytes32 public constant SGXGETH_MR_ENCLAVE_NON_EDMM = bytes32(uint256(0x3003));
 
-    error PlaceholderVerifierIdsNotSet();
-
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](9);
 
