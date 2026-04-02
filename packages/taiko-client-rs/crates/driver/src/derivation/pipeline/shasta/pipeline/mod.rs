@@ -119,7 +119,7 @@ fn is_source_offset_valid(source: &DerivationSource) -> bool {
         source.blobSlice.offset.to::<usize>() <= PROPOSAL_MAX_BLOB_BYTES - 64
 }
 
-/// Return whether parent-anchor recovery should decode the parent block's `anchorV4`
+/// Return whether parent-anchor recovery should decode the parent block's `anchorV4` / `anchorV3`
 /// transaction instead of consulting the anchor contract state.
 fn should_decode_parent_anchor_from_tx(chain_id: u64, proposal_id: u64) -> bool {
     chain_id == TAIKO_MAINNET_CHAIN_ID && proposal_id <= MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET
