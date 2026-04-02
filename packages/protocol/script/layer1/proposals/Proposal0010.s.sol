@@ -19,8 +19,7 @@ contract Proposal0010 is BuildProposal {
     bytes32 public constant RISC0_SHASTA_AGGREGATION_IMAGE_ID = bytes32(uint256(0x1002));
     bytes32 public constant SP1_BATCH_PROGRAM_VKEY_BN256 = bytes32(uint256(0x2001));
     bytes32 public constant SP1_BATCH_PROGRAM_VKEY_HASH_BYTES = bytes32(uint256(0x2002));
-    bytes32 public constant SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_BN256 =
-        bytes32(uint256(0x2003));
+    bytes32 public constant SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_BN256 = bytes32(uint256(0x2003));
     bytes32 public constant SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
         bytes32(uint256(0x2004));
     bytes32 public constant SGXRETH_MR_ENCLAVE_NON_EDMM = bytes32(uint256(0x3001));
@@ -30,7 +29,6 @@ contract Proposal0010 is BuildProposal {
     error PlaceholderVerifierIdsNotSet();
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-
         actions = new Controller.Action[](9);
 
         // RISC0 Shasta: batch image + shasta-aggregation image.
@@ -43,8 +41,7 @@ contract Proposal0010 is BuildProposal {
             target: RISC0_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted,
-                (RISC0_SHASTA_AGGREGATION_IMAGE_ID, true)
+                Risc0Verifier.setImageIdTrusted, (RISC0_SHASTA_AGGREGATION_IMAGE_ID, true)
             )
         });
 
@@ -67,8 +64,7 @@ contract Proposal0010 is BuildProposal {
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted,
-                (SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_BN256, true)
+                SP1Verifier.setProgramTrusted, (SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_BN256, true)
             )
         });
         actions[5] = Controller.Action({
@@ -91,7 +87,9 @@ contract Proposal0010 is BuildProposal {
         actions[7] = Controller.Action({
             target: SGXRETH_ATTESTER,
             value: 0,
-            data: abi.encodeWithSignature("setMrEnclave(bytes32,bool)", SGXRETH_MR_ENCLAVE_EDMM, true)
+            data: abi.encodeWithSignature(
+                "setMrEnclave(bytes32,bool)", SGXRETH_MR_ENCLAVE_EDMM, true
+            )
         });
         actions[8] = Controller.Action({
             target: SGXGETH_ATTESTER,
