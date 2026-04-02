@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -634,11 +633,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
 
-	latestState, err := rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
-	}
-
 	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
@@ -651,7 +645,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 	log.Info(
 		"L2 anchor block",
 		"number", anchorBlockID,
-		"latestStateAnchorBlockNumber", latestState.AnchorBlockNumber,
 		"hash", anchorBlockHeaderHash,
 		"root", anchorBlockHeaderRoot,
 	)
