@@ -64,6 +64,12 @@ pub const TAIKO_HOODI_CHAIN_ID: u64 = 167_013;
 /// Chain ID for Taiko mainnet.
 pub const TAIKO_MAINNET_CHAIN_ID: u64 = 167_000;
 
+/// The maximum proposal ID (inclusive) for which the anchor state contract read can be
+/// skipped on mainnet. The first Shasta proposals had reverted anchor transactions, so
+/// `getBlockState()` returns stale data; the driver falls back to parsing the anchor tx
+/// calldata instead.
+pub const MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET: u64 = 7;
+
 /// Returns the maximum anchor block offset for a Taiko chain.
 pub const fn max_anchor_offset_for_chain(chain_id: u64) -> u64 {
     if chain_id == TAIKO_MAINNET_CHAIN_ID { MAX_ANCHOR_OFFSET_MAINNET } else { MAX_ANCHOR_OFFSET }

@@ -5,16 +5,22 @@ use alloy::{
     primitives::{B256, U256},
     providers::Provider,
     rpc::types::Log,
-    sol_types::SolEvent,
+    sol_types::{SolCall, SolEvent},
 };
 use alloy_consensus::TxEnvelope;
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use async_trait::async_trait;
-use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
+use bindings::{
+    anchor::Anchor::anchorV4Call,
+    inbox::{IInbox::DerivationSource, Inbox::Proposed},
+};
 use metrics::{counter, gauge};
 use protocol::shasta::{
-    constants::{PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain, shasta_fork_timestamp_for_chain},
+    constants::{
+        MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET, PROPOSAL_MAX_BLOB_BYTES, TAIKO_MAINNET_CHAIN_ID,
+        min_base_fee_for_chain, shasta_fork_timestamp_for_chain,
+    },
     manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
@@ -366,8 +372,11 @@ where
     async fn initialize_parent_state(
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
+        proposal_id: u64,
     ) -> Result<ParentState, DerivationError> {
-        let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?;
+        let anchor_block_number = self
+            .resolve_parent_anchor_block_number(parent_block, proposal_id)
+            .await?;
         let parent_header = parent_block.header.inner.clone();
 
         let grandparent_timestamp = if parent_header.number == 0 {
@@ -390,7 +399,7 @@ where
                 .timestamp
                 .saturating_sub(grandparent_timestamp),
             header: parent_header,
-            anchor_block_number: anchor_state.anchor_block_number,
+            anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
             min_base_fee_to_clamp: self.min_base_fee_to_clamp,
             chain_id: self.chain_id,
@@ -403,6 +412,55 @@ where
         );
 
         Ok(state)
+    }
+
+    /// Resolve the anchor block number from the parent block.
+    ///
+    /// On mainnet, the first Shasta proposals (1-7) had reverted anchor transactions so the
+    /// on-chain `getBlockState()` returns stale data.  For those proposals we fall back to
+    /// parsing the anchor block number from the parent block's `anchorV4` calldata.
+    async fn resolve_parent_anchor_block_number(
+        &self,
+        parent_block: &RpcBlock<TxEnvelope>,
+        proposal_id: u64,
+    ) -> Result<u64, DerivationError> {
+        let use_calldata_fallback = self.chain_id == TAIKO_MAINNET_CHAIN_ID
+            && proposal_id >= 1
+            && proposal_id <= MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET;
+
+        if use_calldata_fallback {
+            info!(
+                proposal_id,
+                "using anchor tx calldata fallback for early mainnet proposal"
+            );
+            return self.decode_anchor_block_number_from_tx(parent_block);
+        }
+
+        let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?;
+        Ok(anchor_state.anchor_block_number)
+    }
+
+    /// Parse the anchor block number from the first transaction in a block's `anchorV4` calldata.
+    fn decode_anchor_block_number_from_tx(
+        &self,
+        block: &RpcBlock<TxEnvelope>,
+    ) -> Result<u64, DerivationError> {
+        if block.header.number == 0 {
+            return Ok(0);
+        }
+        let txs = block
+            .transactions
+            .as_transactions()
+            .ok_or_else(|| DerivationError::Other(
+                anyhow::anyhow!("parent block returned only transaction hashes"),
+            ))?;
+        let first_tx = txs.first().ok_or_else(|| {
+            DerivationError::Other(anyhow::anyhow!("parent block has no transactions"))
+        })?;
+        let call = anchorV4Call::abi_decode(first_tx.input(), true).map_err(|e| {
+            DerivationError::Other(anyhow::anyhow!("failed to decode anchorV4 calldata: {e}"))
+        })?;
+        Ok(call._checkpoint.blockNumber.to::<u64>())
     }
 }
 
@@ -449,7 +507,7 @@ where
         );
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
-        let mut parent_state = self.initialize_parent_state(&parent_block).await?;
+        let mut parent_state = self.initialize_parent_state(&parent_block, meta.proposal_id).await?;
 
         // If every block already sits in the canonical chain we skip payload submission and only
         // refresh L1 origins.
