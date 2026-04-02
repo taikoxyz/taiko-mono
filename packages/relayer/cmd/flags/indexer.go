@@ -71,6 +71,13 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"SRC_TAIKO_ADDRESS"},
 	}
+	ShastaInboxAddress = &cli.StringFlag{
+		Name:     "shastaInboxAddress",
+		Usage:    "Shasta inbox address on the source chain",
+		Category: indexerCategory,
+		Required: true,
+		EnvVars:  []string{"SHASTA_INBOX_ADDRESS"},
+	}
 	NumLatestBlocksEndWhenCrawling = &cli.Uint64Flag{
 		Name: "numLatestBlocksEndWhenCrawling",
 		Usage: `Number of blocks to ignore from the end when crawling chain,
@@ -128,6 +135,7 @@ var (
 var IndexerFlags = MergeFlags(CommonFlags, QueueFlags, []cli.Flag{
 	SrcBridgeAddress,
 	DestBridgeAddress,
+	ShastaInboxAddress,
 	// optional
 	SrcTaikoAddress,
 	BlockBatchSize,

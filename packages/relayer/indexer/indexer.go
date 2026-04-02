@@ -173,10 +173,10 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 
 	var shastaInbox *inbox.ShastaInboxClient
 
-	if cfg.SrcTaikoAddress != ZeroAddress {
-		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
+	if cfg.ShastaInboxAddress != ZeroAddress {
+		slog.Info("setting srcTaikoAddress", "addr", cfg.ShastaInboxAddress.Hex())
 
-		shastaInbox, err = inbox.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
+		shastaInbox, err = inbox.NewShastaInboxClient(cfg.ShastaInboxAddress, srcEthClient)
 		if err != nil {
 			return errors.Wrap(err, "inbox.NewShastaInboxClient")
 		}

@@ -22,6 +22,7 @@ type Config struct {
 	SrcSignalServiceAddress common.Address
 	SrcTaikoAddress         common.Address
 	DestBridgeAddress       common.Address
+	ShastaInboxAddress      common.Address
 	// db configs
 	DatabaseUsername        string
 	DatabasePassword        string
@@ -64,6 +65,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		SrcTaikoAddress:                  common.HexToAddress(c.String(flags.SrcTaikoAddress.Name)),
 		SrcSignalServiceAddress:          common.HexToAddress(c.String(flags.SrcSignalServiceAddress.Name)),
 		DestBridgeAddress:                common.HexToAddress(c.String(flags.DestBridgeAddress.Name)),
+		ShastaInboxAddress:               common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
 		DatabaseUsername:                 c.String(flags.DatabaseUsername.Name),
 		DatabasePassword:                 c.String(flags.DatabasePassword.Name),
 		DatabaseName:                     c.String(flags.DatabaseName.Name),
