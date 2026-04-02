@@ -8,6 +8,8 @@ It additively registers a new set of RISC0/SP1 verifier IDs on the **Shasta veri
 
 The goal is to unblock proving and finalization for the earliest Shasta mainnet proposals affected by the bootstrapping issue where the first 7 proposals had reverted anchor transactions.
 
+The prover binaries and image build used for this emergency change come from the Raiko **hotfix** branch `hotfix/hotfix-based-on-1.16.1` (based on v1.16.1), **not** from a semver release tag.
+
 ## Rationale
 
 The first seven Shasta proposals on taiko mainnet encountered reverted `anchorV4()` transactions during bootstrapping. Companion client/prover changes handle those proposals with a targeted exception, but the on-chain proving allowlists still need to trust the corresponding new prover identifiers:
@@ -34,9 +36,9 @@ We are **not** revoking the IDs added in `Proposal0009` in this emergency change
 | `SGXRETH_ATTESTER`      | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` |
 | `SGXGETH_ATTESTER`      | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` |
 
-### Prover / attester IDs (from release build logs)
+### Prover / attester IDs (from hotfix build logs)
 
-These values are set in [`Proposal0010.s.sol`](./Proposal0010.s.sol). Cross-check against your CI/container output before signing.
+These values are set in [`Proposal0010.s.sol`](./Proposal0010.s.sol).
 
 | Constant                                         | Value (hex `bytes32`)                                                                                 |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
@@ -51,10 +53,6 @@ These values are set in [`Proposal0010.s.sol`](./Proposal0010.s.sol). Cross-chec
 | `SGXGETH_MR_ENCLAVE_NON_EDMM`                    | `0x398be8424f27802b38e6e8d3413bf6a0b187349e68522a218f5bfc00279006ac` (gaiko non-EDMM)                 |
 
 **Notes**
-
-- The SP1 build also emits keys for `sp1-aggregation`; this proposal only whitelists **`sp1-batch`** and **`sp1-shasta-aggregation`** on `SP1_SHASTA_VERIFIER`, consistent with the nine L1 actions below.
-- If the build prints `detected old compiler flags: recompile the ELF for additional security`, treat it as a toolchain hardening warning; the IDs above still match the ELF that was built.
-- `SGXGETH_MR_ENCLAVE_NON_EDMM` is the **gaiko** non-EDMM `MR_ENCLAVE` from your build; re-check if the gaiko binary changes.
 
 ### L1 Actions (9 total)
 
@@ -72,26 +70,14 @@ There are no L2 actions in this proposal.
 
 ## Verification
 
-1. Confirm each new RISC0 image ID is trusted:
+1. Check out Raiko branch **`hotfix/hotfix-based-on-1.16.1`** (this emergency hotfix is **not** published from a release tag).
+2. From that tree, run the usual image build — typically `./script/publish-image.sh`. Some setups use `./script/publish-image.sh 0` or `1` for non-EDMM vs EDMM SGX builds; follow docs on that branch if they differ.
+3. In the build log, find and compare:
+   - **RISC0**: `risc0 elf image id:` (for `boundless-batch` and `boundless-shasta-aggregation`)
+   - **SP1**: `sp1 elf vk bn256 is:` and `sp1 elf vk hash_bytes is:` for **`sp1-batch`** and **`sp1-shasta-aggregation`** (ignore `sp1-aggregation` for this proposal)
+   - **SGX**: `mr_enclave:` for the raiko / gaiko images you ship
 
-   ```bash
-   cast call 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b "isImageTrusted(bytes32)(bool)" <IMAGE_ID> --rpc-url <ETHEREUM_RPC>
-   ```
-
-2. Confirm each new SP1 program ID is trusted:
-
-   ```bash
-   cast call 0x96337327648dcFA22b014009cf10A2D5E2F305f6 "isProgramTrusted(bytes32)(bool)" <PROGRAM_ID> --rpc-url <ETHEREUM_RPC>
-   ```
-
-3. Confirm each new SGX `MR_ENCLAVE` is trusted:
-
-   ```bash
-   cast call 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3 "trustedUserMrEnclave(bytes32)(bool)" <MR_ENCLAVE> --rpc-url <ETHEREUM_RPC>
-   cast call 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261 "trustedUserMrEnclave(bytes32)(bool)" <MR_ENCLAVE> --rpc-url <ETHEREUM_RPC>
-   ```
-
-4. Confirm the older `Proposal0009` IDs and `MR_ENCLAVE` hashes remain trusted unless and until a later cleanup proposal removes them.
+Match those strings to the **Prover / attester IDs** table above. Example log shapes (from a normal release build): [Proposal0004 — Verification Procedures](./Proposal0004.md#verification-procedures).
 
 ## Security Contacts
 
