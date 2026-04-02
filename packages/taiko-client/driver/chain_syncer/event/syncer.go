@@ -346,6 +346,7 @@ func (s *Syncer) processShastaProposal(
 			if err != nil {
 				return err
 			}
+
 			lastAnchorBlockNumber = latestBlockState.AnchorBlockNumber.Uint64()
 			if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
 				if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
