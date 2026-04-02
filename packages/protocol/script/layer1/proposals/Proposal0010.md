@@ -52,8 +52,6 @@ These values are set in [`Proposal0010.s.sol`](./Proposal0010.s.sol).
 | `SGXRETH_MR_ENCLAVE_EDMM`                        | `0x72258d3cae0e9901d0efc1f630064f1c44f11950bd25fee0b62ec8df84532da2`                                  |
 | `SGXGETH_MR_ENCLAVE_NON_EDMM`                    | `0x398be8424f27802b38e6e8d3413bf6a0b187349e68522a218f5bfc00279006ac` (gaiko non-EDMM)                 |
 
-**Notes**
-
 ### L1 Actions (9 total)
 
 1. Call `setImageIdTrusted(RISC0_BATCH_IMAGE_ID, true)` on `RISC0_SHASTA_VERIFIER`.
@@ -71,11 +69,11 @@ There are no L2 actions in this proposal.
 ## Verification
 
 1. Check out Raiko branch **`hotfix/hotfix-based-on-1.16.1`** (this emergency hotfix is **not** published from a release tag).
-2. From that tree, run the usual image build — typically `./script/publish-image.sh`. Some setups use `./script/publish-image.sh 0` or `1` for non-EDMM vs EDMM SGX builds; follow docs on that branch if they differ.
+2. Run `./script/publish-image.sh 0` or `1` for non-EDMM vs EDMM SGX builds; follow docs on that branch if they differ.
 3. In the build log, find and compare:
    - **RISC0**: `risc0 elf image id:` (for `boundless-batch` and `boundless-shasta-aggregation`)
    - **SP1**: `sp1 elf vk bn256 is:` and `sp1 elf vk hash_bytes is:` for **`sp1-batch`** and **`sp1-shasta-aggregation`** (ignore `sp1-aggregation` for this proposal)
-   - **SGX**: `mr_enclave:` for the raiko / gaiko images you ship
+   - **SGX**: `mr_enclave:` for the raiko / gaiko images.
 
 Match those strings to the **Prover / attester IDs** table above. Example log shapes (from a normal release build): [Proposal0004 — Verification Procedures](./Proposal0004.md#verification-procedures).
 
