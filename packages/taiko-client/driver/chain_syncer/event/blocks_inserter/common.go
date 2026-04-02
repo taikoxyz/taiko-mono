@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -938,7 +939,24 @@ func InsertPreconfBlockFromEnvelope(
 
 	payloadID := args.Id()
 
-	var u256BaseFee = uint256.Int(envelope.Payload.BaseFeePerGas)
+	var (
+		u256BaseFee    = uint256.Int(envelope.Payload.BaseFeePerGas)
+		safeCheckpoint *verifiedCheckpoint
+	)
+
+	// The checkpoint lookup must use the rpc.Client for this L1 environment.
+	// Passing a client from another L1 network would make the cached checkpoint invalid.
+	if envelope.Payload.Timestamp >= eth.Uint64Quantity(cli.ShastaClients.ForkTime) {
+		safeCheckpoint, err = getShastaCheckpoint(ctx, cli)
+		if err != nil {
+			log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
+		}
+	} else {
+		safeCheckpoint, err = getPacayaCheckpoint(ctx, cli)
+		if err != nil {
+			log.Warn("Failed to fetch last verified block of Pacaya", "error", err)
+		}
+	}
 
 	log.Debug(
 		"Payload arguments",
@@ -976,7 +994,7 @@ func InsertPreconfBlockFromEnvelope(
 			Withdrawals: make([]*types.Withdrawal, 0),
 		},
 		decompressedTxs,
-		nil, // We don't need to progress safe / finalized block when inserting preconf blocks.
+		safeCheckpoint,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
