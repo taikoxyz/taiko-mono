@@ -331,18 +331,28 @@ func (s *Syncer) processShastaProposal(
 			"parentTimestamp", sourcePayload.ParentBlock.Time(),
 		)
 
-		latestBlockState, err := s.rpc.GetShastaAnchorState(
-			&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
-		)
-		if err != nil {
-			return err
-		}
-		lastAnchorBlockNumber := latestBlockState.AnchorBlockNumber.Uint64()
-		if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+		var lastAnchorBlockNumber uint64
+		if s.rpc.L2.ChainID.Cmp(new(big.Int).SetUint64(167_000)) == 0 &&
+			meta.GetEventData().Id.Uint64() < manifest.MainnetAnchorCheckSkipProposalOffset {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
 				sourcePayload.ParentBlock.Transactions()[0],
 			); err != nil {
 				return err
+			}
+		} else {
+			latestBlockState, err := s.rpc.GetShastaAnchorState(
+				&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
+			)
+			if err != nil {
+				return err
+			}
+			lastAnchorBlockNumber = latestBlockState.AnchorBlockNumber.Uint64()
+			if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+				if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
+					sourcePayload.ParentBlock.Transactions()[0],
+				); err != nil {
+					return err
+				}
 			}
 		}
 
