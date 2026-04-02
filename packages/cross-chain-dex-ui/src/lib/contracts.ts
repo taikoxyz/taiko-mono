@@ -312,3 +312,38 @@ export const ERC20ABI = [
     stateMutability: 'nonpayable',
   },
 ] as const;
+
+export const AmbireAccountABI = [
+  {
+    type: 'function',
+    name: 'execute',
+    inputs: [
+      {
+        name: 'txns',
+        type: 'tuple[]',
+        components: [
+          { name: 'to', type: 'address' },
+          { name: 'value', type: 'uint256' },
+          { name: 'data', type: 'bytes' },
+        ],
+      },
+      { name: 'signature', type: 'bytes' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'nonce',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'privileges',
+    inputs: [{ name: '', type: 'address' }],
+    outputs: [{ name: '', type: 'bytes32' }],
+    stateMutability: 'view',
+  },
+] as const;

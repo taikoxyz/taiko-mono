@@ -3,6 +3,7 @@ import { Address, formatEther, formatUnits } from 'viem';
 import { ERC20ABI } from '../lib/contracts';
 import { USDC_TOKEN } from '../lib/constants';
 import { l1PublicClient } from '../lib/config';
+import { usePageVisible } from './usePageVisible';
 
 interface TokenBalances {
   ethBalance: bigint;
@@ -15,6 +16,7 @@ interface TokenBalances {
 }
 
 export function useTokenBalances(smartWallet: Address | null): TokenBalances {
+  const pageVisible = usePageVisible();
   const [ethBalance, setEthBalance] = useState<bigint>(0n);
   const [usdcBalance, setUsdcBalance] = useState<bigint>(0n);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,12 +56,12 @@ export function useTokenBalances(smartWallet: Address | null): TokenBalances {
   }, [smartWallet]);
 
   useEffect(() => {
+    if (!pageVisible) return;
     fetchBalances();
 
-    // Poll every 3 seconds
-    const interval = setInterval(fetchBalances, 3000);
+    const interval = setInterval(fetchBalances, 5000);
     return () => clearInterval(interval);
-  }, [fetchBalances]);
+  }, [fetchBalances, pageVisible]);
 
   return {
     ethBalance,

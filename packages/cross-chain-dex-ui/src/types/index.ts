@@ -55,3 +55,5 @@ export interface TxOverlayState {
   txHash?: string;
   errorMessage?: string;
 }
+
+export type AccountMode = 'safe' | 'ambire';

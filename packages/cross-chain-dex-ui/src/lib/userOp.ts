@@ -430,7 +430,7 @@ export async function sendUserOpToBuilder(
   }
 }
 
-export type UserOpStatus =
+export type TxStatus =
   | { status: 'Pending' }
   | { status: 'Processing'; tx_hash: string }
   | { status: 'ProvingBlock'; block_id: number }
@@ -438,9 +438,9 @@ export type UserOpStatus =
   | { status: 'Executed' };
 
 /**
- * Query the status of a submitted UserOp by ID
+ * Query transaction status by either userOpId or txHash via surge_txStatus.
  */
-export async function queryUserOpStatus(userOpId: number): Promise<UserOpStatus | null> {
+export async function queryTxStatus(params: { userOpId: number } | { txHash: string }): Promise<TxStatus | null> {
   try {
     const builderUrl = getBuilderUrl();
     const response = await fetch(builderUrl, {
@@ -448,8 +448,8 @@ export async function queryUserOpStatus(userOpId: number): Promise<UserOpStatus 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jsonrpc: '2.0',
-        method: 'surge_userOpStatus',
-        params: [userOpId],
+        method: 'surge_txStatus',
+        params,
         id: 1,
       }),
     });
@@ -462,7 +462,7 @@ export async function queryUserOpStatus(userOpId: number): Promise<UserOpStatus 
     const json = JSON.parse(text);
     if (json.error) return null;
 
-    return json.result as UserOpStatus;
+    return json.result as TxStatus;
   } catch {
     return null;
   }

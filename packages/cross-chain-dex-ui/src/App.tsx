@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { useAccount, useSwitchChain } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
+import '@rainbow-me/rainbowkit/styles.css';
 import { Toaster } from 'react-hot-toast';
 
 import { config, surgeL1Chain, surgeL2Chain } from './lib/config';
@@ -14,18 +16,24 @@ import { NetworkSetup } from './components/NetworkSetup';
 import { FundWallet } from './components/FundWallet';
 import { TxStatusOverlay } from './components/TxStatusOverlay';
 import { TxStatusProvider, useTxStatus } from './context/TxStatusContext';
-import { useSmartWallet } from './hooks/useSmartWallet';
-import { useTokenBalances } from './hooks/useTokenBalances';
+import { useSmartWallet, SmartWalletProvider } from './context/SmartWalletContext';
+import { useSharedTokenBalances } from './context/SmartWalletContext';
+import { AccountModeSelector } from './components/AccountModeSelector';
 import { ActiveTab } from './types';
 
 const queryClient = new QueryClient();
 
 function AppContent() {
   const { txStatus, setTxStatus } = useTxStatus();
-  const { smartWallet, isConnected, isLoading, ownerAddress, createSmartWallet, isCreating, l2WalletExists, createL2Wallet, isCreatingL2Wallet } = useSmartWallet();
+  const {
+  smartWallet, isConnected, isLoading, ownerAddress,
+  createSmartWallet, isCreating,
+  l2WalletExists, createL2Wallet, isCreatingL2Wallet,
+  accountMode, has7702Delegation, showModeSelector, selectAccountMode, setShowModeSelector,
+} = useSmartWallet();
   const { chainId } = useAccount();
   const { switchChainAsync } = useSwitchChain();
-  const { ethBalance, usdcBalance, ethFormatted, usdcFormatted, isLoading: balancesLoading } = useTokenBalances(smartWallet);
+  const { ethBalance, usdcBalance, ethFormatted, usdcFormatted, isLoading: balancesLoading } = useSharedTokenBalances();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('swap');
   const [showWalletSetup, setShowWalletSetup] = useState(false);
@@ -36,14 +44,17 @@ function AppContent() {
   // Accept both L1 and L2 as valid networks
   const isWrongNetwork = isConnected && chainId !== surgeL1Chain.id && chainId !== surgeL2Chain.id;
 
-  // Auto-show network setup if on wrong network
+  // Auto-switch to L1 if on wrong network (no modal prompt)
   useEffect(() => {
     if (isWrongNetwork) {
-      setShowNetworkSetup(true);
+      switchChainAsync({ chainId: surgeL1Chain.id }).catch(() => {
+        // If auto-switch fails, show manual network setup
+        setShowNetworkSetup(true);
+      });
     } else {
       setShowNetworkSetup(false);
     }
-  }, [isWrongNetwork]);
+  }, [isWrongNetwork, switchChainAsync]);
 
   // Auto-switch to L1 when on swap/liquidity tabs
   useEffect(() => {
@@ -52,7 +63,7 @@ function AppContent() {
     }
   }, [activeTab, chainId, isConnected, switchChainAsync]);
 
-  // Reset dismissed flag when wallet connects/disconnects or smart wallet changes
+  // Reset dismissed flag when wallet connects/disconnects
   useEffect(() => {
     setDismissedWalletSetup(false);
   }, [isConnected, ownerAddress]);
@@ -60,30 +71,32 @@ function AppContent() {
   // Auto-show wallet setup if connected, on correct network, but no smart wallet
   // Auto-close when wallet is created
   useEffect(() => {
-    if (isConnected && !isWrongNetwork && !smartWallet && !isLoading && !dismissedWalletSetup) {
+    if (isConnected && !isWrongNetwork && !smartWallet && !isLoading && !dismissedWalletSetup && accountMode === 'safe' && !showModeSelector) {
       setShowWalletSetup(true);
     } else if (smartWallet && showWalletSetup) {
       setShowWalletSetup(false);
     }
-  }, [isConnected, isWrongNetwork, smartWallet, isLoading, showWalletSetup, dismissedWalletSetup]);
+  }, [isConnected, isWrongNetwork, smartWallet, isLoading, showWalletSetup, dismissedWalletSetup, accountMode, showModeSelector]);
 
   // Auto-show fund wallet modal when:
   // 1. Wallet has no funds (needs funding), OR
   // 2. Wallet has funds but L2 wallet doesn't exist (needs L2 creation)
   // Only once per session
   useEffect(() => {
+    // Skip fund wallet modal entirely in ambire mode — the EOA already has funds
+    if (accountMode === 'ambire') return;
     if (!smartWallet || hasShownFundModal || balancesLoading || isLoading || showNetworkSetup || showWalletSetup) return;
     const needsFunding = ethBalance === 0n && usdcBalance === 0n;
-    const needsL2 = !l2WalletExists;
+    const needsL2 = accountMode === 'safe' && !l2WalletExists;
     if (needsFunding || needsL2) {
       setShowFundWallet(true);
       setHasShownFundModal(true);
     }
-  }, [smartWallet, ethBalance, usdcBalance, balancesLoading, hasShownFundModal, isLoading, l2WalletExists, showNetworkSetup, showWalletSetup]);
+  }, [smartWallet, ethBalance, usdcBalance, balancesLoading, hasShownFundModal, isLoading, l2WalletExists, showNetworkSetup, showWalletSetup, accountMode]);
 
   return (
     <div className="h-screen overflow-hidden bg-surge-dark flex flex-col">
-      <Header onSetupWallet={() => setShowWalletSetup(true)} />
+      <Header onSetupWallet={() => has7702Delegation ? setShowModeSelector(true) : setShowWalletSetup(true)} />
 
       <main className="flex-1 min-h-0 relative flex items-center justify-center px-4">
         {/* Tab Navigation — absolutely positioned near header, independent of card */}
@@ -136,8 +149,14 @@ function AppContent() {
         onClose={() => setShowNetworkSetup(false)}
       />
 
+      <AccountModeSelector
+        isOpen={showModeSelector}
+        onSelect={selectAccountMode}
+        onClose={() => setShowModeSelector(false)}
+      />
+
       <SmartWalletSetup
-        isOpen={showWalletSetup && !isWrongNetwork}
+        isOpen={showWalletSetup && !isWrongNetwork && !showModeSelector}
         onClose={() => {
           setShowWalletSetup(false);
           setDismissedWalletSetup(true);
@@ -154,8 +173,8 @@ function AppContent() {
           smartWallet={smartWallet}
           ethBalance={ethFormatted}
           usdcBalance={usdcFormatted}
-          l2WalletExists={l2WalletExists}
-          onCreateL2Wallet={createL2Wallet}
+          l2WalletExists={accountMode === 'ambire' ? true : l2WalletExists}
+          onCreateL2Wallet={accountMode === 'ambire' ? undefined : createL2Wallet}
           isCreatingL2Wallet={isCreatingL2Wallet}
         />
       )}
@@ -196,9 +215,13 @@ function App() {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <TxStatusProvider>
-          <AppContent />
-        </TxStatusProvider>
+        <RainbowKitProvider theme={darkTheme({ accentColor: '#10b981' })}>
+          <TxStatusProvider>
+            <SmartWalletProvider>
+              <AppContent />
+            </SmartWalletProvider>
+          </TxStatusProvider>
+        </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

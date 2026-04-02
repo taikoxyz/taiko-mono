@@ -1,6 +1,5 @@
 import { http } from 'wagmi';
-import { createConfig } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { createPublicClient, defineChain } from 'viem';
 import { L1_RPC_URL, L2_RPC_URL, CHAIN_ID, L1_CHAIN_NAME, L1_NATIVE_SYMBOL, L1_NATIVE_NAME } from './constants';
 
@@ -28,10 +27,11 @@ export const surgeL2Chain = defineChain({
   },
 });
 
-// Wagmi config - both L1 and L2 chains
-export const config = createConfig({
+// Wagmi + RainbowKit config
+export const config = getDefaultConfig({
+  appName: 'Surge DEX',
+  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'surge-dex-local',
   chains: [surgeL1Chain, surgeL2Chain],
-  connectors: [injected()],
   transports: {
     [surgeL1Chain.id]: http(L1_RPC_URL),
     [surgeL2Chain.id]: http(L2_RPC_URL),

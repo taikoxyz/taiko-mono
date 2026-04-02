@@ -3,8 +3,10 @@ import { Address } from 'viem';
 import { SimpleDEXABI } from '../lib/contracts';
 import { SIMPLE_DEX } from '../lib/constants';
 import { l2PublicClient } from '../lib/config';
+import { usePageVisible } from './usePageVisible';
 
 export function useLiquidityPosition(smartWallet: Address | null) {
+  const pageVisible = usePageVisible();
   const [ethAmount, setEthAmount] = useState(0n);
   const [tokenAmount, setTokenAmount] = useState(0n);
 
@@ -31,10 +33,11 @@ export function useLiquidityPosition(smartWallet: Address | null) {
   }, [smartWallet]);
 
   useEffect(() => {
+    if (!pageVisible) return;
     fetchPosition();
     const interval = setInterval(fetchPosition, 10000);
     return () => clearInterval(interval);
-  }, [fetchPosition]);
+  }, [fetchPosition, pageVisible]);
 
   return {
     ethAmount,

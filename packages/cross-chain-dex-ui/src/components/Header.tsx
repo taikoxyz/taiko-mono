@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi';
-import { formatEther } from 'viem';
+import { useAccount, useDisconnect } from 'wagmi';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import toast from 'react-hot-toast';
-import { useSmartWallet } from '../hooks/useSmartWallet';
-import { useTokenBalances } from '../hooks/useTokenBalances';
+import { useSmartWallet } from '../context/SmartWalletContext';
+import { useSharedTokenBalances } from '../context/SmartWalletContext';
 import { useUserOp } from '../hooks/useUserOp';
 import { surgeL1Chain } from '../lib/config';
 import { ETH_TOKEN } from '../lib/constants';
@@ -15,21 +15,14 @@ interface HeaderProps {
 }
 
 export function Header({ onSetupWallet }: HeaderProps) {
-  const { smartWallet, isConnected, ownerAddress } = useSmartWallet();
+  const { smartWallet, isConnected, ownerAddress, accountMode, clearAccountMode } = useSmartWallet();
   const { address, chainId } = useAccount();
-  const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const { executeWithdraw, isPending } = useUserOp();
+  const { executeWithdraw, isPending } = useUserOp(accountMode);
   const { isDisclaimerOpen, requireDisclaimer, onAccept, onCancel } = useDisclaimer();
 
-  // EOA balance (refresh every 3 seconds)
-  const { data: eoaBalance } = useBalance({
-    address,
-    query: { refetchInterval: 3000 },
-  });
-
   // Smart wallet balances
-  const { ethBalance, usdcBalance, ethFormatted, usdcFormatted } = useTokenBalances(smartWallet);
+  const { ethBalance, usdcBalance, ethFormatted, usdcFormatted } = useSharedTokenBalances();
 
   const isWrongNetwork = isConnected && chainId !== surgeL1Chain.id;
 
@@ -46,13 +39,6 @@ export function Header({ onSetupWallet }: HeaderProps) {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
-
-  const handleConnect = () => {
-    const injectedConnector = connectors.find((c) => c.id === 'injected');
-    if (injectedConnector) {
-      connect({ connector: injectedConnector });
-    }
-  };
 
   const handleWithdraw = useCallback(async () => {
     if (!smartWallet || !ownerAddress) return;
@@ -102,19 +88,21 @@ export function Header({ onSetupWallet }: HeaderProps) {
                 {parseFloat(usdcFormatted).toFixed(2)} USDC
               </span>
               <span className="text-xs text-gray-500">|</span>
-              <button
-                onClick={() => setDropdownOpen((prev) => !prev)}
-                className="text-gray-400 hover:text-white transition-colors p-0.5"
-                title="Wallet actions"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
+              {accountMode === 'safe' && (
+                <button
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  className="text-gray-400 hover:text-white transition-colors p-0.5"
+                  title="Wallet actions"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              )}
             </div>
 
-            {/* Dropdown */}
-            {dropdownOpen && (
+            {/* Dropdown — hide withdraw in ambire mode (smart wallet IS the EOA) */}
+            {dropdownOpen && accountMode === 'safe' && (
               <div className="absolute right-0 top-full mt-1 bg-surge-card border border-surge-border/50 rounded-lg shadow-xl shadow-black/30 overflow-hidden min-w-[240px] z-50">
                 <button
                   onClick={() => requireDisclaimer(handleWithdraw)}
@@ -140,31 +128,39 @@ export function Header({ onSetupWallet }: HeaderProps) {
           </button>
         )}
 
-        {/* EOA Wallet with balance */}
-        {isConnected ? (
-          <button
-            onClick={() => disconnect()}
-            className="px-4 py-2 bg-surge-card hover:bg-surge-border text-white rounded-lg text-sm font-medium transition-colors border border-surge-border flex items-center gap-2"
-          >
-            <span>{address?.slice(0, 6)}...{address?.slice(-4)}</span>
-            {eoaBalance && (
-              <span className="text-xs text-gray-400">
-                ({parseFloat(formatEther(eoaBalance.value)).toFixed(4)} {ETH_TOKEN.symbol})
-              </span>
-            )}
-          </button>
-        ) : (
-          <button
-            onClick={handleConnect}
-            className="px-4 py-2 bg-surge-primary hover:bg-surge-secondary text-white rounded-lg text-sm font-medium transition-colors"
-          >
-            Connect Wallet
-          </button>
-        )}
+        {/* EOA Wallet — RainbowKit handles connect/disconnect UI */}
+        <ConnectButton.Custom>
+          {({ account, chain, openConnectModal, mounted }) => {
+            const connected = mounted && account && chain;
+            return (
+              <div {...(!mounted && { 'aria-hidden': true, style: { opacity: 0, pointerEvents: 'none' as const, userSelect: 'none' as const } })}>
+                {connected ? (
+                  <button
+                    onClick={() => { clearAccountMode(); disconnect(); }}
+                    className="px-4 py-2 bg-surge-card hover:bg-surge-border text-white rounded-lg text-sm font-medium transition-colors border border-surge-border flex items-center gap-2"
+                  >
+                    <span>{account.displayName}</span>
+                    {account.displayBalance && (
+                      <span className="text-xs text-gray-400">({account.displayBalance})</span>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={openConnectModal}
+                    className="px-4 py-2 bg-surge-primary hover:bg-surge-secondary text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Connect Wallet
+                  </button>
+                )}
+              </div>
+            );
+          }}
+        </ConnectButton.Custom>
       </div>
 
     </header>
     <DisclaimerModal isOpen={isDisclaimerOpen} onAccept={onAccept} onCancel={onCancel} />
+
     </>
   );
 }

@@ -4,10 +4,10 @@ import { TokenInput } from './TokenInput';
 import { SwapDetails } from './SwapDetails';
 import { SwapPath } from './SwapPath';
 import { SwapButton } from './SwapButton';
-import { useSmartWallet } from '../hooks/useSmartWallet';
+import { useSmartWallet } from '../context/SmartWalletContext';
 import { useDexReserves } from '../hooks/useDexReserves';
 import { useSwapQuote } from '../hooks/useSwapQuote';
-import { useTokenBalances } from '../hooks/useTokenBalances';
+import { useSharedTokenBalances } from '../context/SmartWalletContext';
 import { useUserOp } from '../hooks/useUserOp';
 import { SwapDirection } from '../types';
 import { ETH_TOKEN, USDC_TOKEN } from '../lib/constants';
@@ -23,10 +23,10 @@ interface SwapCardProps {
 }
 
 export function SwapCard({ onSetupWallet, onFundWallet: _onFundWallet }: SwapCardProps) {
-  const { smartWallet, isConnected } = useSmartWallet();
+  const { smartWallet, isConnected, accountMode } = useSmartWallet();
   const { ethReserve, tokenReserve, isLoading: reservesLoading } = useDexReserves();
-  const { ethBalance, usdcBalance } = useTokenBalances(smartWallet);
-  const { executeSwap, isPending } = useUserOp();
+  const { ethBalance, usdcBalance } = useSharedTokenBalances();
+  const { executeSwap, isPending } = useUserOp(accountMode);
   const { isDisclaimerOpen, requireDisclaimer, onAccept, onCancel } = useDisclaimer();
 
   const [direction, setDirection] = useState<SwapDirection>('ETH_TO_USDC');

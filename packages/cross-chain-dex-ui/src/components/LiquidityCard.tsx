@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import { parseEther, parseUnits, formatEther, formatUnits } from 'viem';
 import { TokenInput } from './TokenInput';
-import { useSmartWallet } from '../hooks/useSmartWallet';
+import { useSmartWallet } from '../context/SmartWalletContext';
 import { useDexReserves } from '../hooks/useDexReserves';
-import { useTokenBalances } from '../hooks/useTokenBalances';
+import { useSharedTokenBalances } from '../context/SmartWalletContext';
 import { useUserOp } from '../hooks/useUserOp';
 import { useSpendingLimit } from '../hooks/useSpendingLimit';
 import { useLiquidityPosition } from '../hooks/useLiquidityPosition';
@@ -19,10 +19,10 @@ interface LiquidityCardProps {
 }
 
 export function LiquidityCard({ onSetupWallet }: LiquidityCardProps) {
-  const { smartWallet, isConnected } = useSmartWallet();
+  const { smartWallet, isConnected, accountMode } = useSmartWallet();
   const { ethReserve, tokenReserve } = useDexReserves();
-  const { ethBalance, usdcBalance } = useTokenBalances(smartWallet);
-  const { executeAddLiquidity, executeRemoveLiquidity, isPending } = useUserOp();
+  const { ethBalance, usdcBalance } = useSharedTokenBalances();
+  const { executeAddLiquidity, executeRemoveLiquidity, isPending } = useUserOp(accountMode);
   const { hasExceededL2Limit, wouldExceed, recordSpending, remaining } = useSpendingLimit(smartWallet);
   const { isDisclaimerOpen, requireDisclaimer, onAccept, onCancel } = useDisclaimer();
   const position = useLiquidityPosition(smartWallet);

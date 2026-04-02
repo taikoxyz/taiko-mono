@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo } from "react";
 import { parseUnits, formatUnits, Address } from "viem";
 import { TokenInput } from "./TokenInput";
-import { useSmartWallet } from "../hooks/useSmartWallet";
-import { useTokenBalances } from "../hooks/useTokenBalances";
+import { useSmartWallet } from "../context/SmartWalletContext";
+import { useSharedTokenBalances } from "../context/SmartWalletContext";
 import { useL2TokenBalances } from "../hooks/useL2TokenBalances";
 import { useUserOp } from "../hooks/useUserOp";
 import { useSpendingLimit } from "../hooks/useSpendingLimit";
@@ -20,10 +20,10 @@ interface BridgeCardProps {
 }
 
 export function BridgeCard({ onSetupWallet, onFundWallet }: BridgeCardProps) {
-  const { smartWallet, isConnected, l2WalletExists } = useSmartWallet();
-  const { ethBalance, usdcBalance } = useTokenBalances(smartWallet);
+  const { smartWallet, isConnected, l2WalletExists, accountMode } = useSmartWallet();
+  const { ethBalance, usdcBalance } = useSharedTokenBalances();
   const { ethBalance: l2EthBalance, usdcBalance: l2UsdcBalance } = useL2TokenBalances(smartWallet);
-  const { executeBridge, executeBridgeNative, executeBridgeOutNative, isPending } = useUserOp();
+  const { executeBridge, executeBridgeNative, executeBridgeOutNative, isPending } = useUserOp(accountMode);
   const { hasExceededL2Limit, wouldExceed, recordSpending, remaining } = useSpendingLimit(smartWallet);
   const { isDisclaimerOpen, requireDisclaimer, onAccept, onCancel } = useDisclaimer();
 

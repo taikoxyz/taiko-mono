@@ -3,8 +3,10 @@ import { DexReserves } from '../types';
 import { SimpleDEXABI } from '../lib/contracts';
 import { SIMPLE_DEX } from '../lib/constants';
 import { l2PublicClient } from '../lib/config';
+import { usePageVisible } from './usePageVisible';
 
 export function useDexReserves() {
+  const pageVisible = usePageVisible();
   const [reserves, setReserves] = useState<DexReserves>({
     ethReserve: 0n,
     tokenReserve: 0n,
@@ -41,12 +43,12 @@ export function useDexReserves() {
   }, []);
 
   useEffect(() => {
+    if (!pageVisible) return;
     fetchReserves();
 
-    // Poll every 10 seconds
     const interval = setInterval(fetchReserves, 10000);
     return () => clearInterval(interval);
-  }, [fetchReserves]);
+  }, [fetchReserves, pageVisible]);
 
   return {
     ...reserves,

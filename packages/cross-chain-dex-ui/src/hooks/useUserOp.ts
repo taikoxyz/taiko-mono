@@ -1,7 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Address, Hex } from 'viem';
-import { useWalletClient, useSwitchChain } from 'wagmi';
-import { SwapDirection } from '../types';
+import { useWalletClient, useSwitchChain, useConfig } from 'wagmi';
+import { getWalletClient } from 'wagmi/actions';
+import { SwapDirection, AccountMode } from '../types';
+import {
+  getAmbireNonce,
+  computeExecuteHash,
+  appendEIP712Mode,
+  userOpsToAmbireTransactions,
+  buildAmbireExecuteCalldata,
+  buildAmbireExecuteTypedData,
+} from '../lib/ambireOp';
 import {
   buildSwapUserOps,
   buildBridgeUserOps,
@@ -14,13 +23,24 @@ import {
   userOpsToSafeTx,
   sendUserOpToBuilder,
   calculateMinOutput,
-  queryUserOpStatus,
+  queryTxStatus,
 } from '../lib/userOp';
 import { getSafeNonce, buildSafeTxTypedData, buildExecTransactionCalldata } from '../lib/safeOp';
 import { UserOp } from '../types';
 import { CHAIN_ID, L2_CHAIN_ID, DEFAULT_SLIPPAGE } from '../lib/constants';
 import { l1PublicClient, l2PublicClient } from '../lib/config';
 import { useTxStatus } from '../context/TxStatusContext';
+
+function parseWalletError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : 'Operation failed';
+  if (raw.includes('rejected') || raw.includes('denied')) return 'Transaction rejected by user';
+  // Strip verbose viem details (Request Arguments, Details, Version)
+  const detailsMatch = raw.match(/Details:\s*(.+?)(?:\.|$)/);
+  if (detailsMatch) return detailsMatch[1].trim();
+  // Fallback: take first sentence
+  const firstSentence = raw.split(/[.\n]/)[0].trim();
+  return firstSentence.length > 120 ? firstSentence.slice(0, 120) + '...' : firstSentence;
+}
 
 interface UseUserOpReturn {
   executeSwap: (params: ExecuteSwapParams) => Promise<boolean>;
@@ -61,9 +81,10 @@ interface ExecuteAddLiquidityParams {
   smartWallet: Address;
 }
 
-export function useUserOp(): UseUserOpReturn {
+export function useUserOp(accountMode: AccountMode = 'safe'): UseUserOpReturn {
   const { data: walletClient } = useWalletClient();
   const { switchChainAsync } = useSwitchChain();
+  const wagmiConfig = useConfig();
   const { setTxStatus } = useTxStatus();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -76,7 +97,7 @@ export function useUserOp(): UseUserOpReturn {
     };
   }, []);
 
-  const pollStatus = useCallback((userOpId: number): Promise<boolean> => {
+  const pollStatus = useCallback((query: { userOpId: number } | { txHash: string }): Promise<boolean> => {
     return new Promise((resolve) => {
       setTxStatus({ phase: 'sequencing' });
 
@@ -102,7 +123,7 @@ export function useUserOp(): UseUserOpReturn {
           return;
         }
 
-        const status = await queryUserOpStatus(userOpId);
+        const status = await queryTxStatus(query);
         if (!status) return;
 
         if (status.status === 'Pending') {
@@ -157,33 +178,58 @@ export function useUserOp(): UseUserOpReturn {
       try {
         setTxStatus({ phase: 'signing' });
 
-        // Determine which chain this Safe lives on
         const targetChainId = chainId ?? CHAIN_ID;
         const publicClient = targetChainId === L2_CHAIN_ID ? l2PublicClient : l1PublicClient;
 
-        // Switch chain if needed (e.g. bridge-out: signing on L2)
-        if (chainId !== undefined && chainId !== walletClient.chain?.id) {
-          await switchChainAsync({ chainId });
+        // Switch chain and get a fresh wallet client (the hook value is stale
+        // inside this callback until React re-renders).
+        let activeClient = walletClient;
+        if (targetChainId !== walletClient.chain?.id) {
+          await switchChainAsync({ chainId: targetChainId });
+          activeClient = await getWalletClient(wagmiConfig, { chainId: targetChainId });
         }
 
-        // Fetch nonce from the Safe on the correct chain
-        const nonce = await getSafeNonce(publicClient, smartWallet);
+        let calldata: Hex;
 
-        // Convert ops to a single SafeTxParams
-        const safeTx = userOpsToSafeTx(ops);
+        if (accountMode === 'ambire' && targetChainId === L2_CHAIN_ID) {
+          // Ambire mode on L2: no 7702 delegation, send as direct EOA transaction
+          if (ops.length > 1) throw new Error('Ambire L2 mode only supports single-op transactions');
+          const op = ops[0];
+          const txHash = await activeClient.sendTransaction({
+            to: op.target,
+            value: op.value,
+            data: op.data,
+            chain: activeClient.chain,
+            account: activeClient.account,
+          });
+          setTxStatus({ phase: 'sequencing' });
+          await l2PublicClient.waitForTransactionReceipt({ hash: txHash });
+          return await pollStatus({ txHash });
+        } else if (accountMode === 'ambire') {
+          // AmbireAccount path on L1: personal_sign + execute()
+          const txns = userOpsToAmbireTransactions(ops);
+          const nonce = await getAmbireNonce(publicClient, smartWallet);
+          const executeHash = computeExecuteHash(smartWallet, targetChainId, nonce, txns);
 
-        // Build Safe EIP-712 typed data
-        const typedData = buildSafeTxTypedData(smartWallet, targetChainId, nonce, safeTx);
+          // Sign using AmbireExecuteAccountOp EIP-712 typed data (mode 0x00 = EIP712 direct)
+          const typedData = buildAmbireExecuteTypedData(smartWallet, targetChainId, nonce, txns, executeHash);
+          const rawSignature = await activeClient.signTypedData(typedData);
 
-        const signature = await walletClient.signTypedData(typedData);
-
-        // Encode execTransaction calldata
-        const calldata = buildExecTransactionCalldata(safeTx, signature as Hex);
+          const signature = appendEIP712Mode(rawSignature as Hex);
+          calldata = buildAmbireExecuteCalldata(txns, signature);
+        } else {
+          // Safe path: signTypedData + execTransaction()
+          const nonce = await getSafeNonce(publicClient, smartWallet);
+          const safeTx = userOpsToSafeTx(ops);
+          const typedData = buildSafeTxTypedData(smartWallet, targetChainId, nonce, safeTx);
+          const signature = await activeClient.signTypedData(typedData);
+          calldata = buildExecTransactionCalldata(safeTx, signature as Hex);
+        }
 
         const result = await sendUserOpToBuilder(smartWallet, calldata, chainId);
 
         if (result.success && result.userOpId !== undefined) {
-          return await pollStatus(result.userOpId);
+          return await pollStatus({ userOpId: result.userOpId });
         } else if (result.success) {
           setTxStatus({ phase: 'complete' });
           setIsPending(false);
@@ -196,14 +242,14 @@ export function useUserOp(): UseUserOpReturn {
         }
       } catch (err) {
         console.error('Operation failed:', err);
-        const msg = err instanceof Error ? err.message : 'Operation failed';
+        const msg = parseWalletError(err);
         setTxStatus({ phase: 'rejected', errorMessage: msg });
         setError(err instanceof Error ? err : new Error(msg));
         setIsPending(false);
         return false;
       }
     },
-    [walletClient, switchChainAsync, pollStatus, setTxStatus]
+    [walletClient, switchChainAsync, wagmiConfig, pollStatus, setTxStatus, accountMode]
   );
 
   const executeSwap = useCallback(
@@ -270,31 +316,73 @@ export function useUserOp(): UseUserOpReturn {
 
       setIsPending(true);
       setError(null);
+      txHashRef.current = undefined;
 
       try {
-        const nonce = await getSafeNonce(l1PublicClient, smartWallet);
-        const safeTx = userOpsToSafeTx(ops);
-        const typedData = buildSafeTxTypedData(smartWallet, CHAIN_ID, nonce, safeTx);
-        const signature = await walletClient.signTypedData(typedData);
-        const calldata = buildExecTransactionCalldata(safeTx, signature as Hex);
+        // Withdraw always targets L1 — ensure wallet is on the right chain.
+        // Get a fresh wallet client after switching (hook value is stale).
+        let activeClient = walletClient;
+        if (CHAIN_ID !== walletClient.chain?.id) {
+          await switchChainAsync({ chainId: CHAIN_ID });
+          activeClient = await getWalletClient(wagmiConfig, { chainId: CHAIN_ID });
+        }
 
-        await walletClient.sendTransaction({
-          to: smartWallet,
-          data: calldata,
-          chain: walletClient.chain,
-          account: walletClient.account,
-        });
+        setTxStatus({ phase: 'signing' });
+        let calldata: Hex;
 
-        setIsPending(false);
-        return true;
+        if (accountMode === 'ambire') {
+          const txns = userOpsToAmbireTransactions(ops);
+          const nonce = await getAmbireNonce(l1PublicClient, smartWallet);
+          const executeHash = computeExecuteHash(smartWallet, CHAIN_ID, nonce, txns);
+          const typedData = buildAmbireExecuteTypedData(smartWallet, CHAIN_ID, nonce, txns, executeHash);
+          const rawSignature = await activeClient.signTypedData(typedData);
+          const signature = appendEIP712Mode(rawSignature as Hex);
+          calldata = buildAmbireExecuteCalldata(txns, signature);
+        } else {
+          const nonce = await getSafeNonce(l1PublicClient, smartWallet);
+          const safeTx = userOpsToSafeTx(ops);
+          const typedData = buildSafeTxTypedData(smartWallet, CHAIN_ID, nonce, safeTx);
+          const signature = await activeClient.signTypedData(typedData);
+          calldata = buildExecTransactionCalldata(safeTx, signature as Hex);
+        }
+
+        if (accountMode === 'ambire') {
+          const result = await sendUserOpToBuilder(smartWallet, calldata);
+          if (result.success && result.userOpId !== undefined) {
+            return await pollStatus({ userOpId: result.userOpId });
+          } else if (result.success) {
+            setTxStatus({ phase: 'complete' });
+            setIsPending(false);
+            return true;
+          } else {
+            setTxStatus({ phase: 'rejected', errorMessage: result.error || 'Failed to submit' });
+            setError(new Error(result.error || 'Failed to submit'));
+            setIsPending(false);
+            return false;
+          }
+        } else {
+          const txHash = await activeClient.sendTransaction({
+            to: smartWallet,
+            data: calldata,
+            chain: activeClient.chain,
+            account: activeClient.account,
+          });
+          setTxStatus({ phase: 'sequencing' });
+          await l1PublicClient.waitForTransactionReceipt({ hash: txHash });
+          setTxStatus({ phase: 'complete', txHash });
+          setIsPending(false);
+          return true;
+        }
       } catch (err) {
         console.error('Withdraw failed:', err);
-        setError(err instanceof Error ? err : new Error('Withdraw failed'));
+        const msg = parseWalletError(err);
+        setTxStatus({ phase: 'rejected', errorMessage: msg });
+        setError(err instanceof Error ? err : new Error(msg));
         setIsPending(false);
         return false;
       }
     },
-    [walletClient]
+    [walletClient, accountMode, pollStatus, setTxStatus, switchChainAsync, wagmiConfig]
   );
 
   const executeCreateL2Wallet = useCallback(
