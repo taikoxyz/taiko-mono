@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -332,7 +333,7 @@ func (s *Syncer) processShastaProposal(
 		)
 
 		var lastAnchorBlockNumber uint64
-		if s.rpc.L2.ChainID.Cmp(new(big.Int).SetUint64(167_000)) == 0 &&
+		if s.rpc.L2.ChainID.Cmp(params.TaikoMainnetNetworkID) == 0 &&
 			meta.GetEventData().Id.Uint64() <= manifest.MainnetAnchorCheckSkipProposalOffset {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
 				sourcePayload.ParentBlock.Transactions()[0],
