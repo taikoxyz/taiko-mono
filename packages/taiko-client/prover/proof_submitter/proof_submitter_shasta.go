@@ -8,12 +8,15 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	cmap "github.com/orcaman/concurrent-map/v2"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
@@ -133,22 +136,38 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 	}
 	// Request proof.
 	var (
-		lastBlockState shasta.AnchorBlockState
+		lastAnchorBlockNumber uint64
+		lastBlockState        shasta.AnchorBlockState
 	)
-	if lastOriginInLastProposal.BlockID.Cmp(common.Big0) == 0 {
-		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
-			BlockNumber: common.Big0,
-			Context:     ctx,
-		})
+	if s.rpc.L2.ChainID.Cmp(params.TaikoMainnetNetworkID) == 0 &&
+		meta.Shasta().GetEventData().Id.Uint64() <= manifest.MainnetAnchorCheckSkipProposalOffset {
+		block, err := s.rpc.L2.BlockByHash(ctx, lastOriginInLastProposal.L2BlockHash)
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
+			return fmt.Errorf("failed to get block by hash %s: %w", lastOriginInLastProposal.L2BlockHash, err)
+		}
+		if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
+			block.Transactions()[0],
+		); err != nil {
+			return err
+		}
 	} else {
-		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
-			BlockHash: lastOriginInLastProposal.L2BlockHash,
-			Context:   ctx,
-		})
+		if lastOriginInLastProposal.BlockID.Cmp(common.Big0) == 0 {
+			lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+				BlockNumber: common.Big0,
+				Context:     ctx,
+			})
+		} else {
+			lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
+				BlockHash: lastOriginInLastProposal.L2BlockHash,
+				Context:   ctx,
+			})
+		}
+		if err != nil {
+			return err
+		}
+		lastAnchorBlockNumber = lastBlockState.AnchorBlockNumber.Uint64()
 	}
-	if err != nil {
-		return err
-	}
+
 	proposalID := meta.GetProposalID()
 	var (
 		opts = &proofProducer.ProofRequestOptionsShasta{
@@ -163,7 +182,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 				BlockHash:   header.Hash(),
 				StateRoot:   header.Root,
 			},
-			LastAnchorBlockNumber: lastBlockState.AnchorBlockNumber,
+			LastAnchorBlockNumber: new(big.Int).SetUint64(lastAnchorBlockNumber),
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse
