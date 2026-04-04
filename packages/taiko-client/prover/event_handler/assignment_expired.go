@@ -44,7 +44,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 		// If the proposal is already finalized, skip it.
 		if proposalID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
 			log.Info(
-				"Shasta batch already finalized, skip proof submission",
+				"Shasta proposal already finalized, skip proof submission",
 				"proposalID", proposalID,
 				"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 			)

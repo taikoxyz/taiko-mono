@@ -130,9 +130,9 @@ func (s *State) eventLoop(ctx context.Context) {
 				continue
 			}
 			log.Info(
-				"📈 Shasta batches proven and verified",
-				"firstBatchID", e.FirstNewProposalId,
-				"lastBatchID", e.LastProposalId,
+				"📈 Shasta proposals proven and verified",
+				"firstProposalID", e.FirstNewProposalId,
+				"lastProposalID", e.LastProposalId,
 				"checkpointNumber", header.Number,
 				"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
 			)

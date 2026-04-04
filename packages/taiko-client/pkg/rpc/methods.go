@@ -278,8 +278,8 @@ func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*t
 	return waitForFetchResult(ctx, blockID, ethClient.HeaderByNumber)
 }
 
-// WaitShastaHeader keeps waiting for the Shasta block header of the given batch ID from the L2 execution engine.
-func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types.Header, error) {
+// WaitShastaProposalHeader keeps waiting for the Shasta block header of the given proposal ID from the L2 execution engine.
+func (c *Client) WaitShastaProposalHeader(ctx context.Context, proposalID *big.Int) (*types.Header, error) {
 	var (
 		ctxWithTimeout = ctx
 		cancel         context.CancelFunc
@@ -293,18 +293,18 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 		defer cancel()
 	}
 
-	log.Debug("Start fetching block header from L2 execution engine", "batchID", batchID)
+	log.Debug("Start fetching block header from L2 execution engine", "proposalID", proposalID)
 
 	for ; true; <-ticker.C {
 		if ctxWithTimeout.Err() != nil {
 			return nil, ctxWithTimeout.Err()
 		}
 
-		l1Origin, err := c.L2Engine.LastCertainL1OriginByBatchID(ctxWithTimeout, batchID)
+		l1Origin, err := c.L2Engine.LastCertainL1OriginByBatchID(ctxWithTimeout, proposalID)
 		if err != nil {
 			log.Debug(
 				"Fetch Shasta block header from L2 execution engine not found, keep retrying",
-				"batchID", batchID,
+				"proposalID", proposalID,
 				"error", err,
 			)
 			continue
@@ -317,7 +317,7 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 		return c.L2.HeaderByHash(ctxWithTimeout, l1Origin.L2BlockHash)
 	}
 
-	return nil, fmt.Errorf("failed to fetch Shasta block header from L2 execution engine, batchID: %d", batchID)
+	return nil, fmt.Errorf("failed to fetch Shasta block header from L2 execution engine, proposalID: %d", proposalID)
 }
 
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
@@ -478,7 +478,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 type ReorgCheckResult struct {
 	IsReorged                 bool
 	L1CurrentToReset          *types.Header
-	LastHandledBatchIDToReset *big.Int
+	LastHandledProposalIDToReset *big.Int
 }
 
 // CheckL1Reorg checks whether the L2 block's corresponding L1 block has been reorged or not.
@@ -492,16 +492,16 @@ type ReorgCheckResult struct {
 // 2. If the L1 information which in the given L2 block's anchor transaction has been reorged
 //
 // And if a reorg is detected, we return a new L1 block cursor which need to reset to.
-func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBatch bool) (*ReorgCheckResult, error) {
+func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int, isShastaProposal bool) (*ReorgCheckResult, error) {
 	var (
 		result                 = new(ReorgCheckResult)
 		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 		err                    error
 	)
 	defer cancel()
-	_ = isShastaBatch
+	_ = isShastaProposal
 
-	if batchID.Cmp(common.Big0) == 0 {
+	if proposalID.Cmp(common.Big0) == 0 {
 		result.IsReorged = true
 		if result.L1CurrentToReset, err = c.GetGenesisL1Header(ctxWithTimeout); err != nil {
 			return nil, err
@@ -512,7 +512,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 	for {
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that batch, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
-		if batchID.Cmp(common.Big0) == 0 {
+		if proposalID.Cmp(common.Big0) == 0 {
 			result.IsReorged = true
 			if result.L1CurrentToReset, err = c.GetGenesisL1Header(ctxWithTimeout); err != nil {
 				return nil, err
@@ -522,12 +522,12 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 		}
 
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
-		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID)
+		l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, proposalID)
 		if err != nil {
 			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 			// its local database, we skip this check.
 			if err.Error() == ethereum.NotFound.Error() || err.Error() == eth.ErrProposalLastBlockUncertain.Error() {
-				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
+				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "proposalID", proposalID)
 				return result, nil
 			}
 
@@ -540,7 +540,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 			// We can not find the L1 header which in the L1Origin, which means that L1 block has been reorged.
 			if err.Error() == ethereum.NotFound.Error() {
 				result.IsReorged = true
-				batchID = new(big.Int).Sub(batchID, common.Big1)
+				proposalID = new(big.Int).Sub(proposalID, common.Big1)
 				continue
 			}
 			return nil, fmt.Errorf("failed to fetch L1 header (%d): %w", l1Origin.L1BlockHeight, err)
@@ -549,12 +549,12 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 		if l1Header.Hash() != l1Origin.L1BlockHash {
 			log.Info(
 				"Reorg detected",
-				"batchID", batchID,
+				"proposalID", proposalID,
 				"l1Height", l1Origin.L1BlockHeight,
 				"l1HashOld", l1Origin.L1BlockHash,
 				"l1HashNew", l1Header.Hash(),
 			)
-			batchID = new(big.Int).Sub(batchID, common.Big1)
+			proposalID = new(big.Int).Sub(proposalID, common.Big1)
 			result.IsReorged = true
 			continue
 		}
@@ -569,13 +569,13 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 			return nil, fmt.Errorf("failed to check L1 reorg from anchor transaction: %w", err)
 		}
 		if isSyncedL1SnippetInvalid {
-			batchID = new(big.Int).Sub(batchID, common.Big1)
+			proposalID = new(big.Int).Sub(proposalID, common.Big1)
 			result.IsReorged = true
 			continue
 		}
 
 		result.L1CurrentToReset = l1Header
-		result.LastHandledBatchIDToReset = batchID
+		result.LastHandledProposalIDToReset = proposalID
 		break
 	}
 
@@ -584,7 +584,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 		"isReorged", result.IsReorged,
 		"l1CurrentToResetNumber", result.L1CurrentToReset.Number,
 		"l1CurrentToResetHash", result.L1CurrentToReset.Hash(),
-		"batchIDToReset", result.LastHandledBatchIDToReset,
+		"proposalIDToReset", result.LastHandledProposalIDToReset,
 	)
 
 	return result, nil
@@ -645,18 +645,18 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	return false, nil
 }
 
-// LastL1OriginInBatchShasta fetches the L1Origin of the last block in the given Shasta batch.
-func (c *Client) LastL1OriginInBatchShasta(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
+// LastL1OriginInProposalShasta fetches the L1Origin of the last block in the given Shasta proposal.
+func (c *Client) LastL1OriginInProposalShasta(ctx context.Context, proposalID *big.Int) (*rawdb.L1Origin, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	if batchID.Cmp(common.Big0) == 0 {
+	if proposalID.Cmp(common.Big0) == 0 {
 		return &rawdb.L1Origin{BlockID: common.Big0}, nil
 	}
 
-	l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, batchID)
+	l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, proposalID)
 	if err != nil {
-		return nil, fmt.Errorf("L1Origin not found for batch ID %d: %w", batchID, err)
+		return nil, fmt.Errorf("L1Origin not found for proposal ID %d: %w", proposalID, err)
 	}
 
 	return l1Origin, nil
@@ -1135,7 +1135,7 @@ func (c *Client) GetProposalByIDShasta(
 
 	blockID, err := c.L2Engine.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get last block ID by batch ID %d: %w", proposalID, err)
+		return nil, nil, fmt.Errorf("failed to get last block ID for proposal %d: %w", proposalID, err)
 	}
 
 	block, err := c.L2.BlockByNumber(ctxWithTimeout, blockID.ToInt())

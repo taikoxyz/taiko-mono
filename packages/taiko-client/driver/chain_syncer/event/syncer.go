@@ -193,10 +193,10 @@ func (s *Syncer) processShastaProposal(
 				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
 				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
 				"lastInsertedBlockIDOld", s.lastInsertedBatchID,
-				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledBatchIDToReset,
+				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledProposalIDToReset,
 			)
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBatchID = reorgCheckResult.LastHandledBatchIDToReset
+			s.lastInsertedBatchID = reorgCheckResult.LastHandledProposalIDToReset
 			s.reorgDetectedFlag = true
 			endIter()
 
@@ -204,12 +204,12 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
-	// Ignore those already inserted batches.
+	// Ignore those already inserted proposals.
 	if s.lastInsertedBatchID != nil && meta.GetEventData().Id.Cmp(s.lastInsertedBatchID) <= 0 {
 		log.Debug(
-			"Skip already inserted batch",
-			"batchID", meta.GetEventData().Id,
-			"lastInsertedBatchID", s.lastInsertedBatchID,
+			"Skip already inserted proposal",
+			"proposalID", meta.GetEventData().Id,
+			"lastInsertedProposalID", s.lastInsertedBatchID,
 		)
 		return nil
 	}
@@ -434,14 +434,14 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 	if reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(ctx, common.Big0); err != nil {
 		return nil, fmt.Errorf("failed to fetch L1 header by number: %w", err)
 	}
-	reorgCheckResult.LastHandledBatchIDToReset = common.Big0
+	reorgCheckResult.LastHandledProposalIDToReset = common.Big0
 	return reorgCheckResult, nil
 }
 
 // checkReorgShasta checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
 func (s *Syncer) checkReorgShasta(
 	ctx context.Context,
-	batchID *big.Int,
+	proposalID *big.Int,
 ) (*rpc.ReorgCheckResult, error) {
 	// 1. Check if the verified blocks in L2 EE have been reorged.
 	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchShasta(ctx)
@@ -450,15 +450,15 @@ func (s *Syncer) checkReorgShasta(
 	}
 
 	// 2. Proposal 1 has no prior proposal to validate against L1 origin data.
-	// Skipping the batchID-1 reorg check here avoids treating normal genesis state
+	// Skipping the proposalID-1 reorg check here avoids treating normal genesis state
 	// as a synthetic reorg back to genesis.
-	if batchID.Cmp(common.Big1) <= 0 {
+	if proposalID.Cmp(common.Big1) <= 0 {
 		return reorgCheckResult, nil
 	}
 
 	// 3. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), true); err != nil {
+		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(proposalID, common.Big1), true); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
 	}

@@ -8,7 +8,7 @@ import (
 
 // SharedState represents the internal state of a prover.
 type SharedState struct {
-	lastHandledShastaBatchID atomic.Uint64
+	lastHandledShastaProposalID atomic.Uint64
 	l1Current                atomic.Value
 }
 
@@ -17,14 +17,14 @@ func New() *SharedState {
 	return new(SharedState)
 }
 
-// GetLastHandledShastaBatchID returns the last handled Shasta batch ID.
-func (s *SharedState) GetLastHandledShastaBatchID() uint64 {
-	return s.lastHandledShastaBatchID.Load()
+// GetLastHandledShastaProposalID returns the last handled Shasta proposal ID.
+func (s *SharedState) GetLastHandledShastaProposalID() uint64 {
+	return s.lastHandledShastaProposalID.Load()
 }
 
-// SetLastHandledShastaBatchID sets the last handled Shasta batch ID.
-func (s *SharedState) SetLastHandledShastaBatchID(batchID uint64) {
-	s.lastHandledShastaBatchID.Store(batchID)
+// SetLastHandledShastaProposalID sets the last handled Shasta proposal ID.
+func (s *SharedState) SetLastHandledShastaProposalID(proposalID uint64) {
+	s.lastHandledShastaProposalID.Store(proposalID)
 }
 
 // GetL1Current returns the current L1 header cursor.

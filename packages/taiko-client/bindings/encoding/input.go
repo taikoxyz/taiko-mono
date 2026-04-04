@@ -63,7 +63,7 @@ var (
 	SGXVerifierABI  *abi.ABI
 	ForkRouterABI   *abi.ABI
 
-	// Legacy L1 contracts
+	// Pacaya fork
 	TaikoInboxABI           *abi.ABI
 	TaikoWrapperABI         *abi.ABI
 	ForcedInclusionStoreABI *abi.ABI

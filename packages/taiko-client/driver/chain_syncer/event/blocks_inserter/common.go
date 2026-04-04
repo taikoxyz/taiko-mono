@@ -141,7 +141,7 @@ func createExecutionPayloads(
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,
-			BatchID:     meta.BatchID,
+			BatchID:     meta.ProposalID,
 			ExtraData:   meta.ExtraData,
 		},
 		BaseFeePerGas: meta.BaseFee,
@@ -211,9 +211,9 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
-// isKnownCanonicalBatchShasta checks if all blocks in the given Shasta batch are in the canonical chain already,
-// and returns the header of the last block in the batch if it is.
-func isKnownCanonicalBatchShasta(
+// isKnownCanonicalProposalShasta checks if all blocks in the given Shasta proposal are in the canonical chain already,
+// and returns the header of the last block in the proposal if it is.
+func isKnownCanonicalProposalShasta(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
@@ -229,7 +229,7 @@ func isKnownCanonicalBatchShasta(
 		g       = new(errgroup.Group)
 	)
 
-	// Check each block in the batch, and if all blocks are preconfirmed, return the header of the last block.
+	// Check each block in the proposal, and if all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(sourcePayload.BlockPayloads); i++ {
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
@@ -492,15 +492,15 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
 
-	// Set batchID only for the last block in the proposal
-	var batchID *big.Int
+	// Set proposalID only for the last block in the proposal.
+	var proposalID *big.Int
 	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
-		batchID = meta.GetEventData().Id
+		proposalID = meta.GetEventData().Id
 	}
 
 	return &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
-		BatchID:               batchID,
+		ProposalID:            proposalID,
 		ExtraData:             extraData,
 		SuggestedFeeRecipient: blockInfo.Coinbase,
 		GasLimit:              blockInfo.GasLimit,
@@ -519,13 +519,13 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}, anchorTx, nil
 }
 
-// updateL1OriginForBlocks updates L1 origin for a batch of blocks with given parameters.
+// updateL1OriginForBlocks updates L1 origin for a proposal's blocks with the given parameters.
 func updateL1OriginForBlocks(
 	ctx context.Context,
 	rpc *rpc.Client,
 	blockCount int,
 	getBlockID func(i int) *big.Int,
-	getBatchID func() *big.Int,
+	getProposalID func() *big.Int,
 	l1BlockHeight *big.Int,
 	l1BlockHash common.Hash,
 ) error {
@@ -569,7 +569,7 @@ func updateL1OriginForBlocks(
 				log.Info(
 					"Update head L1 origin",
 					"blockID", blockID,
-					"batchID", getBatchID(),
+					"proposalID", getProposalID(),
 					"L2BlockHash", l1Origin.L1BlockHash,
 					"L1BlockHeight", l1Origin.L1BlockHeight,
 					"L1BlockHash", l1Origin.L1BlockHash,
@@ -577,8 +577,8 @@ func updateL1OriginForBlocks(
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
-				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, getBatchID(), blockID); err != nil {
-					return fmt.Errorf("failed to write batch to block mapping: %w", err)
+				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, getProposalID(), blockID); err != nil {
+					return fmt.Errorf("failed to write proposal to block mapping: %w", err)
 				}
 			}
 
@@ -588,8 +588,8 @@ func updateL1OriginForBlocks(
 	return g.Wait()
 }
 
-// updateL1OriginForBatchShasta updates the L1 origin for the given batch of blocks.
-func updateL1OriginForBatchShasta(
+// updateL1OriginForProposalShasta updates the L1 origin for the given proposal's blocks.
+func updateL1OriginForProposalShasta(
 	ctx context.Context,
 	rpc *rpc.Client,
 	parentHeader *types.Header,

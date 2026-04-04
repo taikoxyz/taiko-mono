@@ -71,7 +71,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 				if proposals[i].Id.Cmp(common.Big1) == 0 {
 					input.Commitment.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
 				} else {
-					lastOriginInLastProposal, err := a.rpc.LastL1OriginInBatchShasta(
+					lastOriginInLastProposal, err := a.rpc.LastL1OriginInProposalShasta(
 						ctx,
 						new(big.Int).Sub(proposals[i].Id, common.Big1),
 					)
@@ -97,8 +97,8 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			})
 
 			log.Info(
-				"Build batch proof submission transaction",
-				"batchID", proposals[i].Id,
+				"Build proposal proof submission transaction",
+				"proposalID", proposals[i].Id,
 				"proposalHash", proposalHash,
 				"start", proofResponse.Opts.ShastaOptions().Headers[0].Number,
 				"end", proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1].Number,

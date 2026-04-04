@@ -314,18 +314,18 @@ func (p *Proposer) ProposeTxLists(
 }
 
 // ProposeTxListShasta proposes the given transaction lists to the inbox contract.
-func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Transactions) error {
+func (p *Proposer) ProposeTxListShasta(ctx context.Context, proposalTxLists []types.Transactions) error {
 	var (
 		txs uint64
 	)
 
-	// Make sure the tx list is not bigger than the proposalMaxBlocks.
-	if len(txBatch) > manifest.ProposalMaxBlocks {
-		return fmt.Errorf("tx batch size is larger than the proposalMaxBlocks")
+	// Make sure the transaction lists fit within the maximum blocks allowed in a proposal.
+	if len(proposalTxLists) > manifest.ProposalMaxBlocks {
+		return fmt.Errorf("proposal exceeds proposalMaxBlocks")
 	}
 
 	// Count the total number of transactions.
-	for _, txList := range txBatch {
+	for _, txList := range proposalTxLists {
 		txs += uint64(len(txList))
 	}
 
@@ -353,8 +353,8 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 		}
 	}
 
-	// Build the transaction to propose batch.
-	txCandidate, err := p.txBuilder.BuildShasta(ctx, txBatch)
+	// Build the proposal transaction.
+	txCandidate, err := p.txBuilder.BuildShasta(ctx, proposalTxLists)
 	if err != nil {
 		log.Warn("Failed to build Inbox.propose transaction", "error", encoding.TryParsingCustomError(err))
 		return err
@@ -364,9 +364,9 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 		return err
 	}
 
-	log.Info("📝 Propose Shasta blocks batch succeeded", "blocksInBatch", len(txBatch), "txs", txs)
+	log.Info("📝 Propose Shasta proposal succeeded", "blocksInProposal", len(proposalTxLists), "txs", txs)
 
-	metrics.ProposerProposedTxListsCounter.Add(float64(len(txBatch)))
+	metrics.ProposerProposedTxListsCounter.Add(float64(len(proposalTxLists)))
 	metrics.ProposerProposedTxsCounter.Add(float64(txs))
 
 	return nil

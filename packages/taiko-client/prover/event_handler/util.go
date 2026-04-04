@@ -20,18 +20,18 @@ const proofExpirationDelay = 72 * time.Second
 // checkL1Reorg verifies that the event's L1 block is still canonical.
 func (h *BatchProposedEventHandler) checkL1Reorg(
 	ctx context.Context,
-	batchID *big.Int,
+	proposalID *big.Int,
 	meta metadata.TaikoProposalMetaData,
 ) error {
 	header, err := h.rpc.L1.HeaderByNumber(ctx, meta.GetRawBlockHeight())
 	if err != nil {
-		return fmt.Errorf("failed to get L1 header for batch %s: %w", batchID, err)
+		return fmt.Errorf("failed to get L1 header for proposal %s: %w", proposalID, err)
 	}
 
 	if header.Hash() != meta.GetRawBlockHash() {
 		log.Warn(
-			"Detected L1 reorg for proposed batch",
-			"batchID", batchID,
+			"Detected L1 reorg for proposed proposal",
+			"proposalID", proposalID,
 			"l1Height", meta.GetRawBlockHeight(),
 			"l1HashOld", meta.GetRawBlockHash(),
 			"l1HashNew", header.Hash(),

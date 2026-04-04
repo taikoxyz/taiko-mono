@@ -70,10 +70,10 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	} else {
 		blockIDFromLastProposal, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, new(big.Int).Sub(proposalID, common.Big1))
 		if err != nil {
-			return fmt.Errorf("failed to get last block ID by batch ID (%d): %w", proposalID, err)
+			return fmt.Errorf("failed to get last block ID for proposal %d: %w", new(big.Int).Sub(proposalID, common.Big1), err)
 		}
 		if blockIDFromLastProposal == nil {
-			return fmt.Errorf("no last block ID found for batch ID %d", new(big.Int).Sub(proposalID, common.Big1))
+			return fmt.Errorf("no last block ID found for proposal %d", new(big.Int).Sub(proposalID, common.Big1))
 		}
 
 		blockFromLastProposal, err := s.rpc.L2.BlockByNumber(ctx, blockIDFromLastProposal.ToInt())

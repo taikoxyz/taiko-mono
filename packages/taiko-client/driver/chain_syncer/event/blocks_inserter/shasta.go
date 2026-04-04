@@ -161,13 +161,13 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// If this is the first block in the batch, we check if the whole batch has been inserted by
+		// If this is the first block in the proposal, we check if the whole proposal has been inserted by
 		// trying to fetch the last block header from L2 EE. If it is known in canonical,
 		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
 			log.Debug(
-				"Checking if batch is in canonical chain",
-				"batchID", meta.GetEventData().Id,
+				"Checking if proposal is in canonical chain",
+				"proposalID", meta.GetEventData().Id,
 				"assignedProver", meta.GetEventData().Proposer,
 				"timestamp", meta.GetTimestamp(),
 				"derivationSources", len(meta.GetEventData().Sources),
@@ -175,7 +175,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				"parentHash", parent.Hash(),
 			)
 
-			lastBlockHeader, isKnown, err := isKnownCanonicalBatchShasta(
+			lastBlockHeader, isKnown, err := isKnownCanonicalProposalShasta(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -184,12 +184,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 				parent,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check if Shasta batch is known in canonical chain: %w", err)
+				return nil, fmt.Errorf("failed to check if Shasta proposal is known in canonical chain: %w", err)
 			}
 			if isKnown && lastBlockHeader != nil {
 				log.Info(
-					"🧬 Known Shasta batch in canonical chain",
-					"batchID", meta.GetEventData().Id,
+					"🧬 Known Shasta proposal in canonical chain",
+					"proposalID", meta.GetEventData().Id,
 					"assignedProver", meta.GetEventData().Proposer,
 					"timestamp", meta.GetTimestamp(),
 					"derivationSources", len(meta.GetEventData().Sources),
@@ -203,9 +203,9 @@ func (i *Shasta) InsertBlocksWithManifest(
 					LastBlockID:           lastBlockHeader.Number.Uint64(),
 				})
 
-				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
-					return nil, fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetEventData().Id, err)
+				// Update the L1 origin for each block in the proposal.
+				if err := updateL1OriginForProposalShasta(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
+					return nil, fmt.Errorf("failed to update L1 origin for proposal (%d): %w", meta.GetEventData().Id, err)
 				}
 
 				return lastBlockHeader.Number, nil
