@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.2.0...taiko-alethia-client-v2.3.0) (2026-04-02)
+
+
+### Features
+
+* **taiko-client:** add p2p allow-all-sequencers flag ([#21510](https://github.com/taikoxyz/taiko-mono/issues/21510)) ([666ee5b](https://github.com/taikoxyz/taiko-mono/commit/666ee5b32a24598f3a0cb8f0d35d39845c8085c7))
+
+
+### Bug Fixes
+
+* **taiko-client:** introduce `AnchorCheckSkipProposalOffset` ([#21529](https://github.com/taikoxyz/taiko-mono/issues/21529)) ([211bddc](https://github.com/taikoxyz/taiko-mono/commit/211bddcccfcf0044ed381d090dec49b4c26eb9b4))
+* **taiko-client:** stalled finalized block height ([#21523](https://github.com/taikoxyz/taiko-mono/issues/21523)) ([0328692](https://github.com/taikoxyz/taiko-mono/commit/0328692b5b6af057cf36c0da42dce88f9bf3314b))
+* **taiko-client:** use certain l1 origin when wait shasta header ([#21515](https://github.com/taikoxyz/taiko-mono/issues/21515)) ([45ec041](https://github.com/taikoxyz/taiko-mono/commit/45ec041317aeab69262ab738cecfd397108c67b8))
+
+
+### Chores
+
+* **taiko-client:** improve checks in syncer ([#21525](https://github.com/taikoxyz/taiko-mono/issues/21525)) ([4db63e1](https://github.com/taikoxyz/taiko-mono/commit/4db63e1929770bd18c567d4257303cb849905b24))
+
 ## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.1...taiko-alethia-client-v2.2.0) (2026-03-25)
 
 

@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -331,18 +332,29 @@ func (s *Syncer) processShastaProposal(
 			"parentTimestamp", sourcePayload.ParentBlock.Time(),
 		)
 
-		latestBlockState, err := s.rpc.GetShastaAnchorState(
-			&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
-		)
-		if err != nil {
-			return err
-		}
-		lastAnchorBlockNumber := latestBlockState.AnchorBlockNumber.Uint64()
-		if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+		var lastAnchorBlockNumber uint64
+		if s.rpc.L2.ChainID.Cmp(params.TaikoMainnetNetworkID) == 0 &&
+			meta.GetEventData().Id.Uint64() <= manifest.MainnetAnchorCheckSkipProposalOffset {
 			if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
 				sourcePayload.ParentBlock.Transactions()[0],
 			); err != nil {
 				return err
+			}
+		} else {
+			latestBlockState, err := s.rpc.GetShastaAnchorState(
+				&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
+			)
+			if err != nil {
+				return err
+			}
+
+			lastAnchorBlockNumber = latestBlockState.AnchorBlockNumber.Uint64()
+			if meta.GetEventData().Id.Cmp(common.Big1) == 0 && sourcePayload.ParentBlock.Number().Cmp(common.Big0) != 0 {
+				if _, lastAnchorBlockNumber, _, err = s.rpc.GetSyncedL1SnippetFromAnchor(
+					sourcePayload.ParentBlock.Transactions()[0],
+				); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -425,6 +437,17 @@ func (s *Syncer) processPacayaBatch(
 
 	// We simply ignore the genesis block's `BatchesProposed` event.
 	if meta.Pacaya().GetBatchID().Cmp(common.Big0) == 0 {
+		return nil
+	}
+
+	// Skip Pacaya batches whose timestamp is at or after the Shasta fork time.
+	if s.rpc.ShastaClients.ForkTime > 0 && timestamp >= s.rpc.ShastaClients.ForkTime {
+		log.Debug(
+			"Skip Pacaya batch after Shasta fork time",
+			"batchID", meta.Pacaya().GetBatchID(),
+			"timestamp", timestamp,
+			"shastaForkTime", s.rpc.ShastaClients.ForkTime,
+		)
 		return nil
 	}
 

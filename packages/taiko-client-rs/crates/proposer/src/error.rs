@@ -1,10 +1,8 @@
 //! Error types for proposer operations.
 
-use alloy::{
-    providers::PendingTransactionError,
-    transports::{RpcError, TransportErrorKind},
-};
+use alloy::transports::{RpcError, TransportErrorKind};
 use alloy_eips::eip2718::Eip2718Error;
+use base_tx_manager::TxManagerError;
 use protocol::shasta::ProtocolError;
 use rpc::RpcClientError;
 use std::result::Result as StdResult;
@@ -84,9 +82,9 @@ pub enum ProposerError {
     #[error("RPC error: {0}")]
     Rpc(String),
 
-    /// Pending transaction error
-    #[error("pending transaction error: {0}")]
-    PendingTransaction(String),
+    /// Base tx-manager error
+    #[error("tx-manager error: {0}")]
+    TxManager(#[from] TxManagerError),
 
     /// JSON serialization error
     #[error("JSON error: {0}")]
@@ -102,14 +100,6 @@ impl From<RpcError<TransportErrorKind>> for ProposerError {
     /// Convert transport-layer RPC errors into the proposer RPC error variant.
     fn from(err: RpcError<TransportErrorKind>) -> Self {
         ProposerError::Rpc(err.to_string())
-    }
-}
-
-// Manual From implementation for PendingTransactionError
-impl From<PendingTransactionError> for ProposerError {
-    /// Convert pending-transaction submission errors into a proposer error.
-    fn from(err: PendingTransactionError) -> Self {
-        ProposerError::PendingTransaction(err.to_string())
     }
 }
 

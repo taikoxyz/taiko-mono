@@ -37,6 +37,7 @@ metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = [
   "http-listener",
 ] }
+metrics-util = "0.19"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
@@ -72,6 +73,7 @@ alloy-sol-macro = { version = "1.4.3", default-features = false, features = [
 alloy-sol-types = { version = "1.5.0", default-features = false }
 alloy-transport = { version = "1.4.3", default-features = false }
 alloy-transport-http = { version = "1.4.3", features = ["hyper", "jwt-auth"] }
+base-tx-manager = { git = "https://github.com/base/base", rev = "1f1149cca0748f7ee7c6234f54d0be8dab51579a" }
 event-scanner = "1.1.0"
 jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
