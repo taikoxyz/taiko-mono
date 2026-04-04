@@ -95,20 +95,3 @@ func TestCheckpointCacheRefreshesStaleValueAsynchronously(t *testing.T) {
 	lastSnapshot, _ := cache.load()
 	t.Fatalf("timed out waiting for cache refresh, last snapshot = %+v", lastSnapshot)
 }
-
-func TestCheckpointCachesAreGlobalSingleton(t *testing.T) {
-	pacayaA := getPacayaCache()
-	pacayaB := getPacayaCache()
-	shastaA := getShastaCache()
-	shastaB := getShastaCache()
-
-	if pacayaA != pacayaB {
-		t.Fatalf("expected pacaya cache singleton, got %p and %p", pacayaA, pacayaB)
-	}
-	if shastaA != shastaB {
-		t.Fatalf("expected shasta cache singleton, got %p and %p", shastaA, shastaB)
-	}
-	if pacayaA == shastaA {
-		t.Fatalf("expected pacaya and shasta caches to be distinct instances, both were %p", pacayaA)
-	}
-}

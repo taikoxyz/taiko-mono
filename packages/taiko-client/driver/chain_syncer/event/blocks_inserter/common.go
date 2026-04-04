@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -739,16 +738,8 @@ func InsertPreconfBlockFromEnvelope(
 
 	// The checkpoint lookup must use the rpc.Client for this L1 environment.
 	// Passing a client from another L1 network would make the cached checkpoint invalid.
-	if envelope.Payload.Timestamp >= eth.Uint64Quantity(cli.ShastaClients.ForkTime) {
-		safeCheckpoint, err = getShastaCheckpoint(ctx, cli)
-		if err != nil {
-			log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
-		}
-	} else {
-		safeCheckpoint, err = getPacayaCheckpoint(ctx, cli)
-		if err != nil {
-			log.Warn("Failed to fetch last verified block of Pacaya", "error", err)
-		}
+	if safeCheckpoint, err = getShastaCheckpoint(ctx, cli); err != nil {
+		log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
 	}
 
 	log.Debug(

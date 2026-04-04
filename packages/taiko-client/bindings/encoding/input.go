@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
-	legacyBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -70,7 +70,7 @@ var (
 	TaikoAnchorABI          *abi.ABI
 	ResolverBaseABI         *abi.ABI
 	ComposeVerifierABI      *abi.ABI
-	LegacyForkRouterABI     *abi.ABI
+	PacayaForkRouterABI     *abi.ABI
 
 	// Shasta fork
 	ShastaInboxABI           *abi.ABI
@@ -117,32 +117,32 @@ func init() {
 		log.Crit("Get ForkRouter ABI error", "error", err)
 	}
 
-	if TaikoInboxABI, err = legacyBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get legacy TaikoInbox ABI error", "error", err)
+	if TaikoInboxABI, err = pacayaBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get Pacaya TaikoInbox ABI error", "error", err)
 	}
 
-	if TaikoWrapperABI, err = legacyBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
+	if TaikoWrapperABI, err = pacayaBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoWrapper ABI error", "error", err)
 	}
 
-	if ForcedInclusionStoreABI, err = legacyBindings.ForcedInclusionStoreMetaData.GetAbi(); err != nil {
+	if ForcedInclusionStoreABI, err = pacayaBindings.ForcedInclusionStoreMetaData.GetAbi(); err != nil {
 		log.Crit("Get ForcedInclusionStore ABI error", "error", err)
 	}
 
-	if TaikoAnchorABI, err = legacyBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
+	if TaikoAnchorABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoAnchor ABI error", "error", err)
 	}
 
-	if ResolverBaseABI, err = legacyBindings.ResolverBaseMetaData.GetAbi(); err != nil {
+	if ResolverBaseABI, err = pacayaBindings.ResolverBaseMetaData.GetAbi(); err != nil {
 		log.Crit("Get ResolverBase ABI error", "error", err)
 	}
 
-	if ComposeVerifierABI, err = legacyBindings.ComposeVerifierMetaData.GetAbi(); err != nil {
+	if ComposeVerifierABI, err = pacayaBindings.ComposeVerifierMetaData.GetAbi(); err != nil {
 		log.Crit("Get ComposeVerifier ABI error", "error", err)
 	}
 
-	if LegacyForkRouterABI, err = legacyBindings.ForkRouterMetaData.GetAbi(); err != nil {
-		log.Crit("Get ForkRouter ABI error", "error", err)
+	if PacayaForkRouterABI, err = pacayaBindings.ForkRouterMetaData.GetAbi(); err != nil {
+		log.Crit("Get Pacaya ForkRouter ABI error", "error", err)
 	}
 
 	if ShastaInboxABI, err = shastaBindings.ShastaInboxClientMetaData.GetAbi(); err != nil {
@@ -184,7 +184,7 @@ func init() {
 		TaikoAnchorABI.Errors,
 		ResolverBaseABI.Errors,
 		ComposeVerifierABI.Errors,
-		LegacyForkRouterABI.Errors,
+		PacayaForkRouterABI.Errors,
 		ShastaInboxABI.Errors,
 		ShastaAnchorABI.Errors,
 		BondManagerABI.Errors,
