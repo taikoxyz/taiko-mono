@@ -5,14 +5,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"errors"
-	"math"
 	"math/big"
 	"os"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,12 +24,11 @@ import (
 	"github.com/phayes/freeport"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
+	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
 func (s *ClientTestSuite) proposeEmptyBlockOp(ctx context.Context, proposer Proposer) {
@@ -57,13 +53,13 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
+	sink := make(chan *shastaBindings.ShastaInboxClientProposed)
+	sub, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink, nil, nil)
 	s.Nil(err)
 
 	defer func() {
-		sub2.Unsubscribe()
-		close(sink2)
+		sub.Unsubscribe()
+		close(sink)
 	}()
 
 	// RLP encoded empty list
@@ -81,7 +77,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 
 	var txHash common.Hash
 	for i := 0; i < 3; i++ {
-		event := <-sink2
+		event := <-sink
 		header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 		s.Nil(err)
 		meta := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
@@ -98,6 +94,7 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
+	s.L1Mine()
 
 	return metadataList
 }
@@ -119,13 +116,13 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
+	sink := make(chan *shastaBindings.ShastaInboxClientProposed)
+	sub, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink, nil, nil)
 	s.Nil(err)
 
 	defer func() {
-		sub2.Unsubscribe()
-		close(sink2)
+		sub.Unsubscribe()
+		close(sink)
 	}()
 
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
@@ -159,7 +156,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 		meta   metadata.TaikoProposalMetaData
 		txHash common.Hash
 	)
-	event := <-sink2
+	event := <-sink
 	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), event.Raw.BlockHash)
 	s.Nil(err)
 	meta = metadata.NewTaikoProposalMetadataShasta(event, header.Time)
@@ -186,6 +183,7 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 
 	_, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
+	s.L1Mine()
 
 	return meta
 }
@@ -198,13 +196,13 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	s.Nil(err)
 
 	// Propose txs in L2 execution engine's mempool
-	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
-	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2, nil, nil)
+	sink := make(chan *shastaBindings.ShastaInboxClientProposed)
+	sub, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink, nil, nil)
 	s.Nil(err)
 
 	defer func() {
-		sub2.Unsubscribe()
-		close(sink2)
+		sub.Unsubscribe()
+		close(sink)
 	}()
 
 	nonce, err := s.RPCClient.L2.PendingNonceAt(context.Background(), s.TestAddr)
@@ -226,7 +224,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	s.Nil(proposer.ProposeOp(context.Background()))
 
 	var txHash common.Hash
-	event := <-sink2
+	event := <-sink
 	txHash = event.Raw.TxHash
 
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
@@ -240,6 +238,7 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	newL1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
+	s.L1Mine()
 }
 
 // RandomHash generates a random blob of data and returns it as a hash.
@@ -367,7 +366,12 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(ctx, nil)
 	s.Nil(err)
 
-	txCandidate, err := s.buildBaseShastaProposalTx(ctx, l1Head, parent)
+	txCandidate, err := builder.NewBlobTransactionBuilder(
+		s.RPCClient,
+		common.HexToAddress(os.Getenv("INBOX")),
+		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		10_000_000,
+	).BuildShasta(ctx, []types.Transactions{{}})
 	s.Nil(err)
 
 	proposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, 1)
@@ -394,62 +398,6 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Zero(head.Number.Cmp(common.Big1))
-}
-
-func (s *ClientTestSuite) buildBaseShastaProposalTx(
-	ctx context.Context,
-	l1Head *types.Header,
-	l2Head *types.Header,
-) (*txmgr.TxCandidate, error) {
-	sourceManifest := &manifest.DerivationSourceManifest{
-		Blocks: []*manifest.BlockManifest{{
-			Timestamp:         l1Head.Time,
-			Coinbase:          common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-			AnchorBlockNumber: l1Head.Number.Uint64(),
-			GasLimit:          l2Head.GasLimit,
-			Transactions:      types.Transactions{},
-		}},
-	}
-
-	sourceManifestBytes, err := encodeSourceManifestShasta(sourceManifest)
-	if err != nil {
-		return nil, err
-	}
-
-	blobs, err := splitToBlobs(sourceManifestBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	inputData, err := s.RPCClient.EncodeProposeInput(
-		&bind.CallOpts{Context: ctx},
-		&shastaBindings.IInboxProposeInput{
-			Deadline: common.Big0,
-			BlobReference: shastaBindings.LibBlobsBlobReference{
-				BlobStartIndex: 0,
-				NumBlobs:       uint16(len(blobs)),
-				Offset:         common.Big0,
-			},
-			NumForcedInclusions: math.MaxUint16,
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := encoding.ShastaInboxABI.Pack("propose", []byte{}, inputData)
-	if err != nil {
-		return nil, err
-	}
-
-	inbox := common.HexToAddress(os.Getenv("INBOX"))
-
-	return &txmgr.TxCandidate{
-		TxData:   data,
-		Blobs:    blobs,
-		To:       &inbox,
-		GasLimit: 10_000_000,
-	}, nil
 }
 
 func (s *ClientTestSuite) insertBaseShastaBlock(
@@ -534,39 +482,6 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	s.Nil(err)
 	_, err = s.RPCClient.L2Engine.SetBatchToLastBlock(ctx, proposed.Id, blockID)
 	s.Nil(err)
-}
-
-func encodeSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
-	sourceManifestBytes, err := utils.EncodeAndCompressSourceManifestShasta(sourceManifest)
-	if err != nil {
-		return nil, err
-	}
-
-	versionBytes := make([]byte, 32)
-	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
-
-	lenBytes := make([]byte, 32)
-	new(big.Int).SetUint64(uint64(len(sourceManifestBytes))).FillBytes(lenBytes)
-
-	prefix := make([]byte, 0, 64)
-	prefix = append(prefix, versionBytes...)
-	prefix = append(prefix, lenBytes...)
-
-	return append(prefix, sourceManifestBytes...), nil
-}
-
-func splitToBlobs(data []byte) ([]*eth.Blob, error) {
-	var blobs []*eth.Blob
-	for start := 0; start < len(data); start += eth.MaxBlobDataSize {
-		end := min(start+eth.MaxBlobDataSize, len(data))
-		blob := &eth.Blob{}
-		if err := blob.FromData(data[start:end]); err != nil {
-			return nil, err
-		}
-		blobs = append(blobs, blob)
-	}
-
-	return blobs, nil
 }
 
 func encodeShastaExtraData(basefeeSharingPctg uint8, proposalID *big.Int) ([]byte, error) {
