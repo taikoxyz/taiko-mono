@@ -44,8 +44,6 @@ func (s *ClientTestSuite) ProposeAndInsertEmptyBlocks(
 	proposer Proposer,
 	chainSyncer ChainSyncer,
 ) []metadata.TaikoProposalMetaData {
-	s.ensureActivePreconfOperator()
-
 	// Sync all pending L2 blocks at first.
 	s.NotPanics(func() {
 		if err := chainSyncer.ProcessL1Blocks(context.Background()); err != nil {
@@ -110,8 +108,6 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	proposer Proposer,
 	chainSyncer ChainSyncer,
 ) metadata.TaikoProposalMetaData {
-	s.ensureActivePreconfOperator()
-
 	// Sync all pending L2 blocks at first.
 	s.NotPanics(func() {
 		if err := chainSyncer.ProcessL1Blocks(context.Background()); err != nil {
@@ -195,8 +191,6 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 }
 
 func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
-	s.ensureActivePreconfOperator()
-
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -362,8 +356,6 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Zero(head.Number.Cmp(common.Big0))
-
-	s.ensureActivePreconfOperator()
 
 	s.L1Mine()
 	ctx := context.Background()

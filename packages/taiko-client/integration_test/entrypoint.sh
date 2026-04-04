@@ -17,8 +17,13 @@ if [ "${L2_NODE:-}" == "l2_nmc" ]; then
   check_command "jq"
 fi
 
-# Keep Shasta active from genesis in the integration test environment.
-export TAIKO_INTERNAL_SHASTA_TIME=0
+# Keep L2 Shasta active from genesis in the integration test environment, and
+# start Anvil from a past timestamp so preconf activation stays behind wall
+# clock time during test bootstrap.
+if [ -z "${ANVIL_L1_START_TIMESTAMP:-}" ]; then
+  NOW=$(date -u +%s)
+  export ANVIL_L1_START_TIMESTAMP=$((NOW - 7200))
+fi
 
 # Start and stop docker-compose
 trap "$PROJECT_ROOT/internal/docker/stop.sh" EXIT INT KILL ERR
@@ -46,9 +51,9 @@ check_env "L1_PROVER_PRIVATE_KEY"
 check_env "TREASURY"
 check_env "JWT_SECRET"
 check_env "VERBOSITY"
-check_env "TAIKO_INTERNAL_SHASTA_TIME"
+check_env "ANVIL_L1_START_TIMESTAMP"
 
-echo "TAIKO_INTERNAL_SHASTA_TIME=$TAIKO_INTERNAL_SHASTA_TIME"
+echo "ANVIL_L1_START_TIMESTAMP=$ANVIL_L1_START_TIMESTAMP"
 
 RUN_TESTS=${RUN_TESTS:-false}
 PACKAGE=${PACKAGE:-...}
