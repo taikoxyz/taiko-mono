@@ -1,4 +1,4 @@
-package builder
+package builder_test
 
 import (
 	"bytes"
@@ -11,18 +11,19 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
 type TransactionBuilderTestSuite struct {
 	testutils.ClientTestSuite
-	blobTxBuilder *BlobTransactionBuilder
+	blobTxBuilder *builder.BlobTransactionBuilder
 	txsToPropose  []types.Transactions
 }
 
 func (s *TransactionBuilderTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 
-	s.blobTxBuilder = NewBlobTransactionBuilder(
+	s.blobTxBuilder = builder.NewBlobTransactionBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("INBOX")),
 		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -51,7 +52,7 @@ func (s *TransactionBuilderTestSuite) TestBuildShastaBlobs() {
 }
 
 func (s *TransactionBuilderTestSuite) TestSplitToBlobs() {
-	blobs, err := SplitToBlobs(bytes.Repeat([]byte{0x01}, 2*1024))
+	blobs, err := builder.SplitToBlobs(bytes.Repeat([]byte{0x01}, 2*1024))
 	s.Nil(err)
 	s.NotZero(len(blobs))
 }

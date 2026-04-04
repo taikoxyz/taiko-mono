@@ -27,7 +27,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
-	legacyBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
@@ -476,8 +475,8 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 // ReorgCheckResult represents the information about whether the L1 block has been reorged
 // and how to reset the L1 cursor.
 type ReorgCheckResult struct {
-	IsReorged                 bool
-	L1CurrentToReset          *types.Header
+	IsReorged                    bool
+	L1CurrentToReset             *types.Header
 	LastHandledProposalIDToReset *big.Int
 }
 
@@ -820,7 +819,7 @@ func (c *Client) GetShastaActivationBlockNumber(ctx context.Context) (*big.Int, 
 
 // GetPreconfWhiteListOperator resolves the current preconfirmation whitelist operator address.
 func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
-	if c.L1Contracts.PreconfWhitelist == nil {
+	if c.ShastaClients.PreconfWhitelist == nil {
 		return common.Address{}, errors.New("preconfirmations whitelist contract is not set")
 	}
 
@@ -831,12 +830,12 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	proposer, err := c.L1Contracts.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
+	proposer, err := c.ShastaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
 	}
 
-	opInfo, err := c.L1Contracts.PreconfWhitelist.Operators(opts, proposer)
+	opInfo, err := c.ShastaClients.PreconfWhitelist.Operators(opts, proposer)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 	}
@@ -846,7 +845,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
-	if c.L1Contracts.PreconfWhitelist == nil {
+	if c.ShastaClients.PreconfWhitelist == nil {
 		return common.Address{}, errors.New("preconfirmation whitelist contract is not set")
 	}
 
@@ -857,12 +856,12 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	proposer, err := c.L1Contracts.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+	proposer, err := c.ShastaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
 	}
 
-	opInfo, err := c.L1Contracts.PreconfWhitelist.Operators(opts, proposer)
+	opInfo, err := c.ShastaClients.PreconfWhitelist.Operators(opts, proposer)
 	if err != nil {
 		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 	}
@@ -873,7 +872,7 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 // GetAllPreconfOperators fetch all possible preconfirmation operators added to the whitelist contract,
 // regardless of whether they are active or not, or eligible for the current or next epoch.
 func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, error) {
-	if c.L1Contracts.PreconfWhitelist == nil {
+	if c.ShastaClients.PreconfWhitelist == nil {
 		return nil, errors.New("preconfirmation whitelist contract is not set")
 	}
 
@@ -884,14 +883,14 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
-	count, err := c.L1Contracts.PreconfWhitelist.OperatorCount(opts)
+	count, err := c.ShastaClients.PreconfWhitelist.OperatorCount(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
 	}
 
 	var operators []common.Address
 	for i := uint8(0); i < count; i++ {
-		operator, err := c.L1Contracts.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		operator, err := c.ShastaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator by index %d: %w", i, err)
 		}
@@ -903,7 +902,7 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 
 // GetAllActiveOperators fetch all active preconfirmation operators added to the whitelist contract.
 func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, error) {
-	if c.L1Contracts.PreconfWhitelist == nil {
+	if c.ShastaClients.PreconfWhitelist == nil {
 		return nil, errors.New("preconfirmation whitelist contract is not set")
 	}
 
@@ -915,23 +914,23 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 	defer cancel()
 
 	// offset=0 returns the current epoch's start timestamp.
-	currentEpochTimestamp, err := c.L1Contracts.PreconfWhitelist.EpochStartTimestamp(opts, big.NewInt(0))
+	currentEpochTimestamp, err := c.ShastaClients.PreconfWhitelist.EpochStartTimestamp(opts, big.NewInt(0))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current epoch timestamp: %w", err)
 	}
 
-	count, err := c.L1Contracts.PreconfWhitelist.OperatorCount(opts)
+	count, err := c.ShastaClients.PreconfWhitelist.OperatorCount(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
 	}
 
 	var operators []common.Address
 	for i := 0; i < int(count); i++ {
-		proposer, err := c.L1Contracts.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		proposer, err := c.ShastaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist proposer by index %d: %w", i, err)
 		}
-		opInfo, err := c.L1Contracts.PreconfWhitelist.Operators(opts, proposer)
+		opInfo, err := c.ShastaClients.PreconfWhitelist.Operators(opts, proposer)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 		}
@@ -945,99 +944,6 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 
 func isPreconfOperatorActiveAtEpoch(activeSince, inactiveSince, currentEpochTimestamp uint32) bool {
 	return inactiveSince == 0 && activeSince != 0 && activeSince <= currentEpochTimestamp
-}
-
-// GetForcedInclusion resolves the next forced inclusion, if one is available.
-func (c *Client) GetForcedInclusion(ctx context.Context) (
-	*legacyBindings.IForcedInclusionStoreForcedInclusion,
-	*big.Int,
-	error,
-) {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	var (
-		head uint64
-		tail uint64
-		err  error
-	)
-
-	g := new(errgroup.Group)
-	g.Go(func() error {
-		head, err = c.L1Contracts.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
-	})
-	g.Go(func() error {
-		tail, err = c.L1Contracts.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
-	})
-	if err := g.Wait(); err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
-	}
-
-	// Head is greater than or equal to tail, which means that no forced inclusion is available yet.
-	if head >= tail {
-		return nil, nil, nil
-	}
-
-	forcedInclusion, err := c.L1Contracts.ForcedInclusionStore.GetForcedInclusion(
-		&bind.CallOpts{Context: ctxWithTimeout},
-		new(big.Int).SetUint64(head),
-	)
-	if err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
-	}
-
-	// If there is an empty forced inclusion, we will return nil.
-	if forcedInclusion.CreatedAtBatchId == 0 {
-		return nil, nil, nil
-	}
-
-	minTxsPerForcedInclusion, err := c.L1Contracts.TaikoWrapper.MINTXSPERFORCEDINCLUSION(
-		&bind.CallOpts{Context: ctxWithTimeout},
-	)
-	if err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
-	}
-
-	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
-}
-
-// GetPreconfRouter resolves the preconfirmation router address.
-func (c *Client) GetPreconfRouter(opts *bind.CallOpts) (common.Address, error) {
-	if c.L1Contracts.TaikoWrapper == nil {
-		return common.Address{}, errors.New("taikoWrapper contract is not set")
-	}
-
-	return getImmutableAddress(opts, c.L1Contracts.TaikoWrapper.PreconfRouter)
-}
-
-// GetPreconfRouterConfig returns the PreconfRouter config.
-func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*legacyBindings.IPreconfRouterConfig, error) {
-	if c.L1Contracts.PreconfRouter == nil {
-		preconfRouterAddr, err := c.GetPreconfRouter(opts)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve preconfirmation router address: %w", err)
-		}
-
-		c.L1Contracts.PreconfRouter, err = legacyBindings.NewPreconfRouter(preconfRouterAddr, c.L1)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create preconfirmation router: %w", err)
-		}
-	}
-
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	routerConfig, err := c.L1Contracts.PreconfRouter.GetConfig(opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the PreconfRouter config: %w", err)
-	}
-	return &routerConfig, nil
 }
 
 // getImmutableAddress resolves an address from a contract getter.

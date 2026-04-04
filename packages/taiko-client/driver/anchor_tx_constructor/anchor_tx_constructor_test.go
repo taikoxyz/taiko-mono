@@ -123,14 +123,12 @@ func TestSignShortHash(t *testing.T) {
 
 func newTestClient(t *testing.T) *rpc.Client {
 	client, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:                  os.Getenv("L1_WS"),
-		L2Endpoint:                  os.Getenv("L2_WS"),
-		InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
-		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
-		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
-		JwtSecret:                   os.Getenv("JWT_SECRET"),
+		L1Endpoint:         os.Getenv("L1_WS"),
+		L2Endpoint:         os.Getenv("L2_WS"),
+		InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+		TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+		JwtSecret:          os.Getenv("JWT_SECRET"),
 	})
 
 	require.Nil(t, err)

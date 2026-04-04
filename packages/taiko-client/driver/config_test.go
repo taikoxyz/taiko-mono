@@ -39,6 +39,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(inbox, c.InboxAddress.String())
 		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
+		s.Equal(uint64(8), c.HandoverSkipSlots)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
 		s.Equal(l2CheckPoint, c.L2CheckPoint)
@@ -135,6 +136,7 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.PreconfWhitelistAddress.Name},
+		&cli.StringFlag{Name: flags.PreconfHandoverSkipSlots.Name, Value: "8"},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
 		&cli.BoolFlag{Name: flags.P2PAllowAllSequencers.Name},

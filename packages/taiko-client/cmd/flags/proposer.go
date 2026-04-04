@@ -8,19 +8,6 @@ import (
 
 // Required flags used by proposer.
 var (
-	TaikoWrapperAddress = &cli.StringFlag{
-		Name:     "taikoWrapper",
-		Usage:    "TaikoWrapper contract `address`",
-		Required: true,
-		Category: proposerCategory,
-		EnvVars:  []string{"TAIKO_WRAPPER"},
-	}
-	ForcedInclusionStoreAddress = &cli.StringFlag{
-		Name:     "forcedInclusionStore",
-		Usage:    "ForcedInclusionStore contract `address`",
-		Required: true,
-		EnvVars:  []string{"FORCED_INCLUSION_STORE"},
-	}
 	L1ProposerPrivKey = &cli.StringFlag{
 		Name:     "l1.proposerPrivKey",
 		Usage:    "Private key of the L1 proposer, who will send transactions to the inbox",
@@ -113,8 +100,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2AuthEndpoint,
 	L2WSEndpoint,
 	JWTSecret,
-	TaikoWrapperAddress,
-	ForcedInclusionStoreAddress,
 	L1ProposerPrivKey,
 	L2SuggestedFeeRecipient,
 	ProposeInterval,

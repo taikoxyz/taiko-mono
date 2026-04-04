@@ -419,7 +419,7 @@ func (p *Proposer) Name() string {
 
 // shouldPropose checks whether the proposer should propose at this time.
 func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
-	if p.rpc.L1Contracts.PreconfWhitelist == nil {
+	if p.rpc.ShastaClients.PreconfWhitelist == nil {
 		return true, nil
 	}
 	// check the current epoch operator

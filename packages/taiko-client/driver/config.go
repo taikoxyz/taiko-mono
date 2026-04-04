@@ -32,6 +32,7 @@ type Config struct {
 	PreconfBlockServerPort        uint64
 	PreconfBlockServerJWTSecret   []byte
 	PreconfBlockServerCORSOrigins string
+	HandoverSkipSlots             uint64
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
 	PreconfOperatorAddress        common.Address
@@ -100,7 +101,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:               string(jwtSecret),
 			Timeout:                 c.Duration(flags.RPCTimeout.Name),
-			TaikoWrapperAddress:     common.HexToAddress(c.String(flags.DriverTaikoWrapperAddress.Name)),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup
@@ -145,6 +145,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
+		HandoverSkipSlots:             c.Uint64(flags.PreconfHandoverSkipSlots.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
 		PreconfOperatorAddress:        preconfOperatorAddress,

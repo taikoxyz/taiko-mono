@@ -53,10 +53,8 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
-	// Handover config read from the preconf router
+	// Handover config for sequencing-window split.
 	handoverSkipSlots uint64
-	// Last epoch when the handover config was reloaded
-	lastConfigReloadEpoch uint64
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -80,8 +78,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.Config = cfg
 
 	// Initialize handover config caching
-	d.handoverSkipSlots = defaultHandoverSkipSlots
-	d.lastConfigReloadEpoch = 0
+	d.handoverSkipSlots = cfg.HandoverSkipSlots
+	if d.handoverSkipSlots == 0 {
+		d.handoverSkipSlots = defaultHandoverSkipSlots
+	}
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
@@ -446,40 +446,6 @@ func (d *Driver) cacheLookaheadLoop() {
 			slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
 			slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
 		)
-
-		// Only read and update handover config at epoch transitions to avoid race conditions
-		// where different nodes might read different configs during mid-epoch upgrades
-		if currentEpoch > d.lastConfigReloadEpoch {
-			log.Info(
-				"Epoch transition detected, reloading handover config",
-				"epoch", currentEpoch,
-				"lastConfigReloadEpoch", d.lastConfigReloadEpoch,
-			)
-
-			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
-			if err != nil {
-				log.Warn(
-					"Failed to fetch preconf router config, keeping current handoverSkipSlots",
-					"error", err,
-					"currentHandoverSkipSlots", d.handoverSkipSlots,
-				)
-			} else {
-				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
-				if newHandoverSkipSlots != d.handoverSkipSlots {
-					log.Info(
-						"Updated handover config for new epoch",
-						"epoch", currentEpoch,
-						"oldHandoverSkipSlots", d.handoverSkipSlots,
-						"newHandoverSkipSlots", newHandoverSkipSlots,
-					)
-					d.handoverSkipSlots = newHandoverSkipSlots
-				}
-			}
-
-			d.lastConfigReloadEpoch = currentEpoch
-
-			log.Info("Handover config reload complete", "lastConfigReloadEpoch", d.lastConfigReloadEpoch)
-		}
 
 		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 		if err != nil {

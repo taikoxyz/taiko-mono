@@ -70,14 +70,13 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.Nil(p.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  os.Getenv("L1_WS"),
-			L2Endpoint:                  os.Getenv("L2_WS"),
-			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
-			JwtSecret:                   string(jwtSecret),
-			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
-			PreconfWhitelistAddress:     common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
-			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			L1Endpoint:              os.Getenv("L1_WS"),
+			L2Endpoint:              os.Getenv("L2_WS"),
+			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
+			JwtSecret:               string(jwtSecret),
+			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
+			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
