@@ -101,12 +101,13 @@ func (s *ProverTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:         os.Getenv("L1_WS"),
-			L2Endpoint:         os.Getenv("L2_WS"),
-			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
-			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:          string(jwtSecret),
+			L1Endpoint:              os.Getenv("L1_WS"),
+			L2Endpoint:              os.Getenv("L2_WS"),
+			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
+			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
+			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:               string(jwtSecret),
 		},
 		BlobServerEndpoint: s.ParseL1HttpURLFromEnv(),
 	}))
@@ -120,6 +121,7 @@ func (s *ProverTestSuite) SetupTest() {
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress:     common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
@@ -161,8 +163,6 @@ func (s *ProverTestSuite) TestInitError() {
 }
 
 func (s *ProverTestSuite) TestOnBatchProposed() {
-	s.ForkIntoShasta(s.proposer, s.d.ChainSyncer().EventSyncer())
-
 	// Init prover
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
@@ -175,7 +175,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.NotNil(payload)
 	s.NotNil(eventLog)
 
-	// Prove the first Shasta proposal proposed in `ForkIntoShasta`.
+	// Prove the first Shasta proposal inserted by shared test setup.
 	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), eventLog.BlockHash)
 	s.Nil(err)
 	meta := metadata.NewTaikoProposalMetadataShasta(payload, header.Time)

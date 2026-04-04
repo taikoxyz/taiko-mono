@@ -41,12 +41,13 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:         os.Getenv("L1_WS"),
-			L2Endpoint:         os.Getenv("L2_WS"),
-			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
-			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:          string(jwtSecret),
+			L1Endpoint:              os.Getenv("L1_WS"),
+			L2Endpoint:              os.Getenv("L2_WS"),
+			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
+			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
+			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:               string(jwtSecret),
 		},
 	}))
 	s.d = d
@@ -62,7 +63,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 		s.RPCClient,
 		testState,
 		tracker,
-		nil,
+		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)
 	s.Nil(err)
@@ -80,6 +81,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress:     common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
@@ -102,21 +104,6 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-		PrivateTxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
-			NumConfirmations:          1,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
 	}, nil, nil))
 
 	s.proposer = prop
@@ -125,7 +112,6 @@ func (s *EventHandlerTestSuite) SetupTest() {
 func (s *EventHandlerTestSuite) TestBatchesProvedHandleShasta() {
 	handler := NewBatchesProvedEventHandler(s.RPCClient)
 
-	s.ForkIntoShasta(s.proposer, s.eventSyncer)
 	meta := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(meta.IsShasta())
 

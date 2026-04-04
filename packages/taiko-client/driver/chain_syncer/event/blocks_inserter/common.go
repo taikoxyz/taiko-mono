@@ -310,7 +310,7 @@ func isKnownCanonicalBlock(
 		if block != nil {
 			fields = append(fields, "coinbase", block.Coinbase())
 		}
-		log.Warn("Unknown block for the canonical chain", fields...)
+		log.Info("Unknown block for the canonical chain", fields...)
 	}
 
 	if block == nil {

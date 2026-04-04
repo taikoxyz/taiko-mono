@@ -25,6 +25,7 @@ func newTestClient(t *testing.T) *Client {
 
 	require.Nil(t, err)
 	require.NotNil(t, client)
+	t.Cleanup(func() { closeTestClient(client) })
 
 	return client
 }
@@ -48,6 +49,25 @@ func newTestClientWithTimeout(t *testing.T) *Client {
 	})
 	require.Nil(t, err)
 	require.NotNil(t, client)
+	t.Cleanup(func() { closeTestClient(client) })
 
 	return client
+}
+
+func closeTestClient(client *Client) {
+	if client == nil {
+		return
+	}
+	if client.L1 != nil {
+		client.L1.Close()
+	}
+	if client.L2 != nil {
+		client.L2.Close()
+	}
+	if client.L2CheckPoint != nil {
+		client.L2CheckPoint.Close()
+	}
+	if client.L2Engine != nil {
+		client.L2Engine.Close()
+	}
 }

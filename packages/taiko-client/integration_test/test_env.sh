@@ -11,6 +11,7 @@ PROTOCOL_DIR="${PROTOCOL_DIR:-$PROJECT_ROOT/../protocol}"
 # get deployed contract address.
 DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
 export INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
+export PRECONF_WHITELIST=$(echo "$DEPLOYMENT_JSON" | jq '.preconf_whitelist' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
 export TAIKO_WRAPPER=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_wrapper' | sed 's/\"//g')
 export FORCED_INCLUSION_STORE=$(echo "$DEPLOYMENT_JSON" | jq '.forced_inclusion_store' | sed 's/\"//g')
@@ -32,6 +33,7 @@ L2_HTTP=$L2_HTTP
 L2_WS=$L2_WS
 L2_AUTH=$L2_AUTH
 INBOX=$INBOX
+PRECONF_WHITELIST=$PRECONF_WHITELIST
 TAIKO_WRAPPER=$TAIKO_WRAPPER
 FORCED_INCLUSION_STORE=$FORCED_INCLUSION_STORE
 COMPOSE_VERIFIER=$COMPOSE_VERIFIER

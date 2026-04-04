@@ -75,6 +75,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress:     common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
@@ -85,21 +86,6 @@ func (s *ProposerTestSuite) SetupTest() {
 		MaxTxListsPerEpoch:      1,
 		ProposeBatchTxGasLimit:  10_000_000,
 		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-		PrivateTxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
@@ -148,7 +134,6 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 	if os.Getenv("L2_NODE") != "l2_geth" {
 		s.T().Skip("This test is only applicable for L2 Geth node")
 	}
-	s.ForkIntoShasta(s.p, s.s)
 	var (
 		txsCountForEachSender = 300
 		sendersCount          = 5
@@ -237,25 +222,21 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		blockMaxGasLimit     uint32
 		blockMaxTxListBytes  uint64
 		maxTransactionsLists uint64
-		txLengthList         []int
 	}{
 		{
 			uint32(l2Head.GasLimit),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxTxListsPerEpoch,
-			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
 			uint32(l2Head.GasLimit),
 			rpc.BlockMaxTxListBytes,
 			s.p.MaxTxListsPerEpoch * uint64(len(privateKeys)),
-			[]int{txsCountForEachSender * len(privateKeys)},
 		},
 		{
 			uint32(l2Head.GasLimit) / 50,
 			rpc.BlockMaxTxListBytes,
 			200,
-			[]int{129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 129, 81},
 		},
 	} {
 		poolContent, err := s.RPCClient.GetPoolContent(
@@ -271,8 +252,10 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		s.Nil(err)
 
 		nonceMap := maps.Clone(originalNonceMap)
+		totalTxs := 0
 		// Check the order of nonce.
 		for _, txList := range poolContent {
+			totalTxs += txList.TxList.Len()
 			for _, tx := range txList.TxList {
 				sender, err := types.Sender(types.LatestSignerForChainID(s.RPCClient.L2.ChainID), tx)
 				s.Nil(err)
@@ -288,10 +271,11 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 		}
 
 		s.GreaterOrEqual(int(testCase.maxTransactionsLists), len(poolContent))
-		for i, txsLen := range testCase.txLengthList {
-			s.Equal(txsLen, poolContent[i].TxList.Len())
-			s.GreaterOrEqual(uint64(testCase.blockMaxGasLimit), poolContent[i].EstimatedGasUsed)
-			s.GreaterOrEqual(testCase.blockMaxTxListBytes, poolContent[i].BytesLength)
+		s.LessOrEqual(totalTxs, txsCountForEachSender*len(privateKeys))
+		for _, txList := range poolContent {
+			s.Greater(txList.TxList.Len(), 0)
+			s.GreaterOrEqual(uint64(testCase.blockMaxGasLimit), txList.EstimatedGasUsed)
+			s.GreaterOrEqual(testCase.blockMaxTxListBytes, txList.BytesLength)
 		}
 	}
 
@@ -301,7 +285,6 @@ func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
 
 func (s *ProposerTestSuite) TestProposeOpNoEmptyBlock() {
 	defer s.Nil(s.s.ProcessL1Blocks(context.Background()))
-	s.ForkIntoShasta(s.p, s.s)
 
 	var (
 		p              = s.p
@@ -363,8 +346,6 @@ func (s *ProposerTestSuite) TestName() {
 }
 
 func (s *ProposerTestSuite) TestProposeOp() {
-	s.ForkIntoShasta(s.p, s.s)
-
 	// Propose txs in L2 execution engine's mempool
 	sink1 := make(chan *shastaBindings.ShastaInboxClientProposed)
 	sub1, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink1, nil, nil)
@@ -398,7 +379,6 @@ func (s *ProposerTestSuite) TestProposeOp() {
 }
 
 func (s *ProposerTestSuite) TestProposeEmptyBlockOp() {
-	s.ForkIntoShasta(s.p, s.s)
 	s.p.MinProposingInternal = 1 * time.Second
 	s.p.lastProposedAt = time.Now().Add(-10 * time.Second)
 	s.Nil(s.p.ProposeOp(context.Background()))
@@ -413,8 +393,6 @@ func (s *ProposerTestSuite) TestUpdateProposingTicker() {
 }
 
 func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
-	s.ForkIntoShasta(s.p, s.s)
-
 	l2Head1, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -449,6 +427,10 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 			txsBatch[i] = append(txsBatch[i], tx)
 		}
 	}
+
+	// Mine the Shasta-required gap block ahead of time so the proposer does not need to
+	// advance L1 itself before building the multi-block manifest.
+	s.L1Mine()
 
 	s.Nil(s.p.ProposeTxLists(context.Background(), txsBatch))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))

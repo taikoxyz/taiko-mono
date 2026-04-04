@@ -3,6 +3,7 @@ package testutils
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"math/big"
 	"net/url"
 	"os"
@@ -60,6 +61,7 @@ func (s *ClientTestSuite) SetupTest() {
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
 		InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
+		PreconfWhitelistAddress:     common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
 		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
@@ -73,6 +75,7 @@ func (s *ClientTestSuite) SetupTest() {
 
 	// At the beginning of each test, reset the L2 chain to its Shasta-only base state.
 	s.once.Do(func() {
+		s.ensureActivePreconfOperator()
 		s.testnetL1SnapshotID = s.SetL1Snapshot()
 		s.resetToBaseBlock(l1ProposerPrivKey)
 	})
@@ -214,6 +217,80 @@ func (s *ClientTestSuite) SetL1Snapshot() string {
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &snapshotID, "evm_snapshot"))
 	s.NotEmpty(snapshotID)
 	return snapshotID
+}
+
+func (s *ClientTestSuite) ensureActivePreconfOperator() {
+	if s.RPCClient.L1Contracts.PreconfWhitelist == nil {
+		return
+	}
+
+	expected := crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey)
+	preconfWhitelistAddress := common.HexToAddress(os.Getenv("PRECONF_WHITELIST"))
+	currentEpoch, err := s.RPCClient.L1Contracts.PreconfWhitelist.EpochStartTimestamp(nil, common.Big0)
+	s.Nil(err)
+
+	// Canonicalize the whitelist into a single active proposer entry so the test proposer
+	// deterministically matches PreconfWhitelist.checkProposer across epochs.
+	operatorCountWord, err := s.RPCClient.L1.StorageAt(
+		context.Background(),
+		preconfWhitelistAddress,
+		common.BigToHash(big.NewInt(253)),
+		nil,
+	)
+	s.Nil(err)
+	s.Len(operatorCountWord, 32)
+	operatorCountWord[31] = 1
+	binary.BigEndian.PutUint32(operatorCountWord[24:28], currentEpoch)
+	s.Nil(s.RPCClient.L1.CallContext(
+		context.Background(),
+		nil,
+		"anvil_setStorageAt",
+		preconfWhitelistAddress,
+		common.BigToHash(big.NewInt(253)),
+		"0x"+common.Bytes2Hex(operatorCountWord),
+	))
+
+	operatorMappingSlot := crypto.Keccak256Hash(
+		common.LeftPadBytes(common.Big0.Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(252).Bytes(), 32),
+	)
+	operatorMappingWord := common.LeftPadBytes(expected.Bytes(), 32)
+	s.Nil(s.RPCClient.L1.CallContext(
+		context.Background(),
+		nil,
+		"anvil_setStorageAt",
+		preconfWhitelistAddress,
+		operatorMappingSlot,
+		"0x"+common.Bytes2Hex(operatorMappingWord),
+	))
+
+	operatorInfoSlot := crypto.Keccak256Hash(
+		common.LeftPadBytes(expected.Bytes(), 32),
+		common.LeftPadBytes(big.NewInt(251).Bytes(), 32),
+	)
+	operatorInfoWord, err := s.RPCClient.L1.StorageAt(
+		context.Background(),
+		preconfWhitelistAddress,
+		operatorInfoSlot,
+		nil,
+	)
+	s.Nil(err)
+	s.Len(operatorInfoWord, 32)
+	binary.BigEndian.PutUint32(operatorInfoWord[28:], currentEpoch)
+	operatorInfoWord[23] = 0
+	s.Nil(s.RPCClient.L1.CallContext(
+		context.Background(),
+		nil,
+		"anvil_setStorageAt",
+		preconfWhitelistAddress,
+		operatorInfoSlot,
+		"0x"+common.Bytes2Hex(operatorInfoWord),
+	))
+	s.L1Mine()
+
+	operator, err := s.RPCClient.GetPreconfWhiteListOperator(nil)
+	s.Nil(err)
+	s.Equal(expected, operator)
 }
 
 func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {

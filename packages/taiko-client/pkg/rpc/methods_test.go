@@ -36,7 +36,7 @@ func TestGetGenesisL1Header(t *testing.T) {
 	header, err := client.GetGenesisL1Header(context.Background())
 
 	require.Nil(t, err)
-	require.NotZero(t, header.Number.Uint64())
+	require.Zero(t, header.Number.Uint64())
 }
 
 func TestLatestL2KnownL1Header(t *testing.T) {
@@ -45,7 +45,7 @@ func TestLatestL2KnownL1Header(t *testing.T) {
 	header, err := client.LatestL2KnownL1Header(context.Background())
 
 	require.Nil(t, err)
-	require.NotZero(t, header.Number.Uint64())
+	require.Zero(t, header.Number.Uint64())
 }
 
 func TestL2ParentByBlockId(t *testing.T) {
@@ -55,8 +55,14 @@ func TestL2ParentByBlockId(t *testing.T) {
 	require.Nil(t, err)
 	require.Zero(t, header.Number.Uint64())
 
-	_, err = client.L2ParentByCurrentBlockID(context.Background(), common.Big2)
+	l2Head, err := client.L2.HeaderByNumber(context.Background(), nil)
 	require.Nil(t, err)
+
+	_, err = client.L2ParentByCurrentBlockID(
+		context.Background(),
+		new(big.Int).Add(l2Head.Number, big.NewInt(2)),
+	)
+	require.ErrorContains(t, err, "not found")
 }
 
 func TestL2ExecutionEngineSyncProgress(t *testing.T) {
@@ -84,7 +90,6 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 
 	l1StateRoot := randomHash()
 	l1Height := randomHash().Big().Uint64()
-	parentGasUsed := uint32(randomHash().Big().Uint64())
 
 	testAddrPrivKey, err := crypto.ToECDSA(common.Hex2Bytes(encoding.GoldenTouchPrivKey))
 	require.Nil(t, err)
@@ -112,7 +117,7 @@ func TestGetSyncedL1SnippetFromAnchor(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, l1StateRoot, syncedL1StateRoot)
 	require.Equal(t, l1Height, syncedL1Height)
-	require.Equal(t, parentGasUsed, syncedParentGasUsed)
+	require.Zero(t, syncedParentGasUsed)
 }
 
 func TestWaitTillL2ExecutionEngineSyncedContextErr(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	cmap "github.com/orcaman/concurrent-map/v2"
 
@@ -162,6 +163,15 @@ func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
 	}
 
 	log.Info("Init L1Current cursor for Shasta protocol", "startingBatchID", startingBatchID)
+
+	if startingBatchID.Cmp(common.Big0) == 0 {
+		l1Current, err := p.rpc.GetGenesisL1Header(p.ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get Shasta activation header: %w", err)
+		}
+		p.sharedState.SetL1Current(l1Current)
+		return nil
+	}
 
 	_, eventLog, err := p.rpc.GetProposalByIDShasta(p.ctx, startingBatchID)
 	if err != nil {

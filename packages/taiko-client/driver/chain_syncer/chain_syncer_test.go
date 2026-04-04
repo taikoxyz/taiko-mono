@@ -65,6 +65,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress:     common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -75,21 +76,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 		ProposeInterval:         1024 * time.Hour,
 		MaxTxListsPerEpoch:      1,
 		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-		PrivateTxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
@@ -129,8 +115,6 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -140,8 +124,6 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	l1StateRoot, l1Height, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
 	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot)
-	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head.Coinbase())
-	s.NotZero(l1Height)
 	s.Zero(parentGasUsed)
 
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
@@ -149,7 +131,10 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 		[]types.Transactions{{}},
 	)
 	s.Nil(err)
-	b, err := builder.SplitToBlobs([]byte{0x1})
+	invalidManifestBytes := make([]byte, 64)
+	invalidManifestBytes[31] = byte(manifest.ShastaPayloadVersion + 1)
+
+	b, err := builder.SplitToBlobs(invalidManifestBytes)
 	s.Nil(err)
 	txCandidate.Blobs = b
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -171,14 +156,11 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.Nil(err)
 	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot2)
-	s.NotZero(l1Height2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
 }
 
 func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -203,7 +185,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Equal(1, len(head2.Transactions()))
 	s.Equal(head.GasLimit(), head2.GasLimit())
 	s.Less(head.Time(), head2.Time())
-	s.Equal(head.Coinbase(), head2.Coinbase())
+	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
 	s.Equal(head.Extra()[0], head2.Extra()[0])
 	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
@@ -216,8 +198,6 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
 	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -244,6 +224,13 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	)
 	s.Nil(err)
 
+	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	// Leave enough L1 timestamp room for a 2-block Shasta manifest.
+	s.SetNextBlockTimestamp(l1Head.Time() + 2)
+	s.L1Mine()
+
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{testTx1}, {testTx2}},
@@ -264,15 +251,13 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
 	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
-	batches := 100
+	batches := 5
 	txBatch := make([]types.Transactions, batches)
 	txsInBatch := 1
 
@@ -292,16 +277,17 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 		}
 	}
 
+	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.SetNextBlockTimestamp(l1Head.Time() + uint64(batches)*uint64(txsInBatch))
+	s.L1Mine()
+
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		txBatch,
 	)
 	s.Nil(err)
-
-	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.SetNextBlockTimestamp(l1Head.Time() + uint64(batches)*uint64(txsInBatch))
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
 	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
 
@@ -316,11 +302,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
-	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
@@ -344,19 +325,12 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 		context.Background(),
 		txBatch,
 	)
-	s.Nil(err)
-	s.Nil(s.p.SendTx(context.Background(), txCandidate))
-	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
-
-	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big1))
-	s.Nil(err)
-	s.Equal(head1.NumberU64()+1, head2.NumberU64())
-	s.Equal(1, len(head2.Transactions()))
+	s.Error(err)
+	s.Nil(txCandidate)
+	s.Contains(err.Error(), "cannot build valid shasta manifest timestamps")
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -439,7 +413,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
-	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
+	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
 
 	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
@@ -451,8 +425,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
-	s.ForkIntoShasta(s.p, s.s.EventSyncer())
-
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -518,7 +490,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
-	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
+	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
 
 	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),

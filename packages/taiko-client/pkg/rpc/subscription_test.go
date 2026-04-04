@@ -11,9 +11,11 @@ import (
 )
 
 func TestSubscribeEvent(t *testing.T) {
-	require.NotNil(t, SubscribeEvent("test", func(_ context.Context) (event.Subscription, error) {
+	sub := SubscribeEvent("test", func(_ context.Context) (event.Subscription, error) {
 		return event.NewSubscription(func(_ <-chan struct{}) error { return nil }), nil
-	}))
+	})
+	require.NotNil(t, sub)
+	sub.Unsubscribe()
 }
 
 func TestSubscribeEventShastaOnly(t *testing.T) {
@@ -25,8 +27,8 @@ func TestSubscribeEventShastaOnly(t *testing.T) {
 }
 
 func TestSubscribeChainHead(t *testing.T) {
-	require.NotNil(t, SubscribeChainHead(
-		newTestClient(t).L1,
-		make(chan *types.Header, 1024)),
-	)
+	client := newTestClient(t)
+	sub := SubscribeChainHead(client.L1, make(chan *types.Header, 1024))
+	require.NotNil(t, sub)
+	sub.Unsubscribe()
 }

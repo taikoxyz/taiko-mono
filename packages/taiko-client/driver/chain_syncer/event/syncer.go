@@ -437,7 +437,14 @@ func (s *Syncer) checkReorgShasta(
 		return nil, fmt.Errorf("failed to check if the verified blocks in L2 EE have been reorged: %w", err)
 	}
 
-	// 2. If the verified blocks check is passed, we check the unverified blocks.
+	// 2. Proposal 1 has no prior proposal to validate against L1 origin data.
+	// Skipping the batchID-1 reorg check here avoids treating normal genesis state
+	// as a synthetic reorg back to genesis.
+	if batchID.Cmp(common.Big1) <= 0 {
+		return reorgCheckResult, nil
+	}
+
+	// 3. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
 		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), true); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)

@@ -27,7 +27,9 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
@@ -37,6 +39,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
+	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
 type DriverTestSuite struct {
@@ -64,12 +67,13 @@ func (s *DriverTestSuite) SetupTest() {
 
 	s.Nil(d.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:         os.Getenv("L1_WS"),
-			L2Endpoint:         os.Getenv("L2_WS"),
-			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
-			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:          string(jwtSecret),
+			L1Endpoint:              os.Getenv("L1_WS"),
+			L2Endpoint:              os.Getenv("L2_WS"),
+			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
+			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
+			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:               string(jwtSecret),
 		},
 		BlobServerEndpoint:     s.ParseL1HttpURLFromEnv(),
 		P2PConfigs:             p2pConfig,
@@ -135,14 +139,16 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 		s.Nil(err)
 
 		var method *abi.Method
-		method, err = encoding.TaikoAnchorABI.MethodById(anchorTx.Data())
+		method, err = encoding.ShastaAnchorABI.MethodById(anchorTx.Data())
+		if err != nil {
+			method, err = encoding.TaikoAnchorABI.MethodById(anchorTx.Data())
+		}
 		s.Nil(err)
 		s.Contains(method.Name, "anchor")
 	}
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
-	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -202,7 +208,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
-	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -269,8 +274,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgRollbackToGenesis() {
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
-
 	var m metadata.TaikoProposalMetaData
 	for i := 0; i < 5; i++ {
 		m = s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
@@ -306,12 +309,8 @@ func (s *DriverTestSuite) TestCheckL1ReorgRollbackToGenesis() {
 	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
 	s.L1Mine()
 
-	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
-
 	l2Head4, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
-
-	s.InitShastaGenesisProposal()
 
 	for i := 0; i < 2; i++ {
 		s.ProposeValidBlock(s.p)
@@ -326,8 +325,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgRollbackToGenesis() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
-	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
-
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -409,33 +406,47 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 	if err != nil {
 		s.Equal("replacement transaction underpriced", err.Error())
 	}
-	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{forcedInclusionTx})
-	s.Nil(err)
-	s.NotEmpty(b)
 
-	var blob = &eth.Blob{}
-	s.Nil(blob.FromData(b))
-	data, err := encoding.ForcedInclusionStoreABI.Pack("storeForcedInclusion", uint8(0), uint32(0), uint32(len(b)))
+	head, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	feeInGwei, err := s.RPCClient.L1Contracts.ForcedInclusionStore.FeeInGwei(nil)
+	manifest := &manifest.DerivationSourceManifest{
+		Blocks: []*manifest.BlockManifest{{
+			Timestamp:         0,
+			Coinbase:          s.TestAddr,
+			AnchorBlockNumber: head.NumberU64(),
+			GasLimit:          head.GasLimit(),
+			Transactions:      types.Transactions{forcedInclusionTx},
+		}},
+	}
+
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
 	s.Nil(err)
 
-	receipt, err := s.TxMgr("storeForcedInclusion", s.KeyFromEnv("TEST_ACCOUNT_PRIVATE_KEY")).Send(
-		context.Background(),
-		txmgr.TxCandidate{
-			TxData: data,
-			To:     &s.p.ForcedInclusionStoreAddress,
-			Blobs:  []*eth.Blob{blob},
-			Value:  new(big.Int).SetUint64(feeInGwei * params.GWei),
-		},
-	)
+	blobs, err := builder.SplitToBlobs(derivationSourceManifestBytes)
 	s.Nil(err)
-	s.Equal(types.ReceiptStatusSuccessful, receipt.Status)
+	s.NotEmpty(blobs)
 
-	delay, err := s.RPCClient.L1Contracts.ForcedInclusionStore.InclusionDelay(nil)
+	config, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
-	s.NotZero(delay)
+
+	data, err := encoding.ShastaInboxABI.Pack("saveForcedInclusion", shastaBindings.LibBlobsBlobReference{
+		BlobStartIndex: 0,
+		NumBlobs:       uint16(len(blobs)),
+		Offset:         common.Big0,
+	})
+	s.Nil(err)
+
+	inbox := common.HexToAddress(os.Getenv("INBOX"))
+	s.Nil(s.p.SendTx(context.Background(), &txmgr.TxCandidate{
+		To:     &inbox,
+		TxData: data,
+		Blobs:  blobs,
+		Value: new(big.Int).Mul(
+			new(big.Int).SetUint64(config.ForcedInclusionFeeInGwei),
+			new(big.Int).SetUint64(params.GWei),
+		),
+	}))
 
 	l2Head1, err := s.d.rpc.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -475,7 +486,7 @@ func (s *DriverTestSuite) TestL1Current() {
 }
 
 func (s *DriverTestSuite) TestInsertPreconfBlocks() {
-	s.Nil(s.d.ChainSyncer().EventSyncer().ProcessL1Blocks(context.Background()))
+	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head1, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -624,7 +635,6 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.T().Skip("This test is only applicable for L2 Geth node, since it returns blocks in forks when " +
 			"querying by hash.")
 	}
-	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -800,7 +810,6 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 }
 
 func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
-	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -998,7 +1007,6 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 }
 
 func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
-	s.ForkIntoShasta(s.p, s.d.l2ChainSyncer.EventSyncer())
 	// Propose some valid L2 blocks
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
@@ -1097,6 +1105,7 @@ func (s *DriverTestSuite) InitProposer() {
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
 			InboxAddress:                common.HexToAddress(os.Getenv("INBOX")),
+			PreconfWhitelistAddress:     common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
 			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
 			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
@@ -1107,21 +1116,6 @@ func (s *DriverTestSuite) InitProposer() {
 		MaxTxListsPerEpoch:      1,
 		BlobAllowed:             true,
 		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-		PrivateTxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
@@ -1178,6 +1172,9 @@ func (s *DriverTestSuite) insertPreconfBlock(
 
 	parent, err := s.d.rpc.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(l2BlockID-1))
 	s.Nil(err)
+	if timestamp <= parent.Time {
+		timestamp = parent.Time + 1
+	}
 
 	baseFee, err := s.RPCClient.CalculateBaseFeeShasta(context.Background(), parent)
 	s.Nil(err)
@@ -1211,6 +1208,9 @@ func (s *DriverTestSuite) insertPreconfBlock(
 			Transactions:  b,
 			BaseFeePerGas: baseFee.Uint64(),
 		},
+	}
+	if len(reqBody.ExecutableData.ExtraData) == 0 {
+		reqBody.ExecutableData.ExtraData = hexutil.Bytes{0x1}
 	}
 
 	payload, err := rlp.EncodeToBytes(reqBody)
