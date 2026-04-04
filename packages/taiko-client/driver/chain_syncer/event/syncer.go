@@ -37,7 +37,7 @@ type Syncer struct {
 	progressTracker      *beaconsync.SyncProgressTracker // Sync progress tracker
 	blocksInserterShasta blocksInserter.Inserter         // Shasta blocks inserter
 
-	lastInsertedBatchID *big.Int
+	lastInsertedProposalID *big.Int
 	reorgDetectedFlag   bool
 
 	// Shasta derivation source fetcher
@@ -120,7 +120,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		)
 
 		s.state.SetL1Current(newL1Current)
-		s.lastInsertedBatchID = nil
+		s.lastInsertedProposalID = nil
 	}
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
@@ -171,8 +171,8 @@ func (s *Syncer) processShastaProposal(
 
 	// We simply ignore the genesis Shasta block's `Proposed` event.
 	if meta.GetEventData().Id.Cmp(common.Big0) == 0 {
-		// Reset the lastInsertedBatchID when processing the genesis Shasta proposal.
-		s.lastInsertedBatchID = common.Big0
+		// Reset the lastInsertedProposalID when processing the genesis Shasta proposal.
+		s.lastInsertedProposalID = common.Big0
 		log.Debug("Ignore genesis Shasta proposal event", "proposalID", meta.GetEventData().Id)
 		return nil
 	}
@@ -192,11 +192,11 @@ func (s *Syncer) processShastaProposal(
 				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
 				"l1CurrentHeightNew", reorgCheckResult.L1CurrentToReset.Number,
 				"l1CurrentHashNew", reorgCheckResult.L1CurrentToReset.Hash(),
-				"lastInsertedBlockIDOld", s.lastInsertedBatchID,
-				"lastInsertedBlockIDNew", reorgCheckResult.LastHandledProposalIDToReset,
+				"lastInsertedProposalIDOld", s.lastInsertedProposalID,
+				"lastInsertedProposalIDNew", reorgCheckResult.LastHandledProposalIDToReset,
 			)
 			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedBatchID = reorgCheckResult.LastHandledProposalIDToReset
+			s.lastInsertedProposalID = reorgCheckResult.LastHandledProposalIDToReset
 			s.reorgDetectedFlag = true
 			endIter()
 
@@ -205,11 +205,11 @@ func (s *Syncer) processShastaProposal(
 	}
 
 	// Ignore those already inserted proposals.
-	if s.lastInsertedBatchID != nil && meta.GetEventData().Id.Cmp(s.lastInsertedBatchID) <= 0 {
+	if s.lastInsertedProposalID != nil && meta.GetEventData().Id.Cmp(s.lastInsertedProposalID) <= 0 {
 		log.Debug(
 			"Skip already inserted proposal",
 			"proposalID", meta.GetEventData().Id,
-			"lastInsertedProposalID", s.lastInsertedBatchID,
+			"lastInsertedProposalID", s.lastInsertedProposalID,
 		)
 		return nil
 	}
@@ -248,11 +248,11 @@ func (s *Syncer) processShastaProposal(
 		// For other proposals, fetch the parent block by getting the last block in the previous proposal.
 		blockID, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, new(big.Int).Sub(meta.GetEventData().Id, common.Big1))
 		if err != nil {
-			return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
+			return fmt.Errorf("failed to fetch last L1 origin for proposal: %w", err)
 		}
 		if blockID == nil {
 			return fmt.Errorf(
-				"no last L1 origin found for batch ID %s",
+				"no last L1 origin found for proposal %s",
 				new(big.Int).Sub(meta.GetEventData().Id, common.Big1),
 			)
 		}
@@ -386,7 +386,7 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 	metrics.DriverL1CurrentHeightGauge.Set(float64(meta.GetRawBlockHeight().Uint64()))
-	s.lastInsertedBatchID = meta.GetEventData().Id
+	s.lastInsertedProposalID = meta.GetEventData().Id
 
 	if s.progressTracker.Triggered() {
 		s.progressTracker.ClearMeta()
