@@ -68,7 +68,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L2 head: %w", err)
 	}
-	gasLimit := l2Head.GasLimit - consensus.AnchorV3V4GasLimit
+	gasLimit := l2Head.GasLimit
+	if l2Head.Number.Uint64() > 0 {
+		gasLimit -= consensus.AnchorV3V4GasLimit
+	}
 
 	for i, txs := range txBatch {
 		log.Info(

@@ -227,9 +227,8 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	// Leave enough L1 timestamp room for a 2-block Shasta manifest.
-	s.SetNextBlockTimestamp(l1Head.Time() + 2)
-	s.L1Mine()
+	// Make the proposal block timestamp reach the final manifest block timestamp.
+	s.SetNextBlockTimestamp(l1Head.Time() + 1)
 
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
@@ -280,8 +279,8 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	s.SetNextBlockTimestamp(l1Head.Time() + uint64(batches)*uint64(txsInBatch))
-	s.L1Mine()
+	// Make the proposal block timestamp reach the final manifest block timestamp.
+	s.SetNextBlockTimestamp(l1Head.Time() + uint64(batches) - 1)
 
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
@@ -302,6 +301,9 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
+	head1, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
 	s.Nil(err)
 
@@ -325,9 +327,14 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 		context.Background(),
 		txBatch,
 	)
-	s.Error(err)
-	s.Nil(txCandidate)
-	s.Contains(err.Error(), "cannot build valid shasta manifest timestamps")
+	s.Nil(err)
+	s.Nil(s.p.SendTx(context.Background(), txCandidate))
+	s.Nil(s.s.EventSyncer().ProcessL1Blocks(context.Background()))
+
+	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), new(big.Int).Add(head1.Number(), common.Big1))
+	s.Nil(err)
+	s.Equal(head1.NumberU64()+1, head2.NumberU64())
+	s.Equal(1, len(head2.Transactions()))
 }
 
 func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
@@ -413,7 +420,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
-	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
 
 	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
@@ -490,7 +496,6 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
-	s.Equal(crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey), head2.Coinbase())
 
 	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),

@@ -428,9 +428,9 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 		}
 	}
 
-	// Mine the Shasta-required gap block ahead of time so the proposer does not need to
-	// advance L1 itself before building the multi-block manifest.
-	s.L1Mine()
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.SetNextBlockTimestamp(l1Head.Time + uint64(batchSize-1))
 
 	s.Nil(s.p.ProposeTxLists(context.Background(), txsBatch))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
