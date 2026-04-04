@@ -124,6 +124,8 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	l1StateRoot, l1Height, parentGasUsed, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head.Transactions()[0])
 	s.Nil(err)
 	s.NotEqual(common.Hash{}, l1StateRoot)
+	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head.Coinbase())
+	s.NotZero(l1Height)
 	s.Zero(parentGasUsed)
 
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
@@ -131,10 +133,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 		[]types.Transactions{{}},
 	)
 	s.Nil(err)
-	invalidManifestBytes := make([]byte, 64)
-	invalidManifestBytes[31] = byte(manifest.ShastaPayloadVersion + 1)
-
-	b, err := builder.SplitToBlobs(invalidManifestBytes)
+	b, err := builder.SplitToBlobs([]byte{0x1})
 	s.Nil(err)
 	txCandidate.Blobs = b
 	s.Nil(s.p.SendTx(context.Background(), txCandidate))
@@ -154,7 +153,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 
 	l1StateRoot2, l1Height2, parentGasUsed2, err := s.RPCClient.GetSyncedL1SnippetFromAnchor(head2.Transactions()[0])
 	s.Nil(err)
-	s.Nil(err)
+	s.NotZero(l1Height2)
 	s.NotEqual(common.Hash{}, l1StateRoot2)
 	s.Equal(l1Height, l1Height2)
 	s.Zero(parentGasUsed2)
@@ -185,7 +184,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	s.Equal(1, len(head2.Transactions()))
 	s.Equal(head.GasLimit(), head2.GasLimit())
 	s.Less(head.Time(), head2.Time())
-	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
+	s.Equal(head.Coinbase(), head2.Coinbase())
 	s.Equal(head.Extra()[0], head2.Extra()[0])
 	s.Equal(protocolCfg.BasefeeSharingPctg, core.DecodeShastaBasefeeSharingPctg(head2.Header().Extra))
 
@@ -408,6 +407,14 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 
 	time.Sleep(time.Duration(config.ForcedInclusionDelay*2) * time.Second)
 
+	// Forced inclusion is prepended ahead of the normal source and will consume
+	// the first post-parent timestamp slot, so advance L1 once before building
+	// the proposer source manifest.
+	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.SetNextBlockTimestamp(l1Head.Time() + 1)
+	s.L1Mine()
+
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
@@ -420,6 +427,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
+	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
 
 	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
@@ -484,6 +492,14 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 
 	time.Sleep(time.Duration(config.ForcedInclusionDelay*2) * time.Second)
 
+	// Forced inclusion is prepended ahead of the normal source and will consume
+	// the first post-parent timestamp slot, so advance L1 once before building
+	// the proposer source manifest.
+	l1Head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.SetNextBlockTimestamp(l1Head.Time() + 1)
+	s.L1Mine()
+
 	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
 		context.Background(),
 		[]types.Transactions{{}},
@@ -496,6 +512,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	head2, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Equal(head.NumberU64()+2, head2.NumberU64())
+	s.Equal(common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")), head2.Coinbase())
 
 	forcedIncludedHeader1, err := s.RPCClient.L2.BlockByNumber(
 		context.Background(),
