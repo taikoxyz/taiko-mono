@@ -99,7 +99,7 @@ jobs:
 
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.13.0
+        uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{ github.token }}
 
@@ -109,7 +109,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Set up Docker Compose
-        uses: docker/setup-compose-action@v1
+        uses: docker/setup-compose-action@v2
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -187,7 +187,7 @@ jobs:
         run: SHASTA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${SHASTA_FORK_TAIKO_MONO_DIR} PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
 
       - name: Codecov.io
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: packages/taiko-client/coverage.out
           flags: taiko-client

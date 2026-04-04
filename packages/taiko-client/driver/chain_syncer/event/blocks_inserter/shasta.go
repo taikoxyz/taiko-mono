@@ -46,7 +46,8 @@ func tryLastFinalizedCheckpointShasta(
 		return nil, nil
 	}
 
-	if coreState.LastFinalizedProposalId.Cmp(proposalID) < 0 {
+	// We can skip this check when proposalID is nil
+	if proposalID != nil && coreState.LastFinalizedProposalId.Cmp(proposalID) < 0 {
 		return nil, nil
 	}
 
