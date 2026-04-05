@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use alloy_primitives::B256;
 use alloy_provider::Provider;
@@ -6,8 +6,7 @@ use tracing::debug;
 
 use crate::{
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash,
-        encode_unsafe_response_message, recover_signer,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash, recover_signer,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -25,44 +24,6 @@ fn record_validation_failure(stage: &'static str) {
         "stage" => stage,
     )
     .increment(1);
-}
-
-/// Pre-resolved metric labels for a block-by-hash lookup path.
-struct LookupLabels {
-    /// Label used in log messages.
-    log_prefix: &'static str,
-    /// Metric result label for cache hits.
-    cache_hit: &'static str,
-    /// Metric result label for L2 hits.
-    l2_hit: &'static str,
-    /// Metric result label for misses.
-    not_found: &'static str,
-}
-
-/// Metric and log labels for direct block hash lookup traffic.
-const DIRECT_LOOKUP_LABELS: LookupLabels = LookupLabels {
-    log_prefix: "direct",
-    cache_hit: "direct_cache_hit",
-    l2_hit: "direct_l2_hit",
-    not_found: "direct_not_found",
-};
-
-/// Metric and log labels for gossip-derived block hash lookup traffic.
-const GOSSIP_LOOKUP_LABELS: LookupLabels = LookupLabels {
-    log_prefix: "gossip",
-    cache_hit: "cache_hit",
-    l2_hit: "l2_hit",
-    not_found: "not_found",
-};
-
-/// Transport-agnostic outcome of serving a block-by-hash lookup.
-pub(super) enum LookupResult {
-    /// Envelope found in the recent cache.
-    CacheHit(Arc<WhitelistExecutionPayloadEnvelope>),
-    /// Envelope rebuilt from local L2 state.
-    L2Hit(Arc<WhitelistExecutionPayloadEnvelope>),
-    /// Block not found.
-    NotFound,
 }
 
 impl<P> WhitelistPreconfirmationImporter<P>
@@ -182,133 +143,57 @@ where
         Ok(())
     }
 
-    /// Shared cache/L2 lookup used by both gossip and direct request handlers.
-    async fn lookup_block_for_serving(
-        &mut self,
-        from: libp2p::PeerId,
-        hash: B256,
-        labels: &LookupLabels,
-    ) -> Result<LookupResult> {
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => labels.cache_hit,
-            )
-            .increment(1);
-            debug!(
-                peer = %from,
-                hash = %hash,
-                "{}: serving response from recent cache", labels.log_prefix,
-            );
-            // Re-insert to refresh LRU position so recently-served blocks stay cached.
-            self.recent_cache.insert_recent(envelope.clone());
-            self.update_cache_gauges();
-            return Ok(LookupResult::CacheHit(envelope));
-        }
-
-        let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => labels.not_found,
-            )
-            .increment(1);
-            debug!(
-                peer = %from,
-                hash = %hash,
-                "{}: hash not found in recent cache or local l2", labels.log_prefix,
-            );
-            return Ok(LookupResult::NotFound);
-        };
-
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-            "result" => labels.l2_hit,
-        )
-        .increment(1);
-        debug!(
-            peer = %from,
-            hash = %hash,
-            "{}: serving response from local l2 block lookup", labels.log_prefix,
-        );
-        let envelope = Arc::new(envelope);
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
-        Ok(LookupResult::L2Hit(envelope))
-    }
-
-    /// Handle a direct block-hash request from a peer via req/resp protocol.
-    pub(super) async fn handle_direct_request(
-        &mut self,
-        from: libp2p::PeerId,
-        hash: B256,
-        request_id: libp2p::request_response::InboundRequestId,
-    ) -> Result<()> {
-        let now = Instant::now();
-
-        // Apply per-peer rate limiting to prevent a single peer from spamming
-        // expensive L2 lookups via the direct req/resp protocol.
-        if !self.direct_request_rate.allow(from, now) {
-            tracing::debug!(
-                peer = %from,
-                hash = %hash,
-                ?request_id,
-                "rate-limited direct block request"
-            );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "direct_rate_limited",
-            )
-            .increment(1);
-            self.send_direct_response(request_id, Vec::new()).await?;
-            return Ok(());
-        }
-
-        // Dedup: skip lookup if this (peer, hash) pair was already served recently.
-        if self.direct_request_seen.is_seen(from, hash, now) {
-            tracing::debug!(
-                peer = %from,
-                hash = %hash,
-                ?request_id,
-                "deduped direct block request"
-            );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "direct_deduped",
-            )
-            .increment(1);
-            self.send_direct_response(request_id, Vec::new()).await?;
-            return Ok(());
-        }
-        self.direct_request_seen.mark(from, hash, now);
-
-        let response_bytes =
-            match self.lookup_block_for_serving(from, hash, &DIRECT_LOOKUP_LABELS).await? {
-                LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
-                    encode_unsafe_response_message(&envelope).map_err(|err| {
-                        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                            "failed to encode direct response envelope",
-                            err,
-                        )
-                    })?
-                }
-                LookupResult::NotFound => Vec::new(),
-            };
-        self.send_direct_response(request_id, response_bytes).await?;
-        Ok(())
-    }
-
     /// Handle a block-hash request from the request topic.
     pub(super) async fn handle_unsafe_request(
         &mut self,
         from: libp2p::PeerId,
         hash: B256,
     ) -> Result<()> {
-        match self.lookup_block_for_serving(from, hash, &GOSSIP_LOOKUP_LABELS).await? {
-            LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
-                self.publish_unsafe_response(envelope).await;
-            }
-            LookupResult::NotFound => {}
+        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+                "result" => "cache_hit",
+            )
+            .increment(1);
+            debug!(
+                peer = %from,
+                hash = %hash,
+                "serving whitelist preconfirmation response from recent cache"
+            );
+            self.recent_cache.insert_recent(envelope.clone());
+            self.update_cache_gauges();
+            self.publish_unsafe_response(envelope).await;
+            return Ok(());
         }
+
+        let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+                "result" => "not_found",
+            )
+            .increment(1);
+            debug!(
+                peer = %from,
+                hash = %hash,
+                "requested whitelist preconfirmation hash not found in recent cache or local l2"
+            );
+            return Ok(());
+        };
+
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+            "result" => "l2_hit",
+        )
+        .increment(1);
+        debug!(
+            peer = %from,
+            hash = %hash,
+            "serving whitelist preconfirmation response from local l2 block lookup"
+        );
+        let envelope = Arc::new(envelope);
+        self.recent_cache.insert_recent(envelope.clone());
+        self.update_cache_gauges();
+        self.publish_unsafe_response(envelope).await;
         Ok(())
     }
 }

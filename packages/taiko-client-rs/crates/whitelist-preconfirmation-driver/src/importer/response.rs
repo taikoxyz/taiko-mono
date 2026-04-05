@@ -120,59 +120,30 @@ where
         }))
     }
 
-    /// Request a block via both gossip and a direct req/resp to a connected peer.
-    /// Gossip is always published; the direct request is an optimistic fast-path.
-    pub(super) async fn request_block(&self, hash: B256) {
-        if let Err(err) = self.network_command_tx.send(NetworkCommand::RequestBlock { hash }).await
+    /// Publish a block-hash request on `requestPreconfBlocks`.
+    pub(super) async fn publish_unsafe_request(&self, hash: B256) {
+        if let Err(err) =
+            self.network_command_tx.send(NetworkCommand::PublishUnsafeRequest { hash }).await
         {
             metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-                "operation" => "request_block",
+                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                "topic" => "request_preconf_blocks",
                 "result" => "queue_failed",
             )
             .increment(1);
             warn!(
                 hash = %hash,
                 error = %err,
-                "failed to queue block request command"
+                "failed to queue whitelist preconfirmation request publish command"
             );
         } else {
             metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-                "operation" => "request_block",
+                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+                "topic" => "request_preconf_blocks",
                 "result" => "queued",
             )
             .increment(1);
         }
-    }
-
-    /// Send a response back through a stashed direct-request channel.
-    pub(super) async fn send_direct_response(
-        &self,
-        request_id: libp2p::request_response::InboundRequestId,
-        response_bytes: Vec<u8>,
-    ) -> Result<()> {
-        self.network_command_tx
-            .send(NetworkCommand::SendDirectResponse { request_id, response_bytes })
-            .await
-            .map_err(|err| {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-                    "operation" => "send_response",
-                    "result" => "queue_failed",
-                )
-                .increment(1);
-                WhitelistPreconfirmationDriverError::p2p(format!(
-                    "failed to queue direct response command: {err}"
-                ))
-            })?;
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-            "operation" => "send_response",
-            "result" => "queued",
-        )
-        .increment(1);
-        Ok(())
     }
 
     /// Publish an envelope response on `responsePreconfBlocks`.

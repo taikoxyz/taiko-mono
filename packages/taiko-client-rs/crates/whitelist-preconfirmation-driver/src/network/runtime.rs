@@ -1,19 +1,14 @@
 //! Swarm bootstrap and main network loop orchestration.
 
-use std::{
-    collections::{HashMap, HashSet},
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{collections::HashSet, net::SocketAddr, sync::Arc};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
-    Multiaddr, PeerId, StreamProtocol, Swarm, Transport, core::upgrade, dns, identify, identity,
-    noise, ping, request_response, tcp, yamux,
+    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, identify, identity, noise, ping, tcp,
+    yamux,
 };
 use preconfirmation_net::{P2pConfig, spawn_discovery};
-use rand::seq::IteratorRandom;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
@@ -26,9 +21,9 @@ use super::{
 };
 use crate::{
     codec::{
-        DecodedUnsafePayload, WHITELIST_REQRESP_PROTOCOL, WhitelistExecutionPayloadEnvelope,
-        encode_envelope_ssz, encode_eos_request_message, encode_unsafe_payload_message,
-        encode_unsafe_request_message, encode_unsafe_response_message,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, encode_envelope_ssz,
+        encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
+        encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
@@ -57,17 +52,8 @@ fn build_behaviour(
     local_key: &identity::Keypair,
     gossipsub: libp2p::gossipsub::Behaviour,
 ) -> Behaviour {
-    let reqresp = request_response::Behaviour::new(
-        [(
-            StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL),
-            request_response::ProtocolSupport::Full,
-        )],
-        request_response::Config::default(),
-    );
-
     Behaviour {
         gossipsub,
-        reqresp,
         ping: ping::Behaviour::new(ping::Config::new()),
         identify: identify::Behaviour::new(identify::Config::new(
             "/taiko/whitelist-preconfirmation/1.0.0".to_string(),
@@ -187,11 +173,6 @@ struct NetworkRuntime {
     inbound_validation_state: GossipsubInboundState,
     /// Local peer id used by loopback payload events.
     local_peer_id_for_events: PeerId,
-    /// Stashed response channels so `SendDirectResponse` can look them up.
-    response_channels:
-        HashMap<request_response::InboundRequestId, request_response::ResponseChannel<Vec<u8>>>,
-    /// Pending outbound requests mapping response IDs back to block hashes.
-    pending_requests: HashMap<request_response::OutboundRequestId, B256>,
 }
 
 impl NetworkRuntime {
@@ -231,6 +212,9 @@ impl NetworkRuntime {
     /// Execute one outbound network command.
     async fn handle_command(&mut self, command: NetworkCommand) -> Result<()> {
         match command {
+            NetworkCommand::PublishUnsafeRequest { hash } => {
+                self.publish_unsafe_request(hash);
+            }
             NetworkCommand::PublishUnsafeResponse { envelope } => {
                 self.publish_unsafe_response(envelope);
             }
@@ -240,18 +224,32 @@ impl NetworkRuntime {
             NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
                 self.publish_end_of_sequencing_request(epoch);
             }
-            NetworkCommand::RequestBlock { hash } => {
-                self.request_block(hash);
-            }
-            NetworkCommand::SendDirectResponse { request_id, response_bytes } => {
-                self.send_direct_response(request_id, response_bytes);
-            }
             NetworkCommand::Shutdown => {
                 // Shutdown is handled in `run_once`.
             }
         }
 
         Ok(())
+    }
+
+    /// Publish a `requestPreconfBlocks` message.
+    fn publish_unsafe_request(&mut self, hash: B256) {
+        let payload = encode_unsafe_request_message(hash);
+        if let Err(err) = self
+            .swarm
+            .behaviour_mut()
+            .gossipsub
+            .publish(self.topics.preconf_request.clone(), payload)
+        {
+            record_outbound_publish("request_preconf_blocks", "publish_failed");
+            warn!(
+                hash = %hash,
+                error = %err,
+                "failed to publish whitelist preconfirmation request"
+            );
+        } else {
+            record_outbound_publish("request_preconf_blocks", "published");
+        }
     }
 
     /// Publish a `responsePreconfBlocks` message.
@@ -358,64 +356,6 @@ impl NetworkRuntime {
         }
     }
 
-    /// Request a block by hash via direct req/resp with gossip fallback.
-    fn request_block(&mut self, hash: B256) {
-        // Pick a random connected peer for the optimistic direct request.
-        // Randomization avoids always hammering the same peer when there are
-        // multiple connections.  The gossip fallback published below ensures
-        // the block is found even if the chosen peer does not have it.
-        let peer = self.swarm.connected_peers().choose(&mut rand::thread_rng()).copied();
-        if let Some(peer_id) = peer {
-            let request_id = self.swarm.behaviour_mut().reqresp.send_request(&peer_id, hash);
-            self.pending_requests.insert(request_id, hash);
-            record_outbound_publish("direct_request", "sent");
-        } else {
-            record_outbound_publish("direct_request", "no_peers");
-        }
-        // Also publish the request via gossip as a fallback.
-        let payload = encode_unsafe_request_message(hash);
-        if let Err(err) = self
-            .swarm
-            .behaviour_mut()
-            .gossipsub
-            .publish(self.topics.preconf_request.clone(), payload)
-        {
-            record_outbound_publish("request_preconf_blocks", "publish_failed");
-            warn!(
-                hash = %hash,
-                error = %err,
-                "failed to publish gossip fallback for direct block request"
-            );
-        } else {
-            record_outbound_publish("request_preconf_blocks", "published");
-        }
-    }
-
-    /// Send a direct req/resp response back to a peer.
-    fn send_direct_response(
-        &mut self,
-        request_id: request_response::InboundRequestId,
-        response_bytes: Vec<u8>,
-    ) {
-        if let Some(channel) = self.response_channels.remove(&request_id) {
-            if let Err(response_bytes) =
-                self.swarm.behaviour_mut().reqresp.send_response(channel, response_bytes)
-            {
-                record_outbound_publish("direct_response", "send_failed");
-                warn!(
-                    ?request_id,
-                    len = response_bytes.len(),
-                    "failed to send direct response (channel closed)"
-                );
-            } else {
-                record_outbound_publish("direct_response", "sent");
-            }
-        } else {
-            record_outbound_publish("direct_response", "channel_missing");
-            warn!(?request_id, "no response channel found for direct response");
-        }
-    }
-
     /// Handle one discovery result by dialing or disabling discovery when closed.
     fn handle_discovery_multiaddr(&mut self, maybe_addr: Option<Multiaddr>) {
         match maybe_addr {
@@ -440,8 +380,6 @@ impl NetworkRuntime {
             &self.event_tx,
             &mut self.inbound_validation_state,
             &mut self.swarm,
-            &mut self.response_channels,
-            &mut self.pending_requests,
         )
         .await
     }
@@ -509,8 +447,6 @@ impl WhitelistNetwork {
             dialed_addrs,
             inbound_validation_state,
             local_peer_id_for_events: local_peer_id,
-            response_channels: HashMap::new(),
-            pending_requests: HashMap::new(),
         };
 
         let handle = tokio::spawn(async move { runtime.run().await });
