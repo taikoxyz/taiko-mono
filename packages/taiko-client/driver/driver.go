@@ -304,10 +304,7 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 
 // reportProtocolStatus reports some protocol status intervally.
 func (d *Driver) reportProtocolStatus() {
-	var (
-		ticker          = time.NewTicker(protocolStatusReportInterval)
-		maxNumProposals = d.protocolConfig.MaxProposals()
-	)
+	ticker := time.NewTicker(protocolStatusReportInterval)
 	d.wg.Add(1)
 
 	defer func() {
@@ -320,15 +317,9 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			d.reportStatus(maxNumProposals)
+			d.reportProtocolStatusShasta()
 		}
 	}
-}
-
-// reportStatus reports Shasta protocol status.
-func (d *Driver) reportStatus(maxNumProposals uint64) {
-	_ = maxNumProposals
-	d.reportProtocolStatusShasta()
 }
 
 // reportProtocolStatusShasta reports some status for Shasta protocol.
