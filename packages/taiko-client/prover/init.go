@@ -16,8 +16,8 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
-// initShastaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
-func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
+// initProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
+func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
 		// ZKVM proof producers.
 		zkvmProducer producer.ProofProducer
@@ -124,15 +124,6 @@ func (p *Prover) initShastaProofSubmitter(ctx context.Context, txBuilder *transa
 
 // initL1Current initializes prover's L1Current cursor.
 func (p *Prover) initL1Current(startingBatchID *big.Int) error {
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
-		return err
-	}
-
-	return p.initL1CurrentShasta(startingBatchID)
-}
-
-// initL1CurrentShasta initializes prover's L1Current cursor for Shasta protocol.
-func (p *Prover) initL1CurrentShasta(startingBatchID *big.Int) error {
 	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
 		return err
 	}

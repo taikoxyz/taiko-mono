@@ -161,7 +161,7 @@ func InitFromConfig(
 	}
 
 	// Proof submitter
-	if err := p.initShastaProofSubmitter(ctx, txBuilder); err != nil {
+	if err := p.initProofSubmitter(ctx, txBuilder); err != nil {
 		return err
 	}
 
@@ -241,7 +241,7 @@ func (p *Prover) eventLoop() {
 		case <-shastaProposedCh:
 			reqProving()
 		case e := <-shastaProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) }, nil)
+			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.Handle(p.ctx, e) }, nil)
 		case <-forceProvingTicker.C:
 			reqProving()
 		}

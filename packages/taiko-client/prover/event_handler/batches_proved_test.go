@@ -108,13 +108,13 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.proposer = prop
 }
 
-func (s *EventHandlerTestSuite) TestBatchesProvedHandleShasta() {
+func (s *EventHandlerTestSuite) TestBatchesProvedHandle() {
 	handler := NewBatchesProvedEventHandler(s.RPCClient)
 
 	meta := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(meta.IsShasta())
 
-	s.Nil(handler.HandleShasta(context.Background(), &shastaBindings.ShastaInboxClientProved{
+	s.Nil(handler.Handle(context.Background(), &shastaBindings.ShastaInboxClientProved{
 		FirstNewProposalId: new(big.Int).Set(meta.Shasta().GetEventData().Id),
 		LastProposalId:     new(big.Int).Set(meta.Shasta().GetEventData().Id),
 		ActualProver:       crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey),

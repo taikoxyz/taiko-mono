@@ -22,8 +22,8 @@ func NewBatchesProvedEventHandler(rpc *rpc.Client) *BatchesProvedEventHandler {
 	return &BatchesProvedEventHandler{rpc: rpc}
 }
 
-// HandleShasta implements the BatchesProvedHandler interface.
-func (h *BatchesProvedEventHandler) HandleShasta(
+// Handle implements the BatchesProvedHandler interface.
+func (h *BatchesProvedEventHandler) Handle(
 	ctx context.Context,
 	e *shastaBindings.ShastaInboxClientProved,
 ) error {
@@ -39,7 +39,7 @@ func (h *BatchesProvedEventHandler) HandleShasta(
 	metrics.ProverLatestVerifiedIDGauge.Set(float64(header.Number.Uint64()))
 
 	log.Info(
-		"New valid proven Shasta batch received",
+		"New valid proposal proofs received",
 		"firstProposalID", e.FirstNewProposalId,
 		"lastProposalID", e.LastProposalId,
 		"actualProver", e.ActualProver,

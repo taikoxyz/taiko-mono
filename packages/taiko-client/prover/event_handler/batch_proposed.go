@@ -61,10 +61,7 @@ func (h *BatchProposedEventHandler) Handle(
 	meta metadata.TaikoProposalMetaData,
 	end eventIterator.EndBatchProposedEventIterFunc,
 ) error {
-	if meta.IsShasta() {
-		return h.HandleShasta(ctx, meta, end)
-	}
-	return nil
+	return h.handleProposal(ctx, meta, end)
 }
 
 // shouldProve checks whether the current running prover is assigned to prove the proposed batch.

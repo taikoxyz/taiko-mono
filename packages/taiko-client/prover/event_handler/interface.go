@@ -19,7 +19,7 @@ type BatchProposedHandler interface {
 
 // BatchesProvedHandler is the interface for handling `TaikoInbox.BatchesProved` events.
 type BatchesProvedHandler interface {
-	HandleShasta(ctx context.Context, e *shastaBindings.ShastaInboxClientProved) error
+	Handle(ctx context.Context, e *shastaBindings.ShastaInboxClientProved) error
 }
 
 // AssignmentExpiredHandler is the interface for handling the proof assignment expiration.

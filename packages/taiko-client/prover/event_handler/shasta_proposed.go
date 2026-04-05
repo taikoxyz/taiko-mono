@@ -17,8 +17,8 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-// HandleShasta handles the Shasta protocol Proposed event.
-func (h *BatchProposedEventHandler) HandleShasta(
+// handleProposal handles the Shasta protocol Proposed event.
+func (h *BatchProposedEventHandler) handleProposal(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	end eventIterator.EndBatchProposedEventIterFunc,
@@ -48,7 +48,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 	}
 
 	// If the current batch is handled, just skip it.
-	if meta.Shasta().GetEventData().Id.Uint64() <= h.sharedState.GetLastHandledShastaProposalID() {
+	if meta.Shasta().GetEventData().Id.Uint64() <= h.sharedState.GetLastHandledProposalID() {
 		return nil
 	}
 
@@ -71,7 +71,7 @@ func (h *BatchProposedEventHandler) HandleShasta(
 		return err
 	}
 	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledShastaProposalID(meta.Shasta().GetEventData().Id.Uint64())
+	h.sharedState.SetLastHandledProposalID(meta.Shasta().GetEventData().Id.Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
