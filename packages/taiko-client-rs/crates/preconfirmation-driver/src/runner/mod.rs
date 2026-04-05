@@ -1,10 +1,10 @@
 //! Preconfirmation driver runner orchestration.
 
-mod preconf_ingress_sync;
+pub mod preconf_ingress_sync;
 
 use std::{result, sync::Arc};
 
-use driver::{DriverConfig, sync::SyncError};
+use driver::{DriverConfig, map_driver_error, sync::SyncError};
 use preconfirmation_net::P2pConfig;
 use preconfirmation_types::MAX_TXLIST_BYTES;
 use protocol::codec::ZlibTxListCodec;
@@ -18,7 +18,7 @@ use crate::{
 use protocol::preconfirmation::LookaheadResolver;
 use rpc::beacon::BeaconClient;
 
-use preconf_ingress_sync::PreconfIngressSync;
+use preconf_ingress_sync::{EventSyncerExit, PreconfIngressSync};
 
 /// Join outcome emitted by the P2P node event-loop task.
 type NodeLoopResult =
@@ -84,6 +84,15 @@ fn map_node_loop_result(result: NodeLoopResult) -> Result<(), RunnerError> {
         .map_err(RunnerError::Preconfirmation)
 }
 
+/// Map a shared preconfirmation ingress exit into the runner-specific error type.
+fn map_event_syncer_exit_for_runner(exit: EventSyncerExit) -> RunnerError {
+    match exit {
+        EventSyncerExit::Exited => RunnerError::EventSyncerExited,
+        EventSyncerExit::Driver(err) => map_driver_error(err),
+        EventSyncerExit::Join(err) => RunnerError::EventSyncerFailed(err.to_string()),
+    }
+}
+
 /// Orchestrates the preconfirmation driver with embedded P2P client.
 pub struct PreconfirmationDriverRunner {
     /// Runner configuration for driver, P2P, and optional RPC server.
@@ -110,7 +119,10 @@ impl PreconfirmationDriverRunner {
 
         info!("waiting for preconfirmation ingress sync to initialize");
         // Wait for the driver to signal readiness before wiring P2P.
-        preconf_ingress_sync.wait_preconf_ingress_ready().await?;
+        preconf_ingress_sync
+            .wait_preconf_ingress_ready()
+            .await
+            .map_err(map_event_syncer_exit_for_runner)?;
 
         info!("driver ready, starting preconfirmation P2P client");
 
@@ -186,7 +198,9 @@ impl PreconfirmationDriverRunner {
             }
             result = &mut *event_syncer_handle => {
                 node_handle.abort();
-                preconf_ingress_sync::map_event_syncer_exit_result(result)
+                Err(map_event_syncer_exit_for_runner(
+                    preconf_ingress_sync::classify_event_syncer_exit(result),
+                ))
             }
         };
 

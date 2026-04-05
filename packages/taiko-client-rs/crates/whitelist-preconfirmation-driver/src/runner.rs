@@ -6,6 +6,10 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
 use driver::{DriverConfig, map_driver_error};
+use hashlink::LinkedHashMap;
+use preconfirmation_driver::runner::preconf_ingress_sync::{
+    EventSyncerExit, PreconfIngressSync, classify_event_syncer_exit,
+};
 use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
@@ -18,13 +22,12 @@ use crate::{
         WhitelistApiServer, WhitelistApiServerConfig, WhitelistApiService,
         WhitelistApiServiceParams,
     },
-    cache::{L1_EPOCH_DURATION_SECS, SharedPreconfCacheState},
+    cache::L1_EPOCH_DURATION_SECS,
+    core::{authority::WhitelistSignerAuthority, state::SharedDriverState},
     error::WhitelistPreconfirmationDriverError,
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, WhitelistNetwork},
-    preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
-    whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -85,13 +88,6 @@ impl WhitelistPreconfirmationDriverRunner {
     pub async fn run(self) -> Result<()> {
         metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL).increment(1);
 
-        // Fail fast on deterministic misconfiguration before blocking on sync bootstrap.
-        if !self.config.p2p_config.allow_all_sequencers &&
-            self.config.p2p_config.sequencer_addresses.is_empty()
-        {
-            return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
-        }
-
         info!(
             chain_id = self.config.p2p_config.chain_id,
             whitelist_address = %self.config.whitelist_address,
@@ -101,7 +97,10 @@ impl WhitelistPreconfirmationDriverRunner {
         let mut preconf_ingress_sync =
             PreconfIngressSync::start(&self.config.driver_config).await?;
         let wait_start = Instant::now();
-        preconf_ingress_sync.wait_preconf_ingress_ready().await?;
+        preconf_ingress_sync
+            .wait_preconf_ingress_ready()
+            .await
+            .map_err(map_event_syncer_exit_error_for_runner)?;
         metrics::histogram!(
             WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
         )
@@ -109,7 +108,28 @@ impl WhitelistPreconfirmationDriverRunner {
 
         let network =
             WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
-        let cache_state = SharedPreconfCacheState::new();
+        let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
+            .client()
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+        {
+            Ok(Some(block)) => block.header.number,
+            Ok(None) => 0,
+            Err(err) => {
+                warn!(
+                    error = %err,
+                    "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
+                );
+                0
+            }
+        };
+        let shared_state = SharedDriverState {
+            highest_unsafe_l2_payload_block_id: Arc::new(Mutex::new(
+                initial_highest_unsafe_l2_payload_block_id,
+            )),
+            end_of_sequencing_by_epoch: Arc::new(Mutex::new(LinkedHashMap::new())),
+        };
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
                 |err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
@@ -117,6 +137,11 @@ impl WhitelistPreconfirmationDriverRunner {
                 },
             )?,
         );
+        let authority = Arc::new(WhitelistSignerAuthority::new(
+            self.config.whitelist_address,
+            preconf_ingress_sync.client().l1_provider.clone(),
+            Arc::clone(&beacon_client),
+        ));
         info!(
             peer_id = %network.local_peer_id,
             chain_id = self.config.p2p_config.chain_id,
@@ -124,12 +149,9 @@ impl WhitelistPreconfirmationDriverRunner {
         );
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
-        // are configured. When enabled, create shared state for highestUnsafeL2PayloadBlockID
-        // so the importer can update it on P2P imports.
-        let (mut rest_ws_server, shared_highest_unsafe) = if let (
-            Some(listen_addr),
-            Some(signer_key),
-        ) =
+        // are configured. The shared state is always created above so the importer and API
+        // status code observe the same highest-unsafe and EOS values.
+        let mut rest_ws_server = if let (Some(listen_addr), Some(signer_key)) =
             (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
         {
             let signer = FixedKSigner::new(signer_key).map_err(|e| {
@@ -137,38 +159,15 @@ impl WhitelistPreconfirmationDriverRunner {
                     "failed to create P2P signer: {e}"
                 ))
             })?;
-            let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
-                .client()
-                .l2_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await
-            {
-                Ok(Some(block)) => block.header.number,
-                Ok(None) => 0,
-                Err(err) => {
-                    warn!(
-                        error = %err,
-                        "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
-                    );
-                    0
-                }
-            };
-            let shared_highest = Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
-
-            let rest_sequencer_fetcher = WhitelistSequencerFetcher::new(
-                self.config.whitelist_address,
-                preconf_ingress_sync.client().l1_provider.clone(),
-            );
             let handler = Arc::new(WhitelistApiService::new(WhitelistApiServiceParams {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
                 chain_id: self.config.p2p_config.chain_id,
                 signer,
                 beacon_client: Arc::clone(&beacon_client),
-                sequencer_fetcher: rest_sequencer_fetcher,
-                highest_unsafe_l2_payload_block_id: shared_highest.clone(),
+                authority: Arc::clone(&authority),
                 network_command_tx: network.command_tx.clone(),
-                cache_state: cache_state.clone(),
+                shared_state: shared_state.clone(),
                 local_peer_id: network.local_peer_id.to_string(),
             }));
             let server_config = WhitelistApiServerConfig {
@@ -184,21 +183,20 @@ impl WhitelistPreconfirmationDriverRunner {
                 ws_url = %server.ws_url(),
                 "whitelist preconfirmation REST server started"
             );
-            (Some(server), Some(shared_highest))
+            Some(server)
         } else {
-            (None, None)
+            None
         };
 
         let mut importer =
             WhitelistPreconfirmationImporter::new(WhitelistPreconfirmationImporterParams {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
-                whitelist_address: self.config.whitelist_address,
                 chain_id: self.config.p2p_config.chain_id,
+                authority,
                 network_command_tx: network.command_tx.clone(),
-                cache_state,
+                shared_state: shared_state.clone(),
                 beacon_client,
-                highest_unsafe_l2_payload_block_id: shared_highest_unsafe,
             });
         let mut sync_ready_interval =
             tokio::time::interval(tokio::time::Duration::from_secs(L1_EPOCH_DURATION_SECS));
@@ -223,7 +221,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     return finish_runner(
                         event_syncer_handle,
                         &mut rest_ws_server,
-                        map_event_syncer_exit_for_runner(result),
+                        map_event_syncer_exit_for_runner(classify_event_syncer_exit(result)),
                     )
                     .await;
                 }
@@ -304,17 +302,27 @@ fn map_node_exit_for_runner(
     }
 }
 
-/// Convert an event-syncer result into a standardized runner exit reason.
-fn map_event_syncer_exit_for_runner(result: EventSyncJoinResult) -> (&'static str, Result<()>) {
-    match result {
-        Ok(Ok(())) => {
+/// Convert a shared preconfirmation ingress exit into the whitelist driver error type.
+fn map_event_syncer_exit_error_for_runner(
+    exit: EventSyncerExit,
+) -> WhitelistPreconfirmationDriverError {
+    match exit {
+        EventSyncerExit::Exited => WhitelistPreconfirmationDriverError::EventSyncerExited,
+        EventSyncerExit::Driver(err) => map_driver_error(err),
+        EventSyncerExit::Join(err) => {
+            WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())
+        }
+    }
+}
+
+/// Convert a shared preconfirmation ingress exit into a standardized runner exit reason.
+fn map_event_syncer_exit_for_runner(exit: EventSyncerExit) -> (&'static str, Result<()>) {
+    match exit {
+        EventSyncerExit::Exited => {
             ("event_syncer_exit", Err(WhitelistPreconfirmationDriverError::EventSyncerExited))
         }
-        Ok(Err(err)) => (
-            "event_syncer_error",
-            Err(map_driver_error::<WhitelistPreconfirmationDriverError>(err)),
-        ),
-        Err(err) => (
+        EventSyncerExit::Driver(err) => ("event_syncer_error", Err(map_driver_error(err))),
+        EventSyncerExit::Join(err) => (
             "event_syncer_join_error",
             Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),
         ),

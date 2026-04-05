@@ -2,25 +2,65 @@
 
 use super::*;
 
-impl<P> WhitelistApiService<P>
+#[async_trait]
+impl<P> PreconfBuildRuntime for ApiBuildRuntime<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Guard against building on a genuinely syncing node.
+    async fn ensure_build_node_ready(&self, request: &BuildPreconfBlockRequest) -> Result<()> {
+        let sync_status = self
+            .rpc
+            .l2_provider
+            .syncing()
+            .await
+            .map_err(WhitelistPreconfirmationDriverError::provider)?;
+        if let SyncStatus::Info(ref info) = sync_status &&
+            info.current_block < info.highest_block
+        {
+            return Err(WhitelistPreconfirmationDriverError::Driver(
+                driver::DriverError::EngineSyncing(request.block_number),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Check fee recipient against current/next operator sequencing ranges.
+    async fn ensure_fee_recipient_allowed(&self, fee_recipient: Address) -> Result<()> {
+        self.ensure_fee_recipient_allowed_for_current_slot(fee_recipient).await
+    }
+
+    /// Derive the mix-hash / prev-randao from the parent block.
+    async fn derive_prev_randao(&self, parent_hash: B256, block_number: u64) -> Result<B256> {
+        self.derive_prev_randao(parent_hash, block_number).await
+    }
+
+    /// Validate request payload shape before expensive insertion and signing operations.
+    fn validate_request_payload(
+        &self,
+        request: &BuildPreconfBlockRequest,
+        prev_randao: B256,
+    ) -> Result<()> {
+        self.validate_request_payload_impl(request, prev_randao)
+    }
+
     /// Build driver payload attributes from the RPC request.
-    pub(super) fn build_driver_payload(
+    fn build_driver_payload(
         &self,
         request: &BuildPreconfBlockRequest,
         prev_randao: B256,
         signature: [u8; 65],
     ) -> Result<TaikoPayloadAttributes> {
-        let tx_list = crate::tx_list::decompress_tx_list(request.transactions.as_ref())?;
+        let tx_list =
+            crate::tx_list_codec::decode_preconfirmation_tx_list(request.transactions.as_ref())?;
 
         let block_metadata = TaikoBlockMetadata {
             beneficiary: request.fee_recipient,
             gas_limit: request.gas_limit,
             timestamp: U256::from(request.timestamp),
             mix_hash: prev_randao,
-            tx_list: Some(tx_list.into()),
+            tx_list: Some(tx_list),
             extra_data: request.extra_data.clone(),
         };
 
@@ -53,8 +93,24 @@ where
         Ok(payload)
     }
 
+    /// Submit one payload for local insertion through the event-sync ingress path.
+    async fn submit_preconfirmation_payload(&self, payload: PreconfPayload) -> Result<()> {
+        self.event_syncer.submit_preconfirmation_payload(payload).await.map_err(Into::into)
+    }
+
+    /// Load the inserted canonical block header after local insertion succeeds.
+    async fn inserted_block_header(&self, block_number: u64) -> Result<alloy_rpc_types::Header> {
+        self.rpc
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map_err(WhitelistPreconfirmationDriverError::provider)?
+            .map(|block| block.header)
+            .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(block_number))
+    }
+
     /// Build a 65-byte signature from a digest.
-    pub(super) fn sign_digest(&self, digest: B256) -> Result<[u8; 65]> {
+    fn sign_digest(&self, digest: B256) -> Result<[u8; 65]> {
         let sig_result = self
             .signer
             .sign_with_predefined_k(digest.as_ref())
@@ -67,12 +123,83 @@ where
         Ok(sig_bytes)
     }
 
-    /// Derive the mix-hash / prev-randao from the parent block.
-    pub(super) async fn derive_prev_randao(
+    /// Persist the canonical block-hash signature for RPC readers.
+    async fn set_l1_origin_signature(
         &self,
-        parent_hash: B256,
         block_number: u64,
-    ) -> Result<B256> {
+        block_hash_signature: [u8; 65],
+    ) -> Result<()> {
+        let _ = self
+            .rpc
+            .set_l1_origin_signature(
+                U256::from(block_number),
+                FixedBytes::<65>::from(block_hash_signature),
+            )
+            .await
+            .map_err(WhitelistPreconfirmationDriverError::from)?;
+        Ok(())
+    }
+
+    /// Update highest unsafe block tracking on each insertion/reorg point.
+    async fn update_highest_unsafe(&self, block_number: u64) {
+        self.shared_state.update_highest_unsafe(block_number).await;
+    }
+
+    /// Publish one network command and map channel failures into a consistent P2P error.
+    async fn publish_network_command(
+        &self,
+        command: NetworkCommand,
+        command_name: &'static str,
+    ) -> Result<()> {
+        self.network_command_tx.send(command).await.map_err(|err| {
+            WhitelistPreconfirmationDriverError::p2p(format!(
+                "failed to send {command_name} command: {err}"
+            ))
+        })
+    }
+
+    /// Record EOS state, notify websocket subscribers, and gossip the EOS request.
+    async fn handle_end_of_sequencing(
+        &self,
+        request: &BuildPreconfBlockRequest,
+        block_hash: B256,
+    ) -> Result<()> {
+        let epoch = self.beacon_client.timestamp_to_epoch(request.timestamp).map_err(|e| {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "failed to derive epoch from block timestamp {}: {e}",
+                request.timestamp
+            ))
+        })?;
+        self.shared_state.record_end_of_sequencing(epoch, block_hash).await;
+        if let Err(err) = self
+            .eos_notification_tx
+            .send(EndOfSequencingNotification { current_epoch: epoch, end_of_sequencing: true })
+        {
+            warn!(
+                error = %err,
+                current_epoch = epoch,
+                "failed to deliver end-of-sequencing websocket notification"
+            );
+        }
+        self.publish_network_command(
+            NetworkCommand::PublishEndOfSequencingRequest { epoch },
+            "end-of-sequencing",
+        )
+        .await
+    }
+
+    /// Return the chain ID used for signature domain separation.
+    fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+}
+
+impl<P> ApiBuildRuntime<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Derive the mix-hash / prev-randao from the parent block.
+    async fn derive_prev_randao(&self, parent_hash: B256, block_number: u64) -> Result<B256> {
         let parent = self
             .rpc
             .l2_provider
@@ -98,7 +225,7 @@ where
     }
 
     /// Validate request payload shape before expensive insertion and signing operations.
-    pub(super) fn validate_request_payload(
+    fn validate_request_payload_impl(
         &self,
         request: &BuildPreconfBlockRequest,
         prev_randao: B256,
@@ -125,10 +252,5 @@ where
             self.chain_id,
             *self.rpc.shasta.anchor.address(),
         )
-    }
-
-    /// Update highest unsafe block tracking on each insertion/reorg point.
-    pub(super) async fn update_highest_unsafe(&self, block_number: u64) {
-        *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
     }
 }

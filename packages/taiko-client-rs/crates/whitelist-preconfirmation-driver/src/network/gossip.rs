@@ -1,6 +1,9 @@
-//! Gossipsub construction and message-id helpers.
+//! Gossipsub construction, message-id helpers, and deterministic response jitter.
 
-use libp2p::gossipsub;
+use std::time::Duration;
+
+use alloy_primitives::B256;
+use libp2p::{PeerId, gossipsub};
 use sha2::{Digest, Sha256};
 
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
@@ -50,6 +53,21 @@ pub(crate) fn message_id(message: &gossipsub::Message) -> gossipsub::MessageId {
     gossipsub::MessageId::from(hash[..20].to_vec())
 }
 
+/// Compute deterministic response jitter from the local peer ID and block hash.
+pub(crate) fn deterministic_jitter(self_peer: PeerId, hash: B256, max: Duration) -> Duration {
+    if max.is_zero() {
+        return Duration::ZERO;
+    }
+
+    let mut hasher = Sha256::new();
+    hasher.update(self_peer.to_bytes());
+    hasher.update(hash.as_slice());
+
+    let digest = hasher.finalize();
+    let value = u64::from_le_bytes(digest[..8].try_into().expect("sha256 output is long enough"));
+    Duration::from_nanos(value % max.as_nanos() as u64)
+}
+
 /// Try to decompress snappy data. Returns `(is_valid_snappy, data)`.
 fn try_decompress_snappy(compressed: &[u8]) -> (bool, Vec<u8>) {
     let Ok(decoded_len) = snap::raw::decompress_len(compressed) else {
@@ -64,4 +82,23 @@ fn try_decompress_snappy(compressed: &[u8]) -> (bool, Vec<u8>) {
         .decompress_vec(compressed)
         .map(|data| (true, data))
         .unwrap_or_else(|_| (false, compressed.to_vec()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deterministic_jitter_is_stable_and_bounded() {
+        let peer = PeerId::random();
+        let hash = B256::from([0x42u8; 32]);
+        let max = Duration::from_secs(1);
+
+        let first = deterministic_jitter(peer, hash, max);
+        let second = deterministic_jitter(peer, hash, max);
+
+        assert_eq!(first, second);
+        assert!(first < max);
+        assert_eq!(deterministic_jitter(peer, hash, Duration::ZERO), Duration::ZERO);
+    }
 }

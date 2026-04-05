@@ -3,11 +3,11 @@
 use std::sync::Arc;
 
 use alloy_primitives::B256;
-use libp2p::{PeerId, gossipsub, identify, ping, request_response, swarm::NetworkBehaviour};
+use libp2p::{PeerId, gossipsub, identify, ping, swarm::NetworkBehaviour};
 use tokio::{sync::mpsc, task::JoinHandle};
 
 use crate::{
-    codec::{DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, WhitelistReqRespCodec},
+    codec::{DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope},
     error::Result,
 };
 
@@ -42,24 +42,6 @@ pub(crate) enum NetworkEvent {
         /// Requested epoch.
         epoch: u64,
     },
-    /// Incoming direct req/resp response for a block hash.
-    DirectResponse {
-        /// Peer that sent the response.
-        from: PeerId,
-        /// Requested block hash.
-        hash: B256,
-        /// Decoded envelope, or `None` if the peer did not have the block.
-        envelope: Option<WhitelistExecutionPayloadEnvelope>,
-    },
-    /// Incoming direct req/resp request for a block hash.
-    DirectRequest {
-        /// Peer that sent the request.
-        from: PeerId,
-        /// Requested block hash.
-        hash: B256,
-        /// Inbound request id used to send the response back.
-        request_id: request_response::InboundRequestId,
-    },
 }
 
 /// Outbound commands for the whitelist preconfirmation network.
@@ -82,19 +64,10 @@ pub(crate) enum NetworkCommand {
         /// Epoch number.
         epoch: u64,
     },
-    /// Request a block by hash via direct req/resp with gossip fallback.
-    /// The direct request is an optimistic fast-path; the gossip request
-    /// ensures the block is found even when no direct peer has it.
-    RequestBlock {
+    /// Publish a block-by-hash lookup on the `requestPreconfBlocks` topic.
+    PublishUnsafeRequest {
         /// Requested block hash.
         hash: B256,
-    },
-    /// Send a direct req/resp response back to a peer.
-    SendDirectResponse {
-        /// Inbound request id to respond to.
-        request_id: request_response::InboundRequestId,
-        /// Encoded response bytes.
-        response_bytes: Vec<u8>,
     },
     /// Shutdown the network loop.
     Shutdown,
@@ -112,47 +85,12 @@ pub(crate) struct WhitelistNetwork {
     pub(crate) handle: JoinHandle<Result<()>>,
 }
 
-#[derive(Clone)]
-/// Group of gossipsub topics used by the whitelist preconfirmation driver.
-pub(super) struct Topics {
-    /// Topic carrying signed unsafe payload gossip.
-    pub(super) preconf_blocks: gossipsub::IdentTopic,
-    /// Topic used to request a payload by block hash.
-    pub(super) preconf_request: gossipsub::IdentTopic,
-    /// Topic used to answer payload-by-hash requests.
-    pub(super) preconf_response: gossipsub::IdentTopic,
-    /// Topic used by peers requesting end-of-sequencing payloads.
-    pub(super) eos_request: gossipsub::IdentTopic,
-}
-
-impl Topics {
-    /// Build all whitelist preconfirmation topic names for the given chain id.
-    pub(super) fn new(chain_id: u64) -> Self {
-        Self {
-            preconf_blocks: gossipsub::IdentTopic::new(format!(
-                "/taiko/{chain_id}/0/preconfBlocks"
-            )),
-            preconf_request: gossipsub::IdentTopic::new(format!(
-                "/taiko/{chain_id}/0/requestPreconfBlocks"
-            )),
-            preconf_response: gossipsub::IdentTopic::new(format!(
-                "/taiko/{chain_id}/0/responsePreconfBlocks"
-            )),
-            eos_request: gossipsub::IdentTopic::new(format!(
-                "/taiko/{chain_id}/0/requestEndOfSequencingPreconfBlocks"
-            )),
-        }
-    }
-}
-
 #[derive(NetworkBehaviour)]
 #[behaviour(to_swarm = "BehaviourEvent")]
 /// Composite libp2p behaviour used by the whitelist preconfirmation network runtime.
 pub(super) struct Behaviour {
     /// Gossip transport for whitelist preconfirmation topics.
     pub(super) gossipsub: gossipsub::Behaviour,
-    /// Direct request/response protocol for block-by-hash lookups.
-    pub(super) reqresp: request_response::Behaviour<WhitelistReqRespCodec>,
     /// Ping protocol for liveness.
     pub(super) ping: ping::Behaviour,
     /// Identify protocol for peer metadata exchange.
@@ -164,8 +102,6 @@ pub(super) struct Behaviour {
 pub(super) enum BehaviourEvent {
     /// Wrapped gossipsub event.
     Gossipsub(Box<gossipsub::Event>),
-    /// Direct request/response event.
-    Reqresp(request_response::Event<B256, Vec<u8>>),
     /// Ping event marker.
     Ping,
     /// Identify event marker.
@@ -176,13 +112,6 @@ impl From<gossipsub::Event> for BehaviourEvent {
     /// Convert a gossipsub event into a behaviour event.
     fn from(value: gossipsub::Event) -> Self {
         Self::Gossipsub(Box::new(value))
-    }
-}
-
-impl From<request_response::Event<B256, Vec<u8>>> for BehaviourEvent {
-    /// Convert a request/response event into a behaviour event.
-    fn from(value: request_response::Event<B256, Vec<u8>>) -> Self {
-        Self::Reqresp(value)
     }
 }
 

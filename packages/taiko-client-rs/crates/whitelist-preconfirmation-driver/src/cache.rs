@@ -1,60 +1,37 @@
 //! In-memory cache for out-of-order whitelist preconfirmation envelopes.
 
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
-use alloy_primitives::{Address, B256};
+#[cfg(test)]
+use std::collections::HashMap;
+
+use alloy_primitives::Address;
+
+#[cfg(test)]
+use alloy_primitives::B256;
+#[cfg(test)]
 use hashlink::LinkedHashMap;
-use tokio::sync::Mutex;
+#[cfg(test)]
+use std::sync::Arc;
 
+#[cfg(test)]
 use crate::codec::WhitelistExecutionPayloadEnvelope;
-
 /// Default maximum number of recently validated envelopes retained for serving responses.
+#[cfg(test)]
 const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
 /// Default maximum number of pending envelopes retained while waiting for parents.
+#[cfg(test)]
 const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
-/// Maximum number of EOS cache entries retained.
-const DEFAULT_EOS_CACHE_CAPACITY: usize = DEFAULT_PENDING_ENVELOPE_CAPACITY;
 /// Default cooldown, in seconds, between duplicate parent-hash requests.
+#[cfg(test)]
 const DEFAULT_REQUEST_COOLDOWN_SECS: u64 = 10;
 /// One L1 epoch (32 slots x 12 seconds).
 pub(crate) const L1_EPOCH_DURATION_SECS: u64 = 12 * 32;
 /// Minimum interval between forced signer-miss refreshes from L1.
 const DEFAULT_SEQUENCER_MISS_REFRESH_COOLDOWN_SECS: u64 = 2;
 
-/// Shared cache state surfaced through REST status and high-throughput request handlers.
-#[derive(Debug, Clone)]
-pub(crate) struct SharedPreconfCacheState {
-    /// End-of-sequencing markers tracked per epoch.
-    end_of_sequencing_by_epoch: Arc<Mutex<LinkedHashMap<u64, B256>>>,
-}
-
-impl SharedPreconfCacheState {
-    /// Create shared cache state with empty epoch mapping.
-    pub(crate) fn new() -> Self {
-        Self { end_of_sequencing_by_epoch: Arc::new(Mutex::new(LinkedHashMap::new())) }
-    }
-
-    /// Record an EOS hash for the given epoch with bounded cache size.
-    pub(crate) async fn record_end_of_sequencing(&self, epoch: u64, block_hash: B256) {
-        let mut entries = self.end_of_sequencing_by_epoch.lock().await;
-        entries.insert(epoch, block_hash);
-
-        if entries.len() > DEFAULT_EOS_CACHE_CAPACITY {
-            let _ = entries.pop_front();
-        }
-    }
-
-    /// Fetch EOS hash for an epoch, if known.
-    pub(crate) async fn end_of_sequencing_for_epoch(&self, epoch: u64) -> Option<B256> {
-        self.end_of_sequencing_by_epoch.lock().await.get(&epoch).copied()
-    }
-}
-
 /// Simple in-memory cache keyed by block hash with bounded capacity.
+#[cfg(test)]
 pub(crate) struct EnvelopeCache {
     /// Fast lookup table keyed by payload block hash.
     entries: LinkedHashMap<B256, Arc<WhitelistExecutionPayloadEnvelope>>,
@@ -62,6 +39,7 @@ pub(crate) struct EnvelopeCache {
     capacity: usize,
 }
 
+#[cfg(test)]
 impl Default for EnvelopeCache {
     /// Build an envelope cache with the standard pending-capacity default.
     fn default() -> Self {
@@ -69,6 +47,7 @@ impl Default for EnvelopeCache {
     }
 }
 
+#[cfg(test)]
 impl EnvelopeCache {
     /// Construct a pending-envelope cache with a fixed capacity.
     pub fn with_capacity(capacity: usize) -> Self {
@@ -112,11 +91,6 @@ impl EnvelopeCache {
         self.entries.get(hash)
     }
 
-    /// Returns true when the cache is empty.
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
     /// Returns current number of cached envelopes.
     pub fn len(&self) -> usize {
         self.entries.len()
@@ -125,6 +99,7 @@ impl EnvelopeCache {
 
 /// Recently seen validated envelopes used for serving request topic responses.
 #[derive(Debug)]
+#[cfg(test)]
 pub(crate) struct RecentEnvelopeCache {
     /// Fast lookup table keyed by payload block hash.
     entries: LinkedHashMap<B256, Arc<WhitelistExecutionPayloadEnvelope>>,
@@ -132,6 +107,7 @@ pub(crate) struct RecentEnvelopeCache {
     capacity: usize,
 }
 
+#[cfg(test)]
 impl Default for RecentEnvelopeCache {
     /// Build a recent cache with the standard bounded-capacity default.
     fn default() -> Self {
@@ -139,6 +115,7 @@ impl Default for RecentEnvelopeCache {
     }
 }
 
+#[cfg(test)]
 impl RecentEnvelopeCache {
     /// Construct a recent-envelope cache with a fixed capacity.
     pub fn with_capacity(capacity: usize) -> Self {
@@ -174,6 +151,7 @@ impl RecentEnvelopeCache {
 
 /// Per-hash request throttle used to avoid repeatedly requesting the same missing parent.
 #[derive(Debug)]
+#[cfg(test)]
 pub(crate) struct RequestThrottle {
     /// Minimum elapsed time required before re-requesting the same hash.
     cooldown: Duration,
@@ -181,6 +159,7 @@ pub(crate) struct RequestThrottle {
     requested_at: HashMap<B256, Instant>,
 }
 
+#[cfg(test)]
 impl Default for RequestThrottle {
     /// Build a throttle with the default per-hash cooldown window.
     fn default() -> Self {
@@ -188,6 +167,7 @@ impl Default for RequestThrottle {
     }
 }
 
+#[cfg(test)]
 impl RequestThrottle {
     /// Create a request throttle with a custom cooldown.
     pub fn new(cooldown: Duration) -> Self {

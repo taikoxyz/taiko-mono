@@ -1,6 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use alloy_primitives::{Address, B256, Bloom, Bytes, U256};
+use alloy_primitives::{Address, B256, Bloom, Bytes, U256, hex, keccak256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use futures::StreamExt;
 use libp2p::{
@@ -30,7 +33,26 @@ use crate::{
         encode_envelope_ssz,
     },
     network::inbound::GossipsubInboundState,
+    wire::topics::Topics,
 };
+
+/// Compatibility note:
+/// - topic names must stay aligned with github.com/taikoxyz/optimism/op-node/p2p/gossip.go and the
+///   Taiko preconf topic helpers it defines
+/// - request payloads are raw hash / big-endian epoch
+/// - payload gossip is snappy(signature || SSZ(envelope))
+/// - response gossip is snappy(SSZ(envelope))
+#[test]
+fn topics_match_go_contract() {
+    let topics = Topics::new(167_000);
+    assert_eq!(topics.preconf_blocks.hash().to_string(), "/taiko/167000/0/preconfBlocks");
+    assert_eq!(topics.preconf_request.hash().to_string(), "/taiko/167000/0/requestPreconfBlocks");
+    assert_eq!(topics.preconf_response.hash().to_string(), "/taiko/167000/0/responsePreconfBlocks");
+    assert_eq!(
+        topics.eos_request.hash().to_string(),
+        "/taiko/167000/0/requestEndOfSequencingPreconfBlocks"
+    );
+}
 
 fn sample_response_envelope() -> WhitelistExecutionPayloadEnvelope {
     WhitelistExecutionPayloadEnvelope {
@@ -95,6 +117,78 @@ fn sample_signed_response_envelope(
         ),
     ));
     envelope
+}
+
+#[test]
+fn go_compat_preconf_blocks_wire_layout_matches_expected() {
+    let envelope = sample_response_envelope();
+    let signature = [0x11u8; 65];
+    let expected = go_fixture_bytes(concat!(
+        "b0050011fe0100080103447a010000017a01004e820000027a010000037a01000000fe0100fe0100fe0100",
+        "fa010000047a0100002a2d200c80c3c901010b0408520106140000c0ff6967010a00fc011608ca9a3b010c",
+        "5e010000057a01001004020000550d0120040000009999999922fe0100",
+    ));
+
+    let encoded = crate::codec::encode_unsafe_payload_message(&signature, &envelope)
+        .expect("encode preconf payload");
+
+    assert_eq!(encoded, expected);
+}
+
+#[test]
+fn go_compat_response_wire_layout_matches_expected() {
+    let envelope = sample_response_envelope();
+    let expected = go_fixture_bytes(concat!(
+        "ef04080103447a010000017a010000114a010000027a010000037a01000000fe0100fe0100fe0100fa0100",
+        "00047a0100002a2d200c80c3c901010b0408520106140000c0ff6967010a00fc011608ca9a3b010c5e0100",
+        "00057a01001004020000550d0120040000009999999922fe0100",
+    ));
+
+    let encoded =
+        crate::codec::encode_unsafe_response_message(&envelope).expect("encode response payload");
+
+    assert_eq!(encoded, expected);
+}
+
+#[test]
+fn go_compat_request_wire_layout_matches_expected() {
+    let hash = B256::from([0x33u8; 32]);
+    let expected =
+        go_fixture_bytes("3333333333333333333333333333333333333333333333333333333333333333");
+
+    let encoded = crate::codec::encode_unsafe_request_message(hash);
+
+    assert_eq!(encoded, expected);
+}
+
+#[test]
+fn go_compat_eos_request_wire_layout_matches_expected() {
+    let epoch = 0x0102_0304_0506_0708u64;
+    let expected = go_fixture_bytes("0102030405060708");
+
+    let encoded = crate::codec::encode_eos_request_message(epoch);
+
+    assert_eq!(encoded, expected);
+}
+
+#[test]
+fn go_compat_block_signing_hash_matches_op_signer_formula() {
+    let chain_id = 167_000u64;
+    let payload_bytes = encode_envelope_ssz(&sample_response_envelope());
+    let expected_payload_hash = B256::from_slice(
+        &hex::decode("c7e1b7515a63e76d8a6603bc60f83da53e2c2221819350a51aef6ac443f9b142").unwrap(),
+    );
+    let expected = B256::from_slice(
+        &hex::decode("c02e3b49eac6dd7dc65198c8398ed552ebcce1d130ca962e044e3953c5b4631f").unwrap(),
+    );
+
+    assert_eq!(keccak256(&payload_bytes), expected_payload_hash);
+
+    assert_eq!(crate::codec::block_signing_hash(chain_id, &payload_bytes), expected);
+}
+
+fn go_fixture_bytes(hex_bytes: &str) -> Vec<u8> {
+    hex::decode(hex_bytes).expect("valid Go fixture hex")
 }
 
 #[test]
@@ -208,25 +302,6 @@ fn decode_request_hash_requires_fixed_32_byte_length_for_request_topic() {
 }
 
 #[test]
-fn height_seen_tracker_rejects_over_limit_and_skips_tracking_rejected_hashes() {
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
-
-    assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([1u8; 32]), 1));
-    assert!(validation_state.preconf_seen_by_height.can_accept(1, B256::from([2u8; 32]), 1));
-    assert!(!validation_state.preconf_seen_by_height.can_accept(1, B256::from([3u8; 32]), 1));
-    assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 1);
-    assert_eq!(validation_state.preconf_seen_by_height.seen_by_height[&1].len(), 2);
-    assert_eq!(
-        validation_state.preconf_seen_by_height.seen_by_height[&1],
-        vec![B256::from([1u8; 32]), B256::from([2u8; 32])]
-    );
-
-    assert!(validation_state.preconf_seen_by_height.can_accept(2, B256::from([3u8; 32]), 0));
-    assert_eq!(validation_state.preconf_seen_by_height.seen_by_height.len(), 2);
-}
-
-#[test]
 fn epoch_seen_tracker_rejects_over_limit_without_tracking_rejected_counts() {
     let mut tracker = EpochSeenTracker::default();
 
@@ -239,9 +314,232 @@ fn epoch_seen_tracker_rejects_over_limit_without_tracking_rejected_counts() {
 }
 
 #[test]
+fn response_seen_tracker_records_recent_hashes_for_suppression() {
+    let mut validation_state = GossipsubInboundState::new(167_000);
+    let hash = B256::from([0x6au8; 32]);
+    let now = Instant::now();
+
+    assert!(!validation_state.response_seen_recently(hash, now));
+
+    validation_state.mark_response_seen(hash, now);
+    assert!(validation_state.response_seen_recently(hash, now));
+    assert!(validation_state.response_seen_recently(hash, now + Duration::from_secs(5)));
+    assert!(!validation_state.response_seen_recently(hash, now + Duration::from_secs(11)));
+}
+
+#[test]
+fn invalid_decodable_response_does_not_mark_seen_hash() {
+    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+    let mut validation_state = GossipsubInboundState::new(167_000);
+    let envelope = sample_signed_response_envelope(167_000, &signer);
+    let hash = envelope.execution_payload.block_hash;
+    let mut invalid_but_decodable = envelope.clone();
+    invalid_but_decodable.execution_payload.transactions.clear();
+
+    assert!(matches!(
+        validation_state.validate_response(&invalid_but_decodable),
+        gossipsub::MessageAcceptance::Reject
+    ));
+    assert!(!validation_state.response_seen_recently(hash, Instant::now()));
+}
+
+#[tokio::test]
+async fn invalid_inbound_response_does_not_suppress_later_valid_local_publish() {
+    /// Test-only swarm behaviour mirroring the production protocol stack.
+    #[derive(NetworkBehaviour)]
+    #[behaviour(to_swarm = "TestBehaviourEvent")]
+    struct TestBehaviour {
+        /// Gossipsub behaviour under test.
+        gossipsub: gossipsub::Behaviour,
+        /// Ping behaviour required by the composite behaviour.
+        ping: ping::Behaviour,
+        /// Identify behaviour required by the composite behaviour.
+        identify: identify::Behaviour,
+    }
+
+    /// Test-only event wrapper emitted by `TestBehaviour`.
+    #[derive(Debug)]
+    enum TestBehaviourEvent {
+        /// Wrapped gossipsub event.
+        Gossipsub(Box<gossipsub::Event>),
+        /// Ping event marker.
+        Ping,
+        /// Identify event marker.
+        Identify,
+    }
+
+    impl From<gossipsub::Event> for TestBehaviourEvent {
+        /// Convert gossipsub events into the unified test event type.
+        fn from(value: gossipsub::Event) -> Self {
+            Self::Gossipsub(Box::new(value))
+        }
+    }
+
+    impl From<ping::Event> for TestBehaviourEvent {
+        /// Convert ping events into the unified test event type.
+        fn from(_: ping::Event) -> Self {
+            Self::Ping
+        }
+    }
+
+    impl From<identify::Event> for TestBehaviourEvent {
+        /// Convert identify events into the unified test event type.
+        fn from(_: identify::Event) -> Self {
+            Self::Identify
+        }
+    }
+
+    let chain_id = 167_000;
+    let topic = gossipsub::IdentTopic::new(format!("/taiko/{chain_id}/0/responsePreconfBlocks"));
+    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+    let mut valid_envelope = sample_signed_response_envelope(chain_id, &signer);
+    let mut invalid_envelope = valid_envelope.clone();
+    invalid_envelope.execution_payload.transactions.clear();
+    let valid_parent_beacon_block_root = Some(B256::from([0x7au8; 32]));
+    valid_envelope.parent_beacon_block_root = valid_parent_beacon_block_root;
+
+    let encoded_invalid_response = crate::codec::encode_unsafe_response_message(&invalid_envelope)
+        .expect("encode invalid response");
+
+    let key = identity::Keypair::generate_ed25519();
+    let peer_id = key.public().to_peer_id();
+    let noise_config = noise::Config::new(&key).expect("noise config");
+
+    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+        .upgrade(upgrade::Version::V1Lazy)
+        .authenticate(noise_config)
+        .multiplex(yamux::Config::default())
+        .boxed();
+
+    let mut gs = build_gossipsub().expect("gossipsub config");
+    gs.subscribe(&topic).expect("topic subscribe");
+
+    let behaviour = TestBehaviour {
+        gossipsub: gs,
+        ping: ping::Behaviour::new(ping::Config::new()),
+        identify: identify::Behaviour::new(identify::Config::new(
+            "/taiko/whitelist-preconfirmation-test/1.0.0".to_string(),
+            key.public(),
+        )),
+    };
+
+    let mut peer_swarm = libp2p::Swarm::new(
+        transport,
+        behaviour,
+        peer_id,
+        libp2p::swarm::Config::with_tokio_executor(),
+    );
+
+    peer_swarm
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().expect("listen addr"))
+        .expect("listen should succeed");
+
+    let external_addr = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+            break address;
+        }
+    };
+
+    let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
+
+    let cfg = P2pConfig {
+        chain_id,
+        enable_discovery: false,
+        enable_tcp: true,
+        listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+        pre_dial_peers: vec![dial_addr],
+        sequencer_addresses: vec![signer.address()],
+        ..Default::default()
+    };
+
+    let mut whitelist_network =
+        WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
+    let command_tx = whitelist_network.command_tx.clone();
+    let local_peer_id = whitelist_network.local_peer_id;
+
+    let received_valid_response = tokio::time::timeout(Duration::from_secs(20), async {
+        let mut connected = false;
+        let mut subscribed = false;
+        let mut invalid_published = false;
+
+        while !invalid_published {
+            let event = peer_swarm.select_next_some().await;
+            match event {
+                SwarmEvent::ConnectionEstablished { .. } => {
+                    connected = true;
+                }
+                SwarmEvent::Behaviour(TestBehaviourEvent::Gossipsub(event)) => match *event {
+                    gossipsub::Event::Subscribed { peer_id, topic: subscribed_topic }
+                        if peer_id == local_peer_id && subscribed_topic == topic.hash() =>
+                    {
+                        subscribed = true;
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+
+            if connected && subscribed && !invalid_published {
+                invalid_published = true;
+                peer_swarm
+                    .behaviour_mut()
+                    .gossipsub
+                    .publish(topic.clone(), encoded_invalid_response.clone())
+                    .expect("publish invalid response");
+            }
+        }
+
+        let invalid_event =
+            tokio::time::timeout(Duration::from_millis(500), whitelist_network.event_rx.recv())
+                .await;
+        assert!(
+            invalid_event.is_err(),
+            "invalid inbound response should not be accepted by the event loop"
+        );
+
+        command_tx
+            .send(NetworkCommand::PublishUnsafeResponse {
+                envelope: Arc::new(valid_envelope.clone()),
+            })
+            .await
+            .expect("publish valid response command");
+
+        loop {
+            match peer_swarm.select_next_some().await {
+                SwarmEvent::Behaviour(TestBehaviourEvent::Gossipsub(event)) => {
+                    if let gossipsub::Event::Message { message, .. } = *event &&
+                        message.topic == topic.hash()
+                    {
+                        let decoded = decode_unsafe_response_message(&message.data)
+                            .expect("decode valid response");
+                        if decoded.execution_payload.block_hash ==
+                            valid_envelope.execution_payload.block_hash &&
+                            decoded.parent_beacon_block_root == valid_parent_beacon_block_root
+                        {
+                            return decoded;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    })
+    .await
+    .expect("timed out waiting for later valid response");
+
+    assert_eq!(
+        received_valid_response.execution_payload.block_hash,
+        valid_envelope.execution_payload.block_hash
+    );
+    assert_eq!(received_valid_response.signature, valid_envelope.signature);
+
+    let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
+    let _ = whitelist_network.handle.await;
+}
+
+#[test]
 fn validate_preconf_blocks_rejects_empty_transaction_payload() {
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
     let mut payload = sample_preconf_payload();
     payload.envelope.execution_payload.transactions.clear();
 
@@ -253,8 +551,7 @@ fn validate_preconf_blocks_rejects_empty_transaction_payload() {
 
 #[test]
 fn validate_preconf_blocks_rejects_invalid_signature() {
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
     let payload = sample_preconf_payload();
 
     assert!(matches!(
@@ -265,8 +562,7 @@ fn validate_preconf_blocks_rejects_invalid_signature() {
 
 #[test]
 fn validate_response_rejects_missing_signature() {
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
     let mut envelope = sample_response_envelope();
     envelope.signature = None;
 
@@ -277,28 +573,10 @@ fn validate_response_rejects_missing_signature() {
 }
 
 #[test]
-fn validate_preconf_blocks_rejects_non_allowlisted_signer() {
+fn validate_preconf_blocks_accepts_valid_signed_payload_without_static_allowlist() {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let payload = sample_signed_preconf_payload(167_000, &signer);
-    let mut validation_state = GossipsubInboundState::new_with_allow_all_sequencers(
-        167_000,
-        vec![Address::from([0x11u8; 20])],
-        false,
-    );
-
-    assert!(matches!(
-        validation_state.validate_preconf_blocks(&payload),
-        gossipsub::MessageAcceptance::Reject
-    ));
-}
-
-#[test]
-fn validate_preconf_blocks_accepts_allowlisted_signer() {
-    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
-    let signer_address = signer.address();
-    let payload = sample_signed_preconf_payload(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, vec![signer_address], false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
 
     assert!(matches!(
         validation_state.validate_preconf_blocks(&payload),
@@ -307,84 +585,29 @@ fn validate_preconf_blocks_accepts_allowlisted_signer() {
 }
 
 #[test]
-fn validate_preconf_blocks_rejects_empty_allowlist_signer() {
+fn validate_preconf_blocks_rejects_invalid_signature_before_payload_checks() {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let payload = sample_signed_preconf_payload(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
 
     assert!(matches!(
-        validation_state.validate_preconf_blocks(&payload),
+        validation_state.validate_preconf_blocks(&DecodedUnsafePayload {
+            wire_signature: [0u8; 65],
+            ..payload
+        }),
         gossipsub::MessageAcceptance::Reject
     ));
 }
 
 #[test]
-fn validate_preconf_blocks_rejects_single_fallback_zero_signer() {
-    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
-    let payload = sample_signed_preconf_payload(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
-
-    assert!(matches!(
-        validation_state.validate_preconf_blocks(&payload),
-        gossipsub::MessageAcceptance::Reject
-    ));
-}
-
-#[test]
-fn validate_preconf_blocks_rejects_invalid_fallback_signer() {
-    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
-    let payload = sample_signed_preconf_payload(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
-
-    assert!(matches!(
-        validation_state.validate_preconf_blocks(&payload),
-        gossipsub::MessageAcceptance::Reject
-    ));
-}
-
-#[test]
-fn validate_response_rejects_non_allowlisted_signer() {
+fn validate_response_accepts_valid_signed_envelope_without_static_allowlist() {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let envelope = sample_signed_response_envelope(167_000, &signer);
-    let mut validation_state = GossipsubInboundState::new_with_allow_all_sequencers(
-        167_000,
-        vec![Address::from([0x11u8; 20])],
-        false,
-    );
-
-    assert!(matches!(
-        validation_state.validate_response(&envelope),
-        gossipsub::MessageAcceptance::Reject
-    ));
-}
-
-#[test]
-fn validate_response_accepts_allowlisted_signer() {
-    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
-    let signer_address = signer.address();
-    let envelope = sample_signed_response_envelope(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, vec![signer_address], false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
 
     assert!(matches!(
         validation_state.validate_response(&envelope),
         gossipsub::MessageAcceptance::Accept
-    ));
-}
-
-#[test]
-fn validate_response_rejects_empty_allowlist_signer() {
-    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
-    let envelope = sample_signed_response_envelope(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
-
-    assert!(matches!(
-        validation_state.validate_response(&envelope),
-        gossipsub::MessageAcceptance::Reject
     ));
 }
 
@@ -392,19 +615,20 @@ fn validate_response_rejects_empty_allowlist_signer() {
 fn validate_response_rejects_invalid_fallback_signer() {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let envelope = sample_signed_response_envelope(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
 
     assert!(matches!(
-        validation_state.validate_response(&envelope),
+        validation_state.validate_response(&WhitelistExecutionPayloadEnvelope {
+            signature: Some([0u8; 65]),
+            ..envelope
+        }),
         gossipsub::MessageAcceptance::Reject
     ));
 }
 
 #[test]
 fn validate_response_rejects_invalid_signature_before_ignore_fallback() {
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
     let envelope = sample_response_envelope();
 
     assert!(matches!(
@@ -414,16 +638,31 @@ fn validate_response_rejects_invalid_signature_before_ignore_fallback() {
 }
 
 #[test]
-fn validate_response_rejects_when_allowlist_is_empty() {
+fn validate_preconf_blocks_does_not_spend_height_quota_before_downstream_authority() {
+    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+    let payload = sample_signed_preconf_payload(167_000, &signer);
+    let mut validation_state = GossipsubInboundState::new(167_000);
+
+    for _ in 0..12 {
+        assert!(matches!(
+            validation_state.validate_preconf_blocks(&payload),
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
+}
+
+#[test]
+fn validate_response_does_not_spend_height_quota_before_downstream_authority() {
     let signer = FixedKSigner::golden_touch().expect("golden touch signer");
     let envelope = sample_signed_response_envelope(167_000, &signer);
-    let mut validation_state =
-        GossipsubInboundState::new_with_allow_all_sequencers(167_000, Vec::new(), false);
+    let mut validation_state = GossipsubInboundState::new(167_000);
 
-    assert!(matches!(
-        validation_state.validate_response(&envelope),
-        gossipsub::MessageAcceptance::Reject
-    ));
+    for _ in 0..5 {
+        assert!(matches!(
+            validation_state.validate_response(&envelope),
+            gossipsub::MessageAcceptance::Accept
+        ));
+    }
 }
 
 #[test]
@@ -607,7 +846,7 @@ async fn whitelist_network_publishes_anonymous_preconf_request() {
                 }
                 _ = interval.tick(), if subscribed => {
                     command_tx
-                        .send(NetworkCommand::RequestBlock {
+                        .send(NetworkCommand::PublishUnsafeRequest {
                             hash: expected_hash,
                         })
                         .await
@@ -823,6 +1062,201 @@ async fn whitelist_network_publishes_anonymous_preconf_response() {
 }
 
 #[tokio::test]
+async fn response_publish_is_suppressed_when_recent_response_seen() {
+    /// Test-only swarm behaviour mirroring the production protocol stack.
+    #[derive(NetworkBehaviour)]
+    #[behaviour(to_swarm = "TestBehaviourEvent")]
+    struct TestBehaviour {
+        /// Gossipsub behaviour under test.
+        gossipsub: gossipsub::Behaviour,
+        /// Ping behaviour required by the composite behaviour.
+        ping: ping::Behaviour,
+        /// Identify behaviour required by the composite behaviour.
+        identify: identify::Behaviour,
+    }
+
+    /// Test-only event wrapper emitted by `TestBehaviour`.
+    #[derive(Debug)]
+    enum TestBehaviourEvent {
+        /// Wrapped gossipsub event.
+        Gossipsub(Box<gossipsub::Event>),
+        /// Ping event marker.
+        Ping,
+        /// Identify event marker.
+        Identify,
+    }
+
+    impl From<gossipsub::Event> for TestBehaviourEvent {
+        /// Convert gossipsub events into the unified test event type.
+        fn from(value: gossipsub::Event) -> Self {
+            Self::Gossipsub(Box::new(value))
+        }
+    }
+
+    impl From<ping::Event> for TestBehaviourEvent {
+        /// Convert ping events into the unified test event type.
+        fn from(_: ping::Event) -> Self {
+            Self::Ping
+        }
+    }
+
+    impl From<identify::Event> for TestBehaviourEvent {
+        /// Convert identify events into the unified test event type.
+        fn from(_: identify::Event) -> Self {
+            Self::Identify
+        }
+    }
+
+    let chain_id = 167_000;
+    let topic = gossipsub::IdentTopic::new(format!("/taiko/{chain_id}/0/responsePreconfBlocks"));
+    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+    let seen_envelope = sample_signed_response_envelope(chain_id, &signer);
+    let mut suppressed_envelope = seen_envelope.clone();
+    suppressed_envelope.signature = Some([0x33u8; 65]);
+    let encoded_seen_response =
+        crate::codec::encode_unsafe_response_message(&seen_envelope).expect("encode seen response");
+
+    let key = identity::Keypair::generate_ed25519();
+    let peer_id = key.public().to_peer_id();
+    let noise_config = noise::Config::new(&key).expect("noise config");
+
+    let transport = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
+        .upgrade(upgrade::Version::V1Lazy)
+        .authenticate(noise_config)
+        .multiplex(yamux::Config::default())
+        .boxed();
+
+    let mut gs = build_gossipsub().expect("gossipsub config");
+    gs.subscribe(&topic).expect("topic subscribe");
+
+    let behaviour = TestBehaviour {
+        gossipsub: gs,
+        ping: ping::Behaviour::new(ping::Config::new()),
+        identify: identify::Behaviour::new(identify::Config::new(
+            "/taiko/whitelist-preconfirmation-test/1.0.0".to_string(),
+            key.public(),
+        )),
+    };
+
+    let mut peer_swarm = libp2p::Swarm::new(
+        transport,
+        behaviour,
+        peer_id,
+        libp2p::swarm::Config::with_tokio_executor(),
+    );
+
+    peer_swarm
+        .listen_on("/ip4/127.0.0.1/tcp/0".parse().expect("listen addr"))
+        .expect("listen should succeed");
+
+    let external_addr = loop {
+        if let SwarmEvent::NewListenAddr { address, .. } = peer_swarm.select_next_some().await {
+            break address;
+        }
+    };
+
+    let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
+
+    let cfg = P2pConfig {
+        chain_id,
+        enable_discovery: false,
+        enable_tcp: true,
+        listen_addr: "127.0.0.1:0".parse().expect("listen addr"),
+        pre_dial_peers: vec![dial_addr],
+        sequencer_addresses: vec![signer.address()],
+        ..Default::default()
+    };
+
+    let mut whitelist_network =
+        WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
+    let command_tx = whitelist_network.command_tx.clone();
+    let local_peer_id = whitelist_network.local_peer_id;
+
+    let observed_seen_response = tokio::time::timeout(Duration::from_secs(20), async {
+        let mut connected = false;
+        let mut subscribed = false;
+        let mut published_seen_response = false;
+        loop {
+            tokio::select! {
+                event = peer_swarm.select_next_some() => {
+                    match event {
+                        SwarmEvent::ConnectionEstablished { .. } => {
+                            connected = true;
+                        }
+                        SwarmEvent::Behaviour(TestBehaviourEvent::Gossipsub(event)) => {
+                            if let gossipsub::Event::Subscribed { peer_id, topic: subscribed_topic }
+                                = *event
+                                && peer_id == local_peer_id &&
+                                    subscribed_topic == topic.hash()
+                            {
+                                subscribed = true;
+                            }
+                        }
+                        _ => {}
+                    }
+
+                    if connected && subscribed && !published_seen_response {
+                        published_seen_response = true;
+                        peer_swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(topic.clone(), encoded_seen_response.clone())
+                            .expect("publish seen response");
+                    }
+                }
+                maybe_event = whitelist_network.event_rx.recv() => {
+                    match maybe_event {
+                        Some(NetworkEvent::UnsafeResponse { envelope, .. })
+                            if envelope.execution_payload.block_hash
+                                == seen_envelope.execution_payload.block_hash =>
+                        {
+                            return envelope;
+                        }
+                        Some(_) => continue,
+                        None => panic!("event channel closed before seen response arrived"),
+                    }
+                }
+            }
+        }
+    })
+    .await
+    .expect("timed out waiting for recent response observation");
+
+    assert_eq!(
+        observed_seen_response.execution_payload.block_hash,
+        seen_envelope.execution_payload.block_hash
+    );
+
+    command_tx
+        .send(NetworkCommand::PublishUnsafeResponse {
+            envelope: Arc::new(suppressed_envelope.clone()),
+        })
+        .await
+        .expect("queue suppressed response command");
+
+    let suppressed_signature = suppressed_envelope.signature;
+    let publish_result = tokio::time::timeout(Duration::from_secs(2), async move {
+        loop {
+            if let SwarmEvent::Behaviour(TestBehaviourEvent::Gossipsub(event)) =
+                peer_swarm.select_next_some().await &&
+                let gossipsub::Event::Message { message, .. } = *event &&
+                message.topic == topic.hash() &&
+                let Ok(decoded) = decode_unsafe_response_message(&message.data) &&
+                decoded.signature == suppressed_signature
+            {
+                return decoded;
+            }
+        }
+    })
+    .await;
+
+    assert!(publish_result.is_err(), "suppressed response should not be republished");
+
+    let _ = whitelist_network.command_tx.send(NetworkCommand::Shutdown).await;
+    let _ = whitelist_network.handle.await;
+}
+
+#[tokio::test]
 async fn whitelist_network_receives_anonymous_preconf_request() {
     /// Test-only swarm behaviour for request-topic ingress validation.
     #[derive(NetworkBehaviour)]
@@ -930,73 +1364,60 @@ async fn whitelist_network_receives_anonymous_preconf_request() {
 }
 
 #[tokio::test]
-async fn whitelist_network_direct_reqresp_round_trip() {
-    use libp2p::{StreamProtocol, request_response};
+async fn whitelist_network_gossip_request_round_trip_without_reqresp() {
+    let chain_id = 167_000;
+    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
+    let signer_address = signer.address();
+    let envelope = sample_signed_response_envelope(chain_id, &signer);
+    let expected_hash = envelope.execution_payload.block_hash;
+    let response_topic =
+        gossipsub::IdentTopic::new(format!("/taiko/{chain_id}/0/responsePreconfBlocks"));
+    let request_topic =
+        gossipsub::IdentTopic::new(format!("/taiko/{chain_id}/0/requestPreconfBlocks"));
+    let encoded_response =
+        crate::codec::encode_unsafe_response_message(&envelope).expect("encode response for test");
 
-    use crate::codec::{
-        WHITELIST_REQRESP_PROTOCOL, WhitelistReqRespCodec, encode_unsafe_response_message,
-    };
-
-    /// Test-only swarm behaviour including gossipsub and reqresp protocols.
+    /// Test-only swarm behaviour mirroring the production gossip stack.
     #[derive(NetworkBehaviour)]
-    #[behaviour(to_swarm = "TestReqRespEvent")]
-    struct TestReqRespBehaviour {
-        /// Gossipsub behaviour (needed so topic subscriptions are exchanged).
+    #[behaviour(to_swarm = "TestBehaviourEvent")]
+    struct TestBehaviour {
+        /// Gossipsub behaviour under test.
         gossipsub: gossipsub::Behaviour,
-        /// Direct request/response protocol matching production.
-        reqresp: request_response::Behaviour<WhitelistReqRespCodec>,
-        /// Ping protocol for liveness.
+        /// Ping behaviour required by the composite behaviour.
         ping: ping::Behaviour,
-        /// Identify protocol for peer metadata exchange.
+        /// Identify behaviour required by the composite behaviour.
         identify: identify::Behaviour,
     }
 
-    /// Event wrapper for the test-only behaviour.
+    /// Test-only event wrapper emitted by `TestBehaviour`.
     #[derive(Debug)]
-    enum TestReqRespEvent {
-        /// Wrapped gossipsub event (payload unused — only reqresp events are inspected).
-        Gossipsub,
-        /// Direct req/resp event.
-        Reqresp(request_response::Event<B256, Vec<u8>>),
+    enum TestBehaviourEvent {
+        /// Wrapped gossipsub event.
+        Gossipsub(Box<gossipsub::Event>),
         /// Ping event marker.
         Ping,
         /// Identify event marker.
         Identify,
     }
 
-    impl From<gossipsub::Event> for TestReqRespEvent {
-        fn from(_: gossipsub::Event) -> Self {
-            Self::Gossipsub
+    impl From<gossipsub::Event> for TestBehaviourEvent {
+        fn from(value: gossipsub::Event) -> Self {
+            Self::Gossipsub(Box::new(value))
         }
     }
 
-    impl From<request_response::Event<B256, Vec<u8>>> for TestReqRespEvent {
-        fn from(value: request_response::Event<B256, Vec<u8>>) -> Self {
-            Self::Reqresp(value)
-        }
-    }
-
-    impl From<ping::Event> for TestReqRespEvent {
+    impl From<ping::Event> for TestBehaviourEvent {
         fn from(_: ping::Event) -> Self {
             Self::Ping
         }
     }
 
-    impl From<identify::Event> for TestReqRespEvent {
+    impl From<identify::Event> for TestBehaviourEvent {
         fn from(_: identify::Event) -> Self {
             Self::Identify
         }
     }
 
-    let chain_id = 167_000;
-    let signer = FixedKSigner::golden_touch().expect("golden touch signer");
-    let signer_address = signer.address();
-    let envelope = sample_signed_response_envelope(chain_id, &signer);
-    let expected_hash = envelope.execution_payload.block_hash;
-    let encoded_response =
-        encode_unsafe_response_message(&envelope).expect("encode response for test");
-
-    // Build peer swarm with reqresp support.
     let key = identity::Keypair::generate_ed25519();
     let peer_id = key.public().to_peer_id();
     let noise_config = noise::Config::new(&key).expect("noise config");
@@ -1008,21 +1429,11 @@ async fn whitelist_network_direct_reqresp_round_trip() {
         .boxed();
 
     let mut gs = build_gossipsub().expect("gossipsub config");
-    let request_topic =
-        gossipsub::IdentTopic::new(format!("/taiko/{chain_id}/0/requestPreconfBlocks"));
-    gs.subscribe(&request_topic).expect("topic subscribe");
+    gs.subscribe(&request_topic).expect("request topic subscribe");
+    gs.subscribe(&response_topic).expect("response topic subscribe");
 
-    let reqresp = request_response::Behaviour::new(
-        [(
-            StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL),
-            request_response::ProtocolSupport::Full,
-        )],
-        request_response::Config::default(),
-    );
-
-    let behaviour = TestReqRespBehaviour {
+    let behaviour = TestBehaviour {
         gossipsub: gs,
-        reqresp,
         ping: ping::Behaviour::new(ping::Config::new()),
         identify: identify::Behaviour::new(identify::Config::new(
             "/taiko/whitelist-preconfirmation-test/1.0.0".to_string(),
@@ -1049,7 +1460,6 @@ async fn whitelist_network_direct_reqresp_round_trip() {
 
     let dial_addr = external_addr.with(libp2p::multiaddr::Protocol::P2p(peer_id));
 
-    // Spawn WhitelistNetwork with the signer allowlisted so validation passes.
     let cfg = P2pConfig {
         chain_id,
         enable_discovery: false,
@@ -1064,12 +1474,9 @@ async fn whitelist_network_direct_reqresp_round_trip() {
         WhitelistNetwork::spawn_with_whitelist_filter(cfg).expect("spawn network");
     let command_tx = whitelist_network.command_tx.clone();
 
-    // Drive peer swarm + send commands + collect response in one select loop
-    // so the peer connection stays alive and gets polled continuously.
     let (response_hash, response_env) = tokio::time::timeout(Duration::from_secs(20), async move {
         let mut connected = false;
-        let mut responded = false;
-        let mut interval = tokio::time::interval(Duration::from_millis(500));
+        let mut requested = false;
         loop {
             tokio::select! {
                 event = peer_swarm.select_next_some() => {
@@ -1077,53 +1484,44 @@ async fn whitelist_network_direct_reqresp_round_trip() {
                         SwarmEvent::ConnectionEstablished { .. } => {
                             connected = true;
                         }
-                        SwarmEvent::Behaviour(TestReqRespEvent::Reqresp(
-                            request_response::Event::Message {
-                                message:
-                                    request_response::Message::Request {
-                                        request: hash,
-                                        channel,
-                                        ..
-                                    },
-                                ..
-                            },
-                        )) => {
-                            assert_eq!(
-                                hash, expected_hash,
-                                "peer should receive the requested hash"
-                            );
-                            peer_swarm
-                                .behaviour_mut()
-                                .reqresp
-                                .send_response(channel, encoded_response.clone())
-                                .expect("send response");
-                            responded = true;
+                        SwarmEvent::Behaviour(TestBehaviourEvent::Gossipsub(event)) => {
+                            if let gossipsub::Event::Message { message, .. } = *event
+                                && message.topic == request_topic.hash()
+                            {
+                                assert_eq!(message.data.as_slice(), expected_hash.as_slice());
+                                peer_swarm
+                                    .behaviour_mut()
+                                    .gossipsub
+                                    .publish(response_topic.clone(), encoded_response.clone())
+                                    .expect("publish response");
+                            }
                         }
                         _ => {}
                     }
                 }
                 event = whitelist_network.event_rx.recv() => {
-                    if let Some(NetworkEvent::DirectResponse {
-                        hash,
-                        envelope: Some(env),
+                    if let Some(NetworkEvent::UnsafeResponse {
+                        envelope: env,
                         ..
                     }) = event
                     {
-                        return (hash, env);
+                        return (env.execution_payload.block_hash, env);
                     }
                 }
-                _ = interval.tick(), if connected && !responded => {
-                    let _ = command_tx
-                        .send(NetworkCommand::RequestBlock {
+                _ = tokio::time::sleep(Duration::from_millis(100)), if connected && !requested => {
+                    requested = true;
+                    command_tx
+                        .send(NetworkCommand::PublishUnsafeRequest {
                             hash: expected_hash,
                         })
-                        .await;
+                        .await
+                        .expect("queue request publish");
                 }
             }
         }
     })
     .await
-    .expect("timed out waiting for direct reqresp round-trip");
+    .expect("timed out waiting for gossip request/response round-trip");
 
     assert_eq!(response_hash, expected_hash);
     assert_eq!(response_env.execution_payload.block_hash, envelope.execution_payload.block_hash);

@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 
 use alloy_primitives::B256;
 use alloy_provider::Provider;
@@ -6,9 +6,9 @@ use tracing::debug;
 
 use crate::{
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash,
-        encode_unsafe_response_message, recover_signer,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash, recover_signer,
     },
+    core::import::{ImportContext, ImportDecision, evaluate_pending_import},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
@@ -39,14 +39,6 @@ struct LookupLabels {
     not_found: &'static str,
 }
 
-/// Metric and log labels for direct block hash lookup traffic.
-const DIRECT_LOOKUP_LABELS: LookupLabels = LookupLabels {
-    log_prefix: "direct",
-    cache_hit: "direct_cache_hit",
-    l2_hit: "direct_l2_hit",
-    not_found: "direct_not_found",
-};
-
 /// Metric and log labels for gossip-derived block hash lookup traffic.
 const GOSSIP_LOOKUP_LABELS: LookupLabels = LookupLabels {
     log_prefix: "gossip",
@@ -65,6 +57,32 @@ pub(super) enum LookupResult {
     NotFound,
 }
 
+/// Cache/side-effect plan for one validated ingress envelope.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) struct ValidatedEnvelopePlan {
+    /// Whether the envelope should stay in the pending graph.
+    pub(super) cache_pending: bool,
+    /// Whether the envelope should still update the EOS epoch mapping.
+    pub(super) record_eos: bool,
+}
+
+/// Plan how validated ingress should treat the envelope after import classification.
+pub(super) fn plan_validated_ingress(
+    decision: &ImportDecision,
+    current_block_hash: Option<B256>,
+    envelope: &WhitelistExecutionPayloadEnvelope,
+) -> ValidatedEnvelopePlan {
+    let block_hash = envelope.execution_payload.block_hash;
+    let duplicate_drop =
+        matches!(decision, ImportDecision::Drop) && current_block_hash == Some(block_hash);
+
+    ValidatedEnvelopePlan {
+        cache_pending: !matches!(decision, ImportDecision::Drop),
+        record_eos: envelope.end_of_sequencing.unwrap_or(false) &&
+            (!matches!(decision, ImportDecision::Drop) || duplicate_drop),
+    }
+}
+
 impl<P> WhitelistPreconfirmationImporter<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -74,11 +92,44 @@ where
         &mut self,
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
         ingress_source: &'static str,
-    ) {
-        self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
+    ) -> Result<()> {
+        let block_number = envelope.execution_payload.block_number;
+        let block_hash = envelope.execution_payload.block_hash;
+        let head_l1_origin_block_id = self.head_l1_origin_block_id().await?;
+        let current_block_hash = self.block_hash_by_number(block_number).await?;
+        let parent_block_hash = if block_number == 0 {
+            None
+        } else {
+            self.block_hash_by_number(block_number.saturating_sub(1)).await?
+        };
+
+        let decision = evaluate_pending_import(
+            envelope.clone(),
+            ImportContext {
+                head_l1_origin_block_id,
+                current_block_hash,
+                parent_block_hash,
+                allow_parent_request: false,
+            },
+        );
+        let plan = plan_validated_ingress(&decision, current_block_hash, &envelope);
+        if plan.record_eos {
+            self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
+        }
+
+        if !plan.cache_pending {
+            debug!(
+                block_number,
+                block_hash = %block_hash,
+                head_l1_origin_block_id,
+                "dropping stale or already-inserted whitelist preconfirmation envelope before caching"
+            );
+            return Ok(());
+        }
+
+        self.pending.insert(envelope.clone());
         self.update_cache_gauges();
-        self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
+        Ok(())
     }
 
     /// Record the envelope block hash for its beacon epoch when `end_of_sequencing` is set.
@@ -106,7 +157,7 @@ where
                 ingress_source,
                 "recording end-of-sequencing envelope for epoch"
             );
-            self.cache_state
+            self.shared_state
                 .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
                 .await;
         }
@@ -134,12 +185,12 @@ where
         .inspect_err(|_err| {
             record_validation_failure("payload_validate");
         })?;
-        self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
+        self.ingest_validated_envelope(Arc::new(envelope), "payload").await?;
 
         Ok(())
     }
 
-    /// Handle an incoming unsafe response (gossip or direct).
+    /// Handle an incoming unsafe response.
     ///
     /// The embedded `envelope.signature` is verified over
     /// `block_signing_hash(chain_id, block_hash)`. This matches the signing
@@ -177,19 +228,19 @@ where
             record_validation_failure("response_validate");
         })?;
 
-        self.ingest_validated_envelope(Arc::new(envelope), "response").await;
+        self.ingest_validated_envelope(Arc::new(envelope), "response").await?;
 
         Ok(())
     }
 
-    /// Shared cache/L2 lookup used by both gossip and direct request handlers.
+    /// Shared cache/L2 lookup used by gossip block-hash request handling.
     async fn lookup_block_for_serving(
         &mut self,
         from: libp2p::PeerId,
         hash: B256,
         labels: &LookupLabels,
     ) -> Result<LookupResult> {
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+        if let Some(envelope) = self.pending.get_recent(&hash) {
             metrics::counter!(
                 WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
                 "result" => labels.cache_hit,
@@ -201,7 +252,7 @@ where
                 "{}: serving response from recent cache", labels.log_prefix,
             );
             // Re-insert to refresh LRU position so recently-served blocks stay cached.
-            self.recent_cache.insert_recent(envelope.clone());
+            self.pending.insert_recent_only(envelope.clone());
             self.update_cache_gauges();
             return Ok(LookupResult::CacheHit(envelope));
         }
@@ -231,70 +282,9 @@ where
             "{}: serving response from local l2 block lookup", labels.log_prefix,
         );
         let envelope = Arc::new(envelope);
-        self.recent_cache.insert_recent(envelope.clone());
+        self.pending.insert_recent_only(envelope.clone());
         self.update_cache_gauges();
         Ok(LookupResult::L2Hit(envelope))
-    }
-
-    /// Handle a direct block-hash request from a peer via req/resp protocol.
-    pub(super) async fn handle_direct_request(
-        &mut self,
-        from: libp2p::PeerId,
-        hash: B256,
-        request_id: libp2p::request_response::InboundRequestId,
-    ) -> Result<()> {
-        let now = Instant::now();
-
-        // Apply per-peer rate limiting to prevent a single peer from spamming
-        // expensive L2 lookups via the direct req/resp protocol.
-        if !self.direct_request_rate.allow(from, now) {
-            tracing::debug!(
-                peer = %from,
-                hash = %hash,
-                ?request_id,
-                "rate-limited direct block request"
-            );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "direct_rate_limited",
-            )
-            .increment(1);
-            self.send_direct_response(request_id, Vec::new()).await?;
-            return Ok(());
-        }
-
-        // Dedup: skip lookup if this (peer, hash) pair was already served recently.
-        if self.direct_request_seen.is_seen(from, hash, now) {
-            tracing::debug!(
-                peer = %from,
-                hash = %hash,
-                ?request_id,
-                "deduped direct block request"
-            );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "direct_deduped",
-            )
-            .increment(1);
-            self.send_direct_response(request_id, Vec::new()).await?;
-            return Ok(());
-        }
-        self.direct_request_seen.mark(from, hash, now);
-
-        let response_bytes =
-            match self.lookup_block_for_serving(from, hash, &DIRECT_LOOKUP_LABELS).await? {
-                LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
-                    encode_unsafe_response_message(&envelope).map_err(|err| {
-                        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                            "failed to encode direct response envelope",
-                            err,
-                        )
-                    })?
-                }
-                LookupResult::NotFound => Vec::new(),
-            };
-        self.send_direct_response(request_id, response_bytes).await?;
-        Ok(())
     }
 
     /// Handle a block-hash request from the request topic.
@@ -305,6 +295,8 @@ where
     ) -> Result<()> {
         match self.lookup_block_for_serving(from, hash, &GOSSIP_LOOKUP_LABELS).await? {
             LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
+                let decision = ImportDecision::Respond(envelope);
+                let ImportDecision::Respond(envelope) = decision else { unreachable!() };
                 self.publish_unsafe_response(envelope).await;
             }
             LookupResult::NotFound => {}

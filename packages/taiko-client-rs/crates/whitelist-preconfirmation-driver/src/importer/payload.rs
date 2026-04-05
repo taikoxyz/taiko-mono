@@ -2,7 +2,7 @@ use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,
 };
-use alloy_primitives::{B256, Bytes, U256};
+use alloy_primitives::{B256, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use protocol::shasta::{PAYLOAD_ID_VERSION_V2, payload_id_to_bytes};
@@ -10,7 +10,7 @@ use protocol::shasta::{PAYLOAD_ID_VERSION_V2, payload_id_to_bytes};
 use crate::{
     codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
-    tx_list::decompress_tx_list,
+    tx_list_codec::decode_preconfirmation_tx_list,
 };
 
 use super::WhitelistPreconfirmationImporter;
@@ -28,7 +28,7 @@ where
         let compressed_tx_list = execution_payload.transactions.first().ok_or_else(|| {
             WhitelistPreconfirmationDriverError::invalid_payload("missing transactions list")
         })?;
-        let tx_list = decompress_tx_list(compressed_tx_list)?;
+        let tx_list = decode_preconfirmation_tx_list(compressed_tx_list.as_ref())?;
 
         let signature = envelope.signature.unwrap_or([0u8; 65]);
 
@@ -37,7 +37,7 @@ where
             gas_limit: execution_payload.gas_limit,
             timestamp: U256::from(execution_payload.timestamp),
             mix_hash: execution_payload.prev_randao,
-            tx_list: Some(Bytes::from(tx_list)),
+            tx_list: Some(tx_list),
             extra_data: execution_payload.extra_data.clone(),
         };
 

@@ -12,7 +12,7 @@ use thiserror::Error;
 use crate::{
     codec::WhitelistExecutionPayloadEnvelope,
     error::{Result, WhitelistPreconfirmationDriverError},
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
+    tx_list_codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
 /// Validation failures for the first transaction that must be the Shasta anchor call.
@@ -99,18 +99,11 @@ pub(crate) fn validate_execution_payload_for_preconf(
         ));
     }
 
-    let compressed_tx_list = &payload.transactions[0];
-    if compressed_tx_list.len() > MAX_COMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload(
-            "compressed transactions size exceeds max blob data size".to_string(),
-        ));
-    }
-
     let txs = ZlibTxListCodec::new_with_limits(
         MAX_COMPRESSED_TX_LIST_BYTES,
         MAX_DECOMPRESSED_TX_LIST_BYTES,
     )
-    .decode(compressed_tx_list)
+    .decode(payload.transactions[0].as_ref())
     .map_err(|err| match err {
         TxListCodecError::ZlibDecode(reason) => {
             WhitelistPreconfirmationDriverError::invalid_payload_with_context(

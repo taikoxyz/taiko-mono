@@ -42,6 +42,7 @@ libp2p = { version = "0.56.0", features = [
 ] }
 lru = "0.12"
 metrics = { workspace = true }
+preconfirmation-driver = { path = "../preconfirmation-driver" }
 preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 protocol = { path = "../protocol" }
 rand = { workspace = true }
@@ -57,4 +58,6 @@ tower-http = { version = "0.6", features = ["cors"] }
 tracing = { workspace = true }
 
 [dev-dependencies]
+alloy-sol-types = { workspace = true }
+alloy-transport = { workspace = true }
 reqwest = { workspace = true }

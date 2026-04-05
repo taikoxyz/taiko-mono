@@ -110,9 +110,15 @@ impl ZlibTxListCodec {
         }
 
         let mut payload = decoded.as_slice();
-        Vec::<RlpBytes>::decode(&mut payload)
+        let txs = Vec::<RlpBytes>::decode(&mut payload)
             .map(|txs| txs.into_iter().map(|tx| tx.to_vec()).collect())
-            .map_err(|err| TxListCodecError::RlpDecode(err.to_string()))
+            .map_err(|err| TxListCodecError::RlpDecode(err.to_string()))?;
+
+        if !payload.is_empty() {
+            return Err(TxListCodecError::RlpDecode("trailing bytes after tx list".to_string()));
+        }
+
+        Ok(txs)
     }
 }
 
@@ -193,6 +199,21 @@ mod tests {
         let codec = ZlibTxListCodec::new(1024);
         let err =
             codec.decode(&compressed).expect_err("legacy rust tx-list encoding should be rejected");
+        assert!(matches!(err, super::TxListCodecError::RlpDecode(_)));
+    }
+
+    #[test]
+    fn txlist_codec_rejects_trailing_bytes_after_rlp_list() {
+        let tx = vec![0x01, 0x02, 0x03];
+        let mut rlp_encoded = Vec::new();
+        alloy_rlp::encode_list::<_, RlpBytes>(&[RlpBytes::from(tx)], &mut rlp_encoded);
+        rlp_encoded.extend_from_slice(b"junk");
+        let compressed = compress_payload(&rlp_encoded);
+
+        let codec = ZlibTxListCodec::new(1024);
+        let err = codec
+            .decode(&compressed)
+            .expect_err("trailing bytes after the tx list must be rejected");
         assert!(matches!(err, super::TxListCodecError::RlpDecode(_)));
     }
 

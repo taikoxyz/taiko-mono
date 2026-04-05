@@ -13,10 +13,39 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::NetworkCommand,
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
+    tx_list_codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
 use super::WhitelistPreconfirmationImporter;
+
+/// Queue a gossip block request on the network command channel.
+pub(super) async fn publish_unsafe_request_command(
+    network_command_tx: &tokio::sync::mpsc::Sender<NetworkCommand>,
+    hash: B256,
+) -> bool {
+    if let Err(err) = network_command_tx.send(NetworkCommand::PublishUnsafeRequest { hash }).await {
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+            "topic" => "request_preconf_blocks",
+            "result" => "queue_failed",
+        )
+        .increment(1);
+        warn!(
+            hash = %hash,
+            error = %err,
+            "failed to queue whitelist preconfirmation request publish command"
+        );
+        false
+    } else {
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
+            "topic" => "request_preconf_blocks",
+            "result" => "queued",
+        )
+        .increment(1);
+        true
+    }
+}
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -58,7 +87,7 @@ where
 
         let Some(transactions) = block.transactions.as_transactions() else {
             return Err(WhitelistPreconfirmationDriverError::invalid_payload(
-                "request-response block missing full transaction bodies",
+                "response block missing full transaction bodies",
             ));
         };
 
@@ -73,19 +102,19 @@ where
         .encode(&raw_transactions)
         .map_err(|err| {
             WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "failed to encode request-response tx list",
+                "failed to encode response tx list",
                 err,
             )
         })?;
 
         let end_of_sequencing = self
-            .cache
+            .pending
             .get(&hash)
             .and_then(|envelope| envelope.end_of_sequencing)
             .filter(|&enabled| enabled);
         let base_fee = block.header.base_fee_per_gas.ok_or_else(|| {
             WhitelistPreconfirmationDriverError::invalid_payload(format!(
-                "request-response block {} missing base fee",
+                "response block {} missing base fee",
                 block.header.number
             ))
         })?;
@@ -120,59 +149,9 @@ where
         }))
     }
 
-    /// Request a block via both gossip and a direct req/resp to a connected peer.
-    /// Gossip is always published; the direct request is an optimistic fast-path.
-    pub(super) async fn request_block(&self, hash: B256) {
-        if let Err(err) = self.network_command_tx.send(NetworkCommand::RequestBlock { hash }).await
-        {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-                "operation" => "request_block",
-                "result" => "queue_failed",
-            )
-            .increment(1);
-            warn!(
-                hash = %hash,
-                error = %err,
-                "failed to queue block request command"
-            );
-        } else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-                "operation" => "request_block",
-                "result" => "queued",
-            )
-            .increment(1);
-        }
-    }
-
-    /// Send a response back through a stashed direct-request channel.
-    pub(super) async fn send_direct_response(
-        &self,
-        request_id: libp2p::request_response::InboundRequestId,
-        response_bytes: Vec<u8>,
-    ) -> Result<()> {
-        self.network_command_tx
-            .send(NetworkCommand::SendDirectResponse { request_id, response_bytes })
-            .await
-            .map_err(|err| {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-                    "operation" => "send_response",
-                    "result" => "queue_failed",
-                )
-                .increment(1);
-                WhitelistPreconfirmationDriverError::p2p(format!(
-                    "failed to queue direct response command: {err}"
-                ))
-            })?;
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-            "operation" => "send_response",
-            "result" => "queued",
-        )
-        .increment(1);
-        Ok(())
+    /// Request a block over the gossip request topic.
+    pub(super) async fn request_block(&self, hash: B256) -> bool {
+        publish_unsafe_request_command(&self.network_command_tx, hash).await
     }
 
     /// Publish an envelope response on `responsePreconfBlocks`.

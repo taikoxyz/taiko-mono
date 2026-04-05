@@ -1,38 +1,53 @@
 //! Swarm bootstrap and main network loop orchestration.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashSet, VecDeque},
     net::SocketAddr,
     sync::Arc,
+    time::{Duration, Instant},
 };
 
 use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
-    Multiaddr, PeerId, StreamProtocol, Swarm, Transport, core::upgrade, dns, identify, identity,
-    noise, ping, request_response, tcp, yamux,
+    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, identify, identity, noise, ping, tcp,
+    yamux,
 };
 use preconfirmation_net::{P2pConfig, spawn_discovery};
-use rand::seq::IteratorRandom;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
 use super::{
     bootnodes::{classify_bootnodes, dial_once, recv_discovered_multiaddr},
     event_loop::{forward_event, handle_swarm_event},
-    gossip::build_gossipsub,
+    gossip::{build_gossipsub, deterministic_jitter},
     inbound::GossipsubInboundState,
-    types::{Behaviour, BehaviourEvent, NetworkCommand, NetworkEvent, Topics, WhitelistNetwork},
+    types::{Behaviour, BehaviourEvent, NetworkCommand, NetworkEvent, WhitelistNetwork},
 };
 use crate::{
     codec::{
-        DecodedUnsafePayload, WHITELIST_REQRESP_PROTOCOL, WhitelistExecutionPayloadEnvelope,
-        encode_envelope_ssz, encode_eos_request_message, encode_unsafe_payload_message,
-        encode_unsafe_request_message, encode_unsafe_response_message,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, encode_envelope_ssz,
+        encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
+        encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
+    wire::topics::Topics,
 };
+
+/// Maximum deterministic delay before gossiping a `responsePreconfBlocks` response.
+const RESPONSE_JITTER_MAX: Duration = Duration::from_secs(1);
+
+#[derive(Debug)]
+/// Pending `responsePreconfBlocks` publish waiting for its deterministic deadline.
+struct PendingResponsePublish {
+    /// Hash used for response suppression and dedupe.
+    hash: B256,
+    /// Envelope to publish when the deadline elapses.
+    envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    /// Tokio deadline for the delayed publish.
+    deadline: tokio::time::Instant,
+}
 
 /// Build whitelist topics and subscribe gossipsub to all required channels.
 fn build_topics_and_gossipsub(chain_id: u64) -> Result<(Topics, libp2p::gossipsub::Behaviour)> {
@@ -57,17 +72,8 @@ fn build_behaviour(
     local_key: &identity::Keypair,
     gossipsub: libp2p::gossipsub::Behaviour,
 ) -> Behaviour {
-    let reqresp = request_response::Behaviour::new(
-        [(
-            StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL),
-            request_response::ProtocolSupport::Full,
-        )],
-        request_response::Config::default(),
-    );
-
     Behaviour {
         gossipsub,
-        reqresp,
         ping: ping::Behaviour::new(ping::Config::new()),
         identify: identify::Behaviour::new(identify::Config::new(
             "/taiko/whitelist-preconfirmation/1.0.0".to_string(),
@@ -185,13 +191,12 @@ struct NetworkRuntime {
     dialed_addrs: HashSet<Multiaddr>,
     /// Inbound validation and dedupe state for gossipsub messages.
     inbound_validation_state: GossipsubInboundState,
+    /// Pending response publishes waiting for deterministic jitter deadlines.
+    pending_response_publishes: VecDeque<PendingResponsePublish>,
+    /// Hashes already scheduled for a delayed response publish.
+    pending_response_hashes: HashSet<B256>,
     /// Local peer id used by loopback payload events.
     local_peer_id_for_events: PeerId,
-    /// Stashed response channels so `SendDirectResponse` can look them up.
-    response_channels:
-        HashMap<request_response::InboundRequestId, request_response::ResponseChannel<Vec<u8>>>,
-    /// Pending outbound requests mapping response IDs back to block hashes.
-    pending_requests: HashMap<request_response::OutboundRequestId, B256>,
 }
 
 impl NetworkRuntime {
@@ -204,7 +209,10 @@ impl NetworkRuntime {
 
     /// Process one input event from command, discovery, or swarm.
     async fn run_once(&mut self) -> Result<bool> {
+        self.publish_due_responses().await?;
+
         let has_discovery = self.discovery_rx.is_some();
+        let pending_response_deadline = self.next_pending_response_deadline();
 
         tokio::select! {
             maybe_command = self.command_rx.recv() => {
@@ -225,6 +233,14 @@ impl NetworkRuntime {
                 self.handle_swarm_event(event).await?;
                 Ok(true)
             }
+            _ = async {
+                if let Some(deadline) = pending_response_deadline {
+                    tokio::time::sleep_until(deadline).await;
+                }
+            }, if pending_response_deadline.is_some() => {
+                self.publish_due_responses().await?;
+                Ok(true)
+            }
         }
     }
 
@@ -232,7 +248,7 @@ impl NetworkRuntime {
     async fn handle_command(&mut self, command: NetworkCommand) -> Result<()> {
         match command {
             NetworkCommand::PublishUnsafeResponse { envelope } => {
-                self.publish_unsafe_response(envelope);
+                self.schedule_unsafe_response_publish(envelope);
             }
             NetworkCommand::PublishUnsafePayload { signature, envelope } => {
                 self.publish_unsafe_payload(signature, envelope).await?;
@@ -240,11 +256,8 @@ impl NetworkRuntime {
             NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
                 self.publish_end_of_sequencing_request(epoch);
             }
-            NetworkCommand::RequestBlock { hash } => {
-                self.request_block(hash);
-            }
-            NetworkCommand::SendDirectResponse { request_id, response_bytes } => {
-                self.send_direct_response(request_id, response_bytes);
+            NetworkCommand::PublishUnsafeRequest { hash } => {
+                self.publish_unsafe_request(hash);
             }
             NetworkCommand::Shutdown => {
                 // Shutdown is handled in `run_once`.
@@ -254,36 +267,33 @@ impl NetworkRuntime {
         Ok(())
     }
 
-    /// Publish a `responsePreconfBlocks` message.
-    fn publish_unsafe_response(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
+    /// Queue a `responsePreconfBlocks` message behind deterministic jitter.
+    fn schedule_unsafe_response_publish(
+        &mut self,
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    ) {
         let hash = envelope.execution_payload.block_hash;
-        match encode_unsafe_response_message(&envelope) {
-            Ok(payload) => {
-                if let Err(err) = self
-                    .swarm
-                    .behaviour_mut()
-                    .gossipsub
-                    .publish(self.topics.preconf_response.clone(), payload)
-                {
-                    record_outbound_publish("response_preconf_blocks", "publish_failed");
-                    warn!(
-                        hash = %hash,
-                        error = %err,
-                        "failed to publish whitelist preconfirmation response"
-                    );
-                } else {
-                    record_outbound_publish("response_preconf_blocks", "published");
-                }
-            }
-            Err(err) => {
-                record_outbound_publish("response_preconf_blocks", "encode_failed");
-                warn!(
-                    hash = %hash,
-                    error = %err,
-                    "failed to encode whitelist preconfirmation response"
-                );
-            }
+        let now = Instant::now();
+
+        if self.pending_response_hashes.contains(&hash) {
+            record_outbound_publish("response_preconf_blocks", "suppressed_pending_response");
+            return;
         }
+
+        if self.inbound_validation_state.response_seen_recently(hash, now) {
+            record_outbound_publish("response_preconf_blocks", "suppressed_recent_response");
+            return;
+        }
+
+        let delay = deterministic_jitter(self.local_peer_id_for_events, hash, RESPONSE_JITTER_MAX);
+        let pending = PendingResponsePublish {
+            hash,
+            envelope,
+            deadline: tokio::time::Instant::now() + delay,
+        };
+
+        self.pending_response_hashes.insert(hash);
+        self.insert_pending_response_publish(pending);
     }
 
     /// Publish a `preconfBlocks` message and emit loopback event for local cache/import.
@@ -358,21 +368,8 @@ impl NetworkRuntime {
         }
     }
 
-    /// Request a block by hash via direct req/resp with gossip fallback.
-    fn request_block(&mut self, hash: B256) {
-        // Pick a random connected peer for the optimistic direct request.
-        // Randomization avoids always hammering the same peer when there are
-        // multiple connections.  The gossip fallback published below ensures
-        // the block is found even if the chosen peer does not have it.
-        let peer = self.swarm.connected_peers().choose(&mut rand::thread_rng()).copied();
-        if let Some(peer_id) = peer {
-            let request_id = self.swarm.behaviour_mut().reqresp.send_request(&peer_id, hash);
-            self.pending_requests.insert(request_id, hash);
-            record_outbound_publish("direct_request", "sent");
-        } else {
-            record_outbound_publish("direct_request", "no_peers");
-        }
-        // Also publish the request via gossip as a fallback.
+    /// Publish a `requestPreconfBlocks` message.
+    fn publish_unsafe_request(&mut self, hash: B256) {
         let payload = encode_unsafe_request_message(hash);
         if let Err(err) = self
             .swarm
@@ -391,29 +388,79 @@ impl NetworkRuntime {
         }
     }
 
-    /// Send a direct req/resp response back to a peer.
-    fn send_direct_response(
-        &mut self,
-        request_id: request_response::InboundRequestId,
-        response_bytes: Vec<u8>,
-    ) {
-        if let Some(channel) = self.response_channels.remove(&request_id) {
-            if let Err(response_bytes) =
-                self.swarm.behaviour_mut().reqresp.send_response(channel, response_bytes)
-            {
-                record_outbound_publish("direct_response", "send_failed");
-                warn!(
-                    ?request_id,
-                    len = response_bytes.len(),
-                    "failed to send direct response (channel closed)"
-                );
-            } else {
-                record_outbound_publish("direct_response", "sent");
-            }
-        } else {
-            record_outbound_publish("direct_response", "channel_missing");
-            warn!(?request_id, "no response channel found for direct response");
+    /// Return the earliest pending response deadline, if one exists.
+    fn next_pending_response_deadline(&self) -> Option<tokio::time::Instant> {
+        self.pending_response_publishes.front().map(|pending| pending.deadline)
+    }
+
+    /// Insert a pending response publish in deadline order.
+    fn insert_pending_response_publish(&mut self, pending: PendingResponsePublish) {
+        let index = self
+            .pending_response_publishes
+            .iter()
+            .position(|existing| existing.deadline > pending.deadline)
+            .unwrap_or(self.pending_response_publishes.len());
+        self.pending_response_publishes.insert(index, pending);
+    }
+
+    /// Publish any queued response whose deterministic deadline has elapsed.
+    async fn publish_due_responses(&mut self) -> Result<()> {
+        while self.publish_one_due_response().await? {}
+
+        Ok(())
+    }
+
+    /// Publish one queued response if the front item is ready.
+    async fn publish_one_due_response(&mut self) -> Result<bool> {
+        let Some(pending) = self.pending_response_publishes.front() else {
+            return Ok(false);
+        };
+
+        if pending.deadline > tokio::time::Instant::now() {
+            return Ok(false);
         }
+
+        let Some(pending) = self.pending_response_publishes.pop_front() else {
+            return Ok(false);
+        };
+        self.pending_response_hashes.remove(&pending.hash);
+
+        let now = Instant::now();
+        if self.inbound_validation_state.response_seen_recently(pending.hash, now) {
+            record_outbound_publish("response_preconf_blocks", "suppressed_recent_response");
+            return Ok(true);
+        }
+
+        match encode_unsafe_response_message(&pending.envelope) {
+            Ok(payload) => {
+                if let Err(err) = self
+                    .swarm
+                    .behaviour_mut()
+                    .gossipsub
+                    .publish(self.topics.preconf_response.clone(), payload)
+                {
+                    record_outbound_publish("response_preconf_blocks", "publish_failed");
+                    warn!(
+                        hash = %pending.hash,
+                        error = %err,
+                        "failed to publish whitelist preconfirmation response"
+                    );
+                } else {
+                    record_outbound_publish("response_preconf_blocks", "published");
+                    self.inbound_validation_state.mark_response_seen(pending.hash, now);
+                }
+            }
+            Err(err) => {
+                record_outbound_publish("response_preconf_blocks", "encode_failed");
+                warn!(
+                    hash = %pending.hash,
+                    error = %err,
+                    "failed to encode whitelist preconfirmation response"
+                );
+            }
+        }
+
+        Ok(true)
     }
 
     /// Handle one discovery result by dialing or disabling discovery when closed.
@@ -440,8 +487,6 @@ impl NetworkRuntime {
             &self.event_tx,
             &mut self.inbound_validation_state,
             &mut self.swarm,
-            &mut self.response_channels,
-            &mut self.pending_requests,
         )
         .await
     }
@@ -508,9 +553,9 @@ impl WhitelistNetwork {
             discovery_rx,
             dialed_addrs,
             inbound_validation_state,
+            pending_response_publishes: VecDeque::new(),
+            pending_response_hashes: HashSet::new(),
             local_peer_id_for_events: local_peer_id,
-            response_channels: HashMap::new(),
-            pending_requests: HashMap::new(),
         };
 
         let handle = tokio::spawn(async move { runtime.run().await });

@@ -1,4 +1,4 @@
-//! Inbound validation and allowlist state for the whitelist preconfirmation network.
+//! Inbound validation state for the whitelist preconfirmation network.
 
 use std::{
     collections::HashMap,
@@ -13,6 +13,8 @@ use crate::codec::{DecodedUnsafePayload, block_signing_hash, recover_signer};
 
 /// Time window for duplicate-seen hash tracking and request de-duplication.
 const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
+/// Time window for response suppression after a matching response has been observed.
+const RESPONSE_SEEN_WINDOW: Duration = Duration::from_secs(10);
 /// Maximum request-rate in requests per minute for inbound gossipsub throttling.
 const REQUEST_RATE_PER_MINUTE: f64 = 200.0;
 /// Maximum number of tokens in each per-peer request limiter bucket.
@@ -21,8 +23,6 @@ const REQUEST_RATE_MAX_TOKENS: f64 = REQUEST_RATE_PER_MINUTE;
 const REQUEST_RATE_REFILL_PER_SEC: f64 = REQUEST_RATE_PER_MINUTE / 60.0;
 /// Maximum responses accepted per epoch window.
 const MAX_RESPONSES_ACCEPTABLE: usize = 3;
-/// Maximum accepted preconfirmation payloads per execution layer height.
-const MAX_PRECONF_BLOCKS_PER_HEIGHT: usize = 10;
 /// Default bounded size for inbound dedupe and rate-limiter tracking maps.
 const PRECONF_INBOUND_LRU_CAPACITY: usize = 1000;
 
@@ -85,15 +85,21 @@ impl RateLimiter {
 #[derive(Debug, Default)]
 /// Hash tracker for seen request hashes.
 pub(crate) struct WindowedHashTracker {
+    /// Retention window used when pruning stale hashes.
+    window: Duration,
     /// Last seen timestamps for each hash.
     seen: LinkedHashMap<B256, Instant>,
 }
 
 impl WindowedHashTracker {
+    /// Construct a hash tracker with the supplied retention window.
+    pub(crate) fn new(window: Duration) -> Self {
+        Self { window, seen: LinkedHashMap::new() }
+    }
+
     /// Returns true when the hash was already seen inside the window.
     pub(crate) fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
-        self.seen
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
+        self.seen.retain(|_, seen_at| now.saturating_duration_since(*seen_at) < self.window);
         self.seen.contains_key(&hash)
     }
 
@@ -105,58 +111,6 @@ impl WindowedHashTracker {
         while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
             self.seen.pop_front();
         }
-    }
-}
-
-#[derive(Debug, Default)]
-/// Per-(peer, hash) dedup tracker for direct request serving.
-///
-/// Keyed by `(PeerId, B256)` so that a request from one peer does not
-/// suppress valid concurrent requests for the same hash from other peers.
-pub(crate) struct PeerHashTracker {
-    /// Last seen timestamps for each (peer, hash) pair.
-    seen: LinkedHashMap<(PeerId, B256), Instant>,
-}
-
-impl PeerHashTracker {
-    /// Returns true when this (peer, hash) pair was already seen inside the window.
-    pub(crate) fn is_seen(&mut self, peer: PeerId, hash: B256, now: Instant) -> bool {
-        self.seen
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
-        self.seen.contains_key(&(peer, hash))
-    }
-
-    /// Record a (peer, hash) pair as seen at the given instant.
-    pub(crate) fn mark(&mut self, peer: PeerId, hash: B256, now: Instant) {
-        self.seen.remove(&(peer, hash));
-        self.seen.insert((peer, hash), now);
-
-        while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen.pop_front();
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-/// Height-window tracker for deduping payload hash per block height.
-pub(crate) struct HeightSeenTracker {
-    /// Seen hashes keyed by block height.
-    pub(crate) seen_by_height: LinkedHashMap<u64, Vec<B256>>,
-}
-
-impl HeightSeenTracker {
-    /// Whether another hash can be accepted for the supplied block height.
-    pub(crate) fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if self.seen_by_height.get(&height).is_some_and(|hashes| hashes.len() > max_per_height) {
-            return false;
-        }
-
-        self.seen_by_height.entry(height).or_insert(Vec::new()).push(hash);
-        if self.seen_by_height.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen_by_height.pop_front();
-        }
-
-        true
     }
 }
 
@@ -192,42 +146,38 @@ impl EpochSeenTracker {
 pub(crate) struct GossipsubInboundState {
     /// Chain ID for envelope signature domain.
     chain_id: u64,
-    /// Explicit sequencer allowlist configured from CLI.
-    sequencer_addresses: Vec<Address>,
-    /// Whether to bypass sequencer allowlist checks.
-    allow_all_sequencers: bool,
     /// Request-ratelimiter for `requestPreconfBlocks`.
     request_rate: RateLimiter,
     /// Duplicate filter for request payload hashes.
     request_seen: WindowedHashTracker,
+    /// Duplicate filter for response payload hashes.
+    response_seen: WindowedHashTracker,
     /// EOS request limiter per peer.
     eos_rate: RateLimiter,
     /// EOS duplicate filter by epoch.
     eos_seen: EpochSeenTracker,
-    /// Deduplication by payload height for preconfirmation messages.
-    pub(crate) preconf_seen_by_height: HeightSeenTracker,
-    /// Deduplication by payload height for responses.
-    response_seen_by_height: HeightSeenTracker,
 }
 
 impl GossipsubInboundState {
+    /// Construct inbound state with signature-domain and dedupe/rate-limit tracking only.
+    pub(crate) fn new(chain_id: u64) -> Self {
+        Self {
+            chain_id,
+            request_rate: RateLimiter::default(),
+            request_seen: WindowedHashTracker::new(REQUEST_SEEN_WINDOW),
+            response_seen: WindowedHashTracker::new(RESPONSE_SEEN_WINDOW),
+            eos_rate: RateLimiter::default(),
+            eos_seen: EpochSeenTracker::default(),
+        }
+    }
+
     /// Construct inbound state from p2p config with optional allow-all bypass.
     pub(crate) fn new_with_allow_all_sequencers(
         chain_id: u64,
-        sequencer_addresses: Vec<Address>,
-        allow_all_sequencers: bool,
+        _sequencer_addresses: Vec<Address>,
+        _allow_all_sequencers: bool,
     ) -> Self {
-        Self {
-            chain_id,
-            sequencer_addresses,
-            allow_all_sequencers,
-            request_rate: RateLimiter::default(),
-            request_seen: WindowedHashTracker::default(),
-            eos_rate: RateLimiter::default(),
-            eos_seen: EpochSeenTracker::default(),
-            preconf_seen_by_height: HeightSeenTracker::default(),
-            response_seen_by_height: HeightSeenTracker::default(),
-        }
+        Self::new(chain_id)
     }
 
     /// Validate a `requestPreconfBlocks` message.
@@ -287,17 +237,14 @@ impl GossipsubInboundState {
         payload_bytes: &[u8],
     ) -> gossipsub::MessageAcceptance {
         let prehash = block_signing_hash(self.chain_id, payload_bytes);
-        let signer = match recover_signer(prehash, wire_signature) {
-            Ok(signer) => signer,
-            Err(_) => return gossipsub::MessageAcceptance::Reject,
-        };
-
-        self.validate_signer(signer)
+        match recover_signer(prehash, wire_signature) {
+            Ok(_) => gossipsub::MessageAcceptance::Accept,
+            Err(_) => gossipsub::MessageAcceptance::Reject,
+        }
     }
 
     /// Checks basic response envelope shape: non-empty transactions, non-zero
-    /// fee recipient, and non-zero block number. Used by both the gossip and
-    /// direct reqresp validation paths.
+    /// fee recipient, and non-zero block number.
     pub(crate) fn validate_response_shape(
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
     ) -> bool {
@@ -306,11 +253,7 @@ impl GossipsubInboundState {
             envelope.execution_payload.block_number != 0
     }
 
-    /// Verifies that the envelope carries a valid signature from an allowed sequencer.
-    ///
-    /// This is the signer-only subset of [`validate_response`] and is used by the
-    /// direct reqresp path to reject forged responses at the network layer before
-    /// they reach the importer.
+    /// Verifies that the envelope carries a valid cryptographic signature.
     pub(crate) fn verify_envelope_signer(
         &self,
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
@@ -322,12 +265,7 @@ impl GossipsubInboundState {
         let prehash =
             block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
 
-        let signer = match recover_signer(prehash, &signature) {
-            Ok(signer) => signer,
-            Err(_) => return false,
-        };
-
-        matches!(self.validate_signer(signer), gossipsub::MessageAcceptance::Accept)
+        recover_signer(prehash, &signature).is_ok()
     }
 
     /// Validate payload fields and per-height uniqueness.
@@ -339,17 +277,10 @@ impl GossipsubInboundState {
             return gossipsub::MessageAcceptance::Reject;
         }
 
-        let height = payload.envelope.execution_payload.block_number;
-        let hash = payload.envelope.execution_payload.block_hash;
-
-        if !self.preconf_seen_by_height.can_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
         gossipsub::MessageAcceptance::Accept
     }
 
-    /// Validate a response payload including signature and signer authorization.
+    /// Validate a response payload including signature and basic payload shape.
     pub(crate) fn validate_response(
         &mut self,
         envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
@@ -358,23 +289,16 @@ impl GossipsubInboundState {
             return gossipsub::MessageAcceptance::Reject;
         }
 
-        let height = envelope.execution_payload.block_number;
-        let hash = envelope.execution_payload.block_hash;
-        if !self.response_seen_by_height.can_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
         gossipsub::MessageAcceptance::Accept
     }
 
-    /// Validate a recovered signer against the static sequencer allowlist.
-    fn validate_signer(&self, signer: Address) -> gossipsub::MessageAcceptance {
-        if self.allow_all_sequencers {
-            return gossipsub::MessageAcceptance::Accept;
-        }
-        if self.sequencer_addresses.contains(&signer) {
-            return gossipsub::MessageAcceptance::Accept;
-        }
-        gossipsub::MessageAcceptance::Reject
+    /// Record that a matching `responsePreconfBlocks` payload hash has been observed.
+    pub(crate) fn mark_response_seen(&mut self, hash: B256, now: Instant) {
+        self.response_seen.mark(hash, now);
+    }
+
+    /// Return true when a matching `responsePreconfBlocks` payload hash was seen recently.
+    pub(crate) fn response_seen_recently(&mut self, hash: B256, now: Instant) -> bool {
+        self.response_seen.is_seen(hash, now)
     }
 }

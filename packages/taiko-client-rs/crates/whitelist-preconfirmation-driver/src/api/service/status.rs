@@ -9,10 +9,10 @@ where
     /// Build the current status snapshot served by the REST `/status` route.
     pub(super) async fn get_status_snapshot(&self) -> Result<WhitelistStatus> {
         let head_l1_origin = self.rpc.head_l1_origin().await?;
-        let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
+        let highest_unsafe = self.shared_state.highest_unsafe_block_number().await;
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
-            .cache_state
+            .shared_state
             .end_of_sequencing_for_epoch(current_epoch)
             .await
             .map(|hash| hash.to_string());
