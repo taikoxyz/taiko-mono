@@ -113,7 +113,7 @@ func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
 	s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
-	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big0)
+	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
 	s.Nil(err)
 }
 
@@ -217,9 +217,7 @@ func (s *ClientTestSuite) SetL1Snapshot() string {
 }
 
 func (s *ClientTestSuite) ensureActivePreconfOperator() {
-	if s.RPCClient.ShastaClients.PreconfWhitelist == nil {
-		return
-	}
+	s.NotNil(s.RPCClient.ShastaClients.PreconfWhitelist)
 
 	expected := crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey)
 	operator, err := s.RPCClient.GetPreconfWhiteListOperator(nil)

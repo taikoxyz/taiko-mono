@@ -406,13 +406,15 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	anchorBlock *types.Header,
 	proposed *shastaBindings.ShastaInboxClientProposed,
 ) {
+	s.Equal(0, proposed.Id.Cmp(common.Big1))
+
 	baseFee, err := s.RPCClient.CalculateBaseFeeShasta(ctx, parent)
 	s.Nil(err)
 
 	anchorConstructor, err := anchortxconstructor.New(s.RPCClient)
 	s.Nil(err)
 
-	blockID := common.Big1
+	blockID := proposed.Id
 	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
 		ctx,
 		parent,
