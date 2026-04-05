@@ -47,8 +47,8 @@ func (testProtocolConfigs) MaxProposals() uint64 {
 	return 6
 }
 
-func (testProtocolConfigs) ProvingWindow() (time.Duration, error) {
-	return 8 * time.Second, nil
+func (testProtocolConfigs) ProvingWindow() time.Duration {
+	return 8 * time.Second
 }
 
 func (testProtocolConfigs) MaxBlocksPerBatch() int {

@@ -17,7 +17,7 @@ type ProtocolConfigs interface {
 	LivenessBond() *big.Int
 	LivenessBondPerBlock() *big.Int
 	MaxProposals() uint64
-	ProvingWindow() (time.Duration, error)
+	ProvingWindow() time.Duration
 	MaxBlocksPerBatch() int
 	MaxAnchorHeightOffset() uint64
 }
@@ -29,18 +29,9 @@ func ReportProtocolConfigs(configs ProtocolConfigs) {
 		"LivenessBond", utils.WeiToEther(configs.LivenessBond()),
 		"LivenessBondPerBlock", utils.WeiToEther(configs.LivenessBondPerBlock()),
 		"MaxProposals", configs.MaxProposals(),
-		"ProvingWindow", mustProvingWindow(configs),
+		"ProvingWindow", configs.ProvingWindow(),
 		"MaxBlocksPerBatch", configs.MaxBlocksPerBatch(),
 	)
-}
-
-func mustProvingWindow(configs ProtocolConfigs) time.Duration {
-	provingWindow, err := configs.ProvingWindow()
-	if err != nil {
-		return 0
-	}
-
-	return provingWindow
 }
 
 // ShastaProtocolConfigs is the configuration for the Shasta protocol.
@@ -73,8 +64,8 @@ func (c *ShastaProtocolConfigs) MaxProposals() uint64 {
 }
 
 // ProvingWindow implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) ProvingWindow() (time.Duration, error) {
-	return time.Duration(c.configs.ProvingWindow.Uint64()) * time.Second, nil
+func (c *ShastaProtocolConfigs) ProvingWindow() time.Duration {
+	return time.Duration(c.configs.ProvingWindow.Uint64()) * time.Second
 }
 
 // MaxBlocksPerBatch implements the ProtocolConfigs interface.
