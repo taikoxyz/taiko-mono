@@ -348,6 +348,16 @@ func SendDynamicFeeTx(
 
 func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	ctx := context.Background()
+	head, err := s.RPCClient.L2.HeaderByNumber(ctx, nil)
+	s.Nil(err)
+
+	if head.Number.Cmp(common.Big1) >= 0 {
+		s.SetHead(common.Big1)
+		_, err = s.RPCClient.L2Engine.SetHeadL1Origin(ctx, common.Big1)
+		s.Nil(err)
+		return
+	}
+
 	s.L1Mine()
 
 	txCandidate, err := builder.NewBlobTransactionBuilder(
@@ -373,7 +383,10 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	s.NotNil(proposed)
 	s.Equal(0, proposed.Id.Cmp(common.Big1))
 
-	anchorBlock, err := s.RPCClient.L1.HeaderByHash(ctx, proposed.Raw.BlockHash)
+	anchorBlock, err := s.RPCClient.L1.HeaderByNumber(
+		ctx,
+		new(big.Int).Sub(new(big.Int).SetUint64(proposed.Raw.BlockNumber), common.Big1),
+	)
 	s.Nil(err)
 
 	s.insertBaseShastaBlock(ctx, anchorBlock, proposed)
@@ -383,7 +396,7 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 	// one-proposal-per-L1-block guard.
 	s.L1Mine()
 
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Zero(head.Number.Cmp(common.Big1))
 }

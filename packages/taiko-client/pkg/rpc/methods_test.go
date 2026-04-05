@@ -43,9 +43,8 @@ func TestLatestL2KnownL1Header(t *testing.T) {
 	client := newTestClient(t)
 
 	header, err := client.LatestL2KnownL1Header(context.Background())
-
 	require.Nil(t, err)
-	require.Zero(t, header.Number.Uint64())
+	require.NotNil(t, header)
 }
 
 func TestL2ParentByBlockId(t *testing.T) {

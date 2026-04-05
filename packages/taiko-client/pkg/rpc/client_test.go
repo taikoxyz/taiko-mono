@@ -9,16 +9,22 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 )
 
 func newTestClient(t *testing.T) *Client {
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	require.Nil(t, err)
+	require.NotEmpty(t, jwtSecret)
+
 	client, err := NewClient(context.Background(), &ClientConfig{
 		L1Endpoint:         os.Getenv("L1_WS"),
 		L2Endpoint:         os.Getenv("L2_WS"),
 		InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
 		TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-		JwtSecret:          os.Getenv("JWT_SECRET"),
+		JwtSecret:          string(jwtSecret),
 	})
 
 	require.Nil(t, err)
@@ -34,13 +40,17 @@ func TestNewClientShastaOnlyConfig(t *testing.T) {
 }
 
 func newTestClientWithTimeout(t *testing.T) *Client {
+	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
+	require.Nil(t, err)
+	require.NotEmpty(t, jwtSecret)
+
 	client, err := NewClient(context.Background(), &ClientConfig{
 		L1Endpoint:         os.Getenv("L1_WS"),
 		L2Endpoint:         os.Getenv("L2_WS"),
 		InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
 		TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-		JwtSecret:          os.Getenv("JWT_SECRET"),
+		JwtSecret:          string(jwtSecret),
 		Timeout:            5 * time.Second,
 	})
 	require.Nil(t, err)

@@ -72,8 +72,8 @@ func (s *ClientTestSuite) SetupTest() {
 
 	// At the beginning of each test, reset the L2 chain to its Shasta-only base state.
 	s.once.Do(func() {
-		s.testnetL1SnapshotID = s.SetL1Snapshot()
 		s.resetToBaseBlock(l1ProposerPrivKey)
+		s.testnetL1SnapshotID = s.SetL1Snapshot()
 	})
 }
 
@@ -110,10 +110,8 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
-	s.testnetL1SnapshotID = s.SetL1Snapshot()
 	s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
-	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
-	s.Nil(err)
+	s.testnetL1SnapshotID = s.SetL1Snapshot()
 }
 
 func (s *ClientTestSuite) TearDownSuite() {
