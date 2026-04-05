@@ -59,7 +59,7 @@ func TestL2ParentByBlockId(t *testing.T) {
 
 	_, err = client.L2ParentByCurrentBlockID(
 		context.Background(),
-		new(big.Int).Add(l2Head.Number, big.NewInt(2)),
+		new(big.Int).Add(l2Head.Number, common.Big256),
 	)
 	require.ErrorContains(t, err, "not found")
 }
