@@ -34,28 +34,28 @@ func ReportProtocolConfigs(configs ProtocolConfigs) {
 	)
 }
 
-// ShastaProtocolConfigs is the configuration for the Shasta protocol.
-type ShastaProtocolConfigs struct {
+// InboxProtocolConfigs is the configuration for the Shasta protocol.
+type InboxProtocolConfigs struct {
 	configs *shastaBindings.IInboxConfig
 }
 
-// NewShastaProtocolConfigs creates a new ShastaProtocolConfigs instance.
-func NewShastaProtocolConfigs(configs *shastaBindings.IInboxConfig) *ShastaProtocolConfigs {
-	return &ShastaProtocolConfigs{configs: configs}
+// NewInboxProtocolConfigs creates a new InboxProtocolConfigs instance.
+func NewInboxProtocolConfigs(configs *shastaBindings.IInboxConfig) *InboxProtocolConfigs {
+	return &InboxProtocolConfigs{configs: configs}
 }
 
 // LivenessBond implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) LivenessBond() *big.Int {
+func (c *InboxProtocolConfigs) LivenessBond() *big.Int {
 	return new(big.Int).SetUint64(c.configs.LivenessBond)
 }
 
 // LivenessBondPerBlock implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) LivenessBondPerBlock() *big.Int {
+func (c *InboxProtocolConfigs) LivenessBondPerBlock() *big.Int {
 	return common.Big0
 }
 
 // MaxProposals implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) MaxProposals() uint64 {
+func (c *InboxProtocolConfigs) MaxProposals() uint64 {
 	if c.configs.RingBufferSize == nil || c.configs.RingBufferSize.Cmp(common.Big0) <= 0 {
 		return 0
 	}
@@ -64,16 +64,16 @@ func (c *ShastaProtocolConfigs) MaxProposals() uint64 {
 }
 
 // ProvingWindow implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) ProvingWindow() time.Duration {
+func (c *InboxProtocolConfigs) ProvingWindow() time.Duration {
 	return time.Duration(c.configs.ProvingWindow.Uint64()) * time.Second
 }
 
 // MaxBlocksPerBatch implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) MaxBlocksPerBatch() int {
+func (c *InboxProtocolConfigs) MaxBlocksPerBatch() int {
 	return manifest.ProposalMaxBlocks
 }
 
 // MaxAnchorHeightOffset implements the ProtocolConfigs interface.
-func (c *ShastaProtocolConfigs) MaxAnchorHeightOffset() uint64 {
+func (c *InboxProtocolConfigs) MaxAnchorHeightOffset() uint64 {
 	return 0
 }

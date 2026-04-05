@@ -27,7 +27,7 @@ func (h *BatchesProvedEventHandler) Handle(
 	ctx context.Context,
 	e *shastaBindings.ShastaInboxClientProved,
 ) error {
-	coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := h.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}

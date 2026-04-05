@@ -1116,7 +1116,7 @@ func (s *PreconfBlockAPIServer) LatestSeenProposalEventLoop(ctx context.Context)
 			log.Info("Stopping latest batch seen event loop")
 			return
 		case proposal := <-s.latestSeenProposalCh:
-			s.recordLatestSeenProposalShasta(proposal)
+			s.recordLatestSeenProposal(proposal)
 		case <-ticker.C:
 			s.monitorLatestProposalOnChain(ctx)
 		}
@@ -1130,11 +1130,11 @@ func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context
 		return
 	}
 
-	s.monitorShastaProposalOnChain(ctx, proposal)
+	s.monitorProposalOnChain(ctx, proposal)
 }
 
-// monitorShastaProposalOnChain monitors Shasta proposals for reorgs.
-func (s *PreconfBlockAPIServer) monitorShastaProposalOnChain(ctx context.Context, proposal *encoding.LastSeenProposal) {
+// monitorProposalOnChain monitors Shasta proposals for reorgs.
+func (s *PreconfBlockAPIServer) monitorProposalOnChain(ctx context.Context, proposal *encoding.LastSeenProposal) {
 	header, err := s.rpc.L1.HeaderByNumber(ctx, proposal.GetRawBlockHeight())
 	if err != nil {
 		log.Error("Failed to get L1 header for shasta proposal", "blockNumber", proposal.GetRawBlockHeight(), "err", err)
@@ -1142,21 +1142,21 @@ func (s *PreconfBlockAPIServer) monitorShastaProposalOnChain(ctx context.Context
 	}
 	// Check for reorg and handle it
 	if header.Hash() != proposal.GetRawBlockHash() {
-		s.handleShastaProposalReorg(ctx, proposal.GetProposalID())
+		s.handleProposalReorg(ctx, proposal.GetProposalID())
 	}
 }
 
-// handleShastaProposalReorg handles reorg detection for Shasta proposals.
-func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, latestSeenProposalID *big.Int) {
+// handleProposalReorg handles reorg detection for Shasta proposals.
+func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestSeenProposalID *big.Int) {
 	log.Warn("Shasta proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
 
-	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		log.Error("Failed to get core state from inbox", "err", err)
 		return
 	}
 
-	recordedProposal, eventLog, err := s.rpc.GetProposalByIDShasta(
+	recordedProposal, eventLog, err := s.rpc.GetProposalByID(
 		ctx,
 		new(big.Int).Sub(coreState.NextProposalId, common.Big1),
 	)
@@ -1190,7 +1190,7 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 		return
 	}
 
-	s.recordLatestSeenProposalShasta(&encoding.LastSeenProposal{
+	s.recordLatestSeenProposal(&encoding.LastSeenProposal{
 		TaikoProposalMetaData: metadata.NewTaikoProposalMetadataShasta(
 			&shastaBindings.ShastaInboxClientProposed{
 				Id:                             recordedProposal.Id,
@@ -1207,8 +1207,8 @@ func (s *PreconfBlockAPIServer) handleShastaProposalReorg(ctx context.Context, l
 	})
 }
 
-// recordLatestSeenProposalShasta records the latest seen proposal.
-func (s *PreconfBlockAPIServer) recordLatestSeenProposalShasta(proposal *encoding.LastSeenProposal) {
+// recordLatestSeenProposal records the latest seen proposal.
+func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

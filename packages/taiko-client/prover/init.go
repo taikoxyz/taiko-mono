@@ -95,12 +95,12 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		}
 	}
 
-	if p.proofSubmitterShasta, err = proofSubmitter.NewProofSubmitterShasta(
+	if p.proofSubmitter, err = proofSubmitter.NewProofSubmitter(
 		p.ctx,
 		sgxRethProducer,
 		zkvmProducer,
 		p.batchProofGenerationCh,
-		p.batchesAggregationNotifyShasta,
+		p.batchesAggregationNotify,
 		p.proofSubmissionCh,
 		&proofSubmitter.SenderOptions{
 			RPCClient:    p.rpc,
@@ -128,7 +128,7 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 		return err
 	}
 
-	coreState, err := p.rpc.GetCoreStateShasta(&bind.CallOpts{Context: p.ctx})
+	coreState, err := p.rpc.GetCoreState(&bind.CallOpts{Context: p.ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
@@ -164,7 +164,7 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 		return nil
 	}
 
-	_, eventLog, err := p.rpc.GetProposalByIDShasta(p.ctx, startingBatchID)
+	_, eventLog, err := p.rpc.GetProposalByID(p.ctx, startingBatchID)
 	if err != nil {
 		return fmt.Errorf("failed to get proposal by ID %d: %w", startingBatchID, err)
 	}

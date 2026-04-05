@@ -1,5 +1,5 @@
 package prover
 
 func (s *ProverTestSuite) TestInitUsesShastaSubmitterOnly() {
-	s.NotNil(s.p.proofSubmitterShasta)
+	s.NotNil(s.p.proofSubmitter)
 }

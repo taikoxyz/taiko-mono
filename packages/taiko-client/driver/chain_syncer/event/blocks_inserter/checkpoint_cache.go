@@ -130,10 +130,10 @@ func getCheckpointCache() *checkpointCache {
 // valid for the chain context behind that client.
 func getShastaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpoint, error) {
 	return getCheckpointCache().getOrFetch(ctx, func(ctx context.Context) (*verifiedCheckpoint, error) {
-		return tryLastFinalizedCheckpointShasta(
+		return tryLastFinalizedCheckpoint(
 			ctx,
 			nil,
-			cli.GetCoreStateShasta,
+			cli.GetCoreState,
 			cli.L2Engine.LastBlockIDByBatchID,
 			cli.L2.HeaderByNumber,
 		)

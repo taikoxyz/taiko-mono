@@ -106,16 +106,16 @@ func assembleBatchProposedIteratorCallback(
 			lastShastaBatchID uint64
 		)
 
-		iterShasta, err := rpcClient.ShastaClients.Inbox.FilterProposed(
+		iter, err := rpcClient.ShastaClients.Inbox.FilterProposed(
 			&bind.FilterOpts{Start: start.Number.Uint64(), End: &endHeight, Context: ctx}, nil, nil,
 		)
 		if err != nil {
 			return err
 		}
-		defer iterShasta.Close()
+		defer iter.Close()
 
-		for iterShasta.Next() {
-			event := iterShasta.Event
+		for iter.Next() {
+			event := iter.Event
 
 			header, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
 			if err != nil {
@@ -163,9 +163,9 @@ func assembleBatchProposedIteratorCallback(
 			updateCurrentFunc(current)
 		}
 
-		// Check if there is any error during the Shasta iteration.
-		if iterShasta.Error() != nil {
-			return iterShasta.Error()
+		// Check if there is any error during the iteration.
+		if iter.Error() != nil {
+			return iter.Error()
 		}
 
 		return nil

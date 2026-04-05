@@ -54,12 +54,12 @@ type Prover struct {
 	eventHandlers *eventHandlers
 
 	// Proof submitters
-	proofSubmitterShasta proofSubmitter.Submitter
+	proofSubmitter proofSubmitter.Submitter
 
-	assignmentExpiredCh            chan metadata.TaikoProposalMetaData
-	proveNotify                    chan struct{}
-	batchesAggregationNotifyShasta chan proofProducer.ProofType
-	flushCacheNotify               chan proofProducer.ProofType
+	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
+	proveNotify              chan struct{}
+	batchesAggregationNotify chan proofProducer.ProofType
+	flushCacheNotify         chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -120,7 +120,7 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.batchesAggregationNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 	p.flushCacheNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
 	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
@@ -206,15 +206,15 @@ func (p *Prover) eventLoop() {
 
 	// Channels
 	chBufferSize := p.protocolConfigs.MaxProposals()
-	shastaProposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
-	shastaProvedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
+	proposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
+	provedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
 
 	// Subscriptions
-	shastaProposedSub := rpc.SubscribeProposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
-	shastaProvedSub := rpc.SubscribeProvedShasta(p.rpc.ShastaClients.Inbox, shastaProvedCh)
+	proposedSub := rpc.SubscribeProposed(p.rpc.ShastaClients.Inbox, proposedCh)
+	provedSub := rpc.SubscribeProved(p.rpc.ShastaClients.Inbox, provedCh)
 	defer func() {
-		shastaProposedSub.Unsubscribe()
-		shastaProvedSub.Unsubscribe()
+		proposedSub.Unsubscribe()
+		provedSub.Unsubscribe()
 	}()
 
 	for {
@@ -232,15 +232,15 @@ func (p *Prover) eventLoop() {
 			if err := p.proveOp(); err != nil {
 				log.Error("Prove new blocks error", "error", err)
 			}
-		case proofType := <-p.batchesAggregationNotifyShasta:
+		case proofType := <-p.batchesAggregationNotify:
 			p.withRetry(func() error { return p.aggregateOp(proofType) }, nil)
 		case proofType := <-p.flushCacheNotify:
-			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) }, nil)
+			p.withRetry(func() error { return p.proofSubmitter.FlushCache(p.ctx, proofType) }, nil)
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) }, nil)
-		case <-shastaProposedCh:
+		case <-proposedCh:
 			reqProving()
-		case e := <-shastaProvedCh:
+		case e := <-provedCh:
 			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.Handle(p.ctx, e) }, nil)
 		case <-forceProvingTicker.C:
 			reqProving()
@@ -271,7 +271,7 @@ func (p *Prover) proveOp() error {
 
 // aggregateOp aggregates all proofs in buffer.
 func (p *Prover) aggregateOp(proofType proofProducer.ProofType) error {
-	err := p.proofSubmitterShasta.AggregateProofsByType(p.ctx, proofType)
+	err := p.proofSubmitter.AggregateProofsByType(p.ctx, proofType)
 	if err != nil {
 		log.Error("Failed to aggregate proofs", "error", err, "proofType", proofType)
 		return err
@@ -281,7 +281,7 @@ func (p *Prover) aggregateOp(proofType proofProducer.ProofType) error {
 
 // requestProofOp requests a new proof generation operation.
 func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
-	return p.proofSubmitterShasta.RequestProof(p.ctx, meta)
+	return p.proofSubmitter.RequestProof(p.ctx, meta)
 }
 
 // submitProofAggregationOp performs a batch proof submission operation.
@@ -342,10 +342,10 @@ func (p *Prover) getSubmitter(batchProof *proofProducer.BatchProofs) (proofSubmi
 	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
 		return nil, fmt.Errorf("empty batch proof")
 	}
-	if p.proofSubmitterShasta == nil {
+	if p.proofSubmitter == nil {
 		return nil, fmt.Errorf("submitter not found: %s", batchProof.ProofType)
 	}
-	return p.proofSubmitterShasta, nil
+	return p.proofSubmitter, nil
 }
 
 // Name returns the application name.

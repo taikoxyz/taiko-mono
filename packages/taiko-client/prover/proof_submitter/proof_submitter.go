@@ -34,9 +34,9 @@ type SenderOptions struct {
 	GasLimit     uint64
 }
 
-// ProofSubmitterShasta is responsible requesting proofs for the given L2
+// ProofSubmitter is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
-type ProofSubmitterShasta struct {
+type ProofSubmitter struct {
 	rpc *rpc.Client
 	// Proof producers
 	baseLevelProofProducer proofProducer.ProofProducer
@@ -60,8 +60,8 @@ type ProofSubmitterShasta struct {
 	proposalWindowSize        *big.Int
 }
 
-// NewProofSubmitterShasta creates a new Shasta ProofSubmitter instance.
-func NewProofSubmitterShasta(
+// NewProofSubmitter creates a new Shasta ProofSubmitter instance.
+func NewProofSubmitter(
 	ctx context.Context,
 	baseLevelProofProducer proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
@@ -76,8 +76,8 @@ func NewProofSubmitterShasta(
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
 	proposalWindowSize *big.Int,
-) (*ProofSubmitterShasta, error) {
-	proofSubmitter := &ProofSubmitterShasta{
+) (*ProofSubmitter, error) {
+	proofSubmitter := &ProofSubmitter{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProofProducer,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -106,14 +106,14 @@ func NewProofSubmitterShasta(
 
 // startBackgroundWorkers launches goroutines that monitor proof buffers and
 // prune cached proofs; should only run once during initialization.
-func (s *ProofSubmitterShasta) startBackgroundWorkers(ctx context.Context) {
+func (s *ProofSubmitter) startBackgroundWorkers(ctx context.Context) {
 	log.Info("Starting background workers for Shasta", "interval", monitorInterval)
 	startProofBufferMonitors(ctx, s.proofBuffers, s.TryAggregate)
 	startCacheCleanUpAndFlush(ctx, s.rpc, s.proofCacheMaps, s.flushCacheNotify)
 }
 
 // RequestProof requests proof for the given Taiko batch.
-func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
+func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	// Wait for the last block to be inserted at first.
 	header, err := s.rpc.WaitProposalHeader(ctx, meta.Shasta().GetEventData().Id)
 	if err != nil {
@@ -124,7 +124,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 		)
 	}
 
-	lastOriginInLastProposal, err := s.rpc.LastL1OriginInProposalShasta(
+	lastOriginInLastProposal, err := s.rpc.LastL1OriginInProposal(
 		ctx,
 		new(big.Int).Sub(meta.Shasta().GetEventData().Id, common.Big1),
 	)
@@ -184,7 +184,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 			log.Error("Failed to request proof, context is canceled", "proposalID", opts.ProposalID, "error", ctx.Err())
 			return nil
 		}
-		coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}
@@ -270,7 +270,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 
 // isProposalOutOfRange checks whether proposalID is outside the configured proving window.
 // Valid range is [lastFinalizedProposalID + 1, lastFinalizedProposalID + proposalWindowSize].
-func (s *ProofSubmitterShasta) isProposalOutOfRange(
+func (s *ProofSubmitter) isProposalOutOfRange(
 	proposalID *big.Int,
 	lastFinalizedProposalID *big.Int,
 ) bool {
@@ -283,7 +283,7 @@ func (s *ProofSubmitterShasta) isProposalOutOfRange(
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.
-func (s *ProofSubmitterShasta) handleProofResponse(
+func (s *ProofSubmitter) handleProofResponse(
 	meta metadata.TaikoProposalMetaData,
 	fromID *big.Int,
 	proofResponse *proofProducer.ProofResponse,
@@ -335,7 +335,7 @@ func (s *ProofSubmitterShasta) handleProofResponse(
 }
 
 // BatchSubmitProofs submits the given batch proofs to the inbox contract.
-func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
+func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
 		"Batch submit Shasta proposal proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
@@ -399,7 +399,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 }
 
 // ClearProofBuffers removes the submitted proof items from the Shasta proof buffer.
-func (s *ProofSubmitterShasta) ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error {
+func (s *ProofSubmitter) ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error {
 	if err := clearProofBufferItems(s.proofBuffers, batchProof); err != nil {
 		return err
 	}
@@ -414,7 +414,7 @@ func (s *ProofSubmitterShasta) ClearProofBuffers(batchProof *proofProducer.Batch
 
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
 // or the forced aggregation interval has passed.
-func (s *ProofSubmitterShasta) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
+func (s *ProofSubmitter) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
 	// Check conditions first (without locking)
 	if uint64(buffer.Len()) < buffer.MaxLength &&
 		(buffer.Len() == 0 || time.Since(buffer.FirstItemAt()) <= s.forceBatchProvingInterval) {
@@ -429,7 +429,7 @@ func (s *ProofSubmitterShasta) TryAggregate(buffer *proofProducer.ProofBuffer, p
 }
 
 // AggregateProofsByType aggregates proofs of the specified type and submits them in a batch.
-func (s *ProofSubmitterShasta) AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error {
+func (s *ProofSubmitter) AggregateProofsByType(ctx context.Context, proofType proofProducer.ProofType) error {
 	proofBuffer, exist := s.proofBuffers[proofType]
 	if !exist {
 		return fmt.Errorf("failed to get expected proof type: %s", proofType)
@@ -494,7 +494,7 @@ func (s *ProofSubmitterShasta) AggregateProofsByType(ctx context.Context, proofT
 
 // validateBatchProofs validates the batch proofs before submitting them to the L1 chain,
 // returns the invalid proposal IDs.
-func (s *ProofSubmitterShasta) validateBatchProofs(
+func (s *ProofSubmitter) validateBatchProofs(
 	ctx context.Context,
 	batchProof *proofProducer.BatchProofs,
 ) ([]uint64, error) {
@@ -505,7 +505,7 @@ func (s *ProofSubmitterShasta) validateBatchProofs(
 	}
 
 	// Fetch the latest verified proposal ID.
-	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
@@ -531,7 +531,7 @@ func (s *ProofSubmitterShasta) validateBatchProofs(
 
 // ValidateProof checks if the proof's corresponding L1 block is still in the canonical chain and if the
 // latest verified head is not ahead of this block proof.
-func (s *ProofSubmitterShasta) ValidateProof(
+func (s *ProofSubmitter) ValidateProof(
 	ctx context.Context,
 	proofResponse *proofProducer.ProofResponse,
 	latestVerifiedID *big.Int,
@@ -571,12 +571,12 @@ func (s *ProofSubmitterShasta) ValidateProof(
 }
 
 // WaitTransitionVerified waits until the given transition ID is verified on L1.
-func (s *ProofSubmitterShasta) WaitTransitionVerified(ctx context.Context, transitionID *big.Int) error {
+func (s *ProofSubmitter) WaitTransitionVerified(ctx context.Context, transitionID *big.Int) error {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, rpc.DefaultRpcTimeout)
 	defer cancel()
 
 	return backoff.Retry(func() error {
-		coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			log.Error("Failed to get Shasta core state", "error", err)
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
@@ -598,7 +598,7 @@ func (s *ProofSubmitterShasta) WaitTransitionVerified(ctx context.Context, trans
 	}, backoff.WithContext(backoff.NewConstantBackOff(chainiterator.DefaultRetryInterval), ctx))
 }
 
-func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofProducer.ProofType) error {
+func (s *ProofSubmitter) FlushCache(ctx context.Context, proofType proofProducer.ProofType) error {
 	buffer, exist := s.proofBuffers[proofType]
 	if !exist {
 		return fmt.Errorf("failed to get buffer with expected proof type: %s", proofType)
@@ -607,7 +607,7 @@ func (s *ProofSubmitterShasta) FlushCache(ctx context.Context, proofType proofPr
 	if !exist {
 		return fmt.Errorf("failed to get cache map with expected proof type: %s", proofType)
 	}
-	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}

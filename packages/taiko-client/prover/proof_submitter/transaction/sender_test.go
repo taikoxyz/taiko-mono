@@ -66,7 +66,7 @@ func (s *TransactionTestSuite) TestValidateProof() {
 	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
-	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	coreState, err := s.RPCClient.GetCoreState(nil)
 	s.Nil(err)
 
 	proposalID := new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)

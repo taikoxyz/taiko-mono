@@ -36,7 +36,7 @@ func (h *AssignmentExpiredEventHandler) Handle(
 ) error {
 	if meta.IsShasta() {
 		proposalID := meta.Shasta().GetEventData().Id
-		coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		coreState, err := h.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return fmt.Errorf("failed to get Shasta core state: %w", err)
 		}

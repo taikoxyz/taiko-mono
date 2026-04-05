@@ -32,7 +32,7 @@ func (s *ProverEventHandlerTestSuite) TestIsProvingWindowExpiredShasta_Remaining
 		uint64(notExpiredTs),
 	)
 
-	expired, _, remaining, err := IsProvingWindowExpiredShasta(s.RPCClient, meta)
+	expired, _, remaining, err := IsProvingWindowExpired(s.RPCClient, meta)
 	s.Nil(err)
 	s.False(expired)
 	s.True(remaining > 0)
@@ -46,7 +46,7 @@ func (s *ProverEventHandlerTestSuite) TestIsProvingWindowExpiredShasta_Remaining
 		uint64(expiredTs),
 	)
 
-	expired2, _, remaining2, err := IsProvingWindowExpiredShasta(s.RPCClient, metaExpired)
+	expired2, _, remaining2, err := IsProvingWindowExpired(s.RPCClient, metaExpired)
 	s.Nil(err)
 	s.True(expired2)
 	s.Equal(time.Duration(0), remaining2)

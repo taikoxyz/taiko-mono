@@ -164,10 +164,10 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey
 
-	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	coreState, err := s.RPCClient.GetCoreState(nil)
 	s.Nil(err)
 	s.Equal(uint64(2), coreState.NextProposalId.Uint64())
-	payload, eventLog, err := s.RPCClient.GetProposalByIDShasta(context.Background(), common.Big1)
+	payload, eventLog, err := s.RPCClient.GetProposalByID(context.Background(), common.Big1)
 	s.Nil(err)
 	s.NotNil(payload)
 	s.NotNil(eventLog)
@@ -179,7 +179,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), meta, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
-	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotify))
 	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 
 	// Propose and prove the second Shasta proposal.
@@ -187,7 +187,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
-	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotifyShasta))
+	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotify))
 	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 }
 

@@ -31,17 +31,17 @@ import (
 // Syncer responsible for letting the L2 execution engine catching up with protocol's latest
 // pending block through deriving L1 calldata.
 type Syncer struct {
-	ctx                  context.Context
-	rpc                  *rpc.Client
-	state                *state.State
-	progressTracker      *beaconsync.SyncProgressTracker // Sync progress tracker
-	blocksInserterShasta blocksInserter.Inserter         // Shasta blocks inserter
+	ctx             context.Context
+	rpc             *rpc.Client
+	state           *state.State
+	progressTracker *beaconsync.SyncProgressTracker // Sync progress tracker
+	blocksInserter  blocksInserter.Inserter         // Blocks inserter
 
 	lastInsertedProposalID *big.Int
 	reorgDetectedFlag      bool
 
 	// Shasta derivation source fetcher
-	derivationSourceFetcher *shastaManifest.ShastaDerivationSourceFetcher
+	derivationSourceFetcher *shastaManifest.DerivationSourceFetcher
 }
 
 // NewSyncer creates a new syncer instance.
@@ -67,7 +67,7 @@ func NewSyncer(
 		rpc:             client,
 		state:           state,
 		progressTracker: progressTracker,
-		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(
+		blocksInserter: blocksInserter.NewBlocksInserter(
 			client,
 			progressTracker,
 			constructor,
@@ -153,12 +153,12 @@ func (s *Syncer) onBatchProposed(
 	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
-	return s.processShastaProposal(ctx, meta, endIter)
+	return s.processProposal(ctx, meta, endIter)
 }
 
-// processShastaProposal processes a Shasta proposal event, and tries inserting
+// processProposal processes a Shasta proposal event, and tries inserting
 // the proposed blocks to the L2 execution engine.
-func (s *Syncer) processShastaProposal(
+func (s *Syncer) processProposal(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
@@ -180,7 +180,7 @@ func (s *Syncer) processShastaProposal(
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorgShasta(ctx, meta.GetEventData().Id)
+		reorgCheckResult, err := s.checkReorg(ctx, meta.GetEventData().Id)
 		if err != nil {
 			return err
 		}
@@ -264,7 +264,7 @@ func (s *Syncer) processShastaProposal(
 
 	// Prefetch all derivation source payloads.
 	var (
-		sourcePayloads = make([]*shastaManifest.ShastaDerivationSourcePayload, len(meta.GetEventData().Sources))
+		sourcePayloads = make([]*shastaManifest.DerivationSourcePayload, len(meta.GetEventData().Sources))
 	)
 	if len(meta.GetEventData().Sources) > 0 {
 		// Fetch all derivation source payloads.
@@ -313,7 +313,7 @@ func (s *Syncer) processShastaProposal(
 				return err
 			}
 		} else {
-			latestBlockState, err := s.rpc.GetShastaAnchorState(
+			latestBlockState, err := s.rpc.GetAnchorState(
 				&bind.CallOpts{BlockHash: sourcePayload.ParentBlock.Hash(), Context: ctx},
 			)
 			if err != nil {
@@ -352,7 +352,7 @@ func (s *Syncer) processShastaProposal(
 			isForcedInclusion,
 		) {
 			sourcePayload.Default = true
-			sourcePayload.BlockPayloads = []*shastaManifest.ShastaBlockPayload{
+			sourcePayload.BlockPayloads = []*shastaManifest.BlockPayload{
 				{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
 			}
 			shastaManifest.ApplyInheritedMetadata(
@@ -371,7 +371,7 @@ func (s *Syncer) processShastaProposal(
 		}
 
 		// Insert new blocks to L2 EE's chain.
-		lastInsertedBlockID, err := s.blocksInserterShasta.InsertBlocksWithManifest(
+		lastInsertedBlockID, err := s.blocksInserter.InsertBlocksWithManifest(
 			ctx,
 			metadata,
 			sourcePayload,
@@ -394,14 +394,14 @@ func (s *Syncer) processShastaProposal(
 	return nil
 }
 
-// checkLastVerifiedBlockMismatchShasta checks if there is a mismatch between protocol's last verified block hash and
+// checkLastVerifiedBlockMismatch checks if there is a mismatch between protocol's last verified block hash and
 // the corresponding L2 EE block hash.
-func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc.ReorgCheckResult, error) {
+func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.ReorgCheckResult, error) {
 	var (
 		reorgCheckResult = new(rpc.ReorgCheckResult)
 	)
 
-	coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Shasta core state: %w", err)
 	}
@@ -438,13 +438,13 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(ctx context.Context) (*rpc
 	return reorgCheckResult, nil
 }
 
-// checkReorgShasta checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
-func (s *Syncer) checkReorgShasta(
+// checkReorg checks whether the L1 chain has been reorged, and resets the L1Current cursor if necessary.
+func (s *Syncer) checkReorg(
 	ctx context.Context,
 	proposalID *big.Int,
 ) (*rpc.ReorgCheckResult, error) {
 	// 1. Check if the verified blocks in L2 EE have been reorged.
-	reorgCheckResult, err := s.checkLastVerifiedBlockMismatchShasta(ctx)
+	reorgCheckResult, err := s.checkLastVerifiedBlockMismatch(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if the verified blocks in L2 EE have been reorged: %w", err)
 	}
@@ -466,7 +466,7 @@ func (s *Syncer) checkReorgShasta(
 	return reorgCheckResult, nil
 }
 
-// BlocksInserterShasta returns the Shasta blocks inserter.
-func (s *Syncer) BlocksInserterShasta() *blocksInserter.Shasta {
-	return s.blocksInserterShasta.(*blocksInserter.Shasta)
+// BlocksInserter returns the Shasta blocks inserter.
+func (s *Syncer) BlocksInserter() *blocksInserter.Shasta {
+	return s.blocksInserter.(*blocksInserter.Shasta)
 }

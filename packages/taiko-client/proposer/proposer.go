@@ -306,15 +306,15 @@ func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
 ) error {
-	if err := p.ProposeTxListShasta(ctx, txLists); err != nil {
+	if err := p.ProposeTxList(ctx, txLists); err != nil {
 		return err
 	}
 	p.lastProposedAt = time.Now()
 	return nil
 }
 
-// ProposeTxListShasta proposes the given transaction lists to the inbox contract.
-func (p *Proposer) ProposeTxListShasta(ctx context.Context, proposalTxLists []types.Transactions) error {
+// ProposeTxList proposes the given transaction lists to the inbox contract.
+func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Transactions) error {
 	var (
 		txs uint64
 	)
@@ -330,7 +330,7 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, proposalTxLists []ty
 	}
 
 	// Get the last proposal to ensure we are proposing a block after its NextProposalBlockId.
-	state, err := p.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	state, err := p.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get inbox core state: %w", err)
 	}
@@ -354,7 +354,7 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, proposalTxLists []ty
 	}
 
 	// Build the proposal transaction.
-	txCandidate, err := p.txBuilder.BuildShasta(ctx, proposalTxLists)
+	txCandidate, err := p.txBuilder.Build(ctx, proposalTxLists)
 	if err != nil {
 		log.Warn("Failed to build Inbox.propose transaction", "error", encoding.TryParsingCustomError(err))
 		return err

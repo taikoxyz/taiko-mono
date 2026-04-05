@@ -42,10 +42,10 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	return nil
 }
 
-// IsProvingWindowExpiredShasta returns true as the first return parameter if the assigned prover
+// IsProvingWindowExpired returns true as the first return parameter if the assigned prover
 // proving window of the given proposed block is expired, the second return parameter is the expired time,
 // and the third return parameter is the time remaining till proving window is expired.
-func IsProvingWindowExpiredShasta(
+func IsProvingWindowExpired(
 	rpc *rpc.Client,
 	metadata metadata.TaikoProposalMetaData,
 ) (bool, time.Time, time.Duration, error) {

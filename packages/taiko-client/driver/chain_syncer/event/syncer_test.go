@@ -62,7 +62,7 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	block, err := s.RPCClient.L2.BlockByNumber(ctx, nil)
 	s.Nil(err)
 
-	coreState, err := s.s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := s.s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	s.Nil(err)
 
 	txListBytes, err := rlp.EncodeToBytes(block.Transactions())

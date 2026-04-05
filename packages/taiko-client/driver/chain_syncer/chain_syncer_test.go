@@ -28,9 +28,9 @@ import (
 
 type ChainSyncerTestSuite struct {
 	testutils.ClientTestSuite
-	s                     *L2ChainSyncer
-	p                     testutils.Proposer
-	shastaProposalBuilder *builder.BlobTransactionBuilder
+	s               *L2ChainSyncer
+	p               testutils.Proposer
+	proposalBuilder *builder.BlobTransactionBuilder
 }
 
 func (s *ChainSyncerTestSuite) SetupTest() {
@@ -90,7 +90,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 	}, nil, nil))
 	s.p = prop
 
-	s.shastaProposalBuilder = builder.NewBlobTransactionBuilder(
+	s.proposalBuilder = builder.NewBlobTransactionBuilder(
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("INBOX")),
 		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -125,7 +125,7 @@ func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	s.NotZero(l1Height)
 	s.Zero(parentGasUsed)
 
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+	txCandidate, err := s.proposalBuilder.Build(
 		context.Background(),
 		[]types.Transactions{{}},
 	)
@@ -167,7 +167,7 @@ func (s *ChainSyncerTestSuite) TestShastaValidBlobs() {
 	protocolCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+	txCandidate, err := s.proposalBuilder.Build(
 		context.Background(),
 		[]types.Transactions{{}},
 	)
@@ -226,7 +226,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithMultipleBlocks() {
 	// Make the proposal block timestamp reach the final manifest block timestamp.
 	s.SetNextBlockTimestamp(l1Head.Time() + 1)
 
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+	txCandidate, err := s.proposalBuilder.Build(
 		context.Background(),
 		[]types.Transactions{{testTx1}, {testTx2}},
 	)
@@ -278,7 +278,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithOneBlobAndMultipleBlocks() 
 	// Make the proposal block timestamp reach the final manifest block timestamp.
 	s.SetNextBlockTimestamp(l1Head.Time() + uint64(batches) - 1)
 
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+	txCandidate, err := s.proposalBuilder.Build(
 		context.Background(),
 		txBatch,
 	)
@@ -319,7 +319,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalWithTooMuchBlocks() {
 		nonce++
 	}
 
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+	txCandidate, err := s.proposalBuilder.Build(
 		context.Background(),
 		txBatch,
 	)
@@ -379,7 +379,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 		},
 	}
 
-	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifest(manifest)
 	s.Nil(err)
 
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
@@ -412,7 +412,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithInvalidForcedInclusion() {
 	s.SetNextBlockTimestamp(l1Head.Time() + 1)
 	s.L1Mine()
 
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+	txCandidate, err := s.proposalBuilder.Build(
 		context.Background(),
 		[]types.Transactions{{}},
 	)
@@ -464,7 +464,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 		},
 	}
 
-	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifest(manifest)
 	s.Nil(err)
 
 	b, err := builder.SplitToBlobs(derivationSourceManifestBytes)
@@ -497,7 +497,7 @@ func (s *ChainSyncerTestSuite) TestShastaProposalsWithForcedInclusion() {
 	s.SetNextBlockTimestamp(l1Head.Time() + 1)
 	s.L1Mine()
 
-	txCandidate, err := s.shastaProposalBuilder.BuildShasta(
+	txCandidate, err := s.proposalBuilder.Build(
 		context.Background(),
 		[]types.Transactions{{}},
 	)

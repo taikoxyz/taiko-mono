@@ -416,7 +416,7 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 		}},
 	}
 
-	derivationSourceManifestBytes, err := builder.EncodeSourceManifestShasta(manifest)
+	derivationSourceManifestBytes, err := builder.EncodeSourceManifest(manifest)
 	s.Nil(err)
 
 	blobs, err := builder.SplitToBlobs(derivationSourceManifestBytes)
@@ -535,7 +535,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	anchorConstructor, err := anchortxconstructor.New(s.d.rpc)
 	s.Nil(err)
 
-	baseFee, err := s.RPCClient.CalculateBaseFeeShasta(context.Background(), l2Head1)
+	baseFee, err := s.RPCClient.CalculateBaseFee(context.Background(), l2Head1)
 	s.Nil(err)
 
 	anchorTx, err := anchorConstructor.AssembleAnchorV4Tx(
@@ -1169,10 +1169,10 @@ func (s *DriverTestSuite) insertPreconfBlock(
 		timestamp = parent.Time + 1
 	}
 
-	baseFee, err := s.RPCClient.CalculateBaseFeeShasta(context.Background(), parent)
+	baseFee, err := s.RPCClient.CalculateBaseFee(context.Background(), parent)
 	s.Nil(err)
 
-	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	coreState, err := s.RPCClient.GetCoreState(nil)
 	s.Nil(err)
 
 	inboxConfig, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)

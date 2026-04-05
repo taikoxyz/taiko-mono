@@ -71,7 +71,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 				if proposals[i].Id.Cmp(common.Big1) == 0 {
 					input.Commitment.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
 				} else {
-					lastOriginInLastProposal, err := a.rpc.LastL1OriginInProposalShasta(
+					lastOriginInLastProposal, err := a.rpc.LastL1OriginInProposal(
 						ctx,
 						new(big.Int).Sub(proposals[i].Id, common.Big1),
 					)

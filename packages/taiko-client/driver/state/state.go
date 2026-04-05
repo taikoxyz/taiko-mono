@@ -95,16 +95,16 @@ func (s *State) eventLoop(ctx context.Context) {
 
 	var (
 		// Channels for subscriptions.
-		l1HeadCh         = make(chan *types.Header, 10)
-		l2HeadCh         = make(chan *types.Header, 10)
-		proposedShastaCh = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
-		provedShastaCh   = make(chan *shastaBindings.ShastaInboxClientProved, 10)
+		l1HeadCh   = make(chan *types.Header, 10)
+		l2HeadCh   = make(chan *types.Header, 10)
+		proposedCh = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
+		provedCh   = make(chan *shastaBindings.ShastaInboxClientProved, 10)
 
 		// Subscriptions.
 		l1HeadSub           = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
 		l2HeadSub           = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2ProposedShastaSub = rpc.SubscribeProposedShasta(s.rpc.ShastaClients.Inbox, proposedShastaCh)
-		l2ProvedShastaSub   = rpc.SubscribeProvedShasta(s.rpc.ShastaClients.Inbox, provedShastaCh)
+		l2ProposedShastaSub = rpc.SubscribeProposed(s.rpc.ShastaClients.Inbox, proposedCh)
+		l2ProvedShastaSub   = rpc.SubscribeProved(s.rpc.ShastaClients.Inbox, provedCh)
 	)
 
 	defer func() {
@@ -118,8 +118,8 @@ func (s *State) eventLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case e := <-provedShastaCh:
-			coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		case e := <-provedCh:
+			coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 			if err != nil {
 				log.Error("Failed to get Shasta core state", "err", err)
 				continue
@@ -187,7 +187,7 @@ func (s *State) SubL1HeadsFeed(ch chan *types.Header) event.Subscription {
 
 // initGenesisHeight fetches the genesis height from the current protocol.
 func (s *State) initGenesisHeight(ctx context.Context) error {
-	genesisHeight, err := s.rpc.GetShastaActivationBlockNumber(ctx)
+	genesisHeight, err := s.rpc.GetActivationBlockNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta activation block number: %w", err)
 	}

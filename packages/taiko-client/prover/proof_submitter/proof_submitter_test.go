@@ -256,7 +256,7 @@ func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
 	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(1)})
 	require.NoError(t, err)
 
-	s := &ProofSubmitterShasta{
+	s := &ProofSubmitter{
 		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
 			proofProducer.ProofTypeOp: buffer,
 		},

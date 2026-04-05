@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	_ Submitter = (*ProofSubmitterShasta)(nil)
+	_ Submitter = (*ProofSubmitter)(nil)
 
 	ErrInvalidProof  = errors.New("invalid proof found")
 	ErrCacheNotFound = errors.New("cache not found")

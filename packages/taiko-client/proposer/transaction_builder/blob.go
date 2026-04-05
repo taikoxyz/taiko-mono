@@ -44,8 +44,8 @@ func NewBlobTransactionBuilder(
 	}
 }
 
-// BuildShasta implements the ProposeBatchTransactionBuilder interface.
-func (b *BlobTransactionBuilder) BuildShasta(
+// Build implements the ProposeBatchTransactionBuilder interface.
+func (b *BlobTransactionBuilder) Build(
 	ctx context.Context,
 	txBatch []types.Transactions,
 ) (*txmgr.TxCandidate, error) {
@@ -93,7 +93,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	// Encode the derivation source manifest.
-	sourceManifestBytes, err := EncodeSourceManifestShasta(derivationSourceManifest)
+	sourceManifestBytes, err := EncodeSourceManifest(derivationSourceManifest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode derivation source manifest: %w", err)
 	}
@@ -150,10 +150,10 @@ func SplitToBlobs(txListBytes []byte) ([]*eth.Blob, error) {
 	return blobs, nil
 }
 
-// EncodeSourceManifestShasta encodes the given derivation source manifest to a byte slice
+// EncodeSourceManifest encodes the given derivation source manifest to a byte slice
 // that can be used as input to the inbox propose function.
-func EncodeSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
-	sourceManifestBytes, err := utils.EncodeAndCompressSourceManifestShasta(sourceManifest)
+func EncodeSourceManifest(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
+	sourceManifestBytes, err := utils.EncodeAndCompressSourceManifest(sourceManifest)
 	if err != nil {
 		return nil, err
 	}

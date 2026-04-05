@@ -114,7 +114,7 @@ func (s *Sender) ValidateProof(
 	var verifiedID = latestVerifiedID
 	// 2. Check if latest verified head is ahead of the current proposal.
 	if verifiedID == nil {
-		coreState, err := s.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return false, err
 		}

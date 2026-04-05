@@ -26,10 +26,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// tryLastFinalizedCheckpointShasta tries to fetch the last finalized checkpoint for the given proposal ID.
+// tryLastFinalizedCheckpoint tries to fetch the last finalized checkpoint for the given proposal ID.
 // If the last finalized checkpoint is found and valid, it returns the checkpoint, otherwise it returns nil without
 // error.
-func tryLastFinalizedCheckpointShasta(
+func tryLastFinalizedCheckpoint(
 	ctx context.Context,
 	proposalID *big.Int,
 	getCoreState func(*bind.CallOpts) (*shastaBindings.IInboxCoreState, error),
@@ -81,8 +81,8 @@ type Shasta struct {
 	mutex                sync.Mutex
 }
 
-// NewBlocksInserterShasta creates a new Shasta instance.
-func NewBlocksInserterShasta(
+// NewBlocksInserter creates a new Shasta instance.
+func NewBlocksInserter(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
@@ -110,7 +110,7 @@ func (i *Shasta) InsertBlocks(
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	sourcePayload *shastaManifest.DerivationSourcePayload,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (*big.Int, error) {
 	if !metadata.IsShasta() {
@@ -134,12 +134,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"invalidManifest", sourcePayload.Default,
 	)
 
-	batchSafeCheckpoint, err := tryLastFinalizedCheckpointShasta(
+	batchSafeCheckpoint, err := tryLastFinalizedCheckpoint(
 		ctx,
 		meta.GetEventData().Id,
 		func(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
 			opts.BlockHash = metadata.GetRawBlockHash()
-			return i.rpc.GetCoreStateShasta(opts)
+			return i.rpc.GetCoreState(opts)
 		},
 		i.rpc.L2Engine.LastBlockIDByBatchID,
 		i.rpc.L2.HeaderByNumber,
@@ -175,7 +175,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				"parentHash", parent.Hash(),
 			)
 
-			lastBlockHeader, isKnown, err := isKnownCanonicalProposalShasta(
+			lastBlockHeader, isKnown, err := isKnownCanonicalProposal(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -204,7 +204,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				})
 
 				// Update the L1 origin for each block in the proposal.
-				if err := updateL1OriginForProposalShasta(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
+				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
 					return nil, fmt.Errorf("failed to update L1 origin for proposal (%d): %w", meta.GetEventData().Id, err)
 				}
 
@@ -213,7 +213,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		}
 
 		// inserting the blocks, and only update the L1 origin for each block in the batch.
-		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
+		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMeta(
 			ctx,
 			i.rpc,
 			i.anchorConstructor,

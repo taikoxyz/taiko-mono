@@ -77,7 +77,7 @@ func (h *BatchProposedEventHandler) handleProposal(
 	go func() {
 		if err := backoff.Retry(
 			func() error {
-				if err := h.checkExpirationAndSubmitProofShasta(
+				if err := h.checkExpirationAndSubmitProof(
 					ctx,
 					meta,
 					meta.Shasta().GetEventData().Id,
@@ -107,15 +107,15 @@ func (h *BatchProposedEventHandler) handleProposal(
 	return nil
 }
 
-// checkExpirationAndSubmitProofShasta checks whether the proposed proposal's proving window is expired,
+// checkExpirationAndSubmitProof checks whether the proposed proposal's proving window is expired,
 // and submits a new proof if necessary.
-func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
+func (h *BatchProposedEventHandler) checkExpirationAndSubmitProof(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	proposalID *big.Int,
 	designatedProver common.Address,
 ) error {
-	coreState, err := h.rpc.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+	coreState, err := h.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
@@ -129,7 +129,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 		return nil
 	}
 
-	windowExpired, _, timeToExpire, err := IsProvingWindowExpiredShasta(h.rpc, meta)
+	windowExpired, _, timeToExpire, err := IsProvingWindowExpired(h.rpc, meta)
 	if err != nil {
 		return fmt.Errorf("failed to check if the proving window is expired: %w", err)
 	}

@@ -210,14 +210,14 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
-// isKnownCanonicalProposalShasta checks if all blocks in the given Shasta proposal are in the canonical chain already,
+// isKnownCanonicalProposal checks if all blocks in the given Shasta proposal are in the canonical chain already,
 // and returns the header of the last block in the proposal if it is.
-func isKnownCanonicalProposalShasta(
+func isKnownCanonicalProposal(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	sourcePayload *shastaManifest.DerivationSourcePayload,
 	parent *types.Header,
 ) (*types.Header, bool, error) {
 	if !metadata.IsShasta() {
@@ -239,7 +239,7 @@ func isKnownCanonicalProposalShasta(
 				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
 			}
 
-			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
+			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMeta(
 				ctx,
 				rpc,
 				anchorConstructor,
@@ -419,14 +419,14 @@ func isKnownCanonicalBlock(
 	return block.Header(), true, nil
 }
 
-// assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
+// assembleCreateExecutionPayloadMeta assembles the metadata for creating an execution payload,
 // and the `ShastaAnchor.anchorV4` transaction for the given Shasta block.
-func assembleCreateExecutionPayloadMetaShasta(
+func assembleCreateExecutionPayloadMeta(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	sourcePayload *shastaManifest.DerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
@@ -448,7 +448,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 
-	baseFee, err := rpc.CalculateBaseFeeShasta(ctx, parent)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
@@ -587,13 +587,13 @@ func updateL1OriginForBlocks(
 	return g.Wait()
 }
 
-// updateL1OriginForProposalShasta updates the L1 origin for the given proposal's blocks.
-func updateL1OriginForProposalShasta(
+// updateL1OriginForProposal updates the L1 origin for the given proposal's blocks.
+func updateL1OriginForProposal(
 	ctx context.Context,
 	rpc *rpc.Client,
 	parentHeader *types.Header,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	sourcePayload *shastaManifest.DerivationSourcePayload,
 ) error {
 	if !metadata.IsShasta() {
 		return fmt.Errorf("metadata is not for Shasta fork blocks")

@@ -127,7 +127,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
-			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
+			d.l2ChainSyncer.EventSyncer().BlocksInserter(),
 			d.rpc,
 			latestSeenProposalCh,
 		); err != nil {
@@ -185,7 +185,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 // Start starts the driver instance.
 func (d *Driver) Start() error {
 	go d.eventLoop()
-	go d.reportProtocolStatus()
+	go d.reportProtocolStatusLoop()
 	go d.exchangeTransitionConfigLoop()
 
 	// Start the preconfirmation block server if it is enabled.
@@ -302,8 +302,8 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 	return d.l2ChainSyncer
 }
 
-// reportProtocolStatus reports some protocol status intervally.
-func (d *Driver) reportProtocolStatus() {
+// reportProtocolStatusLoop reports protocol status at a fixed interval.
+func (d *Driver) reportProtocolStatusLoop() {
 	ticker := time.NewTicker(protocolStatusReportInterval)
 	d.wg.Add(1)
 
@@ -317,21 +317,21 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			d.reportProtocolStatusShasta()
+			d.reportProtocolStatus()
 		}
 	}
 }
 
-// reportProtocolStatusShasta reports some status for Shasta protocol.
-func (d *Driver) reportProtocolStatusShasta() {
-	coreState, err := d.rpc.GetCoreStateShasta(&bind.CallOpts{Context: d.ctx})
+// reportProtocolStatus reports the latest protocol status snapshot.
+func (d *Driver) reportProtocolStatus() {
+	coreState, err := d.rpc.GetCoreState(&bind.CallOpts{Context: d.ctx})
 	if err != nil {
 		log.Debug("Failed to get inbox core state", "error", err)
 		return
 	}
 
 	log.Info(
-		"📖 Shasta protocol status",
+		"📖 Protocol status",
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		"lastFinalizedTimestamp", coreState.LastFinalizedTimestamp,
 		"nextProposalID", coreState.NextProposalId,

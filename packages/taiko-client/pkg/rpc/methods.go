@@ -52,7 +52,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 		return nil, err
 	}
 
-	return config.NewShastaProtocolConfigs(&configs), nil
+	return config.NewInboxProtocolConfigs(&configs), nil
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
@@ -130,7 +130,7 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	genesisHeight, err := c.GetShastaActivationBlockNumber(ctxWithTimeout)
+	genesisHeight, err := c.GetActivationBlockNumber(ctxWithTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func (c *Client) GetPoolContent(
 		return nil, err
 	}
 
-	baseFee, err := c.CalculateBaseFeeShasta(ctx, l2Head)
+	baseFee, err := c.CalculateBaseFee(ctx, l2Head)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +408,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
-		coreState, err := c.GetCoreStateShasta(&bind.CallOpts{Context: ctx})
+		coreState, err := c.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return err
 		}
@@ -633,8 +633,8 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	return false, nil
 }
 
-// LastL1OriginInProposalShasta fetches the L1Origin of the last block in the given Shasta proposal.
-func (c *Client) LastL1OriginInProposalShasta(ctx context.Context, proposalID *big.Int) (*rawdb.L1Origin, error) {
+// LastL1OriginInProposal fetches the L1Origin of the last block in the given Shasta proposal.
+func (c *Client) LastL1OriginInProposal(ctx context.Context, proposalID *big.Int) (*rawdb.L1Origin, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
@@ -760,8 +760,8 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
-// CalculateBaseFeeShasta calculates the base fee after Shasta fork from the L2 protocol.
-func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Header) (*big.Int, error) {
+// CalculateBaseFee calculates the base fee after Shasta fork from the L2 protocol.
+func (c *Client) CalculateBaseFee(ctx context.Context, l2Head *types.Header) (*big.Int, error) {
 	// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
 	if l2Head.Number.Cmp(common.Big0) == 0 {
 		return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
@@ -788,8 +788,8 @@ func (c *Client) CalculateBaseFeeShasta(ctx context.Context, l2Head *types.Heade
 	return misc.CalcEIP4396BaseFee(config, l2Head, l2Head.Time-parentBlock.Time), nil
 }
 
-// GetShastaActivationBlockNumber resolves the L1 block number when the inbox was activated.
-func (c *Client) GetShastaActivationBlockNumber(ctx context.Context) (*big.Int, error) {
+// GetActivationBlockNumber resolves the L1 block number when the inbox was activated.
+func (c *Client) GetActivationBlockNumber(ctx context.Context) (*big.Int, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
@@ -947,8 +947,8 @@ func (c *Client) GetProposalHash(opts *bind.CallOpts, proposalID *big.Int) (comm
 	return c.ShastaClients.Inbox.GetProposalHash(opts, proposalID)
 }
 
-// GetShastaAnchorState gets the anchor state from Shasta Anchor contract.
-func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (
+// GetAnchorState gets the anchor state from Shasta Anchor contract.
+func (c *Client) GetAnchorState(opts *bind.CallOpts) (
 	*shastaBindings.AnchorBlockState,
 	error,
 ) {
@@ -984,8 +984,8 @@ func (c *Client) GetInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IInboxCon
 	return &cfg, nil
 }
 
-// GetCoreStateShasta gets the core state from the inbox contract.
-func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
+// GetCoreState gets the core state from the inbox contract.
+func (c *Client) GetCoreState(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -1001,8 +1001,8 @@ func (c *Client) GetCoreStateShasta(opts *bind.CallOpts) (*shastaBindings.IInbox
 	return &state, nil
 }
 
-// GetProposalByIDShasta gets the proposal by ID from the inbox contract.
-func (c *Client) GetProposalByIDShasta(
+// GetProposalByID gets the proposal by ID from the inbox contract.
+func (c *Client) GetProposalByID(
 	ctx context.Context,
 	proposalID *big.Int,
 ) (*shastaBindings.ShastaInboxClientProposed, *types.Log, error) {

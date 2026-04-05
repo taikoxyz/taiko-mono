@@ -64,7 +64,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		return fmt.Errorf("failed to decode Shasta proposal ID from block %d: %w", blockID, err)
 	}
 	if proposalID.Cmp(common.Big1) <= 0 {
-		if proposedIn, err = s.rpc.GetShastaActivationBlockNumber(ctx); err != nil {
+		if proposedIn, err = s.rpc.GetActivationBlockNumber(ctx); err != nil {
 			return fmt.Errorf("failed to get Shasta activation block number: %w", err)
 		}
 	} else {

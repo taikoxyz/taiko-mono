@@ -370,7 +370,7 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 		common.HexToAddress(os.Getenv("INBOX")),
 		common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		10_000_000,
-	).BuildShasta(ctx, []types.Transactions{{}})
+	).Build(ctx, []types.Transactions{{}})
 	s.Nil(err)
 
 	proposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, 1)
@@ -407,7 +407,7 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 ) {
 	s.Equal(0, proposed.Id.Cmp(common.Big1))
 
-	baseFee, err := s.RPCClient.CalculateBaseFeeShasta(ctx, parent)
+	baseFee, err := s.RPCClient.CalculateBaseFee(ctx, parent)
 	s.Nil(err)
 
 	anchorConstructor, err := anchortxconstructor.New(s.RPCClient)
