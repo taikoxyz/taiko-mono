@@ -18,17 +18,6 @@ import (
 
 // ABI arguments marshaling components.
 var (
-	BatchMetaDataComponents = []abi.ArgumentMarshaling{
-		{Name: "infoHash", Type: "bytes32"},
-		{Name: "proposer", Type: "address"},
-		{Name: "batchId", Type: "uint64"},
-		{Name: "proposedAt", Type: "uint64"},
-	}
-	BatchTransitionComponents = []abi.ArgumentMarshaling{
-		{Name: "parentHash", Type: "bytes32"},
-		{Name: "blockHash", Type: "bytes32"},
-		{Name: "stateRoot", Type: "bytes32"},
-	}
 	SubProofShastaComponents = []abi.ArgumentMarshaling{
 		{Name: "verifierId", Type: "uint8"},
 		{Name: "proof", Type: "bytes"},
@@ -36,15 +25,9 @@ var (
 )
 
 var (
-	BatchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataComponents)
-	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
 	SubProofsShastaComponentsArrayType, _ = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofShastaComponents)
 	SubProofsShastaComponentsArrayArgs    = abi.Arguments{
 		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsShastaComponentsArrayType},
-	}
-	ProveBatchesInputArgs = abi.Arguments{
-		{Name: "ITaikoInbox.BlockMetadata[]", Type: BatchMetaDataComponentsArrayType},
-		{Name: "TaikoData.Transition[]", Type: BatchTransitionComponentsArrayType},
 	}
 	uint256Type, _            = abi.NewType("uint256", "", nil)
 	ShastaDifficultyInputArgs = abi.Arguments{

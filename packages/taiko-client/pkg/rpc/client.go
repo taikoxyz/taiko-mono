@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -24,7 +23,7 @@ type ShastaClients struct {
 	Inbox            *shastaBindings.ShastaInboxClient
 	Anchor           *shastaBindings.ShastaAnchor
 	ComposeVerifier  *shastaBindings.ComposeVerifier
-	PreconfWhitelist *pacayaBindings.PreconfWhitelist
+	PreconfWhitelist *shastaBindings.PreconfWhitelist
 	InboxAddress     common.Address
 }
 
@@ -151,9 +150,9 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 		return fmt.Errorf("failed to create new instance of ComposeVerifier: %w", err)
 	}
 
-	var preconfWhitelist *pacayaBindings.PreconfWhitelist
+	var preconfWhitelist *shastaBindings.PreconfWhitelist
 	if config.ProposerChecker.Hex() != ZeroAddress.Hex() {
-		preconfWhitelist, err = pacayaBindings.NewPreconfWhitelist(config.ProposerChecker, c.L1)
+		preconfWhitelist, err = shastaBindings.NewPreconfWhitelist(config.ProposerChecker, c.L1)
 		if err != nil {
 			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
 		}

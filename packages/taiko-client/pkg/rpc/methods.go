@@ -923,16 +923,16 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 		if err != nil {
 			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
 		}
-		if isPreconfOperatorActiveAtEpoch(opInfo.ActiveSince, opInfo.InactiveSince, currentEpochTimestamp) {
+		isActive, err := c.ShastaClients.PreconfWhitelist.IsOperatorActive(opts, proposer, currentEpochTimestamp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check if preconfirmation whitelist operator is active: %w", err)
+		}
+		if isActive {
 			operators = append(operators, opInfo.SequencerAddress)
 		}
 	}
 
 	return operators, nil
-}
-
-func isPreconfOperatorActiveAtEpoch(activeSince, inactiveSince, currentEpochTimestamp uint32) bool {
-	return inactiveSince == 0 && activeSince != 0 && activeSince <= currentEpochTimestamp
 }
 
 // GetProposalHash gets the proposal hash from the inbox contract.
