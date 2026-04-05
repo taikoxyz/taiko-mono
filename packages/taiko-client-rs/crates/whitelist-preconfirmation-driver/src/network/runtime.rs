@@ -10,8 +10,7 @@ use std::{collections::HashSet, net::SocketAddr, sync::Arc, time::Instant};
 use alloy_primitives::{Address, B256};
 use futures::StreamExt;
 use libp2p::{
-    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identity, noise, tcp,
-    yamux,
+    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identity, noise, tcp, yamux,
 };
 use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::{debug, warn};
@@ -585,8 +584,8 @@ impl NetworkRuntime {
                         let acceptance =
                             self.inbound_validation_state.validate_preconf_blocks(&payload);
 
-                        if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
-                            && let Err(err) = forward_event(
+                        if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
+                            let Err(err) = forward_event(
                                 &self.event_tx,
                                 NetworkEvent::UnsafePayload { from, payload },
                             )
@@ -621,8 +620,8 @@ impl NetworkRuntime {
             let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
                 Ok(envelope) => {
                     let acceptance = self.inbound_validation_state.validate_response(&envelope);
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
-                        && let Err(err) = forward_event(
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
+                        let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafeResponse { from, envelope },
                         )
@@ -648,8 +647,7 @@ impl NetworkRuntime {
 
         if *topic == self.topics.preconf_request.hash() {
             let Some(hash) = decode_request_hash_exact(&message.data) else {
-                let (acceptance, inbound_label) =
-                    reject_decode_failure("request_preconf_blocks");
+                let (acceptance, inbound_label) = reject_decode_failure("request_preconf_blocks");
                 record_inbound("request_preconf_blocks", inbound_label);
                 report(acceptance);
                 return Ok(());

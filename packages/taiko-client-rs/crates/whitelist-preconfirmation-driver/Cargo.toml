@@ -19,6 +19,7 @@ async-trait = { workspace = true }
 axum = { version = "0.7", features = ["ws"] }
 bindings = { path = "../bindings" }
 bytes = "1"
+discv5 = "0.7"
 driver = { path = "../driver" }
 flate2 = { workspace = true }
 futures = "0.3"
@@ -40,7 +41,6 @@ libp2p = { version = "0.56.0", features = [
   "tokio",
 ] }
 metrics = { workspace = true }
-discv5 = "0.7"
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 serde = { workspace = true }

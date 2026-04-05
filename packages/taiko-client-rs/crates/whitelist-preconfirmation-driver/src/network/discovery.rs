@@ -135,7 +135,9 @@ fn spawn_discv5(
     let local_enr = discv5::enr::Enr::builder().build(&key)?;
 
     tokio::spawn(async move {
-        let Ok(mut discv5) = discv5::Discv5::<discv5::DefaultProtocolId>::new(local_enr, key, discv5_config) else {
+        let Ok(mut discv5) =
+            discv5::Discv5::<discv5::DefaultProtocolId>::new(local_enr, key, discv5_config)
+        else {
             warn!("failed to create discv5 instance");
             return;
         };
@@ -157,12 +159,11 @@ fn spawn_discv5(
             match discv5.find_node(discv5::enr::NodeId::random()).await {
                 Ok(found) => {
                     for enr in found {
-                        if let Some(addr) = enr_to_multiaddr(&enr) {
-                            if tx.send(addr).await.is_err() {
+                        if let Some(addr) = enr_to_multiaddr(&enr)
+                            && tx.send(addr).await.is_err() {
                                 debug!("discovery receiver dropped; stopping");
                                 return;
                             }
-                        }
                     }
                 }
                 Err(err) => {

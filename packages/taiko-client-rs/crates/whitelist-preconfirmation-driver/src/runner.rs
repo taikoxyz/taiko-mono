@@ -108,8 +108,7 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
-        let network =
-            WhitelistNetwork::spawn(chain_id, self.config.p2p_config.clone())?;
+        let network = WhitelistNetwork::spawn(chain_id, self.config.p2p_config.clone())?;
         let cache_state = SharedPreconfCacheState::new();
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(

@@ -93,9 +93,8 @@ mod tests {
     #[test]
     fn message_id_changes_with_snappy_validity() {
         let raw_data = vec![1u8, 2, 3, 4, 5];
-        let compressed = snap::raw::Encoder::new()
-            .compress_vec(&raw_data)
-            .expect("snappy compress");
+        let compressed =
+            snap::raw::Encoder::new().compress_vec(&raw_data).expect("snappy compress");
 
         let topic = libp2p::gossipsub::TopicHash::from_raw("test-topic");
 
@@ -108,12 +107,8 @@ mod tests {
         };
 
         // Message with invalid snappy payload (raw bytes that aren't valid snappy).
-        let invalid_msg = gossipsub::Message {
-            source: None,
-            data: raw_data,
-            sequence_number: None,
-            topic,
-        };
+        let invalid_msg =
+            gossipsub::Message { source: None, data: raw_data, sequence_number: None, topic };
 
         let id_valid = taiko_message_id(&valid_msg);
         let id_invalid = taiko_message_id(&invalid_msg);

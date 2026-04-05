@@ -7,10 +7,10 @@ use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
 use rpc::client::ClientConfig;
-use whitelist_preconfirmation_driver::NetworkConfig;
 use tracing::warn;
 use whitelist_preconfirmation_driver::{
-    RunnerConfig, WhitelistPreconfirmationDriverMetrics, WhitelistPreconfirmationDriverRunner,
+    NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
+    WhitelistPreconfirmationDriverRunner,
 };
 
 use crate::{

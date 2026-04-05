@@ -2,8 +2,7 @@
 
 use libp2p::{gossipsub, identify, identity, ping, swarm::NetworkBehaviour};
 
-use super::config::build_gossipsub;
-use super::topics::Topics;
+use super::{config::build_gossipsub, topics::Topics};
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
 
 /// Composite libp2p behaviour used by the whitelist preconfirmation network.

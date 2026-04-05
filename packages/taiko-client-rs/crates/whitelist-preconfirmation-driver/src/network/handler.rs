@@ -1,4 +1,4 @@
-//! Ported from the previous inbound.rs with identical validation logic.
+//! Inbound message validation and rate-limiting for gossipsub topics.
 
 use std::{
     collections::HashMap,
