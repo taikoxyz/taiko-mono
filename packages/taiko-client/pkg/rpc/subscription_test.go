@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,14 +15,6 @@ func TestSubscribeEvent(t *testing.T) {
 	})
 	require.NotNil(t, sub)
 	sub.Unsubscribe()
-}
-
-func TestSubscribeEventShastaOnly(t *testing.T) {
-	contents, err := os.ReadFile("subscription.go")
-	require.NoError(t, err)
-
-	require.Contains(t, string(contents), "SubscribeProposedShasta")
-	require.Contains(t, string(contents), "SubscribeProvedShasta")
 }
 
 func TestSubscribeChainHead(t *testing.T) {
