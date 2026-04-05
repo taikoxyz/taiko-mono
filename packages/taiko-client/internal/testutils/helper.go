@@ -347,23 +347,8 @@ func SendDynamicFeeTx(
 }
 
 func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
-	s.SetHead(common.Big0)
-	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big0)
-	s.Nil(err)
-
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Zero(head.Number.Cmp(common.Big0))
-
-	s.L1Mine()
 	ctx := context.Background()
-
-	parent, err := s.RPCClient.L2.HeaderByNumber(ctx, nil)
-	s.Nil(err)
-	s.Zero(parent.Number.Cmp(common.Big0))
-
-	l1Head, err := s.RPCClient.L1.HeaderByNumber(ctx, nil)
-	s.Nil(err)
+	s.L1Mine()
 
 	txCandidate, err := builder.NewBlobTransactionBuilder(
 		s.RPCClient,
@@ -386,26 +371,30 @@ func (s *ClientTestSuite) resetToBaseBlock(key *ecdsa.PrivateKey) {
 
 	proposed := <-proposedCh
 	s.NotNil(proposed)
+	s.Equal(0, proposed.Id.Cmp(common.Big1))
 
-	s.insertBaseShastaBlock(ctx, parent, l1Head, proposed)
+	anchorBlock, err := s.RPCClient.L1.HeaderByHash(ctx, proposed.Raw.BlockHash)
+	s.Nil(err)
+
+	s.insertBaseShastaBlock(ctx, anchorBlock, proposed)
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(ctx))
 	// Leave a fresh L1 block after the shared bootstrap proposal so tests can
 	// immediately submit their own next proposal without tripping Inbox's
 	// one-proposal-per-L1-block guard.
 	s.L1Mine()
 
-	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 	s.Zero(head.Number.Cmp(common.Big1))
 }
 
 func (s *ClientTestSuite) insertBaseShastaBlock(
 	ctx context.Context,
-	parent *types.Header,
 	anchorBlock *types.Header,
 	proposed *shastaBindings.ShastaInboxClientProposed,
 ) {
-	s.Equal(0, proposed.Id.Cmp(common.Big1))
+	parent, err := s.RPCClient.L2.HeaderByNumber(ctx, common.Big0)
+	s.Nil(err)
 
 	baseFee, err := s.RPCClient.CalculateBaseFee(ctx, parent)
 	s.Nil(err)
