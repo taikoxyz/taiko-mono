@@ -1172,6 +1172,15 @@ func (s *DriverTestSuite) insertPreconfBlock(
 	baseFee, err := s.RPCClient.CalculateBaseFeeShasta(context.Background(), parent)
 	s.Nil(err)
 
+	coreState, err := s.RPCClient.GetCoreStateShasta(nil)
+	s.Nil(err)
+
+	inboxConfig, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
+	s.Nil(err)
+
+	extraData, err := encoding.EncodeShastaExtraData(inboxConfig.BasefeeSharingPctg, coreState.NextProposalId)
+	s.Nil(err)
+
 	anchortxConstructor, err := anchortxconstructor.New(s.d.rpc)
 	s.Nil(err)
 
@@ -1196,14 +1205,11 @@ func (s *DriverTestSuite) insertPreconfBlock(
 			FeeRecipient:  preconferAddress,
 			Number:        l2BlockID,
 			GasLimit:      parent.GasLimit,
-			ExtraData:     hexutil.Bytes(parent.Extra),
+			ExtraData:     hexutil.Bytes(extraData),
 			Timestamp:     timestamp,
 			Transactions:  b,
 			BaseFeePerGas: baseFee.Uint64(),
 		},
-	}
-	if len(reqBody.ExecutableData.ExtraData) == 0 {
-		reqBody.ExecutableData.ExtraData = hexutil.Bytes{0x1}
 	}
 
 	payload, err := rlp.EncodeToBytes(reqBody)
