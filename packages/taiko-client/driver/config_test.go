@@ -86,15 +86,6 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 	}), "empty L2 check point URL")
 }
 
-func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencersRequiresWhitelist() {
-	app := s.SetupApp()
-	s.ErrorContains(app.Run([]string{
-		"TestNewConfigFromCliContext",
-		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
-		"--" + flags.P2PAllowAllSequencers.Name,
-	}), "--p2p.allow-all-sequencers requires --preconfirmation.whitelist to be set")
-}
-
 func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencers() {
 	app := s.SetupApp()
 
@@ -114,7 +105,6 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencers() {
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
 		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
-		"--" + flags.PreconfWhitelistAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",
 		"--" + flags.RPCTimeout.Name, "5s",
@@ -135,7 +125,6 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
-		&cli.StringFlag{Name: flags.PreconfWhitelistAddress.Name},
 		&cli.StringFlag{Name: flags.PreconfHandoverSkipSlots.Name, Value: "8"},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},

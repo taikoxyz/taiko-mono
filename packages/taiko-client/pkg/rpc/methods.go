@@ -40,16 +40,6 @@ var (
 
 // GetProtocolConfigs gets the protocol configs from the inbox contract.
 func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
-	configs, err := c.GetProtocolConfigsShasta(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return config.NewShastaProtocolConfigs(configs), nil
-}
-
-// GetProtocolConfigsShasta gets the protocol configs from the inbox contract.
-func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
@@ -62,7 +52,7 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 		return nil, err
 	}
 
-	return &configs, nil
+	return config.NewShastaProtocolConfigs(&configs), nil
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
@@ -277,8 +267,8 @@ func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*t
 	return waitForFetchResult(ctx, blockID, ethClient.HeaderByNumber)
 }
 
-// WaitShastaProposalHeader keeps waiting for the Shasta block header of the given proposal ID from the L2 execution engine.
-func (c *Client) WaitShastaProposalHeader(ctx context.Context, proposalID *big.Int) (*types.Header, error) {
+// WaitProposalHeader keeps waiting for the proposal block header of the given proposal ID from the L2 execution engine.
+func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*types.Header, error) {
 	var (
 		ctxWithTimeout = ctx
 		cancel         context.CancelFunc
@@ -491,14 +481,13 @@ type ReorgCheckResult struct {
 // 2. If the L1 information which in the given L2 block's anchor transaction has been reorged
 //
 // And if a reorg is detected, we return a new L1 block cursor which need to reset to.
-func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int, isShastaProposal bool) (*ReorgCheckResult, error) {
+func (c *Client) CheckL1Reorg(ctx context.Context, proposalID *big.Int) (*ReorgCheckResult, error) {
 	var (
 		result                 = new(ReorgCheckResult)
 		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 		err                    error
 	)
 	defer cancel()
-	_ = isShastaProposal
 
 	if proposalID.Cmp(common.Big0) == 0 {
 		result.IsReorged = true
@@ -944,25 +933,6 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 
 func isPreconfOperatorActiveAtEpoch(activeSince, inactiveSince, currentEpochTimestamp uint32) bool {
 	return inactiveSince == 0 && activeSince != 0 && activeSince <= currentEpochTimestamp
-}
-
-// getImmutableAddress resolves an address from a contract getter.
-func getImmutableAddress[T func(opts *bind.CallOpts) (common.Address, error)](
-	opts *bind.CallOpts,
-	resolveFunc T,
-) (common.Address, error) {
-	if resolveFunc == nil {
-		return common.Address{}, errors.New("resolver contract is not set")
-	}
-
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
-	defer cancel()
-
-	return resolveFunc(opts)
 }
 
 // GetProposalHash gets the proposal hash from the inbox contract.

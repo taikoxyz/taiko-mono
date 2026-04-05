@@ -73,12 +73,6 @@ func TestL2ExecutionEngineSyncProgress(t *testing.T) {
 	require.NotNil(t, progress)
 }
 
-func TestGetProtocolStateVariables(t *testing.T) {
-	client := newTestClient(t)
-	_, err := client.GetProtocolConfigsShasta(nil)
-	require.Nil(t, err)
-}
-
 func TestWaitTillL2ExecutionEngineSyncedNewClient(t *testing.T) {
 	client := newTestClient(t)
 	err := client.WaitTillL2ExecutionEngineSynced(context.Background())

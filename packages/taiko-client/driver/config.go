@@ -50,15 +50,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		p2pSync               = c.Bool(flags.P2PSync.Name)
 		p2pAllowAllSequencers = c.Bool(flags.P2PAllowAllSequencers.Name)
 		l2CheckPoint          = c.String(flags.CheckPointSyncURL.Name)
-		preconfWhitelist      = common.HexToAddress(c.String(flags.PreconfWhitelistAddress.Name))
 	)
 
 	if p2pSync && len(l2CheckPoint) == 0 {
 		return nil, errors.New("empty L2 check point URL")
-	}
-
-	if p2pAllowAllSequencers && preconfWhitelist == (common.Address{}) {
-		return nil, errors.New("--p2p.allow-all-sequencers requires --preconfirmation.whitelist to be set")
 	}
 
 	var beaconEndpoint string
@@ -91,16 +86,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Check P2P network flags and create the P2P configurations.
 	var (
 		clientConfig = &rpc.ClientConfig{
-			L1Endpoint:              c.String(flags.L1WSEndpoint.Name),
-			L1BeaconEndpoint:        beaconEndpoint,
-			L2Endpoint:              c.String(flags.L2WSEndpoint.Name),
-			L2CheckPoint:            l2CheckPoint,
-			InboxAddress:            common.HexToAddress(c.String(flags.InboxAddress.Name)),
-			TaikoAnchorAddress:      common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-			PreconfWhitelistAddress: preconfWhitelist,
-			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
-			JwtSecret:               string(jwtSecret),
-			Timeout:                 c.Duration(flags.RPCTimeout.Name),
+			L1Endpoint:         c.String(flags.L1WSEndpoint.Name),
+			L1BeaconEndpoint:   beaconEndpoint,
+			L2Endpoint:         c.String(flags.L2WSEndpoint.Name),
+			L2CheckPoint:       l2CheckPoint,
+			InboxAddress:       common.HexToAddress(c.String(flags.InboxAddress.Name)),
+			TaikoAnchorAddress: common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+			L2EngineEndpoint:   c.String(flags.L2AuthEndpoint.Name),
+			JwtSecret:          string(jwtSecret),
+			Timeout:            c.Duration(flags.RPCTimeout.Name),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup

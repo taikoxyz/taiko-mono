@@ -67,13 +67,12 @@ func (s *DriverTestSuite) SetupTest() {
 
 	s.Nil(d.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:              os.Getenv("L1_WS"),
-			L2Endpoint:              os.Getenv("L2_WS"),
-			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
-			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
-			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
-			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:               string(jwtSecret),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:          string(jwtSecret),
 		},
 		BlobServerEndpoint:     s.ParseL1HttpURLFromEnv(),
 		P2PConfigs:             p2pConfig,
@@ -176,7 +175,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
 		m.Shasta().GetEventData().Id,
-		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -235,7 +233,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
 		m.Shasta().GetEventData().Id,
-		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -291,7 +288,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgRollbackToGenesis() {
 	s.Nil(err)
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
-	res, err := s.RPCClient.CheckL1Reorg(context.Background(), m.Shasta().GetEventData().Id, true)
+	res, err := s.RPCClient.CheckL1Reorg(context.Background(), m.Shasta().GetEventData().Id)
 	s.Nil(err)
 	s.False(res.IsReorged)
 
@@ -352,7 +349,6 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
 		m.Shasta().GetEventData().Id,
-		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -1100,13 +1096,12 @@ func (s *DriverTestSuite) InitProposer() {
 
 	s.Nil(p.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:              os.Getenv("L1_WS"),
-			L2Endpoint:              os.Getenv("L2_WS"),
-			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
-			JwtSecret:               string(jwtSecret),
-			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
-			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
-			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			JwtSecret:          string(jwtSecret),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),

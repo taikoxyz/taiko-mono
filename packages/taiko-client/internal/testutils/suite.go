@@ -57,13 +57,12 @@ func (s *ClientTestSuite) SetupTest() {
 	s.NotEmpty(jwtSecret)
 
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:              os.Getenv("L1_WS"),
-		L2Endpoint:              os.Getenv("L2_WS"),
-		InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
-		PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
-		TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		L2EngineEndpoint:        os.Getenv("L2_AUTH"),
-		JwtSecret:               string(jwtSecret),
+		L1Endpoint:         os.Getenv("L1_WS"),
+		L2Endpoint:         os.Getenv("L2_WS"),
+		InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+		TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+		JwtSecret:          string(jwtSecret),
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli

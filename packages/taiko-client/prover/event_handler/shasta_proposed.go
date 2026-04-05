@@ -32,7 +32,7 @@ func (h *BatchProposedEventHandler) handleProposal(
 	}
 
 	// Wait for the corresponding L2 block being mined in node.
-	header, err := h.rpc.WaitShastaProposalHeader(ctx, meta.Shasta().GetEventData().Id)
+	header, err := h.rpc.WaitProposalHeader(ctx, meta.Shasta().GetEventData().Id)
 	if err != nil {
 		return fmt.Errorf("failed to wait L2 Shasta header (proposalID %d): %w", meta.Shasta().GetEventData().Id, err)
 	}

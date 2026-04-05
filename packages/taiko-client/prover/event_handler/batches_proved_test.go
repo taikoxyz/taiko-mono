@@ -41,13 +41,12 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	d := new(driver.Driver)
 	s.Nil(d.InitFromConfig(context.Background(), &driver.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:              os.Getenv("L1_WS"),
-			L2Endpoint:              os.Getenv("L2_WS"),
-			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
-			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
-			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
-			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			JwtSecret:               string(jwtSecret),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			JwtSecret:          string(jwtSecret),
 		},
 	}))
 	s.d = d
@@ -76,13 +75,12 @@ func (s *EventHandlerTestSuite) SetupTest() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:              os.Getenv("L1_WS"),
-			L2Endpoint:              os.Getenv("L2_WS"),
-			L2EngineEndpoint:        os.Getenv("L2_AUTH"),
-			JwtSecret:               string(jwtSecret),
-			InboxAddress:            common.HexToAddress(os.Getenv("INBOX")),
-			PreconfWhitelistAddress: common.HexToAddress(os.Getenv("PRECONF_WHITELIST")),
-			TaikoAnchorAddress:      common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			JwtSecret:          string(jwtSecret),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),

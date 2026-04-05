@@ -49,14 +49,14 @@ func IsProvingWindowExpiredShasta(
 	rpc *rpc.Client,
 	metadata metadata.TaikoProposalMetaData,
 ) (bool, time.Time, time.Duration, error) {
-	configs, err := rpc.GetProtocolConfigsShasta(nil)
+	configs, err := rpc.GetProtocolConfigs(nil)
 	if err != nil {
-		return false, time.Time{}, 0, fmt.Errorf("failed to get Shasta protocol configs: %w", err)
+		return false, time.Time{}, 0, fmt.Errorf("failed to get protocol configs: %w", err)
 	}
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.Shasta().GetTimestamp() + configs.ProvingWindow.Uint64()
+		expiredAt = metadata.Shasta().GetTimestamp() + uint64(configs.ProvingWindow().Seconds())
 	)
 	remainingSeconds := int64(expiredAt) - int64(now)
 	if remainingSeconds < 0 {

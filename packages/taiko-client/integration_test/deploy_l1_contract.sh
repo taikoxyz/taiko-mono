@@ -25,12 +25,10 @@ cd "${PROTOCOL_DIR}" &&
 DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
 export INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
 export SHARED_RESOLVER=$(echo "$DEPLOYMENT_JSON" | jq '.shared_resolver' | sed 's/\"//g')
-export PRECONF_WHITELIST=$(echo "$DEPLOYMENT_JSON" | jq '.preconf_whitelist' | sed 's/\"//g')
 export PROPOSER_ADDRESS=0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc
 export REMOTE_SIGNAL_SERVICE=0x1670010000000000000000000000000000000005
 
 printf "L1 contracts deployed:
   Inbox: $INBOX
-  PreconfWhitelist: $PRECONF_WHITELIST
   SharedAddressManager: $SHARED_RESOLVER
 "

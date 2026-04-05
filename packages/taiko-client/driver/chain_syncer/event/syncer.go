@@ -38,7 +38,7 @@ type Syncer struct {
 	blocksInserterShasta blocksInserter.Inserter         // Shasta blocks inserter
 
 	lastInsertedProposalID *big.Int
-	reorgDetectedFlag   bool
+	reorgDetectedFlag      bool
 
 	// Shasta derivation source fetcher
 	derivationSourceFetcher *shastaManifest.ShastaDerivationSourceFetcher
@@ -458,7 +458,7 @@ func (s *Syncer) checkReorgShasta(
 
 	// 3. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(proposalID, common.Big1), true); err != nil {
+		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(proposalID, common.Big1)); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
 	}

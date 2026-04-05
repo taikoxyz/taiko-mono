@@ -46,16 +46,15 @@ type Client struct {
 // RPC client. If not providing L2EngineEndpoint or JwtSecret, then the L2Engine client
 // won't be initialized.
 type ClientConfig struct {
-	L1Endpoint              string
-	L2Endpoint              string
-	L1BeaconEndpoint        string
-	L2CheckPoint            string
-	InboxAddress            common.Address
-	TaikoAnchorAddress      common.Address
-	PreconfWhitelistAddress common.Address
-	L2EngineEndpoint        string
-	JwtSecret               string
-	Timeout                 time.Duration
+	L1Endpoint         string
+	L2Endpoint         string
+	L1BeaconEndpoint   string
+	L2CheckPoint       string
+	InboxAddress       common.Address
+	TaikoAnchorAddress common.Address
+	L2EngineEndpoint   string
+	JwtSecret          string
+	Timeout            time.Duration
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -153,8 +152,8 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 	}
 
 	var preconfWhitelist *pacayaBindings.PreconfWhitelist
-	if cfg.PreconfWhitelistAddress.Hex() != ZeroAddress.Hex() {
-		preconfWhitelist, err = pacayaBindings.NewPreconfWhitelist(cfg.PreconfWhitelistAddress, c.L1)
+	if config.ProposerChecker.Hex() != ZeroAddress.Hex() {
+		preconfWhitelist, err = pacayaBindings.NewPreconfWhitelist(config.ProposerChecker, c.L1)
 		if err != nil {
 			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
 		}

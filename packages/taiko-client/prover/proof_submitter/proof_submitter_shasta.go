@@ -115,7 +115,7 @@ func (s *ProofSubmitterShasta) startBackgroundWorkers(ctx context.Context) {
 // RequestProof requests proof for the given Taiko batch.
 func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
 	// Wait for the last block to be inserted at first.
-	header, err := s.rpc.WaitShastaProposalHeader(ctx, meta.Shasta().GetEventData().Id)
+	header, err := s.rpc.WaitProposalHeader(ctx, meta.Shasta().GetEventData().Id)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to wait for Shasta L2 Header, blockID: %d, error: %w",

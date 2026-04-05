@@ -17,10 +17,10 @@ type ProverEventHandlerTestSuite struct {
 }
 
 func (s *ProverEventHandlerTestSuite) TestIsProvingWindowExpiredShasta_Remaining() {
-	configs, err := s.RPCClient.GetProtocolConfigsShasta(nil)
+	configs, err := s.RPCClient.GetProtocolConfigs(nil)
 	s.Nil(err)
 
-	pw := configs.ProvingWindow.Uint64()
+	pw := uint64(configs.ProvingWindow().Seconds())
 	now := uint64(time.Now().Unix())
 
 	notExpiredTs := int64(now + pw - 5)
