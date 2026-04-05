@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -208,4 +210,29 @@ func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]
 	}
 
 	return crypto.Keccak256(packed), nil
+}
+
+// EncodeShastaExtraData encodes basefeeSharingPctg and proposal ID into extraData.
+// Format (7 bytes):
+//   - Byte 0: basefeeSharingPctg (uint8)
+//   - Bytes 1-6: proposalID (uint48, big-endian)
+func EncodeShastaExtraData(basefeeSharingPctg uint8, proposalID *big.Int) ([]byte, error) {
+	if proposalID == nil {
+		return nil, errors.New("proposal ID is nil")
+	}
+	if proposalID.Sign() < 0 {
+		return nil, fmt.Errorf("proposal ID is negative: %s", proposalID.String())
+	}
+	if proposalID.BitLen() > params.ShastaExtraDataProposalIDLength*8 {
+		return nil, fmt.Errorf("proposal ID too large for extraData: %s", proposalID.String())
+	}
+
+	extraData := make([]byte, params.ShastaExtraDataLen)
+	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
+
+	proposalBytes := proposalID.Bytes()
+	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)
+	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
+
+	return extraData, nil
 }

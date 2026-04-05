@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
@@ -487,7 +486,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	// Encode extraData with basefeeSharingPctg and proposal ID.
-	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
+	extraData, err := encoding.EncodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
@@ -614,37 +613,6 @@ func updateL1OriginForProposalShasta(
 		meta.GetRawBlockHeight(),
 		meta.GetRawBlockHash(),
 	)
-}
-
-// encodeShastaExtraData encodes basefeeSharingPctg and proposal ID into extraData.
-// Format (7 bytes):
-//   - Byte 0: basefeeSharingPctg (uint8)
-//   - Bytes 1-6: proposalID (uint48, big-endian)
-func encodeShastaExtraData(
-	basefeeSharingPctg uint8,
-	proposalID *big.Int,
-) ([]byte, error) {
-	if proposalID == nil {
-		return nil, errors.New("proposal ID is nil")
-	}
-	if proposalID.Sign() < 0 {
-		return nil, fmt.Errorf("proposal ID is negative: %s", proposalID.String())
-	}
-	if proposalID.BitLen() > params.ShastaExtraDataProposalIDLength*8 {
-		return nil, fmt.Errorf("proposal ID too large for extraData: %s", proposalID.String())
-	}
-
-	extraData := make([]byte, params.ShastaExtraDataLen)
-
-	// First byte: basefeeSharingPctg.
-	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
-
-	// Bytes 1..6: proposal ID (uint48, big-endian).
-	proposalBytes := proposalID.Bytes()
-	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)
-	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
-
-	return extraData, nil
 }
 
 // InsertPreconfBlockFromEnvelope the inner method to insert a preconfirmation block from

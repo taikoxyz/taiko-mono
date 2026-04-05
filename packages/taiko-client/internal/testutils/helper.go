@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"errors"
 	"math/big"
 	"os"
 	"time"
@@ -433,7 +432,7 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
 	s.Nil(err)
 
-	extraData, err := encodeShastaExtraData(proposed.BasefeeSharingPctg, proposed.Id)
+	extraData, err := encoding.EncodeShastaExtraData(proposed.BasefeeSharingPctg, proposed.Id)
 	s.Nil(err)
 
 	txListHash := crypto.Keccak256Hash(txListBytes)
@@ -484,25 +483,4 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	s.Nil(err)
 	_, err = s.RPCClient.L2Engine.SetBatchToLastBlock(ctx, proposed.Id, blockID)
 	s.Nil(err)
-}
-
-func encodeShastaExtraData(basefeeSharingPctg uint8, proposalID *big.Int) ([]byte, error) {
-	if proposalID == nil {
-		return nil, errors.New("proposal ID is nil")
-	}
-	if proposalID.Sign() < 0 {
-		return nil, errors.New("proposal ID is negative")
-	}
-	if proposalID.BitLen() > params.ShastaExtraDataProposalIDLength*8 {
-		return nil, errors.New("proposal ID too large for extraData")
-	}
-
-	extraData := make([]byte, params.ShastaExtraDataLen)
-	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
-
-	proposalBytes := proposalID.Bytes()
-	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)
-	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
-
-	return extraData, nil
 }
