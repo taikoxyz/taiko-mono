@@ -1,4 +1,4 @@
-//! Inbound validation and allowlist state for the whitelist preconfirmation network.
+//! Ported from the previous inbound.rs with identical validation logic.
 
 use std::{
     collections::HashMap,
@@ -122,7 +122,7 @@ impl HeightSeenTracker {
             return false;
         }
 
-        self.seen_by_height.entry(height).or_insert(Vec::new()).push(hash);
+        self.seen_by_height.entry(height).or_insert_with(Vec::new).push(hash);
         if self.seen_by_height.len() > PRECONF_INBOUND_LRU_CAPACITY {
             self.seen_by_height.pop_front();
         }
@@ -335,12 +335,10 @@ impl GossipsubInboundState {
 
     /// Validate a recovered signer against the static sequencer allowlist.
     fn validate_signer(&self, signer: Address) -> gossipsub::MessageAcceptance {
-        if self.allow_all_sequencers {
-            return gossipsub::MessageAcceptance::Accept;
+        if self.allow_all_sequencers || self.sequencer_addresses.contains(&signer) {
+            gossipsub::MessageAcceptance::Accept
+        } else {
+            gossipsub::MessageAcceptance::Reject
         }
-        if self.sequencer_addresses.contains(&signer) {
-            return gossipsub::MessageAcceptance::Accept;
-        }
-        gossipsub::MessageAcceptance::Reject
     }
 }

@@ -39,9 +39,8 @@ libp2p = { version = "0.56.0", features = [
   "macros",
   "tokio",
 ] }
-lru = "0.12"
 metrics = { workspace = true }
-preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
+discv5 = "0.7"
 protocol = { path = "../protocol" }
 rpc = { path = "../rpc" }
 serde = { workspace = true }

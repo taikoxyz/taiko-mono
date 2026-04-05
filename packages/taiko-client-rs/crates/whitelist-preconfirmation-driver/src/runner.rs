@@ -6,7 +6,6 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
 use driver::{DriverConfig, map_driver_error};
-use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
 use tokio::sync::Mutex;
@@ -22,7 +21,7 @@ use crate::{
     error::WhitelistPreconfirmationDriverError,
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
     metrics::WhitelistPreconfirmationDriverMetrics,
-    network::{NetworkCommand, WhitelistNetwork},
+    network::{NetworkCommand, NetworkConfig, WhitelistNetwork},
     preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
     whitelist_fetcher::WhitelistSequencerFetcher,
 };
@@ -33,7 +32,7 @@ pub struct RunnerConfig {
     /// Driver configuration (includes RPC client configuration).
     pub driver_config: DriverConfig,
     /// P2P configuration for whitelist preconfirmation topics.
-    pub p2p_config: P2pConfig,
+    pub p2p_config: NetworkConfig,
     /// Whitelist contract address used for signer validation.
     pub whitelist_address: Address,
     /// Optional listen address for the whitelist preconfirmation REST/WS server.
@@ -50,7 +49,7 @@ impl RunnerConfig {
     /// Build runner configuration.
     pub fn new(
         driver_config: DriverConfig,
-        p2p_config: P2pConfig,
+        p2p_config: NetworkConfig,
         whitelist_address: Address,
         rpc_listen_addr: Option<SocketAddr>,
         rpc_jwt_secret: Option<Vec<u8>>,
@@ -92,14 +91,16 @@ impl WhitelistPreconfirmationDriverRunner {
             return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
         }
 
+        let mut preconf_ingress_sync =
+            PreconfIngressSync::start(&self.config.driver_config).await?;
+        let chain_id = preconf_ingress_sync.client().chain_id;
+
         info!(
-            chain_id = self.config.p2p_config.chain_id,
+            chain_id,
             whitelist_address = %self.config.whitelist_address,
             "starting whitelist preconfirmation driver"
         );
 
-        let mut preconf_ingress_sync =
-            PreconfIngressSync::start(&self.config.driver_config).await?;
         let wait_start = Instant::now();
         preconf_ingress_sync.wait_preconf_ingress_ready().await?;
         metrics::histogram!(
@@ -108,7 +109,7 @@ impl WhitelistPreconfirmationDriverRunner {
         .record(wait_start.elapsed().as_secs_f64());
 
         let network =
-            WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
+            WhitelistNetwork::spawn(chain_id, self.config.p2p_config.clone())?;
         let cache_state = SharedPreconfCacheState::new();
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
@@ -119,7 +120,7 @@ impl WhitelistPreconfirmationDriverRunner {
         );
         info!(
             peer_id = %network.local_peer_id,
-            chain_id = self.config.p2p_config.chain_id,
+            chain_id,
             "whitelist preconfirmation p2p subscriber started"
         );
 
@@ -162,7 +163,7 @@ impl WhitelistPreconfirmationDriverRunner {
             let handler = Arc::new(WhitelistApiService::new(WhitelistApiServiceParams {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
-                chain_id: self.config.p2p_config.chain_id,
+                chain_id,
                 signer,
                 beacon_client: Arc::clone(&beacon_client),
                 sequencer_fetcher: rest_sequencer_fetcher,
@@ -194,7 +195,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
                 whitelist_address: self.config.whitelist_address,
-                chain_id: self.config.p2p_config.chain_id,
+                chain_id,
                 network_command_tx: network.command_tx.clone(),
                 cache_state,
                 beacon_client,

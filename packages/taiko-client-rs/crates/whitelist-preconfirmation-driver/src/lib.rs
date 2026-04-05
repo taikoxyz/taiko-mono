@@ -16,4 +16,5 @@ mod whitelist_fetcher;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};
 pub use metrics::WhitelistPreconfirmationDriverMetrics;
+pub use network::NetworkConfig;
 pub use runner::{RunnerConfig, WhitelistPreconfirmationDriverRunner};
