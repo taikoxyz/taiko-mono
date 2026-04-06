@@ -22,7 +22,7 @@
 </div>
 
 > [!WARNING]
-> The `main` branch is under active development for the next Shasta fork. For the latest version of the Taiko Alethia protocol contracts (Pacaya fork), please use the [`taiko-alethia-protocol-v2.3.1`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v2.3.1) branch. The release process involves security measures that the `main` branch does not guarantee.
+> The `main` branch is under active development for the next Shasta fork. For the latest version of the Taiko Alethia protocol contracts (Shasta fork), please use the [`taiko-alethia-protocol-v3.0.0`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v3.0.0) branch. The release process involves security measures that the `main` branch does not guarantee.
 
 ## Documentation
 
