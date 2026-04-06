@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethMath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
@@ -164,7 +165,7 @@ func (c *EngineClient) SetL1OriginSignature(
 ) (*rawdb.L1Origin, error) {
 	var res *rawdb.L1Origin
 
-	if err := c.CallContext(ctx, &res, "taikoAuth_setL1OriginSignature", blockID, signature); err != nil {
+	if err := c.CallContext(ctx, &res, "taikoAuth_setL1OriginSignature", (*ethMath.HexOrDecimal256)(blockID), hexutil.Bytes(signature[:])); err != nil {
 		return nil, err
 	}
 
