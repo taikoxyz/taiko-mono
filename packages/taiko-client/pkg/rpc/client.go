@@ -194,7 +194,6 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		if err := c.initRealTimeClients(cfg); err != nil {
 			return nil, fmt.Errorf("failed to initialize RealTime clients: %w", err)
 		}
-		c.GenesisL1Height = cfg.GenesisL1Height
 	default:
 		// Backwards compat (no fork set): initialize all clients.
 		if err := c.initPacayaClients(cfg); err != nil {
@@ -324,6 +323,12 @@ func (c *Client) initRealTimeClients(cfg *ClientConfig) error {
 	if cfg.RealTimeInboxAddress == (common.Address{}) {
 		return nil
 	}
+	if cfg.GenesisL1Height == 0 {
+		return fmt.Errorf(
+			"--genesis.l1Height is required for the realtime fork " +
+				"(set it to the L1 block where the RealTimeInbox was activated)",
+		)
+	}
 	realTimeInbox, err := realtimeBindings.NewRealTimeInboxClient(cfg.RealTimeInboxAddress, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create RealTimeInbox client: %w", err)
@@ -337,6 +342,7 @@ func (c *Client) initRealTimeClients(cfg *ClientConfig) error {
 		Anchor:       realTimeAnchor,
 		InboxAddress: cfg.RealTimeInboxAddress,
 	}
+	c.GenesisL1Height = cfg.GenesisL1Height
 	return nil
 }
 

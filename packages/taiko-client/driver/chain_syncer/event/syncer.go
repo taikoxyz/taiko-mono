@@ -480,25 +480,33 @@ func (s *Syncer) processRealTimeProposal(
 		return nil
 	}
 
-	// Check for L1 reorg if not just finishing P2P sync.
+	// Check for L1 reorg only when processing live events (L1Current near L1Head).
+	// During historical replay, L2 consistency is guaranteed by sequential event
+	// processing, and L1 reorgs are caught by the hash comparison in processL1Blocks().
 	if !s.progressTracker.Triggered() {
-		reorgCheckResult, err := s.checkReorgRealTime(ctx)
-		if err != nil {
-			return err
-		}
+		l1Head := s.state.GetL1Head()
+		l1Current := s.state.GetL1Current()
+		isLive := l1Current.Number.Uint64()+1 >= l1Head.Number.Uint64()
 
-		if reorgCheckResult.IsReorged {
-			log.Info(
-				"Reset L1Current cursor due to L1 reorg (RealTime)",
-				"l1CurrentHeightOld", s.state.GetL1Current().Number,
-				"l1CurrentHashOld", s.state.GetL1Current().Hash(),
-			)
-			s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
-			s.lastInsertedProposalHash = common.Hash{}
-			s.reorgDetectedFlag = true
-			endIter()
+		if isLive {
+			reorgCheckResult, err := s.checkReorgRealTime(ctx)
+			if err != nil {
+				return err
+			}
 
-			return nil
+			if reorgCheckResult.IsReorged {
+				log.Info(
+					"Reset L1Current cursor due to L1 reorg (RealTime)",
+					"l1CurrentHeightOld", s.state.GetL1Current().Number,
+					"l1CurrentHashOld", s.state.GetL1Current().Hash(),
+				)
+				s.state.SetL1Current(reorgCheckResult.L1CurrentToReset)
+				s.lastInsertedProposalHash = common.Hash{}
+				s.reorgDetectedFlag = true
+				endIter()
+
+				return nil
+			}
 		}
 	}
 
@@ -896,9 +904,15 @@ func (s *Syncer) checkReorgRealTime(ctx context.Context) (*rpc.ReorgCheckResult,
 		)
 
 		reorgCheckResult := &rpc.ReorgCheckResult{IsReorged: true}
-		reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(ctx, common.Big0)
+		// Reset to 64 blocks before L1Current (Ethereum finalization depth).
+		// Clamp to GenesisL1Height so we never go before inbox activation.
+		resetHeight := new(big.Int).Sub(s.state.GetL1Current().Number, big.NewInt(64))
+		if resetHeight.Cmp(s.state.GenesisL1Height) < 0 {
+			resetHeight = new(big.Int).Set(s.state.GenesisL1Height)
+		}
+		reorgCheckResult.L1CurrentToReset, err = s.rpc.L1.HeaderByNumber(ctx, resetHeight)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch L1 genesis header: %w", err)
+			return nil, fmt.Errorf("failed to fetch L1 reset header at height %s: %w", resetHeight, err)
 		}
 		reorgCheckResult.LastHandledBatchIDToReset = common.Big0
 		return reorgCheckResult, nil
