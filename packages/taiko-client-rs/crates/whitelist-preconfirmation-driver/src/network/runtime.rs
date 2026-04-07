@@ -246,19 +246,21 @@ fn dial_once(
         return;
     }
 
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-        "source" => source.to_string(),
-    )
-    .increment(1);
-
     if let Err(err) = swarm.dial(addr.clone()) {
         metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_FAILURES_TOTAL,
+            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
             "source" => source.to_string(),
+            "result" => "failed",
         )
         .increment(1);
         warn!(%addr, source, error = %err, "failed to dial address");
+    } else {
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
+            "source" => source.to_string(),
+            "result" => "ok",
+        )
+        .increment(1);
     }
 }
 
@@ -359,53 +361,23 @@ impl NetworkRuntime {
     /// Publish a `requestPreconfBlocks` message.
     fn publish_unsafe_request(&mut self, hash: B256) {
         let payload = encode_unsafe_request_message(hash);
-        if let Err(err) = self
-            .swarm
-            .behaviour_mut()
-            .gossipsub
-            .publish(self.topics.preconf_request.clone(), payload)
-        {
-            record_publish("request_preconf_blocks", "publish_failed");
-            warn!(
-                hash = %hash,
-                error = %err,
-                "failed to publish whitelist preconfirmation request"
-            );
-        } else {
-            record_publish("request_preconf_blocks", "published");
-        }
+        self.publish_to_gossipsub(
+            self.topics.preconf_request.clone(),
+            payload,
+            "request_preconf_blocks",
+            &format!("{hash}"),
+        );
     }
 
     /// Publish a `responsePreconfBlocks` message.
     fn publish_unsafe_response(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
         let hash = envelope.execution_payload.block_hash;
-        match encode_unsafe_response_message(&envelope) {
-            Ok(payload) => {
-                if let Err(err) = self
-                    .swarm
-                    .behaviour_mut()
-                    .gossipsub
-                    .publish(self.topics.preconf_response.clone(), payload)
-                {
-                    record_publish("response_preconf_blocks", "publish_failed");
-                    warn!(
-                        hash = %hash,
-                        error = %err,
-                        "failed to publish whitelist preconfirmation response"
-                    );
-                } else {
-                    record_publish("response_preconf_blocks", "published");
-                }
-            }
-            Err(err) => {
-                record_publish("response_preconf_blocks", "encode_failed");
-                warn!(
-                    hash = %hash,
-                    error = %err,
-                    "failed to encode whitelist preconfirmation response"
-                );
-            }
-        }
+        self.encode_and_publish(
+            encode_unsafe_response_message(&envelope),
+            self.topics.preconf_response.clone(),
+            "response_preconf_blocks",
+            &format!("{hash}"),
+        );
     }
 
     /// Publish a `preconfBlocks` message and emit loopback event for local cache/import.
@@ -432,33 +404,12 @@ impl NetworkRuntime {
         // payload even when there are no peers to echo it back.
         forward_event(&self.event_tx, local_event).await?;
 
-        match encode_unsafe_payload_message(&signature, &envelope) {
-            Ok(payload) => {
-                if let Err(err) = self
-                    .swarm
-                    .behaviour_mut()
-                    .gossipsub
-                    .publish(self.topics.preconf_blocks.clone(), payload)
-                {
-                    record_publish("preconf_blocks", "publish_failed");
-                    warn!(
-                        hash = %hash,
-                        error = %err,
-                        "failed to publish whitelist preconfirmation payload"
-                    );
-                } else {
-                    record_publish("preconf_blocks", "published");
-                }
-            }
-            Err(err) => {
-                record_publish("preconf_blocks", "encode_failed");
-                warn!(
-                    hash = %hash,
-                    error = %err,
-                    "failed to encode whitelist preconfirmation payload"
-                );
-            }
-        }
+        self.encode_and_publish(
+            encode_unsafe_payload_message(&signature, &envelope),
+            self.topics.preconf_blocks.clone(),
+            "preconf_blocks",
+            &format!("{hash}"),
+        );
 
         Ok(())
     }
@@ -466,17 +417,57 @@ impl NetworkRuntime {
     /// Publish a `requestEndOfSequencingPreconfBlocks` message.
     fn publish_end_of_sequencing_request(&mut self, epoch: u64) {
         let payload = encode_eos_request_message(epoch);
+        self.publish_to_gossipsub(
+            self.topics.eos_request.clone(),
+            payload,
+            "request_eos_preconf_blocks",
+            &format!("epoch {epoch}"),
+        );
+    }
+
+    /// Encode-then-publish helper: handles the common `Result<Vec<u8>>` encode
+    /// followed by gossipsub publish, recording metrics for each outcome.
+    fn encode_and_publish(
+        &mut self,
+        encoded: std::result::Result<Vec<u8>, impl std::fmt::Display>,
+        topic: gossipsub::IdentTopic,
+        topic_label: &'static str,
+        context: &str,
+    ) {
+        match encoded {
+            Ok(payload) => {
+                self.publish_to_gossipsub(topic, payload, topic_label, context);
+            }
+            Err(err) => {
+                record_publish(topic_label, "encode_failed");
+                warn!(
+                    context,
+                    error = %err,
+                    "failed to encode whitelist preconfirmation message"
+                );
+            }
+        }
+    }
+
+    /// Publish raw bytes to a gossipsub topic, recording publish success or failure.
+    fn publish_to_gossipsub(
+        &mut self,
+        topic: gossipsub::IdentTopic,
+        payload: Vec<u8>,
+        topic_label: &'static str,
+        context: &str,
+    ) {
         if let Err(err) =
-            self.swarm.behaviour_mut().gossipsub.publish(self.topics.eos_request.clone(), payload)
+            self.swarm.behaviour_mut().gossipsub.publish(topic, payload)
         {
-            record_publish("request_eos_preconf_blocks", "publish_failed");
+            record_publish(topic_label, "publish_failed");
             warn!(
-                epoch,
+                context,
                 error = %err,
-                "failed to publish end-of-sequencing request"
+                "failed to publish whitelist preconfirmation message"
             );
         } else {
-            record_publish("request_eos_preconf_blocks", "published");
+            record_publish(topic_label, "published");
         }
     }
 
@@ -543,39 +534,33 @@ impl NetworkRuntime {
         };
 
         if *topic == self.topics.preconf_blocks.hash() {
-            let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data) {
-                Ok((wire_signature, payload_bytes)) => match decode_envelope_ssz(&payload_bytes) {
-                    Ok(envelope) => {
-                        let payload =
-                            DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
-                        let acceptance =
-                            self.inbound_validation_state.validate_preconf_blocks(&payload);
+            let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data)
+                .and_then(|(sig, bytes)| {
+                    decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env))
+                }) {
+                Ok((wire_signature, payload_bytes, envelope)) => {
+                    let payload =
+                        DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
+                    let acceptance =
+                        self.inbound_validation_state.validate_preconf_blocks(&payload);
 
-                        if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                            let Err(err) = forward_event(
-                                &self.event_tx,
-                                NetworkEvent::UnsafePayload { from, payload },
-                            )
-                            .await
-                        {
-                            // If forwarding to importer fails, reject to avoid silently accepting
-                            // data that local consumers could not process.
-                            report(gossipsub::MessageAcceptance::Reject);
-                            return Err(err);
-                        }
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
+                        && let Err(err) = forward_event(
+                            &self.event_tx,
+                            NetworkEvent::UnsafePayload { from, payload },
+                        )
+                        .await
+                    {
+                        // If forwarding to importer fails, reject to avoid silently
+                        // accepting data that local consumers could not process.
+                        report(gossipsub::MessageAcceptance::Reject);
+                        return Err(err);
+                    }
 
-                        let inbound_label = acceptance_label(&acceptance);
-                        (acceptance, inbound_label)
-                    }
-                    Err(err) => {
-                        debug!(error = %err, "failed to decode unsafe payload");
-                        reject_decode_failure("preconf_blocks")
-                    }
-                },
-                Err(err) => {
-                    debug!(error = %err, "failed to decode unsafe payload");
-                    reject_decode_failure("preconf_blocks")
+                    let label = acceptance_label(&acceptance);
+                    (acceptance, label)
                 }
+                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
             };
 
             record_inbound("preconf_blocks", inbound_label);
@@ -601,10 +586,7 @@ impl NetworkRuntime {
                     let inbound_label = acceptance_label(&acceptance);
                     (acceptance, inbound_label)
                 }
-                Err(err) => {
-                    debug!(error = %err, "failed to decode unsafe response");
-                    reject_decode_failure("response_preconf_blocks")
-                }
+                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
             };
 
             record_inbound("response_preconf_blocks", inbound_label);
@@ -614,7 +596,8 @@ impl NetworkRuntime {
 
         if *topic == self.topics.preconf_request.hash() {
             let Some(hash) = decode_request_hash_exact(&message.data) else {
-                let (acceptance, inbound_label) = reject_decode_failure("request_preconf_blocks");
+                let (acceptance, inbound_label) =
+                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
                 record_inbound("request_preconf_blocks", inbound_label);
                 report(acceptance);
                 return Ok(());
@@ -634,7 +617,7 @@ impl NetworkRuntime {
         if *topic == self.topics.eos_request.hash() {
             let Some(epoch) = decode_eos_epoch_exact(&message.data) else {
                 let (acceptance, inbound_label) =
-                    reject_decode_failure("request_eos_preconf_blocks");
+                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
                 record_inbound("request_eos_preconf_blocks", inbound_label);
                 report(acceptance);
                 return Ok(());
@@ -662,16 +645,6 @@ fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
         gossipsub::MessageAcceptance::Ignore => "ignored",
         gossipsub::MessageAcceptance::Reject => "rejected",
     }
-}
-
-/// Record a decode failure and return the standard inbound rejection tuple.
-fn reject_decode_failure(topic: &'static str) -> (gossipsub::MessageAcceptance, &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-        "topic" => topic,
-    )
-    .increment(1);
-    (gossipsub::MessageAcceptance::Reject, "decode_failed")
 }
 
 /// Record one outbound publish lifecycle outcome for the given network topic label.
