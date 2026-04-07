@@ -26,12 +26,6 @@ import (
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
-// l2HeadUpdateInfo keeps track of the latest L2 head update information.
-type l2HeadUpdateInfo struct {
-	blockID   uint64
-	updatedAt time.Time
-}
-
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 type Proposer struct {
 	// configurations
@@ -55,9 +49,6 @@ type Proposer struct {
 
 	lastProposedAt time.Time
 	totalEpochs    uint64
-
-	// Fallback proposer related
-	l2HeadUpdate l2HeadUpdateInfo
 
 	txmgrSelector *utils.TxMgrSelector
 
@@ -136,18 +127,6 @@ func (p *Proposer) InitFromConfig(
 
 // Start starts the proposer's main loop.
 func (p *Proposer) Start() error {
-	// get chain head and set it  to start off in case there is no new L2Heads incoming
-	// for the detection of the fallback preconfer to propose.
-	head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get L2 head: %w", err)
-	}
-
-	p.l2HeadUpdate = l2HeadUpdateInfo{
-		blockID:   head.Number.Uint64(),
-		updatedAt: time.Now().UTC(),
-	}
-
 	p.wg.Add(1)
 	go p.eventLoop()
 	return nil
@@ -155,13 +134,8 @@ func (p *Proposer) Start() error {
 
 // eventLoop starts the main loop of Taiko proposer.
 func (p *Proposer) eventLoop() {
-	l2HeadCh := make(chan *types.Header, 10)
-	l2HeadSub := rpc.SubscribeChainHead(p.rpc.L2, l2HeadCh)
-
 	defer func() {
 		p.proposingTimer.Stop()
-		l2HeadSub.Unsubscribe()
-		close(l2HeadCh)
 		p.wg.Done()
 	}()
 
@@ -180,11 +154,6 @@ func (p *Proposer) eventLoop() {
 			if err := p.ProposeOp(p.ctx); err != nil {
 				log.Error("Proposing operation error", "error", err)
 				continue
-			}
-		case h := <-l2HeadCh:
-			p.l2HeadUpdate = l2HeadUpdateInfo{
-				blockID:   h.Number.Uint64(),
-				updatedAt: time.Now().UTC(),
 			}
 		}
 	}
@@ -438,28 +407,6 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 			"proposer", p.proposerAddress.Hex(),
 		)
 		return false, nil
-	}
-
-	// We need to check when the l2Head was last updated.
-	if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
-		log.Info(
-			"Fallback timeout not reached, skip proposing",
-			"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
-			"blockID", p.l2HeadUpdate.blockID,
-			"now", time.Now().UTC(),
-			"fallbackTimeout", p.FallbackTimeout,
-		)
-		return false, nil
-	} else {
-		log.Info(
-			"Fallback timeout reached, proposer can propose",
-			"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
-			"now", time.Now().UTC(),
-			"fallbackTimeout", p.FallbackTimeout,
-			"blockID", p.l2HeadUpdate.blockID,
-		)
-		// Reset the l2HeadUpdate to avoid proposing too often.
-		p.l2HeadUpdate = l2HeadUpdateInfo{blockID: 0, updatedAt: time.Now().UTC()}
 	}
 
 	return true, nil

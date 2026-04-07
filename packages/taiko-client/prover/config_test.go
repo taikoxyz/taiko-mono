@@ -86,9 +86,9 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
-		&cli.Uint64Flag{Name: flags.StartingBatchID.Name},
+		&cli.Uint64Flag{Name: flags.StartingProposalID.Name},
 		&cli.BoolFlag{Name: flags.Dummy.Name},
-		&cli.BoolFlag{Name: flags.ProveUnassignedBlocks.Name},
+		&cli.BoolFlag{Name: flags.ProveUnassignedProposals.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.RaikoHostEndpoint.Name},
 	}

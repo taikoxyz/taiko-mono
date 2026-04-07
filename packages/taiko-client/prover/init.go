@@ -116,14 +116,14 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		p.flushCacheNotify,
 		new(big.Int).SetUint64(p.cfg.ProposalWindowSize),
 	); err != nil {
-		return fmt.Errorf("failed to initialize Shasta proof submitter: %w", err)
+		return fmt.Errorf("failed to initialize proof submitter: %w", err)
 	}
 
 	return nil
 }
 
 // initL1Current initializes prover's L1Current cursor.
-func (p *Prover) initL1Current(startingBatchID *big.Int) error {
+func (p *Prover) initL1Current(startingProposalID *big.Int) error {
 	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
 		return err
 	}
@@ -132,30 +132,30 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get Shasta core state: %w", err)
 	}
-	if startingBatchID == nil {
-		startingBatchID = coreState.LastFinalizedProposalId
+	if startingProposalID == nil {
+		startingProposalID = coreState.LastFinalizedProposalId
 	}
 
-	if startingBatchID.Cmp(coreState.NextProposalId) >= 0 {
+	if startingProposalID.Cmp(coreState.NextProposalId) >= 0 {
 		log.Warn(
-			"Provided startingBatchID is greater than the last proposal ID, using last finalized proposal ID instead",
-			"providedStartingBatchID", startingBatchID,
+			"Provided startingProposalID is greater than the last proposal ID, using last finalized proposal ID instead",
+			"providedStartingProposalID", startingProposalID,
 			"nextProposalId", coreState.NextProposalId,
 		)
-		startingBatchID = coreState.LastFinalizedProposalId
+		startingProposalID = coreState.LastFinalizedProposalId
 	}
-	if startingBatchID.Cmp(coreState.LastFinalizedProposalId) < 0 {
+	if startingProposalID.Cmp(coreState.LastFinalizedProposalId) < 0 {
 		log.Warn(
-			"Provided startingBatchID is less than the last finalized proposal ID, using last finalized proposal ID instead",
-			"providedStartingBatchID", startingBatchID,
+			"Provided startingProposalID is less than the last finalized proposal ID, using last finalized proposal ID instead",
+			"providedStartingProposalID", startingProposalID,
 			"lastFinalizedProposalID", coreState.LastFinalizedProposalId,
 		)
-		startingBatchID = coreState.LastFinalizedProposalId
+		startingProposalID = coreState.LastFinalizedProposalId
 	}
 
-	log.Info("Init L1Current cursor for Shasta protocol", "startingBatchID", startingBatchID)
+	log.Info("Init L1Current cursor for Shasta protocol", "startingProposalID", startingProposalID)
 
-	if startingBatchID.Cmp(common.Big0) == 0 {
+	if startingProposalID.Cmp(common.Big0) == 0 {
 		l1Current, err := p.rpc.GetGenesisL1Header(p.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get Shasta activation header: %w", err)
@@ -164,9 +164,9 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 		return nil
 	}
 
-	_, eventLog, err := p.rpc.GetProposalByID(p.ctx, startingBatchID)
+	_, eventLog, err := p.rpc.GetProposalByID(p.ctx, startingProposalID)
 	if err != nil {
-		return fmt.Errorf("failed to get proposal by ID %d: %w", startingBatchID, err)
+		return fmt.Errorf("failed to get proposal by ID %d: %w", startingProposalID, err)
 	}
 	l1Current, err := p.rpc.L1.HeaderByHash(p.ctx, eventLog.BlockHash)
 	if err != nil {
@@ -179,21 +179,21 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 // initEventHandlers initialize all event handlers which will be used by the current prover.
 func (p *Prover) initEventHandlers() error {
 	p.eventHandlers = &eventHandlers{}
-	// ------- BatchProposed -------
-	opts := &handler.NewBatchProposedEventHandlerOps{
-		SharedState:            p.sharedState,
-		ProverAddress:          p.ProverAddress(),
-		RPC:                    p.rpc,
-		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
-		AssignmentExpiredCh:    p.assignmentExpiredCh,
-		ProofSubmissionCh:      p.proofSubmissionCh,
-		BackOffRetryInterval:   p.cfg.BackOffRetryInterval,
-		BackOffMaxRetries:      p.cfg.BackOffMaxRetries,
-		ProveUnassignedBlocks:  p.cfg.ProveUnassignedBlocks,
+	// ------- Proposal -------
+	opts := &handler.NewProposalEventHandlerOps{
+		SharedState:              p.sharedState,
+		ProverAddress:            p.ProverAddress(),
+		RPC:                      p.rpc,
+		LocalProposerAddresses:   p.cfg.LocalProposerAddresses,
+		AssignmentExpiredCh:      p.assignmentExpiredCh,
+		ProofSubmissionCh:        p.proofSubmissionCh,
+		BackOffRetryInterval:     p.cfg.BackOffRetryInterval,
+		BackOffMaxRetries:        p.cfg.BackOffMaxRetries,
+		ProveUnassignedProposals: p.cfg.ProveUnassignedProposals,
 	}
-	p.eventHandlers.batchProposedHandler = handler.NewBatchProposedEventHandler(opts)
-	// ------- BatchesProved -------
-	p.eventHandlers.batchesProvedHandler = handler.NewBatchesProvedEventHandler(p.rpc)
+	p.eventHandlers.proposalHandler = handler.NewProposalEventHandler(opts)
+	// ------- ProofsReceived -------
+	p.eventHandlers.proofsReceivedHandler = handler.NewProofsReceivedEventHandler(p.rpc)
 	// ------- AssignmentExpired -------
 	p.eventHandlers.assignmentExpiredHandler = handler.NewAssignmentExpiredEventHandler(
 		p.rpc,

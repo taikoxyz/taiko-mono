@@ -145,17 +145,17 @@ func (s *ProverTestSuite) TestInitError() {
 	)
 
 	s.NotNil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:          os.Getenv("L1_WS"),
-		L2WsEndpoint:          os.Getenv("L2_WS"),
-		L2HttpEndpoint:        os.Getenv("L2_HTTP"),
-		InboxAddress:          common.HexToAddress(os.Getenv("INBOX")),
-		TaikoAnchorAddress:    common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		L1ProverPrivKey:       l1ProverPrivKey,
-		Dummy:                 true,
-		ProveUnassignedBlocks: true,
-		RPCTimeout:            10 * time.Minute,
-		BackOffRetryInterval:  3 * time.Second,
-		BackOffMaxRetries:     12,
+		L1WsEndpoint:             os.Getenv("L1_WS"),
+		L2WsEndpoint:             os.Getenv("L2_WS"),
+		L2HttpEndpoint:           os.Getenv("L2_HTTP"),
+		InboxAddress:             common.HexToAddress(os.Getenv("INBOX")),
+		TaikoAnchorAddress:       common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		L1ProverPrivKey:          l1ProverPrivKey,
+		Dummy:                    true,
+		ProveUnassignedProposals: true,
+		RPCTimeout:               10 * time.Minute,
+		BackOffRetryInterval:     3 * time.Second,
+		BackOffMaxRetries:        12,
 	}, s.txmgr, s.txmgr))
 }
 
@@ -176,7 +176,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), eventLog.BlockHash)
 	s.Nil(err)
 	meta := metadata.NewTaikoProposalMetadataShasta(payload, header.Time)
-	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), meta, func() {}))
+	s.Nil(s.p.eventHandlers.proposalHandler.Handle(context.Background(), meta, func() {}))
 	req := <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotify))
@@ -184,7 +184,7 @@ func (s *ProverTestSuite) TestOnBatchProposed() {
 
 	// Propose and prove the second Shasta proposal.
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.Nil(s.p.eventHandlers.batchProposedHandler.Handle(context.Background(), m, func() {}))
+	s.Nil(s.p.eventHandlers.proposalHandler.Handle(context.Background(), m, func() {}))
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotify))
@@ -235,23 +235,23 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 
 	p := new(Prover)
 	s.Nil(InitFromConfig(ctx, p, &Config{
-		L1WsEndpoint:           os.Getenv("L1_WS"),
-		L2WsEndpoint:           os.Getenv("L2_WS"),
-		L2HttpEndpoint:         os.Getenv("L2_HTTP"),
-		L2EngineEndpoint:       os.Getenv("L2_AUTH"),
-		JwtSecret:              string(jwtSecret),
-		InboxAddress:           common.HexToAddress(os.Getenv("INBOX")),
-		TaikoAnchorAddress:     common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		L1ProverPrivKey:        key,
-		Dummy:                  true,
-		ProveUnassignedBlocks:  true,
-		LocalProposerAddresses: []common.Address{crypto.PubkeyToAddress(proposerKey.PublicKey)},
-		RPCTimeout:             3 * time.Second,
-		BackOffRetryInterval:   3 * time.Second,
-		BackOffMaxRetries:      12,
-		SGXProofBufferSize:     1,
-		ZKVMProofBufferSize:    1,
-		BlockConfirmations:     0,
+		L1WsEndpoint:             os.Getenv("L1_WS"),
+		L2WsEndpoint:             os.Getenv("L2_WS"),
+		L2HttpEndpoint:           os.Getenv("L2_HTTP"),
+		L2EngineEndpoint:         os.Getenv("L2_AUTH"),
+		JwtSecret:                string(jwtSecret),
+		InboxAddress:             common.HexToAddress(os.Getenv("INBOX")),
+		TaikoAnchorAddress:       common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		L1ProverPrivKey:          key,
+		Dummy:                    true,
+		ProveUnassignedProposals: true,
+		LocalProposerAddresses:   []common.Address{crypto.PubkeyToAddress(proposerKey.PublicKey)},
+		RPCTimeout:               3 * time.Second,
+		BackOffRetryInterval:     3 * time.Second,
+		BackOffMaxRetries:        12,
+		SGXProofBufferSize:       1,
+		ZKVMProofBufferSize:      1,
+		BlockConfirmations:       0,
 	}, s.txmgr, s.txmgr))
 	s.p = p
 }

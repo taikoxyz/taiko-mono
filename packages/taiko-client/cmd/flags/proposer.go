@@ -1,8 +1,6 @@
 package flags
 
 import (
-	"time"
-
 	"github.com/urfave/cli/v2"
 )
 
@@ -62,27 +60,10 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"TX_POOL_MAX_TX_LISTS_PER_EPOCH"},
 	}
-	RevertProtectionEnabled = &cli.BoolFlag{
-		Name: "l1.revertProtection",
-		Usage: "Enable revert protection within your ProverSet contract, " +
-			"this is effective only if your PBS service supports revert protection",
-		Value:    false,
-		Category: proposerCategory,
-		EnvVars:  []string{"L1_REVERT_PROTECTION"},
-	}
-	// Preconfirmation related
-	FallbackTimeout = &cli.DurationFlag{
-		Name:     "preconfirmation.fallback.forcePushTimeout",
-		Usage:    "Timeout to propose L2 transactions as a fallback preconfer",
-		Category: proposerCategory,
-		Value:    2 * time.Minute,
-		EnvVars:  []string{"PRECONFIRMATION_FALLBACK_FORCE_PUSH_TIMEOUT"},
-	}
 )
 
 // ProposerFlags All proposer flags.
 var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
-	L2HTTPEndpoint,
 	L2AuthEndpoint,
 	L2WSEndpoint,
 	JWTSecret,
@@ -93,6 +74,4 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinProposingInternal,
 	AllowZeroTipInterval,
 	MaxTxListsPerEpoch,
-	RevertProtectionEnabled,
-	FallbackTimeout,
 }, TxmgrFlags)

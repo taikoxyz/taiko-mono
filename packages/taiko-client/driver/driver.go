@@ -269,7 +269,7 @@ func (d *Driver) eventLoop() {
 	}
 }
 
-// doSync fetches all `BatchProposed` events emitted from local
+// doSync fetches all proposal events emitted from local
 // L1 sync cursor to the L1 head, and then applies all corresponding
 // L2 blocks into node's local blockchain.
 func (d *Driver) doSync() error {

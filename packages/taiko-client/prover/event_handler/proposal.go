@@ -18,10 +18,10 @@ import (
 )
 
 // handleProposal handles the Shasta protocol Proposed event.
-func (h *BatchProposedEventHandler) handleProposal(
+func (h *ProposalEventHandler) handleProposal(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	end eventIterator.EndBatchProposedEventIterFunc,
+	end eventIterator.EndProposalEventIterFunc,
 ) error {
 	if !meta.IsShasta() {
 		log.Debug("Skip non-Shasta Proposed event")
@@ -109,7 +109,7 @@ func (h *BatchProposedEventHandler) handleProposal(
 
 // checkExpirationAndSubmitProof checks whether the proposed proposal's proving window is expired,
 // and submits a new proof if necessary.
-func (h *BatchProposedEventHandler) checkExpirationAndSubmitProof(
+func (h *ProposalEventHandler) checkExpirationAndSubmitProof(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	proposalID *big.Int,
@@ -135,7 +135,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProof(
 	}
 
 	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
-	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
+	// if no and the current prover wants to prove unassigned proposals, then we should wait for its expiration.
 	if !windowExpired && !h.shouldProve(designatedProver) {
 		log.Info(
 			"Proposed Shasta proposal is not provable by current prover at the moment",
@@ -145,7 +145,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProof(
 			"localProposerAddresses", h.localProposerAddresses,
 		)
 
-		if h.proveUnassignedBlocks {
+		if h.proveUnassignedProposals {
 			log.Info(
 				"Add proposed Shasta proposal to wait for proof window expiration",
 				"proposalID", meta.Shasta().GetEventData().Id,
@@ -163,9 +163,9 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProof(
 		}
 	}
 
-	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
+	// If the current prover is not the assigned prover, and `--prover.proveUnassignedProposals` is not set,
 	// we should skip proving this proposal.
-	if !h.proveUnassignedBlocks && !h.shouldProve(designatedProver) {
+	if !h.proveUnassignedProposals && !h.shouldProve(designatedProver) {
 		log.Info(
 			"Expired Shasta proposal is not provable by current prover",
 			"proposalID", meta.Shasta().GetEventData().Id,

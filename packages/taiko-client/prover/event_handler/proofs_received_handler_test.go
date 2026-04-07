@@ -106,8 +106,8 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.proposer = prop
 }
 
-func (s *EventHandlerTestSuite) TestBatchesProvedHandle() {
-	handler := NewBatchesProvedEventHandler(s.RPCClient)
+func (s *EventHandlerTestSuite) TestProofsReceivedHandle() {
+	handler := NewProofsReceivedEventHandler(s.RPCClient)
 
 	meta := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
 	s.True(meta.IsShasta())

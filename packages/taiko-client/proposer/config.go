@@ -29,10 +29,8 @@ type Config struct {
 	AllowZeroTipInterval    uint64
 	MaxTxListsPerEpoch      uint64
 	ProposeBatchTxGasLimit  uint64
-	RevertProtectionEnabled bool
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
-	FallbackTimeout         time.Duration
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -84,7 +82,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MaxTxListsPerEpoch:      maxTxListsPerEpoch,
 		AllowZeroTipInterval:    c.Uint64(flags.AllowZeroTipInterval.Name),
 		ProposeBatchTxGasLimit:  c.Uint64(flags.TxGasLimit.Name),
-		RevertProtectionEnabled: c.Bool(flags.RevertProtectionEnabled.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1WSEndpoint.Name),
 			l1ProposerPrivKey,
@@ -95,6 +92,5 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProposerPrivKey,
 			c,
 		),
-		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
 	}, nil
 }

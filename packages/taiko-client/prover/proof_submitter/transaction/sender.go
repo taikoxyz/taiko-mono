@@ -62,7 +62,7 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
 		log.Error(
-			"Failed to submit batch proofs",
+			"Failed to submit aggregated proposal proofs",
 			"txHash", receipt.TxHash,
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomErrorFromReceipt(ctx, s.rpc.L1, txMgr.From(), receipt),
@@ -74,7 +74,7 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 	log.Info(
 		fmt.Sprintf("🚚 Your %s batch proofs have been accepted", batchProof.ProofType),
 		"txHash", receipt.TxHash,
-		"blockIDs", batchProof.BatchIDs,
+		"proposalIDs", batchProof.BatchIDs,
 	)
 
 	metrics.ProverSubmissionAcceptedCounter.Add(float64(len(batchProof.BatchIDs)))

@@ -334,10 +334,10 @@ func (s *ProofSubmitter) handleProofResponse(
 	return nil
 }
 
-// BatchSubmitProofs submits the given batch proofs to the inbox contract.
+// BatchSubmitProofs submits the given aggregated proposal proofs to the inbox contract.
 func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
-		"Batch submit Shasta proposal proofs",
+		"Submit aggregated Shasta proposal proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
 		"size", len(batchProof.ProofResponses),
 		"firstID", batchProof.BatchIDs[0],
@@ -349,10 +349,10 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		return fmt.Errorf("unexpected proof type from raiko to submit: %s", batchProof.ProofType)
 	}
 
-	// Check if there is any invalid batch proofs in the aggregation, if so, we ignore them.
+	// Check if there are any invalid proposal proofs in the aggregation, and ignore them.
 	invalidProposalIDs, err := s.validateBatchProofs(ctx, batchProof)
 	if err != nil {
-		return fmt.Errorf("failed to validate batch proofs: %w", err)
+		return fmt.Errorf("failed to validate proposal proofs: %w", err)
 	}
 	if len(invalidProposalIDs) > 0 {
 		// If there are invalid proposals in the aggregation, we ignore these proposals.
@@ -364,7 +364,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 		latestProvenBlockID = common.Big0
 		lowestProposalID    uint64
 	)
-	// Extract all block IDs and the highest block ID in the batches.
+	// Extract all proposal IDs and the highest proven block ID in the aggregation.
 	for _, proof := range batchProof.ProofResponses {
 		currentLastBlockID := proof.Opts.ShastaOptions().L2BlockNums[len(proof.Opts.ShastaOptions().L2BlockNums)-1]
 		if currentLastBlockID.Cmp(latestProvenBlockID) > 0 {

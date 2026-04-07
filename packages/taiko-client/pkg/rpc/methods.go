@@ -371,8 +371,8 @@ func (c *Client) L2AccountNonce(
 	)
 }
 
-// L2SyncProgress represents the sync progress of a L2 execution engine, `ethereum.SyncProgress` is used to check
-// the sync progress of verified blocks, and block IDs are used to check the sync progress of pending blocks.
+// L2SyncProgress represents the sync progress of a L2 execution engine. `ethereum.SyncProgress` is used to check
+// the sync progress of verified proposals, and block IDs are used to check the sync progress of pending proposals.
 type L2SyncProgress struct {
 	*ethereum.SyncProgress
 	CurrentBlockID       *big.Int
@@ -444,7 +444,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 			switch err.Error() {
 			case ethereum.NotFound.Error():
 				// There is only genesis block in the L2 execution engine, or it has not started
-				// syncing the pending blocks yet.
+				// syncing pending proposals yet.
 				progress.CurrentBlockID = common.Big0
 				return nil
 			default:

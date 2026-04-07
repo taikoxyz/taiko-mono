@@ -100,7 +100,7 @@ func NewBlocksInserter(
 func (i *Shasta) InsertBlocks(
 	_ context.Context,
 	_ metadata.TaikoProposalMetaData,
-	_ eventIterator.EndBatchProposedEventIterFunc,
+	_ eventIterator.EndProposalEventIterFunc,
 ) (err error) {
 	return errors.New("not supported in Shasta block inserter")
 }
@@ -111,7 +111,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *shastaManifest.DerivationSourcePayload,
-	endIter eventIterator.EndBatchProposedEventIterFunc,
+	endIter eventIterator.EndProposalEventIterFunc,
 ) (*big.Int, error) {
 	if !metadata.IsShasta() {
 		return nil, errors.New("metadata is not for Shasta fork blocks")

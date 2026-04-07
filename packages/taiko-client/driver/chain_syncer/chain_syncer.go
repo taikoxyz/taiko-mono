@@ -103,10 +103,10 @@ func (s *L2ChainSyncer) Sync() error {
 	s.progressTracker.MarkFinished()
 
 	// We have triggered at least a beacon sync in L2 execution engine, we should reset the L1Current
-	// cursor before we start inserting pending L2 batches one by one.
+	// cursor before we start inserting pending L2 proposals one by one.
 	if s.progressTracker.Triggered() {
 		log.Info(
-			"Switch to insert pending batches one by one",
+			"Switch to insert pending proposals one by one",
 			"p2pEnabled", s.p2pSync,
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
@@ -123,7 +123,7 @@ func (s *L2ChainSyncer) Sync() error {
 		s.preconfBlockServer.SetSyncReady(true)
 	}
 
-	// Insert the proposed batches one by one.
+	// Insert the proposed proposals one by one.
 	if err := s.eventSyncer.ProcessL1Blocks(s.ctx); err != nil {
 		return err
 	}

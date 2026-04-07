@@ -15,45 +15,45 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// EndBatchProposedEventIterFunc ends the current iteration.
-type EndBatchProposedEventIterFunc func()
+// EndProposalEventIterFunc ends the current iteration.
+type EndProposalEventIterFunc func()
 
-// OnBatchProposedEvent represents the callback function which will be called
+// OnProposalEvent represents the callback function which will be called
 // when a Shasta proposal event is iterated.
-type OnBatchProposedEvent func(
+type OnProposalEvent func(
 	context.Context,
 	metadata.TaikoProposalMetaData,
-	EndBatchProposedEventIterFunc,
+	EndProposalEventIterFunc,
 ) error
 
-// BatchProposedIterator iterates the emitted Shasta proposal events in the chain,
+// ProposalIterator iterates the emitted Shasta proposal events in the chain,
 // with the awareness of reorganization.
-type BatchProposedIterator struct {
+type ProposalIterator struct {
 	blockBatchIterator *chainIterator.BlockBatchIterator
 	isEnd              bool
 }
 
-// BatchProposedIteratorConfig represents the configs of a BatchProposed event iterator.
-type BatchProposedIteratorConfig struct {
+// ProposalIteratorConfig represents the configs of a proposal event iterator.
+type ProposalIteratorConfig struct {
 	RpcClient             *rpc.Client
 	MaxBlocksReadPerEpoch *uint64
 	StartHeight           *big.Int
 	EndHeight             *big.Int
-	OnBatchProposedEvent  OnBatchProposedEvent
+	OnProposalEvent       OnProposalEvent
 	BlockConfirmations    *uint64
 }
 
-// NewBatchProposedIterator creates a new instance of BatchProposed event iterator.
-func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorConfig) (*BatchProposedIterator, error) {
+// NewProposalIterator creates a new instance of a proposal event iterator.
+func NewProposalIterator(ctx context.Context, cfg *ProposalIteratorConfig) (*ProposalIterator, error) {
 	if cfg.RpcClient == nil || cfg.RpcClient.L1 == nil {
 		return nil, errors.New("invalid RPC client")
 	}
 
-	if cfg.OnBatchProposedEvent == nil {
+	if cfg.OnProposalEvent == nil {
 		return nil, errors.New("invalid callback")
 	}
 
-	iterator := new(BatchProposedIterator)
+	iterator := new(ProposalIterator)
 
 	// Initialize the inner block iterator.
 	blockIterator, err := chainIterator.NewBlockBatchIterator(ctx, &chainIterator.BlockBatchIteratorConfig{
@@ -62,9 +62,9 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 		StartHeight:           cfg.StartHeight,
 		EndHeight:             cfg.EndHeight,
 		BlockConfirmations:    cfg.BlockConfirmations,
-		OnBlocks: assembleBatchProposedIteratorCallback(
+		OnBlocks: assembleProposalIteratorCallback(
 			cfg.RpcClient,
-			cfg.OnBatchProposedEvent,
+			cfg.OnProposalEvent,
 			iterator,
 		),
 	})
@@ -78,22 +78,22 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 }
 
 // Iter iterates the given chain between the given start and end heights,
-// will call the callback when a BatchProposed event is iterated.
-func (i *BatchProposedIterator) Iter() error {
+// and calls the callback when a proposal event is iterated.
+func (i *ProposalIterator) Iter() error {
 	return i.blockBatchIterator.Iter()
 }
 
 // end ends the current iteration.
-func (i *BatchProposedIterator) end() {
+func (i *ProposalIterator) end() {
 	i.isEnd = true
 }
 
-// assembleBatchProposedIteratorCallback assembles the callback which will be used
+// assembleProposalIteratorCallback assembles the callback which will be used
 // by a event iterator's inner block iterator.
-func assembleBatchProposedIteratorCallback(
+func assembleProposalIteratorCallback(
 	rpcClient *rpc.Client,
-	callback OnBatchProposedEvent,
-	eventIter *BatchProposedIterator,
+	callback OnProposalEvent,
+	eventIter *ProposalIterator,
 ) chainIterator.OnBlocksFunc {
 	return func(
 		ctx context.Context,
@@ -102,8 +102,8 @@ func assembleBatchProposedIteratorCallback(
 		endFunc chainIterator.EndIterFunc,
 	) error {
 		var (
-			endHeight         = end.Number.Uint64()
-			lastShastaBatchID uint64
+			endHeight            = end.Number.Uint64()
+			lastShastaProposalID uint64
 		)
 
 		iter, err := rpcClient.ShastaClients.Inbox.FilterProposed(
@@ -126,17 +126,17 @@ func assembleBatchProposedIteratorCallback(
 			proposalID := proposedEventPayload.Shasta().GetEventData().Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
-			if lastShastaBatchID != 0 && proposalID != lastShastaBatchID+1 {
+			if lastShastaProposalID != 0 && proposalID != lastShastaProposalID+1 {
 				log.Warn(
 					"Proposed event is not continuous, rescan the L1 chain",
 					"fromL1Block", start.Number,
 					"toL1Block", endHeight,
-					"lastScannedProposalID", lastShastaBatchID,
+					"lastScannedProposalID", lastShastaProposalID,
 					"currentScannedProposalID", proposalID,
 				)
 				return fmt.Errorf(
-					"proposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
-					lastShastaBatchID, proposalID,
+					"proposed event is not continuous, lastScannedProposalID: %d, currentScannedProposalID: %d",
+					lastShastaProposalID, proposalID,
 				)
 			}
 
@@ -158,7 +158,7 @@ func assembleBatchProposedIteratorCallback(
 
 			log.Debug("Updating current block cursor for processing Proposed events", "block", current.Number)
 
-			lastShastaBatchID = proposalID
+			lastShastaProposalID = proposalID
 
 			updateCurrentFunc(current)
 		}

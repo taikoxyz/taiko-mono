@@ -12,18 +12,18 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// BatchesProvedEventHandler is responsible for handling the BatchesProved event.
-type BatchesProvedEventHandler struct {
+// ProofsReceivedEventHandler is responsible for handling proof-received events.
+type ProofsReceivedEventHandler struct {
 	rpc *rpc.Client
 }
 
-// NewBatchesProvedEventHandler creates a new BatchesProvedEventHandler instance.
-func NewBatchesProvedEventHandler(rpc *rpc.Client) *BatchesProvedEventHandler {
-	return &BatchesProvedEventHandler{rpc: rpc}
+// NewProofsReceivedEventHandler creates a new ProofsReceivedEventHandler instance.
+func NewProofsReceivedEventHandler(rpc *rpc.Client) *ProofsReceivedEventHandler {
+	return &ProofsReceivedEventHandler{rpc: rpc}
 }
 
-// Handle implements the BatchesProvedHandler interface.
-func (h *BatchesProvedEventHandler) Handle(
+// Handle implements the ProofsReceivedHandler interface.
+func (h *ProofsReceivedEventHandler) Handle(
 	ctx context.Context,
 	e *shastaBindings.ShastaInboxClientProved,
 ) error {

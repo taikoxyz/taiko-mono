@@ -18,13 +18,13 @@ type Inserter interface {
 	InsertBlocks(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		endIter eventIterator.EndBatchProposedEventIterFunc,
+		endIter eventIterator.EndProposalEventIterFunc,
 	) error
 	InsertBlocksWithManifest(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
 		sourcePayload *shastaManifest.DerivationSourcePayload,
-		endIter eventIterator.EndBatchProposedEventIterFunc,
+		endIter eventIterator.EndProposalEventIterFunc,
 	) (*big.Int, error)
 }
 

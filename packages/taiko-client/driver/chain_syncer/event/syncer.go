@@ -123,11 +123,11 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		s.lastInsertedProposalID = nil
 	}
 
-	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
-		RpcClient:            s.rpc,
-		StartHeight:          s.state.GetL1Current().Number,
-		EndHeight:            l1End.Number,
-		OnBatchProposedEvent: s.onBatchProposed,
+	iter, err := eventIterator.NewProposalIterator(ctx, &eventIterator.ProposalIteratorConfig{
+		RpcClient:       s.rpc,
+		StartHeight:     s.state.GetL1Current().Number,
+		EndHeight:       l1End.Number,
+		OnProposalEvent: s.onProposal,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create event iterator: %w", err)
@@ -146,22 +146,22 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	return nil
 }
 
-// onBatchProposed is a `BatchProposed` event callback which responsible for
-// inserting the proposed block one by one to the L2 execution engine.
-func (s *Syncer) onBatchProposed(
+// onProposal is the proposal-event callback which is responsible for
+// inserting proposal blocks one by one into the L2 execution engine.
+func (s *Syncer) onProposal(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBatchProposedEventIterFunc,
+	endIter eventIterator.EndProposalEventIterFunc,
 ) error {
 	return s.processProposal(ctx, meta, endIter)
 }
 
 // processProposal processes a Shasta proposal event, and tries inserting
-// the proposed blocks to the L2 execution engine.
+// the proposal's blocks into the L2 execution engine.
 func (s *Syncer) processProposal(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	endIter eventIterator.EndBatchProposedEventIterFunc,
+	endIter eventIterator.EndProposalEventIterFunc,
 ) error {
 	var (
 		meta   = metadata.Shasta()

@@ -31,12 +31,12 @@ import (
 
 // eventHandlers contains all event handlers which will be used by the prover.
 type eventHandlers struct {
-	batchProposedHandler     handler.BatchProposedHandler
-	batchesProvedHandler     handler.BatchesProvedHandler
+	proposalHandler          handler.ProposalHandler
+	proofsReceivedHandler    handler.ProofsReceivedHandler
 	assignmentExpiredHandler handler.AssignmentExpiredHandler
 }
 
-// Prover keeps trying to prove newly proposed blocks.
+// Prover keeps trying to prove newly proposed inbox proposals.
 type Prover struct {
 	// Configurations
 	cfg *Config
@@ -123,7 +123,7 @@ func InitFromConfig(
 	p.batchesAggregationNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 	p.flushCacheNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
-	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
+	if err := p.initL1Current(cfg.StartingProposalID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
 	}
 
@@ -198,9 +198,8 @@ func (p *Prover) eventLoop() {
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
-	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoInbox contract, there will be no
-	// new BatchProposed event temporarily, so except the BatchProposed subscription, we need another trigger to start
-	// fetching the proposed batches.
+	// If there are too many pending proposals in the Inbox contract, there will be no new proposal event temporarily, so
+	// except the proposal-event subscription, we need another trigger to start fetching the proposed proposals.
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
@@ -230,7 +229,7 @@ func (p *Prover) eventLoop() {
 			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
-				log.Error("Prove new blocks error", "error", err)
+				log.Error("Prove new proposals error", "error", err)
 			}
 		case proofType := <-p.batchesAggregationNotify:
 			p.withRetry(func() error { return p.aggregateOp(proofType) }, nil)
@@ -241,7 +240,7 @@ func (p *Prover) eventLoop() {
 		case <-proposedCh:
 			reqProving()
 		case e := <-provedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.Handle(p.ctx, e) }, nil)
+			p.withRetry(func() error { return p.eventHandlers.proofsReceivedHandler.Handle(p.ctx, e) }, nil)
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -253,16 +252,16 @@ func (p *Prover) Close(_ context.Context) {
 	p.wg.Wait()
 }
 
-// proveOp iterates through BatchProposed events.
+// proveOp iterates through Proposed events.
 func (p *Prover) proveOp() error {
-	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
-		RpcClient:            p.rpc,
-		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
-		OnBatchProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
-		BlockConfirmations:   &p.cfg.BlockConfirmations,
+	iter, err := eventIterator.NewProposalIterator(p.ctx, &eventIterator.ProposalIteratorConfig{
+		RpcClient:          p.rpc,
+		StartHeight:        new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
+		OnProposalEvent:    p.eventHandlers.proposalHandler.Handle,
+		BlockConfirmations: &p.cfg.BlockConfirmations,
 	})
 	if err != nil {
-		log.Error("Failed to start event iterator", "event", "BatchProposed", "error", err)
+		log.Error("Failed to start proposal iterator", "error", err)
 		return err
 	}
 
@@ -293,8 +292,8 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
 		if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
 			log.Warn(
-				"Detected proven blocks",
-				"blockIDs", batchProof.BatchIDs,
+				"Detected proven proposals",
+				"proposalIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
@@ -303,7 +302,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 			strings.Contains(err.Error(), transaction.ErrUnretryableSubmission.Error()) {
 			log.Error(
 				"Proof submission reverted or unretryable",
-				"blockIDs", batchProof.BatchIDs,
+				"proposalIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
@@ -315,7 +314,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 		}
 		log.Error(
 			"Submit proof error",
-			"blockIDs", batchProof.BatchIDs,
+			"proposalIDs", batchProof.BatchIDs,
 			"proofType", batchProof.ProofType,
 			"error", err,
 		)
@@ -328,7 +327,7 @@ func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs)
 	return nil
 }
 
-// clearProofBuffer clears the buffered proof items for the batch from the matching submitter.
+// clearProofBuffer clears the buffered proof items for the proposal aggregation from the matching submitter.
 func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs, resend bool) error {
 	submitter, err := p.getSubmitter(batchProof)
 	if err != nil {

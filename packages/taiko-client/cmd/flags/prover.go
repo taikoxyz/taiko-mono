@@ -46,19 +46,19 @@ var (
 		Value:    10 * time.Minute,
 		EnvVars:  []string{"RAIKO_REQUEST_TIMEOUT"},
 	}
-	StartingBatchID = &cli.Uint64Flag{
-		Name:     "prover.startingBatchID",
-		Usage:    "If set, prover will start proving batches from the batch with this ID",
+	StartingProposalID = &cli.Uint64Flag{
+		Name:     "prover.startingProposalID",
+		Usage:    "If set, prover will start proving proposals from the proposal with this ID",
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_STARTING_BATCH_ID"},
+		EnvVars:  []string{"PROVER_STARTING_PROPOSAL_ID"},
 	}
 	// Proving strategy.
-	ProveUnassignedBlocks = &cli.BoolFlag{
-		Name:     "prover.proveUnassignedBlocks",
-		Usage:    "Whether you want to prove unassigned blocks, or only work on assigned proofs",
+	ProveUnassignedProposals = &cli.BoolFlag{
+		Name:     "prover.proveUnassignedProposals",
+		Usage:    "Whether you want to prove unassigned proposals, or only work on assigned proofs",
 		Category: proverCategory,
 		Value:    false,
-		EnvVars:  []string{"PROVER_PROVE_UNASSIGNED_BLOCKS"},
+		EnvVars:  []string{"PROVER_PROVE_UNASSIGNED_PROPOSALS"},
 	}
 	ProposalWindowSize = &cli.Uint64Flag{
 		Name: "prover.proposal.window.size",
@@ -89,7 +89,7 @@ var (
 	LocalProposerAddresses = &cli.StringSliceFlag{
 		Name: "prover.localProposerAddresses",
 		Usage: "Comma separated list of local proposer addresses, " +
-			"if set, prover will prove the batches proposed by these addresses before the assignment expiration time",
+			"if set, prover will prove proposals from these addresses before the assignment expiration time",
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_LOCAL_PROPOSER_ADDRESSES"},
 	}
@@ -103,7 +103,7 @@ var (
 	}
 	ForceBatchProvingInterval = &cli.DurationFlag{
 		Name: "prover.forceBatchProvingInterval",
-		Usage: "Time interval to prove blocks even if the number of pending proofs does not exceed prover.batchSize, " +
+		Usage: "Time interval to prove proposals even if the number of pending proofs does not exceed prover.batchSize, " +
 			"this flag only works for post Ontake fork blocks",
 		Category: proverCategory,
 		Value:    30 * time.Minute,
@@ -137,9 +137,9 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	RaikoHostEndpoint,
 	RaikoApiKeyPath,
 	L1ProverPrivKey,
-	StartingBatchID,
+	StartingProposalID,
 	Dummy,
-	ProveUnassignedBlocks,
+	ProveUnassignedProposals,
 	ProofPollingInterval,
 	LocalProposerAddresses,
 	BlockConfirmations,

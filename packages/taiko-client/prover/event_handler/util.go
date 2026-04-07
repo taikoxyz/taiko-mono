@@ -18,7 +18,7 @@ var errL1Reorged = errors.New("L1 reorged")
 const proofExpirationDelay = 72 * time.Second
 
 // checkL1Reorg verifies that the event's L1 block is still canonical.
-func (h *BatchProposedEventHandler) checkL1Reorg(
+func (h *ProposalEventHandler) checkL1Reorg(
 	ctx context.Context,
 	proposalID *big.Int,
 	meta metadata.TaikoProposalMetaData,

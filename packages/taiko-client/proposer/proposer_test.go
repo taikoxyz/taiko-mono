@@ -29,7 +29,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
 type ProposerTestSuite struct {
@@ -102,30 +101,6 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.cancel = cancel
-}
-
-func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
-	s.p.txBuilder = builder.NewBlobTransactionBuilder(
-		s.p.rpc,
-		common.HexToAddress(os.Getenv("INBOX")),
-		s.TestAddr,
-		10_000_000,
-	)
-	s.Nil(s.s.ProcessL1Blocks(context.Background()))
-
-	s.SetL1Automine(false)
-	defer s.SetL1Automine(true)
-	head, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-
-	s.SetIntervalMining(1)
-
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
-	s.Nil(s.s.ProcessL1Blocks(context.Background()))
-
-	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Equal(head2.Number.Uint64(), head.Number.Uint64()+1)
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
