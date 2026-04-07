@@ -11007,7 +11007,6 @@ dependencies = [
  "metrics 0.24.3",
  "preconfirmation-net",
  "protocol",
- "rand 0.8.5",
  "reqwest",
  "rpc",
  "serde",

@@ -2,10 +2,8 @@
 
 use std::time::Instant;
 
-use std::collections::HashMap;
-
 use alloy_primitives::B256;
-use libp2p::{Swarm, gossipsub, request_response};
+use libp2p::{Swarm, gossipsub};
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
@@ -48,26 +46,11 @@ pub(super) async fn handle_swarm_event(
     event_tx: &mpsc::Sender<NetworkEvent>,
     inbound_validation_state: &mut GossipsubInboundState,
     swarm: &mut Swarm<Behaviour>,
-    response_channels: &mut HashMap<
-        request_response::InboundRequestId,
-        request_response::ResponseChannel<Vec<u8>>,
-    >,
-    pending_requests: &mut HashMap<request_response::OutboundRequestId, B256>,
 ) -> Result<()> {
     match event {
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(event)) => {
             handle_gossipsub_event(*event, topics, event_tx, inbound_validation_state, swarm)
                 .await?;
-        }
-        libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Reqresp(event)) => {
-            handle_reqresp_event(
-                event,
-                event_tx,
-                inbound_validation_state,
-                response_channels,
-                pending_requests,
-            )
-            .await?;
         }
         libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
             debug!(%address, "whitelist preconfirmation network listening");
@@ -81,137 +64,6 @@ pub(super) async fn handle_swarm_event(
         libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ping | BehaviourEvent::Identify) => {}
         other => {
             debug!(event = ?other, "ignored swarm event");
-        }
-    }
-    Ok(())
-}
-
-/// Handle one request/response event.
-async fn handle_reqresp_event(
-    event: request_response::Event<B256, Vec<u8>>,
-    event_tx: &mpsc::Sender<NetworkEvent>,
-    inbound_validation_state: &GossipsubInboundState,
-    response_channels: &mut HashMap<
-        request_response::InboundRequestId,
-        request_response::ResponseChannel<Vec<u8>>,
-    >,
-    pending_requests: &mut HashMap<request_response::OutboundRequestId, B256>,
-) -> Result<()> {
-    match event {
-        request_response::Event::Message { peer, message, .. } => match message {
-            request_response::Message::Request { request_id, request: hash, channel } => {
-                debug!(
-                    peer = %peer,
-                    hash = %hash,
-                    ?request_id,
-                    "received direct block request"
-                );
-                response_channels.insert(request_id, channel);
-                forward_event(
-                    event_tx,
-                    NetworkEvent::DirectRequest { from: peer, hash, request_id },
-                )
-                .await?;
-            }
-            request_response::Message::Response { request_id, response } => {
-                let Some(hash) = pending_requests.remove(&request_id) else {
-                    warn!(
-                        peer = %peer,
-                        ?request_id,
-                        "received direct response for unknown request id; dropping"
-                    );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::NETWORK_TRANSPORT_FAILURES_TOTAL,
-                        "direction" => "response_unknown_id",
-                    )
-                    .increment(1);
-                    return Ok(());
-                };
-                let envelope = if response.is_empty() {
-                    None
-                } else {
-                    match decode_unsafe_response_message(&response) {
-                        Ok(env) => {
-                            // Validate shape and signer before forwarding to the
-                            // importer, mirroring the gossip validation path.
-                            if !GossipsubInboundState::validate_response_shape(&env) ||
-                                !inbound_validation_state.verify_envelope_signer(&env)
-                            {
-                                warn!(
-                                    peer = %peer,
-                                    hash = %hash,
-                                    "direct response failed shape/signer validation"
-                                );
-                                metrics::counter!(
-                                    WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                                    "topic" => "direct_response_invalid",
-                                )
-                                .increment(1);
-                                None
-                            } else {
-                                Some(env)
-                            }
-                        }
-                        Err(err) => {
-                            warn!(
-                                peer = %peer,
-                                hash = %hash,
-                                error = %err,
-                                "failed to decode direct response"
-                            );
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
-                                "topic" => "direct_response",
-                            )
-                            .increment(1);
-                            None
-                        }
-                    }
-                };
-                forward_event(
-                    event_tx,
-                    NetworkEvent::DirectResponse { from: peer, hash, envelope },
-                )
-                .await?;
-            }
-        },
-        request_response::Event::OutboundFailure { peer, request_id, error, .. } => {
-            if let Some(hash) = pending_requests.remove(&request_id) {
-                warn!(
-                    peer = %peer,
-                    hash = %hash,
-                    error = %error,
-                    "direct request outbound failure"
-                );
-            } else {
-                warn!(
-                    peer = %peer,
-                    ?request_id,
-                    error = %error,
-                    "direct request outbound failure for unknown request id"
-                );
-            }
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_TRANSPORT_FAILURES_TOTAL,
-                "direction" => "outbound",
-            )
-            .increment(1);
-        }
-        request_response::Event::InboundFailure { peer, request_id, error, .. } => {
-            response_channels.remove(&request_id);
-            debug!(
-                peer = %peer,
-                ?request_id,
-                error = %error,
-                "direct request inbound failure"
-            );
-        }
-        request_response::Event::ResponseSent { peer, request_id, .. } => {
-            debug!(
-                peer = %peer,
-                ?request_id,
-                "direct response sent"
-            );
         }
     }
     Ok(())
