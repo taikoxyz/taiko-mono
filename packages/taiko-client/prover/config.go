@@ -22,6 +22,7 @@ import (
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
 	L1WsEndpoint              string
+	L1BeaconEndpoint          string
 	L2WsEndpoint              string
 	L2HttpEndpoint            string
 	L2EngineEndpoint          string
@@ -91,6 +92,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	return &Config{
 		L1WsEndpoint:             c.String(flags.L1WSEndpoint.Name),
+		L1BeaconEndpoint:         c.String(flags.L1BeaconEndpoint.Name),
 		L2WsEndpoint:             c.String(flags.L2WSEndpoint.Name),
 		L2HttpEndpoint:           c.String(flags.L2HTTPEndpoint.Name),
 		L2EngineEndpoint:         c.String(flags.L2AuthEndpoint.Name),

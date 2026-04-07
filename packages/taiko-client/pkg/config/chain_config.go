@@ -13,15 +13,12 @@ import (
 type ChainConfig struct {
 	// Chain ID for the network
 	ChainID *big.Int
-	// Ontake switch block (nil = no fork, 0 = already on ontake)
-	OntakeForkHeight *big.Int
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(chainID *big.Int, ontakeForkHeight uint64) *ChainConfig {
+func NewChainConfig(chainID *big.Int, _ uint64) *ChainConfig {
 	cfg := &ChainConfig{
-		ChainID:          chainID,
-		OntakeForkHeight: new(big.Int).SetUint64(ontakeForkHeight),
+		ChainID: chainID,
 	}
 
 	log.Info("")
@@ -37,8 +34,10 @@ func NewChainConfig(chainID *big.Int, ontakeForkHeight uint64) *ChainConfig {
 
 // NetworkNames are user friendly names to use in the chain spec banner.
 var NetworkNames = map[uint64]string{
-	params.TaikoHoodiNetworkID.Uint64():   "Taiko Hoodi Testnet",
-	params.TaikoMainnetNetworkID.Uint64(): "Taiko Mainnet",
+	params.TaikoInternalNetworkID.Uint64(): "Taiko Internal Devnet",
+	params.MasayaDevnetNetworkID.Uint64():  "Taiko Masaya Devnet",
+	params.TaikoHoodiNetworkID.Uint64():    "Taiko Hoodi Testnet",
+	params.TaikoMainnetNetworkID.Uint64():  "Taiko Mainnet",
 }
 
 // Description returns a human-readable description of ChainConfig.
@@ -53,24 +52,12 @@ func (c *ChainConfig) Description() string {
 	banner += fmt.Sprintf("Chain ID:  %v (%s)\n", c.ChainID.Uint64(), network)
 
 	// Create a list of forks with a short description of them.
-	banner += "Hard forks (block based):\n"
-	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.OntakeForkHeight)
-	banner += " - Shasta:                   active\n"
+	banner += "Hard forks:\n"
+	banner += "\n"
+	banner += " - Ontake:                   active\n"
+	banner += " - Pacaya:                   active\n"
+	banner += " - Shasta:                   active"
 	banner += "\n"
 
 	return banner
-}
-
-// IsOntake returns whether num is either equal to the Ontake block or greater.
-func (c *ChainConfig) IsOntake(num *big.Int) bool {
-	return isBlockForked(c.OntakeForkHeight, num)
-}
-
-// isBlockForked returns whether a fork scheduled at block s is active at the
-// given head block.
-func isBlockForked(s, head *big.Int) bool {
-	if s == nil || head == nil {
-		return false
-	}
-	return s.Cmp(head) <= 0
 }

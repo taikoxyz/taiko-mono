@@ -13,6 +13,7 @@ import (
 
 func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	l1Endpoint := "http://localhost:8545"
+	l1BeaconEndpoint := "http://localhost:5052"
 	l2Endpoint := "http://localhost:9545"
 	l2HttpEndpoint := "http://localhost:10545"
 	inbox := common.HexToAddress("0x00000000000000000000000000000000000000aa")
@@ -21,6 +22,7 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
@@ -37,6 +39,7 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		c, err := NewConfigFromCliContext(ctx)
 		s.Nil(err)
 		s.Equal(l1Endpoint, c.L1WsEndpoint)
+		s.Equal(l1BeaconEndpoint, c.L1BeaconEndpoint)
 		s.Equal(l2Endpoint, c.L2WsEndpoint)
 		s.Equal(l2HttpEndpoint, c.L2HttpEndpoint)
 		s.Equal(inbox.String(), c.InboxAddress.String())
@@ -55,6 +58,7 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	s.Nil(app.Run([]string{
 		"TestProverConfigShastaOnlySurface",
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2HTTPEndpoint.Name, l2HttpEndpoint,
 		"--" + flags.InboxAddress.Name, inbox.Hex(),

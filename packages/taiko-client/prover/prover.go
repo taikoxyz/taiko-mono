@@ -98,6 +98,7 @@ func InitFromConfig(
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
 		L1Endpoint:         cfg.L1WsEndpoint,
+		L1BeaconEndpoint:   cfg.L1BeaconEndpoint,
 		L2Endpoint:         cfg.L2WsEndpoint,
 		L2EngineEndpoint:   cfg.L2EngineEndpoint,
 		JwtSecret:          cfg.JwtSecret,

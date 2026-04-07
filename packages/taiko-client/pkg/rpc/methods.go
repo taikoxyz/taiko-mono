@@ -797,11 +797,50 @@ func (c *Client) GetActivationBlockNumber(ctx context.Context) (*big.Int, error)
 	}
 
 	// If activation timestamp is zero, returns zero block number.
-	if activationTimestamp.Cmp(common.Big0) == 0 || c.L1Beacon == nil {
+	if activationTimestamp.Cmp(common.Big0) == 0 {
 		return common.Big0, nil
 	}
 
+	// If L1 beacon is not set, we will find the execution block number by timestamp through binary search.
+	if c.L1Beacon == nil {
+		return c.findExecutionBlockNumberByTimestamp(ctxWithTimeout, activationTimestamp.Uint64())
+	}
+
 	return c.L1Beacon.ExecutionBlockNumberByTimestamp(ctxWithTimeout, activationTimestamp.Uint64())
+}
+
+// findExecutionBlockNumberByTimestamp finds the L1 block number with the largest timestamp that is smaller than or
+// equal to the given timestamp.
+func (c *Client) findExecutionBlockNumberByTimestamp(ctx context.Context, timestamp uint64) (*big.Int, error) {
+	latestHeader, err := c.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch latest L1 header: %w", err)
+	}
+	if latestHeader.Time < timestamp {
+		return nil, fmt.Errorf(
+			"activation timestamp %d is greater than latest L1 timestamp %d",
+			timestamp,
+			latestHeader.Time,
+		)
+	}
+
+	low, high := uint64(0), latestHeader.Number.Uint64()
+	for low < high {
+		mid := low + (high-low)/2
+
+		header, err := c.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(mid))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch L1 header %d: %w", mid, err)
+		}
+
+		if header.Time >= timestamp {
+			high = mid
+		} else {
+			low = mid + 1
+		}
+	}
+
+	return new(big.Int).SetUint64(low), nil
 }
 
 // GetPreconfWhiteListOperator resolves the current preconfirmation whitelist operator address.

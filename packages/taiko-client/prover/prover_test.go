@@ -159,7 +159,7 @@ func (s *ProverTestSuite) TestInitError() {
 	}, s.txmgr, s.txmgr))
 }
 
-func (s *ProverTestSuite) TestOnBatchProposed() {
+func (s *ProverTestSuite) TestOnProposal() {
 	// Init prover
 	var l1ProverPrivKey = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 	s.p.cfg.L1ProverPrivKey = l1ProverPrivKey

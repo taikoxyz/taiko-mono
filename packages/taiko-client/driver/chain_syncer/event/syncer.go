@@ -77,8 +77,8 @@ func NewSyncer(
 	}, nil
 }
 
-// ProcessL1Blocks fetches all `TaikoInbox.BatchProposed` events between given
-// L1 block heights, and then tries inserting them into L2 execution engine's blockchain.
+// ProcessL1Blocks fetches all `Inbox.Proposed` events between given L1 block heights,
+// and then tries inserting them into L2 execution engine's blockchain.
 func (s *Syncer) ProcessL1Blocks(ctx context.Context) error {
 	for {
 		if err := s.processL1Blocks(ctx); err != nil {

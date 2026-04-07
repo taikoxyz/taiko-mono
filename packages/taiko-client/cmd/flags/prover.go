@@ -104,7 +104,7 @@ var (
 	ForceBatchProvingInterval = &cli.DurationFlag{
 		Name: "prover.forceBatchProvingInterval",
 		Usage: "Time interval to prove proposals even if the number of pending proofs does not exceed prover.batchSize, " +
-			"this flag only works for post Ontake fork blocks",
+			"this flag only works for proposal proof aggregation",
 		Category: proverCategory,
 		Value:    30 * time.Minute,
 		EnvVars:  []string{"PROVER_FORCE_BATCH_PROVING_INTERVAL"},
@@ -113,7 +113,7 @@ var (
 	SGXBatchSize = &cli.Uint64Flag{
 		Name: "prover.sgx.batchSize",
 		Usage: "The default size of batch sgx proofs, when it arrives, submit a batch of proofs immediately, " +
-			"this flag only works for post Ontake fork blocks",
+			"this flag only works for proposal proof aggregation",
 		Value:    1,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_SGX_BATCH_SIZE"},
@@ -121,7 +121,7 @@ var (
 	ZKVMBatchSize = &cli.Uint64Flag{
 		Name: "prover.zkvm.batchSize",
 		Usage: "The size of batch ZKVM proof, when it arrives, submit a batch of proofs immediately, " +
-			"this flag only works for post Ontake fork blocks",
+			"this flag only works for proposal proof aggregation",
 		Value:    1,
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_ZKVM_BATCH_SIZE"},
