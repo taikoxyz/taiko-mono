@@ -33,10 +33,13 @@ func TestL2AccountNonce(t *testing.T) {
 func TestGetGenesisL1Header(t *testing.T) {
 	client := newTestClient(t)
 
+	activationHeight, err := client.GetActivationBlockNumber(context.Background())
+	require.Nil(t, err)
+
 	header, err := client.GetGenesisL1Header(context.Background())
 
 	require.Nil(t, err)
-	require.Zero(t, header.Number.Uint64())
+	require.Equal(t, activationHeight.Uint64(), header.Number.Uint64())
 }
 
 func TestLatestL2KnownL1Header(t *testing.T) {

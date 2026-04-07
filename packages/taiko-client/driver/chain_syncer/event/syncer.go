@@ -21,7 +21,7 @@ import (
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
@@ -41,7 +41,7 @@ type Syncer struct {
 	reorgDetectedFlag      bool
 
 	// Shasta derivation source fetcher
-	derivationSourceFetcher *shastaManifest.DerivationSourceFetcher
+	derivationSourceFetcher *derivation.DerivationSourceFetcher
 }
 
 // NewSyncer creates a new syncer instance.
@@ -73,7 +73,7 @@ func NewSyncer(
 			constructor,
 			latestSeenProposalCh,
 		),
-		derivationSourceFetcher: shastaManifest.NewDerivationSourceFetcher(client, blobDataSource),
+		derivationSourceFetcher: derivation.NewDerivationSourceFetcher(client, blobDataSource),
 	}, nil
 }
 
@@ -264,7 +264,7 @@ func (s *Syncer) processProposal(
 
 	// Prefetch all derivation source payloads.
 	var (
-		sourcePayloads = make([]*shastaManifest.DerivationSourcePayload, len(meta.GetEventData().Sources))
+		sourcePayloads = make([]*derivation.DerivationSourcePayload, len(meta.GetEventData().Sources))
 	)
 	if len(meta.GetEventData().Sources) > 0 {
 		// Fetch all derivation source payloads.
@@ -332,7 +332,7 @@ func (s *Syncer) processProposal(
 
 		// If the derivation source is forced inclusion, we apply inherited metadata first.
 		if isForcedInclusion {
-			shastaManifest.ApplyInheritedMetadata(
+			derivation.ApplyInheritedMetadata(
 				sourcePayload,
 				meta.GetEventData(),
 				meta.GetTimestamp(),
@@ -342,7 +342,7 @@ func (s *Syncer) processProposal(
 		}
 
 		// If the derivation source payload's metadata is invalid, we replace it with default metadata.
-		if !shastaManifest.ValidateMetadata(
+		if !derivation.ValidateMetadata(
 			s.rpc,
 			sourcePayload,
 			meta.GetEventData(),
@@ -352,10 +352,10 @@ func (s *Syncer) processProposal(
 			isForcedInclusion,
 		) {
 			sourcePayload.Default = true
-			sourcePayload.BlockPayloads = []*shastaManifest.BlockPayload{
+			sourcePayload.BlockPayloads = []*derivation.BlockPayload{
 				{BlockManifest: manifest.BlockManifest{Transactions: types.Transactions{}}},
 			}
-			shastaManifest.ApplyInheritedMetadata(
+			derivation.ApplyInheritedMetadata(
 				sourcePayload,
 				meta.GetEventData(),
 				meta.GetTimestamp(),

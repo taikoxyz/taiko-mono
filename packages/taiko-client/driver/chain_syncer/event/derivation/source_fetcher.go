@@ -1,4 +1,4 @@
-package manifest
+package derivation
 
 import (
 	"context"
@@ -37,7 +37,7 @@ type DerivationSourceFetcher struct {
 	dataSource *rpc.BlobDataSource
 }
 
-// NewDerivationSourceFetcher creates a new ShastaManifestFetcher instance based on the given rpc client.
+// NewDerivationSourceFetcher creates a new derivation source fetcher based on the given RPC client.
 func NewDerivationSourceFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource) *DerivationSourceFetcher {
 	return &DerivationSourceFetcher{
 		cli:        cli,
@@ -45,7 +45,7 @@ func NewDerivationSourceFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource)
 	}
 }
 
-// NewShastaManifestFetcher creates a new DerivationSourceFetcher instance based on the given rpc client.
+// Fetch builds a derivation source payload for the given proposal source index.
 func (f *DerivationSourceFetcher) Fetch(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,

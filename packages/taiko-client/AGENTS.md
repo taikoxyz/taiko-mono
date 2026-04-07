@@ -12,7 +12,7 @@
 - `pnpm install` (from the monorepo root) bootstraps shared toolchains; run it before Foundry or Go targets.
 - `make build` compiles `bin/taiko-client` with embedded Git metadata; configure linker flags through env vars if needed.
 - `make lint` executes `goimports -local github.com/taikoxyz/taiko-mono/packages/taiko-client` followed by `golangci-lint run --timeout 5m`.
-- `make test` runs `integration_test/entrypoint.sh` (requires Docker and `pnpm install` in the sibling `packages/protocol`). `make hive_tests` and `make dev_net` cover Hive and devnet workflows.
+- `make test` runs `integration_test/entrypoint.sh` (requires Docker and `pnpm install` in the sibling `packages/protocol`). `make dev_net` covers the devnet workflow.
 
 ## Coding Style & Naming Conventions
 

@@ -18,7 +18,7 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
@@ -96,21 +96,12 @@ func NewBlocksInserter(
 	}
 }
 
-// InsertBlocks inserts new Shasta blocks to the L2 execution engine.
-func (i *Shasta) InsertBlocks(
-	_ context.Context,
-	_ metadata.TaikoProposalMetaData,
-	_ eventIterator.EndProposalEventIterFunc,
-) (err error) {
-	return errors.New("not supported in Shasta block inserter")
-}
-
 // InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given derivation
 // source payload.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.DerivationSourcePayload,
+	sourcePayload *derivation.DerivationSourcePayload,
 	endIter eventIterator.EndProposalEventIterFunc,
 ) (*big.Int, error) {
 	if !metadata.IsShasta() {

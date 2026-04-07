@@ -18,7 +18,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// AnchorTxConstructor is responsible for assembling the Shasta anchor transaction
+// AnchorTxConstructor is responsible for assembling the anchor transaction
 // in each L2 block, which must be the first transaction, and its sender must be
 // the golden touch account.
 type AnchorTxConstructor struct {
@@ -26,7 +26,7 @@ type AnchorTxConstructor struct {
 	signer *signer.FixedKSigner
 }
 
-// New creates a new AnchorConstructor instance.
+// New creates a new AnchorTxConstructor instance.
 func New(rpc *rpc.Client) (*AnchorTxConstructor, error) {
 	signer, err := signer.NewFixedKSigner("0x" + encoding.GoldenTouchPrivKey)
 	if err != nil {
@@ -36,16 +36,16 @@ func New(rpc *rpc.Client) (*AnchorTxConstructor, error) {
 	return &AnchorTxConstructor{rpc, signer}, nil
 }
 
-// AssembleAnchorV4Tx assembles a signed ShastaAnchor.anchorV4 transaction.
+// AssembleAnchorV4Tx assembles a signed Anchor.anchorV4 transaction.
 func (c *AnchorTxConstructor) AssembleAnchorV4Tx(
 	ctx context.Context,
-	// Parameters of the ShastaAnchor.anchorV4 transaction.
+	// Parameters of the Anchor.anchorV4 transaction.
 	parent *types.Header,
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
 	endOfSubmissionWindowTimestamp *big.Int,
-	// Height of the L2 block which including the ShastaAnchor.anchorV4 transaction.
+	// Height of the L2 block which including the Anchor.anchorV4 transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
 ) (*types.Transaction, error) {
@@ -133,7 +133,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign ShastaAnchor.anchorV4 transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign Anchor.anchorV4 transaction using K = 1 and K = 2")
 		}
 	}
 

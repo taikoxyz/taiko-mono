@@ -332,7 +332,7 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 		return err
 	}
 
-	log.Info("📝 Propose Shasta proposal succeeded", "blocksInProposal", len(proposalTxLists), "txs", txs)
+	log.Info("📝 Propose inbox proposal succeeded", "blocksInProposal", len(proposalTxLists), "txs", txs)
 
 	metrics.ProposerProposedTxListsCounter.Add(float64(len(proposalTxLists)))
 	metrics.ProposerProposedTxsCounter.Add(float64(txs))

@@ -23,7 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -47,7 +47,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 / Anchor.anchorV4 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -217,7 +217,7 @@ func isKnownCanonicalProposal(
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.DerivationSourcePayload,
+	sourcePayload *derivation.DerivationSourcePayload,
 	parent *types.Header,
 ) (*types.Header, bool, error) {
 	if !metadata.IsShasta() {
@@ -426,7 +426,7 @@ func assembleCreateExecutionPayloadMeta(
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.DerivationSourcePayload,
+	sourcePayload *derivation.DerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
@@ -593,7 +593,7 @@ func updateL1OriginForProposal(
 	rpc *rpc.Client,
 	parentHeader *types.Header,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.DerivationSourcePayload,
+	sourcePayload *derivation.DerivationSourcePayload,
 ) error {
 	if !metadata.IsShasta() {
 		return fmt.Errorf("metadata is not for Shasta fork blocks")

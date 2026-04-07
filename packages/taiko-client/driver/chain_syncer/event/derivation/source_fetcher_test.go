@@ -1,4 +1,4 @@
-package manifest
+package derivation
 
 import (
 	"math/big"
@@ -17,15 +17,15 @@ import (
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
-type ManifestFetcherTestSuite struct {
+type DerivationSourceFetcherTestSuite struct {
 	testutils.ClientTestSuite
 }
 
-func (s *ManifestFetcherTestSuite) SetupTest() {
+func (s *DerivationSourceFetcherTestSuite) SetupTest() {
 	s.ClientTestSuite.SetupTest()
 }
 
-func (s *ManifestFetcherTestSuite) TestManifestEncodeDecode() {
+func (s *DerivationSourceFetcherTestSuite) TestManifestEncodeDecode() {
 	m := &manifest.DerivationSourceManifest{
 		Blocks: []*manifest.BlockManifest{{
 			Timestamp:         testutils.RandomHash().Big().Uint64(),
@@ -62,7 +62,7 @@ func (s *ManifestFetcherTestSuite) TestManifestEncodeDecode() {
 	s.Equal(len(m.Blocks[0].Transactions), len(decoded.BlockPayloads[0].Transactions))
 }
 
-func (s *ManifestFetcherTestSuite) TestExtractVersionAndSize() {
+func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
 	version := uint32(1)
 	size := uint64(1024) // Use a reasonable test size since ProposalMaxBytes was removed
 	sourceManifestBytes := testutils.RandomBytes(int(size))
@@ -84,11 +84,11 @@ func (s *ManifestFetcherTestSuite) TestExtractVersionAndSize() {
 	s.Equal(uint64(len(sourceManifestBytes)), decodedSize)
 }
 
-func TestShastaManifestFetcherTestSuite(t *testing.T) {
-	suite.Run(t, new(ManifestFetcherTestSuite))
+func TestDerivationSourceFetcherTestSuite(t *testing.T) {
+	suite.Run(t, new(DerivationSourceFetcherTestSuite))
 }
 
-func (s *ManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
+func (s *DerivationSourceFetcherTestSuite) TestValidateMetadataTimestamp() {
 	chainID := params.TaikoHoodiNetworkID
 	parentTime := uint64(1_000)
 	proposalTimestamp := parentTime + manifest.TimestampMaxOffsetByChainID(chainID) + 100
@@ -125,7 +125,7 @@ func (s *ManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	s.Equal(validTimestamp, sourcePayload.BlockPayloads[0].Timestamp)
 }
 
-func (s *ManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
+func (s *DerivationSourceFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	chainID := params.TaikoHoodiNetworkID
 	originBlockNumber := uint64(1000)
 	parentAnchorBlockNumber := uint64(900)
@@ -231,7 +231,7 @@ func (s *ManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	s.Equal(parentAnchorBlockNumber, sourcePayload.BlockPayloads[0].AnchorBlockNumber)
 }
 
-func (s *ManifestFetcherTestSuite) TestApplyInheritedMetadata() {
+func (s *DerivationSourceFetcherTestSuite) TestApplyInheritedMetadata() {
 	chainID := params.TaikoHoodiNetworkID
 	parentTime := 1_000 + manifest.TimestampMaxOffsetByChainID(chainID)
 	parentHeader := &types.Header{
@@ -288,7 +288,7 @@ func (s *ManifestFetcherTestSuite) TestApplyInheritedMetadata() {
 	s.Equal(parentTime+1, sourcePayload.BlockPayloads[0].Timestamp)
 }
 
-func (s *ManifestFetcherTestSuite) TestValidateGasLimit() {
+func (s *DerivationSourceFetcherTestSuite) TestValidateGasLimit() {
 	parentGasLimit := uint64(30_000_000)
 	parentBlockNumber := big.NewInt(1001) // After fork
 
@@ -392,7 +392,7 @@ func (s *ManifestFetcherTestSuite) TestValidateGasLimit() {
 	}
 }
 
-func (s *ManifestFetcherTestSuite) TestValidateMetadata() {
+func (s *DerivationSourceFetcherTestSuite) TestValidateMetadata() {
 	parentTime := uint64(1_000)
 	parentHeader := &types.Header{
 		Number:   big.NewInt(0),
@@ -449,7 +449,7 @@ func (s *ManifestFetcherTestSuite) TestValidateMetadata() {
 	))
 }
 
-func (s *ManifestFetcherTestSuite) TestComputeTimestampLowerBoundByChainID() {
+func (s *DerivationSourceFetcherTestSuite) TestComputeTimestampLowerBoundByChainID() {
 	parentTimestamp := uint64(100)
 	proposalTimestamp := uint64(10_000)
 

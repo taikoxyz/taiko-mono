@@ -9,21 +9,16 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
 // Inserter is an interface that defines the method to insert blocks to the L2 execution engine.
 type Inserter interface {
-	InsertBlocks(
-		ctx context.Context,
-		metadata metadata.TaikoProposalMetaData,
-		endIter eventIterator.EndProposalEventIterFunc,
-	) error
 	InsertBlocksWithManifest(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		sourcePayload *shastaManifest.DerivationSourcePayload,
+		sourcePayload *derivation.DerivationSourcePayload,
 		endIter eventIterator.EndProposalEventIterFunc,
 	) (*big.Int, error)
 }
