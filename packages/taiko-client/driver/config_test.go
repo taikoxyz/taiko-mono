@@ -86,36 +86,6 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 	}), "empty L2 check point URL")
 }
 
-func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencers() {
-	app := s.SetupApp()
-
-	app.Action = func(ctx *cli.Context) error {
-		c, err := NewConfigFromCliContext(ctx)
-		s.Nil(err)
-		s.True(c.P2PAllowAllSequencers)
-
-		return err
-	}
-
-	s.Nil(app.Run([]string{
-		"TestNewConfigFromCliContextAllowAllSequencers",
-		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
-		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
-		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
-		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.InboxAddress.Name, inbox,
-		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
-		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
-		"--" + flags.P2PSyncTimeout.Name, "120s",
-		"--" + flags.RPCTimeout.Name, "5s",
-		"--" + flags.P2PAllowAllSequencers.Name,
-		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
-		"--" + p2pFlags.DiscoveryPathName, "memory",
-		"--" + p2pFlags.PeerstorePathName, "memory",
-		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
-	}))
-}
-
 func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = flags.MergeFlags([]cli.Flag{
@@ -125,10 +95,9 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
-		&cli.StringFlag{Name: flags.PreconfHandoverSkipSlots.Name, Value: "8"},
+		&cli.Uint64Flag{Name: flags.PreconfHandoverSkipSlots.Name, Value: 8},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
-		&cli.BoolFlag{Name: flags.P2PAllowAllSequencers.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.CheckPointSyncURL.Name},

@@ -26,7 +26,6 @@ type Config struct {
 	*rpc.ClientConfig
 	P2PSync                       bool
 	P2PSyncTimeout                time.Duration
-	P2PAllowAllSequencers         bool
 	RetryInterval                 time.Duration
 	BlobServerEndpoint            *url.URL
 	PreconfBlockServerPort        uint64
@@ -47,9 +46,8 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	var (
-		p2pSync               = c.Bool(flags.P2PSync.Name)
-		p2pAllowAllSequencers = c.Bool(flags.P2PAllowAllSequencers.Name)
-		l2CheckPoint          = c.String(flags.CheckPointSyncURL.Name)
+		p2pSync      = c.Bool(flags.P2PSync.Name)
+		l2CheckPoint = c.String(flags.CheckPointSyncURL.Name)
 	)
 
 	if p2pSync && len(l2CheckPoint) == 0 {
@@ -134,7 +132,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		RetryInterval:                 c.Duration(flags.BackOffRetryInterval.Name),
 		P2PSync:                       p2pSync,
 		P2PSyncTimeout:                c.Duration(flags.P2PSyncTimeout.Name),
-		P2PAllowAllSequencers:         p2pAllowAllSequencers,
 		BlobServerEndpoint:            blobServerEndpoint,
 		PreconfBlockServerPort:        c.Uint64(flags.PreconfBlockServerPort.Name),
 		PreconfBlockServerJWTSecret:   preconfBlockServerJWTSecret,

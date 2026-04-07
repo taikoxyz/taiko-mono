@@ -34,6 +34,10 @@ pub const GAS_LIMIT_DENOMINATOR: u64 = 1_000_000;
 /// The delay in processing bond instructions relative to the current proposal.
 pub const BOND_PROCESSING_DELAY: u64 = 6;
 
+/// On Taiko mainnet, early bootstrap proposals recover the parent anchor from the embedded
+/// `anchorV4` / `anchorV3` transaction instead of the anchor contract state.
+pub const MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET: u64 = 7;
+
 /// The current version of the Shasta protocol payload format.
 pub const SHASTA_PAYLOAD_VERSION: u8 = 0x1;
 
