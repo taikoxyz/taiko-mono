@@ -457,9 +457,7 @@ impl NetworkRuntime {
         topic_label: &'static str,
         context: &str,
     ) {
-        if let Err(err) =
-            self.swarm.behaviour_mut().gossipsub.publish(topic, payload)
-        {
+        if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic, payload) {
             record_publish(topic_label, "publish_failed");
             warn!(
                 context,
@@ -535,17 +533,15 @@ impl NetworkRuntime {
 
         if *topic == self.topics.preconf_blocks.hash() {
             let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data)
-                .and_then(|(sig, bytes)| {
-                    decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env))
-                }) {
+                .and_then(|(sig, bytes)| decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env)))
+            {
                 Ok((wire_signature, payload_bytes, envelope)) => {
-                    let payload =
-                        DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
+                    let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
                     let acceptance =
                         self.inbound_validation_state.validate_preconf_blocks(&payload);
 
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept)
-                        && let Err(err) = forward_event(
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
+                        let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafePayload { from, payload },
                         )

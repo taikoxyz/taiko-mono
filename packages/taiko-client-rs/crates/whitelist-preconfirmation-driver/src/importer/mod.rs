@@ -167,11 +167,7 @@ where
 
     /// Handle an incoming end-of-sequencing request by serving from the recent
     /// cache, falling back to an L2 rebuild, or recording a miss.
-    async fn handle_eos_request(
-        &mut self,
-        _from: libp2p::PeerId,
-        epoch: u64,
-    ) -> Result<()> {
+    async fn handle_eos_request(&mut self, _from: libp2p::PeerId, epoch: u64) -> Result<()> {
         let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await else {
             record_importer_event("end_of_sequencing_request", "miss");
             return Ok(());

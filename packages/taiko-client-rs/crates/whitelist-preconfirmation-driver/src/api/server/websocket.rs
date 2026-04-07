@@ -31,10 +31,7 @@ pub(super) async fn serve_websocket_notifications(
 /// Process one broadcast notification. Returns `false` when the loop should exit.
 async fn handle_notification(
     websocket: &mut WebSocket,
-    result: std::result::Result<
-        EndOfSequencingNotification,
-        broadcast::error::RecvError,
-    >,
+    result: std::result::Result<EndOfSequencingNotification, broadcast::error::RecvError>,
 ) -> bool {
     match result {
         Ok(notification) => {
