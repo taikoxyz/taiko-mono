@@ -45,7 +45,6 @@ export async function deployTaikoAnchor(
         chainId,
         config.contractAddresses,
         config.param1559,
-        config.pacayaTaikoAnchor,
         config.remoteSignalService,
     );
 
@@ -102,20 +101,6 @@ export async function deployTaikoAnchor(
                 alloc[contractConfig.address].storage[slot] = val;
             }
         }
-
-        if (contractName === "TaikoAnchor") {
-            const routerLayout = await getStorageLayout("AnchorForkRouter");
-            const routerSlots = computeStorageSlots(routerLayout, {
-                _initialized: 1,
-                _initializing: false,
-                _owner: contractOwner,
-                _pendingOwner: ethers.constants.AddressZero,
-            });
-
-            for (const slot of routerSlots) {
-                alloc[contractConfig.address].storage[slot.key] = slot.val;
-            }
-        }
     }
 
     result.alloc = Object.assign(result.alloc, alloc);
@@ -135,7 +120,6 @@ async function generateContractConfigs(
     chainId: number,
     hardCodedAddresses: any,
     param1559: any,
-    pacayaTaikoAnchor: string,
     remoteSignalService: string,
 ): Promise<any> {
     const contractArtifacts: any = {
@@ -185,12 +169,6 @@ async function generateContractConfigs(
                 "./DefaultResolver.sol/DefaultResolver.json",
             ),
         ),
-        AnchorForkRouterImpl: require(
-            path.join(
-                ARTIFACTS_PATH,
-                "./AnchorForkRouter.sol/AnchorForkRouter.json",
-            ),
-        ),
         // Libraries
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
@@ -225,10 +203,6 @@ async function generateContractConfigs(
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
         getImmutableReference("Anchor", ["checkpointStore", "l1ChainId"]),
-    );
-    const anchorForkRouterReferencesMap: any = getImmutableReference(
-        "AnchorForkRouter",
-        ["oldFork", "newFork"],
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
@@ -639,35 +613,6 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        AnchorForkRouterImpl: {
-            address: addressMap.AnchorForkRouterImpl,
-            deployedBytecode: replaceImmutableValues(
-                contractArtifacts.AnchorForkRouterImpl,
-                [
-                    {
-                        id: uupsImmutableReferencesMap.__self.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.AnchorForkRouterImpl,
-                            32,
-                        ),
-                    },
-                    {
-                        id: anchorForkRouterReferencesMap.oldFork.id,
-                        value: ethers.utils.hexZeroPad(pacayaTaikoAnchor, 32),
-                    },
-                    {
-                        id: anchorForkRouterReferencesMap.newFork.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.TaikoAnchorImpl,
-                            32,
-                        ),
-                    },
-                ],
-            ).deployedBytecode.object,
-            variables: {
-                _owner: contractOwner,
-            },
-        },
         TaikoAnchorImpl: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
@@ -698,6 +643,12 @@ async function generateContractConfigs(
             deployedBytecode:
                 contractArtifacts.TaikoAnchor.deployedBytecode.object,
             variables: {
+                // EssentialContract
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
                 _owner: contractOwner,
                 // TaikoAnchor - _blockState will be initialized by first anchor call
                 _blockState: {
@@ -706,7 +657,7 @@ async function generateContractConfigs(
                 },
             },
             slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.AnchorForkRouterImpl,
+                [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,
             },
             isProxy: true,
         },
