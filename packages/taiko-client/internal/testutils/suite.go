@@ -138,6 +138,11 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 	b, err := rlp.EncodeToBytes(block.Transactions())
 	s.Nil(err)
 
+	var proposalID *big.Int
+	if len(block.Extra()) >= 7 {
+		proposalID = new(big.Int).SetBytes(block.Extra()[1:7])
+	}
+
 	originalCoinbase := block.Coinbase()
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             block.Time(),
@@ -150,6 +155,7 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 			Timestamp:   block.Time(),
 			TxList:      b,
 			MixHash:     block.MixDigest(),
+			BatchID:     proposalID,
 			ExtraData:   block.Extra(),
 		},
 		BaseFeePerGas: block.BaseFee(),
@@ -158,7 +164,7 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 			L1BlockHeight:      l1Origin.L1BlockHeight,
 			L2BlockHash:        common.Hash{},
 			L1BlockHash:        l1Origin.L1BlockHash,
-			BuildPayloadArgsID: [8]byte{},
+			BuildPayloadArgsID: l1Origin.BuildPayloadArgsID,
 		},
 	}
 	// Set the chain head to a block with different attributes at first.

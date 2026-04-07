@@ -474,15 +474,4 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 		BaseFeePerGas: baseFee,
 		L1Origin:      l1Origin,
 	}, parent.Hash())
-
-	head, err := s.RPCClient.L2.HeaderByNumber(ctx, blockID)
-	s.Nil(err)
-
-	l1Origin.L2BlockHash = head.Hash()
-	_, err = s.RPCClient.L2Engine.UpdateL1Origin(ctx, l1Origin)
-	s.Nil(err)
-	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(ctx, blockID)
-	s.Nil(err)
-	_, err = s.RPCClient.L2Engine.SetBatchToLastBlock(ctx, proposed.Id, blockID)
-	s.Nil(err)
 }
