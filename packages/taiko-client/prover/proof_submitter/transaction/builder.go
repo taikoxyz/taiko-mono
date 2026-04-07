@@ -69,7 +69,11 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			if i == 0 {
 				input.Commitment.FirstProposalId = proposals[i].Id
 				if proposals[i].Id.Cmp(common.Big1) == 0 {
-					input.Commitment.FirstProposalParentBlockHash = proofResponse.Opts.ShastaOptions().Headers[0].ParentHash
+					block, err := a.rpc.L2.BlockByNumber(ctx, proofResponse.Opts.ShastaOptions().L2BlockNums[0])
+					if err != nil {
+						return nil, err
+					}
+					input.Commitment.FirstProposalParentBlockHash = block.ParentHash()
 				} else {
 					lastOriginInLastProposal, err := a.rpc.LastL1OriginInProposal(
 						ctx,
