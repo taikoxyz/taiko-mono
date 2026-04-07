@@ -1,3 +1,5 @@
+//! Ingress entrypoints for unsafe payload and response handling.
+
 use std::sync::Arc;
 
 use alloy_primitives::B256;

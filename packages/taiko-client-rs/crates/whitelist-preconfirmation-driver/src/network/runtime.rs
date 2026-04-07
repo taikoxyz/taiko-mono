@@ -1,9 +1,7 @@
-//! Consolidated network driver for the whitelist preconfirmation gossipsub stack.
+//! Network driver for the whitelist preconfirmation gossipsub stack.
 //!
-//! Merges type definitions, swarm bootstrap, transport helpers, the network
-//! runtime event loop, gossipsub event handling, and decode/metrics helpers
-//! that were previously spread across `types.rs`, `runtime.rs`, and
-//! `event_loop.rs`.
+//! Contains type definitions, swarm bootstrap, transport helpers, the network
+//! runtime event loop, gossipsub event handling, and decode/metrics helpers.
 
 use std::{collections::HashSet, net::SocketAddr, sync::Arc, time::Instant};
 
@@ -33,12 +31,8 @@ use crate::{
     operator_set::SharedOperatorSet,
 };
 
-// ---------------------------------------------------------------------------
-// Type definitions (from old types.rs)
-// ---------------------------------------------------------------------------
-
-#[derive(Debug)]
 /// Network event emitted by the whitelist preconfirmation gossipsub stack.
+#[derive(Debug)]
 pub(crate) enum NetworkEvent {
     /// Incoming `preconfBlocks` payload.
     UnsafePayload {
@@ -111,10 +105,6 @@ pub(crate) struct WhitelistNetwork {
     pub(crate) handle: JoinHandle<Result<()>>,
 }
 
-// ---------------------------------------------------------------------------
-// NetworkConfig (replaces preconfirmation_net::P2pConfig)
-// ---------------------------------------------------------------------------
-
 /// Configuration for the whitelist preconfirmation P2P network.
 #[derive(Debug, Clone)]
 pub struct NetworkConfig {
@@ -144,10 +134,6 @@ impl Default for NetworkConfig {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// WhitelistNetwork::spawn (from old runtime.rs)
-// ---------------------------------------------------------------------------
 
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
@@ -199,10 +185,6 @@ impl WhitelistNetwork {
         Ok(Self { local_peer_id, event_rx, command_tx, handle })
     }
 }
-
-// ---------------------------------------------------------------------------
-// Transport helpers (from old runtime.rs)
-// ---------------------------------------------------------------------------
 
 /// Build a libp2p swarm with DNS-over-TCP transport, noise auth, and yamux multiplexing.
 fn build_swarm(
@@ -298,10 +280,6 @@ fn dial_initial_peers(
 
     dialed_addrs
 }
-
-// ---------------------------------------------------------------------------
-// NetworkRuntime (from old runtime.rs)
-// ---------------------------------------------------------------------------
 
 /// Runtime state machine that owns networking resources and processes loop inputs.
 struct NetworkRuntime {
@@ -515,10 +493,6 @@ impl NetworkRuntime {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Swarm and gossipsub event handling (from old event_loop.rs)
-    // -----------------------------------------------------------------------
-
     /// Delegate one swarm event to the appropriate handler.
     async fn handle_swarm_event(
         &mut self,
@@ -681,10 +655,6 @@ impl NetworkRuntime {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helper functions (from old event_loop.rs)
-// ---------------------------------------------------------------------------
-
 /// Convert a gossipsub message acceptance decision into a metrics label.
 fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
     match acceptance {
@@ -738,10 +708,6 @@ pub(super) async fn forward_event(
         ))
     })
 }
-
-// ---------------------------------------------------------------------------
-// Decode helpers (from old event_loop.rs)
-// ---------------------------------------------------------------------------
 
 /// Decode an end-of-sequencing epoch when the payload is exactly 8 bytes.
 pub(super) fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {

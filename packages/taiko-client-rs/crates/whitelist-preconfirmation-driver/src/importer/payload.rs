@@ -1,3 +1,5 @@
+//! Payload normalization helpers for building driver payload attributes.
+
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,

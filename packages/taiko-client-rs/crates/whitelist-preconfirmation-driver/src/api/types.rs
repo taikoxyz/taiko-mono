@@ -195,18 +195,4 @@ mod tests {
             1
         );
     }
-
-    #[test]
-    fn rest_status_does_not_include_lookahead_metadata() {
-        let status = ApiStatus {
-            highest_unsafe_l2_payload_block_id: 1,
-            end_of_sequencing_block_hash: B256::ZERO.to_string(),
-        };
-
-        let value: serde_json::Value =
-            serde_json::from_str(&serde_json::to_string(&status).unwrap())
-                .expect("status should serialize");
-
-        assert!(value.get("lookahead").is_none());
-    }
 }

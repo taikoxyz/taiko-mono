@@ -47,8 +47,7 @@ where
         let whitelist = PreconfWhitelistInstance::new(whitelist_address, l1_provider);
         let initial = Self::fetch_all_operators_from(&whitelist).await?;
 
-        let addrs: Vec<_> = initial.iter().map(|a| format!("{a}")).collect();
-        info!(count = initial.len(), operators = ?addrs, "bootstrapped operator set from L1");
+        info!(count = initial.len(), operators = ?initial, "bootstrapped operator set from L1");
 
         let operator_set = Arc::new(ArcSwap::from_pointee(initial));
         Ok(Self { whitelist, operator_set })
@@ -83,7 +82,7 @@ where
 
             match Self::fetch_all_operators_from(&self.whitelist).await {
                 Ok(set) => {
-                    info!(count = set.len(), operators = ?set.iter().map(|a| format!("{a}")).collect::<Vec<_>>(), "refreshed operator set from L1");
+                    info!(count = set.len(), operators = ?set, "refreshed operator set from L1");
                     self.operator_set.store(Arc::new(set));
                 }
                 Err(err) => {
@@ -120,19 +119,15 @@ where
 
         // Fetch all proposer addresses in parallel.
         let proposer_futs = (0..count).map(|i| async move {
-            whitelist
-                .operatorMapping(U256::from(i))
-                .call()
-                .await
-                .map_err(|err| {
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
-                    )
-                    .increment(1);
-                    WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
-                        "failed to fetch operatorMapping({i}): {err}"
-                    ))
-                })
+            whitelist.operatorMapping(U256::from(i)).call().await.map_err(|err| {
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
+                )
+                .increment(1);
+                WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
+                    "failed to fetch operatorMapping({i}): {err}"
+                ))
+            })
         });
         let proposers: Vec<Address> = try_join_all(proposer_futs).await?;
 
@@ -158,10 +153,8 @@ where
         });
         let sequencers: Vec<Address> = try_join_all(sequencer_futs).await?;
 
-        let set: HashSet<Address> = sequencers
-            .into_iter()
-            .filter(|addr| *addr != Address::ZERO)
-            .collect();
+        let set: HashSet<Address> =
+            sequencers.into_iter().filter(|addr| *addr != Address::ZERO).collect();
 
         Ok(set)
     }

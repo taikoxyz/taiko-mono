@@ -29,8 +29,8 @@ const MAX_PRECONF_BLOCKS_PER_HEIGHT: usize = 10;
 /// Default bounded size for inbound dedupe and rate-limiter tracking maps.
 const PRECONF_INBOUND_LRU_CAPACITY: usize = 1000;
 
-#[derive(Debug)]
 /// Token bucket state for a single peer.
+#[derive(Debug)]
 struct TokenBucket {
     /// Remaining tokens in the bucket.
     tokens: f64,
@@ -61,8 +61,8 @@ impl TokenBucket {
     }
 }
 
-#[derive(Debug, Default)]
 /// Per-peer request-rate limiter.
+#[derive(Debug, Default)]
 pub(crate) struct RateLimiter {
     /// Active token buckets keyed by peer id.
     buckets: HashMap<PeerId, TokenBucket>,
@@ -85,8 +85,8 @@ impl RateLimiter {
     }
 }
 
-#[derive(Debug, Default)]
 /// Hash tracker for seen request hashes.
+#[derive(Debug, Default)]
 struct WindowedHashTracker {
     /// Last seen timestamps for each hash.
     seen: LinkedHashMap<B256, Instant>,
@@ -111,8 +111,8 @@ impl WindowedHashTracker {
     }
 }
 
-#[derive(Debug, Default)]
 /// Height-window tracker for deduping payload hash per block height.
+#[derive(Debug, Default)]
 pub(crate) struct HeightSeenTracker {
     /// Seen hashes keyed by block height.
     pub(crate) seen_by_height: LinkedHashMap<u64, Vec<B256>>,
@@ -134,8 +134,8 @@ impl HeightSeenTracker {
     }
 }
 
-#[derive(Debug, Default)]
 /// Epoch-window tracker for duplicate EOS request suppression.
+#[derive(Debug, Default)]
 pub(crate) struct EpochSeenTracker {
     /// Accepted EOS counts keyed by epoch.
     pub(crate) seen_by_epoch: LinkedHashMap<u64, usize>,
@@ -144,10 +144,7 @@ pub(crate) struct EpochSeenTracker {
 impl EpochSeenTracker {
     /// Whether another response for the epoch can still be accepted.
     pub(crate) fn can_accept(&self, epoch: u64, max_per_epoch: usize) -> bool {
-        match self.seen_by_epoch.get(&epoch) {
-            Some(count) => *count <= max_per_epoch,
-            None => true,
-        }
+        self.seen_by_epoch.get(&epoch).is_none_or(|count| *count <= max_per_epoch)
     }
 
     /// Increment EOS counter for the supplied epoch.
@@ -161,8 +158,8 @@ impl EpochSeenTracker {
     }
 }
 
-#[derive(Debug)]
 /// Aggregate state machine for inbound gossipsub message validation.
+#[derive(Debug)]
 pub(crate) struct GossipsubInboundState {
     /// Chain ID for envelope signature domain.
     chain_id: u64,
