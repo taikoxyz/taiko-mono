@@ -9,13 +9,11 @@ import "../governance/BuildProposal.sol";
 contract Proposal0011 is BuildProposal {
     // Shasta cleanup: retire the temporary fork routers introduced by Proposal0009.
     // https://codediff.taiko.xyz/?addr=0x9e0a24964e5397B566c1ed39258e21aB5E35C77C&newimpl=0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752&chainid=1
-    address public constant SIGNAL_SERVICE_NEW_IMPL_L1 =
-        0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752;
+    address public constant SIGNAL_SERVICE_NEW_IMPL_L1 = 0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752;
     // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000010001&newimpl=0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA&chainid=167000
     address public constant ANCHOR_NEW_IMPL_L2 = 0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA;
     // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000005&newimpl=0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28&chainid=167000
-    address public constant SIGNAL_SERVICE_NEW_IMPL_L2 =
-        0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28;
+    address public constant SIGNAL_SERVICE_NEW_IMPL_L2 = 0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
         actions = new Controller.Action[](2);

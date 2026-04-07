@@ -120,13 +120,15 @@ contract TestGenerateGenesis is Test {
 
         vm.startPrank(taikoAnchorProxy.owner());
 
-        UUPSUpgradeable(address(taikoAnchorProxy)).upgradeTo(
-            address(
-                new Anchor(
-                    ICheckpointStore(getPredeployedContractAddress("SignalService")), uint64(l1ChainId)
+        UUPSUpgradeable(address(taikoAnchorProxy))
+            .upgradeTo(
+                address(
+                    new Anchor(
+                        ICheckpointStore(getPredeployedContractAddress("SignalService")),
+                        uint64(l1ChainId)
+                    )
                 )
-            )
-        );
+            );
 
         vm.stopPrank();
     }
