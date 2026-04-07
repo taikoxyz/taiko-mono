@@ -82,7 +82,7 @@ where
         let signer = recover_signer(prehash, &payload.wire_signature).inspect_err(|_err| {
             record_validation_failure("payload_signature_recover");
         })?;
-        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
+        self.ensure_signer_allowed(signer).inspect_err(|_err| {
             record_validation_failure("payload_signer_check");
         })?;
 
@@ -125,7 +125,7 @@ where
         let signer = recover_signer(prehash, &signature).inspect_err(|_err| {
             record_validation_failure("response_signature_recover");
         })?;
-        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
+        self.ensure_signer_allowed(signer).inspect_err(|_err| {
             record_validation_failure("response_signer_check");
         })?;
 

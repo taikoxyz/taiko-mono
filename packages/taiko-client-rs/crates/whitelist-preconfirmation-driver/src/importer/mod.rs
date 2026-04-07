@@ -14,7 +14,7 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
-    whitelist_fetcher::WhitelistSequencerFetcher,
+    operator_set::SharedOperatorSet,
 };
 
 /// Cache re-import flow for out-of-order envelopes once parents arrive.
@@ -25,8 +25,6 @@ mod ingress;
 mod payload;
 /// Response serving helpers for request/response gossip.
 mod response;
-/// Whitelist signer validation and sequencer snapshot cache.
-mod signer;
 /// Payload-level validation helpers.
 mod validation;
 
@@ -43,8 +41,8 @@ where
     pub(crate) event_syncer: Arc<EventSyncer<P>>,
     /// RPC client used for L1/L2 reads and head-origin updates.
     pub(crate) rpc: Client<P>,
-    /// Whitelist contract address used for signer validation.
-    pub(crate) whitelist_address: Address,
+    /// Shared operator set for signer validation.
+    pub(crate) operator_set: SharedOperatorSet,
     /// Chain id used for preconfirmation signature domain separation.
     pub(crate) chain_id: u64,
     /// Command channel used to publish P2P requests/responses.
@@ -78,8 +76,8 @@ where
     recent_cache: RecentEnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
-    /// Shared sequencer fetcher for whitelist validation and epoch cache management.
-    sequencer_fetcher: WhitelistSequencerFetcher<P>,
+    /// Lock-free shared set of allowed sequencer addresses, refreshed by background poller.
+    operator_set: SharedOperatorSet,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
@@ -99,15 +97,13 @@ where
         let WhitelistPreconfirmationImporterParams {
             event_syncer,
             rpc,
-            whitelist_address,
+            operator_set,
             chain_id,
             network_command_tx,
             cache_state,
             beacon_client,
             highest_unsafe_l2_payload_block_id,
         } = params;
-        let sequencer_fetcher =
-            WhitelistSequencerFetcher::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
 
         let importer = Self {
@@ -119,7 +115,7 @@ where
             cache: EnvelopeCache::default(),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
-            sequencer_fetcher,
+            operator_set,
             network_command_tx,
             highest_unsafe_l2_payload_block_id,
             sync_ready: false,
@@ -261,13 +257,14 @@ where
         self.maybe_import_from_cache().await
     }
 
-    /// Invalidate the sequencer cache if the L1 head has crossed an epoch boundary.
-    pub(crate) async fn maybe_invalidate_sequencer_cache_for_epoch(&mut self) {
-        if let Err(err) = self.sequencer_fetcher.maybe_invalidate_for_epoch_advance().await {
-            warn!(
-                error = %err,
-                "failed to check epoch boundary for sequencer cache invalidation"
-            );
+    /// Validate that the recovered signer is present in the shared operator set.
+    pub(super) fn ensure_signer_allowed(&self, signer: Address) -> Result<()> {
+        if self.operator_set.load().contains(&signer) {
+            Ok(())
+        } else {
+            Err(WhitelistPreconfirmationDriverError::invalid_signature(format!(
+                "signer {signer} is not a registered operator"
+            )))
         }
     }
 

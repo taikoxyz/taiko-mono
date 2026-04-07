@@ -1,9 +1,12 @@
 //! Inbound message validation and rate-limiting for gossipsub topics.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    sync::Arc,
     time::{Duration, Instant},
 };
+
+use arc_swap::ArcSwap;
 
 use alloy_primitives::{Address, B256};
 use hashlink::LinkedHashMap;
@@ -158,15 +161,13 @@ impl EpochSeenTracker {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 /// Aggregate state machine for inbound gossipsub message validation.
 pub(crate) struct GossipsubInboundState {
     /// Chain ID for envelope signature domain.
     chain_id: u64,
-    /// Explicit sequencer allowlist configured from CLI.
-    sequencer_addresses: Vec<Address>,
-    /// Whether to bypass sequencer allowlist checks.
-    allow_all_sequencers: bool,
+    /// Lock-free shared set of allowed sequencer addresses, refreshed periodically from L1.
+    operator_set: Arc<ArcSwap<HashSet<Address>>>,
     /// Request-ratelimiter for `requestPreconfBlocks`.
     request_rate: RateLimiter,
     /// Duplicate filter for request payload hashes.
@@ -182,16 +183,11 @@ pub(crate) struct GossipsubInboundState {
 }
 
 impl GossipsubInboundState {
-    /// Construct inbound state from p2p config with optional allow-all bypass.
-    pub(crate) fn new_with_allow_all_sequencers(
-        chain_id: u64,
-        sequencer_addresses: Vec<Address>,
-        allow_all_sequencers: bool,
-    ) -> Self {
+    /// Construct inbound state with a shared operator set for signer validation.
+    pub(crate) fn new(chain_id: u64, operator_set: Arc<ArcSwap<HashSet<Address>>>) -> Self {
         Self {
             chain_id,
-            sequencer_addresses,
-            allow_all_sequencers,
+            operator_set,
             request_rate: RateLimiter::default(),
             request_seen: WindowedHashTracker::default(),
             eos_rate: RateLimiter::default(),
@@ -333,9 +329,9 @@ impl GossipsubInboundState {
         gossipsub::MessageAcceptance::Accept
     }
 
-    /// Validate a recovered signer against the static sequencer allowlist.
+    /// Validate a recovered signer against the shared operator set.
     fn validate_signer(&self, signer: Address) -> gossipsub::MessageAcceptance {
-        if self.allow_all_sequencers || self.sequencer_addresses.contains(&signer) {
+        if self.operator_set.load().contains(&signer) {
             gossipsub::MessageAcceptance::Accept
         } else {
             gossipsub::MessageAcceptance::Reject

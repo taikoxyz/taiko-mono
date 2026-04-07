@@ -11117,6 +11117,7 @@ dependencies = [
  "alloy-rpc-types",
  "alloy-rpc-types-engine",
  "anyhow",
+ "arc-swap",
  "async-trait",
  "axum",
  "bindings",

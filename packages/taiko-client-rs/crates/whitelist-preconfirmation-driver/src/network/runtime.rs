@@ -7,7 +7,7 @@
 
 use std::{collections::HashSet, net::SocketAddr, sync::Arc, time::Instant};
 
-use alloy_primitives::{Address, B256};
+use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
     Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identity, noise, tcp, yamux,
@@ -30,6 +30,7 @@ use crate::{
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
+    operator_set::SharedOperatorSet,
 };
 
 // ---------------------------------------------------------------------------
@@ -129,10 +130,6 @@ pub struct NetworkConfig {
     pub enable_discovery: bool,
     /// UDP listen address for discv5 discovery.
     pub discovery_listen: SocketAddr,
-    /// Sequencer allowlist addresses.
-    pub sequencer_addresses: Vec<Address>,
-    /// Bypass sequencer allowlist checks.
-    pub allow_all_sequencers: bool,
 }
 
 impl Default for NetworkConfig {
@@ -144,8 +141,6 @@ impl Default for NetworkConfig {
             pre_dial_peers: Vec::new(),
             enable_discovery: false,
             discovery_listen: SocketAddr::from(([0, 0, 0, 0], 9223)),
-            sequencer_addresses: Vec::new(),
-            allow_all_sequencers: false,
         }
     }
 }
@@ -156,7 +151,11 @@ impl Default for NetworkConfig {
 
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
-    pub(crate) fn spawn(chain_id: u64, cfg: NetworkConfig) -> Result<Self> {
+    pub(crate) fn spawn(
+        chain_id: u64,
+        cfg: NetworkConfig,
+        operator_set: SharedOperatorSet,
+    ) -> Result<Self> {
         let NetworkConfig {
             enable_tcp,
             listen_addr,
@@ -164,8 +163,6 @@ impl WhitelistNetwork {
             pre_dial_peers,
             enable_discovery,
             discovery_listen,
-            sequencer_addresses,
-            allow_all_sequencers,
         } = cfg;
 
         let local_key = identity::Keypair::generate_ed25519();
@@ -184,11 +181,7 @@ impl WhitelistNetwork {
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, command_rx) = mpsc::channel(512);
 
-        let inbound_validation_state = GossipsubInboundState::new_with_allow_all_sequencers(
-            chain_id,
-            sequencer_addresses,
-            allow_all_sequencers,
-        );
+        let inbound_validation_state = GossipsubInboundState::new(chain_id, operator_set);
 
         let runtime = NetworkRuntime {
             swarm,
