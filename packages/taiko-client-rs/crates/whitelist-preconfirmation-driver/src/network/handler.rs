@@ -121,7 +121,7 @@ pub(crate) struct HeightSeenTracker {
 impl HeightSeenTracker {
     /// Whether another hash can be accepted for the supplied block height.
     pub(crate) fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if self.seen_by_height.get(&height).is_some_and(|hashes| hashes.len() > max_per_height) {
+        if self.seen_by_height.get(&height).is_some_and(|hashes| hashes.len() >= max_per_height) {
             return false;
         }
 
@@ -144,7 +144,7 @@ pub(crate) struct EpochSeenTracker {
 impl EpochSeenTracker {
     /// Whether another response for the epoch can still be accepted.
     pub(crate) fn can_accept(&self, epoch: u64, max_per_epoch: usize) -> bool {
-        self.seen_by_epoch.get(&epoch).is_none_or(|count| *count <= max_per_epoch)
+        self.seen_by_epoch.get(&epoch).is_none_or(|count| *count < max_per_epoch)
     }
 
     /// Increment EOS counter for the supplied epoch.

@@ -74,23 +74,30 @@ where
     /// warning metric is emitted. This method consumes `self` because it is
     /// intended to be spawned as a long-lived background task.
     pub(crate) async fn run_refresh_loop(self) {
-        let interval = Duration::from_secs(L1_EPOCH_DURATION_SECS);
+        /// Shorter retry delay used after a transient fetch failure.
+        const RETRY_DELAY_SECS: u64 = 30;
 
+        let epoch_interval = Duration::from_secs(L1_EPOCH_DURATION_SECS);
+        let retry_interval = Duration::from_secs(RETRY_DELAY_SECS);
+
+        let mut next_sleep = epoch_interval;
         loop {
-            sleep(interval).await;
+            sleep(next_sleep).await;
             info!("refreshing operator set from L1");
 
             match Self::fetch_all_operators_from(&self.whitelist).await {
                 Ok(set) => {
                     info!(count = set.len(), operators = ?set, "refreshed operator set from L1");
                     self.operator_set.store(Arc::new(set));
+                    next_sleep = epoch_interval;
                 }
                 Err(err) => {
-                    warn!(%err, "failed to refresh operator set from L1");
+                    warn!(%err, "failed to refresh operator set from L1; retrying in {RETRY_DELAY_SECS}s");
                     metrics::counter!(
                         WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
                     )
                     .increment(1);
+                    next_sleep = retry_interval;
                 }
             }
         }
