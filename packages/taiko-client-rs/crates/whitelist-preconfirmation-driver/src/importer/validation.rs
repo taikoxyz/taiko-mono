@@ -10,9 +10,8 @@ use protocol::codec::{TxListCodecError, ZlibTxListCodec};
 use thiserror::Error;
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{WhitelistExecutionPayloadEnvelope, MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
     error::{Result, WhitelistPreconfirmationDriverError},
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
 /// Validation failures for the first transaction that must be the Shasta anchor call.

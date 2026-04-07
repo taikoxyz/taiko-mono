@@ -9,11 +9,10 @@ use protocol::codec::ZlibTxListCodec;
 use tracing::warn;
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{WhitelistExecutionPayloadEnvelope, MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::NetworkCommand,
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
 use super::WhitelistPreconfirmationImporter;

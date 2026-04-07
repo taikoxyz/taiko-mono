@@ -10,8 +10,8 @@ use alloy_rpc_types_engine::ExecutionPayloadV1;
 use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope, error::WhitelistPreconfirmationDriverError,
-    tx_list::MAX_COMPRESSED_TX_LIST_BYTES,
+    codec::{WhitelistExecutionPayloadEnvelope, MAX_COMPRESSED_TX_LIST_BYTES},
+    error::WhitelistPreconfirmationDriverError,
 };
 
 use super::{

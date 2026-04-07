@@ -8,9 +8,8 @@ use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
 use protocol::shasta::{PAYLOAD_ID_VERSION_V2, payload_id_to_bytes};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{WhitelistExecutionPayloadEnvelope, decompress_tx_list},
     error::{Result, WhitelistPreconfirmationDriverError},
-    tx_list::decompress_tx_list,
 };
 
 use super::WhitelistPreconfirmationImporter;

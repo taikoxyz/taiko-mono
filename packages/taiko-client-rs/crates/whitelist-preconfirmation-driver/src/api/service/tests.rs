@@ -3,8 +3,8 @@ use std::io::Write;
 use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
+    codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
 };
 
 fn compress(payload: &[u8]) -> Vec<u8> {
