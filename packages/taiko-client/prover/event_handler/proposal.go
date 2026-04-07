@@ -24,7 +24,7 @@ func (h *ProposalEventHandler) handleProposal(
 	end eventIterator.EndProposalEventIterFunc,
 ) error {
 	if !meta.IsShasta() {
-		log.Debug("Skip non-Shasta Proposed event")
+		log.Debug("Skip non-proposal event")
 		return nil
 	}
 	if meta.Shasta().GetEventData().Id.Cmp(common.Big0) == 0 {
@@ -34,7 +34,7 @@ func (h *ProposalEventHandler) handleProposal(
 	// Wait for the corresponding L2 block being mined in node.
 	header, err := h.rpc.WaitProposalHeader(ctx, meta.Shasta().GetEventData().Id)
 	if err != nil {
-		return fmt.Errorf("failed to wait L2 Shasta header (proposalID %d): %w", meta.Shasta().GetEventData().Id, err)
+		return fmt.Errorf("failed to wait L2 header (proposalID %d): %w", meta.Shasta().GetEventData().Id, err)
 	}
 
 	// Check if the L1 chain has reorged at first.
@@ -53,7 +53,7 @@ func (h *ProposalEventHandler) handleProposal(
 	}
 
 	log.Info(
-		"New Shasta Proposed event",
+		"New proposed event",
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 		"proposalID", meta.Shasta().GetEventData().Id,
@@ -84,7 +84,7 @@ func (h *ProposalEventHandler) handleProposal(
 					meta.GetProposer(),
 				); err != nil {
 					log.Error(
-						"Failed to check Shasta proof status and submit proof",
+						"Failed to check proof status and submit proof",
 						"proposalID", meta.Shasta().GetEventData().Id,
 						"derivationSources", len(meta.Shasta().GetEventData().Sources),
 						"maxRetries", h.backOffMaxRetries,
@@ -100,7 +100,7 @@ func (h *ProposalEventHandler) handleProposal(
 				ctx,
 			),
 		); err != nil {
-			log.Error("Handle new Shasta Proposed event error", "error", err)
+			log.Error("Handle proposed event error", "error", err)
 		}
 	}()
 
@@ -117,12 +117,12 @@ func (h *ProposalEventHandler) checkExpirationAndSubmitProof(
 ) error {
 	coreState, err := h.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to get Shasta core state: %w", err)
+		return fmt.Errorf("failed to get core state: %w", err)
 	}
 
 	if proposalID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
 		log.Info(
-			"📋 Shasta proposal has been verified",
+			"📋 Proposal has been verified",
 			"proposalID", proposalID,
 			"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		)
@@ -138,7 +138,7 @@ func (h *ProposalEventHandler) checkExpirationAndSubmitProof(
 	// if no and the current prover wants to prove unassigned proposals, then we should wait for its expiration.
 	if !windowExpired && !h.shouldProve(designatedProver) {
 		log.Info(
-			"Proposed Shasta proposal is not provable by current prover at the moment",
+			"Proposed proposal is not provable by current prover at the moment",
 			"proposalID", meta.Shasta().GetEventData().Id,
 			"designatedProver", designatedProver,
 			"timeToExpire", timeToExpire,
@@ -147,7 +147,7 @@ func (h *ProposalEventHandler) checkExpirationAndSubmitProof(
 
 		if h.proveUnassignedProposals {
 			log.Info(
-				"Add proposed Shasta proposal to wait for proof window expiration",
+				"Add proposed proposal to wait for proof window expiration",
 				"proposalID", meta.Shasta().GetEventData().Id,
 				"designatedProver", designatedProver,
 				"timeToExpire", timeToExpire,
@@ -167,7 +167,7 @@ func (h *ProposalEventHandler) checkExpirationAndSubmitProof(
 	// we should skip proving this proposal.
 	if !h.proveUnassignedProposals && !h.shouldProve(designatedProver) {
 		log.Info(
-			"Expired Shasta proposal is not provable by current prover",
+			"Expired proposal is not provable by current prover",
 			"proposalID", meta.Shasta().GetEventData().Id,
 			"currentProver", h.proverAddress,
 			"designatedProver", designatedProver,
@@ -177,7 +177,7 @@ func (h *ProposalEventHandler) checkExpirationAndSubmitProof(
 	}
 
 	log.Info(
-		"Proposed Shasta proposal is provable",
+		"Proposed proposal is provable",
 		"proposalID", meta.Shasta().GetEventData().Id,
 		"designatedProver", designatedProver,
 		"localProposerAddresses", h.localProposerAddresses,

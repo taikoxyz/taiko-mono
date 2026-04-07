@@ -1113,7 +1113,7 @@ func (s *PreconfBlockAPIServer) monitorProposalOnChain(ctx context.Context, prop
 
 // handleProposalReorg handles reorg detection for Shasta proposals.
 func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestSeenProposalID *big.Int) {
-	log.Warn("Shasta proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
+	log.Warn("Proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
 
 	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {

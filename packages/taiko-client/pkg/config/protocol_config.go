@@ -15,11 +15,9 @@ import (
 // Configs is an interface that provides Taiko protocol specific configurations.
 type ProtocolConfigs interface {
 	LivenessBond() *big.Int
-	LivenessBondPerBlock() *big.Int
 	MaxProposals() uint64
 	ProvingWindow() time.Duration
 	MaxBlocksPerBatch() int
-	MaxAnchorHeightOffset() uint64
 }
 
 // ReportProtocolConfigs logs the protocol configurations.
@@ -27,7 +25,6 @@ func ReportProtocolConfigs(configs ProtocolConfigs) {
 	log.Info(
 		"Protocol configs",
 		"LivenessBond", utils.WeiToEther(configs.LivenessBond()),
-		"LivenessBondPerBlock", utils.WeiToEther(configs.LivenessBondPerBlock()),
 		"MaxProposals", configs.MaxProposals(),
 		"ProvingWindow", configs.ProvingWindow(),
 		"MaxBlocksPerBatch", configs.MaxBlocksPerBatch(),
@@ -49,11 +46,6 @@ func (c *InboxProtocolConfigs) LivenessBond() *big.Int {
 	return new(big.Int).SetUint64(c.configs.LivenessBond)
 }
 
-// LivenessBondPerBlock implements the ProtocolConfigs interface.
-func (c *InboxProtocolConfigs) LivenessBondPerBlock() *big.Int {
-	return common.Big0
-}
-
 // MaxProposals implements the ProtocolConfigs interface.
 func (c *InboxProtocolConfigs) MaxProposals() uint64 {
 	if c.configs.RingBufferSize == nil || c.configs.RingBufferSize.Cmp(common.Big0) <= 0 {
@@ -71,9 +63,4 @@ func (c *InboxProtocolConfigs) ProvingWindow() time.Duration {
 // MaxBlocksPerBatch implements the ProtocolConfigs interface.
 func (c *InboxProtocolConfigs) MaxBlocksPerBatch() int {
 	return manifest.ProposalMaxBlocks
-}
-
-// MaxAnchorHeightOffset implements the ProtocolConfigs interface.
-func (c *InboxProtocolConfigs) MaxAnchorHeightOffset() uint64 {
-	return 0
 }

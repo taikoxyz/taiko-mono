@@ -51,14 +51,14 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 		}
 
 		for i, proofResponse := range batchProof.ProofResponses {
-			if len(proofResponse.Opts.ShastaOptions().Headers) == 0 {
+			if len(proofResponse.Opts.ProposalOptions().Headers) == 0 {
 				return nil, fmt.Errorf(
 					"no headers in proof response options for proposal ID %d",
 					proofResponse.Meta.Shasta().GetEventData().Id,
 				)
 			}
 			proposals[i] = proofResponse.Meta.Shasta().GetEventData()
-			lastHeader := proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1]
+			lastHeader := proofResponse.Opts.ProposalOptions().Headers[len(proofResponse.Opts.ProposalOptions().Headers)-1]
 
 			proposalHash, err := a.rpc.GetProposalHash(nil, proposals[i].Id)
 			if err != nil {
@@ -69,7 +69,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			if i == 0 {
 				input.Commitment.FirstProposalId = proposals[i].Id
 				if proposals[i].Id.Cmp(common.Big1) == 0 {
-					block, err := a.rpc.L2.BlockByNumber(ctx, proofResponse.Opts.ShastaOptions().L2BlockNums[0])
+					block, err := a.rpc.L2.BlockByNumber(ctx, proofResponse.Opts.ProposalOptions().L2BlockNums[0])
 					if err != nil {
 						return nil, err
 					}
@@ -104,9 +104,9 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 				"Build proposal proof submission transaction",
 				"proposalID", proposals[i].Id,
 				"proposalHash", proposalHash,
-				"start", proofResponse.Opts.ShastaOptions().Headers[0].Number,
-				"end", proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1].Number,
-				"designatedProver", batchProof.ProofResponses[i].Opts.ShastaOptions().DesignatedProver,
+				"start", proofResponse.Opts.ProposalOptions().Headers[0].Number,
+				"end", proofResponse.Opts.ProposalOptions().Headers[len(proofResponse.Opts.ProposalOptions().Headers)-1].Number,
+				"designatedProver", batchProof.ProofResponses[i].Opts.ProposalOptions().DesignatedProver,
 				"actualProver", txOpts.From,
 				"firstProposalParentBlockHash", common.Bytes2Hex(input.Commitment.FirstProposalParentBlockHash[:]),
 			)

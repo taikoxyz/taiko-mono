@@ -88,7 +88,7 @@ func (s *TransactionTestSuite) TestValidateProof() {
 			BatchID:   proposalID,
 			Meta:      meta,
 			Proof:     testutils.RandomBytes(100),
-			Opts:      &producer.ProofRequestOptionsShasta{EventL1Hash: l1Head.Hash()},
+			Opts:      &producer.ProposalProofRequestOptions{EventL1Hash: l1Head.Hash()},
 			ProofType: producer.ProofTypeOp,
 		},
 		coreState.LastFinalizedProposalId,

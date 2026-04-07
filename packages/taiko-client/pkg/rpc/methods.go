@@ -292,7 +292,7 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 		l1Origin, err := c.L2Engine.LastCertainL1OriginByBatchID(ctxWithTimeout, proposalID)
 		if err != nil {
 			log.Debug(
-				"Fetch Shasta block header from L2 execution engine not found, keep retrying",
+				"Fetch block header from L2 execution engine not found, keep retrying",
 				"proposalID", proposalID,
 				"error", err,
 			)
@@ -306,7 +306,7 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 		return c.L2.HeaderByHash(ctxWithTimeout, l1Origin.L2BlockHash)
 	}
 
-	return nil, fmt.Errorf("failed to fetch Shasta block header from L2 execution engine, proposalID: %d", proposalID)
+	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, proposalID: %d", proposalID)
 }
 
 // GetPoolContent fetches the transactions list from L2 execution engine's transactions pool with given
@@ -319,11 +319,9 @@ func (c *Client) GetPoolContent(
 	locals []common.Address,
 	maxTransactionsLists uint64,
 	minTip uint64,
-	chainConfig *config.ChainConfig,
 ) ([]*miner.PreBuiltTxList, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
-	_ = chainConfig
 
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -795,7 +793,7 @@ func (c *Client) GetActivationBlockNumber(ctx context.Context) (*big.Int, error)
 
 	activationTimestamp, err := c.ShastaClients.Inbox.ActivationTimestamp(&bind.CallOpts{Context: ctxWithTimeout})
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch Shasta activation timestamp: %w", err)
+		return nil, fmt.Errorf("failed to fetch activation timestamp: %w", err)
 	}
 
 	// If activation timestamp is zero, returns zero block number.
@@ -961,7 +959,7 @@ func (c *Client) GetAnchorState(opts *bind.CallOpts) (
 
 	blockState, err := c.ShastaClients.Anchor.GetBlockState(opts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get the Shasta Anchor block state: %w", err)
+		return nil, fmt.Errorf("failed to get anchor block state: %w", err)
 	}
 
 	return &blockState, nil

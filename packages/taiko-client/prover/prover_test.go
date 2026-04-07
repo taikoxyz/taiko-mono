@@ -199,7 +199,7 @@ func (s *ProverTestSuite) TestGetSubmitterShastaOnly() {
 					BatchID: common.Big1,
 					Meta:    metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{}, 0),
 					Proof:   []byte{},
-					Opts:    &proofProducer.ProofRequestOptionsShasta{},
+					Opts:    &proofProducer.ProposalProofRequestOptions{},
 				},
 			},
 			BatchProof: []byte{},

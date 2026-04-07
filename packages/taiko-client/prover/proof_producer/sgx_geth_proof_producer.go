@@ -142,13 +142,13 @@ func (s *SgxGethProofProducer) requestBatchProof(
 		proposals = append(proposals, &RaikoProposals{
 			ProposalId:             meta.Shasta().GetEventData().Id,
 			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-			L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
+			L2BlockNumbers:         opts[i].ProposalOptions().L2BlockNums,
 			Checkpoint: &RaikoCheckpoint{
-				BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
-				BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
-				StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
+				BlockNum:  opts[i].ProposalOptions().Checkpoint.BlockNumber,
+				BlockHash: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.BlockHash[:]).Hex()[2:],
+				StateRoot: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.StateRoot[:]).Hex()[2:],
 			},
-			LastAnchorBlockNumber: opts[i].ShastaOptions().LastAnchorBlockNumber,
+			LastAnchorBlockNumber: opts[i].ProposalOptions().LastAnchorBlockNumber,
 		})
 	}
 	output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](

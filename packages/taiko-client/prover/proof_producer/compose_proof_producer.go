@@ -97,7 +97,7 @@ func (s *ComposeProofProducer) RequestProof(
 			} else {
 				proofType = resp.ProofType
 				// Note: we mark `RethProofGenerated` with true to record if it is first time generated.
-				opts.ShastaOptions().RethProofGenerated = true
+				opts.ProposalOptions().RethProofGenerated = true
 				// Note: Since the single sp1 proof from raiko is null, we need to ignore the case.
 				if ProofTypeZKSP1 != proofType {
 					proof = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
@@ -112,7 +112,7 @@ func (s *ComposeProofProducer) RequestProof(
 			return err
 		} else {
 			// Note: we mark `GethProofGenerated` with true to record if it is the first time generated.
-			opts.ShastaOptions().GethProofGenerated = true
+			opts.ProposalOptions().GethProofGenerated = true
 			return nil
 		}
 	})
@@ -176,7 +176,7 @@ func (s *ComposeProofProducer) Aggregate(
 			return err
 		} else {
 			// Note: we mark `GethProofAggregationGenerated` in the first item with true.
-			items[0].Opts.ShastaOptions().GethProofAggregationGenerated = true
+			items[0].Opts.ProposalOptions().GethProofAggregationGenerated = true
 			return nil
 		}
 	})
@@ -198,7 +198,7 @@ func (s *ComposeProofProducer) Aggregate(
 				return err
 			} else {
 				// Note: we mark `RethProofAggregationGenerated` in the first item with true.
-				items[0].Opts.ShastaOptions().RethProofAggregationGenerated = true
+				items[0].Opts.ProposalOptions().RethProofAggregationGenerated = true
 				batchProofs = common.Hex2Bytes(resp.Data.Proof.Proof[2:])
 			}
 		}
@@ -247,13 +247,13 @@ func (s *ComposeProofProducer) requestBatchProof(
 		proposals = append(proposals, &RaikoProposals{
 			ProposalId:             meta.Shasta().GetEventData().Id,
 			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-			L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
+			L2BlockNumbers:         opts[i].ProposalOptions().L2BlockNums,
 			Checkpoint: &RaikoCheckpoint{
-				BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
-				BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
-				StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
+				BlockNum:  opts[i].ProposalOptions().Checkpoint.BlockNumber,
+				BlockHash: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.BlockHash[:]).Hex()[2:],
+				StateRoot: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.StateRoot[:]).Hex()[2:],
 			},
-			LastAnchorBlockNumber: opts[i].ShastaOptions().LastAnchorBlockNumber,
+			LastAnchorBlockNumber: opts[i].ProposalOptions().LastAnchorBlockNumber,
 		})
 	}
 	output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](

@@ -62,7 +62,7 @@ func (m *mockProofProducer) RequestProof(
 		return nil, m.shouldReturnErr
 	}
 
-	shastaOpts, ok := opts.(*proofProducer.ProofRequestOptionsShasta)
+	proposalOpts, ok := opts.(*proofProducer.ProposalProofRequestOptions)
 	if !ok {
 		return nil, errors.New("invalid options type")
 	}
@@ -72,7 +72,7 @@ func (m *mockProofProducer) RequestProof(
 		Meta:      meta,
 		Proof:     testutils.RandomBytes(100),
 		ProofType: proofProducer.ProofTypeOp,
-		Opts:      shastaOpts,
+		Opts:      proposalOpts,
 	}, nil
 }
 
@@ -94,7 +94,7 @@ func TestProofRequestWithMockProducer(t *testing.T) {
 
 	// Test basic proof request
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsShasta{
+	opts := &proofProducer.ProposalProofRequestOptions{
 		ProposalID: big.NewInt(1),
 		Headers: []*types.Header{
 			{
@@ -124,7 +124,7 @@ func TestProofRequestWithTimeout(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsShasta{
+	opts := &proofProducer.ProposalProofRequestOptions{
 		ProposalID: big.NewInt(2),
 		Headers: []*types.Header{
 			{
@@ -157,7 +157,7 @@ func TestProofRequestWithRetryTimeout(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsShasta{
+	opts := &proofProducer.ProposalProofRequestOptions{
 		ProposalID: big.NewInt(3),
 		Headers: []*types.Header{
 			{
@@ -190,7 +190,7 @@ func TestProofRequestNoTimeoutWithinThreshold(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsShasta{
+	opts := &proofProducer.ProposalProofRequestOptions{
 		ProposalID: big.NewInt(4),
 		Headers: []*types.Header{
 			{
@@ -223,7 +223,7 @@ func TestProofRequestSuccessful(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	opts := &proofProducer.ProofRequestOptionsShasta{
+	opts := &proofProducer.ProposalProofRequestOptions{
 		ProposalID: big.NewInt(5),
 		Headers: []*types.Header{
 			{

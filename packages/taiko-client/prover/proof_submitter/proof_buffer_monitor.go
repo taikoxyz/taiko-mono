@@ -101,7 +101,7 @@ func cleanUpStaleCacheAndFlush(
 		case <-ticker.C:
 			coreState, err := rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 			if err != nil {
-				log.Error("Failed to get Shasta core state", "error", err)
+				log.Error("Failed to get core state", "error", err)
 				continue // Skip this iteration, retry on next tick
 			}
 			// remove stale cache

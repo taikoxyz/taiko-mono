@@ -24,7 +24,7 @@ func (s *TransactionTestSuite) TestBuildTxs() {
 			BatchID: common.Big1,
 			Meta:    metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: common.Big1}, 0),
 			Proof:   testutils.RandomBytes(100),
-			Opts: &producer.ProofRequestOptionsShasta{
+			Opts: &producer.ProposalProofRequestOptions{
 				Headers: []*types.Header{header},
 				L2BlockNums: []*big.Int{
 					header.Number,

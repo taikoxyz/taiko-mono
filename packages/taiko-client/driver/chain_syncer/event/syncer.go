@@ -173,7 +173,7 @@ func (s *Syncer) processProposal(
 	if meta.GetEventData().Id.Cmp(common.Big0) == 0 {
 		// Reset the lastInsertedProposalID when processing the genesis Shasta proposal.
 		s.lastInsertedProposalID = common.Big0
-		log.Debug("Ignore genesis Shasta proposal event", "proposalID", meta.GetEventData().Id)
+		log.Debug("Ignore genesis proposal event", "proposalID", meta.GetEventData().Id)
 		return nil
 	}
 
@@ -215,7 +215,7 @@ func (s *Syncer) processProposal(
 	}
 
 	log.Info(
-		"New Shasta Proposed event",
+		"New proposed event",
 		"proposalID", meta.GetEventData().Id,
 		"proposer", meta.GetEventData().Proposer,
 		"derivationSources", len(meta.GetEventData().Sources),
@@ -237,7 +237,7 @@ func (s *Syncer) processProposal(
 	if meta.GetEventData().Id.Cmp(common.Big1) == 0 {
 		// For the first Shasta proposal, its parent block is the genesis block.
 		log.Info(
-			"First Shasta proposal, fetch genesis block as parent",
+			"First proposal, fetch genesis block as parent",
 			"proposalID", meta.GetEventData().Id,
 			"proposer", meta.GetEventData().Proposer,
 		)
@@ -271,7 +271,7 @@ func (s *Syncer) processProposal(
 		for i := 0; i < len(meta.GetEventData().Sources); i++ {
 			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
 			if err != nil {
-				return fmt.Errorf("failed to fetch Shasta derivation payload for index %d: %w", i, err)
+				return fmt.Errorf("failed to fetch derivation payload for index %d: %w", i, err)
 			}
 			sourcePayloads[i] = p
 		}
@@ -279,7 +279,7 @@ func (s *Syncer) processProposal(
 
 	for derivationIdx := range meta.GetEventData().Sources {
 		log.Info(
-			"Processing Shasta derivation source",
+			"Processing derivation source",
 			"proposalID", meta.GetEventData().Id,
 			"proposer", meta.GetEventData().Proposer,
 			"index", derivationIdx,
@@ -289,13 +289,13 @@ func (s *Syncer) processProposal(
 		// Reuse the prefetched derivation payload.
 		sourcePayload := sourcePayloads[derivationIdx]
 		if sourcePayload == nil {
-			return fmt.Errorf("missing Shasta derivation payload for index %d", derivationIdx)
+			return fmt.Errorf("missing derivation payload for index %d", derivationIdx)
 		}
 		sourcePayload.ParentBlock = parent
 		isForcedInclusion := meta.GetEventData().Sources[derivationIdx].IsForcedInclusion
 
 		log.Info(
-			"Parent block info for Shasta derivation payload",
+			"Parent block info for derivation payload",
 			"proposalID", meta.GetEventData().Id,
 			"blocks", len(sourcePayload.BlockPayloads),
 			"parentBlockID", sourcePayload.ParentBlock.Number(),
@@ -363,7 +363,7 @@ func (s *Syncer) processProposal(
 				s.rpc.L2.ChainID,
 			)
 			log.Info(
-				"Use default Shasta derivation payload",
+				"Use default derivation payload",
 				"proposalID", meta.GetEventData().Id,
 				"proposer", meta.GetEventData().Proposer,
 				"anchorBlockNumber", lastAnchorBlockNumber,
@@ -378,7 +378,7 @@ func (s *Syncer) processProposal(
 			endIter,
 		)
 		if err != nil {
-			return fmt.Errorf("failed to insert Shasta blocks: %w", err)
+			return fmt.Errorf("failed to insert proposal blocks: %w", err)
 		}
 		if parent, err = s.rpc.WaitL2Block(ctx, lastInsertedBlockID); err != nil {
 			log.Warn("Failed to fetch the new parent block", "error", err)
@@ -403,7 +403,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.Reorg
 
 	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch Shasta core state: %w", err)
+		return nil, fmt.Errorf("failed to fetch core state: %w", err)
 	}
 
 	// If there is no finalized proposal yet, we skip the check.

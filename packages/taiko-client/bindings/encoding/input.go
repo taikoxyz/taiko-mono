@@ -49,13 +49,7 @@ var (
 	ForkRouterABI   *abi.ABI
 
 	// Pacaya fork
-	TaikoInboxABI           *abi.ABI
-	TaikoWrapperABI         *abi.ABI
-	ForcedInclusionStoreABI *abi.ABI
-	TaikoAnchorABI          *abi.ABI
-	ResolverBaseABI         *abi.ABI
-	ComposeVerifierABI      *abi.ABI
-	PacayaForkRouterABI     *abi.ABI
+	TaikoAnchorABI *abi.ABI
 
 	// Shasta fork
 	ShastaInboxABI           *abi.ABI
@@ -102,32 +96,8 @@ func init() {
 		log.Crit("Get ForkRouter ABI error", "error", err)
 	}
 
-	if TaikoInboxABI, err = pacayaBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get Pacaya TaikoInbox ABI error", "error", err)
-	}
-
-	if TaikoWrapperABI, err = pacayaBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoWrapper ABI error", "error", err)
-	}
-
-	if ForcedInclusionStoreABI, err = pacayaBindings.ForcedInclusionStoreMetaData.GetAbi(); err != nil {
-		log.Crit("Get ForcedInclusionStore ABI error", "error", err)
-	}
-
 	if TaikoAnchorABI, err = pacayaBindings.TaikoAnchorClientMetaData.GetAbi(); err != nil {
 		log.Crit("Get TaikoAnchor ABI error", "error", err)
-	}
-
-	if ResolverBaseABI, err = pacayaBindings.ResolverBaseMetaData.GetAbi(); err != nil {
-		log.Crit("Get ResolverBase ABI error", "error", err)
-	}
-
-	if ComposeVerifierABI, err = pacayaBindings.ComposeVerifierMetaData.GetAbi(); err != nil {
-		log.Crit("Get ComposeVerifier ABI error", "error", err)
-	}
-
-	if PacayaForkRouterABI, err = pacayaBindings.ForkRouterMetaData.GetAbi(); err != nil {
-		log.Crit("Get Pacaya ForkRouter ABI error", "error", err)
 	}
 
 	if ShastaInboxABI, err = shastaBindings.ShastaInboxClientMetaData.GetAbi(); err != nil {
@@ -163,13 +133,7 @@ func init() {
 		LibVerifyingABI.Errors,
 		SGXVerifierABI.Errors,
 		ForkRouterABI.Errors,
-		TaikoInboxABI.Errors,
-		TaikoWrapperABI.Errors,
-		ForcedInclusionStoreABI.Errors,
 		TaikoAnchorABI.Errors,
-		ResolverBaseABI.Errors,
-		ComposeVerifierABI.Errors,
-		PacayaForkRouterABI.Errors,
 		ShastaInboxABI.Errors,
 		ShastaAnchorABI.Errors,
 		BondManagerABI.Errors,

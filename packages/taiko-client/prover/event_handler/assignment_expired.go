@@ -38,13 +38,13 @@ func (h *AssignmentExpiredEventHandler) Handle(
 		proposalID := meta.Shasta().GetEventData().Id
 		coreState, err := h.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
-			return fmt.Errorf("failed to get Shasta core state: %w", err)
+			return fmt.Errorf("failed to get core state: %w", err)
 		}
 
 		// If the proposal is already finalized, skip it.
 		if proposalID.Cmp(coreState.LastFinalizedProposalId) <= 0 {
 			log.Info(
-				"Shasta proposal already finalized, skip proof submission",
+				"Proposal already finalized, skip proof submission",
 				"proposalID", proposalID,
 				"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 			)

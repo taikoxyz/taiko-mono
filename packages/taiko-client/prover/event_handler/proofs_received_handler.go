@@ -29,7 +29,7 @@ func (h *ProofsReceivedEventHandler) Handle(
 ) error {
 	coreState, err := h.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to get Shasta core state: %w", err)
+		return fmt.Errorf("failed to get core state: %w", err)
 	}
 
 	header, err := h.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)

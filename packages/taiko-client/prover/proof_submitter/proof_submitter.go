@@ -107,7 +107,7 @@ func NewProofSubmitter(
 // startBackgroundWorkers launches goroutines that monitor proof buffers and
 // prune cached proofs; should only run once during initialization.
 func (s *ProofSubmitter) startBackgroundWorkers(ctx context.Context) {
-	log.Info("Starting background workers for Shasta", "interval", monitorInterval)
+	log.Info("Starting proof submitter background workers", "interval", monitorInterval)
 	startProofBufferMonitors(ctx, s.proofBuffers, s.TryAggregate)
 	startCacheCleanUpAndFlush(ctx, s.rpc, s.proofCacheMaps, s.flushCacheNotify)
 }
@@ -118,7 +118,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 	header, err := s.rpc.WaitProposalHeader(ctx, meta.Shasta().GetEventData().Id)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to wait for Shasta L2 Header, blockID: %d, error: %w",
+			"failed to wait for L2 header, blockID: %d, error: %w",
 			meta.Shasta().GetEventData().Id,
 			err,
 		)
@@ -159,7 +159,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 	}
 	proposalID := meta.GetProposalID()
 	var (
-		opts = &proofProducer.ProofRequestOptionsShasta{
+		opts = &proofProducer.ProposalProofRequestOptions{
 			ProposalID:       proposalID,
 			ProverAddress:    s.proverAddress,
 			EventL1Hash:      meta.GetRawBlockHash(),
@@ -186,13 +186,13 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		}
 		coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
-			return fmt.Errorf("failed to get Shasta core state: %w", err)
+			return fmt.Errorf("failed to get core state: %w", err)
 		}
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
 		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
 		if fromID.Cmp(proposalID) > 0 {
 			log.Info(
-				"Shasta proposal already finalized, skip requesting proof",
+				"Proposal already finalized, skip requesting proof",
 				"proposalID", proposalID,
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 			)
@@ -258,9 +258,9 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			!errors.Is(err, proofProducer.ErrProofInProgress) &&
 			!errors.Is(err, proofProducer.ErrRetry) &&
 			!errors.Is(err, ErrProposalOutOfAllowedRange) {
-			log.Error("Failed to request a Shasta proof", "proposalID", meta.Shasta().GetEventData().Id, "error", err)
+			log.Error("Failed to request a proof", "proposalID", meta.Shasta().GetEventData().Id, "error", err)
 		} else {
-			log.Debug("Expected Shasta proof generation error", "error", err, "proposalID", meta.Shasta().GetEventData().Id)
+			log.Debug("Expected proof generation error", "error", err, "proposalID", meta.Shasta().GetEventData().Id)
 		}
 		return err
 	}
@@ -323,7 +323,7 @@ func (s *ProofSubmitter) handleProofResponse(
 		tryFlushCache(s.flushCacheNotify, proofResponse.ProofType)
 	}
 	log.Info(
-		"Proof generated successfully for Shasta proposal",
+		"Proof generated successfully for proposal",
 		"proposalID", meta.GetProposalID(),
 		"bufferSize", proofBuffer.Len(),
 		"maxBufferSize", proofBuffer.MaxLength,
@@ -337,7 +337,7 @@ func (s *ProofSubmitter) handleProofResponse(
 // BatchSubmitProofs submits the given aggregated proposal proofs to the inbox contract.
 func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proofProducer.BatchProofs) error {
 	log.Info(
-		"Submit aggregated Shasta proposal proofs",
+		"Submit aggregated proposal proofs",
 		"proof", common.Bytes2Hex(batchProof.BatchProof),
 		"size", len(batchProof.ProofResponses),
 		"firstID", batchProof.BatchIDs[0],
@@ -366,7 +366,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	)
 	// Extract all proposal IDs and the highest proven block ID in the aggregation.
 	for _, proof := range batchProof.ProofResponses {
-		currentLastBlockID := proof.Opts.ShastaOptions().L2BlockNums[len(proof.Opts.ShastaOptions().L2BlockNums)-1]
+		currentLastBlockID := proof.Opts.ProposalOptions().L2BlockNums[len(proof.Opts.ProposalOptions().L2BlockNums)-1]
 		if currentLastBlockID.Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = currentLastBlockID
 		}
@@ -398,7 +398,7 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	return nil
 }
 
-// ClearProofBuffers removes the submitted proof items from the Shasta proof buffer.
+// ClearProofBuffers removes the submitted proof items from the proof buffer.
 func (s *ProofSubmitter) ClearProofBuffers(batchProof *proofProducer.BatchProofs, resend bool) error {
 	if err := clearProofBufferItems(s.proofBuffers, batchProof); err != nil {
 		return err
@@ -507,7 +507,7 @@ func (s *ProofSubmitter) validateBatchProofs(
 	// Fetch the latest verified proposal ID.
 	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Shasta core state: %w", err)
+		return nil, fmt.Errorf("failed to get core state: %w", err)
 	}
 	latestVerifiedID := coreState.LastFinalizedProposalId
 
@@ -578,8 +578,8 @@ func (s *ProofSubmitter) WaitTransitionVerified(ctx context.Context, transitionI
 	return backoff.Retry(func() error {
 		coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 		if err != nil {
-			log.Error("Failed to get Shasta core state", "error", err)
-			return fmt.Errorf("failed to get Shasta core state: %w", err)
+			log.Error("Failed to get core state", "error", err)
+			return fmt.Errorf("failed to get core state: %w", err)
 		}
 		if coreState.LastFinalizedProposalId.Cmp(transitionID) >= 0 {
 			log.Info(
@@ -590,7 +590,7 @@ func (s *ProofSubmitter) WaitTransitionVerified(ctx context.Context, transitionI
 			return nil
 		}
 		log.Info(
-			"Waiting for Shasta transition to be verified",
+			"Waiting for transition to be verified",
 			"transitionID", transitionID,
 			"lastFinalizedProposalID", coreState.LastFinalizedProposalId,
 		)
@@ -609,7 +609,7 @@ func (s *ProofSubmitter) FlushCache(ctx context.Context, proofType proofProducer
 	}
 	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return fmt.Errorf("failed to get Shasta core state: %w", err)
+		return fmt.Errorf("failed to get core state: %w", err)
 	}
 	var fromID *big.Int
 	if buffer.LastInsertID() > 0 {

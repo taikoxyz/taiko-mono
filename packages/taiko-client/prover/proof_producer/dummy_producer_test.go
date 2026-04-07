@@ -19,7 +19,7 @@ func TestDummyProducerRequestProof(t *testing.T) {
 	)
 	res, err := producer.RequestProof(
 		context.Background(),
-		&ProofRequestOptionsShasta{},
+		&ProposalProofRequestOptions{},
 		blockID,
 		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: blockID}, 0),
 		time.Now(),

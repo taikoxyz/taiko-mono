@@ -121,16 +121,16 @@ func (s *State) eventLoop(ctx context.Context) {
 		case e := <-provedCh:
 			coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 			if err != nil {
-				log.Error("Failed to get Shasta core state", "err", err)
+				log.Error("Failed to get core state", "err", err)
 				continue
 			}
 			header, err := s.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
 			if err != nil {
-				log.Error("Failed to get Shasta finalized block header", "err", err)
+				log.Error("Failed to get finalized block header", "err", err)
 				continue
 			}
 			log.Info(
-				"📈 Shasta proposals proven and verified",
+				"📈 Proposals proven and verified",
 				"firstProposalID", e.FirstNewProposalId,
 				"lastProposalID", e.LastProposalId,
 				"checkpointNumber", header.Number,

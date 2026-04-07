@@ -130,7 +130,7 @@ func (p *Prover) initL1Current(startingProposalID *big.Int) error {
 
 	coreState, err := p.rpc.GetCoreState(&bind.CallOpts{Context: p.ctx})
 	if err != nil {
-		return fmt.Errorf("failed to get Shasta core state: %w", err)
+		return fmt.Errorf("failed to get core state: %w", err)
 	}
 	if startingProposalID == nil {
 		startingProposalID = coreState.LastFinalizedProposalId
@@ -153,12 +153,12 @@ func (p *Prover) initL1Current(startingProposalID *big.Int) error {
 		startingProposalID = coreState.LastFinalizedProposalId
 	}
 
-	log.Info("Init L1Current cursor for Shasta protocol", "startingProposalID", startingProposalID)
+	log.Info("Init L1Current cursor", "startingProposalID", startingProposalID)
 
 	if startingProposalID.Cmp(common.Big0) == 0 {
 		l1Current, err := p.rpc.GetGenesisL1Header(p.ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get Shasta activation header: %w", err)
+			return fmt.Errorf("failed to get activation header: %w", err)
 		}
 		p.sharedState.SetL1Current(l1Current)
 		return nil
