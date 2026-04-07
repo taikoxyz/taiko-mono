@@ -142,15 +142,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return fmt.Errorf("failed to create preconf block server: %w", err)
 		}
-		d.preconfBlockServer.SetAllowAllSequencers(cfg.P2PAllowAllSequencers)
-		if cfg.P2PAllowAllSequencers {
-			activeSequencers, err := d.rpc.GetAllActiveOperators(nil)
-			if err != nil {
-				return fmt.Errorf("failed to fetch active preconfirmation sequencers: %w", err)
-			}
-
-			d.preconfBlockServer.UpdateActiveSequencerAddresses(activeSequencers)
-		}
 		log.Info("Preconf Operator Address", "PreconfOperatorAddress", d.PreconfOperatorAddress)
 
 		// Enable P2P network for preconfirmation block propagation.
@@ -547,15 +538,6 @@ func (d *Driver) cacheLookaheadLoop() {
 			log.Warn("Could not fetch next operator", "err", err)
 
 			return fmt.Errorf("failed to fetch next operator: %w", err)
-		}
-
-		if d.P2PAllowAllSequencers {
-			activeSequencers, err := d.rpc.GetAllActiveOperators(nil)
-			if err != nil {
-				log.Warn("Could not fetch active preconfirmation sequencers", "err", err)
-			} else {
-				d.preconfBlockServer.UpdateActiveSequencerAddresses(activeSequencers)
-			}
 		}
 
 		lookahead := d.preconfBlockServer.GetLookahead()
