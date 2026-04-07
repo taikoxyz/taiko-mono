@@ -62,20 +62,6 @@ var (
 		Category: proposerCategory,
 		EnvVars:  []string{"TX_POOL_MAX_TX_LISTS_PER_EPOCH"},
 	}
-	// Transaction related.
-	BlobAllowed = &cli.BoolFlag{
-		Name:    "l1.blobAllowed",
-		Usage:   "Send EIP-4844 blob transactions when proposing blocks",
-		Value:   false,
-		EnvVars: []string{"L1_BLOB_ALLOWED"},
-	}
-	FallbackToCalldata = &cli.BoolFlag{
-		Name:     "l1.fallbackToCalldata",
-		Usage:    "If set to true, proposer will use calldata as DA when blob fee is more expensive than using calldata",
-		Value:    false,
-		Category: proposerCategory,
-		EnvVars:  []string{"L1_FALLBACK_TO_CALLDATA"},
-	}
 	RevertProtectionEnabled = &cli.BoolFlag{
 		Name: "l1.revertProtection",
 		Usage: "Enable revert protection within your ProverSet contract, " +
@@ -107,8 +93,6 @@ var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	MinProposingInternal,
 	AllowZeroTipInterval,
 	MaxTxListsPerEpoch,
-	BlobAllowed,
-	FallbackToCalldata,
 	RevertProtectionEnabled,
 	FallbackTimeout,
 }, TxmgrFlags)

@@ -67,7 +67,6 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
-		BlobAllowed:             true,
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		ProposeInterval:         1024 * time.Hour,
