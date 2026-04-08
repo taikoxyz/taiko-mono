@@ -42,7 +42,6 @@ vi.mock('$libs/protocol/protocolVersion', () => ({
     SHASTA: 'shasta',
   },
   getProtocolVersion: vi.fn().mockResolvedValue('shasta'),
-  clearProtocolVersionCache: vi.fn(),
 }));
 
 describe('BridgeProver', () => {

@@ -18,9 +18,7 @@ const signalServiceForkRouterAbi = [
   },
 ] as const;
 
-const cache = new Map<string, { version: ProtocolVersion; expiry: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const MS_PER_SECOND = 1000;
+const SHASTA_DEST_CHAIN_IDS = new Set([1, 167_000, 560_048, 167_013]);
 
 async function getChainTimestamp(chainId: number): Promise<bigint> {
   const client = getPublicClient(config, { chainId });
@@ -33,25 +31,18 @@ async function getChainTimestamp(chainId: number): Promise<bigint> {
 }
 
 /**
- * Detects protocol version by querying shastaForkTimestamp from SignalServiceForkRouter.
- * This aligns with how the SignalServiceForkRouter makes routing decisions.
+ * Detects protocol version for routes that may still rely on the legacy
+ * SignalServiceForkRouter endpoint.
  *
- * - If shastaForkTimestamp() reverts (not upgraded yet) → PACAYA
- * - If chainTime < forkTimestamp → PACAYA
- * - If chainTime >= forkTimestamp → SHASTA
+ * Mainnet and Hoodi are already on Shasta, so they resolve directly.
+ * Other routes fall back to the legacy router endpoint for backward compatibility.
  */
 export async function getProtocolVersion(srcChainId: number, destChainId: number): Promise<ProtocolVersion> {
-  const cacheKey = `${srcChainId}-${destChainId}`;
-  const cached = cache.get(cacheKey);
-  if (cached && Date.now() < cached.expiry) {
-    return cached.version;
-  }
-
   const signalService = routingContractsMap[destChainId]?.[srcChainId]?.signalServiceAddress;
   if (!signalService) return ProtocolVersion.PACAYA;
+  if (SHASTA_DEST_CHAIN_IDS.has(destChainId)) return ProtocolVersion.SHASTA;
 
   try {
-    // Query fork timestamp from SignalServiceForkRouter and compare against chain time.
     const [forkTimestamp, chainTimestamp] = await Promise.all([
       readContract(config, {
         address: signalService,
@@ -62,23 +53,9 @@ export async function getProtocolVersion(srcChainId: number, destChainId: number
       getChainTimestamp(destChainId),
     ]);
 
-    const version = chainTimestamp < forkTimestamp ? ProtocolVersion.PACAYA : ProtocolVersion.SHASTA;
-
-    let expiry = Date.now() + CACHE_TTL_MS;
-    if (chainTimestamp < forkTimestamp) {
-      const msUntilFork = Number((forkTimestamp - chainTimestamp) * BigInt(MS_PER_SECOND));
-      expiry = Date.now() + Math.min(CACHE_TTL_MS, Math.max(msUntilFork, 0));
-    }
-
-    cache.set(cacheKey, { version, expiry });
-    return version;
+    return chainTimestamp < forkTimestamp ? ProtocolVersion.PACAYA : ProtocolVersion.SHASTA;
   } catch {
-    // SignalService not upgraded to fork router yet or temporary RPC error.
-    // Avoid caching to prevent locking into the wrong fork on transient failures.
+    // Route config may be stale, the destination may still be on Pacaya, or this may be a transient RPC error.
     return ProtocolVersion.PACAYA;
   }
-}
-
-export function clearProtocolVersionCache(): void {
-  cache.clear();
 }
