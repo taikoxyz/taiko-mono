@@ -11,6 +11,8 @@ use libp2p::Multiaddr;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
+use crate::error::{Result, WhitelistPreconfirmationDriverError};
+
 /// Parsed bootnode configuration split into direct dial multiaddrs and ENR discovery peers.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct ClassifiedBootnodes {
@@ -79,13 +81,14 @@ pub(crate) fn parse_enode_url(url: &str) -> Option<Multiaddr> {
 ///
 /// Returns a receiver that yields discovered peer multiaddrs, or `None` if
 /// discovery is disabled or no ENR bootnodes are available.
-pub(crate) fn init_discovery(
+pub(crate) async fn init_discovery(
     enable_discovery: bool,
     discovery_listen: SocketAddr,
     discovery_enrs: Vec<String>,
 ) -> Option<mpsc::Receiver<Multiaddr>> {
     match (enable_discovery, discovery_enrs.is_empty()) {
         (true, false) => spawn_discv5(discovery_listen, discovery_enrs)
+            .await
             .map_err(|err| {
                 warn!(error = %err, "failed to start whitelist preconfirmation discovery");
             })
@@ -111,14 +114,16 @@ pub(crate) async fn recv_discovered_multiaddr(
 
 /// Spawn a discv5 instance and return a receiver of discovered TCP multiaddrs.
 ///
-/// The spawned task parses the provided ENR strings, adds them as boot nodes,
-/// starts the discv5 service, and then periodically runs `find_node` queries
-/// with random target IDs. Any discovered ENR that advertises a TCP port is
-/// converted to a multiaddr and sent through the channel.
-fn spawn_discv5(
+/// The startup path parses the provided ENR strings, adds them as boot nodes,
+/// and starts the discv5 service before returning so initialization errors are
+/// surfaced to the caller instead of being logged only inside the detached
+/// discovery task. Once startup succeeds, the spawned task periodically runs
+/// `find_node` queries with random target IDs and forwards any discovered ENR
+/// that advertises a TCP port through the channel.
+async fn spawn_discv5(
     listen_addr: SocketAddr,
     enr_strings: Vec<String>,
-) -> Result<mpsc::Receiver<Multiaddr>, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<mpsc::Receiver<Multiaddr>> {
     let mut boot_enrs = Vec::new();
     for s in &enr_strings {
         match s.parse::<discv5::Enr>() {
@@ -132,27 +137,22 @@ fn spawn_discv5(
     let discv5_config = discv5::ConfigBuilder::new(discv5::ListenConfig::from(listen_addr)).build();
 
     let key = discv5::enr::CombinedKey::generate_secp256k1();
-    let local_enr = discv5::enr::Enr::builder().build(&key)?;
+    let local_enr = discv5::enr::Enr::builder()
+        .build(&key)
+        .map_err(WhitelistPreconfirmationDriverError::p2p)?;
+    let mut discv5 =
+        discv5::Discv5::<discv5::DefaultProtocolId>::new(local_enr, key, discv5_config)
+            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
+
+    for enr in &boot_enrs {
+        if let Err(err) = discv5.add_enr(enr.clone()) {
+            warn!(error = %err, "failed to add ENR to discv5 table");
+        }
+    }
+
+    discv5.start().await.map_err(WhitelistPreconfirmationDriverError::p2p)?;
 
     tokio::spawn(async move {
-        let Ok(mut discv5) =
-            discv5::Discv5::<discv5::DefaultProtocolId>::new(local_enr, key, discv5_config)
-        else {
-            warn!("failed to create discv5 instance");
-            return;
-        };
-
-        for enr in &boot_enrs {
-            if let Err(err) = discv5.add_enr(enr.clone()) {
-                warn!(error = %err, "failed to add ENR to discv5 table");
-            }
-        }
-
-        if let Err(err) = discv5.start().await {
-            warn!(error = %err, "failed to start discv5");
-            return;
-        }
-
         debug!("discv5 discovery started on {}", listen_addr);
 
         loop {

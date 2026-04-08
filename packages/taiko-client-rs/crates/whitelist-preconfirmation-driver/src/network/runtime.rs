@@ -137,7 +137,7 @@ impl Default for NetworkConfig {
 
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
-    pub(crate) fn spawn(
+    pub(crate) async fn spawn(
         chain_id: u64,
         cfg: NetworkConfig,
         operator_set: SharedOperatorSet,
@@ -151,6 +151,9 @@ impl WhitelistNetwork {
             discovery_listen,
         } = cfg;
 
+        // Keep the libp2p identity ephemeral until the Rust driver grows an
+        // explicit persisted node-key configuration. This avoids introducing a
+        // second on-disk key path alongside the existing payload signer.
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
 
@@ -162,7 +165,7 @@ impl WhitelistNetwork {
         let bootnodes = classify_bootnodes(bootnodes);
         let dialed_addrs = dial_initial_peers(&mut swarm, pre_dial_peers, bootnodes.dial_addrs);
         let discovery_rx =
-            init_discovery(enable_discovery, discovery_listen, bootnodes.discovery_enrs);
+            init_discovery(enable_discovery, discovery_listen, bootnodes.discovery_enrs).await;
 
         let (event_tx, event_rx) = mpsc::channel(1024);
         let (command_tx, command_rx) = mpsc::channel(512);

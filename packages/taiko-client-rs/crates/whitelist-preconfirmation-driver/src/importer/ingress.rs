@@ -122,11 +122,7 @@ where
     }
 
     /// Handle a block-hash request from the request topic.
-    pub(super) async fn handle_unsafe_request(
-        &mut self,
-        _from: libp2p::PeerId,
-        hash: B256,
-    ) -> Result<()> {
+    pub(super) async fn handle_unsafe_request(&mut self, hash: B256) -> Result<()> {
         let (envelope, result_label) = if let Some(envelope) = self.recent_cache.get_recent(&hash) {
             (envelope, "cache_hit")
         } else if let Some(envelope) = self.build_response_envelope_from_l2(hash).await? {

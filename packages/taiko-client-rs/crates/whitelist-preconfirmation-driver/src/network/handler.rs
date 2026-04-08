@@ -20,6 +20,11 @@ const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
 const REQUEST_RATE_PER_MINUTE: f64 = 200.0;
 /// Maximum number of tokens in each per-peer request limiter bucket.
 const REQUEST_RATE_MAX_TOKENS: f64 = REQUEST_RATE_PER_MINUTE;
+/// Initial token balance granted to a newly observed peer.
+///
+/// Starting below the max bucket cap reduces burst amplification from
+/// short-lived peers while still allowing a small immediate request burst.
+const REQUEST_RATE_INITIAL_TOKENS: f64 = 40.0;
 /// Request token refill rate in tokens-per-second.
 const REQUEST_RATE_REFILL_PER_SEC: f64 = REQUEST_RATE_PER_MINUTE / 60.0;
 /// Maximum responses accepted per epoch window.
@@ -39,9 +44,9 @@ struct TokenBucket {
 }
 
 impl TokenBucket {
-    /// Construct a token bucket seeded to max capacity.
+    /// Construct a token bucket seeded to the configured initial balance.
     fn new(now: Instant) -> Self {
-        Self { tokens: REQUEST_RATE_MAX_TOKENS, last_refill: now }
+        Self { tokens: REQUEST_RATE_INITIAL_TOKENS, last_refill: now }
     }
 
     /// Refill tokens based on elapsed wall time and max cap.
@@ -119,8 +124,10 @@ pub(crate) struct HeightSeenTracker {
 }
 
 impl HeightSeenTracker {
-    /// Whether another hash can be accepted for the supplied block height.
-    pub(crate) fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
+    /// Record one accepted hash for the supplied block height when capacity remains.
+    ///
+    /// Returns `true` only when the hash was recorded successfully.
+    pub(crate) fn try_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
         if self.seen_by_height.get(&height).is_some_and(|hashes| hashes.len() >= max_per_height) {
             return false;
         }
@@ -301,7 +308,7 @@ impl GossipsubInboundState {
         let height = payload.envelope.execution_payload.block_number;
         let hash = payload.envelope.execution_payload.block_hash;
 
-        if !self.preconf_seen_by_height.can_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
+        if !self.preconf_seen_by_height.try_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
             return gossipsub::MessageAcceptance::Ignore;
         }
 
@@ -319,7 +326,7 @@ impl GossipsubInboundState {
 
         let height = envelope.execution_payload.block_number;
         let hash = envelope.execution_payload.block_hash;
-        if !self.response_seen_by_height.can_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
+        if !self.response_seen_by_height.try_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
             return gossipsub::MessageAcceptance::Ignore;
         }
 

@@ -145,7 +145,7 @@ where
                 }
             }
             NetworkEvent::UnsafeRequest { from, hash } => {
-                if let Err(err) = self.handle_unsafe_request(from, hash).await {
+                if let Err(err) = self.handle_unsafe_request(hash).await {
                     warn!(
                         peer = %from,
                         hash = %hash,
@@ -158,7 +158,15 @@ where
                 }
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
-                self.handle_eos_request(from, epoch).await?;
+                if let Err(err) = self.handle_eos_request(epoch).await {
+                    warn!(
+                        peer = %from,
+                        epoch,
+                        error = %err,
+                        "failed to handle whitelist preconfirmation end-of-sequencing request"
+                    );
+                    record_importer_event("end_of_sequencing_request", "error");
+                }
             }
         }
 
@@ -167,7 +175,7 @@ where
 
     /// Handle an incoming end-of-sequencing request by serving from the recent
     /// cache, falling back to an L2 rebuild, or recording a miss.
-    async fn handle_eos_request(&mut self, _from: libp2p::PeerId, epoch: u64) -> Result<()> {
+    async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
         let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await else {
             record_importer_event("end_of_sequencing_request", "miss");
             return Ok(());
