@@ -215,7 +215,7 @@ func (s *Syncer) processProposal(
 	}
 
 	log.Info(
-		"New proposed event",
+		"New Proposed event",
 		"proposalID", meta.GetEventData().Id,
 		"proposer", meta.GetEventData().Proposer,
 		"derivationSources", len(meta.GetEventData().Sources),
