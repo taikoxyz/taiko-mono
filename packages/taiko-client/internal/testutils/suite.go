@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -22,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -48,8 +46,6 @@ func (s *ClientTestSuite) SetupTest() {
 
 	var (
 		testAddrPrivKey   = s.KeyFromEnv("TEST_ACCOUNT_PRIVATE_KEY")
-		ownerPrivKey      = s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY")
-		l1ProverPrivKey   = s.KeyFromEnv("L1_PROVER_PRIVATE_KEY")
 		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
 	)
 
@@ -61,135 +57,24 @@ func (s *ClientTestSuite) SetupTest() {
 	s.NotEmpty(jwtSecret)
 
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
-		L1Endpoint:                  os.Getenv("L1_WS"),
-		L2Endpoint:                  os.Getenv("L2_WS"),
-		PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-		ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
-		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
-		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
-		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
-		JwtSecret:                   string(jwtSecret),
+		L1Endpoint:         os.Getenv("L1_WS"),
+		L2Endpoint:         os.Getenv("L2_WS"),
+		InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+		TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+		JwtSecret:          string(jwtSecret),
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
 
-	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.Less(l1Head.Time, s.RPCClient.ShastaClients.ForkTime)
-	s.SetBlockTimestampInterval(12 * time.Second)
-
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
+	s.ensureActivePreconfOperator()
 
-	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
-		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))
-	}
-
-	bondBalance, err := rpcCli.PacayaClients.TaikoInbox.BondBalanceOf(nil, common.HexToAddress(os.Getenv("PROVER_SET")))
-	s.Nil(err)
-
-	if bondBalance.Cmp(common.Big0) == 0 {
-		s.sendBondTokens(ownerPrivKey, crypto.PubkeyToAddress(l1ProposerPrivKey.PublicKey))
-		s.sendBondTokens(ownerPrivKey, crypto.PubkeyToAddress(l1ProverPrivKey.PublicKey))
-		s.sendBondTokens(ownerPrivKey, common.HexToAddress(os.Getenv("PROVER_SET")))
-
-		s.depositTokens(l1ProposerPrivKey)
-		s.depositTokens(l1ProverPrivKey)
-		s.depositProverSetTokens(ownerPrivKey)
-	}
-
-	// At the beginning of each test, we ensure the L2 chain has been reset to the base block (height: 1).
+	// At the beginning of each test, reset the L2 chain to its Shasta-only base state.
 	s.once.Do(func() {
-		s.testnetL1SnapshotID = s.SetL1Snapshot()
 		s.resetToBaseBlock(l1ProposerPrivKey)
+		s.testnetL1SnapshotID = s.SetL1Snapshot()
 	})
-}
-
-func (s *ClientTestSuite) enableProver(key *ecdsa.PrivateKey, address common.Address) {
-	t := s.TxMgr("enableProver", key)
-
-	proverSetAddress := common.HexToAddress(os.Getenv("PROVER_SET"))
-
-	enabled, err := s.RPCClient.PacayaClients.ProverSet.IsProver(nil, address)
-	s.Nil(err)
-
-	if !enabled {
-		log.Info("Enable prover / proposer in ProverSet", "address", address.Hex())
-
-		data, err := encoding.ProverSetABI.Pack("enableProver", address, true)
-		s.Nil(err)
-		_, err = t.Send(context.Background(), txmgr.TxCandidate{
-			TxData: data,
-			To:     &proverSetAddress,
-		})
-		s.Nil(err)
-
-		enabled, err = s.RPCClient.PacayaClients.ProverSet.IsProver(nil, address)
-		s.Nil(err)
-		s.True(enabled)
-	}
-}
-
-func (s *ClientTestSuite) sendBondTokens(key *ecdsa.PrivateKey, recipient common.Address) {
-	protocolConfig, err := s.RPCClient.GetProtocolConfigs(nil)
-	s.Nil(err)
-
-	amount := new(big.Int).Mul(protocolConfig.LivenessBond(), common.Big256)
-
-	log.Info("Send bond tokens", "recipient", recipient.Hex(), "amount", utils.WeiToEther(amount))
-
-	opts, err := bind.NewKeyedTransactorWithChainID(key, s.RPCClient.L1.ChainID)
-	s.Nil(err)
-
-	_, err = s.RPCClient.PacayaClients.TaikoToken.Transfer(opts, recipient, amount)
-	s.Nil(err)
-}
-
-func (s *ClientTestSuite) depositTokens(key *ecdsa.PrivateKey) {
-	t := s.TxMgr("setAllowance", key)
-
-	var (
-		taikoTokenAddress = common.HexToAddress(os.Getenv("TAIKO_TOKEN"))
-		taikoInboxAddress = common.HexToAddress(os.Getenv("PACAYA_INBOX"))
-	)
-
-	log.Info("Deposit tokens", "address", crypto.PubkeyToAddress(key.PublicKey).Hex())
-
-	balance, err := s.RPCClient.PacayaClients.TaikoToken.BalanceOf(nil, crypto.PubkeyToAddress(key.PublicKey))
-	s.Nil(err)
-	s.Greater(balance.Cmp(common.Big0), 0)
-
-	data, err := encoding.TaikoTokenABI.Pack("approve", common.HexToAddress(os.Getenv("PACAYA_INBOX")), balance)
-	s.Nil(err)
-
-	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoTokenAddress})
-	s.Nil(err)
-
-	data, err = encoding.TaikoInboxABI.Pack("depositBond", balance)
-	s.Nil(err)
-
-	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &taikoInboxAddress})
-	s.Nil(err)
-}
-
-func (s *ClientTestSuite) depositProverSetTokens(key *ecdsa.PrivateKey) {
-	t := s.TxMgr("setProverSetAllowance", key)
-
-	var proverSetAddress = common.HexToAddress(os.Getenv("PROVER_SET"))
-
-	balance, err := s.RPCClient.PacayaClients.TaikoToken.BalanceOf(nil, proverSetAddress)
-	s.Nil(err)
-	s.Greater(balance.Cmp(common.Big0), 0)
-
-	log.Info("Deposit ProverSet tokens", "address", proverSetAddress.Hex(), "balance", utils.WeiToEther(balance))
-
-	data, err := encoding.ProverSetPacayaABI.Pack("depositBond", balance)
-	s.Nil(err)
-
-	_, err = t.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &proverSetAddress})
-	s.Nil(err)
 }
 
 func (s *ClientTestSuite) TxMgr(name string, key *ecdsa.PrivateKey) txmgr.TxManager {
@@ -225,10 +110,8 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
-	s.testnetL1SnapshotID = s.SetL1Snapshot()
 	s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
-	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
-	s.Nil(err)
+	s.testnetL1SnapshotID = s.SetL1Snapshot()
 }
 
 func (s *ClientTestSuite) TearDownSuite() {
@@ -255,6 +138,11 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 	b, err := rlp.EncodeToBytes(block.Transactions())
 	s.Nil(err)
 
+	var proposalID *big.Int
+	if len(block.Extra()) >= 7 {
+		proposalID = new(big.Int).SetBytes(block.Extra()[1:7])
+	}
+
 	originalCoinbase := block.Coinbase()
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             block.Time(),
@@ -267,6 +155,7 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 			Timestamp:   block.Time(),
 			TxList:      b,
 			MixHash:     block.MixDigest(),
+			BatchID:     proposalID,
 			ExtraData:   block.Extra(),
 		},
 		BaseFeePerGas: block.BaseFee(),
@@ -275,7 +164,7 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 			L1BlockHeight:      l1Origin.L1BlockHeight,
 			L2BlockHash:        common.Hash{},
 			L1BlockHash:        l1Origin.L1BlockHash,
-			BuildPayloadArgsID: [8]byte{},
+			BuildPayloadArgsID: l1Origin.BuildPayloadArgsID,
 		},
 	}
 	// Set the chain head to a block with different attributes at first.
@@ -328,6 +217,36 @@ func (s *ClientTestSuite) SetL1Snapshot() string {
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &snapshotID, "evm_snapshot"))
 	s.NotEmpty(snapshotID)
 	return snapshotID
+}
+
+func (s *ClientTestSuite) ensureActivePreconfOperator() {
+	s.NotNil(s.RPCClient.ShastaClients.PreconfWhitelist)
+
+	expected := crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey)
+	operator, err := s.RPCClient.GetPreconfWhiteListOperator(nil)
+	s.Nil(err)
+	if operator == expected {
+		return
+	}
+
+	info, err := s.RPCClient.ShastaClients.PreconfWhitelist.Operators(nil, expected)
+	s.Nil(err)
+	s.NotZero(info.ActiveSince)
+
+	l1Head, err := s.RPCClient.L1.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	targetTimestamp := uint64(info.ActiveSince)
+	if l1Head.Time >= targetTimestamp {
+		targetTimestamp = l1Head.Time + 1
+	}
+
+	s.SetNextBlockTimestamp(targetTimestamp)
+	s.L1Mine()
+
+	operator, err = s.RPCClient.GetPreconfWhiteListOperator(nil)
+	s.Nil(err)
+	s.Equal(expected, operator)
 }
 
 func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {

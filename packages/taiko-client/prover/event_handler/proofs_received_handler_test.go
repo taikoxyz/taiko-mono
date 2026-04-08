@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/suite"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event"
@@ -21,7 +21,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
-	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 type EventHandlerTestSuite struct {
@@ -45,8 +44,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			L1Endpoint:         os.Getenv("L1_WS"),
 			L2Endpoint:         os.Getenv("L2_WS"),
 			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
-			PacayaInboxAddress: common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress: common.HexToAddress(os.Getenv("SHASTA_INBOX")),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
 			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 			JwtSecret:          string(jwtSecret),
 		},
@@ -64,7 +62,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 		s.RPCClient,
 		testState,
 		tracker,
-		nil,
+		s.ParseL1HttpURLFromEnv(),
 		nil,
 	)
 	s.Nil(err)
@@ -77,17 +75,12 @@ func (s *EventHandlerTestSuite) SetupTest() {
 
 	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  os.Getenv("L1_WS"),
-			L2Endpoint:                  os.Getenv("L2_WS"),
-			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
-			JwtSecret:                   string(jwtSecret),
-			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
-			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
-			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			JwtSecret:          string(jwtSecret),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
@@ -108,49 +101,22 @@ func (s *EventHandlerTestSuite) SetupTest() {
 			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
 			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
 		},
-		PrivateTxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
-			NumConfirmations:          1,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
 	}, nil, nil))
 
 	s.proposer = prop
 }
 
-func (s *EventHandlerTestSuite) TestBachesProvedHandle() {
-	proofRequestBodyCh := make(chan *proofProducer.ProofRequestBody, 1)
-	handler := NewBatchesProvedEventHandler(s.RPCClient, proofRequestBodyCh)
+func (s *EventHandlerTestSuite) TestProofsReceivedHandle() {
+	handler := NewProofsReceivedEventHandler(s.RPCClient)
 
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
-	s.True(m.IsPacaya())
+	meta := s.ProposeAndInsertValidBlock(s.proposer, s.eventSyncer)
+	s.True(meta.IsShasta())
 
-	batch, err := s.RPCClient.GetBatchByID(context.Background(), m.Pacaya().GetBatchID())
-	s.Nil(err)
-
-	block, err := s.RPCClient.L2.HeaderByNumber(context.Background(), new(big.Int).SetUint64(batch.LastBlockId))
-	s.Nil(err)
-
-	s.Nil(handler.HandlePacaya(context.Background(), &pacayaBindings.TaikoInboxClientBatchesProved{
-		BatchIds: []uint64{m.Pacaya().GetBatchID().Uint64()},
-		Transitions: []pacayaBindings.ITaikoInboxTransition{{
-			ParentHash: block.ParentHash,
-			BlockHash:  block.Hash(),
-			StateRoot:  testutils.RandomHash(),
-		}},
+	s.Nil(handler.Handle(context.Background(), &shastaBindings.ShastaInboxClientProved{
+		FirstNewProposalId: new(big.Int).Set(meta.Shasta().GetEventData().Id),
+		LastProposalId:     new(big.Int).Set(meta.Shasta().GetEventData().Id),
+		ActualProver:       crypto.PubkeyToAddress(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY").PublicKey),
 	}))
-
-	s.Equal(m, (<-proofRequestBodyCh).Meta)
 }
 
 func TestEventHandlerTestSuite(t *testing.T) {

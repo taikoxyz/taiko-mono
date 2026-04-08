@@ -8,9 +8,8 @@ import (
 
 // SharedState represents the internal state of a prover.
 type SharedState struct {
-	lastHandledBatchID       atomic.Uint64
-	lastHandledShastaBatchID atomic.Uint64
-	l1Current                atomic.Value
+	lastHandledProposalID atomic.Uint64
+	l1Current             atomic.Value
 }
 
 // New creates a new prover shared state instance.
@@ -18,24 +17,14 @@ func New() *SharedState {
 	return new(SharedState)
 }
 
-// GetLastHandledPacayaBatchID returns the last handled batch ID.
-func (s *SharedState) GetLastHandledPacayaBatchID() uint64 {
-	return s.lastHandledBatchID.Load()
+// GetLastHandledProposalID returns the last handled proposal ID.
+func (s *SharedState) GetLastHandledProposalID() uint64 {
+	return s.lastHandledProposalID.Load()
 }
 
-// SetLastHandledPacayaBatchID sets the last handled batch ID.
-func (s *SharedState) SetLastHandledPacayaBatchID(batchID uint64) {
-	s.lastHandledBatchID.Store(batchID)
-}
-
-// GetLastHandledShastaBatchID returns the last handled Shasta batch ID.
-func (s *SharedState) GetLastHandledShastaBatchID() uint64 {
-	return s.lastHandledShastaBatchID.Load()
-}
-
-// SetLastHandledShastaBatchID sets the last handled Shasta batch ID.
-func (s *SharedState) SetLastHandledShastaBatchID(batchID uint64) {
-	s.lastHandledShastaBatchID.Store(batchID)
+// SetLastHandledProposalID sets the last handled proposal ID.
+func (s *SharedState) SetLastHandledProposalID(proposalID uint64) {
+	s.lastHandledProposalID.Store(proposalID)
 }
 
 // GetL1Current returns the current L1 header cursor.

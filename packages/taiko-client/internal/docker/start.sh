@@ -24,9 +24,9 @@ case "$L2_NODE" in
     NMC_CHAINSPEC_TEMPLATE="${NMC_CHAINSPEC_DIR}/taiko-devnet.template.json"
     NMC_CHAINSPEC="${NMC_CHAINSPEC_DIR}/taiko-devnet.json"
     
-    if [ -n "${TAIKO_INTERNAL_SHASTA_TIME:-}" ] && [ -f "$NMC_CHAINSPEC_TEMPLATE" ]; then
-      SHASTA_HEX=$(printf "0x%x" "$TAIKO_INTERNAL_SHASTA_TIME")
-      echo "Generating NMC chainspec with shastaTimestamp=$SHASTA_HEX (decimal: $TAIKO_INTERNAL_SHASTA_TIME)"
+    if [ -f "$NMC_CHAINSPEC_TEMPLATE" ]; then
+      SHASTA_HEX=$(printf "0x%x" 0)
+      echo "Generating NMC chainspec with shastaTimestamp=$SHASTA_HEX (Shasta active from genesis)"
       # Generate chainspec from template with dynamic shastaTimestamp
       jq --arg ts "$SHASTA_HEX" '.engine.Taiko.shastaTimestamp = $ts' "$NMC_CHAINSPEC_TEMPLATE" > "$NMC_CHAINSPEC"
     fi

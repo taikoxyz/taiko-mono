@@ -1,4 +1,4 @@
-package manifest
+package derivation
 
 import (
 	"context"
@@ -19,49 +19,49 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// ShastaBlockPayload represents a Shasta block payload with additional metadata.
-type ShastaBlockPayload struct {
+// BlockPayload represents a Shasta block payload with additional metadata.
+type BlockPayload struct {
 	manifest.BlockManifest
 }
 
-// ShastaDerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
-type ShastaDerivationSourcePayload struct {
-	BlockPayloads []*ShastaBlockPayload
+// DerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
+type DerivationSourcePayload struct {
+	BlockPayloads []*BlockPayload
 	Default       bool
 	ParentBlock   *types.Block
 }
 
-// ShastaDerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.
-type ShastaDerivationSourceFetcher struct {
+// DerivationSourceFetcher is responsible for fetching the blob source from the L1 block sidecar.
+type DerivationSourceFetcher struct {
 	cli        *rpc.Client
 	dataSource *rpc.BlobDataSource
 }
 
-// NewDerivationSourceFetcher creates a new ShastaManifestFetcher instance based on the given rpc client.
-func NewDerivationSourceFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource) *ShastaDerivationSourceFetcher {
-	return &ShastaDerivationSourceFetcher{
+// NewDerivationSourceFetcher creates a new derivation source fetcher based on the given RPC client.
+func NewDerivationSourceFetcher(cli *rpc.Client, dataSource *rpc.BlobDataSource) *DerivationSourceFetcher {
+	return &DerivationSourceFetcher{
 		cli:        cli,
 		dataSource: dataSource,
 	}
 }
 
-// NewShastaManifestFetcher creates a new ShastaDerivationSourceFetcher instance based on the given rpc client.
-func (f *ShastaDerivationSourceFetcher) Fetch(
+// Fetch builds a derivation source payload for the given proposal source index.
+func (f *DerivationSourceFetcher) Fetch(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
-) (*ShastaDerivationSourcePayload, error) {
+) (*DerivationSourcePayload, error) {
 	// If there is no blob hash, or its offset is invalid, return the default payload.
 	if len(meta.GetBlobHashes(derivationIdx)) == 0 ||
 		meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64() >
 			uint64(manifest.BlobBytes-64) {
-		return &ShastaDerivationSourcePayload{Default: true}, nil
+		return &DerivationSourcePayload{Default: true}, nil
 	}
 
 	blobBytes, err := f.fetchBlobs(ctx, meta, derivationIdx)
 	if err != nil {
 		if errors.Is(err, rpc.ErrInvalidBlobBytes) {
-			return &ShastaDerivationSourcePayload{Default: true}, nil
+			return &DerivationSourcePayload{Default: true}, nil
 		}
 		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
 	}
@@ -74,14 +74,14 @@ func (f *ShastaDerivationSourceFetcher) Fetch(
 }
 
 // manifestFromBlobBytes constructs the derivation payload from the given blob bytes.
-func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
+func (f *DerivationSourceFetcher) manifestFromBlobBytes(
 	b []byte,
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
-) (*ShastaDerivationSourcePayload, error) {
+) (*DerivationSourcePayload, error) {
 	var (
 		offset                   = int(meta.GetEventData().Sources[derivationIdx].BlobSlice.Offset.Uint64())
-		defaultPayload           = &ShastaDerivationSourcePayload{Default: true}
+		defaultPayload           = &DerivationSourcePayload{Default: true}
 		derivationSourceManifest = new(manifest.DerivationSourceManifest)
 	)
 	version, size, err := ExtractVersionAndSize(b, offset)
@@ -149,19 +149,19 @@ func (f *ShastaDerivationSourceFetcher) manifestFromBlobBytes(
 		return defaultPayload, nil
 	}
 
-	// Convert protocol derivation manifest to ShastaDerivationSourcePayload.
-	payload := &ShastaDerivationSourcePayload{
-		BlockPayloads: make([]*ShastaBlockPayload, len(derivationSourceManifest.Blocks)),
+	// Convert protocol derivation manifest to DerivationSourcePayload.
+	payload := &DerivationSourcePayload{
+		BlockPayloads: make([]*BlockPayload, len(derivationSourceManifest.Blocks)),
 	}
 	for i, block := range derivationSourceManifest.Blocks {
-		payload.BlockPayloads[i] = &ShastaBlockPayload{BlockManifest: *block}
+		payload.BlockPayloads[i] = &BlockPayload{BlockManifest: *block}
 	}
 
 	return payload, nil
 }
 
 // fetchBlobs fetches the blob source from the L1 block sidecar.
-func (f *ShastaDerivationSourceFetcher) fetchBlobs(
+func (f *DerivationSourceFetcher) fetchBlobs(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaDataShasta,
 	derivationIdx int,
@@ -231,7 +231,7 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 // ValidateMetadata validates block-level metadata according to protocol rules, return true if validation passes.
 func ValidateMetadata(
 	rpc *rpc.Client,
-	sourcePayload *ShastaDerivationSourcePayload,
+	sourcePayload *DerivationSourcePayload,
 	event *shastaBindings.ShastaInboxClientProposed,
 	proposalTimestamp uint64,
 	originBlockNumber uint64,
@@ -246,7 +246,6 @@ func ValidateMetadata(
 		sourcePayload,
 		event,
 		proposalTimestamp,
-		rpc.ShastaClients.ForkTime,
 		rpc.L2.ChainID,
 	) {
 		return false
@@ -276,10 +275,9 @@ func ValidateMetadata(
 
 // validateMetadataTimestamp ensures each block's timestamp is within valid bounds.
 func validateMetadataTimestamp(
-	sourcePayload *ShastaDerivationSourcePayload,
+	sourcePayload *DerivationSourcePayload,
 	event *shastaBindings.ShastaInboxClientProposed,
 	proposalTimestamp uint64,
-	forkTime uint64,
 	chainID *big.Int,
 ) bool {
 	var (
@@ -287,14 +285,13 @@ func validateMetadataTimestamp(
 	)
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime, chainID)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, chainID)
 		if lowerBound > proposalTimestamp {
 			log.Info(
 				"Invalid timestamp bounds",
 				"blockIndex", i,
 				"proposalTimestamp", proposalTimestamp,
 				"lowerBound", lowerBound,
-				"forkTime", forkTime,
 			)
 			return false
 		}
@@ -322,13 +319,11 @@ func validateMetadataTimestamp(
 // The lower bound is determined by taking the maximum of three constraints:
 // 1. parent_timestamp + 1: Blocks must progress forward in time
 // 2. proposal_timestamp - TIMESTAMP_MAX_OFFSET: Blocks cannot be too far in the past relative to the proposal
-// 3. fork_timestamp: Blocks must be after the Shasta fork activation
-//
 // Returns the maximum of all three values to ensure all constraints are satisfied.
-func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime uint64, chainID *big.Int) uint64 {
+func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp uint64, chainID *big.Int) uint64 {
 	timestampMaxOffset := manifest.TimestampMaxOffsetByChainID(chainID)
 
-	lowerBound := max(parentTimestamp+1, forkTime)
+	lowerBound := parentTimestamp + 1
 	if proposalTimestamp > timestampMaxOffset {
 		lowerBound = max(lowerBound, proposalTimestamp-timestampMaxOffset)
 	}
@@ -338,7 +333,7 @@ func ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, forkTime uin
 
 // validateAnchorBlockNumber checks if each block's anchor block number is valid.
 func validateAnchorBlockNumber(
-	sourcePayload *ShastaDerivationSourcePayload,
+	sourcePayload *DerivationSourcePayload,
 	originBlockNumber uint64,
 	parentAnchorBlockNumber uint64,
 	event *shastaBindings.ShastaInboxClientProposed,
@@ -413,12 +408,12 @@ func validateAnchorBlockNumber(
 
 // validateGasLimit ensures each block's gas limit is within valid bounds.
 func validateGasLimit(
-	sourcePayload *ShastaDerivationSourcePayload,
+	sourcePayload *DerivationSourcePayload,
 	parentBlockNumber *big.Int,
 	parentGasLimit uint64,
 ) bool {
-	// NOTE: When the parent block is not the genesis block, its gas limit always contains the Pacaya
-	// or Shasta anchor transaction gas limit, which always equals to consensus.AnchorV3V4GasLimit.
+	// NOTE: When the parent block is not the genesis block, its gas limit always contains the
+	// legacy or Shasta anchor transaction gas limit, which always equals consensus.AnchorV3V4GasLimit.
 	// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
 	// the real gas limit from parent block metadata.
 	if parentBlockNumber.Cmp(common.Big0) != 0 {
@@ -457,11 +452,10 @@ func validateGasLimit(
 // ApplyInheritedMetadata assigns proposer, anchor, gas limit, and timestamp values to each block by inheriting
 // from the parent block metadata.
 func ApplyInheritedMetadata(
-	sourcePayload *ShastaDerivationSourcePayload,
+	sourcePayload *DerivationSourcePayload,
 	event *shastaBindings.ShastaInboxClientProposed,
 	timestamp uint64,
 	anchorBlockNumber uint64,
-	forkTime uint64,
 	chainID *big.Int,
 ) {
 	var (
@@ -473,7 +467,7 @@ func ApplyInheritedMetadata(
 	}
 
 	for i := range sourcePayload.BlockPayloads {
-		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, forkTime, chainID)
+		lowerBound := ComputeTimestampLowerBound(parentTimestamp, timestamp, chainID)
 
 		sourcePayload.BlockPayloads[i].Timestamp = lowerBound
 		sourcePayload.BlockPayloads[i].Coinbase = event.Proposer

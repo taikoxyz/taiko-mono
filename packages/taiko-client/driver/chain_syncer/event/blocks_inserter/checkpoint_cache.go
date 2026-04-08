@@ -2,7 +2,6 @@ package blocksinserter
 
 import (
 	"context"
-	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,9 +27,8 @@ type checkpointCache struct {
 }
 
 var (
-	// Keep one process-wide cache per fork. We only need the latest checkpoint snapshot.
-	pacayaCheckpointCache = newCheckpointCache(checkpointCacheTTL)
-	shastaCheckpointCache = newCheckpointCache(checkpointCacheTTL)
+	// Keep one process-wide cache. We only need the latest checkpoint snapshot.
+	checkpointCacheSingleton = newCheckpointCache(checkpointCacheTTL)
 )
 
 // newCheckpointCache creates a cache instance with the given staleness threshold.
@@ -121,32 +119,9 @@ func (c *checkpointCache) refreshSync(ctx context.Context, loader checkpointLoad
 	return value.(*verifiedCheckpoint), nil
 }
 
-// getPacayaCache returns the process-wide Pacaya checkpoint cache.
-func getPacayaCache() *checkpointCache {
-	return pacayaCheckpointCache
-}
-
-// getShastaCache returns the process-wide Shasta checkpoint cache.
-func getShastaCache() *checkpointCache {
-	return shastaCheckpointCache
-}
-
-// getPacayaCheckpoint returns the latest cached or freshly loaded Pacaya checkpoint.
-// The caller must pass the rpc.Client for the target L1 environment. In particular,
-// cli must not come from a different L1 network, because the cached checkpoint is only
-// valid for the chain context behind that client.
-func getPacayaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpoint, error) {
-	return getPacayaCache().getOrFetch(ctx, func(ctx context.Context) (*verifiedCheckpoint, error) {
-		lastVerifiedTS, err := cli.GetLastVerifiedTransitionPacaya(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		return &verifiedCheckpoint{
-			BlockID:   new(big.Int).SetUint64(lastVerifiedTS.BlockId),
-			BlockHash: lastVerifiedTS.Ts.BlockHash,
-		}, nil
-	})
+// getCheckpointCache returns the process-wide checkpoint cache.
+func getCheckpointCache() *checkpointCache {
+	return checkpointCacheSingleton
 }
 
 // getShastaCheckpoint returns the latest cached or freshly loaded Shasta checkpoint.
@@ -154,11 +129,11 @@ func getPacayaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpo
 // cli must not come from a different L1 network, because the cached checkpoint is only
 // valid for the chain context behind that client.
 func getShastaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpoint, error) {
-	return getShastaCache().getOrFetch(ctx, func(ctx context.Context) (*verifiedCheckpoint, error) {
-		return tryLastFinalizedCheckpointShasta(
+	return getCheckpointCache().getOrFetch(ctx, func(ctx context.Context) (*verifiedCheckpoint, error) {
+		return tryLastFinalizedCheckpoint(
 			ctx,
 			nil,
-			cli.GetCoreStateShasta,
+			cli.GetCoreState,
 			cli.L2Engine.LastBlockIDByBatchID,
 			cli.L2.HeaderByNumber,
 		)
