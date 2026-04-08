@@ -84,6 +84,38 @@ func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
 	s.Equal(uint64(len(sourceManifestBytes)), decodedSize)
 }
 
+func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSizeVersionOverflow() {
+	versionBytes := make([]byte, 32)
+	new(big.Int).SetUint64(uint64(1) << 32).FillBytes(versionBytes)
+
+	sizeBytes := make([]byte, 32)
+	new(big.Int).SetUint64(1).FillBytes(sizeBytes)
+
+	blobBytesPrefix := make([]byte, 0, 64)
+	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
+	blobBytesPrefix = append(blobBytesPrefix, sizeBytes...)
+
+	_, _, err := ExtractVersionAndSize(blobBytesPrefix, 0)
+	s.Error(err)
+	s.Contains(err.Error(), "failed to extract version")
+}
+
+func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSizeSizeOverflow() {
+	versionBytes := make([]byte, 32)
+	new(big.Int).SetUint64(1).FillBytes(versionBytes)
+
+	sizeBytes := make([]byte, 32)
+	new(big.Int).Lsh(big.NewInt(1), 64).FillBytes(sizeBytes)
+
+	blobBytesPrefix := make([]byte, 0, 64)
+	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
+	blobBytesPrefix = append(blobBytesPrefix, sizeBytes...)
+
+	_, _, err := ExtractVersionAndSize(blobBytesPrefix, 0)
+	s.Error(err)
+	s.Contains(err.Error(), "failed to extract size")
+}
+
 func TestDerivationSourceFetcherTestSuite(t *testing.T) {
 	suite.Run(t, new(DerivationSourceFetcherTestSuite))
 }
