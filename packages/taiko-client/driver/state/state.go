@@ -185,11 +185,13 @@ func (s *State) SubL1HeadsFeed(ch chan *types.Header) event.Subscription {
 	return s.l1HeadsFeed.Subscribe(ch)
 }
 
-// initGenesisHeight fetches the genesis height from the current protocol.
+// initGenesisHeight fetches the L1 activation height for the current inbox.
 func (s *State) initGenesisHeight(ctx context.Context) error {
+	// GetActivationBlockNumber returns the L1 block number whose timestamp matches the
+	// inbox activation timestamp.
 	genesisHeight, err := s.rpc.GetActivationBlockNumber(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get Shasta activation block number: %w", err)
+		return fmt.Errorf("failed to get activation block number: %w", err)
 	}
 
 	s.GenesisL1Height = genesisHeight
