@@ -53,7 +53,7 @@ func (h *ProposalEventHandler) handleProposal(
 	}
 
 	log.Info(
-		"New proposed event",
+		"New Proposed event",
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 		"proposalID", meta.Shasta().GetEventData().Id,
