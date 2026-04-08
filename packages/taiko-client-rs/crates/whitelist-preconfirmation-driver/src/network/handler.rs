@@ -1,9 +1,12 @@
-//! Inbound validation and allowlist state for the whitelist preconfirmation network.
+//! Inbound message validation and rate-limiting for gossipsub topics.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
+    sync::Arc,
     time::{Duration, Instant},
 };
+
+use arc_swap::ArcSwap;
 
 use alloy_primitives::{Address, B256};
 use hashlink::LinkedHashMap;
@@ -17,6 +20,11 @@ const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
 const REQUEST_RATE_PER_MINUTE: f64 = 200.0;
 /// Maximum number of tokens in each per-peer request limiter bucket.
 const REQUEST_RATE_MAX_TOKENS: f64 = REQUEST_RATE_PER_MINUTE;
+/// Initial token balance granted to a newly observed peer.
+///
+/// Starting below the max bucket cap reduces burst amplification from
+/// short-lived peers while still allowing a small immediate request burst.
+const REQUEST_RATE_INITIAL_TOKENS: f64 = 40.0;
 /// Request token refill rate in tokens-per-second.
 const REQUEST_RATE_REFILL_PER_SEC: f64 = REQUEST_RATE_PER_MINUTE / 60.0;
 /// Maximum responses accepted per epoch window.
@@ -26,8 +34,8 @@ const MAX_PRECONF_BLOCKS_PER_HEIGHT: usize = 10;
 /// Default bounded size for inbound dedupe and rate-limiter tracking maps.
 const PRECONF_INBOUND_LRU_CAPACITY: usize = 1000;
 
-#[derive(Debug)]
 /// Token bucket state for a single peer.
+#[derive(Debug)]
 struct TokenBucket {
     /// Remaining tokens in the bucket.
     tokens: f64,
@@ -36,9 +44,9 @@ struct TokenBucket {
 }
 
 impl TokenBucket {
-    /// Construct a token bucket seeded to max capacity.
+    /// Construct a token bucket seeded to the configured initial balance.
     fn new(now: Instant) -> Self {
-        Self { tokens: REQUEST_RATE_MAX_TOKENS, last_refill: now }
+        Self { tokens: REQUEST_RATE_INITIAL_TOKENS, last_refill: now }
     }
 
     /// Refill tokens based on elapsed wall time and max cap.
@@ -58,8 +66,8 @@ impl TokenBucket {
     }
 }
 
-#[derive(Debug, Default)]
 /// Per-peer request-rate limiter.
+#[derive(Debug, Default)]
 pub(crate) struct RateLimiter {
     /// Active token buckets keyed by peer id.
     buckets: HashMap<PeerId, TokenBucket>,
@@ -82,8 +90,8 @@ impl RateLimiter {
     }
 }
 
-#[derive(Debug, Default)]
 /// Hash tracker for seen request hashes.
+#[derive(Debug, Default)]
 struct WindowedHashTracker {
     /// Last seen timestamps for each hash.
     seen: LinkedHashMap<B256, Instant>,
@@ -108,21 +116,23 @@ impl WindowedHashTracker {
     }
 }
 
-#[derive(Debug, Default)]
 /// Height-window tracker for deduping payload hash per block height.
+#[derive(Debug, Default)]
 pub(crate) struct HeightSeenTracker {
     /// Seen hashes keyed by block height.
     pub(crate) seen_by_height: LinkedHashMap<u64, Vec<B256>>,
 }
 
 impl HeightSeenTracker {
-    /// Whether another hash can be accepted for the supplied block height.
-    pub(crate) fn can_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
-        if self.seen_by_height.get(&height).is_some_and(|hashes| hashes.len() > max_per_height) {
+    /// Record one accepted hash for the supplied block height when capacity remains.
+    ///
+    /// Returns `true` only when the hash was recorded successfully.
+    pub(crate) fn try_accept(&mut self, height: u64, hash: B256, max_per_height: usize) -> bool {
+        if self.seen_by_height.get(&height).is_some_and(|hashes| hashes.len() >= max_per_height) {
             return false;
         }
 
-        self.seen_by_height.entry(height).or_insert(Vec::new()).push(hash);
+        self.seen_by_height.entry(height).or_insert_with(Vec::new).push(hash);
         if self.seen_by_height.len() > PRECONF_INBOUND_LRU_CAPACITY {
             self.seen_by_height.pop_front();
         }
@@ -131,8 +141,8 @@ impl HeightSeenTracker {
     }
 }
 
-#[derive(Debug, Default)]
 /// Epoch-window tracker for duplicate EOS request suppression.
+#[derive(Debug, Default)]
 pub(crate) struct EpochSeenTracker {
     /// Accepted EOS counts keyed by epoch.
     pub(crate) seen_by_epoch: LinkedHashMap<u64, usize>,
@@ -141,10 +151,7 @@ pub(crate) struct EpochSeenTracker {
 impl EpochSeenTracker {
     /// Whether another response for the epoch can still be accepted.
     pub(crate) fn can_accept(&self, epoch: u64, max_per_epoch: usize) -> bool {
-        match self.seen_by_epoch.get(&epoch) {
-            Some(count) => *count <= max_per_epoch,
-            None => true,
-        }
+        self.seen_by_epoch.get(&epoch).is_none_or(|count| *count < max_per_epoch)
     }
 
     /// Increment EOS counter for the supplied epoch.
@@ -158,15 +165,13 @@ impl EpochSeenTracker {
     }
 }
 
-#[derive(Debug, Default)]
 /// Aggregate state machine for inbound gossipsub message validation.
+#[derive(Debug)]
 pub(crate) struct GossipsubInboundState {
     /// Chain ID for envelope signature domain.
     chain_id: u64,
-    /// Explicit sequencer allowlist configured from CLI.
-    sequencer_addresses: Vec<Address>,
-    /// Whether to bypass sequencer allowlist checks.
-    allow_all_sequencers: bool,
+    /// Lock-free shared set of allowed sequencer addresses, refreshed periodically from L1.
+    operator_set: Arc<ArcSwap<HashSet<Address>>>,
     /// Request-ratelimiter for `requestPreconfBlocks`.
     request_rate: RateLimiter,
     /// Duplicate filter for request payload hashes.
@@ -182,16 +187,11 @@ pub(crate) struct GossipsubInboundState {
 }
 
 impl GossipsubInboundState {
-    /// Construct inbound state from p2p config with optional allow-all bypass.
-    pub(crate) fn new_with_allow_all_sequencers(
-        chain_id: u64,
-        sequencer_addresses: Vec<Address>,
-        allow_all_sequencers: bool,
-    ) -> Self {
+    /// Construct inbound state with a shared operator set for signer validation.
+    pub(crate) fn new(chain_id: u64, operator_set: Arc<ArcSwap<HashSet<Address>>>) -> Self {
         Self {
             chain_id,
-            sequencer_addresses,
-            allow_all_sequencers,
+            operator_set,
             request_rate: RateLimiter::default(),
             request_seen: WindowedHashTracker::default(),
             eos_rate: RateLimiter::default(),
@@ -308,7 +308,7 @@ impl GossipsubInboundState {
         let height = payload.envelope.execution_payload.block_number;
         let hash = payload.envelope.execution_payload.block_hash;
 
-        if !self.preconf_seen_by_height.can_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
+        if !self.preconf_seen_by_height.try_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
             return gossipsub::MessageAcceptance::Ignore;
         }
 
@@ -326,21 +326,19 @@ impl GossipsubInboundState {
 
         let height = envelope.execution_payload.block_number;
         let hash = envelope.execution_payload.block_hash;
-        if !self.response_seen_by_height.can_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
+        if !self.response_seen_by_height.try_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
             return gossipsub::MessageAcceptance::Ignore;
         }
 
         gossipsub::MessageAcceptance::Accept
     }
 
-    /// Validate a recovered signer against the static sequencer allowlist.
+    /// Validate a recovered signer against the shared operator set.
     fn validate_signer(&self, signer: Address) -> gossipsub::MessageAcceptance {
-        if self.allow_all_sequencers {
-            return gossipsub::MessageAcceptance::Accept;
+        if self.operator_set.load().contains(&signer) {
+            gossipsub::MessageAcceptance::Accept
+        } else {
+            gossipsub::MessageAcceptance::Reject
         }
-        if self.sequencer_addresses.contains(&signer) {
-            return gossipsub::MessageAcceptance::Accept;
-        }
-        gossipsub::MessageAcceptance::Reject
     }
 }

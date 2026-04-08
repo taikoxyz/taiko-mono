@@ -1,3 +1,5 @@
+//! Ingress entrypoints for unsafe payload and response handling.
+
 use std::sync::Arc;
 
 use alloy_primitives::B256;
@@ -16,15 +18,6 @@ use super::{
     WhitelistPreconfirmationImporter,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
-
-/// Increment validation failure metrics for the given ingest stage.
-fn record_validation_failure(stage: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-        "stage" => stage,
-    )
-    .increment(1);
-}
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -79,22 +72,15 @@ where
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
         let prehash = block_signing_hash(self.chain_id, payload.payload_bytes.as_slice());
-        let signer = recover_signer(prehash, &payload.wire_signature).inspect_err(|_err| {
-            record_validation_failure("payload_signature_recover");
-        })?;
-        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
-            record_validation_failure("payload_signer_check");
-        })?;
+        let signer = recover_signer(prehash, &payload.wire_signature)?;
+        self.ensure_signer_allowed(signer)?;
 
         let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
             self.chain_id,
             self.anchor_address,
-        )
-        .inspect_err(|_err| {
-            record_validation_failure("payload_validate");
-        })?;
+        )?;
         self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
 
         Ok(())
@@ -113,7 +99,6 @@ where
         envelope: WhitelistExecutionPayloadEnvelope,
     ) -> Result<()> {
         let Some(signature) = envelope.signature else {
-            record_validation_failure("response_missing_signature");
             return Err(WhitelistPreconfirmationDriverError::invalid_signature(
                 "response payload is missing embedded signature",
             ));
@@ -122,21 +107,14 @@ where
         // Signing domain: block_signing_hash(chain_id, block_hash).
         let prehash =
             block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-        let signer = recover_signer(prehash, &signature).inspect_err(|_err| {
-            record_validation_failure("response_signature_recover");
-        })?;
-        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
-            record_validation_failure("response_signer_check");
-        })?;
+        let signer = recover_signer(prehash, &signature)?;
+        self.ensure_signer_allowed(signer)?;
 
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
             self.chain_id,
             self.anchor_address,
-        )
-        .inspect_err(|_err| {
-            record_validation_failure("response_validate");
-        })?;
+        )?;
 
         self.ingest_validated_envelope(Arc::new(envelope), "response").await;
 
@@ -144,56 +122,29 @@ where
     }
 
     /// Handle a block-hash request from the request topic.
-    pub(super) async fn handle_unsafe_request(
-        &mut self,
-        from: libp2p::PeerId,
-        hash: B256,
-    ) -> Result<()> {
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "cache_hit",
-            )
-            .increment(1);
-            debug!(
-                peer = %from,
-                hash = %hash,
-                "serving whitelist preconfirmation response from recent cache"
-            );
-            self.recent_cache.insert_recent(envelope.clone());
-            self.update_cache_gauges();
-            self.publish_unsafe_response(envelope).await;
-            return Ok(());
-        }
-
-        let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "not_found",
-            )
-            .increment(1);
-            debug!(
-                peer = %from,
-                hash = %hash,
-                "requested whitelist preconfirmation hash not found in recent cache or local l2"
-            );
+    pub(super) async fn handle_unsafe_request(&mut self, hash: B256) -> Result<()> {
+        let (envelope, result_label) = if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+            (envelope, "cache_hit")
+        } else if let Some(envelope) = self.build_response_envelope_from_l2(hash).await? {
+            (Arc::new(envelope), "l2_hit")
+        } else {
+            record_response_lookup("not_found");
             return Ok(());
         };
 
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-            "result" => "l2_hit",
-        )
-        .increment(1);
-        debug!(
-            peer = %from,
-            hash = %hash,
-            "serving whitelist preconfirmation response from local l2 block lookup"
-        );
-        let envelope = Arc::new(envelope);
+        record_response_lookup(result_label);
         self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
         self.publish_unsafe_response(envelope).await;
         Ok(())
     }
+}
+
+/// Increment the response-lookup counter with the given result label.
+fn record_response_lookup(result: &'static str) {
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
+        "result" => result,
+    )
+    .increment(1);
 }

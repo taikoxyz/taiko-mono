@@ -1,3 +1,5 @@
+//! Response serving and P2P publish helpers for request/response gossip.
+
 use std::sync::Arc;
 
 use alloy_consensus::TxEnvelope;
@@ -9,11 +11,13 @@ use protocol::codec::ZlibTxListCodec;
 use tracing::warn;
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{
+        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
+        WhitelistExecutionPayloadEnvelope,
+    },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::NetworkCommand,
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
 use super::WhitelistPreconfirmationImporter;

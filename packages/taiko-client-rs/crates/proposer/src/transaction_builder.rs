@@ -497,7 +497,7 @@ mod tests {
         let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
-        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
     #[test]

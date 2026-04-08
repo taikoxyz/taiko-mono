@@ -9,11 +9,11 @@ mod error;
 mod importer;
 pub mod metrics;
 mod network;
+mod operator_set;
 mod preconf_ingress_sync;
 mod runner;
-mod tx_list;
-mod whitelist_fetcher;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};
 pub use metrics::WhitelistPreconfirmationDriverMetrics;
+pub use network::NetworkConfig;
 pub use runner::{RunnerConfig, WhitelistPreconfirmationDriverRunner};
