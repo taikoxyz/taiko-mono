@@ -74,7 +74,7 @@ describe('BridgeProver', () => {
       // Then
       expect(actual).toBe(BigInt(BLOCK_NUMBER_1));
       expect(readContract).toHaveBeenCalledWith(config, {
-        address: routingContractsMap[L2_CHAIN_ID][L1_CHAIN_ID].anchorAddress,
+        address: routingContractsMap[L2_CHAIN_ID][L1_CHAIN_ID].anchorForkRouter,
         abi: expect.any(Array),
         functionName: 'getBlockState',
         chainId: L2_CHAIN_ID,

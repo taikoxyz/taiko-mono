@@ -3,32 +3,13 @@ import { getPublicClient, readContract } from '@wagmi/core';
 import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { isL2Chain } from '$libs/chain';
+import { anchorGetBlockStateAbi, MAX_CHECKPOINT_SEARCH_BLOCKS } from '$libs/proof/constants';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { type BridgeTransaction, MessageStatus } from './types';
 
 const log = getLogger('libs:bridge:isTransactionProcessable');
-
-const MAX_CHECKPOINT_SEARCH_BLOCKS = 10000n;
-
-const anchorGetBlockStateAbi = [
-  {
-    type: 'function',
-    name: 'getBlockState',
-    inputs: [],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'anchorBlockNumber', type: 'uint48' },
-          { name: 'ancestorsHash', type: 'bytes32' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-] as const;
 
 export async function isTransactionProcessable(bridgeTx: BridgeTransaction): Promise<boolean> {
   const { receipt, message, srcChainId, destChainId, msgStatus } = bridgeTx;
@@ -55,7 +36,7 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction): Pro
 async function getLatestSyncedBlock(srcChainId: number, destChainId: number): Promise<bigint | null> {
   if (isL2Chain(destChainId)) {
     // L1->L2: query Anchor on L2
-    const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorAddress;
+    const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorForkRouter;
     if (!anchorAddress) return null;
 
     const blockState = await readContract(config, {

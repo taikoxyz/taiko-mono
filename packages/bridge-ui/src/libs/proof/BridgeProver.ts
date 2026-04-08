@@ -21,36 +21,10 @@ import { BlockNotSyncedError, ClientError, ProofGenerationError } from '$libs/er
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
+import { anchorGetBlockStateAbi, MAX_CHECKPOINT_SEARCH_BLOCKS } from './constants';
 import { CacheOption, type ClientWithEthGetProofRequest, type GetProofArgs, type HopProof } from './types';
 
 const log = getLogger('proof:Prover');
-
-const MAX_CHECKPOINT_SEARCH_BLOCKS = 10000n;
-
-const anchorGetBlockStateAbi = [
-  {
-    type: 'function',
-    name: 'getBlockState',
-    inputs: [],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'anchorBlockNumber', type: 'uint48' },
-          { name: 'ancestorsHash', type: 'bytes32' },
-        ],
-      },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'checkpointStore',
-    inputs: [],
-    outputs: [{ name: '', type: 'address' }],
-    stateMutability: 'view',
-  },
-] as const;
 
 export class BridgeProver {
   async getSignalSlot(chainId: number, contractAddress: Address, msgHash: Hex) {
@@ -70,7 +44,7 @@ export class BridgeProver {
   async getLatestSyncedBlockNumber(srcChainId: bigint, destChainId: bigint): Promise<bigint> {
     if (isL2Chain(Number(destChainId))) {
       // L1->L2: query Anchor on L2
-      const anchorAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].anchorAddress;
+      const anchorAddress = routingContractsMap[Number(destChainId)][Number(srcChainId)].anchorForkRouter;
       if (!anchorAddress) throw new ClientError('No anchor address configured for this route');
 
       const blockState = await readContract(config, {
@@ -194,7 +168,7 @@ export class BridgeProver {
       log('Checkpoint NOT found', { blockNumber, error });
 
       // Diagnostic: check if Anchor's checkpointStore matches SignalService
-      const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorAddress;
+      const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorForkRouter;
       if (anchorAddress) {
         try {
           const checkpointStore = await readContract(config, {
@@ -264,7 +238,18 @@ export class BridgeProver {
       storageProof: ethProof.storageProof[0].proof,
     };
 
-    return this.encodeHopProofs([hopProof]);
+    const encodedProof = this.encodeHopProofs([hopProof]);
+
+    await this.verifyProofPreFlight({
+      srcChainId: Number(destChainId),
+      destChainId: Number(srcChainId),
+      msgHash: signal,
+      encodedProof,
+      blockId: block.number,
+      rootHash: block.stateRoot as Hex,
+    });
+
+    return encodedProof;
   }
 
   encodeHopProofs = (hopProofs: HopProof[]) => {

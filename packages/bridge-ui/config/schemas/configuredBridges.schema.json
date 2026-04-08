@@ -31,7 +31,7 @@
               "signalServiceAddress": {
                 "type": "string"
               },
-              "anchorAddress": {
+              "anchorForkRouter": {
                 "type": "string",
                 "description": "Anchor address for checkpoint sync (L2 only)"
               }
