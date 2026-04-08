@@ -69,7 +69,7 @@ type preconfBlockChainSyncer interface {
 type PreconfBlockAPIServer struct {
 	echo                          *echo.Echo
 	rpc                           *rpc.Client
-	shastaChainSyncer             preconfBlockChainSyncer
+	chainSyncer                   preconfBlockChainSyncer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
 	// P2P network for preconfirmation block propagation
@@ -104,7 +104,7 @@ func New(
 	jwtSecret []byte,
 	preconfOperatorAddress common.Address,
 	taikoAnchorAddress common.Address,
-	shastaChainSyncer preconfBlockChainSyncer,
+	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
@@ -139,7 +139,7 @@ func New(
 	server := &PreconfBlockAPIServer{
 		echo:                          echo.New(),
 		anchorValidator:               anchorValidator,
-		shastaChainSyncer:             shastaChainSyncer,
+		chainSyncer:                   chainSyncer,
 		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
 		rpc:                           cli,
 		envelopesCache:                newEnvelopeQueue(),
@@ -1466,7 +1466,7 @@ func (s *PreconfBlockAPIServer) insertPreconfBlocksFromEnvelopes(
 		return []*types.Header{}, nil
 	}
 
-	return s.shastaChainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, envelopes, fromCache)
+	return s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, envelopes, fromCache)
 }
 
 // webSocketSever is a WebSocket server that handles incoming connections,
