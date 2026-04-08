@@ -1,10 +1,8 @@
 import { getPublicClient, readContract } from '@wagmi/core';
-import { keccak256, toBytes } from 'viem';
 
-import { pacayaSignalServiceAbi, signalServiceAbi } from '$abi';
+import { signalServiceAbi } from '$abi';
 import { routingContractsMap } from '$bridgeConfig';
 import { isL2Chain } from '$libs/chain';
-import { getProtocolVersion, ProtocolVersion } from '$libs/protocol/protocolVersion';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
@@ -41,16 +39,12 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction): Pro
   try {
     const src = Number(srcChainId);
     const dest = Number(destChainId);
-    const protocol = await getProtocolVersion(src, dest);
-    const latestSyncedBlock =
-      protocol === ProtocolVersion.PACAYA
-        ? await getLatestSyncedBlockPacaya(src, dest)
-        : await getLatestSyncedBlockShasta(src, dest);
+    const latestSyncedBlock = await getLatestSyncedBlock(src, dest);
 
     if (latestSyncedBlock === null) return false;
 
     const synced = latestSyncedBlock >= receipt.blockNumber;
-    log('isTransactionProcessable', { protocol, srcChainId, destChainId, latestSyncedBlock, synced });
+    log('isTransactionProcessable', { srcChainId, destChainId, latestSyncedBlock, synced });
     return synced;
   } catch (error) {
     log('Error checking if transaction is processable', error);
@@ -58,28 +52,10 @@ export async function isTransactionProcessable(bridgeTx: BridgeTransaction): Pro
   }
 }
 
-async function getLatestSyncedBlockPacaya(srcChainId: number, destChainId: number): Promise<bigint | null> {
-  try {
-    const destSignalService = routingContractsMap[destChainId]?.[srcChainId]?.signalServiceAddress;
-    if (!destSignalService) return null;
-
-    const result = await readContract(config, {
-      address: destSignalService,
-      abi: pacayaSignalServiceAbi,
-      functionName: 'getSyncedChainData',
-      args: [BigInt(srcChainId), keccak256(toBytes('STATE_ROOT')), 0n],
-      chainId: destChainId,
-    });
-    return result[0];
-  } catch {
-    return null;
-  }
-}
-
-async function getLatestSyncedBlockShasta(srcChainId: number, destChainId: number): Promise<bigint | null> {
+async function getLatestSyncedBlock(srcChainId: number, destChainId: number): Promise<bigint | null> {
   if (isL2Chain(destChainId)) {
-    // L1→L2: query Anchor on L2
-    const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorForkRouter;
+    // L1->L2: query Anchor on L2
+    const anchorAddress = routingContractsMap[destChainId][srcChainId].anchorAddress;
     if (!anchorAddress) return null;
 
     const blockState = await readContract(config, {
@@ -91,7 +67,7 @@ async function getLatestSyncedBlockShasta(srcChainId: number, destChainId: numbe
     return BigInt(blockState.anchorBlockNumber);
   }
 
-  // L2→L1: query CheckpointSaved events on L1
+  // L2->L1: query CheckpointSaved events on L1
   const destSignalService = routingContractsMap[destChainId][srcChainId].signalServiceAddress;
   const client = getPublicClient(config, { chainId: destChainId });
   if (!client) return null;
