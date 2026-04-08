@@ -102,8 +102,8 @@ func assembleProposalIteratorCallback(
 		endFunc chainIterator.EndIterFunc,
 	) error {
 		var (
-			endHeight            = end.Number.Uint64()
-			lastShastaProposalID uint64
+			endHeight      = end.Number.Uint64()
+			lastProposalID uint64
 		)
 
 		iter, err := rpcClient.ShastaClients.Inbox.FilterProposed(
@@ -126,17 +126,17 @@ func assembleProposalIteratorCallback(
 			proposalID := proposedEventPayload.Shasta().GetEventData().Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
-			if lastShastaProposalID != 0 && proposalID != lastShastaProposalID+1 {
+			if lastProposalID != 0 && proposalID != lastProposalID+1 {
 				log.Warn(
 					"Proposed event is not continuous, rescan the L1 chain",
 					"fromL1Block", start.Number,
 					"toL1Block", endHeight,
-					"lastScannedProposalID", lastShastaProposalID,
+					"lastScannedProposalID", lastProposalID,
 					"currentScannedProposalID", proposalID,
 				)
 				return fmt.Errorf(
 					"proposed event is not continuous, lastScannedProposalID: %d, currentScannedProposalID: %d",
-					lastShastaProposalID, proposalID,
+					lastProposalID, proposalID,
 				)
 			}
 
@@ -158,7 +158,7 @@ func assembleProposalIteratorCallback(
 
 			log.Debug("Updating current block cursor for processing Proposed events", "block", current.Number)
 
-			lastShastaProposalID = proposalID
+			lastProposalID = proposalID
 
 			updateCurrentFunc(current)
 		}
