@@ -7,14 +7,14 @@ use alloy_provider::Provider;
 use driver::sync::event::EventSyncer;
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, mpsc};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use crate::{
     cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, SharedPreconfCacheState},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
-    whitelist_fetcher::WhitelistSequencerFetcher,
+    operator_set::SharedOperatorSet,
 };
 
 /// Cache re-import flow for out-of-order envelopes once parents arrive.
@@ -25,8 +25,6 @@ mod ingress;
 mod payload;
 /// Response serving helpers for request/response gossip.
 mod response;
-/// Whitelist signer validation and sequencer snapshot cache.
-mod signer;
 /// Payload-level validation helpers.
 mod validation;
 
@@ -43,8 +41,8 @@ where
     pub(crate) event_syncer: Arc<EventSyncer<P>>,
     /// RPC client used for L1/L2 reads and head-origin updates.
     pub(crate) rpc: Client<P>,
-    /// Whitelist contract address used for signer validation.
-    pub(crate) whitelist_address: Address,
+    /// Shared operator set for signer validation.
+    pub(crate) operator_set: SharedOperatorSet,
     /// Chain id used for preconfirmation signature domain separation.
     pub(crate) chain_id: u64,
     /// Command channel used to publish P2P requests/responses.
@@ -78,8 +76,8 @@ where
     recent_cache: RecentEnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
-    /// Shared sequencer fetcher for whitelist validation and epoch cache management.
-    sequencer_fetcher: WhitelistSequencerFetcher<P>,
+    /// Lock-free shared set of allowed sequencer addresses, refreshed by background poller.
+    operator_set: SharedOperatorSet,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
@@ -99,15 +97,13 @@ where
         let WhitelistPreconfirmationImporterParams {
             event_syncer,
             rpc,
-            whitelist_address,
+            operator_set,
             chain_id,
             network_command_tx,
             cache_state,
             beacon_client,
             highest_unsafe_l2_payload_block_id,
         } = params;
-        let sequencer_fetcher =
-            WhitelistSequencerFetcher::new(whitelist_address, rpc.l1_provider.clone());
         let anchor_address = *rpc.shasta.anchor.address();
 
         let importer = Self {
@@ -119,7 +115,7 @@ where
             cache: EnvelopeCache::default(),
             recent_cache: RecentEnvelopeCache::default(),
             request_throttle: RequestThrottle::default(),
-            sequencer_fetcher,
+            operator_set,
             network_command_tx,
             highest_unsafe_l2_payload_block_id,
             sync_ready: false,
@@ -133,127 +129,43 @@ where
     pub(crate) async fn handle_event(&mut self, event: NetworkEvent) -> Result<()> {
         match event {
             NetworkEvent::UnsafePayload { from, payload } => {
-                match self.handle_unsafe_payload(payload).await {
-                    Ok(()) => metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                        "event_type" => "unsafe_payload",
-                        "result" => "accepted",
-                    )
-                    .increment(1),
-                    Err(err) => {
-                        warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation payload");
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                            "event_type" => "unsafe_payload",
-                            "result" => "dropped",
-                        )
-                        .increment(1);
-                    }
+                if let Err(err) = self.handle_unsafe_payload(payload).await {
+                    warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation payload");
+                    record_importer_event("unsafe_payload", "dropped");
+                } else {
+                    record_importer_event("unsafe_payload", "accepted");
                 }
             }
             NetworkEvent::UnsafeResponse { from, envelope } => {
-                match self.handle_unsafe_response(envelope).await {
-                    Ok(()) => metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                        "event_type" => "unsafe_response",
-                        "result" => "accepted",
-                    )
-                    .increment(1),
-                    Err(err) => {
-                        warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation response");
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                            "event_type" => "unsafe_response",
-                            "result" => "dropped",
-                        )
-                        .increment(1);
-                    }
+                if let Err(err) = self.handle_unsafe_response(envelope).await {
+                    warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation response");
+                    record_importer_event("unsafe_response", "dropped");
+                } else {
+                    record_importer_event("unsafe_response", "accepted");
                 }
             }
             NetworkEvent::UnsafeRequest { from, hash } => {
-                if let Err(err) = self.handle_unsafe_request(from, hash).await {
+                if let Err(err) = self.handle_unsafe_request(hash).await {
                     warn!(
                         peer = %from,
                         hash = %hash,
                         error = %err,
                         "failed to handle whitelist preconfirmation request"
                     );
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                        "event_type" => "unsafe_request",
-                        "result" => "error",
-                    )
-                    .increment(1);
+                    record_importer_event("unsafe_request", "error");
                 } else {
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                        "event_type" => "unsafe_request",
-                        "result" => "handled",
-                    )
-                    .increment(1);
+                    record_importer_event("unsafe_request", "handled");
                 }
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
-                if let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await {
-                    if let Some(envelope) = self.recent_cache.get_recent(&hash) {
-                        debug!(
-                            peer = %from,
-                            epoch,
-                            hash = %envelope.execution_payload.block_hash,
-                            "serving end-of-sequencing whitelist preconfirmation response from recent cache"
-                        );
-                        self.publish_unsafe_response(envelope).await;
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                            "event_type" => "end_of_sequencing_request",
-                            "result" => "served",
-                        )
-                        .increment(1);
-                    } else {
-                        debug!(
-                            peer = %from,
-                            epoch,
-                            hash = %hash,
-                            "end-of-sequencing hash known for epoch but envelope not in recent cache; rebuilding from L2"
-                        );
-
-                        if let Some(mut envelope) =
-                            self.build_response_envelope_from_l2(hash).await?
-                        {
-                            envelope.end_of_sequencing = Some(true);
-                            let envelope = Arc::new(envelope);
-                            self.recent_cache.insert_recent(envelope.clone());
-                            self.update_cache_gauges();
-                            self.publish_unsafe_response(envelope).await;
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                                "event_type" => "end_of_sequencing_request",
-                                "result" => "served_l2_fallback",
-                            )
-                            .increment(1);
-                        } else {
-                            debug!(
-                                peer = %from,
-                                epoch,
-                                hash = %hash,
-                                "end-of-sequencing hash known for epoch but unavailable from recent cache and L2"
-                            );
-                            metrics::counter!(
-                                WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                                "event_type" => "end_of_sequencing_request",
-                                "result" => "miss",
-                            )
-                            .increment(1);
-                        }
-                    }
-                } else {
-                    debug!(peer = %from, epoch, "no end-of-sequencing block found for epoch");
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                        "event_type" => "end_of_sequencing_request",
-                        "result" => "miss",
-                    )
-                    .increment(1);
+                if let Err(err) = self.handle_eos_request(epoch).await {
+                    warn!(
+                        peer = %from,
+                        epoch,
+                        error = %err,
+                        "failed to handle whitelist preconfirmation end-of-sequencing request"
+                    );
+                    record_importer_event("end_of_sequencing_request", "error");
                 }
             }
         }
@@ -261,13 +173,44 @@ where
         self.maybe_import_from_cache().await
     }
 
-    /// Invalidate the sequencer cache if the L1 head has crossed an epoch boundary.
-    pub(crate) async fn maybe_invalidate_sequencer_cache_for_epoch(&mut self) {
-        if let Err(err) = self.sequencer_fetcher.maybe_invalidate_for_epoch_advance().await {
-            warn!(
-                error = %err,
-                "failed to check epoch boundary for sequencer cache invalidation"
-            );
+    /// Handle an incoming end-of-sequencing request by serving from the recent
+    /// cache, falling back to an L2 rebuild, or recording a miss.
+    async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
+        let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await else {
+            record_importer_event("end_of_sequencing_request", "miss");
+            return Ok(());
+        };
+
+        // Fast path: envelope still lives in the recent cache.
+        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+            self.publish_unsafe_response(envelope).await;
+            record_importer_event("end_of_sequencing_request", "served");
+            return Ok(());
+        }
+
+        // Slow path: rebuild from local L2 state.
+        let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? else {
+            record_importer_event("end_of_sequencing_request", "miss");
+            return Ok(());
+        };
+
+        envelope.end_of_sequencing = Some(true);
+        let envelope = Arc::new(envelope);
+        self.recent_cache.insert_recent(envelope.clone());
+        self.update_cache_gauges();
+        self.publish_unsafe_response(envelope).await;
+        record_importer_event("end_of_sequencing_request", "served");
+        Ok(())
+    }
+
+    /// Validate that the recovered signer is present in the shared operator set.
+    pub(super) fn ensure_signer_allowed(&self, signer: Address) -> Result<()> {
+        if self.operator_set.load().contains(&signer) {
+            Ok(())
+        } else {
+            Err(WhitelistPreconfirmationDriverError::invalid_signature(format!(
+                "signer {signer} is not a registered operator"
+            )))
         }
     }
 
@@ -308,6 +251,16 @@ where
         metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
             .set(self.recent_cache.len() as f64);
     }
+}
+
+/// Record one importer event outcome for the given event type and result.
+fn record_importer_event(event_type: &'static str, result: &'static str) {
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
+        "event_type" => event_type,
+        "result" => result,
+    )
+    .increment(1);
 }
 
 /// Returns true only when sync readiness transitions from disabled to enabled.

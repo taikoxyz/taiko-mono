@@ -5,8 +5,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/urfave/cli/v2"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 var (
@@ -68,19 +66,12 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"JWT_SECRET"},
 	}
-	PacayaInboxAddress = &cli.StringFlag{
-		Name:     "pacayaInbox",
-		Usage:    "Inbox contract `address` for Pacaya protocol",
+	InboxAddress = &cli.StringFlag{
+		Name:     "inbox",
+		Usage:    "Inbox contract `address`",
 		Required: true,
 		Category: commonCategory,
-		EnvVars:  []string{"PACAYA_INBOX"},
-	}
-	ShastaInboxAddress = &cli.StringFlag{
-		Name:     "shastaInbox",
-		Usage:    "Inbox contract `address` for Shasta protocol",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"SHASTA_INBOX"},
+		EnvVars:  []string{"INBOX"},
 	}
 	TaikoAnchorAddress = &cli.StringFlag{
 		Name:     "taikoAnchor",
@@ -88,13 +79,6 @@ var (
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"TAIKO_ANCHOR"},
-	}
-	TaikoTokenAddress = &cli.StringFlag{
-		Name:     "taikoToken",
-		Usage:    "TaikoToken contract `address`",
-		Required: true,
-		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_TOKEN"},
 	}
 
 	// Optional flags used by all client software.
@@ -155,31 +139,15 @@ var (
 		Value:    12 * time.Second,
 		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
-	ProverSetAddress = &cli.StringFlag{
-		Name:     "proverSet",
-		Usage:    "ProverSet contract `address`",
-		Value:    rpc.ZeroAddress.Hex(),
-		Category: commonCategory,
-		EnvVars:  []string{"PROVER_SET"},
-	}
-	ShastaForkTime = &cli.Uint64Flag{
-		Name:     "shasta.time",
-		Usage:    "Shasta hardfork activation timestamp (unix seconds)",
-		Category: commonCategory,
-		EnvVars:  []string{"TAIKO_SHASTA_TIME"},
-	}
 )
 
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
 	// Required
 	L1WSEndpoint,
-	PacayaInboxAddress,
-	ShastaInboxAddress,
+	InboxAddress,
 	TaikoAnchorAddress,
 	// Optional
-	ProverSetAddress,
-	ShastaForkTime,
 	Verbosity,
 	LogJSON,
 	MetricsEnabled,

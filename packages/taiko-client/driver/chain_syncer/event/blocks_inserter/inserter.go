@@ -18,7 +18,7 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
@@ -26,10 +26,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// tryLastFinalizedCheckpointShasta tries to fetch the last finalized checkpoint for the given proposal ID.
+// tryLastFinalizedCheckpoint tries to fetch the last finalized checkpoint for the given proposal ID.
 // If the last finalized checkpoint is found and valid, it returns the checkpoint, otherwise it returns nil without
 // error.
-func tryLastFinalizedCheckpointShasta(
+func tryLastFinalizedCheckpoint(
 	ctx context.Context,
 	proposalID *big.Int,
 	getCoreState func(*bind.CallOpts) (*shastaBindings.IInboxCoreState, error),
@@ -81,8 +81,8 @@ type Shasta struct {
 	mutex                sync.Mutex
 }
 
-// NewBlocksInserterShasta creates a new Shasta instance.
-func NewBlocksInserterShasta(
+// NewBlocksInserter creates a new Shasta instance.
+func NewBlocksInserter(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
@@ -96,22 +96,13 @@ func NewBlocksInserterShasta(
 	}
 }
 
-// InsertBlocks inserts new Shasta blocks to the L2 execution engine.
-func (i *Shasta) InsertBlocks(
-	_ context.Context,
-	_ metadata.TaikoProposalMetaData,
-	_ eventIterator.EndBatchProposedEventIterFunc,
-) (err error) {
-	return errors.New("not supported in Shasta block inserter")
-}
-
 // InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given derivation
 // source payload.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
-	endIter eventIterator.EndBatchProposedEventIterFunc,
+	sourcePayload *derivation.DerivationSourcePayload,
+	endIter eventIterator.EndProposalEventIterFunc,
 ) (*big.Int, error) {
 	if !metadata.IsShasta() {
 		return nil, errors.New("metadata is not for Shasta fork blocks")
@@ -134,12 +125,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"invalidManifest", sourcePayload.Default,
 	)
 
-	batchSafeCheckpoint, err := tryLastFinalizedCheckpointShasta(
+	batchSafeCheckpoint, err := tryLastFinalizedCheckpoint(
 		ctx,
 		meta.GetEventData().Id,
 		func(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
 			opts.BlockHash = metadata.GetRawBlockHash()
-			return i.rpc.GetCoreStateShasta(opts)
+			return i.rpc.GetCoreState(opts)
 		},
 		i.rpc.L2Engine.LastBlockIDByBatchID,
 		i.rpc.L2.HeaderByNumber,
@@ -161,13 +152,13 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// If this is the first block in the batch, we check if the whole batch has been inserted by
+		// If this is the first block in the proposal, we check if the whole proposal has been inserted by
 		// trying to fetch the last block header from L2 EE. If it is known in canonical,
 		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
 		if j == 0 {
 			log.Debug(
-				"Checking if batch is in canonical chain",
-				"batchID", meta.GetEventData().Id,
+				"Checking if proposal is in canonical chain",
+				"proposalID", meta.GetEventData().Id,
 				"assignedProver", meta.GetEventData().Proposer,
 				"timestamp", meta.GetTimestamp(),
 				"derivationSources", len(meta.GetEventData().Sources),
@@ -175,7 +166,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				"parentHash", parent.Hash(),
 			)
 
-			lastBlockHeader, isKnown, err := isKnownCanonicalBatchShasta(
+			lastBlockHeader, isKnown, err := isKnownCanonicalProposal(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -184,12 +175,12 @@ func (i *Shasta) InsertBlocksWithManifest(
 				parent,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check if Shasta batch is known in canonical chain: %w", err)
+				return nil, fmt.Errorf("failed to check if Shasta proposal is known in canonical chain: %w", err)
 			}
 			if isKnown && lastBlockHeader != nil {
 				log.Info(
-					"🧬 Known Shasta batch in canonical chain",
-					"batchID", meta.GetEventData().Id,
+					"🧬 Known Shasta proposal in canonical chain",
+					"proposalID", meta.GetEventData().Id,
 					"assignedProver", meta.GetEventData().Proposer,
 					"timestamp", meta.GetTimestamp(),
 					"derivationSources", len(meta.GetEventData().Sources),
@@ -203,9 +194,9 @@ func (i *Shasta) InsertBlocksWithManifest(
 					LastBlockID:           lastBlockHeader.Number.Uint64(),
 				})
 
-				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
-					return nil, fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetEventData().Id, err)
+				// Update the L1 origin for each block in the proposal.
+				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
+					return nil, fmt.Errorf("failed to update L1 origin for proposal (%d): %w", meta.GetEventData().Id, err)
 				}
 
 				return lastBlockHeader.Number, nil
@@ -213,7 +204,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		}
 
 		// inserting the blocks, and only update the L1 origin for each block in the batch.
-		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
+		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMeta(
 			ctx,
 			i.rpc,
 			i.anchorConstructor,

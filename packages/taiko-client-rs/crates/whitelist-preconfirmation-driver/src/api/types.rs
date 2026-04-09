@@ -92,30 +92,6 @@ impl BuildPreconfBlockApiRequest {
     }
 }
 
-/// Allowed slot range.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct SlotRange {
-    /// Inclusive start slot.
-    pub start: u64,
-    /// Exclusive end slot.
-    pub end: u64,
-}
-
-/// Lookahead status payload shape.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LookaheadStatus {
-    /// Current operator address.
-    pub curr_operator: Address,
-    /// Next operator address.
-    pub next_operator: Address,
-    /// Current operator allowed slot ranges.
-    pub curr_ranges: Vec<SlotRange>,
-    /// Next operator allowed slot ranges.
-    pub next_ranges: Vec<SlotRange>,
-}
-
 /// REST status response for `GET /status`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -218,40 +194,5 @@ mod tests {
                 .expect("missing highest unsafe block id"),
             1
         );
-    }
-
-    #[test]
-    fn rest_status_does_not_include_lookahead_metadata() {
-        let status = ApiStatus {
-            highest_unsafe_l2_payload_block_id: 1,
-            end_of_sequencing_block_hash: B256::ZERO.to_string(),
-        };
-
-        let value: serde_json::Value =
-            serde_json::from_str(&serde_json::to_string(&status).unwrap())
-                .expect("status should serialize");
-
-        assert!(value.get("lookahead").is_none());
-    }
-
-    #[test]
-    fn lookahead_status_contains_only_operator_and_ranges() {
-        let lookahead = LookaheadStatus {
-            curr_operator: Address::ZERO,
-            next_operator: Address::from([0x11u8; 20]),
-            curr_ranges: vec![SlotRange { start: 1, end: 2 }],
-            next_ranges: vec![SlotRange { start: 3, end: 4 }],
-        };
-
-        let value: serde_json::Value =
-            serde_json::from_str(&serde_json::to_string(&lookahead).unwrap())
-                .expect("lookahead should serialize");
-
-        assert!(value.get("currOperator").is_some());
-        assert!(value.get("nextOperator").is_some());
-        assert!(value.get("currRanges").is_some());
-        assert!(value.get("nextRanges").is_some());
-        assert!(value.get("updatedAt").is_none());
-        assert!(value.get("lastUpdatedEpoch").is_none());
     }
 }

@@ -657,7 +657,7 @@ mod tests {
         let anchor = AnchorInstance::new(anchor_address, l2_auth_provider.clone());
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
-        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
     fn sign_test_anchor_tx(anchor_address: Address, input: Bytes) -> TxEnvelope {

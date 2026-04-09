@@ -53,8 +53,8 @@ Then, run the integration tests:
 
 1. Start Docker locally
 2. Perform a `pnpm install` in `taiko-mono/packages/protocol`
-3. Replace `<PACAYA_FORK_TAIKO_MONO>` and execute:
+3. Execute:
 
 ```sh
-PACAYA_FORK_TAIKO_MONO=<PACAYA_FORK_TAIKO_MONO> make test
+make test
 ```

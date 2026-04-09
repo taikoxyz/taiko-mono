@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/holiman/uint256"
 	"golang.org/x/sync/errgroup"
@@ -25,7 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -49,7 +47,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.anchorV4 transaction at transactions list head,
+	// Insert a Anchor.anchorV4 transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -142,7 +140,7 @@ func createExecutionPayloads(
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,
-			BatchID:     meta.BatchID,
+			BatchID:     meta.ProposalID,
 			ExtraData:   meta.ExtraData,
 		},
 		BaseFeePerGas: meta.BaseFee,
@@ -212,89 +210,14 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
-// isKnownCanonicalBatchPacaya checks if all blocks in the given Pacaya batch are in the canonical chain already,
-// and returns the header of the last block in the batch if it is.
-func isKnownCanonicalBatchPacaya(
+// isKnownCanonicalProposal checks if all blocks in the given Shasta proposal are in the canonical chain already,
+// and returns the header of the last block in the proposal if it is.
+func isKnownCanonicalProposal(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	allTxs []*types.Transaction,
-	parent *types.Header,
-) (*types.Header, bool, error) {
-	var (
-		headers = make([]*types.Header, len(metadata.Pacaya().GetBlocks()))
-		g       = new(errgroup.Group)
-	)
-
-	// Check each block in the batch, and if all blocks are preconfirmed, return the header of the last block.
-	for i := 0; i < len(metadata.Pacaya().GetBlocks()); i++ {
-		g.Go(func() error {
-			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
-			if err != nil {
-				if err.Error() == ethereum.NotFound.Error() {
-					return errBatchNotKnown
-				}
-				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
-			}
-
-			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaPacaya(
-				ctx,
-				rpc,
-				anchorConstructor,
-				metadata,
-				allTxs,
-				parentHeader,
-				i,
-			)
-			if err != nil {
-				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
-			}
-
-			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
-			if err != nil {
-				return fmt.Errorf("failed to RLP encode tx list: %w", err)
-			}
-
-			var known bool
-			if headers[i], known, err = isKnownCanonicalBlock(
-				ctx,
-				rpc,
-				&createPayloadAndSetHeadMetaData{
-					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-					Parent:                          parentHeader,
-				},
-				b,
-				anchorTx,
-			); err != nil {
-				return err
-			}
-			if !known {
-				return errBatchNotKnown
-			}
-			return nil
-		})
-	}
-
-	// Wait for all goroutines to finish, and check for errors.
-	if err := g.Wait(); err != nil {
-		if errors.Is(err, errBatchNotKnown) {
-			return nil, false, nil
-		}
-		return nil, false, err
-	}
-
-	return headers[len(headers)-1], true, nil
-}
-
-// isKnownCanonicalBatchShasta checks if all blocks in the given Shasta batch are in the canonical chain already,
-// and returns the header of the last block in the batch if it is.
-func isKnownCanonicalBatchShasta(
-	ctx context.Context,
-	rpc *rpc.Client,
-	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
-	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	sourcePayload *derivation.DerivationSourcePayload,
 	parent *types.Header,
 ) (*types.Header, bool, error) {
 	if !metadata.IsShasta() {
@@ -305,7 +228,7 @@ func isKnownCanonicalBatchShasta(
 		g       = new(errgroup.Group)
 	)
 
-	// Check each block in the batch, and if all blocks are preconfirmed, return the header of the last block.
+	// Check each block in the proposal, and if all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(sourcePayload.BlockPayloads); i++ {
 		g.Go(func() error {
 			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
@@ -316,7 +239,7 @@ func isKnownCanonicalBatchShasta(
 				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
 			}
 
-			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
+			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMeta(
 				ctx,
 				rpc,
 				anchorConstructor,
@@ -385,7 +308,7 @@ func isKnownCanonicalBlock(
 		if block != nil {
 			fields = append(fields, "coinbase", block.Coinbase())
 		}
-		log.Warn("Unknown block for the canonical chain", fields...)
+		log.Info("Unknown block for the canonical chain", fields...)
 	}
 
 	if block == nil {
@@ -496,115 +419,14 @@ func isKnownCanonicalBlock(
 	return block.Header(), true, nil
 }
 
-// assembleCreateExecutionPayloadMetaPacaya assembles the metadata for creating an execution payload,
-// and the `TaikoAnchor.anchorV3` transaction for the given Pacaya block.
-func assembleCreateExecutionPayloadMetaPacaya(
-	ctx context.Context,
-	rpc *rpc.Client,
-	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
-	metadata metadata.TaikoProposalMetaData,
-	allTxsInBatch []*types.Transaction,
-	parent *types.Header,
-	blockIndex int,
-) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
-	if !metadata.IsPacaya() {
-		return nil, nil, fmt.Errorf("metadata is not for Pacaya fork")
-	}
-	if blockIndex >= len(metadata.Pacaya().GetBlocks()) {
-		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
-	}
-
-	var (
-		meta         = metadata.Pacaya()
-		blockID      = new(big.Int).Add(parent.Number, common.Big1)
-		blockInfo    = meta.GetBlocks()[blockIndex]
-		txListCursor = 0
-	)
-	difficulty, err := encoding.CalculatePacayaDifficulty(blockID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
-	}
-	timestamp := meta.GetLastBlockTimestamp()
-	for i := len(meta.GetBlocks()) - 1; i > blockIndex; i-- {
-		timestamp = timestamp - uint64(meta.GetBlocks()[i].TimeShift)
-	}
-	baseFee, err := rpc.CalculateBaseFeePacaya(ctx, parent, timestamp, meta.GetBaseFeeConfig())
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
-	}
-
-	log.Info(
-		"L2 baseFee",
-		"blockID", blockID,
-		"baseFee", utils.WeiToGWei(baseFee),
-		"parentnumber", parent.Number,
-		"parentHash", parent.Hash(),
-		"parentGasUsed", parent.GasUsed,
-		"batchID", meta.GetBatchID(),
-		"indexInBatch", blockIndex,
-	)
-
-	// Assemble a TaikoAnchor.anchorV3 transaction
-	anchorBlockHeader, err := rpc.L1.HeaderByHash(ctx, meta.GetAnchorBlockHash())
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
-	}
-
-	anchorTx, err := anchorConstructor.AssembleAnchorV3Tx(
-		ctx,
-		new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-		anchorBlockHeader.Root,
-		parent,
-		meta.GetBaseFeeConfig(),
-		meta.GetBlocks()[blockIndex].SignalSlots,
-		blockID,
-		baseFee,
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create TaikoAnchor.anchorV3 transaction: %w", err)
-	}
-
-	for i := 0; i < blockIndex; i++ {
-		txListCursor += int(meta.GetBlocks()[i].NumTransactions)
-	}
-
-	// Get transactions in the block.
-	txs := types.Transactions{}
-	if txListCursor+int(blockInfo.NumTransactions) <= len(allTxsInBatch) {
-		txs = allTxsInBatch[txListCursor : txListCursor+int(blockInfo.NumTransactions)]
-	} else if txListCursor < len(allTxsInBatch) {
-		txs = allTxsInBatch[txListCursor:]
-	}
-
-	return &createExecutionPayloadsMetaData{
-		BlockID:               blockID,
-		BatchID:               meta.GetBatchID(),
-		ExtraData:             meta.GetExtraData(),
-		SuggestedFeeRecipient: meta.GetCoinbase(),
-		GasLimit:              uint64(meta.GetGasLimit()),
-		Difficulty:            common.BytesToHash(difficulty),
-		Timestamp:             timestamp,
-		ParentHash:            parent.Hash(),
-		L1Origin: &rawdb.L1Origin{
-			BlockID:       blockID,
-			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
-			L1BlockHeight: meta.GetRawBlockHeight(),
-			L1BlockHash:   meta.GetRawBlockHash(),
-		},
-		Txs:         txs,
-		Withdrawals: make([]*types.Withdrawal, 0),
-		BaseFee:     baseFee,
-	}, anchorTx, nil
-}
-
-// assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
+// assembleCreateExecutionPayloadMeta assembles the metadata for creating an execution payload,
 // and the `ShastaAnchor.anchorV4` transaction for the given Shasta block.
-func assembleCreateExecutionPayloadMetaShasta(
+func assembleCreateExecutionPayloadMeta(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	sourcePayload *derivation.DerivationSourcePayload,
 	parent *types.Header,
 	blockIndex int,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
@@ -626,7 +448,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 
-	baseFee, err := rpc.CalculateBaseFeeShasta(ctx, parent)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
@@ -664,20 +486,20 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	// Encode extraData with basefeeSharingPctg and proposal ID.
-	extraData, err := encodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
+	extraData, err := encoding.EncodeShastaExtraData(meta.GetEventData().BasefeeSharingPctg, meta.GetEventData().Id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
 
-	// Set batchID only for the last block in the proposal
-	var batchID *big.Int
+	// Set proposalID only for the last block in the proposal.
+	var proposalID *big.Int
 	if len(sourcePayload.BlockPayloads)-1 == blockIndex {
-		batchID = meta.GetEventData().Id
+		proposalID = meta.GetEventData().Id
 	}
 
 	return &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
-		BatchID:               batchID,
+		ProposalID:            proposalID,
 		ExtraData:             extraData,
 		SuggestedFeeRecipient: blockInfo.Coinbase,
 		GasLimit:              blockInfo.GasLimit,
@@ -696,37 +518,13 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}, anchorTx, nil
 }
 
-// updateL1OriginForBatchPacaya updates the L1 origin for the given batch of blocks.
-func updateL1OriginForBatchPacaya(
-	ctx context.Context,
-	rpc *rpc.Client,
-	metadata metadata.TaikoProposalMetaData,
-) error {
-	if !metadata.IsPacaya() {
-		return fmt.Errorf("metadata is not for Pacaya fork")
-	}
-
-	meta := metadata.Pacaya()
-	return updateL1OriginForBlocks(
-		ctx,
-		rpc,
-		len(meta.GetBlocks()),
-		func(i int) *big.Int {
-			return new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(len(meta.GetBlocks())-1-i))
-		},
-		func() *big.Int { return meta.GetBatchID() },
-		meta.GetRawBlockHeight(),
-		meta.GetRawBlockHash(),
-	)
-}
-
-// updateL1OriginForBlocks updates L1 origin for a batch of blocks with given parameters.
+// updateL1OriginForBlocks updates L1 origin for a proposal's blocks with the given parameters.
 func updateL1OriginForBlocks(
 	ctx context.Context,
 	rpc *rpc.Client,
 	blockCount int,
 	getBlockID func(i int) *big.Int,
-	getBatchID func() *big.Int,
+	getProposalID func() *big.Int,
 	l1BlockHeight *big.Int,
 	l1BlockHash common.Hash,
 ) error {
@@ -770,7 +568,7 @@ func updateL1OriginForBlocks(
 				log.Info(
 					"Update head L1 origin",
 					"blockID", blockID,
-					"batchID", getBatchID(),
+					"proposalID", getProposalID(),
 					"L2BlockHash", l1Origin.L1BlockHash,
 					"L1BlockHeight", l1Origin.L1BlockHeight,
 					"L1BlockHash", l1Origin.L1BlockHash,
@@ -778,8 +576,8 @@ func updateL1OriginForBlocks(
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
-				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, getBatchID(), blockID); err != nil {
-					return fmt.Errorf("failed to write batch to block mapping: %w", err)
+				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, getProposalID(), blockID); err != nil {
+					return fmt.Errorf("failed to write proposal to block mapping: %w", err)
 				}
 			}
 
@@ -789,13 +587,13 @@ func updateL1OriginForBlocks(
 	return g.Wait()
 }
 
-// updateL1OriginForBatchShasta updates the L1 origin for the given batch of blocks.
-func updateL1OriginForBatchShasta(
+// updateL1OriginForProposal updates the L1 origin for the given proposal's blocks.
+func updateL1OriginForProposal(
 	ctx context.Context,
 	rpc *rpc.Client,
 	parentHeader *types.Header,
 	metadata metadata.TaikoProposalMetaData,
-	sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
+	sourcePayload *derivation.DerivationSourcePayload,
 ) error {
 	if !metadata.IsShasta() {
 		return fmt.Errorf("metadata is not for Shasta fork blocks")
@@ -815,37 +613,6 @@ func updateL1OriginForBatchShasta(
 		meta.GetRawBlockHeight(),
 		meta.GetRawBlockHash(),
 	)
-}
-
-// encodeShastaExtraData encodes basefeeSharingPctg and proposal ID into extraData.
-// Format (7 bytes):
-//   - Byte 0: basefeeSharingPctg (uint8)
-//   - Bytes 1-6: proposalID (uint48, big-endian)
-func encodeShastaExtraData(
-	basefeeSharingPctg uint8,
-	proposalID *big.Int,
-) ([]byte, error) {
-	if proposalID == nil {
-		return nil, errors.New("proposal ID is nil")
-	}
-	if proposalID.Sign() < 0 {
-		return nil, fmt.Errorf("proposal ID is negative: %s", proposalID.String())
-	}
-	if proposalID.BitLen() > params.ShastaExtraDataProposalIDLength*8 {
-		return nil, fmt.Errorf("proposal ID too large for extraData: %s", proposalID.String())
-	}
-
-	extraData := make([]byte, params.ShastaExtraDataLen)
-
-	// First byte: basefeeSharingPctg.
-	extraData[params.ShastaExtraDataBasefeeSharingPctgIndex] = basefeeSharingPctg
-
-	// Bytes 1..6: proposal ID (uint48, big-endian).
-	proposalBytes := proposalID.Bytes()
-	offset := params.ShastaExtraDataProposalIDIndex + params.ShastaExtraDataProposalIDLength - len(proposalBytes)
-	copy(extraData[offset:offset+len(proposalBytes)], proposalBytes)
-
-	return extraData, nil
 }
 
 // InsertPreconfBlockFromEnvelope the inner method to insert a preconfirmation block from
@@ -939,16 +706,8 @@ func InsertPreconfBlockFromEnvelope(
 
 	// The checkpoint lookup must use the rpc.Client for this L1 environment.
 	// Passing a client from another L1 network would make the cached checkpoint invalid.
-	if envelope.Payload.Timestamp >= eth.Uint64Quantity(cli.ShastaClients.ForkTime) {
-		safeCheckpoint, err = getShastaCheckpoint(ctx, cli)
-		if err != nil {
-			log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
-		}
-	} else {
-		safeCheckpoint, err = getPacayaCheckpoint(ctx, cli)
-		if err != nil {
-			log.Warn("Failed to fetch last verified block of Pacaya", "error", err)
-		}
+	if safeCheckpoint, err = getShastaCheckpoint(ctx, cli); err != nil {
+		log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
 	}
 
 	log.Debug(

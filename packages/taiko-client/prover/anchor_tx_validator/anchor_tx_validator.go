@@ -23,23 +23,12 @@ type AnchorTxValidator struct {
 
 // New creates a new AnchorTxValidator instance.
 func New(taikoAnchor common.Address, chainID *big.Int, rpc *rpc.Client) (*AnchorTxValidator, error) {
-	var (
-		goldenTouchAddress common.Address
-		err                error
-	)
-
-	if rpc.ShastaClients != nil && rpc.ShastaClients.Anchor != nil {
-		if goldenTouchAddress, err = rpc.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil); err == nil {
-			return &AnchorTxValidator{
-				taikoAnchorAddress: taikoAnchor,
-				goldenTouchAddress: goldenTouchAddress,
-				chainID:            chainID,
-				rpc:                rpc,
-			}, nil
-		}
+	if rpc.ShastaClients == nil || rpc.ShastaClients.Anchor == nil {
+		return nil, fmt.Errorf("shasta anchor client is not initialized")
 	}
 
-	if goldenTouchAddress, err = rpc.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil); err != nil {
+	goldenTouchAddress, err := rpc.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get golden touch address: %w", err)
 	}
 

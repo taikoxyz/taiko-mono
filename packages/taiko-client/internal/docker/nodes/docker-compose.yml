@@ -13,7 +13,7 @@ services:
       - --host
       - "0.0.0.0"
       - --timestamp
-      - "${ANVIL_INTERNAL_SHASTA_TIME}"
+      - "${ANVIL_L1_START_TIMESTAMP}"
       - --gas-limit
       - "200000000"
 
@@ -69,7 +69,7 @@ services:
       - admin,debug,eth,net,web3,txpool,miner,taiko
       - --taiko
       - --taiko.internal-shasta-time
-      - "${TAIKO_INTERNAL_SHASTA_TIME}"
+      - "0"
 
   l2_nmc:
     container_name: l2_nmc

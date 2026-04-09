@@ -18,7 +18,7 @@ func TestProofDistributionWithOutOfOrderResponses(t *testing.T) {
 	buffer := proofProducer.NewProofBuffer(8)
 	cacheMap := cmap.New[*proofProducer.ProofResponse]()
 
-	submitter := &ProofSubmitterShasta{
+	submitter := &ProofSubmitter{
 		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
 			proofProducer.ProofTypeOp: buffer,
 		},
@@ -62,24 +62,24 @@ func TestProofDistributionWithOutOfOrderResponses(t *testing.T) {
 
 func TestIsProposalOutOfRange(t *testing.T) {
 	t.Run("nil window size disables range check", func(t *testing.T) {
-		submitter := &ProofSubmitterShasta{proposalWindowSize: nil}
+		submitter := &ProofSubmitter{proposalWindowSize: nil}
 		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1000), big.NewInt(1)))
 	})
 
 	t.Run("count less than one disables range check", func(t *testing.T) {
-		submitter := &ProofSubmitterShasta{proposalWindowSize: big.NewInt(0)}
+		submitter := &ProofSubmitter{proposalWindowSize: big.NewInt(0)}
 		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1000), big.NewInt(1)))
 	})
 
 	t.Run("count equals one only allows next proposal", func(t *testing.T) {
-		submitter := &ProofSubmitterShasta{proposalWindowSize: big.NewInt(1)}
+		submitter := &ProofSubmitter{proposalWindowSize: big.NewInt(1)}
 		lastFinalizedProposalID := big.NewInt(10)
 		require.False(t, submitter.isProposalOutOfRange(big.NewInt(11), lastFinalizedProposalID))
 		require.True(t, submitter.isProposalOutOfRange(big.NewInt(12), lastFinalizedProposalID))
 	})
 
 	t.Run("upper bound is inclusive", func(t *testing.T) {
-		submitter := &ProofSubmitterShasta{proposalWindowSize: big.NewInt(100)}
+		submitter := &ProofSubmitter{proposalWindowSize: big.NewInt(100)}
 		lastFinalizedProposalID := big.NewInt(1000)
 		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1100), lastFinalizedProposalID))
 		require.True(t, submitter.isProposalOutOfRange(big.NewInt(1101), lastFinalizedProposalID))

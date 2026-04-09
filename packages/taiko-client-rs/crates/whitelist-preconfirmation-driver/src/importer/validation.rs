@@ -1,3 +1,5 @@
+//! Payload-level validation for preconfirmation import compatibility.
+
 use alethia_reth_consensus::validation::ANCHOR_V4_SELECTOR;
 use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
 use alloy_consensus::{
@@ -10,9 +12,11 @@ use protocol::codec::{TxListCodecError, ZlibTxListCodec};
 use thiserror::Error;
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{
+        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
+        WhitelistExecutionPayloadEnvelope,
+    },
     error::{Result, WhitelistPreconfirmationDriverError},
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
 /// Validation failures for the first transaction that must be the Shasta anchor call.

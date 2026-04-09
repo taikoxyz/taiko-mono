@@ -1,7 +1,10 @@
 //! Codec helpers for Taiko whitelist preconfirmation P2P payloads.
 
+use std::io::Read;
+
 use alloy_primitives::{Address, B256, Signature, U256, keccak256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
+use flate2::read::ZlibDecoder;
 use ssz::{Decode, Encode};
 
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
@@ -12,6 +15,13 @@ const SIGNATURE_LEN: usize = 65;
 const ENVELOPE_HEADER_LEN: usize = 34;
 /// Maximum allowed size after snappy decompression, bounded by gossip limits.
 const MAX_DECOMPRESSED_GOSSIP_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
+/// Maximum compressed tx-list size accepted from a preconfirmation payload.
+pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
+/// Maximum decompressed tx-list size accepted from a preconfirmation payload.
+///
+/// Aligned with the preconfirmation tx-list cap to prevent zlib bomb expansion
+/// on untrusted payloads.
+pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
 
 /// Decoded whitelist preconfirmation envelope.
 #[derive(Clone, Debug)]
@@ -241,6 +251,44 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
         signature,
     })
 }
+
+/// Decompress a zlib-compressed transaction list while enforcing size limits.
+pub(crate) fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
+    if bytes.len() > MAX_COMPRESSED_TX_LIST_BYTES {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "compressed tx list exceeds maximum size: {} > {}",
+            bytes.len(),
+            MAX_COMPRESSED_TX_LIST_BYTES
+        )));
+    }
+
+    let decoder = ZlibDecoder::new(bytes);
+    let mut out = Vec::new();
+    let read_cap = MAX_DECOMPRESSED_TX_LIST_BYTES.saturating_add(1) as u64;
+    decoder.take(read_cap).read_to_end(&mut out).map_err(|err| {
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            "failed to decompress tx list from payload",
+            err,
+        )
+    })?;
+
+    if out.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "decompressed tx list exceeds maximum size: {} > {}",
+            out.len(),
+            MAX_DECOMPRESSED_TX_LIST_BYTES
+        )));
+    }
+
+    if out.is_empty() {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(
+            "decompressed tx list is empty",
+        ));
+    }
+
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use alloy_primitives::{Bloom, Bytes};

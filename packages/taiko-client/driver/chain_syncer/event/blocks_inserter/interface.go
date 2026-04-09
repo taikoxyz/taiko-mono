@@ -9,22 +9,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
+	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 )
 
 // Inserter is an interface that defines the method to insert blocks to the L2 execution engine.
 type Inserter interface {
-	InsertBlocks(
-		ctx context.Context,
-		metadata metadata.TaikoProposalMetaData,
-		endIter eventIterator.EndBatchProposedEventIterFunc,
-	) error
 	InsertBlocksWithManifest(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		sourcePayload *shastaManifest.ShastaDerivationSourcePayload,
-		endIter eventIterator.EndBatchProposedEventIterFunc,
+		sourcePayload *derivation.DerivationSourcePayload,
+		endIter eventIterator.EndProposalEventIterFunc,
 	) (*big.Int, error)
 }
 
@@ -32,7 +27,7 @@ type Inserter interface {
 // for creating a new execution payloads.
 type createExecutionPayloadsMetaData struct {
 	BlockID               *big.Int
-	BatchID               *big.Int
+	ProposalID            *big.Int
 	ExtraData             []byte
 	SuggestedFeeRecipient common.Address
 	GasLimit              uint64

@@ -134,57 +134,35 @@ func (s *SgxGethProofProducer) requestBatchProof(
 	var (
 		output     *RaikoRequestProofBodyResponseV2
 		err        error
-		batches    = make([]*RaikoBatches, 0, len(opts))
 		proposals  = make([]*RaikoProposals, 0, len(opts))
 		start, end *big.Int
 	)
 
-	if metas[0].IsShasta() {
-		for i, meta := range metas {
-			proposals = append(proposals, &RaikoProposals{
-				ProposalId:             meta.Shasta().GetEventData().Id,
-				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-				L2BlockNumbers:         opts[i].ShastaOptions().L2BlockNums,
-				Checkpoint: &RaikoCheckpoint{
-					BlockNum:  opts[i].ShastaOptions().Checkpoint.BlockNumber,
-					BlockHash: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.BlockHash[:]).Hex()[2:],
-					StateRoot: common.BytesToHash(opts[i].ShastaOptions().Checkpoint.StateRoot[:]).Hex()[2:],
-				},
-				LastAnchorBlockNumber: opts[i].ShastaOptions().LastAnchorBlockNumber,
-			})
-		}
-		output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
-			ctx,
-			s.RaikoHostEndpoint+"/v3/proof/batch/shasta",
-			s.ApiKey,
-			RaikoRequestProofBodyV3Shasta{
-				Type:      proofType,
-				Proposals: proposals,
-				Prover:    opts[0].GetProverAddress().Hex()[2:],
-				Aggregate: isAggregation,
+	for i, meta := range metas {
+		proposals = append(proposals, &RaikoProposals{
+			ProposalId:             meta.Shasta().GetEventData().Id,
+			L1InclusionBlockNumber: meta.GetRawBlockHeight(),
+			L2BlockNumbers:         opts[i].ProposalOptions().L2BlockNums,
+			Checkpoint: &RaikoCheckpoint{
+				BlockNum:  opts[i].ProposalOptions().Checkpoint.BlockNumber,
+				BlockHash: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.BlockHash[:]).Hex()[2:],
+				StateRoot: common.BytesToHash(opts[i].ProposalOptions().Checkpoint.StateRoot[:]).Hex()[2:],
 			},
-		)
-		start, end = proposals[0].ProposalId, proposals[len(proposals)-1].ProposalId
-	} else {
-		for _, meta := range metas {
-			batches = append(batches, &RaikoBatches{
-				BatchID:                meta.Pacaya().GetBatchID(),
-				L1InclusionBlockNumber: meta.GetRawBlockHeight(),
-			})
-		}
-		output, err = requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
-			ctx,
-			s.RaikoHostEndpoint+"/v3/proof/batch",
-			s.ApiKey,
-			RaikoRequestProofBodyV3Pacaya{
-				Type:      proofType,
-				Batches:   batches,
-				Prover:    opts[0].GetProverAddress().Hex()[2:],
-				Aggregate: isAggregation,
-			},
-		)
-		start, end = batches[0].BatchID, batches[len(batches)-1].BatchID
+			LastAnchorBlockNumber: opts[i].ProposalOptions().LastAnchorBlockNumber,
+		})
 	}
+	output, err = requestHTTPProof[RaikoRequestProofBodyV3Shasta, RaikoRequestProofBodyResponseV2](
+		ctx,
+		s.RaikoHostEndpoint+"/v3/proof/batch/shasta",
+		s.ApiKey,
+		RaikoRequestProofBodyV3Shasta{
+			Type:      proofType,
+			Proposals: proposals,
+			Prover:    opts[0].GetProverAddress().Hex()[2:],
+			Aggregate: isAggregation,
+		},
+	)
+	start, end = proposals[0].ProposalId, proposals[len(proposals)-1].ProposalId
 	if err != nil {
 		return nil, err
 	}
