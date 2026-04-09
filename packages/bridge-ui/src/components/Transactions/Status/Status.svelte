@@ -13,6 +13,8 @@
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
+  import { shouldShowManualClaimEntry } from './status';
+
   const dispatch = createEventDispatcher();
 
   export let bridgeTx: BridgeTransaction;
@@ -24,6 +26,12 @@
   let polling: ReturnType<typeof startPolling>;
   let loading = false;
   let hasError = false;
+
+  $: showManualClaimEntry = shouldShowManualClaimEntry({
+    bridgeTxStatus,
+    isProcessable,
+    processingFee: bridgeTx.processingFee,
+  });
 
   function onProcessable(isTxProcessable: boolean) {
     isProcessable = isTxProcessable;
@@ -113,7 +121,16 @@
 </script>
 
 <div class="Status f-items-center space-x-1">
-  {#if !isProcessable}
+  {#if showManualClaimEntry}
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.processing.name')}</span>
+    {:else}
+      <button class="status-btn" on:click={handleClaimClick}>
+        {$t('transactions.button.try_claim')}
+      </button>
+    {/if}
+  {:else if !isProcessable}
     <StatusDot type="pending" />
     <span>{$t('transactions.status.processing.name')}</span>
   {:else if loading}
