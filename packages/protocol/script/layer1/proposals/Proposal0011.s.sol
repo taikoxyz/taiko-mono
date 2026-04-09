@@ -8,11 +8,9 @@ import "../governance/BuildProposal.sol";
 // To dryrun the proposal on L2: `P=0011 pnpm proposal:dryrun:l2`
 contract Proposal0011 is BuildProposal {
     // Shasta cleanup: retire the temporary fork routers introduced by Proposal0009.
-    // https://codediff.taiko.xyz/?addr=0x9e0a24964e5397B566c1ed39258e21aB5E35C77C&newimpl=0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752&chainid=1
+    // All these contracts have already been deployed as part of the Shasta rollout.
     address public constant SIGNAL_SERVICE_NEW_IMPL_L1 = 0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752;
-    // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000010001&newimpl=0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA&chainid=167000
     address public constant ANCHOR_NEW_IMPL_L2 = 0x7e83Af941FDcf90EB44ED7dc8754a201B156E0BA;
-    // https://codediff.taiko.xyz/?addr=0x1670000000000000000000000000000000000005&newimpl=0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28&chainid=167000
     address public constant SIGNAL_SERVICE_NEW_IMPL_L2 = 0x18B27428cce679DFf84D09D6b07DF1E9EBb6fE28;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
@@ -20,6 +18,7 @@ contract Proposal0011 is BuildProposal {
 
         // Finalize the Shasta inbox ownership handoff to the DAO controller after the
         // current inbox owner has set `pendingOwner` to `controller.taiko.eth`.
+        // tx: https://etherscan.io/tx/0x362c698cf905d67a35d3c6d679398baa300fe2658b2c03240feea0fbb8c0eb0a
         actions[0] = Controller.Action({
             target: L1.INBOX, value: 0, data: abi.encodeWithSignature("acceptOwnership()")
         });
