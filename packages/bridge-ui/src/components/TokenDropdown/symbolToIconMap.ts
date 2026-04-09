@@ -1,12 +1,11 @@
 import type { ComponentType } from 'svelte';
 
-import { BllIcon, EthIcon, HorseIcon, TTKOIcon, ZKCIcon } from '$components/Icon';
+import { BllIcon, EthIcon, HorseIcon, TTKOIcon } from '$components/Icon';
 
 export const baseSymbolToIconMap: Record<string, ComponentType> = {
   ETH: EthIcon,
   BLL: BllIcon,
   HORSE: HorseIcon,
-  ZKC: ZKCIcon,
 };
 
 /**
