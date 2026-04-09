@@ -4,3 +4,4 @@ export { default as HorseIcon } from './HORSE.svelte';
 export { default as Icon, type IconType } from './Icon.svelte';
 export { default as IconFlipper } from './IconFlipper.svelte';
 export { default as TTKOIcon } from './TTKO.svelte';
+export { default as ZKCIcon } from './ZKC.svelte';
