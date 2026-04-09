@@ -15,17 +15,17 @@ import "test/shared/DeployCapability.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - ANCHOR_FORK_ROUTER: Anchor fork router implementation address
-/// - SIGNAL_SERVICE_FORK_ROUTER: Signal service fork router implementation address
+/// - ANCHOR_IMPL: Anchor implementation address
+/// - SIGNAL_SERVICE_IMPL: Signal service implementation address
 /// - DELEGATE_CONTROLLER: L2 delegate controller address
 contract UpgradeShastaL2Contracts is DeployCapability {
     struct UpgradeConfig {
         address delegateController;
         address l1Bridge;
         address anchorProxy;
-        address anchorForkRouter;
+        address anchorImpl;
         address signalServiceProxy;
-        address signalServiceForkRouter;
+        address signalServiceImpl;
         uint64 srcChainId;
         uint64 destChainId;
     }
@@ -53,17 +53,17 @@ contract UpgradeShastaL2Contracts is DeployCapability {
 
         // Load deployment-specific values from environment
         config.delegateController = vm.envAddress("DELEGATE_CONTROLLER");
-        config.anchorForkRouter = vm.envAddress("ANCHOR_FORK_ROUTER");
-        config.signalServiceForkRouter = vm.envAddress("SIGNAL_SERVICE_FORK_ROUTER");
+        config.anchorImpl = vm.envAddress("ANCHOR_IMPL");
+        config.signalServiceImpl = vm.envAddress("SIGNAL_SERVICE_IMPL");
     }
 
     function _validateConfig(UpgradeConfig memory config) private pure {
         require(config.delegateController != address(0), "DELEGATE_CONTROLLER not set");
         require(config.l1Bridge != address(0), "L1_BRIDGE not set");
         require(config.anchorProxy != address(0), "ANCHOR_PROXY not set");
-        require(config.anchorForkRouter != address(0), "ANCHOR_FORK_ROUTER not set");
+        require(config.anchorImpl != address(0), "ANCHOR_IMPL not set");
         require(config.signalServiceProxy != address(0), "SIGNAL_SERVICE_PROXY not set");
-        require(config.signalServiceForkRouter != address(0), "SIGNAL_SERVICE_FORK_ROUTER not set");
+        require(config.signalServiceImpl != address(0), "SIGNAL_SERVICE_IMPL not set");
         require(config.srcChainId != 0, "SRC_CHAIN_ID not set");
         require(config.destChainId != 0, "DEST_CHAIN_ID not set");
     }
@@ -73,12 +73,12 @@ contract UpgradeShastaL2Contracts is DeployCapability {
         dcall[0] = Controller.Action({
             target: config.anchorProxy,
             value: 0,
-            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.anchorForkRouter)
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.anchorImpl)
         });
         dcall[1] = Controller.Action({
             target: config.signalServiceProxy,
             value: 0,
-            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.signalServiceForkRouter)
+            data: abi.encodeCall(UUPSUpgradeable.upgradeTo, config.signalServiceImpl)
         });
 
         IBridge.Message memory message = IBridge.Message({

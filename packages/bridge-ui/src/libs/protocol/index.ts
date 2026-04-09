@@ -1,1 +1,1 @@
-export { clearProtocolVersionCache, getProtocolVersion, ProtocolVersion } from './protocolVersion';
+export { getProtocolVersion, ProtocolVersion } from './protocolVersion';
