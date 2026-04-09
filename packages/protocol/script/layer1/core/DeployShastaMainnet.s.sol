@@ -22,7 +22,6 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.preconfWhitelist = LibL1Addrs.PRECONF_WHITELIST;
         config.contractOwner = LibL1Addrs.DAO_CONTROLLER;
 
-        config.oldSignalServiceImpl = 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c;
         config.r0Groth16Verifier = 0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319;
         config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
         config.sgxRethAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
@@ -33,6 +32,5 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.proverManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
         config.provers = new address[](1);
         config.provers[0] = 0xa5cb34B75bD72f15290ef37A01F06183E8036875; // We can add new provers later using the prover manager role
-        config.shastaForkTimestamp = 1_775_135_700; // 2026-04-02 13:15:00 UTC
     }
 }
