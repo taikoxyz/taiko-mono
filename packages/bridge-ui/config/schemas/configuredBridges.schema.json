@@ -34,6 +34,22 @@
               "anchorForkRouter": {
                 "type": "string",
                 "description": "Anchor address for checkpoint sync (L2 only)"
+              },
+              "crossChainSyncAddress": {
+                "type": "string",
+                "description": "Deprecated legacy field from the Pacaya era. Ignored at runtime; accepted only so existing encoded env var payloads continue to validate."
+              },
+              "hops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "chainId": { "type": "number" },
+                    "signalServiceAddress": { "type": "string" }
+                  },
+                  "required": ["chainId", "signalServiceAddress"]
+                },
+                "description": "Deprecated legacy field from the Pacaya era. Ignored at runtime; accepted only so existing encoded env var payloads continue to validate."
               }
             },
             "required": [
