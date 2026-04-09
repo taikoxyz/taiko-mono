@@ -376,3 +376,11 @@
 {/if}
 
 <RecommendedFee bind:amount={recommendedAmount} bind:error={errorCalculatingRecommendedAmount} />
+
+{#if small || textOnly}
+  <NoneOption
+    bind:enoughEth={hasEnoughEth}
+    bind:calculating={calculatingEnoughEth}
+    bind:error={errorCalculatingEnoughEth}
+    renderUi={false} />
+{/if}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MANUAL_CLAIM_ROUTE, getManualClaimHref } from './noneOption';
+import { getManualClaimHref, MANUAL_CLAIM_ROUTE } from './noneOption';
 
 describe('getManualClaimHref', () => {
   it('returns the transactions route when None is selected and the user has enough ETH', () => {

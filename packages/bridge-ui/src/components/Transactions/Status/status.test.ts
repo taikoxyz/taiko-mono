@@ -32,4 +32,38 @@ describe('shouldShowManualClaimEntry', () => {
       }),
     ).toBe(false);
   });
+
+  it('returns false for non-new or missing statuses even when the processing fee is zero', () => {
+    expect(
+      shouldShowManualClaimEntry({
+        bridgeTxStatus: MessageStatus.DONE,
+        isProcessable: false,
+        processingFee: 0n,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowManualClaimEntry({
+        bridgeTxStatus: MessageStatus.RETRIABLE,
+        isProcessable: false,
+        processingFee: 0n,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowManualClaimEntry({
+        bridgeTxStatus: null,
+        isProcessable: false,
+        processingFee: 0n,
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldShowManualClaimEntry({
+        bridgeTxStatus: undefined,
+        isProcessable: false,
+        processingFee: 0n,
+      }),
+    ).toBe(false);
+  });
 });

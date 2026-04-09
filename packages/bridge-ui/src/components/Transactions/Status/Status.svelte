@@ -71,14 +71,6 @@
     dispatch('openModal', 'claim');
   }
 
-  async function release() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
-    if (!$connectedSourceChain || !$account?.address) return;
-    // TODO: implement release handling
-  }
-
   $: if (hasError && $account.address) {
     if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
       // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it
@@ -164,7 +156,7 @@
       <StatusDot type="pending" />
       <span>{$t('transactions.status.releasable')}</span>
     {:else}
-      <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
+      <button class="status-btn" on:click={handleReleaseClick}>
         {$t('transactions.button.release')}
       </button>
     {/if}
