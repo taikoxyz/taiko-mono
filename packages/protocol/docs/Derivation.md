@@ -316,7 +316,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the `Anchor` contract (via `AnchorForkRouter` on fork-aware deployments) with the L1 checkpoint fields:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization. It invokes the `anchorV4` function on the `Anchor` contract with the L1 checkpoint fields:
 
 | Parameter         | Type    | Description                                     |
 | ----------------- | ------- | ----------------------------------------------- |
@@ -328,10 +328,10 @@ The anchor transaction serves as a privileged system transaction responsible for
 
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
-1. **Fork validation and duplicate prevention**
+1. **Block validation and duplicate prevention**
 
-   - Verifies the current block number is at or after the Shasta fork height
-   - Tracks parent block hash to prevent duplicate `anchorV4` calls within the same block
+   - Verifies the incoming anchor parameters are valid relative to the latest stored anchor state
+   - Tracks parent block hash to prevent inconsistent or duplicate `anchorV4` processing within the same block
 
 2. **L1 state anchoring** (when anchorBlockNumber > previous anchorBlockNumber)
    - Persists L1 block data via `checkpointStore.saveCheckpoint`
