@@ -144,6 +144,15 @@ fn should_skip_for_sync_class(class: SyncStatusClass) -> bool {
     matches!(class, SyncStatusClass::Syncing | SyncStatusClass::Unknown)
 }
 
+fn should_reset_watchdog_after_l2_skip(outcome: l2_poller::PollOutcome) -> bool {
+    matches!(
+        outcome,
+        l2_poller::PollOutcome::UncertainBackend
+            | l2_poller::PollOutcome::StableProgress
+            | l2_poller::PollOutcome::Resynced
+    )
+}
+
 /// Result of checking if a reorg is due to re-anchoring.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ReanchoringCheck {
@@ -432,10 +441,7 @@ impl Monitor {
 
                     if skip_due_to_l2 {
                         let outcome = *last_l2_poll_outcome_for_watch.lock().await;
-                        if matches!(
-                            outcome,
-                            l2_poller::PollOutcome::StableProgress | l2_poller::PollOutcome::Resynced
-                        ) {
+                        if should_reset_watchdog_after_l2_skip(outcome) {
                             *last_seen_for_watch.lock().await = Instant::now();
                             *last_block_for_watch.lock().await = Instant::now();
                             metrics::set_last_seen_drift_seconds(0);
@@ -1116,8 +1122,14 @@ mod tests {
     }
 
     #[test]
-    fn watchdog_does_not_reset_for_uncertain_l2_backend() {
+    fn watchdog_resets_for_uncertain_l2_backend() {
         let outcome = super::l2_poller::PollOutcome::UncertainBackend;
-        assert!(!matches!(outcome, super::l2_poller::PollOutcome::StableProgress));
+        assert!(super::should_reset_watchdog_after_l2_skip(outcome));
+    }
+
+    #[test]
+    fn watchdog_does_not_reset_for_no_progress_l2_tick() {
+        let outcome = super::l2_poller::PollOutcome::NoProgress;
+        assert!(!super::should_reset_watchdog_after_l2_skip(outcome));
     }
 }
