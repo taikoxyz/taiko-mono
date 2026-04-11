@@ -34,7 +34,7 @@
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
   import { isMessageNotReceivedError } from './error';
-  import { type ClaimDialogMode,shouldSkipMessageStatusCheck } from './mode';
+  import { type ClaimDialogMode, shouldSkipMessageStatusCheck } from './mode';
   import { ClaimSteps, INITIAL_STEP } from './types';
 
   const log = getLogger('ClaimDialog');
