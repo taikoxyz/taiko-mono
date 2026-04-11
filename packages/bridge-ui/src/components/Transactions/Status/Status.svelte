@@ -79,7 +79,6 @@
 
     dispatch('openModal', 'try_claim');
   }
-
   $: if (hasError && $account.address) {
     if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
       // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it

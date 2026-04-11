@@ -56,8 +56,8 @@ pub const SHASTA_FORK_MASAYA: ForkCondition = ForkCondition::Timestamp(0);
 /// Shasta fork activation on Taiko Hoodi.
 pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Timestamp(1_770_296_400);
 
-/// Shasta fork activation on Taiko Mainnet. This fork has not been scheduled yet.
-pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Never;
+/// Shasta fork activation on Taiko Mainnet.
+pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Timestamp(1_775_135_700);
 
 /// Taiko chain IDs where the Shasta fork is configured.
 pub const TAIKO_DEVNET_CHAIN_ID: u64 = 167_001;
@@ -116,7 +116,7 @@ mod tests {
     use super::{
         MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
         TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain,
-        timestamp_max_offset_for_chain,
+        shasta_fork_timestamp_for_chain, timestamp_max_offset_for_chain,
     };
 
     #[test]
@@ -127,6 +127,15 @@ mod tests {
         assert_eq!(
             timestamp_max_offset_for_chain(TAIKO_MAINNET_CHAIN_ID),
             TIMESTAMP_MAX_OFFSET_MAINNET
+        );
+    }
+
+    #[test]
+    fn mainnet_fork_timestamp_is_configured() {
+        assert_eq!(
+            shasta_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID)
+                .expect("mainnet shasta timestamp should resolve"),
+            1_775_135_700
         );
     }
 }

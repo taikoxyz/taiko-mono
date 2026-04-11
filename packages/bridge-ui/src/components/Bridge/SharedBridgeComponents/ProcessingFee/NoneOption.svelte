@@ -16,7 +16,7 @@
   export let calculating = false;
   export let error = false;
   export let selected = false;
-  export let renderUi = true;
+  export let headless = false;
   let manualClaimHref: string | null = null;
 
   async function compute(token: Maybe<Token | NFT>, userAddress?: Address, srcChain?: number, destChain?: number) {
@@ -64,18 +64,22 @@
   $: manualClaimHref = getManualClaimHref({ selected, enoughEth });
 </script>
 
-{#if renderUi && !enoughEth}
-  <FlatAlert type="error" message={$t('processing_fee.none.warning')} />
-{:else if renderUi && selected}
-  <div class="my-5 space-y-3">
-    <Alert type="warning">
-      <span class="body-small">
-        {$t('processing_fee.none.alert')}
-      </span>
-    </Alert>
+{#if !headless}
+  {#if !enoughEth}
+    <FlatAlert type="error" message={$t('processing_fee.none.warning')} />
+  {:else if selected}
+    <div class="my-5 space-y-3">
+      <Alert type="warning">
+        <span class="body-small">
+          {$t('processing_fee.none.alert')}
+        </span>
+      </Alert>
 
-    <a href={manualClaimHref ?? ''} class="link inline-flex body-small-bold">
-      {$t('processing_fee.none.claim')}
-    </a>
-  </div>
+      {#if manualClaimHref}
+        <a href={manualClaimHref} class="link inline-flex body-small-bold">
+          {$t('processing_fee.none.claim')}
+        </a>
+      {/if}
+    </div>
+  {/if}
 {/if}

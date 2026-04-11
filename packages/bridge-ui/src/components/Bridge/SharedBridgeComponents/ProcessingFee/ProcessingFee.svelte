@@ -382,5 +382,5 @@
     bind:enoughEth={hasEnoughEth}
     bind:calculating={calculatingEnoughEth}
     bind:error={errorCalculatingEnoughEth}
-    renderUi={false} />
+    headless />
 {/if}
