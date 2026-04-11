@@ -33,6 +33,7 @@
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
+  import { isMessageNotReceivedError } from './error';
   import { ClaimSteps, INITIAL_STEP } from './types';
 
   const log = getLogger('ClaimDialog');
@@ -146,7 +147,7 @@
         break;
       case err instanceof ContractFunctionExecutionError:
         console.error(err);
-        if (err.message.includes('B_NOT_RECEIVED')) {
+        if (isMessageNotReceivedError(err)) {
           errorToast({
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
