@@ -4,7 +4,7 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH},
     primitives::{Address, B256, U256, keccak256},
     providers::Provider,
 };
@@ -15,7 +15,7 @@ use metrics::counter;
 use protocol::shasta::{
     PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    payload_id_to_bytes,
+    payload_id_to_bytes, uzen_fork_timestamp_for_chain,
 };
 
 use crate::{
@@ -796,9 +796,41 @@ where
             return Ok(None);
         }
 
-        if block.header.difficulty != U256::ZERO {
+        let uzen_active = block.header.timestamp >=
+            uzen_fork_timestamp_for_chain(self.chain_id)
+                .map_err(|err| DerivationError::Other(err.into()))?;
+
+        if !uzen_active && block.header.difficulty != U256::ZERO {
             debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
             return Ok(None);
+        }
+
+        if uzen_active {
+            if block.header.parent_beacon_block_root != Some(B256::ZERO) {
+                debug!(proposal_id = meta.proposal_id, block_id, "parent beacon root mismatch");
+                return Ok(None);
+            }
+
+            if block.header.requests_hash != Some(EMPTY_REQUESTS_HASH) {
+                debug!(proposal_id = meta.proposal_id, block_id, "requests hash mismatch");
+                return Ok(None);
+            }
+        } else {
+            if block.header.parent_beacon_block_root.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected parent beacon root before Uzen"
+                );
+                return Ok(None);
+            }
+
+            if block.header.requests_hash.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected requests hash before Uzen"
+                );
+                return Ok(None);
+            }
         }
 
         if block.header.mix_hash != derived_block.payload.payload_attributes.prev_randao {

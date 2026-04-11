@@ -99,6 +99,42 @@ pub struct TxPoolContentParams {
     pub min_tip: u64,
 }
 
+/// Serialize a Taiko execution payload and sidecar into the `engine_newPayloadV2` JSON shape.
+fn engine_new_payload_v2_value(
+    payload: &ExecutionPayloadInputV2,
+    sidecar: &TaikoExecutionDataSidecar,
+) -> Result<Value> {
+    let mut payload_value = serde_json::to_value(&payload.execution_payload)
+        .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+    if let serde_json::Value::Object(ref mut obj) = payload_value {
+        // Include the withdrawals list so taiko-geth can reconstruct the full block.
+        // The Go driver sends the full ExecutableData (with withdrawals); omitting
+        // this field causes a blockhash mismatch because geth cannot recompute the
+        // withdrawals root from the hash alone.
+        if let Some(ref withdrawals) = payload.withdrawals {
+            let withdrawals_value = serde_json::to_value(withdrawals)
+                .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+            obj.insert("withdrawals".to_string(), withdrawals_value);
+        }
+        obj.insert(
+            "txHash".to_string(),
+            serde_json::Value::String(format!("{:#066x}", sidecar.tx_hash)),
+        );
+        let withdrawals_hex = format!("{:#066x}", sidecar.withdrawals_hash.unwrap_or_default());
+        obj.insert("withdrawalsHash".to_string(), serde_json::Value::String(withdrawals_hex));
+        if let Some(header_difficulty) = sidecar.header_difficulty {
+            let header_difficulty = serde_json::to_value(header_difficulty)
+                .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+            obj.insert("headerDifficulty".to_string(), header_difficulty);
+        }
+        if let Some(flag) = sidecar.taiko_block {
+            obj.insert("taikoBlock".to_string(), serde_json::Value::Bool(flag));
+        }
+    }
+
+    Ok(payload_value)
+}
+
 impl<P: Provider + Clone> Client<P> {
     /// Fetch pre-built transaction lists from the authenticated L2 execution engine.
     pub async fn tx_pool_content_with_min_tip(
@@ -208,28 +244,7 @@ impl<P: Provider + Clone> Client<P> {
         payload: &ExecutionPayloadInputV2,
         sidecar: &TaikoExecutionDataSidecar,
     ) -> Result<PayloadStatus> {
-        let mut payload_value = serde_json::to_value(&payload.execution_payload)
-            .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
-        if let serde_json::Value::Object(ref mut obj) = payload_value {
-            // Include the withdrawals list so taiko-geth can reconstruct the full block.
-            // The Go driver sends the full ExecutableData (with withdrawals); omitting
-            // this field causes a blockhash mismatch because geth cannot recompute the
-            // withdrawals root from the hash alone.
-            if let Some(ref withdrawals) = payload.withdrawals {
-                let withdrawals_value = serde_json::to_value(withdrawals)
-                    .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
-                obj.insert("withdrawals".to_string(), withdrawals_value);
-            }
-            obj.insert(
-                "txHash".to_string(),
-                serde_json::Value::String(format!("{:#066x}", sidecar.tx_hash)),
-            );
-            let withdrawals_hex = format!("{:#066x}", sidecar.withdrawals_hash.unwrap_or_default());
-            obj.insert("withdrawalsHash".to_string(), serde_json::Value::String(withdrawals_hex));
-            if let Some(flag) = sidecar.taiko_block {
-                obj.insert("taikoBlock".to_string(), serde_json::Value::Bool(flag));
-            }
-        }
+        let payload_value = engine_new_payload_v2_value(payload, sidecar)?;
 
         self.l2_auth_provider
             .raw_request(Cow::Borrowed(TaikoEngineMethod::NewPayloadV2.as_str()), (payload_value,))
@@ -287,4 +302,92 @@ where
 {
     let message = err.to_string();
     if is_ignorable_origin_error(&message) { Ok(None) } else { Err(err.into()) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
+    use alloy_primitives::{Address, B256, Bytes, U256};
+    use alloy_rpc_types_engine::ExecutionPayloadV1;
+
+    #[test]
+    fn engine_new_payload_v2_value_preserves_header_difficulty() {
+        let payload = ExecutionPayloadInputV2 {
+            execution_payload: ExecutionPayloadV1 {
+                parent_hash: B256::from(U256::from(10u64)),
+                fee_recipient: Address::from([1u8; 20]),
+                state_root: B256::from(U256::from(2u64)),
+                receipts_root: B256::from(U256::from(3u64)),
+                logs_bloom: Default::default(),
+                prev_randao: B256::from(U256::from(4u64)),
+                block_number: 7,
+                gas_limit: 30_000_000,
+                gas_used: 0,
+                timestamp: 123,
+                extra_data: Bytes::new(),
+                base_fee_per_gas: U256::from(1u64),
+                block_hash: B256::from(U256::from(42u64)),
+                transactions: vec![],
+            },
+            withdrawals: None,
+        };
+
+        let sidecar = TaikoExecutionDataSidecar {
+            tx_hash: B256::from([0x11; 32]),
+            withdrawals_hash: Some(B256::from([0x22; 32])),
+            header_difficulty: Some(U256::from(7u64)),
+            taiko_block: Some(true),
+        };
+
+        let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
+        let obj = value.as_object().expect("payload should serialize to a JSON object");
+
+        assert_eq!(obj.get("headerDifficulty"), Some(&serde_json::json!("0x7")));
+        assert_eq!(
+            obj.get("txHash"),
+            Some(&serde_json::json!(format!("{:#066x}", sidecar.tx_hash)))
+        );
+        assert_eq!(
+            obj.get("withdrawalsHash"),
+            Some(&serde_json::json!(format!("{:#066x}", sidecar.withdrawals_hash.unwrap())))
+        );
+        assert_eq!(obj.get("taikoBlock"), Some(&serde_json::json!(true)));
+        assert!(!obj.contains_key("withdrawals"));
+    }
+
+    #[test]
+    fn engine_new_payload_v2_value_omits_header_difficulty_when_absent() {
+        let payload = ExecutionPayloadInputV2 {
+            execution_payload: ExecutionPayloadV1 {
+                parent_hash: B256::from(U256::from(10u64)),
+                fee_recipient: Address::from([1u8; 20]),
+                state_root: B256::from(U256::from(2u64)),
+                receipts_root: B256::from(U256::from(3u64)),
+                logs_bloom: Default::default(),
+                prev_randao: B256::from(U256::from(4u64)),
+                block_number: 7,
+                gas_limit: 30_000_000,
+                gas_used: 0,
+                timestamp: 123,
+                extra_data: Bytes::new(),
+                base_fee_per_gas: U256::from(1u64),
+                block_hash: B256::from(U256::from(42u64)),
+                transactions: vec![],
+            },
+            withdrawals: None,
+        };
+
+        let sidecar = TaikoExecutionDataSidecar {
+            tx_hash: B256::ZERO,
+            withdrawals_hash: None,
+            header_difficulty: None,
+            taiko_block: Some(true),
+        };
+
+        let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
+        let obj = value.as_object().expect("payload should serialize to a JSON object");
+
+        assert!(!obj.contains_key("headerDifficulty"));
+    }
 }

@@ -266,7 +266,12 @@ fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDa
     let withdrawals_hash =
         payload.withdrawals.as_ref().map(|withdrawals| calculate_withdrawals_root(withdrawals));
 
-    TaikoExecutionDataSidecar { tx_hash, withdrawals_hash, taiko_block: Some(true) }
+    TaikoExecutionDataSidecar {
+        tx_hash,
+        withdrawals_hash,
+        header_difficulty: None,
+        taiko_block: Some(true),
+    }
 }
 
 /// Convert an execution payload envelope into the submission format expected by the engine.
@@ -411,6 +416,7 @@ mod tests {
 
         let expected_withdrawals_root = calculate_withdrawals_root(&withdrawals);
         assert_eq!(sidecar.withdrawals_hash, Some(expected_withdrawals_root));
+        assert_eq!(sidecar.header_difficulty, None);
         assert_eq!(sidecar.taiko_block, Some(true));
     }
 }

@@ -7,7 +7,7 @@ use alloy_consensus::{
     proofs::{calculate_receipt_root, calculate_transaction_root, calculate_withdrawals_root},
     transaction::SignerRecoverable,
 };
-use alloy_eips::BlockId;
+use alloy_eips::{BlockId, eip7685::EMPTY_REQUESTS_HASH};
 use alloy_primitives::{Address, B64, B256, Bloom, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::{BlockNumberOrTag, TransactionReceipt, eth::Block as RpcBlock};
@@ -19,7 +19,9 @@ use driver::{
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
-use protocol::shasta::{calculate_shasta_difficulty, encode_extra_data};
+use protocol::shasta::{
+    calculate_shasta_difficulty, encode_extra_data, uzen_fork_timestamp_for_chain,
+};
 use rpc::client::{Client, ClientConfig};
 use serial_test::serial;
 use test_context::test_context;
@@ -70,6 +72,9 @@ where
         .context("computing base fee")?;
     let expected_extra =
         encode_extra_data(basefee_sharing_pctg, uint256_to_u256(&preconf.proposal_id).to::<u64>());
+    let chain_id = provider.get_chain_id().await?;
+    let uzen_active = header.timestamp >=
+        uzen_fork_timestamp_for_chain(chain_id).context("resolving Uzen fork timestamp")?;
 
     // Verify header fields.
     ensure!(block.header.hash == header.hash_slow(), "header hash mismatch");
@@ -83,7 +88,14 @@ where
         "beneficiary mismatch"
     );
     ensure!(header.state_root != B256::ZERO, "state root missing");
-    ensure!(header.difficulty == U256::ZERO, "difficulty should be zero");
+    if uzen_active {
+        ensure!(
+            header.difficulty > U256::ZERO,
+            "difficulty should carry finalized zk gas after Uzen"
+        );
+    } else {
+        ensure!(header.difficulty == U256::ZERO, "difficulty should be zero");
+    }
     ensure!(
         header.number == uint256_to_u256(&preconf.block_number).to::<u64>(),
         "block number mismatch"
@@ -105,11 +117,22 @@ where
         ensure!(withdrawals_root == calculate_withdrawals_root(&[]), "withdrawals root mismatch");
     }
 
-    // Verify EIP-4844 fields are absent.
+    // Verify EIP-4844 fields and Uzen fork fields.
     ensure!(header.blob_gas_used.is_none(), "blob gas used should be none");
     ensure!(header.excess_blob_gas.is_none(), "excess blob gas should be none");
-    ensure!(header.parent_beacon_block_root.is_none(), "parent beacon root should be none");
-    ensure!(header.requests_hash.is_none(), "requests hash should be none");
+    if uzen_active {
+        ensure!(
+            header.parent_beacon_block_root == Some(B256::ZERO),
+            "parent beacon root should be zero"
+        );
+        ensure!(
+            header.requests_hash == Some(EMPTY_REQUESTS_HASH),
+            "requests hash should be the empty requests hash"
+        );
+    } else {
+        ensure!(header.parent_beacon_block_root.is_none(), "parent beacon root should be none");
+        ensure!(header.requests_hash.is_none(), "requests hash should be none");
+    }
 
     // Verify transactions.
     let txs = block
