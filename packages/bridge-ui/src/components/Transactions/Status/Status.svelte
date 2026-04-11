@@ -71,6 +71,15 @@
     dispatch('openModal', 'claim');
   }
 
+  async function handleTryClaimClick() {
+    isBridgePaused().then((paused) => {
+      if (paused) throw new BridgePausedError('Bridge is paused');
+    });
+    if (!$connectedSourceChain || !$account?.address) return;
+
+    dispatch('openModal', 'try_claim');
+  }
+
   $: if (hasError && $account.address) {
     if (bridgeTxService.transactionIsStoredLocally($account.address, bridgeTx)) {
       // If we can't start polling, it maybe an old/outdated transaction in the local storage, so we remove it
@@ -118,7 +127,7 @@
       <StatusDot type="pending" />
       <span>{$t('transactions.status.processing.name')}</span>
     {:else}
-      <button class="status-btn" on:click={handleClaimClick}>
+      <button class="status-btn" on:click={handleTryClaimClick}>
         {$t('transactions.button.try_claim')}
       </button>
     {/if}
