@@ -80,11 +80,11 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "432362e14ee69d6b1affb5ba3108cd62e2b2e7dd", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "432362e14ee69d6b1affb5ba3108cd62e2b2e7dd", features = [
+alethia-reth-consensus = { path = "../../../alethia-reth/crates/consensus", default-features = false }
+alethia-reth-primitives = { path = "../../../alethia-reth/crates/primitives", features = [
   "serde",
 ] }
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "432362e14ee69d6b1affb5ba3108cd62e2b2e7dd" }
+alethia-reth-rpc-types = { path = "../../../alethia-reth/crates/rpc-types" }
 
 # networking
 arc-swap = "1.7"

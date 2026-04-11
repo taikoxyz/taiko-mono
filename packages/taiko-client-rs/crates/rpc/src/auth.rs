@@ -210,25 +210,33 @@ impl<P: Provider + Clone> Client<P> {
     ) -> Result<PayloadStatus> {
         let mut payload_value = serde_json::to_value(&payload.execution_payload)
             .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
-        if let serde_json::Value::Object(ref mut obj) = payload_value {
-            // Include the withdrawals list so taiko-geth can reconstruct the full block.
-            // The Go driver sends the full ExecutableData (with withdrawals); omitting
-            // this field causes a blockhash mismatch because geth cannot recompute the
-            // withdrawals root from the hash alone.
-            if let Some(ref withdrawals) = payload.withdrawals {
-                let withdrawals_value = serde_json::to_value(withdrawals)
-                    .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
-                obj.insert("withdrawals".to_string(), withdrawals_value);
-            }
+        let Some(obj) = payload_value.as_object_mut() else {
+            return Err(RpcClientError::Other(anyhow!(
+                "execution payload must serialize as a JSON object"
+            )));
+        };
+
+        // Include the withdrawals list so taiko-geth can reconstruct the full block.
+        // The Go driver sends the full ExecutableData (with withdrawals); omitting
+        // this field causes a blockhash mismatch because geth cannot recompute the
+        // withdrawals root from the hash alone.
+        if let Some(ref withdrawals) = payload.withdrawals {
+            let withdrawals_value = serde_json::to_value(withdrawals)
+                .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
+            obj.insert("withdrawals".to_string(), withdrawals_value);
+        }
+        obj.insert("txHash".to_string(), Value::String(format!("{:#066x}", sidecar.tx_hash)));
+        let withdrawals_hex = format!("{:#066x}", sidecar.withdrawals_hash.unwrap_or_default());
+        obj.insert("withdrawalsHash".to_string(), Value::String(withdrawals_hex));
+        if let Some(header_difficulty) = sidecar.header_difficulty {
             obj.insert(
-                "txHash".to_string(),
-                serde_json::Value::String(format!("{:#066x}", sidecar.tx_hash)),
+                "headerDifficulty".to_string(),
+                serde_json::to_value(header_difficulty)
+                    .map_err(|err| RpcClientError::Other(anyhow!(err)))?,
             );
-            let withdrawals_hex = format!("{:#066x}", sidecar.withdrawals_hash.unwrap_or_default());
-            obj.insert("withdrawalsHash".to_string(), serde_json::Value::String(withdrawals_hex));
-            if let Some(flag) = sidecar.taiko_block {
-                obj.insert("taikoBlock".to_string(), serde_json::Value::Bool(flag));
-            }
+        }
+        if let Some(flag) = sidecar.taiko_block {
+            obj.insert("taikoBlock".to_string(), Value::Bool(flag));
         }
 
         self.l2_auth_provider

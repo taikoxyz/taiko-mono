@@ -59,6 +59,18 @@ pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Timestamp(1_770_296_
 /// Shasta fork activation on Taiko Mainnet.
 pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Timestamp(1_775_135_700);
 
+/// Uzen fork activation on Taiko Devnet.
+pub const UZEN_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
+
+/// Uzen fork activation on Taiko Masaya.
+pub const UZEN_FORK_MASAYA: ForkCondition = ForkCondition::Never;
+
+/// Uzen fork activation on Taiko Hoodi.
+pub const UZEN_FORK_HOODI: ForkCondition = ForkCondition::Never;
+
+/// Uzen fork activation on Taiko Mainnet.
+pub const UZEN_FORK_MAINNET: ForkCondition = ForkCondition::Never;
+
 /// Taiko chain IDs where the Shasta fork is configured.
 pub const TAIKO_DEVNET_CHAIN_ID: u64 = 167_001;
 /// Chain ID for the Taiko Masaya network.
@@ -111,12 +123,26 @@ pub fn shasta_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
     }
 }
 
+/// Returns whether the Uzen fork is active for a Taiko chain at the provided timestamp.
+pub fn is_uzen_active_for_chain(chain_id: u64, timestamp: u64) -> ForkConfigResult<bool> {
+    let condition = match chain_id {
+        TAIKO_DEVNET_CHAIN_ID => UZEN_FORK_DEVNET,
+        TAIKO_MASAYA_CHAIN_ID => UZEN_FORK_MASAYA,
+        TAIKO_HOODI_CHAIN_ID => UZEN_FORK_HOODI,
+        TAIKO_MAINNET_CHAIN_ID => UZEN_FORK_MAINNET,
+        _ => return Err(ShastaForkConfigError::UnsupportedChainId(chain_id)),
+    };
+
+    Ok(condition.active_at_timestamp(timestamp))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID,
-        TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain,
-        shasta_fork_timestamp_for_chain, timestamp_max_offset_for_chain,
+        MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID,
+        TAIKO_MAINNET_CHAIN_ID, TIMESTAMP_MAX_OFFSET, TIMESTAMP_MAX_OFFSET_MAINNET,
+        is_uzen_active_for_chain, max_anchor_offset_for_chain, shasta_fork_timestamp_for_chain,
+        timestamp_max_offset_for_chain,
     };
 
     #[test]
@@ -136,6 +162,18 @@ mod tests {
             shasta_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID)
                 .expect("mainnet shasta timestamp should resolve"),
             1_775_135_700
+        );
+    }
+
+    #[test]
+    fn uzen_activation_is_chain_aware() {
+        assert!(
+            is_uzen_active_for_chain(TAIKO_DEVNET_CHAIN_ID, 0)
+                .expect("devnet uzen activation should resolve")
+        );
+        assert!(
+            !is_uzen_active_for_chain(TAIKO_MAINNET_CHAIN_ID, u64::MAX)
+                .expect("mainnet uzen activation should resolve")
         );
     }
 }

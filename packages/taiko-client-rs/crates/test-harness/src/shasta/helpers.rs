@@ -280,6 +280,7 @@ async fn fork_to(
     let sidecar = alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar {
         tx_hash,
         withdrawals_hash,
+        header_difficulty: None,
         taiko_block: Some(true),
     };
 

@@ -109,6 +109,7 @@ where
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: tx_root,
             withdrawals_hash: withdrawals_root,
+            header_difficulty: Some(consensus_block.header.difficulty),
             taiko_block: Some(true),
         };
 

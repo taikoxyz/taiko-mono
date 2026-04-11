@@ -13,7 +13,9 @@ use alloy_rpc_types::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use metrics::counter;
 use protocol::shasta::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty,
+    constants::is_uzen_active_for_chain,
+    encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
     payload_id_to_bytes,
 };
@@ -97,6 +99,13 @@ struct AnchorTxInputs<'a> {
     block_number: u64,
     /// Base fee target for the upcoming block.
     block_base_fee: u64,
+}
+
+/// Return the parent beacon block root that should be advertised for locally built payloads.
+fn local_parent_beacon_block_root(chain_id: u64, timestamp: u64) -> Option<B256> {
+    is_uzen_active_for_chain(chain_id, timestamp)
+        .ok()
+        .and_then(|is_active| is_active.then_some(B256::ZERO))
 }
 
 /// Return true when the manifest represents the protocol-defined default payload.
@@ -526,7 +535,10 @@ where
             prev_randao: difficulty,
             suggested_fee_recipient: block.coinbase,
             withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
+            parent_beacon_block_root: local_parent_beacon_block_root(
+                self.chain_id,
+                block.timestamp,
+            ),
         };
 
         let l1_origin = RpcL1Origin {
@@ -968,5 +980,11 @@ mod tests {
         let recovered = signed.recover_signer()?;
         assert_eq!(recovered, Address::from(TAIKO_GOLDEN_TOUCH_ADDRESS));
         Ok(())
+    }
+
+    #[test]
+    fn local_parent_beacon_block_root_tracks_uzen_activation() {
+        assert_eq!(local_parent_beacon_block_root(167_001, 0), Some(B256::ZERO));
+        assert_eq!(local_parent_beacon_block_root(167_000, 1_775_135_700), None);
     }
 }
