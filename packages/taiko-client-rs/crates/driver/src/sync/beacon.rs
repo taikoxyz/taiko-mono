@@ -110,6 +110,8 @@ where
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: tx_root,
             withdrawals_hash: withdrawals_root,
+            // Checkpoint-imported blocks were built by a different engine instance, so there is no
+            // local built-payload cache to restore the original header difficulty.
             header_difficulty: Some(header_difficulty),
             taiko_block: Some(true),
         };

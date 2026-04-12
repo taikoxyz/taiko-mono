@@ -269,6 +269,9 @@ fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDa
     TaikoExecutionDataSidecar {
         tx_hash,
         withdrawals_hash,
+        // `engine_getPayloadV2` does not expose the original header difficulty. For payloads
+        // built by the local engine, alethia-reth caches that field by block hash and hydrates it
+        // during `engine_newPayloadV2`, so we intentionally leave it unset here.
         header_difficulty: None,
         taiko_block: Some(true),
     }
