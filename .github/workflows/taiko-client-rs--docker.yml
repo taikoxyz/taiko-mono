@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main, codex/alethia-reth-uzen-alignment]
+    branches: [main]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
