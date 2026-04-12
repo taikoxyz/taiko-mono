@@ -118,9 +118,9 @@ where
     }
 
     // Verify EIP-4844 fields and Uzen fork fields.
-    ensure!(header.blob_gas_used.is_none(), "blob gas used should be none");
-    ensure!(header.excess_blob_gas.is_none(), "excess blob gas should be none");
     if uzen_active {
+        ensure!(header.blob_gas_used == Some(0), "blob gas used should be zero");
+        ensure!(header.excess_blob_gas == Some(0), "excess blob gas should be zero");
         ensure!(
             header.parent_beacon_block_root == Some(B256::ZERO),
             "parent beacon root should be zero"
@@ -130,6 +130,8 @@ where
             "requests hash should be the empty requests hash"
         );
     } else {
+        ensure!(header.blob_gas_used.is_none(), "blob gas used should be none");
+        ensure!(header.excess_blob_gas.is_none(), "excess blob gas should be none");
         ensure!(header.parent_beacon_block_root.is_none(), "parent beacon root should be none");
         ensure!(header.requests_hash.is_none(), "requests hash should be none");
     }
