@@ -130,6 +130,9 @@ pub enum EngineSubmissionError {
     /// Engine did not return a payload identifier after forkchoice update.
     #[error("forkchoice update returned no payload id")]
     MissingPayloadId,
+    /// Uzen payload submission lacked the hash-relevant header difficulty sidecar.
+    #[error("uzen block {0} is missing header difficulty derived from getPayloadV2.blockValue")]
+    MissingUzenHeaderDifficulty(u64),
     /// Execution engine failed to return the inserted block via RPC.
     #[error("inserted block {0} not found via rpc provider")]
     MissingInsertedBlock(u64),
