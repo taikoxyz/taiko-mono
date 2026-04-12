@@ -145,6 +145,18 @@ pub fn uzen_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
     }
 }
 
+/// Returns whether Uzen is active for a Taiko chain at the provided block timestamp.
+pub fn uzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkConfigResult<bool> {
+    let condition = uzen_fork_condition_for_chain(chain_id)
+        .ok_or(ForkConfigError::UnsupportedChainId(chain_id))?;
+
+    match condition {
+        ForkCondition::Timestamp(fork_timestamp) => Ok(timestamp >= fork_timestamp),
+        ForkCondition::Never => Ok(false),
+        _ => Err(ForkConfigError::UnsupportedActivation),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

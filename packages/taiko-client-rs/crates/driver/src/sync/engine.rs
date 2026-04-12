@@ -17,7 +17,7 @@ use alloy_rpc_types_engine::{
     PayloadId, PayloadStatusEnum,
 };
 use async_trait::async_trait;
-use protocol::shasta::uzen_fork_timestamp_for_chain;
+use protocol::shasta::uzen_active_for_chain_timestamp;
 use rpc::client::Client;
 use tracing::{debug, info, instrument, warn};
 
@@ -295,7 +295,9 @@ fn derive_payload_sidecar_for_injection(
     chain_id: u64,
     payload: &ExecutionPayloadInputV2,
 ) -> Result<TaikoExecutionDataSidecar, EngineSubmissionError> {
-    if uzen_active_for_chain_timestamp(chain_id, payload.execution_payload.timestamp) {
+    if uzen_active_for_chain_timestamp(chain_id, payload.execution_payload.timestamp)
+        .unwrap_or(false)
+    {
         return Err(EngineSubmissionError::MissingUzenHeaderDifficulty(
             payload.execution_payload.block_number,
         ));
@@ -304,18 +306,9 @@ fn derive_payload_sidecar_for_injection(
     Ok(derive_payload_sidecar(payload, None))
 }
 
-/// Determine whether Uzen should be considered active for the given chain and timestamp.
-fn uzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> bool {
-    let Ok(uzen_fork_timestamp) = uzen_fork_timestamp_for_chain(chain_id) else {
-        return false;
-    };
-
-    timestamp >= uzen_fork_timestamp
-}
-
 /// Restore the hash-relevant header difficulty from a Taiko engine envelope when Uzen is active.
 fn uzen_header_difficulty(chain_id: u64, timestamp: u64, block_value: U256) -> Option<U256> {
-    uzen_active_for_chain_timestamp(chain_id, timestamp).then_some(block_value)
+    uzen_active_for_chain_timestamp(chain_id, timestamp).unwrap_or(false).then_some(block_value)
 }
 
 /// Convert an execution payload envelope into the submission format expected by the engine.

@@ -11,7 +11,7 @@ pub mod payload_helpers;
 #[cfg(feature = "net")]
 pub use anchor::{AnchorTxConstructor, AnchorTxConstructorError, AnchorV4Input};
 pub use blob_coder::BlobCoder;
-pub use constants::uzen_fork_timestamp_for_chain;
+pub use constants::{uzen_active_for_chain_timestamp, uzen_fork_timestamp_for_chain};
 pub use error::{ForkConfigError, ForkConfigResult, ProtocolError, Result};
 pub use payload_helpers::{
     PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,

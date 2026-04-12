@@ -9,16 +9,13 @@ use alloy::{
     providers::Provider,
 };
 use alloy_consensus::{Header, TxEnvelope};
-use alloy_hardforks::ForkCondition;
 use alloy_rpc_types::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
 use metrics::counter;
 use protocol::shasta::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty,
-    constants::uzen_fork_condition_for_chain,
-    encode_extra_data, encode_transactions,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    payload_id_to_bytes,
+    payload_id_to_bytes, uzen_active_for_chain_timestamp,
 };
 
 use crate::{
@@ -169,25 +166,6 @@ struct VerifiedCanonicalBlock {
     outcome: EngineBlockOutcome,
     /// Consensus header used to advance parent state.
     header: Header,
-}
-
-/// Returns whether Uzen should be considered active for the given chain and block timestamp.
-fn uzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> Result<bool, DerivationError> {
-    let Some(condition) = uzen_fork_condition_for_chain(chain_id) else {
-        return Err(DerivationError::Other(
-            protocol::shasta::ForkConfigError::UnsupportedChainId(chain_id).into(),
-        ));
-    };
-
-    Ok(match condition {
-        ForkCondition::Timestamp(fork_timestamp) => timestamp >= fork_timestamp,
-        ForkCondition::Never => false,
-        _ => {
-            return Err(DerivationError::Other(
-                protocol::shasta::ForkConfigError::UnsupportedActivation.into(),
-            ));
-        }
-    })
 }
 
 impl<P> ShastaDerivationPipeline<P>
@@ -818,7 +796,8 @@ where
             return Ok(None);
         }
 
-        let uzen_active = uzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)?;
+        let uzen_active = uzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)
+            .map_err(|err| DerivationError::Other(err.into()))?;
 
         if !uzen_active && block.header.difficulty != U256::ZERO {
             debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
