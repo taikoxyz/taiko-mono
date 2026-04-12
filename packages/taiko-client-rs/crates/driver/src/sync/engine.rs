@@ -71,8 +71,11 @@ pub trait PayloadApplier {
 #[async_trait]
 pub trait ExecutionPayloadInjector {
     /// Submit a fully built execution payload to the engine and materialise the corresponding
-    /// block. Implementations should preserve the same engine interaction semantics used by
-    /// [`PayloadApplier`].
+    /// block.
+    ///
+    /// Implementations should preserve the same engine call sequence used by [`PayloadApplier`].
+    /// The standalone `ExecutionPayloadInputV2` shape does not carry Taiko's
+    /// `getPayloadV2.blockValue`, so Uzen header difficulty cannot be rehydrated on this path.
     async fn apply_execution_payload(
         &self,
         payload: &ExecutionPayloadInputV2,
@@ -160,6 +163,8 @@ where
         let parent_hash = payload.execution_payload.parent_hash;
         let block_hash = payload.execution_payload.block_hash;
         let block_number = payload.execution_payload.block_number;
+        // `ExecutionPayloadInputV2` does not include the envelope's `blockValue`, so this path
+        // keeps the call sequence but intentionally leaves Uzen header difficulty unset.
         let sidecar = derive_payload_sidecar(payload, None);
 
         let outcome = submit_payload_to_engine(
@@ -291,6 +296,15 @@ fn uzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> bool {
     timestamp >= uzen_fork_timestamp
 }
 
+/// Restore the hash-relevant header difficulty from a Taiko engine envelope when Uzen is active.
+fn uzen_header_difficulty(
+    chain_id: u64,
+    timestamp: u64,
+    block_value: U256,
+) -> Option<U256> {
+    uzen_active_for_chain_timestamp(chain_id, timestamp).then_some(block_value)
+}
+
 /// Convert an execution payload envelope into the submission format expected by the engine.
 fn envelope_into_submission(
     chain_id: u64,
@@ -307,8 +321,8 @@ fn envelope_into_submission(
             // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
             // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
             // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
-            let header_difficulty = uzen_active_for_chain_timestamp(chain_id, payload.timestamp)
-                .then_some(envelope.block_value);
+            let header_difficulty =
+                uzen_header_difficulty(chain_id, payload.timestamp, envelope.block_value);
             let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
             (
                 payload_input,
@@ -325,9 +339,11 @@ fn envelope_into_submission(
             // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
             // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
             // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
-            let header_difficulty =
-                uzen_active_for_chain_timestamp(chain_id, payload.payload_inner.timestamp)
-                    .then_some(envelope.block_value);
+            let header_difficulty = uzen_header_difficulty(
+                chain_id,
+                payload.payload_inner.timestamp,
+                envelope.block_value,
+            );
             let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
             (
                 payload_input,
@@ -413,10 +429,11 @@ mod tests {
     use alloy_consensus::proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder};
     use alloy_eips::eip4895::Withdrawal;
     use alloy_primitives::bytes::BufMut;
+    use alloy_rpc_types_engine::ExecutionPayloadV2;
     use protocol::shasta::constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID};
 
-    fn sample_envelope(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
-        let payload = ExecutionPayloadV1 {
+    fn sample_payload(timestamp: u64) -> ExecutionPayloadV1 {
+        ExecutionPayloadV1 {
             parent_hash: B256::from(U256::from(10u64)),
             fee_recipient: Address::from([1u8; 20]),
             state_root: B256::from(U256::from(2u64)),
@@ -431,10 +448,22 @@ mod tests {
             base_fee_per_gas: U256::from(1u64),
             block_hash: B256::from(U256::from(42u64)),
             transactions: vec![Bytes::from_static(&[0x01, 0x23])],
-        };
+        }
+    }
 
+    fn sample_envelope_v1(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
         ExecutionPayloadEnvelopeV2 {
-            execution_payload: ExecutionPayloadFieldV2::V1(payload),
+            execution_payload: ExecutionPayloadFieldV2::V1(sample_payload(timestamp)),
+            block_value,
+        }
+    }
+
+    fn sample_envelope_v2(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
+        ExecutionPayloadEnvelopeV2 {
+            execution_payload: ExecutionPayloadFieldV2::V2(ExecutionPayloadV2 {
+                payload_inner: sample_payload(timestamp),
+                withdrawals: vec![],
+            }),
             block_value,
         }
     }
@@ -486,7 +515,7 @@ mod tests {
 
     #[test]
     fn uzen_block_value_becomes_header_difficulty() {
-        let envelope = sample_envelope(0, U256::from(42u64));
+        let envelope = sample_envelope_v1(0, U256::from(42u64));
 
         let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
 
@@ -495,10 +524,19 @@ mod tests {
 
     #[test]
     fn pre_uzen_block_value_is_not_reused_as_header_difficulty() {
-        let envelope = sample_envelope(0, U256::from(42u64));
+        let envelope = sample_envelope_v1(0, U256::from(42u64));
 
         let (_, sidecar, _, _) = envelope_into_submission(TAIKO_MAINNET_CHAIN_ID, envelope);
 
         assert_eq!(sidecar.header_difficulty, None);
+    }
+
+    #[test]
+    fn uzen_block_value_becomes_header_difficulty_for_v2_envelope() {
+        let envelope = sample_envelope_v2(0, U256::from(42u64));
+
+        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
+
+        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
     }
 }
