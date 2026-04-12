@@ -20,7 +20,7 @@ use preconfirmation_driver::{DriverClient, PreconfirmationClient, Preconfirmatio
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
 use protocol::shasta::{
-    calculate_shasta_difficulty, encode_extra_data, uzen_fork_timestamp_for_chain,
+    ForkConfigError, calculate_shasta_difficulty, encode_extra_data, uzen_fork_timestamp_for_chain,
 };
 use rpc::client::{Client, ClientConfig};
 use serial_test::serial;
@@ -73,8 +73,11 @@ where
     let expected_extra =
         encode_extra_data(basefee_sharing_pctg, uint256_to_u256(&preconf.proposal_id).to::<u64>());
     let chain_id = provider.get_chain_id().await?;
-    let uzen_active = header.timestamp >=
-        uzen_fork_timestamp_for_chain(chain_id).context("resolving Uzen fork timestamp")?;
+    let uzen_active = match uzen_fork_timestamp_for_chain(chain_id) {
+        Ok(timestamp) => header.timestamp >= timestamp,
+        Err(ForkConfigError::UnsupportedActivation) => false,
+        Err(err) => return Err(anyhow!("resolving Uzen fork timestamp: {err}")),
+    };
 
     // Verify header fields.
     ensure!(block.header.hash == header.hash_slow(), "header hash mismatch");

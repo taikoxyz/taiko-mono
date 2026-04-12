@@ -18,6 +18,7 @@
 - `just clippy` maps to `cargo clippy --workspace --all-features --no-deps --exclude bindings -- -D warnings`; reserve `just clippy-fix` for mechanical cleanups.
 - `just gen_bindings` executes `script/gen_bindings.sh` to refresh contract bindings whenever ABIs change.
 - After every code change run `just fmt && just clippy-fix` locally so the workspace stays formatted and lint-clean.
+- Before declaring work complete, run the full verification sequence `just fmt && just clippy-fix && just test` and require it to finish without warnings or errors.
 
 ## Coding Style & Naming Conventions
 
@@ -44,6 +45,7 @@
 - Always run tests via `just test`; it launches the Dockerized L1/L2 stack and executes `cargo nextest`.
 - To scope to a single Rust crate, set `TEST_CRATE=<crate-name>` when invoking `just test`; leaving it unset runs the full workspace (default).
 - Name tests after observable behavior (e.g., `handles_invalid_proposal`) and capture container logs for any failing integration case.
+- Targeted verification is fine while iterating, but completion still requires a final full `just fmt && just clippy-fix && just test` pass with clean output.
 
 ## Event Scanner Integration
 
@@ -76,7 +78,7 @@
 
 - Use Conventional Commit prefixes (`feat:`, `fix:`, `chore:`). Keep subject lines ≤72 characters with optional, meaningful scopes.
 - PR descriptions must summarize impact, link issues, and include command output or screenshots for operator-facing flows.
-- Confirm `just fmt`, `just clippy`, and `just test` pass locally; call out any follow-up work explicitly.
+- Confirm `just fmt && just clippy-fix && just test` pass locally with no warnings or errors in the final verification run; call out any follow-up work explicitly.
 
 ## Security & Environment Notes
 
