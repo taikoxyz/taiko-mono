@@ -26,7 +26,7 @@ import (
 	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	rpcpkg "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -37,7 +37,7 @@ var errBatchNotKnown = errors.New("batch not known in canonical chain")
 // block chain through Engine APIs.
 func createPayloadAndSetHead(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	meta *createPayloadAndSetHeadMetaData,
 	anchorTx *types.Transaction,
 ) (*engine.ExecutableData, error) {
@@ -88,7 +88,7 @@ func createPayloadAndSetHead(
 // and sets the head block to the L2 execution engine's local block chain.
 func createExecutionPayloadsAndSetHead(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 	safeCheckpoint *verifiedCheckpoint,
@@ -125,7 +125,7 @@ func createExecutionPayloadsAndSetHead(
 // createExecutionPayloads creates a new execution payloads through Engine APIs.
 func createExecutionPayloads(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 ) (payloadData *engine.ExecutableData, err error) {
@@ -214,7 +214,7 @@ func createExecutionPayloads(
 // and returns the header of the last block in the proposal if it is.
 func isKnownCanonicalProposal(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *derivation.DerivationSourcePayload,
@@ -291,7 +291,7 @@ func isKnownCanonicalProposal(
 // isKnownCanonicalBlock checks if the block is in canonical chain already.
 func isKnownCanonicalBlock(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	meta *createPayloadAndSetHeadMetaData,
 	txListBytes []byte,
 	anchorTx *types.Transaction,
@@ -368,6 +368,14 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient))
 		return nil, false, nil
 	}
+	if rpcpkg.IsUzen(rpc.L2.ChainID, block.Time()) {
+		// Uzen seals the finalized zk gas into header difficulty. This fast-path only has the
+		// pre-build randomness inputs, so it cannot prove the canonical block's hash-relevant
+		// difficulty matches the proposal. Fall back to full payload rebuild instead of
+		// misclassifying an already-present local block as canonical.
+		logUnknown("uzen block requires payload rebuild for canonical verification")
+		return nil, false, nil
+	}
 	if block.Difficulty().Cmp(common.Big0) != 0 {
 		logUnknown(fmt.Sprintf("difficulty mismatch: %s != 0", block.Difficulty()))
 		return nil, false, nil
@@ -423,7 +431,7 @@ func isKnownCanonicalBlock(
 // and the `ShastaAnchor.anchorV4` transaction for the given Shasta block.
 func assembleCreateExecutionPayloadMeta(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *derivation.DerivationSourcePayload,
@@ -521,7 +529,7 @@ func assembleCreateExecutionPayloadMeta(
 // updateL1OriginForBlocks updates L1 origin for a proposal's blocks with the given parameters.
 func updateL1OriginForBlocks(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	blockCount int,
 	getBlockID func(i int) *big.Int,
 	getProposalID func() *big.Int,
@@ -590,7 +598,7 @@ func updateL1OriginForBlocks(
 // updateL1OriginForProposal updates the L1 origin for the given proposal's blocks.
 func updateL1OriginForProposal(
 	ctx context.Context,
-	rpc *rpc.Client,
+	rpc *rpcpkg.Client,
 	parentHeader *types.Header,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *derivation.DerivationSourcePayload,
@@ -619,7 +627,7 @@ func updateL1OriginForProposal(
 // the given envelope.
 func InsertPreconfBlockFromEnvelope(
 	ctx context.Context,
-	cli *rpc.Client,
+	cli *rpcpkg.Client,
 	envelope *preconf.Envelope,
 ) (*types.Header, error) {
 	var signature [65]byte
@@ -760,7 +768,7 @@ func InsertPreconfBlockFromEnvelope(
 // IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
 func IsBasedOnCanonicalChain(
 	ctx context.Context,
-	cli *rpc.Client,
+	cli *rpcpkg.Client,
 	envelope *preconf.Envelope,
 	headL1Origin *rawdb.L1Origin,
 ) (bool, error) {

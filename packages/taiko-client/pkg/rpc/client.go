@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -110,6 +111,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
+		l2AuthClient.chainID = new(big.Int).Set(l2Client.ChainID)
 	}
 
 	c := &Client{
