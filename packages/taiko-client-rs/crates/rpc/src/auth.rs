@@ -277,6 +277,10 @@ impl<P: Provider + Clone> Client<P> {
     }
 
     /// Retrieve a built payload from the execution engine.
+    ///
+    /// The wire shape stays the standard `ExecutionPayloadEnvelopeV2`, but Taiko Uzen and later
+    /// reuse `blockValue` to carry the original `header.difficulty` back to the client so
+    /// `getPayloadV2`/`newPayloadV2` round trips remain hash-stable.
     pub async fn engine_get_payload_v2(
         &self,
         payload_id: PayloadId,

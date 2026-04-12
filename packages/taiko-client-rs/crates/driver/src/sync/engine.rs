@@ -8,7 +8,7 @@ use alloy_consensus::{
     TxEnvelope,
     proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder},
 };
-use alloy_primitives::bytes::BufMut;
+use alloy_primitives::{bytes::BufMut, U256};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 #[cfg(test)]
 use alloy_rpc_types_engine::ExecutionPayloadV1;
@@ -17,6 +17,7 @@ use alloy_rpc_types_engine::{
     PayloadId, PayloadStatusEnum,
 };
 use async_trait::async_trait;
+use protocol::shasta::uzen_fork_timestamp_for_chain;
 use rpc::client::Client;
 use tracing::{debug, info, instrument, warn};
 
@@ -159,10 +160,12 @@ where
         let parent_hash = payload.execution_payload.parent_hash;
         let block_hash = payload.execution_payload.block_hash;
         let block_number = payload.execution_payload.block_number;
+        let sidecar = derive_payload_sidecar(payload, None);
 
         let outcome = submit_payload_to_engine(
             self,
             payload,
+            &sidecar,
             block_hash,
             block_number,
             finalized_block_hash,
@@ -228,7 +231,8 @@ where
 
     // Fetch the constructed payload and normalise it into the `engine_newPayloadV2` input shape.
     let envelope = rpc.engine_get_payload_v2(payload_id).await?;
-    let (payload_input, block_hash, block_number) = envelope_into_submission(envelope);
+    let (payload_input, sidecar, block_hash, block_number) =
+        envelope_into_submission(rpc.chain_id, envelope);
 
     debug!(
         block_number,
@@ -240,6 +244,7 @@ where
     let outcome = submit_payload_to_engine(
         rpc,
         &payload_input,
+        &sidecar,
         block_hash,
         block_number,
         finalized_block_hash,
@@ -258,7 +263,10 @@ where
 }
 
 /// Derive the Taiko-specific execution data sidecar from the provided execution payload.
-fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDataSidecar {
+fn derive_payload_sidecar(
+    payload: &ExecutionPayloadInputV2,
+    header_difficulty: Option<U256>,
+) -> TaikoExecutionDataSidecar {
     let tx_hash =
         ordered_trie_root_with_encoder(&payload.execution_payload.transactions, |tx, buf| {
             buf.put_slice(tx)
@@ -269,37 +277,65 @@ fn derive_payload_sidecar(payload: &ExecutionPayloadInputV2) -> TaikoExecutionDa
     TaikoExecutionDataSidecar {
         tx_hash,
         withdrawals_hash,
-        // `engine_getPayloadV2` does not expose the original header difficulty. For payloads
-        // built by the local engine, alethia-reth caches that field by block hash and hydrates it
-        // during `engine_newPayloadV2`, so we intentionally leave it unset here.
-        header_difficulty: None,
+        header_difficulty,
         taiko_block: Some(true),
     }
 }
 
+/// Determine whether Uzen should be considered active for the given chain and timestamp.
+fn uzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> bool {
+    let Ok(uzen_fork_timestamp) = uzen_fork_timestamp_for_chain(chain_id) else {
+        return false;
+    };
+
+    timestamp >= uzen_fork_timestamp
+}
+
 /// Convert an execution payload envelope into the submission format expected by the engine.
 fn envelope_into_submission(
+    chain_id: u64,
     envelope: ExecutionPayloadEnvelopeV2,
-) -> (ExecutionPayloadInputV2, B256, u64) {
+) -> (ExecutionPayloadInputV2, TaikoExecutionDataSidecar, B256, u64) {
     match envelope.execution_payload {
-        ExecutionPayloadFieldV2::V1(payload) => (
-            // Taiko chains are always post-Shanghai so withdrawals must be non-nil even
-            // when the engine returns a V1 envelope (which omits the withdrawals field).
-            ExecutionPayloadInputV2 {
+        ExecutionPayloadFieldV2::V1(payload) => {
+            // Taiko chains are always post-Shanghai so withdrawals must be non-nil even when the
+            // engine returns a V1 envelope (which omits the withdrawals field).
+            let payload_input = ExecutionPayloadInputV2 {
                 execution_payload: payload.clone(),
                 withdrawals: Some(Vec::new()),
-            },
-            payload.block_hash,
-            payload.block_number,
-        ),
-        ExecutionPayloadFieldV2::V2(payload) => (
-            ExecutionPayloadInputV2 {
+            };
+            // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
+            // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
+            // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
+            let header_difficulty = uzen_active_for_chain_timestamp(chain_id, payload.timestamp)
+                .then_some(envelope.block_value);
+            let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
+            (
+                payload_input,
+                sidecar,
+                payload.block_hash,
+                payload.block_number,
+            )
+        }
+        ExecutionPayloadFieldV2::V2(payload) => {
+            let payload_input = ExecutionPayloadInputV2 {
                 execution_payload: payload.payload_inner.clone(),
                 withdrawals: Some(payload.withdrawals.clone()),
-            },
-            payload.payload_inner.block_hash,
-            payload.payload_inner.block_number,
-        ),
+            };
+            // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
+            // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
+            // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
+            let header_difficulty =
+                uzen_active_for_chain_timestamp(chain_id, payload.payload_inner.timestamp)
+                    .then_some(envelope.block_value);
+            let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
+            (
+                payload_input,
+                sidecar,
+                payload.payload_inner.block_hash,
+                payload.payload_inner.block_number,
+            )
+        }
     }
 }
 
@@ -350,6 +386,7 @@ where
 async fn submit_payload_to_engine<P>(
     rpc: &Client<P>,
     payload_input: &ExecutionPayloadInputV2,
+    sidecar: &TaikoExecutionDataSidecar,
     block_hash: B256,
     block_number: u64,
     finalized_block_hash: Option<B256>,
@@ -358,8 +395,7 @@ async fn submit_payload_to_engine<P>(
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    let sidecar = derive_payload_sidecar(payload_input);
-    let status = rpc.engine_new_payload_v2(payload_input, &sidecar).await?;
+    let status = rpc.engine_new_payload_v2(payload_input, sidecar).await?;
     ensure_valid_payload_status(block_number, status.status)?;
 
     let promoted_state = promotion_forkchoice_state(block_hash, finalized_block_hash);
@@ -377,6 +413,31 @@ mod tests {
     use alloy_consensus::proofs::{calculate_withdrawals_root, ordered_trie_root_with_encoder};
     use alloy_eips::eip4895::Withdrawal;
     use alloy_primitives::bytes::BufMut;
+    use protocol::shasta::constants::{TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID};
+
+    fn sample_envelope(timestamp: u64, block_value: U256) -> ExecutionPayloadEnvelopeV2 {
+        let payload = ExecutionPayloadV1 {
+            parent_hash: B256::from(U256::from(10u64)),
+            fee_recipient: Address::from([1u8; 20]),
+            state_root: B256::from(U256::from(2u64)),
+            receipts_root: B256::from(U256::from(3u64)),
+            logs_bloom: Bloom::default(),
+            prev_randao: B256::from(U256::from(4u64)),
+            block_number: 7,
+            gas_limit: 30_000_000,
+            gas_used: 0,
+            timestamp,
+            extra_data: Bytes::new(),
+            base_fee_per_gas: U256::from(1u64),
+            block_hash: B256::from(U256::from(42u64)),
+            transactions: vec![Bytes::from_static(&[0x01, 0x23])],
+        };
+
+        ExecutionPayloadEnvelopeV2 {
+            execution_payload: ExecutionPayloadFieldV2::V1(payload),
+            block_value,
+        }
+    }
 
     #[test]
     fn derive_payload_sidecar_matches_roots() {
@@ -411,7 +472,7 @@ mod tests {
             withdrawals: Some(withdrawals.clone()),
         };
 
-        let sidecar = derive_payload_sidecar(&payload_input);
+        let sidecar = derive_payload_sidecar(&payload_input, None);
 
         let expected_tx_root =
             ordered_trie_root_with_encoder(&transactions, |item, buf| buf.put_slice(item));
@@ -421,5 +482,23 @@ mod tests {
         assert_eq!(sidecar.withdrawals_hash, Some(expected_withdrawals_root));
         assert_eq!(sidecar.header_difficulty, None);
         assert_eq!(sidecar.taiko_block, Some(true));
+    }
+
+    #[test]
+    fn uzen_block_value_becomes_header_difficulty() {
+        let envelope = sample_envelope(0, U256::from(42u64));
+
+        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
+
+        assert_eq!(sidecar.header_difficulty, Some(U256::from(42u64)));
+    }
+
+    #[test]
+    fn pre_uzen_block_value_is_not_reused_as_header_difficulty() {
+        let envelope = sample_envelope(0, U256::from(42u64));
+
+        let (_, sidecar, _, _) = envelope_into_submission(TAIKO_MAINNET_CHAIN_ID, envelope);
+
+        assert_eq!(sidecar.header_difficulty, None);
     }
 }
