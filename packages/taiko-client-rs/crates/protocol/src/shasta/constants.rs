@@ -63,13 +63,13 @@ pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Timestamp(1_775_13
 pub const UZEN_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
 
 /// Uzen fork activation on Taiko Masaya.
-pub const UZEN_FORK_MASAYA: ForkCondition = ForkCondition::Timestamp(0);
+pub const UZEN_FORK_MASAYA: ForkCondition = ForkCondition::Never;
 
 /// Uzen fork activation on Taiko Hoodi.
-pub const UZEN_FORK_HOODI: ForkCondition = ForkCondition::Timestamp(1_770_296_400);
+pub const UZEN_FORK_HOODI: ForkCondition = ForkCondition::Never;
 
 /// Uzen fork activation on Taiko Mainnet.
-pub const UZEN_FORK_MAINNET: ForkCondition = ForkCondition::Timestamp(1_775_135_700);
+pub const UZEN_FORK_MAINNET: ForkCondition = ForkCondition::Never;
 
 /// Taiko chain IDs where the Shasta fork is configured.
 pub const TAIKO_DEVNET_CHAIN_ID: u64 = 167_001;
@@ -148,12 +148,13 @@ pub fn uzen_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
 #[cfg(test)]
 mod tests {
     use super::{
-        MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID,
-        TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
+        ForkConfigError, MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID,
+        TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
         TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain, shasta_fork_timestamp_for_chain,
         timestamp_max_offset_for_chain, uzen_fork_condition_for_chain,
         uzen_fork_timestamp_for_chain,
     };
+    use alloy_hardforks::ForkCondition;
 
     #[test]
     fn offsets_are_chain_aware() {
@@ -183,15 +184,12 @@ mod tests {
         );
         assert_eq!(
             uzen_fork_condition_for_chain(TAIKO_MASAYA_CHAIN_ID),
-            Some(super::UZEN_FORK_MASAYA)
+            Some(ForkCondition::Never)
         );
-        assert_eq!(
-            uzen_fork_condition_for_chain(TAIKO_HOODI_CHAIN_ID),
-            Some(super::UZEN_FORK_HOODI)
-        );
+        assert_eq!(uzen_fork_condition_for_chain(TAIKO_HOODI_CHAIN_ID), Some(ForkCondition::Never));
         assert_eq!(
             uzen_fork_condition_for_chain(TAIKO_MAINNET_CHAIN_ID),
-            Some(super::UZEN_FORK_MAINNET)
+            Some(ForkCondition::Never)
         );
     }
 
@@ -202,20 +200,17 @@ mod tests {
                 .expect("devnet uzen timestamp should resolve"),
             0
         );
-        assert_eq!(
-            uzen_fork_timestamp_for_chain(TAIKO_MASAYA_CHAIN_ID)
-                .expect("masaya uzen timestamp should resolve"),
-            0
-        );
-        assert_eq!(
-            uzen_fork_timestamp_for_chain(TAIKO_HOODI_CHAIN_ID)
-                .expect("hoodi uzen timestamp should resolve"),
-            1_770_296_400
-        );
-        assert_eq!(
-            uzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID)
-                .expect("mainnet uzen timestamp should resolve"),
-            1_775_135_700
-        );
+        assert!(matches!(
+            uzen_fork_timestamp_for_chain(TAIKO_MASAYA_CHAIN_ID),
+            Err(ForkConfigError::UnsupportedActivation)
+        ));
+        assert!(matches!(
+            uzen_fork_timestamp_for_chain(TAIKO_HOODI_CHAIN_ID),
+            Err(ForkConfigError::UnsupportedActivation)
+        ));
+        assert!(matches!(
+            uzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID),
+            Err(ForkConfigError::UnsupportedActivation)
+        ));
     }
 }
