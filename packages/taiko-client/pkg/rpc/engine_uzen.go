@@ -7,21 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/params"
 )
 
 // IsUzen returns whether the given chain and timestamp are inside the Uzen fork.
 func IsUzen(chainID *big.Int, timestamp uint64) bool {
 	if chainID == nil {
-		return false
-	}
-
-	switch chainID.Uint64() {
-	case params.TaikoMainnetNetworkID.Uint64(),
-		params.TaikoInternalNetworkID.Uint64(),
-		params.MasayaDevnetNetworkID.Uint64(),
-		params.TaikoHoodiNetworkID.Uint64():
-	default:
 		return false
 	}
 
