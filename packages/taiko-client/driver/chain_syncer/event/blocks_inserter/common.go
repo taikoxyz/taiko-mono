@@ -396,6 +396,14 @@ func isKnownCanonicalBlock(
 			logUnknown(fmt.Sprintf("requests hash mismatch: %v != %s", block.RequestsHash(), types.EmptyRequestsHash))
 			return nil, false, nil
 		}
+		if block.BlobGasUsed() == nil || *block.BlobGasUsed() != 0 {
+			logUnknown(fmt.Sprintf("blob gas used mismatch: %v != 0", block.BlobGasUsed()))
+			return nil, false, nil
+		}
+		if block.ExcessBlobGas() == nil || *block.ExcessBlobGas() != 0 {
+			logUnknown(fmt.Sprintf("excess blob gas mismatch: %v != 0", block.ExcessBlobGas()))
+			return nil, false, nil
+		}
 	}
 	if block.MixDigest() != meta.Difficulty {
 		logUnknown(fmt.Sprintf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty))
