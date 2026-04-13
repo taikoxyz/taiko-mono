@@ -805,6 +805,11 @@ where
         }
 
         if uzen_active {
+            if block.header.difficulty == U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Uzen");
+                return Ok(None);
+            }
+
             if block.header.parent_beacon_block_root != Some(B256::ZERO) {
                 debug!(proposal_id = meta.proposal_id, block_id, "parent beacon root mismatch");
                 return Ok(None);
