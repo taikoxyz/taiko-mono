@@ -19,6 +19,15 @@ func IsUzen(chainID *big.Int, timestamp uint64) bool {
 		genesis.Config.ChainID.Cmp(chainID) == 0 && genesis.Config.IsUzen(timestamp)
 }
 
+// ForkLabel returns the active fork label for display purposes.
+func ForkLabel(chainID *big.Int, timestamp uint64) string {
+	if IsUzen(chainID, timestamp) {
+		return "Uzen"
+	}
+
+	return "Shasta"
+}
+
 // NormalizeExecutableData preserves Uzen header difficulty when present on the envelope.
 func NormalizeExecutableData(
 	chainID *big.Int,
