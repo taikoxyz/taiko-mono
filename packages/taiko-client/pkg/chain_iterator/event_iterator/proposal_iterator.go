@@ -19,14 +19,14 @@ import (
 type EndProposalEventIterFunc func()
 
 // OnProposalEvent represents the callback function which will be called
-// when a Shasta proposal event is iterated.
+// when a proposal event is iterated.
 type OnProposalEvent func(
 	context.Context,
 	metadata.TaikoProposalMetaData,
 	EndProposalEventIterFunc,
 ) error
 
-// ProposalIterator iterates the emitted Shasta proposal events in the chain,
+// ProposalIterator iterates the emitted proposal events in the chain,
 // with the awareness of reorganization.
 type ProposalIterator struct {
 	blockBatchIterator *chainIterator.BlockBatchIterator

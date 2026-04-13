@@ -39,7 +39,7 @@ func tryLastFinalizedCheckpoint(
 	coreState, err := getCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		log.Warn(
-			"Failed to fetch Shasta core state for finalized checkpoint, continue inserting blocks",
+			"Failed to fetch core state for finalized checkpoint, continue inserting blocks",
 			"proposalID", proposalID,
 			"error", err,
 		)
@@ -96,7 +96,7 @@ func NewBlocksInserter(
 	}
 }
 
-// InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given derivation
+// InsertBlocksWithManifest inserts new Shasta / Uzen blocks to the L2 execution engine based on the given derivation
 // source payload.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
@@ -105,7 +105,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	endIter eventIterator.EndProposalEventIterFunc,
 ) (*big.Int, error) {
 	if !metadata.IsShasta() {
-		return nil, errors.New("metadata is not for Shasta fork blocks")
+		return nil, errors.New("metadata is not for Shasta / Uzen fork blocks")
 	}
 
 	i.mutex.Lock()
@@ -119,7 +119,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	)
 
 	log.Debug(
-		"Inserting Shasta blocks to L2 execution engine",
+		fmt.Sprintf("Inserting %s blocks to L2 execution engine", rpc.ForkLabel(i.rpc.L2.ChainID, meta.GetTimestamp())),
 		"proposalID", meta.GetEventData().Id,
 		"proposer", meta.GetEventData().Proposer,
 		"invalidManifest", sourcePayload.Default,
@@ -175,11 +175,14 @@ func (i *Shasta) InsertBlocksWithManifest(
 				parent,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check if Shasta proposal is known in canonical chain: %w", err)
+				return nil, fmt.Errorf("failed to check if Shasta / Uzen proposal is known in canonical chain: %w", err)
 			}
 			if isKnown && lastBlockHeader != nil {
 				log.Info(
-					"🧬 Known Shasta proposal in canonical chain",
+					fmt.Sprintf(
+						"🧬 Known %s proposal in canonical chain",
+						rpc.ForkLabel(i.rpc.L2.ChainID, meta.GetTimestamp()),
+					),
 					"proposalID", meta.GetEventData().Id,
 					"assignedProver", meta.GetEventData().Proposer,
 					"timestamp", meta.GetTimestamp(),
@@ -196,7 +199,11 @@ func (i *Shasta) InsertBlocksWithManifest(
 
 				// Update the L1 origin for each block in the proposal.
 				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
-					return nil, fmt.Errorf("failed to update L1 origin for proposal (%d): %w", meta.GetEventData().Id, err)
+					return nil, fmt.Errorf(
+						"failed to update L1 origin for Shasta / Uzen proposal (%d): %w",
+						meta.GetEventData().Id,
+						err,
+					)
 				}
 
 				return lastBlockHeader.Number, nil
@@ -239,7 +246,10 @@ func (i *Shasta) InsertBlocksWithManifest(
 		}
 
 		log.Info(
-			"🔗 New Shasta L2 block inserted",
+			fmt.Sprintf(
+				"🔗 New %s L2 block inserted",
+				rpc.ForkLabel(i.rpc.L2.ChainID, lastPayloadData.Timestamp),
+			),
 			"blockID", lastPayloadData.Number,
 			"hash", lastPayloadData.BlockHash,
 			"coinbase", lastPayloadData.FeeRecipient.Hex(),
@@ -252,6 +262,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"gasLimit", lastPayloadData.GasLimit,
 			"gasUsed", lastPayloadData.GasUsed,
 			"parentHash", lastPayloadData.ParentHash,
+			"difficulty", lastPayloadData.HeaderDifficultyOrZero(),
 			"indexInProposal", j,
 		)
 
@@ -300,6 +311,7 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 			"gasLimit", header.GasLimit,
 			"gasUsed", header.GasUsed,
 			"parentHash", header.ParentHash,
+			"difficulty", header.Difficulty,
 			"fromCache", fromCache,
 		)
 		headers[j] = header
@@ -312,7 +324,7 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 func (i *Shasta) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 	if i.latestSeenProposalCh != nil {
 		log.Debug(
-			"Sending latest seen shasta proposal from blocksInserter",
+			"Sending latest seen proposal from blocksInserter",
 			"proposalID", proposal.TaikoProposalMetaData.Shasta().GetEventData().Id,
 			"preconfChainReorged", proposal.PreconfChainReorged,
 		)

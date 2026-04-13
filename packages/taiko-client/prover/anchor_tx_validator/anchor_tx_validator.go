@@ -24,7 +24,7 @@ type AnchorTxValidator struct {
 // New creates a new AnchorTxValidator instance.
 func New(taikoAnchor common.Address, chainID *big.Int, rpc *rpc.Client) (*AnchorTxValidator, error) {
 	if rpc.ShastaClients == nil || rpc.ShastaClients.Anchor == nil {
-		return nil, fmt.Errorf("shasta anchor client is not initialized")
+		return nil, fmt.Errorf("anchor client is not initialized")
 	}
 
 	goldenTouchAddress, err := rpc.ShastaClients.Anchor.GOLDENTOUCHADDRESS(nil)
