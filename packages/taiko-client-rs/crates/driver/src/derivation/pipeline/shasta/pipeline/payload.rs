@@ -805,6 +805,16 @@ where
                 return Ok(None);
             }
 
+            if block.header.blob_gas_used != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "blob gas used mismatch");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "excess blob gas mismatch");
+                return Ok(None);
+            }
+
             if block.header.parent_beacon_block_root != Some(B256::ZERO) {
                 debug!(proposal_id = meta.proposal_id, block_id, "parent beacon root mismatch");
                 return Ok(None);
