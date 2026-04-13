@@ -830,6 +830,16 @@ where
                 return Ok(None);
             }
 
+            if block.header.blob_gas_used.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected blob gas used");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected excess blob gas");
+                return Ok(None);
+            }
+
             if block.header.parent_beacon_block_root.is_some() {
                 debug!(
                     proposal_id = meta.proposal_id,
