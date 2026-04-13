@@ -196,7 +196,11 @@ func (i *Shasta) InsertBlocksWithManifest(
 
 				// Update the L1 origin for each block in the proposal.
 				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
-					return nil, fmt.Errorf("failed to update L1 origin for Shasta / Uzen	 proposal (%d): %w", meta.GetEventData().Id, err)
+					return nil, fmt.Errorf(
+						"failed to update L1 origin for Shasta / Uzen proposal (%d): %w",
+						meta.GetEventData().Id,
+						err,
+					)
 				}
 
 				return lastBlockHeader.Number, nil

@@ -368,17 +368,34 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient))
 		return nil, false, nil
 	}
-	if rpcpkg.IsUzen(rpc.L2.ChainID, block.Time()) {
-		// Uzen seals the finalized zk gas into header difficulty. This fast-path only has the
-		// pre-build randomness inputs, so it cannot prove the canonical block's hash-relevant
-		// difficulty matches the proposal. Fall back to full payload rebuild instead of
-		// misclassifying an already-present local block as canonical.
-		logUnknown("uzen block requires payload rebuild for canonical verification")
-		return nil, false, nil
-	}
-	if block.Difficulty().Cmp(common.Big0) != 0 {
-		logUnknown(fmt.Sprintf("difficulty mismatch: %s != 0", block.Difficulty()))
-		return nil, false, nil
+	uzenActive := rpcpkg.IsUzen(rpc.L2.ChainID, block.Time())
+	if !uzenActive {
+		if block.Difficulty().Cmp(common.Big0) != 0 {
+			logUnknown(fmt.Sprintf("difficulty mismatch: %s != 0", block.Difficulty()))
+			return nil, false, nil
+		}
+		if block.BeaconRoot() != nil {
+			logUnknown(fmt.Sprintf("unexpected parent beacon root before Uzen: %s", *block.BeaconRoot()))
+			return nil, false, nil
+		}
+		if block.RequestsHash() != nil {
+			logUnknown(fmt.Sprintf("unexpected requests hash before Uzen: %s", *block.RequestsHash()))
+			return nil, false, nil
+		}
+	} else {
+		zero := common.Hash{}
+		if block.Difficulty().Cmp(common.Big0) == 0 {
+			logUnknown("difficulty zero during Uzen")
+			return nil, false, nil
+		}
+		if block.BeaconRoot() == nil || *block.BeaconRoot() != zero {
+			logUnknown(fmt.Sprintf("parent beacon root mismatch: %v != %v", block.BeaconRoot(), zero))
+			return nil, false, nil
+		}
+		if block.RequestsHash() == nil || *block.RequestsHash() != types.EmptyRequestsHash {
+			logUnknown(fmt.Sprintf("requests hash mismatch: %v != %s", block.RequestsHash(), types.EmptyRequestsHash))
+			return nil, false, nil
+		}
 	}
 	if block.MixDigest() != meta.Difficulty {
 		logUnknown(fmt.Sprintf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty))
