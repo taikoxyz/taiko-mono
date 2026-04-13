@@ -26,7 +26,7 @@ import (
 	derivation "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/derivation"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
-	rpcpkg "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -37,7 +37,7 @@ var errBatchNotKnown = errors.New("batch not known in canonical chain")
 // block chain through Engine APIs.
 func createPayloadAndSetHead(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
 	anchorTx *types.Transaction,
 ) (*engine.ExecutableData, error) {
@@ -77,7 +77,7 @@ func createPayloadAndSetHead(
 	// Create a new execution payload and set the chain head.
 	return createExecutionPayloadsAndSetHead(
 		ctx,
-		rpc,
+		cli,
 		meta.createExecutionPayloadsMetaData,
 		txListBytes,
 		meta.VerifiedCheckpoint,
@@ -88,13 +88,13 @@ func createPayloadAndSetHead(
 // and sets the head block to the L2 execution engine's local block chain.
 func createExecutionPayloadsAndSetHead(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 	safeCheckpoint *verifiedCheckpoint,
 ) (payloadData *engine.ExecutableData, err error) {
 	// Create a new execution payload.
-	payload, err := createExecutionPayloads(ctx, rpc, meta, txListBytes)
+	payload, err := createExecutionPayloads(ctx, cli, meta, txListBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create execution payloads: %w", err)
 	}
@@ -111,7 +111,7 @@ func createExecutionPayloadsAndSetHead(
 	}
 
 	// Update the fork choice.
-	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
+	fcRes, err := cli.L2Engine.ForkchoiceUpdate(ctx, fc, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update fork choice: %w", err)
 	}
@@ -125,7 +125,7 @@ func createExecutionPayloadsAndSetHead(
 // createExecutionPayloads creates a new execution payloads through Engine APIs.
 func createExecutionPayloads(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	meta *createExecutionPayloadsMetaData,
 	txListBytes []byte,
 ) (payloadData *engine.ExecutableData, err error) {
@@ -165,7 +165,7 @@ func createExecutionPayloads(
 	)
 
 	// Step 1, prepare a payload
-	fcRes, err := rpc.L2Engine.ForkchoiceUpdate(
+	fcRes, err := cli.L2Engine.ForkchoiceUpdate(
 		ctx,
 		&engine.ForkchoiceStateV1{HeadBlockHash: meta.ParentHash},
 		attributes,
@@ -181,7 +181,7 @@ func createExecutionPayloads(
 	}
 
 	// Step 2, get the payload
-	payload, err := rpc.L2Engine.GetPayload(ctx, fcRes.PayloadID)
+	payload, err := cli.L2Engine.GetPayload(ctx, fcRes.PayloadID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get payload: %w", err)
 	}
@@ -199,7 +199,7 @@ func createExecutionPayloads(
 	)
 
 	// Step 3, execute the payload
-	execStatus, err := rpc.L2Engine.NewPayload(ctx, payload)
+	execStatus, err := cli.L2Engine.NewPayload(ctx, payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new payload: %w", err)
 	}
@@ -214,7 +214,7 @@ func createExecutionPayloads(
 // and returns the header of the last block in the proposal if it is.
 func isKnownCanonicalProposal(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *derivation.DerivationSourcePayload,
@@ -231,7 +231,7 @@ func isKnownCanonicalProposal(
 	// Check each block in the proposal, and if all blocks are preconfirmed, return the header of the last block.
 	for i := 0; i < len(sourcePayload.BlockPayloads); i++ {
 		g.Go(func() error {
-			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
+			parentHeader, err := cli.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
 			if err != nil {
 				if err.Error() == ethereum.NotFound.Error() {
 					return errBatchNotKnown
@@ -241,7 +241,7 @@ func isKnownCanonicalProposal(
 
 			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMeta(
 				ctx,
-				rpc,
+				cli,
 				anchorConstructor,
 				metadata,
 				sourcePayload,
@@ -260,7 +260,7 @@ func isKnownCanonicalProposal(
 			var known bool
 			if headers[i], known, err = isKnownCanonicalBlock(
 				ctx,
-				rpc,
+				cli,
 				&createPayloadAndSetHeadMetaData{
 					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
 					Parent:                          parentHeader,
@@ -291,13 +291,13 @@ func isKnownCanonicalProposal(
 // isKnownCanonicalBlock checks if the block is in canonical chain already.
 func isKnownCanonicalBlock(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	meta *createPayloadAndSetHeadMetaData,
 	txListBytes []byte,
 	anchorTx *types.Transaction,
 ) (*types.Header, bool, error) {
 	var blockID = new(big.Int).Add(meta.Parent.Number, common.Big1)
-	block, err := rpc.L2.BlockByNumber(ctx, blockID)
+	block, err := cli.L2.BlockByNumber(ctx, blockID)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, false, fmt.Errorf("failed to get block by number %d: %w", blockID, err)
 	}
@@ -338,7 +338,7 @@ func isKnownCanonicalBlock(
 		"args", args,
 	)
 
-	l1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
+	l1Origin, err := cli.L2.L1OriginByID(ctx, blockID)
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, false, fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 	}
@@ -368,7 +368,7 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient))
 		return nil, false, nil
 	}
-	uzenActive := rpcpkg.IsUzen(rpc.L2.ChainID, block.Time())
+	uzenActive := rpc.IsUzen(cli.L2.ChainID, block.Time())
 	if !uzenActive {
 		if block.Difficulty().Cmp(common.Big0) != 0 {
 			logUnknown(fmt.Sprintf("difficulty mismatch: %s != 0", block.Difficulty()))
@@ -448,7 +448,7 @@ func isKnownCanonicalBlock(
 // and the `ShastaAnchor.anchorV4` transaction for the given L2 block.
 func assembleCreateExecutionPayloadMeta(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *derivation.DerivationSourcePayload,
@@ -473,14 +473,14 @@ func assembleCreateExecutionPayloadMeta(
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 
-	baseFee, err := rpc.CalculateBaseFee(ctx, parent)
+	baseFee, err := cli.CalculateBaseFee(ctx, parent)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
 
-	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
+	anchorBlockHeader, err := cli.L1.HeaderByNumber(ctx, anchorBlockID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
 	}
@@ -546,7 +546,7 @@ func assembleCreateExecutionPayloadMeta(
 // updateL1OriginForBlocks updates L1 origin for a proposal's blocks with the given parameters.
 func updateL1OriginForBlocks(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	blockCount int,
 	getBlockID func(i int) *big.Int,
 	getProposalID func() *big.Int,
@@ -559,7 +559,7 @@ func updateL1OriginForBlocks(
 		g.Go(func() error {
 			blockID := getBlockID(i)
 
-			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
+			header, err := cli.L2.HeaderByNumber(ctx, blockID)
 			if err != nil {
 				return fmt.Errorf("failed to get block by number %d: %w", blockID, err)
 			}
@@ -572,7 +572,7 @@ func updateL1OriginForBlocks(
 			}
 
 			// Fetch the original L1Origin to get the BuildPayloadArgsID.
-			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
+			originalL1Origin, err := cli.L2.L1OriginByID(ctx, blockID)
 			if err != nil && err.Error() != ethereum.NotFound.Error() {
 				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 			}
@@ -584,7 +584,7 @@ func updateL1OriginForBlocks(
 				l1Origin.IsForcedInclusion = originalL1Origin.IsForcedInclusion
 			}
 
-			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
+			if _, err := cli.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
 				return fmt.Errorf("failed to update L1Origin: %w", err)
 			}
 
@@ -598,10 +598,10 @@ func updateL1OriginForBlocks(
 					"L1BlockHeight", l1Origin.L1BlockHeight,
 					"L1BlockHash", l1Origin.L1BlockHash,
 				)
-				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
+				if _, err := cli.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
-				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, getProposalID(), blockID); err != nil {
+				if _, err := cli.L2Engine.SetBatchToLastBlock(ctx, getProposalID(), blockID); err != nil {
 					return fmt.Errorf("failed to write proposal to block mapping: %w", err)
 				}
 			}
@@ -615,7 +615,7 @@ func updateL1OriginForBlocks(
 // updateL1OriginForProposal updates the L1 origin for the given proposal's blocks.
 func updateL1OriginForProposal(
 	ctx context.Context,
-	rpc *rpcpkg.Client,
+	cli *rpc.Client,
 	parentHeader *types.Header,
 	metadata metadata.TaikoProposalMetaData,
 	sourcePayload *derivation.DerivationSourcePayload,
@@ -629,7 +629,7 @@ func updateL1OriginForProposal(
 
 	return updateL1OriginForBlocks(
 		ctx,
-		rpc,
+		cli,
 		len(sourcePayload.BlockPayloads),
 		func(i int) *big.Int {
 			return new(big.Int).SetUint64(lastBlockID - uint64(len(sourcePayload.BlockPayloads)-1-i))
@@ -644,7 +644,7 @@ func updateL1OriginForProposal(
 // the given envelope.
 func InsertPreconfBlockFromEnvelope(
 	ctx context.Context,
-	cli *rpcpkg.Client,
+	cli *rpc.Client,
 	envelope *preconf.Envelope,
 ) (*types.Header, error) {
 	var signature [65]byte
@@ -785,7 +785,7 @@ func InsertPreconfBlockFromEnvelope(
 // IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
 func IsBasedOnCanonicalChain(
 	ctx context.Context,
-	cli *rpcpkg.Client,
+	cli *rpc.Client,
 	envelope *preconf.Envelope,
 	headL1Origin *rawdb.L1Origin,
 ) (bool, error) {
