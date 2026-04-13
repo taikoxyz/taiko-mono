@@ -316,44 +316,27 @@ fn envelope_into_submission(
     chain_id: u64,
     envelope: ExecutionPayloadEnvelopeV2,
 ) -> (ExecutionPayloadInputV2, TaikoExecutionDataSidecar, B256, u64) {
-    match envelope.execution_payload {
-        ExecutionPayloadFieldV2::V1(payload) => {
-            // Taiko chains are always post-Shanghai so withdrawals must be non-nil even when the
-            // engine returns a V1 envelope (which omits the withdrawals field).
-            let payload_input = ExecutionPayloadInputV2 {
-                execution_payload: payload.clone(),
-                withdrawals: Some(Vec::new()),
-            };
-            // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
-            // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
-            // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
-            let header_difficulty =
-                uzen_header_difficulty(chain_id, payload.timestamp, envelope.block_value);
-            let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
-            (payload_input, sidecar, payload.block_hash, payload.block_number)
-        }
-        ExecutionPayloadFieldV2::V2(payload) => {
-            let payload_input = ExecutionPayloadInputV2 {
-                execution_payload: payload.payload_inner.clone(),
-                withdrawals: Some(payload.withdrawals.clone()),
-            };
-            // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
-            // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
-            // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
-            let header_difficulty = uzen_header_difficulty(
-                chain_id,
-                payload.payload_inner.timestamp,
-                envelope.block_value,
-            );
-            let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
-            (
-                payload_input,
-                sidecar,
-                payload.payload_inner.block_hash,
-                payload.payload_inner.block_number,
-            )
-        }
-    }
+    let block_value = envelope.block_value;
+    let (execution_payload, withdrawals) = match envelope.execution_payload {
+        // Taiko chains are always post-Shanghai so withdrawals must be non-nil even when the
+        // engine returns a V1 envelope (which omits the withdrawals field).
+        ExecutionPayloadFieldV2::V1(payload) => (payload, Vec::new()),
+        ExecutionPayloadFieldV2::V2(payload) => (payload.payload_inner, payload.withdrawals),
+    };
+
+    let block_hash = execution_payload.block_hash;
+    let block_number = execution_payload.block_number;
+    // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
+    // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
+    // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
+    let header_difficulty =
+        uzen_header_difficulty(chain_id, execution_payload.timestamp, block_value);
+
+    let payload_input =
+        ExecutionPayloadInputV2 { execution_payload, withdrawals: Some(withdrawals) };
+    let sidecar = derive_payload_sidecar(&payload_input, header_difficulty);
+
+    (payload_input, sidecar, block_hash, block_number)
 }
 
 /// Map engine payload status into submission errors, rejecting syncing/invalid statuses.

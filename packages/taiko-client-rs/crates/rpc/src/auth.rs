@@ -7,7 +7,7 @@ use alethia_reth_primitives::{
     payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
 };
 use alethia_reth_rpc_types::PreBuiltTxList as TaikoPreBuiltTxList;
-use alloy_primitives::{Address, FixedBytes, U256};
+use alloy_primitives::{Address, B256, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
@@ -107,9 +107,9 @@ struct EngineNewPayloadV2Request<'a> {
     #[serde(flatten)]
     payload: &'a ExecutionPayloadInputV2,
     /// Transactions root hash tracked by the Taiko sidecar.
-    tx_hash: alloy_primitives::B256,
+    tx_hash: B256,
     /// Withdrawals root hash tracked by the Taiko sidecar.
-    withdrawals_hash: alloy_primitives::B256,
+    withdrawals_hash: B256,
     /// Optional hash-relevant header difficulty restored for Uzen blocks.
     #[serde(skip_serializing_if = "Option::is_none")]
     header_difficulty: Option<U256>,
