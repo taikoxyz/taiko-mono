@@ -252,6 +252,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"gasLimit", lastPayloadData.GasLimit,
 			"gasUsed", lastPayloadData.GasUsed,
 			"parentHash", lastPayloadData.ParentHash,
+			"difficulty", lastPayloadData.HeaderDifficultyOrZero(),
 			"indexInProposal", j,
 		)
 
@@ -300,6 +301,7 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 			"gasLimit", header.GasLimit,
 			"gasUsed", header.GasUsed,
 			"parentHash", header.ParentHash,
+			"difficulty", header.Difficulty,
 			"fromCache", fromCache,
 		)
 		headers[j] = header
