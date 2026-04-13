@@ -51,7 +51,7 @@ var (
 	// Pacaya fork
 	TaikoAnchorABI *abi.ABI
 
-	// Shasta fork
+	// Shasta / Uzen fork
 	ShastaInboxABI           *abi.ABI
 	ShastaAnchorABI          *abi.ABI
 	BondManagerABI           *abi.ABI
@@ -117,7 +117,7 @@ func init() {
 	}
 
 	if ShastaAnchorABI, err = shastaBindings.ShastaAnchorMetaData.GetAbi(); err != nil {
-		log.Crit("Get Shasta Anchor ABI error", "error", err)
+		log.Crit("Get Anchor ABI error", "error", err)
 	}
 
 	if BondManagerABI, err = shastaBindings.BondManagerMetaData.GetAbi(); err != nil {
@@ -140,20 +140,20 @@ func init() {
 	}
 }
 
-// EncodeBatchesSubProofsShasta performs the solidity `abi.encode` for the given Shasta SubProof.
-func EncodeBatchesSubProofsShasta(subProofs []SubProofShasta) ([]byte, error) {
+// EncodeBatchesSubProofs performs the solidity `abi.encode` for the given SubProof.
+func EncodeBatchesSubProofs(subProofs []SubProofShasta) ([]byte, error) {
 	b, err := SubProofsShastaComponentsArrayArgs.Pack(subProofs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode Shasta batch subproofs (count: %d), %w", len(subProofs), err)
+		return nil, fmt.Errorf("failed to abi.encode batch subproofs (count: %d), %w", len(subProofs), err)
 	}
 	return b, nil
 }
 
-// CalculateShastaDifficulty calculates the difficulty for the given Shasta block.
+// CalculateShastaDifficulty calculates the difficulty for the given block.
 func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]byte, error) {
 	packed, err := ShastaDifficultyInputArgs.Pack(parentDifficulty, blockNum)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode Shasta block difficulty, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode block difficulty, %w", err)
 	}
 
 	return crypto.Keccak256(packed), nil

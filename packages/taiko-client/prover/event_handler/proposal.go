@@ -17,7 +17,7 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-// handleProposal handles the Shasta protocol Proposed event.
+// handleProposal handles the protocol Proposed event.
 func (h *ProposalEventHandler) handleProposal(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,

@@ -210,7 +210,7 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
-// isKnownCanonicalProposal checks if all blocks in the given Shasta proposal are in the canonical chain already,
+// isKnownCanonicalProposal checks if all blocks in the given proposal are in the canonical chain already,
 // and returns the header of the last block in the proposal if it is.
 func isKnownCanonicalProposal(
 	ctx context.Context,
@@ -221,7 +221,7 @@ func isKnownCanonicalProposal(
 	parent *types.Header,
 ) (*types.Header, bool, error) {
 	if !metadata.IsShasta() {
-		return nil, false, fmt.Errorf("metadata is not for Shasta fork blocks")
+		return nil, false, fmt.Errorf("metadata is not for post-Shasta fork blocks")
 	}
 	var (
 		headers = make([]*types.Header, len(sourcePayload.BlockPayloads))
@@ -249,7 +249,7 @@ func isKnownCanonicalProposal(
 				i,
 			)
 			if err != nil {
-				return fmt.Errorf("failed to assemble Shasta execution payload creation metadata: %w", err)
+				return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
 			}
 
 			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
@@ -428,7 +428,7 @@ func isKnownCanonicalBlock(
 }
 
 // assembleCreateExecutionPayloadMeta assembles the metadata for creating an execution payload,
-// and the `ShastaAnchor.anchorV4` transaction for the given Shasta block.
+// and the `ShastaAnchor.anchorV4` transaction for the given L2 block.
 func assembleCreateExecutionPayloadMeta(
 	ctx context.Context,
 	rpc *rpcpkg.Client,
@@ -439,7 +439,7 @@ func assembleCreateExecutionPayloadMeta(
 	blockIndex int,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
-		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
+		return nil, nil, fmt.Errorf("metadata is not for post-Shasta fork blocks")
 	}
 	if blockIndex >= len(sourcePayload.BlockPayloads) {
 		return nil, nil, fmt.Errorf("block index %d out of bounds (%d)", blockIndex, len(sourcePayload.BlockPayloads))
@@ -604,7 +604,7 @@ func updateL1OriginForProposal(
 	sourcePayload *derivation.DerivationSourcePayload,
 ) error {
 	if !metadata.IsShasta() {
-		return fmt.Errorf("metadata is not for Shasta fork blocks")
+		return fmt.Errorf("metadata is not for post-Shasta fork blocks")
 	}
 
 	meta := metadata.Shasta()
@@ -714,7 +714,7 @@ func InsertPreconfBlockFromEnvelope(
 
 	// The checkpoint lookup must use the rpc.Client for this L1 environment.
 	// Passing a client from another L1 network would make the cached checkpoint invalid.
-	if safeCheckpoint, err = getShastaCheckpoint(ctx, cli); err != nil {
+	if safeCheckpoint, err = getCheckpoint(ctx, cli); err != nil {
 		log.Warn("Failed to get last finalized checkpoint of Shasta", "error", err)
 	}
 

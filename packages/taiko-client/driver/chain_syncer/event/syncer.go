@@ -40,7 +40,7 @@ type Syncer struct {
 	lastInsertedProposalID *big.Int
 	reorgDetectedFlag      bool
 
-	// Shasta derivation source fetcher
+	// Derivation source fetcher
 	derivationSourceFetcher *derivation.DerivationSourceFetcher
 }
 
@@ -156,7 +156,7 @@ func (s *Syncer) onProposal(
 	return s.processProposal(ctx, meta, endIter)
 }
 
-// processProposal processes a Shasta proposal event, and tries inserting
+// processProposal processes a proposal event, and tries inserting
 // the proposal's blocks into the L2 execution engine.
 func (s *Syncer) processProposal(
 	ctx context.Context,
@@ -169,9 +169,9 @@ func (s *Syncer) processProposal(
 		err    error
 	)
 
-	// We simply ignore the genesis Shasta block's `Proposed` event.
+	// We simply ignore the genesis L2 block's `Proposed` event.
 	if meta.GetEventData().Id.Cmp(common.Big0) == 0 {
-		// Reset the lastInsertedProposalID when processing the genesis Shasta proposal.
+		// Reset the lastInsertedProposalID when processing the genesis proposal.
 		s.lastInsertedProposalID = common.Big0
 		log.Debug("Ignore genesis proposal event", "proposalID", meta.GetEventData().Id)
 		return nil
@@ -235,7 +235,7 @@ func (s *Syncer) processProposal(
 	}
 
 	if meta.GetEventData().Id.Cmp(common.Big1) == 0 {
-		// For the first Shasta proposal, its parent block is the genesis block.
+		// For the first proposal, its parent block is the genesis block.
 		log.Info(
 			"First proposal, fetch genesis block as parent",
 			"proposalID", meta.GetEventData().Id,
@@ -466,7 +466,7 @@ func (s *Syncer) checkReorg(
 	return reorgCheckResult, nil
 }
 
-// BlocksInserter returns the Shasta blocks inserter.
+// BlocksInserter returns the blocks inserter.
 func (s *Syncer) BlocksInserter() *blocksInserter.Shasta {
 	return s.blocksInserter.(*blocksInserter.Shasta)
 }

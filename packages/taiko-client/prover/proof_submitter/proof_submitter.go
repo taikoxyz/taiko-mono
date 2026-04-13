@@ -60,7 +60,7 @@ type ProofSubmitter struct {
 	proposalWindowSize        *big.Int
 }
 
-// NewProofSubmitter creates a new Shasta ProofSubmitter instance.
+// NewProofSubmitter creates a new ProofSubmitter instance.
 func NewProofSubmitter(
 	ctx context.Context,
 	baseLevelProofProducer proofProducer.ProofProducer,

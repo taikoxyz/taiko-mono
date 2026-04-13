@@ -172,7 +172,7 @@ func (s *ProverTestSuite) TestOnProposal() {
 	s.NotNil(payload)
 	s.NotNil(eventLog)
 
-	// Prove the first Shasta proposal inserted by shared test setup.
+	// Prove the first proposal inserted by shared test setup.
 	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), eventLog.BlockHash)
 	s.Nil(err)
 	meta := metadata.NewTaikoProposalMetadataShasta(payload, header.Time)
@@ -182,7 +182,7 @@ func (s *ProverTestSuite) TestOnProposal() {
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotify))
 	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 
-	// Propose and prove the second Shasta proposal.
+	// Propose and prove the second proposal.
 	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
 	s.Nil(s.p.eventHandlers.proposalHandler.Handle(context.Background(), m, func() {}))
 	req = <-s.p.proofSubmissionCh
