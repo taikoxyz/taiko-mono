@@ -799,11 +799,6 @@ where
         let uzen_active = uzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)
             .map_err(|err| DerivationError::Other(err.into()))?;
 
-        if !uzen_active && block.header.difficulty != U256::ZERO {
-            debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
-            return Ok(None);
-        }
-
         if uzen_active {
             if block.header.difficulty == U256::ZERO {
                 debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Uzen");
@@ -820,6 +815,11 @@ where
                 return Ok(None);
             }
         } else {
+            if block.header.difficulty != U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
+                return Ok(None);
+            }
+
             if block.header.parent_beacon_block_root.is_some() {
                 debug!(
                     proposal_id = meta.proposal_id,
