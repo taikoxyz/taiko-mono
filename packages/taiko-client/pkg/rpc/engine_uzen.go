@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 )
 
@@ -40,17 +39,4 @@ func NormalizeExecutableData(
 	}
 
 	return &normalized, nil
-}
-
-// NormalizedDifficulty returns the expected difficulty for canonical block checks.
-func NormalizedDifficulty(chainID *big.Int, timestamp uint64, difficulty *big.Int) *big.Int {
-	if IsUzen(chainID, timestamp) {
-		if difficulty == nil {
-			return common.Big0
-		}
-
-		return new(big.Int).Set(difficulty)
-	}
-
-	return common.Big0
 }
