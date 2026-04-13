@@ -43,6 +43,7 @@ func executionPayloadEnvelope(
 	isForcedInclusion *bool,
 	signature *[65]byte,
 ) (*eth.ExecutionPayloadEnvelope, error) {
+	// If the base fee is too large to fit in a uint256, we should return an error instead of silently truncating it.
 	var u256 uint256.Int
 	if overflow := u256.SetFromBig(baseFee); overflow {
 		return nil, fmt.Errorf("failed to convert base fee to uint256: %v", overflow)
