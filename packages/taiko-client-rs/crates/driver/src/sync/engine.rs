@@ -67,23 +67,6 @@ pub trait PayloadApplier {
     ) -> Result<AppliedPayload, EngineSubmissionError>;
 }
 
-/// Trait that injects already-constructed execution payloads into the engine.
-#[async_trait]
-pub trait ExecutionPayloadInjector {
-    /// Submit a fully built execution payload to the engine and materialise the corresponding
-    /// block.
-    ///
-    /// Implementations should preserve the same engine call sequence used by [`PayloadApplier`].
-    /// The standalone `ExecutionPayloadInputV2` shape does not carry Taiko's
-    /// `getPayloadV2.blockValue`, so callers must not use this path for Uzen payloads that need
-    /// the original header difficulty restored.
-    async fn apply_execution_payload(
-        &self,
-        payload: &ExecutionPayloadInputV2,
-        finalized_block_hash: Option<B256>,
-    ) -> Result<EngineBlockOutcome, EngineSubmissionError>;
-}
-
 #[async_trait]
 impl<P> PayloadApplier for Client<P>
 where
@@ -144,49 +127,6 @@ where
             apply_payload_internal(self, payload, parent_hash, finalized_block_hash).await?;
         span.record("payload_id", format_args!("{}", applied.outcome.payload_id));
         Ok(applied)
-    }
-}
-
-#[async_trait]
-impl<P> ExecutionPayloadInjector for Client<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Submit a fully built execution payload to the engine and materialise the corresponding
-    /// block. Implementations should preserve the same engine interaction semantics used by
-    /// [`PayloadApplier`].
-    #[instrument(skip(self, payload))]
-    async fn apply_execution_payload(
-        &self,
-        payload: &ExecutionPayloadInputV2,
-        finalized_block_hash: Option<B256>,
-    ) -> Result<EngineBlockOutcome, EngineSubmissionError> {
-        let parent_hash = payload.execution_payload.parent_hash;
-        let block_hash = payload.execution_payload.block_hash;
-        let block_number = payload.execution_payload.block_number;
-        let sidecar = derive_payload_sidecar_for_injection(self.chain_id, payload)?;
-
-        let outcome = submit_payload_to_engine(
-            self,
-            payload,
-            &sidecar,
-            block_hash,
-            block_number,
-            finalized_block_hash,
-            // We keep the payload ID as zeroed since we won't check if it's known by the engine
-            // later.
-            PayloadId::new([0u8; 8]),
-        )
-        .await?;
-
-        info!(
-            block_number,
-            block_hash = ?block_hash,
-            parent_hash = ?parent_hash,
-            "inserted l2 block via execution payload injector",
-        );
-
-        Ok(outcome)
     }
 }
 
@@ -284,26 +224,6 @@ fn derive_payload_sidecar(
         header_difficulty,
         taiko_block: Some(true),
     }
-}
-
-/// Derive the sidecar used for direct `newPayloadV2` submission.
-///
-/// Uzen cannot recover `header.difficulty` from a bare `ExecutionPayloadInputV2` because the
-/// consensus value is transported only via `getPayloadV2.blockValue`. Rejecting early keeps this
-/// path strict instead of silently submitting an invalid Uzen payload.
-fn derive_payload_sidecar_for_injection(
-    chain_id: u64,
-    payload: &ExecutionPayloadInputV2,
-) -> Result<TaikoExecutionDataSidecar, EngineSubmissionError> {
-    if uzen_active_for_chain_timestamp(chain_id, payload.execution_payload.timestamp)
-        .unwrap_or(false)
-    {
-        return Err(EngineSubmissionError::MissingUzenHeaderDifficulty(
-            payload.execution_payload.block_number,
-        ));
-    }
-
-    Ok(derive_payload_sidecar(payload, None))
 }
 
 /// Restore the hash-relevant header difficulty from a Taiko engine envelope when Uzen is active.
@@ -495,35 +415,6 @@ mod tests {
         assert_eq!(sidecar.withdrawals_hash, Some(expected_withdrawals_root));
         assert_eq!(sidecar.header_difficulty, None);
         assert_eq!(sidecar.taiko_block, Some(true));
-    }
-
-    #[test]
-    fn uzen_execution_payload_injection_requires_header_difficulty() {
-        let payload_input = ExecutionPayloadInputV2 {
-            execution_payload: sample_payload(0),
-            withdrawals: Some(Vec::new()),
-        };
-
-        let err = derive_payload_sidecar_for_injection(TAIKO_DEVNET_CHAIN_ID, &payload_input)
-            .expect_err("uzen payload injection should reject missing header difficulty");
-
-        assert_eq!(
-            err.to_string(),
-            "uzen block 7 is missing header difficulty derived from getPayloadV2.blockValue"
-        );
-    }
-
-    #[test]
-    fn pre_uzen_execution_payload_injection_keeps_empty_header_difficulty() {
-        let payload_input = ExecutionPayloadInputV2 {
-            execution_payload: sample_payload(0),
-            withdrawals: Some(Vec::new()),
-        };
-
-        let sidecar = derive_payload_sidecar_for_injection(TAIKO_MAINNET_CHAIN_ID, &payload_input)
-            .expect("pre-uzen payload injection should not require header difficulty");
-
-        assert_eq!(sidecar.header_difficulty, None);
     }
 
     #[test]
