@@ -29,6 +29,7 @@
     "deploy:hoodi:usdc:l2": "FOUNDRY_PROFILE=layer2 forge script script/layer2/hoodi/DeployHoodiL2USDC.s.sol:DeployHoodiL2USDC",
     "validate:hoodi:usdc:l2": "FOUNDRY_PROFILE=layer2 forge script script/layer2/hoodi/ValidateHoodiL2USDC.s.sol:ValidateHoodiL2USDC",
     "configure:hoodi:usdc:l2": "FOUNDRY_PROFILE=layer2 forge script script/layer2/hoodi/ConfigureHoodiUSDCBridge.s.sol:ConfigureHoodiUSDCBridge",
+    "configure:hoodi:usdc:l1": "FOUNDRY_PROFILE=layer1 forge script script/layer1/hoodi/ConfigureHoodiUSDCBridgeViaL1.s.sol:ConfigureHoodiUSDCBridgeViaL1",
     "validate:hoodi:usdc": "./script/shared/circle/validate_hoodi_usdc.sh",
     "proposal": "FOUNDRY_PROFILE=layer1 MODE=print forge script script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
     "proposal:dryrun:l1": "FOUNDRY_PROFILE=layer1 MODE=l1dryrun forge script --chain-id=1 --broadcast --rpc-url https://ethereum.publicnode.com script/layer1/proposals/Proposal$P.s.sol:Proposal$P",

@@ -2,6 +2,17 @@
 
 This repository owns the onchain Hoodi USDC deployment and bridge wiring.
 
+## Deployment Flow
+
+1. Deploy the L1 Hoodi canonical USDC token and faucet with `pnpm deploy:hoodi:usdc:l1`.
+2. Deploy the L2 Taiko Hoodi native USDC token with `pnpm deploy:hoodi:usdc:l2`.
+3. Dry-run and validate the full state with `pnpm validate:hoodi:usdc`.
+4. Send the live L1 bridge message with `pnpm configure:hoodi:usdc:l1`.
+
+The final bridge mapping is not an L2 direct-owner transaction on live Hoodi. The Taiko Hoodi
+`ERC20Vault.owner()` is the L2 `DelegateController`, so the mapping must be triggered from the
+Hoodi L1 contract-owner EOA through `Bridge.sendMessage(...)`.
+
 The standalone faucet app lives in the separate `taikoxyz/hoodi-usdc-bridge` repository. After deploying the contracts from this repo, backfill the addresses below in both places:
 
 1. `packages/protocol/deployments/taiko-hoodi-contract-logs.md`
