@@ -3,6 +3,7 @@
 ## Notes
 
 1. Code used on Taiko Hoodi must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
+2. The standalone Hoodi USDC faucet app lives outside this repo. After deployment, backfill the final USDC addresses here and in `deployments/hoodi-usdc.md`.
 
 ## L1 Contracts
 
