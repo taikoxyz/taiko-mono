@@ -9,6 +9,9 @@ use alloy_provider::Provider;
 /// Public alias for execution-engine L1 origin payloads.
 pub type L1Origin = RpcL1Origin;
 
+/// Engine-compatible transport wrapper for [`RpcL1Origin`].
+pub(crate) use alethia_reth_primitives::payload::attributes::EngineRpcL1Origin;
+
 use crate::{auth::handle_ignorable_origin_error, client::Client, error::Result};
 
 /// Engine RPC method names used for public L1 origin queries.
@@ -34,16 +37,24 @@ impl<P: Provider + Clone> Client<P> {
     /// Fetch the L1 origin payload for the given block id via the public engine API.
     pub async fn l1_origin_by_id(&self, block_id: U256) -> Result<Option<L1Origin>> {
         self.l2_provider
-            .raw_request(Cow::Borrowed(TaikoOriginMethod::L1OriginById.as_str()), (block_id,))
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
+                Cow::Borrowed(TaikoOriginMethod::L1OriginById.as_str()),
+                (block_id,),
+            )
             .await
             .or_else(handle_ignorable_origin_error)
+            .map(|origin| origin.map(Into::into))
     }
 
     /// Fetch the latest head L1 origin pointer from the public engine API.
     pub async fn head_l1_origin(&self) -> Result<Option<L1Origin>> {
         self.l2_provider
-            .raw_request(Cow::Borrowed(TaikoOriginMethod::HeadL1Origin.as_str()), ())
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
+                Cow::Borrowed(TaikoOriginMethod::HeadL1Origin.as_str()),
+                (),
+            )
             .await
             .or_else(handle_ignorable_origin_error)
+            .map(|origin| origin.map(Into::into))
     }
 }

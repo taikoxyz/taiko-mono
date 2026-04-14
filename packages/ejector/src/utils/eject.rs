@@ -23,7 +23,7 @@ async fn eject_operator_internal(
         return Ok(());
     }
 
-    let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url.clone());
+    let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url);
     let preconf_whitelist = bindings::IPreconfWhitelist::new(whitelist_addr, l1.clone());
 
     let info = preconf_whitelist.operators(operator).call().await?;

@@ -21,24 +21,12 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Counter tracking inbound gossip/request messages by topic and decode status.
     pub const NETWORK_INBOUND_MESSAGES_TOTAL: &'static str =
         "whitelist_preconf_driver_network_inbound_messages_total";
-    /// Counter tracking decode failures by topic.
-    pub const NETWORK_DECODE_FAILURES_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_decode_failures_total";
     /// Counter tracking outbound publish commands by topic and result.
     pub const NETWORK_OUTBOUND_PUBLISH_TOTAL: &'static str =
         "whitelist_preconf_driver_network_outbound_publish_total";
-    /// Counter tracking dial attempts by source.
+    /// Counter tracking dial attempts by source and result.
     pub const NETWORK_DIAL_ATTEMPTS_TOTAL: &'static str =
         "whitelist_preconf_driver_network_dial_attempts_total";
-    /// Counter tracking dial failures by source.
-    pub const NETWORK_DIAL_FAILURES_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_dial_failures_total";
-    /// Counter tracking direct req/resp command outcomes (queue, send, response).
-    pub const NETWORK_DIRECT_REQRESP_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_direct_reqresp_total";
-    /// Counter tracking transport-level failures for direct req/resp (timeouts, disconnects).
-    pub const NETWORK_TRANSPORT_FAILURES_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_transport_failures_total";
     /// Counter tracking event-forward failures into importer queue.
     pub const NETWORK_FORWARD_FAILURES_TOTAL: &'static str =
         "whitelist_preconf_driver_network_forward_failures_total";
@@ -47,9 +35,6 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Counter tracking importer event handling by event type and result.
     pub const IMPORTER_EVENTS_TOTAL: &'static str =
         "whitelist_preconf_driver_importer_events_total";
-    /// Counter tracking validation failures by stage.
-    pub const VALIDATION_FAILURES_TOTAL: &'static str =
-        "whitelist_preconf_driver_validation_failures_total";
     /// Counter tracking whitelist contract lookup failures.
     pub const WHITELIST_LOOKUP_FAILURES_TOTAL: &'static str =
         "whitelist_preconf_driver_whitelist_lookup_failures_total";
@@ -112,11 +97,6 @@ impl WhitelistPreconfirmationDriverMetrics {
             "Inbound network messages by topic and decode result"
         );
         metrics::describe_counter!(
-            Self::NETWORK_DECODE_FAILURES_TOTAL,
-            Unit::Count,
-            "Network decode failures by topic"
-        );
-        metrics::describe_counter!(
             Self::NETWORK_OUTBOUND_PUBLISH_TOTAL,
             Unit::Count,
             "Outbound publish command outcomes by topic"
@@ -124,22 +104,7 @@ impl WhitelistPreconfirmationDriverMetrics {
         metrics::describe_counter!(
             Self::NETWORK_DIAL_ATTEMPTS_TOTAL,
             Unit::Count,
-            "Dial attempts by source"
-        );
-        metrics::describe_counter!(
-            Self::NETWORK_DIAL_FAILURES_TOTAL,
-            Unit::Count,
-            "Dial failures by source"
-        );
-        metrics::describe_counter!(
-            Self::NETWORK_DIRECT_REQRESP_TOTAL,
-            Unit::Count,
-            "Direct req/resp command outcomes"
-        );
-        metrics::describe_counter!(
-            Self::NETWORK_TRANSPORT_FAILURES_TOTAL,
-            Unit::Count,
-            "Transport-level failures for direct req/resp"
+            "Dial attempts by source and result"
         );
         metrics::describe_counter!(
             Self::NETWORK_FORWARD_FAILURES_TOTAL,
@@ -151,11 +116,6 @@ impl WhitelistPreconfirmationDriverMetrics {
             Self::IMPORTER_EVENTS_TOTAL,
             Unit::Count,
             "Importer event handling outcomes"
-        );
-        metrics::describe_counter!(
-            Self::VALIDATION_FAILURES_TOTAL,
-            Unit::Count,
-            "Payload/response validation failures"
         );
         metrics::describe_counter!(
             Self::WHITELIST_LOOKUP_FAILURES_TOTAL,
@@ -221,15 +181,10 @@ impl WhitelistPreconfirmationDriverMetrics {
         metrics::counter!(Self::RUNNER_EXIT_TOTAL).absolute(0);
         metrics::counter!(Self::SYNC_READY_TRANSITIONS_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_INBOUND_MESSAGES_TOTAL).absolute(0);
-        metrics::counter!(Self::NETWORK_DECODE_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_OUTBOUND_PUBLISH_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_DIAL_ATTEMPTS_TOTAL).absolute(0);
-        metrics::counter!(Self::NETWORK_DIAL_FAILURES_TOTAL).absolute(0);
-        metrics::counter!(Self::NETWORK_DIRECT_REQRESP_TOTAL).absolute(0);
-        metrics::counter!(Self::NETWORK_TRANSPORT_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::NETWORK_FORWARD_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::IMPORTER_EVENTS_TOTAL).absolute(0);
-        metrics::counter!(Self::VALIDATION_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::WHITELIST_LOOKUP_FAILURES_TOTAL).absolute(0);
         metrics::counter!(Self::RESPONSE_LOOKUPS_TOTAL).absolute(0);
         metrics::counter!(Self::CACHE_IMPORT_ATTEMPTS_TOTAL).absolute(0);
@@ -256,15 +211,10 @@ mod tests {
             WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS,
             WhitelistPreconfirmationDriverMetrics::SYNC_READY_TRANSITIONS_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DECODE_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_FAILURES_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIRECT_REQRESP_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_TRANSPORT_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL,
             WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
             WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_ATTEMPTS_TOTAL,

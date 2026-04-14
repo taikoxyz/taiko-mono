@@ -1,5 +1,70 @@
 # Changelog
 
+## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.2.0...taiko-alethia-client-v2.3.0) (2026-04-02)
+
+
+### Features
+
+* **taiko-client:** add p2p allow-all-sequencers flag ([#21510](https://github.com/taikoxyz/taiko-mono/issues/21510)) ([666ee5b](https://github.com/taikoxyz/taiko-mono/commit/666ee5b32a24598f3a0cb8f0d35d39845c8085c7))
+
+
+### Bug Fixes
+
+* **taiko-client:** introduce `AnchorCheckSkipProposalOffset` ([#21529](https://github.com/taikoxyz/taiko-mono/issues/21529)) ([211bddc](https://github.com/taikoxyz/taiko-mono/commit/211bddcccfcf0044ed381d090dec49b4c26eb9b4))
+* **taiko-client:** stalled finalized block height ([#21523](https://github.com/taikoxyz/taiko-mono/issues/21523)) ([0328692](https://github.com/taikoxyz/taiko-mono/commit/0328692b5b6af057cf36c0da42dce88f9bf3314b))
+* **taiko-client:** use certain l1 origin when wait shasta header ([#21515](https://github.com/taikoxyz/taiko-mono/issues/21515)) ([45ec041](https://github.com/taikoxyz/taiko-mono/commit/45ec041317aeab69262ab738cecfd397108c67b8))
+
+
+### Chores
+
+* **taiko-client:** improve checks in syncer ([#21525](https://github.com/taikoxyz/taiko-mono/issues/21525)) ([4db63e1](https://github.com/taikoxyz/taiko-mono/commit/4db63e1929770bd18c567d4257303cb849905b24))
+
+## [2.2.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.1...taiko-alethia-client-v2.2.0) (2026-03-25)
+
+
+### Features
+
+* **taiko-client,taiko-client-rs:** make anchor/timestamp offsets chain-aware ([#21427](https://github.com/taikoxyz/taiko-mono/issues/21427)) ([2dc51f0](https://github.com/taikoxyz/taiko-mono/commit/2dc51f0540984db28614c1cc91882dd7e3dd8dfb))
+* **taiko-client:** align `setL1OriginSignature` RPC encoding with taiko-geth ([#21367](https://github.com/taikoxyz/taiko-mono/issues/21367)) ([d656b53](https://github.com/taikoxyz/taiko-mono/commit/d656b539988aea00d2db503f6a11899319ae1a84))
+* **taiko-client:** different Raiko endpoints for Pacaya / Shasta blocks ([#21451](https://github.com/taikoxyz/taiko-mono/issues/21451)) ([a7f1d9e](https://github.com/taikoxyz/taiko-mono/commit/a7f1d9e95fc28716dc2c531dc5e6559adbc9510c))
+* **taiko-client:** introduce new flag `prover.proposal.window.size` to limit proof request ([#21449](https://github.com/taikoxyz/taiko-mono/issues/21449)) ([0e3a9f6](https://github.com/taikoxyz/taiko-mono/commit/0e3a9f6a390b9b15dc42368d198f1c6280d3e7c0))
+* **taiko-client:** make Shasta finalized checkpoint lookup optional ([#21488](https://github.com/taikoxyz/taiko-mono/issues/21488)) ([22ae6ca](https://github.com/taikoxyz/taiko-mono/commit/22ae6ca2553318e2636689ccb4c06d6d7ec1d3b8))
+* **taiko-client:** record `ProverLatestVerifiedIDGauge` in HandleShasta ([#21292](https://github.com/taikoxyz/taiko-mono/issues/21292)) ([e5ce141](https://github.com/taikoxyz/taiko-mono/commit/e5ce1413d60e589b0e37d40ae7a55f72ad8b8d97))
+
+
+### Bug Fixes
+
+* **ci:** fix client CI ([#21432](https://github.com/taikoxyz/taiko-mono/issues/21432)) ([d765e2f](https://github.com/taikoxyz/taiko-mono/commit/d765e2fb855c3227ca4c29129f2e20bfedf2d654))
+* **taiko-client,taiko-client-rs:** default SHASTA fork path and make protocol dir configurable for bindings ([#21376](https://github.com/taikoxyz/taiko-mono/issues/21376)) ([461a0d1](https://github.com/taikoxyz/taiko-mono/commit/461a0d1cdfed9f0b9714255f4389c68fbefd961a))
+* **taiko-client:** add missing error key in SGXVerifier log ([#21424](https://github.com/taikoxyz/taiko-mono/issues/21424)) ([5611c56](https://github.com/taikoxyz/taiko-mono/commit/5611c56b9ff26f895487987e5a797d4159209e27))
+* **taiko-client:** close event filter iterators ([#21371](https://github.com/taikoxyz/taiko-mono/issues/21371)) ([34f9f48](https://github.com/taikoxyz/taiko-mono/commit/34f9f48b07addbbf11e2cc049612f287e8aa0a32))
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+* **taiko-client:** fix an issue in `CalculateBaseFeeShasta` ([#21457](https://github.com/taikoxyz/taiko-mono/issues/21457)) ([847bfdb](https://github.com/taikoxyz/taiko-mono/commit/847bfdb14504a076a692709a41e3f7915a1330a4))
+* **taiko-client:** fix prover retry submission buffer cleanup ([#21489](https://github.com/taikoxyz/taiko-mono/issues/21489)) ([665f41a](https://github.com/taikoxyz/taiko-mono/commit/665f41ad6ef1bd1988c84c9eba33a42c40640c46))
+* **taiko-client:** get chain config by ID ([#21456](https://github.com/taikoxyz/taiko-mono/issues/21456)) ([0070c5a](https://github.com/taikoxyz/taiko-mono/commit/0070c5acbea515e8ff18df1b61975bf2c17ea8e6))
+* **taiko-client:** make based proposer working with new WL impl ([#21297](https://github.com/taikoxyz/taiko-mono/issues/21297)) ([e51d832](https://github.com/taikoxyz/taiko-mono/commit/e51d83274f4e74eb7538a1023c5d176537203114))
+* **taiko-client:** mark known canonical shasta/pacaya proposals  ([#21369](https://github.com/taikoxyz/taiko-mono/issues/21369)) ([080bfea](https://github.com/taikoxyz/taiko-mono/commit/080bfea3590b2e41dc783aad57244c9bddb727c3))
+* **taiko-client:** submit proposal to the ShastaInbox ([#21327](https://github.com/taikoxyz/taiko-mono/issues/21327)) ([e531244](https://github.com/taikoxyz/taiko-mono/commit/e53124432ac2af89c7b9d1d8bb139e6afb224d13))
+* **taiko-client:** wrap prover config and init errors ([#21465](https://github.com/taikoxyz/taiko-mono/issues/21465)) ([1fd4158](https://github.com/taikoxyz/taiko-mono/commit/1fd4158826aeb46f8e59d28dddee4d8e1f1ea788))
+
+
+### Chores
+
+* **relayer:** fix relayer build ([#21426](https://github.com/taikoxyz/taiko-mono/issues/21426)) ([d0920bf](https://github.com/taikoxyz/taiko-mono/commit/d0920bfc33bf0cf5efc3de03eb3f7411526ccf41))
+* **relayer:** pacaya clean up ([#21407](https://github.com/taikoxyz/taiko-mono/issues/21407)) ([1ba276e](https://github.com/taikoxyz/taiko-mono/commit/1ba276e63afab7c12a53553fde95db34ef4390eb))
+* **taiko-client:** corrected printing shasta fork time ([#21317](https://github.com/taikoxyz/taiko-mono/issues/21317)) ([33b4e34](https://github.com/taikoxyz/taiko-mono/commit/33b4e340155e962eab1dfa2b8932a802d26aafc5))
+* **taiko-client:** rename Shasta fork config accessor ([#21276](https://github.com/taikoxyz/taiko-mono/issues/21276)) ([32aa3ca](https://github.com/taikoxyz/taiko-mono/commit/32aa3cab0e2b643ecb1c7e12fbd28b32963bad68))
+
+
+### Tests
+
+* **taiko-client:** use `anvil_getBlobByHash` and simplify blob test wiring ([#21479](https://github.com/taikoxyz/taiko-mono/issues/21479)) ([ffc43be](https://github.com/taikoxyz/taiko-mono/commit/ffc43be9dfc8c331f90932b7eb654a03f453f89d))
+
+
+### Workflow
+
+* **taiko-client:** add optional cache dependency paths to speedup dependency install ([#21470](https://github.com/taikoxyz/taiko-mono/issues/21470)) ([f9ac37e](https://github.com/taikoxyz/taiko-mono/commit/f9ac37ef5d85a8882b34a11c57d7711af6b1e10a))
+
 ## [2.1.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.1.0...taiko-alethia-client-v2.1.1) (2026-02-03)
 
 

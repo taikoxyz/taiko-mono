@@ -4,7 +4,7 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH},
     primitives::{Address, B256, U256, keccak256},
     providers::Provider,
 };
@@ -15,7 +15,7 @@ use metrics::counter;
 use protocol::shasta::{
     PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    payload_id_to_bytes,
+    payload_id_to_bytes, uzen_active_for_chain_timestamp,
 };
 
 use crate::{
@@ -176,10 +176,11 @@ where
     ///
     /// Errors are logged but never propagated so payload application can proceed even when the
     /// mapping is unavailable.
-    async fn finalized_block_hash_for(&self, last_finalized_proposal_id: u64) -> Option<B256> {
-        if last_finalized_proposal_id == 0 {
-            return None;
-        }
+    async fn finalized_block_hash_for(
+        &self,
+        maybe_last_finalized_proposal_id: Option<u64>,
+    ) -> Option<B256> {
+        let last_finalized_proposal_id = maybe_last_finalized_proposal_id?;
 
         let block_number = match self
             .rpc
@@ -795,9 +796,65 @@ where
             return Ok(None);
         }
 
-        if block.header.difficulty != U256::ZERO {
-            debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
-            return Ok(None);
+        let uzen_active = uzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)
+            .map_err(|err| DerivationError::Other(err.into()))?;
+
+        if uzen_active {
+            if block.header.difficulty == U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Uzen");
+                return Ok(None);
+            }
+
+            if block.header.blob_gas_used != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "blob gas used mismatch");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "excess blob gas mismatch");
+                return Ok(None);
+            }
+
+            if block.header.parent_beacon_block_root != Some(B256::ZERO) {
+                debug!(proposal_id = meta.proposal_id, block_id, "parent beacon root mismatch");
+                return Ok(None);
+            }
+
+            if block.header.requests_hash != Some(EMPTY_REQUESTS_HASH) {
+                debug!(proposal_id = meta.proposal_id, block_id, "requests hash mismatch");
+                return Ok(None);
+            }
+        } else {
+            if block.header.difficulty != U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
+                return Ok(None);
+            }
+
+            if block.header.blob_gas_used.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected blob gas used");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected excess blob gas");
+                return Ok(None);
+            }
+
+            if block.header.parent_beacon_block_root.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected parent beacon root before Uzen"
+                );
+                return Ok(None);
+            }
+
+            if block.header.requests_hash.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected requests hash before Uzen"
+                );
+                return Ok(None);
+            }
         }
 
         if block.header.mix_hash != derived_block.payload.payload_attributes.prev_randao {
@@ -924,7 +981,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, TxKind};

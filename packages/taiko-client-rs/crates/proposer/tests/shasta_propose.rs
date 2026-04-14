@@ -18,6 +18,12 @@ fn base_proposer_config(env: &ShastaEnv) -> ProposerConfigs {
         l1_proposer_private_key: env.l1_proposer_private_key,
         gas_limit: None,
         use_engine_mode: false,
+        retry_interval: Duration::from_secs(48),
+        confirmation_timeout: Duration::from_secs(180),
+        receipt_query_interval: Some(Duration::from_millis(100)),
+        min_tip_cap_gwei: 1,
+        min_base_fee_gwei: 1,
+        min_blob_fee_gwei: 1,
     }
 }
 
@@ -34,7 +40,7 @@ async fn propose_shasta_batches(env: &mut ShastaEnv) -> anyhow::Result<()> {
         assert_eq!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);
 
         evm_mine(&provider).await?;
-        proposer.fetch_and_propose().await?;
+        assert!(proposer.fetch_and_propose().await?.status());
 
         assert_ne!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);
     }
@@ -57,7 +63,7 @@ async fn propose_shasta_batches_engine_mode(env: &mut ShastaEnv) -> anyhow::Resu
         assert_eq!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);
 
         evm_mine(&provider).await?;
-        proposer.fetch_and_propose().await?;
+        assert!(proposer.fetch_and_propose().await?.status());
 
         assert_ne!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);
     }

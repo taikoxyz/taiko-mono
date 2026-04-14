@@ -13,7 +13,7 @@ services:
       - --host
       - "0.0.0.0"
       - --timestamp
-      - "${ANVIL_INTERNAL_SHASTA_TIME}"
+      - "${ANVIL_L1_START_TIMESTAMP}"
       - --gas-limit
       - "200000000"
 
@@ -69,7 +69,7 @@ services:
       - admin,debug,eth,net,web3,txpool,miner,taiko
       - --taiko
       - --taiko.internal-shasta-time
-      - "${TAIKO_INTERNAL_SHASTA_TIME}"
+      - "0"
 
   l2_nmc:
     container_name: l2_nmc
@@ -90,3 +90,53 @@ services:
       - /nethermind/data
       - --log
       - DEBUG
+
+  l2_reth:
+    container_name: l2_reth
+    image: us-docker.pkg.dev/evmchain/images/alethia-reth:main
+    restart: unless-stopped
+    pull_policy: always
+    volumes:
+      - .:/host
+    ports:
+      - "8545"
+      - "8546"
+      - "8551"
+    command:
+      - /app/alethia-reth
+      - node
+      - --chain
+      - devnet
+      - --disable-discovery
+      - --datadir
+      - /data/alethia-reth
+      - --metrics
+      - 0.0.0.0:9001
+      - --http
+      - --http.addr
+      - "0.0.0.0"
+      - --http.port
+      - "8545"
+      - --http.api
+      - admin,debug,eth,net,txpool,web3
+      - --http.corsdomain
+      - "*"
+      - --ws
+      - --ws.addr
+      - "0.0.0.0"
+      - --ws.port
+      - "8546"
+      - --ws.api
+      - admin,debug,eth,net,txpool,web3
+      - --ws.origins
+      - "*"
+      - --authrpc.addr
+      - "0.0.0.0"
+      - --authrpc.port
+      - "8551"
+      - --authrpc.jwtsecret
+      - /host/jwt.hex
+      - --engine.always-process-payload-attributes-on-canonical-head
+      - --engine.allow-unwind-canonical-header
+      - --txpool.max-account-slots
+      - "1024"

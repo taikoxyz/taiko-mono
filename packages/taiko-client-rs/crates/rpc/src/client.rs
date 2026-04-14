@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use alethia_reth_evm::handler::get_treasury_address;
+use alethia_reth_primitives::addresses::get_treasury_address;
 use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
@@ -57,6 +57,8 @@ pub struct AnchorState {
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct Client<P: Provider + Clone> {
+    /// L2 chain ID, fetched from the L2 provider at startup.
+    pub chain_id: u64,
     /// L1 provider (optionally with wallet) used for contract calls.
     pub l1_provider: P,
     /// L2 public provider for read-only access.
@@ -143,7 +145,7 @@ impl<P: Provider + Clone> Client<P> {
 
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
-        Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
+        Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
     }
 
     /// Fetch the L1 block hash for a given block number.

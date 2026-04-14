@@ -1,8 +1,11 @@
 //! Event sync logic.
 
+/// Geth error message returned when no finalized block exists yet (e.g. fresh devnets).
+const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
+
 use std::{
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
@@ -24,7 +27,7 @@ use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
-    time::timeout,
+    time::{sleep, timeout},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
@@ -42,12 +45,20 @@ use crate::{
     metrics::DriverMetrics,
     production::{
         BlockProductionPath, CanonicalL1ProductionPath, PreconfPayload, PreconfirmationPath,
-        ProductionInput, ProductionRouter,
+        ProductionInput, ProductionRouter, path::EngineBlockOutcome,
     },
 };
 
 use alloy_rpc_types_engine::PayloadId;
 use rpc::{RpcClientError, blob::BlobDataSource, client::Client};
+
+/// Result of processing a single proposal log inside `process_log_batch`.
+enum ProposalLogResult {
+    /// The proposal log derived successfully into one or more engine outcomes.
+    Processed(Vec<EngineBlockOutcome>),
+    /// The proposal log was proven orphaned by an L1 reorg and should be skipped.
+    SkippedOrphaned,
+}
 
 /// Default timeout for preconfirmation payload submission.
 ///
@@ -79,9 +90,10 @@ struct EventStreamStartPoint {
 fn should_probe_confirmed_sync(
     preconfirmation_enabled: bool,
     preconf_ingress_spawned: bool,
+    preconf_ingress_ready: bool,
     scanner_live: bool,
 ) -> bool {
-    preconfirmation_enabled && !preconf_ingress_spawned && scanner_live
+    preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
@@ -153,6 +165,39 @@ fn resolve_target_with_optional_finalization(
     }
 }
 
+/// Resolve the reconnect start block after a scanner interruption.
+///
+/// - Rewind one block from the last seen height to cover partial delivery from the boundary block.
+/// - If a finalized L1 block exists behind that overlap point, rewind all the way to finalized so
+///   reconnect replays the entire reorg-unsafe window.
+/// - If finalization is unavailable, fall back to the original startup anchor to avoid skipping
+///   potentially replaced historical logs on fresh chains.
+fn resolve_reconnect_start_block(
+    last_seen_l1_block_number: u64,
+    finalized_l1_block_number: Option<u64>,
+    startup_anchor_block_number: u64,
+) -> u64 {
+    let overlap_start_block_number = last_seen_l1_block_number.saturating_sub(1);
+    finalized_l1_block_number
+        .map_or(startup_anchor_block_number, |finalized| overlap_start_block_number.min(finalized))
+}
+
+/// Convert a scanner setup error into either a fatal startup error or a retryable reconnect error.
+///
+/// Before the first successful scanner start, setup failures must fail fast so callers waiting on
+/// ingress readiness observe a clear startup error. After the scanner has started once, the same
+/// failures are treated as transient reconnect errors.
+fn resolve_event_scanner_setup_error(
+    scanner_started_once: bool,
+    error_message: String,
+) -> Result<String, SyncError> {
+    if scanner_started_once {
+        Ok(error_message)
+    } else {
+        Err(SyncError::EventScannerInit(error_message))
+    }
+}
+
 /// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
 #[inline]
 fn is_stale_preconf(block_number: u64, confirmed_tip: u64) -> bool {
@@ -174,8 +219,8 @@ where
     blob_source: Arc<BlobDataSource>,
     /// Optional preconfirmation ingress sender for external producers.
     preconf_tx: Option<PreconfSender>,
-    /// Optional preconfirmation ingress receiver consumed by the sync loop.
-    preconf_rx: Option<Arc<AsyncMutex<PreconfReceiver>>>,
+    /// Preconfirmation ingress receiver, moved exactly once into the ingress loop.
+    preconf_rx: Mutex<Option<PreconfReceiver>>,
     /// Indicates whether strict preconfirmation ingress gating has been satisfied and
     /// the ingress loop is ready to accept submissions.
     preconf_ingress_ready: Arc<AtomicBool>,
@@ -203,6 +248,69 @@ pub struct PreconfJob {
     payload: Arc<PreconfPayload>,
     /// Oneshot channel to send the processing result back to the caller.
     respond_to: oneshot::Sender<Result<(), DriverError>>,
+}
+
+/// Return whether the provided preconfirmation payload already materialized into the local L2
+/// chain state.
+///
+/// Materialization requires both the per-block L1 origin record and the execution header to match
+/// the payload attributes previously submitted to the engine.
+async fn preconfirmation_payload_is_materialized<P>(
+    rpc: &Client<P>,
+    payload: &PreconfPayload,
+) -> Result<bool, DriverError>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    let block_number = payload.block_number();
+    let expected_payload = payload.payload();
+    let Some(origin) = rpc.l1_origin_by_id(U256::from(block_number)).await? else {
+        return Ok(false);
+    };
+    // Treat a zero build-payload id as an uninitialized origin record so we fail closed and
+    // re-submit rather than falsely acknowledging a materialized payload.
+    if origin.build_payload_args_id == [0u8; 8] ||
+        origin.build_payload_args_id != expected_payload.l1_origin.build_payload_args_id
+    {
+        return Ok(false);
+    }
+
+    let Some(block) = rpc
+        .l2_provider
+        .get_block_by_number(BlockNumberOrTag::Number(block_number))
+        .await
+        .map_err(|err| DriverError::Rpc(RpcClientError::Provider(err.to_string())))?
+    else {
+        return Ok(false);
+    };
+    let header = &block.header;
+
+    if origin.l2_block_hash != B256::ZERO && header.hash != origin.l2_block_hash {
+        return Ok(false);
+    }
+    if header.number != block_number {
+        return Ok(false);
+    }
+    if header.beneficiary != expected_payload.payload_attributes.suggested_fee_recipient {
+        return Ok(false);
+    }
+    if header.mix_hash != expected_payload.payload_attributes.prev_randao {
+        return Ok(false);
+    }
+    if header.gas_limit != expected_payload.block_metadata.gas_limit {
+        return Ok(false);
+    }
+    if header.timestamp != expected_payload.payload_attributes.timestamp {
+        return Ok(false);
+    }
+    if header.extra_data != expected_payload.block_metadata.extra_data {
+        return Ok(false);
+    }
+
+    Ok(matches!(
+        header.base_fee_per_gas,
+        Some(base_fee) if U256::from(base_fee) == expected_payload.base_fee_per_gas
+    ))
 }
 
 impl<P> EventSyncer<P>
@@ -236,7 +344,7 @@ where
     fn spawn_preconf_ingress(
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
-        rx: Arc<AsyncMutex<PreconfReceiver>>,
+        mut rx: PreconfReceiver,
         rpc: Client<P>,
         ready_flag: Arc<AtomicBool>,
         ready_notify: Arc<Notify>,
@@ -248,7 +356,6 @@ where
                 queue_capacity = PRECONF_CHANNEL_CAPACITY,
                 "started preconfirmation ingress loop"
             );
-            let mut rx = rx.lock().await;
             // Signal that the ingress loop is ready to accept submissions.
             ready_flag.store(true, Ordering::Release);
             ready_notify.notify_waiters();
@@ -257,6 +364,29 @@ where
                 gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
+                match preconfirmation_payload_is_materialized(&rpc, job.payload.as_ref()).await {
+                    Ok(true) => {
+                        debug!(
+                            block_number,
+                            build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
+                            "acknowledging already materialized preconfirmation payload"
+                        );
+                        let _ = job.respond_to.send(Ok(()));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
+                    }
+                    Ok(false) => {}
+                    Err(err) => {
+                        error!(
+                            ?err,
+                            block_number, "failed to check preconfirmation materialization state"
+                        );
+                        let _ = job.respond_to.send(Err(err));
+                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        continue;
+                    }
+                }
+
                 let router_guard = router.lock().await;
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
@@ -324,6 +454,46 @@ where
         });
     }
 
+    /// Return whether a failed proposal log is permanently orphaned because its source L1 block
+    /// no longer exists on the provider.
+    #[instrument(skip(self), level = "debug")]
+    async fn is_permanently_orphaned_proposal_log(
+        &self,
+        block_hash: B256,
+        log_block_number: Option<u64>,
+    ) -> Result<bool, SyncError> {
+        let block = self
+            .rpc
+            .l1_provider
+            .get_block_by_hash(block_hash)
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        // If the block is still resolvable, the failure came from downstream processing, not a
+        // reorg that removed the source log.
+        if block.is_some() {
+            return Ok(false);
+        }
+
+        let Some(log_block_number) = log_block_number else {
+            // We already proved the block hash is gone, and without a block number there is no
+            // head-height guard we can apply before classifying it as orphaned.
+            return Ok(true);
+        };
+
+        // A transiently lagging provider can return `None` for a block that has not yet reached
+        // the provider's visible head. Only classify the log as orphaned once the head has caught
+        // up to or passed the log's block number.
+        let chain_head = self
+            .rpc
+            .l1_provider
+            .get_block_number()
+            .await
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        Ok(chain_head >= log_block_number)
+    }
+
     /// Process a batch of proposal logs from the event scanner.
     async fn process_log_batch(
         &self,
@@ -345,32 +515,75 @@ where
                 transaction_hash = ?log.transaction_hash,
                 "dispatching proposal log to derivation pipeline"
             );
+
+            let Some(block_hash) = log.block_hash else {
+                error!(
+                    ?log.transaction_hash,
+                    block_number = log.block_number,
+                    "proposal log missing block hash"
+                );
+                return Err(SyncError::MissingProposalLogBlockHash {
+                    tx_hash: log.transaction_hash,
+                    block_number: log.block_number,
+                });
+            };
+
             // Retry proposal processing on transient errors.
             let retry_strategy =
                 ExponentialBackoff::from_millis(10).max_delay(Duration::from_secs(12));
 
+            let syncer = self;
             let router = router.clone();
             let proposal_log = log.clone();
-            let outcomes = Retry::spawn(retry_strategy, move || {
+            let processing = Retry::spawn(retry_strategy, move || {
                 let router = router.clone();
                 let log = proposal_log.clone();
                 async move {
-                    // Lock router so L1 proposals and preconf inputs cannot interleave.
-                    let router_guard = router.lock().await;
-                    let outcomes = router_guard
-                        .produce(ProductionInput::L1ProposalLog(log.clone()))
-                        .await
-                        .map_err(|err| {
-                            warn!(
-                                ?err,
-                                tx_hash = ?log.transaction_hash,
-                                block_number = log.block_number,
-                                "proposal derivation failed; retrying"
-                            );
-                            err
-                        })?;
+                    let router_call = {
+                        // Lock router so L1 proposals and preconf inputs cannot interleave.
+                        let router_guard = router.lock().await;
+                        router_guard.produce(ProductionInput::L1ProposalLog(log.clone())).await
+                    };
 
-                    Ok(outcomes)
+                    match router_call {
+                        Ok(outcomes) => Ok(ProposalLogResult::Processed(outcomes)),
+                        Err(err) => match syncer
+                            .is_permanently_orphaned_proposal_log(block_hash, log.block_number)
+                            .await
+                        {
+                            Ok(true) => {
+                                counter!(DriverMetrics::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL)
+                                    .increment(1);
+                                warn!(
+                                    ?err,
+                                    block_number = log.block_number,
+                                    block_hash = ?block_hash,
+                                    transaction_hash = ?log.transaction_hash,
+                                    "skipping permanently orphaned proposal log",
+                                );
+                                Ok(ProposalLogResult::SkippedOrphaned)
+                            }
+                            Ok(false) => {
+                                warn!(
+                                    ?err,
+                                    tx_hash = ?log.transaction_hash,
+                                    block_number = log.block_number,
+                                    "proposal derivation failed; retrying"
+                                );
+                                Err(err)
+                            }
+                            Err(recheck_err) => {
+                                warn!(
+                                    ?err,
+                                    ?recheck_err,
+                                    tx_hash = ?log.transaction_hash,
+                                    block_number = log.block_number,
+                                    "proposal derivation failed and orphaned-log recheck errored; retrying"
+                                );
+                                Err(err)
+                            }
+                        },
+                    }
                 }
             })
             .await
@@ -379,6 +592,10 @@ where
                 DriverError::Rpc(rpc_err) => SyncError::Rpc(rpc_err),
                 other => SyncError::Other(anyhow!(other)),
             })?;
+
+            let ProposalLogResult::Processed(outcomes) = processing else {
+                continue;
+            };
 
             if let Some(last_outcome) = outcomes.last() {
                 gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
@@ -423,7 +640,7 @@ where
         );
         let (preconf_tx, preconf_rx) = if cfg.preconfirmation_enabled {
             let (tx, rx) = mpsc::channel(PRECONF_CHANNEL_CAPACITY);
-            (Some(tx), Some(Arc::new(AsyncMutex::new(rx))))
+            (Some(tx), Some(rx))
         } else {
             (None, None)
         };
@@ -434,7 +651,7 @@ where
             checkpoint_resume_head,
             blob_source,
             preconf_tx,
-            preconf_rx,
+            preconf_rx: Mutex::new(preconf_rx),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
@@ -527,6 +744,15 @@ where
         // Reject early if strict ingress gating is not satisfied yet.
         if !self.preconf_ingress_ready.load(Ordering::Acquire) {
             return Err(DriverError::PreconfIngressNotReady);
+        }
+
+        if preconfirmation_payload_is_materialized(&self.rpc, &payload).await? {
+            debug!(
+                block_number = payload.block_number(),
+                build_payload_args_id = %PayloadId::new(payload.payload().l1_origin.build_payload_args_id),
+                "skipping already materialized preconfirmation payload"
+            );
+            return Ok(());
         }
 
         let block_number = payload.block_number();
@@ -662,12 +888,15 @@ where
     /// Returns `None` when the L1 chain has not yet finalized (e.g. fresh devnets).
     #[instrument(skip(self), level = "debug")]
     async fn try_finalized_l1_snapshot(&self) -> Result<Option<FinalizedL1Snapshot>, SyncError> {
-        let finalized_block = self
-            .rpc
-            .l1_provider
-            .get_block_by_number(BlockNumberOrTag::Finalized)
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+        let finalized_block =
+            match self.rpc.l1_provider.get_block_by_number(BlockNumberOrTag::Finalized).await {
+                Ok(block) => block,
+                // Geth returns JSON-RPC error -32000 "finalized block not found" on fresh
+                // devnets before the beacon chain has finalized its first block. Treat this
+                // specific error as "not yet available" rather than a fatal failure.
+                Err(err) if err.to_string().contains(FINALIZED_BLOCK_NOT_FOUND) => return Ok(None),
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            };
 
         let Some(finalized_block) = finalized_block else {
             return Ok(None);
@@ -916,101 +1145,211 @@ where
         let derivation = Arc::new(derivation_pipeline);
         let router = self.build_router(derivation.clone());
 
-        let mut scanner = self
-            .cfg
-            .client
-            .l1_provider_source
-            .to_event_scanner_from_tag(start_tag)
-            .await
-            .map_err(|err| SyncError::EventScannerInit(err.to_string()))?;
-        let filter = EventFilter::new()
-            .contract_address(self.cfg.client.inbox_address)
-            .event(Proposed::SIGNATURE);
-
-        let mut stream = scanner.subscribe(filter).stream(
-            &scanner.start().await.map_err(|err| SyncError::EventScannerInit(err.to_string()))?,
-        );
-
-        info!("event scanner started; listening for inbox proposals");
+        let mut reconnect_start_tag = start_tag;
+        let startup_anchor_block_number = anchor_block_number;
 
         // Strict gate state for starting preconfirmation ingress.
         let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
+        let mut scanner_started_once = false;
 
-        while let Some(message) = stream.next().await {
-            debug!(?message, "received inbox proposal message from event scanner");
-            match message {
-                Ok(ScannerMessage::Data(logs)) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
-                    counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
-                    self.process_log_batch(router.clone(), logs).await?;
+        loop {
+            if !preconf_ingress_spawned {
+                // A reconnect re-enters historical sync and must wait for a fresh
+                // `SwitchingToLive` notification before probing ingress readiness.
+                scanner_live = false;
+            }
+            let mut scanner = match self
+                .cfg
+                .client
+                .l1_provider_source
+                .to_event_scanner_from_tag(reconnect_start_tag)
+                .await
+            {
+                Ok(scanner) => scanner,
+                Err(err) => {
+                    let err =
+                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
+                    warn!(
+                        error = %err,
+                        start_tag = ?reconnect_start_tag,
+                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        "failed to initialize event scanner; retrying"
+                    );
+                    sleep(self.cfg.retry_interval).await;
+                    continue;
                 }
-                Ok(ScannerMessage::Notification(notification)) => {
-                    info!(?notification, "event scanner notification");
-                    if matches!(notification, Notification::SwitchingToLive) {
-                        // Scanner live is necessary but not sufficient: confirmed-sync readiness
-                        // must also pass before ingress opens.
-                        scanner_live = true;
-                    }
+            };
+            let filter = EventFilter::new()
+                .contract_address(self.cfg.client.inbox_address)
+                .event(Proposed::SIGNATURE);
+            let subscription = scanner.subscribe(filter);
+            let proof = match scanner.start().await {
+                Ok(proof) => {
+                    scanner_started_once = true;
+                    proof
                 }
                 Err(err) => {
-                    counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
-                    error!(?err, "error receiving proposal logs from event scanner");
+                    let err =
+                        resolve_event_scanner_setup_error(scanner_started_once, err.to_string())?;
+                    warn!(
+                        error = %err,
+                        start_tag = ?reconnect_start_tag,
+                        retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                        "failed to start event scanner; retrying"
+                    );
+                    sleep(self.cfg.retry_interval).await;
                     continue;
+                }
+            };
+            let mut stream = subscription.stream(&proof);
+
+            info!(
+                start_tag = ?reconnect_start_tag,
+                "event scanner started; listening for inbox proposals"
+            );
+
+            let mut last_seen_l1_block_number = None;
+
+            while let Some(message) = stream.next().await {
+                debug!(?message, "received inbox proposal message from event scanner");
+                match message {
+                    Ok(ScannerMessage::Data(logs)) => {
+                        if let Some(block_number) = logs.last().and_then(|log| log.block_number) {
+                            last_seen_l1_block_number = Some(block_number);
+                        }
+                        counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
+                        counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
+                        self.process_log_batch(router.clone(), logs).await?;
+                    }
+                    Ok(ScannerMessage::Notification(notification)) => {
+                        info!(?notification, "event scanner notification");
+                        if matches!(notification, Notification::SwitchingToLive) {
+                            // Scanner live is necessary but not sufficient: confirmed-sync
+                            // readiness must also pass before ingress
+                            // opens.
+                            scanner_live = true;
+                        }
+                    }
+                    Err(err) => {
+                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                        error!(?err, "error receiving proposal logs from event scanner");
+                        continue;
+                    }
+                }
+
+                if should_probe_confirmed_sync(
+                    self.cfg.preconfirmation_enabled,
+                    preconf_ingress_spawned,
+                    self.preconf_ingress_ready.load(Ordering::Acquire),
+                    scanner_live,
+                ) {
+                    let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
+                    if let Err(err) = &confirmed_sync_probe {
+                        counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL)
+                            .increment(1);
+                        warn!(
+                            ?err,
+                            "confirmed-sync probe failed; keeping preconfirmation ingress closed"
+                        );
+                        continue;
+                    }
+                    let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
+                    if confirmed_sync_ready {
+                        let rx = self
+                            .preconf_rx
+                            .lock()
+                            .expect("preconfirmation receiver lock should not be poisoned")
+                            .take();
+                        if let Some(rx) = rx {
+                            self.spawn_preconf_ingress(
+                                router.clone(),
+                                rx,
+                                self.rpc.clone(),
+                                self.preconf_ingress_ready.clone(),
+                                self.preconf_ingress_notify.clone(),
+                            );
+                            preconf_ingress_spawned = true;
+                        } else if !self.preconf_ingress_ready.swap(true, Ordering::AcqRel) {
+                            info!("re-opened preconfirmation ingress after scanner reconnect");
+                            self.preconf_ingress_notify.notify_waiters();
+                        }
+                    }
                 }
             }
 
-            if should_probe_confirmed_sync(
-                self.cfg.preconfirmation_enabled,
-                preconf_ingress_spawned,
-                scanner_live,
-            ) {
-                let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
-                if let Err(err) = &confirmed_sync_probe {
-                    counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL).increment(1);
-                    warn!(
-                        ?err,
-                        "confirmed-sync probe failed; keeping preconfirmation ingress closed"
-                    );
-                    continue;
-                }
-                let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
-                if confirmed_sync_ready && let Some(rx) = self.preconf_rx.clone() {
-                    self.spawn_preconf_ingress(
-                        router.clone(),
-                        rx,
-                        self.rpc.clone(),
-                        self.preconf_ingress_ready.clone(),
-                        self.preconf_ingress_notify.clone(),
-                    );
-                    preconf_ingress_spawned = true;
-                }
+            // A dropped scanner forces a historical replay window again, so close ingress until
+            // the next live scanner transition and confirmed-sync probe re-open it.
+            if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
+                info!("closing preconfirmation ingress during event scanner reconnect");
             }
+
+            if let Some(block_number) = last_seen_l1_block_number {
+                let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
+                {
+                    Ok(snapshot) => snapshot.map(|snapshot| snapshot.block_number),
+                    Err(err) => {
+                        warn!(
+                            ?err,
+                            fallback_start_block = startup_anchor_block_number,
+                            "failed to resolve finalized reconnect anchor; rewinding to startup anchor"
+                        );
+                        None
+                    }
+                };
+                reconnect_start_tag = BlockNumberOrTag::Number(resolve_reconnect_start_block(
+                    block_number,
+                    reconnect_finalized_block_number,
+                    startup_anchor_block_number,
+                ));
+            }
+            warn!(
+                start_tag = ?reconnect_start_tag,
+                retry_after_secs = self.cfg.retry_interval.as_secs_f64(),
+                "event scanner stream ended; reconnecting"
+            );
+            sleep(self.cfg.retry_interval).await;
         }
-        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{
+        collections::HashSet,
+        path::PathBuf,
+        sync::{Arc as StdArc, Mutex},
+        time::Duration,
+    };
 
     use super::*;
     use alethia_reth_primitives::payload::attributes::{
         RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
     };
     use alloy::{
-        primitives::{Address, B256, Bytes, U256},
+        primitives::{
+            Address, B256, Bytes, FixedBytes, U256,
+            aliases::{U24, U48},
+        },
         transports::http::reqwest::Url,
     };
     use alloy_provider::{ProviderBuilder, RootProvider};
-    use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+    use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
     use alloy_transport::mock::Asserter;
-    use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
+    use async_trait::async_trait;
+    use bindings::{
+        anchor::Anchor::AnchorInstance,
+        inbox::{IInbox::DerivationSource, Inbox::InboxInstance, LibBlobs::BlobSlice},
+    };
     use rpc::{
         SubscriptionSource,
         blob::BlobDataSource,
         client::{Client, ClientConfig, ShastaProtocolInstance},
+    };
+
+    use crate::{
+        production::{BlockProductionPath, ProductionInput, ProductionPathKind, ProductionRouter},
+        sync::engine::EngineBlockOutcome,
     };
 
     fn sample_payload(block_number: u64) -> TaikoPayloadAttributes {
@@ -1049,20 +1388,7 @@ mod tests {
     }
 
     fn mock_client() -> Client<RootProvider> {
-        let l1_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
-        let l2_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
-        let l2_auth_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
-        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
-        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
-        let shasta = ShastaProtocolInstance { inbox, anchor };
-
-        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+        mock_client_with_l1_asserter(Asserter::new())
     }
 
     async fn build_syncer() -> EventSyncer<RootProvider> {
@@ -1093,10 +1419,357 @@ mod tests {
             checkpoint_resume_head: Arc::new(CheckpointResumeHead::default()),
             blob_source: Arc::new(blob_source),
             preconf_tx: Some(preconf_tx),
-            preconf_rx: Some(Arc::new(AsyncMutex::new(preconf_rx))),
+            preconf_rx: Mutex::new(Some(preconf_rx)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         }
+    }
+
+    fn sample_event_log_with_block_hash(block_hash: B256) -> Log {
+        Log {
+            inner: alloy::primitives::Log::empty(),
+            block_hash: Some(block_hash),
+            block_number: Some(1),
+            block_timestamp: None,
+            transaction_hash: Some(B256::from([9u8; 32])),
+            transaction_index: Some(0),
+            log_index: Some(0),
+            removed: false,
+        }
+    }
+
+    fn sample_derivation_source() -> DerivationSource {
+        DerivationSource {
+            isForcedInclusion: false,
+            blobSlice: BlobSlice {
+                blobHashes: vec![FixedBytes::ZERO],
+                offset: U24::ZERO,
+                timestamp: U48::ZERO,
+            },
+        }
+    }
+
+    fn sample_proposed_log(proposal_id: u64, block_hash: B256, transaction_hash: B256) -> Log {
+        let proposed = Proposed {
+            id: U48::from(proposal_id),
+            proposer: Address::from([proposal_id as u8; 20]),
+            parentProposalHash: FixedBytes::from([proposal_id as u8; 32]),
+            endOfSubmissionWindowTimestamp: U48::from(1u64),
+            basefeeSharingPctg: 0,
+            sources: vec![sample_derivation_source()],
+        };
+
+        Log {
+            inner: alloy::primitives::Log::new_from_event_unchecked(Address::ZERO, proposed)
+                .reserialize(),
+            block_hash: Some(block_hash),
+            block_number: Some(proposal_id),
+            block_timestamp: None,
+            transaction_hash: Some(transaction_hash),
+            transaction_index: Some(0),
+            log_index: Some(0),
+            removed: false,
+        }
+    }
+
+    fn sample_engine_outcome(block_number: u64) -> EngineBlockOutcome {
+        let mut block = RpcBlock::<TxEnvelope>::default();
+        block.header.number = block_number;
+        block.header.hash = B256::from([block_number as u8; 32]);
+        EngineBlockOutcome { block, payload_id: PayloadId::new([block_number as u8; 8]) }
+    }
+
+    #[derive(Clone)]
+    struct MockBatchPath {
+        orphaned_tx_hashes: StdArc<HashSet<B256>>,
+        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
+    }
+
+    impl MockBatchPath {
+        fn new(orphaned_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
+            Self {
+                orphaned_tx_hashes: StdArc::new(orphaned_tx_hashes.into_iter().collect()),
+                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn seen_tx_hashes(&self) -> Vec<B256> {
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for MockBatchPath {
+        fn kind(&self) -> ProductionPathKind {
+            ProductionPathKind::L1Events
+        }
+
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("mock batch path only supports L1 proposal logs");
+            };
+
+            let tx_hash =
+                log.transaction_hash.expect("test proposal log should always include tx hash");
+            self.seen_tx_hashes
+                .lock()
+                .expect("seen tx hashes mutex should not be poisoned")
+                .push(tx_hash);
+
+            if self.orphaned_tx_hashes.contains(&tx_hash) {
+                return Err(DriverError::Other(anyhow!("mock orphaned proposal failure")));
+            }
+
+            Ok(vec![sample_engine_outcome(
+                log.block_number.expect("test proposal log should always include block number"),
+            )])
+        }
+    }
+
+    #[derive(Clone)]
+    struct MockRetryBatchPath {
+        fail_once_tx_hashes: StdArc<Mutex<HashSet<B256>>>,
+        seen_tx_hashes: StdArc<Mutex<Vec<B256>>>,
+    }
+
+    impl MockRetryBatchPath {
+        fn new(fail_once_tx_hashes: impl IntoIterator<Item = B256>) -> Self {
+            Self {
+                fail_once_tx_hashes: StdArc::new(Mutex::new(
+                    fail_once_tx_hashes.into_iter().collect(),
+                )),
+                seen_tx_hashes: StdArc::new(Mutex::new(Vec::new())),
+            }
+        }
+
+        fn seen_tx_hashes(&self) -> Vec<B256> {
+            self.seen_tx_hashes.lock().expect("seen tx hashes mutex should not be poisoned").clone()
+        }
+    }
+
+    #[async_trait]
+    impl BlockProductionPath for MockRetryBatchPath {
+        fn kind(&self) -> ProductionPathKind {
+            ProductionPathKind::L1Events
+        }
+
+        async fn produce(
+            &self,
+            input: ProductionInput,
+        ) -> Result<Vec<EngineBlockOutcome>, DriverError> {
+            let ProductionInput::L1ProposalLog(log) = input else {
+                panic!("mock retry batch path only supports L1 proposal logs");
+            };
+
+            let tx_hash =
+                log.transaction_hash.expect("test proposal log should always include tx hash");
+            self.seen_tx_hashes
+                .lock()
+                .expect("seen tx hashes mutex should not be poisoned")
+                .push(tx_hash);
+
+            if self
+                .fail_once_tx_hashes
+                .lock()
+                .expect("fail-once tx hashes mutex should not be poisoned")
+                .remove(&tx_hash)
+            {
+                return Err(DriverError::Other(anyhow!("mock retryable proposal failure")));
+            }
+
+            Ok(vec![sample_engine_outcome(
+                log.block_number.expect("test proposal log should always include block number"),
+            )])
+        }
+    }
+
+    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+        let l1_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+        let l2_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    #[tokio::test]
+    async fn orphaned_proposal_log_is_permanent_when_l1_block_is_missing() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&1u64);
+
+        let log = sample_event_log_with_block_hash(B256::from([1u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_chain_head_is_behind_missing_block() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&0u64);
+
+        let log = sample_event_log_with_block_hash(B256::from([5u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_is_retryable_when_l1_block_still_exists() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_success(&Some(RpcBlock::<TxEnvelope>::default()));
+
+        let log = sample_event_log_with_block_hash(B256::from([2u8; 32]));
+        let is_orphaned = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect("block lookup should succeed");
+
+        assert!(!is_orphaned);
+    }
+
+    #[tokio::test]
+    async fn proposal_log_reorg_check_is_transient_on_rpc_error() {
+        let asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(asserter.clone()),
+            ..build_syncer().await
+        };
+        asserter.push_failure_msg("boom");
+
+        let log = sample_event_log_with_block_hash(B256::from([3u8; 32]));
+        let err = syncer
+            .is_permanently_orphaned_proposal_log(
+                log.block_hash.expect("test log should include block hash"),
+                log.block_number,
+            )
+            .await
+            .expect_err("rpc lookup failure should be surfaced");
+
+        assert!(matches!(err, SyncError::Rpc(RpcClientError::Provider(_))));
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_skips_orphaned_proposal_log_and_continues_batch() {
+        let orphaned_block_hash = B256::from([0x11; 32]);
+        let orphaned_tx_hash = B256::from([0x21; 32]);
+        let later_tx_hash = B256::from([0x22; 32]);
+        let asserter = Asserter::new();
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&2u64);
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockBatchPath::new([orphaned_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![
+                    sample_proposed_log(1, orphaned_block_hash, orphaned_tx_hash),
+                    sample_proposed_log(2, B256::from([0x12; 32]), later_tx_hash),
+                ],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(()))),
+            "orphaned log should be skipped so a later log in the same batch still processes",
+        );
+        assert_eq!(path.seen_tx_hashes(), vec![orphaned_tx_hash, later_tx_hash]);
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_fails_when_proposal_log_missing_block_hash() {
+        let syncer = EventSyncer {
+            rpc: mock_client_with_l1_asserter(Asserter::new()),
+            ..build_syncer().await
+        };
+        let path = MockBatchPath::new([]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let mut log = sample_proposed_log(1, B256::from([0x31; 32]), B256::from([0x41; 32]));
+        log.block_hash = None;
+
+        let err = syncer
+            .process_log_batch(router, vec![log])
+            .await
+            .expect_err("missing block hash should fail the batch");
+
+        assert!(matches!(
+            err,
+            SyncError::MissingProposalLogBlockHash { tx_hash: Some(_), block_number: Some(1) }
+        ));
+        assert!(path.seen_tx_hashes().is_empty());
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_retries_when_orphan_recheck_errors() {
+        let retry_block_hash = B256::from([0x51; 32]);
+        let retry_tx_hash = B256::from([0x61; 32]);
+        let asserter = Asserter::new();
+        asserter.push_failure_msg("boom");
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockRetryBatchPath::new([retry_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, retry_block_hash, retry_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(()))),
+            "recheck rpc errors should keep the log retryable until a later attempt succeeds",
+        );
+        assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
     }
 
     #[tokio::test]
@@ -1141,6 +1814,15 @@ mod tests {
     fn confirmed_sync_ready_reflects_snapshot_readiness() {
         let ready = resolve_confirmed_sync_ready(ConfirmedSyncSnapshot::new(0, None, None));
         assert!(ready, "resolved readiness should mirror snapshot readiness");
+    }
+
+    #[test]
+    fn confirmed_sync_probe_rearms_when_ingress_gate_closes_after_spawn() {
+        assert!(should_probe_confirmed_sync(true, true, false, true));
+        assert!(!should_probe_confirmed_sync(true, true, true, true));
+        assert!(should_probe_confirmed_sync(true, false, false, true));
+        assert!(!should_probe_confirmed_sync(true, false, false, false));
+        assert!(!should_probe_confirmed_sync(false, true, false, true));
     }
 
     #[test]
@@ -1228,5 +1910,34 @@ mod tests {
         let (target, safe) = resolve_target_with_optional_finalization(50, Some(120));
         assert_eq!(target, 50);
         assert_eq!(safe, 120);
+    }
+
+    #[test]
+    fn reconnect_start_rewinds_to_finalized_when_finalized_is_behind_last_seen() {
+        let reconnect_start = resolve_reconnect_start_block(120, Some(80), 10);
+        assert_eq!(reconnect_start, 80);
+    }
+
+    #[test]
+    fn reconnect_start_keeps_one_block_overlap_when_finalized_is_ahead() {
+        let reconnect_start = resolve_reconnect_start_block(120, Some(240), 10);
+        assert_eq!(reconnect_start, 119);
+    }
+
+    #[test]
+    fn reconnect_start_falls_back_to_startup_anchor_without_finalization() {
+        let reconnect_start = resolve_reconnect_start_block(120, None, 10);
+        assert_eq!(reconnect_start, 10);
+    }
+
+    #[test]
+    fn scanner_setup_errors_fail_fast_before_first_successful_start() {
+        let err = resolve_event_scanner_setup_error(false, "boom".into())
+            .expect_err("startup scanner errors should fail fast");
+        assert!(matches!(err, SyncError::EventScannerInit(reason) if reason == "boom"));
+
+        let err = resolve_event_scanner_setup_error(true, "boom".into())
+            .expect("post-start scanner errors should be retryable");
+        assert_eq!(err, "boom");
     }
 }

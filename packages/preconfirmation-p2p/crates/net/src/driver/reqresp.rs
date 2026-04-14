@@ -321,8 +321,8 @@ impl NetworkDriver {
                     let hash = bytes32_to_b256(&request.raw_tx_list_hash);
                     if let Some(msg) = self.storage.get_txlist(&hash) {
                         let resp = GetRawTxListResponse {
-                            raw_tx_list_hash: msg.raw_tx_list_hash.clone(),
-                            txlist: msg.txlist.clone(),
+                            raw_tx_list_hash: msg.raw_tx_list_hash,
+                            txlist: msg.txlist,
                         };
                         let _ =
                             self.swarm.behaviour_mut().raw_txlists_rr.send_response(channel, resp);

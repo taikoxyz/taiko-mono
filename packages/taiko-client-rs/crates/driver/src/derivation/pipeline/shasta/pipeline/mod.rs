@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
+use alethia_reth_consensus::anchor_constants::{anchorV3Call, anchorV4Call};
 use alloy::{
     eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash},
-    primitives::{B256, U256},
+    primitives::{Address, B256, U256},
     providers::Provider,
     rpc::types::Log,
-    sol_types::SolEvent,
+    sol_types::{SolCall, SolEvent},
 };
-use alloy_consensus::TxEnvelope;
+use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
@@ -15,7 +16,10 @@ use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
 use metrics::{counter, gauge};
 use protocol::shasta::{
-    constants::{PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain, shasta_fork_timestamp_for_chain},
+    constants::{
+        MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET, PROPOSAL_MAX_BLOB_BYTES, TAIKO_MAINNET_CHAIN_ID,
+        min_base_fee_for_chain, shasta_fork_timestamp_for_chain,
+    },
     manifest::DerivationSourceManifest,
 };
 use rpc::{blob::BlobDataSource, client::Client};
@@ -55,6 +59,54 @@ use state::ParentState;
 
 pub use bundle::ShastaProposalBundle;
 
+/// Query inbox core state at the provided L1 block hash and return the finalized proposal id.
+///
+/// Failures are downgraded to `None` so proposal derivation can proceed without finalized
+/// forkchoice hints.
+async fn try_last_finalized_proposal_id_at_block<P>(
+    rpc: &Client<P>,
+    block_hash: B256,
+) -> Option<u64>
+where
+    P: Provider + Clone + 'static,
+{
+    match rpc
+        .shasta
+        .inbox
+        .getCoreState()
+        .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
+        .call()
+        .await
+    {
+        Ok(core_state) => Some(core_state.lastFinalizedProposalId.to::<u64>()),
+        Err(err) => {
+            warn!(
+                l1_block_hash = ?block_hash,
+                error = %err,
+                "failed to query last finalized proposal id from inbox core state"
+            );
+            None
+        }
+    }
+}
+
+/// Build proposal-wide metadata shared across manifest segments and payload derivation.
+fn build_bundle_meta(
+    event: &ProposedEventContext,
+    last_finalized_proposal_id: Option<u64>,
+) -> BundleMeta {
+    BundleMeta {
+        proposal_id: event.event.id.to::<u64>(),
+        last_finalized_proposal_id,
+        proposal_timestamp: event.l1_timestamp,
+        l1_block_number: event.l1_block_number,
+        l1_block_hash: event.l1_block_hash,
+        origin_block_number: event.l1_block_number.saturating_sub(1),
+        proposer: event.event.proposer,
+        basefee_sharing_pctg: event.event.basefeeSharingPctg,
+    }
+}
+
 /// Convert a derivation source's blob slice into ordered blob hashes for manifest fetch.
 fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {
     source.blobSlice.blobHashes.iter().map(|hash| B256::from_slice(hash.as_ref())).collect()
@@ -65,6 +117,51 @@ fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {
 fn is_source_offset_valid(source: &DerivationSource) -> bool {
     !source.blobSlice.blobHashes.is_empty() &&
         source.blobSlice.offset.to::<usize>() <= PROPOSAL_MAX_BLOB_BYTES - 64
+}
+
+/// Return whether parent-anchor recovery should decode the parent block's `anchorV4` / `anchorV3`
+/// transaction instead of consulting the anchor contract state.
+fn should_decode_parent_anchor_from_tx(chain_id: u64, proposal_id: u64) -> bool {
+    chain_id == TAIKO_MAINNET_CHAIN_ID && proposal_id <= MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET
+}
+
+/// Decode the parent block's advertised anchor block number from its first `anchorV4`
+/// transaction.
+fn decode_parent_anchor_block_number(
+    parent_block: &RpcBlock<TxEnvelope>,
+    anchor_address: Address,
+) -> Result<u64, DerivationError> {
+    let block_number = parent_block.header.number;
+    let txs = parent_block.transactions.as_transactions().ok_or_else(|| {
+        DerivationError::Other(anyhow!(
+            "parent block {block_number} returned only transaction hashes"
+        ))
+    })?;
+    let first_tx = txs.first().ok_or_else(|| {
+        DerivationError::Other(anyhow!("parent block {block_number} contains no transactions"))
+    })?;
+    let destination = first_tx.to().ok_or_else(|| {
+        DerivationError::Other(anyhow!(
+            "unable to determine anchor transaction recipient for parent block {block_number}"
+        ))
+    })?;
+    if destination != anchor_address {
+        return Err(DerivationError::Other(anyhow!(
+            "parent block {block_number} first transaction is not the anchor contract"
+        )));
+    }
+
+    let input = first_tx.input();
+    if let Ok(call) = anchorV4Call::abi_decode(input) {
+        return Ok(call.0.0.to::<u64>());
+    }
+    if let Ok(call) = anchorV3Call::abi_decode(input) {
+        return Ok(call._0);
+    }
+
+    Err(DerivationError::Other(anyhow!(
+        "failed to decode anchorV3/anchorV4 calldata in parent block {block_number}"
+    )))
 }
 
 /// Ensure forced-inclusion manifests adhere to protocol rules (single block) or default them.
@@ -239,22 +336,6 @@ where
         Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
-    /// Read the inbox core state at the proposal log's block to extract the last finalized id.
-    async fn inbox_last_finalized_proposal_id(&self, log: &Log) -> Result<u64, DerivationError> {
-        let block_hash = log
-            .block_hash
-            .ok_or_else(|| DerivationError::Other(anyhow!("proposal log missing block hash")))?;
-        let core_state = self
-            .rpc
-            .shasta
-            .inbox
-            .getCoreState()
-            .block(BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) }))
-            .call()
-            .await?;
-        Ok(core_state.lastFinalizedProposalId.to::<u64>())
-    }
-
     /// Fetch and decode a single manifest from the blob store.
     ///
     /// The caller is responsible for providing the correct fetcher implementation for
@@ -283,7 +364,7 @@ where
     async fn build_manifest_from_event(
         &self,
         event: &ProposedEventContext,
-        last_finalized_proposal_id: u64,
+        last_finalized_proposal_id: Option<u64>,
     ) -> Result<ShastaProposalBundle, DerivationError> {
         let sources = &event.event.sources;
         let proposal_id = event.event.id.to::<u64>();
@@ -317,21 +398,14 @@ where
 
         // Assemble the full Shasta protocol proposal bundle.
         let bundle = ShastaProposalBundle {
-            meta: BundleMeta {
-                proposal_id,
-                last_finalized_proposal_id,
-                proposal_timestamp: event.l1_timestamp,
-                l1_block_number: event.l1_block_number,
-                l1_block_hash: event.l1_block_hash,
-                origin_block_number: event.l1_block_number.saturating_sub(1),
-                proposer: event.event.proposer,
-                basefee_sharing_pctg: event.event.basefeeSharingPctg,
-            },
+            meta: build_bundle_meta(event, last_finalized_proposal_id),
             sources: manifest_segments,
         };
 
-        gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
-            .set(bundle.meta.last_finalized_proposal_id as f64);
+        if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
+            gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
+                .set(last_finalized_proposal_id as f64);
+        }
 
         info!(proposal_id, segment_count = bundle.sources.len(), "assembled proposal bundle");
         Ok(bundle)
@@ -342,9 +416,15 @@ where
     async fn initialize_parent_state(
         &self,
         parent_block: &RpcBlock<TxEnvelope>,
+        proposal_id: u64,
     ) -> Result<ParentState, DerivationError> {
-        let anchor_state = self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?;
         let parent_header = parent_block.header.inner.clone();
+        let anchor_block_number = if should_decode_parent_anchor_from_tx(self.chain_id, proposal_id)
+        {
+            decode_parent_anchor_block_number(parent_block, *self.rpc.shasta.anchor.address())?
+        } else {
+            self.rpc.shasta_anchor_state_by_hash(parent_block.hash()).await?.anchor_block_number
+        };
 
         let grandparent_timestamp = if parent_header.number == 0 {
             parent_header.timestamp
@@ -366,7 +446,7 @@ where
                 .timestamp
                 .saturating_sub(grandparent_timestamp),
             header: parent_header,
-            anchor_block_number: anchor_state.anchor_block_number,
+            anchor_block_number,
             shasta_fork_timestamp: self.shasta_fork_timestamp,
             min_base_fee_to_clamp: self.min_base_fee_to_clamp,
             chain_id: self.chain_id,
@@ -393,8 +473,11 @@ where
     #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
-        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
-        self.build_manifest_from_event(&event, last_finalized_proposal_id).await
+        self.build_manifest_from_event(
+            &event,
+            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await,
+        )
+        .await
     }
 
     // Convert a manifest into execution engine blocks for block production.
@@ -422,7 +505,8 @@ where
         );
 
         let parent_block = self.load_parent_block(meta.proposal_id).await?;
-        let mut parent_state = self.initialize_parent_state(&parent_block).await?;
+        let mut parent_state =
+            self.initialize_parent_state(&parent_block, meta.proposal_id).await?;
 
         // If every block already sits in the canonical chain we skip payload submission and only
         // refresh L1 origins.
@@ -454,7 +538,8 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
         let proposal_id = event.event.id.to::<u64>();
-        let last_finalized_proposal_id = self.inbox_last_finalized_proposal_id(log).await?;
+        let last_finalized_proposal_id =
+            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await;
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
@@ -488,12 +573,38 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy::primitives::{
-        B256, FixedBytes,
-        aliases::{U24, U48},
+    use alloy::{
+        consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559},
+        eips::eip2930::AccessList,
+        primitives::{
+            Address, B256, Bytes, FixedBytes, TxKind,
+            aliases::{U24, U48},
+        },
+        rpc::types::eth::BlockTransactions,
+        sol_types::SolCall,
     };
-    use bindings::inbox::LibBlobs::BlobSlice;
-    use protocol::shasta::manifest::{BlockManifest, DerivationSourceManifest};
+    use alloy_provider::{ProviderBuilder, RootProvider};
+    use alloy_transport::mock::Asserter;
+    use bindings::{
+        anchor::{Anchor::AnchorInstance, ICheckpointStore::Checkpoint},
+        inbox::{
+            IInbox,
+            Inbox::{InboxInstance, getCoreStateCall},
+            LibBlobs::BlobSlice,
+        },
+    };
+    use protocol::{
+        FixedKSigner,
+        shasta::{
+            AnchorTxConstructor,
+            constants::{TAIKO_MAINNET_CHAIN_ID, min_base_fee_for_chain},
+            manifest::{BlockManifest, DerivationSourceManifest},
+        },
+    };
+    use rpc::{
+        blob::BlobDataSource,
+        client::{Client, ShastaProtocolInstance},
+    };
 
     fn sample_derivation_source(
         blob_hashes: Vec<FixedBytes<32>>,
@@ -507,6 +618,103 @@ mod tests {
                 timestamp: U48::from(0u64),
             },
         }
+    }
+
+    fn sample_event_context() -> ProposedEventContext {
+        ProposedEventContext {
+            event: Proposed {
+                id: U48::from(11u64),
+                proposer: Address::from([2u8; 20]),
+                parentProposalHash: FixedBytes::from([3u8; 32]),
+                endOfSubmissionWindowTimestamp: U48::from(4u64),
+                basefeeSharingPctg: 5,
+                sources: vec![sample_derivation_source(vec![], false)],
+            },
+            l1_block_number: 10,
+            l1_block_hash: B256::from([6u8; 32]),
+            l1_timestamp: 7,
+        }
+    }
+
+    fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+        mock_client_with_asserters(l1_asserter, Asserter::new(), Asserter::new(), Address::ZERO)
+    }
+
+    fn mock_client_with_asserters(
+        l1_asserter: Asserter,
+        l2_asserter: Asserter,
+        l2_auth_asserter: Asserter,
+        anchor_address: Address,
+    ) -> Client<RootProvider> {
+        let l1_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+        let l2_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(l2_auth_asserter);
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(anchor_address, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    fn sign_test_anchor_tx(anchor_address: Address, input: Bytes) -> TxEnvelope {
+        let signer = FixedKSigner::golden_touch().expect("golden touch signer should load");
+        let tx = TxEip1559 {
+            chain_id: TAIKO_MAINNET_CHAIN_ID,
+            nonce: 0,
+            max_fee_per_gas: 1_000_000_000,
+            max_priority_fee_per_gas: 0,
+            gas_limit: 250_000,
+            to: TxKind::Call(anchor_address),
+            value: U256::ZERO,
+            access_list: AccessList::default(),
+            input,
+        };
+        let sighash = tx.signature_hash();
+        let mut hash_bytes = [0u8; 32];
+        hash_bytes.copy_from_slice(sighash.as_slice());
+        let signature =
+            signer.sign_with_predefined_k(&hash_bytes).expect("test anchor tx should sign");
+
+        TxEnvelope::new_unchecked(
+            EthereumTypedTransaction::Eip1559(tx),
+            signature.signature,
+            sighash,
+        )
+    }
+
+    fn sample_anchor_transaction(anchor_address: Address, anchor_block_number: u64) -> TxEnvelope {
+        let checkpoint = Checkpoint {
+            blockNumber: U48::from(anchor_block_number),
+            blockHash: B256::from([0x22; 32]),
+            stateRoot: B256::from([0x33; 32]),
+        };
+        sign_test_anchor_tx(
+            anchor_address,
+            Bytes::from(anchorV4Call(checkpoint.into()).abi_encode()),
+        )
+    }
+
+    fn sample_anchor_v3_transaction(
+        anchor_address: Address,
+        anchor_block_number: u64,
+    ) -> TxEnvelope {
+        sign_test_anchor_tx(
+            anchor_address,
+            Bytes::from(
+                anchorV3Call {
+                    _0: anchor_block_number,
+                    _1: B256::from([0x33; 32]),
+                    _2: 0,
+                    _3: (1, 0, 1, 0, 1),
+                    _4: Vec::new(),
+                }
+                .abi_encode(),
+            ),
+        )
     }
 
     #[test]
@@ -531,5 +739,130 @@ mod tests {
         let validated = validate_forced_inclusion_manifest(1, &source, manifest);
 
         assert_eq!(validated.blocks.len(), 1);
+    }
+
+    #[test]
+    fn bundle_meta_preserves_absent_finalized_proposal_id() {
+        let event = sample_event_context();
+
+        let meta = build_bundle_meta(&event, None);
+
+        assert_eq!(meta.proposal_id, 11);
+        assert_eq!(meta.last_finalized_proposal_id, None);
+        assert_eq!(meta.origin_block_number, 9);
+    }
+
+    #[test]
+    fn mainnet_bootstrap_proposals_skip_anchor_state_lookup() {
+        assert!(should_decode_parent_anchor_from_tx(TAIKO_MAINNET_CHAIN_ID, 1));
+        assert!(should_decode_parent_anchor_from_tx(TAIKO_MAINNET_CHAIN_ID, 7));
+        assert!(!should_decode_parent_anchor_from_tx(TAIKO_MAINNET_CHAIN_ID, 8));
+        assert!(!should_decode_parent_anchor_from_tx(167_013, 7));
+    }
+
+    #[test]
+    fn decode_parent_anchor_block_number_accepts_anchor_v3() {
+        let anchor_address = Address::repeat_byte(0x44);
+        let anchor_block_number = 55u64;
+        let mut parent_block = RpcBlock::<TxEnvelope>::default();
+        parent_block.header.number = 1;
+        parent_block.transactions = BlockTransactions::Full(vec![sample_anchor_v3_transaction(
+            anchor_address,
+            anchor_block_number,
+        )]);
+
+        let decoded = decode_parent_anchor_block_number(&parent_block, anchor_address)
+            .expect("anchorV3 calldata should decode");
+
+        assert_eq!(decoded, anchor_block_number);
+    }
+
+    #[tokio::test]
+    async fn initialize_parent_state_decodes_anchor_from_parent_tx_on_mainnet_bootstrap() {
+        let l2_asserter = Asserter::new();
+        let anchor_address = Address::repeat_byte(0x44);
+        let parent_anchor_block_number = 55u64;
+        l2_asserter.push_success(&TAIKO_MAINNET_CHAIN_ID);
+        let mut grandparent_block = RpcBlock::<TxEnvelope>::default();
+        grandparent_block.header.number = 0;
+        grandparent_block.header.timestamp = 100;
+        l2_asserter.push_success(&Some(grandparent_block));
+
+        let client = mock_client_with_asserters(
+            Asserter::new(),
+            l2_asserter,
+            Asserter::new(),
+            anchor_address,
+        );
+        let blob_source = Arc::new(
+            BlobDataSource::new(None, None, true)
+                .await
+                .expect("blob data source should initialise"),
+        );
+        let anchor_constructor =
+            AnchorTxConstructor::new(client.l2_provider.clone(), anchor_address)
+                .await
+                .expect("anchor constructor should initialise");
+        let pipeline = ShastaDerivationPipeline {
+            rpc: client,
+            anchor_constructor,
+            derivation_source_manifest_fetcher: Arc::new(ShastaSourceManifestFetcher::new(
+                blob_source,
+            )),
+            shasta_fork_timestamp: 0,
+            min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
+            chain_id: TAIKO_MAINNET_CHAIN_ID,
+            initial_proposal_id: U256::ZERO,
+        };
+
+        let mut parent_block = RpcBlock::<TxEnvelope>::default();
+        parent_block.header.number = 1;
+        parent_block.header.timestamp = 112;
+        parent_block.header.parent_hash = B256::from([0x11; 32]);
+        parent_block.transactions = BlockTransactions::Full(vec![sample_anchor_transaction(
+            anchor_address,
+            parent_anchor_block_number,
+        )]);
+
+        let state = pipeline
+            .initialize_parent_state(&parent_block, 7)
+            .await
+            .expect("mainnet bootstrap should decode parent anchor from tx");
+
+        assert_eq!(state.anchor_block_number, parent_anchor_block_number);
+        assert_eq!(state.parent_block_time_delta_secs, 12);
+    }
+
+    #[tokio::test]
+    async fn finalized_proposal_id_at_block_returns_some_on_success() {
+        let asserter = Asserter::new();
+        let client = mock_client_with_l1_asserter(asserter.clone());
+        let core_state = IInbox::CoreState {
+            nextProposalId: U48::from(9u64),
+            lastProposalBlockId: U48::from(8u64),
+            lastFinalizedProposalId: U48::from(7u64),
+            lastFinalizedTimestamp: U48::from(6u64),
+            lastCheckpointTimestamp: U48::from(5u64),
+            lastFinalizedBlockHash: FixedBytes::from([4u8; 32]),
+        };
+        let encoded = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        asserter.push_success(&encoded);
+
+        let proposal_id =
+            try_last_finalized_proposal_id_at_block(&client, B256::from([1u8; 32])).await;
+
+        assert_eq!(proposal_id, Some(7));
+    }
+
+    #[tokio::test]
+    async fn finalized_proposal_id_at_block_returns_none_on_rpc_error() {
+        let asserter = Asserter::new();
+        let client = mock_client_with_l1_asserter(asserter.clone());
+        asserter.push_failure_msg("boom");
+
+        let proposal_id =
+            try_last_finalized_proposal_id_at_block(&client, B256::from([1u8; 32])).await;
+
+        assert_eq!(proposal_id, None);
     }
 }

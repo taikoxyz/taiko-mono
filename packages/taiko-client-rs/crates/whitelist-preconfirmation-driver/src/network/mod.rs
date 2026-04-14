@@ -1,13 +1,11 @@
 //! Minimal libp2p network runtime for whitelist preconfirmation topics.
 
-mod bootnodes;
-mod event_loop;
-mod gossip;
-pub(crate) mod inbound;
+mod behaviour;
+mod config;
+mod discovery;
+pub(crate) mod handler;
 mod runtime;
-mod types;
+mod topics;
 
-#[cfg(test)]
-mod tests;
-
-pub(crate) use self::types::{NetworkCommand, NetworkEvent, WhitelistNetwork};
+pub use self::runtime::NetworkConfig;
+pub(crate) use self::runtime::{NetworkCommand, NetworkEvent, WhitelistNetwork};

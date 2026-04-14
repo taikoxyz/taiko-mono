@@ -55,7 +55,7 @@ contract Proposal0009 is BuildProposal {
         actions[2] = buildUpgradeAction(L1.SIGNAL_SERVICE, SIGNAL_SERVICE_FORK_ROUTER_L1);
 
         // Upgrade L1 Inbox proxy to the Pacaya mainnet implementation.
-        actions[3] = buildUpgradeAction(L1.INBOX, PACAYA_MAINNET_INBOX_NEW_IMPL);
+        actions[3] = buildUpgradeAction(L1.LEGACY_PACAYA_INBOX, PACAYA_MAINNET_INBOX_NEW_IMPL);
 
         // --- ZK verifiers: Shasta only (raiko zk:v1.16.0) ---
         // We register which proof image/program IDs the Shasta verifiers accept:

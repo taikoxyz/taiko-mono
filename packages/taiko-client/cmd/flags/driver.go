@@ -34,7 +34,7 @@ var (
 	// blob server endpoint
 	BlobServerEndpoint = &cli.StringFlag{
 		Name:     "blob.server",
-		Usage:    "Blob sidecar storage server",
+		Usage:    "Blob sidecar storage server, or an Anvil RPC endpoint which is the same as the L1 endpoint",
 		Category: driverCategory,
 		EnvVars:  []string{"BLOB_SERVER"},
 	}
@@ -58,19 +58,12 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_CORS_ORIGINS"},
 	}
-	PreconfWhitelistAddress = &cli.StringFlag{
-		Name:     "preconfirmation.whitelist",
-		Usage:    "PreconfWhitelist contract L1 `address`",
-		Required: false,
+	PreconfHandoverSkipSlots = &cli.Uint64Flag{
+		Name:     "preconfirmation.handoverSkipSlots",
+		Usage:    "Number of slots to reserve for handover at the end of each epoch",
+		Value:    8,
 		Category: driverCategory,
-		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
-	}
-	DriverTaikoWrapperAddress = &cli.StringFlag{
-		Name:     "taikoWrapper",
-		Usage:    "TaikoWrapper contract `address`",
-		Required: false,
-		Category: driverCategory,
-		EnvVars:  []string{"TAIKO_WRAPPER"},
+		EnvVars:  []string{"PRECONFIRMATION_HANDOVER_SKIP_SLOTS"},
 	}
 )
 
@@ -87,6 +80,5 @@ var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	PreconfBlockServerPort,
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
-	PreconfWhitelistAddress,
-	DriverTaikoWrapperAddress,
+	PreconfHandoverSkipSlots,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

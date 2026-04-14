@@ -17,13 +17,11 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
@@ -33,13 +31,12 @@ import (
 
 // eventHandlers contains all event handlers which will be used by the prover.
 type eventHandlers struct {
-	batchProposedHandler     handler.BatchProposedHandler
-	batchesVerifiedHandler   handler.BatchesVerifiedHandler
-	batchesProvedHandler     handler.BatchesProvedHandler
+	proposalHandler          handler.ProposalHandler
+	proofsReceivedHandler    handler.ProofsReceivedHandler
 	assignmentExpiredHandler handler.AssignmentExpiredHandler
 }
 
-// Prover keeps trying to prove newly proposed blocks.
+// Prover keeps trying to prove newly proposed inbox proposals.
 type Prover struct {
 	// Configurations
 	cfg *Config
@@ -57,14 +54,12 @@ type Prover struct {
 	eventHandlers *eventHandlers
 
 	// Proof submitters
-	proofSubmitterPacaya proofSubmitter.Submitter
-	proofSubmitterShasta proofSubmitter.Submitter
+	proofSubmitter proofSubmitter.Submitter
 
-	assignmentExpiredCh            chan metadata.TaikoProposalMetaData
-	proveNotify                    chan struct{}
-	batchesAggregationNotifyPacaya chan proofProducer.ProofType
-	batchesAggregationNotifyShasta chan proofProducer.ProofType
-	flushCacheNotify               chan proofProducer.ProofType
+	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
+	proveNotify              chan struct{}
+	batchesAggregationNotify chan proofProducer.ProofType
+	flushCacheNotify         chan proofProducer.ProofType
 
 	// Proof related channels
 	proofSubmissionCh      chan *proofProducer.ProofRequestBody
@@ -103,16 +98,13 @@ func InitFromConfig(
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
 		L1Endpoint:         cfg.L1WsEndpoint,
+		L1BeaconEndpoint:   cfg.L1BeaconEndpoint,
 		L2Endpoint:         cfg.L2WsEndpoint,
 		L2EngineEndpoint:   cfg.L2EngineEndpoint,
 		JwtSecret:          cfg.JwtSecret,
-		PacayaInboxAddress: cfg.PacayaInboxAddress,
-		ShastaInboxAddress: cfg.ShastaInboxAddress,
+		InboxAddress:       cfg.InboxAddress,
 		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
-		TaikoTokenAddress:  cfg.TaikoTokenAddress,
-		ProverSetAddress:   cfg.ProverSetAddress,
 		Timeout:            cfg.RPCTimeout,
-		ShastaForkTime:     cfg.ShastaForkTime,
 	}); err != nil {
 		return err
 	}
@@ -129,19 +121,16 @@ func InitFromConfig(
 	p.assignmentExpiredCh = make(chan metadata.TaikoProposalMetaData, chBufferSize)
 	p.proofSubmissionCh = make(chan *proofProducer.ProofRequestBody, chBufferSize)
 	p.proveNotify = make(chan struct{}, 1)
-	p.batchesAggregationNotifyPacaya = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
-	p.batchesAggregationNotifyShasta = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
+	p.batchesAggregationNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 	p.flushCacheNotify = make(chan proofProducer.ProofType, proofSubmitter.MaxNumSupportedProofTypes)
 
-	if err := p.initL1Current(cfg.StartingBatchID); err != nil {
+	if err := p.initL1Current(cfg.StartingProposalID); err != nil {
 		return fmt.Errorf("initialize L1 current cursor error: %w", err)
 	}
 
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
-		p.cfg.PacayaInboxAddress,
-		p.cfg.ShastaInboxAddress,
-		p.cfg.ProverSetAddress,
+		p.cfg.InboxAddress,
 	)
 	if txMgr != nil {
 		p.txmgr = txMgr
@@ -172,11 +161,8 @@ func InitFromConfig(
 		}
 	}
 
-	// Proof submitters
-	if err := p.initPacayaProofSubmitter(txBuilder); err != nil {
-		return err
-	}
-	if err := p.initShastaProofSubmitter(ctx, txBuilder); err != nil {
+	// Proof submitter
+	if err := p.initProofSubmitter(ctx, txBuilder); err != nil {
 		return err
 	}
 
@@ -190,14 +176,7 @@ func InitFromConfig(
 
 // Start starts the main loop of the L2 block prover.
 func (p *Prover) Start() error {
-	// 1. Set approval amount for the contracts.
-	for _, contract := range []common.Address{p.cfg.PacayaInboxAddress} {
-		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
-			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
-		}
-	}
-
-	// 2. Start the main event loop of the prover.
+	// Start the main event loop of the prover.
 	go p.eventLoop()
 
 	return nil
@@ -220,32 +199,22 @@ func (p *Prover) eventLoop() {
 	// Call reqProving() right away to catch up with the latest state.
 	reqProving()
 
-	// If there is too many (TaikoData.Config.blockMaxProposals) pending blocks in TaikoInbox contract, there will be no
-	// new BatchProposed event temporarily, so except the BatchProposed subscription, we need another trigger to start
-	// fetching the proposed batches.
+	// If there are too many pending proposals in the Inbox contract, there will be no new proposal event temporarily, so
+	// except the proposal-event subscription, we need another trigger to start fetching the proposed proposals.
 	forceProvingTicker := time.NewTicker(15 * time.Second)
 	defer forceProvingTicker.Stop()
 
 	// Channels
 	chBufferSize := p.protocolConfigs.MaxProposals()
-	batchProposedCh := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, chBufferSize)
-	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
-	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
-	shastaProposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
-	shastaProvedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
+	proposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
+	provedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
 
 	// Subscriptions
-	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
-	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
-	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
-	shastaProposedSub := rpc.SubscribeProposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
-	shastaProvedSub := rpc.SubscribeProvedShasta(p.rpc.ShastaClients.Inbox, shastaProvedCh)
+	proposedSub := rpc.SubscribeProposed(p.rpc.ShastaClients.Inbox, proposedCh)
+	provedSub := rpc.SubscribeProved(p.rpc.ShastaClients.Inbox, provedCh)
 	defer func() {
-		batchProposedSub.Unsubscribe()
-		batchesVerifiedSub.Unsubscribe()
-		batchesProvedSub.Unsubscribe()
-		shastaProposedSub.Unsubscribe()
-		shastaProvedSub.Unsubscribe()
+		proposedSub.Unsubscribe()
+		provedSub.Unsubscribe()
 	}()
 
 	for {
@@ -253,33 +222,26 @@ func (p *Prover) eventLoop() {
 		case <-p.ctx.Done():
 			return
 		case batchProof := <-p.batchProofGenerationCh:
-			p.withRetry(func() error { return p.submitProofAggregationOp(batchProof) })
+			p.withRetry(
+				func() error { return p.submitProofAggregationOp(batchProof) },
+				func() error { return p.clearProofBuffer(batchProof, true) },
+			)
 		case req := <-p.proofSubmissionCh:
-			p.withRetry(func() error { return p.requestProofOp(req.Meta) })
+			p.withRetry(func() error { return p.requestProofOp(req.Meta) }, nil)
 		case <-p.proveNotify:
 			if err := p.proveOp(); err != nil {
-				log.Error("Prove new blocks error", "error", err)
+				log.Error("Prove new proposals error", "error", err)
 			}
-		case proofType := <-p.batchesAggregationNotifyPacaya:
-			p.withRetry(func() error { return p.aggregateOp(proofType, false) })
-		case proofType := <-p.batchesAggregationNotifyShasta:
-			p.withRetry(func() error { return p.aggregateOp(proofType, true) })
+		case proofType := <-p.batchesAggregationNotify:
+			p.withRetry(func() error { return p.aggregateOp(proofType) }, nil)
 		case proofType := <-p.flushCacheNotify:
-			p.withRetry(func() error { return p.proofSubmitterShasta.FlushCache(p.ctx, proofType) })
-		case e := <-batchesVerifiedCh:
-			if err := p.eventHandlers.batchesVerifiedHandler.HandlePacaya(p.ctx, e); err != nil {
-				log.Error("Failed to handle new BatchesVerified event", "error", err)
-			}
-		case e := <-batchesProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandlePacaya(p.ctx, e) })
+			p.withRetry(func() error { return p.proofSubmitter.FlushCache(p.ctx, proofType) }, nil)
 		case m := <-p.assignmentExpiredCh:
-			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
-		case <-batchProposedCh:
+			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) }, nil)
+		case <-proposedCh:
 			reqProving()
-		case <-shastaProposedCh:
-			reqProving()
-		case e := <-shastaProvedCh:
-			p.withRetry(func() error { return p.eventHandlers.batchesProvedHandler.HandleShasta(p.ctx, e) })
+		case e := <-provedCh:
+			p.withRetry(func() error { return p.eventHandlers.proofsReceivedHandler.Handle(p.ctx, e) }, nil)
 		case <-forceProvingTicker.C:
 			reqProving()
 		}
@@ -291,16 +253,16 @@ func (p *Prover) Close(_ context.Context) {
 	p.wg.Wait()
 }
 
-// proveOp iterates through BatchProposed events.
+// proveOp iterates through Proposed events.
 func (p *Prover) proveOp() error {
-	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
-		RpcClient:            p.rpc,
-		StartHeight:          new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
-		OnBatchProposedEvent: p.eventHandlers.batchProposedHandler.Handle,
-		BlockConfirmations:   &p.cfg.BlockConfirmations,
+	iter, err := eventIterator.NewProposalIterator(p.ctx, &eventIterator.ProposalIteratorConfig{
+		RpcClient:          p.rpc,
+		StartHeight:        new(big.Int).SetUint64(p.sharedState.GetL1Current().Number.Uint64()),
+		OnProposalEvent:    p.eventHandlers.proposalHandler.Handle,
+		BlockConfirmations: &p.cfg.BlockConfirmations,
 	})
 	if err != nil {
-		log.Error("Failed to start event iterator", "event", "BatchProposed", "error", err)
+		log.Error("Failed to start proposal iterator", "error", err)
 		return err
 	}
 
@@ -308,13 +270,8 @@ func (p *Prover) proveOp() error {
 }
 
 // aggregateOp aggregates all proofs in buffer.
-func (p *Prover) aggregateOp(proofType proofProducer.ProofType, isShasta bool) error {
-	var err error
-	if isShasta {
-		err = p.proofSubmitterShasta.AggregateProofsByType(p.ctx, proofType)
-	} else {
-		err = p.proofSubmitterPacaya.AggregateProofsByType(p.ctx, proofType)
-	}
+func (p *Prover) aggregateOp(proofType proofProducer.ProofType) error {
+	err := p.proofSubmitter.AggregateProofsByType(p.ctx, proofType)
 	if err != nil {
 		log.Error("Failed to aggregate proofs", "error", err, "proofType", proofType)
 		return err
@@ -324,58 +281,71 @@ func (p *Prover) aggregateOp(proofType proofProducer.ProofType, isShasta bool) e
 
 // requestProofOp requests a new proof generation operation.
 func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
-	if meta.IsShasta() {
-		return p.proofSubmitterShasta.RequestProof(p.ctx, meta)
-	}
-	if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
-		log.Error("Request new batch proof error", "batchID", meta.Pacaya().GetBatchID(), "error", err)
-		return err
-	}
-
-	return nil
+	return p.proofSubmitter.RequestProof(p.ctx, meta)
 }
 
 // submitProofAggregationOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
-	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
-		return fmt.Errorf("empty batch proof")
+	submitter, err := p.getSubmitter(batchProof)
+	if err != nil {
+		return err
 	}
-	submitter := p.proofSubmitterPacaya
-	if batchProof.ProofResponses[0].Meta.IsShasta() {
-		submitter = p.proofSubmitterShasta
-	}
-	if utils.IsNil(submitter) {
-		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)
-	}
-
 	if err := submitter.BatchSubmitProofs(p.ctx, batchProof); err != nil {
-		if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) {
-			log.Error(
-				"Proof submission reverted",
-				"blockIDs", batchProof.BatchIDs,
+		if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
+			log.Warn(
+				"Detected proven proposals",
+				"proposalIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
 			return nil
-		} else if strings.Contains(err.Error(), proofSubmitter.ErrInvalidProof.Error()) {
-			log.Warn(
-				"Detected proven blocks",
-				"blockIDs", batchProof.BatchIDs,
+		} else if strings.Contains(err.Error(), vm.ErrExecutionReverted.Error()) ||
+			strings.Contains(err.Error(), transaction.ErrUnretryableSubmission.Error()) {
+			log.Error(
+				"Proof submission reverted or unretryable",
+				"proposalIDs", batchProof.BatchIDs,
 				"proofType", batchProof.ProofType,
 				"error", err,
 			)
+			if err := submitter.ClearProofBuffers(batchProof, true); err != nil {
+				// If clearing the proof buffer fails, return the error and retry in the next attempt.
+				return err
+			}
 			return nil
 		}
 		log.Error(
 			"Submit proof error",
-			"blockIDs", batchProof.BatchIDs,
+			"proposalIDs", batchProof.BatchIDs,
 			"proofType", batchProof.ProofType,
 			"error", err,
 		)
 		return err
 	}
+	if err := submitter.ClearProofBuffers(batchProof, false); err != nil {
+		return fmt.Errorf("failed to clear proof buffers after successful submission: %w", err)
+	}
 
 	return nil
+}
+
+// clearProofBuffer clears the buffered proof items for the proposal aggregation from the matching submitter.
+func (p *Prover) clearProofBuffer(batchProof *proofProducer.BatchProofs, resend bool) error {
+	submitter, err := p.getSubmitter(batchProof)
+	if err != nil {
+		return err
+	}
+	return submitter.ClearProofBuffers(batchProof, resend)
+}
+
+// getSubmitter returns the mapping proof submitter if it can be found.
+func (p *Prover) getSubmitter(batchProof *proofProducer.BatchProofs) (proofSubmitter.Submitter, error) {
+	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
+		return nil, fmt.Errorf("empty batch proof")
+	}
+	if p.proofSubmitter == nil {
+		return nil, fmt.Errorf("submitter not found: %s", batchProof.ProofType)
+	}
+	return p.proofSubmitter, nil
 }
 
 // Name returns the application name.
@@ -388,8 +358,8 @@ func (p *Prover) ProverAddress() common.Address {
 	return p.txmgr.From()
 }
 
-// withRetry retries the given function with prover backoff policy.
-func (p *Prover) withRetry(f func() error) {
+// withRetry retries the given function with prover backoff policy and runs callback if retries are exhausted.
+func (p *Prover) withRetry(f func() error, callback func() error) {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
@@ -402,6 +372,12 @@ func (p *Prover) withRetry(f func() error) {
 			p.ctx,
 		)
 		if err := backoff.Retry(f, bo); err != nil {
+			if callback != nil {
+				callbackErr := callback()
+				if callbackErr != nil {
+					log.Error("Callback failed", "error", callbackErr)
+				}
+			}
 			log.Error("Operation failed", "error", err)
 		}
 	}()

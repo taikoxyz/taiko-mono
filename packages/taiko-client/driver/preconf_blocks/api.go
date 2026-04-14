@@ -11,7 +11,6 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/taiko"
@@ -25,7 +24,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -88,22 +86,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// make a new context, we don't want to cancel the request if the caller times out.
 	ctx := context.Background()
 
-	if s.rpc.PacayaClients.TaikoWrapper != nil {
-		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return s.returnError(c, http.StatusInternalServerError, err)
-		}
-		if preconfRouter == rpc.ZeroAddress {
-			log.Warn("Preconfirmation is disabled via taikoWrapper", "preconfRouter", preconfRouter.Hex())
-			return s.returnError(
-				c,
-				http.StatusInternalServerError,
-				errors.New("preconfirmation is disabled via taikoWrapper"),
-			)
-		}
-	}
-
 	// Check if the L2 execution engine is syncing from L1.
 	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
 	if err != nil {
@@ -158,22 +140,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 					)
 				}
 			}
-		} else {
-			if parent.NumberU64() < s.latestSeenProposal.Pacaya().GetLastBlockID() {
-				log.Warn(
-					"The parent block ID is smaller than the latest block ID seen in event",
-					"parentBlockID", parent.NumberU64(),
-					"latestBlockIDSeenInEvent", s.latestSeenProposal.Pacaya().GetLastBlockID(),
-				)
-
-				return s.returnError(c, http.StatusBadRequest,
-					fmt.Errorf(
-						"latestBatchProposalBlockID: %v, parentBlockID: %v",
-						s.latestSeenProposal.Pacaya().GetLastBlockID(),
-						parent.NumberU64(),
-					),
-				)
-			}
 		}
 	}
 
@@ -207,20 +173,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		}
 	}
 
-	var difficulty []byte
-	if reqBody.ExecutableData.Timestamp >= s.rpc.ShastaClients.ForkTime {
-		if difficulty, err = encoding.CalculateShastaDifficulty(
-			parent.Difficulty(),
-			new(big.Int).SetUint64(reqBody.ExecutableData.Number),
-		); err != nil {
-			return s.returnError(c, http.StatusBadRequest, err)
-		}
-	} else {
-		if difficulty, err = encoding.CalculatePacayaDifficulty(
-			new(big.Int).SetUint64(reqBody.ExecutableData.Number),
-		); err != nil {
-			return s.returnError(c, http.StatusBadRequest, err)
-		}
+	difficulty, err := encoding.CalculateShastaDifficulty(
+		parent.Difficulty(),
+		new(big.Int).SetUint64(reqBody.ExecutableData.Number),
+	)
+	if err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
 	}
 
 	baseFee, overflow := uint256.FromBig(new(big.Int).SetUint64(reqBody.ExecutableData.BaseFeePerGas))
@@ -313,23 +271,15 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			}
 
 			// Build envelope once, cache locally, then publish to P2P.
-			env := &eth.ExecutionPayloadEnvelope{
-				ExecutionPayload: &eth.ExecutionPayload{
-					BaseFeePerGas: eth.Uint256Quantity(u256),
-					ParentHash:    header.ParentHash,
-					FeeRecipient:  header.Coinbase,
-					ExtraData:     header.Extra,
-					PrevRandao:    eth.Bytes32(header.MixDigest),
-					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
-					GasLimit:      eth.Uint64Quantity(header.GasLimit),
-					GasUsed:       eth.Uint64Quantity(header.GasUsed),
-					Timestamp:     eth.Uint64Quantity(header.Time),
-					BlockHash:     header.Hash(),
-					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
-				},
-				EndOfSequencing:   reqBody.EndOfSequencing,
-				IsForcedInclusion: &isForcedInclusion,
-				Signature:         sigBytes,
+			env, err := headerToEnvelope(
+				header,
+				[]eth.Data{reqBody.ExecutableData.Transactions},
+				reqBody.EndOfSequencing,
+				&isForcedInclusion,
+				sigBytes,
+			)
+			if err != nil {
+				return s.returnError(c, http.StatusInternalServerError, err)
 			}
 
 			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.

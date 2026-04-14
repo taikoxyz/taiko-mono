@@ -6,11 +6,11 @@ use alloy_primitives::Address;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
-use preconfirmation_net::P2pConfig;
 use rpc::client::ClientConfig;
 use tracing::warn;
 use whitelist_preconfirmation_driver::{
-    RunnerConfig, WhitelistPreconfirmationDriverMetrics, WhitelistPreconfirmationDriverRunner,
+    NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
+    WhitelistPreconfirmationDriverRunner,
 };
 
 use crate::{
@@ -32,9 +32,6 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Preconfirmation-specific CLI arguments.
     #[command(flatten)]
     pub preconf_flags: PreconfirmationArgs,
-    /// Whitelist P2P chain id for topic derivation.
-    #[clap(long = "p2p.chain-id", env = "P2P_CHAIN_ID")]
-    pub p2p_chain_id: Option<u64>,
     /// Shasta preconfirmation whitelist contract address.
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
@@ -94,7 +91,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
     }
 
     /// Build P2P configuration from command-line arguments.
-    fn build_p2p_config(&self) -> P2pConfig {
+    fn build_p2p_config(&self) -> NetworkConfig {
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -104,22 +101,14 @@ impl WhitelistPreconfirmationDriverSubCommand {
             })
             .collect();
 
-        let mut cfg = P2pConfig {
+        NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
-            allow_all_sequencers: self.preconf_flags.p2p_allow_all_sequencers,
-            sequencer_addresses: self.preconf_flags.p2p_sequencer_addresses.clone(),
             pre_dial_peers,
             ..Default::default()
-        };
-
-        if let Some(chain_id) = self.p2p_chain_id {
-            cfg.chain_id = chain_id;
         }
-
-        cfg
     }
 
     /// Resolve the whitelist RPC listen address.

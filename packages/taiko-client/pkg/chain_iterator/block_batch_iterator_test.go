@@ -55,39 +55,6 @@ func TestBlockBatchIterator_Iter(t *testing.T) {
 	require.Equal(t, headHeight, lastEnd.Uint64())
 }
 
-func TestBlockBatchIterator_IterWithoutSpecifiedEndHeight(t *testing.T) {
-	var maxBlocksReadPerEpoch uint64 = 2
-	var blockConfirmations uint64 = 6
-	client := getTestClient(t)
-
-	headHeight, err := client.BlockNumber(context.Background())
-	require.NoError(t, err)
-	require.Greater(t, headHeight, uint64(0))
-
-	lastEnd := common.Big0
-
-	iter, err := NewBlockBatchIterator(context.Background(), &BlockBatchIteratorConfig{
-		Client:                client,
-		MaxBlocksReadPerEpoch: &maxBlocksReadPerEpoch,
-		StartHeight:           common.Big0,
-		BlockConfirmations:    &blockConfirmations,
-		OnBlocks: func(
-			_ context.Context,
-			start, end *types.Header,
-			_ UpdateCurrentFunc,
-			_ EndIterFunc,
-		) error {
-			require.Equal(t, lastEnd.Uint64(), start.Number.Uint64())
-			lastEnd = end.Number
-			return nil
-		},
-	})
-
-	require.NoError(t, err)
-	require.NoError(t, iter.Iter())
-	require.GreaterOrEqual(t, lastEnd.Uint64(), headHeight-blockConfirmations)
-}
-
 func TestBlockBatchIterator_IterWithLessThanConfirmations(t *testing.T) {
 	var maxBlocksReadPerEpoch uint64 = 2
 	client := getTestClient(t)

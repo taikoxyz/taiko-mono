@@ -263,7 +263,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///
     /// @param _data Encoded ProveInput struct
     /// @param _proof Validity proof for the batch of proposals
-    function prove(bytes calldata _data, bytes calldata _proof) external {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         unchecked {
 
             CoreState memory state = _coreState;

@@ -187,6 +187,7 @@ async fn fork_to(
     let timestamp = block.header.timestamp;
     let mix_digest = block.header.mix_hash;
     let gas_limit = block.header.gas_limit;
+    let header_difficulty = block.header.difficulty;
     let extra_data = block.header.extra_data.clone();
     let base_fee = block.header.base_fee_per_gas.unwrap_or_default();
 
@@ -280,6 +281,7 @@ async fn fork_to(
     let sidecar = alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar {
         tx_hash,
         withdrawals_hash,
+        header_difficulty: Some(header_difficulty),
         taiko_block: Some(true),
     };
 
