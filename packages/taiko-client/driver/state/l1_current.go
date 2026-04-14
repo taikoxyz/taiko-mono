@@ -28,7 +28,7 @@ func (s *State) SetL1Current(h *types.Header) {
 }
 
 // ResetL1Current resets the l1Current cursor to the L1 height which emitted a
-// Shasta Proposed event with given blockID.
+// Proposed event with given blockID.
 func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	if blockID == nil {
 		return errors.New("empty block ID")
@@ -58,14 +58,14 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 	}
 
 	var proposedIn *big.Int
-	// For Shasta blocks, we need to get the last block ID from the last seen proposal ID - 1.
+	// For L2 blocks, we need to get the last block ID from the last seen proposal ID - 1.
 	proposalID, err := core.DecodeShastaProposalID(block.Extra())
 	if err != nil {
-		return fmt.Errorf("failed to decode Shasta proposal ID from block %d: %w", blockID, err)
+		return fmt.Errorf("failed to decode proposal ID from block %d: %w", blockID, err)
 	}
 	if proposalID.Cmp(common.Big1) <= 0 {
 		if proposedIn, err = s.rpc.GetActivationBlockNumber(ctx); err != nil {
-			return fmt.Errorf("failed to get Shasta activation block number: %w", err)
+			return fmt.Errorf("failed to get activation block number: %w", err)
 		}
 	} else {
 		blockIDFromLastProposal, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, new(big.Int).Sub(proposalID, common.Big1))
@@ -83,7 +83,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		if blockFromLastProposal.Transactions().Len() == 0 {
 			return fmt.Errorf("no transactions found in block %d", blockIDFromLastProposal.ToInt())
 		}
-		// Fetch the anchor block number from the anchorV4 transaction for Shasta blocks.
+		// Fetch the anchor block number from the anchorV4 transaction for blocks.
 		_, anchorBlockNumber, _, err := s.rpc.GetSyncedL1SnippetFromAnchor(blockFromLastProposal.Transactions()[0])
 		if err != nil {
 			return fmt.Errorf("failed to decode anchorV4 block params: %w", err)

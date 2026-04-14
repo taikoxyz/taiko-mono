@@ -21,7 +21,8 @@ import (
 // ref: https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md
 type EngineClient struct {
 	*rpc.Client
-	rpcURL string
+	rpcURL  string
+	chainID *big.Int
 }
 
 // CallContext wraps the underlying RPC client's CallContext with metrics tracking.
@@ -83,17 +84,30 @@ func (c *EngineClient) NewPayload(
 	return result, nil
 }
 
-// GetPayload gets the execution payload associated with the payload ID.
-func (c *EngineClient) GetPayload(
+// GetPayloadEnvelope gets the execution payload envelope associated with the payload ID.
+func (c *EngineClient) GetPayloadEnvelope(
 	ctx context.Context,
 	payloadID *engine.PayloadID,
-) (*engine.ExecutableData, error) {
+) (*engine.ExecutionPayloadEnvelope, error) {
 	var result *engine.ExecutionPayloadEnvelope
 	if err := c.CallContext(ctx, &result, "engine_getPayloadV2", payloadID); err != nil {
 		return nil, err
 	}
 
-	return result.ExecutionPayload, nil
+	return result, nil
+}
+
+// GetPayload gets the execution payload associated with the payload ID.
+func (c *EngineClient) GetPayload(
+	ctx context.Context,
+	payloadID *engine.PayloadID,
+) (*engine.ExecutableData, error) {
+	envelope, err := c.GetPayloadEnvelope(ctx, payloadID)
+	if err != nil {
+		return nil, err
+	}
+
+	return NormalizeExecutableData(c.chainID, envelope.ExecutionPayload, envelope.BlockValue)
 }
 
 // ExchangeTransitionConfiguration exchanges transition configs with the L2 execution engine.

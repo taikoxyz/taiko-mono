@@ -45,7 +45,7 @@ func NewSender(
 func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchProof *producer.BatchProofs) error {
 	txMgr, isPrivate := s.txmgrSelector.Select()
 
-	// Assemble the Shasta TaikoInbox.prove transaction.
+	// Assemble the inbox.prove transaction.
 	txCandidate, err := buildTx(&bind.TransactOpts{GasLimit: s.gasLimit, Context: ctx, From: txMgr.From()})
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 }
 
 // ValidateProof checks if the proof's corresponding L1 block is still in the canonical chain and if the
-// latest verified Shasta proposal is not ahead of this proof.
+// latest verified proposal is not ahead of this proof.
 func (s *Sender) ValidateProof(
 	ctx context.Context,
 	proofResponse *producer.ProofResponse,

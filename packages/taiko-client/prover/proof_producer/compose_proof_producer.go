@@ -40,7 +40,7 @@ type RaikoRequestProofBodyV3Shasta struct {
 
 // ComposeProofProducer generates a compose proof for the given block.
 type ComposeProofProducer struct {
-	// VerifierIDs are used for Shasta proof requests.
+	// VerifierIDs are used for proof requests.
 	VerifierIDs         map[ProofType]uint8
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration

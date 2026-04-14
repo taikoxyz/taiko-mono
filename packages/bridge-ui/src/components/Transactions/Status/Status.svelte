@@ -13,6 +13,8 @@
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
+  import { shouldShowManualClaimEntry } from './status';
+
   const dispatch = createEventDispatcher();
 
   export let bridgeTx: BridgeTransaction;
@@ -24,6 +26,12 @@
   let polling: ReturnType<typeof startPolling>;
   let loading = false;
   let hasError = false;
+
+  $: showManualClaimEntry = shouldShowManualClaimEntry({
+    bridgeTxStatus,
+    isProcessable,
+    processingFee: bridgeTx.processingFee,
+  });
 
   function onProcessable(isTxProcessable: boolean) {
     isProcessable = isTxProcessable;
@@ -61,14 +69,6 @@
 
     // claimModalOpen = true;
     dispatch('openModal', 'claim');
-  }
-
-  async function release() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
-    if (!$connectedSourceChain || !$account?.address) return;
-    // TODO: implement release handling
   }
 
   $: if (hasError && $account.address) {
@@ -113,7 +113,16 @@
 </script>
 
 <div class="Status f-items-center space-x-1">
-  {#if !isProcessable}
+  {#if showManualClaimEntry}
+    {#if textOnly}
+      <StatusDot type="pending" />
+      <span>{$t('transactions.status.processing.name')}</span>
+    {:else}
+      <button class="status-btn" on:click={handleClaimClick}>
+        {$t('transactions.button.try_claim')}
+      </button>
+    {/if}
+  {:else if !isProcessable}
     <StatusDot type="pending" />
     <span>{$t('transactions.status.processing.name')}</span>
   {:else if loading}
@@ -147,7 +156,7 @@
       <StatusDot type="pending" />
       <span>{$t('transactions.status.releasable')}</span>
     {:else}
-      <button class="status-btn" on:click={release} on:click={handleReleaseClick}>
+      <button class="status-btn" on:click={handleReleaseClick}>
         {$t('transactions.button.release')}
       </button>
     {/if}

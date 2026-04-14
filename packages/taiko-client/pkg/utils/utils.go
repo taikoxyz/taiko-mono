@@ -64,10 +64,10 @@ func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	return EncodeAndCompress(txs, "transactions")
 }
 
-// EncodeAndCompressSourceManifest encodes and compresses the given Shasta derivation source manifest using RLP
+// EncodeAndCompressSourceManifest encodes and compresses the given derivation source manifest using RLP
 // encoding followed by zlib compression.
 func EncodeAndCompressSourceManifest(sourceManifest *manifest.DerivationSourceManifest) ([]byte, error) {
-	return EncodeAndCompress(sourceManifest, "Shasta derivation source manifest")
+	return EncodeAndCompress(sourceManifest, "derivation source manifest")
 }
 
 // Compress compresses the given txList bytes using zlib.

@@ -124,11 +124,11 @@ func getCheckpointCache() *checkpointCache {
 	return checkpointCacheSingleton
 }
 
-// getShastaCheckpoint returns the latest cached or freshly loaded Shasta checkpoint.
+// getCheckpoint returns the latest cached or freshly loaded checkpoint.
 // The caller must pass the rpc.Client for the target L1 environment. In particular,
 // cli must not come from a different L1 network, because the cached checkpoint is only
 // valid for the chain context behind that client.
-func getShastaCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpoint, error) {
+func getCheckpoint(ctx context.Context, cli *rpc.Client) (*verifiedCheckpoint, error) {
 	return getCheckpointCache().getOrFetch(ctx, func(ctx context.Context) (*verifiedCheckpoint, error) {
 		return tryLastFinalizedCheckpoint(
 			ctx,
