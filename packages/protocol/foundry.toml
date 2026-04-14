@@ -74,7 +74,7 @@ sort_imports = true
 pow_no_space = false
 call_compact_args = true
 
-[lint]
+[profile.lint]
 ignore = ["contracts/thirdparty/circle/**"]
 exclude_lints = [
     "unaliased-plain-import",
