@@ -208,8 +208,8 @@ func ExtractVersion(data []byte, offset int) (uint32, error) {
 	version := new(big.Int).SetBytes(data[offset : offset+32])
 
 	// Check if version fits in uint32
-	if !version.IsUint64() {
-		return 0, fmt.Errorf("version number %d too large", version)
+	if version.BitLen() > 32 {
+		return 0, fmt.Errorf("version number %s too large", version.String())
 	}
 
 	return uint32(version.Uint64()), nil
@@ -224,6 +224,10 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 
 	// Extract 32 bytes for size
 	size := new(big.Int).SetBytes(data[offset+32 : offset+64])
+
+	if !size.IsUint64() {
+		return 0, fmt.Errorf("size %s too large", size.String())
+	}
 
 	return size.Uint64(), nil
 }

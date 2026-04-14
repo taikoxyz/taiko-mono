@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -62,7 +63,7 @@ func (s *DerivationSourceFetcherTestSuite) TestManifestEncodeDecode() {
 	s.Equal(len(m.Blocks[0].Transactions), len(decoded.BlockPayloads[0].Transactions))
 }
 
-func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
+func TestExtractVersionAndSize(t *testing.T) {
 	version := uint32(1)
 	size := uint64(1024) // Use a reasonable test size since ProposalMaxBytes was removed
 	sourceManifestBytes := testutils.RandomBytes(int(size))
@@ -79,9 +80,37 @@ func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
 	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
 
 	decodedVersion, decodedSize, err := ExtractVersionAndSize(blobBytesPrefix, 0)
-	s.Nil(err)
-	s.Equal(version, decodedVersion)
-	s.Equal(uint64(len(sourceManifestBytes)), decodedSize)
+	require.NoError(t, err)
+	require.Equal(t, version, decodedVersion)
+	require.Equal(t, uint64(len(sourceManifestBytes)), decodedSize)
+}
+
+func TestExtractVersionRejectsUint32Overflow(t *testing.T) {
+	versionBytes := make([]byte, 32)
+	new(big.Int).SetUint64(1 << 32).FillBytes(versionBytes)
+
+	sizeBytes := make([]byte, 32)
+	new(big.Int).SetUint64(1).FillBytes(sizeBytes)
+
+	blobBytesPrefix := append(versionBytes, sizeBytes...)
+
+	_, _, err := ExtractVersionAndSize(blobBytesPrefix, 0)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "version number")
+}
+
+func TestExtractSizeRejectsUint64Overflow(t *testing.T) {
+	versionBytes := make([]byte, 32)
+	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
+
+	sizeBytes := make([]byte, 32)
+	new(big.Int).Lsh(big.NewInt(1), 64).FillBytes(sizeBytes)
+
+	blobBytesPrefix := append(versionBytes, sizeBytes...)
+
+	_, _, err := ExtractVersionAndSize(blobBytesPrefix, 0)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "size")
 }
 
 func TestDerivationSourceFetcherTestSuite(t *testing.T) {
