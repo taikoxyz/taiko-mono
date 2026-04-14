@@ -53,7 +53,7 @@ bindings = { path = "../bindings" }
 
 # types
 anyhow = { workspace = true }
-arc-swap = "1.7"
+arc-swap = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
 thiserror = { workspace = true }

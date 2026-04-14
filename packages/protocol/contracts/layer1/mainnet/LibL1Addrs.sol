@@ -14,7 +14,8 @@ library LibL1Addrs {
 
     address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
     address public constant TAIKO_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
-    address public constant INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+    address public constant LEGACY_PACAYA_INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+    address public constant INBOX = 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f;
     address public constant PRECONF_WHITELIST = 0xFD019460881e6EeC632258222393d5821029b2ac;
 
     address public constant BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;

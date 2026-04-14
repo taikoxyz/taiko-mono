@@ -1,6 +1,8 @@
+//! Cache re-import flow for out-of-order envelopes once parents arrive.
+
 use std::time::Instant;
 
-use driver::production::PreconfPayload;
+use driver::PreconfPayload;
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -152,7 +154,7 @@ where
                     "result" => "issued",
                 )
                 .increment(1);
-                self.request_block(parent_hash).await;
+                self.publish_unsafe_request(parent_hash).await;
             } else {
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,

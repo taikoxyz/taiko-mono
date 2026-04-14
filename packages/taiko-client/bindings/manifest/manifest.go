@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// Version number for Shasta payloads.
+	// Version number for Shasta / Uzen payloads.
 	ShastaPayloadVersion = 0x1
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
@@ -32,6 +32,8 @@ const (
 	MinBlockGasLimit = 10_000_000
 	// MaxBlockGasLimit The maximum block gas limit.
 	MaxBlockGasLimit = 45_000_000
+	// MainnetAnchorCheckSkipProposalOffset is the proposal offset after which anchor checks can be skipped on mainnet.
+	MainnetAnchorCheckSkipProposalOffset = uint64(7)
 )
 
 // BlockManifest represents the blocks inside a derivation source.

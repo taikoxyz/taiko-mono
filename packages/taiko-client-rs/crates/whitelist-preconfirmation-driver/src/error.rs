@@ -66,11 +66,6 @@ pub enum WhitelistPreconfirmationDriverError {
         /// Underlying beacon initialization error description.
         reason: String,
     },
-    /// P2P sequencer allowlist must not be empty unless allow-all mode is enabled.
-    #[error(
-        "p2p sequencer allowlist must contain at least one address or --p2p.allow-all-sequencers must be set"
-    )]
-    MissingSequencerAddressList,
     /// Signing error.
     #[error("signing error: {0}")]
     Signing(String),

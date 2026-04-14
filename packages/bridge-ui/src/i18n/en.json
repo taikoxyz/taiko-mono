@@ -418,6 +418,7 @@
     "link": "Customize fee",
     "none": {
       "alert": "Setting the processing fee to 'None' will require manual claiming.  No relayer will claim for you.",
+      "claim": "Claim it yourself later in Transactions",
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
       "warning": "Insufficient ETH to cover the gas fees for claiming."
@@ -506,7 +507,8 @@
       "claim": "Claim",
       "prove": "Prove",
       "release": "Release",
-      "retry": "Retry"
+      "retry": "Retry",
+      "try_claim": "Try claim"
     },
     "claim": {
       "steps": {
