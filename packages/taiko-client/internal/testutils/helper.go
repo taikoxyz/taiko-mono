@@ -431,7 +431,7 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	txListBytes, err := rlp.EncodeToBytes(types.Transactions{anchorTx})
 	s.Nil(err)
 
-	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
+	difficulty, err := encoding.CalculateShastaMixHash(parent.Difficulty, blockID)
 	s.Nil(err)
 
 	extraData, err := encoding.EncodeShastaExtraData(proposed.BasefeeSharingPctg, proposed.Id)

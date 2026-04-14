@@ -173,7 +173,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		}
 	}
 
-	difficulty, err := encoding.CalculateShastaDifficulty(
+	difficulty, err := encoding.CalculateShastaMixHash(
 		parent.Difficulty(),
 		new(big.Int).SetUint64(reqBody.ExecutableData.Number),
 	)

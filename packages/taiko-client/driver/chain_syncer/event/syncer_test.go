@@ -77,7 +77,7 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	// Reset the L2 chain.
 	s.SetHead(common.Big1)
 
-	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, block.Number())
+	difficulty, err := encoding.CalculateShastaMixHash(parent.Difficulty, block.Number())
 	s.Nil(err)
 
 	attributes := &engine.PayloadAttributes{
