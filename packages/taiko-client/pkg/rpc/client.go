@@ -40,6 +40,8 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contract clients
 	ShastaClients *ShastaClients
+	// Optional client-side override for Taiko internal devnet Uzen activation.
+	DevnetUzenTime uint64
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -53,6 +55,7 @@ type ClientConfig struct {
 	InboxAddress       common.Address
 	TaikoAnchorAddress common.Address
 	L2EngineEndpoint   string
+	DevnetUzenTime     uint64
 	JwtSecret          string
 	Timeout            time.Duration
 }
@@ -112,14 +115,16 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 			return nil, err
 		}
 		l2AuthClient.chainID = new(big.Int).Set(l2Client.ChainID)
+		l2AuthClient.devnetUzenTime = cfg.DevnetUzenTime
 	}
 
 	c := &Client{
-		L1:           l1Client,
-		L1Beacon:     l1BeaconClient,
-		L2:           l2Client,
-		L2CheckPoint: l2CheckPoint,
-		L2Engine:     l2AuthClient,
+		L1:             l1Client,
+		L1Beacon:       l1BeaconClient,
+		L2:             l2Client,
+		L2CheckPoint:   l2CheckPoint,
+		L2Engine:       l2AuthClient,
+		DevnetUzenTime: cfg.DevnetUzenTime,
 	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)

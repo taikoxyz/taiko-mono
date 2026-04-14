@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
+	"strconv"
 	"time"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
@@ -50,6 +52,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		l2CheckPoint = c.String(flags.CheckPointSyncURL.Name)
 	)
 
+	var devnetUzenTime uint64
+	if raw := os.Getenv("DEVNET_UZEN_TIME"); raw != "" {
+		parsed, err := strconv.ParseUint(raw, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid DEVNET_UZEN_TIME: %w", err)
+		}
+		devnetUzenTime = parsed
+	}
+
 	if p2pSync && len(l2CheckPoint) == 0 {
 		return nil, errors.New("empty L2 check point URL")
 	}
@@ -91,6 +102,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			InboxAddress:       common.HexToAddress(c.String(flags.InboxAddress.Name)),
 			TaikoAnchorAddress: common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			L2EngineEndpoint:   c.String(flags.L2AuthEndpoint.Name),
+			DevnetUzenTime:     devnetUzenTime,
 			JwtSecret:          string(jwtSecret),
 			Timeout:            c.Duration(flags.RPCTimeout.Name),
 		}

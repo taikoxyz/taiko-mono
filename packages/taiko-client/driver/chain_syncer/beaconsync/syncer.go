@@ -98,5 +98,10 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 	log.Info("Block to sync retrieved", "number", block.Number(), "hash", block.Hash())
 
 	envelope := engine.BlockToExecutableData(block, nil, nil, nil)
-	return rpc.NormalizeExecutableData(s.rpc.L2.ChainID, envelope.ExecutionPayload, envelope.BlockValue)
+	return rpc.NormalizeExecutableData(
+		s.rpc.L2.ChainID,
+		s.rpc.DevnetUzenTime,
+		envelope.ExecutionPayload,
+		envelope.BlockValue,
+	)
 }

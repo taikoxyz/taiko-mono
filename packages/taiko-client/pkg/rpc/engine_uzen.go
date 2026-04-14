@@ -6,12 +6,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 // IsUzen returns whether the given chain and timestamp are inside the Uzen fork.
-func IsUzen(chainID *big.Int, timestamp uint64) bool {
+func IsUzen(chainID *big.Int, devnetUzenTime uint64, timestamp uint64) bool {
 	if chainID == nil {
 		return false
+	}
+
+	if chainID.Uint64() == params.TaikoInternalNetworkID.Uint64() && devnetUzenTime != 0 {
+		return timestamp >= devnetUzenTime
 	}
 
 	genesis := core.TaikoGenesisBlock(chainID.Uint64())
@@ -20,8 +25,8 @@ func IsUzen(chainID *big.Int, timestamp uint64) bool {
 }
 
 // ForkLabel returns the active fork label for display purposes.
-func ForkLabel(chainID *big.Int, timestamp uint64) string {
-	if IsUzen(chainID, timestamp) {
+func ForkLabel(chainID *big.Int, devnetUzenTime uint64, timestamp uint64) string {
+	if IsUzen(chainID, devnetUzenTime, timestamp) {
 		return "Uzen"
 	}
 
@@ -31,6 +36,7 @@ func ForkLabel(chainID *big.Int, timestamp uint64) string {
 // NormalizeExecutableData preserves Uzen header difficulty when present on the envelope.
 func NormalizeExecutableData(
 	chainID *big.Int,
+	devnetUzenTime uint64,
 	payload *engine.ExecutableData,
 	blockValue *big.Int,
 ) (*engine.ExecutableData, error) {
@@ -39,7 +45,7 @@ func NormalizeExecutableData(
 	}
 
 	normalized := *payload
-	if IsUzen(chainID, payload.Timestamp) {
+	if IsUzen(chainID, devnetUzenTime, payload.Timestamp) {
 		if blockValue == nil {
 			return nil, fmt.Errorf("missing blockValue for Uzen payload")
 		}

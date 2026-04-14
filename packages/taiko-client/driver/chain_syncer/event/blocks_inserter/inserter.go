@@ -119,7 +119,10 @@ func (i *Shasta) InsertBlocksWithManifest(
 	)
 
 	log.Debug(
-		fmt.Sprintf("Inserting %s blocks to L2 execution engine", rpc.ForkLabel(i.rpc.L2.ChainID, meta.GetTimestamp())),
+		fmt.Sprintf(
+			"Inserting %s blocks to L2 execution engine",
+			rpc.ForkLabel(i.rpc.L2.ChainID, i.rpc.DevnetUzenTime, meta.GetTimestamp()),
+		),
 		"proposalID", meta.GetEventData().Id,
 		"proposer", meta.GetEventData().Proposer,
 		"invalidManifest", sourcePayload.Default,
@@ -181,7 +184,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				log.Info(
 					fmt.Sprintf(
 						"🧬 Known %s proposal in canonical chain",
-						rpc.ForkLabel(i.rpc.L2.ChainID, meta.GetTimestamp()),
+						rpc.ForkLabel(i.rpc.L2.ChainID, i.rpc.DevnetUzenTime, meta.GetTimestamp()),
 					),
 					"proposalID", meta.GetEventData().Id,
 					"assignedProver", meta.GetEventData().Proposer,
@@ -248,7 +251,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		log.Info(
 			fmt.Sprintf(
 				"🔗 New %s L2 block inserted",
-				rpc.ForkLabel(i.rpc.L2.ChainID, lastPayloadData.Timestamp),
+				rpc.ForkLabel(i.rpc.L2.ChainID, i.rpc.DevnetUzenTime, lastPayloadData.Timestamp),
 			),
 			"blockID", lastPayloadData.Number,
 			"hash", lastPayloadData.BlockHash,

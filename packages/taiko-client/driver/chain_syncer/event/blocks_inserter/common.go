@@ -368,7 +368,7 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient))
 		return nil, false, nil
 	}
-	uzenActive := rpc.IsUzen(cli.L2.ChainID, block.Time())
+	uzenActive := rpc.IsUzen(cli.L2.ChainID, cli.DevnetUzenTime, block.Time())
 	if !uzenActive {
 		if block.Difficulty().Cmp(common.Big0) != 0 {
 			logUnknown(fmt.Sprintf("difficulty mismatch: %s != 0", block.Difficulty()))
