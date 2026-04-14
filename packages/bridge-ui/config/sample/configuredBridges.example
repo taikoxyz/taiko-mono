@@ -9,7 +9,6 @@
         "erc721VaultAddress": "",
         "erc1155VaultAddress": "",
         "signalServiceAddress": ""
-        "anchorForkRouter": ""
       }
     },
     {
