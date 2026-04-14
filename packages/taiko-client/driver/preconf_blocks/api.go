@@ -173,7 +173,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		}
 	}
 
-	difficulty, err := encoding.CalculateShastaMixHash(
+	mixHash, err := encoding.CalculateShastaMixHash(
 		parent.Difficulty(),
 		new(big.Int).SetUint64(reqBody.ExecutableData.Number),
 	)
@@ -189,7 +189,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	executablePayload := &eth.ExecutionPayload{
 		ParentHash:    reqBody.ExecutableData.ParentHash,
 		FeeRecipient:  reqBody.ExecutableData.FeeRecipient,
-		PrevRandao:    eth.Bytes32(difficulty[:]),
+		PrevRandao:    eth.Bytes32(mixHash[:]),
 		BlockNumber:   eth.Uint64Quantity(reqBody.ExecutableData.Number),
 		GasLimit:      eth.Uint64Quantity(reqBody.ExecutableData.GasLimit),
 		Timestamp:     eth.Uint64Quantity(reqBody.ExecutableData.Timestamp),

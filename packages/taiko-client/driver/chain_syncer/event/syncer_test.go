@@ -77,12 +77,12 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	// Reset the L2 chain.
 	s.SetHead(common.Big1)
 
-	difficulty, err := encoding.CalculateShastaMixHash(parent.Difficulty, block.Number())
+	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, block.Number())
 	s.Nil(err)
 
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             block.Time(),
-		Random:                common.BytesToHash(difficulty),
+		Random:                common.BytesToHash(mixHash),
 		SuggestedFeeRecipient: block.Coinbase(),
 		Withdrawals:           make([]*types.Withdrawal, 0),
 		BlockMetadata: &engine.BlockMetadata{
@@ -90,7 +90,7 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 			GasLimit:    block.GasLimit(),
 			Timestamp:   block.Time(),
 			TxList:      txListBytes,
-			MixHash:     common.BytesToHash(difficulty),
+			MixHash:     common.BytesToHash(mixHash),
 			ExtraData:   block.Extra(),
 		},
 		BaseFeePerGas: block.BaseFee(),

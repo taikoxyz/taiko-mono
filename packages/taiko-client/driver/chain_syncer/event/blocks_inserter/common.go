@@ -478,7 +478,7 @@ func assembleCreateExecutionPayloadMeta(
 	)
 	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, blockID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
+		return nil, nil, fmt.Errorf("failed to calculate mix hash: %w", err)
 	}
 
 	baseFee, err := cli.CalculateBaseFee(ctx, parent)

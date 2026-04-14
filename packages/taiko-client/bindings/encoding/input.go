@@ -149,11 +149,11 @@ func EncodeBatchesSubProofs(subProofs []SubProofShasta) ([]byte, error) {
 	return b, nil
 }
 
-// CalculateShastaMixHash calculates the mixHash for the given block.
+// CalculateShastaMixHash calculates the mix hash for the given block.
 func CalculateShastaMixHash(parentDifficulty *big.Int, blockNum *big.Int) ([]byte, error) {
 	packed, err := ShastaMixHashInputArgs.Pack(parentDifficulty, blockNum)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode block difficulty, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode block mix hash, %w", err)
 	}
 
 	return crypto.Keccak256(packed), nil
