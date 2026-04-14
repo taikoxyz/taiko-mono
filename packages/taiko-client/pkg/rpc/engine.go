@@ -150,6 +150,7 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	); err != nil {
 		return nil, err
 	}
+
 	return result, nil
 }
 
