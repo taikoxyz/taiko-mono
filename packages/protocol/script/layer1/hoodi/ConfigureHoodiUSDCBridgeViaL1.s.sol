@@ -92,8 +92,7 @@ contract ConfigureHoodiUSDCBridgeViaL1 is Script {
 
     function _loadConfig() internal view returns (Config memory config) {
         config.l1Bridge = vm.envOr("L1_BRIDGE", LibL1HoodiAddrs.HOODI_BRIDGE);
-        config.l2DelegateController =
-            vm.envOr("DELEGATE_CONTROLLER", _delegateControllerFromVaultOwner());
+        config.l2DelegateController = _loadDelegateController();
         config.l2Erc20Vault = vm.envOr("ERC20_VAULT_ADDRESS", LibL2HoodiAddrs.HOODI_ERC20_VAULT);
         config.l1UsdcToken = vm.envAddress("L1_USDC_TOKEN");
         config.l2UsdcToken = vm.envAddress("L2_USDC_TOKEN");
@@ -112,34 +111,20 @@ contract ConfigureHoodiUSDCBridgeViaL1 is Script {
         require(config.l2UsdcToken != address(0), "invalid l2 usdc");
         require(config.gasLimit != 0, "invalid gas limit");
         require(
-            ERC20Vault(payable(config.l2Erc20Vault)).owner() == config.l2DelegateController,
-            "vault owner mismatch"
+            config.l2DelegateController == LibL2HoodiAddrs.HOODI_DELEGATE_CONTROLLER,
+            "invalid delegate controller"
         );
-
-        // Validate the delegate controller wiring against live Hoodi configuration.
-        (bool success, bytes memory result) =
-            config.l2DelegateController.staticcall(abi.encodeWithSignature("l2Bridge()"));
         require(
-            success && abi.decode(result, (address)) == LibL2HoodiAddrs.HOODI_BRIDGE,
-            "invalid delegate controller l2 bridge"
-        );
-
-        (success, result) =
-            config.l2DelegateController.staticcall(abi.encodeWithSignature("daoController()"));
-        require(
-            success && abi.decode(result, (address)) == broadcaster,
-            "invalid delegate controller dao controller"
-        );
-
-        (success, result) =
-            config.l2DelegateController.staticcall(abi.encodeWithSignature("l1ChainId()"));
-        require(
-            success && abi.decode(result, (uint64)) == config.srcChainId,
-            "invalid delegate controller l1 chain"
+            config.l2Erc20Vault == LibL2HoodiAddrs.HOODI_ERC20_VAULT, "invalid hoodi erc20 vault"
         );
     }
 
-    function _delegateControllerFromVaultOwner() internal view returns (address) {
-        return ERC20Vault(payable(LibL2HoodiAddrs.HOODI_ERC20_VAULT)).owner();
+    function _loadDelegateController() internal view returns (address delegateController_) {
+        string memory delegateController = vm.envOr("DELEGATE_CONTROLLER", string(""));
+        if (bytes(delegateController).length != 0) {
+            return vm.parseAddress(delegateController);
+        }
+
+        return LibL2HoodiAddrs.HOODI_DELEGATE_CONTROLLER;
     }
 }
