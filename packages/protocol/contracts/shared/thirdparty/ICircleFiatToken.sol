@@ -32,7 +32,10 @@ interface ICircleFiatToken {
         external;
 
     /// @notice Configures a minter allowance.
-    function configureMinter(address _minter, uint256 _minterAllowedAmount)
+    function configureMinter(
+        address _minter,
+        uint256 _minterAllowedAmount
+    )
         external
         returns (bool);
 
@@ -52,7 +55,13 @@ interface ICircleFiatToken {
     function approve(address _spender, uint256 _amount) external returns (bool);
 
     /// @notice Transfers from an approved owner.
-    function transferFrom(address _from, address _to, uint256 _amount) external returns (bool);
+    function transferFrom(
+        address _from,
+        address _to,
+        uint256 _amount
+    )
+        external
+        returns (bool);
 
     /// @notice Returns the owner.
     function owner() external view returns (address);

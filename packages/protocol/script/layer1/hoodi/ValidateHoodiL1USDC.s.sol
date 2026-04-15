@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { Script } from "forge-std/src/Script.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
+import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
 import { USDCFaucet } from "src/shared/faucet/USDCFaucet.sol";
 import { ICircleFiatToken } from "src/shared/thirdparty/ICircleFiatToken.sol";
-import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
 
 /// @title ValidateHoodiL1USDC
 /// @notice Verifies Ethereum Hoodi USDC and faucet deployment state on a fork.
@@ -50,7 +50,9 @@ contract ValidateHoodiL1USDC is Script, CircleArtifactDeployer {
         require(faucet.owner() == _faucetOwner, "invalid faucet owner");
         require(faucet.claimAmount() == _faucetClaimAmount, "invalid faucet claim amount");
         require(token.isMinter(_faucet), "faucet is not a minter");
-        require(token.minterAllowance(_faucet) >= _faucetClaimAmount, "insufficient faucet allowance");
+        require(
+            token.minterAllowance(_faucet) >= _faucetClaimAmount, "insufficient faucet allowance"
+        );
 
         console2.log("Validated L1 Hoodi USDC proxy:", _usdcToken);
         console2.log("Validated L1 Hoodi USDC implementation:", implementation);

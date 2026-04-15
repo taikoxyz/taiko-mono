@@ -40,7 +40,11 @@ contract TestUSDCFaucet is Test, CircleArtifactTestBase {
         faucet.claim();
 
         vm.prank(RECIPIENT);
-        vm.expectRevert(abi.encodeWithSelector(USDCFaucet.FAUCET_COOLDOWN_ACTIVE.selector, block.timestamp + 1 days));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                USDCFaucet.FAUCET_COOLDOWN_ACTIVE.selector, block.timestamp + 1 days
+            )
+        );
         faucet.claim();
     }
 

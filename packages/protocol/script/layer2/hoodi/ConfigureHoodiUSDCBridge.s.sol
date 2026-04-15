@@ -80,8 +80,14 @@ contract ConfigureHoodiUSDCBridge is Script {
         require(canonicalChainId == canonical.chainId, "invalid canonical chain");
         require(canonicalAddress == canonical.addr, "invalid canonical address");
         require(canonicalDecimals == canonical.decimals, "invalid canonical decimals");
-        require(keccak256(bytes(canonicalSymbol)) == keccak256(bytes(canonical.symbol)), "invalid canonical symbol");
-        require(keccak256(bytes(canonicalName)) == keccak256(bytes(canonical.name)), "invalid canonical name");
+        require(
+            keccak256(bytes(canonicalSymbol)) == keccak256(bytes(canonical.symbol)),
+            "invalid canonical symbol"
+        );
+        require(
+            keccak256(bytes(canonicalName)) == keccak256(bytes(canonical.name)),
+            "invalid canonical name"
+        );
 
         console2.log("Configured Hoodi canonical USDC:", _l1UsdcToken);
         console2.log("Configured Hoodi bridged USDC:", _l2UsdcToken);

@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { Script } from "forge-std/src/Script.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
+import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
 import { ICircleFiatToken } from "src/shared/thirdparty/ICircleFiatToken.sol";
-import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
 
 /// @title DeployHoodiL2USDC
 /// @notice Deploys Circle-compatible native USDC on Taiko Hoodi and configures the ERC20 vault as
@@ -68,13 +68,16 @@ contract DeployHoodiL2USDC is Script, CircleArtifactDeployer {
         string memory output = vm.serializeAddress(rootKey, "implementation", _impl);
         output = vm.serializeAddress(rootKey, "proxy", _proxy);
         output = vm.serializeAddress(rootKey, "proxyAdmin", _proxyAdmin(_proxy));
-        output = vm.serializeAddress(rootKey, "masterMinter", ICircleFiatToken(_proxy).masterMinter());
+        output =
+            vm.serializeAddress(rootKey, "masterMinter", ICircleFiatToken(_proxy).masterMinter());
         output = vm.serializeAddress(rootKey, "owner", ICircleFiatToken(_proxy).owner());
         output = vm.serializeAddress(rootKey, "pauser", ICircleFiatToken(_proxy).pauser());
         output = vm.serializeAddress(rootKey, "blacklister", ICircleFiatToken(_proxy).blacklister());
         output = vm.serializeAddress(rootKey, "erc20Vault", _erc20Vault);
         output = vm.serializeUint(
-            rootKey, "erc20VaultMinterAllowance", ICircleFiatToken(_proxy).minterAllowance(_erc20Vault)
+            rootKey,
+            "erc20VaultMinterAllowance",
+            ICircleFiatToken(_proxy).minterAllowance(_erc20Vault)
         );
         vm.writeJson(output, string.concat(vm.projectRoot(), OUTPUT_PATH));
     }

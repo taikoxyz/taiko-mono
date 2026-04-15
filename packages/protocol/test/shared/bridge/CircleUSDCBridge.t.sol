@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "test/shared/CommonTest.sol";
 
-import { ICircleFiatToken } from "src/shared/thirdparty/ICircleFiatToken.sol";
 import { Bridge } from "src/shared/bridge/Bridge.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
+import { ICircleFiatToken } from "src/shared/thirdparty/ICircleFiatToken.sol";
 import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 import { CircleArtifactTestBase } from "test/shared/helpers/CircleArtifactTestBase.sol";
 

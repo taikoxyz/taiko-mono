@@ -38,9 +38,7 @@ contract TestCircleFiatToken is Test, CircleArtifactTestBase {
         assertEq(token.minterAllowance(address(this)), allowanceBefore - amount);
     }
 
-    function test_deploy_fiat_token_succeeds_when_final_proxy_admin_matches_current_admin()
-        public
-    {
+    function test_deploy_fiat_token_succeeds_when_final_proxy_admin_matches_current_admin() public {
         FiatTokenDeploymentConfig memory config = _testUSDCConfig();
         config.proxyAdmin = address(this);
 

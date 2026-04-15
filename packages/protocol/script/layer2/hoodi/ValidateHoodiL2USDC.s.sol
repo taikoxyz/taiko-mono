@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import { Script } from "forge-std/src/Script.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
+import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
 import { LibL2HoodiAddrs } from "src/layer2/hoodi/LibL2HoodiAddrs.sol";
-import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import { ICircleFiatToken } from "src/shared/thirdparty/ICircleFiatToken.sol";
-import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
+import { ERC20Vault } from "src/shared/vault/ERC20Vault.sol";
 
 /// @title ValidateHoodiL2USDC
 /// @notice Verifies Taiko Hoodi native USDC deployment state and optional canonical mapping.

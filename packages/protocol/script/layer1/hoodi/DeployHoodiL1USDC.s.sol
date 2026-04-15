@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { Script } from "forge-std/src/Script.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
+import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
 import { USDCFaucet } from "src/shared/faucet/USDCFaucet.sol";
 import { ICircleFiatToken } from "src/shared/thirdparty/ICircleFiatToken.sol";
-import { CircleArtifactDeployer } from "script/shared/circle/CircleArtifactDeployer.sol";
 
 /// @title DeployHoodiL1USDC
 /// @notice Deploys Circle-compatible USDC and the L1 faucet on Ethereum Hoodi.
@@ -71,7 +71,8 @@ contract DeployHoodiL1USDC is Script, CircleArtifactDeployer {
         string memory output = vm.serializeAddress(rootKey, "implementation", _impl);
         output = vm.serializeAddress(rootKey, "proxy", _proxy);
         output = vm.serializeAddress(rootKey, "proxyAdmin", _proxyAdmin(_proxy));
-        output = vm.serializeAddress(rootKey, "masterMinter", ICircleFiatToken(_proxy).masterMinter());
+        output =
+            vm.serializeAddress(rootKey, "masterMinter", ICircleFiatToken(_proxy).masterMinter());
         output = vm.serializeAddress(rootKey, "owner", ICircleFiatToken(_proxy).owner());
         output = vm.serializeAddress(rootKey, "pauser", ICircleFiatToken(_proxy).pauser());
         output = vm.serializeAddress(rootKey, "blacklister", ICircleFiatToken(_proxy).blacklister());
