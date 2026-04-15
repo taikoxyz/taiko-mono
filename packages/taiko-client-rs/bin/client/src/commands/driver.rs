@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
+use protocol::shasta::set_devnet_uzen_override;
 use rpc::client::ClientConfig;
 
 use crate::{
@@ -71,6 +72,7 @@ impl Subcommand for DriverSubCommand {
 
     /// Run the driver.
     async fn run(&self) -> Result<()> {
+        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
         self.init_logs()?;
         self.init_metrics()?;
 
