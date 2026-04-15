@@ -19,7 +19,7 @@ import (
 // TxBuilder will build a transaction with the given nonce.
 type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 
-// ProveBatchesTxBuilder is responsible for building Shasta prove transactions.
+// ProveBatchesTxBuilder is responsible for building inbox.prove transactions.
 type ProveBatchesTxBuilder struct {
 	rpc          *rpc.Client
 	inboxAddress common.Address
@@ -134,7 +134,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			"Proof", common.Bytes2Hex(batchProof.BatchProof),
 		)
 
-		encodedSubProofs, err := encoding.EncodeBatchesSubProofsShasta([]encoding.SubProofShasta{
+		encodedSubProofs, err := encoding.EncodeBatchesSubProofs([]encoding.SubProofShasta{
 			{VerifierId: batchProof.SgxGethVerifierID, Proof: batchProof.SgxGethBatchProof},
 			{VerifierId: batchProof.VerifierID, Proof: batchProof.BatchProof},
 		})

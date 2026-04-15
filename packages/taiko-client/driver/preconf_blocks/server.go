@@ -47,7 +47,7 @@ var (
 )
 
 const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
-// monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with Shasta on-chain state.
+// monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with on-chain state.
 const monitorLatestProposalOnChainInterval = 10 * time.Second
 
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
@@ -1098,11 +1098,11 @@ func (s *PreconfBlockAPIServer) monitorLatestProposalOnChain(ctx context.Context
 	s.monitorProposalOnChain(ctx, proposal)
 }
 
-// monitorProposalOnChain monitors Shasta proposals for reorgs.
+// monitorProposalOnChain monitors proposals for reorgs.
 func (s *PreconfBlockAPIServer) monitorProposalOnChain(ctx context.Context, proposal *encoding.LastSeenProposal) {
 	header, err := s.rpc.L1.HeaderByNumber(ctx, proposal.GetRawBlockHeight())
 	if err != nil {
-		log.Error("Failed to get L1 header for shasta proposal", "blockNumber", proposal.GetRawBlockHeight(), "err", err)
+		log.Error("Failed to get L1 header for proposal", "blockNumber", proposal.GetRawBlockHeight(), "err", err)
 		return
 	}
 	// Check for reorg and handle it
@@ -1111,7 +1111,7 @@ func (s *PreconfBlockAPIServer) monitorProposalOnChain(ctx context.Context, prop
 	}
 }
 
-// handleProposalReorg handles reorg detection for Shasta proposals.
+// handleProposalReorg handles reorg detection for proposals.
 func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestSeenProposalID *big.Int) {
 	log.Warn("Proposal reorg detected", "latestSeenProposalID", latestSeenProposalID)
 
@@ -1137,7 +1137,7 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 	blockID, err := s.rpc.L2Engine.LastBlockIDByBatchID(ctx, recordedProposal.Id)
 	if err != nil {
 		log.Error(
-			"Failed to get last block in batch for shasta proposal",
+			"Failed to get last block in batch for proposal",
 			"proposalId", recordedProposal.Id,
 			"err", err,
 		)
@@ -1147,7 +1147,7 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 	header, err := s.rpc.L1.HeaderByHash(ctx, eventLog.BlockHash)
 	if err != nil {
 		log.Error(
-			"Failed to get L1 header for shasta proposal event",
+			"Failed to get L1 header for proposal event",
 			"proposalId", recordedProposal.Id,
 			"blockHash", eventLog.BlockHash.Hex(),
 			"err", err,
@@ -1178,7 +1178,7 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 	defer s.mutex.Unlock()
 
 	log.Info(
-		"Received latest shasta proposal seen in event",
+		"Received latest proposal seen in event",
 		"proposalId", proposal.Shasta().GetEventData().Id,
 		"lastBlockId", proposal.LastBlockID,
 	)

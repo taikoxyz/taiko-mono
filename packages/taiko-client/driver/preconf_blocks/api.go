@@ -271,23 +271,15 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			}
 
 			// Build envelope once, cache locally, then publish to P2P.
-			env := &eth.ExecutionPayloadEnvelope{
-				ExecutionPayload: &eth.ExecutionPayload{
-					BaseFeePerGas: eth.Uint256Quantity(u256),
-					ParentHash:    header.ParentHash,
-					FeeRecipient:  header.Coinbase,
-					ExtraData:     header.Extra,
-					PrevRandao:    eth.Bytes32(header.MixDigest),
-					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
-					GasLimit:      eth.Uint64Quantity(header.GasLimit),
-					GasUsed:       eth.Uint64Quantity(header.GasUsed),
-					Timestamp:     eth.Uint64Quantity(header.Time),
-					BlockHash:     header.Hash(),
-					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
-				},
-				EndOfSequencing:   reqBody.EndOfSequencing,
-				IsForcedInclusion: &isForcedInclusion,
-				Signature:         sigBytes,
+			env, err := headerToEnvelope(
+				header,
+				[]eth.Data{reqBody.ExecutableData.Transactions},
+				reqBody.EndOfSequencing,
+				&isForcedInclusion,
+				sigBytes,
+			)
+			if err != nil {
+				return s.returnError(c, http.StatusInternalServerError, err)
 			}
 
 			// Cache locally so this node can perform orphan handling without relying on receiving our own gossip.

@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -110,6 +111,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
+		l2AuthClient.chainID = new(big.Int).Set(l2Client.ChainID)
 	}
 
 	c := &Client{
@@ -123,22 +125,22 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 	if err := c.initShastaClients(ctxWithTimeout, cfg); err != nil {
-		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
+		return nil, fmt.Errorf("failed to initialize clients: %w", err)
 	}
 
 	return c, nil
 }
 
-// initShastaClients initializes all Shasta smart contract clients.
+// initShastaClients initializes all smart contract clients.
 func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error {
 	inbox, err := shastaBindings.NewShastaInboxClient(cfg.InboxAddress, c.L1)
 	if err != nil {
 		return fmt.Errorf("failed to create new inbox client: %w", err)
 	}
 
-	shastaAnchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
+	anchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
 	if err != nil {
-		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
+		return fmt.Errorf("failed to create new instance of AnchorClient: %w", err)
 	}
 
 	config, err := inbox.GetConfig(&bind.CallOpts{Context: ctx})
@@ -160,7 +162,7 @@ func (c *Client) initShastaClients(ctx context.Context, cfg *ClientConfig) error
 
 	c.ShastaClients = &ShastaClients{
 		Inbox:            inbox,
-		Anchor:           shastaAnchor,
+		Anchor:           anchor,
 		ComposeVerifier:  composeVerifier,
 		PreconfWhitelist: preconfWhitelist,
 		InboxAddress:     cfg.InboxAddress,

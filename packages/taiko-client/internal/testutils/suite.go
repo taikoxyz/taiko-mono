@@ -14,11 +14,8 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -119,67 +116,45 @@ func (s *ClientTestSuite) TearDownSuite() {
 }
 
 func (s *ClientTestSuite) SetHead(headNum *big.Int) {
-	// For geth node, we can set the head directly.
-	if os.Getenv("L2_NODE") == "l2_geth" {
+	switch os.Getenv("L2_NODE") {
+	case "l2_geth":
 		s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, headNum))
 		return
+	case "l2_reth", "l2_nmc":
+		s.setHeadByForkchoiceAncestor(headNum)
+		return
 	}
+}
 
-	// For other nodes, we need to use the engine API to set the head instead,
-	// to reset the chain head to a block which is already in the canonical chain,
-	// we need to fork the chain to a block with different attributes at the same height
-	// at first, then set the canonical head to the block we want.
-	block, err := s.RPCClient.L2.BlockByNumber(context.Background(), headNum)
+func (s *ClientTestSuite) setHeadByForkchoiceAncestor(headNum *big.Int) {
+	ctx := context.Background()
+
+	block, err := s.RPCClient.L2.BlockByNumber(ctx, headNum)
 	s.Nil(err)
 
-	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), block.Number())
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(ctx, block.Number())
 	s.Nil(err)
 
-	b, err := rlp.EncodeToBytes(block.Transactions())
-	s.Nil(err)
-
-	var proposalID *big.Int
-	if len(block.Extra()) >= 7 {
-		proposalID = new(big.Int).SetBytes(block.Extra()[1:7])
-	}
-
-	originalCoinbase := block.Coinbase()
-	attributes := &engine.PayloadAttributes{
-		Timestamp:             block.Time(),
-		Random:                block.MixDigest(),
-		SuggestedFeeRecipient: originalCoinbase,
-		Withdrawals:           []*types.Withdrawal{},
-		BlockMetadata: &engine.BlockMetadata{
-			Beneficiary: block.Coinbase(),
-			GasLimit:    block.GasLimit(),
-			Timestamp:   block.Time(),
-			TxList:      b,
-			MixHash:     block.MixDigest(),
-			BatchID:     proposalID,
-			ExtraData:   block.Extra(),
+	fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
+		ctx,
+		&engine.ForkchoiceStateV1{
+			HeadBlockHash:      block.Hash(),
+			SafeBlockHash:      block.Hash(),
+			FinalizedBlockHash: block.Hash(),
 		},
-		BaseFeePerGas: block.BaseFee(),
-		L1Origin: &rawdb.L1Origin{
-			BlockID:            block.Number(),
-			L1BlockHeight:      l1Origin.L1BlockHeight,
-			L2BlockHash:        common.Hash{},
-			L1BlockHash:        l1Origin.L1BlockHash,
-			BuildPayloadArgsID: l1Origin.BuildPayloadArgsID,
-		},
-	}
-	// Set the chain head to a block with different attributes at first.
-	attributes.SuggestedFeeRecipient = common.HexToAddress(RandomHash().Hex())
-	attributes.BlockMetadata.Beneficiary = attributes.SuggestedFeeRecipient
-	s.forkTo(attributes, block.ParentHash())
+		nil,
+	)
+	s.Nil(err)
+	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
 
-	// Set the chain head back to the block we want.
-	attributes.SuggestedFeeRecipient = originalCoinbase
-	attributes.BlockMetadata.Beneficiary = originalCoinbase
-	s.forkTo(attributes, block.ParentHash())
-
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	head, err := s.RPCClient.L2.HeaderByNumber(ctx, nil)
 	s.Nil(err)
 	s.Equal(block.Hash(), head.Hash())
+
+	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID)
+	s.Nil(err)
+
+	s.clearTxPoolAfterReorg(ctx, "SetHead ancestor unwind")
 }
 
 func (s *ClientTestSuite) ParseL1HttpURLFromEnv() *url.URL {
@@ -292,19 +267,29 @@ func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHas
 
 	s.Equal(attributes.L1Origin.BlockID.Uint64(), head.Number.Uint64())
 
-	// For Nethermind: clear txpool state after chain reorg
-	// After a reorg, stale txpool caches would reject transaction resubmissions
-	// with "already known" or "nonce too low". This clears hash cache, account cache, and pending txs.
-	// Pending txs must be cleared because tests resubmit transactions with the same hash/nonce,
-	// which would be rejected as "ReplacementNotAllowed" if they remain in the pool.
-	if os.Getenv("L2_NODE") == "l2_nmc" {
+	s.clearTxPoolAfterReorg(context.Background(), "forkTo")
+}
+
+func (s *ClientTestSuite) clearTxPoolAfterReorg(ctx context.Context, source string) {
+	// Tests resubmit transactions with the same hash/nonce after resetting the canonical head,
+	// so stale pool entries would otherwise be rejected as already known or nonce-conflicting.
+	switch os.Getenv("L2_NODE") {
+	case "l2_nmc":
 		var cleared bool
 		err := s.RPCClient.L2Engine.CallContext(
-			context.Background(),
+			ctx,
 			&cleared,
 			"taikoDebug_clearTxPoolForReorg",
 		)
 		s.Nil(err)
-		s.True(cleared, "TxPool clear failed after forkTo")
+		s.True(cleared, "TxPool clear failed after "+source)
+	case "l2_reth":
+		var cleared uint64
+		err := s.RPCClient.L2.CallContext(
+			ctx,
+			&cleared,
+			"admin_clearTxpool",
+		)
+		s.Nil(err)
 	}
 }

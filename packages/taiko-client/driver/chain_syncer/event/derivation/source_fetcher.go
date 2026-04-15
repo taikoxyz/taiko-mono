@@ -19,12 +19,12 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
-// BlockPayload represents a Shasta block payload with additional metadata.
+// BlockPayload represents a L2 block payload with additional metadata.
 type BlockPayload struct {
 	manifest.BlockManifest
 }
 
-// DerivationSourcePayload wraps Shasta blocks alongside proposal metadata.
+// DerivationSourcePayload wraps L2 blocks alongside proposal metadata.
 type DerivationSourcePayload struct {
 	BlockPayloads []*BlockPayload
 	Default       bool
@@ -95,7 +95,7 @@ func (f *DerivationSourceFetcher) manifestFromBlobBytes(
 		return defaultPayload, nil
 	}
 
-	log.Info("Extracted manifest version and size from Shasta blobs", "version", version, "size", size)
+	log.Info("Extracted manifest version and size from blobs", "version", version, "size", size)
 
 	// Ensure the blob slice [offset+64, offset+64+size) is within bounds before slicing.
 	start := offset + 64
@@ -413,7 +413,7 @@ func validateGasLimit(
 	parentGasLimit uint64,
 ) bool {
 	// NOTE: When the parent block is not the genesis block, its gas limit always contains the
-	// legacy or Shasta anchor transaction gas limit, which always equals consensus.AnchorV3V4GasLimit.
+	// legacy or post-Shasta anchor transaction gas limit, which always equals consensus.AnchorV3V4GasLimit.
 	// Therefore, we need to subtract consensus.AnchorV3V4GasLimit from the parent gas limit to get
 	// the real gas limit from parent block metadata.
 	if parentBlockNumber.Cmp(common.Big0) != 0 {

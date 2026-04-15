@@ -28,7 +28,7 @@ func SubscribeEvent(
 	)
 }
 
-// SubscribeProposed subscribes the Shasta protocol's Proposed events.
+// SubscribeProposed subscribes the protocol's Proposed events.
 func SubscribeProposed(
 	taikoInbox *shastaBindings.ShastaInboxClient,
 	ch chan *shastaBindings.ShastaInboxClientProposed,
@@ -46,7 +46,7 @@ func SubscribeProposed(
 	})
 }
 
-// SubscribeProved subscribes the Shasta protocol's Proved events.
+// SubscribeProved subscribes the protocol's Proved events.
 func SubscribeProved(
 	taikoInbox *shastaBindings.ShastaInboxClient,
 	ch chan *shastaBindings.ShastaInboxClientProved,

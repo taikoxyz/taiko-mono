@@ -411,7 +411,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 			return err
 		}
 
-		// If the next proposal ID is 1, it means there is no Shasta proposal on L2 yet.
+		// If the next proposal ID is 1, it means there is no proposal on L2 yet.
 		if coreState.NextProposalId.Cmp(common.Big1) <= 0 {
 			progress.HighestOriginBlockID = common.Big0
 			return nil
@@ -631,7 +631,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	return false, nil
 }
 
-// LastL1OriginInProposal fetches the L1Origin of the last block in the given Shasta proposal.
+// LastL1OriginInProposal fetches the L1Origin of the last block in the given proposal.
 func (c *Client) LastL1OriginInProposal(ctx context.Context, proposalID *big.Int) (*rawdb.L1Origin, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
@@ -758,14 +758,13 @@ func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	return l1StateRoot, l1Height, parentGasUsed, nil
 }
 
-// CalculateBaseFee calculates the base fee after Shasta fork from the L2 protocol.
+// CalculateBaseFee calculates the base fee after fork from the L2 protocol.
 func (c *Client) CalculateBaseFee(ctx context.Context, l2Head *types.Header) (*big.Int, error) {
-	// Return initial Shasta base fee for the first Shasta block when the Shasta fork activated from genesis.
 	if l2Head.Number.Cmp(common.Big0) == 0 {
 		return new(big.Int).SetUint64(params.ShastaInitialBaseFee), nil
 	}
 
-	// Otherwise, calculate Shasta base fee according to EIP-4396.
+	// Calculate base fee according to EIP-4396.
 	parentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch parent block: %w", err)
@@ -773,7 +772,7 @@ func (c *Client) CalculateBaseFee(ctx context.Context, l2Head *types.Header) (*b
 	shastaTime := uint64(0)
 	config := &params.ChainConfig{ShastaTime: &shastaTime, ChainID: c.L2.ChainID}
 	log.Info(
-		"Params for Shasta base fee calculation",
+		"Params for base fee calculation",
 		"parentBlockNumber", l2Head.Number,
 		"parentGasLimit", l2Head.GasLimit,
 		"parentGasUsed", l2Head.GasUsed,
@@ -984,7 +983,7 @@ func (c *Client) GetProposalHash(opts *bind.CallOpts, proposalID *big.Int) (comm
 	return c.ShastaClients.Inbox.GetProposalHash(opts, proposalID)
 }
 
-// GetAnchorState gets the anchor state from Shasta Anchor contract.
+// GetAnchorState gets the anchor state from Anchor contract.
 func (c *Client) GetAnchorState(opts *bind.CallOpts) (
 	*shastaBindings.AnchorBlockState,
 	error,

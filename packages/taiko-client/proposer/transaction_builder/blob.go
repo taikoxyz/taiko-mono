@@ -118,7 +118,7 @@ func (b *BlobTransactionBuilder) Build(
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode shasta propose input: %w", err)
+		return nil, fmt.Errorf("failed to encode inbox.propose input: %w", err)
 	}
 
 	if data, err = encoding.ShastaInboxABI.Pack("propose", []byte{}, inputData); err != nil {
