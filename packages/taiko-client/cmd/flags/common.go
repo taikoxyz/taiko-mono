@@ -141,7 +141,7 @@ var (
 	}
 	TaikoDevnetUzenTime = &cli.Uint64Flag{
 		Name:     "taiko.devnet-uzen-time",
-		Usage:    "Override Uzen fork time for Taiko internal devnet (timestamp). Must match the value passed to taiko-geth's --taiko.devnet-uzen-time. Defaults to 0.",
+		Usage:    "Override Uzen fork time for Taiko internal devnet; must match taiko-geth's --taiko.devnet-uzen-time",
 		Category: commonCategory,
 		Value:    0,
 		EnvVars:  []string{"TAIKO_DEVNET_UZEN_TIME"},
