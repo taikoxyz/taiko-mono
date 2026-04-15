@@ -8,7 +8,7 @@
     "clean": "rm -rf out abis cache* cache-* && (forge clean || true)",
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",
     "compile:l2": "FOUNDRY_PROFILE=layer2 forge build --build-info --extra-output storage-layout",
-    "compile:circle": "FOUNDRY_PROFILE=circle forge build",
+    "compile:circle": "FOUNDRY_LINT_ON_BUILD=false FOUNDRY_PROFILE=circle forge build",
     "compile:genesis": "FOUNDRY_PROFILE=genesis forge build --build-info --extra-output storage-layout",
     "compile:shared": "FOUNDRY_PROFILE=shared forge build --build-info --extra-output storage-layout",
     "compile": "pnpm compile:circle && pnpm compile:shared && pnpm compile:l1 && pnpm compile:l2",

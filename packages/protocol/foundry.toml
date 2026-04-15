@@ -90,6 +90,9 @@ exclude_lints = [
     "max-line-length"
 ]
 
+[profile.circle.lint]
+lint_on_build = false
+
 [profile.layer1]
 src = "contracts/layer1"
 test = "test/layer1"
