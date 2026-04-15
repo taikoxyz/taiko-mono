@@ -82,9 +82,12 @@ static DEVNET_UZEN_OVERRIDE: OnceLock<u64> = OnceLock::new();
 
 /// Set the devnet Uzen activation timestamp override. Must be called before
 /// any fork-condition lookup runs for the internal devnet. Subsequent calls
-/// after the first are ignored.
+/// after the first are ignored. Logs the applied value on the first
+/// successful set so operators see confirmation at startup.
 pub fn set_devnet_uzen_override(timestamp: u64) {
-    let _ = DEVNET_UZEN_OVERRIDE.set(timestamp);
+    if DEVNET_UZEN_OVERRIDE.set(timestamp).is_ok() {
+        tracing::info!(timestamp, "applied devnet Uzen activation time override");
+    }
 }
 
 /// Taiko chain IDs where the Shasta fork is configured.
