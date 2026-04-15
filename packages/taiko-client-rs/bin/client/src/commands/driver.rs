@@ -72,8 +72,8 @@ impl Subcommand for DriverSubCommand {
 
     /// Run the driver.
     async fn run(&self) -> Result<()> {
-        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
         self.init_logs()?;
+        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
         self.init_metrics()?;
 
         let cfg = self.build_config()?;
