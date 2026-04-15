@@ -100,6 +100,17 @@ abstract contract CircleArtifactDeployer is Script {
         require(deployed_ != address(0), "CIRCLE_DEPLOY_FAILED");
     }
 
+    /// @dev Deploys arbitrary creation code with plain CREATE.
+    function _deployCreationCodeWithCreate(bytes memory _code)
+        internal
+        returns (address deployed_)
+    {
+        assembly {
+            deployed_ := create(0, add(_code, 0x20), mload(_code))
+        }
+        require(deployed_ != address(0), "CIRCLE_DEPLOY_FAILED");
+    }
+
     /// @dev Deploys a linked FiatTokenV2_2 implementation.
     function _deployFiatTokenImplementation() internal returns (address impl_) {
         address signatureChecker = _deployCreationCode(_creationCode(SIGNATURE_CHECKER_ARTIFACT));
@@ -126,7 +137,11 @@ abstract contract CircleArtifactDeployer is Script {
         internal
         returns (address proxy_)
     {
-        proxy_ = _deployCreationCode(
+        // forge script routes CREATE2 deployments through the 0x4e59 deployer. Circle's proxy
+        // constructor records msg.sender as admin, so CREATE2 would strand admin rights on 0x4e59
+        // and make changeAdmin() impossible. Use CREATE for the proxy so this deployer contract
+        // temporarily owns the admin slot and can hand it off before initialization.
+        proxy_ = _deployCreationCodeWithCreate(
             abi.encodePacked(_fiatTokenProxyCreationCode(), abi.encode(_implementation))
         );
 

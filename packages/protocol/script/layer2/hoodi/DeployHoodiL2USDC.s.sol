@@ -18,6 +18,7 @@ contract DeployHoodiL2USDC is Script, CircleArtifactDeployer {
     uint256 internal _deployerPrivateKey;
     uint256 internal _usdcAdminPrivateKey;
 
+    address internal _proxyAdminAddress;
     address internal _usdcAdmin;
     address internal _tokenOwner;
     address internal _pauser;
@@ -29,6 +30,7 @@ contract DeployHoodiL2USDC is Script, CircleArtifactDeployer {
         _usdcAdminPrivateKey = vm.envUint("USDC_ADMIN_PRIVATE_KEY");
 
         _usdcAdmin = vm.envAddress("USDC_ADMIN");
+        _proxyAdminAddress = vm.envOr("USDC_PROXY_ADMIN", _usdcAdmin);
         _tokenOwner = vm.envOr("USDC_OWNER", _usdcAdmin);
         _pauser = vm.envOr("USDC_PAUSER", _usdcAdmin);
         _blacklister = vm.envOr("USDC_BLACKLISTER", _usdcAdmin);
@@ -41,7 +43,7 @@ contract DeployHoodiL2USDC is Script, CircleArtifactDeployer {
             tokenSymbol: "USDC",
             tokenCurrency: "USD",
             tokenDecimals: 6,
-            proxyAdmin: _usdcAdmin,
+            proxyAdmin: _proxyAdminAddress,
             masterMinter: _usdcAdmin,
             pauser: _pauser,
             blacklister: _blacklister,

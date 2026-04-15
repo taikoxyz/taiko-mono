@@ -13,6 +13,7 @@ import { ICircleFiatToken } from "src/shared/thirdparty/ICircleFiatToken.sol";
 /// @custom:security-contact security@taiko.xyz
 contract ValidateHoodiL1USDC is Script, CircleArtifactDeployer {
     address internal _usdcToken;
+    address internal _proxyAdminAddress;
     address internal _usdcAdmin;
     address internal _tokenOwner;
     address internal _pauser;
@@ -24,6 +25,7 @@ contract ValidateHoodiL1USDC is Script, CircleArtifactDeployer {
     function setUp() public {
         _usdcToken = vm.envAddress("L1_USDC_TOKEN");
         _usdcAdmin = vm.envAddress("USDC_ADMIN");
+        _proxyAdminAddress = vm.envOr("USDC_PROXY_ADMIN", _usdcAdmin);
         _tokenOwner = vm.envOr("USDC_OWNER", _usdcAdmin);
         _pauser = vm.envOr("USDC_PAUSER", _usdcAdmin);
         _blacklister = vm.envOr("USDC_BLACKLISTER", _usdcAdmin);
@@ -37,7 +39,7 @@ contract ValidateHoodiL1USDC is Script, CircleArtifactDeployer {
         USDCFaucet faucet = USDCFaucet(_faucet);
         address implementation = _proxyImplementation(_usdcToken);
 
-        require(_proxyAdmin(_usdcToken) == _usdcAdmin, "invalid proxy admin");
+        require(_proxyAdmin(_usdcToken) == _proxyAdminAddress, "invalid proxy admin");
         require(implementation != address(0), "missing implementation");
         require(keccak256(bytes(token.name())) == keccak256(bytes("USD Coin")), "invalid name");
         require(keccak256(bytes(token.symbol())) == keccak256(bytes("USDC")), "invalid symbol");

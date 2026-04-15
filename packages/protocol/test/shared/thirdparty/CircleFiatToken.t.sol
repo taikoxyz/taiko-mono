@@ -53,4 +53,15 @@ contract TestCircleFiatToken is Test, CircleArtifactTestBase {
         assertEq(token.decimals(), 6);
         vm.stopPrank();
     }
+
+    function test_deploy_fiat_token_under_broadcast_context_hands_off_proxy_admin() public {
+        uint256 broadcasterPrivateKey = 0xA11CE;
+
+        vm.startBroadcast(broadcasterPrivateKey);
+        (address impl, address proxy) = _deployTestUSDC();
+        vm.stopBroadcast();
+
+        assertEq(_proxyImplementation(proxy), impl);
+        assertEq(_proxyAdmin(proxy), PROXY_ADMIN);
+    }
 }
