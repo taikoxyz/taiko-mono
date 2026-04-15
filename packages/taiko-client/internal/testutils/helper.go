@@ -431,7 +431,7 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 	txListBytes, err := rlp.EncodeToBytes(types.Transactions{anchorTx})
 	s.Nil(err)
 
-	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
+	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, blockID)
 	s.Nil(err)
 
 	extraData, err := encoding.EncodeShastaExtraData(proposed.BasefeeSharingPctg, proposed.Id)
@@ -442,7 +442,7 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 		Parent:       parent.Hash(),
 		Timestamp:    anchorBlock.Time,
 		FeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
-		Random:       common.BytesToHash(difficulty),
+		Random:       common.BytesToHash(mixHash),
 		Withdrawals:  make([]*types.Withdrawal, 0),
 		Version:      engine.PayloadV2,
 		TxListHash:   &txListHash,
@@ -459,7 +459,7 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 
 	s.forkTo(&engine.PayloadAttributes{
 		Timestamp:             anchorBlock.Time,
-		Random:                common.BytesToHash(difficulty),
+		Random:                common.BytesToHash(mixHash),
 		SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
 		Withdrawals:           []*types.Withdrawal{},
 		BlockMetadata: &engine.BlockMetadata{
@@ -467,7 +467,7 @@ func (s *ClientTestSuite) insertBaseShastaBlock(
 			GasLimit:    parent.GasLimit + consensus.AnchorV3V4GasLimit,
 			Timestamp:   anchorBlock.Time,
 			TxList:      txListBytes,
-			MixHash:     common.BytesToHash(difficulty),
+			MixHash:     common.BytesToHash(mixHash),
 			BatchID:     proposed.Id,
 			ExtraData:   extraData,
 		},
