@@ -13,28 +13,29 @@ The final bridge mapping is not an L2 direct-owner transaction on live Hoodi. Th
 `ERC20Vault.owner()` is the L2 `DelegateController`, so the mapping must be triggered from the
 Hoodi L1 contract-owner EOA through `Bridge.sendMessage(...)`.
 
-The standalone faucet app lives in the separate `taikoxyz/hoodi-usdc-bridge` repository. After deploying the contracts from this repo, backfill the addresses below in both places:
+The standalone faucet app lives in the separate `taikoxyz/hoodi-usdc-bridge` repository. The live Hoodi deployment is:
+
+- L1 Hoodi USDC token proxy: `0x210737FC9fC991997c113E725b565a49AfbBCC07`
+- L1 Hoodi USDC token implementation: `0xA3258180510Fc1ACDfBc67DF15e5610fcc36D132`
+- L1 Hoodi USDC faucet: `0x75093abc48ea78dBc30DE9D372d44c40Bb6D10eB`
+- L2 Taiko Hoodi USDC token proxy: `0xA4b776bA40D76Ae60acDD23f523Fe61B7b5b71Aa`
+- L2 Taiko Hoodi USDC token implementation: `0x5cd7dc2A6B5D7F2167C6d933b39D66c51bF2299A`
+- L1 -> L2 mapping message hash: `0x89cc7d5a72b831d1bf1b7f6f344d132628f10cc3b30bcc360499d43202b5ed4c`
+
+Backfill the values below in both places:
 
 1. `packages/protocol/deployments/taiko-hoodi-contract-logs.md`
 2. the Vercel environment for `taikoxyz/hoodi-usdc-bridge`
 3. the Hoodi bridge Vercel `CONFIGURED_CUSTOM_TOKENS` environment value
 
-## Addresses To Backfill
-
-- L1 Hoodi USDC token proxy
-- L1 Hoodi USDC token implementation
-- L1 Hoodi USDC faucet
-- L2 Taiko Hoodi USDC token proxy
-- L2 Taiko Hoodi USDC token implementation
-
 ## Standalone Faucet App Environment
 
-- `PUBLIC_HOODI_RPC_URL`
-- `PUBLIC_HOODI_EXPLORER_URL`
-- `PUBLIC_USDC_ADDRESS`
-- `PUBLIC_USDC_FAUCET_ADDRESS`
-- `PUBLIC_HOODI_BRIDGE_URL`
-- `PUBLIC_WALLETCONNECT_PROJECT_ID`
+- `PUBLIC_HOODI_RPC_URL=https://l1rpc.hoodi.taiko.xyz`
+- `PUBLIC_HOODI_EXPLORER_URL=https://hoodi.etherscan.io`
+- `PUBLIC_USDC_ADDRESS=0x210737FC9fC991997c113E725b565a49AfbBCC07`
+- `PUBLIC_USDC_FAUCET_ADDRESS=0x75093abc48ea78dBc30DE9D372d44c40Bb6D10eB`
+- `PUBLIC_HOODI_BRIDGE_URL=https://bridge.hoodi.taiko.xyz`
+- `PUBLIC_WALLETCONNECT_PROJECT_ID=4a8138348c4b06f4cdbfabb09fda5017`
 
 ## Hoodi Bridge UI Environment
 
