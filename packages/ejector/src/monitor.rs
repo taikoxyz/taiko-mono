@@ -132,6 +132,14 @@ enum SyncStatusClass {
     Unknown,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum L2HeadProgress {
+    UnknownBaseline,
+    Unchanged,
+    Advanced,
+    Regressed,
+}
+
 fn classify_sync_status(value: &serde_json::Value) -> SyncStatusClass {
     match value {
         serde_json::Value::Bool(false) | serde_json::Value::Null => SyncStatusClass::NotSyncing,
@@ -151,6 +159,15 @@ fn should_reset_watchdog_after_l2_skip(outcome: l2_poller::PollOutcome) -> bool 
             | l2_poller::PollOutcome::StableProgress
             | l2_poller::PollOutcome::Resynced
     )
+}
+
+fn classify_l2_head_progress(previous: Option<u64>, current: u64) -> L2HeadProgress {
+    match previous {
+        Some(prev) if current > prev => L2HeadProgress::Advanced,
+        Some(prev) if current < prev => L2HeadProgress::Regressed,
+        Some(_) => L2HeadProgress::Unchanged,
+        None => L2HeadProgress::UnknownBaseline,
+    }
 }
 
 /// Result of checking if a reorg is due to re-anchoring.
@@ -296,6 +313,15 @@ impl Monitor {
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
+        let initial_l2_head_number = match l2_http_provider.get_block_number().await {
+            Ok(block_number) => Some(block_number),
+            Err(err) => {
+                warn!("Failed to fetch initial L2 head for watchdog sanity check: {err:?}");
+                None
+            }
+        };
+        let last_l2_head_number = Arc::new(Mutex::new(initial_l2_head_number));
+        let last_l2_head_for_watch = last_l2_head_number.clone();
         // Clone for use in main loop (reorg sync status checks and anchor queries)
         let l2_http_provider_for_reorg = l2_http_provider.clone();
         // Anchor contract for detecting re-anchoring (only if reorg ejection is enabled and address is configured)
@@ -310,7 +336,7 @@ impl Monitor {
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
         let operator_cache = Arc::new(RwLock::new(l1_events::OperatorCache::default()));
-        match l1_events::refresh_cache_from_chain(&preconf_whitelist, &operator_cache).await {
+        match l1_events::refresh_cache_from_chain(&preconf_whitelist, &operator_cache, None).await {
             Ok(()) => {}
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
@@ -321,8 +347,12 @@ impl Monitor {
                     let max_backoff = Duration::from_secs(60);
                     loop {
                         sleep(backoff).await;
-                        match l1_events::refresh_cache_from_chain(&retry_whitelist, &retry_cache)
-                            .await
+                        match l1_events::refresh_cache_from_chain(
+                            &retry_whitelist,
+                            &retry_cache,
+                            None,
+                        )
+                        .await
                         {
                             Ok(()) => {
                                 info!("Initialized eject metrics after retry");
@@ -439,9 +469,49 @@ impl Monitor {
                             Self::should_skip_due_to_sync_status(&l2_http_provider, "L2").await;
                     }
 
+                    if !skip_due_to_l2 {
+                        match l2_http_provider.get_block_number().await {
+                            Ok(current_l2_head) => {
+                                let mut guard = last_l2_head_for_watch.lock().await;
+                                let progress =
+                                    classify_l2_head_progress(*guard, current_l2_head);
+                                *guard = Some(current_l2_head);
+
+                                match progress {
+                                    L2HeadProgress::Advanced => {
+                                        warn!(
+                                            current_l2_head,
+                                            "L2 head advanced while poller reported no progress; skipping eject this tick"
+                                        );
+                                        skip_due_to_l2 = true;
+                                    }
+                                    L2HeadProgress::Regressed => {
+                                        warn!(
+                                            current_l2_head,
+                                            "L2 head regressed during watchdog check; skipping eject this tick"
+                                        );
+                                        skip_due_to_l2 = true;
+                                    }
+                                    L2HeadProgress::UnknownBaseline | L2HeadProgress::Unchanged => {}
+                                }
+                            }
+                            Err(err) => {
+                                warn!(
+                                    "Failed to fetch L2 head for watchdog sanity check: {err:?}; skipping eject this tick"
+                                );
+                                skip_due_to_l2 = true;
+                            }
+                        }
+                    }
+
                     if skip_due_to_l2 {
                         let outcome = *last_l2_poll_outcome_for_watch.lock().await;
                         if should_reset_watchdog_after_l2_skip(outcome) {
+                            *last_seen_for_watch.lock().await = Instant::now();
+                            *last_block_for_watch.lock().await = Instant::now();
+                            metrics::set_last_seen_drift_seconds(0);
+                            metrics::set_last_block_age_seconds(0);
+                        } else {
                             *last_seen_for_watch.lock().await = Instant::now();
                             *last_block_for_watch.lock().await = Instant::now();
                             metrics::set_last_seen_drift_seconds(0);
@@ -1131,5 +1201,13 @@ mod tests {
     fn watchdog_does_not_reset_for_no_progress_l2_tick() {
         let outcome = super::l2_poller::PollOutcome::NoProgress;
         assert!(!super::should_reset_watchdog_after_l2_skip(outcome));
+    }
+
+    #[test]
+    fn l2_head_advance_skips_watchdog_eject() {
+        assert_eq!(
+            super::classify_l2_head_progress(Some(100), 101),
+            super::L2HeadProgress::Advanced
+        );
     }
 }

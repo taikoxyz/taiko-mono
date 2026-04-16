@@ -98,6 +98,11 @@ impl ProcessedLogTracker {
 
         true
     }
+
+    fn clear(&mut self) {
+        self.seen.clear();
+        self.order.clear();
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -140,18 +145,37 @@ pub(crate) fn apply_cache_update(
     }
 }
 
+fn reseed_cache_from_entries<I>(
+    cache: &mut OperatorCache,
+    tracker: &mut ProcessedLogTracker,
+    entries: I,
+) where
+    I: IntoIterator<Item = (Address, Address)>,
+{
+    cache.clear();
+    tracker.clear();
+    for (proposer, sequencer) in entries {
+        cache.upsert(proposer, sequencer);
+    }
+}
+
 pub(crate) async fn refresh_cache_from_chain<P>(
     whitelist: &IPreconfWhitelist::IPreconfWhitelistInstance<P>,
     operator_cache: &Arc<RwLock<OperatorCache>>,
+    tracker: Option<&mut ProcessedLogTracker>,
 ) -> eyre::Result<()>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
     let initialized = initialize_eject_metrics(whitelist).await?;
     let mut cache = operator_cache.write().await;
-    cache.clear();
-    for (proposer, sequencer) in initialized {
-        cache.upsert(proposer, sequencer);
+    if let Some(tracker) = tracker {
+        reseed_cache_from_entries(&mut cache, tracker, initialized);
+    } else {
+        cache.clear();
+        for (proposer, sequencer) in initialized {
+            cache.upsert(proposer, sequencer);
+        }
     }
     Ok(())
 }
@@ -171,7 +195,7 @@ pub(crate) async fn run_operator_event_scanner(
         let provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let whitelist = IPreconfWhitelist::new(whitelist_address, provider.clone());
 
-        if let Err(err) = refresh_cache_from_chain(&whitelist, &operator_cache).await {
+        if let Err(err) = refresh_cache_from_chain(&whitelist, &operator_cache, Some(&mut tracker)).await {
             warn!("Failed to refresh whitelist cache before scanner start: {err:?}");
         }
 
@@ -270,7 +294,11 @@ pub(crate) async fn run_operator_event_scanner(
                                     }
                                     CacheUpdateOutcome::RefreshFromChain => {
                                         if let Err(err) =
-                                            refresh_cache_from_chain(&whitelist, &operator_cache)
+                                            refresh_cache_from_chain(
+                                                &whitelist,
+                                                &operator_cache,
+                                                Some(&mut tracker),
+                                            )
                                                 .await
                                         {
                                             warn!(
@@ -284,7 +312,12 @@ pub(crate) async fn run_operator_event_scanner(
                             Err(err) => {
                                 warn!("Failed to decode whitelist event log: {err:?}");
                                 if let Err(refresh_err) =
-                                    refresh_cache_from_chain(&whitelist, &operator_cache).await
+                                    refresh_cache_from_chain(
+                                        &whitelist,
+                                        &operator_cache,
+                                        Some(&mut tracker),
+                                    )
+                                    .await
                                 {
                                     warn!(
                                         "Failed to refresh whitelist cache after decode error: {refresh_err:?}"
@@ -315,7 +348,12 @@ pub(crate) async fn run_operator_event_scanner(
 
                     if matches!(outcome, CacheUpdateOutcome::RefreshFromChain)
                         && let Err(err) =
-                            refresh_cache_from_chain(&whitelist, &operator_cache).await
+                            refresh_cache_from_chain(
+                                &whitelist,
+                                &operator_cache,
+                                Some(&mut tracker),
+                            )
+                            .await
                     {
                         warn!("Failed to refresh whitelist cache after L1 reorg: {err:?}");
                     }
@@ -373,4 +411,98 @@ fn processed_log_key(log: &Log) -> Option<ProcessedLogKey> {
         transaction_hash: log.transaction_hash?,
         log_index: log.log_index?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key(block_number: u64, tx_suffix: u8, log_index: u64) -> ProcessedLogKey {
+        ProcessedLogKey {
+            block_number,
+            transaction_hash: B256::with_last_byte(tx_suffix),
+            log_index,
+        }
+    }
+
+    #[test]
+    fn reseed_clears_tracker_before_replaying_window() {
+        let proposer = Address::with_last_byte(0x11);
+        let sequencer = Address::with_last_byte(0x22);
+        let other = Address::with_last_byte(0x33);
+
+        let mut cache = OperatorCache::default();
+        let mut tracker = ProcessedLogTracker {
+            seen: HashSet::new(),
+            order: VecDeque::new(),
+            max_entries: 2,
+        };
+
+        assert_eq!(
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorAdded {
+                    key: key(10, 0xA1, 0),
+                    proposer,
+                    sequencer,
+                },
+            ),
+            CacheUpdateOutcome::Applied
+        );
+        assert_eq!(
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorRemoved {
+                    key: key(11, 0xB2, 0),
+                    proposer,
+                    sequencer,
+                },
+            ),
+            CacheUpdateOutcome::Applied
+        );
+        assert_eq!(cache.proposer_for(proposer), None);
+
+        assert_eq!(
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorAdded {
+                    key: key(12, 0xC3, 0),
+                    proposer: other,
+                    sequencer: Address::ZERO,
+                },
+            ),
+            CacheUpdateOutcome::Applied
+        );
+
+        reseed_cache_from_entries(&mut cache, &mut tracker, []);
+
+        assert_eq!(
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorAdded {
+                    key: key(10, 0xA1, 0),
+                    proposer,
+                    sequencer,
+                },
+            ),
+            CacheUpdateOutcome::Applied
+        );
+        assert_eq!(
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorRemoved {
+                    key: key(11, 0xB2, 0),
+                    proposer,
+                    sequencer,
+                },
+            ),
+            CacheUpdateOutcome::Applied
+        );
+        assert_eq!(cache.proposer_for(proposer), None);
+    }
 }
