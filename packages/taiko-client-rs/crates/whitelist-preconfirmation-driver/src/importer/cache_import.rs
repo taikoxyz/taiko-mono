@@ -260,7 +260,10 @@ fn should_drop_cached_driver_error(err: &driver::DriverError) -> bool {
 /// Returns true when a driver error is expected to recover after sync catches up.
 fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
     match err {
-        driver::DriverError::EngineSyncing(_) | driver::DriverError::BlockNotFound(_) => true,
+        driver::DriverError::EngineSyncing(_) |
+        driver::DriverError::BlockNotFound(_) |
+        driver::DriverError::PreconfEnqueueTimeout { .. } |
+        driver::DriverError::PreconfResponseTimeout { .. } => true,
         driver::DriverError::PreconfInjectionFailed { source, .. } => matches!(
             source,
             driver::sync::error::EngineSubmissionError::EngineSyncing(_) |
