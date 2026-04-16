@@ -60,7 +60,11 @@ pub(crate) fn classify_head_update(
     }
 }
 
-fn numbered_fetch_plan(validated_tip_number: Option<u64>, latest_number: u64, max_depth: usize) -> Vec<u64> {
+fn numbered_fetch_plan(
+    validated_tip_number: Option<u64>,
+    latest_number: u64,
+    max_depth: usize,
+) -> Vec<u64> {
     match validated_tip_number {
         None => vec![latest_number],
         Some(validated_tip) if latest_number == validated_tip.saturating_add(1) => {
@@ -73,7 +77,10 @@ fn numbered_fetch_plan(validated_tip_number: Option<u64>, latest_number: u64, ma
     }
 }
 
-fn extension_fetch_plan_for_fast_path_reorg(validated_tip_number: u64, max_depth: usize) -> Vec<u64> {
+fn extension_fetch_plan_for_fast_path_reorg(
+    validated_tip_number: u64,
+    max_depth: usize,
+) -> Vec<u64> {
     if validated_tip_number == 0 {
         return Vec::new();
     }
@@ -93,9 +100,9 @@ fn should_reseed_after_lost_tip(
     candidate_chain_desc: &[TrackedBlock],
     max_depth: usize,
 ) -> bool {
-    matches!(outcome, PollOutcome::UncertainBackend) &&
-        latest_number.saturating_sub(validated_tip_number) > max_depth_lookback(max_depth) &&
-        is_contiguous_desc_chain(candidate_chain_desc)
+    matches!(outcome, PollOutcome::UncertainBackend)
+        && latest_number.saturating_sub(validated_tip_number) > max_depth_lookback(max_depth)
+        && is_contiguous_desc_chain(candidate_chain_desc)
 }
 
 fn validate_candidate_chain(
@@ -231,10 +238,8 @@ impl ValidatedHistory {
             return PollResult { outcome: PollOutcome::NoProgress, validated_blocks: Vec::new() };
         }
 
-        let validation = validate_candidate_chain(
-            self.blocks.make_contiguous(),
-            &candidate_chain_desc,
-        );
+        let validation =
+            validate_candidate_chain(self.blocks.make_contiguous(), &candidate_chain_desc);
         if matches!(validation.outcome, PollOutcome::StableProgress) {
             self.apply_stable_progress(
                 &validation.validated_blocks,
@@ -350,8 +355,9 @@ where
             candidate_chain_desc.push(validated_tip.clone());
         }
 
-        let initial_result =
-            self.validated_history.classify_candidate_head(observed_head.clone(), candidate_chain_desc.clone());
+        let initial_result = self
+            .validated_history
+            .classify_candidate_head(observed_head.clone(), candidate_chain_desc.clone());
 
         let needs_fast_path_extension =
             matches!(initial_result.outcome, PollOutcome::UncertainBackend)
@@ -372,7 +378,9 @@ where
                 candidate_chain_desc.push(block);
             }
 
-            return self.validated_history.classify_candidate_head(observed_head, candidate_chain_desc);
+            return self
+                .validated_history
+                .classify_candidate_head(observed_head, candidate_chain_desc);
         }
 
         if should_reseed_after_lost_tip(
@@ -500,10 +508,8 @@ mod tests {
     fn lost_tip_outside_window_resyncs_to_recent_contiguous_chain() {
         let candidate_chain_desc =
             vec![block(10, 10, 9), block(9, 9, 8), block(8, 8, 7), block(7, 7, 6)];
-        let initial_result = PollResult {
-            outcome: PollOutcome::UncertainBackend,
-            validated_blocks: Vec::new(),
-        };
+        let initial_result =
+            PollResult { outcome: PollOutcome::UncertainBackend, validated_blocks: Vec::new() };
 
         assert!(super::should_reseed_after_lost_tip(
             initial_result.outcome,
@@ -513,8 +519,11 @@ mod tests {
             4,
         ));
 
-        let mut history =
-            super::ValidatedHistory::from_blocks_for_test(vec![block(1, 1, 0), block(2, 2, 1), block(3, 3, 2)]);
+        let mut history = super::ValidatedHistory::from_blocks_for_test(vec![
+            block(1, 1, 0),
+            block(2, 2, 1),
+            block(3, 3, 2),
+        ]);
         history.reseed_from_desc_chain(&candidate_chain_desc);
         assert_eq!(history.tip_for_test(), Some(block(10, 10, 9)));
     }

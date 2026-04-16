@@ -152,15 +152,6 @@ fn should_skip_for_sync_class(class: SyncStatusClass) -> bool {
     matches!(class, SyncStatusClass::Syncing | SyncStatusClass::Unknown)
 }
 
-fn should_reset_watchdog_after_l2_skip(outcome: l2_poller::PollOutcome) -> bool {
-    matches!(
-        outcome,
-        l2_poller::PollOutcome::UncertainBackend
-            | l2_poller::PollOutcome::StableProgress
-            | l2_poller::PollOutcome::Resynced
-    )
-}
-
 fn classify_l2_head_progress(previous: Option<u64>, current: u64) -> L2HeadProgress {
     match previous {
         Some(prev) if current > prev => L2HeadProgress::Advanced,
@@ -457,8 +448,7 @@ impl Monitor {
 
                     let mut skip_due_to_l2 = matches!(
                         *last_l2_poll_outcome_for_watch.lock().await,
-                        l2_poller::PollOutcome::UncertainBackend |
-                            l2_poller::PollOutcome::Resynced
+                        l2_poller::PollOutcome::UncertainBackend | l2_poller::PollOutcome::Resynced
                     );
                     if skip_due_to_l2 {
                         warn!("Latest L2 poll result was not actionable; skipping eject this tick");
@@ -473,8 +463,7 @@ impl Monitor {
                         match l2_http_provider.get_block_number().await {
                             Ok(current_l2_head) => {
                                 let mut guard = last_l2_head_for_watch.lock().await;
-                                let progress =
-                                    classify_l2_head_progress(*guard, current_l2_head);
+                                let progress = classify_l2_head_progress(*guard, current_l2_head);
                                 *guard = Some(current_l2_head);
 
                                 match progress {
@@ -492,7 +481,8 @@ impl Monitor {
                                         );
                                         skip_due_to_l2 = true;
                                     }
-                                    L2HeadProgress::UnknownBaseline | L2HeadProgress::Unchanged => {}
+                                    L2HeadProgress::UnknownBaseline | L2HeadProgress::Unchanged => {
+                                    }
                                 }
                             }
                             Err(err) => {
@@ -505,18 +495,10 @@ impl Monitor {
                     }
 
                     if skip_due_to_l2 {
-                        let outcome = *last_l2_poll_outcome_for_watch.lock().await;
-                        if should_reset_watchdog_after_l2_skip(outcome) {
-                            *last_seen_for_watch.lock().await = Instant::now();
-                            *last_block_for_watch.lock().await = Instant::now();
-                            metrics::set_last_seen_drift_seconds(0);
-                            metrics::set_last_block_age_seconds(0);
-                        } else {
-                            *last_seen_for_watch.lock().await = Instant::now();
-                            *last_block_for_watch.lock().await = Instant::now();
-                            metrics::set_last_seen_drift_seconds(0);
-                            metrics::set_last_block_age_seconds(0);
-                        }
+                        *last_seen_for_watch.lock().await = Instant::now();
+                        *last_block_for_watch.lock().await = Instant::now();
+                        metrics::set_last_seen_drift_seconds(0);
+                        metrics::set_last_block_age_seconds(0);
                         continue;
                     }
 
@@ -1189,18 +1171,6 @@ mod tests {
             super::l2_poller::classify_head_update(Some(&parent), None),
             super::l2_poller::PollOutcome::UncertainBackend
         );
-    }
-
-    #[test]
-    fn watchdog_resets_for_uncertain_l2_backend() {
-        let outcome = super::l2_poller::PollOutcome::UncertainBackend;
-        assert!(super::should_reset_watchdog_after_l2_skip(outcome));
-    }
-
-    #[test]
-    fn watchdog_does_not_reset_for_no_progress_l2_tick() {
-        let outcome = super::l2_poller::PollOutcome::NoProgress;
-        assert!(!super::should_reset_watchdog_after_l2_skip(outcome));
     }
 
     #[test]
