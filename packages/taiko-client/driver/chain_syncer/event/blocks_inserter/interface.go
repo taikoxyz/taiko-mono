@@ -31,7 +31,7 @@ type createExecutionPayloadsMetaData struct {
 	ExtraData             []byte
 	SuggestedFeeRecipient common.Address
 	GasLimit              uint64
-	Difficulty            common.Hash
+	MixHash               common.Hash
 	Timestamp             uint64
 	ParentHash            common.Hash
 	L1Origin              *rawdb.L1Origin

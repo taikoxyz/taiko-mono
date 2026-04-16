@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
@@ -24,6 +25,8 @@ type SubcommandApplication interface {
 func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		logger.InitLogger(c)
+
+		applyDevnetUzenTimeOverride(c)
 
 		ctx, ctxClose := context.WithCancel(context.Background())
 		defer ctxClose()
@@ -66,4 +69,18 @@ func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 
 		return nil
 	}
+}
+
+// applyDevnetUzenTimeOverride mutates the embedded taiko-geth's core.InternalUzenTime
+// package variable from the CLI flag, if and only if the flag was explicitly set.
+// It must run before any chain-config or genesis lookup so downstream consumers
+// observe the overridden Uzen activation timestamp. When the flag is absent this
+// is a no-op (the package var is left untouched, never overwritten with 0).
+func applyDevnetUzenTimeOverride(c *cli.Context) {
+	if !c.IsSet(flags.TaikoDevnetUzenTime.Name) {
+		return
+	}
+	ts := c.Uint64(flags.TaikoDevnetUzenTime.Name)
+	core.InternalUzenTime = ts
+	log.Info("Overriding devnet Uzen activation time", "timestamp", ts)
 }

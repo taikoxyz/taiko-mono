@@ -167,13 +167,23 @@ fn propagates_cached_import_errors_for_non_payload_failures() {
 }
 
 #[test]
-fn propagates_cached_import_errors_for_driver_queue_timeouts() {
+fn defers_cached_import_errors_for_preconf_enqueue_timeout() {
     let err =
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfEnqueueTimeout {
             waited: Duration::from_secs(1),
         });
     assert!(!should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert!(should_defer_cached_import_error(&err));
+}
+
+#[test]
+fn defers_cached_import_errors_for_preconf_response_timeout() {
+    let err =
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfResponseTimeout {
+            waited: Duration::from_secs(12),
+        });
+    assert!(!should_drop_cached_import_error(&err));
+    assert!(should_defer_cached_import_error(&err));
 }
 
 #[test]
