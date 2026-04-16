@@ -11,7 +11,7 @@ use alloy::{
 use eyre::Result;
 use tokio::{
     sync::{Mutex, RwLock},
-    time::{interval, sleep},
+    time::interval,
 };
 use tracing::{debug, error, info, warn};
 
@@ -159,6 +159,10 @@ fn classify_l2_head_progress(previous: Option<u64>, current: u64) -> L2HeadProgr
         Some(_) => L2HeadProgress::Unchanged,
         None => L2HeadProgress::UnknownBaseline,
     }
+}
+
+fn should_mark_chain_reset(previous: Option<u64>, current: u64) -> bool {
+    matches!(classify_l2_head_progress(previous, current), L2HeadProgress::Regressed)
 }
 
 /// Result of checking if a reorg is due to re-anchoring.
@@ -331,31 +335,7 @@ impl Monitor {
             Ok(()) => {}
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
-                let retry_cache = operator_cache.clone();
-                let retry_whitelist = preconf_whitelist.clone();
-                tokio::spawn(async move {
-                    let mut backoff = Duration::from_secs(5);
-                    let max_backoff = Duration::from_secs(60);
-                    loop {
-                        sleep(backoff).await;
-                        match l1_events::refresh_cache_from_chain(
-                            &retry_whitelist,
-                            &retry_cache,
-                            None,
-                        )
-                        .await
-                        {
-                            Ok(()) => {
-                                info!("Initialized eject metrics after retry");
-                                break;
-                            }
-                            Err(err) => {
-                                warn!("Failed to initialize eject metrics (retry): {err:?}");
-                                backoff = std::cmp::min(max_backoff, backoff * 2);
-                            }
-                        }
-                    }
-                });
+                warn!("Whitelist scanner will retry cache refresh with tracker state on startup");
             }
         }
         let preconf_router =
@@ -608,13 +588,30 @@ impl Monitor {
                     continue;
                 }
 
+                let prev_block_number = {
+                    let mut guard = last_l2_head_number.lock().await;
+                    let previous = *guard;
+                    *guard = Some(block_number);
+                    previous
+                };
+
                 if outcome.parent_not_found {
-                    warn!(
-                        block_number,
-                        parent_hash = ?tracked_block.parent_hash,
-                        "Validated canonical chain did not connect to local reorg history; delaying ejection."
-                    );
-                    *chain_reset_at.lock().await = Some(Instant::now());
+                    if should_mark_chain_reset(prev_block_number, block_number) {
+                        warn!(
+                            block_number,
+                            prev_block = ?prev_block_number,
+                            parent_hash = ?tracked_block.parent_hash,
+                            "Validated canonical chain regressed and did not connect to local reorg history; delaying ejection."
+                        );
+                        *chain_reset_at.lock().await = Some(Instant::now());
+                    } else {
+                        warn!(
+                            block_number,
+                            prev_block = ?prev_block_number,
+                            parent_hash = ?tracked_block.parent_hash,
+                            "Validated canonical chain did not connect to local reorg history, but no rollback was observed."
+                        );
+                    }
                     continue;
                 }
 
@@ -1179,5 +1176,13 @@ mod tests {
             super::classify_l2_head_progress(Some(100), 101),
             super::L2HeadProgress::Advanced
         );
+    }
+
+    #[test]
+    fn parent_disconnect_marks_chain_reset_only_on_regression() {
+        assert!(super::should_mark_chain_reset(Some(100), 99));
+        assert!(!super::should_mark_chain_reset(Some(100), 100));
+        assert!(!super::should_mark_chain_reset(Some(100), 101));
+        assert!(!super::should_mark_chain_reset(None, 99));
     }
 }
