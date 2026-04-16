@@ -165,6 +165,10 @@ fn should_mark_chain_reset(previous: Option<u64>, current: u64) -> bool {
     matches!(classify_l2_head_progress(previous, current), L2HeadProgress::Regressed)
 }
 
+fn should_reset_last_block_age_on_poll_outcome(outcome: l2_poller::PollOutcome) -> bool {
+    matches!(outcome, l2_poller::PollOutcome::StableProgress)
+}
+
 /// Result of checking if a reorg is due to re-anchoring.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ReanchoringCheck {
@@ -476,9 +480,7 @@ impl Monitor {
 
                     if skip_due_to_l2 {
                         *last_seen_for_watch.lock().await = Instant::now();
-                        *last_block_for_watch.lock().await = Instant::now();
                         metrics::set_last_seen_drift_seconds(0);
-                        metrics::set_last_block_age_seconds(0);
                         continue;
                     }
 
@@ -558,11 +560,6 @@ impl Monitor {
                         *guard = now;
                     }
                     metrics::set_last_seen_drift_seconds(0);
-                    {
-                        let mut guard = last_block_seen.lock().await;
-                        *guard = now;
-                    }
-                    metrics::set_last_block_age_seconds(0);
                     info!("L2 poller re-synced validated history to recent canonical window");
                     continue;
                 }
@@ -624,9 +621,13 @@ impl Monitor {
                 metrics::set_last_seen_drift_seconds(0);
                 {
                     let mut guard = last_block_seen.lock().await;
-                    *guard = now;
+                    if should_reset_last_block_age_on_poll_outcome(poll_result.outcome) {
+                        *guard = now;
+                    }
                 }
-                metrics::set_last_block_age_seconds(0);
+                if should_reset_last_block_age_on_poll_outcome(poll_result.outcome) {
+                    metrics::set_last_block_age_seconds(0);
+                }
 
                 if !outcome.reorged.is_empty() {
                     let reorg_depth = outcome.reorged.len();
@@ -1184,5 +1185,21 @@ mod tests {
         assert!(!super::should_mark_chain_reset(Some(100), 100));
         assert!(!super::should_mark_chain_reset(Some(100), 101));
         assert!(!super::should_mark_chain_reset(None, 99));
+    }
+
+    #[test]
+    fn only_stable_progress_counts_as_block_observation() {
+        assert!(super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::StableProgress
+        ));
+        assert!(!super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::NoProgress
+        ));
+        assert!(!super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::UncertainBackend
+        ));
+        assert!(!super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::Resynced
+        ));
     }
 }
