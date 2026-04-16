@@ -65,7 +65,7 @@ func createPayloadAndSetHead(
 			Parent:       meta.ParentHash,
 			Timestamp:    meta.Timestamp,
 			FeeRecipient: meta.SuggestedFeeRecipient,
-			Random:       meta.Difficulty,
+			Random:       meta.MixHash,
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
@@ -131,7 +131,7 @@ func createExecutionPayloads(
 ) (payloadData *engine.ExecutableData, err error) {
 	attributes := &engine.PayloadAttributes{
 		Timestamp:             meta.Timestamp,
-		Random:                meta.Difficulty,
+		Random:                meta.MixHash,
 		SuggestedFeeRecipient: meta.SuggestedFeeRecipient,
 		Withdrawals:           meta.Withdrawals,
 		BlockMetadata: &engine.BlockMetadata{
@@ -139,7 +139,7 @@ func createExecutionPayloads(
 			GasLimit:    meta.GasLimit,
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
-			MixHash:     meta.Difficulty,
+			MixHash:     meta.MixHash,
 			BatchID:     meta.ProposalID,
 			ExtraData:   meta.ExtraData,
 		},
@@ -322,7 +322,7 @@ func isKnownCanonicalBlock(
 			Parent:       meta.Parent.Hash(),
 			Timestamp:    meta.Timestamp,
 			FeeRecipient: meta.SuggestedFeeRecipient,
-			Random:       meta.Difficulty,
+			Random:       meta.MixHash,
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
@@ -405,8 +405,8 @@ func isKnownCanonicalBlock(
 			return nil, false, nil
 		}
 	}
-	if block.MixDigest() != meta.Difficulty {
-		logUnknown(fmt.Sprintf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.Difficulty))
+	if block.MixDigest() != meta.MixHash {
+		logUnknown(fmt.Sprintf("mixDigest mismatch: %s != %s", block.MixDigest(), meta.MixHash))
 		return nil, false, nil
 	}
 	if block.Number().Uint64() != meta.BlockID.Uint64() {
@@ -443,7 +443,7 @@ func isKnownCanonicalBlock(
 			meta.Parent.Hash().Hex(),
 			meta.Timestamp,
 			meta.SuggestedFeeRecipient.Hex(),
-			meta.Difficulty.Hex(),
+			meta.MixHash.Hex(),
 			txListHash.Hex(),
 		))
 		return nil, false, nil
@@ -476,9 +476,9 @@ func assembleCreateExecutionPayloadMeta(
 		blockInfo     = sourcePayload.BlockPayloads[blockIndex]
 		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
 	)
-	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
+	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, blockID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
+		return nil, nil, fmt.Errorf("failed to calculate mix hash: %w", err)
 	}
 
 	baseFee, err := cli.CalculateBaseFee(ctx, parent)
@@ -536,7 +536,7 @@ func assembleCreateExecutionPayloadMeta(
 		ExtraData:             extraData,
 		SuggestedFeeRecipient: blockInfo.Coinbase,
 		GasLimit:              blockInfo.GasLimit,
-		Difficulty:            common.BytesToHash(difficulty),
+		MixHash:               common.BytesToHash(mixHash),
 		Timestamp:             blockInfo.Timestamp,
 		ParentHash:            parent.Hash(),
 		L1Origin: &rawdb.L1Origin{
@@ -763,7 +763,7 @@ func InsertPreconfBlockFromEnvelope(
 			ExtraData:             envelope.Payload.ExtraData,
 			SuggestedFeeRecipient: envelope.Payload.FeeRecipient,
 			GasLimit:              uint64(envelope.Payload.GasLimit),
-			Difficulty:            common.Hash(envelope.Payload.PrevRandao),
+			MixHash:               common.Hash(envelope.Payload.PrevRandao),
 			Timestamp:             uint64(envelope.Payload.Timestamp),
 			ParentHash:            envelope.Payload.ParentHash,
 			L1Origin: &rawdb.L1Origin{

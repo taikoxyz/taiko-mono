@@ -29,8 +29,8 @@ var (
 	SubProofsShastaComponentsArrayArgs    = abi.Arguments{
 		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsShastaComponentsArrayType},
 	}
-	uint256Type, _            = abi.NewType("uint256", "", nil)
-	ShastaDifficultyInputArgs = abi.Arguments{
+	uint256Type, _         = abi.NewType("uint256", "", nil)
+	ShastaMixHashInputArgs = abi.Arguments{
 		{Name: "parent.metadata.difficulty", Type: uint256Type},
 		{Name: "block.number", Type: uint256Type},
 	}
@@ -149,11 +149,11 @@ func EncodeBatchesSubProofs(subProofs []SubProofShasta) ([]byte, error) {
 	return b, nil
 }
 
-// CalculateShastaDifficulty calculates the difficulty for the given block.
-func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]byte, error) {
-	packed, err := ShastaDifficultyInputArgs.Pack(parentDifficulty, blockNum)
+// CalculateShastaMixHash calculates the mix hash for the given block.
+func CalculateShastaMixHash(parentDifficulty *big.Int, blockNum *big.Int) ([]byte, error) {
+	packed, err := ShastaMixHashInputArgs.Pack(parentDifficulty, blockNum)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode block difficulty, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode block mix hash, %w", err)
 	}
 
 	return crypto.Keccak256(packed), nil
