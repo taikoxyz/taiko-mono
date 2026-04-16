@@ -3,7 +3,13 @@ import { t } from 'svelte-i18n';
 import { TransactionExecutionError, UserRejectedRequestError } from 'viem';
 
 import { errorToast, warningToast } from '$components/NotificationToast';
-import { InsufficientAllowanceError, SendERC20Error, SendMessageError, TransactionTimeoutError } from '$libs/error';
+import {
+  BridgePausedError,
+  InsufficientAllowanceError,
+  SendERC20Error,
+  SendMessageError,
+  TransactionTimeoutError,
+} from '$libs/error';
 
 export const handleBridgeError = (error: Error) => {
   switch (true) {
@@ -43,6 +49,12 @@ export const handleBridgeError = (error: Error) => {
       warningToast({
         title: get(t)('bridge.errors.transaction_timeout.title'),
         message: get(t)('bridge.errors.transaction_timeout.message'),
+      });
+      break;
+    case error instanceof BridgePausedError:
+      warningToast({
+        title: get(t)('paused_modal.title'),
+        message: get(t)('paused_modal.description'),
       });
       break;
     default:

@@ -194,11 +194,8 @@
   }
 
   async function approve() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
-
     try {
+      if (await isBridgePaused()) throw new BridgePausedError('Bridge is paused');
       if (!$selectedToken || !$connectedSourceChain || !$destNetwork?.id) return;
       const type: TokenType = $selectedToken.type;
       const walletClient = await getConnectedWallet($connectedSourceChain.id);
