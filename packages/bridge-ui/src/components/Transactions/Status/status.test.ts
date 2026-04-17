@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { MessageStatus } from '$libs/bridge/types';
+import { BridgePausedError } from '$libs/error';
 
-import { shouldShowManualClaimEntry } from './status';
+import { assertBridgeNotPaused, shouldShowManualClaimEntry } from './status';
 
 describe('shouldShowManualClaimEntry', () => {
   it('returns true when a none-fee transaction is still processing but can be manually claimed', () => {
@@ -65,5 +66,15 @@ describe('shouldShowManualClaimEntry', () => {
         processingFee: 0n,
       }),
     ).toBe(false);
+  });
+});
+
+describe('assertBridgeNotPaused', () => {
+  it('throws a BridgePausedError when the bridge is paused', () => {
+    expect(() => assertBridgeNotPaused(true)).toThrow(BridgePausedError);
+  });
+
+  it('does nothing when the bridge is not paused', () => {
+    expect(() => assertBridgeNotPaused(false)).not.toThrow();
   });
 });

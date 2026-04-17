@@ -6,14 +6,13 @@
   import { StatusDot } from '$components/StatusDot';
   import { type BridgeTransaction, MessageStatus } from '$libs/bridge';
   import { isTransactionProcessable } from '$libs/bridge/isTransactionProcessable';
-  import { BridgePausedError } from '$libs/error';
   import { PollingEvent, startPolling } from '$libs/polling/messageStatusPoller';
   import { bridgeTxService } from '$libs/storage';
   import { isBridgePaused } from '$libs/util/checkForPausedContracts';
   import { account } from '$stores/account';
   import { connectedSourceChain } from '$stores/network';
 
-  import { shouldShowManualClaimEntry } from './status';
+  import { assertBridgeNotPaused, shouldShowManualClaimEntry } from './status';
 
   const dispatch = createEventDispatcher();
 
@@ -44,27 +43,21 @@
   }
 
   async function handleRetryClick() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
+    assertBridgeNotPaused(await isBridgePaused());
     if (!$connectedSourceChain || !$account?.address) return;
     // retryModalOpen = true;
     dispatch('openModal', 'retry');
   }
 
   async function handleReleaseClick() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
+    assertBridgeNotPaused(await isBridgePaused());
     if (!$connectedSourceChain || !$account?.address) return;
     // releaseModalOpen = true;
     dispatch('openModal', 'release');
   }
 
   async function handleClaimClick() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
+    assertBridgeNotPaused(await isBridgePaused());
     if (!$connectedSourceChain || !$account?.address) return;
 
     // claimModalOpen = true;
@@ -72,9 +65,7 @@
   }
 
   async function handleTryClaimClick() {
-    isBridgePaused().then((paused) => {
-      if (paused) throw new BridgePausedError('Bridge is paused');
-    });
+    assertBridgeNotPaused(await isBridgePaused());
     if (!$connectedSourceChain || !$account?.address) return;
 
     dispatch('openModal', 'try_claim');
