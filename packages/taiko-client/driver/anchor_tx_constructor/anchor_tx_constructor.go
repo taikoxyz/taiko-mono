@@ -82,9 +82,7 @@ func (c *AnchorTxConstructor) transactOpts(
 	baseFee *big.Int,
 	parentHash common.Hash,
 ) (*bind.TransactOpts, error) {
-	var (
-		signer = types.LatestSignerForChainID(c.rpc.L2.ChainID)
-	)
+	signer := types.LatestSignerForChainID(c.rpc.L2.ChainID)
 
 	// Get the nonce of golden touch account at the specified parentHeight.
 	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHash)

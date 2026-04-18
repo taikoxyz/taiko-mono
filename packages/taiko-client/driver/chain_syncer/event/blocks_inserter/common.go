@@ -557,7 +557,7 @@ func updateL1OriginForBlocks(
 	cli *rpc.Client,
 	blockCount int,
 	getBlockID func(i int) *big.Int,
-	getProposalID func() *big.Int,
+	proposalID *big.Int,
 	l1BlockHeight *big.Int,
 	l1BlockHash common.Hash,
 ) error {
@@ -601,7 +601,7 @@ func updateL1OriginForBlocks(
 				log.Info(
 					"Update head L1 origin",
 					"blockID", blockID,
-					"proposalID", getProposalID(),
+					"proposalID", proposalID,
 					"L2BlockHash", l1Origin.L1BlockHash,
 					"L1BlockHeight", l1Origin.L1BlockHeight,
 					"L1BlockHash", l1Origin.L1BlockHash,
@@ -609,7 +609,7 @@ func updateL1OriginForBlocks(
 				if _, err := cli.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
-				if _, err := cli.L2Engine.SetBatchToLastBlock(ctx, getProposalID(), blockID); err != nil {
+				if _, err := cli.L2Engine.SetBatchToLastBlock(ctx, proposalID, blockID); err != nil {
 					return fmt.Errorf("failed to write proposal to block mapping: %w", err)
 				}
 			}
@@ -633,16 +633,17 @@ func updateL1OriginForProposal(
 	}
 
 	meta := metadata.Shasta()
-	lastBlockID := parentHeader.Number.Uint64() + uint64(len(sourcePayload.BlockPayloads))
+	blockCount := len(sourcePayload.BlockPayloads)
+	lastBlockID := parentHeader.Number.Uint64() + uint64(blockCount)
 
 	return updateL1OriginForBlocks(
 		ctx,
 		cli,
-		len(sourcePayload.BlockPayloads),
+		blockCount,
 		func(i int) *big.Int {
-			return new(big.Int).SetUint64(lastBlockID - uint64(len(sourcePayload.BlockPayloads)-1-i))
+			return new(big.Int).SetUint64(lastBlockID - uint64(blockCount-1-i))
 		},
-		func() *big.Int { return meta.GetEventData().Id },
+		meta.GetEventData().Id,
 		meta.GetRawBlockHeight(),
 		meta.GetRawBlockHash(),
 	)

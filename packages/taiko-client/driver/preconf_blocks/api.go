@@ -73,10 +73,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	var (
-		start = time.Now()
-	)
-
+	start := time.Now()
 	defer func() {
 		elapsedMs := time.Since(start).Milliseconds()
 		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(float64(elapsedMs) / 1_000)
@@ -116,42 +113,36 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusInternalServerError, err)
 	}
 
-	if s.latestSeenProposal != nil {
-		if s.latestSeenProposal.IsShasta() {
-			if bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) {
-				parentProposalID, err := core.DecodeShastaProposalID(parent.Extra())
-				if err != nil {
-					return s.returnError(c, http.StatusBadRequest, fmt.Errorf("failed to get parent block proposal ID: %w", err))
-				}
+	if s.latestSeenProposal != nil &&
+		s.latestSeenProposal.IsShasta() &&
+		bytes.HasPrefix(parent.Transactions()[0].Data(), taiko.AnchorV4Selector) {
+		parentProposalID, err := core.DecodeShastaProposalID(parent.Extra())
+		if err != nil {
+			return s.returnError(c, http.StatusBadRequest, fmt.Errorf("failed to get parent block proposal ID: %w", err))
+		}
 
-				if parentProposalID.Cmp(s.latestSeenProposal.Shasta().GetEventData().Id) < 0 {
-					log.Warn(
-						"The parent block proposal ID is smaller than the latest proposal ID seen in event",
-						"parentProposalID", parentProposalID,
-						"latestProposalIDSeenInEvent", s.latestSeenProposal.Shasta().GetEventData().Id,
-					)
+		latestProposalID := s.latestSeenProposal.Shasta().GetEventData().Id
+		if parentProposalID.Cmp(latestProposalID) < 0 {
+			log.Warn(
+				"The parent block proposal ID is smaller than the latest proposal ID seen in event",
+				"parentProposalID", parentProposalID,
+				"latestProposalIDSeenInEvent", latestProposalID,
+			)
 
-					return s.returnError(c, http.StatusBadRequest,
-						fmt.Errorf(
-							"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
-							s.latestSeenProposal.Shasta().GetEventData().Id,
-							parentProposalID,
-						),
-					)
-				}
-			}
+			return s.returnError(c, http.StatusBadRequest,
+				fmt.Errorf(
+					"latestProposalIDSeenInEvent: %v, parentProposalID: %v",
+					latestProposalID,
+					parentProposalID,
+				),
+			)
 		}
 	}
 
-	endOfSequencing := false
-	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing {
-		endOfSequencing = true
-	}
-
-	isForcedInclusion := false
-	if reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion {
-		isForcedInclusion = true
-	}
+	var (
+		endOfSequencing   = reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing
+		isForcedInclusion = reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion
+	)
 
 	log.Info(
 		"🏗️ New preconfirmation block building request",
@@ -236,7 +227,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"extraData", common.Bytes2Hex(header.Extra),
 			"parentHash", header.ParentHash,
 			"endOfSequencing", endOfSequencing,
-			"isForcedInclusion", reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion,
+			"isForcedInclusion", isForcedInclusion,
 		)
 
 		var u256 uint256.Int
@@ -304,7 +295,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		)
 	}
 
-	if reqBody.EndOfSequencing != nil && *reqBody.EndOfSequencing && s.rpc.L1Beacon != nil {
+	if endOfSequencing && s.rpc.L1Beacon != nil {
 		currentEpoch := s.rpc.L1Beacon.CurrentEpoch()
 		s.sequencingEndedForEpochCache.Add(currentEpoch, header.Hash())
 		log.Info(

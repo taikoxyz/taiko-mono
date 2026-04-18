@@ -102,7 +102,9 @@ func (p *Proposer) InitFromConfig(
 		}
 	}
 
-	if privateTxMgr == nil && cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
+	if privateTxMgr == nil &&
+		cfg.PrivateTxmgrConfigs != nil &&
+		len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
 		if privateTxMgr, err = txmgr.NewSimpleTxManager(
 			"privateMempoolProposer",
 			log.Root(),
@@ -200,7 +202,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 	metrics.ProposerPoolContentFetchTime.Set(poolContentFetchTime.Seconds())
 
 	// Extract the transaction lists from the pre-built transaction lists information.
-	txLists := []types.Transactions{}
+	txLists := make([]types.Transactions, 0, len(preBuiltTxList))
 	for _, txs := range preBuiltTxList {
 		txLists = append(txLists, txs.TxList)
 	}
@@ -283,16 +285,13 @@ func (p *Proposer) ProposeTxLists(
 
 // ProposeTxList proposes the given transaction lists to the inbox contract.
 func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Transactions) error {
-	var (
-		txs uint64
-	)
-
 	// Make sure the transaction lists fit within the maximum blocks allowed in a proposal.
 	if len(proposalTxLists) > manifest.ProposalMaxBlocks {
 		return fmt.Errorf("proposal exceeds proposalMaxBlocks")
 	}
 
 	// Count the total number of transactions.
+	var txs uint64
 	for _, txList := range proposalTxLists {
 		txs += uint64(len(txList))
 	}

@@ -280,9 +280,7 @@ func validateMetadataTimestamp(
 	proposalTimestamp uint64,
 	chainID *big.Int,
 ) bool {
-	var (
-		parentTimestamp = sourcePayload.ParentBlock.Time()
-	)
+	parentTimestamp := sourcePayload.ParentBlock.Time()
 
 	for i := range sourcePayload.BlockPayloads {
 		lowerBound := ComputeTimestampLowerBound(parentTimestamp, proposalTimestamp, chainID)
