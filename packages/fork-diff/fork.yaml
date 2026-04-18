@@ -187,7 +187,7 @@ def:
     #       globs:
     #         - "graphql/*"
 
-    - title: "Changes in internal"
+    - title: "internal"
       description: "This shows changes to internal files"
       sub:
         # - title: "first layer"
