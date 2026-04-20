@@ -230,6 +230,14 @@ export class ERC20Bridge extends Bridge {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     const { fee } = sendERC20Args;
 
+    let gas: bigint;
+    try {
+      gas = await tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee });
+    } catch (error) {
+      console.error('Failed to estimate gas for sendToken, using fallback', error);
+      gas = 500_000n;
+    }
+
     try {
       const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
@@ -237,6 +245,7 @@ export class ERC20Bridge extends Bridge {
         functionName: 'sendToken',
         args: [sendERC20Args],
         value: fee,
+        gas,
       });
       log('Simulate contract', request);
 
