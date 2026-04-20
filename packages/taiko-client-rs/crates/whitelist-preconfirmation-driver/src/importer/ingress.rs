@@ -16,7 +16,10 @@ use crate::{
 
 use super::{
     WhitelistPreconfirmationImporter,
-    validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
+    validation::{
+        normalize_unsafe_payload_envelope, validate_envelope_header_difficulty,
+        validate_execution_payload_for_preconf,
+    },
 };
 
 impl<P> WhitelistPreconfirmationImporter<P>
@@ -81,6 +84,11 @@ where
             self.chain_id,
             self.anchor_address,
         )?;
+        validate_envelope_header_difficulty(
+            self.chain_id,
+            envelope.execution_payload.timestamp,
+            envelope.header_difficulty,
+        )?;
         self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
 
         Ok(())
@@ -114,6 +122,11 @@ where
             &envelope.execution_payload,
             self.chain_id,
             self.anchor_address,
+        )?;
+        validate_envelope_header_difficulty(
+            self.chain_id,
+            envelope.execution_payload.timestamp,
+            envelope.header_difficulty,
         )?;
 
         self.ingest_validated_envelope(Arc::new(envelope), "response").await;

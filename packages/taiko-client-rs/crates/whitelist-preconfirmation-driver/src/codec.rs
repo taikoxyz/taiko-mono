@@ -32,6 +32,10 @@ pub(crate) struct WhitelistExecutionPayloadEnvelope {
     pub is_forced_inclusion: Option<bool>,
     /// Optional parent beacon block root.
     pub parent_beacon_block_root: Option<B256>,
+    /// Optional hash-relevant header difficulty for post-Uzen blocks.
+    /// When `Some`, the encoder emits a 32-byte big-endian slot after
+    /// `parent_beacon_block_root` and sets `flags0 & 0x02`.
+    pub header_difficulty: Option<U256>,
     /// Execution payload.
     pub execution_payload: ExecutionPayloadV1,
     /// Optional embedded signature.
@@ -156,15 +160,23 @@ pub(crate) fn encode_unsafe_request_message(hash: B256) -> Vec<u8> {
 
 /// Encode Taiko whitelist preconfirmation SSZ envelope bytes.
 pub(crate) fn encode_envelope_ssz(envelope: &WhitelistExecutionPayloadEnvelope) -> Vec<u8> {
+    let has_header_difficulty = envelope.header_difficulty.map(|v| !v.is_zero()).unwrap_or(false);
+    let header_difficulty_len = if has_header_difficulty { 32 } else { 0 };
     let sig_len = if envelope.signature.is_some() { SIGNATURE_LEN } else { 0 };
     let mut out = Vec::with_capacity(
-        ENVELOPE_HEADER_LEN + envelope.execution_payload.as_ssz_bytes().len() + sig_len,
+        ENVELOPE_HEADER_LEN +
+            header_difficulty_len +
+            envelope.execution_payload.as_ssz_bytes().len() +
+            sig_len,
     );
 
     let mut flags0 = 0u8;
     let mut flags1 = 0u8;
     if envelope.end_of_sequencing.unwrap_or(false) {
         flags0 |= 0x01;
+    }
+    if has_header_difficulty {
+        flags0 |= 0x02;
     }
     if envelope.is_forced_inclusion.unwrap_or(false) {
         flags1 |= 0x01;
@@ -179,6 +191,11 @@ pub(crate) fn encode_envelope_ssz(envelope: &WhitelistExecutionPayloadEnvelope) 
         out.extend_from_slice(root.as_slice());
     } else {
         out.extend_from_slice(&[0u8; 32]);
+    }
+
+    if has_header_difficulty {
+        let v = envelope.header_difficulty.expect("has_header_difficulty implies Some");
+        out.extend_from_slice(&v.to_be_bytes::<32>());
     }
 
     out.extend_from_slice(envelope.execution_payload.as_ssz_bytes().as_slice());
@@ -215,22 +232,34 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
     let flags1 = bytes[1];
 
     let end_of_sequencing = (flags0 & 0x01 != 0).then_some(true);
+    let has_header_difficulty = flags0 & 0x02 != 0;
     let is_forced_inclusion = (flags1 & 0x01 != 0).then_some(true);
     let has_signature = flags1 & 0x02 != 0;
 
     let root = &bytes[2..ENVELOPE_HEADER_LEN];
     let parent_beacon_block_root = root.iter().any(|&b| b != 0).then(|| B256::from_slice(root));
 
+    let header_difficulty_len = if has_header_difficulty { 32 } else { 0 };
     let signature_len = if has_signature { SIGNATURE_LEN } else { 0 };
-    if bytes.len() < ENVELOPE_HEADER_LEN + signature_len {
+    let min_len = ENVELOPE_HEADER_LEN + header_difficulty_len + signature_len;
+    if bytes.len() < min_len {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
             "envelope missing payload data: {}",
             bytes.len()
         )));
     }
 
+    let mut cursor = ENVELOPE_HEADER_LEN;
+    let header_difficulty = if has_header_difficulty {
+        let slot = &bytes[cursor..cursor + 32];
+        cursor += 32;
+        Some(U256::from_be_slice(slot))
+    } else {
+        None
+    };
+
     let payload_end = bytes.len() - signature_len;
-    let payload_bytes = &bytes[ENVELOPE_HEADER_LEN..payload_end];
+    let payload_bytes = &bytes[cursor..payload_end];
     let execution_payload = ExecutionPayloadV1::from_ssz_bytes(payload_bytes).map_err(|err| {
         WhitelistPreconfirmationDriverError::InvalidPayload(format!(
             "invalid execution payload SSZ: {err:?}"
@@ -247,6 +276,7 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
         end_of_sequencing,
         is_forced_inclusion,
         parent_beacon_block_root,
+        header_difficulty,
         execution_payload,
         signature,
     })
@@ -300,6 +330,7 @@ mod tests {
             end_of_sequencing: Some(true),
             is_forced_inclusion: Some(true),
             parent_beacon_block_root: Some(B256::from([0xabu8; 32])),
+            header_difficulty: Some(U256::from(0x12345678u64)),
             execution_payload: ExecutionPayloadV1 {
                 parent_hash: B256::from([0x01u8; 32]),
                 fee_recipient: Address::from([0x11u8; 20]),
@@ -339,6 +370,7 @@ mod tests {
         assert_eq!(decoded.end_of_sequencing, envelope.end_of_sequencing);
         assert_eq!(decoded.is_forced_inclusion, envelope.is_forced_inclusion);
         assert_eq!(decoded.parent_beacon_block_root, envelope.parent_beacon_block_root);
+        assert_eq!(decoded.header_difficulty, envelope.header_difficulty);
         assert_eq!(decoded.execution_payload.block_hash, envelope.execution_payload.block_hash);
         assert_eq!(decoded.execution_payload.block_number, envelope.execution_payload.block_number);
         assert_eq!(decoded.signature, envelope.signature);
@@ -375,6 +407,7 @@ mod tests {
         assert_eq!(decoded_envelope.end_of_sequencing, envelope.end_of_sequencing);
         assert_eq!(decoded_envelope.is_forced_inclusion, envelope.is_forced_inclusion);
         assert_eq!(decoded_envelope.parent_beacon_block_root, envelope.parent_beacon_block_root);
+        assert_eq!(decoded_envelope.header_difficulty, envelope.header_difficulty);
         assert_eq!(
             decoded_envelope.execution_payload.block_hash,
             envelope.execution_payload.block_hash
