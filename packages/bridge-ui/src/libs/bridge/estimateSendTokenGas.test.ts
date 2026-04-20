@@ -3,14 +3,12 @@ import { gasLimitConfig } from '$config';
 import { estimateSendTokenGasOrFallback } from './estimateSendTokenGas';
 
 describe('estimateSendTokenGasOrFallback', () => {
-  let errorSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    errorSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 
   it('returns the estimated gas when estimation succeeds', async () => {
@@ -18,7 +16,7 @@ describe('estimateSendTokenGasOrFallback', () => {
     const result = await estimateSendTokenGasOrFallback(async () => estimated);
 
     expect(result).toBe(estimated);
-    expect(errorSpy).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it('returns the configured fallback gas when estimation rejects', async () => {
@@ -27,7 +25,7 @@ describe('estimateSendTokenGasOrFallback', () => {
     });
 
     expect(result).toBe(BigInt(gasLimitConfig.erc20SendTokenFallbackGasLimit));
-    expect(errorSpy).toHaveBeenCalledWith(
+    expect(console.error).toHaveBeenCalledWith(
       'Failed to estimate gas for sendToken, using fallback',
       expect.any(Error),
     );
@@ -40,7 +38,7 @@ describe('estimateSendTokenGasOrFallback', () => {
     });
 
     expect(result).toBe(BigInt(gasLimitConfig.erc20SendTokenFallbackGasLimit));
-    expect(errorSpy).toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalled();
   });
 
   it('coerces the numeric config fallback to a bigint', async () => {
