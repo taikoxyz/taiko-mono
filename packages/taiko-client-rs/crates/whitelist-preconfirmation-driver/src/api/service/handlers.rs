@@ -137,6 +137,8 @@ where
             end_of_sequencing: request.end_of_sequencing,
             is_forced_inclusion: request.is_forced_inclusion,
             parent_beacon_block_root: None,
+            header_difficulty: (!inserted_block.header.difficulty.is_zero())
+                .then_some(inserted_block.header.difficulty),
             execution_payload,
             signature: Some(block_hash_signature),
         };

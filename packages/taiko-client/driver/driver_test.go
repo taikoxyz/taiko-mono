@@ -572,7 +572,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2Payload() {
 	s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
 		context.Background(),
 		peer.ID(testutils.RandomBytes(32)),
-		&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload},
+		&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload, HeaderDifficulty: l2Head1.Difficulty},
 	))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -617,7 +617,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
 	s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
 		context.Background(),
 		peer.ID(testutils.RandomBytes(32)),
-		&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload},
+		&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload, HeaderDifficulty: l2Head1.Difficulty},
 	))
 
 	l2Head2, err := s.d.rpc.L2.BlockByNumber(context.Background(), nil)
@@ -742,7 +742,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
 			context.Background(),
 			peer.ID(testutils.RandomBytes(32)),
-			&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload},
+			&eth.ExecutionPayloadEnvelope{ExecutionPayload: payload, HeaderDifficulty: block.Difficulty()},
 		))
 	}
 
@@ -777,6 +777,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 				BlockHash:   forkA[len(forkA)-1].Hash(),
 				ParentHash:  forkA[len(forkA)-1].ParentHash(),
 			},
+			HeaderDifficulty: forkA[len(forkA)-1].Difficulty(),
 		},
 		&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
 	)
@@ -791,6 +792,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 				BlockHash:   forkB[len(forkB)-1].Hash(),
 				ParentHash:  forkB[len(forkB)-1].ParentHash(),
 			},
+			HeaderDifficulty: forkB[len(forkB)-1].Difficulty(),
 		},
 		&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
 	)
@@ -868,6 +870,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 			Transactions:  []eth.Data{b},
 			Withdrawals:   &types.Withdrawals{},
 		},
+		HeaderDifficulty: l2Head1.Difficulty(),
 	})
 
 	// Randomly gossip preconfirmation messages with missing ancients
@@ -908,7 +911,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 				BaseFeePerGas: eth.Uint256Quantity(*baseFee),
 				Transactions:  []eth.Data{b},
 				Withdrawals:   &types.Withdrawals{},
-			}},
+			}, HeaderDifficulty: block.Difficulty()},
 		))
 
 		if gossipRandom {
@@ -928,7 +931,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 					BaseFeePerGas: eth.Uint256Quantity(*baseFee),
 					Transactions:  []eth.Data{b},
 					Withdrawals:   &types.Withdrawals{},
-				}},
+				}, HeaderDifficulty: block.Difficulty()},
 			))
 
 			s.Nil(s.d.preconfBlockServer.OnUnsafeL2Payload(
@@ -946,7 +949,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 					BaseFeePerGas: eth.Uint256Quantity(*baseFee),
 					Transactions:  []eth.Data{b},
 					Withdrawals:   &types.Withdrawals{},
-				}},
+				}, HeaderDifficulty: block.Difficulty()},
 			))
 		}
 	}
@@ -991,6 +994,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 			Transactions:  []eth.Data{b},
 			Withdrawals:   &types.Withdrawals{},
 		},
+		HeaderDifficulty: block.Difficulty(),
 	})
 
 	block = getBlock(l2Head1.Number().Uint64() + 2)
@@ -1050,6 +1054,7 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 				Transactions:  []eth.Data{b},
 				Withdrawals:   &types.Withdrawals{},
 			},
+			HeaderDifficulty: block.Difficulty(),
 		})
 	}
 

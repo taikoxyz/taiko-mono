@@ -13,6 +13,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestBlockToEnvelope() {
 	s.Nil(err)
 	s.Nil(e.EndOfSequencing)
 	s.Equal(l2Head.Hash(), e.ExecutionPayload.BlockHash)
+	s.Equal(l2Head.Difficulty(), e.HeaderDifficulty)
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestBlockToEnvelopeMarkers() {
@@ -27,6 +28,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestBlockToEnvelopeMarkers() {
 	s.Equal(endOfSequencing, *e.EndOfSequencing)
 	s.Equal(signature, *e.Signature)
 	s.Equal(l2Head.Hash(), e.ExecutionPayload.BlockHash)
+	s.Equal(l2Head.Difficulty(), e.HeaderDifficulty)
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestCheckMessageBlockNumber() {
