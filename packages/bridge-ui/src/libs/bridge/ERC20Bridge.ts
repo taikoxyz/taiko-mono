@@ -100,7 +100,7 @@ export class ERC20Bridge extends Bridge {
       return estimatedGas;
     } catch (error) {
       console.error('Failed to estimate gas for sendToken, using fallback', error);
-      return gasLimitConfig.erc20SendTokenFallbackGasLimit;
+      return BigInt(gasLimitConfig.erc20SendTokenFallbackGasLimit);
     }
   }
 
