@@ -3,6 +3,7 @@ export const gasLimitConfig = {
   ethGasLimit: 100_000,
   erc20NotDeployedGasLimit: 750_000,
   erc20DeployedGasLimit: 500_000,
+  erc20SendTokenFallbackGasLimit: 500_000n, // used when eth_estimateGas for sendToken fails
   erc721NotDeployedGasLimit: 2_400_000,
   erc721DeployedGasLimit: 1_100_000,
   erc1155NotDeployedGasLimit: 2_600_000,

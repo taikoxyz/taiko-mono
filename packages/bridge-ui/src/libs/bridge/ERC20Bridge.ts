@@ -93,6 +93,17 @@ export class ERC20Bridge extends Bridge {
     super(prover);
   }
 
+  private static async _estimateSendTokenGasOrFallback(estimate: () => Promise<bigint>): Promise<bigint> {
+    try {
+      const estimatedGas = await estimate();
+      log('Gas estimated', estimatedGas);
+      return estimatedGas;
+    } catch (error) {
+      console.error('Failed to estimate gas for sendToken, using fallback', error);
+      return gasLimitConfig.erc20SendTokenFallbackGasLimit;
+    }
+  }
+
   async estimateGas(args: ERC20BridgeArgs) {
     isBridgePaused().then((paused) => {
       if (paused) throw new BridgePausedError('Bridge is paused');
@@ -101,18 +112,11 @@ export class ERC20Bridge extends Bridge {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args as ERC20BridgeArgs);
     const { fee } = sendERC20Args;
 
-    const value = fee;
+    log('Estimating gas for sendERC20 call with value', fee);
 
-    log('Estimating gas for sendERC20 call with value', value);
-
-    try {
-      const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
-      log('Gas estimated', estimatedGas);
-      return estimatedGas;
-    } catch (error) {
-      console.error('Failed to estimate gas for sendToken, using fallback', error);
-      return 500_000n;
-    }
+    return ERC20Bridge._estimateSendTokenGasOrFallback(() =>
+      tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
+    );
   }
 
   async getAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
@@ -230,13 +234,9 @@ export class ERC20Bridge extends Bridge {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     const { fee } = sendERC20Args;
 
-    let gas: bigint;
-    try {
-      gas = await tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee });
-    } catch (error) {
-      console.error('Failed to estimate gas for sendToken, using fallback', error);
-      gas = 500_000n;
-    }
+    const gas = await ERC20Bridge._estimateSendTokenGasOrFallback(() =>
+      tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
+    );
 
     try {
       const { request } = await simulateContract(config, {
