@@ -101,6 +101,11 @@ where
             // in the envelope (see rest_handler.rs), and the SSZ wire format
             // encodes None as 32 zero bytes which is the expected default.
             parent_beacon_block_root: None,
+            // Carry Uzen header.difficulty (= block_zk_gas_used) so receivers
+            // can reconstruct the sender's block hash. Left `None` for Shasta
+            // blocks whose difficulty is zero.
+            header_difficulty: (!block.header.difficulty.is_zero())
+                .then_some(block.header.difficulty),
             execution_payload: alloy_rpc_types_engine::ExecutionPayloadV1 {
                 parent_hash: block.header.parent_hash,
                 fee_recipient: block.header.beneficiary,

@@ -195,6 +195,7 @@ func createExecutionPayloads(
 		"gasLimit", payload.GasLimit,
 		"gasUsed", payload.GasUsed,
 		"timestamp", payload.Timestamp,
+		"headerDifficulty", payload.HeaderDifficultyOrZero(),
 		"withdrawalsHash", payload.WithdrawalsHash,
 	)
 
@@ -667,6 +668,7 @@ func InsertPreconfBlockFromEnvelope(
 		"parentHash", envelope.Payload.ParentHash,
 		"timestamp", envelope.Payload.Timestamp,
 		"feeRecipient", envelope.Payload.FeeRecipient,
+		"headerDifficulty", envelope.HeaderDifficulty,
 		"signature", common.Bytes2Hex(signature[:]),
 	)
 
