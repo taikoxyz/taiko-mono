@@ -105,11 +105,14 @@ export class ERC20Bridge extends Bridge {
 
     log('Estimating gas for sendERC20 call with value', value);
 
-    const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
-
-    log('Gas estimated', estimatedGas);
-
-    return estimatedGas;
+    try {
+      const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
+      log('Gas estimated', estimatedGas);
+      return estimatedGas;
+    } catch (error) {
+      console.error('Failed to estimate gas for sendToken, using fallback', error);
+      return 500_000n;
+    }
   }
 
   async getAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
