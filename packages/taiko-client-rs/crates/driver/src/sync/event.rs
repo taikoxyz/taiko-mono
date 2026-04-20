@@ -132,7 +132,9 @@ fn resolve_resume_head_block_number(
         checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
     } else {
         match head_l1_origin_block_id {
-            Some(block_id) if should_use_rpc_block_number_for_resume(rpc_l2_block_number, block_id) => {
+            Some(block_id)
+                if should_use_rpc_block_number_for_resume(rpc_l2_block_number, block_id) =>
+            {
                 Ok(rpc_l2_block_number)
             }
             Some(block_id) => Ok(block_id),
@@ -142,7 +144,10 @@ fn resolve_resume_head_block_number(
     }
 }
 
-fn should_use_rpc_block_number_for_resume(rpc_l2_block_number: u64, head_l1_origin_block_id: u64) -> bool {
+fn should_use_rpc_block_number_for_resume(
+    rpc_l2_block_number: u64,
+    head_l1_origin_block_id: u64,
+) -> bool {
     rpc_l2_block_number != 0 && rpc_l2_block_number < head_l1_origin_block_id
 }
 
@@ -882,7 +887,8 @@ where
         if checkpoint_configured {
             info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
         } else if let Some(head_l1_origin_block_id) = head_l1_origin_block_id {
-            if should_use_rpc_block_number_for_resume(rpc_l2_block_number, head_l1_origin_block_id) {
+            if should_use_rpc_block_number_for_resume(rpc_l2_block_number, head_l1_origin_block_id)
+            {
                 info!(
                     resume_head_block_number,
                     head_l1_origin_block_id,
@@ -1882,8 +1888,8 @@ mod tests {
             .expect("head_l1_origin should drive resume without checkpoint");
         assert_eq!(resolved, 64);
 
-        let resolved = resolve_resume_head_block_number(false, None, None, 0, true)
-            .expect("genesis fallback");
+        let resolved =
+            resolve_resume_head_block_number(false, None, None, 0, true).expect("genesis fallback");
         assert_eq!(resolved, 0);
     }
 
