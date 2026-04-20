@@ -13,7 +13,6 @@ use protocol::{
     shasta::uzen_active_for_chain_timestamp,
 };
 use thiserror::Error;
-use tracing::warn;
 
 use crate::{
     codec::{
@@ -242,18 +241,12 @@ pub(crate) fn validate_envelope_header_difficulty(
     timestamp: u64,
     header_difficulty: Option<alloy_primitives::U256>,
 ) -> Result<()> {
-    let uzen = match uzen_active_for_chain_timestamp(chain_id, timestamp) {
-        Ok(active) => active,
-        Err(err) => {
-            warn!(
-                chain_id,
-                timestamp,
-                error = %err,
-                "uzen fork lookup failed; treating envelope as pre-Uzen",
-            );
-            false
-        }
-    };
+    let uzen = uzen_active_for_chain_timestamp(chain_id, timestamp).map_err(|err| {
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            &format!("uzen fork lookup failed for chain {chain_id} at timestamp {timestamp}"),
+            err,
+        )
+    })?;
     let present = header_difficulty.map(|v| !v.is_zero()).unwrap_or(false);
 
     match (uzen, present) {
