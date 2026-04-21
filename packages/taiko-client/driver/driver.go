@@ -350,7 +350,7 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 				TerminalBlockNumber:     0,
 			})
 			if err != nil {
-				log.Error("Failed to exchange Transition Configuration", "error", err)
+				log.Debug("Failed to exchange Transition Configuration", "error", err)
 			} else {
 				log.Debug("Exchanged transition config", "transitionConfig", tc)
 			}
