@@ -21,7 +21,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { calculateMessageDataSize } from './calculateMessageDataSize';
-import { estimateSendTokenGasOrFallback } from './estimateSendTokenGas';
+import { estimateBridgeGasOrFallback, tokenBridgeFallbackGas } from './estimateBridgeGas';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
@@ -104,8 +104,9 @@ export class ERC20Bridge extends Bridge {
 
     log('Estimating gas for sendERC20 call with value', fee);
 
-    return estimateSendTokenGasOrFallback(() =>
-      tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
+    return estimateBridgeGasOrFallback(
+      () => tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
+      tokenBridgeFallbackGas(gasLimitConfig.erc20SendTokenFallbackGasLimit, args.isTokenAlreadyDeployed),
     );
   }
 
@@ -224,8 +225,9 @@ export class ERC20Bridge extends Bridge {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     const { fee } = sendERC20Args;
 
-    const gas = await estimateSendTokenGasOrFallback(() =>
-      tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
+    const gas = await estimateBridgeGasOrFallback(
+      () => tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
+      tokenBridgeFallbackGas(gasLimitConfig.erc20SendTokenFallbackGasLimit, args.isTokenAlreadyDeployed),
     );
 
     try {

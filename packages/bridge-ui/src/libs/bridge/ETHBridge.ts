@@ -4,6 +4,7 @@ import { getContract, UserRejectedRequestError } from 'viem';
 
 import { bridgeAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
+import { gasLimitConfig } from '$config';
 import { BridgePausedError, SendMessageError } from '$libs/error';
 import type { BridgeProver } from '$libs/proof';
 import { isBridgePaused } from '$libs/util/checkForPausedContracts';
@@ -11,6 +12,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
+import { estimateBridgeGasOrFallback } from './estimateBridgeGas';
 import type { ETHBridgeArgs, Message } from './types';
 
 const log = getLogger('bridge:ETHBridge');
@@ -85,11 +87,10 @@ export class ETHBridge extends Bridge {
 
     log('Estimating gas for sendMessage call with value', value);
 
-    const estimatedGas = await bridgeContract.estimateGas.sendMessage([message], { value });
-
-    log('Gas estimated', estimatedGas);
-
-    return estimatedGas;
+    return estimateBridgeGasOrFallback(
+      () => bridgeContract.estimateGas.sendMessage([message], { value }),
+      gasLimitConfig.ethSendMessageFallbackGasLimit,
+    );
   }
 
   async bridge(args: ETHBridgeArgs) {
@@ -101,6 +102,11 @@ export class ETHBridge extends Bridge {
     const { value: callValue, fee: processingFee } = message;
 
     const value = callValue + processingFee;
+
+    const gas = await estimateBridgeGasOrFallback(
+      () => bridgeContract.estimateGas.sendMessage([message], { value }),
+      gasLimitConfig.ethSendMessageFallbackGasLimit,
+    );
 
     try {
       log('Calling sendMessage with value', value);
@@ -114,6 +120,7 @@ export class ETHBridge extends Bridge {
         args: [message],
         chainId,
         value,
+        gas,
       });
       log('Simulate contract', request);
 

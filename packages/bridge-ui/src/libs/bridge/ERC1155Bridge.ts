@@ -21,6 +21,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { calculateMessageDataSize } from './calculateMessageDataSize';
+import { estimateBridgeGasOrFallback, tokenBridgeFallbackGas } from './estimateBridgeGas';
 import type { ERC1155BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC1155Bridge');
@@ -56,14 +57,12 @@ export class ERC1155Bridge extends Bridge {
     const { fee: value } = sendERC1155Args;
 
     log('Estimating gas for sendERC1155 call with value', value);
-
     log('Estimating gas for sendERC1155 call with args', sendERC1155Args);
 
-    const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC1155Args], { value });
-
-    log('Gas estimated', estimatedGas);
-
-    return estimatedGas;
+    return estimateBridgeGasOrFallback(
+      () => tokenVaultContract.estimateGas.sendToken([sendERC1155Args], { value }),
+      tokenBridgeFallbackGas(gasLimitConfig.erc1155SendTokenFallbackGasLimit, args.isTokenAlreadyDeployed),
+    );
   }
 
   async bridge(args: ERC1155BridgeArgs) {
@@ -96,6 +95,11 @@ export class ERC1155Bridge extends Bridge {
       log('Token is bridged, no need to check for approval');
     }
 
+    const gas = await estimateBridgeGasOrFallback(
+      () => tokenVaultContract.estimateGas.sendToken([sendERC1155Args], { value: fee }),
+      tokenBridgeFallbackGas(gasLimitConfig.erc1155SendTokenFallbackGasLimit, args.isTokenAlreadyDeployed),
+    );
+
     try {
       log('Sending ERC1155 with fee', fee);
       log('Sending ERC1155 with args', sendERC1155Args);
@@ -107,6 +111,7 @@ export class ERC1155Bridge extends Bridge {
         //@ts-ignore
         args: [sendERC1155Args],
         value: fee,
+        gas,
       });
       log('Simulate contract', request);
 
