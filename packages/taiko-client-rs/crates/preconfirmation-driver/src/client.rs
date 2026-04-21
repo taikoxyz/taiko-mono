@@ -287,18 +287,16 @@ where
 
         // If pre-dial peers are configured, dial them and wait for a connection
         // before attempting catch-up. Use the pre_dial_timeout if configured.
-        if !config.p2p.pre_dial_peers.is_empty() {
-            let pre_dial_result = dial_and_wait_for_peer(&mut handle, &config, &event_tx).await;
-            if let Err(err) = pre_dial_result {
-                node_handle.abort();
-                return Err(err);
-            }
+        if !config.p2p.pre_dial_peers.is_empty() &&
+            let Err(err) = dial_and_wait_for_peer(&mut handle, &config, &event_tx).await
+        {
+            node_handle.abort();
+            return Err(err);
         }
 
         // Run the catch-up flow.
-        let catchup_result =
-            run_catchup(&config, &store, &mut handle, event_sync_tip, &handler).await;
-        if let Err(err) = catchup_result {
+        if let Err(err) = run_catchup(&config, &store, &mut handle, event_sync_tip, &handler).await
+        {
             node_handle.abort();
             return Err(err);
         }
