@@ -58,9 +58,7 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
-	var (
-		blobDataSource = rpc.NewBlobDataSource(ctx, client, blobServerEndpoint)
-	)
+	blobDataSource := rpc.NewBlobDataSource(ctx, client, blobServerEndpoint)
 
 	return &Syncer{
 		ctx:             ctx,
@@ -263,18 +261,14 @@ func (s *Syncer) processProposal(
 	}
 
 	// Prefetch all derivation source payloads.
-	var (
-		sourcePayloads = make([]*derivation.DerivationSourcePayload, len(meta.GetEventData().Sources))
-	)
-	if len(meta.GetEventData().Sources) > 0 {
-		// Fetch all derivation source payloads.
-		for i := 0; i < len(meta.GetEventData().Sources); i++ {
-			p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
-			if err != nil {
-				return fmt.Errorf("failed to fetch derivation payload for index %d: %w", i, err)
-			}
-			sourcePayloads[i] = p
+	sourcePayloads := make([]*derivation.DerivationSourcePayload, len(meta.GetEventData().Sources))
+	// Fetch all derivation source payloads.
+	for i := range meta.GetEventData().Sources {
+		p, err := s.derivationSourceFetcher.Fetch(ctx, meta, i)
+		if err != nil {
+			return fmt.Errorf("failed to fetch derivation payload for index %d: %w", i, err)
 		}
+		sourcePayloads[i] = p
 	}
 
 	for derivationIdx := range meta.GetEventData().Sources {
@@ -397,9 +391,7 @@ func (s *Syncer) processProposal(
 // checkLastVerifiedBlockMismatch checks if there is a mismatch between protocol's last verified block hash and
 // the corresponding L2 EE block hash.
 func (s *Syncer) checkLastVerifiedBlockMismatch(ctx context.Context) (*rpc.ReorgCheckResult, error) {
-	var (
-		reorgCheckResult = new(rpc.ReorgCheckResult)
-	)
+	reorgCheckResult := new(rpc.ReorgCheckResult)
 
 	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {

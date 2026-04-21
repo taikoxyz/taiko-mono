@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -27,19 +28,23 @@ func (h *ProposalEventHandler) handleProposal(
 		log.Debug("Skip non-proposal event")
 		return nil
 	}
-	if meta.Shasta().GetEventData().Id.Cmp(common.Big0) == 0 {
+
+	event := meta.Shasta().GetEventData()
+	proposalID := event.Id
+
+	if proposalID.Cmp(common.Big0) == 0 {
 		return nil
 	}
 
 	// Wait for the corresponding L2 block being mined in node.
-	header, err := h.rpc.WaitProposalHeader(ctx, meta.Shasta().GetEventData().Id)
+	header, err := h.rpc.WaitProposalHeader(ctx, proposalID)
 	if err != nil {
-		return fmt.Errorf("failed to wait L2 header (proposalID %d): %w", meta.Shasta().GetEventData().Id, err)
+		return fmt.Errorf("failed to wait L2 header (proposalID %d): %w", proposalID, err)
 	}
 
 	// Check if the L1 chain has reorged at first.
-	if err := h.checkL1Reorg(ctx, meta.Shasta().GetEventData().Id, meta); err != nil {
-		if err.Error() == errL1Reorged.Error() {
+	if err := h.checkL1Reorg(ctx, proposalID, meta); err != nil {
+		if errors.Is(err, errL1Reorged) {
 			end()
 			return nil
 		}
@@ -48,7 +53,7 @@ func (h *ProposalEventHandler) handleProposal(
 	}
 
 	// If the current batch is handled, just skip it.
-	if meta.Shasta().GetEventData().Id.Uint64() <= h.sharedState.GetLastHandledProposalID() {
+	if proposalID.Uint64() <= h.sharedState.GetLastHandledProposalID() {
 		return nil
 	}
 
@@ -56,14 +61,14 @@ func (h *ProposalEventHandler) handleProposal(
 		"New Proposed event",
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
-		"proposalID", meta.Shasta().GetEventData().Id,
+		"proposalID", proposalID,
 		"lastBlockID", header.Number,
 		"proposer", meta.GetProposer(),
 		"proposalTimestamp", meta.Shasta().GetTimestamp(),
-		"derivationSources", len(meta.Shasta().GetEventData().Sources),
+		"derivationSources", len(event.Sources),
 	)
 
-	metrics.ProverReceivedProposedBlockGauge.Set(float64(meta.Shasta().GetEventData().Id.Uint64()))
+	metrics.ProverReceivedProposedBlockGauge.Set(float64(proposalID.Uint64()))
 
 	// Move l1Current cursor.
 	newL1Current, err := h.rpc.L1.HeaderByHash(ctx, meta.GetRawBlockHash())
@@ -71,7 +76,7 @@ func (h *ProposalEventHandler) handleProposal(
 		return err
 	}
 	h.sharedState.SetL1Current(newL1Current)
-	h.sharedState.SetLastHandledProposalID(meta.Shasta().GetEventData().Id.Uint64())
+	h.sharedState.SetLastHandledProposalID(proposalID.Uint64())
 
 	// Try generating a proof for the proposed block with the given backoff policy.
 	go func() {
@@ -80,13 +85,13 @@ func (h *ProposalEventHandler) handleProposal(
 				if err := h.checkExpirationAndSubmitProof(
 					ctx,
 					meta,
-					meta.Shasta().GetEventData().Id,
+					proposalID,
 					meta.GetProposer(),
 				); err != nil {
 					log.Error(
 						"Failed to check proof status and submit proof",
-						"proposalID", meta.Shasta().GetEventData().Id,
-						"derivationSources", len(meta.Shasta().GetEventData().Sources),
+						"proposalID", proposalID,
+						"derivationSources", len(event.Sources),
 						"maxRetries", h.backOffMaxRetries,
 						"error", err,
 					)

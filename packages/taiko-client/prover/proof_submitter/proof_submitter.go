@@ -16,7 +16,6 @@ import (
 	cmap "github.com/orcaman/concurrent-map/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	chainiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -114,19 +113,17 @@ func (s *ProofSubmitter) startBackgroundWorkers(ctx context.Context) {
 
 // RequestProof requests proof for the given Taiko batch.
 func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoProposalMetaData) error {
+	proposalID := meta.GetProposalID()
+
 	// Wait for the last block to be inserted at first.
-	header, err := s.rpc.WaitProposalHeader(ctx, meta.Shasta().GetEventData().Id)
+	header, err := s.rpc.WaitProposalHeader(ctx, proposalID)
 	if err != nil {
-		return fmt.Errorf(
-			"failed to wait for L2 header, blockID: %d, error: %w",
-			meta.Shasta().GetEventData().Id,
-			err,
-		)
+		return fmt.Errorf("failed to wait for L2 header, blockID: %d, error: %w", proposalID, err)
 	}
 
 	lastOriginInLastProposal, err := s.rpc.LastL1OriginInProposal(
 		ctx,
-		new(big.Int).Sub(meta.Shasta().GetEventData().Id, common.Big1),
+		new(big.Int).Sub(proposalID, common.Big1),
 	)
 	if err != nil {
 		return err
@@ -140,24 +137,16 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		)
 	}
 	// Request proof.
-	var (
-		lastBlockState shasta.AnchorBlockState
-	)
+	blockStateOpts := &bind.CallOpts{Context: ctx}
 	if lastOriginInLastProposal.BlockID.Cmp(common.Big0) == 0 {
-		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
-			BlockNumber: common.Big0,
-			Context:     ctx,
-		})
+		blockStateOpts.BlockNumber = common.Big0
 	} else {
-		lastBlockState, err = s.rpc.ShastaClients.Anchor.GetBlockState(&bind.CallOpts{
-			BlockHash: lastOriginInLastProposal.L2BlockHash,
-			Context:   ctx,
-		})
+		blockStateOpts.BlockHash = lastOriginInLastProposal.L2BlockHash
 	}
+	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(blockStateOpts)
 	if err != nil {
 		return err
 	}
-	proposalID := meta.GetProposalID()
 	var (
 		opts = &proofProducer.ProposalProofRequestOptions{
 			ProposalID:       proposalID,
@@ -300,18 +289,17 @@ func (s *ProofSubmitter) handleProofResponse(
 		return fmt.Errorf("get unexpected proof type from raiko %s", proofResponse.ProofType)
 	}
 
-	var toBeInsertedID *big.Int
+	toBeInsertedID := fromID
 	if proofBuffer.LastInsertID() > 0 {
 		toBeInsertedID = new(big.Int).SetUint64(proofBuffer.LastInsertID() + 1)
-	} else {
-		toBeInsertedID = fromID
 	}
-	if meta.GetProposalID().Cmp(toBeInsertedID) == 0 {
+	proposalID := meta.GetProposalID()
+	if proposalID.Cmp(toBeInsertedID) == 0 {
 		bufferSize, err := proofBuffer.Write(proofResponse)
 		if err != nil {
 			return fmt.Errorf(
 				"failed to add proof into buffer (id: %d) (current buffer size: %d): %w",
-				meta.GetProposalID(),
+				proposalID,
 				bufferSize,
 				err,
 			)
@@ -319,12 +307,12 @@ func (s *ProofSubmitter) handleProofResponse(
 		// Try to aggregate the proofs in the buffer.
 		s.TryAggregate(proofBuffer, proofResponse.ProofType)
 	} else {
-		cacheMap.Set(meta.GetProposalID().String(), proofResponse)
+		cacheMap.Set(proposalID.String(), proofResponse)
 		tryFlushCache(s.flushCacheNotify, proofResponse.ProofType)
 	}
 	log.Info(
 		"Proof generated successfully for proposal",
-		"proposalID", meta.GetProposalID(),
+		"proposalID", proposalID,
 		"bufferSize", proofBuffer.Len(),
 		"maxBufferSize", proofBuffer.MaxLength,
 		"proofType", proofResponse.ProofType,
@@ -366,7 +354,8 @@ func (s *ProofSubmitter) BatchSubmitProofs(ctx context.Context, batchProof *proo
 	)
 	// Extract all proposal IDs and the highest proven block ID in the aggregation.
 	for _, proof := range batchProof.ProofResponses {
-		currentLastBlockID := proof.Opts.ProposalOptions().L2BlockNums[len(proof.Opts.ProposalOptions().L2BlockNums)-1]
+		blockNums := proof.Opts.ProposalOptions().L2BlockNums
+		currentLastBlockID := blockNums[len(blockNums)-1]
 		if currentLastBlockID.Cmp(latestProvenBlockID) > 0 {
 			latestProvenBlockID = currentLastBlockID
 		}
@@ -611,11 +600,9 @@ func (s *ProofSubmitter) FlushCache(ctx context.Context, proofType proofProducer
 	if err != nil {
 		return fmt.Errorf("failed to get core state: %w", err)
 	}
-	var fromID *big.Int
+	fromID := new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)
 	if buffer.LastInsertID() > 0 {
 		fromID = new(big.Int).SetUint64(buffer.LastInsertID() + 1)
-	} else {
-		fromID = new(big.Int).Add(coreState.LastFinalizedProposalId, common.Big1)
 	}
 	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
 	if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {

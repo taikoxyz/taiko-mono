@@ -134,31 +134,29 @@ func InitFromConfig(
 	)
 	if txMgr != nil {
 		p.txmgr = txMgr
-	} else {
-		if p.txmgr, err = txmgr.NewSimpleTxManager(
-			"prover",
+	} else if p.txmgr, err = txmgr.NewSimpleTxManager(
+		"prover",
+		log.Root(),
+		&metrics.TxMgrMetrics,
+		*cfg.TxmgrConfigs,
+	); err != nil {
+		return err
+	}
+
+	switch {
+	case privateTxMgr != nil:
+		p.privateTxmgr = privateTxMgr
+	case cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0:
+		if p.privateTxmgr, err = txmgr.NewSimpleTxManager(
+			"privateMempoolProver",
 			log.Root(),
 			&metrics.TxMgrMetrics,
-			*cfg.TxmgrConfigs,
+			*cfg.PrivateTxmgrConfigs,
 		); err != nil {
 			return err
 		}
-	}
-	if privateTxMgr != nil {
-		p.privateTxmgr = privateTxMgr
-	} else {
-		if cfg.PrivateTxmgrConfigs != nil && len(cfg.PrivateTxmgrConfigs.L1RPCURL) > 0 {
-			if p.privateTxmgr, err = txmgr.NewSimpleTxManager(
-				"privateMempoolProver",
-				log.Root(),
-				&metrics.TxMgrMetrics,
-				*cfg.PrivateTxmgrConfigs,
-			); err != nil {
-				return err
-			}
-		} else {
-			p.privateTxmgr = nil
-		}
+	default:
+		p.privateTxmgr = nil
 	}
 
 	// Proof submitter
