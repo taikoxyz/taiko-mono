@@ -21,8 +21,5 @@ export function tokenBridgeFallbackGas(
   baseDeployedFallback: number,
   isTokenAlreadyDeployed: boolean | undefined,
 ): number {
-  return (
-    baseDeployedFallback +
-    (isTokenAlreadyDeployed ? 0 : gasLimitConfig.bridgeTxNotDeployedExtraGas)
-  );
+  return baseDeployedFallback + (isTokenAlreadyDeployed ? 0 : gasLimitConfig.bridgeTxNotDeployedExtraGas);
 }
