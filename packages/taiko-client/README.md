@@ -4,7 +4,7 @@
 
 [![Codecov](https://codecov.io/gh/taikoxyz/taiko-mono/graph/badge.svg?&token=E468X2PTJC&flag=taiko-client)](https://codecov.io/gh/taikoxyz/taiko-mono/packages/taiko-client)
 
-Taiko Alethia protocol's client software implementation in Go. Learn more about Taiko Alethia nodes with [the docs](https://docs.taiko.xyz/taiko-alethia-protocol/protocol-architecture/taiko-alethia-nodes).
+Taiko Alethia protocol's client software implementation in Go. Learn more about running a Taiko node in [the docs](https://docs.taiko.xyz/guides/run-a-node).
 
 ## Project structure
 
