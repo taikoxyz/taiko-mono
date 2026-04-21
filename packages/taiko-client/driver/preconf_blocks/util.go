@@ -42,6 +42,7 @@ func executionPayloadEnvelope(
 	endOfSequencing *bool,
 	isForcedInclusion *bool,
 	signature *[65]byte,
+	headerDifficulty *big.Int,
 ) (*eth.ExecutionPayloadEnvelope, error) {
 	// If the base fee is too large to fit in a uint256, we should return an error instead of silently truncating it.
 	var u256 uint256.Int
@@ -49,7 +50,7 @@ func executionPayloadEnvelope(
 		return nil, fmt.Errorf("failed to convert base fee to uint256: %v", overflow)
 	}
 
-	return &eth.ExecutionPayloadEnvelope{
+	envelope := &eth.ExecutionPayloadEnvelope{
 		ExecutionPayload: &eth.ExecutionPayload{
 			BaseFeePerGas: eth.Uint256Quantity(u256),
 			ParentHash:    parentHash,
@@ -66,7 +67,11 @@ func executionPayloadEnvelope(
 		EndOfSequencing:   endOfSequencing,
 		IsForcedInclusion: isForcedInclusion,
 		Signature:         signature,
-	}, nil
+	}
+	if headerDifficulty != nil && headerDifficulty.Cmp(common.Big0) > 0 {
+		envelope.HeaderDifficulty = new(big.Int).Set(headerDifficulty)
+	}
+	return envelope, nil
 }
 
 // blockToEnvelope converts a block to an ExecutionPayloadEnvelope.
@@ -96,6 +101,7 @@ func blockToEnvelope(
 		endOfSequencing,
 		isForcedInclusion,
 		signature,
+		block.Difficulty(),
 	)
 }
 
@@ -122,6 +128,7 @@ func headerToEnvelope(
 		endOfSequencing,
 		isForcedInclusion,
 		signature,
+		header.Difficulty,
 	)
 }
 
