@@ -1,70 +1,38 @@
 use std::{
-    collections::{HashMap, HashSet},
     sync::Arc,
     time::{Duration, Instant},
 };
 
 use alloy::{
     primitives::Address,
-    providers::{Provider, ProviderBuilder, WsConnect},
+    providers::{Provider, ProviderBuilder},
     transports::http::reqwest::Url,
 };
 use eyre::Result;
-use futures_util::StreamExt;
 use tokio::{
-    sync::{Mutex, Notify, RwLock},
-    time::{interval, sleep},
+    sync::{Mutex, RwLock},
+    time::interval,
 };
 use tracing::{debug, error, info, warn};
+
+mod l1_events;
+mod l2_poller;
 
 use crate::{
     beacon::BeaconClient,
     bindings::TaikoWrapper,
     metrics,
-    monitor_reorg::{ChainReorgTracker, MAX_REORG_HISTORY, TrackedBlock},
+    monitor_reorg::{ChainReorgTracker, MAX_REORG_HISTORY},
     utils::{
         eject::{eject_operator, eject_operator_by_address, initialize_eject_metrics},
         lookahead::{Responsibility, responsibility_for_slot},
     },
 };
 
-#[derive(Default)]
-struct OperatorCache {
-    proposers: HashSet<Address>,
-    sequencer_to_proposer: HashMap<Address, Address>,
-}
-
-impl OperatorCache {
-    fn upsert(&mut self, proposer: Address, sequencer: Address) {
-        self.proposers.insert(proposer);
-        if !sequencer.is_zero() {
-            self.sequencer_to_proposer.insert(sequencer, proposer);
-        }
-    }
-
-    fn remove_proposer(&mut self, proposer: Address) {
-        self.proposers.remove(&proposer);
-        self.sequencer_to_proposer.retain(|_, existing| *existing != proposer);
-    }
-
-    fn proposer_for(&self, addr: Address) -> Option<Address> {
-        if self.proposers.contains(&addr) {
-            Some(addr)
-        } else {
-            self.sequencer_to_proposer.get(&addr).copied()
-        }
-    }
-
-    fn clear(&mut self) {
-        self.proposers.clear();
-        self.sequencer_to_proposer.clear();
-    }
-}
-
 async fn resolve_operator_for_coinbase<P>(
     coinbase: Address,
     whitelist: crate::bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
-    cache: Arc<RwLock<OperatorCache>>,
+    cache: Arc<RwLock<l1_events::OperatorCache>>,
 ) -> eyre::Result<Option<Address>>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -128,9 +96,7 @@ where
 pub struct Monitor {
     beacon_client: BeaconClient,
     l1_signer: alloy::signers::local::PrivateKeySigner,
-    l2_ws_url: Url,
     l2_http_url: Url,
-    l1_ws_url: Url,
     l1_http_url: Url,
     eject_after: Duration,
     taiko_wrapper_address: Address,
@@ -143,11 +109,35 @@ pub struct Monitor {
     reorg_ejection_enabled: bool,
 }
 
+pub struct MonitorParams {
+    pub beacon_client: BeaconClient,
+    pub l1_signer: alloy::signers::local::PrivateKeySigner,
+    pub l1_http_url: Url,
+    pub l2_http_url: Url,
+    pub eject_after_seconds: u64,
+    pub taiko_wrapper_address: Address,
+    pub whitelist_address: Address,
+    pub handover_slots: u64,
+    pub preconf_router_address: Address,
+    pub anchor_address: Option<Address>,
+    pub min_operators: u64,
+    pub min_reorg_depth_for_eject: usize,
+    pub reorg_ejection_enabled: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SyncStatusClass {
     NotSyncing,
     Syncing,
     Unknown,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum L2HeadProgress {
+    UnknownBaseline,
+    Unchanged,
+    Advanced,
+    Regressed,
 }
 
 fn classify_sync_status(value: &serde_json::Value) -> SyncStatusClass {
@@ -160,6 +150,23 @@ fn classify_sync_status(value: &serde_json::Value) -> SyncStatusClass {
 
 fn should_skip_for_sync_class(class: SyncStatusClass) -> bool {
     matches!(class, SyncStatusClass::Syncing | SyncStatusClass::Unknown)
+}
+
+fn classify_l2_head_progress(previous: Option<u64>, current: u64) -> L2HeadProgress {
+    match previous {
+        Some(prev) if current > prev => L2HeadProgress::Advanced,
+        Some(prev) if current < prev => L2HeadProgress::Regressed,
+        Some(_) => L2HeadProgress::Unchanged,
+        None => L2HeadProgress::UnknownBaseline,
+    }
+}
+
+fn should_mark_chain_reset(previous: Option<u64>, current: u64) -> bool {
+    matches!(classify_l2_head_progress(previous, current), L2HeadProgress::Regressed)
+}
+
+fn should_reset_last_block_age_on_poll_outcome(outcome: l2_poller::PollOutcome) -> bool {
+    matches!(outcome, l2_poller::PollOutcome::StableProgress)
 }
 
 /// Result of checking if a reorg is due to re-anchoring.
@@ -241,42 +248,23 @@ impl Monitor {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        beacon_client: BeaconClient,
-        l1_signer: alloy::signers::local::PrivateKeySigner,
-        l2_ws_url: Url,
-        l2_http_url: Url,
-        l1_ws_url: Url,
-        l1_http_url: Url,
-        eject_after_seconds: u64,
-        taiko_wrapper_address: Address,
-        whitelist_address: Address,
-        handover_slots: u64,
-        preconf_router_address: Address,
-        anchor_address: Option<Address>,
-        min_operators: u64,
-        min_reorg_depth_for_eject: usize,
-        reorg_ejection_enabled: bool,
-    ) -> Self {
-        let eject_after = Duration::from_secs(eject_after_seconds);
+    pub fn new(params: MonitorParams) -> Self {
+        let eject_after = Duration::from_secs(params.eject_after_seconds);
 
         Self {
-            beacon_client,
-            l1_signer,
-            l2_ws_url,
-            l2_http_url,
-            l1_ws_url,
-            l1_http_url,
+            beacon_client: params.beacon_client,
+            l1_signer: params.l1_signer,
+            l2_http_url: params.l2_http_url,
+            l1_http_url: params.l1_http_url,
             eject_after,
-            taiko_wrapper_address,
-            whitelist_address,
-            handover_slots,
-            preconf_router_address,
-            anchor_address,
-            min_operators,
-            min_reorg_depth_for_eject,
-            reorg_ejection_enabled,
+            taiko_wrapper_address: params.taiko_wrapper_address,
+            whitelist_address: params.whitelist_address,
+            handover_slots: params.handover_slots,
+            preconf_router_address: params.preconf_router_address,
+            anchor_address: params.anchor_address,
+            min_operators: params.min_operators,
+            min_reorg_depth_for_eject: params.min_reorg_depth_for_eject,
+            reorg_ejection_enabled: params.reorg_ejection_enabled,
         }
     }
 
@@ -284,13 +272,12 @@ impl Monitor {
     // it will update per epoch and handle reconnections, as well as check if preconfs are enabled
     // before starting the ejector. It will however monitor the block stream regardless.
     pub async fn run(&self) -> Result<()> {
-        info!("Running block watcher at {}", self.l2_ws_url);
+        info!("Running block watcher at {}", self.l2_http_url);
 
         let last_seen = Arc::new(Mutex::new(Instant::now()));
         let last_block_seen = Arc::new(Mutex::new(Instant::now()));
-        let last_l2_head_number = Arc::new(Mutex::new(None::<u64>));
         let chain_reset_at = Arc::new(Mutex::new(None::<Instant>));
-        let reconnect_notify = Arc::new(Notify::new());
+        let last_l2_poll_outcome = Arc::new(Mutex::new(l2_poller::PollOutcome::UncertainBackend));
         metrics::set_last_seen_drift_seconds(0);
         metrics::set_last_block_age_seconds(0);
         // Align watchdog tick with beacon slots to avoid spamming identical responsibility logs.
@@ -298,12 +285,10 @@ impl Monitor {
         let max = self.eject_after;
         let last_seen_for_watch = last_seen.clone();
         let last_block_for_watch = last_block_seen.clone();
-        let last_l2_head_for_watch = last_l2_head_number.clone();
         let chain_reset_for_watch = chain_reset_at.clone();
-        let reconnect_notify_for_watch = reconnect_notify.clone();
+        let last_l2_poll_outcome_for_watch = last_l2_poll_outcome.clone();
 
         let l1_http_url = self.l1_http_url.clone();
-        let l1_ws_url = self.l1_ws_url.clone();
         let l2_http_url = self.l2_http_url.clone();
         let taiko_wrapper_address = self.taiko_wrapper_address;
         let whitelist_address = self.whitelist_address;
@@ -327,6 +312,15 @@ impl Monitor {
         // Reuse a single HTTP provider and PreconfRouter binding
         let http_provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let l2_http_provider = ProviderBuilder::new().connect_http(l2_http_url.clone());
+        let initial_l2_head_number = match l2_http_provider.get_block_number().await {
+            Ok(block_number) => Some(block_number),
+            Err(err) => {
+                warn!("Failed to fetch initial L2 head for watchdog sanity check: {err:?}");
+                None
+            }
+        };
+        let last_l2_head_number = Arc::new(Mutex::new(initial_l2_head_number));
+        let last_l2_head_for_watch = last_l2_head_number.clone();
         // Clone for use in main loop (reorg sync status checks and anchor queries)
         let l2_http_provider_for_reorg = l2_http_provider.clone();
         // Anchor contract for detecting re-anchoring (only if reorg ejection is enabled and address is configured)
@@ -340,47 +334,18 @@ impl Monitor {
         let last_anchor_block = Arc::new(Mutex::new(None::<u64>));
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
-        let operator_cache = Arc::new(RwLock::new(OperatorCache::default()));
-        match initialize_eject_metrics(&preconf_whitelist).await {
-            Ok(initialized) => {
-                let mut cache = operator_cache.write().await;
-                cache.clear();
-                for (proposer, sequencer) in initialized {
-                    cache.upsert(proposer, sequencer);
-                }
-            }
+        let operator_cache = Arc::new(RwLock::new(l1_events::OperatorCache::default()));
+        match l1_events::refresh_cache_from_chain(&preconf_whitelist, &operator_cache, None).await {
+            Ok(()) => {}
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
-                let retry_cache = operator_cache.clone();
-                let retry_whitelist = preconf_whitelist.clone();
-                tokio::spawn(async move {
-                    let mut backoff = Duration::from_secs(5);
-                    let max_backoff = Duration::from_secs(60);
-                    loop {
-                        sleep(backoff).await;
-                        match initialize_eject_metrics(&retry_whitelist).await {
-                            Ok(initialized) => {
-                                let mut cache = retry_cache.write().await;
-                                cache.clear();
-                                for (proposer, sequencer) in initialized {
-                                    cache.upsert(proposer, sequencer);
-                                }
-                                info!("Initialized eject metrics after retry");
-                                break;
-                            }
-                            Err(err) => {
-                                warn!("Failed to initialize eject metrics (retry): {err:?}");
-                                backoff = std::cmp::min(max_backoff, backoff * 2);
-                            }
-                        }
-                    }
-                });
+                warn!("Whitelist scanner will retry cache refresh with tracker state on startup");
             }
         }
         let preconf_router =
             crate::bindings::PreconfRouter::new(self.preconf_router_address, http_provider.clone());
-        let _operator_added_listener = tokio::spawn(Self::operator_added_listener(
-            l1_ws_url.clone(),
+        let _operator_added_listener = tokio::spawn(l1_events::run_operator_event_scanner(
+            l1_http_url.clone(),
             whitelist_address,
             operator_cache.clone(),
         ));
@@ -388,10 +353,8 @@ impl Monitor {
         // watchdog task
         let watchdog_l1_http_url = l1_http_url.clone();
         let watchdog_signer = signer.clone();
-        let mut shared_l2_http_provider = l2_http_provider;
         let _watchdog = tokio::spawn(async move {
             let mut ticker = interval(tick);
-            let mut l2_block_query_failures: u32 = 0;
             loop {
                 ticker.tick().await;
 
@@ -467,67 +430,56 @@ impl Monitor {
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
 
-                    // L2 sanity check: if the L2 node is syncing or its head is advancing, avoid
-                    // ejecting based solely on a stalled WS subscription.
-                    let mut skip_due_to_l2 =
-                        Self::should_skip_due_to_sync_status(&shared_l2_http_provider, "L2").await;
+                    let mut skip_due_to_l2 = matches!(
+                        *last_l2_poll_outcome_for_watch.lock().await,
+                        l2_poller::PollOutcome::UncertainBackend | l2_poller::PollOutcome::Resynced
+                    );
+                    if skip_due_to_l2 {
+                        warn!("Latest L2 poll result was not actionable; skipping eject this tick");
+                    }
 
                     if !skip_due_to_l2 {
-                        match shared_l2_http_provider.get_block_number().await {
-                            Ok(l2_head) => {
-                                l2_block_query_failures = 0;
+                        skip_due_to_l2 =
+                            Self::should_skip_due_to_sync_status(&l2_http_provider, "L2").await;
+                    }
+
+                    if !skip_due_to_l2 {
+                        match l2_http_provider.get_block_number().await {
+                            Ok(current_l2_head) => {
                                 let mut guard = last_l2_head_for_watch.lock().await;
-                                match *guard {
-                                    Some(prev) if l2_head > prev => {
-                                        let ws_staleness =
-                                            last_block_for_watch.lock().await.elapsed();
+                                let progress = classify_l2_head_progress(*guard, current_l2_head);
+                                *guard = Some(current_l2_head);
+
+                                match progress {
+                                    L2HeadProgress::Advanced => {
                                         warn!(
-                                            prev_l2_head = prev,
-                                            current_l2_head = l2_head,
-                                            ws_staleness_secs = ws_staleness.as_secs(),
-                                            "L2 head advanced while no WS block headers were observed; skipping eject and forcing resubscribe"
+                                            current_l2_head,
+                                            "L2 head advanced while poller reported no progress; skipping eject this tick"
                                         );
-                                        *guard = Some(l2_head);
                                         skip_due_to_l2 = true;
                                     }
-                                    Some(prev) if l2_head < prev => {
+                                    L2HeadProgress::Regressed => {
                                         warn!(
-                                            prev_l2_head = prev,
-                                            current_l2_head = l2_head,
-                                            "L2 head number decreased; skipping eject and forcing resubscribe"
+                                            current_l2_head,
+                                            "L2 head regressed during watchdog check; skipping eject this tick"
                                         );
-                                        *guard = Some(l2_head);
                                         skip_due_to_l2 = true;
                                     }
-                                    None => {
-                                        *guard = Some(l2_head);
+                                    L2HeadProgress::UnknownBaseline | L2HeadProgress::Unchanged => {
                                     }
-                                    _ => {}
                                 }
                             }
-                            Err(e) => {
-                                // Recreate the provider on failure to avoid sticking with a bad client.
-                                shared_l2_http_provider =
-                                    ProviderBuilder::new().connect_http(l2_http_url.clone());
-                                l2_block_query_failures = l2_block_query_failures.saturating_add(1);
+                            Err(err) => {
                                 warn!(
-                                    "Failed to query L2 block number: {e:?}; skipping eject this tick"
+                                    "Failed to fetch L2 head for watchdog sanity check: {err:?}; skipping eject this tick"
                                 );
-                                if l2_block_query_failures == 5 {
-                                    error!(
-                                        failures = l2_block_query_failures,
-                                        "Repeated L2 block number failures; check L2 HTTP configuration"
-                                    );
-                                }
                                 skip_due_to_l2 = true;
                             }
                         }
                     }
 
                     if skip_due_to_l2 {
-                        reconnect_notify_for_watch.notify_one();
                         *last_seen_for_watch.lock().await = Instant::now();
-                        *last_block_for_watch.lock().await = Instant::now();
                         metrics::set_last_seen_drift_seconds(0);
                         continue;
                     }
@@ -580,344 +532,302 @@ impl Monitor {
             }
         });
 
-        // reconnect loop backoff params
         let mut reorg_tracker = ChainReorgTracker::new(MAX_REORG_HISTORY);
-        let mut backoff = Duration::from_secs(1);
-        let max_backoff = Duration::from_secs(30);
+        let mut block_poller = l2_poller::L2BlockPoller::new(
+            ProviderBuilder::new().connect_http(self.l2_http_url.clone()),
+        );
+        let mut poll_tick = interval(l2_poller::L2_BLOCK_POLL_INTERVAL);
 
         loop {
-            info!("Connecting to block stream...");
-            match ProviderBuilder::new().connect_ws(WsConnect::new(self.l2_ws_url.clone())).await {
-                Ok(provider) => {
-                    info!("Connected to block stream at {}", self.l2_ws_url);
-                    metrics::inc_ws_reconnections();
-                    // sanity
-                    match provider.get_block_number().await {
-                        Ok(bn) => {
-                            info!("WS get_block_number() = {bn}");
-                            *last_l2_head_number.lock().await = Some(bn);
-                        }
-                        Err(e) => warn!("WS RPC get_block_number failed: {e}"),
+            poll_tick.tick().await;
+
+            let poll_result = block_poller.poll_latest().await;
+            {
+                let mut guard = last_l2_poll_outcome.lock().await;
+                *guard = poll_result.outcome;
+            }
+
+            match poll_result.outcome {
+                l2_poller::PollOutcome::UncertainBackend => {
+                    metrics::inc_l2_poll_uncertain();
+                    warn!("L2 HTTP poll returned an uncertain backend result");
+                    continue;
+                }
+                l2_poller::PollOutcome::Resynced => {
+                    let now = Instant::now();
+                    {
+                        let mut guard = last_seen.lock().await;
+                        *guard = now;
+                    }
+                    metrics::set_last_seen_drift_seconds(0);
+                    info!("L2 poller re-synced validated history to recent canonical window");
+                    continue;
+                }
+                l2_poller::PollOutcome::NoProgress => continue,
+                l2_poller::PollOutcome::StableProgress => {}
+            }
+
+            for tracked_block in poll_result.validated_blocks {
+                let block_number = tracked_block.number;
+                info!(
+                    "Observed validated L2 block over HTTP: number={:?} hash={:?}, coinbase={:?}",
+                    tracked_block.number, tracked_block.hash, tracked_block.coinbase
+                );
+
+                let outcome = reorg_tracker.apply(tracked_block.clone());
+
+                if outcome.duplicate {
+                    debug!(
+                        block_number,
+                        block_hash = ?tracked_block.hash,
+                        "Duplicate block observation received; skipping"
+                    );
+                    continue;
+                }
+
+                let prev_block_number = {
+                    let mut guard = last_l2_head_number.lock().await;
+                    let previous = *guard;
+                    *guard = Some(block_number);
+                    previous
+                };
+
+                if outcome.parent_not_found {
+                    if should_mark_chain_reset(prev_block_number, block_number) {
+                        warn!(
+                            block_number,
+                            prev_block = ?prev_block_number,
+                            parent_hash = ?tracked_block.parent_hash,
+                            "Validated canonical chain regressed and did not connect to local reorg history; delaying ejection."
+                        );
+                        *chain_reset_at.lock().await = Some(Instant::now());
+                    } else {
+                        warn!(
+                            block_number,
+                            prev_block = ?prev_block_number,
+                            parent_hash = ?tracked_block.parent_hash,
+                            "Validated canonical chain did not connect to local reorg history, but no rollback was observed."
+                        );
+                    }
+                    continue;
+                }
+
+                metrics::inc_l2_blocks();
+                let now = Instant::now();
+                {
+                    let mut guard = last_seen.lock().await;
+                    *guard = now;
+                }
+                metrics::set_last_seen_drift_seconds(0);
+                {
+                    let mut guard = last_block_seen.lock().await;
+                    if should_reset_last_block_age_on_poll_outcome(poll_result.outcome) {
+                        *guard = now;
+                    }
+                }
+                if should_reset_last_block_age_on_poll_outcome(poll_result.outcome) {
+                    metrics::set_last_block_age_seconds(0);
+                }
+
+                if !outcome.reorged.is_empty() {
+                    let reorg_depth = outcome.reorged.len();
+                    let removed_blocks = outcome.reorged;
+
+                    warn!(
+                        block_number,
+                        new_head = ?tracked_block.hash,
+                        depth = reorg_depth,
+                        "Detected L2 reorg"
+                    );
+
+                    if let Some(reverted_height) = outcome.reverted_to {
+                        metrics::note_reorg(reorg_depth, reverted_height);
+                    } else {
+                        warn!(
+                            block_number,
+                            depth = reorg_depth,
+                            "Reorg detected but revert height missing; revert height metric set to u64::MAX sentinel"
+                        );
+                        metrics::note_reorg(reorg_depth, u64::MAX);
                     }
 
-                    match provider.subscribe_blocks().await {
-                        Ok(sub) => {
-                            let mut stream = sub.into_stream();
-                            info!("Subscribed to block stream at {}", self.l2_ws_url);
+                    if !self.reorg_ejection_enabled {
+                        info!(
+                            block_number,
+                            depth = reorg_depth,
+                            "Reorg ejection disabled via flag; skipping operator eject"
+                        );
+                        metrics::inc_reorg_skipped();
+                        continue;
+                    }
 
-                            loop {
-                                tokio::select! {
-                                    _ = reconnect_notify.notified() => {
-                                        warn!("Reconnect requested; resubscribing to L2 block stream");
-                                        break;
-                                    }
-                                    maybe_header = stream.next() => match maybe_header {
-                                        Some(header) => {
+                    if reorg_depth < self.min_reorg_depth_for_eject {
+                        info!(
+                            block_number,
+                            depth = reorg_depth,
+                            threshold = self.min_reorg_depth_for_eject,
+                            "Reorg depth below eject threshold; skipping operator eject"
+                        );
+                        metrics::inc_reorg_skipped();
+                        continue;
+                    }
+
+                    if let Some(ref anchor) = anchor_contract {
+                        match anchor.getBlockState().call().await {
+                            Ok(block_state) => {
+                                let current_anchor: u64 =
+                                    block_state.anchorBlockNumber.try_into().unwrap_or(0);
+                                let mut guard = last_anchor_block.lock().await;
+                                let prev_anchor = *guard;
+                                match check_reanchoring(prev_anchor, current_anchor) {
+                                    ReanchoringCheck::ReanchoringDetected {
+                                        prev_anchor,
+                                        current_anchor,
+                                    } => {
                                         info!(
-                                            "New block header: number={:?} hash={:?}, coinbase={:?}",
-                                            header.number, header.hash, header.beneficiary
+                                            block_number,
+                                            depth = reorg_depth,
+                                            prev_anchor,
+                                            current_anchor,
+                                            "Anchor block changed (re-anchoring detected); skipping reorg-based eject"
                                         );
-
-                                        let block_number = header.number;
-                                        let block_hash = header.hash;
-
-                                        let tracked_block = TrackedBlock {
-                                            number: block_number,
-                                            hash: block_hash,
-                                            parent_hash: header.parent_hash,
-                                            coinbase: header.beneficiary,
-                                        };
-
-                                        let outcome = reorg_tracker.apply(tracked_block.clone());
-
-                                        if outcome.duplicate {
-                                            debug!(block_number, block_hash = ?tracked_block.hash, "Duplicate block notification received; skipping");
-                                            continue;
-                                        }
-
-                                        metrics::inc_l2_blocks();
-                                        let now = Instant::now();
-                                        {
-                                            let mut guard = last_seen.lock().await;
-                                            *guard = now;
-                                        }
-                                        metrics::set_last_seen_drift_seconds(0);
-                                        {
-                                            let mut guard = last_block_seen.lock().await;
-                                            *guard = now;
-                                        }
-                                        metrics::set_last_block_age_seconds(0);
-
-                                        // Check if block number went backwards (chain rollback)
-                                        let prev_block_number = {
-                                            let guard = last_l2_head_number.lock().await;
-                                            *guard
-                                        };
-                                        let block_went_backwards = prev_block_number
-                                            .map(|prev| tracked_block.number < prev)
-                                            .unwrap_or(false);
-
-                                        {
-                                            let mut guard = last_l2_head_number.lock().await;
-                                            *guard = Some(tracked_block.number);
-                                        }
-                                        backoff = Duration::from_secs(1);
-
-                                        if outcome.parent_not_found {
-                                            // Only mark chain reset if block number actually went backwards.
-                                            // This avoids suppressing ejection for transient WS gaps or reconnects.
-                                            if block_went_backwards {
-                                                warn!(
-                                                    block_number,
-                                                    prev_block = ?prev_block_number,
-                                                    parent_hash = ?tracked_block.parent_hash,
-                                                    "Chain reset detected (block number decreased); delaying ejection."
-                                                );
-                                                *chain_reset_at.lock().await = Some(Instant::now());
-                                            } else {
-                                                warn!(
-                                                    block_number,
-                                                    parent_hash = ?tracked_block.parent_hash,
-                                                    "Parent not found in local history; tracker was reset (not a rollback)."
-                                                );
-                                            }
-                                            continue;
-                                        }
-
-                                        if !outcome.reorged.is_empty() {
-                                            let reorg_depth = outcome.reorged.len();
-                                            let removed_blocks = outcome.reorged;
-
-                                            warn!(
-                                                block_number,
-                                                new_head = ?tracked_block.hash,
-                                                depth = reorg_depth,
-                                                "Detected L2 reorg"
-                                            );
-
-                                            if let Some(reverted_height) = outcome.reverted_to {
-                                                metrics::note_reorg(reorg_depth, reverted_height);
-                                            } else {
-                                                warn!(
-                                                    block_number,
-                                                    depth = reorg_depth,
-                                                    "Reorg detected but revert height missing; revert height metric set to -1"
-                                                );
-                                                metrics::note_reorg(reorg_depth, u64::MAX);
-                                            }
-
-                                            if !self.reorg_ejection_enabled {
-                                                info!(
-                                                    block_number,
-                                                    depth = reorg_depth,
-                                                    "Reorg ejection disabled via flag; skipping operator eject"
-                                                );
-                                                metrics::inc_reorg_skipped();
-                                                continue;
-                                            }
-
-                                            if reorg_depth < self.min_reorg_depth_for_eject {
-                                                info!(
-                                                    block_number,
-                                                    depth = reorg_depth,
-                                                    threshold = self.min_reorg_depth_for_eject,
-                                                    "Reorg depth below eject threshold; skipping operator eject"
-                                                );
-                                                metrics::inc_reorg_skipped();
-                                                continue;
-                                            }
-
-                                            // Check if this reorg is due to re-anchoring by comparing anchor block numbers.
-                                            // If anchor block changed, it's a legitimate re-anchoring, not a malicious reorg.
-                                            if let Some(ref anchor) = anchor_contract {
-                                                match anchor.getBlockState().call().await {
-                                                    Ok(block_state) => {
-                                                        let current_anchor: u64 =
-                                                            block_state.anchorBlockNumber.try_into().unwrap_or(0);
-                                                        let mut guard = last_anchor_block.lock().await;
-                                                        let prev_anchor = *guard;
-                                                        match check_reanchoring(prev_anchor, current_anchor) {
-                                                            ReanchoringCheck::ReanchoringDetected {
-                                                                prev_anchor,
-                                                                current_anchor,
-                                                            } => {
-                                                                info!(
-                                                                    block_number,
-                                                                    depth = reorg_depth,
-                                                                    prev_anchor,
-                                                                    current_anchor,
-                                                                    "Anchor block changed (re-anchoring detected); skipping reorg-based eject"
-                                                                );
-                                                                *guard = Some(current_anchor);
-                                                                metrics::inc_reorg_skipped();
-                                                                continue;
-                                                            }
-                                                            ReanchoringCheck::FirstAnchor => {
-                                                                // First reorg before we've established anchor baseline.
-                                                                // Skip ejection to avoid false positives on startup.
-                                                                info!(
-                                                                    block_number,
-                                                                    depth = reorg_depth,
-                                                                    current_anchor,
-                                                                    "First anchor observation during reorg; skipping eject to establish baseline"
-                                                                );
-                                                                *guard = Some(current_anchor);
-                                                                metrics::inc_reorg_skipped();
-                                                                continue;
-                                                            }
-                                                            ReanchoringCheck::NoReanchoring => {
-                                                                *guard = Some(current_anchor);
-                                                            }
-                                                        }
-                                                    }
-                                                    Err(e) => {
-                                                        // If we can't query anchor, fall back to sync status check
-                                                        warn!(
-                                                            block_number,
-                                                            depth = reorg_depth,
-                                                            "Failed to query anchor block state: {e:?}; falling back to sync status check"
-                                                        );
-                                                        if Self::should_skip_due_to_sync_status(
-                                                            &l2_http_provider_for_reorg,
-                                                            "L2 (reorg)",
-                                                        )
-                                                        .await
-                                                        {
-                                                            info!(
-                                                                block_number,
-                                                                depth = reorg_depth,
-                                                                "L2 is syncing (likely re-anchoring); skipping reorg-based eject"
-                                                            );
-                                                            metrics::inc_reorg_skipped();
-                                                            continue;
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            for removed in removed_blocks.iter() {
-                                                debug!(
-                                                    block_number = removed.number,
-                                                    block_hash = ?removed.hash,
-                                                    "Block removed due to reorg"
-                                                );
-                                            }
-
-                                            let culprit = tracked_block.clone();
-                                            let coinbase = culprit.coinbase;
-                                            if coinbase.is_zero() {
-                                                warn!(
-                                                    block_number = culprit.number,
-                                                    block_hash = ?culprit.hash,
-                                                    "Culprit block has zero coinbase; skipping operator lookup"
-                                                );
-                                                continue;
-                                            }
-
-                                            let whitelist_for_lookup = preconf_whitelist.clone();
-                                            let cache_for_lookup = operator_cache.clone();
-
-                                            match resolve_operator_for_coinbase(
-                                                coinbase,
-                                                whitelist_for_lookup.clone(),
-                                                cache_for_lookup.clone(),
-                                            )
-                                            .await
-                                            {
-                                                Ok(Some(operator_to_eject)) => {
-                                                    info!(
-                                                        block_number = culprit.number,
-                                                        block_hash = ?culprit.hash,
-                                                        coinbase = ?coinbase,
-                                                        operator = ?operator_to_eject,
-                                                        "Ejecting operator responsible for reorg"
-                                                    );
-
-                                                    let result = eject_operator_by_address(
-                                                        l1_http_url.clone(),
-                                                        signer.clone(),
-                                                        whitelist_address,
-                                                        operator_to_eject,
-                                                        min_operators,
-                                                    )
-                                                    .await;
-
-                                                    match result {
-                                                        Ok(()) => {
-                                                            let mut cache =
-                                                                operator_cache.write().await;
-                                                            cache
-                                                                .remove_proposer(operator_to_eject);
-                                                        }
-                                                        Err(err) => {
-                                                            error!(
-                                                                block_number = culprit.number,
-                                                                block_hash = ?culprit.hash,
-                                                                coinbase = ?coinbase,
-                                                                operator = ?operator_to_eject,
-                                                                "Failed to eject operator for reorged block: {err:?}"
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                                Ok(None) => {
-                                                    warn!(
-                                                        block_number = culprit.number,
-                                                        block_hash = ?culprit.hash,
-                                                        coinbase = ?coinbase,
-                                                        "Unable to map coinbase to active operator; skipping eject"
-                                                    );
-                                                }
-                                                Err(err) => {
-                                                    error!(
-                                                            block_number = culprit.number,
-                                                            block_hash = ?culprit.hash,
-                                                            coinbase = ?coinbase,
-                                                        "Failed to resolve operator for reorged block: {err:?}"
-                                                    );
-                                                }
-                                            }
-                                        } else if let Some(ref anchor) = anchor_contract {
-                                            // No reorg: update anchor baseline for future reorg detection.
-                                            // Only log on failure to avoid spamming logs on every block.
-                                            match anchor.getBlockState().call().await {
-                                                Ok(block_state) => {
-                                                    let current_anchor: u64 =
-                                                        block_state.anchorBlockNumber.try_into().unwrap_or(0);
-                                                    let mut guard = last_anchor_block.lock().await;
-                                                    *guard = Some(current_anchor);
-                                                }
-                                                Err(e) => {
-                                                    debug!(
-                                                        block_number,
-                                                        "Failed to query anchor block state: {e:?}"
-                                                    );
-                                                }
-                                            }
-                                        }
-                                        }
-                                        None => {
-                                        warn!("Block stream ended unexpectedly, reconnecting...");
-                                        break; // exit inner loop to reconnect
+                                        *guard = Some(current_anchor);
+                                        metrics::inc_reorg_skipped();
+                                        continue;
+                                    }
+                                    ReanchoringCheck::FirstAnchor => {
+                                        info!(
+                                            block_number,
+                                            depth = reorg_depth,
+                                            current_anchor,
+                                            "First anchor observation during reorg; skipping eject to establish baseline"
+                                        );
+                                        *guard = Some(current_anchor);
+                                        metrics::inc_reorg_skipped();
+                                        continue;
+                                    }
+                                    ReanchoringCheck::NoReanchoring => {
+                                        *guard = Some(current_anchor);
                                     }
                                 }
+                            }
+                            Err(e) => {
+                                warn!(
+                                    block_number,
+                                    depth = reorg_depth,
+                                    "Failed to query anchor block state: {e:?}; falling back to sync status check"
+                                );
+                                if Self::should_skip_due_to_sync_status(
+                                    &l2_http_provider_for_reorg,
+                                    "L2 (reorg)",
+                                )
+                                .await
+                                {
+                                    info!(
+                                        block_number,
+                                        depth = reorg_depth,
+                                        "L2 is syncing (likely re-anchoring); skipping reorg-based eject"
+                                    );
+                                    metrics::inc_reorg_skipped();
+                                    continue;
                                 }
                             }
                         }
+                    }
+
+                    for removed in removed_blocks.iter() {
+                        debug!(
+                            block_number = removed.number,
+                            block_hash = ?removed.hash,
+                            "Block removed due to reorg"
+                        );
+                    }
+
+                    let culprit = tracked_block.clone();
+                    let coinbase = culprit.coinbase;
+                    if coinbase.is_zero() {
+                        warn!(
+                            block_number = culprit.number,
+                            block_hash = ?culprit.hash,
+                            "Culprit block has zero coinbase; skipping operator lookup"
+                        );
+                        continue;
+                    }
+
+                    let whitelist_for_lookup = preconf_whitelist.clone();
+                    let cache_for_lookup = operator_cache.clone();
+
+                    match resolve_operator_for_coinbase(
+                        coinbase,
+                        whitelist_for_lookup.clone(),
+                        cache_for_lookup.clone(),
+                    )
+                    .await
+                    {
+                        Ok(Some(operator_to_eject)) => {
+                            info!(
+                                block_number = culprit.number,
+                                block_hash = ?culprit.hash,
+                                coinbase = ?coinbase,
+                                operator = ?operator_to_eject,
+                                "Ejecting operator responsible for reorg"
+                            );
+
+                            let result = eject_operator_by_address(
+                                l1_http_url.clone(),
+                                signer.clone(),
+                                whitelist_address,
+                                operator_to_eject,
+                                min_operators,
+                            )
+                            .await;
+
+                            match result {
+                                Ok(()) => {
+                                    let mut cache = operator_cache.write().await;
+                                    cache.remove_proposer(operator_to_eject);
+                                }
+                                Err(err) => {
+                                    error!(
+                                        block_number = culprit.number,
+                                        block_hash = ?culprit.hash,
+                                        coinbase = ?coinbase,
+                                        operator = ?operator_to_eject,
+                                        "Failed to eject operator for reorged block: {err:?}"
+                                    );
+                                }
+                            }
+                        }
+                        Ok(None) => {
+                            warn!(
+                                block_number = culprit.number,
+                                block_hash = ?culprit.hash,
+                                coinbase = ?coinbase,
+                                "Unable to map coinbase to active operator; skipping eject"
+                            );
+                        }
+                        Err(err) => {
+                            error!(
+                                block_number = culprit.number,
+                                block_hash = ?culprit.hash,
+                                coinbase = ?coinbase,
+                                "Failed to resolve operator for reorged block: {err:?}"
+                            );
+                        }
+                    }
+                } else if let Some(ref anchor) = anchor_contract {
+                    match anchor.getBlockState().call().await {
+                        Ok(block_state) => {
+                            let current_anchor: u64 =
+                                block_state.anchorBlockNumber.try_into().unwrap_or(0);
+                            let mut guard = last_anchor_block.lock().await;
+                            *guard = Some(current_anchor);
+                        }
                         Err(e) => {
-                            warn!("Failed to subscribe to block stream: {e}, will reconnect...");
+                            debug!(block_number, "Failed to query anchor block state: {e:?}");
                         }
                     }
                 }
-                Err(e) => {
-                    warn!("Failed to connect to block stream: {e}. Retrying in {:?}...", backoff);
-                }
-            }
-
-            warn!("Reconnecting after {:?}", backoff);
-            sleep(backoff).await;
-            if backoff < max_backoff {
-                backoff = std::cmp::min(max_backoff, backoff * 2);
             }
         }
     }
@@ -925,86 +835,6 @@ impl Monitor {
     fn responsibility_now(&self) -> Responsibility {
         let slot = self.beacon_client.current_slot();
         responsibility_for_slot(slot, self.beacon_client.slots_per_epoch, self.handover_slots)
-    }
-
-    async fn operator_added_listener(
-        l1_ws_url: Url,
-        whitelist_address: Address,
-        operator_cache: Arc<RwLock<OperatorCache>>,
-    ) {
-        let mut backoff = Duration::from_secs(1);
-        let max_backoff = Duration::from_secs(30);
-
-        loop {
-            info!("Connecting to OperatorAdded event stream at {}", l1_ws_url);
-            match ProviderBuilder::new().connect_ws(WsConnect::new(l1_ws_url.clone())).await {
-                Ok(ws_provider) => {
-                    info!("Connected to OperatorAdded event stream at {}", l1_ws_url);
-                    let contract = crate::bindings::IPreconfWhitelist::new(
-                        whitelist_address,
-                        ws_provider.clone(),
-                    );
-
-                    match contract.OperatorAdded_filter().subscribe().await {
-                        Ok(subscription) => {
-                            backoff = Duration::from_secs(1);
-                            let mut stream = subscription.into_stream();
-
-                            while let Some(item) = stream.next().await {
-                                match item {
-                                    Ok((event, log)) => {
-                                        if log.removed {
-                                            debug!(
-                                                block = ?log.block_number,
-                                                log_index = ?log.log_index,
-                                                "OperatorAdded log removed; skipping"
-                                            );
-                                            continue;
-                                        }
-
-                                        let proposer_hex = format!("{:#x}", event.proposer);
-                                        let sequencer_hex = format!("{:#x}", event.sequencer);
-
-                                        info!(
-                                            %proposer_hex,
-                                            %sequencer_hex,
-                                            active_since = ?event.activeSince,
-                                            "OperatorAdded event received"
-                                        );
-
-                                        {
-                                            let mut cache = operator_cache.write().await;
-                                            cache.upsert(event.proposer, event.sequencer);
-                                        }
-
-                                        metrics::ensure_eject_metric_labels(&proposer_hex);
-                                    }
-                                    Err(e) => {
-                                        warn!("OperatorAdded stream error: {e:?}");
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            warn!("Failed to subscribe to OperatorAdded events: {e:?}");
-                        }
-                    }
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to connect to OperatorAdded event stream: {e:?}. Retrying after {:?}",
-                        backoff
-                    );
-                }
-            }
-
-            warn!("OperatorAdded subscription disconnected. Reconnecting after {:?}", backoff);
-            sleep(backoff).await;
-            if backoff < max_backoff {
-                backoff = std::cmp::min(max_backoff, backoff * 2);
-            }
-        }
     }
 }
 
@@ -1029,7 +859,10 @@ mod tests {
         is_within_chain_reset_grace_period, should_skip_due_to_chain_reset,
         should_skip_for_sync_class,
     };
-    use alloy::providers::ProviderBuilder;
+    use alloy::{
+        primitives::{Address, B256},
+        providers::ProviderBuilder,
+    };
     use serde_json::json;
     use std::time::{Duration, Instant};
     use wiremock::matchers::{body_partial_json, method, path};
@@ -1233,5 +1066,140 @@ mod tests {
         // Immediately after chain reset (0 elapsed) should skip
         let eject_after = Duration::from_secs(48);
         assert!(is_within_chain_reset_grace_period(Duration::ZERO, eject_after));
+    }
+
+    #[test]
+    fn whitelist_cache_updates_are_idempotent_and_replay_safe() {
+        let mut cache = super::l1_events::OperatorCache::default();
+        let mut tracker = super::l1_events::ProcessedLogTracker::default();
+        let proposer = Address::with_last_byte(0x11);
+        let sequencer = Address::with_last_byte(0x22);
+
+        let added = super::l1_events::WhitelistCacheUpdate::OperatorAdded {
+            key: super::l1_events::ProcessedLogKey {
+                block_number: 10,
+                transaction_hash: B256::with_last_byte(0xAA),
+                log_index: 1,
+            },
+            proposer,
+            sequencer,
+        };
+
+        assert_eq!(
+            super::l1_events::apply_cache_update(&mut cache, &mut tracker, added.clone()),
+            super::l1_events::CacheUpdateOutcome::Applied
+        );
+        assert_eq!(
+            super::l1_events::apply_cache_update(&mut cache, &mut tracker, added),
+            super::l1_events::CacheUpdateOutcome::DuplicateIgnored
+        );
+        assert_eq!(cache.proposer_for(proposer), Some(proposer));
+        assert_eq!(cache.proposer_for(sequencer), Some(proposer));
+
+        let removed = super::l1_events::WhitelistCacheUpdate::OperatorRemoved {
+            key: super::l1_events::ProcessedLogKey {
+                block_number: 11,
+                transaction_hash: B256::with_last_byte(0xBB),
+                log_index: 0,
+            },
+            proposer,
+            sequencer,
+        };
+
+        assert_eq!(
+            super::l1_events::apply_cache_update(&mut cache, &mut tracker, removed),
+            super::l1_events::CacheUpdateOutcome::Applied
+        );
+        assert_eq!(cache.proposer_for(proposer), None);
+        assert_eq!(cache.proposer_for(sequencer), None);
+
+        assert_eq!(
+            super::l1_events::apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                super::l1_events::WhitelistCacheUpdate::ReorgDetected { common_ancestor: 9 },
+            ),
+            super::l1_events::CacheUpdateOutcome::RefreshFromChain
+        );
+    }
+
+    #[test]
+    fn l2_poller_classifies_progress_and_uncertainty() {
+        let proposer = Address::with_last_byte(0x44);
+        let parent = super::l2_poller::ObservedHead {
+            block: crate::monitor_reorg::TrackedBlock {
+                number: 100,
+                hash: B256::with_last_byte(0x10),
+                parent_hash: B256::with_last_byte(0x09),
+                coinbase: proposer,
+            },
+        };
+
+        assert_eq!(
+            super::l2_poller::classify_head_update(
+                Some(&parent),
+                Some(super::l2_poller::ObservedHead {
+                    block: crate::monitor_reorg::TrackedBlock {
+                        number: 100,
+                        hash: B256::with_last_byte(0x10),
+                        parent_hash: B256::with_last_byte(0x09),
+                        coinbase: proposer,
+                    },
+                }),
+            ),
+            super::l2_poller::PollOutcome::NoProgress
+        );
+
+        assert_eq!(
+            super::l2_poller::classify_head_update(
+                Some(&parent),
+                Some(super::l2_poller::ObservedHead {
+                    block: crate::monitor_reorg::TrackedBlock {
+                        number: 100,
+                        hash: B256::with_last_byte(0x10),
+                        parent_hash: B256::with_last_byte(0x09),
+                        coinbase: proposer,
+                    },
+                }),
+            ),
+            super::l2_poller::PollOutcome::NoProgress
+        );
+
+        assert_eq!(
+            super::l2_poller::classify_head_update(Some(&parent), None),
+            super::l2_poller::PollOutcome::UncertainBackend
+        );
+    }
+
+    #[test]
+    fn l2_head_advance_skips_watchdog_eject() {
+        assert_eq!(
+            super::classify_l2_head_progress(Some(100), 101),
+            super::L2HeadProgress::Advanced
+        );
+    }
+
+    #[test]
+    fn parent_disconnect_marks_chain_reset_only_on_regression() {
+        assert!(super::should_mark_chain_reset(Some(100), 99));
+        assert!(!super::should_mark_chain_reset(Some(100), 100));
+        assert!(!super::should_mark_chain_reset(Some(100), 101));
+        assert!(!super::should_mark_chain_reset(None, 99));
+    }
+
+    #[test]
+    fn only_stable_progress_counts_as_block_observation() {
+        assert!(super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::StableProgress
+        ));
+        assert!(!super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::NoProgress
+        ));
+        assert!(!super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::UncertainBackend
+        ));
+        assert!(!super::should_reset_last_block_age_on_poll_outcome(
+            super::l2_poller::PollOutcome::Resynced
+        ));
     }
 }

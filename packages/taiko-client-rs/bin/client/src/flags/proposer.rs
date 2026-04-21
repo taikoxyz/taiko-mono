@@ -45,4 +45,67 @@ pub struct ProposerArgs {
         help = "Use Engine API mode for payload building (FCU + get_payload)"
     )]
     pub use_engine_mode: bool,
+    /// Interval in seconds between tx-manager resubmissions for an unconfirmed proposal
+    /// transaction.
+    #[clap(
+        long = "propose.retryInterval",
+        env = "PROPOSE_RETRY_INTERVAL",
+        default_value = "48",
+        help = "Interval in seconds between tx-manager resubmissions for an unconfirmed proposal transaction"
+    )]
+    pub retry_interval: u64,
+    /// Maximum time in seconds to wait before giving up for that epoch.
+    ///
+    /// This bounds both confirmation polling and not-in-mempool waiting in tx-manager.
+    #[clap(
+        long = "propose.confirmationTimeout",
+        env = "PROPOSE_CONFIRMATION_TIMEOUT",
+        default_value = "180",
+        help = "Maximum time in seconds to wait before giving up for that epoch; this bounds both confirmation polling and not-in-mempool waiting in tx-manager"
+    )]
+    pub confirmation_timeout: u64,
+    /// Minimum priority fee floor in gwei for proposal transactions.
+    #[clap(
+        long = "propose.minTipCap",
+        env = "PROPOSE_MIN_TIP_CAP",
+        default_value = "1",
+        help = "Minimum priority fee floor in gwei for proposal transactions"
+    )]
+    pub min_tip_cap_gwei: u64,
+    /// Minimum base fee floor in gwei for proposal transactions.
+    #[clap(
+        long = "propose.minBaseFee",
+        env = "PROPOSE_MIN_BASE_FEE",
+        default_value = "1",
+        help = "Minimum base fee floor in gwei for proposal transactions"
+    )]
+    pub min_base_fee_gwei: u64,
+    /// Minimum blob base fee floor in gwei for blob proposal transactions.
+    #[clap(
+        long = "propose.minBlobFee",
+        env = "PROPOSE_MIN_BLOB_FEE",
+        default_value = "1",
+        help = "Minimum blob base fee floor in gwei for blob proposal transactions"
+    )]
+    pub min_blob_fee_gwei: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::CommandFactory;
+
+    use super::ProposerArgs;
+
+    #[test]
+    fn proposer_help_describes_tx_manager_flags_as_active() {
+        let mut command = ProposerArgs::command();
+        let mut help = Vec::new();
+
+        command.write_long_help(&mut help).expect("help rendering should succeed");
+
+        let help = String::from_utf8(help).expect("clap help should be utf-8");
+        assert!(!help.contains("Inactive until the tx-manager-backed proposer send path lands"));
+        assert!(help.contains("--propose.retryInterval"));
+        assert!(help.contains("tx-manager resubmissions"));
+    }
 }

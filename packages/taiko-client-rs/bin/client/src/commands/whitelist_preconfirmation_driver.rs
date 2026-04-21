@@ -6,15 +6,15 @@ use alloy_primitives::Address;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
-use preconfirmation_net::P2pConfig;
-use rpc::client::ClientConfig;
+use protocol::shasta::set_devnet_uzen_override;
 use tracing::warn;
 use whitelist_preconfirmation_driver::{
-    RunnerConfig, WhitelistPreconfirmationDriverMetrics, WhitelistPreconfirmationDriverRunner,
+    NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
+    WhitelistPreconfirmationDriverRunner,
 };
 
 use crate::{
-    commands::Subcommand,
+    commands::{Subcommand, build_driver_config},
     error::Result,
     flags::{common::CommonArgs, driver::DriverArgs, preconfirmation::PreconfirmationArgs},
 };
@@ -32,9 +32,6 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Preconfirmation-specific CLI arguments.
     #[command(flatten)]
     pub preconf_flags: PreconfirmationArgs,
-    /// Whitelist P2P chain id for topic derivation.
-    #[clap(long = "p2p.chain-id", env = "P2P_CHAIN_ID")]
-    pub p2p_chain_id: Option<u64>,
     /// Shasta preconfirmation whitelist contract address.
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
@@ -64,37 +61,14 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
 impl WhitelistPreconfirmationDriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_driver_config(&self) -> Result<DriverConfig> {
-        let l1_source = self.common_flags.l1_provider_source()?;
-        let l2_http = self.common_flags.l2_http_endpoint.clone();
-        let l2_auth = self.common_flags.l2_auth_endpoint.clone();
-        let l1_beacon = self.driver_flags.l1_beacon_endpoint.clone();
-        let l2_checkpoint = self.driver_flags.l2_checkpoint_endpoint.clone();
-        let blob_server = self.driver_flags.blob_server_endpoint.clone();
-
-        let client_cfg = ClientConfig {
-            l1_provider_source: l1_source,
-            l2_provider_url: l2_http,
-            l2_auth_provider_url: l2_auth,
-            jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
-            inbox_address: self.common_flags.shasta_inbox_address,
-        };
-
-        let mut cfg = DriverConfig::new(
-            client_cfg,
-            self.driver_flags.retry_interval(),
-            l1_beacon,
-            l2_checkpoint,
-            blob_server,
-        );
-
+        let mut cfg = build_driver_config(&self.common_flags, &self.driver_flags)?;
         // Enable preconfirmation ingress so whitelist payload imports can reuse the driver queue.
         cfg.preconfirmation_enabled = true;
-
         Ok(cfg)
     }
 
     /// Build P2P configuration from command-line arguments.
-    fn build_p2p_config(&self) -> P2pConfig {
+    fn build_p2p_config(&self) -> NetworkConfig {
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -104,22 +78,14 @@ impl WhitelistPreconfirmationDriverSubCommand {
             })
             .collect();
 
-        let mut cfg = P2pConfig {
+        NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
-            allow_all_sequencers: self.preconf_flags.p2p_allow_all_sequencers,
-            sequencer_addresses: self.preconf_flags.p2p_sequencer_addresses.clone(),
             pre_dial_peers,
             ..Default::default()
-        };
-
-        if let Some(chain_id) = self.p2p_chain_id {
-            cfg.chain_id = chain_id;
         }
-
-        cfg
     }
 
     /// Resolve the whitelist RPC listen address.
@@ -177,6 +143,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
     /// Runs the whitelist preconfirmation driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
+        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
         self.init_metrics()?;
 
         let driver_config = self.build_driver_config()?;

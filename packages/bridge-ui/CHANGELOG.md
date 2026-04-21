@@ -1,5 +1,38 @@
 # Changelog
 
+## [2.16.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.15.0...bridge-ui-v2.16.0) (2026-04-20)
+
+
+### Features
+
+* **bridge-ui:** add manual claim entry for none fee transfers ([#21550](https://github.com/taikoxyz/taiko-mono/issues/21550)) ([6d4b215](https://github.com/taikoxyz/taiko-mono/commit/6d4b21574f34fea9e4d45cd526a759679cf882c4))
+* **bridge-ui:** add ZKC token icon ([#21551](https://github.com/taikoxyz/taiko-mono/issues/21551)) ([49b1b72](https://github.com/taikoxyz/taiko-mono/commit/49b1b723cf5b56ba0cb76cb15dea509de63ba90b))
+* **bridge-ui:** bridge UI manual claim entry ([#21555](https://github.com/taikoxyz/taiko-mono/issues/21555)) ([7f01341](https://github.com/taikoxyz/taiko-mono/commit/7f01341369fa62d788532d4030d76c979cd812e3))
+* **bridge-ui:** support for shasta ([#21219](https://github.com/taikoxyz/taiko-mono/issues/21219)) ([b5e232d](https://github.com/taikoxyz/taiko-mono/commit/b5e232da647a0c5d3516be0349f90240c883bcfe))
+* **protocol:** dao proposal to retire the fork routers and use the implementations directly ([#21544](https://github.com/taikoxyz/taiko-mono/issues/21544)) ([6c2eaad](https://github.com/taikoxyz/taiko-mono/commit/6c2eaad119f288fd8eaf23dd14e7bef101ec1fa9))
+
+
+### Bug Fixes
+
+* **bridge-ui:** fall back to 500k gas when ERC20 sendToken estimation fails ([#21575](https://github.com/taikoxyz/taiko-mono/issues/21575)) ([27ecb02](https://github.com/taikoxyz/taiko-mono/commit/27ecb02c33e2f74c52711ac1c0a4544dbac8fe1a))
+* **bridge-ui:** fix memory leak in CustomTokenService event listeners ([#20841](https://github.com/taikoxyz/taiko-mono/issues/20841)) ([147aedb](https://github.com/taikoxyz/taiko-mono/commit/147aedb228aef71e2b6d311b77e68552caabe8e6))
+* **bridge-ui:** improve error handling in checkBalanceToBridge with typed error checks ([#19848](https://github.com/taikoxyz/taiko-mono/issues/19848)) ([e9c5667](https://github.com/taikoxyz/taiko-mono/commit/e9c566778d944394acbb191d3f0216d454355364))
+* **bridge-ui:** swap gas limit values for ERC1155 bridge ([#21021](https://github.com/taikoxyz/taiko-mono/issues/21021)) ([f2d7270](https://github.com/taikoxyz/taiko-mono/commit/f2d72701f20dc1aea4138a6222ac29b2b624393f))
+* **bridge-ui:** use toast.push return value for notification id ([#21125](https://github.com/taikoxyz/taiko-mono/issues/21125)) ([28809bb](https://github.com/taikoxyz/taiko-mono/commit/28809bb114279549227f42d6b06034e8cd407400))
+* **repo:** fix typos ([#20846](https://github.com/taikoxyz/taiko-mono/issues/20846)) ([00d8218](https://github.com/taikoxyz/taiko-mono/commit/00d82183eb0912b0b365b084a0797c43a109763d))
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
+
+### Chores
+
+* **bridge:** remove redundant null assignment ([#20980](https://github.com/taikoxyz/taiko-mono/issues/20980)) ([1c167f0](https://github.com/taikoxyz/taiko-mono/commit/1c167f073ffa107d5ef4a87b8fea73058e5f22b3))
+
+
+### Code Refactoring
+
+* **bridge-ui:** remove Pacaya protocol, simplify to Shasta-only ([#21546](https://github.com/taikoxyz/taiko-mono/issues/21546)) ([628382e](https://github.com/taikoxyz/taiko-mono/commit/628382e6acb615607a0cb51850b92b3422143e2d))
+* **bridge-ui:** remove quota manager ([#20794](https://github.com/taikoxyz/taiko-mono/issues/20794)) ([7bcf74a](https://github.com/taikoxyz/taiko-mono/commit/7bcf74a78fab1b2ed637ac881308e746c31c68dc))
+
 ## [2.15.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.14.0...bridge-ui-v2.15.0) (2025-09-26)
 
 

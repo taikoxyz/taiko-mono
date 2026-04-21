@@ -18,14 +18,15 @@ use alloy_consensus::{
     transaction::{Recovered, SignerRecoverable, TransactionInfo},
 };
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
-use alloy_network::TransactionBuilder;
-use alloy_rpc_types::Transaction as RpcTransaction;
+use alloy_provider::RootProvider;
+use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ForkchoiceState, PayloadAttributes as EthPayloadAttributes,
 };
+use base_tx_manager::TxManagerError;
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
-    AnchorTxConstructor, AnchorV4Input, calculate_shasta_difficulty,
+    AnchorTxConstructor, AnchorV4Input, calculate_shasta_mix_hash,
     constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain},
     encode_extra_data,
 };
@@ -33,16 +34,15 @@ use rpc::client::{Client, ClientConfig, ClientWithWallet};
 use serde_json::from_value;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
     metrics::ProposerMetrics,
     transaction_builder::ShastaProposalTransactionBuilder,
+    tx_manager_adapter::ProposalTxManager,
 };
-
-use alloy_provider::RootProvider;
 
 /// Type alias for batches of transaction lists fetched from the txpool.
 pub type TransactionLists = Vec<Vec<Transaction>>;
@@ -53,6 +53,8 @@ pub type TransactionLists = Vec<Vec<Transaction>>;
 pub struct EngineBuildContext {
     /// The L1 block number used for the anchor transaction.
     pub anchor_block_number: u64,
+    /// The L2 parent block number used to derive the proposal payload.
+    pub parent_block_number: u64,
     /// The timestamp used for the payload.
     pub timestamp: u64,
     /// The gas limit for the block.
@@ -65,6 +67,8 @@ pub struct Proposer {
     rpc_provider: ClientWithWallet,
     /// Builder that converts txpool content into proposal transactions.
     transaction_builder: ShastaProposalTransactionBuilder,
+    /// Tx-manager responsible for proposal submission and retry handling.
+    tx_manager: ProposalTxManager,
     /// Optional anchor constructor used in engine mode.
     anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
     /// Chain-specific minimum base fee used by EIP-4396 clamping.
@@ -100,6 +104,11 @@ impl Proposer {
             rpc_provider.clone(),
             cfg.l2_suggested_fee_recipient,
         );
+        // The RPC client wallet and tx-manager signer are both derived from the same
+        // proposer key, so all L1 proposal submissions must continue to flow through
+        // tx-manager to avoid splitting nonce management across two send paths.
+        let tx_manager =
+            ProposalTxManager::new(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.
         let min_base_fee_to_clamp =
             min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
@@ -120,6 +129,7 @@ impl Proposer {
         Ok(Self {
             rpc_provider,
             transaction_builder,
+            tx_manager,
             anchor_constructor,
             min_base_fee_to_clamp,
             cfg,
@@ -135,7 +145,21 @@ impl Proposer {
             interval.tick().await;
             info!(epoch, "proposer epoch");
 
-            self.fetch_and_propose().await?;
+            match self.fetch_and_propose().await {
+                Ok(receipt) => {
+                    info!(
+                        epoch,
+                        tx_hash = %receipt.transaction_hash,
+                        execution_succeeded = receipt.status(),
+                        "proposal attempt completed"
+                    );
+                }
+                Err(err) if is_operational_submission_error(&err) => {
+                    counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+                    warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
+                }
+                Err(err) => return Err(err),
+            }
 
             epoch += 1;
         }
@@ -143,7 +167,7 @@ impl Proposer {
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
     /// Fetch transactions and submit a proposal once.
-    pub async fn fetch_and_propose(&self) -> Result<()> {
+    pub async fn fetch_and_propose(&self) -> Result<TransactionReceipt> {
         // Fetch transactions based on mode.
         // Engine mode also returns the parameters used for the anchor transaction.
         let (pool_content, engine_params) = if self.cfg.use_engine_mode {
@@ -164,41 +188,15 @@ impl Proposer {
             "fetched transaction pool content"
         );
 
-        let mut transaction_request =
-            self.transaction_builder.build(pool_content, engine_params).await?;
+        let mut proposal_tx = self.transaction_builder.build(pool_content, engine_params).await?;
 
         // Set gas limit if configured, otherwise let the provider estimate it.
         if let Some(gas_limit) = self.cfg.gas_limit {
-            transaction_request = transaction_request.with_gas_limit(gas_limit);
+            proposal_tx = proposal_tx.with_gas_limit(gas_limit);
         }
 
-        // Send transaction using provider with wallet filler.
-        // The wallet filler will automatically fill nonce, gas_limit, fees, and sign the
-        // transaction.
-        let pending_tx =
-            self.rpc_provider.l1_provider.send_transaction(transaction_request).await?;
-
-        info!(tx_hash = %pending_tx.tx_hash(), "proposal transaction sent");
-        counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
-
-        let receipt = pending_tx.get_receipt().await?;
-
-        if receipt.status() {
-            info!(
-                tx_hash = %receipt.transaction_hash,
-                gas_used = receipt.gas_used,
-                "proposal transaction mined successfully"
-            );
-            counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
-
-            // Record gas used
-            histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
-        } else {
-            error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
-            counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
-        }
-
-        Ok(())
+        record_submission_attempt();
+        Ok(record_submission_receipt(self.tx_manager.send_proposal(proposal_tx).await?))
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
@@ -253,34 +251,33 @@ impl Proposer {
             .await?
             .ok_or(ProposerError::LatestBlockNotFound)?;
 
-        // If the parent is genesis, return the initial base fee.
-        if parent.number() == 0 {
-            return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
-        }
+        self.calculate_next_shasta_block_base_fee_for_parent(&parent).await
+    }
 
-        // Calculate the parent block time by subtracting its timestamp from its parent's timestamp.
+    /// Calculate the base fee for the next L2 block from a specific parent snapshot.
+    async fn calculate_next_shasta_block_base_fee_for_parent(
+        &self,
+        parent: &Block,
+    ) -> Result<U256> {
         let parent_number = parent.number();
-        let grandparent_number = parent_number.saturating_sub(1);
-        let grandparent = self
-            .rpc_provider
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(grandparent_number))
-            .await?
-            .ok_or(ProposerError::ParentBlockNotFound(grandparent_number))?;
-        let parent_block_time_delta_secs =
-            parent.header.timestamp.saturating_sub(grandparent.header.timestamp);
-        let parent_base_fee_per_gas =
-            parent.header.inner.base_fee_per_gas.ok_or(ProposerError::MissingParentBaseFee {
-                parent_block_number: parent_number,
-            })?;
+        let grandparent = if parent_number == 0 {
+            None
+        } else {
+            let grandparent_number = parent_number.saturating_sub(1);
+            Some(
+                self.rpc_provider
+                    .l2_provider
+                    .get_block_by_hash(parent.header.parent_hash)
+                    .await?
+                    .ok_or(ProposerError::ParentBlockNotFound(grandparent_number))?,
+            )
+        };
 
-        // Pass explicit parent base fee + chain clamp to mirror current EIP-4396 API semantics.
-        Ok(U256::from(calculate_next_block_eip4396_base_fee(
-            &parent.header.inner,
-            parent_block_time_delta_secs,
-            parent_base_fee_per_gas,
+        calculate_next_shasta_block_base_fee_from_parent(
+            parent,
+            grandparent.as_ref(),
             self.min_base_fee_to_clamp,
-        )))
+        )
     }
 
     /// Build forkchoice state from L2 chain.
@@ -334,12 +331,10 @@ impl Proposer {
         let basefee_sharing_pctg = inbox_config.basefeeSharingPctg;
 
         // Get proposal ID from parent's extra data and increment.
-        let proposal_id = decode_shasta_proposal_id(&parent.header.extra_data)
-            .ok_or(ProposerError::InvalidExtraData)? +
-            1;
+        let proposal_id = next_shasta_proposal_id(parent.header.number, &parent.header.extra_data)?;
 
         // Calculate base fee for the new block.
-        let base_fee = self.calculate_next_shasta_block_base_fee().await?;
+        let base_fee = self.calculate_next_shasta_block_base_fee_for_parent(parent).await?;
 
         // Get latest L1 block for anchor transaction.
         let l1_block = self
@@ -367,8 +362,8 @@ impl Proposer {
             )
             .await?;
 
-        // Calculate mix hash (difficulty).
-        let mix_hash = calculate_shasta_difficulty(parent.header.inner.mix_hash, block_number);
+        // Calculate mix hash.
+        let mix_hash = calculate_shasta_mix_hash(parent.header.inner.mix_hash, block_number);
 
         let payload_attributes = TaikoPayloadAttributes {
             payload_attributes: EthPayloadAttributes {
@@ -403,6 +398,7 @@ impl Proposer {
             payload_attributes,
             EngineBuildContext {
                 anchor_block_number,
+                parent_block_number: parent.header.number,
                 timestamp,
                 gas_limit: parent.header.gas_limit,
             },
@@ -501,16 +497,109 @@ impl Proposer {
     }
 }
 
+/// Calculate the next Shasta base fee from a fixed parent snapshot and its grandparent.
+fn calculate_next_shasta_block_base_fee_from_parent(
+    parent: &Block,
+    grandparent: Option<&Block>,
+    min_base_fee_to_clamp: u64,
+) -> Result<U256> {
+    if parent.number() == 0 {
+        return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
+    }
+
+    let grandparent =
+        grandparent.ok_or(ProposerError::ParentBlockNotFound(parent.number().saturating_sub(1)))?;
+    let parent_block_time_delta_secs =
+        parent.header.timestamp.saturating_sub(grandparent.header.timestamp);
+    let parent_base_fee_per_gas = parent
+        .header
+        .inner
+        .base_fee_per_gas
+        .ok_or(ProposerError::MissingParentBaseFee { parent_block_number: parent.number() })?;
+
+    Ok(U256::from(calculate_next_block_eip4396_base_fee(
+        &parent.header.inner,
+        parent_block_time_delta_secs,
+        parent_base_fee_per_gas,
+        min_base_fee_to_clamp,
+    )))
+}
+
+/// Record metrics and logs for a proposer submission receipt.
+fn record_submission_receipt(receipt: TransactionReceipt) -> TransactionReceipt {
+    if receipt.status() {
+        info!(
+            tx_hash = %receipt.transaction_hash,
+            gas_used = receipt.gas_used,
+            "proposal transaction mined successfully"
+        );
+        counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
+
+        // Record gas used once the confirmed receipt shows successful execution.
+        histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
+    } else {
+        error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
+        counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+    }
+
+    receipt
+}
+
+/// Record that the proposer started an L1 submission attempt for a built proposal.
+fn record_submission_attempt() {
+    counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
+}
+
 /// Returns the current UNIX timestamp in seconds.
 pub(crate) fn current_unix_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
 }
 
+/// Derive the next proposal id from the parent block header.
+///
+/// Shasta stores the previous proposal id in the parent block extra data. On a fresh chain the
+/// genesis parent may still have empty extra data, so the first proposal starts at id `1`.
+fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) -> Result<u64> {
+    if parent_block_number == 0 {
+        return Ok(1);
+    }
+
+    decode_shasta_proposal_id(parent_extra_data)
+        .map(|proposal_id| proposal_id + 1)
+        .ok_or(ProposerError::InvalidExtraData)
+}
+
+/// Return `true` when a surfaced proposer error should be logged and retried on the next epoch.
+fn is_operational_submission_error(err: &ProposerError) -> bool {
+    matches!(
+        err,
+        ProposerError::TxManager(
+            TxManagerError::Rpc(_) |
+                TxManagerError::SendTimeout |
+                TxManagerError::MempoolDeadlineExpired
+        )
+    )
+}
+
 #[cfg(test)]
 mod tests {
+    use alethia_reth_consensus::eip4396::calculate_next_block_eip4396_base_fee;
+    use alloy::{
+        consensus::Header as ConsensusHeader,
+        primitives::{B256, Bytes, U256},
+    };
+    use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
+    use base_tx_manager::TxManagerError;
+    use metrics_util::debugging::{DebugValue, DebuggingRecorder};
+
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::current_unix_timestamp;
+    use super::{
+        calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
+        is_operational_submission_error, next_shasta_proposal_id, record_submission_attempt,
+    };
+    use crate::{error::ProposerError, metrics::ProposerMetrics};
+    use protocol::shasta::encode_extra_data;
 
     #[test]
     fn current_unix_timestamp_tracks_system_time() {
@@ -520,5 +609,129 @@ mod tests {
 
         assert!(timestamp >= before);
         assert!(timestamp <= after);
+    }
+
+    #[test]
+    fn submission_attempt_increments_sent_metric() {
+        let recorder = DebuggingRecorder::new();
+        let snapshotter = recorder.snapshotter();
+
+        metrics::with_local_recorder(&recorder, || {
+            record_submission_attempt();
+        });
+
+        assert_eq!(counter_value(&snapshotter, ProposerMetrics::PROPOSALS_SENT), Some(1));
+    }
+
+    #[test]
+    fn tx_manager_operational_errors_keep_the_proposer_loop_running() {
+        assert!(is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Rpc(
+            "provider timed out".into(),
+        ))));
+        assert!(is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::SendTimeout,
+        )));
+        assert!(is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::MempoolDeadlineExpired,
+        )));
+    }
+
+    #[test]
+    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::NonceTooLow,
+        )));
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
+        )));
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Sign(
+            "wallet rejected signing".into(),
+        ))));
+        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+            TxManagerError::InvalidConfig("bad fee limit".into()),
+        )));
+    }
+
+    #[test]
+    fn next_shasta_proposal_id_starts_from_one_for_empty_genesis_extra_data() {
+        assert_eq!(
+            next_shasta_proposal_id(0, &Bytes::new()).expect("empty genesis extra data is valid"),
+            1
+        );
+    }
+
+    #[test]
+    fn next_shasta_proposal_id_increments_encoded_parent_proposal_id() {
+        assert_eq!(
+            next_shasta_proposal_id(7, &encode_extra_data(15, 9))
+                .expect("encoded proposal id should decode"),
+            10
+        );
+    }
+
+    #[test]
+    fn next_shasta_proposal_id_rejects_non_genesis_invalid_extra_data() {
+        assert!(matches!(
+            next_shasta_proposal_id(1, &Bytes::from_static(&[0x12, 0x34])),
+            Err(crate::error::ProposerError::InvalidExtraData)
+        ));
+    }
+
+    #[test]
+    fn base_fee_calculation_uses_supplied_parent_snapshot() {
+        let grandparent = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x11),
+                inner: ConsensusHeader { number: 1, timestamp: 100, ..Default::default() },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+        let parent = RpcBlock {
+            header: RpcHeader {
+                hash: B256::repeat_byte(0x22),
+                inner: ConsensusHeader {
+                    number: 2,
+                    parent_hash: grandparent.header.hash,
+                    timestamp: 112,
+                    gas_limit: 45_000_000,
+                    base_fee_per_gas: Some(2_000_000_000),
+                    ..Default::default()
+                },
+                total_difficulty: None,
+                size: None,
+            },
+            ..Default::default()
+        };
+
+        let expected = U256::from(calculate_next_block_eip4396_base_fee(
+            &parent.header.inner,
+            parent.header.timestamp.saturating_sub(grandparent.header.timestamp),
+            parent.header.inner.base_fee_per_gas.expect("parent should define a base fee"),
+            1_000_000_000,
+        ));
+
+        assert_eq!(
+            calculate_next_shasta_block_base_fee_from_parent(
+                &parent,
+                Some(&grandparent),
+                1_000_000_000
+            )
+            .expect("parent snapshot should determine the next base fee"),
+            expected
+        );
+    }
+
+    fn counter_value(
+        snapshotter: &metrics_util::debugging::Snapshotter,
+        metric_name: &str,
+    ) -> Option<u64> {
+        snapshotter.snapshot().into_vec().into_iter().find_map(|(key, _, _, value)| {
+            (key.key().name() == metric_name).then(|| match value {
+                DebugValue::Counter(value) => value,
+                other => panic!("expected counter for {metric_name}, got {other:?}"),
+            })
+        })
     }
 }

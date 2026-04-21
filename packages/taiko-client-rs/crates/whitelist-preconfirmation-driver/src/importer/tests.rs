@@ -10,8 +10,8 @@ use alloy_rpc_types_engine::ExecutionPayloadV1;
 use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope, error::WhitelistPreconfirmationDriverError,
-    tx_list::MAX_COMPRESSED_TX_LIST_BYTES,
+    codec::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope},
+    error::WhitelistPreconfirmationDriverError,
 };
 
 use super::{
@@ -31,6 +31,7 @@ fn sample_execution_payload_with_transactions(
         end_of_sequencing: None,
         is_forced_inclusion: None,
         parent_beacon_block_root: None,
+        header_difficulty: Some(U256::from(1_000_000u64)),
         execution_payload: ExecutionPayloadV1 {
             parent_hash: B256::from([0x10u8; 32]),
             fee_recipient: Address::from([0x11u8; 20]),
@@ -167,13 +168,23 @@ fn propagates_cached_import_errors_for_non_payload_failures() {
 }
 
 #[test]
-fn propagates_cached_import_errors_for_driver_queue_timeouts() {
+fn defers_cached_import_errors_for_preconf_enqueue_timeout() {
     let err =
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfEnqueueTimeout {
             waited: Duration::from_secs(1),
         });
     assert!(!should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert!(should_defer_cached_import_error(&err));
+}
+
+#[test]
+fn defers_cached_import_errors_for_preconf_response_timeout() {
+    let err =
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfResponseTimeout {
+            waited: Duration::from_secs(12),
+        });
+    assert!(!should_drop_cached_import_error(&err));
+    assert!(should_defer_cached_import_error(&err));
 }
 
 #[test]

@@ -61,7 +61,6 @@
   "separate-pull-requests": true,
   "packages": {
     "packages/bridge-ui": {},
-    "packages/docs-site": {},
     "packages/eventindexer": {},
     "packages/ejector": {
       "package-name": "ejector",

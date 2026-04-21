@@ -187,15 +187,16 @@ def:
     #       globs:
     #         - "graphql/*"
 
-    # - title: "Changes in internal"
-    #   description: "This shows changes to internal files"
-    #   sub:
-    #     - title: "first layer"
-    #       globs:
-    #         - "internal/*"
-    #     - title: "second layer"
-    #       globs:
-    #         - "internal/*/*"
+    - title: "internal"
+      description: "This shows changes to internal files"
+      sub:
+        # - title: "first layer"
+        #   globs:
+        #     - "internal/*"
+        - title: "Files"
+          description: "This allows debug_setHead which is required for Taiko networks."
+          globs:
+            - "internal/*/*"
 
     # - title: "les"
     #   description: "This shows changes to les files"
@@ -382,5 +383,6 @@ ignore:
   - "*/*/*/*/*/*/*/*/*.mod"
   - "tests"
   - "*.md"
+  - "appveyor.yml"
 # *.pb.go
 # *.sum

@@ -1,9 +1,10 @@
 //! Codec helpers for Taiko whitelist preconfirmation P2P payloads.
 
+use std::io::Read;
+
 use alloy_primitives::{Address, B256, Signature, U256, keccak256};
 use alloy_rpc_types_engine::ExecutionPayloadV1;
-use async_trait::async_trait;
-use futures::prelude::*;
+use flate2::read::ZlibDecoder;
 use ssz::{Decode, Encode};
 
 use crate::error::{Result, WhitelistPreconfirmationDriverError};
@@ -14,6 +15,13 @@ const SIGNATURE_LEN: usize = 65;
 const ENVELOPE_HEADER_LEN: usize = 34;
 /// Maximum allowed size after snappy decompression, bounded by gossip limits.
 const MAX_DECOMPRESSED_GOSSIP_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
+/// Maximum compressed tx-list size accepted from a preconfirmation payload.
+pub(crate) const MAX_COMPRESSED_TX_LIST_BYTES: usize = 131_072 * 6;
+/// Maximum decompressed tx-list size accepted from a preconfirmation payload.
+///
+/// Aligned with the preconfirmation tx-list cap to prevent zlib bomb expansion
+/// on untrusted payloads.
+pub(crate) const MAX_DECOMPRESSED_TX_LIST_BYTES: usize = 8 * 1024 * 1024;
 
 /// Decoded whitelist preconfirmation envelope.
 #[derive(Clone, Debug)]
@@ -24,6 +32,10 @@ pub(crate) struct WhitelistExecutionPayloadEnvelope {
     pub is_forced_inclusion: Option<bool>,
     /// Optional parent beacon block root.
     pub parent_beacon_block_root: Option<B256>,
+    /// Optional hash-relevant header difficulty for post-Uzen blocks.
+    /// When `Some`, the encoder emits a 32-byte big-endian slot after
+    /// `parent_beacon_block_root` and sets `flags0 & 0x02`.
+    pub header_difficulty: Option<U256>,
     /// Execution payload.
     pub execution_payload: ExecutionPayloadV1,
     /// Optional embedded signature.
@@ -148,15 +160,23 @@ pub(crate) fn encode_unsafe_request_message(hash: B256) -> Vec<u8> {
 
 /// Encode Taiko whitelist preconfirmation SSZ envelope bytes.
 pub(crate) fn encode_envelope_ssz(envelope: &WhitelistExecutionPayloadEnvelope) -> Vec<u8> {
+    let has_header_difficulty = envelope.header_difficulty.map(|v| !v.is_zero()).unwrap_or(false);
+    let header_difficulty_len = if has_header_difficulty { 32 } else { 0 };
     let sig_len = if envelope.signature.is_some() { SIGNATURE_LEN } else { 0 };
     let mut out = Vec::with_capacity(
-        ENVELOPE_HEADER_LEN + envelope.execution_payload.as_ssz_bytes().len() + sig_len,
+        ENVELOPE_HEADER_LEN +
+            header_difficulty_len +
+            envelope.execution_payload.as_ssz_bytes().len() +
+            sig_len,
     );
 
     let mut flags0 = 0u8;
     let mut flags1 = 0u8;
     if envelope.end_of_sequencing.unwrap_or(false) {
         flags0 |= 0x01;
+    }
+    if has_header_difficulty {
+        flags0 |= 0x02;
     }
     if envelope.is_forced_inclusion.unwrap_or(false) {
         flags1 |= 0x01;
@@ -171,6 +191,11 @@ pub(crate) fn encode_envelope_ssz(envelope: &WhitelistExecutionPayloadEnvelope) 
         out.extend_from_slice(root.as_slice());
     } else {
         out.extend_from_slice(&[0u8; 32]);
+    }
+
+    if has_header_difficulty {
+        let v = envelope.header_difficulty.expect("has_header_difficulty implies Some");
+        out.extend_from_slice(&v.to_be_bytes::<32>());
     }
 
     out.extend_from_slice(envelope.execution_payload.as_ssz_bytes().as_slice());
@@ -207,22 +232,34 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
     let flags1 = bytes[1];
 
     let end_of_sequencing = (flags0 & 0x01 != 0).then_some(true);
+    let has_header_difficulty = flags0 & 0x02 != 0;
     let is_forced_inclusion = (flags1 & 0x01 != 0).then_some(true);
     let has_signature = flags1 & 0x02 != 0;
 
     let root = &bytes[2..ENVELOPE_HEADER_LEN];
     let parent_beacon_block_root = root.iter().any(|&b| b != 0).then(|| B256::from_slice(root));
 
+    let header_difficulty_len = if has_header_difficulty { 32 } else { 0 };
     let signature_len = if has_signature { SIGNATURE_LEN } else { 0 };
-    if bytes.len() < ENVELOPE_HEADER_LEN + signature_len {
+    let min_len = ENVELOPE_HEADER_LEN + header_difficulty_len + signature_len;
+    if bytes.len() < min_len {
         return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
             "envelope missing payload data: {}",
             bytes.len()
         )));
     }
 
+    let mut cursor = ENVELOPE_HEADER_LEN;
+    let header_difficulty = if has_header_difficulty {
+        let slot = &bytes[cursor..cursor + 32];
+        cursor += 32;
+        Some(U256::from_be_slice(slot))
+    } else {
+        None
+    };
+
     let payload_end = bytes.len() - signature_len;
-    let payload_bytes = &bytes[ENVELOPE_HEADER_LEN..payload_end];
+    let payload_bytes = &bytes[cursor..payload_end];
     let execution_payload = ExecutionPayloadV1::from_ssz_bytes(payload_bytes).map_err(|err| {
         WhitelistPreconfirmationDriverError::InvalidPayload(format!(
             "invalid execution payload SSZ: {err:?}"
@@ -239,99 +276,47 @@ pub(crate) fn decode_envelope_ssz(bytes: &[u8]) -> Result<WhitelistExecutionPayl
         end_of_sequencing,
         is_forced_inclusion,
         parent_beacon_block_root,
+        header_difficulty,
         execution_payload,
         signature,
     })
 }
 
-/// Protocol identifier for the direct request/response protocol.
-pub(crate) const WHITELIST_REQRESP_PROTOCOL: &str = "/taiko/whitelist-preconf/req/1";
-
-/// Maximum response size (same as gossip limit).
-const MAX_REQRESP_RESPONSE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
-
-/// Codec for the direct request/response protocol.
-///
-/// Request: 32-byte block hash (raw `B256`).
-/// Response: Snappy-compressed SSZ envelope (same encoding as gossip `responsePreconfBlocks`).
-/// Empty response = block not found.
-#[derive(Debug, Clone, Default)]
-pub(crate) struct WhitelistReqRespCodec;
-
-#[async_trait]
-impl libp2p::request_response::Codec for WhitelistReqRespCodec {
-    type Protocol = libp2p::StreamProtocol;
-    type Request = B256;
-    type Response = Vec<u8>;
-
-    async fn read_request<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> std::io::Result<Self::Request>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        let mut buf = [0u8; 32];
-        io.read_exact(&mut buf).await?;
-        // Reject trailing data: a well-formed request is exactly 32 bytes.
-        let mut trail = [0u8; 1];
-        if io.read(&mut trail).await? > 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "direct request contains trailing data after 32-byte hash",
-            ));
-        }
-        Ok(B256::from(buf))
+/// Decompress a zlib-compressed transaction list while enforcing size limits.
+pub(crate) fn decompress_tx_list(bytes: &[u8]) -> Result<Vec<u8>> {
+    if bytes.len() > MAX_COMPRESSED_TX_LIST_BYTES {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "compressed tx list exceeds maximum size: {} > {}",
+            bytes.len(),
+            MAX_COMPRESSED_TX_LIST_BYTES
+        )));
     }
 
-    async fn read_response<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-    ) -> std::io::Result<Self::Response>
-    where
-        T: AsyncRead + Unpin + Send,
-    {
-        let mut buf = Vec::new();
-        // Read one extra byte beyond the limit so we can detect oversized responses.
-        io.take(MAX_REQRESP_RESPONSE_BYTES as u64 + 1).read_to_end(&mut buf).await?;
-        if buf.len() > MAX_REQRESP_RESPONSE_BYTES {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "direct response exceeds maximum allowed size",
-            ));
-        }
-        Ok(buf)
+    let decoder = ZlibDecoder::new(bytes);
+    let mut out = Vec::new();
+    let read_cap = MAX_DECOMPRESSED_TX_LIST_BYTES.saturating_add(1) as u64;
+    decoder.take(read_cap).read_to_end(&mut out).map_err(|err| {
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            "failed to decompress tx list from payload",
+            err,
+        )
+    })?;
+
+    if out.len() > MAX_DECOMPRESSED_TX_LIST_BYTES {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "decompressed tx list exceeds maximum size: {} > {}",
+            out.len(),
+            MAX_DECOMPRESSED_TX_LIST_BYTES
+        )));
     }
 
-    async fn write_request<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-        req: Self::Request,
-    ) -> std::io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        io.write_all(req.as_slice()).await?;
-        io.close().await?;
-        Ok(())
+    if out.is_empty() {
+        return Err(WhitelistPreconfirmationDriverError::invalid_payload(
+            "decompressed tx list is empty",
+        ));
     }
 
-    async fn write_response<T>(
-        &mut self,
-        _protocol: &Self::Protocol,
-        io: &mut T,
-        res: Self::Response,
-    ) -> std::io::Result<()>
-    where
-        T: AsyncWrite + Unpin + Send,
-    {
-        io.write_all(&res).await?;
-        io.close().await?;
-        Ok(())
-    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -345,6 +330,7 @@ mod tests {
             end_of_sequencing: Some(true),
             is_forced_inclusion: Some(true),
             parent_beacon_block_root: Some(B256::from([0xabu8; 32])),
+            header_difficulty: Some(U256::from(0x12345678u64)),
             execution_payload: ExecutionPayloadV1 {
                 parent_hash: B256::from([0x01u8; 32]),
                 fee_recipient: Address::from([0x11u8; 20]),
@@ -384,6 +370,7 @@ mod tests {
         assert_eq!(decoded.end_of_sequencing, envelope.end_of_sequencing);
         assert_eq!(decoded.is_forced_inclusion, envelope.is_forced_inclusion);
         assert_eq!(decoded.parent_beacon_block_root, envelope.parent_beacon_block_root);
+        assert_eq!(decoded.header_difficulty, envelope.header_difficulty);
         assert_eq!(decoded.execution_payload.block_hash, envelope.execution_payload.block_hash);
         assert_eq!(decoded.execution_payload.block_number, envelope.execution_payload.block_number);
         assert_eq!(decoded.signature, envelope.signature);
@@ -420,6 +407,7 @@ mod tests {
         assert_eq!(decoded_envelope.end_of_sequencing, envelope.end_of_sequencing);
         assert_eq!(decoded_envelope.is_forced_inclusion, envelope.is_forced_inclusion);
         assert_eq!(decoded_envelope.parent_beacon_block_root, envelope.parent_beacon_block_root);
+        assert_eq!(decoded_envelope.header_difficulty, envelope.header_difficulty);
         assert_eq!(
             decoded_envelope.execution_payload.block_hash,
             envelope.execution_payload.block_hash
@@ -455,112 +443,5 @@ mod tests {
             WhitelistPreconfirmationDriverError::InvalidPayload(msg)
                 if msg.contains("too large after decompression")
         ));
-    }
-
-    #[tokio::test]
-    async fn reqresp_codec_request_roundtrips() {
-        use futures::io::Cursor;
-        use libp2p::request_response::Codec as _;
-
-        let hash = B256::from([0xabu8; 32]);
-        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let mut codec = WhitelistReqRespCodec;
-
-        let mut buf = Vec::new();
-        codec.write_request(&protocol, &mut buf, hash).await.expect("write_request");
-        assert_eq!(buf.len(), 32, "request is exactly 32 bytes");
-
-        let mut cursor = Cursor::new(buf);
-        let decoded = codec.read_request(&protocol, &mut cursor).await.expect("read_request");
-        assert_eq!(decoded, hash);
-    }
-
-    #[tokio::test]
-    async fn reqresp_codec_response_roundtrips() {
-        use futures::io::Cursor;
-        use libp2p::request_response::Codec as _;
-
-        let envelope = sample_envelope();
-        let encoded = encode_unsafe_response_message(&envelope).expect("encode response");
-        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let mut codec = WhitelistReqRespCodec;
-
-        let mut buf = Vec::new();
-        codec.write_response(&protocol, &mut buf, encoded.clone()).await.expect("write_response");
-        assert_eq!(buf, encoded);
-
-        let mut cursor = Cursor::new(buf);
-        let decoded_bytes =
-            codec.read_response(&protocol, &mut cursor).await.expect("read_response");
-        assert_eq!(decoded_bytes, encoded);
-
-        let decoded_envelope =
-            decode_unsafe_response_message(&decoded_bytes).expect("decode response");
-        assert_eq!(
-            decoded_envelope.execution_payload.block_hash,
-            envelope.execution_payload.block_hash
-        );
-    }
-
-    #[tokio::test]
-    async fn reqresp_codec_empty_response_roundtrips() {
-        use futures::io::Cursor;
-        use libp2p::request_response::Codec as _;
-
-        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let mut codec = WhitelistReqRespCodec;
-
-        let mut buf = Vec::new();
-        codec.write_response(&protocol, &mut buf, Vec::new()).await.expect("write_response empty");
-        assert!(buf.is_empty(), "empty response produces no bytes");
-
-        let mut cursor = Cursor::new(buf);
-        let decoded =
-            codec.read_response(&protocol, &mut cursor).await.expect("read_response empty");
-        assert!(decoded.is_empty(), "empty response decodes to empty vec");
-    }
-
-    #[tokio::test]
-    async fn reqresp_codec_read_request_rejects_short_input() {
-        use futures::io::Cursor;
-        use libp2p::request_response::Codec as _;
-
-        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let mut codec = WhitelistReqRespCodec;
-
-        let short = vec![0u8; 16];
-        let mut cursor = Cursor::new(short);
-        let result = codec.read_request(&protocol, &mut cursor).await;
-        assert!(result.is_err(), "16-byte input should fail read_exact for 32 bytes");
-    }
-
-    #[tokio::test]
-    async fn reqresp_codec_read_response_rejects_oversized_input() {
-        use futures::io::Cursor;
-        use libp2p::request_response::Codec as _;
-
-        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let mut codec = WhitelistReqRespCodec;
-
-        let oversized = vec![0u8; MAX_REQRESP_RESPONSE_BYTES + 1];
-        let mut cursor = Cursor::new(oversized);
-        let result = codec.read_response(&protocol, &mut cursor).await;
-        assert!(result.is_err(), "oversized response should be rejected");
-        assert_eq!(result.unwrap_err().kind(), std::io::ErrorKind::InvalidData,);
-    }
-
-    #[tokio::test]
-    async fn reqresp_codec_read_response_accepts_max_size_input() {
-        use futures::io::Cursor;
-        use libp2p::request_response::Codec as _;
-
-        let protocol = libp2p::StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL);
-        let mut codec = WhitelistReqRespCodec;
-
-        let max_size = vec![0u8; MAX_REQRESP_RESPONSE_BYTES];
-        let mut cursor = Cursor::new(max_size.clone());
-        let result = codec.read_response(&protocol, &mut cursor).await;
-        assert!(result.is_ok(), "response at exactly max size should be accepted");
-        assert_eq!(result.unwrap().len(), MAX_REQRESP_RESPONSE_BYTES);
     }
 }

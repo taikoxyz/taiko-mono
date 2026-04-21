@@ -5,6 +5,7 @@ use crate::error::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use proposer::{config::ProposerConfigs, metrics::ProposerMetrics, proposer::Proposer};
+use protocol::shasta::set_devnet_uzen_override;
 
 use crate::{
     commands::Subcommand,
@@ -42,6 +43,12 @@ impl ProposerSubCommand {
             l1_proposer_private_key: self.proposer_flags.l1_proposer_private_key,
             gas_limit: self.proposer_flags.gas_limit,
             use_engine_mode: self.proposer_flags.use_engine_mode,
+            retry_interval: Duration::from_secs(self.proposer_flags.retry_interval),
+            confirmation_timeout: Duration::from_secs(self.proposer_flags.confirmation_timeout),
+            receipt_query_interval: None,
+            min_tip_cap_gwei: self.proposer_flags.min_tip_cap_gwei,
+            min_base_fee_gwei: self.proposer_flags.min_base_fee_gwei,
+            min_blob_fee_gwei: self.proposer_flags.min_blob_fee_gwei,
         })
     }
 
@@ -72,6 +79,7 @@ impl Subcommand for ProposerSubCommand {
     /// Execute the proposer subcommand flow.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
+        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
         self.init_metrics()?;
 
         let cfg = self.build_config()?;

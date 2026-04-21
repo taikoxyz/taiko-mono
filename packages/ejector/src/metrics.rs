@@ -20,9 +20,17 @@ static EJECTIONS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     .expect("ejections_total metric can be created")
 });
 
-static WS_RECONNECTIONS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
-    IntCounter::new("ws_reconnections_total", "Total number of websocket reconnections")
-        .expect("ws_reconnections_total metric can be created")
+static L1_EVENT_SCANNER_RESTARTS_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+    IntCounter::new(
+        "l1_event_scanner_restarts_total",
+        "Total number of HTTP whitelist event scanner restarts",
+    )
+    .expect("l1_event_scanner_restarts_total metric can be created")
+});
+
+static L2_POLL_UNCERTAIN_TOTAL: Lazy<IntCounter> = Lazy::new(|| {
+    IntCounter::new("l2_poll_uncertain_total", "Total number of uncertain HTTP L2 polling outcomes")
+        .expect("l2_poll_uncertain_total metric can be created")
 });
 
 static LAST_SEEN_DRIFT_SECONDS: Lazy<IntGauge> = Lazy::new(|| {
@@ -66,8 +74,11 @@ pub fn init() {
         .register(Box::new(EJECTIONS_TOTAL.clone()))
         .expect("ejections_total metric can be registered");
     REGISTRY
-        .register(Box::new(WS_RECONNECTIONS_TOTAL.clone()))
-        .expect("ws_reconnections_total metric can be registered");
+        .register(Box::new(L1_EVENT_SCANNER_RESTARTS_TOTAL.clone()))
+        .expect("l1_event_scanner_restarts_total metric can be registered");
+    REGISTRY
+        .register(Box::new(L2_POLL_UNCERTAIN_TOTAL.clone()))
+        .expect("l2_poll_uncertain_total metric can be registered");
     REGISTRY
         .register(Box::new(LAST_SEEN_DRIFT_SECONDS.clone()))
         .expect("last_seen_drift_seconds metric can be registered");
@@ -126,8 +137,12 @@ pub fn inc_eject_error(addr: &str) {
     EJECTIONS_TOTAL.with_label_values(&["error", &addr]).inc();
 }
 
-pub fn inc_ws_reconnections() {
-    WS_RECONNECTIONS_TOTAL.inc();
+pub fn inc_l1_event_scanner_restarts() {
+    L1_EVENT_SCANNER_RESTARTS_TOTAL.inc();
+}
+
+pub fn inc_l2_poll_uncertain() {
+    L2_POLL_UNCERTAIN_TOTAL.inc();
 }
 
 pub fn set_last_seen_drift_seconds(seconds: u64) {

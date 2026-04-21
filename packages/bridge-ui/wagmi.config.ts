@@ -3,7 +3,6 @@ import type { Abi } from 'abitype';
 
 // CI will fail if we import from the protocol package
 // We'll ignore this file on svelte-check: `svelte-check --ignore ./wagmi.config.ts`
-import AnchroForkRouter from '../protocol/out/layer2/AnchorForkRouter.sol/AnchorForkRouter.json';
 import Bridge from '../protocol/out/shared/Bridge.sol/Bridge.json';
 import ERC20 from '../protocol/out/shared/BridgedERC20.sol/BridgedERC20.json';
 import ERC721 from '../protocol/out/shared/BridgedERC721.sol/BridgedERC721.json';
@@ -52,10 +51,6 @@ export default defineConfig({
     {
       name: 'Erc1155',
       abi: ERC1155.abi as Abi,
-    },
-    {
-      name: 'AnchorForkRouter',
-      abi: AnchroForkRouter.abi as Abi,
     },
   ],
 });

@@ -18,6 +18,9 @@ use tokio::{
     time::{Instant, sleep},
 };
 
+/// Maximum time allowed for a single block-poll RPC during test waits.
+const BLOCK_WAIT_RPC_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// Fetches a block by number with full transaction details.
 ///
 /// Returns the block with transactions deserialized as `TxEnvelope`,
@@ -80,21 +83,24 @@ where
 pub async fn wait_for_block<P>(
     provider: &P,
     block_number: u64,
-    timeout: Duration,
+    timeout_duration: Duration,
 ) -> Result<RpcBlock<TxEnvelope>>
 where
     P: Provider + Send + Sync,
 {
-    let deadline = Instant::now() + timeout;
+    let deadline = Instant::now() + timeout_duration;
 
     loop {
-        if Instant::now() >= deadline {
+        let now = Instant::now();
+        if now >= deadline {
             return Err(anyhow!("timed out waiting for block {block_number}"));
         }
 
-        if let Ok(Some(block)) =
-            provider.get_block_by_number(BlockNumberOrTag::Number(block_number)).full().await
-        {
+        let remaining = deadline.saturating_duration_since(now);
+        let rpc_timeout = remaining.min(BLOCK_WAIT_RPC_TIMEOUT);
+        let block_request = provider.get_block_by_number(BlockNumberOrTag::Number(block_number));
+
+        if let Ok(Ok(Some(block))) = tokio::time::timeout(rpc_timeout, block_request.full()).await {
             return Ok(block.map_transactions(TxEnvelope::from));
         }
 

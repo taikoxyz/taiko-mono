@@ -3,10 +3,10 @@
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
-use rpc::client::ClientConfig;
+use protocol::shasta::set_devnet_uzen_override;
 
 use crate::{
-    commands::Subcommand,
+    commands::{Subcommand, build_driver_config},
     error::Result,
     flags::{common::CommonArgs, driver::DriverArgs},
 };
@@ -26,28 +26,7 @@ pub struct DriverSubCommand {
 impl DriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_config(&self) -> Result<DriverConfig> {
-        let l1_source = self.common_flags.l1_provider_source()?;
-        let l2_http = self.common_flags.l2_http_endpoint.clone();
-        let l2_auth = self.common_flags.l2_auth_endpoint.clone();
-        let l1_beacon = self.driver_flags.l1_beacon_endpoint.clone();
-        let l2_checkpoint = self.driver_flags.l2_checkpoint_endpoint.clone();
-        let blob_server = self.driver_flags.blob_server_endpoint.clone();
-
-        let client_cfg = ClientConfig {
-            l1_provider_source: l1_source,
-            l2_provider_url: l2_http,
-            l2_auth_provider_url: l2_auth,
-            jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
-            inbox_address: self.common_flags.shasta_inbox_address,
-        };
-
-        Ok(DriverConfig::new(
-            client_cfg,
-            self.driver_flags.retry_interval(),
-            l1_beacon,
-            l2_checkpoint,
-            blob_server,
-        ))
+        build_driver_config(&self.common_flags, &self.driver_flags)
     }
 
     /// Run the driver.
@@ -72,6 +51,7 @@ impl Subcommand for DriverSubCommand {
     /// Run the driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
+        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
         self.init_metrics()?;
 
         let cfg = self.build_config()?;

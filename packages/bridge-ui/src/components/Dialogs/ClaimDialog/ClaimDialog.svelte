@@ -33,6 +33,8 @@
   import { ClaimAction } from '../Shared/types';
   import { DialogStep, DialogStepper } from '../Stepper';
   import ClaimStepNavigation from './ClaimStepNavigation.svelte';
+  import { isMessageNotReceivedError } from './error';
+  import { type ClaimDialogMode, shouldSkipMessageStatusCheck } from './mode';
   import { ClaimSteps, INITIAL_STEP } from './types';
 
   const log = getLogger('ClaimDialog');
@@ -49,10 +51,11 @@
   export let activeStep: ClaimSteps = INITIAL_STEP;
 
   export let bridgeTx: BridgeTransaction;
+  export let directClaim = false;
 
   export const handleClaimClick = async () => {
     claiming = true;
-    await ClaimComponent.claim(ClaimAction.CLAIM, force);
+    await ClaimComponent.claim(ClaimAction.CLAIM, force, shouldSkipMessageStatusCheck(claimMode));
   };
 
   let force = false;
@@ -64,6 +67,7 @@
   let txHash: Hash;
   let hideContinueButton: boolean;
   let isDesktopOrLarger = false;
+  let claimMode: ClaimDialogMode = directClaim ? 'try_claim' : 'claim';
 
   const handleAccountChange = () => {
     reset();
@@ -146,7 +150,7 @@
         break;
       case err instanceof ContractFunctionExecutionError:
         console.error(err);
-        if (err.message.includes('B_NOT_RECEIVED')) {
+        if (isMessageNotReceivedError(err)) {
           errorToast({
             title: $t('bridge.errors.claim.not_received.title'),
             message: $t('bridge.errors.claim.not_received.message'),
@@ -174,6 +178,8 @@
     claimingDone = false;
     // canForceTransaction = false;
   };
+
+  $: claimMode = directClaim ? 'try_claim' : 'claim';
 
   let previousStep: ClaimSteps;
   $: if (activeStep !== previousStep) {

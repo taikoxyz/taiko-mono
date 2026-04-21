@@ -10,7 +10,6 @@ import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 import "src/shared/signal/SignalService.sol";
-import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import "test/shared/DeployCapability.sol";
 
 /// @title DeployShastaContracts
@@ -35,8 +34,6 @@ abstract contract DeployShastaContracts is DeployCapability {
         address r0Groth16Verifier;
         address sp1PlonkVerifier;
         address[] provers;
-        address oldSignalServiceImpl;
-        uint64 shastaForkTimestamp;
         address preconfWhitelist;
     }
 
@@ -69,8 +66,6 @@ abstract contract DeployShastaContracts is DeployCapability {
         require(config.r0Groth16Verifier != address(0), "R0_GROTH16_VERIFIER not set");
         require(config.sp1PlonkVerifier != address(0), "SP1_PLONK_VERIFIER not set");
         require(config.provers.length != 0, "PROVERS not set");
-        require(config.oldSignalServiceImpl != address(0), "OLD_SIGNAL_SERVICE_IMPL not set");
-        require(config.shastaForkTimestamp != 0, "SHASTA_FORK_TIMESTAMP not set");
         // config.preconfWhitelist is optional — if zero, _deploy creates a fresh one
 
         for (uint256 i = 0; i < config.provers.length; ++i) {
@@ -123,12 +118,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         console2.log("ShastaInbox deployed:", shastaInbox);
 
         address signalServiceImpl = address(new SignalService(shastaInbox, config.l2SignalService));
-        address signalServiceForkRouter = address(
-            new SignalServiceForkRouter(
-                config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp
-            )
-        );
-        console2.log("SignalServiceForkRouter deployed:", signalServiceForkRouter);
+        console2.log("SignalService deployed:", signalServiceImpl);
     }
 
     function _deployAllVerifiers(DeploymentConfig memory config)

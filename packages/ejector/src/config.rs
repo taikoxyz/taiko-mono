@@ -11,14 +11,6 @@ pub struct Config {
     #[arg(long, env = "L1_HTTP_URL", default_value = "http://localhost:8545")]
     pub l1_http_url: String,
 
-    // L1 RPC ws url
-    #[arg(long, env = "L1_WS_URL", default_value = "ws://localhost:8545")]
-    pub l1_ws_url: String,
-
-    // L2 WS url
-    #[arg(long, env = "L2_WS_URL", default_value = "ws://localhost:8546")]
-    pub l2_ws_url: String,
-
     // L2 HTTP url
     #[arg(long, env = "L2_HTTP_URL", default_value = "http://localhost:8547")]
     pub l2_http_url: String,
@@ -85,10 +77,6 @@ mod tests {
             "0xABC",
             "--l1-http-url",
             "http://test-l1-rpc.com",
-            "--l1-ws-url",
-            "ws://test-l1-rpc.com",
-            "--l2-ws-url",
-            "ws://test-l2.com",
             "--l2-http-url",
             "http://test-l2.com",
             "--eject-after-seconds",
@@ -115,8 +103,6 @@ mod tests {
         assert_eq!(config.preconf_router_address, "0x789");
         assert_eq!(config.anchor_address, Some("0xABC".to_string()));
         assert_eq!(config.l1_http_url, "http://test-l1-rpc.com");
-        assert_eq!(config.l1_ws_url, "ws://test-l1-rpc.com");
-        assert_eq!(config.l2_ws_url, "ws://test-l2.com");
         assert_eq!(config.eject_after_seconds, 10);
         assert_eq!(config.l2_http_url, "http://test-l2.com");
         assert_eq!(config.private_key, "0x1234");
@@ -140,10 +126,6 @@ mod tests {
             "0x789",
             "--l1-http-url",
             "http://test-l1-rpc.com",
-            "--l1-ws-url",
-            "ws://test-l1-rpc.com",
-            "--l2-ws-url",
-            "ws://test-l2.com",
             "--l2-http-url",
             "http://test-l2.com",
             "--private-key",
@@ -158,5 +140,58 @@ mod tests {
 
         assert!(config.anchor_address.is_none());
         assert!(!config.enable_reorg_ejection);
+    }
+
+    #[test]
+    fn test_config_parsing_http_only() {
+        let config = Config::parse_from([
+            "ejector",
+            "--preconf-whitelist-address",
+            "0x1123",
+            "--preconf-router-address",
+            "0x789",
+            "--anchor-address",
+            "0xABC",
+            "--l1-http-url",
+            "http://test-l1-rpc.com",
+            "--l2-http-url",
+            "http://test-l2-rpc.com",
+            "--private-key",
+            "0x1234",
+            "--taiko-wrapper-address",
+            "0x456",
+            "--beacon-url",
+            "http://test-beacon.com",
+        ]);
+
+        assert_eq!(config.l1_http_url, "http://test-l1-rpc.com");
+        assert_eq!(config.l2_http_url, "http://test-l2-rpc.com");
+    }
+
+    #[test]
+    fn test_config_rejects_websocket_url_flags() {
+        let result = Config::try_parse_from([
+            "ejector",
+            "--preconf-whitelist-address",
+            "0x1123",
+            "--preconf-router-address",
+            "0x789",
+            "--l1-http-url",
+            "http://test-l1-rpc.com",
+            "--l2-http-url",
+            "http://test-l2.com",
+            "--private-key",
+            "0x1234",
+            "--taiko-wrapper-address",
+            "0x456",
+            "--beacon-url",
+            "http://test-beacon.com",
+            "--enable-reorg-ejection",
+            "false",
+            "--l1-ws-url",
+            "ws://test-l1-rpc.com",
+        ]);
+
+        assert!(result.is_err());
     }
 }
