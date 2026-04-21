@@ -900,9 +900,7 @@ where
                 rpc_l2_block_number,
             )?;
 
-            if head_l1_origin_block_id.is_some()
-                && resolved_rpc_l2_block_number.is_none()
-            {
+            if head_l1_origin_block_id.is_some() && resolved_rpc_l2_block_number.is_none() {
                 warn!(
                     head_l1_origin_block_id,
                     "failed to fetch rpc L2 block number; falling back to local head_l1_origin",
@@ -911,8 +909,9 @@ where
 
             resolved_rpc_l2_block_number
         };
-        let local_head_is_genesis =
-            !checkpoint_configured && head_l1_origin_block_id.is_none() && rpc_l2_block_number == Some(0);
+        let local_head_is_genesis = !checkpoint_configured &&
+            head_l1_origin_block_id.is_none() &&
+            rpc_l2_block_number == Some(0);
 
         let resume_head_block_number = resolve_resume_head_block_number(
             checkpoint_configured,
@@ -1922,8 +1921,9 @@ mod tests {
             .expect_err("non-checkpoint mode should require head_l1_origin");
         assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
 
-        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), Some(80), false)
-            .expect("head_l1_origin should drive resume without checkpoint");
+        let resolved =
+            resolve_resume_head_block_number(false, Some(999), Some(64), Some(80), false)
+                .expect("head_l1_origin should drive resume without checkpoint");
         assert_eq!(resolved, 64);
 
         let resolved = resolve_resume_head_block_number(false, None, None, Some(0), true)
@@ -1961,11 +1961,9 @@ mod tests {
 
     #[test]
     fn rpc_block_number_resolution_requires_success_without_origin() {
-        let err = resolve_rpc_l2_block_number_for_resume(
-            None,
-            Err(SyncError::MissingHeadL1OriginResume),
-        )
-        .expect_err("rpc failures should remain fatal when head_l1_origin is unavailable");
+        let err =
+            resolve_rpc_l2_block_number_for_resume(None, Err(SyncError::MissingHeadL1OriginResume))
+                .expect_err("rpc failures should remain fatal when head_l1_origin is unavailable");
         assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
     }
 
