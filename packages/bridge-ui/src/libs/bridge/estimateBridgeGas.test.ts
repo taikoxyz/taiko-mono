@@ -1,6 +1,4 @@
-import { gasLimitConfig } from '$config';
-
-import { estimateBridgeGasOrFallback, tokenBridgeFallbackGas } from './estimateBridgeGas';
+import { estimateBridgeGasOrFallback } from './estimateBridgeGas';
 
 describe('estimateBridgeGasOrFallback', () => {
   const fallback = 500_000;
@@ -58,31 +56,5 @@ describe('estimateBridgeGasOrFallback', () => {
     }, 1_250_000n);
 
     expect(result).toBe(1_250_000n);
-  });
-});
-
-describe('tokenBridgeFallbackGas', () => {
-  it('returns the supplied baseline when the token is already deployed', () => {
-    expect(tokenBridgeFallbackGas(gasLimitConfig.erc20SendTokenFallbackGasLimit, true)).toBe(
-      gasLimitConfig.erc20SendTokenFallbackGasLimit,
-    );
-  });
-
-  it('adds the not-deployed extra gas when the token is not yet deployed', () => {
-    expect(tokenBridgeFallbackGas(gasLimitConfig.erc20SendTokenFallbackGasLimit, false)).toBe(
-      gasLimitConfig.erc20SendTokenFallbackGasLimit + gasLimitConfig.bridgeTxNotDeployedExtraGas,
-    );
-  });
-
-  it('treats undefined deployment status as not-deployed', () => {
-    expect(tokenBridgeFallbackGas(gasLimitConfig.erc721SendTokenFallbackGasLimit, undefined)).toBe(
-      gasLimitConfig.erc721SendTokenFallbackGasLimit + gasLimitConfig.bridgeTxNotDeployedExtraGas,
-    );
-  });
-
-  it('scales per token type via the supplied baseline', () => {
-    const erc20Deployed = tokenBridgeFallbackGas(gasLimitConfig.erc20SendTokenFallbackGasLimit, true);
-    const erc1155Deployed = tokenBridgeFallbackGas(gasLimitConfig.erc1155SendTokenFallbackGasLimit, true);
-    expect(erc1155Deployed).toBeGreaterThan(erc20Deployed);
   });
 });

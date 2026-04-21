@@ -7,17 +7,16 @@ export const gasLimitConfig = {
   erc721DeployedGasLimit: 1_100_000,
   erc1155NotDeployedGasLimit: 2_600_000,
   erc1155DeployedGasLimit: 1_100_000,
-  // Fallback gas limits used when eth_estimateGas fails on the source tx.
-  // Baselines are sized per token type from empirical Foundry gas reports (sendToken max):
-  // ERC20 ~194k, ERC721 ~217k, ERC1155 ~215k. ERC721/1155 run ~2x ERC20 at the median
-  // due to NFT transferFrom + metadata work; we keep a similar ~2.6x safety margin plus
-  // headroom for multi-tokenId bundles.
+  // Source-chain fallback gas limits used when eth_estimateGas fails for sendMessage/sendToken.
+  // The source tx only escrows funds and stores a message hash, so its cost does not depend
+  // on whether the destination token is deployed - that cost is already covered by the
+  // destination message gasLimit above. Baselines come from empirical Foundry gas reports
+  // (sendToken max: ERC20 ~194k, ERC721 ~217k, ERC1155 ~215k) with ~2.6x headroom for
+  // multi-tokenId bundles and RPC variance.
   ethSendMessageFallbackGasLimit: 200_000,
   erc20SendTokenFallbackGasLimit: 500_000,
   erc721SendTokenFallbackGasLimit: 750_000,
   erc1155SendTokenFallbackGasLimit: 750_000,
-  // Extra gas added when the bridged token isn't yet deployed on the destination chain.
-  bridgeTxNotDeployedExtraGas: 750_000,
 };
 
 export const processingFeeComponent = {

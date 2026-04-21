@@ -23,7 +23,7 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { calculateMessageDataSize } from './calculateMessageDataSize';
-import { estimateBridgeGasOrFallback, tokenBridgeFallbackGas } from './estimateBridgeGas';
+import { estimateBridgeGasOrFallback } from './estimateBridgeGas';
 import type { ERC721BridgeArgs, NFTApproveArgs, NFTBridgeTransferOp, RequireApprovalArgs } from './types';
 
 const log = getLogger('ERC721Bridge');
@@ -66,7 +66,7 @@ export class ERC721Bridge extends Bridge {
 
     return estimateBridgeGasOrFallback(
       () => tokenVaultContract.estimateGas.sendToken([sendERC721Args], { value }),
-      tokenBridgeFallbackGas(gasLimitConfig.erc721SendTokenFallbackGasLimit, args.isTokenAlreadyDeployed),
+      gasLimitConfig.erc721SendTokenFallbackGasLimit,
     );
   }
 
@@ -110,7 +110,7 @@ export class ERC721Bridge extends Bridge {
 
     const gas = await estimateBridgeGasOrFallback(
       () => tokenVaultContract.estimateGas.sendToken([sendERC721Args], { value: fee }),
-      tokenBridgeFallbackGas(gasLimitConfig.erc721SendTokenFallbackGasLimit, args.isTokenAlreadyDeployed),
+      gasLimitConfig.erc721SendTokenFallbackGasLimit,
     );
 
     try {

@@ -1,4 +1,3 @@
-import { gasLimitConfig } from '$config';
 import { getLogger } from '$libs/util/logger';
 
 const log = getLogger('estimateBridgeGas');
@@ -15,11 +14,4 @@ export async function estimateBridgeGasOrFallback(
     console.error('Failed to estimate gas for bridge tx, using fallback', error);
     return BigInt(fallbackGas);
   }
-}
-
-export function tokenBridgeFallbackGas(
-  baseDeployedFallback: number,
-  isTokenAlreadyDeployed: boolean | undefined,
-): number {
-  return baseDeployedFallback + (isTokenAlreadyDeployed ? 0 : gasLimitConfig.bridgeTxNotDeployedExtraGas);
 }
