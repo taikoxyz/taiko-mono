@@ -96,9 +96,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "big.Int": {
-            "type": "object"
-        },
         "preconfblocks.BuildPreconfBlockRequestBody": {
             "type": "object",
             "properties": {
@@ -239,18 +236,14 @@ const docTemplate = `{
             "properties": {
                 "baseFeePerGas": {
                     "description": "BaseFee was added by EIP-1559 and is ignored in legacy headers.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/big.Int"
-                        }
-                    ]
+                    "type": "integer"
                 },
                 "blobGasUsed": {
                     "description": "BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.",
                     "type": "integer"
                 },
                 "difficulty": {
-                    "$ref": "#/definitions/big.Int"
+                    "type": "integer"
                 },
                 "excessBlobGas": {
                     "description": "ExcessBlobGas was added by EIP-4844 and is ignored in legacy headers.",
@@ -287,7 +280,7 @@ const docTemplate = `{
                     }
                 },
                 "number": {
-                    "$ref": "#/definitions/big.Int"
+                    "type": "integer"
                 },
                 "parentBeaconBlockRoot": {
                     "description": "ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.",
@@ -305,6 +298,10 @@ const docTemplate = `{
                 },
                 "sha3Uncles": {
                     "type": "string"
+                },
+                "slotNumber": {
+                    "description": "SlotNumber was added by EIP-7843 and is ignored in legacy headers.",
+                    "type": "integer"
                 },
                 "stateRoot": {
                     "type": "string"

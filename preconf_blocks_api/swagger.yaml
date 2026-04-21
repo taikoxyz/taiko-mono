@@ -1,6 +1,4 @@
 definitions:
-  big.Int:
-    type: object
   preconfblocks.BuildPreconfBlockRequestBody:
     properties:
       endOfSequencing:
@@ -96,14 +94,13 @@ definitions:
   types.Header:
     properties:
       baseFeePerGas:
-        allOf:
-        - $ref: '#/definitions/big.Int'
         description: BaseFee was added by EIP-1559 and is ignored in legacy headers.
+        type: integer
       blobGasUsed:
         description: BlobGasUsed was added by EIP-4844 and is ignored in legacy headers.
         type: integer
       difficulty:
-        $ref: '#/definitions/big.Int'
+        type: integer
       excessBlobGas:
         description: ExcessBlobGas was added by EIP-4844 and is ignored in legacy
           headers.
@@ -129,7 +126,7 @@ definitions:
           type: integer
         type: array
       number:
-        $ref: '#/definitions/big.Int'
+        type: integer
       parentBeaconBlockRoot:
         description: ParentBeaconRoot was added by EIP-4788 and is ignored in legacy
           headers.
@@ -143,6 +140,9 @@ definitions:
         type: string
       sha3Uncles:
         type: string
+      slotNumber:
+        description: SlotNumber was added by EIP-7843 and is ignored in legacy headers.
+        type: integer
       stateRoot:
         type: string
       timestamp:
