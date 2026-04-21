@@ -16,16 +16,6 @@ type EventSyncResult = result::Result<(), driver::DriverError>;
 /// Join result returned by the event sync background task handle.
 pub(crate) type EventSyncJoinResult = result::Result<EventSyncResult, tokio::task::JoinError>;
 
-/// Classified terminal outcome from the event sync background task.
-enum EventSyncerExit {
-    /// The task exited cleanly (`Ok(())`) before ingress could proceed.
-    Exited,
-    /// The task returned an underlying driver error.
-    Driver(driver::DriverError),
-    /// The task failed to join.
-    Join(tokio::task::JoinError),
-}
-
 /// Runs the event syncer and exposes shared handles used by the whitelist importer.
 pub(crate) struct PreconfIngressSync<P>
 where
@@ -96,21 +86,10 @@ where
 
 /// Convert event syncer task termination into ingress-readiness errors.
 fn map_event_syncer_exit_for_ingress(result: EventSyncJoinResult) -> WhitelistResult<()> {
-    match classify_event_syncer_exit(result) {
-        EventSyncerExit::Exited => Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
-        EventSyncerExit::Driver(err) => Err(map_driver_error(err)),
-        EventSyncerExit::Join(err) => {
-            Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string()))
-        }
-    }
-}
-
-/// Classify raw join output from the event syncer task into semantic exit states.
-fn classify_event_syncer_exit(result: EventSyncJoinResult) -> EventSyncerExit {
     match result {
-        Ok(Ok(())) => EventSyncerExit::Exited,
-        Ok(Err(err)) => EventSyncerExit::Driver(err),
-        Err(err) => EventSyncerExit::Join(err),
+        Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
+        Ok(Err(err)) => Err(map_driver_error(err)),
+        Err(err) => Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),
     }
 }
 
