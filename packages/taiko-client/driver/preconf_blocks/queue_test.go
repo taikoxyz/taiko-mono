@@ -4,6 +4,7 @@ import (
 	"math/rand"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
@@ -19,6 +20,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCacheGet() {
 			BlockNumber: eth.Uint64Quantity(uint64(testutils.RandomPort())),
 			BlockHash:   testutils.RandomHash(),
 		},
+		HeaderDifficulty: common.Big1,
 	}
 	cache.put(uint64(payload.Payload.BlockNumber), payload)
 	payloadCached := cache.get(uint64(payload.Payload.BlockNumber), payload.Payload.BlockHash)
@@ -33,6 +35,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCacheGetLongestChildren() {
 			BlockNumber: eth.Uint64Quantity(uint64(testutils.RandomPort())),
 			BlockHash:   testutils.RandomHash(),
 		},
+		HeaderDifficulty: common.Big1,
 	}
 
 	createFork := func(currentPayload *preconf.Envelope, len int) []*preconf.Envelope {
@@ -45,6 +48,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCacheGetLongestChildren() {
 					BlockHash:   testutils.RandomHash(),
 					ParentHash:  parent.Payload.BlockHash,
 				},
+				HeaderDifficulty: common.Big1,
 			}
 			payloads[i] = payload
 			parent = payload

@@ -95,8 +95,8 @@ where
             )));
         }
 
-        let parent_difficulty = B256::from(parent.header.difficulty.to_be_bytes::<32>());
-        Ok(calculate_shasta_difficulty(parent_difficulty, block_number))
+        let parent_mix_hash = B256::from(parent.header.difficulty.to_be_bytes::<32>());
+        Ok(calculate_shasta_mix_hash(parent_mix_hash, block_number))
     }
 
     /// Validate request payload shape before expensive insertion and signing operations.

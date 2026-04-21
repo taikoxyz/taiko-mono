@@ -284,6 +284,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
 		"endOfSequencing", msg.EndOfSequencing != nil && *msg.EndOfSequencing,
 		"isForcedInclusion", msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		"headerDifficulty", msg.HeaderDifficulty,
 		"signature", common.Bytes2Hex(signature[:]),
 	)
 	metrics.DriverPreconfEnvelopeCounter.Inc()
@@ -970,6 +971,7 @@ func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context
 		ExecutionPayload:  latestPayload.Payload,
 		Signature:         latestPayload.Signature,
 		IsForcedInclusion: &latestPayload.IsForcedInclusion,
+		HeaderDifficulty:  latestPayload.HeaderDifficulty,
 	})
 }
 
@@ -1406,6 +1408,7 @@ func envelopeFromMessage(msg *eth.ExecutionPayloadEnvelope) *preconf.Envelope {
 		Payload:           msg.ExecutionPayload,
 		Signature:         msg.Signature,
 		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		HeaderDifficulty:  msg.HeaderDifficulty,
 	}
 }
 
