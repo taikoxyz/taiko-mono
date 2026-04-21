@@ -14,17 +14,17 @@ use alloy_rpc_types_engine::PayloadId;
 pub const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
 sol! {
-    struct ShastaDifficultyInput {
-        bytes32 parentDifficulty;
+    struct ShastaMixHashInput {
+        bytes32 parentMixHash;
         uint256 blockNumber;
     }
 }
 
-/// Calculate the Shasta difficulty for a new block based on the parent difficulty (randao digest)
+/// Calculate the Shasta mix hash for a new block based on the parent mix hash (randao digest)
 /// and block number.
-pub fn calculate_shasta_difficulty(parent_difficulty: B256, block_number: u64) -> B256 {
-    let params = ShastaDifficultyInput {
-        parentDifficulty: parent_difficulty,
+pub fn calculate_shasta_mix_hash(parent_mix_hash: B256, block_number: u64) -> B256 {
+    let params = ShastaMixHashInput {
+        parentMixHash: parent_mix_hash,
         blockNumber: U256::from(block_number),
     };
     B256::from(keccak256(params.abi_encode()))

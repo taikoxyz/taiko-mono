@@ -227,6 +227,7 @@ mod tests {
             end_of_sequencing: None,
             is_forced_inclusion: None,
             parent_beacon_block_root: None,
+            header_difficulty: Some(U256::from(1_000_000u64)),
             execution_payload: ExecutionPayloadV1 {
                 parent_hash: B256::from([0x10u8; 32]),
                 fee_recipient: Address::from([0x11u8; 20]),

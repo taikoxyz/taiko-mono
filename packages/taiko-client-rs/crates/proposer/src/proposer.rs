@@ -26,7 +26,7 @@ use alloy_rpc_types_engine::{
 use base_tx_manager::TxManagerError;
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
-    AnchorTxConstructor, AnchorV4Input, calculate_shasta_difficulty,
+    AnchorTxConstructor, AnchorV4Input, calculate_shasta_mix_hash,
     constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain},
     encode_extra_data,
 };
@@ -362,8 +362,8 @@ impl Proposer {
             )
             .await?;
 
-        // Calculate mix hash (difficulty).
-        let mix_hash = calculate_shasta_difficulty(parent.header.inner.mix_hash, block_number);
+        // Calculate mix hash.
+        let mix_hash = calculate_shasta_mix_hash(parent.header.inner.mix_hash, block_number);
 
         let payload_attributes = TaikoPayloadAttributes {
             payload_attributes: EthPayloadAttributes {

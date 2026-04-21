@@ -20,7 +20,7 @@ use preconfirmation_driver::{DriverClient, PreconfirmationClient, Preconfirmatio
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
 use protocol::shasta::{
-    calculate_shasta_difficulty, encode_extra_data, uzen_active_for_chain_timestamp,
+    calculate_shasta_mix_hash, encode_extra_data, uzen_active_for_chain_timestamp,
 };
 use rpc::client::{Client, ClientConfig};
 use serial_test::serial;
@@ -63,7 +63,7 @@ where
     let parent_block = fetch_block_by_number(provider, block_number.saturating_sub(1)).await?;
     let parent_header = &parent_block.header.inner;
 
-    let expected_mix_hash = calculate_shasta_difficulty(
+    let expected_mix_hash = calculate_shasta_mix_hash(
         B256::from(parent_header.difficulty.to_be_bytes::<32>()),
         block_number,
     );

@@ -284,6 +284,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
 		"endOfSequencing", msg.EndOfSequencing != nil && *msg.EndOfSequencing,
 		"isForcedInclusion", msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		"headerDifficulty", msg.HeaderDifficulty,
 		"signature", common.Bytes2Hex(signature[:]),
 	)
 	metrics.DriverPreconfEnvelopeCounter.Inc()
@@ -970,6 +971,7 @@ func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context
 		ExecutionPayload:  latestPayload.Payload,
 		Signature:         latestPayload.Signature,
 		IsForcedInclusion: &latestPayload.IsForcedInclusion,
+		HeaderDifficulty:  latestPayload.HeaderDifficulty,
 	})
 }
 
@@ -1322,6 +1324,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			Payload:           msg.ExecutionPayload,
 			Signature:         msg.Signature,
 			IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+			HeaderDifficulty:  msg.HeaderDifficulty,
 		}, headL1Origin); err != nil {
 			log.Info(
 				"Unable to find all the missing ancients from the cache, cache the current payload",
@@ -1375,6 +1378,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				Payload:           msg.ExecutionPayload,
 				Signature:         msg.Signature,
 				IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+				HeaderDifficulty:  msg.HeaderDifficulty,
 			},
 		},
 		false,
@@ -1407,6 +1411,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		Payload:           msg.ExecutionPayload,
 		Signature:         msg.Signature,
 		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		HeaderDifficulty:  msg.HeaderDifficulty,
 	}); err != nil {
 		return false, fmt.Errorf("failed to try importing child blocks from cache: %w", err)
 	}
@@ -1453,6 +1458,7 @@ func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloa
 		Payload:           msg.ExecutionPayload,
 		Signature:         msg.Signature,
 		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		HeaderDifficulty:  msg.HeaderDifficulty,
 	})
 }
 
