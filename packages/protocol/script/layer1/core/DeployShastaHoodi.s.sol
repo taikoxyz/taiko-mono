@@ -23,6 +23,8 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.taikoToken = LibL1HoodiAddrs.HOODI_TAIKO_TOKEN;
         config.preconfWhitelist = LibL1HoodiAddrs.HOODI_PRECONF_WHITELIST;
         config.contractOwner = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
+        config.proverManager = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
+        config.ejectorManager = LibL1HoodiAddrs.HOODI_CONTRACT_OWNER;
 
         config.r0Groth16Verifier = 0x32Db7dc407AC886807277636a1633A1381748DD8;
         config.sgxGethAutomataProxy = 0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5;

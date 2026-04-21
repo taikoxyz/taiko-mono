@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { IPreconfWhitelist } from "../iface/IPreconfWhitelist.sol";
-import { LibPreconfConstants } from "../libs/LibPreconfConstants.sol";
-import { LibPreconfUtils } from "../libs/LibPreconfUtils.sol";
-import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { IProposerChecker } from "src/layer1/core/iface/IProposerChecker.sol";
+import "../iface/IPreconfWhitelist.sol";
+import "../libs/LibPreconfConstants.sol";
+import "../libs/LibPreconfUtils.sol";
+import "src/layer1/core/iface/IProposerChecker.sol";
+import "src/shared/common/EssentialContract.sol";
+
+import "./PreconfWhitelist_Layout.sol"; // DO NOT DELETE
 
 /// @title PreconfWhitelist
-/// @notice Non-upgradeable operator whitelist for proposer authorization.
 /// @custom:security-contact security@taiko.xyz
-contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
+contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChecker {
     struct OperatorInfo {
         uint32 activeSince; // Epoch when the operator becomes active.
-        uint32 deprecatedInactiveSince; // Deprecated. Kept for ABI compatibility with Go bindings.
+        uint32 deprecatedInactiveSince; // Deprecated. Kept for storage compatibility.
         uint8 index; // Index in operatorMapping.
         address sequencerAddress; // Sequencer address for this operator (for off-chain use).
     }
@@ -29,37 +30,64 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
     uint8 public constant RANDOMNESS_DELAY = 2;
 
     // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
+
+    /// @dev Address authorized to manage ejecters alongside the owner.
+    address internal immutable _ejectorManager;
+
+    // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
+    /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
+    /// address.
+    ///     The proposer address is their main identifier and is used on-chain to identify the
+    /// operator and decide if they are allowed to propose.
+    ///     The sequencer address is used off-chain to to identify the address that is emitting
+    /// preconfirmations.
+    ///     NOTE: These two addresses may be the same, it is up to the operator to decide.
     mapping(address proposer => OperatorInfo info) public operators;
     mapping(uint256 index => address proposer) public operatorMapping;
 
+    /// @notice The total number of operators in the whitelist.
+    /// This includes both active and inactive operators.
     uint8 public operatorCount;
+    /// @dev Deprecated variable. Kept for storage compatibility.
+    uint8 private _deprecatedOperatorChangeDelay;
+    /// @dev Deprecated variable. Kept for storage compatibility.
+    uint8 private _deprecatedRandomnessDelay;
+    /// @dev Deprecated variable. Kept for storage compatibility.
+    bool private _deprecatedHavingPerfectOperators;
+    /// @notice The epoch when the latest operator was or will be activated.
+    /// @dev No need to reinitialize the contract, this value starts at 0
+    ///      (i.e. no pending activations)
     uint32 public latestActivationEpoch;
 
+    /// @dev The addresses that can eject operators from the whitelist.
     mapping(address ejecter => bool isEjecter) public ejecters;
 
-    // ---------------------------------------------------------------
-    // Modifiers
-    // ---------------------------------------------------------------
+    uint256[45] private __gap;
 
     modifier onlyOwnerOrEjecter() {
         require(msg.sender == owner() || ejecters[msg.sender], NotOwnerOrEjecter());
         _;
     }
 
-    // ---------------------------------------------------------------
-    // Constructor
-    // ---------------------------------------------------------------
-
-    constructor(address _owner) {
-        require(_owner != address(0), ZeroAddress());
-        _transferOwnership(_owner);
+    modifier onlyOwnerOrEjectorManager() {
+        require(msg.sender == owner() || msg.sender == _ejectorManager, NotOwnerOrEjectorManager());
+        _;
     }
 
-    // ---------------------------------------------------------------
-    // External & Public Functions
-    // ---------------------------------------------------------------
+    /// @notice Initializes immutable role configuration for ejecter management.
+    /// @param _ejectorManagerAddress Address authorized to manage ejecters.
+    constructor(address _ejectorManagerAddress) {
+        require(_ejectorManagerAddress != address(0), InvalidEjectorManager());
+        _ejectorManager = _ejectorManagerAddress;
+    }
+
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
 
     /// @inheritdoc IPreconfWhitelist
     /// @dev The operator only becomes active after `OPERATOR_CHANGE_DELAY` epochs.
@@ -83,15 +111,21 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
 
     /// @notice Sets the ejecter address.
     /// @param _ejecter The new ejecter address.
-    function setEjecter(address _ejecter, bool _isEjecter) external onlyOwner {
+    /// @param _isEjecter Whether the address should be treated as an ejecter.
+    function setEjecter(
+        address _ejecter,
+        bool _isEjecter
+    )
+        external
+        onlyOwnerOrEjectorManager
+    {
+        require(_ejecter != address(0), ZERO_ADDRESS());
+
         ejecters[_ejecter] = _isEjecter;
         emit EjecterUpdated(_ejecter, _isEjecter);
     }
 
     /// @inheritdoc IProposerChecker
-    /// @dev Gas-optimized: inlines epochStartTimestamp, _getOperatorForEpoch, _getRandomNumber,
-    ///      and getBeaconBlockRootAtOrAfter to eliminate redundant getGenesisTimestamp calls,
-    ///      SafeCast overhead, and internal function JUMP costs.
     function checkProposer(
         address _proposer,
         bytes calldata
@@ -101,90 +135,9 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
         override(IProposerChecker)
         returns (uint48 endOfSubmissionWindowTimestamp_)
     {
-        // --- Inline epochStartTimestamp(0) → getEpochTimestamp(0) ---
-        // Original: epochStartTimestamp(0) → LibPreconfUtils.getEpochTimestamp()
-        //   → getGenesisTimestamp(block.chainid) + epoch floor calculation + SafeCast.toUint48
-        uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        uint256 epochTs;
-        // forge-lint: disable-start(divide-before-multiply)
-        unchecked {
-            uint256 timePassed = block.timestamp - genesisTimestamp;
-            epochTs = genesisTimestamp + (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
-                * LibPreconfConstants.SECONDS_IN_EPOCH;
-        }
-        // forge-lint: disable-end
-
-        // --- Inline _getOperatorForEpoch(uint32(epochTs)) ---
-        // Original: computes delaySeconds, reads operatorCount + latestActivationEpoch,
-        //   calls _getRandomNumber → getBeaconBlockRootAtOrAfter (which calls
-        //   getGenesisTimestamp AGAIN). By inlining we skip the second genesis lookup.
-        unchecked {
-            // RANDOMNESS_DELAY (2) * SECONDS_IN_EPOCH (384) = 768, constant-folded
-            uint256 randomnessTs = epochTs >= LibPreconfConstants.TWO_EPOCHS
-                ? epochTs - LibPreconfConstants.TWO_EPOCHS
-                : epochTs;
-
-            // 1 SLOAD: operatorCount + latestActivationEpoch packed in same slot
-            uint256 count = operatorCount;
-            require(count != 0, InvalidProposer());
-
-            // --- Inline _getRandomNumber → getBeaconBlockRootAtOrAfter ---
-            // Skip genesis check: randomnessTs is derived from block.timestamp ≥ genesis,
-            // so randomnessTs ≥ 0 (genesis=0 for unknown chains) is always true.
-            bytes32 beaconRoot;
-            {
-                address beacon = LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT;
-                uint256 slotDuration = LibPreconfConstants.SECONDS_IN_SLOT;
-                assembly {
-                    let ts := add(randomnessTs, slotDuration)
-                    let current := timestamp()
-                    // Use scratch space at 0x00 (safe in view context, avoids
-                    // free-memory-pointer concerns across compiler versions).
-                    for {
-                        let i := 0
-                    } and(lt(i, 32), iszero(gt(ts, current))) { i := add(i, 1) } {
-                        mstore(0x00, ts)
-                        let success := staticcall(gas(), beacon, 0x00, 32, 0x00, 32)
-                        if and(success, gt(returndatasize(), 0)) {
-                            let root := mload(0x00)
-                            if root {
-                                beaconRoot := root
-                                break
-                            }
-                        }
-                        ts := add(ts, slotDuration)
-                    }
-                }
-            }
-
-            // Note: if beaconRoot == 0 (no root found), operator selection defaults to index 0.
-            // This matches the behavior of the original getBeaconBlockRootAtOrAfter.
-            uint32 _latestActivationEpoch = latestActivationEpoch;
-
-            address operator;
-            if (uint32(epochTs) >= _latestActivationEpoch) {
-                // Fast path: all operators active
-                operator = operatorMapping[uint256(beaconRoot) % count];
-            } else {
-                // Slow path: check which operators are active
-                uint32 epochTs32 = uint32(epochTs);
-                address[] memory candidates = new address[](count);
-                uint256 activeCount;
-                for (uint256 i; i < count; ++i) {
-                    address op = operatorMapping[i];
-                    uint32 activeSince = operators[op].activeSince;
-                    if (activeSince != 0 && epochTs32 >= activeSince) {
-                        candidates[activeCount++] = op;
-                    }
-                }
-                if (activeCount != 0) {
-                    operator = candidates[uint256(beaconRoot) % activeCount];
-                }
-            }
-
-            require(operator == _proposer, InvalidProposer());
-        }
-
+        address operator = _getOperatorForEpoch(epochStartTimestamp(0));
+        require(operator != address(0), InvalidProposer());
+        require(operator == _proposer, InvalidProposer());
         // Slashing is not enabled for whitelisted preconfers, so we return 0
         endOfSubmissionWindowTimestamp_ = 0;
     }
@@ -213,6 +166,7 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
     {
         unchecked {
             OperatorInfo storage info = operators[_proposer];
+
             uint32 activeSince = info.activeSince;
             return activeSince != 0 && _epochTimestamp >= activeSince;
         }
@@ -226,10 +180,6 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
             LibPreconfUtils.getEpochTimestamp() + _offset * LibPreconfConstants.SECONDS_IN_EPOCH
         );
     }
-
-    // ---------------------------------------------------------------
-    // Internal Functions
-    // ---------------------------------------------------------------
 
     /// @dev Checks if there is another active operator excluding the given operator
     /// @param _excluded The proposer address of the operator to exclude.
@@ -261,6 +211,8 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
         require(_sequencer != address(0), InvalidOperatorAddress());
 
         OperatorInfo storage info = operators[_proposer];
+
+        // if they're already active, just revert
         if (info.activeSince != 0) {
             revert OperatorAlreadyExists();
         }
@@ -324,20 +276,25 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
     /// @return The operator for the given epoch.
     function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
         unchecked {
+            // Get epoch-stable randomness with a delayed applied. This avoids querying future
+            // beacon roots.
             uint256 delaySeconds = RANDOMNESS_DELAY * LibPreconfConstants.SECONDS_IN_EPOCH;
             uint256 ts = uint256(_epochTimestamp);
             uint32 randomnessTs = uint32(ts >= delaySeconds ? ts - delaySeconds : ts);
 
+            // One SLOAD
             uint256 _operatorCount = operatorCount;
             uint32 _latestActivationEpoch = latestActivationEpoch;
 
             if (_operatorCount == 0) return address(0);
-            uint256 randomNumber =
-                uint256(LibPreconfUtils.getBeaconBlockRootAtOrAfter(randomnessTs));
+            uint256 randomNumber = _getRandomNumber(randomnessTs);
             if (_epochTimestamp >= _latestActivationEpoch) {
+                // Fast path: This means all operators are active, so we can just select one without
+                // checking
                 return operatorMapping[randomNumber % _operatorCount];
             }
 
+            // Slow path: We need to check which operators are active
             address[] memory candidates = new address[](_operatorCount);
             uint256 count;
             for (uint256 i; i < _operatorCount; ++i) {
@@ -351,15 +308,23 @@ contract PreconfWhitelist is Ownable2Step, IPreconfWhitelist, IProposerChecker {
         }
     }
 
+    function _getRandomNumber(uint32 _epochTimestamp) internal view returns (uint256) {
+        // Get the beacon root at the epoch start - this stays constant throughout the epoch
+        bytes32 beaconRoot = LibPreconfUtils.getBeaconBlockRootAtOrAfter(_epochTimestamp);
+
+        return uint256(beaconRoot);
+    }
+
     // ---------------------------------------------------------------
-    // Custom Errors
+    // Errors
     // ---------------------------------------------------------------
 
     error CannotRemoveLastOperator();
     error InvalidOperatorIndex();
     error InvalidOperatorAddress();
+    error InvalidEjectorManager();
     error OperatorAlreadyExists();
     error NoActiveOperatorRemaining();
     error NotOwnerOrEjecter();
-    error ZeroAddress();
+    error NotOwnerOrEjectorManager();
 }

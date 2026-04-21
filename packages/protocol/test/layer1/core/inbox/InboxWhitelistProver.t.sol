@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { InboxTestBase } from "./InboxTestBase.sol";
+import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
@@ -15,8 +16,16 @@ contract InboxWhitelistProverTest is InboxTestBase {
     // ---------------------------------------------------------------
 
     function _buildConfig() internal override returns (IInbox.Config memory) {
-        // Deploy ProverWhitelist (non-upgradeable)
-        proverWhitelist = new ProverWhitelist(address(this));
+        // Deploy and setup ProverWhitelist
+        ProverWhitelist proverWhitelistImpl = new ProverWhitelist(address(this));
+        proverWhitelist = ProverWhitelist(
+            address(
+                new ERC1967Proxy(
+                    address(proverWhitelistImpl),
+                    abi.encodeCall(ProverWhitelist.init, (address(this)))
+                )
+            )
+        );
         proverWhitelist.whitelistProver(whitelistedProver, true);
 
         IInbox.Config memory cfg = super._buildConfig();
