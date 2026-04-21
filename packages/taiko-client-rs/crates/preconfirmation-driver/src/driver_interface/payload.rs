@@ -18,7 +18,7 @@ use preconfirmation_types::uint256_to_u256;
 use super::{PreconfirmationInput, traits::BlockHeaderProvider};
 use crate::{Result, error::DriverApiError};
 use protocol::shasta::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_tx_list,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_tx_list,
     payload_id_to_bytes,
 };
 
@@ -93,7 +93,7 @@ pub async fn build_taiko_payload_attributes(
     let fee_recipient = Address::from_slice(preconf.coinbase.as_ref());
     let parent_block_number = block_number.saturating_sub(1);
     let parent_header = l2_provider.header_by_number(parent_block_number).await?;
-    let mix_hash = calculate_shasta_difficulty(
+    let mix_hash = calculate_shasta_mix_hash(
         B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
         block_number,
     );
@@ -232,8 +232,8 @@ mod tests {
         )
         .await
         .expect("payload");
-        let parent_difficulty = B256::from(parent_header.inner.difficulty.to_be_bytes::<32>());
-        let expected_mix_hash = calculate_shasta_difficulty(parent_difficulty, 5);
+        let parent_mix_hash = B256::from(parent_header.inner.difficulty.to_be_bytes::<32>());
+        let expected_mix_hash = calculate_shasta_mix_hash(parent_mix_hash, 5);
         let transactions = vec![Bytes::from(vec![0x01, 0x02])];
         let tx_list = encode_tx_list(&transactions);
         let extra_data = encode_extra_data(basefee_sharing_pctg, 7); // proposal_id = 7

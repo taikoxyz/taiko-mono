@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use metrics::histogram;
 use protocol::{
-    shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, payload_id_to_bytes},
+    shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, payload_id_to_bytes},
     signer::FixedKSigner,
 };
 use rpc::{beacon::BeaconClient, client::Client};
