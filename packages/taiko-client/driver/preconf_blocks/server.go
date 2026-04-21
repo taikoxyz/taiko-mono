@@ -1320,12 +1320,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		)
 
 		// Try to find all the missing ancients from the cache and import them.
-		if err := s.ImportMissingAncientsFromCache(ctx, &preconf.Envelope{
-			Payload:           msg.ExecutionPayload,
-			Signature:         msg.Signature,
-			IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-			HeaderDifficulty:  msg.HeaderDifficulty,
-		}, headL1Origin); err != nil {
+		if err := s.ImportMissingAncientsFromCache(ctx, envelopeFromMessage(msg), headL1Origin); err != nil {
 			log.Info(
 				"Unable to find all the missing ancients from the cache, cache the current payload",
 				"peer", from,
@@ -1373,14 +1368,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	// Insert the preconfirmation block into the L2 EE chain.
 	if _, err := s.insertPreconfBlocksFromEnvelopes(
 		ctx,
-		[]*preconf.Envelope{
-			{
-				Payload:           msg.ExecutionPayload,
-				Signature:         msg.Signature,
-				IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-				HeaderDifficulty:  msg.HeaderDifficulty,
-			},
-		},
+		[]*preconf.Envelope{envelopeFromMessage(msg)},
 		false,
 	); err != nil {
 		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
@@ -1407,16 +1395,21 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	}
 
 	// Try to import the child blocks from the cache, if any.
-	if err := s.ImportChildBlocksFromCache(ctx, &preconf.Envelope{
-		Payload:           msg.ExecutionPayload,
-		Signature:         msg.Signature,
-		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-		HeaderDifficulty:  msg.HeaderDifficulty,
-	}); err != nil {
+	if err := s.ImportChildBlocksFromCache(ctx, envelopeFromMessage(msg)); err != nil {
 		return false, fmt.Errorf("failed to try importing child blocks from cache: %w", err)
 	}
 
 	return false, nil
+}
+
+// envelopeFromMessage converts an incoming gossip message into a preconf.Envelope.
+func envelopeFromMessage(msg *eth.ExecutionPayloadEnvelope) *preconf.Envelope {
+	return &preconf.Envelope{
+		Payload:           msg.ExecutionPayload,
+		Signature:         msg.Signature,
+		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		HeaderDifficulty:  msg.HeaderDifficulty,
+	}
 }
 
 // updateHighestUnsafeL2Payload updates the highest unsafe L2 payload block ID.
@@ -1454,12 +1447,7 @@ func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloa
 		"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 	)
 
-	s.envelopesCache.put(id, &preconf.Envelope{
-		Payload:           msg.ExecutionPayload,
-		Signature:         msg.Signature,
-		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-		HeaderDifficulty:  msg.HeaderDifficulty,
-	})
+	s.envelopesCache.put(id, envelopeFromMessage(msg))
 }
 
 // insertPreconfBlocksFromEnvelopes inserts the given preconfirmation block envelopes into the L2 EE chain.

@@ -176,11 +176,8 @@ impl BlobDataSource {
 
             let blob = parse_blob(&payload.data)?;
             let commitment = parse_bytes48(&payload.commitment)?;
-            let proof = if let Some(proof) = payload.proof {
-                parse_bytes48(&proof)?
-            } else {
-                Bytes48::default()
-            };
+            let proof =
+                payload.proof.as_deref().map(parse_bytes48).transpose()?.unwrap_or_default();
 
             let versioned_hash = versioned_hash_from_commitment(&commitment);
             if let Ok(reported_hash) = payload.versioned_hash.parse::<B256>() &&
@@ -227,28 +224,18 @@ impl BlobDataSource {
         let mut matched = Vec::with_capacity(blob_hashes.len());
 
         for target_hash in blob_hashes {
-            let mut found = None;
-            for (index, sidecar) in sidecars.iter().enumerate() {
-                if used[index] {
-                    continue;
-                }
-
-                let versioned_hash = versioned_hash_from_commitment(&sidecar.commitment);
-                if &versioned_hash == target_hash {
-                    used[index] = true;
-                    matched.push(BlobTransactionSidecar {
-                        blobs: vec![sidecar.blob],
-                        commitments: vec![sidecar.commitment],
-                        proofs: vec![sidecar.proof],
-                    });
-                    found = Some(());
-                    break;
-                }
-            }
-
-            if found.is_none() {
+            let matched_index = sidecars.iter().enumerate().find(|(index, sidecar)| {
+                !used[*index] && &versioned_hash_from_commitment(&sidecar.commitment) == target_hash
+            });
+            let Some((index, sidecar)) = matched_index else {
                 return Ok(None);
-            }
+            };
+            used[index] = true;
+            matched.push(BlobTransactionSidecar {
+                blobs: vec![sidecar.blob],
+                commitments: vec![sidecar.commitment],
+                proofs: vec![sidecar.proof],
+            });
         }
 
         Ok(Some(matched))
@@ -256,7 +243,7 @@ impl BlobDataSource {
 }
 
 /// Parse a hex-encoded blob server payload into a fixed-size `Blob`.
-fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
+pub(crate) fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
     let bytes = decode_hex(value)?;
     Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
 }
@@ -271,7 +258,7 @@ fn decode_hex(value: &str) -> Result<Vec<u8>, BlobDataError> {
 }
 
 /// Parses a hex-encoded 48-byte value into a `Bytes48`.
-fn parse_bytes48(value: &str) -> Result<Bytes48, BlobDataError> {
+pub(crate) fn parse_bytes48(value: &str) -> Result<Bytes48, BlobDataError> {
     let bytes = decode_hex(value)?;
     Bytes48::try_from(bytes.as_slice())
         .map_err(|_| BlobDataError::Parse("invalid 48-byte value".into()))

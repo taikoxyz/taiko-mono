@@ -38,13 +38,20 @@ var (
 	defaultWaitTimeout = 3 * time.Minute
 )
 
-// GetProtocolConfigs gets the protocol configs from the inbox contract.
-func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
-	var cancel context.CancelFunc
+// prepCallOpts ensures opts is non-nil and applies the default RPC timeout to its context.
+// Callers must defer the returned cancel func.
+func prepCallOpts(opts *bind.CallOpts) (*bind.CallOpts, context.CancelFunc) {
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
+	var cancel context.CancelFunc
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	return opts, cancel
+}
+
+// GetProtocolConfigs gets the protocol configs from the inbox contract.
+func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	configs, err := c.ShastaClients.Inbox.GetConfig(opts)
@@ -848,11 +855,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 		return common.Address{}, errors.New("preconfirmations whitelist contract is not set")
 	}
 
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	proposer, err := c.ShastaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
@@ -874,11 +877,7 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 		return common.Address{}, errors.New("preconfirmation whitelist contract is not set")
 	}
 
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	proposer, err := c.ShastaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
@@ -901,11 +900,7 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 		return nil, errors.New("preconfirmation whitelist contract is not set")
 	}
 
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	count, err := c.ShastaClients.PreconfWhitelist.OperatorCount(opts)
@@ -931,11 +926,7 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 		return nil, errors.New("preconfirmation whitelist contract is not set")
 	}
 
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	// offset=0 returns the current epoch's start timestamp.
@@ -973,11 +964,7 @@ func (c *Client) GetAllActiveOperators(opts *bind.CallOpts) ([]common.Address, e
 
 // GetProposalHash gets the proposal hash from the inbox contract.
 func (c *Client) GetProposalHash(opts *bind.CallOpts, proposalID *big.Int) (common.Hash, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	return c.ShastaClients.Inbox.GetProposalHash(opts, proposalID)
@@ -988,11 +975,7 @@ func (c *Client) GetAnchorState(opts *bind.CallOpts) (
 	*shastaBindings.AnchorBlockState,
 	error,
 ) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	blockState, err := c.ShastaClients.Anchor.GetBlockState(opts)
@@ -1005,11 +988,7 @@ func (c *Client) GetAnchorState(opts *bind.CallOpts) (
 
 // GetInboxConfigs gets the inbox contract configurations.
 func (c *Client) GetInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	cfg, err := c.ShastaClients.Inbox.GetConfig(opts)
@@ -1022,11 +1001,7 @@ func (c *Client) GetInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IInboxCon
 
 // GetCoreState gets the core state from the inbox contract.
 func (c *Client) GetCoreState(opts *bind.CallOpts) (*shastaBindings.IInboxCoreState, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	state, err := c.ShastaClients.Inbox.GetCoreState(opts)
@@ -1091,11 +1066,7 @@ func (c *Client) GetProposalByID(
 
 // EncodeProveInput encodes the prove method input using the inbox contract.
 func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	return c.ShastaClients.Inbox.EncodeProveInput(opts, *input)
@@ -1103,11 +1074,7 @@ func (c *Client) EncodeProveInput(opts *bind.CallOpts, input *shastaBindings.IIn
 
 // EncodeProposeInput encodes the propose method input using the inbox contract.
 func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.IInboxProposeInput) ([]byte, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	return c.ShastaClients.Inbox.EncodeProposeInput(opts, *input)
@@ -1115,11 +1082,7 @@ func (c *Client) EncodeProposeInput(opts *bind.CallOpts, input *shastaBindings.I
 
 // DecodeProposeInput decodes the propose method input using the inbox contract.
 func (c *Client) DecodeProposeInput(opts *bind.CallOpts, data []byte) (*shastaBindings.IInboxProposeInput, error) {
-	var cancel context.CancelFunc
-	if opts == nil {
-		opts = &bind.CallOpts{Context: context.Background()}
-	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
+	opts, cancel := prepCallOpts(opts)
 	defer cancel()
 
 	input, err := c.ShastaClients.Inbox.DecodeProposeInput(opts, data)

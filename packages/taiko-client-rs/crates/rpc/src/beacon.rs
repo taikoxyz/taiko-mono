@@ -6,14 +6,16 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy::primitives::hex;
-use alloy_eips::eip4844::{Blob, Bytes48};
+use alloy_eips::eip4844::Bytes48;
 use reqwest::Client as HttpClient;
 use serde::Deserialize;
 use tracing::{debug, warn};
 use url::Url;
 
-use crate::{blob::BlobDataError, client::DEFAULT_HTTP_TIMEOUT};
+use crate::{
+    blob::{BlobDataError, parse_blob, parse_bytes48},
+    client::DEFAULT_HTTP_TIMEOUT,
+};
 
 /// JSON payload returned by `/eth/v1/beacon/genesis`.
 #[derive(Debug, Deserialize)]
@@ -109,7 +111,7 @@ struct BeaconBlobSidecar {
 #[derive(Debug, Clone)]
 pub struct BeaconSidecar {
     /// Blob body for this sidecar.
-    pub blob: Blob,
+    pub blob: alloy_eips::eip4844::Blob,
     /// KZG commitment for `blob`.
     pub commitment: Bytes48,
     /// KZG proof for `blob`.
@@ -175,20 +177,8 @@ impl BeaconClient {
         }
         let spec: SpecResponse =
             spec_res.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
-        let seconds_per_slot = spec
-            .data
-            .get("SECONDS_PER_SLOT")
-            .and_then(|value| value.as_str())
-            .ok_or_else(|| BlobDataError::Parse("SECONDS_PER_SLOT missing in beacon spec".into()))?
-            .parse::<u64>()
-            .map_err(|err| BlobDataError::Parse(err.to_string()))?;
-        let slots_per_epoch = spec
-            .data
-            .get("SLOTS_PER_EPOCH")
-            .and_then(|value| value.as_str())
-            .ok_or_else(|| BlobDataError::Parse("SLOTS_PER_EPOCH missing in beacon spec".into()))?
-            .parse::<u64>()
-            .map_err(|err| BlobDataError::Parse(err.to_string()))?;
+        let seconds_per_slot = parse_spec_u64(&spec.data, "SECONDS_PER_SLOT")?;
+        let slots_per_epoch = parse_spec_u64(&spec.data, "SLOTS_PER_EPOCH")?;
 
         debug!(
             seconds_per_slot,
@@ -231,15 +221,12 @@ impl BeaconClient {
         let payload: BlobSidecarsResponse =
             response.json().await.map_err(|err| BlobDataError::Parse(err.to_string()))?;
 
-        let mut sidecars = Vec::new();
+        let mut sidecars = Vec::with_capacity(payload.data.len());
         for (index, item) in payload.data.into_iter().enumerate() {
             let blob = parse_blob(&item.blob)?;
             let commitment = parse_bytes48(&item.kzg_commitment)?;
-            let proof = if let Some(proof) = item.kzg_proof {
-                parse_bytes48(&proof)?
-            } else {
-                Bytes48::default()
-            };
+            let proof =
+                item.kzg_proof.as_deref().map(parse_bytes48).transpose()?.unwrap_or_default();
             sidecars.push(BeaconSidecar { blob, commitment, proof });
             debug!(slot, index, "fetched beacon blob sidecar");
         }
@@ -261,11 +248,8 @@ impl BeaconClient {
                 Ok(None) => {
                     debug!(slot, "beacon slot missing execution payload; trying previous slot");
                 }
-                Err(BlobDataError::HttpStatus { status }) if status == 404 => {
-                    if slot == 0 {
-                        break;
-                    }
-                    debug!(slot, status, "beacon block not found for slot; trying previous slot");
+                Err(BlobDataError::HttpStatus { status: 404 }) => {
+                    debug!(slot, "beacon block not found for slot; trying previous slot");
                 }
                 Err(err) => return Err(err),
             }
@@ -273,7 +257,7 @@ impl BeaconClient {
             if slot == 0 {
                 break;
             }
-            slot = slot.saturating_sub(1);
+            slot -= 1;
         }
 
         Err(BlobDataError::Beacon(format!(
@@ -371,28 +355,6 @@ impl BeaconClient {
     }
 }
 
-/// Parse a hex-encoded blob string into a fixed-size EIP-4844 blob.
-fn parse_blob(value: &str) -> Result<Blob, BlobDataError> {
-    let bytes = decode_hex(value)?;
-    Blob::try_from(bytes.as_slice()).map_err(|err| BlobDataError::Parse(err.to_string()))
-}
-
-/// Parse a hex-encoded 48-byte field into a `Bytes48`.
-fn parse_bytes48(value: &str) -> Result<Bytes48, BlobDataError> {
-    let decoded = decode_hex(value)?;
-    Bytes48::try_from(decoded.as_slice())
-        .map_err(|_| BlobDataError::Parse("invalid 48-byte value".into()))
-}
-
-/// Decode hex text (with optional `0x`) into raw bytes.
-fn decode_hex(value: &str) -> Result<Vec<u8>, BlobDataError> {
-    let mut stripped = value.trim_start_matches("0x").to_owned();
-    if stripped.len() % 2 == 1 {
-        stripped.insert(0, '0');
-    }
-    hex::decode(stripped).map_err(|err| BlobDataError::Parse(err.to_string()))
-}
-
 impl BeaconBlockResponse {
     /// Extract the execution-layer block number string from either the execution payload or its
     /// header (for blinded blocks).
@@ -412,4 +374,13 @@ impl BeaconBlockResponse {
                     .map(|header| header.block_number.as_str())
             })
     }
+}
+
+/// Look up a required decimal `u64` value from the beacon `/eth/v1/config/spec` response.
+fn parse_spec_u64(spec: &serde_json::Value, key: &str) -> Result<u64, BlobDataError> {
+    spec.get(key)
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| BlobDataError::Parse(format!("{key} missing in beacon spec")))?
+        .parse::<u64>()
+        .map_err(|err| BlobDataError::Parse(err.to_string()))
 }
