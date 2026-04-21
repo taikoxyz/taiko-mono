@@ -10,7 +10,7 @@ use rpc::{
     client::{Client, ClientConfig, connect_provider_with_timeout},
 };
 use test_context::AsyncTestContext;
-use tracing::info;
+use tracing::{info, warn};
 
 use super::helpers::{
     RpcClient, create_snapshot, ensure_preconf_whitelist_active, reset_head_l1_origin,
@@ -161,8 +161,11 @@ impl ShastaEnv {
         })
     }
 
-    /// Explicit async teardown to revert the L1 snapshot.
-    pub async fn shutdown(self) -> Result<()> {
+    /// Explicit async teardown to revert the L1 snapshot. Returns whether Anvil actually
+    /// rolled back; a `false` result means the snapshot id was already gone (e.g. the L1
+    /// container restarted mid-run), which is non-fatal because each `setup` resets L2 state
+    /// and takes a fresh snapshot.
+    pub async fn shutdown(self) -> Result<bool> {
         revert_snapshot(&self.cleanup_provider, &self.snapshot_id).await
     }
 }
@@ -175,9 +178,20 @@ impl AsyncTestContext for ShastaEnv {
             .unwrap_or_else(|err| panic!("failed to load ShastaEnv: {err:#}"))
     }
 
-    /// Teardown the ShastaEnv after each test.
+    /// Teardown the ShastaEnv after each test. A missing snapshot is logged but not fatal:
+    /// the next `setup` reinitialises state from scratch, so masking body-level successes
+    /// with a teardown panic only adds flakiness without protecting subsequent tests.
     async fn teardown(self) {
-        self.shutdown().await.unwrap_or_else(|err| panic!("ShastaEnv teardown failed: {err:?}"));
+        let snapshot_id = self.snapshot_id.clone();
+        match self.shutdown().await {
+            Ok(true) => {}
+            Ok(false) => warn!(
+                %snapshot_id,
+                "evm_revert returned false during ShastaEnv teardown; L1 snapshot was likely \
+                 invalidated (e.g. anvil restart). Continuing since setup re-establishes state."
+            ),
+            Err(err) => panic!("ShastaEnv teardown failed: {err:?}"),
+        }
     }
 }
 

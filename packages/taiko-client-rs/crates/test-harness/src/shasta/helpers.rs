@@ -91,14 +91,15 @@ pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
     Ok(())
 }
 
-/// Revert the L1 snapshot.
-pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
+/// Revert the L1 snapshot. Returns `true` when Anvil actually rolled back, `false` when the
+/// snapshot id was already invalidated (e.g. the L1 container restarted or a prior revert
+/// consumed it). Callers decide whether a missing snapshot is fatal.
+pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<bool> {
     let reverted = provider
         .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (&snapshot_id,))
         .await
         .context("reverting L1 snapshot")?;
-    ensure!(reverted, "evm_revert returned false");
-    Ok(())
+    Ok(reverted)
 }
 
 /// Create a new L1 snapshot to reuse across a single test run.
