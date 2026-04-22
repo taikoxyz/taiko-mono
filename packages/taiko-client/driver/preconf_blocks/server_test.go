@@ -59,32 +59,20 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	}
 
 	tests := []struct {
-		name         string
-		globalSlot   uint64
-		feeRecipient common.Address
-		wantErr      error
+		name       string
+		globalSlot uint64
+		wantErr    error
 	}{
-		// Inside CurrRanges, before handover point
-		{name: "curr allowed early slot", globalSlot: 10, feeRecipient: curr, wantErr: nil},
-
-		// Inside CurrRanges, at handover threshold
-		{name: "next allowed at handover slot", globalSlot: 28, feeRecipient: next, wantErr: nil},
-
-		// Inside CurrRanges, after threshold
-		{name: "next allowed after handover", globalSlot: 30, feeRecipient: next, wantErr: nil},
+		// Inside CurrRanges
+		{name: "curr range early slot", globalSlot: 10, wantErr: nil},
+		{name: "curr range at handover slot", globalSlot: 28, wantErr: nil},
+		{name: "curr range after handover", globalSlot: 30, wantErr: nil},
 
 		// Inside NextRanges (next epoch)
-		{name: "next allowed next epoch", globalSlot: 33, feeRecipient: next, wantErr: nil},
+		{name: "next range next epoch", globalSlot: 33, wantErr: nil},
 
-		// Slot outside all ranges (invalid)
-		{
-			name:         "random address wrong",
-			globalSlot:   70,
-			feeRecipient: common.HexToAddress("0xCCC0000000000000000000000000000000000000"),
-			wantErr:      errInvalidNextOperator,
-		},
-		{name: "curr wrong outside", globalSlot: 70, feeRecipient: curr, wantErr: errInvalidCurrOperator},
-		{name: "next wrong outside", globalSlot: 70, feeRecipient: next, wantErr: errInvalidNextOperator},
+		// Slot outside all ranges
+		{name: "outside all ranges", globalSlot: 70, wantErr: errSlotOutsideSequencingWindow},
 	}
 
 	for _, tt := range tests {
@@ -94,7 +82,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 				SlotsPerEpoch: 32,
 			}
 
-			s.Equal(tt.wantErr, s.s.CheckLookaheadHandover(tt.feeRecipient, tt.globalSlot))
+			s.Equal(tt.wantErr, s.s.CheckLookaheadHandover(tt.globalSlot))
 		})
 	}
 }
