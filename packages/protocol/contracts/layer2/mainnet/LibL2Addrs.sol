@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+/// @title LibL2Addrs
+/// @custom:security-contact security@taiko.xyz
+library LibL2Addrs {
+    address public constant DELEGATE_CONTROLLER = 0xfA06E15B8b4c5BF3FC5d9cfD083d45c53Cbe8C7C;
+    address public constant PERMISSIONLESS_EXECUTOR = 0x4EBeC8a624ac6f01Bb6C7F13947E6Af3727319CA;
+    address public constant ANCHOR = 0x1670000000000000000000000000000000010001;
+    address public constant BRIDGE = 0x1670000000000000000000000000000000000001;
+
+    address public constant TAIKO_TOKEN = 0xA9d23408b9bA935c230493c40C73824Df71A0975;
+    address public constant SIGNAL_SERVICE = 0x1670000000000000000000000000000000000005;
+    address public constant ERC20_VAULT = 0x1670000000000000000000000000000000000002;
+    address public constant ERC721_VAULT = 0x1670000000000000000000000000000000000003;
+    address public constant ERC1155_VAULT = 0x1670000000000000000000000000000000000004;
+    address public constant BRIDGED_ERC20 = 0x98161D67f762A9E589E502348579FA38B1Ac47A8;
+    address public constant BRIDGED_ERC721 = 0x0167000000000000000000000000000000010097;
+    address public constant BRIDGED_ERC1155 = 0x0167000000000000000000000000000000010098;
+
+    // Third-party addresses
+    address public constant USDC_TOKEN = 0x07d83526730c7438048D55A4fc0b850e2aaB6f0b;
+}
