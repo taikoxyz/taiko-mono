@@ -6,6 +6,23 @@ impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    /// Reject build requests when this node's own P2P signer is not a registered
+    /// operator in the on-chain whitelist.
+    ///
+    /// Peers only accept gossip from whitelisted operators, so if our signer has been
+    /// deregistered any block we build would be dropped on arrival. Failing fast here
+    /// avoids building blocks that can never be gossiped.
+    fn ensure_node_signer_whitelisted(&self) -> Result<()> {
+        let signer = self.signer.address();
+        if self.operator_set.load().contains(&signer) {
+            Ok(())
+        } else {
+            Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "node P2P signer {signer} is not a registered operator"
+            )))
+        }
+    }
+
     /// Send one network command and map channel failures into a consistent P2P error.
     async fn send_network_command(
         &self,
@@ -50,6 +67,8 @@ where
                 driver::DriverError::EngineSyncing(request.block_number),
             ));
         }
+
+        self.ensure_node_signer_whitelisted()?;
 
         let prev_randao =
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;
