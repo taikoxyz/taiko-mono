@@ -1,0 +1,431 @@
+//! Helpers for constructing execution payloads from preconfirmation inputs.
+
+use alethia_reth_consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+};
+use alethia_reth_primitives::payload::{
+    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+    builder::payload_id_taiko,
+};
+use alloy_eips::BlockNumberOrTag;
+use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
+use alloy_provider::Provider;
+use alloy_rpc_types::Header as RpcHeader;
+use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+use async_trait::async_trait;
+use preconfirmation_types::uint256_to_u256;
+
+use super::{PreconfirmationInput, traits::BlockHeaderProvider};
+use crate::{Result, error::DriverApiError};
+use protocol::shasta::{
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_tx_list,
+    payload_id_to_bytes,
+};
+
+#[async_trait]
+impl<P> BlockHeaderProvider for P
+where
+    P: Provider + Send + Sync,
+{
+    /// Fetch the block header for the specified block number.
+    async fn header_by_number(&self, block_number: u64) -> Result<RpcHeader> {
+        let block = self
+            .get_block_by_number(BlockNumberOrTag::Number(block_number))
+            .await
+            .map_err(DriverApiError::from)?
+            .ok_or_else(|| DriverApiError::MissingBlock { block_number })?;
+        Ok(block.header)
+    }
+
+    /// Return the connected L2 chain ID.
+    async fn chain_id(&self) -> Result<u64> {
+        let chain_id = self.get_chain_id().await.map_err(DriverApiError::from)?;
+        Ok(chain_id)
+    }
+}
+
+/// Compute base fee for the next block from parent and grandparent headers.
+async fn compute_base_fee_per_gas(
+    l2_provider: &dyn BlockHeaderProvider,
+    parent_header: &RpcHeader,
+    parent_block_number: u64,
+    min_base_fee_to_clamp: u64,
+) -> Result<u64> {
+    if parent_header.inner.number == 0 {
+        return Ok(SHASTA_INITIAL_BASE_FEE);
+    }
+
+    let parent_base_fee_per_gas = parent_header
+        .inner
+        .base_fee_per_gas
+        .ok_or(DriverApiError::MissingBaseFee { parent_block_number })?;
+    let grandparent_header =
+        l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
+
+    Ok(calculate_next_block_eip4396_base_fee(
+        &parent_header.inner,
+        parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
+        parent_base_fee_per_gas,
+        min_base_fee_to_clamp,
+    ))
+}
+
+/// Build [`TaikoPayloadAttributes`] from a [`PreconfirmationInput`].
+///
+/// This builder is intentionally conservative: it only derives fields available in the
+/// preconfirmation commitment, txlist, and basefee sharing percentage provided by the caller.
+pub async fn build_taiko_payload_attributes(
+    input: &PreconfirmationInput,
+    basefee_sharing_pctg: u8,
+    l2_provider: &dyn BlockHeaderProvider,
+    min_base_fee_to_clamp: u64,
+) -> Result<TaikoPayloadAttributes> {
+    let preconf = &input.commitment.commitment.preconf;
+
+    let block_number = uint256_to_u256(&preconf.block_number).to::<u64>();
+    let timestamp = uint256_to_u256(&preconf.timestamp).to::<u64>();
+    let gas_limit = uint256_to_u256(&preconf.gas_limit).to::<u64>();
+    let proposal_id = uint256_to_u256(&preconf.proposal_id).to::<u64>();
+    if proposal_id > U48::MAX.to::<u64>() {
+        return Err(DriverApiError::ProposalIdOverflow.into());
+    }
+
+    let fee_recipient = Address::from_slice(preconf.coinbase.as_ref());
+    let parent_block_number = block_number.saturating_sub(1);
+    let parent_header = l2_provider.header_by_number(parent_block_number).await?;
+    let mix_hash = calculate_shasta_mix_hash(
+        B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
+        block_number,
+    );
+    let base_fee_per_gas = compute_base_fee_per_gas(
+        l2_provider,
+        &parent_header,
+        parent_block_number,
+        min_base_fee_to_clamp,
+    )
+    .await?;
+    let transactions = input.transactions.as_ref().ok_or(DriverApiError::MissingTransactions)?;
+    let tx_list =
+        encode_tx_list(&transactions.iter().cloned().map(Bytes::from).collect::<Vec<_>>());
+    let extra_data = encode_extra_data(basefee_sharing_pctg, proposal_id);
+
+    let block_metadata = TaikoBlockMetadata {
+        beneficiary: fee_recipient,
+        gas_limit,
+        timestamp: U256::from(timestamp),
+        mix_hash,
+        tx_list: Some(tx_list),
+        extra_data,
+    };
+
+    let payload_attributes = EthPayloadAttributes {
+        timestamp,
+        prev_randao: mix_hash,
+        suggested_fee_recipient: fee_recipient,
+        withdrawals: Some(Vec::new()),
+        parent_beacon_block_root: None,
+    };
+
+    let l1_origin = RpcL1Origin {
+        block_id: U256::from(block_number),
+        l2_block_hash: B256::ZERO,
+        l1_block_height: None,
+        l1_block_hash: None,
+        build_payload_args_id: [0u8; 8],
+        // Deprecated fields.
+        is_forced_inclusion: false,
+        signature: [0u8; 65],
+    };
+
+    let mut payload = TaikoPayloadAttributes {
+        payload_attributes,
+        base_fee_per_gas: U256::from(base_fee_per_gas),
+        block_metadata,
+        l1_origin,
+        anchor_transaction: None,
+    };
+
+    let build_payload_args_id =
+        payload_id_taiko(&parent_header.hash, &payload, PAYLOAD_ID_VERSION_V2);
+    payload.l1_origin.build_payload_args_id = payload_id_to_bytes(build_payload_args_id);
+
+    Ok(payload)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::{DriverApiError, PreconfirmationClientError};
+    use alloy_consensus::Header;
+    use preconfirmation_types::{
+        Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,
+    };
+    use protocol::shasta::constants::{
+        TAIKO_DEVNET_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, min_base_fee_for_chain,
+    };
+    use std::collections::BTreeMap;
+
+    /// Test header provider for mocking L2 block headers.
+    struct TestHeaderProvider {
+        chain_id: u64,
+        headers: BTreeMap<u64, RpcHeader>,
+    }
+
+    #[async_trait]
+    impl BlockHeaderProvider for TestHeaderProvider {
+        async fn header_by_number(&self, block_number: u64) -> Result<RpcHeader> {
+            self.headers
+                .get(&block_number)
+                .cloned()
+                .ok_or_else(|| DriverApiError::MissingBlock { block_number }.into())
+        }
+
+        async fn chain_id(&self) -> Result<u64> {
+            Ok(self.chain_id)
+        }
+    }
+
+    /// Verifies that basic header fields are carried into the payload.
+    #[tokio::test]
+    async fn builds_payload_with_expected_header_fields() {
+        let preconf = Preconfirmation {
+            block_number: 5u64.into(),
+            timestamp: 10u64.into(),
+            gas_limit: 30_000_000u64.into(),
+            coinbase: Bytes20::try_from(vec![1u8; 20]).expect("coinbase"),
+            parent_preconfirmation_hash: Bytes32::try_from(vec![2u8; 32]).expect("parent"),
+            proposal_id: 7u64.into(),
+            ..Default::default()
+        };
+
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment { preconf, ..Default::default() },
+            signature: Bytes65::try_from(vec![0u8; 65]).expect("signature"),
+        };
+
+        let input = PreconfirmationInput::new(commitment, Some(vec![vec![0x01, 0x02]]), None);
+
+        let parent_inner = Header {
+            number: 4,
+            timestamp: 8,
+            gas_limit: 30_000_000,
+            gas_used: 15_000_000,
+            difficulty: U256::from(42),
+            base_fee_per_gas: Some(900_000_000),
+            ..Default::default()
+        };
+        let parent_header = RpcHeader::new(parent_inner);
+
+        let grandparent_inner = Header { number: 3, timestamp: 6, ..Default::default() };
+        let grandparent_header = RpcHeader::new(grandparent_inner);
+
+        let mut headers = BTreeMap::new();
+        headers.insert(4, parent_header.clone());
+        headers.insert(3, grandparent_header);
+        let provider = TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers };
+        let basefee_sharing_pctg = 5;
+        let payload = build_taiko_payload_attributes(
+            &input,
+            basefee_sharing_pctg,
+            &provider,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect("payload");
+        let parent_mix_hash = B256::from(parent_header.inner.difficulty.to_be_bytes::<32>());
+        let expected_mix_hash = calculate_shasta_mix_hash(parent_mix_hash, 5);
+        let transactions = vec![Bytes::from(vec![0x01, 0x02])];
+        let tx_list = encode_tx_list(&transactions);
+        let extra_data = encode_extra_data(basefee_sharing_pctg, 7); // proposal_id = 7
+        let expected_block_metadata = TaikoBlockMetadata {
+            beneficiary: Address::from([1u8; 20]),
+            gas_limit: 30_000_000,
+            timestamp: U256::from(10),
+            mix_hash: expected_mix_hash,
+            tx_list: Some(tx_list),
+            extra_data,
+        };
+        let expected_payload_attributes = EthPayloadAttributes {
+            timestamp: 10,
+            prev_randao: expected_mix_hash,
+            suggested_fee_recipient: Address::from([1u8; 20]),
+            withdrawals: Some(vec![]),
+            parent_beacon_block_root: None,
+        };
+        let expected_l1_origin = RpcL1Origin {
+            block_id: U256::from(5),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        };
+        let expected_payload = TaikoPayloadAttributes {
+            payload_attributes: expected_payload_attributes,
+            base_fee_per_gas: U256::from(900_000_000),
+            block_metadata: expected_block_metadata,
+            l1_origin: expected_l1_origin,
+            anchor_transaction: None,
+        };
+        let expected_build_payload_args_id = payload_id_to_bytes(payload_id_taiko(
+            &parent_header.hash,
+            &expected_payload,
+            PAYLOAD_ID_VERSION_V2,
+        ));
+        assert_eq!(payload.payload_attributes.timestamp, 10);
+        assert_eq!(payload.block_metadata.gas_limit, 30_000_000);
+        assert_eq!(payload.block_metadata.beneficiary, Address::from([1u8; 20]));
+        assert_eq!(payload.block_metadata.mix_hash, expected_mix_hash);
+        assert_eq!(payload.payload_attributes.prev_randao, expected_mix_hash);
+        assert_eq!(payload.block_metadata.extra_data.len(), 7);
+        assert_eq!(payload.block_metadata.extra_data[0], basefee_sharing_pctg);
+        assert_eq!(payload.base_fee_per_gas, U256::from(900_000_000));
+        assert_eq!(payload.l1_origin.block_id, U256::from(5));
+        assert_eq!(payload.l1_origin.build_payload_args_id, expected_build_payload_args_id);
+        assert_eq!(payload.l1_origin.l1_block_height, None);
+        assert_eq!(payload.l1_origin.l1_block_hash, None);
+    }
+
+    /// Verifies the proposal id layout in extra data.
+    #[test]
+    fn encodes_proposal_id_into_extra_data() {
+        let basefee_sharing_pctg = 9;
+        let extra = encode_extra_data(basefee_sharing_pctg, 0x0102_0304_0506);
+        assert_eq!(extra.len(), 7);
+        assert_eq!(extra[0], basefee_sharing_pctg);
+        assert_eq!(&extra[1..7], &[0x01, 0x02, 0x03, 0x04, 0x05, 0x06]);
+    }
+
+    #[tokio::test]
+    async fn proposal_id_overflow_returns_error() {
+        let preconf = Preconfirmation {
+            block_number: 5u64.into(),
+            timestamp: 10u64.into(),
+            gas_limit: 30_000_000u64.into(),
+            coinbase: Bytes20::try_from(vec![1u8; 20]).expect("coinbase"),
+            parent_preconfirmation_hash: Bytes32::try_from(vec![2u8; 32]).expect("parent"),
+            proposal_id: (U48::MAX.to::<u64>() + 1).into(),
+            ..Default::default()
+        };
+
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment { preconf, ..Default::default() },
+            signature: Bytes65::try_from(vec![0u8; 65]).expect("signature"),
+        };
+
+        let input = PreconfirmationInput::new(commitment, Some(vec![vec![0x01]]), None);
+
+        let provider =
+            TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers: BTreeMap::new() };
+        let err = build_taiko_payload_attributes(
+            &input,
+            5,
+            &provider,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect_err("expected overflow error");
+
+        assert!(matches!(
+            err,
+            PreconfirmationClientError::DriverInterface(DriverApiError::ProposalIdOverflow)
+        ));
+    }
+
+    #[tokio::test]
+    async fn missing_transactions_returns_error() {
+        let preconf = Preconfirmation {
+            block_number: 5u64.into(),
+            timestamp: 10u64.into(),
+            gas_limit: 30_000_000u64.into(),
+            coinbase: Bytes20::try_from(vec![1u8; 20]).expect("coinbase"),
+            parent_preconfirmation_hash: Bytes32::try_from(vec![2u8; 32]).expect("parent"),
+            proposal_id: 7u64.into(),
+            ..Default::default()
+        };
+
+        let commitment = SignedCommitment {
+            commitment: PreconfCommitment { preconf, ..Default::default() },
+            signature: Bytes65::try_from(vec![0u8; 65]).expect("signature"),
+        };
+
+        let input = PreconfirmationInput::new(commitment, None, None);
+
+        let parent_inner = Header {
+            number: 4,
+            timestamp: 8,
+            gas_limit: 30_000_000,
+            gas_used: 15_000_000,
+            difficulty: U256::from(42),
+            base_fee_per_gas: Some(900_000_000),
+            ..Default::default()
+        };
+        let parent_header = RpcHeader::new(parent_inner);
+
+        let grandparent_inner = Header { number: 3, timestamp: 6, ..Default::default() };
+        let grandparent_header = RpcHeader::new(grandparent_inner);
+
+        let mut headers = BTreeMap::new();
+        headers.insert(4, parent_header);
+        headers.insert(3, grandparent_header);
+        let provider = TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers };
+
+        let err = build_taiko_payload_attributes(
+            &input,
+            5,
+            &provider,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect_err("expected missing transactions error");
+
+        assert!(matches!(
+            err,
+            PreconfirmationClientError::DriverInterface(DriverApiError::MissingTransactions)
+        ));
+    }
+
+    #[tokio::test]
+    async fn base_fee_uses_mainnet_clamp_when_chain_id_is_mainnet() {
+        let parent_header = RpcHeader::new(Header {
+            number: 1,
+            timestamp: 2,
+            gas_limit: 30_000_000,
+            gas_used: 14_000_000,
+            base_fee_per_gas: Some(5_000_000),
+            ..Default::default()
+        });
+        let grandparent_header =
+            RpcHeader::new(Header { number: 0, timestamp: 0, ..Default::default() });
+
+        let mut headers = BTreeMap::new();
+        headers.insert(1, parent_header.clone());
+        headers.insert(0, grandparent_header.clone());
+
+        let devnet_provider =
+            TestHeaderProvider { chain_id: TAIKO_DEVNET_CHAIN_ID, headers: headers.clone() };
+        let mainnet_provider = TestHeaderProvider { chain_id: TAIKO_MAINNET_CHAIN_ID, headers };
+
+        let devnet_base_fee = compute_base_fee_per_gas(
+            &devnet_provider,
+            &parent_header,
+            1,
+            min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID),
+        )
+        .await
+        .expect("devnet base fee");
+        let mainnet_base_fee = compute_base_fee_per_gas(
+            &mainnet_provider,
+            &parent_header,
+            1,
+            min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
+        )
+        .await
+        .expect("mainnet base fee");
+
+        assert_eq!(devnet_base_fee, min_base_fee_for_chain(TAIKO_DEVNET_CHAIN_ID));
+        assert_eq!(mainnet_base_fee, min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID));
+        assert!(mainnet_base_fee > devnet_base_fee);
+    }
+}

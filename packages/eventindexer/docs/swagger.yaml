@@ -1,0 +1,319 @@
+definitions:
+  decimal.NullDecimal:
+    properties:
+      decimal:
+        type: number
+      valid:
+        type: boolean
+    type: object
+  eventindexer.ChartItem:
+    properties:
+      date:
+        type: string
+      value:
+        type: string
+    type: object
+  eventindexer.ChartResponse:
+    properties:
+      chart:
+        items:
+          $ref: "#/definitions/eventindexer.ChartItem"
+        type: array
+    type: object
+  eventindexer.Event:
+    properties:
+      address:
+        type: string
+      amount:
+        $ref: "#/definitions/decimal.NullDecimal"
+      assignedProver:
+        type: string
+      blockID:
+        type: integer
+      chainID:
+        type: integer
+      contractAddress:
+        type: string
+      data:
+        type: string
+      emittedBlockID:
+        type: integer
+      event:
+        type: string
+      feeTokenAddress:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      proofReward:
+        $ref: "#/definitions/decimal.NullDecimal"
+      proposerReward:
+        $ref: "#/definitions/decimal.NullDecimal"
+      tier:
+        type: integer
+      to:
+        type: string
+      tokenID:
+        type: integer
+      transactedAt:
+        type: string
+    type: object
+  eventindexer.UniqueProposersResponse:
+    properties:
+      address:
+        type: string
+      count:
+        type: integer
+    type: object
+  eventindexer.UniqueProversResponse:
+    properties:
+      address:
+        type: string
+      count:
+        type: integer
+    type: object
+  http.uniqueProposersResp:
+    properties:
+      proposers:
+        items:
+          $ref: "#/definitions/eventindexer.UniqueProposersResponse"
+        type: array
+      uniqueProposers:
+        type: integer
+    type: object
+  http.uniqueProversResp:
+    properties:
+      provers:
+        items:
+          $ref: "#/definitions/eventindexer.UniqueProversResponse"
+        type: array
+      uniqueProvers:
+        type: integer
+    type: object
+  paginate.Page:
+    properties:
+      error:
+        type: boolean
+      error_message:
+        type: string
+      first:
+        type: boolean
+      items: {}
+      last:
+        type: boolean
+      max_page:
+        type: integer
+      page:
+        type: integer
+      size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+      visible:
+        type: integer
+    type: object
+host: eventindexer.hekla.taiko.xyz
+info:
+  contact:
+    email: info@taiko.xyz
+    name: API Support
+    url: https://community.taiko.xyz/
+  license:
+    name: MIT
+    url: https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE
+  termsOfService: http://swagger.io/terms/
+  title: Taiko Event Indexer API
+  version: "1.0"
+paths:
+  /assignedBlocks:
+    get:
+      consumes:
+        - application/json
+      operationId: get-assigned-blocks-by-prover-address
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get assigned blocks by prover address
+  /blockProposedBy:
+    get:
+      consumes:
+        - application/json
+      operationId: get-block-proposed-by
+      parameters:
+        - description: blockID to query
+          in: query
+          name: blockID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: "#/definitions/eventindexer.Event"
+            type: array
+      summary: Get block proposed by
+  /blockProvenBy:
+    get:
+      consumes:
+        - application/json
+      operationId: get-block-proven-by
+      parameters:
+        - description: blockID to query
+          in: query
+          name: blockID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: "#/definitions/eventindexer.Event"
+            type: array
+      summary: Get block proven by
+  /chart/chartByTask:
+    get:
+      consumes:
+        - application/json
+      operationId: get-charts-by-task
+      parameters:
+        - description: task to query
+          in: query
+          name: task
+          required: true
+          type: string
+        - description: start date
+          in: query
+          name: start
+          required: true
+          type: string
+        - description: end date
+          in: query
+          name: end
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/eventindexer.ChartResponse"
+      summary: Get time series data for displaying charts
+  /erc20sByAddress:
+    get:
+      consumes:
+        - application/json
+      operationId: get-erc20-balances-by-address-and-chain-id
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+        - description: chainID to query
+          in: query
+          name: chainID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get erc20 balances by address and chain ID
+  /events:
+    get:
+      consumes:
+        - application/json
+      operationId: get-events-by-address-and-event-name
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+        - description: event name to query
+          in: query
+          name: event
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get events by address and event name
+  /nftsByAddress:
+    get:
+      consumes:
+        - application/json
+      operationId: get-nft-balances-by-address-and-chain-id
+      parameters:
+        - description: address to query
+          in: query
+          name: address
+          required: true
+          type: string
+        - description: chainID to query
+          in: query
+          name: chainID
+          required: true
+          type: string
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/paginate.Page"
+      summary: Get nft balances by address and chain ID
+  /uniqueProposers:
+    get:
+      consumes:
+        - application/json
+      operationId: get-unique-proposers
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/http.uniqueProposersResp"
+      summary: Get unique proposers
+  /uniqueProvers:
+    get:
+      consumes:
+        - application/json
+      operationId: get-unique-provers
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: "#/definitions/http.uniqueProversResp"
+      summary: Get unique provers
+swagger: "2.0"

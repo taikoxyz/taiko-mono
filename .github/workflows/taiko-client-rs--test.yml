@@ -1,0 +1,237 @@
+name: "CI"
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/taiko-client-rs/**"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/taiko-client-rs/**"
+      - "!**/*.md"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    name: Lint
+    runs-on: [arc-runner-set]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Ensure native build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if command -v cc > /dev/null 2>&1 && command -v llvm-config > /dev/null 2>&1; then
+            cc --version
+            echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          if command -v apt-get > /dev/null 2>&1; then
+            $SUDO apt-get update
+            $SUDO apt-get install -y build-essential pkg-config clang libclang-dev llvm-dev
+          else
+            echo "ERROR: apt-get is required to install build tools on this runner"
+            exit 1
+          fi
+
+          cc --version
+          echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-09-27
+          components: clippy, rustfmt
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
+
+      - name: Install cargo-sort
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-sort
+
+      - name: Check formatting
+        working-directory: packages/taiko-client-rs
+        run: just fmt-check
+
+      - name: Check clippy
+        working-directory: packages/taiko-client-rs
+        run: just clippy
+
+  test:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    name: Tests
+    runs-on: [arc-runner-set]
+    timeout-minutes: 30
+    env:
+      PROTOCOL_FORK_DIR: protocol-taiko-mono
+
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.13.1
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v6
+
+      - name: Ensure native build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if command -v cc > /dev/null 2>&1 && command -v llvm-config > /dev/null 2>&1; then
+            cc --version
+            echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          if command -v apt-get > /dev/null 2>&1; then
+            $SUDO apt-get update
+            $SUDO apt-get install -y build-essential pkg-config clang libclang-dev llvm-dev
+          else
+            echo "ERROR: apt-get is required to install build tools on this runner"
+            exit 1
+          fi
+
+          cc --version
+          echo "LIBCLANG_PATH=$(llvm-config --libdir)" >> "$GITHUB_ENV"
+
+      - name: Install mold
+        shell: bash
+        run: |
+          set -euxo pipefail
+          MOLD_VERSION=2.40.4
+          ARCH="$(uname -m)"
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          curl -fsSL "https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz" \
+            | $SUDO tar -C /usr/local --strip-components=1 --no-overwrite-dir -xzf -
+
+          if [ "$(readlink -f /usr/bin/ld)" != /usr/local/bin/mold ]; then
+            $SUDO ln -sf /usr/local/bin/mold /usr/bin/ld
+          fi
+
+      - name: Ensure docker-compose is available
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if docker compose version > /dev/null 2>&1; then
+            docker compose version
+            exit 0
+          fi
+
+          if command -v docker-compose > /dev/null 2>&1; then
+            docker-compose version
+            exit 0
+          fi
+
+          ARCH="$(uname -m)"
+          if [ "$ARCH" = "arm64" ]; then
+            ARCH="aarch64"
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          $SUDO curl -fsSL \
+            "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" \
+            -o /usr/local/bin/docker-compose
+          $SUDO chmod +x /usr/local/bin/docker-compose
+          docker-compose version
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-09-27
+          components: clippy, rustfmt
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            ${{ env.PROTOCOL_FORK_DIR }}/pnpm-lock.yaml
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Checkout protocol for testing
+        uses: actions/checkout@v6
+        with:
+          repository: taikoxyz/taiko-mono
+          path: ${{ env.PROTOCOL_FORK_DIR }}
+          ref: taiko-alethia-protocol-v3.0.0
+
+      - name: Install pnpm dependencies for protocol taiko-mono for testing
+        working-directory: ${{ env.PROTOCOL_FORK_DIR }}
+        run: cd ./packages/protocol && pnpm install
+
+      - name: Run tests
+        working-directory: packages/taiko-client-rs
+        env:
+          PROTOCOL_DIR: ${{ github.workspace }}/${{ env.PROTOCOL_FORK_DIR }}/packages/protocol
+        run: just test

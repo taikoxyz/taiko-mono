@@ -1,0 +1,32 @@
+name: Install pnpm dependencies
+description: Reusable action to install pnpm dependencies
+
+inputs:
+  cache-dependency-path:
+    description: Optional newline-separated list of lockfiles used to key the pnpm cache
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Git to use HTTPS
+      shell: bash
+      run: |
+        git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+        run_install: false
+
+    - name: Install Node.js
+      uses: actions/setup-node@v5
+      with:
+        node-version: 20
+        cache: pnpm
+        cache-dependency-path: ${{ inputs.cache-dependency-path || '' }}
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install

@@ -1,0 +1,59 @@
+version: "2"
+run:
+  tests: true
+linters:
+  default: none
+  enable:
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    - goconst
+    - govet
+    - importas
+    - ineffassign
+    - lll
+    - makezero
+    - misspell
+    - sqlclosecheck
+    - unconvert
+    - unused
+    - whitespace
+  settings:
+    goconst:
+      min-len: 3
+      min-occurrences: 6
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - bindings
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/taikoxyz/taiko-mono/packages/taiko-client
+  exclusions:
+    generated: lax
+    paths:
+      - bindings
+      - third_party$
+      - builtin$
+      - examples$

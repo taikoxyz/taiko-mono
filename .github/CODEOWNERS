@@ -1,0 +1,23 @@
+# Root level files and workflows
+.github/CODEOWNERS              @dantaik @ggonzalez94 @davidtaikocha
+.github/workflows/*             @ggonzalez94 @YoGhurt111 @davidtaikocha @RogerLamTd
+
+# Protocol
+/packages/protocol/**           @ggonzalez94 @davidtaikocha
+/packages/protocol/contracts/**/*Verifier*.sol @smtmfft @ggonzalez94 @davidtaikocha
+/packages/protocol/contracts/layer1/preconf/** @AnshuJalan @ggonzalez94 @davidtaikocha
+
+# Client services
+/packages/taiko-client/**       @YoGhurt111 @davidtaikocha
+/packages/taiko-client-rs/**    @YoGhurt111 @davidtaikocha
+/packages/eventindexer/**       @YoGhurt111 @davidtaikocha
+/packages/relayer/**            @YoGhurt111 @davidtaikocha
+
+# Frontend applications
+/packages/bridge-ui/**          @RogerLamTd @ggonzalez94
+
+# Infrastructure and tools
+/packages/balance-monitor/**    @YoGhurt111 @davidtaikocha @RogerLamTd
+/packages/ejector/**            @YoGhurt111 @davidtaikocha @RogerLamTd
+/packages/fork-diff/**          @YoGhurt111 @davidtaikocha @RogerLamTd
+/packages/geth-rpc-gateway/**   @YoGhurt111 @davidtaikocha

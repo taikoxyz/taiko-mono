@@ -1,0 +1,86 @@
+package utils
+
+import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/urfave/cli/v2"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/logger"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+)
+
+type SubcommandApplication interface {
+	InitFromCli(context.Context, *cli.Context) error
+	Name() string
+	Start() error
+	Close(context.Context)
+}
+
+func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
+	return func(c *cli.Context) error {
+		logger.InitLogger(c)
+
+		applyDevnetUzenTimeOverride(c)
+
+		ctx, ctxClose := context.WithCancel(context.Background())
+		defer ctxClose()
+
+		if err := app.InitFromCli(ctx, c); err != nil {
+			return err
+		}
+
+		log.Info("Starting Taiko client application", "name", app.Name())
+
+		if err := app.Start(); err != nil {
+			log.Error("Starting application error", "name", app.Name(), "error", err)
+			return err
+		}
+
+		if err := metrics.Serve(
+			ctx,
+			c.Bool(flags.MetricsEnabled.Name),
+			c.String(flags.MetricsAddr.Name),
+			c.Int(flags.MetricsPort.Name),
+		); err != nil {
+			log.Error("Starting metrics server error", "error", err)
+			return err
+		}
+
+		defer func() {
+			ctxClose()
+			app.Close(ctx)
+			log.Info("Application stopped", "name", app.Name())
+		}()
+
+		quitCh := make(chan os.Signal, 1)
+		signal.Notify(quitCh, []os.Signal{
+			os.Interrupt,
+			os.Kill,
+			syscall.SIGTERM,
+			syscall.SIGQUIT,
+		}...)
+		<-quitCh
+
+		return nil
+	}
+}
+
+// applyDevnetUzenTimeOverride mutates the embedded taiko-geth's core.InternalUzenTime
+// package variable from the CLI flag, if and only if the flag was explicitly set.
+// It must run before any chain-config or genesis lookup so downstream consumers
+// observe the overridden Uzen activation timestamp. When the flag is absent this
+// is a no-op (the package var is left untouched, never overwritten with 0).
+func applyDevnetUzenTimeOverride(c *cli.Context) {
+	if !c.IsSet(flags.TaikoDevnetUzenTime.Name) {
+		return
+	}
+	ts := c.Uint64(flags.TaikoDevnetUzenTime.Name)
+	core.InternalUzenTime = ts
+	log.Info("Overriding devnet Uzen activation time", "timestamp", ts)
+}

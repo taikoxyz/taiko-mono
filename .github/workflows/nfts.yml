@@ -1,0 +1,47 @@
+name: NFTs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/nfts/**"
+      - "!packages/nfts/contract_layout_*"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-nfts-contracts:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    runs-on: [arc-runner-set]
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.13.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Format solidity && update contract layout table
+        working-directory: ./packages/nfts
+        run: pnpm layout && forge fmt
+
+      - name: Solidity compilation
+        working-directory: ./packages/nfts
+        run: pnpm compile
+
+      - name: Unit Tests
+        working-directory: ./packages/nfts
+        run: pnpm test

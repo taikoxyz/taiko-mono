@@ -1,0 +1,33 @@
+node_modules
+.env
+coverage
+coverage.json
+.gas-snapshot
+typechain
+abis
+abi
+deployments/*.json
+bin
+yarn.lock
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+npm-debug.log*
+typechain-types
+
+# Hardhat files
+cache
+artifacts
+cache
+cache_forge
+cache_hardhat
+out
+
+# Foundry
+broadcast
+
+# Editors
+.vscode
+
+#coverage
+lcov.info

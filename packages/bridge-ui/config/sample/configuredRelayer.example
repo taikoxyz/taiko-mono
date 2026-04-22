@@ -1,0 +1,12 @@
+{
+  "configuredRelayer": [
+    {
+      "chainIds": [123456, 654321],
+      "url": "https://some/url.example"
+    },
+    {
+      "chainIds": [1, 11155111],
+      "url": "https://some/other/url.example"
+    }
+  ]
+}

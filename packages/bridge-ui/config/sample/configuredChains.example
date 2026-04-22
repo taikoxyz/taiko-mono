@@ -1,0 +1,80 @@
+{
+  "configuredChains": [
+    {
+      "123456": {
+        "name": "Chain Name 1",
+        "type": "L1",
+        "icon": "path/or/url/to/icon1",
+        "rpcUrls": {
+          "default": {
+            "http": [
+              "https://rpc.chain1.url"
+            ]
+          }
+        },
+        "nativeCurrency": {
+          "name": "Currency1",
+          "symbol": "SYM1",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Explorer 1",
+            "url": "https://explorer.chain1.url/"
+          }
+        }
+      }
+    },
+    {
+      "78910": {
+        "name": "Chain Name 2",
+        "type": "L2",
+        "icon": "path/or/url/to/icon2",
+        "rpcUrls": {
+          "default": {
+            "http": [
+              "https://rpc.chain2.url"
+            ]
+          }
+        },
+        "nativeCurrency": {
+          "name": "Currency2",
+          "symbol": "SYM2",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Explorer 2",
+            "url": "https://explorer.chain2.url/"
+          }
+        }
+      }
+    },
+    {
+      "98765": {
+        "name": "Chain Name 3",
+        "type": "L3",
+        "icon": "path/or/url/to/icon3",
+        "rpcUrls": {
+          "default": {
+            "http": [
+              "https://rpc.chain3.url"
+            ]
+          }
+        },
+        "nativeCurrency": {
+          "name": "Currency3",
+          "symbol": "SYM3",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Explorer 3",
+            "url": "https://explorer.chain3.url/"
+          }
+        }
+      }
+    }
+  ]
+}
+

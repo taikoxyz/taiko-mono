@@ -1,0 +1,49 @@
+name: Supplementary Contracts
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/supplementary-contracts/**"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-supplementary-contracts:
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    runs-on: [arc-runner-set]
+    steps:
+      - name: Cancel previous runs
+        uses: styfle/cancel-workflow-action@0.13.1
+        with:
+          access_token: ${{ github.token }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-2cb875799419c907cc3709e586ece2559e6b340e
+
+      - name: Install pnpm dependencies
+        uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Unit Tests
+        working-directory: ./packages/supplementary-contracts
+        run: pnpm clean && pnpm test
+
+      - name: Format solidity && update contract layout table
+        working-directory: ./packages/supplementary-contracts
+        run: pnpm layout &&  pnpm lint:sol
+
+      - name: Commit contract layout table
+        uses: stefanzweifel/git-auto-commit-action@v7
+        with:
+          commit_message: "forge fmt & update contract layout table"

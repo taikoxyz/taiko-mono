@@ -1,0 +1,44 @@
+version: "2"
+linters:
+  enable:
+    - funlen
+    - gocognit
+    - gocritic
+    - lll
+    - whitespace
+    - wsl
+  settings:
+    funlen:
+      lines: 200
+      statements: 100
+    gocognit:
+      min-complexity: 100
+    lll:
+      line-length: 150
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - funlen
+        path: _test\.go
+      - linters:
+          - lll
+        path: contracts\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

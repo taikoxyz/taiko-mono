@@ -1,0 +1,167 @@
+name: "CI"
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/preconfirmation-p2p/**"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/preconfirmation-p2p/**"
+      - "!**/*.md"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    name: Lint
+    runs-on: [arc-runner-set]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Ensure native build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if command -v cc > /dev/null 2>&1; then
+            cc --version
+            exit 0
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          if command -v apt-get > /dev/null 2>&1; then
+            $SUDO apt-get update
+            $SUDO apt-get install -y build-essential
+          else
+            echo "ERROR: apt-get is required to install build tools on this runner"
+            exit 1
+          fi
+
+          cc --version
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-09-27
+          components: clippy, rustfmt
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
+
+      - name: Install cargo-sort
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-sort
+
+      - name: Check formatting
+        working-directory: packages/preconfirmation-p2p
+        run: just fmt-check
+
+      - name: Check clippy
+        working-directory: packages/preconfirmation-p2p
+        run: just clippy
+
+  test:
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
+    name: Tests
+    runs-on: [arc-runner-set]
+    timeout-minutes: 15
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.13.1
+        with:
+          access_token: ${{ github.token }}
+
+      - uses: actions/checkout@v6
+
+      - name: Ensure native build tools
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          if command -v cc > /dev/null 2>&1; then
+            cc --version
+            exit 0
+          fi
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          if command -v apt-get > /dev/null 2>&1; then
+            $SUDO apt-get update
+            $SUDO apt-get install -y build-essential
+          else
+            echo "ERROR: apt-get is required to install build tools on this runner"
+            exit 1
+          fi
+
+          cc --version
+
+      - name: Install mold
+        shell: bash
+        run: |
+          set -euxo pipefail
+          MOLD_VERSION=2.40.4
+          ARCH="$(uname -m)"
+
+          if [ "$(whoami)" = root ]; then
+            SUDO=""
+          else
+            SUDO="sudo"
+          fi
+
+          curl -fsSL "https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz" \
+            | $SUDO tar -C /usr/local --strip-components=1 --no-overwrite-dir -xzf -
+
+          if [ "$(readlink -f /usr/bin/ld)" != /usr/local/bin/mold ]; then
+            $SUDO ln -sf /usr/local/bin/mold /usr/bin/ld
+          fi
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-09-27
+          components: clippy, rustfmt
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+        with:
+          just-version: 1.5.0
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Run tests
+        working-directory: packages/preconfirmation-p2p
+        run: just test

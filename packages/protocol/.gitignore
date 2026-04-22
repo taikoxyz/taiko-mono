@@ -1,0 +1,51 @@
+node_modules
+.env
+coverage
+coverage.json
+typechain
+abis
+abi
+deployments/*.json
+bin
+yarn.lock
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+npm-debug.log*
+typechain-types
+test/genesis/generate/data
+settings.local.json
+
+
+# Hardhat files
+cache
+artifacts
+cache
+cache_forge
+cache_hardhat
+out
+
+# Foundry
+broadcast
+
+# Editors
+.vscode
+
+#coverage
+lcov.info
+
+simulation/out/
+test/genesis/data/genesis.json
+test/genesis/data/genesis_alloc.json
+test/genesis/data/genesis_storage_layout.json
+
+# Serverless directories
+.serverless
+jspm_packages
+
+*.log
+.DS_Store
+
+secrets*.yml
+.defender
+.platform

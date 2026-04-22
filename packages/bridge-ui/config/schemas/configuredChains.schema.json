@@ -1,0 +1,78 @@
+{
+  "$id": "configuredChains.json",
+  "properties": {
+    "configuredChains": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "rpcUrls": {
+              "type": "object",
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "properties": {
+                    "http": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": ["http"]
+                }
+              },
+              "required": ["default"]
+            },
+            "nativeCurrency": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                },
+                "decimals": {
+                  "type": "integer"
+                }
+              },
+              "required": ["name", "symbol", "decimals"]
+            },
+            "blockExplorers": {
+              "type": "object",
+              "properties": {
+                "default": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["name", "url"]
+                }
+              },
+              "required": ["default"]
+            }
+          },
+          "required": ["name", "icon", "type", "rpcUrls", "nativeCurrency", "blockExplorers"]
+        }
+      }
+    }
+  },
+  "required": ["configuredChains"]
+}

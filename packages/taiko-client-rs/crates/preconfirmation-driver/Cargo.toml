@@ -1,0 +1,69 @@
+[package]
+name = "preconfirmation-driver"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true }
+alloy-transport = { workspace = true }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+jsonrpsee = { workspace = true }
+metrics = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+ssz_rs = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
+
+bindings = { path = "../bindings" }
+driver = { path = "../driver" }
+preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
+preconfirmation-types = { path = "../../../preconfirmation-p2p/crates/types" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+
+[dev-dependencies]
+alloy = { workspace = true }
+alloy-rlp = { workspace = true }
+alloy-rpc-types-eth = { workspace = true }
+flate2 = { workspace = true }
+rand = { workspace = true }
+secp256k1 = { workspace = true }
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness", features = ["preconfirmation"] }
+test-log = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+
+[[test]]
+name = "out_of_order_arrival"
+path = "tests/out_of_order_arrival.rs"
+
+[[test]]
+name = "catchup_e2e"
+path = "tests/catchup_e2e.rs"
+
+[[test]]
+name = "head_gossip_e2e"
+path = "tests/head_gossip_e2e.rs"
+
+[[test]]
+name = "node_integration"
+path = "tests/node_integration.rs"

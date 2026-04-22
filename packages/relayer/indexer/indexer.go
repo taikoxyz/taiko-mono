@@ -1,0 +1,647 @@
+package indexer
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"math/big"
+	"sync"
+	"time"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/cyberhorsey/errors"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/inbox"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/v4/signalservice"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/utils"
+)
+
+var (
+	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+)
+
+// WatchMode is a type that determines how the indexer will operate.
+type WatchMode string
+
+var (
+	// Filter will filter past blocks, but when catches up to latest block,
+	// will stop.
+	Filter WatchMode = "filter"
+	// Subscribe ignores all past blocks, only subscibes to new events from latest block.
+	Subscribe WatchMode = "subscribe"
+	// FilterAndSubscribe filters up to latest block, then subscribes to new events. This is the
+	// default mode.
+	FilterAndSubscribe WatchMode = "filter-and-subscribe"
+	// CrawlPastBlocks filters through the past N blocks on a loop, when it reaches `latestBlock - N`,
+	// it will recursively start the loop again, filtering for missed events, or ones the
+	// processor failed to process.
+	CrawlPastBlocks WatchMode = "crawl-past-blocks"
+	WatchModes                = []WatchMode{Filter, Subscribe, FilterAndSubscribe, CrawlPastBlocks}
+)
+
+// SyncMode is a type which determines how the indexer will start indexing.
+type SyncMode string
+
+var (
+	// Sync grabs the latest processed block in the DB and starts from there.
+	Sync SyncMode = "sync"
+	// Resync starts from genesis, ignoring the database.
+	Resync SyncMode = "resync"
+	Modes           = []SyncMode{Sync, Resync}
+)
+
+// ethClient is a local interface that lets us narrow the large ethclient.Client type
+// from go-ethereum down to a mockable interface for testing.
+type ethClient interface {
+	ChainID(ctx context.Context) (*big.Int, error)
+	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
+	BlockNumber(ctx context.Context) (uint64, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, bool, error)
+}
+
+// Indexer is the main struct of this package, containing all dependencies necessary for indexing
+// relayer-related chain data. All database repositories, contract implementations,
+// and configurations will be injected here.
+// An indexer should be configured and deployed for all possible combinations of bridging.
+// IE: an indexer for L1-L2, and another for L2-L1. an L1-L2 indexer will have the L1 configurations
+// as its source, and vice versa for the L2-L1 indexer. They will add messages to a queue
+// specifically for a processor of the same configuration.
+type Indexer struct {
+	eventRepo    relayer.EventRepository
+	srcEthClient ethClient
+
+	latestIndexedBlockNumber uint64
+
+	bridge     relayer.Bridge
+	destBridge relayer.Bridge
+
+	signalService *signalservice.SignalService
+
+	blockBatchSize      uint64
+	numGoroutines       int
+	subscriptionBackoff time.Duration
+
+	shastaInbox *inbox.ShastaInboxClient
+
+	queue queue.Queue
+
+	srcChainId  *big.Int
+	destChainId *big.Int
+
+	watchMode WatchMode
+	syncMode  SyncMode
+
+	ethClientTimeout time.Duration
+
+	wg sync.WaitGroup
+
+	numLatestBlocksEndWhenCrawling   uint64
+	numLatestBlocksStartWhenCrawling uint64
+
+	targetBlockNumber *uint64
+
+	ctx context.Context
+
+	eventName string
+
+	minFeeToIndex uint64
+
+	cfg *Config
+
+	confirmations uint64
+}
+
+// InitFromCli inits a new Indexer from command line or environment variables.
+func (i *Indexer) InitFromCli(ctx context.Context, c *cli.Context) error {
+	cfg, err := NewConfigFromCliContext(c)
+	if err != nil {
+		return err
+	}
+
+	return InitFromConfig(ctx, i, cfg)
+}
+
+// InitFromConfig inits a new Indexer from a provided Config struct
+func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
+	db, err := cfg.OpenDBFunc()
+	if err != nil {
+		return err
+	}
+
+	eventRepository, err := repo.NewEventRepository(db)
+	if err != nil {
+		return err
+	}
+
+	srcEthClient, err := ethclient.Dial(cfg.SrcRPCUrl)
+	if err != nil {
+		return err
+	}
+
+	destEthClient, err := ethclient.Dial(cfg.DestRPCUrl)
+	if err != nil {
+		return err
+	}
+
+	q, err := cfg.OpenQueueFunc()
+	if err != nil {
+		return err
+	}
+
+	srcBridge, err := bridge.NewBridge(cfg.SrcBridgeAddress, srcEthClient)
+	if err != nil {
+		return errors.Wrap(err, "bridge.NewBridge")
+	}
+
+	destBridge, err := bridge.NewBridge(cfg.DestBridgeAddress, destEthClient)
+	if err != nil {
+		return errors.Wrap(err, "bridge.NewBridge")
+	}
+
+	var shastaInbox *inbox.ShastaInboxClient
+
+	if cfg.SrcTaikoAddress != ZeroAddress {
+		slog.Info("setting srcTaikoAddress", "addr", cfg.SrcTaikoAddress.Hex())
+
+		shastaInbox, err = inbox.NewShastaInboxClient(cfg.SrcTaikoAddress, srcEthClient)
+		if err != nil {
+			return errors.Wrap(err, "inbox.NewShastaInboxClient")
+		}
+	}
+
+	if cfg.SrcSignalServiceAddress == ZeroAddress {
+		return errors.New("srcSignalServiceAddress not provided")
+	}
+
+	slog.Info("setting srcSignalServiceAddress", "addr", cfg.SrcSignalServiceAddress.Hex())
+
+	ss, err := signalservice.NewSignalService(cfg.SrcSignalServiceAddress, srcEthClient)
+	if err != nil {
+		return errors.Wrap(err, "signalservice.NewSignalService")
+	}
+
+	srcChainID, err := srcEthClient.ChainID(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "srcEthClient.ChainID")
+	}
+
+	destChainID, err := destEthClient.ChainID(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "destEthClient.ChainID")
+	}
+
+	i.eventRepo = eventRepository
+	i.srcEthClient = srcEthClient
+
+	i.bridge = srcBridge
+	i.destBridge = destBridge
+	i.signalService = ss
+	i.shastaInbox = shastaInbox
+
+	i.blockBatchSize = cfg.BlockBatchSize
+	i.numGoroutines = int(cfg.NumGoroutines)
+	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second
+
+	i.queue = q
+
+	i.srcChainId = srcChainID
+	i.destChainId = destChainID
+
+	i.syncMode = cfg.SyncMode
+	i.watchMode = cfg.WatchMode
+
+	i.ethClientTimeout = time.Duration(cfg.ETHClientTimeout) * time.Second
+
+	i.numLatestBlocksEndWhenCrawling = cfg.NumLatestBlocksEndWhenCrawling
+	i.numLatestBlocksStartWhenCrawling = cfg.NumLatestBlocksStartWhenCrawling
+
+	i.targetBlockNumber = cfg.TargetBlockNumber
+
+	i.eventName = cfg.EventName
+
+	i.cfg = cfg
+
+	i.confirmations = cfg.Confirmations
+
+	i.ctx = ctx
+
+	i.minFeeToIndex = i.cfg.MinFeeToIndex
+
+	slog.Info("minFeeToIndex", "minFeeToIndex", i.minFeeToIndex)
+
+	return nil
+}
+
+// Name implements the SubcommandAction interface
+func (i *Indexer) Name() string {
+	return "indexer"
+}
+
+// Close waits for the wait groups internally to be stopped ,which will be done when the
+// context is stopped externally by cmd/main.go shutdown.
+func (i *Indexer) Close(ctx context.Context) {
+	i.wg.Wait()
+
+	// Close db connection.
+	if err := i.eventRepo.Close(); err != nil {
+		slog.Error("Failed to close db connection", "err", err)
+	}
+}
+
+// Start starts the indexer, which should initialize the queue, add to wait groups,
+// and start filtering or subscribing depending on the WatchMode provided.
+// nolint: funlen
+func (i *Indexer) Start() error {
+	if err := i.queue.Start(i.ctx, i.queueName()); err != nil {
+		slog.Error("error starting queue", "error", err)
+		return err
+	}
+
+	// always use Resync when crawling past blocks
+	if i.watchMode == CrawlPastBlocks {
+		i.syncMode = Resync
+	}
+
+	// set the initial processing block, which will vary by sync mode.
+	if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
+		return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
+	}
+
+	go i.eventLoop(i.ctx)
+
+	go func() {
+		if err := backoff.Retry(func() error {
+			return utils.ScanBlocks(i.ctx, i.srcEthClient, &i.wg)
+		}, backoff.NewConstantBackOff(5*time.Second)); err != nil {
+			slog.Error("scan blocks backoff retry", "error", err)
+		}
+	}()
+
+	return nil
+}
+
+func (i *Indexer) eventLoop(ctx context.Context) {
+	i.wg.Add(1)
+	defer i.wg.Done()
+
+	t := time.NewTicker(10 * time.Second)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("event loop context done")
+			return
+		case <-t.C:
+			if err := i.filter(ctx); err != nil {
+				slog.Error("error filtering", "error", err)
+			}
+		}
+	}
+}
+
+// filter is the main function run by Start in the indexer
+func (i *Indexer) filter(ctx context.Context) error {
+	// get the latest header
+	header, err := i.srcEthClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "i.srcEthClient.HeaderByNumber")
+	}
+
+	// the end block is the latest header.
+	endBlockID := header.Number.Uint64()
+
+	// ignore latest N blocks if we are crawling past blocks, they are probably in queue already
+	// and are not "missed", have just not been processed.
+	if i.watchMode == CrawlPastBlocks {
+		if i.numLatestBlocksEndWhenCrawling > i.numLatestBlocksStartWhenCrawling {
+			slog.Error("Invalid configuration",
+				"numLatestBlocksEndWhenCrawling", i.numLatestBlocksEndWhenCrawling,
+				"numLatestBlocksStartWhenCrawling", i.numLatestBlocksStartWhenCrawling,
+			)
+
+			return errors.New("numLatestBlocksStartWhenCrawling must be greater than numLatestBlocksEndWhenCrawling")
+		}
+
+		// if targetBlockNumber is not nil, we are just going to process a singular block.
+		if i.targetBlockNumber != nil {
+			slog.Info("targetBlockNumber is set", "targetBlockNumber", *i.targetBlockNumber)
+
+			if *i.targetBlockNumber == 0 {
+				slog.Error("invalid targetBlockNumber, must be greater than 0", "targetBlockNumber", *i.targetBlockNumber)
+
+				return errors.New("targetBlockNumber must be greater than 0")
+			}
+
+			i.latestIndexedBlockNumber = *i.targetBlockNumber - 1
+
+			endBlockID = *i.targetBlockNumber
+		} else {
+			// set the initial processing block back to either 0 or the genesis block again.
+			if err := i.setInitialIndexingBlockByMode(i.syncMode, i.srcChainId); err != nil {
+				return errors.Wrap(err, "i.setInitialIndexingBlockByMode")
+			}
+
+			if i.latestIndexedBlockNumber < endBlockID-i.numLatestBlocksStartWhenCrawling {
+				i.latestIndexedBlockNumber = endBlockID - i.numLatestBlocksStartWhenCrawling
+			}
+
+			if endBlockID > i.numLatestBlocksEndWhenCrawling {
+				// otherwise, we need to set the endBlockID as the greater of the two:
+				// either the endBlockID minus the number of latest blocks to ignore,
+				// or endBlockID.
+				endBlockID -= i.numLatestBlocksEndWhenCrawling
+			}
+		}
+	}
+
+	slog.Info("fetching batch block events",
+		"chainID", i.srcChainId.Uint64(),
+		"latestIndexedBlockNumber", i.latestIndexedBlockNumber,
+		"endblock", endBlockID,
+		"batchsize", i.blockBatchSize,
+		"watchMode", i.watchMode,
+	)
+
+	// iterate through from the starting block (i.latestIndexedBlockNumber) through the
+	// latest block (endBlockID) in batches of i.blockBatchSize until we are finished.
+	for j := i.latestIndexedBlockNumber + 1; j <= endBlockID; j += i.blockBatchSize {
+		// if the end of the batch is greater than the latest block number, set end
+		// to the latest block number
+		end := min(i.latestIndexedBlockNumber+i.blockBatchSize, endBlockID)
+
+		slog.Info("block batch", "start", j, "end", end)
+
+		filterOpts := &bind.FilterOpts{
+			Start:   j,
+			End:     &end,
+			Context: ctx,
+		}
+
+		switch i.eventName {
+		case relayer.EventNameMessageSent:
+			if err := i.withRetry(func() error { return i.indexMessageSentEvents(ctx, filterOpts) }); err != nil {
+				// We will skip the error after retrying, as we want the indexer to continue.
+				slog.Error("i.indexMessageSentEvents", "error", err)
+				relayer.MessageSentEventsAfterRetryErrorCount.Inc()
+			}
+
+			// we dont want to watch for message status changed events
+			// when crawling past blocks on a loop. but otherwise,
+			// we want to index all three event types when indexing MessageSent events,
+			// since they are related.
+			if i.watchMode != CrawlPastBlocks {
+				if err := i.withRetry(func() error { return i.indexMessageStatusChangedEvents(ctx, filterOpts) }); err != nil {
+					slog.Error("i.indexMessageStatusChangedEvents", "error", err)
+					relayer.MessageStatusChangedEventsAfterRetryErrorCount.Inc()
+				}
+
+				if err := i.withRetry(func() error { return i.indexCheckpointSavedEvents(ctx, filterOpts) }); err != nil {
+					slog.Error("i.indexCheckpointSavedEvents", "error", err)
+					relayer.CheckpointSavedEventsAfterRetryErrorCount.Inc()
+				}
+			}
+		case relayer.EventNameMessageProcessed:
+			if err := i.withRetry(func() error { return i.indexMessageProcessedEvents(ctx, filterOpts) }); err != nil {
+				slog.Error("i.indexMessageProcessedEvents", "error", err)
+				relayer.MessageProcessedEventsAfterRetryErrorCount.Inc()
+			}
+		}
+
+		i.latestIndexedBlockNumber = end
+	}
+
+	return nil
+}
+
+// indexMessageSentEvents indexes `MessageSent` events on the bridge contract
+// and stores them to the database, and adds the message to the queue if it has not been
+// seen before.
+func (i *Indexer) indexMessageSentEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts) error {
+	events, err := i.bridge.FilterMessageSent(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageSent")
+	}
+	defer events.Close()
+
+	group, _ := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	first := true
+
+	for events.Next() {
+		event := events.Event
+
+		if i.watchMode != CrawlPastBlocks && first {
+			first = false
+
+			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
+				return err
+			}
+		}
+
+		group.Go(func() error {
+			err := i.handleMessageSentEvent(ctx, i.srcChainId, event, true)
+			if err != nil {
+				relayer.ErrorEvents.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
+
+				return err
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+func (i *Indexer) checkReorg(ctx context.Context, emittedInBlockNumber uint64) error {
+	n, err := i.eventRepo.FindLatestBlockID(ctx, i.eventName, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	if err != nil {
+		return err
+	}
+
+	if n >= emittedInBlockNumber {
+		slog.Info("reorg detected", "event emitted in", emittedInBlockNumber, "latest emitted block id from db", n)
+		// reorg detected, we have seen a higher block number than this already.
+		return i.eventRepo.DeleteAllAfterBlockID(emittedInBlockNumber, i.srcChainId.Uint64(), i.destChainId.Uint64())
+	}
+
+	return nil
+}
+
+// indexMessageProcessedEvents indexes `MessageProcessed` events on the bridge contract
+// and stores them to the database, and adds the message to the queue if it has not been
+// seen before.
+func (i *Indexer) indexMessageProcessedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	events, err := i.bridge.FilterMessageProcessed(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageProcessed")
+	}
+	defer events.Close()
+
+	group, _ := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	first := true
+
+	for events.Next() {
+		event := events.Event
+
+		if i.watchMode != CrawlPastBlocks && first {
+			first = false
+
+			if err := i.checkReorg(ctx, event.Raw.BlockNumber); err != nil {
+				return err
+			}
+		}
+
+		group.Go(func() error {
+			err := i.handleMessageProcessedEvent(ctx, i.srcChainId, event, true)
+			if err != nil {
+				relayer.MessageProcessedEventsIndexingErrors.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling event", "err", err.Error())
+
+				return err
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+// indexMessageStatusChangedEvents indexes `MessageStatusChanged` events on the bridge contract
+// and stores them to the database. It does not add them to any queue.
+func (i *Indexer) indexMessageStatusChangedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts) error {
+	slog.Info("indexing messageStatusChanged events")
+
+	events, err := i.bridge.FilterMessageStatusChanged(filterOpts, nil)
+	if err != nil {
+		return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+	}
+	defer events.Close()
+
+	group, _ := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for events.Next() {
+		event := events.Event
+
+		group.Go(func() error {
+			err := i.handleMessageStatusChangedEvent(ctx, i.srcChainId, event)
+			if err != nil {
+				relayer.MessageStatusChangedEventsIndexingErrors.Inc()
+				// log error but always return nil to keep other goroutines active
+				slog.Error("error handling messageStatusChanged", "err", err.Error())
+
+				return err
+			}
+
+			return nil
+		})
+	}
+
+	// wait for the last of the goroutines to finish
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+func (i *Indexer) indexCheckpointSavedEvents(ctx context.Context,
+	filterOpts *bind.FilterOpts,
+) error {
+	slog.Info("indexing checkpointSaved events")
+
+	checkpointEvents, err := i.signalService.FilterCheckpointSaved(
+		filterOpts,
+		nil,
+	)
+	if err != nil {
+		return errors.Wrap(err, "signalService.FilterCheckpointSaved")
+	}
+	defer checkpointEvents.Close()
+
+	group, _ := errgroup.WithContext(ctx)
+	group.SetLimit(i.numGoroutines)
+
+	for checkpointEvents.Next() {
+		event := checkpointEvents.Event
+
+		group.Go(func() error {
+			err := i.handleCheckpointSavedEvent(ctx, event, true)
+			if err != nil {
+				relayer.CheckpointSavedEventsIndexingErrors.Inc()
+				slog.Error("error handling checkpointSaved", "err", err.Error())
+
+				return err
+			}
+
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		return errors.Wrap(err, "group.Wait")
+	}
+
+	return nil
+}
+
+// queueName builds out the name of a queue, in the format the processor will also
+// use to listen to events.
+func (i *Indexer) queueName() string {
+	return fmt.Sprintf("%v-%v-%v-queue", i.srcChainId.String(), i.destChainId.String(), i.eventName)
+}
+
+// withRetry retries the given function with prover backoff policy.
+func (i *Indexer) withRetry(f func() error) error {
+	return backoff.Retry(
+		func() error {
+			if i.ctx.Err() != nil {
+				slog.Error("Context is done, aborting", "error", i.ctx.Err())
+
+				return nil
+			}
+
+			return f()
+		},
+		backoff.WithContext(
+			backoff.WithMaxRetries(backoff.NewConstantBackOff(i.cfg.BackOffRetryInterval), i.cfg.BackOffMaxRetries),
+			i.ctx,
+		),
+	)
+}

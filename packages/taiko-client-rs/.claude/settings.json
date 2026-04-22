@@ -1,0 +1,148 @@
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0"
+  },
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(~/.claude-code-docs/claude-docs-helper.sh:*)",
+      "Bash(awk:*)",
+      "Bash(biome:*)",
+      "Bash(bulloak:*)",
+      "Bash(bun:*)",
+      "Bash(cargo:*)",
+      "Bash(cat:*)",
+      "Bash(cd:*)",
+      "Bash(cp:*)",
+      "Bash(curl:*)",
+      "Bash(cut:*)",
+      "Bash(echo:*)",
+      "Bash(eza:*)",
+      "Bash(find:*)",
+      "Bash(fd:*)",
+      "Bash(forge:*)",
+      "Bash(gdate:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(just:*)",
+      "Bash(ls:*)",
+      "Bash(lsof:*)",
+      "Bash(jq:*)",
+      "Bash(mkdir:*)",
+      "Bash(na:*)",
+      "Bash(ni:*)",
+      "Bash(nlx:*)",
+      "Bash(npm:*)",
+      "Bash(npx:*)",
+      "Bash(node:*)",
+      "Bash(nr:*)",
+      "Bash(nun:*)",
+      "Bash(pnpm:*)",
+      "Bash(prettier:*)",
+      "Bash(printf:*)",
+      "Bash(pwd:*)",
+      "Bash(qsv:*)",
+      "Bash(rg:*)",
+      "Bash(select:*)",
+      "Bash(sort:*)",
+      "Bash(tail:*)",
+      "Bash(timeout:*)",
+      "Bash(tree:*)",
+      "Bash(touch:*)",
+      "Bash(which:*)",
+      "Bash(yarn:*)",
+      "Glob",
+      "Grep",
+      "LS",
+      "Read",
+      "Task",
+      "TodoWrite",
+      "WebFetch",
+      "WebSearch",
+      "mcp__context7",
+      "mcp__github",
+      "mcp__magic",
+      "mcp__morphllm-fast-apply",
+      "mcp__playwright",
+      "mcp__sequential-thinking",
+      "mcp__serena"
+    ],
+    "deny": [
+      "Bash(> /dev/sda*)",
+      "Bash(> /etc/*)",
+      "Bash(chmod -R:*)",
+      "Bash(chown -R:*)",
+      "Bash(dd:*)",
+      "Bash(doas:*)",
+      "Bash(kill -9:*)",
+      "Bash(killall:*)",
+      "Bash(launchctl:*)",
+      "Bash(mkfs:*)",
+      "Bash(passwd:*)",
+      "Bash(reboot:*)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/)",
+      "Bash(rm -rf ~/*)",
+      "Bash(shutdown:*)",
+      "Bash(su:*)",
+      "Bash(sudo:*)",
+      "Bash(systemctl:*)",
+      "Bash(userdel:*)",
+      "Bash(usermod:*)",
+      "Read(./.env)",
+      "Read(./.env.production)"
+    ],
+    "defaultMode": "plan"
+  },
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/ccnotify/ccnotify.py Notification"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude-code-docs/claude-docs-helper.sh hook-check"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/ccnotify/ccnotify.py Stop"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/ccnotify/ccnotify.py UserPromptSubmit"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bunx -y ccstatusline@latest",
+    "padding": 0
+  }
+}

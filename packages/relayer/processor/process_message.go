@@ -1,0 +1,578 @@
+package processor
+
+import (
+	"context"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"math"
+	"math/big"
+	"strings"
+	"time"
+
+	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/pkg/errors"
+	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
+)
+
+var (
+	errUnprocessable     = errors.New("message is unprocessable")
+	errAlreadyProcessing = errors.New("already processing txHash")
+)
+
+// eventStatusFromMsgHash will check the event's msgHash/signal, and
+// get its on-chain current status.
+func (p *Processor) eventStatusFromMsgHash(
+	ctx context.Context,
+	signal [32]byte,
+) (relayer.EventStatus, error) {
+	var eventStatus relayer.EventStatus
+
+	ctx, cancel := context.WithTimeout(ctx, p.ethClientTimeout)
+
+	defer cancel()
+
+	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
+		Context: ctx,
+	}, signal)
+	if err != nil {
+		return 0, errors.Wrap(err, "svc.destBridge.MessageStatus")
+	}
+
+	eventStatus = relayer.EventStatus(messageStatus)
+
+	return eventStatus, nil
+}
+
+// processMessage prepares and calls `processMessage` on the bridge, given a
+// message from the queue (from the indexer). It will
+// generate a source-chain proof.
+// it returns a boolean of whether we should requeue the message or not.
+func (p *Processor) processMessage(
+	ctx context.Context,
+	msg queue.Message,
+) (bool, uint64, error) {
+	msgBody := &queue.QueueMessageSentBody{}
+	if err := json.Unmarshal(msg.Body, msgBody); err != nil {
+		return false, 0, errors.Wrap(err, "json.Unmarshal")
+	}
+
+	if msgBody.Event == nil {
+		slog.Warn("empty msgBody", "id", msgBody.ID)
+
+		return false, 0, errors.New("empty message body")
+	}
+
+	slog.Info("message received", "srcTxHash", msgBody.Event.Raw.TxHash.Hex())
+
+	// check if we already processing this hash
+	checkHash := func(hash common.Hash) error {
+		p.processingTxHashMu.Lock()
+		defer p.processingTxHashMu.Unlock()
+
+		if _, ok := p.processingTxHashes[hash]; ok {
+			slog.Warn("already processing txHash", "txhash", hash.Hex())
+			return errAlreadyProcessing
+		}
+
+		p.processingTxHashes[hash] = true
+
+		return nil
+	}
+
+	// if we are, we don't need to continue
+	if err := checkHash(msgBody.Event.Raw.TxHash); err != nil {
+		return false, 0, err
+	}
+
+	// otherwise, make sure when we exit, we remove this hash from being checked
+	defer func(hash common.Hash) {
+		p.processingTxHashMu.Lock()
+		defer p.processingTxHashMu.Unlock()
+		delete(p.processingTxHashes, hash)
+	}(msgBody.Event.Raw.TxHash)
+
+	if msgBody.TimesRetried >= p.maxMessageRetries {
+		slog.Warn("max retries reached", "timesRetried", msgBody.TimesRetried)
+
+		return false, msgBody.TimesRetried, nil
+	}
+
+	// we never want to process messages below a certain fee, if set.
+	// return a nil error, and we will successfully acknowledge this.
+	if p.minFeeToProcess != 0 && msgBody.Event.Message.Fee < p.minFeeToProcess {
+		slog.Warn("minFeeToProcess not met",
+			"minFeeToProcess", p.minFeeToProcess,
+			"fee", msgBody.Event.Message.Fee,
+			"srcTxHash", msgBody.Event.Raw.TxHash.Hex(),
+		)
+
+		return false, msgBody.TimesRetried, nil
+	}
+
+	// check message process eligibility before waiting for confirmations to process
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, msgBody.Event.MsgHash)
+	if err != nil {
+		return false, msgBody.TimesRetried, errors.Wrap(err, "p.eventStatusFromMsgHash")
+	}
+
+	if !canProcessMessage(
+		ctx,
+		eventStatus,
+		msgBody.Event.Message.SrcOwner,
+		p.relayerAddr,
+		uint64(msgBody.Event.Message.GasLimit),
+	) {
+		return false, msgBody.TimesRetried, nil
+	}
+
+	if err := p.waitForConfirmations(ctx, msgBody.Event.Raw.TxHash); err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
+	// check paused status
+	paused, err := p.destBridge.Paused(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
+	// if paused, let's requeue
+	if paused {
+		return true, msgBody.TimesRetried, nil
+	}
+
+	// destQuotaManager is optional, it will not be set for L1-L2 bridging
+	// but will be set for L2-L1 bridging.
+	if p.destQuotaManager != nil {
+		eventType, canonicalToken, amount, err := relayer.DecodeMessageData(
+			msgBody.Event.Message.Data,
+			msgBody.Event.Message.Value,
+		)
+		if err != nil {
+			return false, msgBody.TimesRetried, err
+		}
+
+		// don't check quota for NFTs
+		if eventType == relayer.EventTypeSendERC20 || eventType == relayer.EventTypeSendETH {
+			// default to ETH (zero address) and msg value, overwrite if ERC20
+			var tokenAddress = relayer.ZeroAddress
+
+			var value = msgBody.Event.Message.Value
+
+			if eventType == relayer.EventTypeSendERC20 {
+				tokenAddress = canonicalToken.Address()
+				value = amount
+			}
+
+			hasQuota, waitUntil, err := p.hasQuotaAvailable(ctx, tokenAddress, value)
+			if err != nil {
+				return false, msgBody.TimesRetried, err
+			}
+
+			if !hasQuota {
+				// wait until quota available
+				slog.Info("quota not available for token", "waitUntil", waitUntil)
+
+				select {
+				case <-ctx.Done():
+					return false, msgBody.TimesRetried, ctx.Err()
+				case <-time.After(time.Duration(int64(waitUntil)) * time.Second):
+				}
+			}
+		}
+	}
+
+	encodedSignalProof, err := p.generateEncodedSignalProof(ctx, msgBody.Event)
+	if err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
+	_, err = p.sendProcessMessageCall(ctx, msgBody.ID, msgBody.Event, encodedSignalProof)
+	if err != nil {
+		return false, msgBody.TimesRetried, err
+	}
+
+	messageStatus, err := p.destBridge.MessageStatus(&bind.CallOpts{
+		Context: ctx,
+	}, msgBody.Event.MsgHash)
+	if err != nil {
+		return false, msgBody.TimesRetried, errors.Wrap(err, "p.destBridge.GetMessageStatus")
+	}
+
+	// internal will only be set if it's an actual queue message, not a targeted
+	// transaction hash set via config flag.
+	if msg.Internal != nil {
+		// update message status
+		if err := p.eventRepo.UpdateStatus(ctx, msgBody.ID, relayer.EventStatus(messageStatus)); err != nil {
+			return false, msgBody.TimesRetried, err
+		}
+	}
+
+	slog.Info(
+		"message status updated",
+		"status", relayer.EventStatus(messageStatus).String(),
+		"occurredTxHash", msgBody.Event.Raw.TxHash.Hex(),
+	)
+
+	if messageStatus == uint8(relayer.EventStatusRetriable) {
+		relayer.RetriableEvents.Inc()
+	} else if messageStatus == uint8(relayer.EventStatusDone) {
+		relayer.DoneEvents.Inc()
+	}
+
+	return false, msgBody.TimesRetried, nil
+}
+
+// generateEncodedSignalProof takes a MessageSent event and calls a
+// proof generation service to generate the source-chain proof.
+func (p *Processor) generateEncodedSignalProof(ctx context.Context,
+	event *bridge.BridgeMessageSent) ([]byte, error) {
+	if _, err := p.waitHeaderSynced(ctx, p.srcEthClient, p.destChainId.Uint64(), event.Raw.BlockNumber); err != nil {
+		return nil, err
+	}
+
+	key, err := p.srcSignalService.GetSignalSlot(&bind.CallOpts{
+		Context: ctx,
+	},
+		event.Message.SrcChainId,
+		event.Raw.Address,
+		event.MsgHash,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	latestBlockID, err := p.eventRepo.LatestCheckpointSyncedEvent(ctx, p.destChainId.Uint64(), p.srcChainId.Uint64())
+	if err != nil {
+		return nil, err
+	}
+
+	if latestBlockID == 0 {
+		latestBlockID = event.Raw.BlockNumber
+		slog.Warn("no synced header found; using message block number",
+			"fallbackBlockNum", latestBlockID,
+			"srcChainId", p.srcChainId.Uint64(),
+			"destChainId", p.destChainId.Uint64(),
+		)
+	}
+
+	encodedSignalProof, err := p.prover.EncodedSignalProof(
+		ctx,
+		proof.SignalProofParams{
+			ChainID:              p.destChainId,
+			SignalServiceAddress: p.srcSignalServiceAddress,
+			Blocker:              p.srcEthClient,
+			Caller:               p.srcCaller,
+			Key:                  key,
+			BlockNumber:          latestBlockID,
+		},
+	)
+
+	if err != nil {
+		slog.Error("error encoding signal proof",
+			"srcChainID", event.Message.SrcChainId,
+			"destChainID", event.Message.DestChainId,
+			"txHash", event.Raw.TxHash.Hex(),
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"from", event.Message.From.Hex(),
+			"srcOwner", event.Message.SrcOwner.Hex(),
+			"destOwner", event.Message.DestOwner.Hex(),
+			"error", err,
+			"blockNumber", latestBlockID,
+		)
+
+		return nil, err
+	}
+
+	return encodedSignalProof, nil
+}
+
+// sendProcessMessageCall calls `bridge.processMessage` with latest nonce
+// after estimating gas, and checking profitability.
+func (p *Processor) sendProcessMessageCall(
+	ctx context.Context,
+	id int,
+	event *bridge.BridgeMessageSent,
+	proof []byte,
+) (*types.Receipt, error) {
+	defer p.logRelayerBalance(ctx)
+
+	received, err := p.destBridge.IsMessageReceived(&bind.CallOpts{Context: ctx}, event.Message, proof)
+	if err != nil {
+		return nil, err
+	}
+
+	// message will fail when we try to process it
+	if !received {
+		slog.Warn("Message not received on dest chain",
+			"msgHash", common.Hash(event.MsgHash).Hex(),
+			"srcChainId", event.Message.SrcChainId,
+		)
+
+		relayer.MessagesNotReceivedOnDestChain.Inc()
+
+		return nil, errors.New("message not received")
+	}
+
+	baseFee, err := p.getBaseFee(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := encoding.BridgeABI.Pack("processMessage", event.Message, proof)
+	if err != nil {
+		return nil, err
+	}
+
+	gasLimit := uint64(float64(event.Message.GasLimit))
+
+	// if destination address is a contract, add padding. check message.to
+	// to see if it is a contract address.
+	code, err := p.destEthClient.CodeAt(ctx, event.Message.To, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(code) != 0 {
+		gasLimit = uint64(float64(gasLimit) * 1.1)
+	} else {
+		gasLimit = uint64(float64(gasLimit) * 1.05)
+	}
+
+	var estimatedMaxCost uint64
+
+	if bool(p.profitableOnly) {
+		profitable, err := p.isProfitable(
+			ctx,
+			id,
+			event.Message.Fee,
+			gasLimit,
+			baseFee.Uint64(),
+			gasTipCap.Uint64(),
+		)
+		if err != nil || !profitable {
+			if err == errImpossible {
+				return nil, errImpossible
+			}
+
+			return nil, relayer.ErrUnprofitable
+		}
+
+		// now simulate the transaction and let's confirm it is profitable
+		auth, err := bind.NewKeyedTransactorWithChainID(p.ecdsaKey, p.destChainId)
+		if err != nil {
+			return nil, err
+		}
+
+		msg := ethereum.CallMsg{
+			From: auth.From,
+			To:   &p.cfg.DestBridgeAddress,
+			Data: data,
+		}
+
+		gasUsed, err := p.destEthClient.EstimateGas(ctx, msg)
+		if err != nil {
+			return nil, err
+		}
+
+		slog.Info("estimatedGasUsed",
+			"gasUsed", gasUsed,
+			"messageGasLimit", event.Message.GasLimit,
+			"paddedGasLimit", gasLimit,
+			"srcTxHash", event.Raw.TxHash.Hex(),
+		)
+
+		if gasUsed > gasLimit {
+			return nil, relayer.ErrUnprofitable
+		}
+
+		estimatedMaxCost = gasUsed * ((baseFee.Uint64() * 2) + gasTipCap.Uint64())
+	}
+
+	// we should check event status one more time, after we have waited for
+	// confirmations, and after we have generated proof. it's possible another relayer
+	// or the user themself has claimed this in the time it took
+	// for us to do this work, which would cause us to revert.
+	eventStatus, err := p.eventStatusFromMsgHash(ctx, event.MsgHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.eventStatusFromMsgHash")
+	}
+
+	if !canProcessMessage(
+		ctx,
+		eventStatus,
+		event.Message.SrcOwner,
+		p.relayerAddr,
+		uint64(event.Message.GasLimit),
+	) {
+		slog.Error("can not process message after waiting for confirmations", "err", errUnprocessable)
+		return nil, errUnprocessable
+	}
+
+	candidate := txmgr.TxCandidate{
+		TxData:   data,
+		Blobs:    nil,
+		To:       &p.cfg.DestBridgeAddress,
+		GasLimit: gasLimit,
+	}
+
+	receipt, err := p.txmgr.Send(ctx, candidate)
+	if err != nil {
+		slog.Warn("Failed to send ProcessMessage transaction", "error", err.Error())
+		return nil, err
+	}
+
+	slog.Info("Mined tx",
+		"txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+		"srcTxHash", event.Raw.TxHash.Hex(),
+	)
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		relayer.MessageSentEventsProcessedReverted.Inc()
+		slog.Warn("Transaction reverted", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+			"srcTxHash", event.Raw.TxHash.Hex(),
+			"status", receipt.Status)
+
+		return nil, errTxReverted
+	}
+
+	relayer.MessageSentEventsProcessed.Inc()
+
+	if p.profitableOnly {
+		cost := receipt.GasUsed * receipt.EffectiveGasPrice.Uint64()
+
+		slog.Info("tx cost", "txHash", hex.EncodeToString(receipt.TxHash.Bytes()),
+			"srcTxHash", event.Raw.TxHash.Hex(),
+			"actualCost", cost,
+			"estimatedMaxCost", estimatedMaxCost,
+		)
+
+		if cost > estimatedMaxCost {
+			relayer.UnprofitableMessageAfterTransacting.Inc()
+		} else {
+			relayer.ProfitableMessageAfterTransacting.Inc()
+		}
+	}
+
+	if err := p.saveMessageStatusChangedEvent(ctx, receipt, event); err != nil {
+		return nil, err
+	}
+
+	return receipt, nil
+}
+
+// retrieve the balance of the relayer and set Prometheus
+func (p *Processor) logRelayerBalance(ctx context.Context) {
+	balance, err := p.destEthClient.BalanceAt(ctx, p.relayerAddr, nil)
+	if err != nil {
+		slog.Warn("Failed to retrieve relayer balance", "error", err)
+		return
+	}
+
+	balanceFloat := new(big.Float).SetInt(balance)
+	balanceEth := new(big.Float).Quo(
+		balanceFloat,
+		big.NewFloat(math.Pow10(18)),
+	)
+
+	slog.Info("Relayer balance",
+		"relayerAddress", p.relayerAddr,
+		"balance", balanceEth.Text('f', 18),
+	)
+
+	balanceEthFloat, _ := balanceEth.Float64()
+	relayer.RelayerKeyBalanceGauge.Set(balanceEthFloat)
+}
+
+// saveMessageStatusChangedEvent writes the MessageStatusChanged event to the
+// database after a message is processed
+func (p *Processor) saveMessageStatusChangedEvent(
+	ctx context.Context,
+	receipt *types.Receipt,
+	event *bridge.BridgeMessageSent,
+) error {
+	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
+	if err != nil {
+		return err
+	}
+
+	m := make(map[string]interface{})
+
+	for _, log := range receipt.Logs {
+		topic := log.Topics[0]
+		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
+			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
+			if err != nil {
+				return err
+			}
+
+			break
+		}
+	}
+
+	if m["status"] != nil {
+		// keep same format as other raw events
+		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
+
+		_, err = p.eventRepo.Save(ctx, &relayer.SaveEventOpts{
+			Name:           relayer.EventNameMessageStatusChanged,
+			Data:           data,
+			EmittedBlockID: event.Raw.BlockNumber,
+			ChainID:        new(big.Int).SetUint64(event.Message.SrcChainId),
+			DestChainID:    new(big.Int).SetUint64(event.Message.DestChainId),
+			Status:         relayer.EventStatus(m["status"].(uint8)),
+			MsgHash:        common.Hash(event.MsgHash).Hex(),
+			MessageOwner:   event.Message.SrcOwner.Hex(),
+			Event:          relayer.EventNameMessageStatusChanged,
+		})
+		if err != nil {
+			return errors.Wrap(err, "svc.eventRepo.Save")
+		}
+	}
+
+	return nil
+}
+
+// getBaseFee determines the baseFee on the dest chain
+func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
+	blk, err := p.destEthClient.BlockByNumber(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var baseFee *big.Int
+
+	if p.taikoL2 != nil {
+		bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(blk.GasUsed()))
+		if err != nil {
+			return nil, err
+		}
+
+		baseFee = bf.Basefee
+	} else {
+		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
+		baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
+	}
+
+	return baseFee, nil
+}

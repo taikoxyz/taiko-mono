@@ -1,0 +1,7 @@
+node_modules
+artifacts
+cache
+coverage
+lib
+test/shared/thirdparty/
+contracts/layer1/automata-attestation/

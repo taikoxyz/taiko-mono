@@ -1,0 +1,54 @@
+node_modules
+.env
+coverage
+coverage.json
+.gas-snapshot
+typechain
+abis
+abi
+deployments/*.json
+bin
+yarn.lock
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+npm-debug.log*
+typechain-types
+
+# Hardhat files
+cache
+artifacts
+cache
+cache_forge
+cache_hardhat
+out
+
+# Foundry
+broadcast
+
+# Editors
+.vscode
+
+#coverage
+lcov.info
+
+# Custom
+broadcast
+.states
+coverage
+data/taikoon/original
+data/taikoon/images
+data/taikoon/metadata
+lcov.info
+lib
+data/taikoon/whitelist/hardhat.csv
+data/taikoon/whitelist/holesky.csv
+data/taikoon/whitelist/mainnet.csv
+data/taikoon/whitelist/*.json
+data/snaefell/original
+data/snaefell/images
+data/snaefell/metadata
+data/snaefell/whitelist/hardhat.csv
+data/snaefell/whitelist/holesky.csv
+data/snaefell/whitelist/mainnet.csv
+data/snaefell/whitelist/*.json

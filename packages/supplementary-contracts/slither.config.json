@@ -1,0 +1,9 @@
+{
+  "detectors_to_exclude": "incorrect-equality,naming-convention",
+  "exclude_dependencies": true,
+  "exclude_informational": true,
+  "exclude_low": true,
+  "exclude_optimization": true,
+  "fail_on": "none",
+  "filter_paths": "(node_modules)"
+}

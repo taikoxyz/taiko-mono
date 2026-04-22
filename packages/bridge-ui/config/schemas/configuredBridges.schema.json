@@ -1,0 +1,72 @@
+{
+  "$id": "configuredBridges.json",
+  "type": "object",
+  "properties": {
+    "configuredBridges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "destination": {
+            "type": "string"
+          },
+          "addresses": {
+            "type": "object",
+            "properties": {
+              "bridgeAddress": {
+                "type": "string"
+              },
+              "erc20VaultAddress": {
+                "type": "string"
+              },
+              "erc721VaultAddress": {
+                "type": "string"
+              },
+              "erc1155VaultAddress": {
+                "type": "string"
+              },
+              "signalServiceAddress": {
+                "type": "string"
+              },
+              "anchorForkRouter": {
+                "type": "string",
+                "description": "Anchor address for checkpoint sync (L2 only)"
+              },
+              "crossChainSyncAddress": {
+                "type": "string",
+                "description": "Deprecated legacy field from the Pacaya era. Ignored at runtime; accepted only so existing encoded env var payloads continue to validate."
+              },
+              "hops": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "chainId": { "type": "number" },
+                    "signalServiceAddress": { "type": "string" }
+                  },
+                  "required": ["chainId", "signalServiceAddress"]
+                },
+                "description": "Deprecated legacy field from the Pacaya era. Ignored at runtime; accepted only so existing encoded env var payloads continue to validate."
+              }
+            },
+            "required": [
+              "bridgeAddress",
+              "erc20VaultAddress",
+              "erc721VaultAddress",
+              "erc1155VaultAddress",
+              "signalServiceAddress"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["source", "destination", "addresses"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["configuredBridges"],
+  "additionalProperties": false
+}

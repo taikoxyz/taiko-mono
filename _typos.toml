@@ -1,0 +1,36 @@
+[default]
+# False positives
+extend-ignore-identifiers-re = [
+  "QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG",
+  "bafybeiegdqpwx3he5dvoxqklspdjekjepjcobfaakyficksratn73qbbyy",
+  "TGE",
+  "tge",
+  "preconf",
+  "preconfer",
+  "baed",
+  "Groth",
+  "groth",
+  "GROTH",
+  "TTKOt",
+  "J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8",
+  "consts",
+]
+
+[files]
+extend-exclude = [
+  "*.png",
+  "*.svg",
+  "go.mod",
+  "go.sum",
+  "pnpm-lock.yaml",
+  "**/**/pnpm-lock.yaml",
+  "CHANGELOG.md",
+  "packages/protocol/audit/code4rena-2024-03-taiko-final-report.md",
+  "packages/protocol/contracts/layer1/automata-attestation/**",
+  "packages/protocol/deployments/**",
+  # Auto-generated bindings
+  "packages/taiko-client-rs/crates/bindings/**",
+  "packages/taiko-client/bindings/ontake/**",
+  "packages/taiko-client/bindings/pacaya/**",
+  "packages/taiko-client/bindings/shasta/**",
+]

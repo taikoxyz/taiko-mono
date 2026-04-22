@@ -1,0 +1,3 @@
+replace common.Address string
+replace common.Hash string
+replace big.Int int
