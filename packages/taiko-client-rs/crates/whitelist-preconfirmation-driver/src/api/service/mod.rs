@@ -66,8 +66,6 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
-    /// Lock-free shared set of allowed sequencer addresses, refreshed by background poller.
-    operator_set: crate::operator_set::SharedOperatorSet,
     /// Local peer ID string.
     local_peer_id: String,
     /// Highest unsafe payload block ID tracked by this node (shared with importer).
@@ -93,8 +91,6 @@ where
     pub(crate) signer: FixedKSigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
-    /// Shared operator set for fee-recipient validation.
-    pub(crate) operator_set: crate::operator_set::SharedOperatorSet,
     /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
     pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Network command sender for gossip publishing.
@@ -117,7 +113,6 @@ where
             chain_id,
             signer,
             beacon_client,
-            operator_set,
             highest_unsafe_l2_payload_block_id,
             network_command_tx,
             cache_state,
@@ -131,7 +126,6 @@ where
             chain_id,
             signer,
             beacon_client,
-            operator_set,
             local_peer_id,
             highest_unsafe_l2_payload_block_id,
             cache_state,

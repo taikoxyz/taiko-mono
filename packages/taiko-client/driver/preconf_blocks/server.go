@@ -41,9 +41,8 @@ import (
 )
 
 var (
-	errInvalidCurrOperator = errors.New("invalid operator: expected current operator in handover window")
-	errInvalidNextOperator = errors.New("invalid operator: expected next operator in handover window")
-	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+	errSlotOutsideSequencingWindow = errors.New("slot outside current and next operator sequencing windows")
+	wsUpgrader                     = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
 
 const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
@@ -1021,10 +1020,9 @@ func (s *PreconfBlockAPIServer) GetLookahead() *Lookahead {
 	return s.lookahead
 }
 
-// CheckLookaheadHandover returns nil if feeRecipient is allowed to build at slot globalSlot (absolute L1 slot).
-// and checks the handover window to see if we need to request the end of sequencing
-// block.
-func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Address, globalSlot uint64) error {
+// CheckLookaheadHandover returns nil if globalSlot (absolute L1 slot) falls inside
+// this operator's current or next scheduled sequencing window.
+func (s *PreconfBlockAPIServer) CheckLookaheadHandover(globalSlot uint64) error {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
 
@@ -1033,21 +1031,18 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Addre
 		return nil
 	}
 
-	// Check if the fee recipient is the current operator.
 	for _, r := range s.lookahead.CurrRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
 			return nil
 		}
 	}
 
-	// Check if the fee recipient is the next operator.
 	for _, r := range s.lookahead.NextRanges {
 		if globalSlot >= r.Start && globalSlot < r.End {
 			return nil
 		}
 	}
 
-	// If not in any range, we returns an error.
 	log.Debug(
 		"Slot out of sequencing window",
 		"slot", globalSlot,
@@ -1055,11 +1050,7 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Addre
 		"nextRanges", s.lookahead.NextRanges,
 	)
 
-	if feeRecipient == s.lookahead.CurrOperator {
-		return errInvalidCurrOperator
-	}
-
-	return errInvalidNextOperator
+	return errSlotOutsideSequencingWindow
 }
 
 // PutPayloadsCache puts the given payload into the payload cache queue, should ONLY be used in testing.

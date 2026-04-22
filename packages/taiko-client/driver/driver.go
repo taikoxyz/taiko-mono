@@ -390,7 +390,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			return
 		}
 
-		isSequencer := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot) == nil
+		isSequencer := d.preconfBlockServer.CheckLookaheadHandover(slot) == nil
 
 		if isSequencer && !wasSequencer {
 			log.Info("Lookahead transitioning to sequencing for operator", "epoch", epoch, "slot", slot)

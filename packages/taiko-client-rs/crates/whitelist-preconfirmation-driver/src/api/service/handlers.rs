@@ -6,17 +6,6 @@ impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Validate that the fee recipient is a registered operator.
-    fn ensure_fee_recipient_allowed(&self, fee_recipient: alloy_primitives::Address) -> Result<()> {
-        if self.operator_set.load().contains(&fee_recipient) {
-            Ok(())
-        } else {
-            Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "fee recipient {fee_recipient} is not a registered operator"
-            )))
-        }
-    }
-
     /// Send one network command and map channel failures into a consistent P2P error.
     async fn send_network_command(
         &self,
@@ -61,8 +50,6 @@ where
                 driver::DriverError::EngineSyncing(request.block_number),
             ));
         }
-
-        self.ensure_fee_recipient_allowed(request.fee_recipient)?;
 
         let prev_randao =
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;

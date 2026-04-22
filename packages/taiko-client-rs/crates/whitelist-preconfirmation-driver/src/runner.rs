@@ -160,7 +160,6 @@ impl WhitelistPreconfirmationDriverRunner {
                     chain_id,
                     signer,
                     beacon_client: Arc::clone(&beacon_client),
-                    operator_set: operator_set.clone(),
                     highest_unsafe_l2_payload_block_id: shared_highest.clone(),
                     network_command_tx: network.command_tx.clone(),
                     cache_state: cache_state.clone(),
