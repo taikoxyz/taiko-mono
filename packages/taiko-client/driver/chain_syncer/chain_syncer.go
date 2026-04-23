@@ -146,7 +146,6 @@ func (s *L2ChainSyncer) Sync() error {
 			log.Info("Head L1 origin not set after event sync, keep preconf imports disabled")
 		}
 	}
-
 	return nil
 }
 
