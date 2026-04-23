@@ -194,19 +194,6 @@ where
         )
         .increment(1);
 
-        let inserted_hash = self
-            .block_hash_by_number(block_number)
-            .await?
-            .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(block_number))?;
-
-        if inserted_hash != block_hash {
-            return Err(WhitelistPreconfirmationDriverError::InsertedBlockHashMismatch {
-                block_number,
-                expected: block_hash,
-                actual: inserted_hash,
-            });
-        }
-
         info!(
             block_number,
             block_hash = %block_hash,
