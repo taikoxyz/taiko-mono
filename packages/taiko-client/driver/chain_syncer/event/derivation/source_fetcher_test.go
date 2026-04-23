@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -82,6 +84,43 @@ func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
 	s.Nil(err)
 	s.Equal(version, decodedVersion)
 	s.Equal(uint64(len(sourceManifestBytes)), decodedSize)
+}
+
+func TestManifestFromBlobBytesUsesTimestampAwareBlockLimit(t *testing.T) {
+	original := gethcore.InternalUzenTime
+	t.Cleanup(func() { gethcore.InternalUzenTime = original })
+	gethcore.InternalUzenTime = 100
+
+	blocks := make([]*manifest.BlockManifest, manifest.ProposalMaxBlocks+1)
+	for i := range blocks {
+		blocks[i] = &manifest.BlockManifest{}
+	}
+	encoded, err := builder.EncodeSourceManifest(&manifest.DerivationSourceManifest{Blocks: blocks})
+	require.NoError(t, err)
+
+	meta := &metadata.TaikoProposalMetadataShasta{
+		ShastaInboxClientProposed: &shastaBindings.ShastaInboxClientProposed{
+			Sources: []shastaBindings.IInboxDerivationSource{{
+				BlobSlice: shastaBindings.LibBlobsBlobSlice{
+					Offset:    big.NewInt(0),
+					Timestamp: big.NewInt(99),
+				},
+			}},
+		},
+	}
+	fetcher := &DerivationSourceFetcher{
+		cli: &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoInternalNetworkID}},
+	}
+
+	decoded, err := fetcher.manifestFromBlobBytes(encoded, meta, 0)
+	require.NoError(t, err)
+	require.True(t, decoded.Default)
+
+	meta.Sources[0].BlobSlice.Timestamp = big.NewInt(100)
+	decoded, err = fetcher.manifestFromBlobBytes(encoded, meta, 0)
+	require.NoError(t, err)
+	require.False(t, decoded.Default)
+	require.Len(t, decoded.BlockPayloads, manifest.ProposalMaxBlocks+1)
 }
 
 func TestDerivationSourceFetcherTestSuite(t *testing.T) {

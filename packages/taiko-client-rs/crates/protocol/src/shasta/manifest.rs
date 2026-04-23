@@ -59,6 +59,16 @@ impl DerivationSourceManifest {
     /// Decompress and decode a derivation source manifest from the Shasta protocol payload bytes.
     /// Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Self> {
+        Self::decompress_and_decode_with_limit(bytes, offset, DERIVATION_SOURCE_MAX_BLOCKS)
+    }
+
+    /// Decompress and decode a derivation source manifest using an explicit per-source block
+    /// limit.
+    pub fn decompress_and_decode_with_limit(
+        bytes: &[u8],
+        offset: usize,
+        max_blocks: usize,
+    ) -> Result<Self> {
         let decoded = match decode_manifest_payload(bytes, offset) {
             Ok(d) => d,
             Err(err) => {
@@ -76,10 +86,10 @@ impl DerivationSourceManifest {
             }
         };
 
-        if manifest.blocks.len() > DERIVATION_SOURCE_MAX_BLOCKS {
+        if manifest.blocks.len() > max_blocks {
             warn!(
                 blocks = manifest.blocks.len(),
-                max = DERIVATION_SOURCE_MAX_BLOCKS,
+                max = max_blocks,
                 "manifest contains too many blocks; returning default manifest"
             );
             return Ok(DerivationSourceManifest::default());
@@ -239,6 +249,22 @@ mod tests {
 
         let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
         assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn test_derivation_manifest_respects_custom_block_limit() {
+        let blocks: Vec<BlockManifest> =
+            (0..=DERIVATION_SOURCE_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
+        let manifest = DerivationSourceManifest { blocks };
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode_with_limit(
+            &encoded,
+            0,
+            DERIVATION_SOURCE_MAX_BLOCKS + 1,
+        )
+        .unwrap();
+        assert_eq!(decoded.blocks.len(), DERIVATION_SOURCE_MAX_BLOCKS + 1);
     }
 
     #[test]

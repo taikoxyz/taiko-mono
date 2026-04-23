@@ -139,12 +139,18 @@ func (f *DerivationSourceFetcher) manifestFromBlobBytes(
 		}
 	}
 
+	var chainID *big.Int
+	if f.cli != nil && f.cli.L2 != nil {
+		chainID = f.cli.L2.ChainID
+	}
+	maxBlocks := manifest.ProposalMaxBlocksByChainIDAndTimestamp(chainID, meta.GetBlobTimestamp(derivationIdx))
+
 	// If there are too many blocks in the manifest, return the default payload.
-	if len(derivationSourceManifest.Blocks) > manifest.ProposalMaxBlocks {
+	if len(derivationSourceManifest.Blocks) > maxBlocks {
 		log.Warn(
 			"Too many blocks in the manifest, use default payload instead",
 			"blocks", len(derivationSourceManifest.Blocks),
-			"max", manifest.ProposalMaxBlocks,
+			"max", maxBlocks,
 		)
 		return defaultPayload, nil
 	}

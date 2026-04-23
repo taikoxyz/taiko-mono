@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -13,9 +14,11 @@ const (
 	ShastaPayloadVersion = 0x1
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
-	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal.
-	// Allows blocks as fast as 500ms assuming one proposal per epoch.
-	ProposalMaxBlocks = 768
+	// ProposalMaxBlocks The maximum number of blocks allowed in a derivation source before Uzen.
+	ProposalMaxBlocks = 192
+	// UzenProposalMaxBlocks The maximum number of blocks allowed in a derivation source once
+	// Uzen is active.
+	UzenProposalMaxBlocks = 768
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on Hoodi.
 	AnchorMaxOffset = uint64(128)
 	// MainnetAnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on mainnet.
@@ -73,4 +76,20 @@ func TimestampMaxOffsetByChainID(chainID *big.Int) uint64 {
 	}
 
 	return TimestampMaxOffset
+}
+
+// ProposalMaxBlocksByChainIDAndTimestamp returns the per-source derivation block limit for the
+// provided chain and source timestamp.
+func ProposalMaxBlocksByChainIDAndTimestamp(chainID *big.Int, timestamp uint64) int {
+	if chainID == nil {
+		return ProposalMaxBlocks
+	}
+
+	genesis := gethcore.TaikoGenesisBlock(chainID.Uint64())
+	if genesis != nil && genesis.Config != nil && genesis.Config.ChainID != nil &&
+		genesis.Config.ChainID.Cmp(chainID) == 0 && genesis.Config.IsUzen(timestamp) {
+		return UzenProposalMaxBlocks
+	}
+
+	return ProposalMaxBlocks
 }

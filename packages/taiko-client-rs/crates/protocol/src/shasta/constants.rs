@@ -7,9 +7,16 @@ use alethia_reth_consensus::eip4396::{MAINNET_MIN_BASE_FEE, MIN_BASE_FEE};
 use alloy_eips::eip4844::BYTES_PER_BLOB;
 use alloy_hardforks::ForkCondition;
 
-/// The maximum number of blocks allowed in a proposal. Allows blocks as fast as 500ms
-/// assuming one proposal per epoch.
-pub const DERIVATION_SOURCE_MAX_BLOCKS: usize = 768;
+/// The maximum number of blocks allowed in a derivation source before Uzen.
+///
+/// With 1-second blocks, 192 blocks cover one Ethereum epoch.
+pub const DERIVATION_SOURCE_MAX_BLOCKS: usize = 192;
+
+/// The maximum number of blocks allowed in a derivation source once Uzen is active.
+///
+/// This allows room for faster block times after the fork without changing the
+/// pre-Uzen manifest validation rules.
+pub const UZEN_DERIVATION_SOURCE_MAX_BLOCKS: usize = 768;
 
 /// The maximum anchor block number offset from the proposal origin block number.
 pub const MAX_ANCHOR_OFFSET: u64 = 128;
@@ -185,14 +192,28 @@ pub fn uzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkCon
     }
 }
 
+/// Returns the per-source derivation block limit for a Taiko chain at the provided timestamp.
+pub fn derivation_source_max_blocks_for_timestamp(
+    chain_id: u64,
+    timestamp: u64,
+) -> ForkConfigResult<usize> {
+    if uzen_active_for_chain_timestamp(chain_id, timestamp)? {
+        Ok(UZEN_DERIVATION_SOURCE_MAX_BLOCKS)
+    } else {
+        Ok(DERIVATION_SOURCE_MAX_BLOCKS)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        ForkConfigError, MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID,
-        TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
-        TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain, shasta_fork_timestamp_for_chain,
-        timestamp_max_offset_for_chain, uzen_fork_condition_for_chain,
-        uzen_fork_timestamp_for_chain,
+        DERIVATION_SOURCE_MAX_BLOCKS, ForkConfigError, MAX_ANCHOR_OFFSET,
+        MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID,
+        TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
+        TIMESTAMP_MAX_OFFSET_MAINNET, UZEN_DERIVATION_SOURCE_MAX_BLOCKS,
+        derivation_source_max_blocks_for_timestamp, max_anchor_offset_for_chain,
+        shasta_fork_timestamp_for_chain, timestamp_max_offset_for_chain,
+        uzen_fork_condition_for_chain, uzen_fork_timestamp_for_chain,
     };
     use alloy_hardforks::ForkCondition;
 
@@ -252,5 +273,24 @@ mod tests {
             uzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID),
             Err(ForkConfigError::UnsupportedActivation)
         ));
+    }
+
+    #[test]
+    fn derivation_source_max_blocks_switches_at_uzen() {
+        assert_eq!(
+            derivation_source_max_blocks_for_timestamp(TAIKO_DEVNET_CHAIN_ID, 0)
+                .expect("devnet uzen max blocks should resolve"),
+            UZEN_DERIVATION_SOURCE_MAX_BLOCKS
+        );
+        assert_eq!(
+            derivation_source_max_blocks_for_timestamp(TAIKO_HOODI_CHAIN_ID, u64::MAX)
+                .expect("hoodi max blocks should resolve"),
+            DERIVATION_SOURCE_MAX_BLOCKS
+        );
+        assert_eq!(
+            derivation_source_max_blocks_for_timestamp(TAIKO_MAINNET_CHAIN_ID, u64::MAX)
+                .expect("mainnet max blocks should resolve"),
+            DERIVATION_SOURCE_MAX_BLOCKS
+        );
     }
 }

@@ -115,8 +115,8 @@ fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {
 /// Check if a derivation source has a valid blob offset.
 /// Returns true if the source has non-empty blob hashes and the offset is within bounds.
 fn is_source_offset_valid(source: &DerivationSource) -> bool {
-    !source.blobSlice.blobHashes.is_empty() &&
-        source.blobSlice.offset.to::<usize>() <= PROPOSAL_MAX_BLOB_BYTES - 64
+    !source.blobSlice.blobHashes.is_empty()
+        && source.blobSlice.offset.to::<usize>() <= PROPOSAL_MAX_BLOB_BYTES - 64
 }
 
 /// Return whether parent-anchor recovery should decode the parent block's `anchorV4` / `anchorV3`
@@ -223,12 +223,12 @@ where
         blob_source: Arc<BlobDataSource>,
         initial_proposal_id: U256,
     ) -> Result<Self, DerivationError> {
+        let chain_id = rpc.l2_provider.get_chain_id().await?;
         let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
-            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
+            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone(), chain_id));
         let anchor_address = *rpc.shasta.anchor.address();
         let anchor_constructor =
             AnchorTxConstructor::new(rpc.l2_provider.clone(), anchor_address).await?;
-        let chain_id = rpc.l2_provider.get_chain_id().await?;
         let shasta_fork_timestamp = shasta_fork_timestamp_for_chain(chain_id)
             .map_err(|err| DerivationError::Other(err.into()))?;
         // Clamp differs by chain; keep derivation-side base-fee math chain-aware.
@@ -273,8 +273,8 @@ where
             self.rpc.last_l1_origin_by_batch_id(U256::from(parent_proposal_id)).await?
         {
             // Prefer the concrete block referenced by the cached origin hash.
-            if origin.l2_block_hash != B256::ZERO &&
-                let Some(block) =
+            if origin.l2_block_hash != B256::ZERO
+                && let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
             {
                 info!(
@@ -808,6 +808,7 @@ mod tests {
             anchor_constructor,
             derivation_source_manifest_fetcher: Arc::new(ShastaSourceManifestFetcher::new(
                 blob_source,
+                TAIKO_MAINNET_CHAIN_ID,
             )),
             shasta_fork_timestamp: 0,
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
