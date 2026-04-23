@@ -240,6 +240,18 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 		return 0, false, nil
 	}
 
+	// Refresh the cached L2 head directly from the execution engine before
+	// making the beacon-sync decision. The `newHeads` subscription (see
+	// driver/state/state.go eventLoop) does not fire for blocks acquired
+	// through engine-API-driven beacon-sync backfill, so the cached head can
+	// lag the engine's actual head and cause us to repeatedly retrigger
+	// beacon sync against a block the engine already has.
+	if header, err := s.rpc.L2.HeaderByNumber(s.ctx, nil); err != nil {
+		log.Warn("Failed to refresh L2 head for beacon-sync decision", "error", err)
+	} else if header != nil {
+		s.state.SetL2Head(header)
+	}
+
 	head, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to get L2 checkpoint head L1 origin: %w", err)
