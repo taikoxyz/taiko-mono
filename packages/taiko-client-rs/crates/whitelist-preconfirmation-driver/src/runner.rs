@@ -240,7 +240,12 @@ impl WhitelistPreconfirmationDriverRunner {
                         .await;
                     };
 
-                    importer.handle_event(event).await?;
+                    if let Err(err) = importer.handle_event(event).await {
+                        warn!(
+                            error = %err,
+                            "failed to handle whitelist preconfirmation network event"
+                        );
+                    }
                 }
                 _ = sync_ready_interval.tick() => {
                     if let Err(err) = importer.maybe_import_from_cache().await {
