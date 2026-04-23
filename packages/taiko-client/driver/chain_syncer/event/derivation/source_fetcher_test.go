@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
@@ -87,10 +86,6 @@ func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
 }
 
 func TestManifestFromBlobBytesUsesTimestampAwareBlockLimit(t *testing.T) {
-	original := gethcore.InternalUzenTime
-	t.Cleanup(func() { gethcore.InternalUzenTime = original })
-	gethcore.InternalUzenTime = 100
-
 	blocks := make([]*manifest.BlockManifest, manifest.ProposalMaxBlocks+1)
 	for i := range blocks {
 		blocks[i] = &manifest.BlockManifest{}
@@ -103,20 +98,22 @@ func TestManifestFromBlobBytesUsesTimestampAwareBlockLimit(t *testing.T) {
 			Sources: []shastaBindings.IInboxDerivationSource{{
 				BlobSlice: shastaBindings.LibBlobsBlobSlice{
 					Offset:    big.NewInt(0),
-					Timestamp: big.NewInt(99),
+					Timestamp: big.NewInt(100),
 				},
 			}},
 		},
 	}
-	fetcher := &DerivationSourceFetcher{
-		cli: &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoInternalNetworkID}},
-	}
 
+	// Mainnet: Unzen not scheduled, so ProposalMaxBlocks + 1 must hit the pre-Unzen limit.
+	fetcher := &DerivationSourceFetcher{
+		cli: &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoMainnetNetworkID}},
+	}
 	decoded, err := fetcher.manifestFromBlobBytes(encoded, meta, 0)
 	require.NoError(t, err)
 	require.True(t, decoded.Default)
 
-	meta.Sources[0].BlobSlice.Timestamp = big.NewInt(100)
+	// Devnet: Unzen active from genesis, ProposalMaxBlocks + 1 is accepted (up to UnzenProposalMaxBlocks).
+	fetcher.cli = &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoInternalNetworkID}}
 	decoded, err = fetcher.manifestFromBlobBytes(encoded, meta, 0)
 	require.NoError(t, err)
 	require.False(t, decoded.Default)

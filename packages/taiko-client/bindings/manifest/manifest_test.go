@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/require"
 )
@@ -24,25 +23,31 @@ func TestTimestampMaxOffsetByChainID(t *testing.T) {
 }
 
 func TestProposalMaxBlocksByChainIDAndTimestamp(t *testing.T) {
-	original := gethcore.InternalUzenTime
-	t.Cleanup(func() { gethcore.InternalUzenTime = original })
-
-	gethcore.InternalUzenTime = 100
-
+	// Nil / unknown chains get the pre-Unzen limit.
 	require.Equal(t, ProposalMaxBlocks, ProposalMaxBlocksByChainIDAndTimestamp(nil, 0))
+	require.Equal(t, ProposalMaxBlocks, ProposalMaxBlocksByChainIDAndTimestamp(big.NewInt(12345), 0))
+
+	// Devnet is always Unzen-active (Unzen activation = genesis).
 	require.Equal(
 		t,
-		ProposalMaxBlocks,
-		ProposalMaxBlocksByChainIDAndTimestamp(params.TaikoInternalNetworkID, 99),
+		UnzenProposalMaxBlocks,
+		ProposalMaxBlocksByChainIDAndTimestamp(params.TaikoInternalNetworkID, 0),
 	)
 	require.Equal(
 		t,
 		UnzenProposalMaxBlocks,
 		ProposalMaxBlocksByChainIDAndTimestamp(params.TaikoInternalNetworkID, 100),
 	)
+
+	// Hoodi/Mainnet/Masaya have no Unzen activation scheduled yet: pre-Unzen limit.
 	require.Equal(
 		t,
 		ProposalMaxBlocks,
 		ProposalMaxBlocksByChainIDAndTimestamp(params.TaikoHoodiNetworkID, 100),
+	)
+	require.Equal(
+		t,
+		ProposalMaxBlocks,
+		ProposalMaxBlocksByChainIDAndTimestamp(params.TaikoMainnetNetworkID, 100),
 	)
 }

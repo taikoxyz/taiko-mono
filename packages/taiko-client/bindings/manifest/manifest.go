@@ -4,7 +4,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -81,13 +80,7 @@ func TimestampMaxOffsetByChainID(chainID *big.Int) uint64 {
 // ProposalMaxBlocksByChainIDAndTimestamp returns the per-source derivation block limit for the
 // provided chain and source timestamp.
 func ProposalMaxBlocksByChainIDAndTimestamp(chainID *big.Int, timestamp uint64) int {
-	if chainID == nil {
-		return ProposalMaxBlocks
-	}
-
-	genesis := gethcore.TaikoGenesisBlock(chainID.Uint64())
-	if genesis != nil && genesis.Config != nil && genesis.Config.ChainID != nil &&
-		genesis.Config.ChainID.Cmp(chainID) == 0 && genesis.Config.IsUzen(timestamp) {
+	if IsUnzen(chainID, timestamp) {
 		return UnzenProposalMaxBlocks
 	}
 

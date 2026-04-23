@@ -17,7 +17,7 @@ use alloy_rpc_types_engine::{
     PayloadId, PayloadStatusEnum,
 };
 use async_trait::async_trait;
-use protocol::shasta::uzen_active_for_chain_timestamp;
+use protocol::shasta::unzen_active_for_chain_timestamp;
 use rpc::client::Client;
 use tracing::{debug, info, instrument, warn};
 
@@ -226,9 +226,9 @@ fn derive_payload_sidecar(
     }
 }
 
-/// Restore the hash-relevant header difficulty from a Taiko engine envelope when Uzen is active.
-fn uzen_header_difficulty(chain_id: u64, timestamp: u64, block_value: U256) -> Option<U256> {
-    uzen_active_for_chain_timestamp(chain_id, timestamp).unwrap_or(false).then_some(block_value)
+/// Restore the hash-relevant header difficulty from a Taiko engine envelope when Unzen is active.
+fn unzen_header_difficulty(chain_id: u64, timestamp: u64, block_value: U256) -> Option<U256> {
+    unzen_active_for_chain_timestamp(chain_id, timestamp).unwrap_or(false).then_some(block_value)
 }
 
 /// Convert an execution payload envelope into the submission format expected by the engine.
@@ -246,11 +246,11 @@ fn envelope_into_submission(
 
     let block_hash = execution_payload.block_hash;
     let block_number = execution_payload.block_number;
-    // Taiko Uzen reuses `getPayloadV2.blockValue` to transport the original
+    // Taiko Unzen reuses `getPayloadV2.blockValue` to transport the original
     // `header.difficulty` back into `newPayloadV2.headerDifficulty` so the
     // getPayload/newPayload round trip stays hash-stable without adding a new wire field.
     let header_difficulty =
-        uzen_header_difficulty(chain_id, execution_payload.timestamp, block_value);
+        unzen_header_difficulty(chain_id, execution_payload.timestamp, block_value);
 
     let payload_input =
         ExecutionPayloadInputV2 { execution_payload, withdrawals: Some(withdrawals) };
@@ -418,7 +418,7 @@ mod tests {
     }
 
     #[test]
-    fn uzen_block_value_becomes_header_difficulty() {
+    fn unzen_block_value_becomes_header_difficulty() {
         let envelope = sample_envelope_v1(0, U256::from(42u64));
 
         let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);
@@ -427,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn pre_uzen_block_value_is_not_reused_as_header_difficulty() {
+    fn pre_unzen_block_value_is_not_reused_as_header_difficulty() {
         let envelope = sample_envelope_v1(0, U256::from(42u64));
 
         let (_, sidecar, _, _) = envelope_into_submission(TAIKO_MAINNET_CHAIN_ID, envelope);
@@ -436,7 +436,7 @@ mod tests {
     }
 
     #[test]
-    fn uzen_block_value_becomes_header_difficulty_for_v2_envelope() {
+    fn unzen_block_value_becomes_header_difficulty_for_v2_envelope() {
         let envelope = sample_envelope_v2(0, U256::from(42u64));
 
         let (_, sidecar, _, _) = envelope_into_submission(TAIKO_DEVNET_CHAIN_ID, envelope);

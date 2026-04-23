@@ -10,7 +10,7 @@ use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
 use protocol::{
     codec::{TxListCodecError, ZlibTxListCodec},
-    shasta::uzen_active_for_chain_timestamp,
+    shasta::unzen_active_for_chain_timestamp,
 };
 use thiserror::Error;
 
@@ -231,30 +231,30 @@ pub(super) fn normalize_unsafe_payload_envelope(
     envelope
 }
 
-/// Reject envelopes whose `header_difficulty` presence contradicts the Uzen
+/// Reject envelopes whose `header_difficulty` presence contradicts the Unzen
 /// status at the payload timestamp.
 ///
-/// - Uzen active + `None` or zero                → error
-/// - Uzen inactive + `Some(non_zero)`            → error
+/// - Unzen active + `None` or zero               → error
+/// - Unzen inactive + `Some(non_zero)`           → error
 pub(crate) fn validate_envelope_header_difficulty(
     chain_id: u64,
     timestamp: u64,
     header_difficulty: Option<alloy_primitives::U256>,
 ) -> Result<()> {
-    let uzen = uzen_active_for_chain_timestamp(chain_id, timestamp).map_err(|err| {
+    let unzen = unzen_active_for_chain_timestamp(chain_id, timestamp).map_err(|err| {
         WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-            &format!("uzen fork lookup failed for chain {chain_id} at timestamp {timestamp}"),
+            &format!("unzen fork lookup failed for chain {chain_id} at timestamp {timestamp}"),
             err,
         )
     })?;
     let present = header_difficulty.map(|v| !v.is_zero()).unwrap_or(false);
 
-    match (uzen, present) {
+    match (unzen, present) {
         (true, false) => Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
-            "uzen active at timestamp {timestamp} but envelope is missing header difficulty",
+            "unzen active at timestamp {timestamp} but envelope is missing header difficulty",
         ))),
         (false, true) => Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
-            "uzen inactive at timestamp {timestamp} but envelope carries non-zero header difficulty",
+            "unzen inactive at timestamp {timestamp} but envelope carries non-zero header difficulty",
         ))),
         _ => Ok(()),
     }

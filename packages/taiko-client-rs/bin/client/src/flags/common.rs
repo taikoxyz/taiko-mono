@@ -84,14 +84,6 @@ pub struct CommonArgs {
         help = "Address to bind Prometheus metrics server"
     )]
     pub metrics_addr: String,
-    /// Override Uzen fork time for Taiko internal devnet (timestamp).
-    #[clap(
-        long = "devnet-uzen-timestamp",
-        env = "DEVNET_UZEN_TIMESTAMP",
-        default_value_t = 0,
-        help = "Override Uzen fork time for Taiko internal devnet (timestamp). Must match the value passed to alethia-reth's --devnet-uzen-timestamp. Defaults to 0."
-    )]
-    pub devnet_uzen_timestamp: u64,
 }
 
 impl CommonArgs {
@@ -232,7 +224,6 @@ mod tests {
             metrics_enabled: false,
             metrics_port: 9090,
             metrics_addr: "0.0.0.0".to_string(),
-            devnet_uzen_timestamp: 0,
         };
 
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
@@ -273,31 +264,4 @@ mod tests {
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
     }
 
-    #[test]
-    fn parses_devnet_uzen_timestamp_flag() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _clear = clear_l1_env();
-        let _clear_dut = EnvGuard::unset("DEVNET_UZEN_TIMESTAMP");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-        argv.extend(["--devnet-uzen-timestamp", "12345"]);
-
-        let args =
-            CommonArgs::try_parse_from(argv).expect("devnet uzen timestamp flag should parse");
-
-        assert_eq!(args.devnet_uzen_timestamp, 12345);
-    }
-
-    #[test]
-    fn devnet_uzen_timestamp_defaults_to_zero() {
-        let _lock = ENV_LOCK.lock().expect("env lock poisoned");
-        let _clear = clear_l1_env();
-        let _clear_dut = EnvGuard::unset("DEVNET_UZEN_TIMESTAMP");
-        let mut argv: Vec<&'static str> = required_args().to_vec();
-        argv.extend(["--l1.http", "http://localhost:8545"]);
-
-        let args = CommonArgs::try_parse_from(argv).expect("default parse should succeed");
-
-        assert_eq!(args.devnet_uzen_timestamp, 0);
-    }
 }

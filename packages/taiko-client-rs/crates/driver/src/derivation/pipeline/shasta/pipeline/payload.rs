@@ -15,7 +15,7 @@ use metrics::counter;
 use protocol::shasta::{
     PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    payload_id_to_bytes, uzen_active_for_chain_timestamp,
+    payload_id_to_bytes, unzen_active_for_chain_timestamp,
 };
 
 use crate::{
@@ -796,12 +796,12 @@ where
             return Ok(None);
         }
 
-        let uzen_active = uzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)
+        let unzen_active = unzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)
             .map_err(|err| DerivationError::Other(err.into()))?;
 
-        if uzen_active {
+        if unzen_active {
             if block.header.difficulty == U256::ZERO {
-                debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Uzen");
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Unzen");
                 return Ok(None);
             }
 
@@ -843,7 +843,7 @@ where
             if block.header.parent_beacon_block_root.is_some() {
                 debug!(
                     proposal_id = meta.proposal_id,
-                    block_id, "unexpected parent beacon root before Uzen"
+                    block_id, "unexpected parent beacon root before Unzen"
                 );
                 return Ok(None);
             }
@@ -851,7 +851,7 @@ where
             if block.header.requests_hash.is_some() {
                 debug!(
                     proposal_id = meta.proposal_id,
-                    block_id, "unexpected requests hash before Uzen"
+                    block_id, "unexpected requests hash before Unzen"
                 );
                 return Ok(None);
             }

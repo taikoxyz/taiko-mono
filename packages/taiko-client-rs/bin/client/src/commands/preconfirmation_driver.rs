@@ -8,7 +8,6 @@ use preconfirmation_driver::{
     rpc::PreconfRpcServerConfig,
 };
 use preconfirmation_net::P2pConfig;
-use protocol::shasta::set_devnet_uzen_override;
 use tracing::warn;
 
 use crate::{
@@ -85,7 +84,6 @@ impl Subcommand for PreconfirmationDriverSubCommand {
     /// Runs the preconfirmation driver with embedded P2P client.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
-        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
         self.init_metrics()?;
 
         let driver_config = self.build_driver_config()?;

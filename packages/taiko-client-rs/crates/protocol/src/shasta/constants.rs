@@ -1,7 +1,5 @@
 //! Shasta protocol constants and limits.
 
-use std::sync::OnceLock;
-
 use crate::shasta::error::{ForkConfigError, ForkConfigResult};
 use alethia_reth_consensus::eip4396::{MAINNET_MIN_BASE_FEE, MIN_BASE_FEE};
 use alloy_eips::eip4844::BYTES_PER_BLOB;
@@ -69,33 +67,16 @@ pub const SHASTA_FORK_HOODI: ForkCondition = ForkCondition::Timestamp(1_770_296_
 pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Timestamp(1_775_135_700);
 
 /// Unzen fork activation on Taiko Devnet.
-pub const UZEN_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
+pub const UNZEN_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
 
 /// Unzen fork activation on Taiko Masaya.
-pub const UZEN_FORK_MASAYA: ForkCondition = ForkCondition::Never;
+pub const UNZEN_FORK_MASAYA: ForkCondition = ForkCondition::Never;
 
 /// Unzen fork activation on Taiko Hoodi.
-pub const UZEN_FORK_HOODI: ForkCondition = ForkCondition::Never;
+pub const UNZEN_FORK_HOODI: ForkCondition = ForkCondition::Never;
 
 /// Unzen fork activation on Taiko Mainnet.
-pub const UZEN_FORK_MAINNET: ForkCondition = ForkCondition::Never;
-
-/// Process-global override for the devnet Unzen activation timestamp.
-///
-/// Set once at startup (typically from a CLI flag mirroring alethia-reth's
-/// `--devnet-uzen-timestamp`) so client and node agree on devnet fork timing.
-/// Only the first call takes effect; subsequent calls are silently ignored.
-static DEVNET_UZEN_OVERRIDE: OnceLock<u64> = OnceLock::new();
-
-/// Set the devnet Unzen activation timestamp override. Must be called before
-/// any fork-condition lookup runs for the internal devnet. Subsequent calls
-/// after the first are ignored. Logs the applied value on the first
-/// successful set so operators see confirmation at startup.
-pub fn set_devnet_uzen_override(timestamp: u64) {
-    if DEVNET_UZEN_OVERRIDE.set(timestamp).is_ok() {
-        tracing::info!(timestamp, "applied devnet Unzen activation time override");
-    }
-}
+pub const UNZEN_FORK_MAINNET: ForkCondition = ForkCondition::Never;
 
 /// Taiko chain IDs where the Shasta fork is configured.
 pub const TAIKO_DEVNET_CHAIN_ID: u64 = 167_001;
@@ -139,21 +120,12 @@ pub const fn shasta_fork_condition_for_chain(chain_id: u64) -> Option<ForkCondit
 }
 
 /// Returns the configured Unzen fork condition for a given Taiko L2 chain ID.
-///
-/// For the internal devnet, honors any override installed via
-/// `set_devnet_uzen_override`; falls back to `UZEN_FORK_DEVNET` otherwise.
-pub fn uzen_fork_condition_for_chain(chain_id: u64) -> Option<ForkCondition> {
+pub const fn unzen_fork_condition_for_chain(chain_id: u64) -> Option<ForkCondition> {
     match chain_id {
-        TAIKO_DEVNET_CHAIN_ID => Some(
-            DEVNET_UZEN_OVERRIDE
-                .get()
-                .copied()
-                .map(ForkCondition::Timestamp)
-                .unwrap_or(UZEN_FORK_DEVNET),
-        ),
-        TAIKO_MASAYA_CHAIN_ID => Some(UZEN_FORK_MASAYA),
-        TAIKO_HOODI_CHAIN_ID => Some(UZEN_FORK_HOODI),
-        TAIKO_MAINNET_CHAIN_ID => Some(UZEN_FORK_MAINNET),
+        TAIKO_DEVNET_CHAIN_ID => Some(UNZEN_FORK_DEVNET),
+        TAIKO_MASAYA_CHAIN_ID => Some(UNZEN_FORK_MASAYA),
+        TAIKO_HOODI_CHAIN_ID => Some(UNZEN_FORK_HOODI),
+        TAIKO_MAINNET_CHAIN_ID => Some(UNZEN_FORK_MAINNET),
         _ => None,
     }
 }
@@ -170,8 +142,8 @@ pub fn shasta_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
 }
 
 /// Returns the Unzen fork activation timestamp for a Taiko chain.
-pub fn uzen_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
-    let condition = uzen_fork_condition_for_chain(chain_id)
+pub fn unzen_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
+    let condition = unzen_fork_condition_for_chain(chain_id)
         .ok_or(ForkConfigError::UnsupportedChainId(chain_id))?;
 
     match condition {
@@ -181,8 +153,8 @@ pub fn uzen_fork_timestamp_for_chain(chain_id: u64) -> ForkConfigResult<u64> {
 }
 
 /// Returns whether Unzen is active for a Taiko chain at the provided block timestamp.
-pub fn uzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkConfigResult<bool> {
-    let condition = uzen_fork_condition_for_chain(chain_id)
+pub fn unzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkConfigResult<bool> {
+    let condition = unzen_fork_condition_for_chain(chain_id)
         .ok_or(ForkConfigError::UnsupportedChainId(chain_id))?;
 
     match condition {
@@ -197,7 +169,7 @@ pub fn derivation_source_max_blocks_for_timestamp(
     chain_id: u64,
     timestamp: u64,
 ) -> ForkConfigResult<usize> {
-    if uzen_active_for_chain_timestamp(chain_id, timestamp)? {
+    if unzen_active_for_chain_timestamp(chain_id, timestamp)? {
         Ok(UNZEN_DERIVATION_SOURCE_MAX_BLOCKS)
     } else {
         Ok(DERIVATION_SOURCE_MAX_BLOCKS)
@@ -213,7 +185,7 @@ mod tests {
         TIMESTAMP_MAX_OFFSET_MAINNET, UNZEN_DERIVATION_SOURCE_MAX_BLOCKS,
         derivation_source_max_blocks_for_timestamp, max_anchor_offset_for_chain,
         shasta_fork_timestamp_for_chain, timestamp_max_offset_for_chain,
-        uzen_fork_condition_for_chain, uzen_fork_timestamp_for_chain,
+        unzen_fork_condition_for_chain, unzen_fork_timestamp_for_chain,
     };
     use alloy_hardforks::ForkCondition;
 
@@ -240,16 +212,19 @@ mod tests {
     #[test]
     fn unzen_fork_conditions_are_configured() {
         assert_eq!(
-            uzen_fork_condition_for_chain(TAIKO_DEVNET_CHAIN_ID),
-            Some(super::UZEN_FORK_DEVNET)
+            unzen_fork_condition_for_chain(TAIKO_DEVNET_CHAIN_ID),
+            Some(super::UNZEN_FORK_DEVNET)
         );
         assert_eq!(
-            uzen_fork_condition_for_chain(TAIKO_MASAYA_CHAIN_ID),
+            unzen_fork_condition_for_chain(TAIKO_MASAYA_CHAIN_ID),
             Some(ForkCondition::Never)
         );
-        assert_eq!(uzen_fork_condition_for_chain(TAIKO_HOODI_CHAIN_ID), Some(ForkCondition::Never));
         assert_eq!(
-            uzen_fork_condition_for_chain(TAIKO_MAINNET_CHAIN_ID),
+            unzen_fork_condition_for_chain(TAIKO_HOODI_CHAIN_ID),
+            Some(ForkCondition::Never)
+        );
+        assert_eq!(
+            unzen_fork_condition_for_chain(TAIKO_MAINNET_CHAIN_ID),
             Some(ForkCondition::Never)
         );
     }
@@ -257,20 +232,20 @@ mod tests {
     #[test]
     fn unzen_fork_timestamps_are_configured() {
         assert_eq!(
-            uzen_fork_timestamp_for_chain(TAIKO_DEVNET_CHAIN_ID)
+            unzen_fork_timestamp_for_chain(TAIKO_DEVNET_CHAIN_ID)
                 .expect("devnet unzen timestamp should resolve"),
             0
         );
         assert!(matches!(
-            uzen_fork_timestamp_for_chain(TAIKO_MASAYA_CHAIN_ID),
+            unzen_fork_timestamp_for_chain(TAIKO_MASAYA_CHAIN_ID),
             Err(ForkConfigError::UnsupportedActivation)
         ));
         assert!(matches!(
-            uzen_fork_timestamp_for_chain(TAIKO_HOODI_CHAIN_ID),
+            unzen_fork_timestamp_for_chain(TAIKO_HOODI_CHAIN_ID),
             Err(ForkConfigError::UnsupportedActivation)
         ));
         assert!(matches!(
-            uzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID),
+            unzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID),
             Err(ForkConfigError::UnsupportedActivation)
         ));
     }

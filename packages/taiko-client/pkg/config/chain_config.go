@@ -9,6 +9,8 @@ import (
 	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 )
 
 // ChainConfig is the core config which determines the blockchain settings.
@@ -22,7 +24,7 @@ type forkInfo struct {
 	ontakeBlock *big.Int
 	pacayaBlock *big.Int
 	shastaTime  uint64
-	uzenTime    uint64
+	unzenTime   uint64
 }
 
 // NewChainConfig creates a new ChainConfig instance.
@@ -68,7 +70,7 @@ func (c *ChainConfig) Description() string {
 		banner += fmt.Sprintf(" - Ontake:                   %s\n", formatForkBlock(forks.ontakeBlock))
 		banner += fmt.Sprintf(" - Pacaya:                   %s\n", formatForkBlock(forks.pacayaBlock))
 		banner += fmt.Sprintf(" - Shasta:                   %s\n", formatForkTime(forks.shastaTime))
-		banner += fmt.Sprintf(" - Uzen:                     %s", formatForkTime(forks.uzenTime))
+		banner += fmt.Sprintf(" - Unzen:                    %s", formatForkTime(forks.unzenTime))
 	}
 	banner += "\n"
 
@@ -101,28 +103,28 @@ func (c *ChainConfig) forkInfo() (forkInfo, bool) {
 			ontakeBlock: gethcore.InternalDevnetOntakeBlock,
 			pacayaBlock: gethcore.InternalDevnetPacayaBlock,
 			shastaTime:  gethcore.InternalShastaTime,
-			uzenTime:    gethcore.InternalUzenTime,
+			unzenTime:   manifest.UnzenActivationTime(c.ChainID),
 		}, true
 	case params.MasayaDevnetNetworkID.Uint64():
 		return forkInfo{
 			ontakeBlock: gethcore.MasayaDevnetOntakeBlock,
 			pacayaBlock: gethcore.MasayaDevnetPacayaBlock,
 			shastaTime:  gethcore.MasayaShastaTime,
-			uzenTime:    gethcore.MasayaUzenTime,
+			unzenTime:   manifest.UnzenActivationTime(c.ChainID),
 		}, true
 	case params.TaikoHoodiNetworkID.Uint64():
 		return forkInfo{
 			ontakeBlock: gethcore.TaikoHoodiOntakeBlock,
 			pacayaBlock: gethcore.TaikoHoodiPacayaBlock,
 			shastaTime:  gethcore.HoodiShastaTime,
-			uzenTime:    gethcore.HoodiUzenTime,
+			unzenTime:   manifest.UnzenActivationTime(c.ChainID),
 		}, true
 	case params.TaikoMainnetNetworkID.Uint64():
 		return forkInfo{
 			ontakeBlock: gethcore.MainnetOntakeBlock,
 			pacayaBlock: gethcore.MainnetPacayaBlock,
 			shastaTime:  gethcore.MainnetShastaTime,
-			uzenTime:    gethcore.MainnetUzenTime,
+			unzenTime:   manifest.UnzenActivationTime(c.ChainID),
 		}, true
 	default:
 		return forkInfo{}, false

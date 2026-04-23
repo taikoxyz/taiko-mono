@@ -32,7 +32,7 @@ pub(crate) struct WhitelistExecutionPayloadEnvelope {
     pub is_forced_inclusion: Option<bool>,
     /// Optional parent beacon block root.
     pub parent_beacon_block_root: Option<B256>,
-    /// Optional hash-relevant header difficulty for post-Uzen blocks.
+    /// Optional hash-relevant header difficulty for post-Unzen blocks.
     /// When `Some`, the encoder emits a 32-byte big-endian slot after
     /// `parent_beacon_block_root` and sets `flags0 & 0x02`.
     pub header_difficulty: Option<U256>,
