@@ -115,27 +115,31 @@ fn resolve_confirmed_sync_probe(
 
 /// Resolve the L2 block number that event sync should use as its resume source.
 ///
-/// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
-/// - Non-checkpoint mode: prefer local `head_l1_origin`, otherwise allow genesis fallback (block 0)
-///   for brand-new chains bootstrapped from genesis.
-///
 /// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
 /// resume point such as `Latest`, which can include local preconfirmation-only blocks.
 fn resolve_resume_head_block_number(
     checkpoint_configured: bool,
     checkpoint_synced_head: Option<u64>,
     head_l1_origin_block_id: Option<u64>,
-    local_head_is_genesis: bool,
+    rpc_l2_block_number: Option<u64>,
 ) -> Result<u64, SyncError> {
     if checkpoint_configured {
-        checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
-    } else {
-        match head_l1_origin_block_id {
-            Some(block_id) => Ok(block_id),
-            None if local_head_is_genesis => Ok(0),
-            None => Err(SyncError::MissingHeadL1OriginResume),
-        }
+        return checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead);
     }
+    match (head_l1_origin_block_id, rpc_l2_block_number) {
+        (Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => Ok(rpc),
+        (Some(origin), _) => Ok(origin),
+        // Genesis fallback: no local origin yet and the RPC reports block 0, i.e. a brand-new
+        // chain bootstrapped from genesis.
+        (None, Some(0)) => Ok(0),
+        (None, _) => Err(SyncError::MissingHeadL1OriginResume),
+    }
+}
+
+/// A non-zero RPC head strictly behind the local origin pointer is a safer resume point (zero is
+/// reserved for the genesis fallback path, and an equal/higher head offers no extra safety).
+fn rpc_head_is_safer_than_origin(rpc_l2_block_number: u64, head_l1_origin_block_id: u64) -> bool {
+    rpc_l2_block_number != 0 && rpc_l2_block_number < head_l1_origin_block_id
 }
 
 /// Select scanner start block when the resolved target proposal id is zero.
@@ -845,40 +849,48 @@ where
     #[instrument(skip(self), level = "debug")]
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
-
-        let head_l1_origin_block_id = if checkpoint_configured {
-            None
+        let (head_l1_origin_block_id, rpc_l2_block_number) = if checkpoint_configured {
+            (None, None)
         } else {
-            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>())
-        };
-        let local_head_is_genesis = if checkpoint_configured || head_l1_origin_block_id.is_some() {
-            false
-        } else {
-            self.rpc
-                .l2_provider
-                .get_block_number()
-                .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? ==
-                0
+            let head_l1_origin_block_id =
+                self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
+            // Tolerate transient eth_blockNumber failures when we already have a safe
+            // head_l1_origin to resume from; otherwise the error must propagate because we need
+            // the RPC head to distinguish genesis fallback from a missing resume source.
+            let rpc_l2_block_number = match self.rpc.l2_provider.get_block_number().await {
+                Ok(block_number) => Some(block_number),
+                Err(err) if head_l1_origin_block_id.is_some() => {
+                    warn!(
+                        head_l1_origin_block_id,
+                        %err,
+                        "failed to fetch rpc L2 block number; falling back to local head_l1_origin",
+                    );
+                    None
+                }
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            };
+            (head_l1_origin_block_id, rpc_l2_block_number)
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(
             checkpoint_configured,
             self.checkpoint_resume_head.get(),
             head_l1_origin_block_id,
-            local_head_is_genesis,
+            rpc_l2_block_number,
         )?;
 
-        if checkpoint_configured {
-            info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
-        } else if head_l1_origin_block_id.is_some() {
-            info!(resume_head_block_number, "using local head_l1_origin as event resume source");
-        } else {
-            info!(
-                resume_head_block_number,
-                "using genesis fallback as event resume source (head_l1_origin unavailable)"
-            );
-        }
+        let source = match (checkpoint_configured, head_l1_origin_block_id, rpc_l2_block_number) {
+            (true, _, _) => "checkpoint-synced head",
+            (false, Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => {
+                "lower rpc block number (instead of local head_l1_origin)"
+            }
+            (false, Some(_), _) => "local head_l1_origin",
+            (false, None, _) => "genesis fallback (head_l1_origin unavailable)",
+        };
+        info!(
+            resume_head_block_number,
+            head_l1_origin_block_id, rpc_l2_block_number, source, "resolved event resume source",
+        );
 
         Ok(resume_head_block_number)
     }
@@ -1839,28 +1851,46 @@ mod tests {
 
     #[test]
     fn resume_head_resolution_requires_checkpoint_state_in_checkpoint_mode() {
-        let err = resolve_resume_head_block_number(true, None, Some(100), false)
+        let err = resolve_resume_head_block_number(true, None, Some(100), Some(99))
             .expect_err("checkpoint mode should require checkpoint resume state");
         assert!(matches!(err, SyncError::MissingCheckpointResumeHead));
 
-        let resolved = resolve_resume_head_block_number(true, Some(420), None, false)
+        let resolved = resolve_resume_head_block_number(true, Some(420), None, None)
             .expect("checkpoint resume head should be used when present");
         assert_eq!(resolved, 420);
     }
 
     #[test]
     fn resume_head_resolution_requires_head_l1_origin_without_checkpoint() {
-        let err = resolve_resume_head_block_number(false, Some(999), None, false)
+        let err = resolve_resume_head_block_number(false, Some(999), None, None)
             .expect_err("non-checkpoint mode should require head_l1_origin");
         assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
 
-        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), false)
-            .expect("head_l1_origin should drive resume without checkpoint");
+        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), Some(80))
+            .expect("head_l1_origin should drive resume when rpc head is not lower");
         assert_eq!(resolved, 64);
 
-        let resolved =
-            resolve_resume_head_block_number(false, None, None, true).expect("genesis fallback");
+        let resolved = resolve_resume_head_block_number(false, None, None, Some(0))
+            .expect("genesis fallback when rpc reports block 0 and origin is missing");
         assert_eq!(resolved, 0);
+    }
+
+    #[test]
+    fn resume_head_resolution_prefers_lower_non_zero_rpc_over_origin() {
+        let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(32))
+            .expect("lower non-zero rpc block number should win");
+        assert_eq!(resolved, 32);
+
+        let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(0))
+            .expect("zero rpc block number must not override origin");
+        assert_eq!(resolved, 64);
+    }
+
+    #[test]
+    fn resume_head_resolution_falls_back_to_origin_when_rpc_missing() {
+        let resolved = resolve_resume_head_block_number(false, None, Some(64), None)
+            .expect("missing rpc block number should fall back to local origin");
+        assert_eq!(resolved, 64);
     }
 
     #[test]
