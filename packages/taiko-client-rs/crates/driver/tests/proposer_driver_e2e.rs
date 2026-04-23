@@ -23,7 +23,7 @@ use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 use tokio::spawn;
-use tracing::warn;
+use tracing::{info, warn};
 
 fn client_config(env: &ShastaEnv) -> ClientConfig {
     ClientConfig {
@@ -82,7 +82,7 @@ where
 
     loop {
         let target_block = driver_client
-            .last_block_id_by_batch_id(U256::from(expected_proposal_id))
+            .last_certain_block_id_by_batch_id(U256::from(expected_proposal_id))
             .await?
             .map(|block_number| block_number.to::<u64>());
         let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
@@ -91,7 +91,7 @@ where
             (Some(target_block), Some(head_block)) if head_block >= target_block
         ) {
             let l2_head = driver_client.l2_provider.get_block_number().await?;
-            if l2_head < l2_head_before {
+            if l2_head <= l2_head_before {
                 warn!(
                     l2_head_before,
                     l2_head, "L2 head moved backward while waiting for proposal processing"
@@ -205,7 +205,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let (proposal_id, proposal_log) =
         submit_proposal(&proposer, request, env.inbox_address).await?;
 
-    let _l2_head_after = wait_for_proposal_processed(
+    let l2_head_after = wait_for_proposal_processed(
         &event_syncer,
         &driver_client,
         proposal_id,
