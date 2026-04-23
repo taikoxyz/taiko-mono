@@ -1021,6 +1021,7 @@ where
                 initial_proposal_id = resume_proposal_id,
                 "derived anchor block number from resume-block fallback",
             );
+
             return Ok(EventStreamStartPoint {
                 anchor_block_number,
                 initial_proposal_id: resume_proposal_id,

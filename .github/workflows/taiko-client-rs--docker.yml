@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, david/fix-missing-batch-mapping-fallback]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
