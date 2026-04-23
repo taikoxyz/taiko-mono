@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -424,4 +425,16 @@ func (s *ProposerTestSuite) TestStartClose() {
 
 func TestProposerTestSuite(t *testing.T) {
 	suite.Run(t, new(ProposerTestSuite))
+}
+
+func TestProposalMaxBlocksUsesUnzenLimit(t *testing.T) {
+	p := &Proposer{rpc: &rpc.Client{L2: &rpc.EthClient{ChainID: params.TaikoInternalNetworkID}}}
+	if got := p.proposalMaxBlocks(0); got != manifest.UnzenProposalMaxBlocks {
+		t.Fatalf("devnet Unzen max blocks = %d, want %d", got, manifest.UnzenProposalMaxBlocks)
+	}
+
+	p.rpc.L2.ChainID = params.TaikoMainnetNetworkID
+	if got := p.proposalMaxBlocks(math.MaxUint64); got != manifest.ProposalMaxBlocks {
+		t.Fatalf("mainnet pre-Unzen max blocks = %d, want %d", got, manifest.ProposalMaxBlocks)
+	}
 }

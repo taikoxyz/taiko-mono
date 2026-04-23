@@ -285,9 +285,15 @@ func (p *Proposer) ProposeTxLists(
 
 // ProposeTxList proposes the given transaction lists to the inbox contract.
 func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Transactions) error {
+	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L1 head: %w", err)
+	}
+
 	// Make sure the transaction lists fit within the maximum blocks allowed in a proposal.
-	if len(proposalTxLists) > manifest.ProposalMaxBlocks {
-		return fmt.Errorf("proposal exceeds proposalMaxBlocks")
+	maxBlocks := p.proposalMaxBlocks(l1Head.Time)
+	if len(proposalTxLists) > maxBlocks {
+		return fmt.Errorf("proposal exceeds proposalMaxBlocks: blocks=%d max=%d", len(proposalTxLists), maxBlocks)
 	}
 
 	// Count the total number of transactions.
@@ -300,11 +306,6 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 	state, err := p.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get inbox core state: %w", err)
-	}
-
-	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
 
 	log.Info(
@@ -337,6 +338,14 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 	metrics.ProposerProposedTxsCounter.Add(float64(txs))
 
 	return nil
+}
+
+func (p *Proposer) proposalMaxBlocks(timestamp uint64) int {
+	var chainID *big.Int
+	if p.rpc != nil && p.rpc.L2 != nil {
+		chainID = p.rpc.L2.ChainID
+	}
+	return manifest.ProposalMaxBlocksByChainIDAndTimestamp(chainID, timestamp)
 }
 
 // updateProposingTicker updates the internal proposing timer.
