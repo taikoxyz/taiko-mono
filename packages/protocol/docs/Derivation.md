@@ -363,7 +363,7 @@ The following constants govern the block derivation process:
 
 | Constant                         | Value                                                  | Description                                                                                                            |
 | -------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| **DERIVATION_SOURCE_MAX_BLOCKS** | `192`                                                  | The per-derivation-source block limit. If we assume block times of seconds,192 blocks will cover an Ethereum epoch.    |
+| **DERIVATION_SOURCE_MAX_BLOCKS** | `768`                                                  | The per-derivation-source block limit. Allows blocks as fast as 500ms assuming one proposal per epoch.                 |
 | **MAX_ANCHOR_OFFSET**            | Hoodi: `128`, Mainnet: `512`                           | The maximum anchor block number offset from the proposal origin block number.                                          |
 | **TIMESTAMP_MAX_OFFSET**         | Hoodi: `1536` (12 \* 128), Mainnet: `6144` (12 \* 512) | The maximum timestamp offset from the proposal origin timestamp.                                                       |
 | **BLOCK_GAS_LIMIT_MAX_CHANGE**   | `200`                                                  | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 200 = 200 / 1,000,000 = 0.02%. |

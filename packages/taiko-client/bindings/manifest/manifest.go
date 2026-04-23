@@ -14,7 +14,8 @@ const (
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
 	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal.
-	ProposalMaxBlocks = 192
+	// Allows blocks as fast as 500ms assuming one proposal per epoch.
+	ProposalMaxBlocks = 768
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on Hoodi.
 	AnchorMaxOffset = uint64(128)
 	// MainnetAnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on mainnet.
