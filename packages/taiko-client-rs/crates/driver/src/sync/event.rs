@@ -997,8 +997,37 @@ where
             .rpc
             .last_block_id_by_batch_id(U256::from(target_proposal_id))
             .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
+            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?;
+
+        // A missing batch→block mapping for the finalized-bounded target means the local
+        // engine observed the blocks (e.g. via P2P sync) but never ran derivation over
+        // that range. Anchor the scanner on the already-verified resume block instead of
+        // failing: resume_proposal_id ≥ target_proposal_id, the gap sits at or below L1
+        // finality, and derivation is idempotent over it.
+        let Some(target_block_number) = target_block_number else {
+            warn!(
+                target_proposal_id,
+                resume_proposal_id,
+                resume_number = resume_head_block.number(),
+                "execution engine missing batch→block mapping for finalized-bounded target; \
+                 falling back to resume block as scanner anchor",
+            );
+            let anchor_block_number =
+                self.decode_anchor_block_number(&resume_head_block, anchor_address).await?;
+            info!(
+                anchor_block_number,
+                target_hash = ?resume_head_block.hash(),
+                target_number = resume_head_block.number(),
+                initial_proposal_id = resume_proposal_id,
+                "derived anchor block number from resume-block fallback",
+            );
+            return Ok(EventStreamStartPoint {
+                anchor_block_number,
+                initial_proposal_id: resume_proposal_id,
+                bootstrap_confirmed_tip: resume_head_block.number(),
+            });
+        };
+
         let target_block = self
             .rpc
             .l2_provider
