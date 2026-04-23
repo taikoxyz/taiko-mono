@@ -263,5 +263,4 @@ mod tests {
 
         assert!(matches!(args.l1_provider_source(), Err(CliError::InvalidL1EndpointConfig)));
     }
-
 }
