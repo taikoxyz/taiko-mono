@@ -113,6 +113,20 @@ contract TestLookaheadStore is CommonTest {
         lookaheadStore.updateLookahead(nextEpochTimestamp, slots);
     }
 
+    function test_updateLookahead_RevertWhen_PreEpochSlotTimestamp() external {
+        _warpAfterEpochStart();
+        bytes32 registrationRoot = keccak256("operator");
+        address committer = makeAddr("committer");
+        _setupOperator(registrationRoot, committer, 1);
+
+        uint256 nextEpochTimestamp = _nextEpochTimestamp();
+        ILookaheadStore.LookaheadSlot[] memory slots = new ILookaheadStore.LookaheadSlot[](1);
+        slots[0] = _buildSlot(nextEpochTimestamp - 4, registrationRoot, committer, 0);
+
+        vm.expectRevert(LookaheadStore.InvalidLookaheadEpoch.selector);
+        lookaheadStore.updateLookahead(nextEpochTimestamp, slots);
+    }
+
     function test_updateLookahead_RevertWhen_InvalidValidatorLeafIndex() external {
         _warpAfterEpochStart();
         bytes32 registrationRoot = keccak256("operator");
