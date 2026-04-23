@@ -163,6 +163,13 @@ func (s *State) GetL1Head() *types.Header {
 	return s.l1Head.Load().(*types.Header)
 }
 
+// SetL2Head exposes setL2Head to callers outside this package.
+// Used by the chain syncer to refresh the cached L2 head from RPC when the
+// `newHeads` subscription has not observed an engine-API-driven backfill.
+func (s *State) SetL2Head(l2Head *types.Header) {
+	s.setL2Head(l2Head)
+}
+
 // setL2Head sets the L2 head concurrent safely.
 func (s *State) setL2Head(l2Head *types.Header) {
 	if l2Head == nil {
