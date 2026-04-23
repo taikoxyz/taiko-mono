@@ -10,15 +10,15 @@ import (
 )
 
 const (
-	// Version number for Shasta / Uzen payloads.
+	// Version number for Shasta / Unzen payloads.
 	ShastaPayloadVersion = 0x1
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
-	// ProposalMaxBlocks The maximum number of blocks allowed in a derivation source before Uzen.
+	// ProposalMaxBlocks The maximum number of blocks allowed in a derivation source before Unzen.
 	ProposalMaxBlocks = 192
-	// UzenProposalMaxBlocks The maximum number of blocks allowed in a derivation source once
-	// Uzen is active.
-	UzenProposalMaxBlocks = 768
+	// UnzenProposalMaxBlocks The maximum number of blocks allowed in a derivation source once
+	// Unzen is active.
+	UnzenProposalMaxBlocks = 768
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on Hoodi.
 	AnchorMaxOffset = uint64(128)
 	// MainnetAnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on mainnet.
@@ -88,7 +88,7 @@ func ProposalMaxBlocksByChainIDAndTimestamp(chainID *big.Int, timestamp uint64) 
 	genesis := gethcore.TaikoGenesisBlock(chainID.Uint64())
 	if genesis != nil && genesis.Config != nil && genesis.Config.ChainID != nil &&
 		genesis.Config.ChainID.Cmp(chainID) == 0 && genesis.Config.IsUzen(timestamp) {
-		return UzenProposalMaxBlocks
+		return UnzenProposalMaxBlocks
 	}
 
 	return ProposalMaxBlocks

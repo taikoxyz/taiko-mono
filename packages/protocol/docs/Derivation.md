@@ -161,8 +161,8 @@ For each `DerivationSource[i]`, the validator performs:
 5. **Decompression**: Apply ZLIB decompression to bytes `[offset+64, offset+64+size)`
 6. **Decoding**: RLP decode the decompressed data
 7. **Block Count Validation**: Verify `manifest.blocks.length` does not exceed the per-source limit selected by `blobSlice.timestamp`
-   - Before Uzen: `DERIVATION_SOURCE_MAX_BLOCKS = 192`
-   - At/after Uzen: `UZEN_DERIVATION_SOURCE_MAX_BLOCKS = 768`
+   - Before Unzen: `DERIVATION_SOURCE_MAX_BLOCKS = 192`
+   - At/after Unzen: `UNZEN_DERIVATION_SOURCE_MAX_BLOCKS = 768`
 8. **Forced Inclusion Block Count Enforcement**: If `derivation.sources[i].isForcedInclusion` is true and `manifest.blocks.length != 1`, replace the entire source with the default manifest
 
 If any validation step fails for source `i`, that source is replaced with a **default source manifest** (single block with only an anchor transaction). Other sources are unaffected.
@@ -363,18 +363,18 @@ The minimum clamp is selected by chain ID:
 
 The following constants govern the block derivation process:
 
-| Constant                              | Value                                                  | Description                                                                                                            |
-| ------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| **DERIVATION_SOURCE_MAX_BLOCKS**      | `192`                                                  | The per-derivation-source block limit before Uzen. With 1-second blocks, 192 blocks cover one Ethereum epoch.          |
-| **UZEN_DERIVATION_SOURCE_MAX_BLOCKS** | `768`                                                  | The per-derivation-source block limit from Uzen onward, selected using the source blob timestamp.                      |
-| **MAX_ANCHOR_OFFSET**                 | Hoodi: `128`, Mainnet: `512`                           | The maximum anchor block number offset from the proposal origin block number.                                          |
-| **TIMESTAMP_MAX_OFFSET**              | Hoodi: `1536` (12 \* 128), Mainnet: `6144` (12 \* 512) | The maximum timestamp offset from the proposal origin timestamp.                                                       |
-| **BLOCK_GAS_LIMIT_MAX_CHANGE**        | `200`                                                  | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 200 = 200 / 1,000,000 = 0.02%. |
-| **MIN_BLOCK_GAS_LIMIT**               | `10,000,000`                                           | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                      |
-| **MAX_BLOCK_GAS_LIMIT**               | `45,000,000`                                           | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                       |
-| **INITIAL_BASE_FEE**                  | `0.025 gwei` (25,000,000 wei)                          | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                           |
-| **MIN_BASE_FEE**                      | `0.005 gwei` (5,000,000 wei)                           | The default minimum base fee (inclusive) after Shasta fork for non-mainnet chains.                                     |
-| **MAINNET_MIN_BASE_FEE**              | `0.01 gwei` (10,000,000 wei)                           | The minimum base fee (inclusive) after Shasta fork on Taiko mainnet.                                                   |
-| **MAX_BASE_FEE**                      | `1 gwei` (1,000,000,000 wei)                           | The maximum base fee (inclusive) after Shasta fork.                                                                    |
-| **BLOCK_TIME_TARGET**                 | `2 seconds`                                            | The block time target.                                                                                                 |
-| **SHASTA_FORK_TIME**                  | Hoodi/Mainnet: not scheduled                           | The timestamp that determines when the fork should occur.                                                              |
+| Constant                               | Value                                                  | Description                                                                                                            |
+| -------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| **DERIVATION_SOURCE_MAX_BLOCKS**       | `192`                                                  | The per-derivation-source block limit before Unzen. With 1-second blocks, 192 blocks cover one Ethereum epoch.         |
+| **UNZEN_DERIVATION_SOURCE_MAX_BLOCKS** | `768`                                                  | The per-derivation-source block limit from Unzen onward, selected using the source blob timestamp.                     |
+| **MAX_ANCHOR_OFFSET**                  | Hoodi: `128`, Mainnet: `512`                           | The maximum anchor block number offset from the proposal origin block number.                                          |
+| **TIMESTAMP_MAX_OFFSET**               | Hoodi: `1536` (12 \* 128), Mainnet: `6144` (12 \* 512) | The maximum timestamp offset from the proposal origin timestamp.                                                       |
+| **BLOCK_GAS_LIMIT_MAX_CHANGE**         | `200`                                                  | The maximum block gas limit change per block, in millionths (1/1,000,000). For example, 200 = 200 / 1,000,000 = 0.02%. |
+| **MIN_BLOCK_GAS_LIMIT**                | `10,000,000`                                           | The minimum block gas limit. This ensures block gas limit never drops below a critical threshold.                      |
+| **MAX_BLOCK_GAS_LIMIT**                | `45,000,000`                                           | The maximum block gas limit. This ensures block gas limit never goes above a critical threshold.                       |
+| **INITIAL_BASE_FEE**                   | `0.025 gwei` (25,000,000 wei)                          | The initial base fee for the first Shasta block when the Shasta fork activated from genesis.                           |
+| **MIN_BASE_FEE**                       | `0.005 gwei` (5,000,000 wei)                           | The default minimum base fee (inclusive) after Shasta fork for non-mainnet chains.                                     |
+| **MAINNET_MIN_BASE_FEE**               | `0.01 gwei` (10,000,000 wei)                           | The minimum base fee (inclusive) after Shasta fork on Taiko mainnet.                                                   |
+| **MAX_BASE_FEE**                       | `1 gwei` (1,000,000,000 wei)                           | The maximum base fee (inclusive) after Shasta fork.                                                                    |
+| **BLOCK_TIME_TARGET**                  | `2 seconds`                                            | The block time target.                                                                                                 |
+| **SHASTA_FORK_TIME**                   | Hoodi/Mainnet: not scheduled                           | The timestamp that determines when the fork should occur.                                                              |

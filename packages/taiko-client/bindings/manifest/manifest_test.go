@@ -37,7 +37,7 @@ func TestProposalMaxBlocksByChainIDAndTimestamp(t *testing.T) {
 	)
 	require.Equal(
 		t,
-		UzenProposalMaxBlocks,
+		UnzenProposalMaxBlocks,
 		ProposalMaxBlocksByChainIDAndTimestamp(params.TaikoInternalNetworkID, 100),
 	)
 	require.Equal(
