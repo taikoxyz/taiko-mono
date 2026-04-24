@@ -277,7 +277,9 @@ mod tests {
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
     use protocol::shasta::{
-        BlobCoder, constants::DERIVATION_SOURCE_MAX_BLOCKS, manifest::DerivationSourceManifest,
+        BlobCoder,
+        constants::{DERIVATION_SOURCE_MAX_BLOCKS, TAIKO_MASAYA_CHAIN_ID},
+        manifest::DerivationSourceManifest,
     };
     use rpc::client::{Client, ClientWithWallet, ShastaProtocolInstance};
     use std::sync::{
@@ -597,7 +599,8 @@ mod tests {
         let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
         let l1_transport = ManifestTestTransport::l1(1, call_result);
         let l2_transport = ManifestTestTransport::l2(RpcBlock::default(), RpcBlock::default());
-        let rpc_provider = test_rpc_client(l1_transport, l2_transport);
+        let mut rpc_provider = test_rpc_client(l1_transport, l2_transport);
+        rpc_provider.chain_id = TAIKO_MASAYA_CHAIN_ID;
         let builder =
             ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
 
