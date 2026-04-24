@@ -301,16 +301,6 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
 
-	maxBlocks := rpc.DerivationSourceMaxBlocks(p.rpc.L2.ChainID, l1Head.Time)
-	if len(proposalTxLists) > maxBlocks {
-		return fmt.Errorf(
-			"proposal exceeds proposalMaxBlocks: blocks=%d max=%d proposalTimestamp=%d",
-			len(proposalTxLists),
-			maxBlocks,
-			l1Head.Time,
-		)
-	}
-
 	log.Info(
 		"Last proposal",
 		"id", state.LastProposalBlockId,
@@ -319,9 +309,19 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 	)
 
 	if state.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
-		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
+		if l1Head, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
 			return fmt.Errorf("failed to wait for next L1 block: %w", err)
 		}
+	}
+
+	maxBlocks := rpc.DerivationSourceMaxBlocks(p.rpc.L2.ChainID, l1Head.Time)
+	if len(proposalTxLists) > maxBlocks {
+		return fmt.Errorf(
+			"proposal exceeds proposalMaxBlocks: blocks=%d max=%d proposalTimestamp=%d",
+			len(proposalTxLists),
+			maxBlocks,
+			l1Head.Time,
+		)
 	}
 
 	// Build the proposal transaction.
