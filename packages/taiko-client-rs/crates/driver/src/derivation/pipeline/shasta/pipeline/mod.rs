@@ -116,8 +116,8 @@ fn derivation_source_to_blob_hashes(source: &DerivationSource) -> Vec<B256> {
 /// Check if a derivation source has a valid blob offset.
 /// Returns true if the source has non-empty blob hashes and the offset is within bounds.
 fn is_source_offset_valid(source: &DerivationSource) -> bool {
-    !source.blobSlice.blobHashes.is_empty()
-        && source.blobSlice.offset.to::<usize>() <= PROPOSAL_MAX_BLOB_BYTES - 64
+    !source.blobSlice.blobHashes.is_empty() &&
+        source.blobSlice.offset.to::<usize>() <= PROPOSAL_MAX_BLOB_BYTES - 64
 }
 
 /// Return whether parent-anchor recovery should decode the parent block's `anchorV4` / `anchorV3`
@@ -274,8 +274,8 @@ where
             self.rpc.last_l1_origin_by_batch_id(U256::from(parent_proposal_id)).await?
         {
             // Prefer the concrete block referenced by the cached origin hash.
-            if origin.l2_block_hash != B256::ZERO
-                && let Some(block) =
+            if origin.l2_block_hash != B256::ZERO &&
+                let Some(block) =
                     self.rpc.l2_provider.get_block_by_hash(origin.l2_block_hash).await?
             {
                 info!(

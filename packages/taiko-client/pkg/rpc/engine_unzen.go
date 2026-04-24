@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/core"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 )
 
