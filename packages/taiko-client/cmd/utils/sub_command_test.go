@@ -11,35 +11,35 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 )
 
-func TestApplyDevnetUzenTimeOverride_SetsGethPackageVar(t *testing.T) {
-	original := gethcore.InternalUzenTime
-	t.Cleanup(func() { gethcore.InternalUzenTime = original })
+func TestApplyDevnetUnzenTimeOverride_SetsGethPackageVar(t *testing.T) {
+	original := gethcore.DevnetUnzenTime
+	t.Cleanup(func() { gethcore.DevnetUnzenTime = original })
 
 	app := cli.NewApp()
-	app.Flags = []cli.Flag{flags.TaikoDevnetUzenTime}
+	app.Flags = []cli.Flag{flags.TaikoDevnetUnzenTime}
 	set := flag.NewFlagSet("test", 0)
-	require.NoError(t, flags.TaikoDevnetUzenTime.Apply(set))
-	require.NoError(t, set.Parse([]string{"--taiko.devnet-uzen-time", "42"}))
+	require.NoError(t, flags.TaikoDevnetUnzenTime.Apply(set))
+	require.NoError(t, set.Parse([]string{"--taiko.devnet-unzen-time", "42"}))
 	ctx := cli.NewContext(app, set, nil)
 
-	applyDevnetUzenTimeOverride(ctx)
+	applyDevnetUnzenTimeOverride(ctx)
 
-	require.Equal(t, uint64(42), gethcore.InternalUzenTime)
+	require.Equal(t, uint64(42), gethcore.DevnetUnzenTime)
 }
 
-func TestApplyDevnetUzenTimeOverride_LeavesPackageVarWhenFlagAbsent(t *testing.T) {
-	original := gethcore.InternalUzenTime
-	t.Cleanup(func() { gethcore.InternalUzenTime = original })
-	gethcore.InternalUzenTime = 7
+func TestApplyDevnetUnzenTimeOverride_LeavesPackageVarWhenFlagAbsent(t *testing.T) {
+	original := gethcore.DevnetUnzenTime
+	t.Cleanup(func() { gethcore.DevnetUnzenTime = original })
+	gethcore.DevnetUnzenTime = 7
 
 	app := cli.NewApp()
-	app.Flags = []cli.Flag{flags.TaikoDevnetUzenTime}
+	app.Flags = []cli.Flag{flags.TaikoDevnetUnzenTime}
 	set := flag.NewFlagSet("test", 0)
-	require.NoError(t, flags.TaikoDevnetUzenTime.Apply(set))
+	require.NoError(t, flags.TaikoDevnetUnzenTime.Apply(set))
 	require.NoError(t, set.Parse([]string{}))
 	ctx := cli.NewContext(app, set, nil)
 
-	applyDevnetUzenTimeOverride(ctx)
+	applyDevnetUnzenTimeOverride(ctx)
 
-	require.Equal(t, uint64(7), gethcore.InternalUzenTime)
+	require.Equal(t, uint64(7), gethcore.DevnetUnzenTime)
 }

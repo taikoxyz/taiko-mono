@@ -20,7 +20,7 @@ type Envelope struct {
 	// gossiped) or when the message is loaded from cache without signature
 	// preservation.
 	Signature *[65]byte
-	// HeaderDifficulty is the Uzen-era `header.Difficulty` (= block zk gas
+	// HeaderDifficulty is the Unzen-era `header.Difficulty` (= block zk gas
 	// used) carried on the wire so receivers can reconstruct the sender's
 	// block hash. Nil on Shasta-era messages, where `header.Difficulty` is
 	// always zero. Copied straight off the decoded gossip envelope without

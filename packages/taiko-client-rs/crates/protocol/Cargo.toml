@@ -37,6 +37,7 @@ alloy-provider = { workspace = true, optional = true, features = ["ws"] }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-rpc-types-engine-2 = { workspace = true }
 alloy-sol-types = { workspace = true }
 event-scanner = { workspace = true, optional = true }
 robust-provider = { workspace = true, optional = true, features = [

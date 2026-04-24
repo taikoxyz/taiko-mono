@@ -6,7 +6,7 @@ use alloy::{
 };
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
-use alloy_rpc_types_engine::PayloadId;
+use alloy_rpc_types_engine_2::PayloadId;
 
 /// Engine API `engine_getPayloadV2` discriminator.
 ///

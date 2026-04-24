@@ -116,7 +116,7 @@ struct EngineNewPayloadV2Request<'a> {
     tx_hash: B256,
     /// Withdrawals root hash tracked by the Taiko sidecar.
     withdrawals_hash: B256,
-    /// Optional hash-relevant header difficulty restored for Uzen blocks.
+    /// Optional hash-relevant header difficulty restored for Unzen blocks.
     #[serde(skip_serializing_if = "Option::is_none")]
     header_difficulty: Option<U256>,
     /// Optional marker flag indicating that the payload is Taiko-specific.
@@ -315,7 +315,7 @@ impl<P: Provider + Clone> Client<P> {
 
     /// Retrieve a built payload from the execution engine.
     ///
-    /// The wire shape stays the standard `ExecutionPayloadEnvelopeV2`, but Taiko Uzen and later
+    /// The wire shape stays the standard `ExecutionPayloadEnvelopeV2`, but Taiko Unzen and later
     /// reuse `blockValue` to carry the original `header.difficulty` back to the client so
     /// `getPayloadV2`/`newPayloadV2` round trips remain hash-stable.
     pub async fn engine_get_payload_v2(

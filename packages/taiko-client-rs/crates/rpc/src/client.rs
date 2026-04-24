@@ -14,7 +14,7 @@ use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
     utils::JoinedRecommendedFillers,
 };
-use alloy_rpc_types::engine::JwtSecret;
+use alloy_rpc_types_engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::Full;
