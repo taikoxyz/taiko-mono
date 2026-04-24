@@ -32,6 +32,7 @@ where
             suggested_fee_recipient: request.fee_recipient,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
 
         let mut payload = TaikoPayloadAttributes {

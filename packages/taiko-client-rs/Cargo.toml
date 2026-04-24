@@ -64,6 +64,7 @@ alloy-rlp = { version = "0.3.12", default-features = false }
 alloy-rpc-client = { version = "1.4.3", default-features = false }
 alloy-rpc-types = { version = "1.4.3", default-features = false }
 alloy-rpc-types-engine = { version = "1.4.3", default-features = false }
+alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.0.1", default-features = false }
 alloy-rpc-types-eth = { version = "1.4.3", default-features = false }
 alloy-signer = { version = "1.4.3", default-features = false }
 alloy-signer-local = { version = "1.4.3", default-features = false }
@@ -80,11 +81,11 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "38c89c9bb979ae915a940cedb0d5f76f2bb82612", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "38c89c9bb979ae915a940cedb0d5f76f2bb82612", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "26010828d12e5b6a7f9cb7588278adef4268167c", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "26010828d12e5b6a7f9cb7588278adef4268167c", features = [
   "serde",
 ] }
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "38c89c9bb979ae915a940cedb0d5f76f2bb82612" }
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "26010828d12e5b6a7f9cb7588278adef4268167c" }
 
 # networking
 arc-swap = "1.7"

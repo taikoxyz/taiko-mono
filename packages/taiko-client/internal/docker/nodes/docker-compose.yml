@@ -68,7 +68,7 @@ services:
       - --ws.api
       - admin,debug,eth,net,web3,txpool,miner,taiko
       - --taiko
-      - --taiko.devnet-uzen-time
+      - --taiko.devnet-unzen-time
       - "0"
 
   l2_nmc:

@@ -101,7 +101,7 @@ where
             // in the envelope (see rest_handler.rs), and the SSZ wire format
             // encodes None as 32 zero bytes which is the expected default.
             parent_beacon_block_root: None,
-            // Carry Uzen header.difficulty (= block_zk_gas_used) so receivers
+            // Carry Unzen header.difficulty (= block_zk_gas_used) so receivers
             // can reconstruct the sender's block hash. Left `None` for Shasta
             // blocks whose difficulty is zero.
             header_difficulty: (!block.header.difficulty.is_zero())

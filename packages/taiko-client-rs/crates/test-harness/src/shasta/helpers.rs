@@ -12,9 +12,9 @@ use alloy_provider::{
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadAttributes,
-    PayloadStatusEnum,
+    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
+use alloy_rpc_types_engine_2::PayloadAttributes;
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
 use rpc::{
@@ -207,6 +207,7 @@ async fn fork_to(
         suggested_fee_recipient: coinbase,
         withdrawals: Some(Vec::new()),
         parent_beacon_block_root: None,
+        slot_number: None,
     };
 
     let block_metadata = TaikoBlockMetadata {

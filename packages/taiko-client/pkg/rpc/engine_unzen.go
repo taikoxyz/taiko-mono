@@ -8,27 +8,27 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 )
 
-// IsUzen returns whether the given chain and timestamp are inside the Uzen fork.
-func IsUzen(chainID *big.Int, timestamp uint64) bool {
+// IsUnzen returns whether the given chain and timestamp are inside the Unzen fork.
+func IsUnzen(chainID *big.Int, timestamp uint64) bool {
 	if chainID == nil {
 		return false
 	}
 
 	genesis := core.TaikoGenesisBlock(chainID.Uint64())
 	return genesis != nil && genesis.Config != nil && genesis.Config.ChainID != nil &&
-		genesis.Config.ChainID.Cmp(chainID) == 0 && genesis.Config.IsUzen(timestamp)
+		genesis.Config.ChainID.Cmp(chainID) == 0 && genesis.Config.IsUnzen(timestamp)
 }
 
 // ForkLabel returns the active fork label for display purposes.
 func ForkLabel(chainID *big.Int, timestamp uint64) string {
-	if IsUzen(chainID, timestamp) {
-		return "Uzen"
+	if IsUnzen(chainID, timestamp) {
+		return "Unzen"
 	}
 
 	return "Shasta"
 }
 
-// NormalizeExecutableData preserves Uzen header difficulty when present on the envelope.
+// NormalizeExecutableData preserves Unzen header difficulty when present on the envelope.
 func NormalizeExecutableData(
 	chainID *big.Int,
 	payload *engine.ExecutableData,
@@ -39,9 +39,9 @@ func NormalizeExecutableData(
 	}
 
 	normalized := *payload
-	if IsUzen(chainID, payload.Timestamp) {
+	if IsUnzen(chainID, payload.Timestamp) {
 		if blockValue == nil {
-			return nil, fmt.Errorf("missing blockValue for Uzen payload")
+			return nil, fmt.Errorf("missing blockValue for Unzen payload")
 		}
 
 		normalized.HeaderDifficulty = new(big.Int).Set(blockValue)
