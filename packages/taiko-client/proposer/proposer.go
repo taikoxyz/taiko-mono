@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -314,13 +315,13 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 		}
 	}
 
-	maxBlocks := rpc.DerivationSourceMaxBlocks(p.rpc.L2.ChainID, l1Head.Time)
-	if len(proposalTxLists) > maxBlocks {
+	// Proposer intentionally keeps the stricter Shasta cap. It is below the
+	// Unzen derivation-source cap, so proposals that pass here are safe there.
+	if len(proposalTxLists) > manifest.ProposalMaxBlocks {
 		return fmt.Errorf(
-			"proposal exceeds proposalMaxBlocks: blocks=%d max=%d proposalTimestamp=%d",
+			"proposal exceeds proposalMaxBlocks: blocks=%d max=%d",
 			len(proposalTxLists),
-			maxBlocks,
-			l1Head.Time,
+			manifest.ProposalMaxBlocks,
 		)
 	}
 
