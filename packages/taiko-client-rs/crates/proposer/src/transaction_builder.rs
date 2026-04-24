@@ -141,31 +141,52 @@ impl ShastaProposalTransactionBuilder {
         engine_params: Option<EngineBuildContext>,
     ) -> Result<BuiltProposalTx> {
         // Use provided engine params or derive defaults.
-        let (anchor_block_number, timestamp, gas_limit) = match engine_params {
-            Some(params) => {
-                (params.anchor_block_number, params.timestamp, engine_manifest_gas_limit(params))
-            }
-            None => {
-                let latest_parent = self
-                    .rpc_provider
-                    .l2_provider
-                    .get_block_by_number(BlockNumberOrTag::Latest)
-                    .await?
-                    .ok_or(ProposerError::LatestBlockNotFound)?;
-                let gas_limit = non_engine_manifest_gas_limit(
-                    latest_parent.number(),
-                    latest_parent.header.gas_limit,
-                );
-                (
-                    self.rpc_provider.l1_provider.get_block_number().await?,
-                    current_unix_timestamp(),
-                    gas_limit,
-                )
-            }
-        };
+        let (anchor_block_number, timestamp, gas_limit, proposal_limit_timestamp) =
+            match engine_params {
+                Some(params) => {
+                    let l1_block = self
+                        .rpc_provider
+                        .l1_provider
+                        .get_block_by_number(BlockNumberOrTag::Number(params.anchor_block_number))
+                        .await?
+                        .ok_or(ProposerError::LatestBlockNotFound)?;
+                    (
+                        params.anchor_block_number,
+                        params.timestamp,
+                        engine_manifest_gas_limit(params),
+                        l1_block.header.timestamp,
+                    )
+                }
+                None => {
+                    let l1_block = self
+                        .rpc_provider
+                        .l1_provider
+                        .get_block_by_number(BlockNumberOrTag::Latest)
+                        .await?
+                        .ok_or(ProposerError::LatestBlockNotFound)?;
+                    let latest_parent = self
+                        .rpc_provider
+                        .l2_provider
+                        .get_block_by_number(BlockNumberOrTag::Latest)
+                        .await?
+                        .ok_or(ProposerError::LatestBlockNotFound)?;
+                    let gas_limit = non_engine_manifest_gas_limit(
+                        latest_parent.number(),
+                        latest_parent.header.gas_limit,
+                    );
+                    (
+                        l1_block.header.number,
+                        current_unix_timestamp(),
+                        gas_limit,
+                        l1_block.header.timestamp,
+                    )
+                }
+            };
 
-        let max_blocks =
-            derivation_source_max_blocks_for_chain_timestamp(self.rpc_provider.chain_id, timestamp);
+        let max_blocks = derivation_source_max_blocks_for_chain_timestamp(
+            self.rpc_provider.chain_id,
+            proposal_limit_timestamp,
+        );
         if txs_lists.len() > max_blocks {
             return Err(ProposerError::TooManyTransactionLists {
                 count: txs_lists.len(),
@@ -278,7 +299,9 @@ mod tests {
     use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
     use protocol::shasta::{
         BlobCoder,
-        constants::{DERIVATION_SOURCE_MAX_BLOCKS, TAIKO_MASAYA_CHAIN_ID},
+        constants::{
+            DERIVATION_SOURCE_MAX_BLOCKS, TAIKO_DEVNET_CHAIN_ID, set_devnet_unzen_override,
+        },
         manifest::DerivationSourceManifest,
     };
     use rpc::client::{Client, ClientWithWallet, ShastaProtocolInstance};
@@ -333,10 +356,24 @@ mod tests {
 
     impl ManifestTestTransport {
         fn l1(l1_block_number: u64, call_result: Bytes) -> Self {
+            let latest_block = RpcBlock::<TxEnvelope> {
+                header: RpcHeader {
+                    hash: Default::default(),
+                    inner: ConsensusHeader {
+                        number: l1_block_number,
+                        timestamp: l1_block_number,
+                        ..Default::default()
+                    },
+                    total_difficulty: None,
+                    size: None,
+                },
+                ..Default::default()
+            };
+
             Self {
                 l1_block_number,
                 call_result,
-                latest_block: None,
+                latest_block: Some(latest_block),
                 genesis_block: None,
                 requests: Arc::new(Mutex::new(Vec::new())),
                 saw_latest_block: Arc::new(AtomicBool::new(false)),
@@ -595,12 +632,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_rejects_too_many_pre_unzen_transaction_lists() {
+    async fn build_rejects_too_many_pre_unzen_landed_l1_timestamp() {
+        set_devnet_unzen_override(100);
         let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
         let l1_transport = ManifestTestTransport::l1(1, call_result);
         let l2_transport = ManifestTestTransport::l2(RpcBlock::default(), RpcBlock::default());
-        let mut rpc_provider = test_rpc_client(l1_transport, l2_transport);
-        rpc_provider.chain_id = TAIKO_MASAYA_CHAIN_ID;
+        let mut rpc_provider = test_rpc_client(l1_transport.clone(), l2_transport);
+        rpc_provider.chain_id = TAIKO_DEVNET_CHAIN_ID;
         let builder =
             ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
 
@@ -610,7 +648,7 @@ mod tests {
                 Some(EngineBuildContext {
                     anchor_block_number: 1,
                     parent_block_number: 1,
-                    timestamp: 1,
+                    timestamp: 101,
                     gas_limit: 45_000_000,
                 }),
             )
@@ -624,5 +662,12 @@ mod tests {
             }
             other => panic!("unexpected error: {other:?}"),
         }
+        assert!(
+            l1_transport
+                .request_log()
+                .iter()
+                .any(|entry| entry.contains("eth_getBlockByNumber") && entry.contains("0x1")),
+            "build should query the landed L1 block by anchor number"
+        );
     }
 }
