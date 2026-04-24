@@ -140,11 +140,12 @@ func (f *DerivationSourceFetcher) manifestFromBlobBytes(
 	}
 
 	// If there are too many blocks in the manifest, return the default payload.
-	if len(derivationSourceManifest.Blocks) > manifest.ProposalMaxBlocks {
+	maxBlocks := rpc.DerivationSourceMaxBlocks(f.cli.L2.ChainID, meta.GetTimestamp())
+	if len(derivationSourceManifest.Blocks) > maxBlocks {
 		log.Warn(
 			"Too many blocks in the manifest, use default payload instead",
 			"blocks", len(derivationSourceManifest.Blocks),
-			"max", manifest.ProposalMaxBlocks,
+			"max", maxBlocks,
 		)
 		return defaultPayload, nil
 	}

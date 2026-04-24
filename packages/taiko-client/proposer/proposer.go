@@ -18,7 +18,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -285,11 +284,6 @@ func (p *Proposer) ProposeTxLists(
 
 // ProposeTxList proposes the given transaction lists to the inbox contract.
 func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Transactions) error {
-	// Make sure the transaction lists fit within the maximum blocks allowed in a proposal.
-	if len(proposalTxLists) > manifest.ProposalMaxBlocks {
-		return fmt.Errorf("proposal exceeds proposalMaxBlocks")
-	}
-
 	// Count the total number of transactions.
 	var txs uint64
 	for _, txList := range proposalTxLists {
@@ -305,6 +299,16 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 	l1Head, err := p.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get L1 head: %w", err)
+	}
+
+	maxBlocks := rpc.DerivationSourceMaxBlocks(p.rpc.L2.ChainID, l1Head.Time)
+	if len(proposalTxLists) > maxBlocks {
+		return fmt.Errorf(
+			"proposal exceeds proposalMaxBlocks: blocks=%d max=%d proposalTimestamp=%d",
+			len(proposalTxLists),
+			maxBlocks,
+			l1Head.Time,
+		)
 	}
 
 	log.Info(
