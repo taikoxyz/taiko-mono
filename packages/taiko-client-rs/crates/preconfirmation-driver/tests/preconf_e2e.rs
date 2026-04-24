@@ -20,7 +20,7 @@ use preconfirmation_driver::{DriverClient, PreconfirmationClient, Preconfirmatio
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
 use protocol::shasta::{
-    calculate_shasta_mix_hash, encode_extra_data, uzen_active_for_chain_timestamp,
+    calculate_shasta_mix_hash, encode_extra_data, unzen_active_for_chain_timestamp,
 };
 use rpc::client::{Client, ClientConfig};
 use serial_test::serial;
@@ -73,8 +73,8 @@ where
     let expected_extra =
         encode_extra_data(basefee_sharing_pctg, uint256_to_u256(&preconf.proposal_id).to::<u64>());
     let chain_id = provider.get_chain_id().await?;
-    let uzen_active = uzen_active_for_chain_timestamp(chain_id, header.timestamp)
-        .map_err(|err| anyhow!("resolving Uzen activation: {err}"))?;
+    let unzen_active = unzen_active_for_chain_timestamp(chain_id, header.timestamp)
+        .map_err(|err| anyhow!("resolving Unzen activation: {err}"))?;
 
     // Verify header fields.
     ensure!(block.header.hash == header.hash_slow(), "header hash mismatch");
@@ -88,10 +88,10 @@ where
         "beneficiary mismatch"
     );
     ensure!(header.state_root != B256::ZERO, "state root missing");
-    if uzen_active {
+    if unzen_active {
         ensure!(
             header.difficulty > U256::ZERO,
-            "difficulty should carry finalized zk gas after Uzen"
+            "difficulty should carry finalized zk gas after Unzen"
         );
     } else {
         ensure!(header.difficulty == U256::ZERO, "difficulty should be zero");
@@ -117,8 +117,8 @@ where
         ensure!(withdrawals_root == calculate_withdrawals_root(&[]), "withdrawals root mismatch");
     }
 
-    // Verify EIP-4844 fields and Uzen fork fields.
-    if uzen_active {
+    // Verify EIP-4844 fields and Unzen fork fields.
+    if unzen_active {
         ensure!(header.blob_gas_used == Some(0), "blob gas used should be zero");
         ensure!(header.excess_blob_gas == Some(0), "excess blob gas should be zero");
         ensure!(

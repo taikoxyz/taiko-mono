@@ -15,6 +15,7 @@ alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-rpc-types-engine-2 = { workspace = true }
 alloy-transport = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }

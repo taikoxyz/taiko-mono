@@ -6,7 +6,7 @@ use alethia_reth_primitives::payload::{
 };
 use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
-use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use protocol::shasta::{PAYLOAD_ID_VERSION_V2, payload_id_to_bytes};
 
 use crate::{
@@ -48,6 +48,7 @@ where
             suggested_fee_recipient: execution_payload.fee_recipient,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: envelope.parent_beacon_block_root,
+            slot_number: None,
         };
 
         let l1_origin = RpcL1Origin {

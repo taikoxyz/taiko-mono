@@ -1,8 +1,6 @@
 //! Core proposer implementation for submitting block proposals.
 
-use alethia_reth_consensus::eip4396::{
-    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
-};
+use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
 use alethia_reth_primitives::{
     decode_shasta_proposal_id,
     payload::attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
@@ -20,14 +18,16 @@ use alloy_consensus::{
 use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
-use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ForkchoiceState, PayloadAttributes as EthPayloadAttributes,
-};
+use alloy_rpc_types_engine::{ExecutionPayloadFieldV2, ForkchoiceState};
+use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use base_tx_manager::TxManagerError;
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, calculate_shasta_mix_hash,
-    constants::{MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES, min_base_fee_for_chain},
+    constants::{
+        MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES,
+        calculate_next_block_eip4396_base_fee_from_parent_values, min_base_fee_for_chain,
+    },
     encode_extra_data,
 };
 use rpc::client::{Client, ClientConfig, ClientWithWallet};
@@ -372,6 +372,7 @@ impl Proposer {
                 suggested_fee_recipient: self.cfg.l2_suggested_fee_recipient,
                 withdrawals: Some(vec![]),
                 parent_beacon_block_root: None,
+                slot_number: None,
             },
             base_fee_per_gas: base_fee,
             block_metadata: TaikoBlockMetadata {
@@ -517,8 +518,10 @@ fn calculate_next_shasta_block_base_fee_from_parent(
         .base_fee_per_gas
         .ok_or(ProposerError::MissingParentBaseFee { parent_block_number: parent.number() })?;
 
-    Ok(U256::from(calculate_next_block_eip4396_base_fee(
-        &parent.header.inner,
+    Ok(U256::from(calculate_next_block_eip4396_base_fee_from_parent_values(
+        parent.header.inner.number,
+        parent.header.inner.gas_limit,
+        parent.header.inner.gas_used,
         parent_block_time_delta_secs,
         parent_base_fee_per_gas,
         min_base_fee_to_clamp,
@@ -583,7 +586,6 @@ fn is_operational_submission_error(err: &ProposerError) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use alethia_reth_consensus::eip4396::calculate_next_block_eip4396_base_fee;
     use alloy::{
         consensus::Header as ConsensusHeader,
         primitives::{B256, Bytes, U256},
@@ -599,7 +601,9 @@ mod tests {
         is_operational_submission_error, next_shasta_proposal_id, record_submission_attempt,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
-    use protocol::shasta::encode_extra_data;
+    use protocol::shasta::{
+        constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
+    };
 
     #[test]
     fn current_unix_timestamp_tracks_system_time() {
@@ -705,8 +709,10 @@ mod tests {
             ..Default::default()
         };
 
-        let expected = U256::from(calculate_next_block_eip4396_base_fee(
-            &parent.header.inner,
+        let expected = U256::from(calculate_next_block_eip4396_base_fee_from_parent_values(
+            parent.header.inner.number,
+            parent.header.inner.gas_limit,
+            parent.header.inner.gas_used,
             parent.header.timestamp.saturating_sub(grandparent.header.timestamp),
             parent.header.inner.base_fee_per_gas.expect("parent should define a base fee"),
             1_000_000_000,
