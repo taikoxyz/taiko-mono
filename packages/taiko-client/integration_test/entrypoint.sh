@@ -17,7 +17,7 @@ if [ "${L2_NODE:-}" == "l2_nmc" ]; then
   check_command "jq"
 fi
 
-# Keep L2 Uzen fork active from genesis in the integration test environment, and
+# Keep L2 Unzen fork active from genesis in the integration test environment, and
 # start Anvil from a past timestamp so preconf activation stays behind wall
 # clock time during test bootstrap.
 if [ -z "${ANVIL_L1_START_TIMESTAMP:-}" ]; then

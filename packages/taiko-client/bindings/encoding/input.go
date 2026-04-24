@@ -51,7 +51,7 @@ var (
 	// Pacaya fork
 	TaikoAnchorABI *abi.ABI
 
-	// Shasta / Uzen fork
+	// Shasta / Unzen fork
 	ShastaInboxABI           *abi.ABI
 	ShastaAnchorABI          *abi.ABI
 	BondManagerABI           *abi.ABI

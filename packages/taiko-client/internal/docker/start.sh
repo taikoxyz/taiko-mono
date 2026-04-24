@@ -20,7 +20,7 @@ case "$L2_NODE" in
     ;;
   l2_nmc)
     DOCKER_SERVICE_LIST=("l1_node" "l2_nmc")
-    # For NMC, we need to dynamically inject the uzenTimestamp into the chainspec
+    # For NMC, we need to dynamically inject the unzenTimestamp into the chainspec
     # because Nethermind uses a static chainspec file unlike taiko-geth which uses CLI flags.
     # We use a template file to avoid modifying the original and to ensure clean state on each run.
     NMC_CHAINSPEC_DIR="$PROJECT_ROOT/internal/docker/nodes/nmc/chainspec"
@@ -29,11 +29,11 @@ case "$L2_NODE" in
     
     if [ -f "$NMC_CHAINSPEC_TEMPLATE" ]; then
       SHASTA_HEX=$(printf "0x%x" 0)
-      UZEN_HEX=$(printf "0x%x" 0)
-      echo "Generating NMC chainspec with shastaTimestamp=$SHASTA_HEX (Shasta active from genesis), uzenTimestamp=$UZEN_HEX (Uzen active from genesis)"
-      # Generate chainspec from template with dynamic shastaTimestamp and uzenTimestamp
-      jq --arg shasta "$SHASTA_HEX" --arg uzen "$UZEN_HEX" \
-        '.engine.Taiko.shastaTimestamp = $shasta | .engine.Taiko.uzenTimestamp = $uzen' \
+      UNZEN_HEX=$(printf "0x%x" 0)
+      echo "Generating NMC chainspec with shastaTimestamp=$SHASTA_HEX (Shasta active from genesis), unzenTimestamp=$UNZEN_HEX (Unzen active from genesis)"
+      # Generate chainspec from template with dynamic shastaTimestamp and unzenTimestamp
+      jq --arg shasta "$SHASTA_HEX" --arg unzen "$UNZEN_HEX" \
+        '.engine.Taiko.shastaTimestamp = $shasta | .engine.Taiko.unzenTimestamp = $unzen' \
         "$NMC_CHAINSPEC_TEMPLATE" > "$NMC_CHAINSPEC"
     fi
     ;;

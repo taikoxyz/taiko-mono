@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// Version number for Shasta / Uzen payloads.
+	// Version number for Shasta / Unzen payloads.
 	ShastaPayloadVersion = 0x1
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
