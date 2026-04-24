@@ -62,6 +62,15 @@ pub enum ProposerError {
         message: String,
     },
 
+    /// Too many transaction lists for the selected fork limit.
+    #[error("proposal contains too many transaction lists: count={count}, max={max}")]
+    TooManyTransactionLists {
+        /// Transaction-list count in the attempted proposal.
+        count: usize,
+        /// Maximum transaction-list count allowed for the selected fork.
+        max: usize,
+    },
+
     /// Anchor constructor not initialized (engine mode disabled).
     #[error("anchor constructor not initialized (engine mode is disabled)")]
     AnchorConstructorNotInitialized,

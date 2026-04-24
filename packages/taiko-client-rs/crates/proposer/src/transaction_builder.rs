@@ -15,6 +15,7 @@ use alloy::{
 use bindings::inbox::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use protocol::shasta::{
     BlobCoder,
+    constants::derivation_source_max_blocks_for_chain_timestamp,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 use rpc::client::ClientWithWallet;
@@ -163,6 +164,15 @@ impl ShastaProposalTransactionBuilder {
             }
         };
 
+        let max_blocks =
+            derivation_source_max_blocks_for_chain_timestamp(self.rpc_provider.chain_id, timestamp);
+        if txs_lists.len() > max_blocks {
+            return Err(ProposerError::TooManyTransactionLists {
+                count: txs_lists.len(),
+                max: max_blocks,
+            });
+        }
+
         // Build the proposal manifest.
         let manifest = DerivationSourceManifest {
             blocks: txs_lists
@@ -266,7 +276,9 @@ mod tests {
     use alloy_provider::ProviderBuilder;
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
-    use protocol::shasta::{BlobCoder, manifest::DerivationSourceManifest};
+    use protocol::shasta::{
+        BlobCoder, constants::DERIVATION_SOURCE_MAX_BLOCKS, manifest::DerivationSourceManifest,
+    };
     use rpc::client::{Client, ClientWithWallet, ShastaProtocolInstance};
     use std::sync::{
         Arc, Mutex,
@@ -274,6 +286,7 @@ mod tests {
     };
 
     use crate::{
+        error::ProposerError,
         proposer::EngineBuildContext,
         transaction_builder::{BuiltProposalTx, ProposalBlobPayload},
     };
@@ -577,5 +590,36 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn build_rejects_too_many_pre_unzen_transaction_lists() {
+        let call_result = Bytes::from(Bytes::from_static(b"proposal-encoded-bytes").abi_encode());
+        let l1_transport = ManifestTestTransport::l1(1, call_result);
+        let l2_transport = ManifestTestTransport::l2(RpcBlock::default(), RpcBlock::default());
+        let rpc_provider = test_rpc_client(l1_transport, l2_transport);
+        let builder =
+            ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
+
+        let result = builder
+            .build(
+                vec![vec![]; DERIVATION_SOURCE_MAX_BLOCKS + 1],
+                Some(EngineBuildContext {
+                    anchor_block_number: 1,
+                    parent_block_number: 1,
+                    timestamp: 1,
+                    gas_limit: 45_000_000,
+                }),
+            )
+            .await;
+
+        let err = result.expect_err("too many transaction lists should be rejected");
+        match err {
+            ProposerError::TooManyTransactionLists { count, max } => {
+                assert_eq!(count, DERIVATION_SOURCE_MAX_BLOCKS + 1);
+                assert_eq!(max, DERIVATION_SOURCE_MAX_BLOCKS);
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 }
