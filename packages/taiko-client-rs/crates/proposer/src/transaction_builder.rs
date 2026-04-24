@@ -188,10 +188,7 @@ impl ShastaProposalTransactionBuilder {
             proposal_limit_timestamp,
         );
         if txs_lists.len() > max_blocks {
-            return Err(ProposerError::TooManyTransactionLists {
-                count: txs_lists.len(),
-                max: max_blocks,
-            });
+            return Err(ProposerError::TooManyBlocks { count: txs_lists.len(), max: max_blocks });
         }
 
         // Build the proposal manifest.
@@ -654,9 +651,9 @@ mod tests {
             )
             .await;
 
-        let err = result.expect_err("too many transaction lists should be rejected");
+        let err = result.expect_err("too many blocks should be rejected");
         match err {
-            ProposerError::TooManyTransactionLists { count, max } => {
+            ProposerError::TooManyBlocks { count, max } => {
                 assert_eq!(count, DERIVATION_SOURCE_MAX_BLOCKS + 1);
                 assert_eq!(max, DERIVATION_SOURCE_MAX_BLOCKS);
             }
