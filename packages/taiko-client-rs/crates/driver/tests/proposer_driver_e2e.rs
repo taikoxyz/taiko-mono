@@ -96,8 +96,9 @@ where
                     l2_head_before,
                     l2_head, "L2 head moved backward while waiting for proposal processing"
                 );
+            } else {
+                return Ok(l2_head);
             }
-            return Ok(l2_head);
         }
 
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
@@ -220,6 +221,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         .await?
         .ok_or_else(|| anyhow!("missing canonical block after proposal processing"))?;
     let canonical_number = canonical_block.number();
+    info!(canonical_number, l2_head_after, "captured canonical block after first processing");
     let canonical_hash = canonical_block.hash();
 
     // Re-process the same proposal via the derivation pipeline.
