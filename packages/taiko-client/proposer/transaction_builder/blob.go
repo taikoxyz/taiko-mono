@@ -41,6 +41,12 @@ type BlobTransactionBuilder struct {
 	manifestBuilderCounter  uint32
 }
 
+type shastaManifestTestCase struct {
+	name          string
+	buildManifest func(*manifest.DerivationSourceManifest, []types.Transactions, *types.Header, uint64)
+	mutatePayload func([]byte) []byte
+}
+
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
@@ -205,22 +211,18 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	}
 
 	// Populate the derivation source manifest with one boundary test case at a time (round-robin).
-	builders := []func(*manifest.DerivationSourceManifest, []types.Transactions, *types.Header, uint64){
-		b.lowTimestamp,
-		b.highTimestamp,
-		b.lowGasLimit,
-		b.highGasLimit,
-		b.lowAnchorBlockNumberOffset,
-		b.highAnchorBlockNumberOffset,
-	}
+	testCases := b.shastaManifestTestCases()
 	idx := atomic.AddUint32(&b.manifestBuilderCounter, 1) - 1
-	buildFn := builders[idx%uint32(len(builders))]
-	buildFn(derivationSourceManifest, txBatch, l1Head, gasLimit)
+	testCase := testCases[idx%uint32(len(testCases))]
+	testCase.buildManifest(derivationSourceManifest, txBatch, l1Head, gasLimit)
 
 	// Encode the derivation source manifest.
 	sourceManifestBytes, err := EncodeSourceManifestShasta(derivationSourceManifest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode derivation source manifest: %w", err)
+	}
+	if testCase.mutatePayload != nil {
+		sourceManifestBytes = testCase.mutatePayload(sourceManifestBytes)
 	}
 
 	// Split the derivation source manifest bytes into multiple blobs.
@@ -296,6 +298,77 @@ func EncodeSourceManifestShasta(sourceManifest *manifest.DerivationSourceManifes
 	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
 
 	return append(blobBytesPrefix, sourceManifestBytes...), nil
+}
+
+func (b *BlobTransactionBuilder) shastaManifestTestCases() []shastaManifestTestCase {
+	return []shastaManifestTestCase{
+		{name: "low timestamp", buildManifest: b.lowTimestamp},
+		{name: "high timestamp", buildManifest: b.highTimestamp},
+		{name: "low gas limit", buildManifest: b.lowGasLimit},
+		{name: "high gas limit", buildManifest: b.highGasLimit},
+		{name: "low anchor block number offset", buildManifest: b.lowAnchorBlockNumberOffset},
+		{name: "high anchor block number offset", buildManifest: b.highAnchorBlockNumberOffset},
+		{name: "invalid blob", buildManifest: b.validManifest, mutatePayload: invalidBlobPayload},
+		{name: "invalid tx", buildManifest: b.invalidTx},
+	}
+}
+
+func invalidBlobPayload(payload []byte) []byte {
+	corrupted := append([]byte(nil), payload...)
+	corrupted[31] = byte(manifest.ShastaPayloadVersion + 1)
+	return corrupted
+}
+
+func (b *BlobTransactionBuilder) validManifest(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	for i, txs := range txBatch {
+		log.Info(
+			"Constructing valid derivation source manifest.",
+			"index", i,
+			"numTxs", len(txs),
+			"timestamp", l1Head.Time+uint64(i),
+			"anchorBlockNumber", l1Head.Number.Uint64(),
+			"coinbase", b.l2SuggestedFeeRecipient,
+			"gasLimit", gasLimit,
+		)
+		sourceManifest.Blocks = append(sourceManifest.Blocks, &manifest.BlockManifest{
+			Timestamp:         l1Head.Time + uint64(i),
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: l1Head.Number.Uint64(),
+			GasLimit:          gasLimit,
+			Transactions:      txs,
+		})
+	}
+}
+
+func (b *BlobTransactionBuilder) invalidTx(
+	sourceManifest *manifest.DerivationSourceManifest,
+	txBatch []types.Transactions,
+	l1Head *types.Header,
+	gasLimit uint64,
+) {
+	b.validManifest(sourceManifest, txBatch, l1Head, gasLimit)
+	if len(sourceManifest.Blocks) == 0 {
+		return
+	}
+
+	to := common.Address{}
+	sourceManifest.Blocks[0].Transactions = append(
+		sourceManifest.Blocks[0].Transactions,
+		types.NewTx(&types.DynamicFeeTx{
+			ChainID:   common.Big1,
+			Nonce:     0,
+			GasTipCap: big.NewInt(2),
+			GasFeeCap: common.Big1,
+			Gas:       21_000,
+			To:        &to,
+			Value:     common.Big0,
+		}),
+	)
 }
 
 func (b *BlobTransactionBuilder) lowTimestamp(
