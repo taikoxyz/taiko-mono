@@ -304,7 +304,7 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260424023937-810480e7eee6
+replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.18.1-0.20260427005750-f636489ae176
 
 replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20260420065638-5490c5186828
 
