@@ -48,7 +48,7 @@ hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
 tower = { version = "0.5", features = ["timeout", "util"] }
 
 # ethereum
-alloy = "1.4.3"
+alloy = { version = "1.4.3", default-features = false }
 alloy-consensus = { version = "1.4.3", default-features = false, features = [
   "serde",
 ] }
@@ -82,7 +82,7 @@ robust-provider = "1.0.1"
 
 # taiko
 alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "d1e831837fddfe6dbf8f7e43a77488316f1458bc", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "d1e831837fddfe6dbf8f7e43a77488316f1458bc", features = [
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "d1e831837fddfe6dbf8f7e43a77488316f1458bc", default-features = false, features = [
   "serde",
 ] }
 alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "d1e831837fddfe6dbf8f7e43a77488316f1458bc" }

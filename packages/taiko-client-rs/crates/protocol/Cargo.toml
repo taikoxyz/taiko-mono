@@ -8,6 +8,8 @@ license.workspace = true
 [features]
 default = ["net"]
 net = [
+    "alloy/default",
+    "bindings",
     "tokio",
     "tokio-retry",
     "tokio-stream",
@@ -27,7 +29,7 @@ tokio-stream = { workspace = true, optional = true }
 tracing = { workspace = true }
 
 # ethereum
-alloy = { workspace = true }
+alloy = { workspace = true, features = ["std", "signers", "sol-types"] }
 alloy-consensus = { workspace = true }
 alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
@@ -50,7 +52,7 @@ k256 = { workspace = true }
 # taiko
 alethia-reth-consensus = { workspace = true }
 alethia-reth-primitives = { workspace = true }
-bindings = { path = "../bindings" }
+bindings = { path = "../bindings", optional = true }
 
 # types
 anyhow = { workspace = true }
