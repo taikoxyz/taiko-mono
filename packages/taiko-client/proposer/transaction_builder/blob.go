@@ -91,6 +91,7 @@ func (b *BlobTransactionBuilder) Build(
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode derivation source manifest: %w", err)
 	}
+
 	if testCase.mutatePayload != nil {
 		sourceManifestBytes = testCase.mutatePayload(sourceManifestBytes)
 	}
