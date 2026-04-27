@@ -16,7 +16,7 @@ func TestShastaManifestTestCasesIncludeInvalidBlob(t *testing.T) {
 
 	sourceManifest := &manifest.DerivationSourceManifest{}
 	testCase.buildManifest(sourceManifest, []types.Transactions{{}}, testL1Head(), 30_000_000)
-	payload, err := EncodeSourceManifestShasta(sourceManifest)
+	payload, err := EncodeSourceManifest(sourceManifest)
 	require.NoError(t, err)
 
 	payload = testCase.mutatePayload(payload)

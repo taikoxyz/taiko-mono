@@ -49,7 +49,7 @@ func NewBlobTransactionBuilder(
 		inboxAddress:            inboxAddress,
 		l2SuggestedFeeRecipient: l2SuggestedFeeRecipient,
 		gasLimit:                gasLimit,
-		0,
+		manifestBuilderCounter:  0,
 	}
 }
 

@@ -3,15 +3,15 @@ package proposer
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/require"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 )
 
 const nonceModeEnv = "NONCE_MODE"
-const nonceRPCTimeoutEnv = "NONCE_RPC_TIMEOUT"
 
 func nonceModeFromEnv() (string, error) {
 	mode := strings.TrimSpace(strings.ToLower(os.Getenv(nonceModeEnv)))
