@@ -15,6 +15,9 @@ use alloy_hardforks::ForkCondition;
 /// small as one second, 192 blocks will cover an Ethereum epoch.
 pub const DERIVATION_SOURCE_MAX_BLOCKS: usize = 192;
 
+/// The maximum number of blocks allowed in a proposal source at and after Unzen.
+pub const UNZEN_DERIVATION_SOURCE_MAX_BLOCKS: usize = 768;
+
 /// The maximum anchor block number offset from the proposal origin block number.
 pub const MAX_ANCHOR_OFFSET: u64 = 128;
 /// The maximum anchor block number offset from the proposal origin block number on mainnet.
@@ -236,11 +239,23 @@ pub fn unzen_active_for_chain_timestamp(chain_id: u64, timestamp: u64) -> ForkCo
     }
 }
 
+/// Returns the per-source derivation block limit for a proposal timestamp.
+pub fn derivation_source_max_blocks_for_chain_timestamp(
+    chain_id: u64,
+    proposal_timestamp: u64,
+) -> usize {
+    match unzen_active_for_chain_timestamp(chain_id, proposal_timestamp) {
+        Ok(true) => UNZEN_DERIVATION_SOURCE_MAX_BLOCKS,
+        Ok(false) | Err(_) => DERIVATION_SOURCE_MAX_BLOCKS,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        ForkConfigError, MAX_ANCHOR_OFFSET, MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID,
-        TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
+        DERIVATION_SOURCE_MAX_BLOCKS, ForkConfigError, MAX_ANCHOR_OFFSET,
+        MAX_ANCHOR_OFFSET_MAINNET, TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID,
+        TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID, TIMESTAMP_MAX_OFFSET,
         TIMESTAMP_MAX_OFFSET_MAINNET, max_anchor_offset_for_chain, shasta_fork_timestamp_for_chain,
         timestamp_max_offset_for_chain, unzen_fork_condition_for_chain,
         unzen_fork_timestamp_for_chain,
@@ -306,5 +321,24 @@ mod tests {
             unzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID),
             Err(ForkConfigError::UnsupportedActivation)
         ));
+    }
+
+    #[test]
+    fn derivation_source_max_blocks_are_chain_timestamp_aware() {
+        assert_eq!(
+            super::derivation_source_max_blocks_for_chain_timestamp(TAIKO_DEVNET_CHAIN_ID, 0),
+            super::UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
+        );
+        assert_eq!(
+            super::derivation_source_max_blocks_for_chain_timestamp(
+                TAIKO_MASAYA_CHAIN_ID,
+                u64::MAX
+            ),
+            DERIVATION_SOURCE_MAX_BLOCKS
+        );
+        assert_eq!(
+            super::derivation_source_max_blocks_for_chain_timestamp(u64::MAX, u64::MAX),
+            DERIVATION_SOURCE_MAX_BLOCKS
+        );
     }
 }

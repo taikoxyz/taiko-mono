@@ -5,8 +5,9 @@
 use alloy_hardforks::ForkCondition;
 use protocol::shasta::{
     constants::{
-        TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID, TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID,
-        unzen_fork_condition_for_chain,
+        DERIVATION_SOURCE_MAX_BLOCKS, TAIKO_DEVNET_CHAIN_ID, TAIKO_HOODI_CHAIN_ID,
+        TAIKO_MAINNET_CHAIN_ID, TAIKO_MASAYA_CHAIN_ID, UNZEN_DERIVATION_SOURCE_MAX_BLOCKS,
+        derivation_source_max_blocks_for_chain_timestamp, unzen_fork_condition_for_chain,
     },
     set_devnet_unzen_override, unzen_active_for_chain_timestamp, unzen_fork_timestamp_for_chain,
 };
@@ -31,6 +32,18 @@ fn devnet_override_flows_through_fork_lookups() {
     assert!(
         unzen_active_for_chain_timestamp(TAIKO_DEVNET_CHAIN_ID, 42).expect("devnet active"),
         "devnet should be active at override timestamp"
+    );
+    assert_eq!(
+        derivation_source_max_blocks_for_chain_timestamp(TAIKO_DEVNET_CHAIN_ID, 41),
+        DERIVATION_SOURCE_MAX_BLOCKS
+    );
+    assert_eq!(
+        derivation_source_max_blocks_for_chain_timestamp(TAIKO_DEVNET_CHAIN_ID, 42),
+        UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
+    );
+    assert_eq!(
+        derivation_source_max_blocks_for_chain_timestamp(TAIKO_DEVNET_CHAIN_ID, 43),
+        UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
     );
 
     assert_eq!(

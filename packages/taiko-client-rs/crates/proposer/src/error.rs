@@ -62,6 +62,15 @@ pub enum ProposerError {
         message: String,
     },
 
+    /// Too many blocks for the selected fork limit.
+    #[error("proposal contains too many blocks: count={count}, max={max}")]
+    TooManyBlocks {
+        /// Block count in the attempted proposal.
+        count: usize,
+        /// Maximum block count allowed for the selected fork.
+        max: usize,
+    },
+
     /// Anchor constructor not initialized (engine mode disabled).
     #[error("anchor constructor not initialized (engine mode is disabled)")]
     AnchorConstructorNotInitialized,

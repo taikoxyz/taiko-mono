@@ -40,3 +40,20 @@ func TestIsUnzen_NilChainID(t *testing.T) {
 	require.False(t, IsUnzen(nil, 0))
 	require.False(t, IsUnzen((*big.Int)(nil), 12345))
 }
+
+func TestDerivationSourceMaxBlocks_UsesUnzenBoundary(t *testing.T) {
+	original := gethcore.DevnetUnzenTime
+	t.Cleanup(func() { gethcore.DevnetUnzenTime = original })
+
+	gethcore.DevnetUnzenTime = 100
+
+	devnetID := params.TaikoInternalNetworkID
+	require.Equal(t, 192, DerivationSourceMaxBlocks(devnetID, 99))
+	require.Equal(t, 768, DerivationSourceMaxBlocks(devnetID, 100))
+	require.Equal(t, 768, DerivationSourceMaxBlocks(devnetID, 101))
+}
+
+func TestDerivationSourceMaxBlocks_UnknownAndNilChainStayPreUnzen(t *testing.T) {
+	require.Equal(t, 192, DerivationSourceMaxBlocks(nil, 1_000_000))
+	require.Equal(t, 192, DerivationSourceMaxBlocks(big.NewInt(123456789), 1_000_000))
+}

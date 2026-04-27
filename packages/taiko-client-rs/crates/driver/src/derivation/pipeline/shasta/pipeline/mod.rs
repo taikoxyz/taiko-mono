@@ -18,7 +18,8 @@ use metrics::{counter, gauge};
 use protocol::shasta::{
     constants::{
         MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET, PROPOSAL_MAX_BLOB_BYTES, TAIKO_MAINNET_CHAIN_ID,
-        min_base_fee_for_chain, shasta_fork_timestamp_for_chain,
+        derivation_source_max_blocks_for_chain_timestamp, min_base_fee_for_chain,
+        shasta_fork_timestamp_for_chain,
     },
     manifest::DerivationSourceManifest,
 };
@@ -344,6 +345,7 @@ where
         &self,
         fetcher: &dyn ManifestFetcher<Manifest = M>,
         source: &DerivationSource,
+        proposal_timestamp: u64,
     ) -> Result<M, DerivationError>
     where
         M: Send,
@@ -351,8 +353,14 @@ where
         let hashes = derivation_source_to_blob_hashes(source);
         let offset = source.blobSlice.offset.to::<u64>() as usize;
         let timestamp = source.blobSlice.timestamp.to::<u64>();
-        debug!(hash_count = hashes.len(), offset, timestamp, "fetching manifest sidecars");
-        let manifest = fetcher.fetch_and_decode_manifest(timestamp, &hashes, offset).await?;
+        let max_blocks =
+            derivation_source_max_blocks_for_chain_timestamp(self.chain_id, proposal_timestamp);
+        debug!(
+            hash_count = hashes.len(),
+            offset, timestamp, proposal_timestamp, max_blocks, "fetching manifest sidecars"
+        );
+        let manifest =
+            fetcher.fetch_and_decode_manifest(timestamp, &hashes, offset, max_blocks).await?;
         Ok(manifest)
     }
 
@@ -386,6 +394,7 @@ where
                     .fetch_and_decode_manifest(
                         self.derivation_source_manifest_fetcher.as_ref(),
                         source,
+                        event.l1_timestamp,
                     )
                     .await?;
                 validate_forced_inclusion_manifest(proposal_id, source, manifest)

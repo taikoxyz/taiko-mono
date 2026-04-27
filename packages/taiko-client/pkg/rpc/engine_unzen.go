@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/core"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 )
 
 // IsUnzen returns whether the given chain and timestamp are inside the Unzen fork.
@@ -17,6 +19,15 @@ func IsUnzen(chainID *big.Int, timestamp uint64) bool {
 	genesis := core.TaikoGenesisBlock(chainID.Uint64())
 	return genesis != nil && genesis.Config != nil && genesis.Config.ChainID != nil &&
 		genesis.Config.ChainID.Cmp(chainID) == 0 && genesis.Config.IsUnzen(timestamp)
+}
+
+// DerivationSourceMaxBlocks returns the per-source derivation block limit for a proposal.
+func DerivationSourceMaxBlocks(chainID *big.Int, proposalTimestamp uint64) int {
+	if IsUnzen(chainID, proposalTimestamp) {
+		return manifest.UnzenProposalMaxBlocks
+	}
+
+	return manifest.ProposalMaxBlocks
 }
 
 // ForkLabel returns the active fork label for display purposes.

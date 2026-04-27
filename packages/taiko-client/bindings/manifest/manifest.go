@@ -13,8 +13,10 @@ const (
 	ShastaPayloadVersion = 0x1
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
-	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal.
+	// ProposalMaxBlocks The maximum number of blocks allowed in a pre-Unzen proposal source.
 	ProposalMaxBlocks = 192
+	// UnzenProposalMaxBlocks The maximum number of blocks allowed in an Unzen proposal source.
+	UnzenProposalMaxBlocks = 768
 	// AnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on Hoodi.
 	AnchorMaxOffset = uint64(128)
 	// MainnetAnchorMaxOffset The maximum anchor block number offset from the proposal origin block number on mainnet.
