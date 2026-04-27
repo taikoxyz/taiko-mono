@@ -59,59 +59,24 @@ of its bundle proceeds normally, and the temporary fork routers are retired.
 
 There are no L2 actions in this proposal.
 
-### Front-running Risk
-
-The same vector that broke Proposal28 the first time remains open in the gap
-between this proposal executing and Proposal28 executing. Any address can call
-`Controller.acceptOwnershipOf(L1.INBOX)` in that gap, which would clear
-`pendingOwner` back to `address(0)` and reproduce the original revert on
-Proposal28's first action.
-
-To mitigate, the executor of this emergency proposal **must bundle the two
-`execute(bytes)` calls in the same block** via a private mempool (e.g., Flashbots
-or equivalent), submitting `execute(Proposal0012Bytes)` and `execute(Proposal0011Bytes)`
-together in that order. Public-mempool execution is unsafe: any observer can
-front-run the second proposal and reproduce the revert.
-
-If a private-bundle path is not available, use a self-contained replacement of
-Proposal28 instead. That replacement would be a single new proposal containing
-all four actions atomically: `transferOwnership(controller.taiko.eth)`,
-`acceptOwnership()`, the L1 SignalService upgrade, and the bridge call carrying
-the two L2 upgrades.
-
 ## Verification
 
 Before submission, confirm:
 
-- `L1.INBOX.owner()` is `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a` (`controller.taiko.eth`)
-- `L1.INBOX.pendingOwner()` is `0x0000000000000000000000000000000000000000`
+- `L1.INBOX.owner()` is `controller.taiko.eth` (`0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`)
+- `L1.INBOX.pendingOwner()` is `address(0)`
 
-Generate proposal calldata:
+Generate calldata and dryrun on a mainnet fork:
 
 ```bash
 P=0012 pnpm proposal
-```
-
-Dryrun on L1 (forks mainnet, calls `Controller.dryrun`, expects revert with
-`DryrunSucceeded()`):
-
-```bash
 P=0012 pnpm proposal:dryrun:l1
 ```
 
-Combined dryrun (this proposal followed by Proposal28's actions, end-to-end):
-`Controller.dryrun(abi.encode([transferOwnership(controller.taiko.eth), acceptOwnership(), upgradeTo(L1_SS_NEW), bridgeSendMessage(L2 actions)]))`
-should also revert with `DryrunSucceeded()`. See the PR description for the
-forked simulation result.
+The dryrun should revert with `DryrunSucceeded()`.
 
-After execution of both proposals (this one then Proposal28):
-
-- `L1.INBOX.owner()` is `controller.taiko.eth`
-- `L1.INBOX.pendingOwner()` is `address(0)`
-- `L1.SIGNAL_SERVICE` EIP-1967 implementation slot points to
-  `0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752`
-- L2 anchor and L2 signal service implementation slots point to their final Shasta
-  implementations (verifiable once the L2 leg is relayed).
+After execution, `L1.INBOX.pendingOwner()` is `controller.taiko.eth` and the inbox is
+ready for Proposal28's `acceptOwnership()` action.
 
 ## Security Contacts
 
