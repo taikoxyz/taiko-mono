@@ -20,7 +20,7 @@ alloy = { workspace = true }
 alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
-alloy-provider = { workspace = true }
+alloy-provider = { workspace = true, features = ["ws"] }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
 alloy-sol-macro = { workspace = true, features = ["json"] }
@@ -32,9 +32,8 @@ tokio = { workspace = true, features = ["sync"] }
 url = { workspace = true }
 
 # taiko
-alethia-reth-evm = { workspace = true }
 alethia-reth-primitives = { workspace = true }
-alethia-reth-rpc = { workspace = true }
+alethia-reth-rpc-types = { workspace = true }
 bindings = { path = "../bindings" }
 event-scanner = { workspace = true }
 protocol = { path = "../protocol" }
@@ -46,4 +45,4 @@ thiserror = { workspace = true }
 # serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = "0.10"
+sha2 = { workspace = true }

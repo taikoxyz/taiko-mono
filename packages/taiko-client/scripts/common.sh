@@ -1,9 +1,18 @@
 #!/bin/bash
-
 RED='\033[1;31m'
 NC='\033[0m' # No Color
 
-COMPOSE="docker compose -f internal/docker/nodes/docker-compose.yml"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+COMPOSE_YML="$PROJECT_ROOT/internal/docker/nodes/docker-compose.yml"
+
+if ! command docker compose version > /dev/null 2>&1; then
+    echo "ERROR: 'docker compose' is not available"
+    exit 1
+fi
+
+docker_compose() {
+  docker compose -f "$COMPOSE_YML" "$@"
+}
 
 print_error() {
   local msg="$1"
@@ -23,7 +32,7 @@ check_env() {
 check_command() {
   if ! command -v "$1" &> /dev/null; then
     print_error "$1 could not be found"
-    exit
+    exit 1
   fi
 }
 
@@ -31,7 +40,7 @@ compose_down() {
   local services=("$@")
   echo
   echo "stopping services..."
-  $COMPOSE down -v "${services[@]}" #--remove-orphans
+  docker_compose down -v "${services[@]}"
   echo "done"
 }
 
@@ -39,6 +48,6 @@ compose_up() {
   local services=("$@")
   echo
   echo "launching services..."
-  $COMPOSE up --quiet-pull "${services[@]}" -d --wait
+  docker_compose up --quiet-pull -d --wait "${services[@]}"
   echo "done"
 }

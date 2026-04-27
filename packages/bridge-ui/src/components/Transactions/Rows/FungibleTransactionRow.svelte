@@ -28,9 +28,11 @@
   let insufficientModal = false;
   let mobileDetailsOpen = false;
   let desktopDetailsOpen = false;
+  let directClaim = false;
 
   let timestamp: string;
   const getDate = async () => {
+    if (!bridgeTx.blockNumber) return;
     const blockTimestamp = await geBlockTimestamp(bridgeTx.srcChainId, hexToBigInt(bridgeTx.blockNumber));
     timestamp = formatTimestamp(Number(blockTimestamp));
   };
@@ -41,6 +43,10 @@
     } else if (event.detail === 'release') {
       releaseModalOpen = true;
     } else if (event.detail === 'claim') {
+      directClaim = false;
+      claimModalOpen = true;
+    } else if (event.detail === 'try_claim') {
+      directClaim = true;
       claimModalOpen = true;
     }
   };
@@ -198,7 +204,12 @@
 
 <ReleaseDialog {bridgeTx} bind:dialogOpen={releaseModalOpen} />
 
-<ClaimDialog {bridgeTx} bind:loading bind:dialogOpen={claimModalOpen} on:claimingDone={() => handleClaimingDone()} />
+<ClaimDialog
+  {bridgeTx}
+  {directClaim}
+  bind:loading
+  bind:dialogOpen={claimModalOpen}
+  on:claimingDone={() => handleClaimingDone()} />
 
 <style>
   .dashed-border {

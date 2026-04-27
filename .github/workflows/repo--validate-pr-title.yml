@@ -29,14 +29,12 @@ jobs:
             main
             deps
             deps-dev
-            docs-site
             branding
             bridge-ui
             ejector
             eventindexer
             fork-diff
             geth-rpc-gateway
-            overseer-rs
             preconfirmation-p2p
             protocol
             relayer

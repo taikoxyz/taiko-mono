@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"log/slog"
 
@@ -23,6 +24,41 @@ const erc20ABI = `[{"constant":true,"inputs":[],"name":"symbol","outputs":[{"nam
 
 // nolint: lll
 const transferEventABI = `[{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]`
+
+var (
+	parsedERC20ABI        abi.ABI
+	parsedERC20ABIErr     error
+	parsedERC20ABIOnce    sync.Once
+	parsedTransferABI     abi.ABI
+	parsedTransferABIErr  error
+	parsedTransferABIOnce sync.Once
+)
+
+func getParsedERC20ABI() (*abi.ABI, error) {
+	parsedERC20ABIOnce.Do(func() {
+		parsedERC20ABI, parsedERC20ABIErr = abi.JSON(strings.NewReader(erc20ABI))
+	})
+
+	err := parsedERC20ABIErr
+	if err != nil {
+		return nil, errors.Wrap(err, "abi.JSON(strings.NewReader)")
+	}
+
+	return &parsedERC20ABI, nil
+}
+
+func getParsedTransferABI() (*abi.ABI, error) {
+	parsedTransferABIOnce.Do(func() {
+		parsedTransferABI, parsedTransferABIErr = abi.JSON(strings.NewReader(transferEventABI))
+	})
+
+	err := parsedTransferABIErr
+	if err != nil {
+		return nil, errors.Wrap(err, "abi.JSON(strings.NewReader)")
+	}
+
+	return &parsedTransferABI, nil
+}
 
 // indexERC20Transfers indexes from a given starting block to a given end block and parses all event logs
 // to find ERC20 transfer events and update balances
@@ -90,10 +126,9 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 		Value *big.Int
 	}{}
 
-	// Parse the Transfer event ABI
-	parsedABI, err := abi.JSON(strings.NewReader(transferEventABI))
+	parsedABI, err := getParsedTransferABI()
 	if err != nil {
-		return errors.Wrap(err, "abi.JSON(strings.NewReader)")
+		return err
 	}
 
 	err = parsedABI.UnpackIntoInterface(&event, "Transfer", vLog.Data)
@@ -198,10 +233,9 @@ func getERC20Symbol(ctx context.Context, client *ethclient.Client, contractAddre
 	// Parse the contract address
 	address := common.HexToAddress(contractAddress)
 
-	// Parse the ERC20 contract ABI
-	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	parsedABI, err := getParsedERC20ABI()
 	if err != nil {
-		return "", errors.Wrap(err, "abi.JSON")
+		return "", err
 	}
 
 	// Prepare the call message
@@ -234,8 +268,7 @@ func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAdd
 	// Parse the contract address
 	address := common.HexToAddress(contractAddress)
 
-	// Parse the ERC20 contract ABI
-	parsedABI, err := abi.JSON(strings.NewReader(erc20ABI))
+	parsedABI, err := getParsedERC20ABI()
 	if err != nil {
 		return 0, err
 	}
@@ -243,7 +276,7 @@ func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAdd
 	// Prepare the call message
 	callData, err := parsedABI.Pack("decimals")
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "parsedABI.Pack")
 	}
 
 	msg := ethereum.CallMsg{
@@ -253,14 +286,14 @@ func getERC20Decimals(ctx context.Context, client *ethclient.Client, contractAdd
 
 	result, err := client.CallContract(ctx, msg, nil)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "client.CallContract")
 	}
 
 	var decimals uint8
 
 	err = parsedABI.UnpackIntoInterface(&decimals, "decimals", result)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "parsedABI.UnpackIntoInterface")
 	}
 
 	return decimals, nil

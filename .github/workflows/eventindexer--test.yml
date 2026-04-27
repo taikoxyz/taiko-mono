@@ -48,7 +48,7 @@ jobs:
     if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{ github.token }}
 
@@ -60,10 +60,10 @@ jobs:
 
       - name: eventindexer - Unit Tests
         working-directory: ./packages/eventindexer
-        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
+        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -timeout=20m -coverprofile=coverage.txt -covermode=atomic
 
       - name: eventindexer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./packages/eventindexer/coverage.txt
           flags: eventindexer

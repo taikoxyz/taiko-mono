@@ -56,7 +56,7 @@ var (
 		Usage:    "Duration we will wait before resubmitting a transaction to L1",
 		Value:    48 * time.Second,
 		Category: txmgrCategory,
-		EnvVars:  []string{"RESBUMISSION_TIMEOUT"},
+		EnvVars:  []string{"RESUBMISSION_TIMEOUT"},
 	}
 	TxSendTimeout = &cli.DurationFlag{
 		Name:     "tx.sendTimeout",

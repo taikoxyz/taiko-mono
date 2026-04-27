@@ -1,19 +1,18 @@
 #!/bin/bash
 
-source internal/docker/docker_env.sh
-source scripts/common.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+source "$PROJECT_ROOT/internal/docker/docker_env.sh"
+source "$PROJECT_ROOT/scripts/common.sh"
+
+PROTOCOL_DIR="${PROTOCOL_DIR:-$PROJECT_ROOT/../protocol}"
 
 # get deployed contract address.
-PACAYA_DEPLOYMENT_JSON=$(cat ${PACAYA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
-DEPLOYMENT_JSON=$(cat ${SHASTA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
-export PACAYA_INBOX=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
-export SHASTA_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
+DEPLOYMENT_JSON=$(cat "${PROTOCOL_DIR}/deployments/deploy_l1.json")
+export INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.shasta_inbox' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
-export TAIKO_TOKEN=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
-export PROVER_SET=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.prover_set' | sed 's/\"//g')
-export TAIKO_WRAPPER=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko_wrapper' | sed 's/\"//g')
-export FORCED_INCLUSION_STORE=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.forced_inclusion_store' | sed 's/\"//g')
-export COMPOSE_VERIFIER=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.proof_verifier' | sed 's/\"//g')
+export COMPOSE_VERIFIER=$(echo "$DEPLOYMENT_JSON" | jq '.proof_verifier' | sed 's/\"//g')
 export L1_CONTRACT_OWNER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 export L1_PROPOSER_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
 export L2_SUGGESTED_FEE_RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
@@ -30,14 +29,9 @@ L2_SUGGESTED_FEE_RECIPIENT=$L2_SUGGESTED_FEE_RECIPIENT
 L2_HTTP=$L2_HTTP
 L2_WS=$L2_WS
 L2_AUTH=$L2_AUTH
-PACAYA_INBOX=$PACAYA_INBOX
-SHASTA_INBOX=$SHASTA_INBOX
-TAIKO_WRAPPER=$TAIKO_WRAPPER
-FORCED_INCLUSION_STORE=$FORCED_INCLUSION_STORE
+INBOX=$INBOX
 COMPOSE_VERIFIER=$COMPOSE_VERIFIER
 TAIKO_ANCHOR=$TAIKO_ANCHOR
-TAIKO_TOKEN=$TAIKO_TOKEN
-PROVER_SET=$PROVER_SET
 L1_CONTRACT_OWNER_PRIVATE_KEY=$L1_CONTRACT_OWNER_PRIVATE_KEY
 L1_PROPOSER_PRIVATE_KEY=$L1_PROPOSER_PRIVATE_KEY
 L1_PROVER_PRIVATE_KEY=$L1_PROVER_PRIVATE_KEY
@@ -45,5 +39,4 @@ TEST_ACCOUNT_PRIVATE_KEY=$TEST_ACCOUNT_PRIVATE_KEY
 TREASURY=$TREASURY
 JWT_SECRET=$JWT_SECRET
 VERBOSITY=$VERBOSITY
-TAIKO_INTERNAL_SHASTA_TIME=$TAIKO_INTERNAL_SHASTA_TIME
-ANVIL_INTERNAL_SHASTA_TIME=$ANVIL_INTERNAL_SHASTA_TIME" > integration_test/.env
+ANVIL_L1_START_TIMESTAMP=$ANVIL_L1_START_TIMESTAMP" > "$SCRIPT_DIR/.env"

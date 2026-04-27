@@ -22,8 +22,7 @@ var (
 	l2Endpoint       = os.Getenv("L2_WS")
 	l2CheckPoint     = os.Getenv("L2_HTTP")
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
-	pacayaInbox      = os.Getenv("PACAYA_INBOX")
-	shastaInbox      = os.Getenv("SHASTA_INBOX")
+	inbox            = os.Getenv("INBOX")
 	taikoAnchor      = os.Getenv("TAIKO_ANCHOR")
 )
 
@@ -37,9 +36,10 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(l1BeaconEndpoint, c.L1BeaconEndpoint)
 		s.Equal(l2Endpoint, c.L2Endpoint)
 		s.Equal(l2EngineEndpoint, c.L2EngineEndpoint)
-		s.Equal(pacayaInbox, c.PacayaInboxAddress.String())
+		s.Equal(inbox, c.InboxAddress.String())
 		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
+		s.Equal(uint64(8), c.HandoverSkipSlots)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
 		s.Equal(l2CheckPoint, c.L2CheckPoint)
@@ -54,8 +54,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
-		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
+		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",
@@ -94,9 +93,9 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
-		&cli.StringFlag{Name: flags.PacayaInboxAddress.Name},
-		&cli.StringFlag{Name: flags.ShastaInboxAddress.Name},
+		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
+		&cli.Uint64Flag{Name: flags.PreconfHandoverSkipSlots.Name, Value: 8},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
@@ -141,8 +140,7 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
-		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
+		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",

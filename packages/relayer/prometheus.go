@@ -42,10 +42,6 @@ var (
 		Name: "queue_connection_instantiated_errors_ops_total",
 		Help: "The total number of times a queue connection was instantiated with an error",
 	})
-	ChainDataSyncedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "chain_data_synced_events_indexed_ops_total",
-		Help: "The total number of ChainDataSynced indexed events",
-	})
 	CheckpointSavedEventsIndexed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "checkpoint_saved_events_indexed_ops_total",
 		Help: "The total number of CheckpointSaved indexed events",
@@ -85,10 +81,6 @@ var (
 	MessageStatusChangedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_status_changed_events_indexing_errors_ops_total",
 		Help: "The total number of errors indexing MessageStatusChanged events",
-	})
-	ChainDataSyncedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "chain_data_synced_events_indexing_errors_ops_total",
-		Help: "The total number of errors indexing ChainDataSynced events",
 	})
 	CheckpointSavedEventsIndexingErrors = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "checkpoint_saved_events_indexing_errors_ops_total",
@@ -145,10 +137,6 @@ var (
 	MessageStatusChangedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "message_status_changed_events_after_retry_error_count",
 		Help: "The total number of errors logged for MessageStatusChanged events after retries",
-	})
-	ChainDataSyncedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "chain_data_synced_events_after_retry_error_count",
-		Help: "The total number of errors logged for ChainDataSynced events after retries",
 	})
 	CheckpointSavedEventsAfterRetryErrorCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "checkpoint_saved_events_after_retry_error_count",

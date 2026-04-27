@@ -18,7 +18,6 @@ type FilterFunc func(
 	filterOpts *bind.FilterOpts,
 ) error
 
-// nolint
 func filterFunc(
 	ctx context.Context,
 	chainID *big.Int,
@@ -33,6 +32,7 @@ func filterFunc(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterTransitionProved")
 			}
+			defer transitionProvedEvents.Close()
 
 			err = i.saveTransitionProvedEvents(ctx, chainID, transitionProvedEvents)
 			if err != nil {
@@ -47,6 +47,7 @@ func filterFunc(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterTransitionContested")
 			}
+			defer transitionContestedEvents.Close()
 
 			err = i.saveTransitionContestedEvents(ctx, chainID, transitionContestedEvents)
 			if err != nil {
@@ -61,6 +62,7 @@ func filterFunc(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterBlockProposed")
 			}
+			defer blockProposedEvents.Close()
 
 			err = i.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
 			if err != nil {
@@ -75,6 +77,7 @@ func filterFunc(
 			if err != nil {
 				return errors.Wrap(err, "i.taikol1.FilterBlockVerified")
 			}
+			defer blockVerifiedEvents.Close()
 
 			err = i.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
 			if err != nil {
@@ -91,6 +94,7 @@ func filterFunc(
 			if err != nil {
 				return errors.Wrap(err, "i.bridge.FilterMessageSent")
 			}
+			defer messagesSent.Close()
 
 			err = i.saveMessageSentEvents(ctx, chainID, messagesSent)
 			if err != nil {
@@ -199,8 +203,29 @@ func (i *Indexer) filter(
 			filter = filterFunc
 		}
 
-		if err := filter(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
-			return errors.Wrap(err, "filter")
+		wg, ctx := errgroup.WithContext(ctx)
+
+		wg.Go(func() error {
+			if err := filter(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
+				return errors.Wrap(err, "filter")
+			}
+
+			return nil
+		})
+		// runs shasta filter concurrently with pacaya filter which will result in more RPC requests, but allows for
+		// graceful transition without the forkHeight set.
+		if i.shastaInbox != nil {
+			wg.Go(func() error {
+				if err := filterFuncShasta(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
+					return errors.Wrap(err, "filterFuncShasta")
+				}
+
+				return nil
+			})
+		}
+
+		if err := wg.Wait(); err != nil {
+			return err
 		}
 
 		i.latestIndexedBlockNumber = end

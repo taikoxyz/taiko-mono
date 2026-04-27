@@ -2,16 +2,44 @@
 
 use std::{io::IsTerminal, net::SocketAddr};
 
-use anyhow::Result;
+use ::driver::config::DriverConfig;
 use async_trait::async_trait;
 use metrics_exporter_prometheus::PrometheusBuilder;
+use rpc::client::ClientConfig;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use crate::flags::common::CommonArgs;
+use crate::{
+    error::Result,
+    flags::{common::CommonArgs, driver::DriverArgs},
+};
 
 pub mod driver;
+pub mod preconfirmation_driver;
 pub mod proposer;
+pub mod whitelist_preconfirmation_driver;
+
+/// Build a [`DriverConfig`] from the shared common/driver CLI flags.
+///
+/// The resulting config has `preconfirmation_enabled = false`; callers that need to enable
+/// preconfirmation ingress should toggle that flag on the returned value.
+pub fn build_driver_config(common: &CommonArgs, driver: &DriverArgs) -> Result<DriverConfig> {
+    let client_cfg = ClientConfig {
+        l1_provider_source: common.l1_provider_source()?,
+        l2_provider_url: common.l2_http_endpoint.clone(),
+        l2_auth_provider_url: common.l2_auth_endpoint.clone(),
+        jwt_secret: common.l2_auth_jwt_secret.clone(),
+        inbox_address: common.shasta_inbox_address,
+    };
+
+    Ok(DriverConfig::new(
+        client_cfg,
+        driver.retry_interval(),
+        driver.l1_beacon_endpoint.clone(),
+        driver.l2_checkpoint_endpoint.clone(),
+        driver.blob_server_endpoint.clone(),
+    ))
+}
 
 /// Shared behaviour for CLI subcommands.
 #[async_trait]

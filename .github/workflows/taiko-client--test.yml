@@ -16,15 +16,17 @@ on:
       - release-please--branches--**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: taiko-client-test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   lint:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
-    runs-on: [ubuntu-latest]
-    timeout-minutes: 5
+    runs-on: [arc-runner-set]
+    timeout-minutes: 10
+    env:
+      CGO_ENABLED: 1
     steps:
       - uses: actions/checkout@v6
 
@@ -34,27 +36,67 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Go mod download
+        run: go mod download
+
+      - name: Ensure build-essential is installed
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_DEBUG:-}" = "1" ]; then set -x; fi
+
+          if command -v gcc >/dev/null 2>&1 && \
+             command -v g++ >/dev/null 2>&1 && \
+             command -v make >/dev/null 2>&1; then
+            echo "Required build tools are already available."
+            exit 0
+          fi
+
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "::error::gcc/g++/make are missing and apt-get is unavailable, cannot install automatically."
+            exit 1
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
+
+          retry=0
+          until sudo apt-get update; do
+            retry=$((retry + 1))
+            if [ "${retry}" -ge 4 ]; then
+              echo "::error::apt-get update failed after ${retry} attempts."
+              exit 1
+            fi
+            echo "::warning::apt-get update failed, retrying (${retry}/3)"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends build-essential
+
       - name: Lint
-        working-directory: packages/taiko-client
-        run: make lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          working-directory: ./packages/taiko-client
+          args: --timeout=10m --config=.golangci.yml ./...
 
   integration_tests:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Integration tests
-    runs-on: [ubuntu-latest]
+    runs-on: [arc-runner-set]
     timeout-minutes: 30
     env:
-      OLD_FORK_TAIKO_MONO_DIR: old-fork-taiko-mono
-      PACAYA_FORK_TAIKO_MONO_DIR: pacaya-fork-taiko-mono
-      SHASTA_FORK_TAIKO_MONO_DIR: shasta-fork-taiko-mono
+      CGO_ENABLED: 1
 
     strategy:
+      fail-fast: false
       matrix:
-        execution_node: [l2_geth]
+        execution_node: [l2_geth, l2_reth, l2_nmc]
+
+    # Allow l2_nmc tests to fail without blocking PR merges
+    continue-on-error: ${{ matrix.execution_node == 'l2_nmc' }}
 
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{ github.token }}
 
@@ -63,43 +105,66 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
 
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
 
+      - name: Ensure make is available
+        uses: ./.github/actions/ensure-make
+
+      - name: Ensure build-essential is installed
+        run: |
+          set -euo pipefail
+          if [ "${RUNNER_DEBUG:-}" = "1" ]; then set -x; fi
+
+          if command -v gcc >/dev/null 2>&1 && \
+             command -v g++ >/dev/null 2>&1 && \
+             command -v make >/dev/null 2>&1; then
+            echo "Required build tools are already available."
+            exit 0
+          fi
+
+          if ! command -v apt-get >/dev/null 2>&1; then
+            echo "::error::gcc/g++/make are missing and apt-get is unavailable, cannot install automatically."
+            exit 1
+          fi
+
+          export DEBIAN_FRONTEND=noninteractive
+
+          retry=0
+          until sudo apt-get update; do
+            retry=$((retry + 1))
+            if [ "${retry}" -ge 4 ]; then
+              echo "::error::apt-get update failed after ${retry} attempts."
+              exit 1
+            fi
+            echo "::warning::apt-get update failed, retrying (${retry}/3)"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends build-essential
+
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
-
-      - uses: actions/checkout@v6
         with:
-          repository: taikoxyz/taiko-mono
-          path: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
-          ref: taiko-alethia-protocol-v2.3.0-devnet-shasta-test
+          cache-dependency-path: pnpm-lock.yaml
 
-      - uses: actions/checkout@v6
-        with:
-          repository: taikoxyz/taiko-mono
-          path: ${{ env.SHASTA_FORK_TAIKO_MONO_DIR }}
-          ref: taiko-alethia-protocol-v3.0.0
-
-      - name: Install pnpm dependencies for pacaya fork taiko-mono
-        working-directory: ${{ env.PACAYA_FORK_TAIKO_MONO_DIR }}
-        run: cd ./packages/protocol && pnpm install
-
-      - name: Install pnpm dependencies for shasta fork taiko-mono
-        working-directory: ${{ env.SHASTA_FORK_TAIKO_MONO_DIR }}
+      - name: Install pnpm dependencies for protocol
         run: cd ./packages/protocol && pnpm install
 
       - name: Run Tests on ${{ matrix.execution_node }} execution engine
         working-directory: packages/taiko-client
         env:
           L2_NODE: ${{ matrix.execution_node }}
-        run: SHASTA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${SHASTA_FORK_TAIKO_MONO_DIR} PACAYA_FORK_TAIKO_MONO=${GITHUB_WORKSPACE}/${PACAYA_FORK_TAIKO_MONO_DIR} make test
+        run: make test
 
       - name: Codecov.io
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: packages/taiko-client/coverage.out
           flags: taiko-client

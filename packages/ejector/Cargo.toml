@@ -1,6 +1,6 @@
 [package]
 name = "ejector"
-version = "0.4.1"
+version = "0.6.1"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Taiko Labs"]
@@ -15,6 +15,7 @@ path = "bin/ejector/src/main.rs"
 # async runtime + utilities
 tokio = { version = "1.45", default-features = false, features = ["full"] }
 futures-util = "0.3.0"
+tokio-stream = "0.1"
 
 # cli
 clap = { version = "4", features = ["derive", "env"] }
@@ -27,6 +28,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # web
 axum = "0.7"
 reqwest = { version = "0.12" }
+event-scanner = "1.1.0"
+robust-provider = { version = "1.0.1", features = ["http-subscription"] }
 
 # ethereum
 alloy = { version = "1.0.13", features = ["full"] }

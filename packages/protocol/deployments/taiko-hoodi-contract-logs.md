@@ -25,10 +25,12 @@
 ### signal_service
 
 - proxy: `0x4c70b7F5E153D497faFa0476575903F9299ed811`
-- impl: `0x5776315840041c2bc2C9D16a33E52AD0DD359600`
+- impl: `0x2D0DF6900fBe181bE5246268Aafd1ecb6c4C8B35`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Mar 4, 2026 at commit `a01f51c`
 
 ### bridge
 
@@ -91,12 +93,22 @@
 ### PacayaInbox
 
 - proxy: `0xf6eA848c7d7aC83de84db45Ae28EAbf377fe0eF9`
-- impl: `0x28dA65D1B6ceFab4BF9Fb7f7C5438604d438552C`
+- impl: `0x355dFebFa8234412D86EE0e2493580F60666758A`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
-  - updated on Dec 3, 2025 at commit ``
+  - updated on Dec 3, 2025 at commit `379f5cb`
+  - updated on Feb 9, 2026 at commit `8051523`
+
+### ShastaInbox
+
+- proxy: `0xeF4bB7A442Bd68150A3aa61A6a097B86b91700BF`
+- impl: `0xaDeb8cF142991D2AE46e5Ab6BE3172979fE6D10F`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Feb 2, 2026 at commit `392bfa0`
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
 
 ### forced_inclusion_store
 
@@ -109,7 +121,7 @@
 ### preconf_whitelist
 
 - proxy : `0x8B969Fcf37122bC5eCB4E0e5Ad65CEEC3f1393ba`
-- impl : `0x760195F08A1FABd5fCB7E733878b93bCA13eF5aB`
+- impl : `0xeB614BE0Fe964A26B71D8CC02F9D7876352d7d15`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - ejectors:
 - operators:
@@ -118,6 +130,17 @@
   - taiko gattaca proposer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`(sequencer `0x445179507C3b0B84ccA739398966236a35ad8Ea1`)
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
+  - upgraded on Feb 5, 2026 at commit `99429e4`
+
+### prover_whitelist
+
+- proxy : `0xa9a84b6667A2c60BFdE8c239918d0d9a11c77E89`
+- impl : `0x8bc913253BbB2EcCAf1F74C35cdeb4F5Eebe3785`
+- owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- provers:
+  - taiko prover `0x7B399987D24FC5951f3E94A4cb16E87414bF2229`
+- logs:
+  - deployed on Feb 2, 2026 at commit `392bfa0`
 
 ### preconf_router
 
@@ -136,7 +159,7 @@
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
 
-### proof_verifier
+### proof_verifier(Pacaya)
 
 - proxy : `0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59`
 - impl : `0xbE3CA2aF1bc74b22E96799e998E0a19f8A40bcbC`
@@ -145,7 +168,7 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `7217552`
 
-### sgx_reth_verifier
+### sgx_reth_verifier(Pacaya)
 
 - proxy : `0xd46c13B67396cD1e74Bb40e298fbABeA7DC01f11`
 - impl : `0xD35d8408A50b5F9002f53BFeEFcA053d333d35BA`
@@ -154,7 +177,7 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
 
-### risc0_reth_verifier
+### risc0_reth_verifier(Pacaya)
 
 - proxy : `0xbf285Dd2FD56BF4893D207Fba4c738D1029edFfd`
 - impl : `0xF0BabD64159D3A711bC0A412B9DfCd7d08d8FF75`
@@ -163,7 +186,7 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `7217552`
 
-### sp1_reth_verifier
+### sp1_reth_verifier(Pacaya)
 
 - proxy : `0x3B3bb4A1Cb8B1A0D65F96a5A93415375C039Eda3`
 - impl : `0x801dcb74ed6c45764c91b9e818ec204b41eada9b`
@@ -172,12 +195,13 @@
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `7217552`
 
-### sgx_geth_verifier
+### sgx_geth_verifier(Pacaya)
 
 - proxy : `0xCdBB6C1751413e78a40735b6D9Aaa7D55e8c038e`
 - impl : `0xD6b1EF918E6d31749424806b65D126C237774970`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
+
   - deployed on Oct 20, 2025 at commit `2dfbeca`
   - updated on Oct 20, 2025 at commit `520ed22`
 
@@ -195,18 +219,20 @@
 ### bridge
 
 - proxy: `0x1670130000000000000000000000000000000001`
-- impl: `0x0167013000000000000000000000000000000001`
+- impl: `0x237506C97895771Ae3177dF31FC40D27c99fD382`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
+  - upgraded on Feb 27, 2026 at commit `a8a3a06`
 
 ### erc20_vault
 
 - proxy: `0x1670130000000000000000000000000000000002`
-- impl: `0x0167013000000000000000000000000000000002`
+- impl: `0x87b43DB6B631F51EE80D098F2c07b7CE5667e0D1`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
+  - updated on Feb 13, 2026 at commit `22ef025`
 
 ### erc721_vault
 
@@ -227,10 +253,12 @@
 ### signal_service
 
 - proxy: `0x1670130000000000000000000000000000000005`
-- impl: `0x0167013000000000000000000000000000000005`
+- impl: `0x22efa1915629712320C60E90E44CD412F0Ee98FE`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Mar 2, 2026 at commit `a01f51c` 
 
 ### shared_resolver
 
@@ -243,11 +271,13 @@
 ### taiko_anchor
 
 - proxy: `0x1670130000000000000000000000000000010001`
-- impl: `0x5E652dC4033C6860b27d6860164369D15b421A42`
+- impl: `0x70A65dDf64960b9901Df488825c1CBFBc9AE9685`
 - owner: `0xF7176c3aC622be8bab1B839b113230396E6877ab`
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - updated on Dec 19, 2025 at commit `7492388`
+  - upgraded on Feb 4, 2026 at commit `a01f51c`
+  - upgraded on Mar 2, 2026 at commit `a01f51c` 
 
 ### rollup_resolver
 

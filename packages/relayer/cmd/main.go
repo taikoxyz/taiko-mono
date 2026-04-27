@@ -32,7 +32,7 @@ func main() {
 
 	app.Name = "Taiko Relayer"
 	app.Usage = "The taiko relayer software command line interface"
-	app.Copyright = "Copyright 2021-2024 Taiko Labs"
+	app.Copyright = "Copyright 2021-2026 Taiko Labs"
 	app.Description = "Bridge relayer implementation in Golang for Taiko protocol"
 	app.Authors = []*cli.Author{{Name: "Taiko Labs", Email: "info@taiko.xyz"}}
 	app.EnableBashCompletion = true

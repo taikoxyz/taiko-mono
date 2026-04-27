@@ -1,14 +1,13 @@
 //! Driver subcommand.
 
-use alloy::transports::http::reqwest::Url as RpcUrl;
-use anyhow::Result;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{Driver, DriverConfig, metrics::DriverMetrics};
-use rpc::{SubscriptionSource, client::ClientConfig};
+use protocol::shasta::set_devnet_unzen_override;
 
 use crate::{
-    commands::Subcommand,
+    commands::{Subcommand, build_driver_config},
+    error::Result,
     flags::{common::CommonArgs, driver::DriverArgs},
 };
 
@@ -27,44 +26,7 @@ pub struct DriverSubCommand {
 impl DriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_config(&self) -> Result<DriverConfig> {
-        let l1_source =
-            SubscriptionSource::Ws(RpcUrl::parse(self.common_flags.l1_ws_endpoint.as_str())?);
-        let l2_http = RpcUrl::parse(self.common_flags.l2_http_endpoint.as_str())?;
-        let l2_auth = RpcUrl::parse(self.common_flags.l2_auth_endpoint.as_str())?;
-        let l1_beacon = RpcUrl::parse(self.driver_flags.l1_beacon_endpoint.as_str())?;
-        let l2_checkpoint = if let Some(url) = &self.driver_flags.l2_checkpoint_endpoint {
-            Some(RpcUrl::parse(url.as_str())?)
-        } else {
-            None
-        };
-        let blob_server = if let Some(url) = &self.driver_flags.blob_server_endpoint {
-            Some(RpcUrl::parse(url.as_str())?)
-        } else {
-            None
-        };
-
-        let client_cfg = ClientConfig {
-            l1_provider_source: l1_source,
-            l2_provider_url: l2_http,
-            l2_auth_provider_url: l2_auth,
-            jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
-            inbox_address: self.common_flags.shasta_inbox_address,
-        };
-
-        let mut cfg = DriverConfig::new(
-            client_cfg,
-            self.driver_flags.retry_interval(),
-            l1_beacon,
-            l2_checkpoint,
-            blob_server,
-        );
-
-        cfg.rpc_listen_addr = self.driver_flags.rpc_listen_addr;
-        cfg.rpc_jwt_secret = self.driver_flags.rpc_jwt_secret.clone();
-        cfg.rpc_ipc_path = self.driver_flags.rpc_ipc_path.clone();
-        cfg.preconfirmation_enabled = cfg.has_rpc_endpoint();
-
-        Ok(cfg)
+        build_driver_config(&self.common_flags, &self.driver_flags)
     }
 
     /// Run the driver.
@@ -89,6 +51,7 @@ impl Subcommand for DriverSubCommand {
     /// Run the driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
+        set_devnet_unzen_override(self.common_flags.devnet_unzen_timestamp);
         self.init_metrics()?;
 
         let cfg = self.build_config()?;

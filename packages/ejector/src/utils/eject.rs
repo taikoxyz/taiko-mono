@@ -23,7 +23,7 @@ async fn eject_operator_internal(
         return Ok(());
     }
 
-    let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url.clone());
+    let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url);
     let preconf_whitelist = bindings::IPreconfWhitelist::new(whitelist_addr, l1.clone());
 
     let info = preconf_whitelist.operators(operator).call().await?;
@@ -56,7 +56,7 @@ async fn eject_operator_internal(
 
     info!(reason = reason, operator = %operator_hex, "Sending removeOperator transaction");
 
-    let pending = preconf_whitelist.removeOperator(operator, true).send().await?;
+    let pending = preconf_whitelist.removeOperator(U256::from(info.index)).send().await?;
     let tx_hash = pending.tx_hash();
     info!(
         reason = reason,

@@ -40,9 +40,6 @@ linters:
       - third_party$
       - builtin$
       - examples$
-linters-settings:
-  dupl:
-    severity: info
 formatters:
   enable:
     - gofmt

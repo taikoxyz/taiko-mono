@@ -33,6 +33,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: go mod download
+        run: go mod download
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -48,7 +52,7 @@ jobs:
     runs-on: [arc-runner-set]
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
+        uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{ github.token }}
 
@@ -60,10 +64,10 @@ jobs:
 
       - name: relayer - Unit Tests
         working-directory: ./packages/relayer
-        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -coverprofile=coverage.txt -covermode=atomic
+        run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -timeout=20m -coverprofile=coverage.txt -covermode=atomic
 
       - name: relayer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer

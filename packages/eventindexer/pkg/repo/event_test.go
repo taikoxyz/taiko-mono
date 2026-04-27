@@ -33,6 +33,22 @@ var (
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
 	}
+	dummyShastaProvedEventOpts = eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameProved,
+		Address:      "0x123",
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameProved,
+		ChainID:      big.NewInt(1),
+		TransactedAt: time.Now(),
+	}
+	dummyShastaProposedEventOpts = eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameProposed,
+		Address:      "0x123",
+		Data:         "{\"data\":\"something\"}",
+		Event:        eventindexer.EventNameProposed,
+		ChainID:      big.NewInt(1),
+		TransactedAt: time.Now(),
+	}
 )
 
 func TestIntegration_Event_Save(t *testing.T) {
@@ -213,6 +229,10 @@ func TestIntegration_Event_FindUniqueProvers(t *testing.T) {
 
 	assert.Equal(t, nil, err)
 
+	_, err = eventRepo.Save(context.Background(), dummyShastaProvedEventOpts)
+
+	assert.Equal(t, nil, err)
+
 	tests := []struct {
 		name     string
 		wantResp []eventindexer.UniqueProversResponse
@@ -223,7 +243,7 @@ func TestIntegration_Event_FindUniqueProvers(t *testing.T) {
 			[]eventindexer.UniqueProversResponse{
 				{
 					Address: "0x123",
-					Count:   1,
+					Count:   2,
 				},
 			},
 			nil,
@@ -261,6 +281,10 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 
 	assert.Equal(t, nil, err)
 
+	_, err = eventRepo.Save(context.Background(), dummyShastaProposedEventOpts)
+
+	assert.Equal(t, nil, err)
+
 	tests := []struct {
 		name     string
 		wantResp []eventindexer.UniqueProposersResponse
@@ -271,7 +295,7 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 			[]eventindexer.UniqueProposersResponse{
 				{
 					Address: dummyProposeEventOpts.Address,
-					Count:   1,
+					Count:   2,
 				},
 			},
 			nil,

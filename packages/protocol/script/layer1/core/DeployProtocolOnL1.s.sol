@@ -47,6 +47,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     struct DeploymentConfig {
         address contractOwner;
+        address ejectorManager;
+        address proverManager;
         bytes32 l2GenesisHash;
         uint64 l2ChainId;
         address sharedResolver;
@@ -55,9 +57,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
-        uint64 minBond;
-        uint64 livenessBond;
-        uint48 withdrawalDelay;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -65,7 +64,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     modifier broadcast() {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         require(privateKey != 0, "PRIVATE_KEY not set or invalid");
-        vm.startBroadcast();
+        vm.startBroadcast(privateKey);
         _;
         vm.stopBroadcast();
     }
@@ -101,6 +100,8 @@ contract DeployProtocolOnL1 is DeployCapability {
 
     function _loadConfig() private view returns (DeploymentConfig memory config) {
         config.contractOwner = vm.envAddress("CONTRACT_OWNER");
+        config.ejectorManager = vm.envOr("EJECTOR_MANAGER", config.contractOwner);
+        config.proverManager = vm.envOr("PROVER_MANAGER", config.contractOwner);
         config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
@@ -109,10 +110,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
-        config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
-        config.minBond = uint64(vm.envOr("MIN_BOND_GWEI", uint256(0)));
-        config.livenessBond = uint64(vm.envOr("LIVENESS_BOND_GWEI", uint256(0)));
-        config.withdrawalDelay = uint48(vm.envOr("WITHDRAWAL_DELAY", uint256(0)));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -180,11 +177,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         if (whitelist == address(0)) {
             whitelist = deployProxy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(config.ejectorManager)),
                 data: abi.encodeCall(PreconfWhitelist.init, (config.contractOwner))
             });
         } else {
-            PreconfWhitelist(whitelist).upgradeTo(address(new PreconfWhitelist()));
+            PreconfWhitelist(whitelist)
+                .upgradeTo(address(new PreconfWhitelist(config.ejectorManager)));
         }
 
         PreconfWhitelist(whitelist).addOperator(config.proposerAddress, config.proposerAddress);
@@ -192,7 +190,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy prover whitelist
         address proverWhitelist = deployProxy({
             name: "prover_whitelist",
-            impl: address(new ProverWhitelist()),
+            impl: address(new ProverWhitelist(config.proverManager)),
             data: abi.encodeCall(ProverWhitelist.init, (config.contractOwner))
         });
         console2.log("ProverWhitelist deployed:", proverWhitelist);
@@ -220,14 +218,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "shasta_inbox",
             impl: address(
                 new DevnetInbox(
-                    proofVerifier,
-                    whitelist,
-                    proverWhitelist,
-                    signalService,
-                    taikoToken,
-                    config.minBond,
-                    config.livenessBond,
-                    config.withdrawalDelay
+                    proofVerifier, whitelist, proverWhitelist, signalService, taikoToken
                 )
             ),
             data: abi.encodeCall(Inbox.init, (msg.sender))

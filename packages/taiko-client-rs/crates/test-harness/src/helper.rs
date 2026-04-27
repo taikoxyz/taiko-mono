@@ -38,3 +38,18 @@ where
         .context("increasing L1 time via evm_increaseTime")?;
     Ok(())
 }
+
+/// Mines multiple L1 blocks at once using Anvil's batch mining.
+///
+/// This is more efficient than calling `mine_l1_block` in a loop.
+pub(crate) async fn mine_l1_blocks<P>(client: &Client<P>, count: usize) -> anyhow::Result<()>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    client
+        .l1_provider
+        .raw_request::<_, ()>(Cow::Borrowed("anvil_mine"), (count,))
+        .await
+        .context("mining L1 blocks via anvil_mine")?;
+    Ok(())
+}

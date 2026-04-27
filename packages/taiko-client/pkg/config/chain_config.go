@@ -2,9 +2,11 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
+	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -13,27 +15,20 @@ import (
 type ChainConfig struct {
 	// Chain ID for the network
 	ChainID *big.Int
-	// Ontake switch block (nil = no fork, 0 = already on ontake)
-	OntakeForkHeight *big.Int
-	// Pacaya switch block (nil = no fork, 0 = already on pacaya)
-	PacayaForkHeight *big.Int
-	// Shasta switch time (unix seconds pointer)
-	// Semantics: nil = not enabled; 0 = activated at genesis
-	ShastaForkTime *uint64
+}
+
+// forkInfo holds the block numbers and timestamps for the various hard forks.
+type forkInfo struct {
+	ontakeBlock *big.Int
+	pacayaBlock *big.Int
+	shastaTime  uint64
+	unzenTime   uint64
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(
-	chainID *big.Int,
-	ontakeForkHeight uint64,
-	pacayaForkHeight uint64,
-	shastaForkTime uint64,
-) *ChainConfig {
+func NewChainConfig(chainID *big.Int, _ uint64) *ChainConfig {
 	cfg := &ChainConfig{
-		ChainID:          chainID,
-		OntakeForkHeight: new(big.Int).SetUint64(ontakeForkHeight),
-		PacayaForkHeight: new(big.Int).SetUint64(pacayaForkHeight),
-		ShastaForkTime:   &shastaForkTime,
+		ChainID: chainID,
 	}
 
 	log.Info("")
@@ -49,8 +44,10 @@ func NewChainConfig(
 
 // NetworkNames are user friendly names to use in the chain spec banner.
 var NetworkNames = map[uint64]string{
-	params.TaikoHoodiNetworkID.Uint64():   "Taiko Hoodi Testnet",
-	params.TaikoMainnetNetworkID.Uint64(): "Taiko Mainnet",
+	params.TaikoInternalNetworkID.Uint64(): "Taiko Internal Devnet",
+	params.MasayaDevnetNetworkID.Uint64():  "Taiko Masaya Devnet",
+	params.TaikoHoodiNetworkID.Uint64():    "Taiko Hoodi Testnet",
+	params.TaikoMainnetNetworkID.Uint64():  "Taiko Mainnet",
 }
 
 // Description returns a human-readable description of ChainConfig.
@@ -65,45 +62,69 @@ func (c *ChainConfig) Description() string {
 	banner += fmt.Sprintf("Chain ID:  %v (%s)\n", c.ChainID.Uint64(), network)
 
 	// Create a list of forks with a short description of them.
-	banner += "Hard forks (block based):\n"
-	banner += fmt.Sprintf(" - Ontake:                   #%-8v\n", c.OntakeForkHeight)
-	banner += fmt.Sprintf(" - Pacaya:                   #%-8v\n", c.PacayaForkHeight)
-	// Shasta is timestamp-based
-	banner += "\nHard forks (time based):\n"
-	shastaTimeStr := "-"
-	if c.ShastaForkTime != nil {
-		shastaTimeStr = fmt.Sprintf("@%d", *c.ShastaForkTime)
+	banner += "Hard forks:\n"
+	banner += "\n"
+	if forks, ok := c.forkInfo(); ok {
+		banner += fmt.Sprintf(" - Ontake:                   %s\n", formatForkBlock(forks.ontakeBlock))
+		banner += fmt.Sprintf(" - Pacaya:                   %s\n", formatForkBlock(forks.pacayaBlock))
+		banner += fmt.Sprintf(" - Shasta:                   %s\n", formatForkTime(forks.shastaTime))
+		banner += fmt.Sprintf(" - Unzen:                    %s", formatForkTime(forks.unzenTime))
 	}
-	banner += fmt.Sprintf(" - Shasta:                   %s\n", shastaTimeStr)
 	banner += "\n"
 
 	return banner
 }
 
-// IsOntake returns whether num is either equal to the Ontake block or greater.
-func (c *ChainConfig) IsOntake(num *big.Int) bool {
-	return isBlockForked(c.OntakeForkHeight, num)
-}
-
-// IsPacaya returns whether num is either equal to the Pacaya block or greater.
-func (c *ChainConfig) IsPacaya(num *big.Int) bool {
-	return isBlockForked(c.PacayaForkHeight, num)
-}
-
-// IsShasta returns whether the given timestamp has reached the Shasta fork time.
-// Semantics: nil time = not enabled; 0 = activated at genesis.
-func (c *ChainConfig) IsShasta(timestamp uint64) bool {
-	if c.ShastaForkTime == nil {
-		return false
+// formatForkBlock formats the fork block number for display, handling nil values as "inactive".
+func formatForkBlock(block *big.Int) string {
+	if block == nil {
+		return "inactive"
 	}
-	return timestamp >= *c.ShastaForkTime
+
+	return fmt.Sprintf("#%v", block)
 }
 
-// isBlockForked returns whether a fork scheduled at block s is active at the
-// given head block.
-func isBlockForked(s, head *big.Int) bool {
-	if s == nil || head == nil {
-		return false
+// formatForkTime formats the fork time for display, handling math.MaxUint64 as "inactive".
+func formatForkTime(ts uint64) string {
+	if ts == math.MaxUint64 {
+		return "inactive"
 	}
-	return s.Cmp(head) <= 0
+
+	return fmt.Sprintf("@%v", ts)
+}
+
+// forkInfo returns the fork information for the chain, if available.
+func (c *ChainConfig) forkInfo() (forkInfo, bool) {
+	switch c.ChainID.Uint64() {
+	case params.TaikoInternalNetworkID.Uint64():
+		return forkInfo{
+			ontakeBlock: gethcore.InternalDevnetOntakeBlock,
+			pacayaBlock: gethcore.InternalDevnetPacayaBlock,
+			shastaTime:  gethcore.InternalShastaTime,
+			unzenTime:   gethcore.DevnetUnzenTime,
+		}, true
+	case params.MasayaDevnetNetworkID.Uint64():
+		return forkInfo{
+			ontakeBlock: gethcore.MasayaDevnetOntakeBlock,
+			pacayaBlock: gethcore.MasayaDevnetPacayaBlock,
+			shastaTime:  gethcore.MasayaShastaTime,
+			unzenTime:   gethcore.MasayaUnzenTime,
+		}, true
+	case params.TaikoHoodiNetworkID.Uint64():
+		return forkInfo{
+			ontakeBlock: gethcore.TaikoHoodiOntakeBlock,
+			pacayaBlock: gethcore.TaikoHoodiPacayaBlock,
+			shastaTime:  gethcore.HoodiShastaTime,
+			unzenTime:   gethcore.HoodiUnzenTime,
+		}, true
+	case params.TaikoMainnetNetworkID.Uint64():
+		return forkInfo{
+			ontakeBlock: gethcore.MainnetOntakeBlock,
+			pacayaBlock: gethcore.MainnetPacayaBlock,
+			shastaTime:  gethcore.MainnetShastaTime,
+			unzenTime:   gethcore.MainnetUnzenTime,
+		}, true
+	default:
+		return forkInfo{}, false
+	}
 }

@@ -1,9 +1,8 @@
 //! Driver specific error types.
 
-use std::{io, path::PathBuf, result::Result as StdResult, time::Duration};
+use std::{io, result::Result as StdResult, time::Duration};
 
 use anyhow::Error as AnyhowError;
-use reth_ipc::server::IpcServerStartError;
 use rpc::error::RpcClientError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
@@ -28,29 +27,6 @@ pub enum DriverError {
     #[error("io error: {0}")]
     Io(#[from] io::Error),
 
-    /// Driver RPC server requires a JWT secret path when enabled.
-    #[error("driver RPC JWT secret path is required")]
-    DriverRpcJwtSecretMissing,
-
-    /// Failed to read the JWT secret configured for the driver RPC server.
-    #[error("failed to read jwt secret for driver RPC server")]
-    DriverRpcJwtSecretReadFailed,
-
-    /// IPC server failed to start.
-    #[error("failed to start IPC server: {0}")]
-    IpcServerStart(#[from] IpcServerStartError),
-
-    /// A non-socket file exists at the IPC socket path.
-    #[error("non-socket file exists at IPC path: {0}")]
-    IpcPathNotSocket(PathBuf),
-
-    /// IPC socket is already in use by another running server.
-    #[error("IPC socket already in use: {path}")]
-    IpcSocketInUse {
-        /// Path to the socket that is already in use.
-        path: PathBuf,
-    },
-
     /// Preconfirmation support is disabled in the driver configuration.
     #[error("preconfirmation is not enabled in driver config")]
     PreconfirmationDisabled,
@@ -74,14 +50,19 @@ pub enum DriverError {
     /// Preconfirmation payload injection failed with context.
     #[error("preconfirmation injection failed for block {block_number}: {source}")]
     PreconfInjectionFailed {
+        /// L2 block number targeted by the payload.
         block_number: u64,
         #[source]
+        /// Underlying engine submission error.
         source: EngineSubmissionError,
     },
 
     /// Timed out while enqueuing a preconfirmation payload.
     #[error("preconfirmation enqueue timed out after {waited:?}")]
-    PreconfEnqueueTimeout { waited: Duration },
+    PreconfEnqueueTimeout {
+        /// Time spent waiting for queue capacity.
+        waited: Duration,
+    },
 
     /// Channel send failed when enqueueing a preconfirmation payload.
     #[error("failed to enqueue preconfirmation: {0}")]
@@ -89,17 +70,35 @@ pub enum DriverError {
 
     /// Timed out waiting for a preconfirmation processing response.
     #[error("preconfirmation result timed out after {waited:?}")]
-    PreconfResponseTimeout { waited: Duration },
+    PreconfResponseTimeout {
+        /// Time spent waiting for the oneshot response.
+        waited: Duration,
+    },
 
     /// Response channel for a preconfirmation payload was closed before delivery.
     #[error("preconfirmation response dropped: {recv_error}")]
     PreconfResponseDropped {
         #[from]
         #[source]
+        /// Channel receive error produced by oneshot cancellation.
         recv_error: RecvError,
     },
 
     /// Generic boxed error.
     #[error(transparent)]
     Other(#[from] AnyhowError),
+}
+
+/// Map a [`DriverError`] into a target error type while preserving sync errors.
+///
+/// This ensures `DriverError::Sync` is converted through `From<SyncError>` instead of being
+/// wrapped as a generic driver error.
+pub fn map_driver_error<T>(err: DriverError) -> T
+where
+    T: From<SyncError> + From<DriverError>,
+{
+    match err {
+        DriverError::Sync(sync_err) => sync_err.into(),
+        other => other.into(),
+    }
 }

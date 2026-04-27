@@ -25,7 +25,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let proposer_client = Client::new_with_wallet(
         ClientConfig {
             l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_http_0.clone(),
+            l2_provider_url: env.l2_ws_0.clone(),
             l2_auth_provider_url: env.l2_auth_0.clone(),
             jwt_secret: env.jwt_secret.clone(),
             inbox_address: env.inbox_address,
@@ -40,15 +40,15 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     );
 
     // Build a proposal with an empty transaction list to force an anchor-only block.
-    let request = builder.build(vec![Vec::new()]).await?;
-    let sidecar =
-        request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
+    let request = builder.build(vec![Vec::new()], None).await?;
+    let sidecar = request.blob_sidecar();
 
     // Start beacon stub and inject the blob sidecar.
     let beacon_stub = BeaconStubServer::start().await?;
     let beacon_endpoint = beacon_stub.endpoint().clone();
 
-    let pending_tx = proposer_client.l1_provider.send_transaction(request).await?;
+    let pending_tx =
+        proposer_client.l1_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt =
         pending_tx.get_receipt().await.context("fetching proposal transaction receipt")?;
     ensure!(receipt.status(), "proposal transaction failed");
@@ -72,7 +72,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
     let driver_config = DriverConfig::new(
         ClientConfig {
             l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_http_0.clone(),
+            l2_provider_url: env.l2_ws_0.clone(),
             l2_auth_provider_url: env.l2_auth_0.clone(),
             jwt_secret: env.jwt_secret.clone(),
             inbox_address: env.inbox_address,

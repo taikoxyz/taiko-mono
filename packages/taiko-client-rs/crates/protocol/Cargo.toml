@@ -5,12 +5,23 @@ edition.workspace = true
 publish = false
 license.workspace = true
 
+[features]
+default = ["net"]
+net = [
+    "tokio",
+    "tokio-retry",
+    "tokio-stream",
+    "alloy-provider",
+    "event-scanner",
+    "robust-provider",
+]
+
 [dependencies]
 # async
 async-trait = { workspace = true }
-tokio = { workspace = true }
-tokio-retry = { workspace = true }
-tokio-stream = { workspace = true }
+tokio = { workspace = true, optional = true }
+tokio-retry = { workspace = true, optional = true }
+tokio-stream = { workspace = true, optional = true }
 
 # observability
 tracing = { workspace = true }
@@ -22,19 +33,28 @@ alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
 alloy-hardforks = { workspace = true }
 alloy-primitives = { workspace = true, default-features = false }
-alloy-provider = { workspace = true }
+alloy-provider = { workspace = true, optional = true, features = ["ws"] }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-rpc-types-engine-2 = { workspace = true }
 alloy-sol-types = { workspace = true }
-event-scanner = { workspace = true }
+event-scanner = { workspace = true, optional = true }
+robust-provider = { workspace = true, optional = true, features = [
+  "http-subscription",
+] }
+
+# crypto
+k256 = { workspace = true }
 
 # taiko
+alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true }
 bindings = { path = "../bindings" }
 
 # types
 anyhow = { workspace = true }
-arc-swap = "1.7"
+arc-swap = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
 thiserror = { workspace = true }
@@ -43,4 +63,5 @@ thiserror = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
+alloy = { workspace = true, features = ["node-bindings"] }
 rand = { workspace = true, features = ["std", "std_rng"] }

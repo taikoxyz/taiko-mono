@@ -1,0 +1,49 @@
+[package]
+name = "whitelist-preconfirmation-driver"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+alethia-reth-consensus = { workspace = true }
+alethia-reth-primitives = { workspace = true }
+alloy-consensus = { workspace = true }
+alloy-eips = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
+alloy-rpc-types-engine-2 = { workspace = true }
+anyhow = { workspace = true }
+arc-swap = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+bindings = { path = "../bindings" }
+bytes = { workspace = true }
+discv5 = { workspace = true }
+driver = { path = "../driver" }
+flate2 = { workspace = true }
+futures = { workspace = true }
+hashlink = { workspace = true }
+http = { workspace = true }
+http-body = { workspace = true }
+http-body-util = { workspace = true }
+jsonwebtoken = { workspace = true }
+kona-gossip = { workspace = true }
+libp2p = { workspace = true }
+metrics = { workspace = true }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+snap = { workspace = true }
+ssz = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true }

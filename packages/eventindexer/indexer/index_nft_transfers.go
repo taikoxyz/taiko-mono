@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 
 	"log/slog"
 
@@ -25,7 +26,23 @@ var (
 	transferSingleSignatureHash = crypto.Keccak256Hash(transferSingleSignature)
 	transferBatchSignature      = []byte("TransferBatch(address,address,address,uint256[],uint256[])")
 	transferBatchSignatureHash  = crypto.Keccak256Hash(transferBatchSignature)
+	parsedERC1155ABI            abi.ABI
+	parsedERC1155ABIErr         error
+	parsedERC1155ABIOnce        sync.Once
 )
+
+func getParsedERC1155ABI() (*abi.ABI, error) {
+	parsedERC1155ABIOnce.Do(func() {
+		parsedERC1155ABI, parsedERC1155ABIErr = abi.JSON(strings.NewReader(erc1155.ABI))
+	})
+
+	err := parsedERC1155ABIErr
+	if err != nil {
+		return nil, errors.Wrap(err, "abi.JSON(strings.NewReader)")
+	}
+
+	return &parsedERC1155ABI, nil
+}
 
 // indexNFTTransfers indexes from a given starting block to a given end block and parses all event logs
 // to find ERC721 or ERC1155 transfer events
@@ -166,7 +183,7 @@ func (i *Indexer) saveERC1155Transfer(ctx context.Context, chainID *big.Int, vLo
 
 	slog.Info("erc1155 found")
 
-	erc1155ABI, err := abi.JSON(strings.NewReader(erc1155.ABI))
+	erc1155ABI, err := getParsedERC1155ABI()
 	if err != nil {
 		return err
 	}

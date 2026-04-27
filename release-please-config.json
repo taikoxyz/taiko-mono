@@ -61,7 +61,6 @@
   "separate-pull-requests": true,
   "packages": {
     "packages/bridge-ui": {},
-    "packages/docs-site": {},
     "packages/eventindexer": {},
     "packages/ejector": {
       "package-name": "ejector",
@@ -72,22 +71,15 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"ejector\" && !@.source)].version"
         }
       ]
     },
     "packages/fork-diff": {},
-    "packages/overseer-rs": {
-      "package-name": "overseer-rs",
-      "release-type": "simple",
-      "component": "overseer-rs",
-      "extra-files": [
-        {
-          "type": "toml",
-          "path": "Cargo.toml",
-          "jsonpath": "$.package.version"
-        }
-      ]
-    },
     "packages/protocol": {
       "package-name": "taiko-alethia-protocol"
     },
@@ -110,6 +102,16 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.workspace.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "crates/bindings/Cargo.toml",
+          "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?((@.name == \"taiko-client\" || @.name == \"bindings\" || @.name == \"driver\" || @.name == \"preconfirmation-driver\" || @.name == \"whitelist-preconfirmation-driver\" || @.name == \"proposer\" || @.name == \"protocol\" || @.name == \"rpc\" || @.name == \"test-harness\") && !@.source)].version"
         }
       ]
     },
@@ -122,6 +124,11 @@
           "type": "toml",
           "path": "Cargo.toml",
           "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"urcindexer-rs\" && !@.source)].version"
         }
       ]
     },

@@ -9,10 +9,11 @@ A Rust implementation of the Taiko Alethia protocol client, designed as an alter
 | `bin/client/`                    | Main executable for the Taiko client                         |
 | `crates/bindings/`               | Rust contract bindings for Taiko smart contracts             |
 | `crates/driver/`                 | Driver implementation for proposal derivation and syncing    |
-| `crates/preconfirmation-client/` | Preconfirmation client SDK wrapping the P2P network          |
+| `crates/preconfirmation-driver/` | Preconfirmation driver with P2P client integration           |
 | `crates/proposer/`               | Proposer implementation for submitting block proposals to L1 |
 | `crates/protocol/`               | Core protocol types and data structures                      |
 | `crates/rpc/`                    | RPC client utilities and helper functions                    |
+| `crates/test-harness/`           | Test utilities and harness for integration tests             |
 | `script/`                        | Helpful scripts for development and deployment               |
 | `tests/`                         | Integration and end-to-end tests                             |
 

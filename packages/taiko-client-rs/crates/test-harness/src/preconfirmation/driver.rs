@@ -2,27 +2,26 @@
 //!
 //! This module provides:
 //! - [`MockDriverClient`]: Records submissions for unit-style tests.
-//! - [`SafeTipDriverClient`]: Wraps real RPC client with safe-tip fallback.
+//! - [`EventSyncerDriverClient`]: Submits directly to an in-process event syncer.
+//! - [`LoggingDriverClient`]: Wraps a driver client with submission logging.
 //! - [`RealDriverSetup`]: Full driver setup for E2E tests with actual block production.
 
 use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::U256;
-use alloy_provider::RootProvider;
+use alloy_provider::{Provider, RootProvider};
 use anyhow::Result as AnyhowResult;
 use async_trait::async_trait;
 use driver::{
     DriverConfig,
-    jsonrpc::DriverRpcServer,
     sync::{SyncStage, event::EventSyncer},
 };
-use preconfirmation_client::{
-    DriverClient, PreconfirmationInput, Result,
-    driver_interface::{JsonRpcDriverClient, JsonRpcDriverClientConfig},
-    error::{DriverApiError, PreconfirmationClientError},
+use preconfirmation_driver::{
+    DriverClient, EventSyncerDriverClient as RuntimeEventSyncerDriverClient, PreconfirmationInput,
+    Result,
 };
 use preconfirmation_types::uint256_to_u256;
-use rpc::client::{Client, ClientConfig, connect_http_with_timeout, read_jwt_secret};
+use rpc::client::{Client, ClientConfig};
 use tokio::{
     sync::{Mutex, Notify},
     task::JoinHandle,
@@ -30,6 +29,9 @@ use tokio::{
 use tracing::{info, warn};
 
 use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
+
+/// Fast event-sync poll interval used by the harness to keep E2E waits responsive.
+const HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
 
 /// A mock driver client that records submissions for test verification.
 ///
@@ -170,24 +172,67 @@ impl DriverClient for MockDriverClient {
     }
 }
 
-/// Wraps a JSON-RPC driver client with safe-tip fallback for event sync.
-///
-/// When `event_sync_tip` returns `MissingSafeBlock`, falls back to `preconf_tip`.
-/// Also logs submission results for debugging.
-#[derive(Clone)]
-pub struct SafeTipDriverClient {
-    inner: JsonRpcDriverClient,
+/// Driver client that submits payloads directly to an in-process EventSyncer.
+pub struct EventSyncerDriverClient<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    inner: RuntimeEventSyncerDriverClient<EventSyncer<P>, P>,
 }
 
-impl SafeTipDriverClient {
-    /// Create a new safe-tip driver client wrapper.
-    pub fn new(inner: JsonRpcDriverClient) -> Self {
+impl<P> EventSyncerDriverClient<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Create a new client backed by the driver event syncer.
+    pub fn new(event_syncer: Arc<EventSyncer<P>>, client: Client<P>) -> Self {
+        Self {
+            inner: RuntimeEventSyncerDriverClient::from_client_with_poll_interval(
+                event_syncer,
+                client,
+                HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL,
+            ),
+        }
+    }
+}
+
+#[async_trait]
+impl<P> DriverClient for EventSyncerDriverClient<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
+        self.inner.submit_preconfirmation(input).await
+    }
+
+    async fn wait_event_sync(&self) -> Result<()> {
+        self.inner.wait_event_sync().await
+    }
+
+    async fn event_sync_tip(&self) -> Result<U256> {
+        self.inner.event_sync_tip().await
+    }
+
+    async fn preconf_tip(&self) -> Result<U256> {
+        self.inner.preconf_tip().await
+    }
+}
+
+/// Wraps a driver client with logging for submission results.
+#[derive(Clone)]
+pub struct LoggingDriverClient {
+    inner: Arc<dyn DriverClient>,
+}
+
+impl LoggingDriverClient {
+    /// Create a new logging driver client wrapper.
+    pub fn new(inner: Arc<dyn DriverClient>) -> Self {
         Self { inner }
     }
 }
 
 #[async_trait]
-impl DriverClient for SafeTipDriverClient {
+impl DriverClient for LoggingDriverClient {
     async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
         let block_number =
             uint256_to_u256(&input.commitment.commitment.preconf.block_number).to::<u64>();
@@ -206,13 +251,10 @@ impl DriverClient for SafeTipDriverClient {
         self.inner.wait_event_sync().await
     }
 
+    // Delegation only — fallback logic lives in the inner implementation via
+    // `resolve_event_sync_tip`, so no logging or mutation is needed here.
     async fn event_sync_tip(&self) -> Result<U256> {
-        match self.inner.event_sync_tip().await {
-            Err(PreconfirmationClientError::DriverInterface(DriverApiError::MissingSafeBlock)) => {
-                self.inner.preconf_tip().await
-            }
-            other => other,
-        }
+        self.inner.event_sync_tip().await
     }
 
     async fn preconf_tip(&self) -> Result<U256> {
@@ -229,7 +271,6 @@ impl DriverClient for SafeTipDriverClient {
 /// This bundles together all components needed to run a real driver:
 /// - Beacon stub server (mock beacon for timestamp)
 /// - Event syncer with preconfirmation enabled
-/// - Driver RPC server
 /// - Driver client for preconfirmation submission
 /// - L2 provider for block queries
 ///
@@ -248,13 +289,11 @@ impl DriverClient for SafeTipDriverClient {
 /// ```
 pub struct RealDriverSetup {
     /// Driver client for preconfirmation submission.
-    pub driver_client: SafeTipDriverClient,
+    pub driver_client: LoggingDriverClient,
     /// L2 provider for block queries.
     pub l2_provider: RootProvider,
     /// Beacon stub server.
     beacon_server: BeaconStubServer,
-    /// RPC server handle.
-    rpc_server: DriverRpcServer,
     /// Event syncer background task.
     event_handle: JoinHandle<()>,
 }
@@ -265,18 +304,14 @@ impl RealDriverSetup {
     /// This sets up:
     /// 1. Beacon stub server
     /// 2. Event syncer with preconfirmation enabled
-    /// 3. Driver RPC server
-    /// 4. JSON-RPC driver client with safe-tip fallback
+    /// 3. Embedded driver client with logging wrapper
     pub async fn start(env: &ShastaEnv) -> AnyhowResult<Self> {
         let beacon_server = BeaconStubServer::start().await?;
-        let jwt_secret = read_jwt_secret(env.jwt_secret.clone())
-            .ok_or_else(|| anyhow::anyhow!("missing jwt secret"))?;
-        let l1_http = std::env::var("L1_HTTP")?;
 
         let mut driver_config = DriverConfig::new(
             ClientConfig {
                 l1_provider_source: env.l1_source.clone(),
-                l2_provider_url: env.l2_http_0.clone(),
+                l2_provider_url: env.l2_ws_0.clone(),
                 l2_auth_provider_url: env.l2_auth_0.clone(),
                 jwt_secret: env.jwt_secret.clone(),
                 inbox_address: env.inbox_address,
@@ -288,8 +323,8 @@ impl RealDriverSetup {
         );
         driver_config.preconfirmation_enabled = true;
 
-        let driver_client = Client::new(driver_config.client.clone()).await?;
-        let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
+        let rpc_client = Client::new(driver_config.client.clone()).await?;
+        let event_syncer = Arc::new(EventSyncer::new(&driver_config, rpc_client.clone()).await?);
         let event_handle = tokio::spawn({
             let syncer = event_syncer.clone();
             async move {
@@ -299,33 +334,19 @@ impl RealDriverSetup {
             }
         });
 
-        event_syncer
-            .wait_preconf_ingress_ready()
-            .await
-            .ok_or_else(|| anyhow::anyhow!("preconfirmation ingress disabled"))?;
+        event_syncer.wait_preconf_ingress_ready().await?;
 
-        let rpc_server =
-            DriverRpcServer::start("127.0.0.1:0".parse()?, jwt_secret, event_syncer).await?;
+        let l2_provider = rpc_client.l2_provider.clone();
+        let embedded_client =
+            EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());
+        let driver_client = LoggingDriverClient::new(Arc::new(embedded_client));
 
-        let driver_client_cfg = JsonRpcDriverClientConfig::with_http_endpoint(
-            rpc_server.http_url().parse()?,
-            env.jwt_secret.clone(),
-            l1_http.parse()?,
-            env.l2_http_0.to_string().parse()?,
-            env.inbox_address,
-        );
-        let driver_client =
-            SafeTipDriverClient::new(JsonRpcDriverClient::new(driver_client_cfg).await?);
-
-        let l2_provider = connect_http_with_timeout(env.l2_http_0.clone());
-
-        Ok(Self { driver_client, l2_provider, beacon_server, rpc_server, event_handle })
+        Ok(Self { driver_client, l2_provider, beacon_server, event_handle })
     }
 
     /// Stops all background tasks and servers.
     pub async fn stop(self) -> AnyhowResult<()> {
         self.event_handle.abort();
-        self.rpc_server.stop().await;
         self.beacon_server.shutdown().await?;
         Ok(())
     }

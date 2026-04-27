@@ -4,25 +4,27 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH},
     primitives::{Address, B256, U256, keccak256},
     providers::Provider,
 };
 use alloy_consensus::{Header, TxEnvelope};
 use alloy_rpc_types::Transaction as RpcTransaction;
-use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
+use alloy_rpc_types_engine::PayloadId;
+use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use metrics::counter;
 use protocol::shasta::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    payload_id_to_bytes,
+    payload_id_to_bytes, unzen_active_for_chain_timestamp,
 };
 
 use crate::{
-    derivation::{DerivationError, pipeline::shasta::anchor::AnchorV4Input},
+    derivation::DerivationError,
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
+use protocol::shasta::AnchorV4Input;
 
 use tracing::{debug, info, instrument, warn};
 
@@ -77,8 +79,8 @@ struct PayloadContext<'a> {
     meta: &'a BundleMeta,
     /// Base fee target for the upcoming block.
     block_base_fee: u64,
-    /// Difficulty used when sealing the block.
-    difficulty: B256,
+    /// Mix hash used when sealing the block.
+    mix_hash: B256,
     /// Height of the block being built.
     block_number: u64,
     /// Hash of the parent block used for payload ID derivation.
@@ -113,12 +115,12 @@ fn manifest_is_default(manifest: &DerivationSourceManifest) -> bool {
 }
 
 impl BlockPosition {
-    // Check if this is the final block of the final segment.
+    /// Return true if this is the last block of the last manifest segment.
     fn is_final(&self) -> bool {
         self.segment_index + 1 == self.segments_total && self.block_index + 1 == self.blocks_len
     }
 
-    // Check if this block is part of a forced inclusion segment.
+    /// Return true if this block comes from a forced-inclusion source.
     fn is_forced_inclusion(&self) -> bool {
         self.forced_inclusion
     }
@@ -130,19 +132,28 @@ impl BlockPosition {
 /// same computation when probing the canonical chain.
 #[derive(Debug)]
 struct BlockDerivationContext {
+    /// Payload attributes derived for this manifest block.
     payload: TaikoPayloadAttributes,
+    /// Anchor transaction paired with `payload`.
     anchor_tx: TxEnvelope,
+    /// Parent hash used to build the payload.
     parent_hash: B256,
+    /// L2 block number expected from execution.
     block_number: u64,
+    /// Anchor block number encoded into the anchor transaction.
     anchor_block_number: u64,
+    /// Whether this block finalizes the proposal's derivation output.
     is_final_block: bool,
 }
 
 /// Canonical block data captured when a proposal's blocks already exist on the execution chain.
 #[derive(Debug)]
 pub(super) struct KnownCanonicalBlock {
+    /// Payload attributes validated against canonical chain data.
     pub(super) payload: TaikoPayloadAttributes,
+    /// Execution outcome projected from canonical block data.
     pub(super) outcome: EngineBlockOutcome,
+    /// Whether this block is the final block for the proposal.
     pub(super) is_final_block: bool,
 }
 
@@ -152,7 +163,9 @@ pub(super) struct KnownCanonicalBlock {
 /// parent state can advance without talking to the engine again.
 #[derive(Debug)]
 struct VerifiedCanonicalBlock {
+    /// Engine-like outcome reconstructed from canonical block data.
     outcome: EngineBlockOutcome,
+    /// Consensus header used to advance parent state.
     header: Header,
 }
 
@@ -164,10 +177,11 @@ where
     ///
     /// Errors are logged but never propagated so payload application can proceed even when the
     /// mapping is unavailable.
-    async fn finalized_block_hash_for(&self, last_finalized_proposal_id: u64) -> Option<B256> {
-        if last_finalized_proposal_id == 0 {
-            return None;
-        }
+    async fn finalized_block_hash_for(
+        &self,
+        maybe_last_finalized_proposal_id: Option<u64>,
+    ) -> Option<B256> {
+        let last_finalized_proposal_id = maybe_last_finalized_proposal_id?;
 
         let block_number = match self
             .rpc
@@ -428,8 +442,8 @@ where
             "processing manifest block"
         );
         let block_base_fee = state.compute_block_base_fee()?;
-        let parent_difficulty = B256::from(state.header.difficulty.to_be_bytes::<32>());
-        let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
+        let parent_mix_hash = B256::from(state.header.difficulty.to_be_bytes::<32>());
+        let mix_hash = calculate_shasta_mix_hash(parent_mix_hash, block_number);
 
         let anchor_inputs = AnchorTxInputs { block, block_number, block_base_fee };
 
@@ -445,7 +459,7 @@ where
             proposal_id = meta.proposal_id,
             block_number,
             block_base_fee,
-            difficulty = ?difficulty,
+            mix_hash = ?mix_hash,
             transaction_count_with_anchor = transactions.len(),
             parent_hash = ?parent_hash,
             "calculated block parameters"
@@ -457,7 +471,7 @@ where
                 block,
                 meta,
                 block_base_fee,
-                difficulty,
+                mix_hash,
                 block_number,
                 parent_hash,
                 position,
@@ -485,7 +499,7 @@ where
             block,
             meta,
             block_base_fee,
-            difficulty,
+            mix_hash,
             block_number,
             parent_hash,
             position,
@@ -503,17 +517,18 @@ where
             beneficiary: block.coinbase,
             gas_limit,
             timestamp: U256::from(block.timestamp),
-            mix_hash: difficulty,
+            mix_hash,
             tx_list: Some(tx_list),
             extra_data,
         };
 
         let payload_attributes = EthPayloadAttributes {
             timestamp: block.timestamp,
-            prev_randao: difficulty,
+            prev_randao: mix_hash,
             suggested_fee_recipient: block.coinbase,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
 
         let l1_origin = RpcL1Origin {
@@ -783,9 +798,65 @@ where
             return Ok(None);
         }
 
-        if block.header.difficulty != U256::ZERO {
-            debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
-            return Ok(None);
+        let unzen_active = unzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)
+            .map_err(|err| DerivationError::Other(err.into()))?;
+
+        if unzen_active {
+            if block.header.difficulty == U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Unzen");
+                return Ok(None);
+            }
+
+            if block.header.blob_gas_used != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "blob gas used mismatch");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "excess blob gas mismatch");
+                return Ok(None);
+            }
+
+            if block.header.parent_beacon_block_root != Some(B256::ZERO) {
+                debug!(proposal_id = meta.proposal_id, block_id, "parent beacon root mismatch");
+                return Ok(None);
+            }
+
+            if block.header.requests_hash != Some(EMPTY_REQUESTS_HASH) {
+                debug!(proposal_id = meta.proposal_id, block_id, "requests hash mismatch");
+                return Ok(None);
+            }
+        } else {
+            if block.header.difficulty != U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
+                return Ok(None);
+            }
+
+            if block.header.blob_gas_used.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected blob gas used");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected excess blob gas");
+                return Ok(None);
+            }
+
+            if block.header.parent_beacon_block_root.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected parent beacon root before Unzen"
+                );
+                return Ok(None);
+            }
+
+            if block.header.requests_hash.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected requests hash before Unzen"
+                );
+                return Ok(None);
+            }
         }
 
         if block.header.mix_hash != derived_block.payload.payload_attributes.prev_randao {
@@ -844,7 +915,7 @@ where
         Ok(Some(VerifiedCanonicalBlock { outcome, header }))
     }
 
-    // Build the anchor transaction for the given block.
+    /// Build the anchor transaction for the provided manifest block.
     #[instrument(skip(self, parent_state, meta, inputs))]
     async fn build_anchor_transaction(
         &self,
@@ -882,7 +953,7 @@ where
         Ok(tx)
     }
 
-    // Fetch the anchor block fields.
+    /// Resolve anchor block hash and state root from L1.
     #[instrument(skip(self), fields(anchor_block_number))]
     async fn resolve_anchor_block_fields(
         &self,
@@ -912,13 +983,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alethia_reth_evm::alloy::TAIKO_GOLDEN_TOUCH_ADDRESS;
+    use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
     use alloy_consensus::{EthereumTypedTransaction, SignableTransaction, TxEip1559, TxEnvelope};
     use alloy_eips::eip2930::AccessList;
     use alloy_primitives::{Bytes, TxKind};
     use anyhow::Result;
 
-    use crate::signer::FixedKSigner;
+    use protocol::FixedKSigner;
 
     #[test]
     fn anchor_signature_recovers_to_golden_touch() -> Result<()> {

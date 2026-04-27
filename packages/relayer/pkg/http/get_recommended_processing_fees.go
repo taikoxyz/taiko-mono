@@ -115,15 +115,15 @@ func (srv *Server) GetRecommendedProcessingFees(c echo.Context) error {
 	for _, f := range feeTypes {
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(uint64(f), destGasTipCap, destBaseFee, Layer1).String(),
-			DestChainID: srcChainID.Uint64(),
+			Amount:      srv.getCost(uint64(f), destGasTipCap, destBaseFee, Layer2).String(),
+			DestChainID: destChainID.Uint64(),
 			GasLimit:    strconv.Itoa(int(f)),
 		})
 
 		fees = append(fees, fee{
 			Type:        f.String(),
-			Amount:      srv.getCost(uint64(f), srcGasTipCap, srcBaseFee, Layer2).String(),
-			DestChainID: destChainID.Uint64(),
+			Amount:      srv.getCost(uint64(f), srcGasTipCap, srcBaseFee, Layer1).String(),
+			DestChainID: srcChainID.Uint64(),
 			GasLimit:    strconv.Itoa(int(f)),
 		})
 	}
