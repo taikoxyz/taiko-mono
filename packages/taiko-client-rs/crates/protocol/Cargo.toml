@@ -9,6 +9,7 @@ license.workspace = true
 default = ["net"]
 net = [
     "alloy/default",
+    "alloy/signers",
     "bindings",
     "tokio",
     "tokio-retry",
@@ -29,7 +30,7 @@ tokio-stream = { workspace = true, optional = true }
 tracing = { workspace = true }
 
 # ethereum
-alloy = { workspace = true, features = ["std", "signers", "sol-types"] }
+alloy = { workspace = true, default-features = false, features = ["std", "sol-types"] }
 alloy-consensus = { workspace = true }
 alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
