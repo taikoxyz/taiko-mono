@@ -81,11 +81,11 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "26010828d12e5b6a7f9cb7588278adef4268167c", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "26010828d12e5b6a7f9cb7588278adef4268167c", features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "d1e831837fddfe6dbf8f7e43a77488316f1458bc", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "d1e831837fddfe6dbf8f7e43a77488316f1458bc", features = [
   "serde",
 ] }
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "26010828d12e5b6a7f9cb7588278adef4268167c" }
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "d1e831837fddfe6dbf8f7e43a77488316f1458bc" }
 
 # networking
 arc-swap = "1.7"
