@@ -99,7 +99,7 @@ func TestSaveForcedInclusionLive(t *testing.T) {
 		GasLimit:          210000,
 		Transactions:      types.Transactions{signed},
 	})
-	sourceManifestBytes, err := builder.EncodeSourceManifestShasta(derivationSourceManifest)
+	sourceManifestBytes, err := builder.EncodeSourceManifest(derivationSourceManifest)
 	require.NoError(err)
 	blobs, err := builder.SplitToBlobs(sourceManifestBytes)
 	require.NoError(err)

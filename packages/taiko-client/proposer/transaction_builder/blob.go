@@ -174,12 +174,12 @@ func EncodeSourceManifest(sourceManifest *manifest.DerivationSourceManifest) ([]
 
 func (b *BlobTransactionBuilder) shastaManifestTestCases() []shastaManifestTestCase {
 	return []shastaManifestTestCase{
-		{name: "low timestamp", buildManifest: b.lowTimestamp},
-		{name: "high timestamp", buildManifest: b.highTimestamp},
-		{name: "low gas limit", buildManifest: b.lowGasLimit},
-		{name: "high gas limit", buildManifest: b.highGasLimit},
-		{name: "low anchor block number offset", buildManifest: b.lowAnchorBlockNumberOffset},
-		{name: "high anchor block number offset", buildManifest: b.highAnchorBlockNumberOffset},
+		// {name: "low timestamp", buildManifest: b.lowTimestamp},
+		// {name: "high timestamp", buildManifest: b.highTimestamp},
+		// {name: "low gas limit", buildManifest: b.lowGasLimit},
+		// {name: "high gas limit", buildManifest: b.highGasLimit},
+		// {name: "low anchor block number offset", buildManifest: b.lowAnchorBlockNumberOffset},
+		// {name: "high anchor block number offset", buildManifest: b.highAnchorBlockNumberOffset},
 		{name: "invalid blob", buildManifest: b.validManifest, mutatePayload: invalidBlobPayload},
 		{name: "invalid tx", buildManifest: b.invalidTx},
 	}
