@@ -18,7 +18,7 @@ preconfirmation = [
 
 [dependencies]
 alethia-reth-consensus = { workspace = true }
-alethia-reth-primitives = { workspace = true }
+alethia-reth-primitives = { workspace = true, features = ["net"] }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
