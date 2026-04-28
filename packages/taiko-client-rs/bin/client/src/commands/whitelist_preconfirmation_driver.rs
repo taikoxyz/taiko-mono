@@ -6,7 +6,7 @@ use alloy_primitives::Address;
 use async_trait::async_trait;
 use clap::Parser;
 use driver::{DriverConfig, metrics::DriverMetrics};
-use protocol::shasta::set_devnet_uzen_override;
+use protocol::shasta::set_devnet_unzen_override;
 use tracing::warn;
 use whitelist_preconfirmation_driver::{
     NetworkConfig, RunnerConfig, WhitelistPreconfirmationDriverMetrics,
@@ -143,7 +143,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
     /// Runs the whitelist preconfirmation driver.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
-        set_devnet_uzen_override(self.common_flags.devnet_uzen_timestamp);
+        set_devnet_unzen_override(self.common_flags.devnet_unzen_timestamp);
         self.init_metrics()?;
 
         let driver_config = self.build_driver_config()?;

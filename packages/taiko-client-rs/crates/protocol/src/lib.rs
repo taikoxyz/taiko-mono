@@ -9,10 +9,12 @@ pub mod codec;
 pub mod preconfirmation;
 /// Shasta-specific protocol types, constants, and builders.
 pub mod shasta;
-/// Deterministic signer used by protocol flows.
+/// Deterministic signer used by network protocol flows.
+#[cfg(feature = "net")]
 pub mod signer;
 /// Provider/event-scanner subscription source abstraction.
 #[cfg(feature = "net")]
 pub mod subscription_source;
 
+#[cfg(feature = "net")]
 pub use signer::{FixedKSigner, FixedKSignerError};

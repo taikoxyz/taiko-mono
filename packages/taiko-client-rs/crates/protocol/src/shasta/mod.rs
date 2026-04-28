@@ -12,7 +12,7 @@ pub mod payload_helpers;
 pub use anchor::{AnchorTxConstructor, AnchorTxConstructorError, AnchorV4Input};
 pub use blob_coder::BlobCoder;
 pub use constants::{
-    set_devnet_uzen_override, uzen_active_for_chain_timestamp, uzen_fork_timestamp_for_chain,
+    set_devnet_unzen_override, unzen_active_for_chain_timestamp, unzen_fork_timestamp_for_chain,
 };
 pub use error::{ForkConfigError, ForkConfigResult, ProtocolError, Result};
 pub use payload_helpers::{

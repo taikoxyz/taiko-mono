@@ -42,6 +42,10 @@ pub enum TaikoAuthMethod {
     LastL1OriginByBatchId,
     /// Fetch the last block id for a batch id.
     LastBlockIdByBatchId,
+    /// Fetch the cached last L1 origin for a batch id.
+    LastCertainL1OriginByBatchId,
+    /// Fetch the cached last block id for a batch id.
+    LastCertainBlockIdByBatchId,
 }
 
 impl TaikoAuthMethod {
@@ -55,6 +59,8 @@ impl TaikoAuthMethod {
             Self::SetBatchToLastBlock => "taikoAuth_setBatchToLastBlock",
             Self::LastL1OriginByBatchId => "taikoAuth_lastL1OriginByBatchID",
             Self::LastBlockIdByBatchId => "taikoAuth_lastBlockIDByBatchID",
+            Self::LastCertainL1OriginByBatchId => "taikoAuth_lastCertainL1OriginByBatchID",
+            Self::LastCertainBlockIdByBatchId => "taikoAuth_lastCertainBlockIDByBatchID",
         }
     }
 }
@@ -110,7 +116,7 @@ struct EngineNewPayloadV2Request<'a> {
     tx_hash: B256,
     /// Withdrawals root hash tracked by the Taiko sidecar.
     withdrawals_hash: B256,
-    /// Optional hash-relevant header difficulty restored for Uzen blocks.
+    /// Optional hash-relevant header difficulty restored for Unzen blocks.
     #[serde(skip_serializing_if = "Option::is_none")]
     header_difficulty: Option<U256>,
     /// Optional marker flag indicating that the payload is Taiko-specific.
@@ -236,6 +242,37 @@ impl<P: Provider + Clone> Client<P> {
             .or_else(handle_ignorable_origin_error)
     }
 
+    /// Fetch the cached last L1 origin associated with the given batch id via the authenticated
+    /// engine API, without allowing the engine to scan the chain as a fallback.
+    pub async fn last_certain_l1_origin_by_batch_id(
+        &self,
+        proposal_id: U256,
+    ) -> Result<Option<RpcL1Origin>> {
+        self.l2_auth_provider
+            .raw_request::<_, Option<EngineRpcL1Origin>>(
+                Cow::Borrowed(TaikoAuthMethod::LastCertainL1OriginByBatchId.as_str()),
+                (proposal_id,),
+            )
+            .await
+            .or_else(handle_ignorable_origin_error)
+            .map(|origin| origin.map(Into::into))
+    }
+
+    /// Fetch the cached last block id that corresponds to the provided batch id via the
+    /// authenticated engine API, without allowing the engine to scan the chain as a fallback.
+    pub async fn last_certain_block_id_by_batch_id(
+        &self,
+        proposal_id: U256,
+    ) -> Result<Option<U256>> {
+        self.l2_auth_provider
+            .raw_request(
+                Cow::Borrowed(TaikoAuthMethod::LastCertainBlockIdByBatchId.as_str()),
+                (proposal_id,),
+            )
+            .await
+            .or_else(handle_ignorable_origin_error)
+    }
+
     /// Submit a new payload via the execution engine API.
     pub async fn engine_new_payload_v2(
         &self,
@@ -278,7 +315,7 @@ impl<P: Provider + Clone> Client<P> {
 
     /// Retrieve a built payload from the execution engine.
     ///
-    /// The wire shape stays the standard `ExecutionPayloadEnvelopeV2`, but Taiko Uzen and later
+    /// The wire shape stays the standard `ExecutionPayloadEnvelopeV2`, but Taiko Unzen and later
     /// reuse `blockValue` to carry the original `header.difficulty` back to the client so
     /// `getPayloadV2`/`newPayloadV2` round trips remain hash-stable.
     pub async fn engine_get_payload_v2(
@@ -356,6 +393,18 @@ mod tests {
         );
         assert_eq!(obj.get("taikoBlock"), Some(&serde_json::json!(true)));
         assert!(!obj.contains_key("withdrawals"));
+    }
+
+    #[test]
+    fn taiko_auth_method_includes_last_certain_batch_lookups() {
+        assert_eq!(
+            TaikoAuthMethod::LastCertainL1OriginByBatchId.as_str(),
+            "taikoAuth_lastCertainL1OriginByBatchID"
+        );
+        assert_eq!(
+            TaikoAuthMethod::LastCertainBlockIdByBatchId.as_str(),
+            "taikoAuth_lastCertainBlockIDByBatchID"
+        );
     }
 
     #[test]

@@ -26,7 +26,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 )
@@ -1035,10 +1034,8 @@ func (c *Client) GetProposalByID(
 		return nil, nil, fmt.Errorf("failed to get synced L1 snippet from anchor transaction: %w", err)
 	}
 
-	end := anchorNumber + manifest.AnchorMaxOffsetByChainID(c.L2.ChainID)
 	iter, err := c.ShastaClients.Inbox.FilterProposed(&bind.FilterOpts{
 		Start:   anchorNumber,
-		End:     &end,
 		Context: ctxWithTimeout,
 	}, []*big.Int{proposalID}, nil)
 	if err != nil {

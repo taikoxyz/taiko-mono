@@ -32,7 +32,7 @@ tokio = { workspace = true, features = ["sync"] }
 url = { workspace = true }
 
 # taiko
-alethia-reth-primitives = { workspace = true }
+alethia-reth-primitives = { workspace = true, features = ["net"] }
 alethia-reth-rpc-types = { workspace = true }
 bindings = { path = "../bindings" }
 event-scanner = { workspace = true }

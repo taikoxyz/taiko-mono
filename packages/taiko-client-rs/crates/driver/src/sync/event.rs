@@ -1376,7 +1376,8 @@ mod tests {
         transports::http::reqwest::Url,
     };
     use alloy_provider::{ProviderBuilder, RootProvider};
-    use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
+    use alloy_rpc_types_engine::PayloadId;
+    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
     use async_trait::async_trait;
     use bindings::{
@@ -1401,6 +1402,7 @@ mod tests {
             suggested_fee_recipient: Address::ZERO,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
         let block_metadata = TaikoBlockMetadata {
             beneficiary: Address::ZERO,

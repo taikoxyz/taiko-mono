@@ -285,11 +285,6 @@ func (p *Proposer) ProposeTxLists(
 
 // ProposeTxList proposes the given transaction lists to the inbox contract.
 func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Transactions) error {
-	// Make sure the transaction lists fit within the maximum blocks allowed in a proposal.
-	if len(proposalTxLists) > manifest.ProposalMaxBlocks {
-		return fmt.Errorf("proposal exceeds proposalMaxBlocks")
-	}
-
 	// Count the total number of transactions.
 	var txs uint64
 	for _, txList := range proposalTxLists {
@@ -315,9 +310,19 @@ func (p *Proposer) ProposeTxList(ctx context.Context, proposalTxLists []types.Tr
 	)
 
 	if state.LastProposalBlockId.Cmp(l1Head.Number) >= 0 {
-		if _, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
+		if l1Head, err = p.rpc.WaitL1Header(ctx, new(big.Int).Add(l1Head.Number, common.Big1)); err != nil {
 			return fmt.Errorf("failed to wait for next L1 block: %w", err)
 		}
+	}
+
+	// Proposer intentionally keeps the stricter Shasta cap. It is below the
+	// Unzen derivation-source cap, so proposals that pass here are safe there.
+	if len(proposalTxLists) > manifest.ProposalMaxBlocks {
+		return fmt.Errorf(
+			"proposal exceeds proposalMaxBlocks: blocks=%d max=%d",
+			len(proposalTxLists),
+			manifest.ProposalMaxBlocks,
+		)
 	}
 
 	// Build the proposal transaction.
