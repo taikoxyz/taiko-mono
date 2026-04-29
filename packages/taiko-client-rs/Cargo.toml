@@ -23,7 +23,7 @@ repository = "https://github.com/taikoxyz/taiko-mono"
 [workspace.dependencies]
 # async
 async-trait = "0.1"
-rand = { version = "0.8", features = ["std", "std_rng"] }
+rand = { version = "0.8.6", features = ["std", "std_rng"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["full"] }
 tokio-retry = "0.3.0"
@@ -91,7 +91,7 @@ alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", pac
 arc-swap = "1.7"
 axum = { version = "0.7", features = ["ws"] }
 bytes = "1"
-discv5 = "0.7"
+discv5 = "0.10"
 futures = "0.3"
 hashlink = "0.10"
 http = "1"
