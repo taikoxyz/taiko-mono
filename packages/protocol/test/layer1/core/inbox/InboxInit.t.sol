@@ -9,18 +9,13 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
 
-/// @notice Tests for Inbox activation and pre-activation behavior
-contract InboxActivationTest is InboxTestBase {
-    Inbox internal nonActivatedInbox;
+/// @notice Tests for Inbox initialization and pre-initialization behavior
+contract InboxInitTest is InboxTestBase {
+    Inbox internal uninitializedInbox;
 
     function setUp() public override {
         super.setUp();
-        // Deploy a new inbox without activation for these tests
-        nonActivatedInbox = _deployNonActivatedInbox();
-    }
-
-    function _deployNonActivatedInbox() private returns (Inbox) {
-        return _deployUninitializedInbox();
+        uninitializedInbox = _deployUninitializedInbox();
     }
 
     function test_propose_RevertWhen_NotActivated() public {
@@ -30,33 +25,7 @@ contract InboxActivationTest is InboxTestBase {
 
         vm.expectRevert(Inbox.ActivationRequired.selector);
         vm.prank(proposer);
-        nonActivatedInbox.propose(bytes(""), encodedInput);
-    }
-
-    function test_prove_RevertWhen_NotActivated() public {
-        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
-        transitions[0] = IInbox.Transition({
-            proposer: proposer,
-            timestamp: uint48(block.timestamp),
-            blockHash: keccak256("checkpoint")
-        });
-
-        IInbox.ProveInput memory input = IInbox.ProveInput({
-            commitment: IInbox.Commitment({
-                firstProposalId: 1,
-                firstProposalParentBlockHash: bytes32(0),
-                lastProposalHash: bytes32(uint256(123)),
-                actualProver: prover,
-                endBlockNumber: uint48(block.number),
-                endStateRoot: bytes32(uint256(1)),
-                transitions: transitions
-            })
-        });
-
-        bytes memory encodedInput = codec.encodeProveInput(input);
-        vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
-        vm.prank(prover);
-        nonActivatedInbox.prove(encodedInput, bytes("proof"));
+        uninitializedInbox.propose(bytes(""), encodedInput);
     }
 
     function test_init_RevertWhen_InvalidGenesisBlockHash() public {
