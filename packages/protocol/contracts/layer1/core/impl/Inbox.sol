@@ -50,13 +50,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         bool allowsPermissionless;
     }
 
-    // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    event InboxActivated(bytes32 genesisBlockHash);
-
-    // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
@@ -194,7 +187,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal);
-        emit InboxActivated(_genesisBlockHash);
     }
 
     /// @inheritdoc IInbox
