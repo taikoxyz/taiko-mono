@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/url"
 	"os"
 	"time"
 
@@ -19,42 +20,60 @@ const (
 	DefaultRpcTimeout = 1 * time.Minute
 )
 
-// ShastaClients contains all smart contract clients for ShastaClients fork.
+// ShastaClients contains all smart contract clients for the Shasta fork.
 type ShastaClients struct {
-	Inbox            *shastaBindings.ShastaInboxClient
-	Anchor           *shastaBindings.ShastaAnchor
-	ComposeVerifier  *shastaBindings.ComposeVerifier
+	// Inbox is the Shasta inbox contract client.
+	Inbox *shastaBindings.ShastaInboxClient
+	// Anchor is the Shasta anchor contract client.
+	Anchor *shastaBindings.ShastaAnchor
+	// ComposeVerifier is the compose verifier contract client.
+	ComposeVerifier *shastaBindings.ComposeVerifier
+	// PreconfWhitelist is the optional preconfirmation whitelist contract client.
 	PreconfWhitelist *shastaBindings.PreconfWhitelist
-	InboxAddress     common.Address
+	// InboxAddress is the Shasta inbox contract address.
+	InboxAddress common.Address
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
-	// Geth ethclient clients
-	L1           *EthClient
-	L2           *EthClient
+	// L1 is the selected L1 execution RPC client.
+	L1 *EthClient
+	// L2 is the selected L2 execution RPC client.
+	L2 *EthClient
+	// L2CheckPoint is an optional checkpoint L2 execution RPC client.
 	L2CheckPoint *EthClient
-	// Geth Engine API clients
+	// L2Engine is the optional authenticated L2 Engine API client.
 	L2Engine *EngineClient
-	// Beacon clients
+	// L1Beacon is the optional L1 beacon client.
 	L1Beacon *BeaconClient
-	// Protocol contract clients
+	// ShastaClients contains protocol contract clients for Shasta.
 	ShastaClients *ShastaClients
+	// UseSubscriptions indicates whether both selected L1/L2 endpoints support subscriptions.
+	UseSubscriptions bool
 }
 
 // ClientConfig contains all configs which will be used to initializing an
 // RPC client. If not providing L2EngineEndpoint or JwtSecret, then the L2Engine client
 // won't be initialized.
 type ClientConfig struct {
-	L1Endpoint         string
-	L2Endpoint         string
-	L1BeaconEndpoint   string
-	L2CheckPoint       string
-	InboxAddress       common.Address
+	// L1Endpoint is the selected L1 execution RPC endpoint.
+	L1Endpoint string
+	// L2Endpoint is the selected L2 execution RPC endpoint.
+	L2Endpoint string
+	// L1BeaconEndpoint is the optional L1 beacon HTTP endpoint.
+	L1BeaconEndpoint string
+	// L2CheckPoint is the optional checkpoint L2 execution RPC endpoint.
+	L2CheckPoint string
+	// InboxAddress is the Shasta inbox contract address.
+	InboxAddress common.Address
+	// TaikoAnchorAddress is the L2 Taiko anchor contract address.
 	TaikoAnchorAddress common.Address
-	L2EngineEndpoint   string
-	JwtSecret          string
-	Timeout            time.Duration
+	// L2EngineEndpoint is the optional authenticated L2 Engine API endpoint.
+	L2EngineEndpoint string
+	// JwtSecret is the optional JWT secret used for authenticated Engine API calls.
+	JwtSecret string
+	// Timeout is the per-request RPC timeout.
+	Timeout time.Duration
 }
 
 // NewClient initializes all RPC clients used by Taiko client software.
@@ -115,11 +134,12 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	c := &Client{
-		L1:           l1Client,
-		L1Beacon:     l1BeaconClient,
-		L2:           l2Client,
-		L2CheckPoint: l2CheckPoint,
-		L2Engine:     l2AuthClient,
+		L1:               l1Client,
+		L1Beacon:         l1BeaconClient,
+		L2:               l2Client,
+		L2CheckPoint:     l2CheckPoint,
+		L2Engine:         l2AuthClient,
+		UseSubscriptions: isWebSocketEndpoint(cfg.L1Endpoint) && isWebSocketEndpoint(cfg.L2Endpoint),
 	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
@@ -129,6 +149,21 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	}
 
 	return c, nil
+}
+
+// isWebSocketEndpoint reports whether the endpoint scheme supports websocket subscriptions.
+func isWebSocketEndpoint(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+
+	switch parsed.Scheme {
+	case "ws", "wss":
+		return true
+	default:
+		return false
+	}
 }
 
 // initShastaClients initializes all smart contract clients.

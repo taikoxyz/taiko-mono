@@ -18,8 +18,10 @@ import (
 
 var (
 	l1Endpoint       = os.Getenv("L1_WS")
+	l1HTTPEndpoint   = os.Getenv("L1_HTTP")
 	l1BeaconEndpoint = os.Getenv("L1_HTTP")
 	l2Endpoint       = os.Getenv("L2_WS")
+	l2HTTPEndpoint   = os.Getenv("L2_HTTP")
 	l2CheckPoint     = os.Getenv("L2_HTTP")
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
 	inbox            = os.Getenv("INBOX")
@@ -51,8 +53,10 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 	s.Nil(app.Run([]string{
 		"TestNewConfigFromCliContext",
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1HTTPEndpoint.Name, l1HTTPEndpoint,
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
+		"--" + flags.L2HTTPEndpoint.Name, l2HTTPEndpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
 		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
@@ -68,10 +72,85 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 	}))
 }
 
+func (s *DriverTestSuite) TestNewConfigFromCliContextHTTPFallback() {
+	app := s.SetupApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		c, err := NewConfigFromCliContext(ctx)
+		s.Nil(err)
+		s.Equal(l1HTTPEndpoint, c.L1Endpoint)
+		s.Equal(l2HTTPEndpoint, c.L2Endpoint)
+
+		return err
+	}
+
+	s.Nil(app.Run([]string{
+		"TestNewConfigFromCliContextHTTPFallback",
+		"--" + flags.L1WSEndpoint.Name, " ",
+		"--" + flags.L1HTTPEndpoint.Name, l1HTTPEndpoint,
+		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
+		"--" + flags.L2WSEndpoint.Name, " ",
+		"--" + flags.L2HTTPEndpoint.Name, l2HTTPEndpoint,
+		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
+		"--" + flags.InboxAddress.Name, inbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
+		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
+		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
+		"--" + p2pFlags.DiscoveryPathName, "memory",
+		"--" + p2pFlags.PeerstorePathName, "memory",
+	}))
+}
+
+func (s *DriverTestSuite) TestResolveDriverRPCEndpointsTrimsAndFallsBack() {
+	app := s.SetupEndpointResolverApp()
+
+	app.Action = func(ctx *cli.Context) error {
+		l1Endpoint, l2Endpoint, err := resolveDriverRPCEndpoints(ctx)
+		s.Nil(err)
+		s.Equal("ws://l1", l1Endpoint)
+		s.Equal("http://l2", l2Endpoint)
+
+		return err
+	}
+
+	s.Nil(app.Run([]string{
+		"TestResolveDriverRPCEndpointsTrimsAndFallsBack",
+		"--" + flags.L1WSEndpoint.Name, " ws://l1 ",
+		"--" + flags.L1HTTPEndpoint.Name, " http://l1 ",
+		"--" + flags.L2WSEndpoint.Name, " ",
+		"--" + flags.L2HTTPEndpoint.Name, " http://l2 ",
+	}))
+}
+
+func (s *DriverTestSuite) TestResolveDriverRPCEndpointsEmptyL1Endpoint() {
+	app := s.SetupEndpointResolverApp()
+	s.ErrorContains(app.Run([]string{
+		"TestResolveDriverRPCEndpointsEmptyL1Endpoint",
+		"--" + flags.L1WSEndpoint.Name, " ",
+		"--" + flags.L1HTTPEndpoint.Name, " ",
+		"--" + flags.L2WSEndpoint.Name, "ws://l2",
+	}), "empty L1 RPC endpoint")
+}
+
+func (s *DriverTestSuite) TestResolveDriverRPCEndpointsEmptyL2Endpoint() {
+	app := s.SetupEndpointResolverApp()
+	s.ErrorContains(app.Run([]string{
+		"TestResolveDriverRPCEndpointsEmptyL2Endpoint",
+		"--" + flags.L1WSEndpoint.Name, "ws://l1",
+		"--" + flags.L2WSEndpoint.Name, " ",
+		"--" + flags.L2HTTPEndpoint.Name, " ",
+	}), "empty L2 RPC endpoint")
+}
+
 func (s *DriverTestSuite) TestNewConfigFromCliContextJWTError() {
 	app := s.SetupApp()
 	s.ErrorContains(app.Run([]string{
 		"TestNewConfigFromCliContext",
+		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
+		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
+		"--" + flags.InboxAddress.Name, inbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, "wrongsecretfile.txt",
 	}), "invalid JWT secret file")
 }
@@ -80,6 +159,9 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 	app := s.SetupApp()
 	s.ErrorContains(app.Run([]string{
 		"TestNewConfigFromCliContext",
+		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
+		"--" + flags.InboxAddress.Name, inbox,
+		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSync.Name,
 		"--" + flags.L2WSEndpoint.Name, "",
@@ -88,22 +170,24 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 
 func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
-	app.Flags = flags.MergeFlags([]cli.Flag{
-		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
-		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
-		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
-		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
-		&cli.StringFlag{Name: flags.InboxAddress.Name},
-		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
-		&cli.Uint64Flag{Name: flags.PreconfHandoverSkipSlots.Name, Value: 8},
-		&cli.StringFlag{Name: flags.JWTSecret.Name},
-		&cli.BoolFlag{Name: flags.P2PSync.Name},
-		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
-		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
-		&cli.StringFlag{Name: flags.CheckPointSyncURL.Name},
-	}, p2pFlags.P2PFlags("PRECONFIRMATION"))
+	app.Flags = flags.DriverFlags
 	app.Action = func(ctx *cli.Context) error {
 		_, err := NewConfigFromCliContext(ctx)
+		return err
+	}
+	return app
+}
+
+func (s *DriverTestSuite) SetupEndpointResolverApp() *cli.App {
+	app := cli.NewApp()
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.L1HTTPEndpoint.Name},
+		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
+	}
+	app.Action = func(ctx *cli.Context) error {
+		_, _, err := resolveDriverRPCEndpoints(ctx)
 		return err
 	}
 	return app
@@ -137,8 +221,10 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 	s.Nil(app.Run([]string{
 		"GetDefaultP2PConfig",
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
+		"--" + flags.L1HTTPEndpoint.Name, l1HTTPEndpoint,
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
+		"--" + flags.L2HTTPEndpoint.Name, l2HTTPEndpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
 		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,

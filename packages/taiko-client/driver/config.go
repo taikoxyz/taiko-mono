@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
@@ -23,18 +24,30 @@ import (
 
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
+	// ClientConfig contains the selected RPC endpoints and protocol addresses.
 	*rpc.ClientConfig
-	P2PSync                       bool
-	P2PSyncTimeout                time.Duration
-	RetryInterval                 time.Duration
-	BlobServerEndpoint            *url.URL
-	PreconfBlockServerPort        uint64
-	PreconfBlockServerJWTSecret   []byte
+	// P2PSync enables checkpoint sync from another L2 execution engine.
+	P2PSync bool
+	// P2PSyncTimeout limits how long checkpoint sync can run without progress.
+	P2PSyncTimeout time.Duration
+	// RetryInterval is the backoff retry interval used by the driver.
+	RetryInterval time.Duration
+	// BlobServerEndpoint is the endpoint used to fetch blob sidecars.
+	BlobServerEndpoint *url.URL
+	// PreconfBlockServerPort is the HTTP port for the preconfirmation block server.
+	PreconfBlockServerPort uint64
+	// PreconfBlockServerJWTSecret is the JWT secret for the preconfirmation block server.
+	PreconfBlockServerJWTSecret []byte
+	// PreconfBlockServerCORSOrigins contains allowed CORS origins for the preconfirmation block server.
 	PreconfBlockServerCORSOrigins string
-	HandoverSkipSlots             uint64
-	P2PConfigs                    *p2p.Config
-	P2PSignerConfigs              p2p.SignerSetup
-	PreconfOperatorAddress        common.Address
+	// HandoverSkipSlots is the number of slots reserved for preconfirmation handover.
+	HandoverSkipSlots uint64
+	// P2PConfigs contains the driver's P2P networking configuration.
+	P2PConfigs *p2p.Config
+	// P2PSignerConfigs contains the signing configuration for P2P messages.
+	P2PSignerConfigs p2p.SignerSetup
+	// PreconfOperatorAddress is the address derived from the preconfirmation P2P key.
+	PreconfOperatorAddress common.Address
 }
 
 // NewConfigFromCliContext creates a new config instance from
@@ -52,6 +65,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 
 	if p2pSync && len(l2CheckPoint) == 0 {
 		return nil, errors.New("empty L2 check point URL")
+	}
+
+	l1Endpoint, l2Endpoint, err := resolveDriverRPCEndpoints(c)
+	if err != nil {
+		return nil, err
 	}
 
 	var beaconEndpoint string
@@ -84,9 +102,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Check P2P network flags and create the P2P configurations.
 	var (
 		clientConfig = &rpc.ClientConfig{
-			L1Endpoint:         c.String(flags.L1WSEndpoint.Name),
+			L1Endpoint:         l1Endpoint,
 			L1BeaconEndpoint:   beaconEndpoint,
-			L2Endpoint:         c.String(flags.L2WSEndpoint.Name),
+			L2Endpoint:         l2Endpoint,
 			L2CheckPoint:       l2CheckPoint,
 			InboxAddress:       common.HexToAddress(c.String(flags.InboxAddress.Name)),
 			TaikoAnchorAddress: common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
@@ -141,4 +159,35 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		P2PSignerConfigs:              signerConfigs,
 		PreconfOperatorAddress:        preconfOperatorAddress,
 	}, nil
+}
+
+// resolveDriverRPCEndpoints selects driver L1/L2 endpoints with WS preferred over HTTP.
+func resolveDriverRPCEndpoints(c *cli.Context) (string, string, error) {
+	l1Endpoint := firstNonEmpty(
+		c.String(flags.L1WSEndpoint.Name),
+		c.String(flags.L1HTTPEndpoint.Name),
+	)
+	if l1Endpoint == "" {
+		return "", "", errors.New("empty L1 RPC endpoint")
+	}
+
+	l2Endpoint := firstNonEmpty(
+		c.String(flags.L2WSEndpoint.Name),
+		c.String(flags.L2HTTPEndpoint.Name),
+	)
+	if l2Endpoint == "" {
+		return "", "", errors.New("empty L2 RPC endpoint")
+	}
+
+	return l1Endpoint, l2Endpoint, nil
+}
+
+// firstNonEmpty returns the first non-empty value after trimming whitespace.
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }

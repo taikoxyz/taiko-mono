@@ -39,6 +39,51 @@ func TestNewClientShastaOnlyConfig(t *testing.T) {
 	require.True(t, ok)
 }
 
+func TestIsWebSocketEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		expected bool
+	}{
+		{
+			name:     "ws",
+			endpoint: "ws://localhost:8546",
+			expected: true,
+		},
+		{
+			name:     "wss",
+			endpoint: "wss://rpc.example.com",
+			expected: true,
+		},
+		{
+			name:     "http",
+			endpoint: "http://localhost:8545",
+			expected: false,
+		},
+		{
+			name:     "https",
+			endpoint: "https://rpc.example.com",
+			expected: false,
+		},
+		{
+			name:     "empty",
+			endpoint: "",
+			expected: false,
+		},
+		{
+			name:     "malformed",
+			endpoint: "://missing-scheme",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, isWebSocketEndpoint(tt.endpoint))
+		})
+	}
+}
+
 func newTestClientWithTimeout(t *testing.T) *Client {
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	require.Nil(t, err)

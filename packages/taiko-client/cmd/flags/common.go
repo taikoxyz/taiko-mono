@@ -17,14 +17,20 @@ var (
 	txmgrCategory    = "TX_MANAGER"
 )
 
-// Required flags used by all client software.
+// Shared flags used by all client software.
 var (
 	L1WSEndpoint = &cli.StringFlag{
 		Name:     "l1.ws",
 		Usage:    "Websocket RPC endpoint of a L1 ethereum node",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
+	}
+	// L1HTTPEndpoint is the optional L1 HTTP RPC endpoint used by commands that support HTTP fallback.
+	L1HTTPEndpoint = &cli.StringFlag{
+		Name:     "l1.http",
+		Usage:    "HTTP RPC endpoint of a L1 ethereum node",
+		Category: commonCategory,
+		EnvVars:  []string{"L1_HTTP"},
 	}
 	L1PrivateEndpoint = &cli.StringFlag{
 		Name:     "l1.private",
@@ -35,7 +41,6 @@ var (
 	L2WSEndpoint = &cli.StringFlag{
 		Name:     "l2.ws",
 		Usage:    "Websocket RPC endpoint of a L2 taiko-geth execution engine",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"L2_WS"},
 	}
@@ -48,7 +53,6 @@ var (
 	L2HTTPEndpoint = &cli.StringFlag{
 		Name:     "l2.http",
 		Usage:    "HTTP RPC endpoint of a L2 taiko-geth execution engine",
-		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"L2_HTTP"},
 	}
@@ -150,8 +154,9 @@ var (
 
 // CommonFlags All common flags.
 var CommonFlags = []cli.Flag{
-	// Required
+	// Endpoints
 	L1WSEndpoint,
+	// Required
 	InboxAddress,
 	TaikoAnchorAddress,
 	// Optional

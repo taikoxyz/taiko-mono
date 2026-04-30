@@ -7,32 +7,35 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // State contains all states which will be used by driver.
 type State struct {
-	// Feeds
-	l1HeadsFeed event.Feed // L1 new heads notification feed
+	// l1HeadsFeed broadcasts changed L1 heads to sync consumers.
+	l1HeadsFeed event.Feed
 
-	l1Head    atomic.Value // Latest known L1 head
-	l2Head    atomic.Value // Current L2 execution engine's local chain head
-	l1Current atomic.Value // Current L1 block sync cursor
+	// l1Head stores the latest known L1 head.
+	l1Head atomic.Value
+	// l2Head stores the current L2 execution engine's local chain head.
+	l2Head atomic.Value
+	// l1Current stores the current L1 block sync cursor.
+	l1Current atomic.Value
 
-	// Constants
+	// GenesisL1Height is the L1 activation height for the current inbox.
 	GenesisL1Height *big.Int
 
-	// RPC clients
+	// rpc contains the L1/L2 RPC clients used by the state.
 	rpc *rpc.Client
 
+	// headTracker updates cached L1/L2 heads from subscriptions or polling.
+	headTracker headTracker
+	// wg waits for the tracker event loop to exit.
 	wg sync.WaitGroup
 }
 
@@ -44,6 +47,8 @@ func New(ctx context.Context, rpc *rpc.Client) (*State, error) {
 		return nil, fmt.Errorf("failed to initialize driver state: %w", err)
 	}
 
+	s.headTracker = newHeadTracker(s)
+	s.wg.Add(1)
 	go s.eventLoop(ctx)
 
 	return s, nil
@@ -51,6 +56,9 @@ func New(ctx context.Context, rpc *rpc.Client) (*State, error) {
 
 // Close closes all inner subscriptions.
 func (s *State) Close() {
+	if s.headTracker != nil {
+		s.headTracker.Close()
+	}
 	s.wg.Wait()
 }
 
@@ -88,60 +96,12 @@ func (s *State) init(ctx context.Context) error {
 	return nil
 }
 
-// eventLoop initializes and starts all subscriptions and callbacks in the given state instance.
+// eventLoop starts the configured head tracker in the given state instance.
 func (s *State) eventLoop(ctx context.Context) {
-	s.wg.Add(1)
 	defer s.wg.Done()
 
-	var (
-		// Channels for subscriptions.
-		l1HeadCh   = make(chan *types.Header, 10)
-		l2HeadCh   = make(chan *types.Header, 10)
-		proposedCh = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
-		provedCh   = make(chan *shastaBindings.ShastaInboxClientProved, 10)
-
-		// Subscriptions.
-		l1HeadSub           = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh)
-		l2HeadSub           = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh)
-		l2ProposedShastaSub = rpc.SubscribeProposed(s.rpc.ShastaClients.Inbox, proposedCh)
-		l2ProvedShastaSub   = rpc.SubscribeProved(s.rpc.ShastaClients.Inbox, provedCh)
-	)
-
-	defer func() {
-		l1HeadSub.Unsubscribe()
-		l2HeadSub.Unsubscribe()
-		l2ProposedShastaSub.Unsubscribe()
-		l2ProvedShastaSub.Unsubscribe()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case e := <-provedCh:
-			coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
-			if err != nil {
-				log.Error("Failed to get core state", "err", err)
-				continue
-			}
-			header, err := s.rpc.L2.HeaderByHash(ctx, coreState.LastFinalizedBlockHash)
-			if err != nil {
-				log.Error("Failed to get finalized block header", "err", err)
-				continue
-			}
-			log.Info(
-				"📈 Proposals proven and verified",
-				"firstProposalID", e.FirstNewProposalId,
-				"lastProposalID", e.LastProposalId,
-				"checkpointNumber", header.Number,
-				"checkpointHash", common.Hash(coreState.LastFinalizedBlockHash),
-			)
-		case newHead := <-l1HeadCh:
-			s.setL1Head(newHead)
-			s.l1HeadsFeed.Send(newHead)
-		case newHead := <-l2HeadCh:
-			s.setL2Head(newHead)
-		}
+	if s.headTracker != nil {
+		s.headTracker.Start(ctx)
 	}
 }
 
@@ -156,6 +116,22 @@ func (s *State) setL1Head(l1Head *types.Header) {
 	metrics.DriverL1HeadHeightGauge.Set(float64(l1Head.Number.Int64()))
 
 	s.l1Head.Store(l1Head)
+}
+
+// updateL1HeadIfChanged updates and broadcasts an L1 head only when it changed.
+func (s *State) updateL1HeadIfChanged(l1Head *types.Header) bool {
+	if l1Head == nil {
+		s.setL1Head(l1Head)
+		return false
+	}
+
+	if sameHeader(s.GetL1Head(), l1Head) {
+		return false
+	}
+
+	s.setL1Head(l1Head)
+	s.l1HeadsFeed.Send(l1Head)
+	return true
 }
 
 // GetL1Head reads the L1 head concurrent safely.
@@ -182,6 +158,21 @@ func (s *State) setL2Head(l2Head *types.Header) {
 	s.l2Head.Store(l2Head)
 }
 
+// updateL2HeadIfChanged updates the cached L2 head only when it changed.
+func (s *State) updateL2HeadIfChanged(l2Head *types.Header) bool {
+	if l2Head == nil {
+		s.setL2Head(l2Head)
+		return false
+	}
+
+	if sameHeader(s.GetL2Head(), l2Head) {
+		return false
+	}
+
+	s.setL2Head(l2Head)
+	return true
+}
+
 // GetL2Head reads the L2 head concurrent safely.
 func (s *State) GetL2Head() *types.Header {
 	return s.l2Head.Load().(*types.Header)
@@ -203,4 +194,17 @@ func (s *State) initGenesisHeight(ctx context.Context) error {
 
 	s.GenesisL1Height = genesisHeight
 	return nil
+}
+
+// sameHeader reports whether two headers identify the same block.
+func sameHeader(a, b *types.Header) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	if a.Number == nil || b.Number == nil {
+		return a.Number == b.Number && a.Hash() == b.Hash()
+	}
+
+	return a.Number.Cmp(b.Number) == 0 && a.Hash() == b.Hash()
 }

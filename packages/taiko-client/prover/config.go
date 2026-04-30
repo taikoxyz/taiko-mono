@@ -90,11 +90,24 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
+	l1WsEndpoint, err := requiredEndpoint(c, flags.L1WSEndpoint.Name)
+	if err != nil {
+		return nil, err
+	}
+	l2WsEndpoint, err := requiredEndpoint(c, flags.L2WSEndpoint.Name)
+	if err != nil {
+		return nil, err
+	}
+	l2HttpEndpoint, err := requiredEndpoint(c, flags.L2HTTPEndpoint.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
-		L1WsEndpoint:             c.String(flags.L1WSEndpoint.Name),
+		L1WsEndpoint:             l1WsEndpoint,
 		L1BeaconEndpoint:         c.String(flags.L1BeaconEndpoint.Name),
-		L2WsEndpoint:             c.String(flags.L2WSEndpoint.Name),
-		L2HttpEndpoint:           c.String(flags.L2HTTPEndpoint.Name),
+		L2WsEndpoint:             l2WsEndpoint,
+		L2HttpEndpoint:           l2HttpEndpoint,
 		L2EngineEndpoint:         c.String(flags.L2AuthEndpoint.Name),
 		JwtSecret:                string(jwtSecret),
 		InboxAddress:             common.HexToAddress(c.String(flags.InboxAddress.Name)),
@@ -114,7 +127,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ProveBatchesGasLimit:     c.Uint64(flags.TxGasLimit.Name),
 		LocalProposerAddresses:   localProposerAddresses,
 		BlockConfirmations:       c.Uint64(flags.BlockConfirmations.Name),
-		TxmgrConfigs:             pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
+		TxmgrConfigs:             pkgFlags.InitTxmgrConfigsFromCli(l1WsEndpoint, l1ProverPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,
@@ -125,4 +138,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		ForceBatchProvingInterval: c.Duration(flags.ForceBatchProvingInterval.Name),
 		ProofPollingInterval:      c.Duration(flags.ProofPollingInterval.Name),
 	}, nil
+}
+
+// requiredEndpoint returns a trimmed required endpoint value from the CLI context.
+func requiredEndpoint(c *cli.Context, name string) (string, error) {
+	endpoint := strings.TrimSpace(c.String(name))
+	if endpoint == "" {
+		return "", fmt.Errorf("empty %s endpoint", name)
+	}
+	return endpoint, nil
 }

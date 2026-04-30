@@ -3,6 +3,7 @@ package proposer
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -64,10 +65,19 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		)
 	}
 
+	l1Endpoint, err := requiredEndpoint(c, flags.L1WSEndpoint.Name)
+	if err != nil {
+		return nil, err
+	}
+	l2Endpoint, err := requiredEndpoint(c, flags.L2WSEndpoint.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:         c.String(flags.L1WSEndpoint.Name),
-			L2Endpoint:         c.String(flags.L2WSEndpoint.Name),
+			L1Endpoint:         l1Endpoint,
+			L2Endpoint:         l2Endpoint,
 			InboxAddress:       common.HexToAddress(c.String(flags.InboxAddress.Name)),
 			TaikoAnchorAddress: common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			L2EngineEndpoint:   c.String(flags.L2AuthEndpoint.Name),
@@ -83,7 +93,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		AllowZeroTipInterval:    c.Uint64(flags.AllowZeroTipInterval.Name),
 		ProposeBatchTxGasLimit:  c.Uint64(flags.TxGasLimit.Name),
 		TxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
-			c.String(flags.L1WSEndpoint.Name),
+			l1Endpoint,
 			l1ProposerPrivKey,
 			c,
 		),
@@ -93,4 +103,13 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			c,
 		),
 	}, nil
+}
+
+// requiredEndpoint returns a trimmed required endpoint value from the CLI context.
+func requiredEndpoint(c *cli.Context, name string) (string, error) {
+	endpoint := strings.TrimSpace(c.String(name))
+	if endpoint == "" {
+		return "", fmt.Errorf("empty %s endpoint", name)
+	}
+	return endpoint, nil
 }
