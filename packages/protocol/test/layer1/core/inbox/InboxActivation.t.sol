@@ -20,8 +20,7 @@ contract InboxActivationTest is InboxTestBase {
     }
 
     function _deployNonActivatedInbox() private returns (Inbox) {
-        address impl = address(new Inbox(config));
-        return Inbox(address(new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this))))));
+        return _deployUninitializedInbox();
     }
 
     function test_propose_RevertWhen_NotActivated() public {
@@ -60,38 +59,19 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_activate_RevertWhen_InvalidLastPacayaBlockHash() public {
+    function test_init_RevertWhen_InvalidLastPacayaBlockHash() public {
+        address impl = address(new Inbox(config));
+
         vm.expectRevert(LibInboxSetup.InvalidLastPacayaBlockHash.selector);
-        nonActivatedInbox.activate(bytes32(0));
+        new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this), bytes32(0))));
     }
 
-    function test_activate_RevertWhen_ActivationPeriodExpired() public {
-        // First activation
-        nonActivatedInbox.activate(bytes32(uint256(1)));
+    function test_init_activatesInbox() public {
+        Inbox initializedInbox = _deployInbox();
+        IInbox.CoreState memory state = initializedInbox.getCoreState();
 
-        // Warp past activation window (2 hours)
-        vm.warp(block.timestamp + 2 hours + 1);
-
-        // Second activation should fail
-        vm.expectRevert(LibInboxSetup.ActivationPeriodExpired.selector);
-        nonActivatedInbox.activate(bytes32(uint256(2)));
-    }
-
-    function test_activate_allowsReactivationWithinWindow() public {
-        // First activation
-        nonActivatedInbox.activate(bytes32(uint256(1)));
-        uint48 firstActivationTimestamp = nonActivatedInbox.activationTimestamp();
-
-        // Warp within activation window
-        vm.warp(block.timestamp + 1 hours);
-
-        // Second activation should succeed
-        nonActivatedInbox.activate(bytes32(uint256(2)));
-
-        // Activation timestamp should remain the same
-        assertEq(
-            nonActivatedInbox.activationTimestamp(), firstActivationTimestamp, "timestamp unchanged"
-        );
+        assertEq(initializedInbox.activationTimestamp(), uint48(block.timestamp), "activated");
+        assertEq(state.nextProposalId, 1, "next proposal id");
     }
 
     function test_getConfig_returnsImmutableConfig() public view {

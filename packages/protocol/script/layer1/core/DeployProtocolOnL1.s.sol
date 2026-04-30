@@ -221,12 +221,9 @@ contract DeployProtocolOnL1 is DeployCapability {
                     proofVerifier, whitelist, proverWhitelist, signalService, taikoToken
                 )
             ),
-            data: abi.encodeCall(Inbox.init, (msg.sender))
+            data: abi.encodeCall(Inbox.init, (msg.sender, config.l2GenesisHash))
         });
 
-        if (vm.envBool("ACTIVATE_INBOX")) {
-            Inbox(payable(shastaInbox)).activate(config.l2GenesisHash);
-        }
         console2.log("ShastaInbox deployed:", shastaInbox);
 
         SignalService(signalService)

@@ -14,8 +14,6 @@ library LibInboxSetup {
     // Public Functions (externally linked)
     // ---------------------------------------------------------------
 
-    /// @dev The time window during which activate() can be called after the first activation.
-    uint256 public constant ACTIVATION_WINDOW = 2 hours;
     /// @dev Minimum ring buffer size to keep one slot reserved in capacity calculations.
     uint48 public constant MIN_RING_BUFFER_SIZE = 2;
 
@@ -44,17 +42,13 @@ library LibInboxSetup {
         );
     }
 
-    /// @dev Validates activation and computes the initial state for inbox activation.
+    /// @dev Validates the genesis block hash and computes the initial inbox state.
     /// @param _lastPacayaBlockHash The block hash of the last Pacaya block.
-    /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
     /// @return activationTimestamp_ The activation timestamp to use.
     /// @return state_ The initial CoreState.
     /// @return proposal_ The genesis proposal.
     /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
-    function activate(
-        bytes32 _lastPacayaBlockHash,
-        uint48 _activationTimestamp
-    )
+    function initCoreState(bytes32 _lastPacayaBlockHash)
         public
         view
         returns (
@@ -64,17 +58,8 @@ library LibInboxSetup {
             bytes32 genesisProposalHash_
         )
     {
-        // Validate activation parameters
         require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
-        if (_activationTimestamp == 0) {
-            activationTimestamp_ = uint48(block.timestamp);
-        } else {
-            require(
-                block.timestamp <= ACTIVATION_WINDOW + _activationTimestamp,
-                ActivationPeriodExpired()
-            );
-            activationTimestamp_ = _activationTimestamp;
-        }
+        activationTimestamp_ = uint48(block.timestamp);
 
         // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
         // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
@@ -92,7 +77,6 @@ library LibInboxSetup {
     // Errors
     // ---------------------------------------------------------------
 
-    error ActivationPeriodExpired();
     error BasefeeSharingPctgTooLarge();
     error BondTokenZero();
     error ForcedInclusionFeeDoubleThresholdZero();

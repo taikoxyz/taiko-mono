@@ -12,6 +12,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
+/// - L2_GENESIS_HASH: Block hash of the last Pacaya block
 contract DeployShastaMainnet is DeployShastaContracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
         // Use known mainnet constants
@@ -21,13 +22,13 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.taikoToken = LibL1Addrs.TAIKO_TOKEN;
         config.preconfWhitelist = LibL1Addrs.PRECONF_WHITELIST;
         config.contractOwner = LibL1Addrs.DAO_CONTROLLER;
+        config.l2GenesisHash = vm.envBytes32("L2_GENESIS_HASH");
 
         config.r0Groth16Verifier = 0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319;
         config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
         config.sgxRethAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
         config.sp1PlonkVerifier = 0x3B6041173B80E77f038f3F2C0f9744f04837185e;
 
-        config.activator = 0xF14Dc4EdDb43e9a6A440e6beC97ea2ea64f39Ef7;
         config.ejectorManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
         config.proverManager = LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH;
         config.provers = new address[](1);

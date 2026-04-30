@@ -177,22 +177,18 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the owner of the inbox.
+    /// @notice Initializes the owner and genesis state of the inbox.
     /// @param _owner The owner of this contract
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
-    }
-
-    /// @notice Activates the inbox so that it can start accepting proposals.
-    /// @dev Can be called multiple times within the activation window to handle reorgs.
     /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
+    function init(address _owner, bytes32 _lastPacayaBlockHash) external initializer {
+        __Essential_init(_owner);
+
         (
             uint48 newActivationTimestamp,
             CoreState memory state,
             Proposal memory proposal,
             bytes32 genesisProposalHash
-        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
+        ) = LibInboxSetup.initCoreState(_lastPacayaBlockHash);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
