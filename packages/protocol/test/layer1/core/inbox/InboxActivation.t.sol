@@ -59,10 +59,10 @@ contract InboxActivationTest is InboxTestBase {
         nonActivatedInbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_init_RevertWhen_InvalidLastPacayaBlockHash() public {
+    function test_init_RevertWhen_InvalidGenesisBlockHash() public {
         address impl = address(new Inbox(config));
 
-        vm.expectRevert(LibInboxSetup.InvalidLastPacayaBlockHash.selector);
+        vm.expectRevert(LibInboxSetup.InvalidGenesisBlockHash.selector);
         new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this), bytes32(0))));
     }
 

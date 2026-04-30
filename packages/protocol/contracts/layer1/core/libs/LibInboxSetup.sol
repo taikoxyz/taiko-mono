@@ -43,12 +43,12 @@ library LibInboxSetup {
     }
 
     /// @dev Validates the genesis block hash and computes the initial inbox state.
-    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block.
+    /// @param _genesisBlockHash The genesis block hash.
     /// @return activationTimestamp_ The activation timestamp to use.
     /// @return state_ The initial CoreState.
     /// @return proposal_ The genesis proposal.
     /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
-    function initCoreState(bytes32 _lastPacayaBlockHash)
+    function initCoreState(bytes32 _genesisBlockHash)
         public
         view
         returns (
@@ -58,7 +58,7 @@ library LibInboxSetup {
             bytes32 genesisProposalHash_
         )
     {
-        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
+        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
         activationTimestamp_ = uint48(block.timestamp);
 
         // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
@@ -68,7 +68,7 @@ library LibInboxSetup {
         state_.nextProposalId = 1;
         state_.lastProposalBlockId = 1;
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
-        state_.lastFinalizedBlockHash = _lastPacayaBlockHash;
+        state_.lastFinalizedBlockHash = _genesisBlockHash;
 
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
     }
@@ -81,7 +81,7 @@ library LibInboxSetup {
     error BondTokenZero();
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
-    error InvalidLastPacayaBlockHash();
+    error InvalidGenesisBlockHash();
     error PermissionlessProvingDelayTooSmall();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();

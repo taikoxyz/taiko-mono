@@ -12,7 +12,7 @@ import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 ///
 /// Required environment variables:
 /// - PRIVATE_KEY: Deployer private key
-/// - L2_GENESIS_HASH: Block hash of the last Pacaya block
+/// - L2_GENESIS_HASH: Genesis block hash
 contract DeployShastaMainnet is DeployShastaContracts {
     function _loadConfig() internal view override returns (DeploymentConfig memory config) {
         // Use known mainnet constants

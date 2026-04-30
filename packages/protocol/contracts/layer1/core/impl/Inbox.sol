@@ -54,7 +54,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Events
     // ---------------------------------------------------------------
 
-    event InboxActivated(bytes32 lastPacayaBlockHash);
+    event InboxActivated(bytes32 genesisBlockHash);
 
     // ---------------------------------------------------------------
     // Constants
@@ -179,8 +179,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
 
     /// @notice Initializes the owner and genesis state of the inbox.
     /// @param _owner The owner of this contract
-    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
-    function init(address _owner, bytes32 _lastPacayaBlockHash) external initializer {
+    /// @param _genesisBlockHash The genesis block hash.
+    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Essential_init(_owner);
 
         (
@@ -188,13 +188,13 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             CoreState memory state,
             Proposal memory proposal,
             bytes32 genesisProposalHash
-        ) = LibInboxSetup.initCoreState(_lastPacayaBlockHash);
+        ) = LibInboxSetup.initCoreState(_genesisBlockHash);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal);
-        emit InboxActivated(_lastPacayaBlockHash);
+        emit InboxActivated(_genesisBlockHash);
     }
 
     /// @inheritdoc IInbox
