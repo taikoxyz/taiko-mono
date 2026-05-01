@@ -21,6 +21,26 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
+var (
+	errEndpointMissing = errors.New("must provide one of the WS / HTTP endpoint flags")
+	errEndpointBoth    = errors.New("provide only one of the WS / HTTP endpoint flags, not both")
+)
+
+// resolveEndpoints picks the endpoint URL for one network: prefer the WS flag,
+// fall back to HTTP. Exactly one must be provided.
+func resolveEndpoints(ws, http string) (string, error) {
+	if ws == "" && http == "" {
+		return "", errEndpointMissing
+	}
+	if ws != "" && http != "" {
+		return "", errEndpointBoth
+	}
+	if ws != "" {
+		return ws, nil
+	}
+	return http, nil
+}
+
 // Config contains the configurations to initialize a Taiko driver.
 type Config struct {
 	*rpc.ClientConfig
@@ -81,12 +101,28 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	// Resolve L1 / L2 endpoints (WS preferred, HTTP fallback).
+	l1Endpoint, err := resolveEndpoints(
+		c.String(flags.L1WSEndpoint.Name),
+		c.String(flags.L1HTTPEndpoint.Name),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("L1 endpoint: %w", err)
+	}
+	l2Endpoint, err := resolveEndpoints(
+		c.String(flags.L2WSEndpoint.Name),
+		c.String(flags.L2HTTPEndpoint.Name),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("L2 endpoint: %w", err)
+	}
+
 	// Check P2P network flags and create the P2P configurations.
 	var (
 		clientConfig = &rpc.ClientConfig{
-			L1Endpoint:         c.String(flags.L1WSEndpoint.Name),
+			L1Endpoint:         l1Endpoint,
 			L1BeaconEndpoint:   beaconEndpoint,
-			L2Endpoint:         c.String(flags.L2WSEndpoint.Name),
+			L2Endpoint:         l2Endpoint,
 			L2CheckPoint:       l2CheckPoint,
 			InboxAddress:       common.HexToAddress(c.String(flags.InboxAddress.Name)),
 			TaikoAnchorAddress: common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),

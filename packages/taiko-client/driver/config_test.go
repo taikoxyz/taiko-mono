@@ -4,9 +4,11 @@ import (
 	"context"
 	"net"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
@@ -15,6 +17,33 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
+
+func TestResolveEndpoints(t *testing.T) {
+	cases := []struct {
+		name      string
+		ws, http  string
+		want      string
+		wantError bool
+	}{
+		{name: "ws only", ws: "ws://x", http: "", want: "ws://x"},
+		{name: "wss only", ws: "wss://x", http: "", want: "wss://x"},
+		{name: "http only", ws: "", http: "http://x", want: "http://x"},
+		{name: "https only", ws: "", http: "https://x", want: "https://x"},
+		{name: "neither", ws: "", http: "", wantError: true},
+		{name: "both", ws: "ws://x", http: "http://x", wantError: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveEndpoints(tc.ws, tc.http)
+			if tc.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
 
 var (
 	l1Endpoint       = os.Getenv("L1_WS")
