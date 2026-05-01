@@ -6,6 +6,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -132,9 +133,11 @@ func waitSubErr(ctx context.Context, sub event.Subscription) (event.Subscription
 }
 
 // pollChainHead returns an event.Subscription that periodically calls
-// HeaderByNumber(nil) and forwards every observed advance on ch. Used when
-// the underlying client is HTTP-only and cannot use eth_subscribe. Same-number
-// reorgs are not delivered (matches the WS path's semantics).
+// HeaderByNumber(nil) and forwards every observed canonical-head change on
+// ch. Used when the underlying client is HTTP-only and cannot use
+// eth_subscribe. We track both the last-seen height and hash so same-height
+// reorgs (block N replaced by a different block N) are still delivered, matching
+// the eth_subscribe("newHeads") posture from the WS path.
 func pollChainHead(
 	ctx context.Context,
 	client *EthClient,
@@ -145,7 +148,10 @@ func pollChainHead(
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
-		var lastNumber uint64
+		var (
+			lastNumber uint64
+			lastHash   common.Hash
+		)
 		for {
 			select {
 			case <-quit:
@@ -159,15 +165,17 @@ func pollChainHead(
 					continue
 				}
 				n := h.Number.Uint64()
-				if n == lastNumber {
+				hash := h.Hash()
+				if n == lastNumber && hash == lastHash {
 					continue
 				}
 				select {
 				case ch <- h:
 				default:
-					log.Debug("pollChainHead: receiver channel full, dropping", "number", n)
+					log.Debug("pollChainHead: receiver channel full, dropping", "number", n, "hash", hash)
 				}
 				lastNumber = n
+				lastHash = hash
 			}
 		}
 	})
@@ -248,6 +256,18 @@ func pollProved(
 							"end", end,
 						)
 					}
+				}
+				if iterErr := iter.Error(); iterErr != nil {
+					// Don't hold the cursor on a permanent error (e.g. ABI decode
+					// of a single bad log) — that would deadlock the polling loop.
+					// Log loudly; downstream can still recover the missed event from
+					// the chain syncer's canonical re-read on the next L1 head tick.
+					log.Warn(
+						"pollProved: iterator error, advancing cursor anyway to preserve liveness",
+						"start", start,
+						"end", end,
+						"err", iterErr,
+					)
 				}
 				_ = iter.Close()
 				cursor = end
