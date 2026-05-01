@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -141,6 +142,147 @@ func pollChainHead(
 					log.Debug("pollChainHead: receiver channel full, dropping", "number", n)
 				}
 				lastNumber = n
+			}
+		}
+	})
+}
+
+// nextFilterRange computes the next [start, end] block range to poll for logs.
+// Returns ok=false when there's nothing new to fetch (head <= cursor). The
+// range is capped at maxRange blocks so long catch-ups don't produce a single
+// oversized eth_getLogs request.
+func nextFilterRange(head, cursor, maxRange uint64) (start, end uint64, ok bool) {
+	if head <= cursor {
+		return 0, 0, false
+	}
+	start = cursor + 1
+	end = head
+	if end-cursor > maxRange {
+		end = cursor + maxRange
+	}
+	return start, end, true
+}
+
+// pollProposed polls FilterProposed over the L1 range advanced since the last
+// tick and forwards every event on ch. Used when the L1 client is HTTP-only.
+func pollProposed(
+	ctx context.Context,
+	l1 *EthClient,
+	taikoInbox *shastaBindings.ShastaInboxClient,
+	ch chan *shastaBindings.ShastaInboxClientProposed,
+	interval time.Duration,
+) event.Subscription {
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		var cursor uint64
+		bootstrapped := false
+
+		for {
+			select {
+			case <-quit:
+				return nil
+			case <-ctx.Done():
+				return nil
+			case <-ticker.C:
+				head, err := l1.BlockNumber(ctx)
+				if err != nil {
+					log.Warn("pollProposed: BlockNumber failed", "err", err)
+					continue
+				}
+				if !bootstrapped {
+					cursor = head
+					bootstrapped = true
+					continue
+				}
+				start, end, ok := nextFilterRange(head, cursor, maxPollRange)
+				if !ok {
+					if head < cursor {
+						cursor = head
+					}
+					continue
+				}
+				iter, err := taikoInbox.FilterProposed(&bind.FilterOpts{
+					Start:   start,
+					End:     &end,
+					Context: ctx,
+				}, nil, nil)
+				if err != nil {
+					log.Warn("pollProposed: FilterProposed failed", "start", start, "end", end, "err", err)
+					continue
+				}
+				for iter.Next() {
+					select {
+					case ch <- iter.Event:
+					default:
+						log.Debug("pollProposed: receiver channel full, dropping")
+					}
+				}
+				_ = iter.Close()
+				cursor = end
+			}
+		}
+	})
+}
+
+// pollProved is the symmetric Proved-event polling backend.
+func pollProved(
+	ctx context.Context,
+	l1 *EthClient,
+	taikoInbox *shastaBindings.ShastaInboxClient,
+	ch chan *shastaBindings.ShastaInboxClientProved,
+	interval time.Duration,
+) event.Subscription {
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		var cursor uint64
+		bootstrapped := false
+
+		for {
+			select {
+			case <-quit:
+				return nil
+			case <-ctx.Done():
+				return nil
+			case <-ticker.C:
+				head, err := l1.BlockNumber(ctx)
+				if err != nil {
+					log.Warn("pollProved: BlockNumber failed", "err", err)
+					continue
+				}
+				if !bootstrapped {
+					cursor = head
+					bootstrapped = true
+					continue
+				}
+				start, end, ok := nextFilterRange(head, cursor, maxPollRange)
+				if !ok {
+					if head < cursor {
+						cursor = head
+					}
+					continue
+				}
+				iter, err := taikoInbox.FilterProved(&bind.FilterOpts{
+					Start:   start,
+					End:     &end,
+					Context: ctx,
+				}, nil)
+				if err != nil {
+					log.Warn("pollProved: FilterProved failed", "start", start, "end", end, "err", err)
+					continue
+				}
+				for iter.Next() {
+					select {
+					case ch <- iter.Event:
+					default:
+						log.Debug("pollProved: receiver channel full, dropping")
+					}
+				}
+				_ = iter.Close()
+				cursor = end
 			}
 		}
 	})

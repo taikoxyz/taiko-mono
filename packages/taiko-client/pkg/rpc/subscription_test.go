@@ -81,3 +81,31 @@ func TestPollChainHead_DeliversAndStops(t *testing.T) {
 		t.Fatal("Unsubscribe did not close Err channel")
 	}
 }
+
+func TestNextFilterRange(t *testing.T) {
+	cases := []struct {
+		name         string
+		head, cursor uint64
+		wantStart    uint64
+		wantEnd      uint64
+		wantOK       bool
+	}{
+		{name: "no advance", head: 100, cursor: 100, wantOK: false},
+		{name: "head < cursor (reorg)", head: 50, cursor: 100, wantOK: false},
+		{name: "small range", head: 100, cursor: 50, wantStart: 51, wantEnd: 100, wantOK: true},
+		{name: "capped range", head: 5000, cursor: 100, wantStart: 101, wantEnd: 1100, wantOK: true},
+		{name: "exactly at cap", head: 1100, cursor: 100, wantStart: 101, wantEnd: 1100, wantOK: true},
+		{name: "one block advance", head: 101, cursor: 100, wantStart: 101, wantEnd: 101, wantOK: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			start, end, ok := nextFilterRange(tc.head, tc.cursor, maxPollRange)
+			require.Equal(t, tc.wantOK, ok)
+			if !ok {
+				return
+			}
+			require.Equal(t, tc.wantStart, start)
+			require.Equal(t, tc.wantEnd, end)
+		})
+	}
+}
