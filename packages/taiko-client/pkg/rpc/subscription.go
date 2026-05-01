@@ -15,10 +15,11 @@ import (
 
 const (
 	// l1PollInterval is how often the polling backend asks an HTTP L1 for new heads
-	// and Proposed/Proved log ranges. Tuned to roughly half an L1 slot.
-	l1PollInterval = 6 * time.Second
+	// and Proposed/Proved log ranges. Tuned well below an L1 slot.
+	l1PollInterval = 3 * time.Second
 	// l2PollInterval is how often the polling backend asks an HTTP L2 for new heads.
-	l2PollInterval = 2 * time.Second
+	// Set faster than the L2 block time for sub-block tracking latency.
+	l2PollInterval = 1 * time.Second
 	// maxPollRange caps the block range queried per Filter* tick so that long
 	// catch-ups don't issue a single oversized eth_getLogs call.
 	maxPollRange = uint64(1000)
