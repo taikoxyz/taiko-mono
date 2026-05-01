@@ -41,11 +41,16 @@ func SubscribeEvent(
 	)
 }
 
-// SubscribeProposed subscribes the protocol's Proposed events.
+// SubscribeProposed subscribes the protocol's Proposed events. If the L1 client
+// is HTTP-only, it falls back to polling FilterProposed at l1PollInterval.
 func SubscribeProposed(
+	l1 *EthClient,
 	taikoInbox *shastaBindings.ShastaInboxClient,
 	ch chan *shastaBindings.ShastaInboxClientProposed,
 ) event.Subscription {
+	if l1.IsHTTP() {
+		return pollProposed(context.Background(), l1, taikoInbox, ch, l1PollInterval)
+	}
 	return SubscribeEvent("Proposed", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoInbox.WatchProposed(nil, ch, nil, nil)
 		if err != nil {
@@ -59,11 +64,16 @@ func SubscribeProposed(
 	})
 }
 
-// SubscribeProved subscribes the protocol's Proved events.
+// SubscribeProved subscribes the protocol's Proved events. If the L1 client
+// is HTTP-only, it falls back to polling FilterProved at l1PollInterval.
 func SubscribeProved(
+	l1 *EthClient,
 	taikoInbox *shastaBindings.ShastaInboxClient,
 	ch chan *shastaBindings.ShastaInboxClientProved,
 ) event.Subscription {
+	if l1.IsHTTP() {
+		return pollProved(context.Background(), l1, taikoInbox, ch, l1PollInterval)
+	}
 	return SubscribeEvent("Proved", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoInbox.WatchProved(nil, ch, nil)
 		if err != nil {
@@ -77,11 +87,27 @@ func SubscribeProved(
 	})
 }
 
-// SubscribeChainHead subscribes the new chain heads.
+// SubscribeChainHead subscribes the new chain heads. If the client is HTTP-only,
+// it polls HeaderByNumber at l1PollInterval; otherwise it uses eth_subscribe.
 func SubscribeChainHead(
 	client *EthClient,
 	ch chan *types.Header,
 ) event.Subscription {
+	return SubscribeChainHeadInterval(client, ch, l1PollInterval)
+}
+
+// SubscribeChainHeadInterval is identical to SubscribeChainHead but lets the
+// caller pick the polling interval (for HTTP-backed clients). Used by the
+// driver to give L2 a faster cadence than L1. The interval is ignored when
+// the client is WS-backed.
+func SubscribeChainHeadInterval(
+	client *EthClient,
+	ch chan *types.Header,
+	pollInterval time.Duration,
+) event.Subscription {
+	if client.IsHTTP() {
+		return pollChainHead(context.Background(), client, ch, pollInterval)
+	}
 	return SubscribeEvent("ChainHead", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := client.SubscribeNewHead(ctx, ch)
 		if err != nil {
