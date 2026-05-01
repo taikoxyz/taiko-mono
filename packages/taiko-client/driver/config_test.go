@@ -4,11 +4,9 @@ import (
 	"context"
 	"net"
 	"os"
-	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 
 	p2pFlags "github.com/ethereum-optimism/optimism/op-node/flags"
@@ -18,7 +16,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
-func TestResolveEndpoints(t *testing.T) {
+func (s *DriverTestSuite) TestResolveEndpoints() {
 	cases := []struct {
 		name      string
 		ws, http  string
@@ -33,14 +31,14 @@ func TestResolveEndpoints(t *testing.T) {
 		{name: "both", ws: "ws://x", http: "http://x", wantError: true},
 	}
 	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
+		s.Run(tc.name, func() {
 			got, err := resolveEndpoints(tc.ws, tc.http)
 			if tc.wantError {
-				require.Error(t, err)
+				s.Error(err)
 				return
 			}
-			require.NoError(t, err)
-			require.Equal(t, tc.want, got)
+			s.NoError(err)
+			s.Equal(tc.want, got)
 		})
 	}
 }
