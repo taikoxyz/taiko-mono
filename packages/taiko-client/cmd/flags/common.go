@@ -20,8 +20,9 @@ var (
 // Required flags used by all client software.
 var (
 	L1WSEndpoint = &cli.StringFlag{
-		Name:     "l1.ws",
-		Usage:    "WebSocket RPC endpoint of an L1 ethereum node (omit to use --l1.http with polling; required for prover/proposer)",
+		Name: "l1.ws",
+		Usage: "WebSocket RPC endpoint of an L1 ethereum node " +
+			"(omit to use --l1.http with polling; required for prover/proposer)",
 		Category: commonCategory,
 		EnvVars:  []string{"L1_WS"},
 	}
@@ -38,8 +39,9 @@ var (
 		EnvVars:  []string{"L1_HTTP"},
 	}
 	L2WSEndpoint = &cli.StringFlag{
-		Name:     "l2.ws",
-		Usage:    "WebSocket RPC endpoint of a L2 taiko-geth execution engine (omit to use --l2.http with polling; required for prover/proposer)",
+		Name: "l2.ws",
+		Usage: "WebSocket RPC endpoint of a L2 taiko-geth execution engine " +
+			"(omit to use --l2.http with polling; required for prover/proposer)",
 		Category: commonCategory,
 		EnvVars:  []string{"L2_WS"},
 	}
@@ -50,8 +52,9 @@ var (
 		EnvVars:  []string{"L1_BEACON"},
 	}
 	L2HTTPEndpoint = &cli.StringFlag{
-		Name:     "l2.http",
-		Usage:    "HTTP RPC endpoint of a L2 taiko-geth execution engine (driver: polling fallback when --l2.ws absent; prover requires this)",
+		Name: "l2.http",
+		Usage: "HTTP RPC endpoint of a L2 taiko-geth execution engine " +
+			"(driver: polling fallback when --l2.ws absent; prover requires this)",
 		Category: commonCategory,
 		EnvVars:  []string{"L2_HTTP"},
 	}

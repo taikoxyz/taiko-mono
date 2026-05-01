@@ -16,6 +16,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// fakeHeaderJSON returns a minimal valid eth_getBlockByNumber response body for
+// block number n, used by tests that mock a JSON-RPC server.
+func fakeHeaderJSON(n uint64) string {
+	const tmpl = `{` +
+		`"number":"0x%x",` +
+		`"hash":"0x%064x",` +
+		`"parentHash":"0x%064x",` +
+		`"stateRoot":"0x%064x",` +
+		`"transactionsRoot":"0x%064x",` +
+		`"receiptsRoot":"0x%064x",` +
+		`"logsBloom":"0x%0512x",` +
+		`"difficulty":"0x0",` +
+		`"gasLimit":"0x0",` +
+		`"gasUsed":"0x0",` +
+		`"timestamp":"0x0",` +
+		`"extraData":"0x",` +
+		`"mixHash":"0x%064x",` +
+		`"nonce":"0x0000000000000000",` +
+		`"sha3Uncles":"0x%064x",` +
+		`"miner":"0x%040x",` +
+		`"size":"0x0",` +
+		`"totalDifficulty":"0x0",` +
+		`"uncles":[],` +
+		`"transactions":[]` +
+		`}`
+	return fmt.Sprintf(tmpl, n, n, n-1, 0, 0, 0, 0, 0, 0, 0)
+}
+
 func TestSubscribeEvent(t *testing.T) {
 	sub := SubscribeEvent("test", func(_ context.Context) (event.Subscription, error) {
 		return event.NewSubscription(func(_ <-chan struct{}) error { return nil }), nil
@@ -47,10 +75,7 @@ func TestPollChainHead_DeliversAndStops(t *testing.T) {
 			result = `"0x1"`
 		case "eth_getBlockByNumber":
 			n := blockNum.Add(1)
-			result = fmt.Sprintf(
-				`{"number":"0x%x","hash":"0x%064x","parentHash":"0x%064x","stateRoot":"0x%064x","transactionsRoot":"0x%064x","receiptsRoot":"0x%064x","logsBloom":"0x%0512x","difficulty":"0x0","gasLimit":"0x0","gasUsed":"0x0","timestamp":"0x0","extraData":"0x","mixHash":"0x%064x","nonce":"0x0000000000000000","sha3Uncles":"0x%064x","miner":"0x%040x","size":"0x0","totalDifficulty":"0x0","uncles":[],"transactions":[]}`,
-				n, n, n-1, 0, 0, 0, 0, 0, 0, 0,
-			)
+			result = fakeHeaderJSON(n)
 		default:
 			result = `null`
 		}
