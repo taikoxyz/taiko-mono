@@ -21,6 +21,14 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
+// isHTTPEndpoint reports whether the given RPC URL uses an HTTP transport.
+// WebSocket endpoints (ws://, wss://) return false; everything else returns true,
+// because go-ethereum's rpc.DialOptions falls back to HTTP for any non-ws scheme.
+func isHTTPEndpoint(rawURL string) bool {
+	lower := strings.ToLower(rawURL)
+	return !strings.HasPrefix(lower, "ws://") && !strings.HasPrefix(lower, "wss://")
+}
+
 const (
 	// Metric status values
 	statusSuccess    = "success"
@@ -70,6 +78,7 @@ type EthClient struct {
 
 	timeout time.Duration
 	rpcURL  string
+	isHTTP  bool
 }
 
 // NewEthClient creates a new EthClient instance.
@@ -103,12 +112,18 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		ethClient:  ethClient,
 		timeout:    timeoutVal,
 		rpcURL:     url,
+		isHTTP:     isHTTPEndpoint(url),
 	}, nil
 }
 
 func (c *EthClient) EthClient() *ethclient.Client {
 	return c.ethClient.Client
 }
+
+// IsHTTP reports whether this client uses an HTTP transport (true) or a
+// WebSocket transport (false). HTTP-backed clients cannot use eth_subscribe
+// and must rely on polling for head/log notifications.
+func (c *EthClient) IsHTTP() bool { return c.isHTTP }
 
 // CallContext wraps the underlying RPC client's CallContext with metrics tracking.
 func (c *EthClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
