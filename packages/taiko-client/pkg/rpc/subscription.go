@@ -87,8 +87,11 @@ func SubscribeProved(
 	})
 }
 
-// SubscribeChainHead subscribes the new chain heads. If the client is HTTP-only,
-// it polls HeaderByNumber at l1PollInterval; otherwise it uses eth_subscribe.
+// SubscribeChainHead subscribes the new chain heads. WS-backed clients use
+// eth_subscribe; HTTP-backed clients fall back to polling HeaderByNumber at
+// l1PollInterval. Callers that need a different polling cadence (e.g. the
+// driver giving L2 a faster cadence than L1) should use
+// SubscribeChainHeadInterval directly.
 func SubscribeChainHead(
 	client *EthClient,
 	ch chan *types.Header,
@@ -96,10 +99,9 @@ func SubscribeChainHead(
 	return SubscribeChainHeadInterval(client, ch, l1PollInterval)
 }
 
-// SubscribeChainHeadInterval is identical to SubscribeChainHead but lets the
-// caller pick the polling interval (for HTTP-backed clients). Used by the
-// driver to give L2 a faster cadence than L1. The interval is ignored when
-// the client is WS-backed.
+// SubscribeChainHeadInterval is SubscribeChainHead with a caller-chosen
+// polling interval for HTTP-backed clients. Ignored when the client is
+// WS-backed (eth_subscribe is push-based, no polling needed).
 func SubscribeChainHeadInterval(
 	client *EthClient,
 	ch chan *types.Header,
