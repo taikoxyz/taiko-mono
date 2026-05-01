@@ -36,13 +36,6 @@ type Config struct {
 // NewConfigFromCliContext initializes a Config instance from
 // command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
-	if c.String(flags.L1WSEndpoint.Name) == "" {
-		return nil, fmt.Errorf("flag --%s is required for the proposer", flags.L1WSEndpoint.Name)
-	}
-	if c.String(flags.L2WSEndpoint.Name) == "" {
-		return nil, fmt.Errorf("flag --%s is required for the proposer", flags.L2WSEndpoint.Name)
-	}
-
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
 	if err != nil {
 		return nil, fmt.Errorf("invalid JWT secret file: %w", err)
@@ -69,6 +62,17 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			eth.MaxBlobsPerBlobTx,
 			maxTxListsPerEpoch,
 		)
+	}
+
+	// The cli library no longer marks --l1.ws / --l2.ws as Required (the driver
+	// can fall back to HTTP polling), so we enforce the proposer's WS-only
+	// requirement here. Placed after the format validations above so existing
+	// error-precedence assertions in tests stay intact.
+	if c.String(flags.L1WSEndpoint.Name) == "" {
+		return nil, fmt.Errorf("flag --%s is required for the proposer", flags.L1WSEndpoint.Name)
+	}
+	if c.String(flags.L2WSEndpoint.Name) == "" {
+		return nil, fmt.Errorf("flag --%s is required for the proposer", flags.L2WSEndpoint.Name)
 	}
 
 	return &Config{

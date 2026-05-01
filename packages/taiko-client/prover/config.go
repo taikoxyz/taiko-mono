@@ -54,6 +54,18 @@ type Config struct {
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	var (
+		raikoApiKey []byte
+	)
+	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProverPrivKey.Name)))
+	if err != nil {
+		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
+	}
+
+	// The cli library no longer marks --l1.ws / --l2.ws / --l2.http as Required
+	// (the driver can fall back to HTTP polling), so we enforce the prover's
+	// requirement here. Placed after the private-key validation so existing
+	// error-precedence assertions in tests stay intact.
 	if c.String(flags.L1WSEndpoint.Name) == "" {
 		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L1WSEndpoint.Name)
 	}
@@ -62,14 +74,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 	if c.String(flags.L2HTTPEndpoint.Name) == "" {
 		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2HTTPEndpoint.Name)
-	}
-
-	var (
-		raikoApiKey []byte
-	)
-	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProverPrivKey.Name)))
-	if err != nil {
-		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
 	}
 
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
