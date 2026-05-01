@@ -42,16 +42,13 @@ func SubscribeEvent(
 	)
 }
 
-// SubscribeProposed subscribes the protocol's Proposed events. If the L1 client
-// is HTTP-only, it falls back to polling FilterProposed at l1PollInterval.
+// SubscribeProposed subscribes the protocol's Proposed events. Only WS-backed
+// callers exist today (the prover); if a future caller needs HTTP polling for
+// Proposed, mirror the pollProved approach and reintroduce a polling branch.
 func SubscribeProposed(
-	l1 *EthClient,
 	taikoInbox *shastaBindings.ShastaInboxClient,
 	ch chan *shastaBindings.ShastaInboxClientProposed,
 ) event.Subscription {
-	if l1.IsHTTP() {
-		return pollProposed(context.Background(), l1, taikoInbox, ch, l1PollInterval)
-	}
 	return SubscribeEvent("Proposed", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoInbox.WatchProposed(nil, ch, nil, nil)
 		if err != nil {
@@ -192,74 +189,8 @@ func nextFilterRange(head, cursor, maxRange uint64) (start, end uint64, ok bool)
 	return start, end, true
 }
 
-// pollProposed polls FilterProposed over the L1 range advanced since the last
-// tick and forwards every event on ch. Used when the L1 client is HTTP-only.
-func pollProposed(
-	ctx context.Context,
-	l1 *EthClient,
-	taikoInbox *shastaBindings.ShastaInboxClient,
-	ch chan *shastaBindings.ShastaInboxClientProposed,
-	interval time.Duration,
-) event.Subscription {
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-
-		var cursor uint64
-		bootstrapped := false
-
-		for {
-			select {
-			case <-quit:
-				return nil
-			case <-ctx.Done():
-				return nil
-			case <-ticker.C:
-				head, err := l1.BlockNumber(ctx)
-				if err != nil {
-					log.Warn("pollProposed: BlockNumber failed", "err", err)
-					continue
-				}
-				if !bootstrapped {
-					cursor = head
-					bootstrapped = true
-					continue
-				}
-				start, end, ok := nextFilterRange(head, cursor, maxPollRange)
-				if !ok {
-					if head < cursor {
-						cursor = head
-					}
-					continue
-				}
-				iter, err := taikoInbox.FilterProposed(&bind.FilterOpts{
-					Start:   start,
-					End:     &end,
-					Context: ctx,
-				}, nil, nil)
-				if err != nil {
-					log.Warn("pollProposed: FilterProposed failed", "start", start, "end", end, "err", err)
-					continue
-				}
-				for iter.Next() {
-					select {
-					case ch <- iter.Event:
-					default:
-						log.Warn(
-							"pollProposed: receiver channel full, dropping (cursor still advances; downstream may miss this proposal)",
-							"start", start,
-							"end", end,
-						)
-					}
-				}
-				_ = iter.Close()
-				cursor = end
-			}
-		}
-	})
-}
-
-// pollProved is the symmetric Proved-event polling backend.
+// pollProved polls FilterProved over the L1 range advanced since the last tick
+// and forwards every event on ch. Used when the L1 client is HTTP-only.
 func pollProved(
 	ctx context.Context,
 	l1 *EthClient,
