@@ -107,23 +107,20 @@ func (s *State) eventLoop(ctx context.Context) {
 
 	var (
 		// Channels for subscriptions.
-		l1HeadCh   = make(chan *types.Header, 10)
-		l2HeadCh   = make(chan *types.Header, 10)
-		proposedCh = make(chan *shastaBindings.ShastaInboxClientProposed, 10)
-		provedCh   = make(chan *shastaBindings.ShastaInboxClientProved, 10)
+		l1HeadCh = make(chan *types.Header, 10)
+		l2HeadCh = make(chan *types.Header, 10)
+		provedCh = make(chan *shastaBindings.ShastaInboxClientProved, 10)
 
 		// Subscriptions. L2 head uses a tighter polling cadence than L1 when
 		// running against HTTP-only endpoints; L1-derived events use the L1 cadence.
-		l1HeadSub           = rpc.SubscribeChainHeadInterval(s.rpc.L1, l1HeadCh, l1HeadPollInterval)
-		l2HeadSub           = rpc.SubscribeChainHeadInterval(s.rpc.L2, l2HeadCh, l2HeadPollInterval)
-		l2ProposedShastaSub = rpc.SubscribeProposed(s.rpc.L1, s.rpc.ShastaClients.Inbox, proposedCh)
-		l2ProvedShastaSub   = rpc.SubscribeProved(s.rpc.L1, s.rpc.ShastaClients.Inbox, provedCh)
+		l1HeadSub         = rpc.SubscribeChainHeadInterval(s.rpc.L1, l1HeadCh, l1HeadPollInterval)
+		l2HeadSub         = rpc.SubscribeChainHeadInterval(s.rpc.L2, l2HeadCh, l2HeadPollInterval)
+		l2ProvedShastaSub = rpc.SubscribeProved(s.rpc.L1, s.rpc.ShastaClients.Inbox, provedCh)
 	)
 
 	defer func() {
 		l1HeadSub.Unsubscribe()
 		l2HeadSub.Unsubscribe()
-		l2ProposedShastaSub.Unsubscribe()
 		l2ProvedShastaSub.Unsubscribe()
 	}()
 
