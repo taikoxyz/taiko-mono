@@ -19,6 +19,17 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
+const (
+	// l1HeadPollInterval is the cadence at which the driver polls the L1 head
+	// when running against an HTTP-only L1 endpoint. Tuned well below an L1
+	// slot so the driver picks up new heads within one slot.
+	l1HeadPollInterval = 3 * time.Second
+	// l2HeadPollInterval is the cadence at which the driver polls the L2 head
+	// when running against an HTTP-only L2 endpoint. Set faster than the L2
+	// block time so the driver tracks the L2 chain with sub-block latency.
+	l2HeadPollInterval = 1 * time.Second
+)
+
 // State contains all states which will be used by driver.
 type State struct {
 	// Feeds
@@ -103,8 +114,8 @@ func (s *State) eventLoop(ctx context.Context) {
 
 		// Subscriptions. L2 head uses a tighter polling cadence than L1 when
 		// running against HTTP-only endpoints; L1-derived events use the L1 cadence.
-		l1HeadSub           = rpc.SubscribeChainHeadInterval(s.rpc.L1, l1HeadCh, 6*time.Second)
-		l2HeadSub           = rpc.SubscribeChainHeadInterval(s.rpc.L2, l2HeadCh, 2*time.Second)
+		l1HeadSub           = rpc.SubscribeChainHeadInterval(s.rpc.L1, l1HeadCh, l1HeadPollInterval)
+		l2HeadSub           = rpc.SubscribeChainHeadInterval(s.rpc.L2, l2HeadCh, l2HeadPollInterval)
 		l2ProposedShastaSub = rpc.SubscribeProposed(s.rpc.L1, s.rpc.ShastaClients.Inbox, proposedCh)
 		l2ProvedShastaSub   = rpc.SubscribeProved(s.rpc.L1, s.rpc.ShastaClients.Inbox, provedCh)
 	)
