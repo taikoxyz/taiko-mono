@@ -216,7 +216,11 @@ func pollProposed(
 					select {
 					case ch <- iter.Event:
 					default:
-						log.Debug("pollProposed: receiver channel full, dropping")
+						log.Warn(
+							"pollProposed: receiver channel full, dropping (cursor still advances; downstream may miss this proposal)",
+							"start", start,
+							"end", end,
+						)
 					}
 				}
 				_ = iter.Close()
@@ -278,7 +282,11 @@ func pollProved(
 					select {
 					case ch <- iter.Event:
 					default:
-						log.Debug("pollProved: receiver channel full, dropping")
+						log.Warn(
+							"pollProved: receiver channel full, dropping (cursor still advances; downstream may miss this event)",
+							"start", start,
+							"end", end,
+						)
 					}
 				}
 				_ = iter.Close()
