@@ -54,6 +54,16 @@ type Config struct {
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
+	if c.String(flags.L1WSEndpoint.Name) == "" {
+		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L1WSEndpoint.Name)
+	}
+	if c.String(flags.L2WSEndpoint.Name) == "" {
+		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2WSEndpoint.Name)
+	}
+	if c.String(flags.L2HTTPEndpoint.Name) == "" {
+		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2HTTPEndpoint.Name)
+	}
+
 	var (
 		raikoApiKey []byte
 	)
