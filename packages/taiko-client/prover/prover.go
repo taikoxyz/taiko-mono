@@ -207,9 +207,10 @@ func (p *Prover) eventLoop() {
 	proposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
 	provedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
 
-	// Subscriptions
-	proposedSub := rpc.SubscribeProposed(p.rpc.ShastaClients.Inbox, proposedCh)
-	provedSub := rpc.SubscribeProved(p.rpc.ShastaClients.Inbox, provedCh)
+	// Subscriptions. Prover requires --l1.ws (validated separately), so the WS
+	// path is always taken; the leading L1 client is required by the helper.
+	proposedSub := rpc.SubscribeProposed(p.rpc.L1, p.rpc.ShastaClients.Inbox, proposedCh)
+	provedSub := rpc.SubscribeProved(p.rpc.L1, p.rpc.ShastaClients.Inbox, provedCh)
 	defer func() {
 		proposedSub.Unsubscribe()
 		provedSub.Unsubscribe()
