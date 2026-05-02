@@ -136,10 +136,26 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	}
 
 	// If there is a L1 reorg, we don't update the L1Current cursor.
-	if !s.reorgDetectedFlag {
-		s.state.SetL1Current(l1End)
-		metrics.DriverL1CurrentHeightGauge.Set(float64(s.state.GetL1Current().Number.Uint64()))
+	if s.reorgDetectedFlag {
+		return nil
 	}
+
+	// If a non-canonical Proposed event was observed during the iteration, the
+	// L1 RPC's log index is out of sync with its head for this range and may
+	// also be hiding canonical logs at the same heights. Leave L1Current where
+	// it is so that the next sync cycle re-queries the same range once the
+	// RPC has converged.
+	if iter.SawNonCanonicalEvent() {
+		log.Warn(
+			"L1 RPC returned a non-canonical Proposed event; not advancing L1Current",
+			"l1CurrentHeight", s.state.GetL1Current().Number,
+			"l1Head", l1End.Number,
+		)
+		return nil
+	}
+
+	s.state.SetL1Current(l1End)
+	metrics.DriverL1CurrentHeightGauge.Set(float64(s.state.GetL1Current().Number.Uint64()))
 
 	return nil
 }

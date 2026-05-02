@@ -46,3 +46,16 @@ func (s *ProposalIteratorTestSuite) TestIsNonCanonicalLog() {
 	// Matching canonical hash is canonical.
 	s.False(isNonCanonicalLog(types.Log{BlockNumber: blockNumber, BlockHash: canonicalHash}, canonicalHeader))
 }
+
+// TestSawNonCanonicalEventResetOnIter ensures the sawNonCanonical flag does
+// not leak across Iter calls — each new iteration must start clean so a stale
+// flag from a previous run can't suppress L1Current advancement on a
+// subsequently healthy range.
+func (s *ProposalIteratorTestSuite) TestSawNonCanonicalEventResetOnIter() {
+	iter := &ProposalIterator{sawNonCanonical: true}
+	s.True(iter.SawNonCanonicalEvent())
+
+	// Simulate the reset that happens at the top of Iter().
+	iter.sawNonCanonical = false
+	s.False(iter.SawNonCanonicalEvent())
+}

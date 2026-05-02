@@ -39,6 +39,12 @@ type OnProposalEvent func(
 type ProposalIterator struct {
 	blockBatchIterator *chainIterator.BlockBatchIterator
 	isEnd              bool
+	// sawNonCanonical records whether the last Iter call observed a Proposed
+	// event whose block hash didn't match the canonical hash at its block
+	// number (or whose Removed flag was set). When true, the caller MUST NOT
+	// commit the iterated range — the L1 RPC's log index is out of sync with
+	// its head for that range and may also be hiding canonical logs.
+	sawNonCanonical bool
 }
 
 // ProposalIteratorConfig represents the configs of a proposal event iterator.
@@ -88,7 +94,18 @@ func NewProposalIterator(ctx context.Context, cfg *ProposalIteratorConfig) (*Pro
 // Iter iterates the given chain between the given start and end heights,
 // and calls the callback when a proposal event is iterated.
 func (i *ProposalIterator) Iter() error {
+	i.sawNonCanonical = false
 	return i.blockBatchIterator.Iter()
+}
+
+// SawNonCanonicalEvent reports whether the most recent Iter call observed a
+// non-canonical Proposed event. When true, the caller MUST NOT advance its L1
+// scan cursor past the iterated range: the RPC's log index is out of sync
+// with its head for that range, and the same query may be silently dropping
+// canonical logs at the same height. The caller should re-run the same range
+// on a later sync cycle, after the RPC has converged.
+func (i *ProposalIterator) SawNonCanonicalEvent() bool {
+	return i.sawNonCanonical
 }
 
 // end ends the current iteration.
@@ -135,13 +152,14 @@ func assembleProposalIteratorCallback(
 			}
 			if isNonCanonicalLog(event.Raw, canonicalHeader) {
 				log.Warn(
-					"Skipping non-canonical Proposed event",
+					"Skipping non-canonical Proposed event; will not advance L1Current for this range",
 					"proposalID", event.Id,
 					"l1Height", event.Raw.BlockNumber,
 					"eventBlockHash", event.Raw.BlockHash,
 					"canonicalBlockHash", canonicalHeader.Hash(),
 					"removed", event.Raw.Removed,
 				)
+				eventIter.sawNonCanonical = true
 				continue
 			}
 
