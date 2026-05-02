@@ -97,44 +97,44 @@ jobs:
             // Build the prompt
             const systemPrompt = `You are a senior software engineer performing a code review on the Taiko monorepo.
 
-Taiko is a based rollup on Ethereum (type-1 ZK-EVM). The repo contains:
-- Smart contracts (Solidity/Foundry) in packages/protocol
-- Go services (taiko-client, relayer, eventindexer)
-- Rust services (taiko-client-rs, urcindexer-rs)
-- Frontend apps (SvelteKit, TypeScript)
+            Taiko is a based rollup on Ethereum (type-1 ZK-EVM). The repo contains:
+            - Smart contracts (Solidity/Foundry) in packages/protocol
+            - Go services (taiko-client, relayer, eventindexer)
+            - Rust services (taiko-client-rs, urcindexer-rs)
+            - Frontend apps (SvelteKit, TypeScript)
 
-Provide a CONCISE code review in the following format. Skip sections that don't apply:
+            Provide a CONCISE code review in the following format. Skip sections that don't apply:
 
-## 🔴 Critical Issues
-Issues that could lead to security vulnerabilities, fund loss, or chain halts.
+            ## 🔴 Critical Issues
+            Issues that could lead to security vulnerabilities, fund loss, or chain halts.
 
-## 🟡 Warnings
-Logic errors, edge cases, or potential bugs that should be addressed.
+            ## 🟡 Warnings
+            Logic errors, edge cases, or potential bugs that should be addressed.
 
-## 🔵 Suggestions
-Performance improvements, style/convention fixes, better error handling.
+            ## 🔵 Suggestions
+            Performance improvements, style/convention fixes, better error handling.
 
-## ✅ What Looks Good
-Notable things done well.
+            ## ✅ What Looks Good
+            No need to comment on things that are already clear or don't need review.
 
-### Review Guidelines
-- **Solidity**: Check access control, reentrancy, overflow, storage layout, gas optimization, NatSpec docs
-- **Go/Rust**: Check error handling, race conditions, resource leaks, proper use of contexts
-- **TypeScript**: Check type safety, XSS, unsafe API calls
-- Be direct and constructive. Don't be overly polite.
-- If there are no issues in a category, skip it entirely.`;
+            ### Review Guidelines
+            - **Solidity**: Check access control, reentrancy, overflow, storage layout, gas optimization, NatSpec docs
+            - **Go/Rust**: Check error handling, race conditions, resource leaks, proper use of contexts
+            - **TypeScript**: Check type safety, XSS, unsafe API calls
+            - Be direct and constructive. Don't be overly polite.
+            - If there are no issues in a category, skip it entirely.`;
 
             const userPrompt = `## PR #${prNumber}: ${title}
 
-**Description:**
-${body || 'No description provided.'}
+            **Description:**
+            ${body || 'No description provided.'}
 
-**Diff:**
-\`\`\`diff
-${truncatedDiff}
-\`\`\`
+            **Diff:**
+            \`\`\`diff
+            ${truncatedDiff}
+            \`\`\`
 
-Review this PR thoroughly. Be direct - flag only real issues.`;
+            Review this PR thoroughly. Be direct - flag only real issues.`;
 
             // Call DeepSeek API (OpenAI-compatible endpoint)
             const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -167,12 +167,12 @@ Review this PR thoroughly. Be direct - flag only real issues.`;
               ? 'Automatically triggered on PR update'
               : 'Triggered by `@deepseek` comment';
 
-            const commentBody = `## 🤖 DeepSeek Code Review
+            const commentBody = `## 🐋 DeepSeek Code Review
 
-${reviewText}
+            ${reviewText}
 
----
-*${triggerInfo} • [DeepSeek V4](https://deepseek.com)*`;
+            ---
+            *${triggerInfo} • [DeepSeek V4](https://deepseek.com)*`;
 
             // Check for existing bot comment to update (sticky behavior)
             const comments = await github.rest.issues.listComments({
@@ -182,7 +182,7 @@ ${reviewText}
             });
 
             const existingComment = comments.data.find(c =>
-              c.body.includes('🤖 DeepSeek Code Review') &&
+              c.body.includes('🐋 DeepSeek Code Review') &&
               c.user.login === 'github-actions[bot]'
             );
 
