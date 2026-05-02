@@ -369,24 +369,24 @@ func isKnownCanonicalBlock(
 		logUnknown(fmt.Sprintf("coinbase mismatch: %s != %s", block.Coinbase(), meta.SuggestedFeeRecipient))
 		return nil, false, nil
 	}
-	uzenActive := rpc.IsUzen(cli.L2.ChainID, block.Time())
-	if !uzenActive {
+	unzenActive := rpc.IsUnzen(cli.L2.ChainID, block.Time())
+	if !unzenActive {
 		if block.Difficulty().Cmp(common.Big0) != 0 {
 			logUnknown(fmt.Sprintf("difficulty mismatch: %s != 0", block.Difficulty()))
 			return nil, false, nil
 		}
 		if block.BeaconRoot() != nil {
-			logUnknown(fmt.Sprintf("unexpected parent beacon root before Uzen: %s", *block.BeaconRoot()))
+			logUnknown(fmt.Sprintf("unexpected parent beacon root before Unzen: %s", *block.BeaconRoot()))
 			return nil, false, nil
 		}
 		if block.RequestsHash() != nil {
-			logUnknown(fmt.Sprintf("unexpected requests hash before Uzen: %s", *block.RequestsHash()))
+			logUnknown(fmt.Sprintf("unexpected requests hash before Unzen: %s", *block.RequestsHash()))
 			return nil, false, nil
 		}
 	} else {
 		zero := common.Hash{}
 		if block.Difficulty().Cmp(common.Big0) == 0 {
-			logUnknown("difficulty zero during Uzen")
+			logUnknown("difficulty zero during Unzen")
 			return nil, false, nil
 		}
 		if block.BeaconRoot() == nil || *block.BeaconRoot() != zero {

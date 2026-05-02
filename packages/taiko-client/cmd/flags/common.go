@@ -139,12 +139,12 @@ var (
 		Value:    12 * time.Second,
 		EnvVars:  []string{"RPC_TIMEOUT"},
 	}
-	TaikoDevnetUzenTime = &cli.Uint64Flag{
-		Name:     "taiko.devnet-uzen-time",
-		Usage:    "Override Uzen fork time for Taiko internal devnet; must match taiko-geth's --taiko.devnet-uzen-time",
+	TaikoDevnetUnzenTime = &cli.Uint64Flag{
+		Name:     "taiko.devnet-unzen-time",
+		Usage:    "Override Unzen fork time for Taiko internal devnet; must match taiko-geth's --taiko.devnet-unzen-time",
 		Category: commonCategory,
 		Value:    0,
-		EnvVars:  []string{"TAIKO_DEVNET_UZEN_TIME"},
+		EnvVars:  []string{"TAIKO_DEVNET_UNZEN_TIME"},
 	}
 )
 
@@ -164,7 +164,7 @@ var CommonFlags = []cli.Flag{
 	BackOffRetryInterval,
 	RPCTimeout,
 	L1PrivateEndpoint,
-	TaikoDevnetUzenTime,
+	TaikoDevnetUnzenTime,
 }
 
 // MergeFlags merges the given flag slices.

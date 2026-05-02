@@ -140,9 +140,8 @@ async fn spawn_discv5(
     let local_enr = discv5::enr::Enr::builder()
         .build(&key)
         .map_err(WhitelistPreconfirmationDriverError::p2p)?;
-    let mut discv5 =
-        discv5::Discv5::<discv5::DefaultProtocolId>::new(local_enr, key, discv5_config)
-            .map_err(WhitelistPreconfirmationDriverError::p2p)?;
+    let mut discv5 = discv5::Discv5::new(local_enr, key, discv5_config)
+        .map_err(WhitelistPreconfirmationDriverError::p2p)?;
 
     for enr in &boot_enrs {
         if let Err(err) = discv5.add_enr(enr.clone()) {

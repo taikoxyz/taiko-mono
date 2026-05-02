@@ -211,10 +211,8 @@ mod tests {
     use alloy_consensus::TxEnvelope;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types::eth::Block as RpcBlock;
-    use alloy_rpc_types_engine::{
-        ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes,
-        PayloadId,
-    };
+    use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadId};
+    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use std::sync::{Arc, Mutex};
     use tokio::runtime::Runtime;
 
@@ -225,6 +223,7 @@ mod tests {
             suggested_fee_recipient: Address::ZERO,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
         let block_metadata = TaikoBlockMetadata {
             beneficiary: Address::ZERO,

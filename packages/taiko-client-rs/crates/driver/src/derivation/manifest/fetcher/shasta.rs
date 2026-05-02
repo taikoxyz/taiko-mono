@@ -12,6 +12,7 @@ use super::{ManifestFetcher, ManifestFetcherError};
 fn decode_manifest_from_sidecars(
     sidecars: &[BlobTransactionSidecar],
     offset: usize,
+    max_blocks: usize,
 ) -> Result<DerivationSourceManifest, ManifestFetcherError> {
     if sidecars.is_empty() {
         return Err(ManifestFetcherError::EmptyBlobSidecars);
@@ -28,8 +29,12 @@ fn decode_manifest_from_sidecars(
         }
     }
 
-    DerivationSourceManifest::decompress_and_decode(&concatenated, offset)
-        .map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
+    DerivationSourceManifest::decompress_and_decode_with_max_blocks(
+        &concatenated,
+        offset,
+        max_blocks,
+    )
+    .map_err(|err| ManifestFetcherError::Invalid(err.to_string()))
 }
 
 /// Fetcher for Shasta derivation source manifests from blob sidecars.
@@ -62,9 +67,10 @@ impl ManifestFetcher for ShastaSourceManifestFetcher {
         &self,
         sidecars: &[BlobTransactionSidecar],
         offset: usize,
+        max_blocks: usize,
     ) -> Result<Self::Manifest, ManifestFetcherError> {
-        let manifest = decode_manifest_from_sidecars(sidecars, offset)?;
-        debug!(offset, "decoded shasta manifest from blob sidecars");
+        let manifest = decode_manifest_from_sidecars(sidecars, offset, max_blocks)?;
+        debug!(offset, max_blocks, "decoded shasta manifest from blob sidecars");
         Ok(manifest)
     }
 }

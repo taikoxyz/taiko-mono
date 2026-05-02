@@ -6,13 +6,19 @@ impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Validate that the fee recipient is a registered operator.
-    fn ensure_fee_recipient_allowed(&self, fee_recipient: alloy_primitives::Address) -> Result<()> {
-        if self.operator_set.load().contains(&fee_recipient) {
+    /// Reject build requests when this node's own P2P signer is not a registered
+    /// operator in the on-chain whitelist.
+    ///
+    /// Peers only accept gossip from whitelisted operators, so if our signer has been
+    /// deregistered any block we build would be dropped on arrival. Failing fast here
+    /// avoids building blocks that can never be gossiped.
+    fn ensure_node_signer_whitelisted(&self) -> Result<()> {
+        let signer = self.signer.address();
+        if self.operator_set.load().contains(&signer) {
             Ok(())
         } else {
             Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-                "fee recipient {fee_recipient} is not a registered operator"
+                "node P2P signer {signer} is not a registered operator"
             )))
         }
     }
@@ -62,7 +68,7 @@ where
             ));
         }
 
-        self.ensure_fee_recipient_allowed(request.fee_recipient)?;
+        self.ensure_node_signer_whitelisted()?;
 
         let prev_randao =
             self.derive_prev_randao(request.parent_hash, request.block_number).await?;

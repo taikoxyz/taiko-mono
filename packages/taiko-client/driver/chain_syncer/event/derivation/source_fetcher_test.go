@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	gethcore "github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/stretchr/testify/suite"
@@ -51,7 +52,7 @@ func (s *DerivationSourceFetcherTestSuite) TestManifestEncodeDecode() {
 			},
 		},
 	}
-	decoded, err := new(DerivationSourceFetcher).manifestFromBlobBytes(b, meta, 0)
+	decoded, err := (&DerivationSourceFetcher{cli: s.RPCClient}).manifestFromBlobBytes(b, meta, 0)
 	s.Nil(err)
 	s.False(decoded.Default)
 	s.Equal(len(m.Blocks), len(decoded.BlockPayloads))
@@ -60,6 +61,33 @@ func (s *DerivationSourceFetcherTestSuite) TestManifestEncodeDecode() {
 	s.Equal(m.Blocks[0].AnchorBlockNumber, decoded.BlockPayloads[0].AnchorBlockNumber)
 	s.Equal(m.Blocks[0].GasLimit, decoded.BlockPayloads[0].GasLimit)
 	s.Equal(len(m.Blocks[0].Transactions), len(decoded.BlockPayloads[0].Transactions))
+}
+
+func (s *DerivationSourceFetcherTestSuite) TestManifestBlockLimitUsesProposalTimestamp() {
+	original := gethcore.DevnetUnzenTime
+	s.T().Cleanup(func() { gethcore.DevnetUnzenTime = original })
+
+	gethcore.DevnetUnzenTime = 100
+	s.RPCClient.L2.ChainID = params.TaikoInternalNetworkID
+
+	fetcher := &DerivationSourceFetcher{cli: s.RPCClient}
+	manifest193Bytes, err := builder.EncodeSourceManifest(sourceManifestWithBlockCount(193))
+	s.Nil(err)
+	manifest769Bytes, err := builder.EncodeSourceManifest(sourceManifestWithBlockCount(769))
+	s.Nil(err)
+
+	decoded, err := fetcher.manifestFromBlobBytes(manifest193Bytes, shastaMetaWithTimestamp(99), 0)
+	s.Nil(err)
+	s.True(decoded.Default)
+
+	decoded, err = fetcher.manifestFromBlobBytes(manifest193Bytes, shastaMetaWithTimestamp(100), 0)
+	s.Nil(err)
+	s.False(decoded.Default)
+	s.Len(decoded.BlockPayloads, 193)
+
+	decoded, err = fetcher.manifestFromBlobBytes(manifest769Bytes, shastaMetaWithTimestamp(100), 0)
+	s.Nil(err)
+	s.True(decoded.Default)
 }
 
 func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
@@ -86,6 +114,30 @@ func (s *DerivationSourceFetcherTestSuite) TestExtractVersionAndSize() {
 
 func TestDerivationSourceFetcherTestSuite(t *testing.T) {
 	suite.Run(t, new(DerivationSourceFetcherTestSuite))
+}
+
+func sourceManifestWithBlockCount(blocks int) *manifest.DerivationSourceManifest {
+	m := &manifest.DerivationSourceManifest{Blocks: make([]*manifest.BlockManifest, blocks)}
+	for i := range m.Blocks {
+		m.Blocks[i] = &manifest.BlockManifest{Transactions: types.Transactions{}}
+	}
+	return m
+}
+
+func shastaMetaWithTimestamp(timestamp uint64) *metadata.TaikoProposalMetadataShasta {
+	return metadata.NewTaikoProposalMetadataShasta(
+		&shastaBindings.ShastaInboxClientProposed{
+			Sources: []shastaBindings.IInboxDerivationSource{
+				{
+					BlobSlice: shastaBindings.LibBlobsBlobSlice{
+						Offset:    big.NewInt(0),
+						Timestamp: big.NewInt(0),
+					},
+				},
+			},
+		},
+		timestamp,
+	)
 }
 
 func (s *DerivationSourceFetcherTestSuite) TestValidateMetadataTimestamp() {

@@ -21,7 +21,6 @@ import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
 import { calculateMessageDataSize } from './calculateMessageDataSize';
-import { estimateSendTokenGasOrFallback } from './estimateSendTokenGas';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
@@ -102,11 +101,15 @@ export class ERC20Bridge extends Bridge {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args as ERC20BridgeArgs);
     const { fee } = sendERC20Args;
 
-    log('Estimating gas for sendERC20 call with value', fee);
+    const value = fee;
 
-    return estimateSendTokenGasOrFallback(() =>
-      tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
-    );
+    log('Estimating gas for sendERC20 call with value', value);
+
+    const estimatedGas = await tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value });
+
+    log('Gas estimated', estimatedGas);
+
+    return estimatedGas;
   }
 
   async getAllowance({ amount, tokenAddress, ownerAddress, spenderAddress }: RequireAllowanceArgs) {
@@ -224,10 +227,6 @@ export class ERC20Bridge extends Bridge {
     const { tokenVaultContract, sendERC20Args } = await ERC20Bridge._prepareTransaction(args);
     const { fee } = sendERC20Args;
 
-    const gas = await estimateSendTokenGasOrFallback(() =>
-      tokenVaultContract.estimateGas.sendToken([sendERC20Args], { value: fee }),
-    );
-
     try {
       const { request } = await simulateContract(config, {
         address: tokenVaultContract.address,
@@ -235,7 +234,6 @@ export class ERC20Bridge extends Bridge {
         functionName: 'sendToken',
         args: [sendERC20Args],
         value: fee,
-        gas,
       });
       log('Simulate contract', request);
 

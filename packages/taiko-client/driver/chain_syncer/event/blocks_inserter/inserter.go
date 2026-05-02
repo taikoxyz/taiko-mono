@@ -96,7 +96,7 @@ func NewBlocksInserter(
 	}
 }
 
-// InsertBlocksWithManifest inserts new Shasta / Uzen blocks to the L2 execution engine based on the given derivation
+// InsertBlocksWithManifest inserts new Shasta / Unzen blocks to the L2 execution engine based on the given derivation
 // source payload.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
@@ -105,7 +105,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	endIter eventIterator.EndProposalEventIterFunc,
 ) (*big.Int, error) {
 	if !metadata.IsShasta() {
-		return nil, errors.New("metadata is not for Shasta / Uzen fork blocks")
+		return nil, errors.New("metadata is not for Shasta / Unzen fork blocks")
 	}
 
 	i.mutex.Lock()
@@ -175,7 +175,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				parent,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to check if Shasta / Uzen proposal is known in canonical chain: %w", err)
+				return nil, fmt.Errorf("failed to check if Shasta / Unzen proposal is known in canonical chain: %w", err)
 			}
 			if isKnown && lastBlockHeader != nil {
 				log.Info(
@@ -200,7 +200,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 				// Update the L1 origin for each block in the proposal.
 				if err := updateL1OriginForProposal(ctx, i.rpc, parent, metadata, sourcePayload); err != nil {
 					return nil, fmt.Errorf(
-						"failed to update L1 origin for Shasta / Uzen proposal (%d): %w",
+						"failed to update L1 origin for Shasta / Unzen proposal (%d): %w",
 						meta.GetEventData().Id,
 						err,
 					)

@@ -15,6 +15,7 @@ use alloy::{
 use bindings::inbox::{IInbox::ProposeInput, LibBlobs::BlobReference};
 use protocol::shasta::{
     BlobCoder,
+    constants::DERIVATION_SOURCE_MAX_BLOCKS,
     manifest::{BlockManifest, DerivationSourceManifest},
 };
 use rpc::client::ClientWithWallet;
@@ -162,6 +163,15 @@ impl ShastaProposalTransactionBuilder {
                 )
             }
         };
+
+        // Proposer intentionally keeps the stricter Shasta cap. It is below the
+        // Unzen derivation-source cap, so proposals that pass here are safe there.
+        if txs_lists.len() > DERIVATION_SOURCE_MAX_BLOCKS {
+            return Err(ProposerError::TooManyBlocks {
+                count: txs_lists.len(),
+                max: DERIVATION_SOURCE_MAX_BLOCKS,
+            });
+        }
 
         // Build the proposal manifest.
         let manifest = DerivationSourceManifest {

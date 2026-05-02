@@ -8,6 +8,9 @@ license.workspace = true
 [features]
 default = ["net"]
 net = [
+    "alloy/default",
+    "alloy/signers",
+    "bindings",
     "tokio",
     "tokio-retry",
     "tokio-stream",
@@ -27,7 +30,7 @@ tokio-stream = { workspace = true, optional = true }
 tracing = { workspace = true }
 
 # ethereum
-alloy = { workspace = true }
+alloy = { workspace = true, default-features = false, features = ["std", "sol-types"] }
 alloy-consensus = { workspace = true }
 alloy-contract = { workspace = true }
 alloy-eips = { workspace = true }
@@ -37,6 +40,7 @@ alloy-provider = { workspace = true, optional = true, features = ["ws"] }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-rpc-types-engine-2 = { workspace = true }
 alloy-sol-types = { workspace = true }
 event-scanner = { workspace = true, optional = true }
 robust-provider = { workspace = true, optional = true, features = [
@@ -49,7 +53,7 @@ k256 = { workspace = true }
 # taiko
 alethia-reth-consensus = { workspace = true }
 alethia-reth-primitives = { workspace = true }
-bindings = { path = "../bindings" }
+bindings = { path = "../bindings", optional = true }
 
 # types
 anyhow = { workspace = true }
