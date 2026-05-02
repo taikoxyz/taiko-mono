@@ -272,17 +272,11 @@
                   bind:group={tempProcessingFeeMethod} />
               </div>
 
-              {#if !hasEnoughEth}
-                <FlatAlert type="error" message={$t('processing_fee.none.warning')} />
-              {:else if tempProcessingFeeMethod === ProcessingFeeMethod.NONE}
-                <div class="my-5">
-                  <Alert type="warning">
-                    <span class="body-small">
-                      {$t('processing_fee.none.alert')}
-                    </span>
-                  </Alert>
-                </div>
-              {/if}
+              <NoneOption
+                bind:enoughEth={hasEnoughEth}
+                bind:calculating={calculatingEnoughEth}
+                bind:error={errorCalculatingEnoughEth}
+                selected={tempProcessingFeeMethod === ProcessingFeeMethod.NONE} />
             </li>
 
             <!-- CUSTOM -->
@@ -383,7 +377,10 @@
 
 <RecommendedFee bind:amount={recommendedAmount} bind:error={errorCalculatingRecommendedAmount} />
 
-<NoneOption
-  bind:enoughEth={hasEnoughEth}
-  bind:calculating={calculatingEnoughEth}
-  bind:error={errorCalculatingEnoughEth} />
+{#if small || textOnly}
+  <NoneOption
+    bind:enoughEth={hasEnoughEth}
+    bind:calculating={calculatingEnoughEth}
+    bind:error={errorCalculatingEnoughEth}
+    headless />
+{/if}

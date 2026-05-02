@@ -12,9 +12,9 @@ use alloy_provider::{
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadAttributes,
-    PayloadStatusEnum,
+    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
+use alloy_rpc_types_engine_2::PayloadAttributes;
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
 use rpc::{
@@ -187,6 +187,7 @@ async fn fork_to(
     let timestamp = block.header.timestamp;
     let mix_digest = block.header.mix_hash;
     let gas_limit = block.header.gas_limit;
+    let header_difficulty = block.header.difficulty;
     let extra_data = block.header.extra_data.clone();
     let base_fee = block.header.base_fee_per_gas.unwrap_or_default();
 
@@ -206,6 +207,7 @@ async fn fork_to(
         suggested_fee_recipient: coinbase,
         withdrawals: Some(Vec::new()),
         parent_beacon_block_root: None,
+        slot_number: None,
     };
 
     let block_metadata = TaikoBlockMetadata {
@@ -280,6 +282,7 @@ async fn fork_to(
     let sidecar = alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar {
         tx_hash,
         withdrawals_hash,
+        header_difficulty: Some(header_difficulty),
         taiko_block: Some(true),
     };
 

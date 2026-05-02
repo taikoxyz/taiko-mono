@@ -1,6 +1,8 @@
+//! Cache re-import flow for out-of-order envelopes once parents arrive.
+
 use std::time::Instant;
 
-use driver::production::PreconfPayload;
+use driver::PreconfPayload;
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -152,7 +154,7 @@ where
                     "result" => "issued",
                 )
                 .increment(1);
-                self.request_block(parent_hash).await;
+                self.publish_unsafe_request(parent_hash).await;
             } else {
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
@@ -191,19 +193,6 @@ where
             "result" => "success",
         )
         .increment(1);
-
-        let inserted_hash = self
-            .block_hash_by_number(block_number)
-            .await?
-            .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(block_number))?;
-
-        if inserted_hash != block_hash {
-            return Err(WhitelistPreconfirmationDriverError::InsertedBlockHashMismatch {
-                block_number,
-                expected: block_hash,
-                actual: inserted_hash,
-            });
-        }
 
         info!(
             block_number,
@@ -258,7 +247,10 @@ fn should_drop_cached_driver_error(err: &driver::DriverError) -> bool {
 /// Returns true when a driver error is expected to recover after sync catches up.
 fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
     match err {
-        driver::DriverError::EngineSyncing(_) | driver::DriverError::BlockNotFound(_) => true,
+        driver::DriverError::EngineSyncing(_) |
+        driver::DriverError::BlockNotFound(_) |
+        driver::DriverError::PreconfEnqueueTimeout { .. } |
+        driver::DriverError::PreconfResponseTimeout { .. } => true,
         driver::DriverError::PreconfInjectionFailed { source, .. } => matches!(
             source,
             driver::sync::error::EngineSubmissionError::EngineSyncing(_) |

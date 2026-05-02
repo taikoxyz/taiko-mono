@@ -4,18 +4,19 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy::{
-    eips::BlockNumberOrTag,
+    eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH},
     primitives::{Address, B256, U256, keccak256},
     providers::Provider,
 };
 use alloy_consensus::{Header, TxEnvelope};
 use alloy_rpc_types::Transaction as RpcTransaction;
-use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
+use alloy_rpc_types_engine::PayloadId;
+use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use metrics::counter;
 use protocol::shasta::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_transactions,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    payload_id_to_bytes,
+    payload_id_to_bytes, unzen_active_for_chain_timestamp,
 };
 
 use crate::{
@@ -78,8 +79,8 @@ struct PayloadContext<'a> {
     meta: &'a BundleMeta,
     /// Base fee target for the upcoming block.
     block_base_fee: u64,
-    /// Difficulty used when sealing the block.
-    difficulty: B256,
+    /// Mix hash used when sealing the block.
+    mix_hash: B256,
     /// Height of the block being built.
     block_number: u64,
     /// Hash of the parent block used for payload ID derivation.
@@ -441,8 +442,8 @@ where
             "processing manifest block"
         );
         let block_base_fee = state.compute_block_base_fee()?;
-        let parent_difficulty = B256::from(state.header.difficulty.to_be_bytes::<32>());
-        let difficulty = calculate_shasta_difficulty(parent_difficulty, block_number);
+        let parent_mix_hash = B256::from(state.header.difficulty.to_be_bytes::<32>());
+        let mix_hash = calculate_shasta_mix_hash(parent_mix_hash, block_number);
 
         let anchor_inputs = AnchorTxInputs { block, block_number, block_base_fee };
 
@@ -458,7 +459,7 @@ where
             proposal_id = meta.proposal_id,
             block_number,
             block_base_fee,
-            difficulty = ?difficulty,
+            mix_hash = ?mix_hash,
             transaction_count_with_anchor = transactions.len(),
             parent_hash = ?parent_hash,
             "calculated block parameters"
@@ -470,7 +471,7 @@ where
                 block,
                 meta,
                 block_base_fee,
-                difficulty,
+                mix_hash,
                 block_number,
                 parent_hash,
                 position,
@@ -498,7 +499,7 @@ where
             block,
             meta,
             block_base_fee,
-            difficulty,
+            mix_hash,
             block_number,
             parent_hash,
             position,
@@ -516,17 +517,18 @@ where
             beneficiary: block.coinbase,
             gas_limit,
             timestamp: U256::from(block.timestamp),
-            mix_hash: difficulty,
+            mix_hash,
             tx_list: Some(tx_list),
             extra_data,
         };
 
         let payload_attributes = EthPayloadAttributes {
             timestamp: block.timestamp,
-            prev_randao: difficulty,
+            prev_randao: mix_hash,
             suggested_fee_recipient: block.coinbase,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
 
         let l1_origin = RpcL1Origin {
@@ -796,9 +798,65 @@ where
             return Ok(None);
         }
 
-        if block.header.difficulty != U256::ZERO {
-            debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
-            return Ok(None);
+        let unzen_active = unzen_active_for_chain_timestamp(self.chain_id, block.header.timestamp)
+            .map_err(|err| DerivationError::Other(err.into()))?;
+
+        if unzen_active {
+            if block.header.difficulty == U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty zero during Unzen");
+                return Ok(None);
+            }
+
+            if block.header.blob_gas_used != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "blob gas used mismatch");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas != Some(0) {
+                debug!(proposal_id = meta.proposal_id, block_id, "excess blob gas mismatch");
+                return Ok(None);
+            }
+
+            if block.header.parent_beacon_block_root != Some(B256::ZERO) {
+                debug!(proposal_id = meta.proposal_id, block_id, "parent beacon root mismatch");
+                return Ok(None);
+            }
+
+            if block.header.requests_hash != Some(EMPTY_REQUESTS_HASH) {
+                debug!(proposal_id = meta.proposal_id, block_id, "requests hash mismatch");
+                return Ok(None);
+            }
+        } else {
+            if block.header.difficulty != U256::ZERO {
+                debug!(proposal_id = meta.proposal_id, block_id, "difficulty non-zero");
+                return Ok(None);
+            }
+
+            if block.header.blob_gas_used.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected blob gas used");
+                return Ok(None);
+            }
+
+            if block.header.excess_blob_gas.is_some() {
+                debug!(proposal_id = meta.proposal_id, block_id, "unexpected excess blob gas");
+                return Ok(None);
+            }
+
+            if block.header.parent_beacon_block_root.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected parent beacon root before Unzen"
+                );
+                return Ok(None);
+            }
+
+            if block.header.requests_hash.is_some() {
+                debug!(
+                    proposal_id = meta.proposal_id,
+                    block_id, "unexpected requests hash before Unzen"
+                );
+                return Ok(None);
+            }
         }
 
         if block.header.mix_hash != derived_block.payload.payload_attributes.prev_randao {

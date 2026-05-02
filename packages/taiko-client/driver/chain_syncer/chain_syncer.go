@@ -103,10 +103,10 @@ func (s *L2ChainSyncer) Sync() error {
 	s.progressTracker.MarkFinished()
 
 	// We have triggered at least a beacon sync in L2 execution engine, we should reset the L1Current
-	// cursor before we start inserting pending L2 batches one by one.
+	// cursor before we start inserting pending L2 proposals one by one.
 	if s.progressTracker.Triggered() {
 		log.Info(
-			"Switch to insert pending batches one by one",
+			"Switch to insert pending proposals one by one",
 			"p2pEnabled", s.p2pSync,
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
@@ -123,7 +123,7 @@ func (s *L2ChainSyncer) Sync() error {
 		s.preconfBlockServer.SetSyncReady(true)
 	}
 
-	// Insert the proposed batches one by one.
+	// Insert the proposed proposals one by one.
 	if err := s.eventSyncer.ProcessL1Blocks(s.ctx); err != nil {
 		return err
 	}
@@ -146,7 +146,6 @@ func (s *L2ChainSyncer) Sync() error {
 			log.Info("Head L1 origin not set after event sync, keep preconf imports disabled")
 		}
 	}
-
 	return nil
 }
 
@@ -238,6 +237,18 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 	// If the flag is not set or there was a finished beacon sync, we simply return false.
 	if !s.p2pSync || s.progressTracker.Finished() {
 		return 0, false, nil
+	}
+
+	// Refresh the cached L2 head directly from the execution engine before
+	// making the beacon-sync decision. The `newHeads` subscription (see
+	// driver/state/state.go eventLoop) does not fire for blocks acquired
+	// through engine-API-driven beacon-sync backfill, so the cached head can
+	// lag the engine's actual head and cause us to repeatedly retrigger
+	// beacon sync against a block the engine already has.
+	if header, err := s.rpc.L2.HeaderByNumber(s.ctx, nil); err != nil {
+		log.Warn("Failed to refresh L2 head for beacon-sync decision", "error", err)
+	} else if header != nil {
+		s.state.SetL2Head(header)
 	}
 
 	head, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)

@@ -6,7 +6,6 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
 use driver::{DriverConfig, map_driver_error};
-use preconfirmation_net::P2pConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
 use tokio::sync::Mutex;
@@ -22,9 +21,9 @@ use crate::{
     error::WhitelistPreconfirmationDriverError,
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
     metrics::WhitelistPreconfirmationDriverMetrics,
-    network::{NetworkCommand, WhitelistNetwork},
+    network::{NetworkCommand, NetworkConfig, WhitelistNetwork},
+    operator_set::OperatorSetPoller,
     preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
-    whitelist_fetcher::WhitelistSequencerFetcher,
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -33,7 +32,7 @@ pub struct RunnerConfig {
     /// Driver configuration (includes RPC client configuration).
     pub driver_config: DriverConfig,
     /// P2P configuration for whitelist preconfirmation topics.
-    pub p2p_config: P2pConfig,
+    pub p2p_config: NetworkConfig,
     /// Whitelist contract address used for signer validation.
     pub whitelist_address: Address,
     /// Optional listen address for the whitelist preconfirmation REST/WS server.
@@ -50,7 +49,7 @@ impl RunnerConfig {
     /// Build runner configuration.
     pub fn new(
         driver_config: DriverConfig,
-        p2p_config: P2pConfig,
+        p2p_config: NetworkConfig,
         whitelist_address: Address,
         rpc_listen_addr: Option<SocketAddr>,
         rpc_jwt_secret: Option<Vec<u8>>,
@@ -85,21 +84,16 @@ impl WhitelistPreconfirmationDriverRunner {
     pub async fn run(self) -> Result<()> {
         metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL).increment(1);
 
-        // Fail fast on deterministic misconfiguration before blocking on sync bootstrap.
-        if !self.config.p2p_config.allow_all_sequencers &&
-            self.config.p2p_config.sequencer_addresses.is_empty()
-        {
-            return Err(WhitelistPreconfirmationDriverError::MissingSequencerAddressList);
-        }
+        let mut preconf_ingress_sync =
+            PreconfIngressSync::start(&self.config.driver_config).await?;
+        let chain_id = preconf_ingress_sync.client().chain_id;
 
         info!(
-            chain_id = self.config.p2p_config.chain_id,
+            chain_id,
             whitelist_address = %self.config.whitelist_address,
             "starting whitelist preconfirmation driver"
         );
 
-        let mut preconf_ingress_sync =
-            PreconfIngressSync::start(&self.config.driver_config).await?;
         let wait_start = Instant::now();
         preconf_ingress_sync.wait_preconf_ingress_ready().await?;
         metrics::histogram!(
@@ -107,8 +101,17 @@ impl WhitelistPreconfirmationDriverRunner {
         )
         .record(wait_start.elapsed().as_secs_f64());
 
+        let operator_poller = OperatorSetPoller::new(
+            self.config.whitelist_address,
+            preconf_ingress_sync.client().l1_provider.clone(),
+        )
+        .await?;
+        let operator_set = operator_poller.shared_set();
+        tokio::spawn(operator_poller.run_refresh_loop());
+
         let network =
-            WhitelistNetwork::spawn_with_whitelist_filter(self.config.p2p_config.clone())?;
+            WhitelistNetwork::spawn(chain_id, self.config.p2p_config.clone(), operator_set.clone())
+                .await?;
         let cache_state = SharedPreconfCacheState::new();
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
@@ -119,82 +122,74 @@ impl WhitelistPreconfirmationDriverRunner {
         );
         info!(
             peer_id = %network.local_peer_id,
-            chain_id = self.config.p2p_config.chain_id,
+            chain_id,
             "whitelist preconfirmation p2p subscriber started"
         );
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured. When enabled, create shared state for highestUnsafeL2PayloadBlockID
         // so the importer can update it on P2P imports.
-        let (mut rest_ws_server, shared_highest_unsafe) = if let (
-            Some(listen_addr),
-            Some(signer_key),
-        ) =
-            (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
-        {
-            let signer = FixedKSigner::new(signer_key).map_err(|e| {
-                WhitelistPreconfirmationDriverError::Signing(format!(
-                    "failed to create P2P signer: {e}"
-                ))
-            })?;
-            let initial_highest_unsafe_l2_payload_block_id = match preconf_ingress_sync
-                .client()
-                .l2_provider
-                .get_block_by_number(BlockNumberOrTag::Latest)
-                .await
+        let (mut rest_ws_server, shared_highest_unsafe) =
+            if let (Some(listen_addr), Some(signer_key)) =
+                (self.config.rpc_listen_addr, &self.config.p2p_signer_key)
             {
-                Ok(Some(block)) => block.header.number,
-                Ok(None) => 0,
-                Err(err) => {
-                    warn!(
-                        error = %err,
-                        "failed to fetch initial latest L2 block; defaulting highest unsafe block id to zero"
-                    );
-                    0
-                }
-            };
-            let shared_highest = Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
+                let signer = FixedKSigner::new(signer_key).map_err(|e| {
+                    WhitelistPreconfirmationDriverError::Signing(format!(
+                        "failed to create P2P signer: {e}"
+                    ))
+                })?;
+                let initial_highest_unsafe_l2_payload_block_id = preconf_ingress_sync
+                    .client()
+                    .l2_provider
+                    .get_block_by_number(BlockNumberOrTag::Latest)
+                    .await
+                    .map_err(WhitelistPreconfirmationDriverError::provider)?
+                    .ok_or_else(|| {
+                        WhitelistPreconfirmationDriverError::provider(
+                            "latest L2 block unavailable during whitelist REST/WS startup",
+                        )
+                    })?
+                    .header
+                    .number;
+                let shared_highest =
+                    Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
 
-            let rest_sequencer_fetcher = WhitelistSequencerFetcher::new(
-                self.config.whitelist_address,
-                preconf_ingress_sync.client().l1_provider.clone(),
-            );
-            let handler = Arc::new(WhitelistApiService::new(WhitelistApiServiceParams {
-                event_syncer: preconf_ingress_sync.event_syncer(),
-                rpc: preconf_ingress_sync.client().clone(),
-                chain_id: self.config.p2p_config.chain_id,
-                signer,
-                beacon_client: Arc::clone(&beacon_client),
-                sequencer_fetcher: rest_sequencer_fetcher,
-                highest_unsafe_l2_payload_block_id: shared_highest.clone(),
-                network_command_tx: network.command_tx.clone(),
-                cache_state: cache_state.clone(),
-                local_peer_id: network.local_peer_id.to_string(),
-            }));
-            let server_config = WhitelistApiServerConfig {
-                listen_addr,
-                jwt_secret: self.config.rpc_jwt_secret.clone(),
-                cors_origins: self.config.rpc_cors_origins.clone(),
-                ..Default::default()
+                let handler = Arc::new(WhitelistApiService::new(WhitelistApiServiceParams {
+                    event_syncer: preconf_ingress_sync.event_syncer(),
+                    rpc: preconf_ingress_sync.client().clone(),
+                    chain_id,
+                    signer,
+                    beacon_client: Arc::clone(&beacon_client),
+                    operator_set: operator_set.clone(),
+                    highest_unsafe_l2_payload_block_id: shared_highest.clone(),
+                    network_command_tx: network.command_tx.clone(),
+                    cache_state: cache_state.clone(),
+                    local_peer_id: network.local_peer_id.to_string(),
+                }));
+                let server_config = WhitelistApiServerConfig {
+                    listen_addr,
+                    jwt_secret: self.config.rpc_jwt_secret.clone(),
+                    cors_origins: self.config.rpc_cors_origins.clone(),
+                    ..Default::default()
+                };
+                let server = WhitelistApiServer::start(server_config, handler.clone()).await?;
+                info!(
+                    addr = %server.local_addr(),
+                    http_url = %server.http_url(),
+                    ws_url = %server.ws_url(),
+                    "whitelist preconfirmation REST server started"
+                );
+                (Some(server), Some(shared_highest))
+            } else {
+                (None, None)
             };
-            let server = WhitelistApiServer::start(server_config, handler.clone()).await?;
-            info!(
-                addr = %server.local_addr(),
-                http_url = %server.http_url(),
-                ws_url = %server.ws_url(),
-                "whitelist preconfirmation REST server started"
-            );
-            (Some(server), Some(shared_highest))
-        } else {
-            (None, None)
-        };
 
         let mut importer =
             WhitelistPreconfirmationImporter::new(WhitelistPreconfirmationImporterParams {
                 event_syncer: preconf_ingress_sync.event_syncer(),
                 rpc: preconf_ingress_sync.client().clone(),
-                whitelist_address: self.config.whitelist_address,
-                chain_id: self.config.p2p_config.chain_id,
+                operator_set: operator_set.clone(),
+                chain_id,
                 network_command_tx: network.command_tx.clone(),
                 cache_state,
                 beacon_client,
@@ -202,6 +197,9 @@ impl WhitelistPreconfirmationDriverRunner {
             });
         let mut sync_ready_interval =
             tokio::time::interval(tokio::time::Duration::from_secs(L1_EPOCH_DURATION_SECS));
+        // Consume the immediate first tick so the periodic cache poll starts one
+        // full epoch later; event-driven imports still call maybe_import_from_cache
+        // on every inbound network event.
         sync_ready_interval.tick().await;
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
@@ -242,10 +240,14 @@ impl WhitelistPreconfirmationDriverRunner {
                         .await;
                     };
 
-                    importer.handle_event(event).await?;
+                    if let Err(err) = importer.handle_event(event).await {
+                        warn!(
+                            error = %err,
+                            "failed to handle whitelist preconfirmation network event"
+                        );
+                    }
                 }
                 _ = sync_ready_interval.tick() => {
-                    importer.maybe_invalidate_sequencer_cache_for_epoch().await;
                     if let Err(err) = importer.maybe_import_from_cache().await {
                         warn!(
                             error = %err,

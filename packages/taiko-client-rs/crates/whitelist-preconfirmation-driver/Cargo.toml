@@ -14,46 +14,35 @@ alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true, features = ["ssz"] }
+alloy-rpc-types-engine-2 = { workspace = true }
 anyhow = { workspace = true }
+arc-swap = { workspace = true }
 async-trait = { workspace = true }
-axum = { version = "0.7", features = ["ws"] }
+axum = { workspace = true }
 bindings = { path = "../bindings" }
-bytes = "1"
+bytes = { workspace = true }
+discv5 = { workspace = true }
 driver = { path = "../driver" }
 flate2 = { workspace = true }
-futures = "0.3"
-hashlink = "0.10"
-http = "1"
-http-body = "1"
+futures = { workspace = true }
+hashlink = { workspace = true }
+http = { workspace = true }
+http-body = { workspace = true }
 http-body-util = { workspace = true }
-jsonwebtoken = "9"
-kona-gossip = { git = "https://github.com/ethereum-optimism/optimism", package = "kona-gossip", tag = "kona-node/v1.2.9", default-features = false }
-libp2p = { version = "0.56.0", features = [
-  "tcp",
-  "dns",
-  "gossipsub",
-  "request-response",
-  "ping",
-  "identify",
-  "noise",
-  "yamux",
-  "macros",
-  "tokio",
-] }
-lru = "0.12"
+jsonwebtoken = { workspace = true }
+kona-gossip = { workspace = true }
+libp2p = { workspace = true }
 metrics = { workspace = true }
-preconfirmation-net = { path = "../../../preconfirmation-p2p/crates/net" }
 protocol = { path = "../protocol" }
-rand = { workspace = true }
 rpc = { path = "../rpc" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-snap = "1.1"
-ssz = { package = "ethereum_ssz", version = "0.9.1" }
+snap = { workspace = true }
+ssz = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]

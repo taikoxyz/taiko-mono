@@ -1,8 +1,6 @@
 //! Helpers for constructing execution payloads from preconfirmation inputs.
 
-use alethia_reth_consensus::eip4396::{
-    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
-};
+use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
     builder::payload_id_taiko,
@@ -11,15 +9,16 @@ use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{Address, B256, Bytes, U256, aliases::U48};
 use alloy_provider::Provider;
 use alloy_rpc_types::Header as RpcHeader;
-use alloy_rpc_types_engine::PayloadAttributes as EthPayloadAttributes;
+use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
 use preconfirmation_types::uint256_to_u256;
 
 use super::{PreconfirmationInput, traits::BlockHeaderProvider};
 use crate::{Result, error::DriverApiError};
 use protocol::shasta::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, encode_extra_data, encode_tx_list,
-    payload_id_to_bytes,
+    PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash,
+    constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
+    encode_tx_list, payload_id_to_bytes,
 };
 
 #[async_trait]
@@ -62,8 +61,10 @@ async fn compute_base_fee_per_gas(
     let grandparent_header =
         l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
 
-    Ok(calculate_next_block_eip4396_base_fee(
-        &parent_header.inner,
+    Ok(calculate_next_block_eip4396_base_fee_from_parent_values(
+        parent_header.inner.number,
+        parent_header.inner.gas_limit,
+        parent_header.inner.gas_used,
         parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
         parent_base_fee_per_gas,
         min_base_fee_to_clamp,
@@ -93,7 +94,7 @@ pub async fn build_taiko_payload_attributes(
     let fee_recipient = Address::from_slice(preconf.coinbase.as_ref());
     let parent_block_number = block_number.saturating_sub(1);
     let parent_header = l2_provider.header_by_number(parent_block_number).await?;
-    let mix_hash = calculate_shasta_difficulty(
+    let mix_hash = calculate_shasta_mix_hash(
         B256::from(parent_header.inner.difficulty.to_be_bytes::<32>()),
         block_number,
     );
@@ -124,6 +125,7 @@ pub async fn build_taiko_payload_attributes(
         suggested_fee_recipient: fee_recipient,
         withdrawals: Some(Vec::new()),
         parent_beacon_block_root: None,
+        slot_number: None,
     };
 
     let l1_origin = RpcL1Origin {
@@ -232,8 +234,8 @@ mod tests {
         )
         .await
         .expect("payload");
-        let parent_difficulty = B256::from(parent_header.inner.difficulty.to_be_bytes::<32>());
-        let expected_mix_hash = calculate_shasta_difficulty(parent_difficulty, 5);
+        let parent_mix_hash = B256::from(parent_header.inner.difficulty.to_be_bytes::<32>());
+        let expected_mix_hash = calculate_shasta_mix_hash(parent_mix_hash, 5);
         let transactions = vec![Bytes::from(vec![0x01, 0x02])];
         let tx_list = encode_tx_list(&transactions);
         let extra_data = encode_extra_data(basefee_sharing_pctg, 7); // proposal_id = 7
@@ -251,6 +253,7 @@ mod tests {
             suggested_fee_recipient: Address::from([1u8; 20]),
             withdrawals: Some(vec![]),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
         let expected_l1_origin = RpcL1Origin {
             block_id: U256::from(5),

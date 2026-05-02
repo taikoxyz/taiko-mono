@@ -25,18 +25,6 @@ pub enum WhitelistPreconfirmationDriverError {
     /// Signature validation failed.
     #[error("signature validation failed: {0}")]
     InvalidSignature(String),
-    /// Envelope insertion produced an unexpected hash.
-    #[error(
-        "inserted block hash mismatch at block {block_number}: expected {expected}, got {actual}"
-    )]
-    InsertedBlockHashMismatch {
-        /// Block number.
-        block_number: u64,
-        /// Expected hash.
-        expected: alloy_primitives::B256,
-        /// Actual hash.
-        actual: alloy_primitives::B256,
-    },
     /// Missing inserted block after successful submission.
     #[error("missing inserted block at number {0}")]
     MissingInsertedBlock(u64),
@@ -66,11 +54,6 @@ pub enum WhitelistPreconfirmationDriverError {
         /// Underlying beacon initialization error description.
         reason: String,
     },
-    /// P2P sequencer allowlist must not be empty unless allow-all mode is enabled.
-    #[error(
-        "p2p sequencer allowlist must contain at least one address or --p2p.allow-all-sequencers must be set"
-    )]
-    MissingSequencerAddressList,
     /// Signing error.
     #[error("signing error: {0}")]
     Signing(String),

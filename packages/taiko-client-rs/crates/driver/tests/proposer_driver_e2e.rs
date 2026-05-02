@@ -2,9 +2,10 @@
 
 use std::{sync::Arc, time::Duration};
 
+use alloy::consensus::BlobTransactionSidecarVariant;
 use alloy_primitives::U256;
 use alloy_provider::Provider;
-use alloy_rpc_types::{Log, TransactionRequest};
+use alloy_rpc_types::Log;
 use alloy_sol_types::SolEvent;
 use anyhow::{Context, Result, anyhow, ensure};
 use bindings::inbox::Inbox::Proposed;
@@ -13,7 +14,7 @@ use driver::{
     derivation::{DerivationPipeline, ShastaDerivationPipeline},
     sync::{SyncStage, engine::PayloadApplier, event::EventSyncer},
 };
-use proposer::transaction_builder::ShastaProposalTransactionBuilder;
+use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
 use rpc::{
     blob::BlobDataSource,
     client::{Client, ClientConfig, ClientWithWallet},
@@ -22,7 +23,7 @@ use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 use tokio::spawn;
-use tracing::warn;
+use tracing::{info, warn};
 
 fn client_config(env: &ShastaEnv) -> ClientConfig {
     ClientConfig {
@@ -49,10 +50,11 @@ fn decode_proposal_id(log: &Log) -> Result<u64> {
 /// Submits a proposal transaction and returns the proposal ID and log.
 async fn submit_proposal(
     proposer: &ClientWithWallet,
-    request: TransactionRequest,
+    request: BuiltProposalTx,
     inbox: alloy_primitives::Address,
 ) -> Result<(u64, Log)> {
-    let pending_tx = proposer.l1_provider.send_transaction(request).await?;
+    let pending_tx =
+        proposer.l1_provider.send_transaction(request.to_transaction_request()).await?;
     let receipt = pending_tx.get_receipt().await?;
     ensure!(receipt.status(), "proposal transaction failed");
     let proposal_log: Log = receipt
@@ -80,23 +82,24 @@ where
 
     loop {
         let target_block = driver_client
-            .last_block_id_by_batch_id(U256::from(expected_proposal_id))
+            .last_certain_block_id_by_batch_id(U256::from(expected_proposal_id))
             .await?
             .map(|block_number| block_number.to::<u64>());
         let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
-        if matches!(
-            (target_block, confirmed_head),
-            (Some(target_block), Some(head_block)) if head_block >= target_block
-        ) {
-            let l2_head = driver_client.l2_provider.get_block_number().await?;
-            if l2_head < l2_head_before {
-                warn!(
-                    l2_head_before,
-                    l2_head, "L2 head moved backward while waiting for proposal processing"
-                );
+        if let (Some(target_block), Some(head_block)) = (target_block, confirmed_head) {
+            if head_block >= target_block {
+                let l2_head = driver_client.l2_provider.get_block_number().await?;
+                if l2_head < l2_head_before {
+                    warn!(
+                        l2_head_before,
+                        l2_head, "L2 head moved backward while waiting for proposal processing"
+                    );
+                }
+                if l2_head >= target_block {
+                    return Ok(l2_head);
+                }
             }
-            return Ok(l2_head);
-        }
+        };
 
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         if remaining.is_zero() {
@@ -119,9 +122,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
     let request = builder.build(vec![Vec::new()], None).await?;
-    let sidecar =
-        request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
-    beacon_stub.set_default_blob_sidecar(sidecar);
+    beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     // Start event syncer before submitting the proposal.
     let driver_config = DriverConfig::new(
@@ -181,9 +182,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
     let request = builder.build(vec![Vec::new()], None).await?;
-    let sidecar =
-        request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
-    beacon_stub.set_default_blob_sidecar(sidecar);
+    beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     let driver_config = DriverConfig::new(
         client_config(env),
@@ -207,7 +206,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let (proposal_id, proposal_log) =
         submit_proposal(&proposer, request, env.inbox_address).await?;
 
-    let _l2_head_after = wait_for_proposal_processed(
+    let l2_head_after = wait_for_proposal_processed(
         &event_syncer,
         &driver_client,
         proposal_id,
@@ -222,6 +221,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         .await?
         .ok_or_else(|| anyhow!("missing canonical block after proposal processing"))?;
     let canonical_number = canonical_block.number();
+    info!(canonical_number, l2_head_after, "captured canonical block after first processing");
     let canonical_hash = canonical_block.hash();
 
     // Re-process the same proposal via the derivation pipeline.
@@ -267,9 +267,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
     let request = builder.build(vec![Vec::new()], None).await?;
-    let sidecar =
-        request.sidecar.clone().context("expected blob sidecar for proposal transaction")?;
-    beacon_stub.set_default_blob_sidecar(sidecar);
+    beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     let driver_config = DriverConfig::new(
         client_config(env),
@@ -323,4 +321,9 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     beacon_stub.shutdown().await?;
 
     Ok(())
+}
+
+/// Return the blob sidecar needed by beacon-based derivation tests.
+fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVariant {
+    request.blob_sidecar()
 }

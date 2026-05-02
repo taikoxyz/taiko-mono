@@ -1,5 +1,7 @@
 //! Payload build/signing helpers used by `build_preconf_block`.
 
+use crate::codec::decompress_tx_list;
+
 use super::*;
 
 impl<P> WhitelistApiService<P>
@@ -13,7 +15,7 @@ where
         prev_randao: B256,
         signature: [u8; 65],
     ) -> Result<TaikoPayloadAttributes> {
-        let tx_list = crate::tx_list::decompress_tx_list(request.transactions.as_ref())?;
+        let tx_list = decompress_tx_list(request.transactions.as_ref())?;
 
         let block_metadata = TaikoBlockMetadata {
             beneficiary: request.fee_recipient,
@@ -30,6 +32,7 @@ where
             suggested_fee_recipient: request.fee_recipient,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
 
         let mut payload = TaikoPayloadAttributes {
@@ -93,8 +96,8 @@ where
             )));
         }
 
-        let parent_difficulty = B256::from(parent.header.difficulty.to_be_bytes::<32>());
-        Ok(calculate_shasta_difficulty(parent_difficulty, block_number))
+        let parent_mix_hash = B256::from(parent.header.difficulty.to_be_bytes::<32>());
+        Ok(calculate_shasta_mix_hash(parent_mix_hash, block_number))
     }
 
     /// Validate request payload shape before expensive insertion and signing operations.

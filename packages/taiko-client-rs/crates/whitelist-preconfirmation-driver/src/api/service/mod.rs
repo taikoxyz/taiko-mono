@@ -7,19 +7,20 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, B256, Bloom, FixedBytes, U256};
+use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
-use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes};
+use alloy_rpc_types_engine::ExecutionPayloadV1;
+use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use metrics::histogram;
 use protocol::{
-    shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, payload_id_to_bytes},
+    shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, payload_id_to_bytes},
     signer::FixedKSigner,
 };
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
+use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
 
 use crate::{
@@ -27,7 +28,7 @@ use crate::{
         WhitelistApi,
         types::{
             BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
-            LookaheadStatus, SlotRange, WhitelistStatus,
+            WhitelistStatus,
         },
     },
     cache::SharedPreconfCacheState,
@@ -35,19 +36,16 @@ use crate::{
     error::{Result, WhitelistPreconfirmationDriverError},
     importer::validate_execution_payload_for_preconf,
     network::NetworkCommand,
-    whitelist_fetcher::WhitelistSequencerFetcher,
+    operator_set::SharedOperatorSet,
 };
 
-mod api_impl;
-mod lookahead;
+mod handlers;
 mod payload_build;
 mod status;
 
 #[cfg(test)]
 mod tests;
 
-/// Default handover-skip slots used for sequencing window split.
-const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 
@@ -70,14 +68,13 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
-    /// Fetcher that provides cached, retry-safe whitelist operator lookups.
-    sequencer_fetcher: Mutex<WhitelistSequencerFetcher<P>>,
+    /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
+    /// build requests when this node's own P2P signer has been deregistered on-chain.
+    operator_set: SharedOperatorSet,
     /// Local peer ID string.
     local_peer_id: String,
     /// Highest unsafe payload block ID tracked by this node (shared with importer).
     highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
-    /// Cached lookahead status used for fee-recipient validation.
-    lookahead_status: RwLock<Option<LookaheadStatus>>,
     /// Shared cache state used to back `/status` and EOS visibility.
     cache_state: SharedPreconfCacheState,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
@@ -99,8 +96,8 @@ where
     pub(crate) signer: FixedKSigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
-    /// Pre-built fetcher for cached whitelist operator lookups.
-    pub(crate) sequencer_fetcher: WhitelistSequencerFetcher<P>,
+    /// Shared operator set used to gate the build API on the node's own whitelist status.
+    pub(crate) operator_set: SharedOperatorSet,
     /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
     pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Network command sender for gossip publishing.
@@ -123,7 +120,7 @@ where
             chain_id,
             signer,
             beacon_client,
-            sequencer_fetcher,
+            operator_set,
             highest_unsafe_l2_payload_block_id,
             network_command_tx,
             cache_state,
@@ -137,10 +134,9 @@ where
             chain_id,
             signer,
             beacon_client,
-            sequencer_fetcher: Mutex::new(sequencer_fetcher),
+            operator_set,
             local_peer_id,
             highest_unsafe_l2_payload_block_id,
-            lookahead_status: RwLock::new(None),
             cache_state,
             eos_notification_tx,
             network_command_tx,

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -56,13 +56,13 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	ctx := context.Background()
 
 	meta := s.ProposeAndInsertValidBlock(s.p, s.s)
-	s.True(meta.IsPacaya())
-	s.Equal(1, len(meta.Pacaya().GetBlocks()))
+	s.True(meta.IsShasta())
+	s.NotNil(meta.Shasta())
 
-	block, err := s.RPCClient.L2.BlockByNumber(ctx, new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
+	block, err := s.RPCClient.L2.BlockByNumber(ctx, nil)
 	s.Nil(err)
 
-	lastVerifiedBlockInfo, err := s.s.rpc.GetLastVerifiedTransitionPacaya(ctx)
+	coreState, err := s.s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	s.Nil(err)
 
 	txListBytes, err := rlp.EncodeToBytes(block.Transactions())
@@ -70,32 +70,32 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 
 	parent, err := s.RPCClient.L2ParentByCurrentBlockID(
 		context.Background(),
-		new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
+		block.Number(),
 	)
 	s.Nil(err)
 
 	// Reset the L2 chain.
 	s.SetHead(common.Big1)
 
-	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
+	mixHash, err := encoding.CalculateShastaMixHash(parent.Difficulty, block.Number())
 	s.Nil(err)
 
 	attributes := &engine.PayloadAttributes{
-		Timestamp:             meta.Pacaya().GetLastBlockTimestamp(),
-		Random:                common.BytesToHash(difficulty),
-		SuggestedFeeRecipient: meta.GetCoinbase(),
+		Timestamp:             block.Time(),
+		Random:                common.BytesToHash(mixHash),
+		SuggestedFeeRecipient: block.Coinbase(),
 		Withdrawals:           make([]*types.Withdrawal, 0),
 		BlockMetadata: &engine.BlockMetadata{
-			Beneficiary: meta.GetCoinbase(),
-			GasLimit:    uint64(meta.Pacaya().GetGasLimit()) + consensus.AnchorV3V4GasLimit,
-			Timestamp:   meta.Pacaya().GetLastBlockTimestamp(),
+			Beneficiary: block.Coinbase(),
+			GasLimit:    block.GasLimit(),
+			Timestamp:   block.Time(),
 			TxList:      txListBytes,
-			MixHash:     common.BytesToHash(difficulty),
-			ExtraData:   meta.Pacaya().GetExtraData(),
+			MixHash:     common.BytesToHash(mixHash),
+			ExtraData:   block.Extra(),
 		},
 		BaseFeePerGas: block.BaseFee(),
 		L1Origin: &rawdb.L1Origin{
-			BlockID:       new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()),
+			BlockID:       block.Number(),
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
 			L1BlockHeight: meta.GetRawBlockHeight(),
 			L1BlockHash:   meta.GetRawBlockHash(),
@@ -130,8 +130,8 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	step3 := func(payload *engine.ExecutableData) {
 		fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(ctx, &engine.ForkchoiceStateV1{
 			HeadBlockHash:      payload.BlockHash,
-			SafeBlockHash:      lastVerifiedBlockInfo.Ts.BlockHash,
-			FinalizedBlockHash: lastVerifiedBlockInfo.Ts.BlockHash,
+			SafeBlockHash:      common.Hash(coreState.LastFinalizedBlockHash),
+			FinalizedBlockHash: common.Hash(coreState.LastFinalizedBlockHash),
 		}, nil)
 		s.Nil(err)
 		s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
@@ -207,7 +207,7 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	s.True(balanceAfter.Cmp(balance) > 0)
 
 	var hasNoneAnchorTxs bool
-	pacayaCfg, err := s.RPCClient.GetProtocolConfigs(nil)
+	shastaCfg, err := s.RPCClient.ShastaClients.Inbox.GetConfig(nil)
 	s.Nil(err)
 
 	for i := headBefore + 1; i <= headAfter; i++ {
@@ -226,7 +226,7 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 			s.Nil(err)
 
 			fee := new(big.Int).Mul(block.BaseFee(), new(big.Int).SetUint64(receipt.GasUsed))
-			sharingPctg := uint64(pacayaCfg.BaseFeeConfig().SharingPctg)
+			sharingPctg := uint64(shastaCfg.BasefeeSharingPctg)
 
 			feeCoinbase := new(big.Int).Div(
 				new(big.Int).Mul(fee, new(big.Int).SetUint64(sharingPctg)),
@@ -241,100 +241,30 @@ func (s *EventSyncerTestSuite) TestTreasuryIncome() {
 	s.Zero(balanceAfter.Cmp(balance))
 }
 
-func (s *EventSyncerTestSuite) TestKnownBatchSendsProposal() {
-	ctx := context.Background()
-
-	// Record L1 head before proposing so we know where to reset the cursor.
-	l1HeadBefore, err := s.RPCClient.L1.HeaderByNumber(ctx, nil)
-	s.Nil(err)
-
-	// Insert blocks using the default syncer (no channel) — normal insertion path.
-	s.ProposeAndInsertValidBlock(s.p, s.s)
-
-	// Create a new syncer WITH a proposal channel to capture known-batch proposals.
-	// This simulates a restart: fresh syncer state, but blocks already in canonical chain.
-	proposalCh := make(chan *encoding.LastSeenProposal, 10)
-	state2, err := state.New(ctx, s.RPCClient)
-	s.Nil(err)
-
-	syncer2, err := NewSyncer(
-		ctx,
-		s.RPCClient,
-		state2,
-		beaconsync.NewSyncProgressTracker(s.RPCClient.L2, 1*time.Hour),
-		s.ParseL1HttpURLFromEnv(),
-		proposalCh,
-	)
-	s.Nil(err)
-
-	// Reset L1Current to before the proposal to force reprocessing of the same events.
-	state2.SetL1Current(l1HeadBefore)
-
-	// Process L1 blocks — should hit the known-batch fast path since blocks exist.
-	s.Nil(syncer2.ProcessL1Blocks(ctx))
-
-	// Wait for proposals while draining the channel.
-	// Known-batch proposals should have PreconfChainReorged=false (not a reorg)
-	// and a valid LastBlockID so the preconf server can advance its canonical tip.
-	proposalCount := 0
-	deadline := time.After(1 * time.Second)
-	for {
-		select {
-		case proposal := <-proposalCh:
-			s.False(proposal.PreconfChainReorged, "Known batch should not be marked as reorged")
-			s.Greater(proposal.LastBlockID, uint64(0))
-			proposalCount++
-		case <-deadline:
-			s.Greater(proposalCount, 0, "Expected at least one proposal from known-batch fast path")
-			return
-		}
-	}
-}
-
 func (s *EventSyncerTestSuite) initProposer() {
-	var (
-		l1ProposerPrivKey = s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
-		prop              = new(proposer.Proposer)
-	)
+	l1ProposerPrivKey := s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY")
+	p := new(proposer.Proposer)
 
 	jwtSecret, err := jwt.ParseSecretFromFile(os.Getenv("JWT_SECRET"))
 	s.Nil(err)
 	s.NotEmpty(jwtSecret)
 
-	s.Nil(prop.InitFromConfig(context.Background(), &proposer.Config{
+	s.Nil(p.InitFromConfig(context.Background(), &proposer.Config{
 		ClientConfig: &rpc.ClientConfig{
-			L1Endpoint:                  os.Getenv("L1_WS"),
-			L2Endpoint:                  os.Getenv("L2_WS"),
-			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
-			JwtSecret:                   string(jwtSecret),
-			PacayaInboxAddress:          common.HexToAddress(os.Getenv("PACAYA_INBOX")),
-			ShastaInboxAddress:          common.HexToAddress(os.Getenv("SHASTA_INBOX")),
-			TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
-			ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
-			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
-			TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
-			TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+			L1Endpoint:         os.Getenv("L1_WS"),
+			L2Endpoint:         os.Getenv("L2_WS"),
+			L2EngineEndpoint:   os.Getenv("L2_AUTH"),
+			JwtSecret:          string(jwtSecret),
+			InboxAddress:       common.HexToAddress(os.Getenv("INBOX")),
+			TaikoAnchorAddress: common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(os.Getenv("L2_SUGGESTED_FEE_RECIPIENT")),
+		MinProposingInternal:    0,
 		ProposeInterval:         1024 * time.Hour,
 		MaxTxListsPerEpoch:      1,
+		ProposeBatchTxGasLimit:  10_000_000,
 		TxmgrConfigs: &txmgr.CLIConfig{
-			L1RPCURL:                  os.Getenv("L1_WS"),
-			NumConfirmations:          0,
-			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
-			PrivateKey:                common.Bytes2Hex(crypto.FromECDSA(l1ProposerPrivKey)),
-			FeeLimitMultiplier:        txmgr.DefaultBatcherFlagValues.FeeLimitMultiplier,
-			FeeLimitThresholdGwei:     txmgr.DefaultBatcherFlagValues.FeeLimitThresholdGwei,
-			MinBaseFeeGwei:            txmgr.DefaultBatcherFlagValues.MinBaseFeeGwei,
-			MinTipCapGwei:             txmgr.DefaultBatcherFlagValues.MinTipCapGwei,
-			ResubmissionTimeout:       txmgr.DefaultBatcherFlagValues.ResubmissionTimeout,
-			ReceiptQueryInterval:      1 * time.Second,
-			NetworkTimeout:            txmgr.DefaultBatcherFlagValues.NetworkTimeout,
-			TxSendTimeout:             txmgr.DefaultBatcherFlagValues.TxSendTimeout,
-			TxNotInMempoolTimeout:     txmgr.DefaultBatcherFlagValues.TxNotInMempoolTimeout,
-		},
-		PrivateTxmgrConfigs: &txmgr.CLIConfig{
 			L1RPCURL:                  os.Getenv("L1_WS"),
 			NumConfirmations:          0,
 			SafeAbortNonceTooLowCount: txmgr.DefaultBatcherFlagValues.SafeAbortNonceTooLowCount,
@@ -351,7 +281,7 @@ func (s *EventSyncerTestSuite) initProposer() {
 		},
 	}, nil, nil))
 
-	s.p = prop
+	s.p = p
 }
 
 func TestEventSyncerTestSuite(t *testing.T) {

@@ -16,7 +16,7 @@ on:
       - release-please--branches--**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: taiko-client-rs-test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -96,7 +96,7 @@ jobs:
 
     steps:
       - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.13.0
+        uses: styfle/cancel-workflow-action@0.13.1
         with:
           access_token: ${{ github.token }}
 
@@ -198,7 +198,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         with:
           version: 9
           run_install: false

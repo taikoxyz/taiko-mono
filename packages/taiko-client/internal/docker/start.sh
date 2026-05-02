@@ -15,24 +15,30 @@ case "$L2_NODE" in
   l2_geth)
     DOCKER_SERVICE_LIST=("l1_node" "l2_geth")
     ;;
+  l2_reth)
+    DOCKER_SERVICE_LIST=("l1_node" "l2_reth")
+    ;;
   l2_nmc)
     DOCKER_SERVICE_LIST=("l1_node" "l2_nmc")
-    # For NMC, we need to dynamically inject the shastaTimestamp into the chainspec
+    # For NMC, we need to dynamically inject the unzenTimestamp into the chainspec
     # because Nethermind uses a static chainspec file unlike taiko-geth which uses CLI flags.
     # We use a template file to avoid modifying the original and to ensure clean state on each run.
     NMC_CHAINSPEC_DIR="$PROJECT_ROOT/internal/docker/nodes/nmc/chainspec"
     NMC_CHAINSPEC_TEMPLATE="${NMC_CHAINSPEC_DIR}/taiko-devnet.template.json"
     NMC_CHAINSPEC="${NMC_CHAINSPEC_DIR}/taiko-devnet.json"
     
-    if [ -n "${TAIKO_INTERNAL_SHASTA_TIME:-}" ] && [ -f "$NMC_CHAINSPEC_TEMPLATE" ]; then
-      SHASTA_HEX=$(printf "0x%x" "$TAIKO_INTERNAL_SHASTA_TIME")
-      echo "Generating NMC chainspec with shastaTimestamp=$SHASTA_HEX (decimal: $TAIKO_INTERNAL_SHASTA_TIME)"
-      # Generate chainspec from template with dynamic shastaTimestamp
-      jq --arg ts "$SHASTA_HEX" '.engine.Taiko.shastaTimestamp = $ts' "$NMC_CHAINSPEC_TEMPLATE" > "$NMC_CHAINSPEC"
+    if [ -f "$NMC_CHAINSPEC_TEMPLATE" ]; then
+      SHASTA_HEX=$(printf "0x%x" 0)
+      UNZEN_HEX=$(printf "0x%x" 0)
+      echo "Generating NMC chainspec with shastaTimestamp=$SHASTA_HEX (Shasta active from genesis), unzenTimestamp=$UNZEN_HEX (Unzen active from genesis)"
+      # Generate chainspec from template with dynamic shastaTimestamp and unzenTimestamp
+      jq --arg shasta "$SHASTA_HEX" --arg unzen "$UNZEN_HEX" \
+        '.engine.Taiko.shastaTimestamp = $shasta | .engine.Taiko.unzenTimestamp = $unzen' \
+        "$NMC_CHAINSPEC_TEMPLATE" > "$NMC_CHAINSPEC"
     fi
     ;;
   *)
-    echo "Error: Unknown L2_NODE: '$L2_NODE'. Supported values: l2_geth, l2_nmc"
+    echo "Error: Unknown L2_NODE: '$L2_NODE'. Supported values: l2_geth, l2_reth, l2_nmc"
     exit 1
     ;;
 esac

@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - "**/README.md"
-      - docs/**
 
 jobs:
   check-links:

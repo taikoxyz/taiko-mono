@@ -92,6 +92,7 @@ where
         let block_number = block.header.number;
         let block_hash = block.hash();
         let tx_root = block.header.transactions_root;
+        let header_difficulty = block.header.difficulty;
         let parent_hash = block.header.parent_hash;
         let withdrawals_root = block.header.withdrawals_root;
         debug!(block_number, ?block_hash, "submitting checkpoint block to execution engine");
@@ -109,6 +110,9 @@ where
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: tx_root,
             withdrawals_hash: withdrawals_root,
+            // Checkpoint import bypasses the local getPayload/newPayload round trip, so preserve
+            // the sealed block's header difficulty explicitly in the Taiko sidecar.
+            header_difficulty: Some(header_difficulty),
             taiko_block: Some(true),
         };
 

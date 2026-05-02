@@ -1,78 +1,191 @@
-//! Swarm bootstrap and main network loop orchestration.
+//! Network driver for the whitelist preconfirmation gossipsub stack.
+//!
+//! Contains type definitions, swarm bootstrap, transport helpers, the network
+//! runtime event loop, gossipsub event handling, and decode/metrics helpers.
 
-use std::{
-    collections::{HashMap, HashSet},
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{collections::HashSet, net::SocketAddr, sync::Arc, time::Instant};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
-    Multiaddr, PeerId, StreamProtocol, Swarm, Transport, core::upgrade, dns, identify, identity,
-    noise, ping, request_response, tcp, yamux,
+    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identity, noise, tcp, yamux,
 };
-use preconfirmation_net::{P2pConfig, spawn_discovery};
-use rand::seq::IteratorRandom;
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::{debug, warn};
 
 use super::{
-    bootnodes::{classify_bootnodes, dial_once, recv_discovered_multiaddr},
-    event_loop::{forward_event, handle_swarm_event},
-    gossip::build_gossipsub,
-    inbound::GossipsubInboundState,
-    types::{Behaviour, BehaviourEvent, NetworkCommand, NetworkEvent, Topics, WhitelistNetwork},
+    behaviour::{BehaviourEvent, TaikoBehaviour, build_behaviour},
+    discovery::{classify_bootnodes, init_discovery, recv_discovered_multiaddr},
+    handler::GossipsubInboundState,
+    topics::Topics,
 };
 use crate::{
     codec::{
-        DecodedUnsafePayload, WHITELIST_REQRESP_PROTOCOL, WhitelistExecutionPayloadEnvelope,
-        encode_envelope_ssz, encode_eos_request_message, encode_unsafe_payload_message,
-        encode_unsafe_request_message, encode_unsafe_response_message,
+        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_envelope_ssz,
+        decode_unsafe_payload_signature, decode_unsafe_response_message, encode_envelope_ssz,
+        encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
+        encode_unsafe_response_message,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
+    operator_set::SharedOperatorSet,
 };
 
-/// Build whitelist topics and subscribe gossipsub to all required channels.
-fn build_topics_and_gossipsub(chain_id: u64) -> Result<(Topics, libp2p::gossipsub::Behaviour)> {
-    let topics = Topics::new(chain_id);
-    let mut gossipsub = build_gossipsub()?;
-    gossipsub
-        .subscribe(&topics.preconf_blocks)
-        .map_err(WhitelistPreconfirmationDriverError::p2p)?;
-    gossipsub
-        .subscribe(&topics.preconf_request)
-        .map_err(WhitelistPreconfirmationDriverError::p2p)?;
-    gossipsub
-        .subscribe(&topics.preconf_response)
-        .map_err(WhitelistPreconfirmationDriverError::p2p)?;
-    gossipsub.subscribe(&topics.eos_request).map_err(WhitelistPreconfirmationDriverError::p2p)?;
-
-    Ok((topics, gossipsub))
+/// Network event emitted by the whitelist preconfirmation gossipsub stack.
+#[derive(Debug)]
+pub(crate) enum NetworkEvent {
+    /// Incoming `preconfBlocks` payload.
+    UnsafePayload {
+        /// Peer that propagated the message.
+        from: PeerId,
+        /// Decoded payload.
+        payload: DecodedUnsafePayload,
+    },
+    /// Incoming `responsePreconfBlocks` payload.
+    UnsafeResponse {
+        /// Peer that propagated the message.
+        from: PeerId,
+        /// Decoded envelope.
+        envelope: WhitelistExecutionPayloadEnvelope,
+    },
+    /// Incoming `requestPreconfBlocks` message.
+    UnsafeRequest {
+        /// Peer that propagated the message.
+        from: PeerId,
+        /// Requested block hash.
+        hash: B256,
+    },
+    /// Incoming `requestEndOfSequencingPreconfBlocks` message.
+    EndOfSequencingRequest {
+        /// Peer that propagated the message.
+        from: PeerId,
+        /// Requested epoch.
+        epoch: u64,
+    },
 }
 
-/// Assemble the libp2p behaviour stack from key material and gossipsub.
-fn build_behaviour(
-    local_key: &identity::Keypair,
-    gossipsub: libp2p::gossipsub::Behaviour,
-) -> Behaviour {
-    let reqresp = request_response::Behaviour::new(
-        [(
-            StreamProtocol::new(WHITELIST_REQRESP_PROTOCOL),
-            request_response::ProtocolSupport::Full,
-        )],
-        request_response::Config::default(),
-    );
+/// Outbound commands for the whitelist preconfirmation network.
+#[derive(Debug)]
+pub(crate) enum NetworkCommand {
+    /// Publish an unsafe-block request to the `requestPreconfBlocks` topic.
+    PublishUnsafeRequest {
+        /// Requested block hash.
+        hash: B256,
+    },
+    /// Publish an unsafe-block response to the `responsePreconfBlocks` topic.
+    PublishUnsafeResponse {
+        /// Envelope to publish.
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    },
+    /// Publish a signed unsafe payload to the `preconfBlocks` topic.
+    PublishUnsafePayload {
+        /// 65-byte secp256k1 signature.
+        signature: [u8; 65],
+        /// Envelope to publish.
+        envelope: Arc<WhitelistExecutionPayloadEnvelope>,
+    },
+    /// Publish an end-of-sequencing request to the `requestEndOfSequencingPreconfBlocks` topic.
+    PublishEndOfSequencingRequest {
+        /// Epoch number.
+        epoch: u64,
+    },
+    /// Shutdown the network loop.
+    Shutdown,
+}
 
-    Behaviour {
-        gossipsub,
-        reqresp,
-        ping: ping::Behaviour::new(ping::Config::new()),
-        identify: identify::Behaviour::new(identify::Config::new(
-            "/taiko/whitelist-preconfirmation/1.0.0".to_string(),
-            local_key.public(),
-        )),
+/// Handle to the running whitelist network.
+pub(crate) struct WhitelistNetwork {
+    /// Local peer id.
+    pub(crate) local_peer_id: PeerId,
+    /// Inbound event stream.
+    pub(crate) event_rx: mpsc::Receiver<NetworkEvent>,
+    /// Outbound command sender.
+    pub(crate) command_tx: mpsc::Sender<NetworkCommand>,
+    /// Background task running the swarm.
+    pub(crate) handle: JoinHandle<Result<()>>,
+}
+
+/// Configuration for the whitelist preconfirmation P2P network.
+#[derive(Debug, Clone)]
+pub struct NetworkConfig {
+    /// Enable TCP transport.
+    pub enable_tcp: bool,
+    /// TCP listen address.
+    pub listen_addr: SocketAddr,
+    /// Bootnodes as ENR or multiaddr strings.
+    pub bootnodes: Vec<String>,
+    /// Static peers to dial on startup.
+    pub pre_dial_peers: Vec<Multiaddr>,
+    /// Enable discv5 peer discovery.
+    pub enable_discovery: bool,
+    /// UDP listen address for discv5 discovery.
+    pub discovery_listen: SocketAddr,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            enable_tcp: true,
+            listen_addr: SocketAddr::from(([0, 0, 0, 0], 9222)),
+            bootnodes: Vec::new(),
+            pre_dial_peers: Vec::new(),
+            enable_discovery: false,
+            discovery_listen: SocketAddr::from(([0, 0, 0, 0], 9223)),
+        }
+    }
+}
+
+impl WhitelistNetwork {
+    /// Spawn the whitelist preconfirmation network task.
+    pub(crate) async fn spawn(
+        chain_id: u64,
+        cfg: NetworkConfig,
+        operator_set: SharedOperatorSet,
+    ) -> Result<Self> {
+        let NetworkConfig {
+            enable_tcp,
+            listen_addr,
+            bootnodes,
+            pre_dial_peers,
+            enable_discovery,
+            discovery_listen,
+        } = cfg;
+
+        // Keep the libp2p identity ephemeral until the Rust driver grows an
+        // explicit persisted node-key configuration. This avoids introducing a
+        // second on-disk key path alongside the existing payload signer.
+        let local_key = identity::Keypair::generate_ed25519();
+        let local_peer_id = local_key.public().to_peer_id();
+
+        let topics = Topics::new(chain_id);
+        let behaviour = build_behaviour(&local_key, &topics)?;
+        let mut swarm = build_swarm(&local_key, local_peer_id, behaviour)?;
+        configure_listen_addr(&mut swarm, enable_tcp, listen_addr)?;
+
+        let bootnodes = classify_bootnodes(bootnodes);
+        let dialed_addrs = dial_initial_peers(&mut swarm, pre_dial_peers, bootnodes.dial_addrs);
+        let discovery_rx =
+            init_discovery(enable_discovery, discovery_listen, bootnodes.discovery_enrs).await;
+
+        let (event_tx, event_rx) = mpsc::channel(1024);
+        let (command_tx, command_rx) = mpsc::channel(512);
+
+        let inbound_validation_state = GossipsubInboundState::new(chain_id, operator_set);
+
+        let runtime = NetworkRuntime {
+            swarm,
+            topics,
+            event_tx,
+            command_rx,
+            discovery_rx,
+            dialed_addrs,
+            inbound_validation_state,
+            local_peer_id_for_events: local_peer_id,
+        };
+
+        let handle = tokio::spawn(async move { runtime.run().await });
+
+        Ok(Self { local_peer_id, event_rx, command_tx, handle })
     }
 }
 
@@ -80,8 +193,8 @@ fn build_behaviour(
 fn build_swarm(
     local_key: &identity::Keypair,
     local_peer_id: PeerId,
-    behaviour: Behaviour,
-) -> Result<Swarm<Behaviour>> {
+    behaviour: TaikoBehaviour,
+) -> Result<Swarm<TaikoBehaviour>> {
     let noise_config =
         noise::Config::new(local_key).map_err(WhitelistPreconfirmationDriverError::p2p)?;
     let base_tcp = tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
@@ -103,7 +216,7 @@ fn build_swarm(
 
 /// Configure the TCP listen address when TCP serving is enabled.
 fn configure_listen_addr(
-    swarm: &mut Swarm<Behaviour>,
+    swarm: &mut Swarm<TaikoBehaviour>,
     enable_tcp: bool,
     listen_addr: SocketAddr,
 ) -> Result<()> {
@@ -124,9 +237,39 @@ fn configure_listen_addr(
     Ok(())
 }
 
+/// Dial a peer address once.
+fn dial_once(
+    swarm: &mut Swarm<TaikoBehaviour>,
+    dialed_addrs: &mut HashSet<Multiaddr>,
+    addr: Multiaddr,
+    source: &str,
+) {
+    if !dialed_addrs.insert(addr.clone()) {
+        debug!(%addr, source, "already dialed address; skipping");
+        return;
+    }
+
+    if let Err(err) = swarm.dial(addr.clone()) {
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
+            "source" => source.to_string(),
+            "result" => "failed",
+        )
+        .increment(1);
+        warn!(%addr, source, error = %err, "failed to dial address");
+    } else {
+        metrics::counter!(
+            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
+            "source" => source.to_string(),
+            "result" => "ok",
+        )
+        .increment(1);
+    }
+}
+
 /// Dial configured static peers and bootnode multiaddrs once each.
 fn dial_initial_peers(
-    swarm: &mut Swarm<Behaviour>,
+    swarm: &mut Swarm<TaikoBehaviour>,
     pre_dial_peers: Vec<Multiaddr>,
     bootnode_dial_addrs: Vec<Multiaddr>,
 ) -> HashSet<Multiaddr> {
@@ -143,36 +286,10 @@ fn dial_initial_peers(
     dialed_addrs
 }
 
-/// Initialize optional discovery receiver based on config and available ENR bootnodes.
-fn init_discovery_receiver(
-    enable_discovery: bool,
-    discovery_listen: SocketAddr,
-    discovery_enrs: Vec<String>,
-) -> Option<mpsc::Receiver<Multiaddr>> {
-    match (enable_discovery, discovery_enrs.is_empty()) {
-        (true, false) => spawn_discovery(discovery_listen, discovery_enrs)
-            .map_err(|err| {
-                warn!(error = %err, "failed to start whitelist preconfirmation discovery");
-            })
-            .ok(),
-        (true, true) => {
-            tracing::info!(
-                "discovery enabled but no ENR bootnodes provided; skipping discv5 bootstrap"
-            );
-            None
-        }
-        (false, false) => {
-            warn!(count = discovery_enrs.len(), "discovery is disabled; skipping ENR bootnodes");
-            None
-        }
-        (false, true) => None,
-    }
-}
-
 /// Runtime state machine that owns networking resources and processes loop inputs.
 struct NetworkRuntime {
     /// Live libp2p swarm.
-    swarm: Swarm<Behaviour>,
+    swarm: Swarm<TaikoBehaviour>,
     /// Topic bundle used for outbound publishing and inbound routing.
     topics: Topics,
     /// Channel used to forward validated network events to the importer.
@@ -187,11 +304,6 @@ struct NetworkRuntime {
     inbound_validation_state: GossipsubInboundState,
     /// Local peer id used by loopback payload events.
     local_peer_id_for_events: PeerId,
-    /// Stashed response channels so `SendDirectResponse` can look them up.
-    response_channels:
-        HashMap<request_response::InboundRequestId, request_response::ResponseChannel<Vec<u8>>>,
-    /// Pending outbound requests mapping response IDs back to block hashes.
-    pending_requests: HashMap<request_response::OutboundRequestId, B256>,
 }
 
 impl NetworkRuntime {
@@ -231,6 +343,9 @@ impl NetworkRuntime {
     /// Execute one outbound network command.
     async fn handle_command(&mut self, command: NetworkCommand) -> Result<()> {
         match command {
+            NetworkCommand::PublishUnsafeRequest { hash } => {
+                self.publish_unsafe_request(hash);
+            }
             NetworkCommand::PublishUnsafeResponse { envelope } => {
                 self.publish_unsafe_response(envelope);
             }
@@ -240,50 +355,32 @@ impl NetworkRuntime {
             NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
                 self.publish_end_of_sequencing_request(epoch);
             }
-            NetworkCommand::RequestBlock { hash } => {
-                self.request_block(hash);
-            }
-            NetworkCommand::SendDirectResponse { request_id, response_bytes } => {
-                self.send_direct_response(request_id, response_bytes);
-            }
-            NetworkCommand::Shutdown => {
-                // Shutdown is handled in `run_once`.
-            }
+            NetworkCommand::Shutdown => unreachable!("handled in run_once"),
         }
 
         Ok(())
     }
 
+    /// Publish a `requestPreconfBlocks` message.
+    fn publish_unsafe_request(&mut self, hash: B256) {
+        let payload = encode_unsafe_request_message(hash);
+        self.publish_to_gossipsub(
+            self.topics.preconf_request.clone(),
+            payload,
+            "request_preconf_blocks",
+            &format!("{hash}"),
+        );
+    }
+
     /// Publish a `responsePreconfBlocks` message.
     fn publish_unsafe_response(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
         let hash = envelope.execution_payload.block_hash;
-        match encode_unsafe_response_message(&envelope) {
-            Ok(payload) => {
-                if let Err(err) = self
-                    .swarm
-                    .behaviour_mut()
-                    .gossipsub
-                    .publish(self.topics.preconf_response.clone(), payload)
-                {
-                    record_outbound_publish("response_preconf_blocks", "publish_failed");
-                    warn!(
-                        hash = %hash,
-                        error = %err,
-                        "failed to publish whitelist preconfirmation response"
-                    );
-                } else {
-                    record_outbound_publish("response_preconf_blocks", "published");
-                }
-            }
-            Err(err) => {
-                record_outbound_publish("response_preconf_blocks", "encode_failed");
-                warn!(
-                    hash = %hash,
-                    error = %err,
-                    "failed to encode whitelist preconfirmation response"
-                );
-            }
-        }
+        self.encode_and_publish(
+            encode_unsafe_response_message(&envelope),
+            self.topics.preconf_response.clone(),
+            "response_preconf_blocks",
+            &format!("{hash}"),
+        );
     }
 
     /// Publish a `preconfBlocks` message and emit loopback event for local cache/import.
@@ -310,33 +407,12 @@ impl NetworkRuntime {
         // payload even when there are no peers to echo it back.
         forward_event(&self.event_tx, local_event).await?;
 
-        match encode_unsafe_payload_message(&signature, &envelope) {
-            Ok(payload) => {
-                if let Err(err) = self
-                    .swarm
-                    .behaviour_mut()
-                    .gossipsub
-                    .publish(self.topics.preconf_blocks.clone(), payload)
-                {
-                    record_outbound_publish("preconf_blocks", "publish_failed");
-                    warn!(
-                        hash = %hash,
-                        error = %err,
-                        "failed to publish whitelist preconfirmation payload"
-                    );
-                } else {
-                    record_outbound_publish("preconf_blocks", "published");
-                }
-            }
-            Err(err) => {
-                record_outbound_publish("preconf_blocks", "encode_failed");
-                warn!(
-                    hash = %hash,
-                    error = %err,
-                    "failed to encode whitelist preconfirmation payload"
-                );
-            }
-        }
+        self.encode_and_publish(
+            encode_unsafe_payload_message(&signature, &envelope),
+            self.topics.preconf_blocks.clone(),
+            "preconf_blocks",
+            &format!("{hash}"),
+        );
 
         Ok(())
     }
@@ -344,75 +420,55 @@ impl NetworkRuntime {
     /// Publish a `requestEndOfSequencingPreconfBlocks` message.
     fn publish_end_of_sequencing_request(&mut self, epoch: u64) {
         let payload = encode_eos_request_message(epoch);
-        if let Err(err) =
-            self.swarm.behaviour_mut().gossipsub.publish(self.topics.eos_request.clone(), payload)
-        {
-            record_outbound_publish("request_eos_preconf_blocks", "publish_failed");
-            warn!(
-                epoch,
-                error = %err,
-                "failed to publish end-of-sequencing request"
-            );
-        } else {
-            record_outbound_publish("request_eos_preconf_blocks", "published");
-        }
+        self.publish_to_gossipsub(
+            self.topics.eos_request.clone(),
+            payload,
+            "request_eos_preconf_blocks",
+            &format!("epoch {epoch}"),
+        );
     }
 
-    /// Request a block by hash via direct req/resp with gossip fallback.
-    fn request_block(&mut self, hash: B256) {
-        // Pick a random connected peer for the optimistic direct request.
-        // Randomization avoids always hammering the same peer when there are
-        // multiple connections.  The gossip fallback published below ensures
-        // the block is found even if the chosen peer does not have it.
-        let peer = self.swarm.connected_peers().choose(&mut rand::thread_rng()).copied();
-        if let Some(peer_id) = peer {
-            let request_id = self.swarm.behaviour_mut().reqresp.send_request(&peer_id, hash);
-            self.pending_requests.insert(request_id, hash);
-            record_outbound_publish("direct_request", "sent");
-        } else {
-            record_outbound_publish("direct_request", "no_peers");
-        }
-        // Also publish the request via gossip as a fallback.
-        let payload = encode_unsafe_request_message(hash);
-        if let Err(err) = self
-            .swarm
-            .behaviour_mut()
-            .gossipsub
-            .publish(self.topics.preconf_request.clone(), payload)
-        {
-            record_outbound_publish("request_preconf_blocks", "publish_failed");
-            warn!(
-                hash = %hash,
-                error = %err,
-                "failed to publish gossip fallback for direct block request"
-            );
-        } else {
-            record_outbound_publish("request_preconf_blocks", "published");
-        }
-    }
-
-    /// Send a direct req/resp response back to a peer.
-    fn send_direct_response(
+    /// Encode-then-publish helper: handles the common `Result<Vec<u8>>` encode
+    /// followed by gossipsub publish, recording metrics for each outcome.
+    fn encode_and_publish(
         &mut self,
-        request_id: request_response::InboundRequestId,
-        response_bytes: Vec<u8>,
+        encoded: std::result::Result<Vec<u8>, impl std::fmt::Display>,
+        topic: gossipsub::IdentTopic,
+        topic_label: &'static str,
+        context: &str,
     ) {
-        if let Some(channel) = self.response_channels.remove(&request_id) {
-            if let Err(response_bytes) =
-                self.swarm.behaviour_mut().reqresp.send_response(channel, response_bytes)
-            {
-                record_outbound_publish("direct_response", "send_failed");
-                warn!(
-                    ?request_id,
-                    len = response_bytes.len(),
-                    "failed to send direct response (channel closed)"
-                );
-            } else {
-                record_outbound_publish("direct_response", "sent");
+        match encoded {
+            Ok(payload) => {
+                self.publish_to_gossipsub(topic, payload, topic_label, context);
             }
+            Err(err) => {
+                record_publish(topic_label, "encode_failed");
+                warn!(
+                    context,
+                    error = %err,
+                    "failed to encode whitelist preconfirmation message"
+                );
+            }
+        }
+    }
+
+    /// Publish raw bytes to a gossipsub topic, recording publish success or failure.
+    fn publish_to_gossipsub(
+        &mut self,
+        topic: gossipsub::IdentTopic,
+        payload: Vec<u8>,
+        topic_label: &'static str,
+        context: &str,
+    ) {
+        if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic, payload) {
+            record_publish(topic_label, "publish_failed");
+            warn!(
+                context,
+                error = %err,
+                "failed to publish whitelist preconfirmation message"
+            );
         } else {
-            record_outbound_publish("direct_response", "channel_missing");
-            warn!(?request_id, "no response channel found for direct response");
+            record_publish(topic_label, "published");
         }
     }
 
@@ -429,26 +485,169 @@ impl NetworkRuntime {
         }
     }
 
-    /// Delegate one swarm event to the shared event-processing module.
+    /// Delegate one swarm event to the appropriate handler.
     async fn handle_swarm_event(
         &mut self,
         event: libp2p::swarm::SwarmEvent<BehaviourEvent>,
     ) -> Result<()> {
-        handle_swarm_event(
-            event,
-            &self.topics,
-            &self.event_tx,
-            &mut self.inbound_validation_state,
-            &mut self.swarm,
-            &mut self.response_channels,
-            &mut self.pending_requests,
-        )
-        .await
+        match event {
+            libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(event)) => {
+                self.handle_gossipsub_event(*event).await?;
+            }
+            libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
+                debug!(%address, "whitelist preconfirmation network listening");
+            }
+            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                debug!(%peer_id, "peer connected");
+            }
+            libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                debug!(%peer_id, "peer disconnected");
+            }
+            libp2p::swarm::SwarmEvent::Behaviour(
+                BehaviourEvent::Ping | BehaviourEvent::Identify,
+            ) => {}
+            other => {
+                debug!(event = ?other, "ignored swarm event");
+            }
+        }
+        Ok(())
+    }
+
+    /// Handle one gossipsub event.
+    async fn handle_gossipsub_event(&mut self, event: gossipsub::Event) -> Result<()> {
+        let gossipsub::Event::Message { propagation_source, message_id, message, .. } = event
+        else {
+            return Ok(());
+        };
+
+        let topic = &message.topic;
+        let from = propagation_source;
+        let now = Instant::now();
+
+        let mut report = |acceptance: gossipsub::MessageAcceptance| {
+            // Explicitly report every decision so mesh scoring remains aligned with local
+            // validation.
+            let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
+                &message_id,
+                &from,
+                acceptance,
+            );
+        };
+
+        if *topic == self.topics.preconf_blocks.hash() {
+            let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data)
+                .and_then(|(sig, bytes)| decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env)))
+            {
+                Ok((wire_signature, payload_bytes, envelope)) => {
+                    let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
+                    let acceptance =
+                        self.inbound_validation_state.validate_preconf_blocks(&payload);
+
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
+                        let Err(err) = forward_event(
+                            &self.event_tx,
+                            NetworkEvent::UnsafePayload { from, payload },
+                        )
+                        .await
+                    {
+                        // If forwarding to importer fails, reject to avoid silently
+                        // accepting data that local consumers could not process.
+                        report(gossipsub::MessageAcceptance::Reject);
+                        return Err(err);
+                    }
+
+                    let label = acceptance_label(&acceptance);
+                    (acceptance, label)
+                }
+                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
+            };
+
+            record_inbound("preconf_blocks", inbound_label);
+            report(acceptance);
+            return Ok(());
+        }
+
+        if *topic == self.topics.preconf_response.hash() {
+            let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
+                Ok(envelope) => {
+                    let acceptance = self.inbound_validation_state.validate_response(&envelope);
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
+                        let Err(err) = forward_event(
+                            &self.event_tx,
+                            NetworkEvent::UnsafeResponse { from, envelope },
+                        )
+                        .await
+                    {
+                        report(gossipsub::MessageAcceptance::Reject);
+                        return Err(err);
+                    }
+
+                    let inbound_label = acceptance_label(&acceptance);
+                    (acceptance, inbound_label)
+                }
+                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
+            };
+
+            record_inbound("response_preconf_blocks", inbound_label);
+            report(acceptance);
+            return Ok(());
+        }
+
+        if *topic == self.topics.preconf_request.hash() {
+            let Some(hash) = decode_request_hash_exact(&message.data) else {
+                let (acceptance, inbound_label) =
+                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
+                record_inbound("request_preconf_blocks", inbound_label);
+                report(acceptance);
+                return Ok(());
+            };
+
+            let acceptance = self.inbound_validation_state.validate_request(from, hash, now);
+            if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                // Requests are relayed only after inbound dedupe/rate checks pass.
+                forward_event(&self.event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
+            }
+
+            record_inbound("request_preconf_blocks", acceptance_label(&acceptance));
+            report(acceptance);
+            return Ok(());
+        }
+
+        if *topic == self.topics.eos_request.hash() {
+            let Some(epoch) = decode_eos_epoch_exact(&message.data) else {
+                let (acceptance, inbound_label) =
+                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
+                record_inbound("request_eos_preconf_blocks", inbound_label);
+                report(acceptance);
+                return Ok(());
+            };
+
+            let acceptance = self.inbound_validation_state.validate_eos_request(from, epoch, now);
+            if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                // EOS requests follow the same acceptance gate as preconf requests.
+                forward_event(&self.event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch })
+                    .await?;
+            }
+
+            record_inbound("request_eos_preconf_blocks", acceptance_label(&acceptance));
+            report(acceptance);
+        }
+
+        Ok(())
+    }
+}
+
+/// Convert a gossipsub message acceptance decision into a metrics label.
+fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
+    match acceptance {
+        gossipsub::MessageAcceptance::Accept => "accepted",
+        gossipsub::MessageAcceptance::Ignore => "ignored",
+        gossipsub::MessageAcceptance::Reject => "rejected",
     }
 }
 
 /// Record one outbound publish lifecycle outcome for the given network topic label.
-fn record_outbound_publish(topic: &'static str, result: &'static str) {
+fn record_publish(topic: &'static str, result: &'static str) {
     metrics::counter!(
         WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
         "topic" => topic,
@@ -457,64 +656,39 @@ fn record_outbound_publish(topic: &'static str, result: &'static str) {
     .increment(1);
 }
 
-impl WhitelistNetwork {
-    /// Spawn the whitelist preconfirmation network task.
-    pub(crate) fn spawn_with_whitelist_filter(cfg: P2pConfig) -> Result<Self> {
-        Self::spawn_with_filter(cfg)
-    }
+/// Record one inbound message result for the given network topic label.
+fn record_inbound(topic: &'static str, result: &'static str) {
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
+        "topic" => topic,
+        "result" => result,
+    )
+    .increment(1);
+}
 
-    /// Internal spawn path that wires transport, behaviour, and the event loop.
-    fn spawn_with_filter(cfg: P2pConfig) -> Result<Self> {
-        let P2pConfig {
-            chain_id,
-            enable_tcp,
-            listen_addr,
-            bootnodes,
-            pre_dial_peers,
-            enable_discovery,
-            discovery_listen,
-            sequencer_addresses,
-            allow_all_sequencers,
-            ..
-        } = cfg;
+/// Forward one decoded event to the importer with backpressure.
+pub(super) async fn forward_event(
+    event_tx: &mpsc::Sender<NetworkEvent>,
+    event: NetworkEvent,
+) -> Result<()> {
+    event_tx.send(event).await.map_err(|err| {
+        metrics::counter!(WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL)
+            .increment(1);
+        warn!(error = %err, "whitelist preconfirmation event channel closed");
+        WhitelistPreconfirmationDriverError::p2p(format!(
+            "whitelist preconfirmation event channel closed: {err}"
+        ))
+    })
+}
 
-        let local_key = identity::Keypair::generate_ed25519();
-        let local_peer_id = local_key.public().to_peer_id();
+/// Decode an end-of-sequencing epoch when the payload is exactly 8 bytes.
+pub(super) fn decode_eos_epoch_exact(payload: &[u8]) -> Option<u64> {
+    let bytes: [u8; 8] = payload.try_into().ok()?;
+    Some(u64::from_be_bytes(bytes))
+}
 
-        let (topics, gossipsub) = build_topics_and_gossipsub(chain_id)?;
-        let behaviour = build_behaviour(&local_key, gossipsub);
-        let mut swarm = build_swarm(&local_key, local_peer_id, behaviour)?;
-        configure_listen_addr(&mut swarm, enable_tcp, listen_addr)?;
-
-        let bootnodes = classify_bootnodes(bootnodes);
-        let dialed_addrs = dial_initial_peers(&mut swarm, pre_dial_peers, bootnodes.dial_addrs);
-        let discovery_rx =
-            init_discovery_receiver(enable_discovery, discovery_listen, bootnodes.discovery_enrs);
-
-        let (event_tx, event_rx) = mpsc::channel(1024);
-        let (command_tx, command_rx) = mpsc::channel(512);
-
-        let inbound_validation_state = GossipsubInboundState::new_with_allow_all_sequencers(
-            chain_id,
-            sequencer_addresses,
-            allow_all_sequencers,
-        );
-
-        let runtime = NetworkRuntime {
-            swarm,
-            topics,
-            event_tx,
-            command_rx,
-            discovery_rx,
-            dialed_addrs,
-            inbound_validation_state,
-            local_peer_id_for_events: local_peer_id,
-            response_channels: HashMap::new(),
-            pending_requests: HashMap::new(),
-        };
-
-        let handle = tokio::spawn(async move { runtime.run().await });
-
-        Ok(Self { local_peer_id, event_rx, command_tx, handle })
-    }
+/// Decode a 32-byte request hash payload exactly (non-padded path).
+pub(super) fn decode_request_hash_exact(payload: &[u8]) -> Option<B256> {
+    let bytes: [u8; 32] = payload.try_into().ok()?;
+    Some(B256::from(bytes))
 }

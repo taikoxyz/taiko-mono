@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.13.1](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.0...relayer-v0.13.1) (2026-03-30)
+
+
+### Bug Fixes
+
+* **relayer:** remove deprecated cacheOption parameter ([#21440](https://github.com/taikoxyz/taiko-mono/issues/21440)) ([959d400](https://github.com/taikoxyz/taiko-mono/commit/959d40054c7326c3bd5668dc49e061a5885e4a2a))
+* **relayer:** return one-shot processor result ([#21414](https://github.com/taikoxyz/taiko-mono/issues/21414)) ([c75d56d](https://github.com/taikoxyz/taiko-mono/commit/c75d56d35f845163ae1e3e3db0723e1e14cca193))
+
+
+### Chores
+
+* **relayer:** fix relayer build ([#21426](https://github.com/taikoxyz/taiko-mono/issues/21426)) ([d0920bf](https://github.com/taikoxyz/taiko-mono/commit/d0920bfc33bf0cf5efc3de03eb3f7411526ccf41))
+* **relayer:** pacaya clean up ([#21407](https://github.com/taikoxyz/taiko-mono/issues/21407)) ([1ba276e](https://github.com/taikoxyz/taiko-mono/commit/1ba276e63afab7c12a53553fde95db34ef4390eb))
+* **relayer:** remove intermediary hop logic ([#21448](https://github.com/taikoxyz/taiko-mono/issues/21448)) ([981eba3](https://github.com/taikoxyz/taiko-mono/commit/981eba33a32255862517d69f4032d7da2c3da7d7))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.12.0...relayer-v0.13.0) (2026-03-01)
 
 

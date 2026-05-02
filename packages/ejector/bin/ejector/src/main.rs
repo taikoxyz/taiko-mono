@@ -7,7 +7,12 @@ use clap::Parser;
 use color_eyre::Result;
 use dotenvy::{dotenv, from_path};
 // project modules
-use ejector::{beacon::BeaconClient, config::Config, monitor::Monitor, server::spawn_server};
+use ejector::{
+    beacon::BeaconClient,
+    config::Config,
+    monitor::{Monitor, MonitorParams},
+    server::spawn_server,
+};
 use tokio::signal;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal as unix_signal};
@@ -42,7 +47,6 @@ async fn main() -> Result<()> {
     let config = Config::parse();
 
     let l1_http_url = Url::parse(&config.l1_http_url).expect("Invalid L1 RPC URL");
-    let l1_ws_url = Url::parse(&config.l1_ws_url).expect("Invalid L1 WS URL");
     let l2_http_url = Url::parse(&config.l2_http_url).expect("Invalid L2 HTTP URL");
 
     let signer = PrivateKeySigner::from_str(&config.private_key).expect("Invalid private key");
@@ -68,8 +72,6 @@ async fn main() -> Result<()> {
         }
     };
 
-    let l2_ws_url = Url::parse(&config.l2_ws_url).expect("Invalid L2 WS URL");
-
     let beacon_url = Url::parse(&config.beacon_url).expect("Invalid Beacon URL");
 
     let beacon_client = BeaconClient::new(beacon_url).await?;
@@ -86,23 +88,21 @@ async fn main() -> Result<()> {
         }
     });
 
-    let monitor = Monitor::new(
+    let monitor = Monitor::new(MonitorParams {
         beacon_client,
-        signer,
-        l2_ws_url,
-        l2_http_url,
-        l1_ws_url,
+        l1_signer: signer,
         l1_http_url,
-        config.eject_after_seconds,
+        l2_http_url,
+        eject_after_seconds: config.eject_after_seconds,
         taiko_wrapper_address,
         whitelist_address,
         handover_slots,
         preconf_router_address,
         anchor_address,
-        config.min_operators,
-        config.min_reorg_depth_for_eject,
-        config.enable_reorg_ejection,
-    );
+        min_operators: config.min_operators,
+        min_reorg_depth_for_eject: config.min_reorg_depth_for_eject,
+        reorg_ejection_enabled: config.enable_reorg_ejection,
+    });
 
     let monitor_handle = tokio::spawn(async move {
         if let Err(e) = monitor.run().await {

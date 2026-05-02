@@ -14,7 +14,7 @@ use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
     utils::JoinedRecommendedFillers,
 };
-use alloy_rpc_types::engine::JwtSecret;
+use alloy_rpc_types_engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::Full;
@@ -57,6 +57,8 @@ pub struct AnchorState {
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct Client<P: Provider + Clone> {
+    /// L2 chain ID, fetched from the L2 provider at startup.
+    pub chain_id: u64,
     /// L1 provider (optionally with wallet) used for contract calls.
     pub l1_provider: P,
     /// L2 public provider for read-only access.
@@ -143,7 +145,7 @@ impl<P: Provider + Clone> Client<P> {
 
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
-        Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
+        Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
     }
 
     /// Fetch the L1 block hash for a given block number.
