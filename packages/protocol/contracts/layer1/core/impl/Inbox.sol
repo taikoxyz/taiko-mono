@@ -175,7 +175,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      leaves the inbox in an unrecoverable state that can only be fixed via a proxy
     ///      upgrade, so deployers must verify `_genesisBlockHash` before calling.
     /// @param _owner The owner of this contract
-    /// @param _genesisBlockHash The genesis block hash.
+    /// @param _genesisBlockHash The L2 genesis block hash, i.e. the block hash of the last Pacaya
+    ///        block, since Shasta inherits L2 state from Pacaya.
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Essential_init(_owner);
 

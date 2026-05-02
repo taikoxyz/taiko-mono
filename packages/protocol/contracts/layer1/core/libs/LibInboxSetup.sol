@@ -11,11 +11,15 @@ import { LibHashOptimized } from "./LibHashOptimized.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibInboxSetup {
     // ---------------------------------------------------------------
-    // Public Functions (externally linked)
+    // Constants
     // ---------------------------------------------------------------
 
     /// @dev Minimum ring buffer size to keep one slot reserved in capacity calculations.
     uint48 public constant MIN_RING_BUFFER_SIZE = 2;
+
+    // ---------------------------------------------------------------
+    // Public Functions (externally linked)
+    // ---------------------------------------------------------------
 
     /// @dev Validates the Inbox configuration parameters.
     /// @param _config The configuration to validate.
@@ -42,6 +46,10 @@ library LibInboxSetup {
         );
     }
 
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
     /// @dev Validates the genesis block hash and computes the initial inbox state.
     /// @param _genesisBlockHash The genesis block hash.
     /// @return activationTimestamp_ The activation timestamp to use.
@@ -49,7 +57,7 @@ library LibInboxSetup {
     /// @return proposal_ The genesis proposal.
     /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
     function initCoreState(bytes32 _genesisBlockHash)
-        public
+        internal
         view
         returns (
             uint48 activationTimestamp_,
