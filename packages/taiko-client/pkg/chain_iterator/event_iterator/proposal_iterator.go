@@ -15,6 +15,14 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
+// isNonCanonicalLog reports whether a log was emitted by a non-canonical L1
+// block — either because it has been marked Removed by the RPC, or because the
+// canonical header at the log's block number has a different hash (i.e. the
+// log is from an orphaned block whose hash the RPC may still serve directly).
+func isNonCanonicalLog(raw types.Log, canonicalHeader *types.Header) bool {
+	return raw.Removed || canonicalHeader.Hash() != raw.BlockHash
+}
+
 // EndProposalEventIterFunc ends the current iteration.
 type EndProposalEventIterFunc func()
 
@@ -117,12 +125,27 @@ func assembleProposalIteratorCallback(
 		for iter.Next() {
 			event := iter.Event
 
-			header, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
+			// Verify the event is from the canonical L1 chain. After an L1 reorg, the
+			// RPC's eth_getLogs may briefly return logs from orphaned blocks before its
+			// log index converges with its new head; HeaderByHash is not a canonicality
+			// check because a node may still serve an orphaned block by hash.
+			canonicalHeader, err := rpcClient.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
 			if err != nil {
-				return fmt.Errorf("failed to fetch L1 block header: %w", err)
+				return fmt.Errorf("failed to fetch canonical L1 header at %d: %w", event.Raw.BlockNumber, err)
+			}
+			if isNonCanonicalLog(event.Raw, canonicalHeader) {
+				log.Warn(
+					"Skipping non-canonical Proposed event",
+					"proposalID", event.Id,
+					"l1Height", event.Raw.BlockNumber,
+					"eventBlockHash", event.Raw.BlockHash,
+					"canonicalBlockHash", canonicalHeader.Hash(),
+					"removed", event.Raw.Removed,
+				)
+				continue
 			}
 
-			proposedEventPayload := metadata.NewTaikoProposalMetadataShasta(event, header.Time)
+			proposedEventPayload := metadata.NewTaikoProposalMetadataShasta(event, canonicalHeader.Time)
 			proposalID := proposedEventPayload.Shasta().GetEventData().Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
@@ -151,16 +174,11 @@ func assembleProposalIteratorCallback(
 				return nil
 			}
 
-			current, err := rpcClient.L1.HeaderByHash(ctx, event.Raw.BlockHash)
-			if err != nil {
-				return err
-			}
-
-			log.Debug("Updating current block cursor for processing Proposed events", "block", current.Number)
+			log.Debug("Updating current block cursor for processing Proposed events", "block", canonicalHeader.Number)
 
 			lastProposalID = proposalID
 
-			updateCurrentFunc(current)
+			updateCurrentFunc(canonicalHeader)
 		}
 
 		// Check if there is any error during the iteration.

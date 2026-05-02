@@ -321,8 +321,6 @@ func (i *BlockBatchIterator) end() {
 
 // ensureCurrentNotReorged checks if the iterator.current cursor was reorged, if was, will
 // rewind back `ReorgRewindDepth` blocks.
-// reorg is also detected on the iteration of the event later, by checking
-// event.Raw.Removed, which will also call `i.rewindOnReorgDetected` to rewind back
 func (i *BlockBatchIterator) ensureCurrentNotReorged() error {
 	current, err := i.client.HeaderByHash(i.ctx, i.current.Hash())
 	if err != nil && err.Error() != ethereum.NotFound.Error() {
