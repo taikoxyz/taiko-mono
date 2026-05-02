@@ -20,11 +20,10 @@ func TestProposalIteratorTestSuite(t *testing.T) {
 }
 
 // TestIsNonCanonicalLog guards the regression that allowed the driver to
-// process Proposed events from orphaned L1 blocks after a reorg (masaya
-// 2026-04-30 incident). The iterator must skip a log whose BlockHash differs
-// from the canonical hash at its block number — using HeaderByHash to
-// "validate" the log is not a canonicality check, since an RPC node can still
-// serve an orphaned block by hash.
+// process Proposed events from orphaned L1 blocks after a reorg. The iterator
+// must skip a log whose BlockHash differs from the canonical hash at its block
+// number — using HeaderByHash to "validate" the log is not a canonicality
+// check, since an RPC node can still serve an orphaned block by hash.
 func (s *ProposalIteratorTestSuite) TestIsNonCanonicalLog() {
 	blockNumber := rand.Uint64()
 	canonicalHeader := &types.Header{
