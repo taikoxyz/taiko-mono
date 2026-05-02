@@ -1,0 +1,207 @@
+name: DeepSeek PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  deepseek-review:
+    # Run automatically on non-draft PRs, or when someone comments @deepseek
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@deepseek'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      - name: Get PR number (from comment trigger)
+        if: github.event_name == 'issue_comment'
+        id: pr-from-comment
+        run: |
+          PR_NUMBER=$(gh pr view "${{ github.event.issue.number }}" --json number -q '.number' 2>/dev/null || echo "")
+          if [ -n "$PR_NUMBER" ]; then
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          else
+            echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "number=${{ steps.pr-from-comment.outputs.pr_number }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run DeepSeek Code Review
+        id: review
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const prNumber = '${{ steps.pr.outputs.number }}';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Fetch PR details
+            const pr = await github.rest.pulls.get({
+              owner, repo, pull_number: parseInt(prNumber)
+            });
+
+            const title = pr.data.title;
+            const body = pr.data.body || '';
+
+            // Get the diff as raw text
+            const diffResponse = await github.request({
+              method: 'GET',
+              url: `/repos/${owner}/${repo}/pulls/${prNumber}`,
+              headers: { Accept: 'application/vnd.github.v3.diff' }
+            });
+
+            const diffText = typeof diffResponse.data === 'string'
+              ? diffResponse.data
+              : JSON.stringify(diffResponse.data);
+
+            if (!diffText || diffText.length === 0) {
+              console.log('No diff found - skipping review');
+              return 'No diff to review.';
+            }
+
+            // Truncate diff if too large
+            const MAX_DIFF = 50000;
+            const truncatedDiff = diffText.length > MAX_DIFF
+              ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
+              : diffText;
+
+            // Build the prompt
+            const systemPrompt = `You are a senior software engineer performing a code review on the Taiko monorepo.
+
+Taiko is a based rollup on Ethereum (type-1 ZK-EVM). The repo contains:
+- Smart contracts (Solidity/Foundry) in packages/protocol
+- Go services (taiko-client, relayer, eventindexer)
+- Rust services (taiko-client-rs, urcindexer-rs)
+- Frontend apps (SvelteKit, TypeScript)
+
+Provide a CONCISE code review in the following format. Skip sections that don't apply:
+
+## 🔴 Critical Issues
+Issues that could lead to security vulnerabilities, fund loss, or chain halts.
+
+## 🟡 Warnings
+Logic errors, edge cases, or potential bugs that should be addressed.
+
+## 🔵 Suggestions
+Performance improvements, style/convention fixes, better error handling.
+
+## ✅ What Looks Good
+Notable things done well.
+
+### Review Guidelines
+- **Solidity**: Check access control, reentrancy, overflow, storage layout, gas optimization, NatSpec docs
+- **Go/Rust**: Check error handling, race conditions, resource leaks, proper use of contexts
+- **TypeScript**: Check type safety, XSS, unsafe API calls
+- Be direct and constructive. Don't be overly polite.
+- If there are no issues in a category, skip it entirely.`;
+
+            const userPrompt = `## PR #${prNumber}: ${title}
+
+**Description:**
+${body || 'No description provided.'}
+
+**Diff:**
+\`\`\`diff
+${truncatedDiff}
+\`\`\`
+
+Review this PR thoroughly. Be direct - flag only real issues.`;
+
+            // Call DeepSeek API (OpenAI-compatible endpoint)
+            const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+              },
+              body: JSON.stringify({
+                model: 'deepseek-v4-pro',
+                messages: [
+                  { role: 'system', content: systemPrompt },
+                  { role: 'user', content: userPrompt }
+                ],
+                max_tokens: 4096,
+                temperature: 0.3
+              })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+              throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
+            }
+
+            const reviewText = data.choices[0].message.content;
+
+            // Build comment body
+            const triggerInfo = context.eventName === 'pull_request'
+              ? 'Automatically triggered on PR update'
+              : 'Triggered by `@deepseek` comment';
+
+            const commentBody = `## 🤖 DeepSeek Code Review
+
+${reviewText}
+
+---
+*${triggerInfo} • [DeepSeek V4](https://deepseek.com)*`;
+
+            // Check for existing bot comment to update (sticky behavior)
+            const comments = await github.rest.issues.listComments({
+              owner, repo,
+              issue_number: parseInt(prNumber),
+              per_page: 100
+            });
+
+            const existingComment = comments.data.find(c =>
+              c.body.includes('🤖 DeepSeek Code Review') &&
+              c.user.login === 'github-actions[bot]'
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner, repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+              console.log(`✅ Updated existing review comment #${existingComment.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: parseInt(prNumber),
+                body: commentBody
+              });
+              console.log('✅ Posted new review comment');
+            }
+
+            return { success: true, reviewLength: reviewText.length };
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
