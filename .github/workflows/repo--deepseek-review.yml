@@ -167,7 +167,7 @@ jobs:
               ? 'Automatically triggered on PR update'
               : 'Triggered by `@deepseek` comment';
 
-            const commentBody = `## 🤖 DeepSeek Code Review
+            const commentBody = `## 🐋 DeepSeek Code Review
 
             ${reviewText}
 
