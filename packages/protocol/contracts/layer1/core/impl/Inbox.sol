@@ -171,6 +171,9 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // ---------------------------------------------------------------
 
     /// @notice Initializes the owner and genesis state of the inbox.
+    /// @dev The genesis block hash is permanent after initialization. Setting it incorrectly
+    ///      leaves the inbox in an unrecoverable state that can only be fixed via a proxy
+    ///      upgrade, so deployers must verify `_genesisBlockHash` before calling.
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The genesis block hash.
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {

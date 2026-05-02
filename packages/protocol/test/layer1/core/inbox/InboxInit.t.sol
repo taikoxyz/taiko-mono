@@ -28,6 +28,32 @@ contract InboxInitTest is InboxTestBase {
         uninitializedInbox.propose(bytes(""), encodedInput);
     }
 
+    function test_prove_RevertWhen_NotInitialized() public {
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
+            proposer: proposer,
+            timestamp: uint48(block.timestamp),
+            blockHash: keccak256("checkpoint")
+        });
+
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            commitment: IInbox.Commitment({
+                firstProposalId: 1,
+                firstProposalParentBlockHash: bytes32(0),
+                lastProposalHash: bytes32(uint256(123)),
+                actualProver: prover,
+                endBlockNumber: uint48(block.number),
+                endStateRoot: bytes32(uint256(1)),
+                transitions: transitions
+            })
+        });
+
+        bytes memory encodedInput = codec.encodeProveInput(input);
+        vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
+        vm.prank(prover);
+        uninitializedInbox.prove(encodedInput, bytes("proof"));
+    }
+
     function test_init_RevertWhen_InvalidGenesisBlockHash() public {
         address impl = address(new Inbox(config));
 
