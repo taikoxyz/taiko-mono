@@ -115,7 +115,7 @@ jobs:
             Performance improvements, style/convention fixes, better error handling.
 
             ## ✅ What Looks Good
-            Notable things done well.
+            No need to comment on things that are already clear or don't need review.
 
             ### Review Guidelines
             - **Solidity**: Check access control, reentrancy, overflow, storage layout, gas optimization, NatSpec docs
@@ -182,7 +182,7 @@ jobs:
             });
 
             const existingComment = comments.data.find(c =>
-              c.body.includes('🤖 DeepSeek Code Review') &&
+              c.body.includes('🐋 DeepSeek Code Review') &&
               c.user.login === 'github-actions[bot]'
             );
 
