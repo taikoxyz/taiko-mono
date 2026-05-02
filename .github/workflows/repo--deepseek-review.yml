@@ -105,16 +105,16 @@ jobs:
 
             Provide a CONCISE code review in the following format. Skip sections that don't apply:
 
-            ## 🔴 Critical Issues
+            ### 🔴 Critical Issues
             Issues that could lead to security vulnerabilities, fund loss, or chain halts.
 
-            ## 🟡 Warnings
+            ### 🟡 Warnings
             Logic errors, edge cases, or potential bugs that should be addressed.
 
-            ## 🔵 Suggestions
+            ### 🔵 Suggestions
             Performance improvements, style/convention fixes, better error handling.
 
-            ## ✅ What Looks Good
+            ### 🟢 What Looks Good
             No need to comment on things that are already clear or don't need review.
 
             ### Review Guidelines
