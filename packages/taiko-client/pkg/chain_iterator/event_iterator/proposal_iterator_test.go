@@ -2,11 +2,13 @@ package eventiterator
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
 type ProposalIteratorTestSuite struct {
@@ -24,23 +26,24 @@ func TestProposalIteratorTestSuite(t *testing.T) {
 // "validate" the log is not a canonicality check, since an RPC node can still
 // serve an orphaned block by hash.
 func (s *ProposalIteratorTestSuite) TestIsNonCanonicalLog() {
+	blockNumber := rand.Uint64()
 	canonicalHeader := &types.Header{
-		Number:     big.NewInt(2_723_815),
-		ParentHash: common.HexToHash("0x98c2cd9e5a2b02760ee8fc96072bf6aa0d68504d7604e1ff5536fdc74c29a043"),
+		Number:     new(big.Int).SetUint64(blockNumber),
+		ParentHash: testutils.RandomHash(),
 	}
 	canonicalHash := canonicalHeader.Hash()
-	orphanHash := common.HexToHash("0x4e7d0a8c64dcba4d8e3de70e0edb86d28a5fa2b8a4f9b98e3c0d3a3a5e223099")
+	orphanHash := testutils.RandomHash()
 	s.NotEqual(canonicalHash, orphanHash, "test setup: orphan hash must differ from canonical")
 
 	// Orphaned block hash is non-canonical.
-	s.True(isNonCanonicalLog(types.Log{BlockNumber: 2_723_815, BlockHash: orphanHash}, canonicalHeader))
+	s.True(isNonCanonicalLog(types.Log{BlockNumber: blockNumber, BlockHash: orphanHash}, canonicalHeader))
 
 	// Removed flag is non-canonical even when the hash matches.
 	s.True(isNonCanonicalLog(
-		types.Log{BlockNumber: 2_723_815, BlockHash: canonicalHash, Removed: true},
+		types.Log{BlockNumber: blockNumber, BlockHash: canonicalHash, Removed: true},
 		canonicalHeader,
 	))
 
 	// Matching canonical hash is canonical.
-	s.False(isNonCanonicalLog(types.Log{BlockNumber: 2_723_815, BlockHash: canonicalHash}, canonicalHeader))
+	s.False(isNonCanonicalLog(types.Log{BlockNumber: blockNumber, BlockHash: canonicalHash}, canonicalHeader))
 }
