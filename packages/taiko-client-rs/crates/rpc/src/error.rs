@@ -47,6 +47,10 @@ pub enum RpcClientError {
 
 impl From<TransportError<TransportErrorKind>> for RpcClientError {
     /// Convert low-level transport errors while preserving retryable transport failures.
+    ///
+    /// `ErrorResp` is flattened to a stringified `RpcMessage` so callers can treat it as a
+    /// non-retryable RPC response; all other variants stay typed under `Rpc(_)` so transport
+    /// failures remain distinguishable for retry classification.
     fn from(err: TransportError<TransportErrorKind>) -> Self {
         match err {
             RpcError::ErrorResp(err) => RpcClientError::RpcMessage(err.to_string()),

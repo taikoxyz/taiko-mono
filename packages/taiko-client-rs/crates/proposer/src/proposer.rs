@@ -11,7 +11,7 @@ use alloy::{
     providers::Provider,
     rpc::types::{Block, Transaction},
     signers::local::PrivateKeySigner,
-    transports::{RpcError, TransportErrorKind},
+    transports::RpcError,
 };
 use alloy_consensus::{
     TxEnvelope,
@@ -255,7 +255,7 @@ impl Proposer {
         );
         let current_operator = whitelist.getOperatorForCurrentEpoch().call().await?;
 
-        Ok(is_current_preconf_operator(current_operator, self.l1_proposer_address))
+        Ok(current_operator == self.l1_proposer_address)
     }
 
     /// Return whether the oldest queued forced inclusion makes proposing permissionless.
@@ -649,12 +649,6 @@ fn proposer_address_from_key(private_key: &B256) -> Result<Address> {
     })
 }
 
-/// Return whether the whitelist-selected operator matches the configured proposer account.
-#[must_use]
-fn is_current_preconf_operator(current_operator: Address, proposer_address: Address) -> bool {
-    current_operator == proposer_address
-}
-
 /// Return whether a forced inclusion is old enough to bypass proposer authorization.
 #[must_use]
 fn forced_inclusion_is_permissionless(
@@ -693,42 +687,24 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
 }
 
 /// Return `true` when a surfaced proposer loop error should be retried on the next epoch.
+///
+/// Only transport-layer failures (network blips, timeouts, backend-gone) are operational; RPC
+/// error responses (`ErrorResp`) and local errors (decoding, unsupported features, unknown
+/// functions, fatal tx-manager errors) are fatal and exit the loop.
 fn is_operational_loop_error(err: &ProposerError) -> bool {
-    match err {
-        ProposerError::Rpc(err) => is_transport_rpc_error(err),
-        ProposerError::RpcClient(err) => is_operational_rpc_client_error(err),
-        ProposerError::Contract(err) => is_transport_contract_error(err),
-        ProposerError::TxManager(
-            TxManagerError::Rpc(_) |
-            TxManagerError::SendTimeout |
-            TxManagerError::MempoolDeadlineExpired,
-        ) => true,
-        _ => false,
-    }
-}
-
-/// Return whether an RPC client error came from the transport layer.
-#[must_use]
-fn is_operational_rpc_client_error(err: &RpcClientError) -> bool {
-    match err {
-        RpcClientError::Rpc(err) => is_transport_rpc_error(err),
-        _ => false,
-    }
-}
-
-/// Return whether an RPC error came from the transport layer rather than an RPC error response.
-#[must_use]
-fn is_transport_rpc_error(err: &RpcError<TransportErrorKind>) -> bool {
-    matches!(err, RpcError::Transport(_))
-}
-
-/// Return whether a contract call failed before the RPC server produced an error response.
-#[must_use]
-fn is_transport_contract_error(err: &alloy::contract::Error) -> bool {
-    match err {
-        alloy::contract::Error::TransportError(err) => is_transport_rpc_error(err),
-        _ => false,
-    }
+    matches!(
+        err,
+        ProposerError::Rpc(RpcError::Transport(_)) |
+            ProposerError::RpcClient(RpcClientError::Rpc(RpcError::Transport(_))) |
+            ProposerError::Contract(alloy::contract::Error::TransportError(RpcError::Transport(
+                _,
+            ))) |
+            ProposerError::TxManager(
+                TxManagerError::Rpc(_) |
+                    TxManagerError::SendTimeout |
+                    TxManagerError::MempoolDeadlineExpired,
+            )
+    )
 }
 
 #[cfg(test)]
@@ -747,8 +723,8 @@ mod tests {
 
     use super::{
         calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
-        forced_inclusion_is_permissionless, is_current_preconf_operator, is_operational_loop_error,
-        next_shasta_proposal_id, record_submission_attempt,
+        forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
+        record_submission_attempt,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
@@ -776,21 +752,6 @@ mod tests {
         });
 
         assert_eq!(counter_value(&snapshotter, ProposerMetrics::PROPOSALS_SENT), Some(1));
-    }
-
-    #[test]
-    fn preconf_whitelist_precheck_accepts_current_operator() {
-        let proposer = alloy::primitives::Address::repeat_byte(0x11);
-
-        assert!(is_current_preconf_operator(proposer, proposer));
-    }
-
-    #[test]
-    fn preconf_whitelist_precheck_rejects_non_current_operator() {
-        let proposer = alloy::primitives::Address::repeat_byte(0x11);
-        let current_operator = alloy::primitives::Address::repeat_byte(0x22);
-
-        assert!(!is_current_preconf_operator(current_operator, proposer));
     }
 
     #[test]
