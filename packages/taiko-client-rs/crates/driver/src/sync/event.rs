@@ -113,6 +113,41 @@ fn resolve_confirmed_sync_probe(
     }
 }
 
+/// Reconciliation action for an orphaned proposal's stale `head_l1_origin` pointer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HeadL1OriginReorgAction {
+    /// Reset the execution engine's confirmed boundary to the rollback block.
+    Reset {
+        /// Previously stored `head_l1_origin` block id.
+        previous_head: u64,
+        /// Canonical block id that should become the confirmed boundary.
+        rollback_block: u64,
+    },
+    /// Leave the execution engine's confirmed boundary unchanged.
+    Noop,
+}
+
+/// Resolve the canonical rollback block for a reorged proposal target.
+fn resolve_canonical_reorg_rollback_block(
+    target_proposal_id: u64,
+    target_block: Option<u64>,
+) -> Option<u64> {
+    if target_proposal_id == 0 { Some(0) } else { target_block }
+}
+
+/// Decide whether an orphaned proposal requires rewinding `head_l1_origin`.
+fn resolve_reorg_head_l1_origin_action(
+    current_head_l1_origin: Option<u64>,
+    rollback_block: Option<u64>,
+) -> HeadL1OriginReorgAction {
+    match (current_head_l1_origin, rollback_block) {
+        (Some(previous_head), Some(rollback_block)) if previous_head > rollback_block => {
+            HeadL1OriginReorgAction::Reset { previous_head, rollback_block }
+        }
+        _ => HeadL1OriginReorgAction::Noop,
+    }
+}
+
 /// Resolve the L2 block number that event sync should use as its resume source.
 ///
 /// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
@@ -1849,6 +1884,42 @@ mod tests {
     fn confirmed_sync_probe_error_keeps_ingress_closed() {
         let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingCheckpointResumeHead));
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
+    }
+
+    #[test]
+    fn reorg_head_l1_origin_action_resets_only_when_head_is_ahead() {
+        assert_eq!(
+            resolve_reorg_head_l1_origin_action(Some(15), Some(12)),
+            HeadL1OriginReorgAction::Reset { previous_head: 15, rollback_block: 12 }
+        );
+        assert_eq!(
+            resolve_reorg_head_l1_origin_action(Some(12), Some(12)),
+            HeadL1OriginReorgAction::Noop
+        );
+        assert_eq!(
+            resolve_reorg_head_l1_origin_action(Some(11), Some(12)),
+            HeadL1OriginReorgAction::Noop
+        );
+        assert_eq!(
+            resolve_reorg_head_l1_origin_action(None, Some(12)),
+            HeadL1OriginReorgAction::Noop
+        );
+        assert_eq!(
+            resolve_reorg_head_l1_origin_action(Some(15), None),
+            HeadL1OriginReorgAction::Noop
+        );
+    }
+
+    #[test]
+    fn canonical_reorg_rollback_block_resolves_zero_target_to_genesis() {
+        assert_eq!(resolve_canonical_reorg_rollback_block(0, None), Some(0));
+        assert_eq!(resolve_canonical_reorg_rollback_block(0, Some(99)), Some(0));
+    }
+
+    #[test]
+    fn canonical_reorg_rollback_block_uses_batch_mapping_for_nonzero_target() {
+        assert_eq!(resolve_canonical_reorg_rollback_block(7, Some(12)), Some(12));
+        assert_eq!(resolve_canonical_reorg_rollback_block(7, None), None);
     }
 
     #[test]
