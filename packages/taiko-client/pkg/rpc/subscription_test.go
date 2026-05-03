@@ -54,7 +54,7 @@ func TestSubscribeEvent(t *testing.T) {
 
 func TestSubscribeChainHead(t *testing.T) {
 	client := newTestClient(t)
-	sub := SubscribeChainHead(client.L1, make(chan *types.Header, 1024))
+	sub := SubscribeChainHead(client.L1, make(chan *types.Header, 1024), 3*time.Second)
 	require.NotNil(t, sub)
 	sub.Unsubscribe()
 }

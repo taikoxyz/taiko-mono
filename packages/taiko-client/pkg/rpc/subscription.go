@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	// l1PollInterval is how often the polling backend asks an HTTP L1 for new heads
-	// and Proved log ranges. Tuned well below an L1 slot. Callers needing a
-	// different cadence (e.g. driver L2 head) pass it explicitly via
-	// SubscribeChainHeadInterval.
+	// l1PollInterval is how often the polling backend asks an HTTP L1 for new
+	// Proved log ranges. Tuned well below an L1 slot. Callers of
+	// SubscribeChainHead pass their own cadence (e.g. the driver gives L2 a
+	// faster cadence than L1).
 	l1PollInterval = 3 * time.Second
 	// maxPollRange caps the block range queried per Filter* tick so that long
 	// catch-ups don't issue a single oversized eth_getLogs call.
@@ -42,9 +42,9 @@ func SubscribeEvent(
 	)
 }
 
-// SubscribeProposed subscribes the protocol's Proposed events. Only WS-backed
-// callers exist today (the prover); if a future caller needs HTTP polling for
-// Proposed, mirror the pollProved approach and reintroduce a polling branch.
+// SubscribeProposed subscribes the protocol's Proposed events. The only caller
+// today is the prover, which requires --l1.ws, so there is no HTTP polling
+// fallback (see SubscribeProved / pollProved for the polling pattern if needed).
 func SubscribeProposed(
 	taikoInbox *shastaBindings.ShastaInboxClient,
 	ch chan *shastaBindings.ShastaInboxClientProposed,
@@ -86,21 +86,9 @@ func SubscribeProved(
 }
 
 // SubscribeChainHead subscribes the new chain heads. WS-backed clients use
-// eth_subscribe; HTTP-backed clients fall back to polling HeaderByNumber at
-// l1PollInterval. Callers that need a different polling cadence (e.g. the
-// driver giving L2 a faster cadence than L1) should use
-// SubscribeChainHeadInterval directly.
+// eth_subscribe and ignore pollInterval; HTTP-backed clients fall back to
+// polling HeaderByNumber at pollInterval.
 func SubscribeChainHead(
-	client *EthClient,
-	ch chan *types.Header,
-) event.Subscription {
-	return SubscribeChainHeadInterval(client, ch, l1PollInterval)
-}
-
-// SubscribeChainHeadInterval is SubscribeChainHead with a caller-chosen
-// polling interval for HTTP-backed clients. Ignored when the client is
-// WS-backed (eth_subscribe is push-based, no polling needed).
-func SubscribeChainHeadInterval(
 	client *EthClient,
 	ch chan *types.Header,
 	pollInterval time.Duration,

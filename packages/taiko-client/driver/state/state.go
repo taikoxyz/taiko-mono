@@ -113,8 +113,8 @@ func (s *State) eventLoop(ctx context.Context) {
 
 		// Subscriptions. L2 head uses a tighter polling cadence than L1 when
 		// running against HTTP-only endpoints; L1-derived events use the L1 cadence.
-		l1HeadSub         = rpc.SubscribeChainHeadInterval(s.rpc.L1, l1HeadCh, l1HeadPollInterval)
-		l2HeadSub         = rpc.SubscribeChainHeadInterval(s.rpc.L2, l2HeadCh, l2HeadPollInterval)
+		l1HeadSub         = rpc.SubscribeChainHead(s.rpc.L1, l1HeadCh, l1HeadPollInterval)
+		l2HeadSub         = rpc.SubscribeChainHead(s.rpc.L2, l2HeadCh, l2HeadPollInterval)
 		l2ProvedShastaSub = rpc.SubscribeProved(s.rpc.L1, s.rpc.ShastaClients.Inbox, provedCh)
 	)
 
