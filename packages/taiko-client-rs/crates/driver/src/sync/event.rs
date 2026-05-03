@@ -135,6 +135,18 @@ fn resolve_canonical_reorg_rollback_block(
     if target_proposal_id == 0 { Some(0) } else { target_block }
 }
 
+/// Resolve which canonical proposal id should anchor a head-L1-origin reset after an orphaned log.
+fn resolve_orphaned_proposal_rollback_target(
+    orphaned_proposal_id: u64,
+    canonical_target_proposal_id: u64,
+) -> Option<u64> {
+    match orphaned_proposal_id.cmp(&canonical_target_proposal_id) {
+        std::cmp::Ordering::Less => None,
+        std::cmp::Ordering::Equal => Some(orphaned_proposal_id.saturating_sub(1)),
+        std::cmp::Ordering::Greater => Some(canonical_target_proposal_id),
+    }
+}
+
 /// Decide whether an orphaned proposal requires rewinding `head_l1_origin`.
 fn resolve_reorg_head_l1_origin_action(
     current_head_l1_origin: Option<u64>,
@@ -556,18 +568,35 @@ where
                 return;
             }
         };
-        let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+        let canonical_target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
 
-        let target_block = if target_proposal_id == 0 {
+        let Some(rollback_target_proposal_id) = resolve_orphaned_proposal_rollback_target(
+            orphaned_proposal_id,
+            canonical_target_proposal_id,
+        ) else {
+            debug!(
+                orphaned_proposal_id,
+                canonical_target_proposal_id,
+                orphaned_l1_block_number,
+                orphaned_l1_block_hash = ?orphaned_l1_block_hash,
+                orphaned_transaction_hash = ?orphaned_transaction_hash,
+                "orphaned proposal is behind canonical target; skipping head l1 origin reset"
+            );
+            return;
+        };
+
+        let target_block = if rollback_target_proposal_id == 0 {
             None
         } else {
-            match self.rpc.last_block_id_by_batch_id(U256::from(target_proposal_id)).await {
+            match self.rpc.last_block_id_by_batch_id(U256::from(rollback_target_proposal_id)).await
+            {
                 Ok(block_id) => block_id.map(|block_id| block_id.to::<u64>()),
                 Err(err) => {
                     warn!(
                         ?err,
                         orphaned_proposal_id,
-                        target_proposal_id,
+                        canonical_target_proposal_id,
+                        rollback_target_proposal_id,
                         orphaned_l1_block_number,
                         orphaned_l1_block_hash = ?orphaned_l1_block_hash,
                         orphaned_transaction_hash = ?orphaned_transaction_hash,
@@ -578,12 +607,13 @@ where
             }
         };
         let rollback_block =
-            resolve_canonical_reorg_rollback_block(target_proposal_id, target_block);
+            resolve_canonical_reorg_rollback_block(rollback_target_proposal_id, target_block);
 
-        if target_proposal_id > 0 && rollback_block.is_none() {
+        if rollback_target_proposal_id > 0 && rollback_block.is_none() {
             warn!(
                 orphaned_proposal_id,
-                target_proposal_id,
+                canonical_target_proposal_id,
+                rollback_target_proposal_id,
                 orphaned_l1_block_number,
                 orphaned_l1_block_hash = ?orphaned_l1_block_hash,
                 orphaned_transaction_hash = ?orphaned_transaction_hash,
@@ -598,7 +628,8 @@ where
                 warn!(
                     ?err,
                     orphaned_proposal_id,
-                    target_proposal_id,
+                    canonical_target_proposal_id,
+                    rollback_target_proposal_id,
                     rollback_block,
                     orphaned_l1_block_number,
                     orphaned_l1_block_hash = ?orphaned_l1_block_hash,
@@ -614,7 +645,8 @@ where
         else {
             debug!(
                 orphaned_proposal_id,
-                target_proposal_id,
+                canonical_target_proposal_id,
+                rollback_target_proposal_id,
                 current_head_l1_origin = ?current_head,
                 rollback_block,
                 "head l1 origin does not need orphaned proposal reconciliation"
@@ -626,7 +658,8 @@ where
             warn!(
                 ?err,
                 orphaned_proposal_id,
-                target_proposal_id,
+                canonical_target_proposal_id,
+                rollback_target_proposal_id,
                 previous_head,
                 rollback_block,
                 orphaned_l1_block_number,
@@ -637,9 +670,12 @@ where
             return;
         }
 
+        self.preconf_ingress_ready.store(false, Ordering::Release);
+
         warn!(
             orphaned_proposal_id,
-            target_proposal_id,
+            canonical_target_proposal_id,
+            rollback_target_proposal_id,
             previous_head,
             rollback_block,
             orphaned_l1_block_number,
@@ -2045,6 +2081,22 @@ mod tests {
     fn canonical_reorg_rollback_block_uses_batch_mapping_for_nonzero_target() {
         assert_eq!(resolve_canonical_reorg_rollback_block(7, Some(12)), Some(12));
         assert_eq!(resolve_canonical_reorg_rollback_block(7, None), None);
+    }
+
+    #[test]
+    fn orphaned_proposal_rollback_target_skips_when_canonical_target_is_ahead() {
+        assert_eq!(resolve_orphaned_proposal_rollback_target(7, 9), None);
+    }
+
+    #[test]
+    fn orphaned_proposal_rollback_target_rolls_below_same_proposal_id() {
+        assert_eq!(resolve_orphaned_proposal_rollback_target(7, 7), Some(6));
+        assert_eq!(resolve_orphaned_proposal_rollback_target(0, 0), Some(0));
+    }
+
+    #[test]
+    fn orphaned_proposal_rollback_target_uses_canonical_target_when_behind_orphaned() {
+        assert_eq!(resolve_orphaned_proposal_rollback_target(9, 7), Some(7));
     }
 
     #[test]
