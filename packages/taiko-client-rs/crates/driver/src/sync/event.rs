@@ -533,6 +533,122 @@ where
         Ok(chain_head >= log_block_number)
     }
 
+    /// Best-effort reset for stale `head_l1_origin` after a proposal log is proven orphaned.
+    #[instrument(skip(self), level = "debug")]
+    async fn reconcile_head_l1_origin_after_orphaned_proposal(
+        &self,
+        orphaned_proposal_id: u64,
+        orphaned_l1_block_hash: B256,
+        orphaned_l1_block_number: Option<u64>,
+        orphaned_transaction_hash: Option<B256>,
+    ) {
+        let core_state = match self.rpc.shasta.inbox.getCoreState().call().await {
+            Ok(core_state) => core_state,
+            Err(err) => {
+                warn!(
+                    ?err,
+                    orphaned_proposal_id,
+                    orphaned_l1_block_number,
+                    orphaned_l1_block_hash = ?orphaned_l1_block_hash,
+                    orphaned_transaction_hash = ?orphaned_transaction_hash,
+                    "failed to read core state while reconciling orphaned proposal head l1 origin"
+                );
+                return;
+            }
+        };
+        let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+
+        let target_block = if target_proposal_id == 0 {
+            None
+        } else {
+            match self.rpc.last_block_id_by_batch_id(U256::from(target_proposal_id)).await {
+                Ok(block_id) => block_id.map(|block_id| block_id.to::<u64>()),
+                Err(err) => {
+                    warn!(
+                        ?err,
+                        orphaned_proposal_id,
+                        target_proposal_id,
+                        orphaned_l1_block_number,
+                        orphaned_l1_block_hash = ?orphaned_l1_block_hash,
+                        orphaned_transaction_hash = ?orphaned_transaction_hash,
+                        "failed to resolve canonical rollback block for orphaned proposal"
+                    );
+                    return;
+                }
+            }
+        };
+        let rollback_block =
+            resolve_canonical_reorg_rollback_block(target_proposal_id, target_block);
+
+        if target_proposal_id > 0 && rollback_block.is_none() {
+            warn!(
+                orphaned_proposal_id,
+                target_proposal_id,
+                orphaned_l1_block_number,
+                orphaned_l1_block_hash = ?orphaned_l1_block_hash,
+                orphaned_transaction_hash = ?orphaned_transaction_hash,
+                "canonical rollback block missing; skipping orphaned proposal head l1 origin reset"
+            );
+            return;
+        }
+
+        let current_head = match self.rpc.head_l1_origin().await {
+            Ok(origin) => origin.map(|origin| origin.block_id.to::<u64>()),
+            Err(err) => {
+                warn!(
+                    ?err,
+                    orphaned_proposal_id,
+                    target_proposal_id,
+                    rollback_block,
+                    orphaned_l1_block_number,
+                    orphaned_l1_block_hash = ?orphaned_l1_block_hash,
+                    orphaned_transaction_hash = ?orphaned_transaction_hash,
+                    "failed to read head l1 origin while reconciling orphaned proposal"
+                );
+                return;
+            }
+        };
+
+        let HeadL1OriginReorgAction::Reset { previous_head, rollback_block } =
+            resolve_reorg_head_l1_origin_action(current_head, rollback_block)
+        else {
+            debug!(
+                orphaned_proposal_id,
+                target_proposal_id,
+                current_head_l1_origin = ?current_head,
+                rollback_block,
+                "head l1 origin does not need orphaned proposal reconciliation"
+            );
+            return;
+        };
+
+        if let Err(err) = self.rpc.set_head_l1_origin(U256::from(rollback_block)).await {
+            warn!(
+                ?err,
+                orphaned_proposal_id,
+                target_proposal_id,
+                previous_head,
+                rollback_block,
+                orphaned_l1_block_number,
+                orphaned_l1_block_hash = ?orphaned_l1_block_hash,
+                orphaned_transaction_hash = ?orphaned_transaction_hash,
+                "failed to reset head l1 origin after orphaned proposal"
+            );
+            return;
+        }
+
+        warn!(
+            orphaned_proposal_id,
+            target_proposal_id,
+            previous_head,
+            rollback_block,
+            orphaned_l1_block_number,
+            orphaned_l1_block_hash = ?orphaned_l1_block_hash,
+            orphaned_transaction_hash = ?orphaned_transaction_hash,
+            "reset head l1 origin after orphaned proposal"
+        );
+    }
+
     /// Process a batch of proposal logs from the event scanner.
     async fn process_log_batch(
         &self,
@@ -593,6 +709,14 @@ where
                             Ok(true) => {
                                 counter!(DriverMetrics::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL)
                                     .increment(1);
+                                syncer
+                                    .reconcile_head_l1_origin_after_orphaned_proposal(
+                                        proposal_id,
+                                        block_hash,
+                                        log.block_number,
+                                        log.transaction_hash,
+                                    )
+                                    .await;
                                 warn!(
                                     ?err,
                                     block_number = log.block_number,
@@ -1745,6 +1869,7 @@ mod tests {
         let asserter = Asserter::new();
         asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
         asserter.push_success(&2u64);
+        asserter.push_failure_msg("core state unavailable");
 
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
