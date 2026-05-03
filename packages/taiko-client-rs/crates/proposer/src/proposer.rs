@@ -151,14 +151,28 @@ impl Proposer {
             interval.tick().await;
             info!(epoch, "proposer epoch");
 
-            if !self.precheck_current_preconf_operator().await? {
-                info!(
-                    epoch,
-                    proposer = ?self.l1_proposer_address,
-                    "skipping proposal attempt because proposer is not current preconf whitelist operator"
-                );
-                epoch += 1;
-                continue;
+            match self.precheck_current_preconf_operator().await {
+                Ok(true) => {}
+                Ok(false) => {
+                    info!(
+                        epoch,
+                        proposer = ?self.l1_proposer_address,
+                        "skipping proposal attempt because proposer is not current preconf whitelist operator"
+                    );
+                    epoch += 1;
+                    continue;
+                }
+                Err(err) if is_operational_loop_error(&err) => {
+                    counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+                    warn!(
+                        epoch,
+                        error = %err,
+                        "proposer precheck failed on a retryable error; continuing proposer loop"
+                    );
+                    epoch += 1;
+                    continue;
+                }
+                Err(err) => return Err(err),
             }
 
             match self.fetch_and_propose().await {
@@ -170,7 +184,7 @@ impl Proposer {
                         "proposal attempt completed"
                     );
                 }
-                Err(err) if is_operational_submission_error(&err) => {
+                Err(err) if is_operational_loop_error(&err) => {
                     counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
                     warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
                 }
@@ -678,15 +692,17 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
         .ok_or(ProposerError::InvalidExtraData)
 }
 
-/// Return `true` when a surfaced proposer error should be logged and retried on the next epoch.
-fn is_operational_submission_error(err: &ProposerError) -> bool {
+/// Return `true` when a surfaced proposer loop error should be retried on the next epoch.
+fn is_operational_loop_error(err: &ProposerError) -> bool {
     matches!(
         err,
-        ProposerError::TxManager(
-            TxManagerError::Rpc(_) |
-                TxManagerError::SendTimeout |
-                TxManagerError::MempoolDeadlineExpired
-        )
+        ProposerError::Rpc(_) |
+            ProposerError::Contract(alloy::contract::Error::TransportError(_)) |
+            ProposerError::TxManager(
+                TxManagerError::Rpc(_) |
+                    TxManagerError::SendTimeout |
+                    TxManagerError::MempoolDeadlineExpired
+            )
     )
 }
 
@@ -695,6 +711,7 @@ mod tests {
     use alloy::{
         consensus::Header as ConsensusHeader,
         primitives::{B256, Bytes, U256},
+        transports::TransportErrorKind,
     };
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use base_tx_manager::TxManagerError;
@@ -704,8 +721,8 @@ mod tests {
 
     use super::{
         calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
-        forced_inclusion_is_permissionless, is_current_preconf_operator,
-        is_operational_submission_error, next_shasta_proposal_id, record_submission_attempt,
+        forced_inclusion_is_permissionless, is_current_preconf_operator, is_operational_loop_error,
+        next_shasta_proposal_id, record_submission_attempt,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
@@ -767,29 +784,42 @@ mod tests {
 
     #[test]
     fn tx_manager_operational_errors_keep_the_proposer_loop_running() {
-        assert!(is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Rpc(
+        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Rpc(
             "provider timed out".into(),
         ))));
-        assert!(is_operational_submission_error(&ProposerError::TxManager(
-            TxManagerError::SendTimeout,
-        )));
-        assert!(is_operational_submission_error(&ProposerError::TxManager(
+        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::SendTimeout,)));
+        assert!(is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::MempoolDeadlineExpired,
         )));
     }
 
     #[test]
-    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(
-            TxManagerError::NonceTooLow,
+    fn precheck_transport_errors_keep_the_proposer_loop_running() {
+        assert!(is_operational_loop_error(&ProposerError::Rpc("provider timed out".into())));
+        assert!(is_operational_loop_error(&ProposerError::Contract(
+            alloy::contract::Error::TransportError(TransportErrorKind::backend_gone()),
         )));
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+    }
+
+    #[test]
+    fn precheck_local_contract_errors_still_exit_the_proposer_loop() {
+        assert!(!is_operational_loop_error(&ProposerError::Contract(
+            alloy::contract::Error::UnknownFunction("getOperatorForCurrentEpoch".into()),
+        )));
+    }
+
+    #[test]
+    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
+        assert!(!is_operational_loop_error(
+            &ProposerError::TxManager(TxManagerError::NonceTooLow,)
+        ));
+        assert!(!is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
         )));
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Sign(
+        assert!(!is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Sign(
             "wallet rejected signing".into(),
         ))));
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+        assert!(!is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::InvalidConfig("bad fee limit".into()),
         )));
     }
