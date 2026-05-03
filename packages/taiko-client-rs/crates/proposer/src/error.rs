@@ -87,9 +87,13 @@ pub enum ProposerError {
     #[error("sidecar build error: {0}")]
     Sidecar(String),
 
-    /// RPC error
+    /// RPC error.
     #[error("RPC error: {0}")]
-    Rpc(String),
+    Rpc(#[from] RpcError<TransportErrorKind>),
+
+    /// RPC client error.
+    #[error("RPC client error: {0}")]
+    RpcClient(#[from] RpcClientError),
 
     /// Base tx-manager error
     #[error("tx-manager error: {0}")]
@@ -102,22 +106,6 @@ pub enum ProposerError {
     /// Generic error
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-// Manual From implementations for types that don't play well with #[from]
-impl From<RpcError<TransportErrorKind>> for ProposerError {
-    /// Convert transport-layer RPC errors into the proposer RPC error variant.
-    fn from(err: RpcError<TransportErrorKind>) -> Self {
-        ProposerError::Rpc(err.to_string())
-    }
-}
-
-// Manual From implementation for RpcClientError
-impl From<RpcClientError> for ProposerError {
-    /// Convert RPC client wrapper errors into the proposer RPC error variant.
-    fn from(err: RpcClientError) -> Self {
-        ProposerError::Rpc(err.to_string())
-    }
 }
 
 // Manual From implementation for ProtocolError

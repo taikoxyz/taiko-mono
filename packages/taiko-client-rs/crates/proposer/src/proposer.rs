@@ -11,6 +11,7 @@ use alloy::{
     providers::Provider,
     rpc::types::{Block, Transaction},
     signers::local::PrivateKeySigner,
+    transports::{RpcError, TransportErrorKind},
 };
 use alloy_consensus::{
     TxEnvelope,
@@ -534,11 +535,7 @@ impl Proposer {
         info!(payload_id = ?payload_id, "received payload ID, fetching payload");
 
         // Fetch the built payload.
-        let payload_envelope = self
-            .rpc_provider
-            .engine_get_payload_v2(payload_id)
-            .await
-            .map_err(|e| ProposerError::Rpc(e.to_string()))?;
+        let payload_envelope = self.rpc_provider.engine_get_payload_v2(payload_id).await?;
 
         // Extract transactions from payload based on version.
         let transactions = match &payload_envelope.execution_payload {
@@ -694,16 +691,31 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
 
 /// Return `true` when a surfaced proposer loop error should be retried on the next epoch.
 fn is_operational_loop_error(err: &ProposerError) -> bool {
-    matches!(
-        err,
-        ProposerError::Rpc(_) |
-            ProposerError::Contract(alloy::contract::Error::TransportError(_)) |
-            ProposerError::TxManager(
-                TxManagerError::Rpc(_) |
-                    TxManagerError::SendTimeout |
-                    TxManagerError::MempoolDeadlineExpired
-            )
-    )
+    match err {
+        ProposerError::Rpc(err) => is_transport_rpc_error(err),
+        ProposerError::Contract(err) => is_transport_contract_error(err),
+        ProposerError::TxManager(
+            TxManagerError::Rpc(_) |
+            TxManagerError::SendTimeout |
+            TxManagerError::MempoolDeadlineExpired,
+        ) => true,
+        _ => false,
+    }
+}
+
+/// Return whether an RPC error came from the transport layer rather than an RPC error response.
+#[must_use]
+fn is_transport_rpc_error(err: &RpcError<TransportErrorKind>) -> bool {
+    matches!(err, RpcError::Transport(_))
+}
+
+/// Return whether a contract call failed before the RPC server produced an error response.
+#[must_use]
+fn is_transport_contract_error(err: &alloy::contract::Error) -> bool {
+    match err {
+        alloy::contract::Error::TransportError(err) => is_transport_rpc_error(err),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -711,8 +723,9 @@ mod tests {
     use alloy::{
         consensus::Header as ConsensusHeader,
         primitives::{B256, Bytes, U256},
-        transports::TransportErrorKind,
+        transports::{RpcError, TransportErrorKind},
     };
+    use alloy_json_rpc::ErrorPayload;
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use base_tx_manager::TxManagerError;
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
@@ -795,10 +808,24 @@ mod tests {
 
     #[test]
     fn precheck_transport_errors_keep_the_proposer_loop_running() {
-        assert!(is_operational_loop_error(&ProposerError::Rpc("provider timed out".into())));
+        assert!(is_operational_loop_error(&ProposerError::Rpc(TransportErrorKind::backend_gone())));
         assert!(is_operational_loop_error(&ProposerError::Contract(
             alloy::contract::Error::TransportError(TransportErrorKind::backend_gone()),
         )));
+    }
+
+    #[test]
+    fn precheck_error_responses_still_exit_the_proposer_loop() {
+        let payload: ErrorPayload = serde_json::from_str(
+            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
+        )
+        .expect("valid JSON-RPC error payload");
+        let contract_error =
+            alloy::contract::Error::TransportError(RpcError::ErrorResp(payload.clone()));
+
+        assert!(contract_error.as_revert_data().is_some());
+        assert!(!is_operational_loop_error(&ProposerError::Rpc(RpcError::ErrorResp(payload))));
+        assert!(!is_operational_loop_error(&ProposerError::Contract(contract_error)));
     }
 
     #[test]
