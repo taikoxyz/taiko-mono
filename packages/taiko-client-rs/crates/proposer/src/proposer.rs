@@ -33,7 +33,10 @@ use protocol::shasta::{
     },
     encode_extra_data,
 };
-use rpc::client::{Client, ClientConfig, ClientWithWallet};
+use rpc::{
+    RpcClientError,
+    client::{Client, ClientConfig, ClientWithWallet},
+};
 use serde_json::from_value;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
@@ -693,12 +696,22 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
 fn is_operational_loop_error(err: &ProposerError) -> bool {
     match err {
         ProposerError::Rpc(err) => is_transport_rpc_error(err),
+        ProposerError::RpcClient(err) => is_operational_rpc_client_error(err),
         ProposerError::Contract(err) => is_transport_contract_error(err),
         ProposerError::TxManager(
             TxManagerError::Rpc(_) |
             TxManagerError::SendTimeout |
             TxManagerError::MempoolDeadlineExpired,
         ) => true,
+        _ => false,
+    }
+}
+
+/// Return whether an RPC client error came from the transport layer.
+#[must_use]
+fn is_operational_rpc_client_error(err: &RpcClientError) -> bool {
+    match err {
+        RpcClientError::Rpc(err) => is_transport_rpc_error(err),
         _ => false,
     }
 }
@@ -741,6 +754,7 @@ mod tests {
     use protocol::shasta::{
         constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
     };
+    use rpc::RpcClientError;
 
     #[test]
     fn current_unix_timestamp_tracks_system_time() {
@@ -826,6 +840,24 @@ mod tests {
         assert!(contract_error.as_revert_data().is_some());
         assert!(!is_operational_loop_error(&ProposerError::Rpc(RpcError::ErrorResp(payload))));
         assert!(!is_operational_loop_error(&ProposerError::Contract(contract_error)));
+    }
+
+    #[test]
+    fn rpc_client_transport_errors_keep_the_proposer_loop_running() {
+        let err = ProposerError::from(RpcClientError::from(TransportErrorKind::backend_gone()));
+
+        assert!(is_operational_loop_error(&err));
+    }
+
+    #[test]
+    fn rpc_client_error_responses_still_exit_the_proposer_loop() {
+        let payload: ErrorPayload = serde_json::from_str(
+            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
+        )
+        .expect("valid JSON-RPC error payload");
+        let err = ProposerError::from(RpcClientError::from(RpcError::ErrorResp(payload)));
+
+        assert!(!is_operational_loop_error(&err));
     }
 
     #[test]

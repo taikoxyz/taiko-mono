@@ -46,7 +46,11 @@ pub async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
 
 /// Checks if the RPC error indicates a geth-style "not found" error.
 fn is_not_found_error(err: &RpcClientError) -> bool {
-    matches!(err, RpcClientError::Rpc(message) if message.contains("not found"))
+    match err {
+        RpcClientError::Rpc(err) => err.to_string().contains("not found"),
+        RpcClientError::RpcMessage(message) => message.contains("not found"),
+        _ => false,
+    }
 }
 
 /// Reset the authenticated L1 RPC head.
