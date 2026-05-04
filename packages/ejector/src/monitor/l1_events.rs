@@ -306,8 +306,8 @@ pub(crate) async fn run_operator_event_scanner(
                         match decode_cache_update(log) {
                             Ok(Some(update)) => {
                                 let proposer_for_metrics = match &update {
-                                    WhitelistCacheUpdate::OperatorAdded { proposer, .. } |
-                                    WhitelistCacheUpdate::OperatorRemoved { proposer, .. } => {
+                                    WhitelistCacheUpdate::OperatorAdded { proposer, .. }
+                                    | WhitelistCacheUpdate::OperatorRemoved { proposer, .. } => {
                                         Some(*proposer)
                                     }
                                     WhitelistCacheUpdate::ReorgDetected { .. } => None,
@@ -391,8 +391,8 @@ pub(crate) async fn run_operator_event_scanner(
                         )
                     };
 
-                    if matches!(outcome, CacheUpdateOutcome::RefreshFromChain) &&
-                        let Err(err) = refresh_cache_from_chain(
+                    if matches!(outcome, CacheUpdateOutcome::RefreshFromChain)
+                        && let Err(err) = refresh_cache_from_chain(
                             &whitelist,
                             &operator_cache,
                             Some(&mut tracker),
@@ -481,48 +481,60 @@ mod tests {
             ProcessedLogTracker { seen: HashSet::new(), order: VecDeque::new(), max_entries: 2 };
 
         assert_eq!(
-            apply_cache_update(&mut cache, &mut tracker, WhitelistCacheUpdate::OperatorAdded {
-                key: key(10, 0xA1, 0),
-                proposer,
-                sequencer
-            },),
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorAdded { key: key(10, 0xA1, 0), proposer, sequencer },
+            ),
             CacheUpdateOutcome::Applied
         );
         assert_eq!(
-            apply_cache_update(&mut cache, &mut tracker, WhitelistCacheUpdate::OperatorRemoved {
-                key: key(11, 0xB2, 0),
-                proposer,
-                sequencer,
-            },),
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorRemoved {
+                    key: key(11, 0xB2, 0),
+                    proposer,
+                    sequencer,
+                },
+            ),
             CacheUpdateOutcome::Applied
         );
         assert_eq!(cache.proposer_for(proposer), None);
 
         assert_eq!(
-            apply_cache_update(&mut cache, &mut tracker, WhitelistCacheUpdate::OperatorAdded {
-                key: key(12, 0xC3, 0),
-                proposer: other,
-                sequencer: Address::ZERO,
-            },),
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorAdded {
+                    key: key(12, 0xC3, 0),
+                    proposer: other,
+                    sequencer: Address::ZERO,
+                },
+            ),
             CacheUpdateOutcome::Applied
         );
 
         reseed_cache_from_entries(&mut cache, &mut tracker, []);
 
         assert_eq!(
-            apply_cache_update(&mut cache, &mut tracker, WhitelistCacheUpdate::OperatorAdded {
-                key: key(10, 0xA1, 0),
-                proposer,
-                sequencer
-            },),
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorAdded { key: key(10, 0xA1, 0), proposer, sequencer },
+            ),
             CacheUpdateOutcome::Applied
         );
         assert_eq!(
-            apply_cache_update(&mut cache, &mut tracker, WhitelistCacheUpdate::OperatorRemoved {
-                key: key(11, 0xB2, 0),
-                proposer,
-                sequencer,
-            },),
+            apply_cache_update(
+                &mut cache,
+                &mut tracker,
+                WhitelistCacheUpdate::OperatorRemoved {
+                    key: key(11, 0xB2, 0),
+                    proposer,
+                    sequencer,
+                },
+            ),
             CacheUpdateOutcome::Applied
         );
         assert_eq!(cache.proposer_for(proposer), None);
@@ -536,16 +548,16 @@ mod tests {
 
         cache.upsert(present, Address::with_last_byte(0x33));
 
-        assert_eq!(preconfer_missing_from_whitelist_values(&cache, &[present, missing]), vec![
-            (&present, false),
-            (&missing, true)
-        ]);
+        assert_eq!(
+            preconfer_missing_from_whitelist_values(&cache, &[present, missing]),
+            vec![(&present, false), (&missing, true)]
+        );
 
         cache.remove_proposer(present);
 
-        assert_eq!(preconfer_missing_from_whitelist_values(&cache, &[present, missing]), vec![
-            (&present, true),
-            (&missing, true)
-        ]);
+        assert_eq!(
+            preconfer_missing_from_whitelist_values(&cache, &[present, missing]),
+            vec![(&present, true), (&missing, true)]
+        );
     }
 }
