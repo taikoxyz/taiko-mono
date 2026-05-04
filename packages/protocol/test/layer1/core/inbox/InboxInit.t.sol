@@ -9,19 +9,13 @@ import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
 
-/// @notice Tests for Inbox activation and pre-activation behavior
-contract InboxActivationTest is InboxTestBase {
-    Inbox internal nonActivatedInbox;
+/// @notice Tests for Inbox initialization and pre-initialization behavior
+contract InboxInitTest is InboxTestBase {
+    Inbox internal uninitializedInbox;
 
     function setUp() public override {
         super.setUp();
-        // Deploy a new inbox without activation for these tests
-        nonActivatedInbox = _deployNonActivatedInbox();
-    }
-
-    function _deployNonActivatedInbox() private returns (Inbox) {
-        address impl = address(new Inbox(config));
-        return Inbox(address(new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this))))));
+        uninitializedInbox = _deployUninitializedInbox();
     }
 
     function test_propose_RevertWhen_NotActivated() public {
@@ -31,10 +25,10 @@ contract InboxActivationTest is InboxTestBase {
 
         vm.expectRevert(Inbox.ActivationRequired.selector);
         vm.prank(proposer);
-        nonActivatedInbox.propose(bytes(""), encodedInput);
+        uninitializedInbox.propose(bytes(""), encodedInput);
     }
 
-    function test_prove_RevertWhen_NotActivated() public {
+    function test_prove_RevertWhen_NotInitialized() public {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = IInbox.Transition({
             proposer: proposer,
@@ -57,41 +51,22 @@ contract InboxActivationTest is InboxTestBase {
         bytes memory encodedInput = codec.encodeProveInput(input);
         vm.expectRevert(Inbox.LastProposalIdTooLarge.selector);
         vm.prank(prover);
-        nonActivatedInbox.prove(encodedInput, bytes("proof"));
+        uninitializedInbox.prove(encodedInput, bytes("proof"));
     }
 
-    function test_activate_RevertWhen_InvalidLastPacayaBlockHash() public {
-        vm.expectRevert(LibInboxSetup.InvalidLastPacayaBlockHash.selector);
-        nonActivatedInbox.activate(bytes32(0));
+    function test_init_RevertWhen_InvalidGenesisBlockHash() public {
+        address impl = address(new Inbox(config));
+
+        vm.expectRevert(LibInboxSetup.InvalidGenesisBlockHash.selector);
+        new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this), bytes32(0))));
     }
 
-    function test_activate_RevertWhen_ActivationPeriodExpired() public {
-        // First activation
-        nonActivatedInbox.activate(bytes32(uint256(1)));
+    function test_init_activatesInbox() public {
+        Inbox initializedInbox = _deployInbox();
+        IInbox.CoreState memory state = initializedInbox.getCoreState();
 
-        // Warp past activation window (2 hours)
-        vm.warp(block.timestamp + 2 hours + 1);
-
-        // Second activation should fail
-        vm.expectRevert(LibInboxSetup.ActivationPeriodExpired.selector);
-        nonActivatedInbox.activate(bytes32(uint256(2)));
-    }
-
-    function test_activate_allowsReactivationWithinWindow() public {
-        // First activation
-        nonActivatedInbox.activate(bytes32(uint256(1)));
-        uint48 firstActivationTimestamp = nonActivatedInbox.activationTimestamp();
-
-        // Warp within activation window
-        vm.warp(block.timestamp + 1 hours);
-
-        // Second activation should succeed
-        nonActivatedInbox.activate(bytes32(uint256(2)));
-
-        // Activation timestamp should remain the same
-        assertEq(
-            nonActivatedInbox.activationTimestamp(), firstActivationTimestamp, "timestamp unchanged"
-        );
+        assertEq(initializedInbox.activationTimestamp(), uint48(block.timestamp), "activated");
+        assertEq(state.nextProposalId, 1, "next proposal id");
     }
 
     function test_getConfig_returnsImmutableConfig() public view {
