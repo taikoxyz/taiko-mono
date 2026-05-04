@@ -29,6 +29,19 @@ fn load_env_for_dev() {
     let _ = dotenv();
 }
 
+fn parse_preconfer_addresses(addresses: Option<&str>) -> Result<Vec<Address>> {
+    addresses
+        .unwrap_or_default()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(|addr| {
+            Address::from_str(addr)
+                .map_err(|err| color_eyre::eyre::eyre!("invalid preconfer address {addr}: {err}"))
+        })
+        .collect()
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install().expect("Failed to install color_eyre");
@@ -78,6 +91,8 @@ async fn main() -> Result<()> {
 
     let handover_slots = config.handover_slots;
 
+    let preconfer_addresses = parse_preconfer_addresses(config.preconfer_addresses.as_deref())?;
+
     let server_handle = tokio::spawn(async move {
         // convert oneshot Receiver into a future (// TODO: why do i need to do this?)
         let shutdown = async move {
@@ -102,6 +117,7 @@ async fn main() -> Result<()> {
         min_operators: config.min_operators,
         min_reorg_depth_for_eject: config.min_reorg_depth_for_eject,
         reorg_ejection_enabled: config.enable_reorg_ejection,
+        preconfer_addresses,
     });
 
     let monitor_handle = tokio::spawn(async move {
@@ -132,4 +148,36 @@ async fn main() -> Result<()> {
 
     tracing::info!("Successfully shut down ejector gracefully");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_comma_separated_preconfer_addresses() {
+        let first = Address::with_last_byte(0x11);
+        let second = Address::with_last_byte(0x22);
+
+        let parsed = parse_preconfer_addresses(Some(&format!("{first:#x}, {second:#x},")))
+            .expect("preconfer addresses should parse");
+
+        assert_eq!(parsed, vec![first, second]);
+    }
+
+    #[test]
+    fn missing_preconfer_addresses_parse_as_empty_list() {
+        let parsed =
+            parse_preconfer_addresses(None).expect("missing preconfer addresses should parse");
+
+        assert!(parsed.is_empty());
+    }
+
+    #[test]
+    fn invalid_preconfer_address_returns_error() {
+        let err = parse_preconfer_addresses(Some("0xnot-an-address"))
+            .expect_err("invalid preconfer address should fail");
+
+        assert!(err.to_string().contains("invalid preconfer address"));
+    }
 }
