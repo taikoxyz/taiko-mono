@@ -23,17 +23,13 @@ import (
 
 var (
 	errEndpointMissing = errors.New("must provide one of the WS / HTTP endpoint flags")
-	errEndpointBoth    = errors.New("provide only one of the WS / HTTP endpoint flags, not both")
 )
 
 // resolveEndpoints picks the endpoint URL for one network: prefer the WS flag,
-// fall back to HTTP. Exactly one must be provided.
+// fall back to HTTP.
 func resolveEndpoints(ws, http string) (string, error) {
 	if ws == "" && http == "" {
 		return "", errEndpointMissing
-	}
-	if ws != "" && http != "" {
-		return "", errEndpointBoth
 	}
 	if ws != "" {
 		return ws, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -15,6 +16,16 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
+
+func TestResolveEndpointsPrefersWSOverHTTP(t *testing.T) {
+	got, err := resolveEndpoints("ws://x", "http://x")
+	if err != nil {
+		t.Fatalf("resolveEndpoints returned error: %v", err)
+	}
+	if got != "ws://x" {
+		t.Fatalf("resolveEndpoints returned %q, want ws://x", got)
+	}
+}
 
 func (s *DriverTestSuite) TestResolveEndpoints() {
 	cases := []struct {
@@ -28,7 +39,7 @@ func (s *DriverTestSuite) TestResolveEndpoints() {
 		{name: "http only", ws: "", http: "http://x", want: "http://x"},
 		{name: "https only", ws: "", http: "https://x", want: "https://x"},
 		{name: "neither", ws: "", http: "", wantError: true},
-		{name: "both", ws: "ws://x", http: "http://x", wantError: true},
+		{name: "both prefers ws", ws: "ws://x", http: "http://x", want: "ws://x"},
 	}
 	for _, tc := range cases {
 		s.Run(tc.name, func() {
