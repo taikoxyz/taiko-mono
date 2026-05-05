@@ -1,4 +1,6 @@
 name: "CI"
+permissions:
+  contents: read
 
 on:
   push:
@@ -21,7 +23,7 @@ concurrency:
 
 jobs:
   lint:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    if: ${{ github.event_name == 'push' || (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot')) }}
     name: Lint
     runs-on: [arc-runner-set]
     timeout-minutes: 10
@@ -29,6 +31,8 @@ jobs:
       CGO_ENABLED: 1
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -79,7 +83,7 @@ jobs:
           args: --timeout=10m --config=.golangci.yml ./...
 
   integration_tests:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event_name == 'push' || (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.head_ref, 'release-please')) }}
     name: Integration tests
     runs-on: [arc-runner-set]
     timeout-minutes: 30
@@ -101,6 +105,8 @@ jobs:
           access_token: ${{ github.token }}
 
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1

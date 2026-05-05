@@ -27,7 +27,7 @@ jobs:
       - name: Install swaggo
         run: |
           export CGO_ENABLED=0
-          go install github.com/swaggo/swag/cmd/swag@latest
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
 
       - name: Generate Swagger documentation
         run: |

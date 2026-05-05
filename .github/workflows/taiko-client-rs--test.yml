@@ -21,12 +21,14 @@ concurrency:
 
 jobs:
   lint:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
+    if: ${{ github.event_name == 'push' || (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot')) }}
     name: Lint
     runs-on: [arc-runner-set]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Ensure native build tools
         shell: bash
@@ -87,7 +89,7 @@ jobs:
         run: just clippy
 
   test:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event_name == 'push' || (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.head_ref, 'release-please')) }}
     name: Tests
     runs-on: [arc-runner-set]
     timeout-minutes: 30
@@ -101,6 +103,8 @@ jobs:
           access_token: ${{ github.token }}
 
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Ensure native build tools
         shell: bash
@@ -134,53 +138,26 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          MOLD_VERSION=2.40.4
-          ARCH="$(uname -m)"
-
           if [ "$(whoami)" = root ]; then
             SUDO=""
           else
             SUDO="sudo"
           fi
 
-          curl -fsSL "https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-${ARCH}-linux.tar.gz" \
-            | $SUDO tar -C /usr/local --strip-components=1 --no-overwrite-dir -xzf -
-
-          if [ "$(readlink -f /usr/bin/ld)" != /usr/local/bin/mold ]; then
-            $SUDO ln -sf /usr/local/bin/mold /usr/bin/ld
+          if ! command -v apt-get > /dev/null 2>&1; then
+            echo "ERROR: apt-get is required to install mold on this runner"
+            exit 1
           fi
 
-      - name: Ensure docker-compose is available
-        shell: bash
-        run: |
-          set -euxo pipefail
+          $SUDO apt-get update
+          $SUDO apt-get install -y --no-install-recommends mold
 
-          if docker compose version > /dev/null 2>&1; then
-            docker compose version
-            exit 0
+          if [ "$(readlink -f /usr/bin/ld)" != "$(readlink -f "$(command -v mold)")" ]; then
+            $SUDO ln -sf "$(command -v mold)" /usr/bin/ld
           fi
 
-          if command -v docker-compose > /dev/null 2>&1; then
-            docker-compose version
-            exit 0
-          fi
-
-          ARCH="$(uname -m)"
-          if [ "$ARCH" = "arm64" ]; then
-            ARCH="aarch64"
-          fi
-
-          if [ "$(whoami)" = root ]; then
-            SUDO=""
-          else
-            SUDO="sudo"
-          fi
-
-          $SUDO curl -fsSL \
-            "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-${ARCH}" \
-            -o /usr/local/bin/docker-compose
-          $SUDO chmod +x /usr/local/bin/docker-compose
-          docker-compose version
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
@@ -225,6 +202,7 @@ jobs:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PROTOCOL_FORK_DIR }}
           ref: taiko-alethia-protocol-v3.0.0
+          persist-credentials: false
 
       - name: Install pnpm dependencies for protocol taiko-mono for testing
         working-directory: ${{ env.PROTOCOL_FORK_DIR }}

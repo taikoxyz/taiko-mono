@@ -1,4 +1,6 @@
 name: "Build and Push Multi-Arch Docker Image"
+permissions:
+  contents: read
 
 on:
   push:
