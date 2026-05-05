@@ -11,13 +11,15 @@ import { LibHashOptimized } from "./LibHashOptimized.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibInboxSetup {
     // ---------------------------------------------------------------
-    // Public Functions (externally linked)
+    // Constants
     // ---------------------------------------------------------------
 
-    /// @dev The time window during which activate() can be called after the first activation.
-    uint256 public constant ACTIVATION_WINDOW = 2 hours;
     /// @dev Minimum ring buffer size to keep one slot reserved in capacity calculations.
     uint48 public constant MIN_RING_BUFFER_SIZE = 2;
+
+    // ---------------------------------------------------------------
+    // Public Functions (externally linked)
+    // ---------------------------------------------------------------
 
     /// @dev Validates the Inbox configuration parameters.
     /// @param _config The configuration to validate.
@@ -44,18 +46,18 @@ library LibInboxSetup {
         );
     }
 
-    /// @dev Validates activation and computes the initial state for inbox activation.
-    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block.
-    /// @param _activationTimestamp The current activation timestamp (0 if not yet activated).
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Validates the genesis block hash and computes the initial inbox state.
+    /// @param _genesisBlockHash The genesis block hash.
     /// @return activationTimestamp_ The activation timestamp to use.
     /// @return state_ The initial CoreState.
     /// @return proposal_ The genesis proposal.
     /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
-    function activate(
-        bytes32 _lastPacayaBlockHash,
-        uint48 _activationTimestamp
-    )
-        public
+    function initCoreState(bytes32 _genesisBlockHash)
+        internal
         view
         returns (
             uint48 activationTimestamp_,
@@ -64,17 +66,8 @@ library LibInboxSetup {
             bytes32 genesisProposalHash_
         )
     {
-        // Validate activation parameters
-        require(_lastPacayaBlockHash != 0, InvalidLastPacayaBlockHash());
-        if (_activationTimestamp == 0) {
-            activationTimestamp_ = uint48(block.timestamp);
-        } else {
-            require(
-                block.timestamp <= ACTIVATION_WINDOW + _activationTimestamp,
-                ActivationPeriodExpired()
-            );
-            activationTimestamp_ = _activationTimestamp;
-        }
+        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
+        activationTimestamp_ = uint48(block.timestamp);
 
         // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
         // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
@@ -83,7 +76,7 @@ library LibInboxSetup {
         state_.nextProposalId = 1;
         state_.lastProposalBlockId = 1;
         state_.lastFinalizedTimestamp = uint48(block.timestamp);
-        state_.lastFinalizedBlockHash = _lastPacayaBlockHash;
+        state_.lastFinalizedBlockHash = _genesisBlockHash;
 
         genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
     }
@@ -92,12 +85,11 @@ library LibInboxSetup {
     // Errors
     // ---------------------------------------------------------------
 
-    error ActivationPeriodExpired();
     error BasefeeSharingPctgTooLarge();
     error BondTokenZero();
     error ForcedInclusionFeeDoubleThresholdZero();
     error ForcedInclusionFeeInGweiZero();
-    error InvalidLastPacayaBlockHash();
+    error InvalidGenesisBlockHash();
     error PermissionlessProvingDelayTooSmall();
     error PermissionlessInclusionMultiplierTooSmall();
     error ProofVerifierZero();
