@@ -80,6 +80,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
 		}
 	}
+	if c.Uint64(flags.PreconfBlockServerPort.Name) > 0 && len(preconfBlockServerJWTSecret) == 0 {
+		return nil, errors.New("preconfirmation.jwtSecret is required when preconfirmation.serverPort is enabled")
+	}
 
 	// Check P2P network flags and create the P2P configurations.
 	var (
