@@ -12,10 +12,22 @@ concurrency:
 
 jobs:
   deepseek-review:
-    # Run automatically on non-draft PRs, or when someone comments @deepseek
-    if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@deepseek'))
+    # Run automatically on non-draft PRs from the base repo, or when a trusted
+    # author comments @deepseek (which also covers fork PRs after maintainer review).
+    # SECURITY: both paths are gated so anonymous fork PRs cannot burn
+    # DEEPSEEK_API_KEY budget by opening/synchronizing PRs or spamming comments.
+    if: >-
+      (
+        github.event_name == 'pull_request'
+        && github.event.pull_request.draft == false
+        && github.event.pull_request.head.repo.fork == false
+      )
+      || (
+        github.event_name == 'issue_comment'
+        && contains(github.event.comment.body, '@deepseek')
+        && github.event.issue.pull_request != null
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read

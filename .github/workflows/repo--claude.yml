@@ -7,7 +7,14 @@ on:
 
 jobs:
   claude:
-    if: (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+    # SECURITY: only trusted authors can trigger this secret-bearing job.
+    # Anyone with comment access could otherwise spend the ANTHROPIC_API_KEY
+    # and run a job with contents/pull-requests/issues/id-token write.
+    if: >-
+      github.event_name == 'issue_comment'
+      && contains(github.event.comment.body, '@claude')
+      && github.event.issue.pull_request != null
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: write
