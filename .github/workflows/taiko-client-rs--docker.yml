@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main, codex/locate-masaya-fork-time]
+    branches: [main]
     tags:
       - "taiko-alethia-client-rs-v*"
     paths:
