@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -86,6 +87,20 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 	}), "empty L2 check point URL")
 }
 
+func (s *DriverTestSuite) TestNewConfigFromCliContextPreconfServerRequiresJWTSecret() {
+	jwtFile := s.T().TempDir() + "/jwt.hex"
+	s.Require().NoError(os.WriteFile(jwtFile, []byte(strings.Repeat("11", 32)), 0o600))
+
+	app := s.SetupApp()
+
+	s.ErrorContains(app.Run([]string{
+		"TestNewConfigFromCliContextPreconfServerRequiresJWTSecret",
+		"--" + flags.JWTSecret.Name, jwtFile,
+		"--" + flags.L1BeaconEndpoint.Name, "http://localhost:5052",
+		"--" + flags.PreconfBlockServerPort.Name, "9871",
+	}), "preconfirmation.jwtSecret is required when preconfirmation.serverPort is enabled")
+}
+
 func (s *DriverTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = flags.MergeFlags([]cli.Flag{
@@ -96,6 +111,8 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.Uint64Flag{Name: flags.PreconfHandoverSkipSlots.Name, Value: 8},
+		&cli.Uint64Flag{Name: flags.PreconfBlockServerPort.Name},
+		&cli.StringFlag{Name: flags.PreconfBlockServerJWTSecret.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
