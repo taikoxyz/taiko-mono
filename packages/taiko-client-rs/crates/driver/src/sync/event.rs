@@ -87,13 +87,23 @@ struct EventStreamStartPoint {
 }
 
 /// Decide whether a confirmed-sync probe is still needed.
+///
+/// `rollback_pending` is the fail-closed gate for `Notification::ReorgDetected`: when the
+/// rollback handler aborts before lowering `head_l1_origin`, the EE's batch tables and
+/// head pointer remain stale and could otherwise let `confirmed_sync_snapshot` reopen
+/// ingress against pre-reorg state. Probing is suppressed until the next reorg
+/// notification reports a safe state or the scanner reconnects.
 fn should_probe_confirmed_sync(
     preconfirmation_enabled: bool,
     preconf_ingress_spawned: bool,
     preconf_ingress_ready: bool,
     scanner_live: bool,
+    rollback_pending: bool,
 ) -> bool {
-    preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
+    preconfirmation_enabled &&
+        scanner_live &&
+        !rollback_pending &&
+        (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
@@ -725,8 +735,14 @@ where
     /// Every fallible step logs and increments
     /// `EVENT_REORG_ROLLBACK_RESULTS_TOTAL{result=...}`, then returns. The handler never
     /// propagates errors; the next reorg notification or scanner reconnect will retry.
+    ///
+    /// Returns `true` when the rollback reached a safe state (`rewound` or `noop`); the caller
+    /// can let the confirmed-sync gate re-open ingress. Returns `false` on any failure path
+    /// (`core_state_failed`, `mapping_missing`, `batch_lookup_failed`, `read_failed`,
+    /// `write_failed`); EE state may still be stale and the caller must keep ingress closed
+    /// until a subsequent rollback succeeds.
     #[instrument(skip(self), fields(common_ancestor))]
-    pub(crate) async fn handle_reorg_detected(&self, common_ancestor: u64) {
+    pub(crate) async fn handle_reorg_detected(&self, common_ancestor: u64) -> bool {
         counter!(DriverMetrics::EVENT_REORGS_DETECTED_TOTAL).increment(1);
 
         let record_result = |label: &'static str| {
@@ -760,7 +776,7 @@ where
                     "reorg rollback aborted: getCoreState at common ancestor failed"
                 );
                 record_result("core_state_failed");
-                return;
+                return false;
             }
         };
 
@@ -780,7 +796,7 @@ where
                          confirmed-sync gate will reopen ingress once derivation catches up"
                     );
                     record_result("mapping_missing");
-                    return;
+                    return false;
                 }
                 Err(err) => {
                     warn!(
@@ -790,7 +806,7 @@ where
                         "reorg rollback aborted: last_block_id_by_batch_id failed"
                     );
                     record_result("batch_lookup_failed");
-                    return;
+                    return false;
                 }
             }
         };
@@ -802,7 +818,7 @@ where
             Err(err) => {
                 warn!(?err, common_ancestor, "reorg rollback aborted: head_l1_origin read failed");
                 record_result("read_failed");
-                return;
+                return false;
             }
         };
 
@@ -817,7 +833,7 @@ where
                 );
                 record_result("write_failed");
                 // Do not publish the watch value — the on-disk pointer was not lowered.
-                return;
+                return false;
             }
             info!(
                 common_ancestor,
@@ -837,6 +853,8 @@ where
         if let Err(err) = self.rollback_tx.send(Some(rollback_block)) {
             debug!(?err, rollback_block, "rollback watch send had no receivers");
         }
+
+        true
     }
 
     /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts
@@ -1303,6 +1321,11 @@ where
         let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
         let mut scanner_started_once = false;
+        // Set when `Notification::ReorgDetected` is dispatched and the rollback handler
+        // returned a failure outcome. Suppresses confirmed-sync probing so a stale
+        // pre-reorg `head_l1_origin`/batch table cannot reopen ingress before a later
+        // rollback succeeds. Cleared on successful rollback or scanner reconnect.
+        let mut rollback_pending = false;
 
         loop {
             if !preconf_ingress_spawned {
@@ -1382,7 +1405,8 @@ where
                                 scanner_live = true;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
-                                self.handle_reorg_detected(common_ancestor).await;
+                                rollback_pending =
+                                    !self.handle_reorg_detected(common_ancestor).await;
                             }
                             Notification::NoPastLogsFound => {
                                 // No action needed; logged above for observability.
@@ -1401,6 +1425,7 @@ where
                     preconf_ingress_spawned,
                     self.preconf_ingress_ready.load(Ordering::Acquire),
                     scanner_live,
+                    rollback_pending,
                 ) {
                     let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
                     if let Err(err) = &confirmed_sync_probe {
@@ -1441,6 +1466,11 @@ where
             if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
                 info!("closing preconfirmation ingress during event scanner reconnect");
             }
+            // Reconnect rewinds the scanner cursor and replays logs, so any pending reorg
+            // rollback will be re-driven by a fresh `ReorgDetected` notification if the reorg
+            // is still on the canonical chain. Clear the pending flag so the confirmed-sync
+            // gate can re-evaluate normally.
+            rollback_pending = false;
 
             if let Some(block_number) = last_seen_l1_block_number {
                 let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
@@ -2004,11 +2034,20 @@ mod tests {
 
     #[test]
     fn confirmed_sync_probe_rearms_when_ingress_gate_closes_after_spawn() {
-        assert!(should_probe_confirmed_sync(true, true, false, true));
-        assert!(!should_probe_confirmed_sync(true, true, true, true));
-        assert!(should_probe_confirmed_sync(true, false, false, true));
-        assert!(!should_probe_confirmed_sync(true, false, false, false));
-        assert!(!should_probe_confirmed_sync(false, true, false, true));
+        assert!(should_probe_confirmed_sync(true, true, false, true, false));
+        assert!(!should_probe_confirmed_sync(true, true, true, true, false));
+        assert!(should_probe_confirmed_sync(true, false, false, true, false));
+        assert!(!should_probe_confirmed_sync(true, false, false, false, false));
+        assert!(!should_probe_confirmed_sync(false, true, false, true, false));
+    }
+
+    #[test]
+    fn confirmed_sync_probe_is_suppressed_while_rollback_pending() {
+        // Otherwise-eligible probe condition (ingress gate closed, scanner live) must be
+        // suppressed when `rollback_pending` is set so a stale pre-reorg `head_l1_origin` /
+        // batch table cannot reopen ingress before a subsequent rollback succeeds.
+        assert!(!should_probe_confirmed_sync(true, true, false, true, true));
+        assert!(!should_probe_confirmed_sync(true, false, false, true, true));
     }
 
     #[test]
@@ -2202,8 +2241,9 @@ mod tests {
         let mut rollback_rx = syncer.subscribe_rollbacks();
         assert_eq!(*rollback_rx.borrow(), None);
 
-        syncer.handle_reorg_detected(42).await;
+        let safe = syncer.handle_reorg_detected(42).await;
 
+        assert!(safe, "rewound rollback must report safe state");
         assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
         rollback_rx.changed().await.expect("rollback should be published");
         assert_eq!(*rollback_rx.borrow(), Some(950));
@@ -2228,8 +2268,9 @@ mod tests {
         syncer.preconf_ingress_ready.store(true, Ordering::Release);
 
         let mut rollback_rx = syncer.subscribe_rollbacks();
-        syncer.handle_reorg_detected(42).await;
+        let safe = syncer.handle_reorg_detected(42).await;
 
+        assert!(safe, "noop rollback must report safe state");
         // Ingress closed regardless of write outcome.
         assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
         // Watch still receives the rollback target (callers may still want to lower
@@ -2258,8 +2299,9 @@ mod tests {
         };
 
         let mut rollback_rx = syncer.subscribe_rollbacks();
-        syncer.handle_reorg_detected(7).await;
+        let safe = syncer.handle_reorg_detected(7).await;
 
+        assert!(safe, "target=0 rewind must report safe state");
         rollback_rx.changed().await.expect("rollback should be published for target=0");
         assert_eq!(*rollback_rx.borrow(), Some(0));
     }
@@ -2283,8 +2325,9 @@ mod tests {
 
         let rollback_rx = syncer.subscribe_rollbacks();
         let initial = *rollback_rx.borrow();
-        syncer.handle_reorg_detected(42).await;
+        let safe = syncer.handle_reorg_detected(42).await;
 
+        assert!(!safe, "mapping_missing must report unsafe state to keep ingress closed");
         // Ingress is still closed (closure happens before the abort).
         assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
         // Watch was NOT updated.
@@ -2310,8 +2353,9 @@ mod tests {
         let rollback_rx = syncer.subscribe_rollbacks();
         let initial = *rollback_rx.borrow();
         // Must not panic.
-        syncer.handle_reorg_detected(42).await;
+        let safe = syncer.handle_reorg_detected(42).await;
 
+        assert!(!safe, "core_state_failed must report unsafe state to keep ingress closed");
         assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
         assert_eq!(*rollback_rx.borrow(), initial);
     }
@@ -2335,8 +2379,9 @@ mod tests {
 
         let rollback_rx = syncer.subscribe_rollbacks();
         let initial = *rollback_rx.borrow();
-        syncer.handle_reorg_detected(42).await;
+        let safe = syncer.handle_reorg_detected(42).await;
 
+        assert!(!safe, "write_failed must report unsafe state to keep ingress closed");
         // Watch was NOT updated because the on-disk pointer was not lowered.
         assert_eq!(*rollback_rx.borrow(), initial);
     }
@@ -2365,12 +2410,14 @@ mod tests {
         };
         syncer.preconf_ingress_ready.store(true, Ordering::Release);
 
-        syncer.handle_reorg_detected(42).await;
+        let first = syncer.handle_reorg_detected(42).await;
+        assert!(first, "first invocation rewinds to safe state");
         assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
 
         // Second call: must complete without panicking and without consuming a
         // non-existent set_head_l1_origin push.
-        syncer.handle_reorg_detected(42).await;
+        let second = syncer.handle_reorg_detected(42).await;
+        assert!(second, "repeat invocation lands in noop branch (also safe)");
         assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
     }
 }
