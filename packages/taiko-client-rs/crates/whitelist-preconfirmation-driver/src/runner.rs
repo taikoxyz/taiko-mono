@@ -179,6 +179,11 @@ impl WhitelistPreconfirmationDriverRunner {
                     ws_url = %server.ws_url(),
                     "whitelist preconfirmation REST server started"
                 );
+                let rollback_rx = preconf_ingress_sync.subscribe_rollbacks();
+                tokio::spawn(lower_highest_unsafe_on_rollback(
+                    rollback_rx,
+                    Arc::clone(&shared_highest),
+                ));
                 (Some(server), Some(shared_highest))
             } else {
                 (None, None)
