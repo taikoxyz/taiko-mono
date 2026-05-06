@@ -1399,11 +1399,18 @@ where
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
-                        if matches!(notification, Notification::SwitchingToLive) {
-                            // Scanner live is necessary but not sufficient: confirmed-sync
-                            // readiness must also pass before ingress
-                            // opens.
-                            scanner_live = true;
+                        match notification {
+                            Notification::SwitchingToLive => {
+                                // Scanner live is necessary but not sufficient: confirmed-sync
+                                // readiness must also pass before ingress opens.
+                                scanner_live = true;
+                            }
+                            Notification::ReorgDetected { common_ancestor } => {
+                                self.handle_reorg_detected(common_ancestor).await;
+                            }
+                            Notification::NoPastLogsFound => {
+                                // No action needed; logged above for observability.
+                            }
                         }
                     }
                     Err(err) => {
