@@ -804,11 +804,7 @@ where
             Ok(Some(origin)) => Some(origin.block_id.to::<u64>()),
             Ok(None) => None,
             Err(err) => {
-                warn!(
-                    ?err,
-                    common_ancestor,
-                    "reorg rollback aborted: head_l1_origin read failed"
-                );
+                warn!(?err, common_ancestor, "reorg rollback aborted: head_l1_origin read failed");
                 counter!(
                     DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
                     "result" => "read_failed",
@@ -855,9 +851,9 @@ where
             .increment(1);
         }
 
-        // 5. Publish the rollback signal regardless of whether we rewrote head_l1_origin
-        //    (in the noop case the watch carries the canonical tip; receivers may still
-        //    want to lower their own caches to it). Channel closure is benign.
+        // 5. Publish the rollback signal regardless of whether we rewrote head_l1_origin (in the
+        //    noop case the watch carries the canonical tip; receivers may still want to lower their
+        //    own caches to it). Channel closure is benign.
         if let Err(err) = self.rollback_tx.send(Some(rollback_block)) {
             debug!(?err, rollback_block, "rollback watch send had no receivers");
         }
@@ -2212,9 +2208,7 @@ mod tests {
         let l2_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
 
-        l1_asserter.push_success(&encoded_core_state(
-            mock_core_state_with_next_proposal_id(50),
-        ));
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
         l2_auth_asserter.push_success(&Some(U256::from(950u64)));
         l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
         l2_auth_asserter.push_success(&U256::from(950u64));
@@ -2241,9 +2235,7 @@ mod tests {
         let l2_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
 
-        l1_asserter.push_success(&encoded_core_state(
-            mock_core_state_with_next_proposal_id(50),
-        ));
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
         l2_auth_asserter.push_success(&Some(U256::from(950u64)));
         // head_l1_origin currently at 800 (lower than rollback target 950).
         l2_asserter.push_success(&Some(engine_l1_origin_at(800)));
@@ -2273,9 +2265,7 @@ mod tests {
         let l2_auth_asserter = Asserter::new();
 
         // nextProposalId = 1 -> target_proposal_id = 0 -> rollback_block = 0.
-        l1_asserter.push_success(&encoded_core_state(
-            mock_core_state_with_next_proposal_id(1),
-        ));
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(1)));
         // No last_block_id_by_batch_id push — the handler short-circuits on target == 0.
         // head_l1_origin currently at 5.
         l2_asserter.push_success(&Some(engine_l1_origin_at(5)));
@@ -2300,9 +2290,7 @@ mod tests {
         let l2_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
 
-        l1_asserter.push_success(&encoded_core_state(
-            mock_core_state_with_next_proposal_id(50),
-        ));
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
         // last_block_id_by_batch_id(49) returns None.
         l2_auth_asserter.push_success(&Option::<U256>::None);
         // No head_l1_origin or set_head_l1_origin pushes — handler must short-circuit.
@@ -2354,9 +2342,7 @@ mod tests {
         let l2_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
 
-        l1_asserter.push_success(&encoded_core_state(
-            mock_core_state_with_next_proposal_id(50),
-        ));
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
         l2_auth_asserter.push_success(&Some(U256::from(950u64)));
         l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
         // set_head_l1_origin fails.
@@ -2382,18 +2368,14 @@ mod tests {
         let l2_auth_asserter = Asserter::new();
 
         // First invocation: full sequence with rewind 1000 -> 950.
-        l1_asserter.push_success(&encoded_core_state(
-            mock_core_state_with_next_proposal_id(50),
-        ));
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
         l2_auth_asserter.push_success(&Some(U256::from(950u64)));
         l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
         l2_auth_asserter.push_success(&U256::from(950u64));
 
         // Second invocation: same ancestor. head_l1_origin is now 950 (already at target),
         // so the handler must enter the noop branch and NOT push another set_head call.
-        l1_asserter.push_success(&encoded_core_state(
-            mock_core_state_with_next_proposal_id(50),
-        ));
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
         l2_auth_asserter.push_success(&Some(U256::from(950u64)));
         l2_asserter.push_success(&Some(engine_l1_origin_at(950)));
 

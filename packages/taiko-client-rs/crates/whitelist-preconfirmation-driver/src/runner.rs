@@ -354,8 +354,7 @@ async fn lower_highest_unsafe_on_rollback(
         if *guard > target {
             info!(
                 prior = *guard,
-                target,
-                "lowering highest_unsafe_l2_payload_block_id on reorg rollback"
+                target, "lowering highest_unsafe_l2_payload_block_id on reorg rollback"
             );
             *guard = target;
         }
@@ -375,8 +374,7 @@ mod tests {
         let highest = Arc::new(Mutex::new(1000u64));
         let (tx, rx) = watch::channel::<Option<u64>>(None);
 
-        let task =
-            tokio::spawn(lower_highest_unsafe_on_rollback(rx, Arc::clone(&highest)));
+        let task = tokio::spawn(lower_highest_unsafe_on_rollback(rx, Arc::clone(&highest)));
 
         tx.send(Some(950)).expect("send rollback");
         // Yield until the task has had a chance to apply the lower.
@@ -397,8 +395,7 @@ mod tests {
         let highest = Arc::new(Mutex::new(900u64));
         let (tx, rx) = watch::channel::<Option<u64>>(None);
 
-        let task =
-            tokio::spawn(lower_highest_unsafe_on_rollback(rx, Arc::clone(&highest)));
+        let task = tokio::spawn(lower_highest_unsafe_on_rollback(rx, Arc::clone(&highest)));
 
         tx.send(Some(1100)).expect("send rollback");
         // Wait briefly to make sure the task observed the change.
