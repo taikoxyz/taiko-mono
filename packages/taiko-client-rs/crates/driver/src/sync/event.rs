@@ -1347,9 +1347,11 @@ mod tests {
         time::Duration,
     };
 
+    use std::sync::atomic::Ordering;
+
     use super::*;
     use alethia_reth_primitives::payload::attributes::{
-        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+        EngineRpcL1Origin, RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
     };
     use alloy::{
         primitives::{
@@ -1365,7 +1367,11 @@ mod tests {
     use async_trait::async_trait;
     use bindings::{
         anchor::Anchor::AnchorInstance,
-        inbox::{IInbox::DerivationSource, Inbox::InboxInstance, LibBlobs::BlobSlice},
+        inbox::{
+            IInbox::{CoreState as InboxCoreState, DerivationSource},
+            Inbox::{InboxInstance, getCoreStateCall},
+            LibBlobs::BlobSlice,
+        },
     };
     use rpc::{
         SubscriptionSource,
@@ -1623,6 +1629,25 @@ mod tests {
         let l2_auth_provider = ProviderBuilder::new()
             .disable_recommended_fillers()
             .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    fn mock_client_with_three_asserters(
+        l1_asserter: Asserter,
+        l2_asserter: Asserter,
+        l2_auth_asserter: Asserter,
+    ) -> Client<RootProvider> {
+        let l1_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+        let l2_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(l2_auth_asserter);
         let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
         let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
         let shasta = ShastaProtocolInstance { inbox, anchor };
@@ -1985,5 +2010,71 @@ mod tests {
         let err = resolve_event_scanner_setup_error(true, "boom".into())
             .expect("post-start scanner errors should be retryable");
         assert_eq!(err, "boom");
+    }
+
+    /// Build a `CoreState` literal with all required fields set, exposing only
+    /// `nextProposalId` since the rollback handler reads no other field.
+    fn mock_core_state_with_next_proposal_id(next_proposal_id: u64) -> InboxCoreState {
+        InboxCoreState {
+            nextProposalId: U48::from(next_proposal_id),
+            lastProposalBlockId: U48::ZERO,
+            lastFinalizedProposalId: U48::ZERO,
+            lastFinalizedTimestamp: U48::ZERO,
+            lastCheckpointTimestamp: U48::ZERO,
+            lastFinalizedBlockHash: FixedBytes::ZERO,
+        }
+    }
+
+    /// Encode a `getCoreState` return value into the bytes format alloy's mocked
+    /// provider expects for `eth_call` responses.
+    fn encoded_core_state(core_state: InboxCoreState) -> Bytes {
+        Bytes::from(getCoreStateCall::abi_encode_returns(&core_state))
+    }
+
+    /// Build an `EngineRpcL1Origin` for use with `head_l1_origin` mocks.
+    fn engine_l1_origin_at(block_id: u64) -> EngineRpcL1Origin {
+        EngineRpcL1Origin::from(RpcL1Origin {
+            block_id: U256::from(block_id),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        })
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_rewinds_head_l1_origin_when_above_target() {
+        // The order of pushes per asserter must match per-provider call order:
+        //   l1_asserter:      1. inbox.getCoreState() at common_ancestor (eth_call)
+        //   l2_auth_asserter: 2. last_block_id_by_batch_id(target)
+        //                     4. set_head_l1_origin(rollback)
+        //   l2_asserter:      3. head_l1_origin()
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(
+            mock_core_state_with_next_proposal_id(50),
+        ));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
+        l2_auth_asserter.push_success(&U256::from(950u64));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let mut rollback_rx = syncer.subscribe_rollbacks();
+        assert_eq!(*rollback_rx.borrow(), None);
+
+        syncer.handle_reorg_detected(42).await;
+
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        rollback_rx.changed().await.expect("rollback should be published");
+        assert_eq!(*rollback_rx.borrow(), Some(950));
     }
 }
