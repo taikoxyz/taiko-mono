@@ -729,6 +729,14 @@ where
     pub(crate) async fn handle_reorg_detected(&self, common_ancestor: u64) {
         counter!(DriverMetrics::EVENT_REORGS_DETECTED_TOTAL).increment(1);
 
+        let record_result = |label: &'static str| {
+            counter!(
+                DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                "result" => label,
+            )
+            .increment(1);
+        };
+
         let was_ready = self.preconf_ingress_ready.swap(false, Ordering::AcqRel);
         if was_ready {
             info!(common_ancestor, "closed preconfirmation ingress on L1 reorg detection");
@@ -751,11 +759,7 @@ where
                     common_ancestor,
                     "reorg rollback aborted: getCoreState at common ancestor failed"
                 );
-                counter!(
-                    DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
-                    "result" => "core_state_failed",
-                )
-                .increment(1);
+                record_result("core_state_failed");
                 return;
             }
         };
@@ -775,11 +779,7 @@ where
                         "reorg rollback skipped: last_block_id_by_batch_id returned None; \
                          confirmed-sync gate will reopen ingress once derivation catches up"
                     );
-                    counter!(
-                        DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
-                        "result" => "mapping_missing",
-                    )
-                    .increment(1);
+                    record_result("mapping_missing");
                     return;
                 }
                 Err(err) => {
@@ -789,11 +789,7 @@ where
                         target_proposal_id,
                         "reorg rollback aborted: last_block_id_by_batch_id failed"
                     );
-                    counter!(
-                        DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
-                        "result" => "batch_lookup_failed",
-                    )
-                    .increment(1);
+                    record_result("batch_lookup_failed");
                     return;
                 }
             }
@@ -805,18 +801,13 @@ where
             Ok(None) => None,
             Err(err) => {
                 warn!(?err, common_ancestor, "reorg rollback aborted: head_l1_origin read failed");
-                counter!(
-                    DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
-                    "result" => "read_failed",
-                )
-                .increment(1);
+                record_result("read_failed");
                 return;
             }
         };
 
         // 4. Lower-write head_l1_origin only if currently above the rollback target.
-        let should_rewind = matches!(current_head, Some(head) if head > rollback_block);
-        if should_rewind {
+        let result_label = if current_head.is_some_and(|head| head > rollback_block) {
             if let Err(err) = self.rpc.set_head_l1_origin(U256::from(rollback_block)).await {
                 warn!(
                     ?err,
@@ -824,11 +815,7 @@ where
                     rollback_block,
                     "reorg rollback aborted: set_head_l1_origin write failed"
                 );
-                counter!(
-                    DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
-                    "result" => "write_failed",
-                )
-                .increment(1);
+                record_result("write_failed");
                 // Do not publish the watch value — the on-disk pointer was not lowered.
                 return;
             }
@@ -838,18 +825,11 @@ where
                 prior_head = ?current_head,
                 "rewound head_l1_origin on L1 reorg"
             );
-            counter!(
-                DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
-                "result" => "rewound",
-            )
-            .increment(1);
+            "rewound"
         } else {
-            counter!(
-                DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
-                "result" => "noop",
-            )
-            .increment(1);
-        }
+            "noop"
+        };
+        record_result(result_label);
 
         // 5. Publish the rollback signal regardless of whether we rewrote head_l1_origin (in the
         //    noop case the watch carries the canonical tip; receivers may still want to lower their
