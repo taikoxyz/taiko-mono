@@ -3,6 +3,7 @@
 ## Notes
 
 1. Code used on Taiko Hoodi must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
+2. The standalone Hoodi USDC faucet app lives outside this repo. After deployment, backfill the final USDC addresses here and in `deployments/hoodi-usdc.md`.
 
 ## L1 Contracts
 
@@ -159,6 +160,26 @@
 - logs:
   - deployed on Oct 20, 2025 at commit `2dfbeca`
 
+### usdc_token
+
+- proxy: `0x210737FC9fC991997c113E725b565a49AfbBCC07`
+- impl: `0xA3258180510Fc1ACDfBc67DF15e5610fcc36D132`
+- proxyAdmin: `0x56Ce2069447f33ccc3FCB393403BBC444EABd244`
+- masterMinter: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- logs:
+  - deployed on Apr 15, 2026 from branch image `sha-0b6d15ad2b54`
+  - live deployment validated on Apr 15, 2026
+
+### usdc_faucet
+
+- address: `0x75093abc48ea78dBc30DE9D372d44c40Bb6D10eB`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- claimAmount: `10000000`
+- logs:
+  - deployed on Apr 15, 2026 from branch image `sha-0b6d15ad2b54`
+  - confirmed as Hoodi USDC minter on Apr 15, 2026
+
 ### proof_verifier(Pacaya)
 
 - proxy : `0xd9F11261AE4B873bE0f09D0Fc41d2E3F70CD8C59`
@@ -258,7 +279,18 @@
 - logs:
   - transferred ownership to `0xF7176c3aC622be8bab1B839b113230396E6877ab` on Nov 26, 2025
   - upgraded on Feb 4, 2026 at commit `a01f51c`
-  - upgraded on Mar 2, 2026 at commit `a01f51c` 
+
+### usdc_token
+
+- proxy: `0xA4b776bA40D76Ae60acDD23f523Fe61B7b5b71Aa`
+- impl: `0x5cd7dc2A6B5D7F2167C6d933b39D66c51bF2299A`
+- proxyAdmin: `0x56Ce2069447f33ccc3FCB393403BBC444EABd244`
+- masterMinter: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- canonical L1 token: `0x210737FC9fC991997c113E725b565a49AfbBCC07`
+- logs:
+  - deployed on Apr 15, 2026 from branch image `sha-0b6d15ad2b54`
+  - linked via L1 bridge message `0x89cc7d5a72b831d1bf1b7f6f344d132628f10cc3b30bcc360499d43202b5ed4c` on Apr 15, 2026
 
 ### shared_resolver
 

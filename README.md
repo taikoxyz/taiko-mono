@@ -35,7 +35,7 @@ Get started with Taiko Alethia:
 ## Packages
 
 > [!TIP]
-> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments) for the latest versions.
+> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check the latest [taiko-client releases](https://github.com/taikoxyz/taiko-client/releases) and [taiko-geth releases](https://github.com/taikoxyz/taiko-geth/releases).
 
 | Package                                                       | Description                                                        |
 | :------------------------------------------------------------ | :----------------------------------------------------------------- |

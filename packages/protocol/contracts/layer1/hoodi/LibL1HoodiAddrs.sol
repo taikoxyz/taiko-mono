@@ -10,4 +10,6 @@ library LibL1HoodiAddrs {
     address public constant HOODI_PRECONF_WHITELIST = 0x8B969Fcf37122bC5eCB4E0e5Ad65CEEC3f1393ba;
     address public constant HOODI_CONTRACT_OWNER = 0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190;
     address public constant HOODI_BRIDGE = 0x6a4cf607DaC2C4784B7D934Bcb3AD7F2ED18Ed80;
+    address public constant HOODI_USDC_TOKEN = 0x210737FC9fC991997c113E725b565a49AfbBCC07;
+    address public constant HOODI_USDC_FAUCET = 0x75093abc48ea78dBc30DE9D372d44c40Bb6D10eB;
 }
