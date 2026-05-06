@@ -2258,4 +2258,32 @@ mod tests {
         rollback_rx.changed().await.expect("rollback should be published in noop case");
         assert_eq!(*rollback_rx.borrow(), Some(950));
     }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_target_zero_rewinds_to_genesis() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        // nextProposalId = 1 -> target_proposal_id = 0 -> rollback_block = 0.
+        l1_asserter.push_success(&encoded_core_state(
+            mock_core_state_with_next_proposal_id(1),
+        ));
+        // No last_block_id_by_batch_id push — the handler short-circuits on target == 0.
+        // head_l1_origin currently at 5.
+        l2_asserter.push_success(&Some(engine_l1_origin_at(5)));
+        // set_head_l1_origin(0) returns 0.
+        l2_auth_asserter.push_success(&U256::from(0u64));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+
+        let mut rollback_rx = syncer.subscribe_rollbacks();
+        syncer.handle_reorg_detected(7).await;
+
+        rollback_rx.changed().await.expect("rollback should be published for target=0");
+        assert_eq!(*rollback_rx.borrow(), Some(0));
+    }
 }
