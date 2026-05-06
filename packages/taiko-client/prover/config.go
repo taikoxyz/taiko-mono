@@ -24,7 +24,6 @@ type Config struct {
 	L1WsEndpoint              string
 	L1BeaconEndpoint          string
 	L2WsEndpoint              string
-	L2HttpEndpoint            string
 	L2EngineEndpoint          string
 	JwtSecret                 string
 	InboxAddress              common.Address
@@ -62,18 +61,15 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, fmt.Errorf("invalid L1 prover private key: %w", err)
 	}
 
-	// The cli library no longer marks --l1.ws / --l2.ws / --l2.http as Required
-	// (the driver can fall back to HTTP polling), so we enforce the prover's
-	// requirement here. Placed after the private-key validation so existing
-	// error-precedence assertions in tests stay intact.
+	// The cli library no longer marks --l1.ws / --l2.ws as Required (the driver
+	// can fall back to HTTP polling), so we enforce the prover's requirement
+	// here. Placed after the private-key validation so existing error-precedence
+	// assertions in tests stay intact.
 	if c.String(flags.L1WSEndpoint.Name) == "" {
 		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L1WSEndpoint.Name)
 	}
 	if c.String(flags.L2WSEndpoint.Name) == "" {
 		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2WSEndpoint.Name)
-	}
-	if c.String(flags.L2HTTPEndpoint.Name) == "" {
-		return nil, fmt.Errorf("flag --%s is required for the prover", flags.L2HTTPEndpoint.Name)
 	}
 
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
@@ -108,7 +104,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1WsEndpoint:             c.String(flags.L1WSEndpoint.Name),
 		L1BeaconEndpoint:         c.String(flags.L1BeaconEndpoint.Name),
 		L2WsEndpoint:             c.String(flags.L2WSEndpoint.Name),
-		L2HttpEndpoint:           c.String(flags.L2HTTPEndpoint.Name),
 		L2EngineEndpoint:         c.String(flags.L2AuthEndpoint.Name),
 		JwtSecret:                string(jwtSecret),
 		InboxAddress:             common.HexToAddress(c.String(flags.InboxAddress.Name)),

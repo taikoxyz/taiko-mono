@@ -147,7 +147,6 @@ func (s *ProverTestSuite) TestInitError() {
 	s.NotNil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:             os.Getenv("L1_WS"),
 		L2WsEndpoint:             os.Getenv("L2_WS"),
-		L2HttpEndpoint:           os.Getenv("L2_HTTP"),
 		InboxAddress:             common.HexToAddress(os.Getenv("INBOX")),
 		TaikoAnchorAddress:       common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		L1ProverPrivKey:          l1ProverPrivKey,
@@ -237,7 +236,6 @@ func (s *ProverTestSuite) initProver(ctx context.Context, key *ecdsa.PrivateKey)
 	s.Nil(InitFromConfig(ctx, p, &Config{
 		L1WsEndpoint:             os.Getenv("L1_WS"),
 		L2WsEndpoint:             os.Getenv("L2_WS"),
-		L2HttpEndpoint:           os.Getenv("L2_HTTP"),
 		L2EngineEndpoint:         os.Getenv("L2_AUTH"),
 		JwtSecret:                string(jwtSecret),
 		InboxAddress:             common.HexToAddress(os.Getenv("INBOX")),

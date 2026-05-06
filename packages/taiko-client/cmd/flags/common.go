@@ -54,7 +54,7 @@ var (
 	L2HTTPEndpoint = &cli.StringFlag{
 		Name: "l2.http",
 		Usage: "HTTP RPC endpoint of a L2 taiko-geth execution engine " +
-			"(driver: polling fallback when --l2.ws absent; prover requires this)",
+			"(driver: polling fallback when --l2.ws absent)",
 		Category: commonCategory,
 		EnvVars:  []string{"L2_HTTP"},
 	}
