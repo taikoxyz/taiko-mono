@@ -84,6 +84,10 @@ func (opts NewServerOpts) Validate() error {
 		return relayer.ErrNoEthClient
 	}
 
+	if opts.TaikoL2 == nil {
+		return ErrNoTaikoL2
+	}
+
 	return nil
 }
 

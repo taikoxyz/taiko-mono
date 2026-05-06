@@ -10,6 +10,7 @@ import (
 	echo "github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/repo"
 )
@@ -42,6 +43,7 @@ func Test_NewServer(t *testing.T) {
 				CorsOrigins:   make([]string, 0),
 				SrcEthClient:  &mock.EthClient{},
 				DestEthClient: &mock.EthClient{},
+				TaikoL2:       &taikol2.TaikoL2{},
 			},
 			nil,
 		},
@@ -64,6 +66,17 @@ func Test_NewServer(t *testing.T) {
 				SrcEthClient: &mock.EthClient{},
 			},
 			relayer.ErrNoEthClient,
+		},
+		{
+			"noTaikoL2",
+			NewServerOpts{
+				Echo:          echo.New(),
+				EventRepo:     &repo.EventRepository{},
+				CorsOrigins:   make([]string, 0),
+				SrcEthClient:  &mock.EthClient{},
+				DestEthClient: &mock.EthClient{},
+			},
+			ErrNoTaikoL2,
 		},
 		{
 			"noEventRepo",
