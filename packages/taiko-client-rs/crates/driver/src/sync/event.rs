@@ -2315,4 +2315,29 @@ mod tests {
         // Watch was NOT updated.
         assert_eq!(*rollback_rx.borrow(), initial);
     }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_handles_core_state_failure_gracefully() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        // getCoreState fails.
+        l1_asserter.push_failure_msg("rpc unavailable");
+        // No further pushes — handler must abort before consuming them.
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let rollback_rx = syncer.subscribe_rollbacks();
+        let initial = *rollback_rx.borrow();
+        // Must not panic.
+        syncer.handle_reorg_detected(42).await;
+
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        assert_eq!(*rollback_rx.borrow(), initial);
+    }
 }
