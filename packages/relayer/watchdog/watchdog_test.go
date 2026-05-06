@@ -27,6 +27,7 @@ func Test_queueName(t *testing.T) {
 
 func TestShouldRequeueCheckMessageErrorReturnsFalseForMalformedJSON(t *testing.T) {
 	var syntaxErr *json.SyntaxError
+
 	err := json.Unmarshal([]byte("{"), &struct{}{})
 	assert.True(t, errors.As(err, &syntaxErr))
 

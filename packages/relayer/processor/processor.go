@@ -410,6 +410,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 				defer func() {
 					if r := recover(); r != nil {
 						slog.Error("panic processing message", "panic", r)
+
 						if err := p.queue.Nack(ctx, m, false); err != nil {
 							slog.Error("Err nacking panicked message", "err", err.Error())
 						}
@@ -418,7 +419,6 @@ func (p *Processor) eventLoop(ctx context.Context) {
 
 				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
 				p.handleProcessMessageResult(ctx, m, shouldRequeue, timesRetried, err)
-
 			}(msg)
 		}
 	}
@@ -441,11 +441,13 @@ func (p *Processor) handleProcessMessageResult(
 			p.handleUnprofitableMessage(ctx, m, timesRetried)
 		case isTransientProcessMessageError(err):
 			slog.Error("process message failed", "err", err.Error())
+
 			if err := p.queue.Nack(ctx, m, true); err != nil {
 				slog.Error("Err nacking message", "err", err.Error())
 			}
 		default:
 			slog.Error("process message failed", "err", err.Error())
+
 			if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
 				slog.Error("Err nacking message", "err", err.Error())
 			}
@@ -473,19 +475,24 @@ func (p *Processor) handleUnprofitableMessage(ctx context.Context, m queue.Messa
 	msgBody := &queue.QueueMessageSentBody{}
 	if err := json.Unmarshal(m.Body, msgBody); err != nil {
 		slog.Error("error decoding unprofitable message", "error", err)
+
 		if err := p.queue.Nack(ctx, m, false); err != nil {
 			slog.Error("Err nacking message", "err", err.Error())
 		}
+
 		return
 	}
 
 	msgBody.TimesRetried = nextRetries
+
 	body, err := json.Marshal(msgBody)
 	if err != nil {
 		slog.Error("error encoding unprofitable message", "error", err)
+
 		if err := p.queue.Nack(ctx, m, false); err != nil {
 			slog.Error("Err nacking message", "err", err.Error())
 		}
+
 		return
 	}
 
@@ -497,9 +504,11 @@ func (p *Processor) handleUnprofitableMessage(ctx context.Context, m queue.Messa
 		p.cfg.UnprofitableMessageQueueExpiration,
 	); err != nil {
 		slog.Error("error publishing to unprofitable queue", "error", err)
+
 		if err := p.queue.Nack(ctx, m, true); err != nil {
 			slog.Error("Err nacking message", "err", err.Error())
 		}
+
 		return
 	}
 

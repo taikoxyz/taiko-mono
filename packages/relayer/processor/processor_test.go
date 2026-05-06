@@ -82,6 +82,7 @@ func (q *recordingQueue) Publish(
 ) error {
 	q.publishedQueue = queueName
 	q.publishedBody = msg
+
 	return q.publishErr
 }
 func (q *recordingQueue) Ack(ctx context.Context, msg queue.Message) error {
@@ -91,6 +92,7 @@ func (q *recordingQueue) Ack(ctx context.Context, msg queue.Message) error {
 func (q *recordingQueue) Nack(ctx context.Context, msg queue.Message, requeue bool) error {
 	q.nacked++
 	q.requeued = requeue
+
 	return nil
 }
 
@@ -99,7 +101,13 @@ func TestHandleProcessMessageResultNacksWhenUnprofitableRepublishFails(t *testin
 	p := newTestProcessor(false)
 	p.queue = q
 
-	p.handleProcessMessageResult(context.Background(), queue.Message{Body: []byte(`{}`)}, false, 2, relayer.ErrUnprofitable)
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		false,
+		2,
+		relayer.ErrUnprofitable,
+	)
 
 	assert.Equal(t, 0, q.acked)
 	assert.Equal(t, 1, q.nacked)
@@ -111,7 +119,13 @@ func TestHandleProcessMessageResultNacksTransientErrors(t *testing.T) {
 	p := newTestProcessor(false)
 	p.queue = q
 
-	p.handleProcessMessageResult(context.Background(), queue.Message{Body: []byte(`{}`)}, false, 0, errors.New("i/o timeout"))
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: []byte(`{}`)},
+		false,
+		0,
+		errors.New("i/o timeout"),
+	)
 
 	assert.Equal(t, 0, q.acked)
 	assert.Equal(t, 1, q.nacked)
@@ -126,9 +140,16 @@ func TestHandleProcessMessageResultPersistsUnprofitableRetryCount(t *testing.T) 
 	body, err := json.Marshal(queue.QueueMessageSentBody{TimesRetried: 2})
 	assert.NoError(t, err)
 
-	p.handleProcessMessageResult(context.Background(), queue.Message{Body: body}, false, 2, relayer.ErrUnprofitable)
+	p.handleProcessMessageResult(
+		context.Background(),
+		queue.Message{Body: body},
+		false,
+		2,
+		relayer.ErrUnprofitable,
+	)
 
 	var published queue.QueueMessageSentBody
+
 	assert.NoError(t, json.Unmarshal(q.publishedBody, &published))
 	assert.Equal(t, uint64(3), published.TimesRetried)
 	assert.Equal(t, 1, q.acked)

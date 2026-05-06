@@ -382,7 +382,9 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 
 func shouldRequeueCheckMessageError(err error) bool {
 	var syntaxErr *json.SyntaxError
+
 	var typeErr *json.UnmarshalTypeError
+
 	if stderrors.As(err, &syntaxErr) || stderrors.As(err, &typeErr) {
 		return false
 	}
