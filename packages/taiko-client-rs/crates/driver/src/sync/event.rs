@@ -2227,4 +2227,35 @@ mod tests {
         rollback_rx.changed().await.expect("rollback should be published");
         assert_eq!(*rollback_rx.borrow(), Some(950));
     }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_skips_set_head_when_target_at_or_above_current() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(
+            mock_core_state_with_next_proposal_id(50),
+        ));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        // head_l1_origin currently at 800 (lower than rollback target 950).
+        l2_asserter.push_success(&Some(engine_l1_origin_at(800)));
+        // No `set_head_l1_origin` push — the handler must NOT call it.
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let mut rollback_rx = syncer.subscribe_rollbacks();
+        syncer.handle_reorg_detected(42).await;
+
+        // Ingress closed regardless of write outcome.
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        // Watch still receives the rollback target (callers may still want to lower
+        // their cache to the canonical tip).
+        rollback_rx.changed().await.expect("rollback should be published in noop case");
+        assert_eq!(*rollback_rx.borrow(), Some(950));
+    }
 }
