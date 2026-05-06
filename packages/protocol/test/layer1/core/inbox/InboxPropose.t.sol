@@ -74,7 +74,7 @@ contract InboxProposeTest is InboxTestBase {
     }
 
     function test_propose_RevertWhen_NotActivated() public {
-        Inbox unactivated = _deployInbox();
+        Inbox unactivated = _deployUninitializedInbox();
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
         bytes memory encodedInput = codec.encodeProposeInput(input);

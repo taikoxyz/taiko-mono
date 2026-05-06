@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/go-resty/resty/v2"
@@ -56,20 +58,32 @@ func NewBlobDataSource(
 
 // UnmarshalJSON overwrites to parse data based on different json keys
 func (p *BlobServerResponse) UnmarshalJSON(data []byte) error {
-	var tempMap map[string]interface{}
-	if err := json.Unmarshal(data, &tempMap); err != nil {
+	var response struct {
+		Commitment          string `json:"commitment"`
+		Data                string `json:"data"`
+		VersionedHash       string `json:"versionedHash"`
+		VersionedHashLegacy string `json:"versioned_hash"`
+	}
+	if err := json.Unmarshal(data, &response); err != nil {
 		return err
 	}
 
-	// Parsing data based on different keys
-	if versionedHash, ok := tempMap["versionedHash"]; ok {
-		p.VersionedHash = versionedHash.(string)
-	} else if versionedHash, ok := tempMap["versioned_hash"]; ok {
-		p.VersionedHash = versionedHash.(string)
+	p.VersionedHash = response.VersionedHash
+	if p.VersionedHash == "" {
+		p.VersionedHash = response.VersionedHashLegacy
 	}
+	p.Commitment = response.Commitment
+	p.Data = response.Data
 
-	p.Commitment = tempMap["commitment"].(string)
-	p.Data = tempMap["data"].(string)
+	if p.VersionedHash == "" {
+		return errors.New("missing versioned hash in blob server response")
+	}
+	if p.Commitment == "" {
+		return errors.New("missing commitment in blob server response")
+	}
+	if p.Data == "" {
+		return errors.New("missing data in blob server response")
+	}
 
 	return nil
 }
@@ -129,10 +143,11 @@ func (ds *BlobDataSource) GetSidecars(
 		}
 		allSidecars = make([]*structs.Sidecar, len(blobs.Data))
 		for index, value := range blobs.Data {
-			allSidecars[index] = &structs.Sidecar{
-				KzgCommitment: value.KzgCommitment,
-				Blob:          value.Blob,
+			sidecar, err := sidecarFromBlobServer(value, blobHashes[index])
+			if err != nil {
+				return nil, err
 			}
+			allSidecars[index] = sidecar
 		}
 	}
 	for _, blobHash := range blobHashes {
@@ -157,6 +172,45 @@ func (ds *BlobDataSource) GetSidecars(
 		return nil, fmt.Errorf("blob sidecar count mismatch: expected %d, got %d", len(blobHashes), len(sidecars))
 	}
 	return sidecars, nil
+}
+
+// sidecarFromBlobServer rebuilds the sidecar from blob bytes and verifies it
+// against the requested versioned hash instead of trusting blob-server metadata.
+func sidecarFromBlobServer(blobData *BlobData, expectedHash common.Hash) (*structs.Sidecar, error) {
+	if blobData == nil {
+		return nil, errors.New("nil blob data from blob server")
+	}
+
+	blobHex := blobData.Blob
+	if !strings.HasPrefix(blobHex, "0x") {
+		blobHex = "0x" + blobHex
+	}
+
+	blobBytes, err := hexutil.Decode(blobHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid blob bytes from blob server: %w", err)
+	}
+	if len(blobBytes) != eth.BlobSize {
+		return nil, fmt.Errorf("invalid blob length from blob server: expected %d, got %d", eth.BlobSize, len(blobBytes))
+	}
+
+	var blob eth.Blob
+	copy(blob[:], blobBytes)
+
+	commitment, err := blob.ComputeKZGCommitment()
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute KZG commitment from blob server data: %w", err)
+	}
+
+	blobHash := kzg4844.CalcBlobHashV1(sha256.New(), &commitment)
+	if blobHash != expectedHash {
+		return nil, fmt.Errorf("blob server returned blob with versioned hash %s, expected %s", blobHash, expectedHash)
+	}
+
+	return &structs.Sidecar{
+		KzgCommitment: common.Bytes2Hex(commitment[:]),
+		Blob:          blob.String(),
+	}, nil
 }
 
 // getBlobFromServer get blob data from server path `/blob` or `/blobs`.

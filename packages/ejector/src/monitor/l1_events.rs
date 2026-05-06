@@ -18,7 +18,11 @@ use tokio::{sync::RwLock, time::sleep};
 use tokio_stream::StreamExt;
 use tracing::{debug, info, warn};
 
-use crate::{bindings::IPreconfWhitelist, metrics, utils::eject::initialize_eject_metrics};
+use crate::{
+    bindings::IPreconfWhitelist,
+    metrics::{self, set_preconfer_missing_from_whitelist},
+    utils::eject::initialize_eject_metrics,
+};
 
 const HTTP_EVENT_SCANNER_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -56,6 +60,10 @@ impl OperatorCache {
         } else {
             self.sequencer_to_proposer.get(&addr).copied()
         }
+    }
+
+    pub(crate) fn contains_operator(&self, addr: Address) -> bool {
+        self.proposers.contains(&addr)
     }
 
     pub(crate) fn clear(&mut self) {
@@ -159,10 +167,27 @@ fn reseed_cache_from_entries<I>(
     }
 }
 
+fn update_preconfer_whitelist_metrics(cache: &OperatorCache, preconfer_addresses: &[Address]) {
+    for (address, missing) in preconfer_missing_from_whitelist_values(cache, preconfer_addresses) {
+        set_preconfer_missing_from_whitelist(*address, missing);
+    }
+}
+
+fn preconfer_missing_from_whitelist_values<'a>(
+    cache: &OperatorCache,
+    preconfer_addresses: &'a [Address],
+) -> Vec<(&'a Address, bool)> {
+    preconfer_addresses
+        .iter()
+        .map(|address| (address, !cache.contains_operator(*address)))
+        .collect()
+}
+
 pub(crate) async fn refresh_cache_from_chain<P>(
     whitelist: &IPreconfWhitelist::IPreconfWhitelistInstance<P>,
     operator_cache: &Arc<RwLock<OperatorCache>>,
     tracker: Option<&mut ProcessedLogTracker>,
+    preconfer_addresses: &[Address],
 ) -> eyre::Result<()>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -177,6 +202,7 @@ where
             cache.upsert(proposer, sequencer);
         }
     }
+    update_preconfer_whitelist_metrics(&cache, preconfer_addresses);
     Ok(())
 }
 
@@ -184,6 +210,7 @@ pub(crate) async fn run_operator_event_scanner(
     l1_http_url: Url,
     whitelist_address: Address,
     operator_cache: Arc<RwLock<OperatorCache>>,
+    preconfer_addresses: Vec<Address>,
 ) {
     let mut tracker = ProcessedLogTracker::default();
     let mut backoff = Duration::from_secs(1);
@@ -195,10 +222,18 @@ pub(crate) async fn run_operator_event_scanner(
         let provider = ProviderBuilder::new().connect_http(l1_http_url.clone());
         let whitelist = IPreconfWhitelist::new(whitelist_address, provider.clone());
 
-        if let Err(err) =
-            refresh_cache_from_chain(&whitelist, &operator_cache, Some(&mut tracker)).await
+        match refresh_cache_from_chain(
+            &whitelist,
+            &operator_cache,
+            Some(&mut tracker),
+            &preconfer_addresses,
+        )
+        .await
         {
-            warn!("Failed to refresh whitelist cache before scanner start: {err:?}");
+            Ok(()) => {}
+            Err(err) => {
+                warn!("Failed to refresh whitelist cache before scanner start: {err:?}");
+            }
         }
 
         let latest = match provider.get_block_number().await {
@@ -280,7 +315,15 @@ pub(crate) async fn run_operator_event_scanner(
 
                                 let outcome = {
                                     let mut cache = operator_cache.write().await;
-                                    apply_cache_update(&mut cache, &mut tracker, update)
+                                    let outcome =
+                                        apply_cache_update(&mut cache, &mut tracker, update);
+                                    if matches!(outcome, CacheUpdateOutcome::Applied) {
+                                        update_preconfer_whitelist_metrics(
+                                            &cache,
+                                            &preconfer_addresses,
+                                        );
+                                    }
+                                    outcome
                                 };
 
                                 match outcome {
@@ -299,6 +342,7 @@ pub(crate) async fn run_operator_event_scanner(
                                             &whitelist,
                                             &operator_cache,
                                             Some(&mut tracker),
+                                            &preconfer_addresses,
                                         )
                                         .await
                                         {
@@ -316,6 +360,7 @@ pub(crate) async fn run_operator_event_scanner(
                                     &whitelist,
                                     &operator_cache,
                                     Some(&mut tracker),
+                                    &preconfer_addresses,
                                 )
                                 .await
                                 {
@@ -351,6 +396,7 @@ pub(crate) async fn run_operator_event_scanner(
                             &whitelist,
                             &operator_cache,
                             Some(&mut tracker),
+                            &preconfer_addresses,
                         )
                         .await
                     {
@@ -492,5 +538,26 @@ mod tests {
             CacheUpdateOutcome::Applied
         );
         assert_eq!(cache.proposer_for(proposer), None);
+    }
+
+    #[test]
+    fn preconfer_missing_values_follow_operator_cache() {
+        let present = Address::with_last_byte(0x11);
+        let missing = Address::with_last_byte(0x22);
+        let mut cache = OperatorCache::default();
+
+        cache.upsert(present, Address::with_last_byte(0x33));
+
+        assert_eq!(
+            preconfer_missing_from_whitelist_values(&cache, &[present, missing]),
+            vec![(&present, false), (&missing, true)]
+        );
+
+        cache.remove_proposer(present);
+
+        assert_eq!(
+            preconfer_missing_from_whitelist_values(&cache, &[present, missing]),
+            vec![(&present, true), (&missing, true)]
+        );
     }
 }

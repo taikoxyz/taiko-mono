@@ -50,6 +50,33 @@ func Test_sendProcessMessageCall(t *testing.T) {
 	assert.Equal(t, err, errUnprocessable)
 }
 
+func TestSaveMessageStatusChangedEventSkipsLogsWithoutTopics(t *testing.T) {
+	p := newTestProcessor(false)
+
+	err := p.saveMessageStatusChangedEvent(
+		context.Background(),
+		&types.Receipt{
+			TxHash: relayer.ZeroHash,
+			Logs: []*types.Log{
+				{},
+			},
+		},
+		&bridge.BridgeMessageSent{
+			Message: bridge.IBridgeMessage{
+				SrcChainId:  mock.MockChainID.Uint64(),
+				DestChainId: mock.MockChainID.Uint64(),
+				SrcOwner:    common.HexToAddress("0xC4279588B8dA563D264e286E2ee7CE8c244444d6"),
+			},
+			MsgHash: relayer.ZeroHash,
+			Raw: types.Log{
+				BlockNumber: 1,
+			},
+		},
+	)
+
+	assert.Nil(t, err)
+}
+
 func Test_ProcessMessage_messageUnprocessable(t *testing.T) {
 	p := newTestProcessor(true)
 	body := &queue.QueueMessageSentBody{

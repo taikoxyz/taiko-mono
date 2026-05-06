@@ -107,6 +107,7 @@ pub struct Monitor {
     min_operators: u64,
     min_reorg_depth_for_eject: usize,
     reorg_ejection_enabled: bool,
+    preconfer_addresses: Vec<Address>,
 }
 
 pub struct MonitorParams {
@@ -123,6 +124,7 @@ pub struct MonitorParams {
     pub min_operators: u64,
     pub min_reorg_depth_for_eject: usize,
     pub reorg_ejection_enabled: bool,
+    pub preconfer_addresses: Vec<Address>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -265,6 +267,7 @@ impl Monitor {
             min_operators: params.min_operators,
             min_reorg_depth_for_eject: params.min_reorg_depth_for_eject,
             reorg_ejection_enabled: params.reorg_ejection_enabled,
+            preconfer_addresses: params.preconfer_addresses,
         }
     }
 
@@ -323,7 +326,8 @@ impl Monitor {
         let last_l2_head_for_watch = last_l2_head_number.clone();
         // Clone for use in main loop (reorg sync status checks and anchor queries)
         let l2_http_provider_for_reorg = l2_http_provider.clone();
-        // Anchor contract for detecting re-anchoring (only if reorg ejection is enabled and address is configured)
+        // Anchor contract for detecting re-anchoring (only if reorg ejection is enabled and address
+        // is configured)
         let anchor_contract = if self.reorg_ejection_enabled {
             self.anchor_address
                 .map(|addr| crate::bindings::Anchor::new(addr, l2_http_provider_for_reorg.clone()))
@@ -335,7 +339,14 @@ impl Monitor {
         let preconf_whitelist =
             crate::bindings::IPreconfWhitelist::new(self.whitelist_address, http_provider.clone());
         let operator_cache = Arc::new(RwLock::new(l1_events::OperatorCache::default()));
-        match l1_events::refresh_cache_from_chain(&preconf_whitelist, &operator_cache, None).await {
+        match l1_events::refresh_cache_from_chain(
+            &preconf_whitelist,
+            &operator_cache,
+            None,
+            &self.preconfer_addresses,
+        )
+        .await
+        {
             Ok(()) => {}
             Err(e) => {
                 warn!("Failed to initialize eject metrics: {e:?}");
@@ -348,6 +359,7 @@ impl Monitor {
             l1_http_url.clone(),
             whitelist_address,
             operator_cache.clone(),
+            self.preconfer_addresses.clone(),
         ));
 
         // watchdog task
@@ -853,20 +865,23 @@ pub async fn are_preconfs_enabled(
 
 #[cfg(test)]
 mod tests {
-    use super::Monitor;
-    use super::{
-        ReanchoringCheck, SyncStatusClass, check_reanchoring, classify_sync_status,
-        is_within_chain_reset_grace_period, should_skip_due_to_chain_reset,
-        should_skip_for_sync_class,
-    };
+    use std::time::{Duration, Instant};
+
     use alloy::{
         primitives::{Address, B256},
         providers::ProviderBuilder,
     };
     use serde_json::json;
-    use std::time::{Duration, Instant};
-    use wiremock::matchers::{body_partial_json, method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{body_partial_json, method, path},
+    };
+
+    use super::{
+        Monitor, ReanchoringCheck, SyncStatusClass, check_reanchoring, classify_sync_status,
+        is_within_chain_reset_grace_period, should_skip_due_to_chain_reset,
+        should_skip_for_sync_class,
+    };
 
     async fn run_sync_status_check_with_response(response: ResponseTemplate) -> bool {
         let server = MockServer::start().await;

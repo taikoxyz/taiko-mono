@@ -59,6 +59,10 @@ pub struct Config {
     // toggle whether reorg-triggered ejection is enabled
     #[arg(long, env = "ENABLE_REORG_EJECTION", default_value_t = true, action = ArgAction::Set)]
     pub enable_reorg_ejection: bool,
+
+    // list of preconfers that should be present
+    #[arg(long, env = "PRECONFER_ADDRESSES")]
+    pub preconfer_addresses: Option<String>,
 }
 
 // tests
