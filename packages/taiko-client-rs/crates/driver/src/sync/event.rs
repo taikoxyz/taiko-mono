@@ -2340,4 +2340,31 @@ mod tests {
         assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
         assert_eq!(*rollback_rx.borrow(), initial);
     }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_does_not_publish_when_set_head_fails() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(
+            mock_core_state_with_next_proposal_id(50),
+        ));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
+        // set_head_l1_origin fails.
+        l2_auth_asserter.push_failure_msg("write failed");
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+
+        let rollback_rx = syncer.subscribe_rollbacks();
+        let initial = *rollback_rx.borrow();
+        syncer.handle_reorg_detected(42).await;
+
+        // Watch was NOT updated because the on-disk pointer was not lowered.
+        assert_eq!(*rollback_rx.borrow(), initial);
+    }
 }
