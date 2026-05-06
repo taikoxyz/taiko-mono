@@ -128,7 +128,7 @@ impl<P: Provider + Clone> Client<P> {
             build_jwt_http_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
         let chain_id = l2_provider.get_chain_id().await.map_err(|e| {
-            RpcClientError::Rpc(format!(
+            RpcClientError::RpcMessage(format!(
                 "L2 HTTP RPC (l2.http) failed to get chain id from {}: {}",
                 config.l2_provider_url, e
             ))

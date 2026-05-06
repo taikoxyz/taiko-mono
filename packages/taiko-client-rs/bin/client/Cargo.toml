@@ -17,12 +17,12 @@ tokio = { workspace = true }
 clap = { workspace = true }
 
 # observability
+alloy-primitives = { workspace = true, default-features = false }
 async-trait = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-alloy-primitives = { workspace = true, default-features = false }
 
 # taiko
 driver = { path = "../../crates/driver" }

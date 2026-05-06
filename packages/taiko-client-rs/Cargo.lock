@@ -6349,6 +6349,7 @@ dependencies = [
  "alloy",
  "alloy-consensus 1.8.3",
  "alloy-eips 1.8.3",
+ "alloy-json-rpc",
  "alloy-network",
  "alloy-provider",
  "alloy-rpc-types 1.8.3",

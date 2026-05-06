@@ -28,9 +28,13 @@ pub enum RpcClientError {
     #[error("provider error: {0}")]
     Provider(String),
 
-    /// RPC error
+    /// Typed RPC error from the transport stack.
     #[error("RPC error: {0}")]
-    Rpc(String),
+    Rpc(#[from] TransportError),
+
+    /// RPC error already enriched with local context.
+    #[error("RPC error: {0}")]
+    RpcMessage(String),
 
     /// Contract error
     #[error("contract error: {0}")]
@@ -41,18 +45,26 @@ pub enum RpcClientError {
     Other(#[from] anyhow::Error),
 }
 
-// Manual From implementation for RpcError
-impl From<RpcError<TransportErrorKind>> for RpcClientError {
-    /// Convert transport-backed RPC errors into the generic RPC client error.
-    fn from(err: RpcError<TransportErrorKind>) -> Self {
-        RpcClientError::Rpc(err.to_string())
-    }
-}
-
 impl From<TransportError<TransportErrorKind>> for RpcClientError {
-    /// Convert low-level transport errors into the generic RPC client error.
+    /// Convert low-level transport errors while preserving retryable transport failures.
+    ///
+    /// `ErrorResp` is flattened to a stringified `RpcMessage` so callers can treat it as a
+    /// non-retryable RPC response; all other variants stay typed under `Rpc(_)` so transport
+    /// failures remain distinguishable for retry classification.
     fn from(err: TransportError<TransportErrorKind>) -> Self {
-        RpcClientError::Rpc(err.to_string())
+        match err {
+            RpcError::ErrorResp(err) => RpcClientError::RpcMessage(err.to_string()),
+            RpcError::NullResp => RpcClientError::Rpc(RpcError::NullResp),
+            RpcError::UnsupportedFeature(feature) => {
+                RpcClientError::Rpc(RpcError::UnsupportedFeature(feature))
+            }
+            RpcError::LocalUsageError(err) => RpcClientError::Rpc(RpcError::LocalUsageError(err)),
+            RpcError::SerError(err) => RpcClientError::Rpc(RpcError::SerError(err)),
+            RpcError::DeserError { err, text } => {
+                RpcClientError::Rpc(RpcError::DeserError { err, text })
+            }
+            RpcError::Transport(err) => RpcClientError::Rpc(RpcError::Transport(err)),
+        }
     }
 }
 

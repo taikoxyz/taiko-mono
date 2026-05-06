@@ -32,9 +32,9 @@ alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }
-flate2 = { workspace = true, optional = true }
 bindings = { path = "../bindings" }
 driver = { path = "../driver" }
+flate2 = { workspace = true, optional = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }

@@ -7,9 +7,11 @@ use alethia_reth_primitives::{
 };
 use alloy::{
     eips::BlockNumberOrTag,
-    primitives::{B256, Bytes, U256},
+    primitives::{Address, B256, Bytes, U256, aliases::U48},
     providers::Provider,
     rpc::types::{Block, Transaction},
+    signers::local::PrivateKeySigner,
+    transports::RpcError,
 };
 use alloy_consensus::{
     TxEnvelope,
@@ -21,6 +23,7 @@ use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
 use alloy_rpc_types_engine::{ExecutionPayloadFieldV2, ForkchoiceState};
 use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use base_tx_manager::TxManagerError;
+use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, calculate_shasta_mix_hash,
@@ -30,7 +33,10 @@ use protocol::shasta::{
     },
     encode_extra_data,
 };
-use rpc::client::{Client, ClientConfig, ClientWithWallet};
+use rpc::{
+    RpcClientError,
+    client::{Client, ClientConfig, ClientWithWallet},
+};
 use serde_json::from_value;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::interval;
@@ -69,6 +75,8 @@ pub struct Proposer {
     transaction_builder: ShastaProposalTransactionBuilder,
     /// Tx-manager responsible for proposal submission and retry handling.
     tx_manager: ProposalTxManager,
+    /// L1 address derived from the configured proposer private key.
+    l1_proposer_address: Address,
     /// Optional anchor constructor used in engine mode.
     anchor_constructor: Option<AnchorTxConstructor<RootProvider<alloy_network::Ethereum>>>,
     /// Chain-specific minimum base fee used by EIP-4396 clamping.
@@ -109,6 +117,7 @@ impl Proposer {
         // tx-manager to avoid splitting nonce management across two send paths.
         let tx_manager =
             ProposalTxManager::new(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
+        let l1_proposer_address = proposer_address_from_key(&cfg.l1_proposer_private_key)?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.
         let min_base_fee_to_clamp =
             min_base_fee_for_chain(rpc_provider.l2_provider.get_chain_id().await?);
@@ -130,6 +139,7 @@ impl Proposer {
             rpc_provider,
             transaction_builder,
             tx_manager,
+            l1_proposer_address,
             anchor_constructor,
             min_base_fee_to_clamp,
             cfg,
@@ -145,6 +155,30 @@ impl Proposer {
             interval.tick().await;
             info!(epoch, "proposer epoch");
 
+            match self.precheck_current_preconf_operator().await {
+                Ok(true) => {}
+                Ok(false) => {
+                    info!(
+                        epoch,
+                        proposer = ?self.l1_proposer_address,
+                        "skipping proposal attempt because proposer is not current preconf whitelist operator"
+                    );
+                    epoch += 1;
+                    continue;
+                }
+                Err(err) if is_operational_loop_error(&err) => {
+                    counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+                    warn!(
+                        epoch,
+                        error = %err,
+                        "proposer precheck failed on a retryable error; continuing proposer loop"
+                    );
+                    epoch += 1;
+                    continue;
+                }
+                Err(err) => return Err(err),
+            }
+
             match self.fetch_and_propose().await {
                 Ok(receipt) => {
                     info!(
@@ -154,7 +188,7 @@ impl Proposer {
                         "proposal attempt completed"
                     );
                 }
-                Err(err) if is_operational_submission_error(&err) => {
+                Err(err) if is_operational_loop_error(&err) => {
                     counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
                     warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
                 }
@@ -202,6 +236,63 @@ impl Proposer {
     /// Return a clone of the RPC client bundle used by the proposer.
     pub fn rpc_client(&self) -> ClientWithWallet {
         self.rpc_provider.clone()
+    }
+
+    /// Return whether the configured proposer key is the current preconfirmation whitelist
+    /// operator.
+    async fn precheck_current_preconf_operator(&self) -> Result<bool> {
+        let inbox_config = self.rpc_provider.shasta.inbox.getConfig().call().await?;
+        if self.forced_inclusion_allows_permissionless(&inbox_config).await? {
+            info!(
+                "allowing proposal attempt because forced inclusion processing is permissionless"
+            );
+            return Ok(true);
+        }
+
+        let whitelist = PreconfWhitelistInstance::new(
+            inbox_config.proposerChecker,
+            self.rpc_provider.l1_provider.clone(),
+        );
+        let current_operator = whitelist.getOperatorForCurrentEpoch().call().await?;
+
+        Ok(current_operator == self.l1_proposer_address)
+    }
+
+    /// Return whether the oldest queued forced inclusion makes proposing permissionless.
+    async fn forced_inclusion_allows_permissionless(
+        &self,
+        inbox_config: &bindings::inbox::IInbox::Config,
+    ) -> Result<bool> {
+        let forced_inclusion_state =
+            self.rpc_provider.shasta.inbox.getForcedInclusionState().call().await?;
+        if forced_inclusion_state.head_ == forced_inclusion_state.tail_ {
+            return Ok(false);
+        }
+
+        let inclusions = self
+            .rpc_provider
+            .shasta
+            .inbox
+            .getForcedInclusions(forced_inclusion_state.head_, U48::from(1))
+            .call()
+            .await?;
+        let Some(oldest_inclusion) = inclusions.first() else {
+            return Ok(false);
+        };
+
+        let latest_l1_block = self
+            .rpc_provider
+            .l1_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await?
+            .ok_or(ProposerError::LatestBlockNotFound)?;
+
+        Ok(forced_inclusion_is_permissionless(
+            oldest_inclusion.blobSlice.timestamp.to::<u64>(),
+            latest_l1_block.header.timestamp,
+            inbox_config.forcedInclusionDelay,
+            inbox_config.permissionlessInclusionMultiplier,
+        ))
     }
 
     /// Fetch transaction pool content from the L2 execution engine.
@@ -447,11 +538,7 @@ impl Proposer {
         info!(payload_id = ?payload_id, "received payload ID, fetching payload");
 
         // Fetch the built payload.
-        let payload_envelope = self
-            .rpc_provider
-            .engine_get_payload_v2(payload_id)
-            .await
-            .map_err(|e| ProposerError::Rpc(e.to_string()))?;
+        let payload_envelope = self.rpc_provider.engine_get_payload_v2(payload_id).await?;
 
         // Extract transactions from payload based on version.
         let transactions = match &payload_envelope.execution_payload {
@@ -553,6 +640,33 @@ fn record_submission_attempt() {
     counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
 }
 
+/// Return the L1 account address controlled by a proposer private key.
+fn proposer_address_from_key(private_key: &B256) -> Result<Address> {
+    PrivateKeySigner::from_bytes(private_key).map(|signer| signer.address()).map_err(|err| {
+        ProposerError::from(TxManagerError::Sign(format!(
+            "failed to build proposer signer from configured private key: {err}"
+        )))
+    })
+}
+
+/// Return whether a forced inclusion is old enough to bypass proposer authorization.
+#[must_use]
+fn forced_inclusion_is_permissionless(
+    oldest_timestamp: u64,
+    l1_timestamp: u64,
+    forced_inclusion_delay: u16,
+    permissionless_inclusion_multiplier: u8,
+) -> bool {
+    if oldest_timestamp == 0 {
+        return false;
+    }
+
+    let permissionless_timestamp = u64::from(forced_inclusion_delay)
+        .saturating_mul(u64::from(permissionless_inclusion_multiplier))
+        .saturating_add(oldest_timestamp);
+    l1_timestamp > permissionless_timestamp
+}
+
 /// Returns the current UNIX timestamp in seconds.
 pub(crate) fn current_unix_timestamp() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
@@ -572,15 +686,24 @@ fn next_shasta_proposal_id(parent_block_number: u64, parent_extra_data: &Bytes) 
         .ok_or(ProposerError::InvalidExtraData)
 }
 
-/// Return `true` when a surfaced proposer error should be logged and retried on the next epoch.
-fn is_operational_submission_error(err: &ProposerError) -> bool {
+/// Return `true` when a surfaced proposer loop error should be retried on the next epoch.
+///
+/// Only transport-layer failures (network blips, timeouts, backend-gone) are operational; RPC
+/// error responses (`ErrorResp`) and local errors (decoding, unsupported features, unknown
+/// functions, fatal tx-manager errors) are fatal and exit the loop.
+fn is_operational_loop_error(err: &ProposerError) -> bool {
     matches!(
         err,
-        ProposerError::TxManager(
-            TxManagerError::Rpc(_) |
-                TxManagerError::SendTimeout |
-                TxManagerError::MempoolDeadlineExpired
-        )
+        ProposerError::Rpc(RpcError::Transport(_)) |
+            ProposerError::RpcClient(RpcClientError::Rpc(RpcError::Transport(_))) |
+            ProposerError::Contract(alloy::contract::Error::TransportError(RpcError::Transport(
+                _,
+            ))) |
+            ProposerError::TxManager(
+                TxManagerError::Rpc(_) |
+                    TxManagerError::SendTimeout |
+                    TxManagerError::MempoolDeadlineExpired,
+            )
     )
 }
 
@@ -589,7 +712,9 @@ mod tests {
     use alloy::{
         consensus::Header as ConsensusHeader,
         primitives::{B256, Bytes, U256},
+        transports::{RpcError, TransportErrorKind},
     };
+    use alloy_json_rpc::ErrorPayload;
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use base_tx_manager::TxManagerError;
     use metrics_util::debugging::{DebugValue, DebuggingRecorder};
@@ -598,12 +723,14 @@ mod tests {
 
     use super::{
         calculate_next_shasta_block_base_fee_from_parent, current_unix_timestamp,
-        is_operational_submission_error, next_shasta_proposal_id, record_submission_attempt,
+        forced_inclusion_is_permissionless, is_operational_loop_error, next_shasta_proposal_id,
+        record_submission_attempt,
     };
     use crate::{error::ProposerError, metrics::ProposerMetrics};
     use protocol::shasta::{
         constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
     };
+    use rpc::RpcClientError;
 
     #[test]
     fn current_unix_timestamp_tracks_system_time() {
@@ -628,30 +755,91 @@ mod tests {
     }
 
     #[test]
+    fn forced_inclusion_precheck_accepts_permissionless_window() {
+        assert!(forced_inclusion_is_permissionless(100, 151, 10, 5));
+    }
+
+    #[test]
+    fn forced_inclusion_precheck_rejects_before_permissionless_window() {
+        assert!(!forced_inclusion_is_permissionless(100, 150, 10, 5));
+        assert!(!forced_inclusion_is_permissionless(100, 149, 10, 5));
+    }
+
+    #[test]
+    fn forced_inclusion_precheck_rejects_missing_timestamp() {
+        assert!(!forced_inclusion_is_permissionless(0, 1_000, 10, 5));
+    }
+
+    #[test]
     fn tx_manager_operational_errors_keep_the_proposer_loop_running() {
-        assert!(is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Rpc(
+        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Rpc(
             "provider timed out".into(),
         ))));
-        assert!(is_operational_submission_error(&ProposerError::TxManager(
-            TxManagerError::SendTimeout,
-        )));
-        assert!(is_operational_submission_error(&ProposerError::TxManager(
+        assert!(is_operational_loop_error(&ProposerError::TxManager(TxManagerError::SendTimeout,)));
+        assert!(is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::MempoolDeadlineExpired,
         )));
     }
 
     #[test]
-    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(
-            TxManagerError::NonceTooLow,
+    fn precheck_transport_errors_keep_the_proposer_loop_running() {
+        assert!(is_operational_loop_error(&ProposerError::Rpc(TransportErrorKind::backend_gone())));
+        assert!(is_operational_loop_error(&ProposerError::Contract(
+            alloy::contract::Error::TransportError(TransportErrorKind::backend_gone()),
         )));
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+    }
+
+    #[test]
+    fn precheck_error_responses_still_exit_the_proposer_loop() {
+        let payload: ErrorPayload = serde_json::from_str(
+            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
+        )
+        .expect("valid JSON-RPC error payload");
+        let contract_error =
+            alloy::contract::Error::TransportError(RpcError::ErrorResp(payload.clone()));
+
+        assert!(contract_error.as_revert_data().is_some());
+        assert!(!is_operational_loop_error(&ProposerError::Rpc(RpcError::ErrorResp(payload))));
+        assert!(!is_operational_loop_error(&ProposerError::Contract(contract_error)));
+    }
+
+    #[test]
+    fn rpc_client_transport_errors_keep_the_proposer_loop_running() {
+        let err = ProposerError::from(RpcClientError::from(TransportErrorKind::backend_gone()));
+
+        assert!(is_operational_loop_error(&err));
+    }
+
+    #[test]
+    fn rpc_client_error_responses_still_exit_the_proposer_loop() {
+        let payload: ErrorPayload = serde_json::from_str(
+            r#"{"code":3,"message":"execution reverted: ","data":"0x810f00230000000000000000000000000000000000000000000000000000000000000001"}"#,
+        )
+        .expect("valid JSON-RPC error payload");
+        let err = ProposerError::from(RpcClientError::from(RpcError::ErrorResp(payload)));
+
+        assert!(!is_operational_loop_error(&err));
+    }
+
+    #[test]
+    fn precheck_local_contract_errors_still_exit_the_proposer_loop() {
+        assert!(!is_operational_loop_error(&ProposerError::Contract(
+            alloy::contract::Error::UnknownFunction("getOperatorForCurrentEpoch".into()),
+        )));
+    }
+
+    #[test]
+    fn fatal_tx_manager_errors_still_exit_the_proposer_loop() {
+        assert!(!is_operational_loop_error(
+            &ProposerError::TxManager(TxManagerError::NonceTooLow,)
+        ));
+        assert!(!is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::FeeLimitExceeded { fee: 11, ceiling: 10 },
         )));
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(TxManagerError::Sign(
+        assert!(!is_operational_loop_error(&ProposerError::TxManager(TxManagerError::Sign(
             "wallet rejected signing".into(),
         ))));
-        assert!(!is_operational_submission_error(&ProposerError::TxManager(
+        assert!(!is_operational_loop_error(&ProposerError::TxManager(
             TxManagerError::InvalidConfig("bad fee limit".into()),
         )));
     }
