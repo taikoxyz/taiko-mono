@@ -713,6 +713,156 @@ where
         .await
     }
 
+    /// Handle an L1 reorg notification from the event scanner.
+    ///
+    /// 1. Increments the reorg-detected counter.
+    /// 2. Atomically clears `preconf_ingress_ready` (idempotent — `swap` returns the prior value).
+    /// 3. Resolves the rollback target via `getCoreState` at the common ancestor and
+    ///    `last_block_id_by_batch_id(nextProposalId - 1)`.
+    /// 4. If `head_l1_origin > rollback_block`, calls `set_head_l1_origin(rollback_block)`.
+    /// 5. Publishes the rollback target on the watch channel.
+    ///
+    /// Every fallible step logs and increments
+    /// `EVENT_REORG_ROLLBACK_RESULTS_TOTAL{result=...}`, then returns. The handler never
+    /// propagates errors; the next reorg notification or scanner reconnect will retry.
+    #[instrument(skip(self), fields(common_ancestor))]
+    pub(crate) async fn handle_reorg_detected(&self, common_ancestor: u64) {
+        counter!(DriverMetrics::EVENT_REORGS_DETECTED_TOTAL).increment(1);
+
+        let was_ready = self.preconf_ingress_ready.swap(false, Ordering::AcqRel);
+        if was_ready {
+            info!(common_ancestor, "closed preconfirmation ingress on L1 reorg detection");
+        }
+
+        // 1. Resolve canonical core state at the L1 common ancestor.
+        let core_state = match self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Number(common_ancestor.into()))
+            .call()
+            .await
+        {
+            Ok(state) => state,
+            Err(err) => {
+                warn!(
+                    ?err,
+                    common_ancestor,
+                    "reorg rollback aborted: getCoreState at common ancestor failed"
+                );
+                counter!(
+                    DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                    "result" => "core_state_failed",
+                )
+                .increment(1);
+                return;
+            }
+        };
+
+        let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+
+        // 2. Resolve the rollback L2 block id.
+        let rollback_block = if target_proposal_id == 0 {
+            0u64
+        } else {
+            match self.rpc.last_block_id_by_batch_id(U256::from(target_proposal_id)).await {
+                Ok(Some(block_id)) => block_id.to::<u64>(),
+                Ok(None) => {
+                    warn!(
+                        common_ancestor,
+                        target_proposal_id,
+                        "reorg rollback skipped: last_block_id_by_batch_id returned None; \
+                         confirmed-sync gate will reopen ingress once derivation catches up"
+                    );
+                    counter!(
+                        DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                        "result" => "mapping_missing",
+                    )
+                    .increment(1);
+                    return;
+                }
+                Err(err) => {
+                    warn!(
+                        ?err,
+                        common_ancestor,
+                        target_proposal_id,
+                        "reorg rollback aborted: last_block_id_by_batch_id failed"
+                    );
+                    counter!(
+                        DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                        "result" => "batch_lookup_failed",
+                    )
+                    .increment(1);
+                    return;
+                }
+            }
+        };
+
+        // 3. Read current head_l1_origin.
+        let current_head = match self.rpc.head_l1_origin().await {
+            Ok(Some(origin)) => Some(origin.block_id.to::<u64>()),
+            Ok(None) => None,
+            Err(err) => {
+                warn!(
+                    ?err,
+                    common_ancestor,
+                    "reorg rollback aborted: head_l1_origin read failed"
+                );
+                counter!(
+                    DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                    "result" => "read_failed",
+                )
+                .increment(1);
+                return;
+            }
+        };
+
+        // 4. Lower-write head_l1_origin only if currently above the rollback target.
+        let should_rewind = matches!(current_head, Some(head) if head > rollback_block);
+        if should_rewind {
+            if let Err(err) = self.rpc.set_head_l1_origin(U256::from(rollback_block)).await {
+                warn!(
+                    ?err,
+                    common_ancestor,
+                    rollback_block,
+                    "reorg rollback aborted: set_head_l1_origin write failed"
+                );
+                counter!(
+                    DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                    "result" => "write_failed",
+                )
+                .increment(1);
+                // Do not publish the watch value — the on-disk pointer was not lowered.
+                return;
+            }
+            info!(
+                common_ancestor,
+                rollback_block,
+                prior_head = ?current_head,
+                "rewound head_l1_origin on L1 reorg"
+            );
+            counter!(
+                DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                "result" => "rewound",
+            )
+            .increment(1);
+        } else {
+            counter!(
+                DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                "result" => "noop",
+            )
+            .increment(1);
+        }
+
+        // 5. Publish the rollback signal regardless of whether we rewrote head_l1_origin
+        //    (in the noop case the watch carries the canonical tip; receivers may still
+        //    want to lower their own caches to it). Channel closure is benign.
+        if let Err(err) = self.rollback_tx.send(Some(rollback_block)) {
+            debug!(?err, rollback_block, "rollback watch send had no receivers");
+        }
+    }
+
     /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts
     /// submissions.
     ///
