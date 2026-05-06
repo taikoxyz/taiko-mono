@@ -1137,6 +1137,16 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 		return
 	}
 
+	if _, err := s.rpc.L2Engine.SetHeadL1Origin(ctx, blockID.ToInt()); err != nil {
+		log.Error(
+			"Failed to reset head L1 origin after proposal reorg",
+			"proposalId", recordedProposal.Id,
+			"blockID", blockID,
+			"err", err,
+		)
+		return
+	}
+
 	header, err := s.rpc.L1.HeaderByHash(ctx, eventLog.BlockHash)
 	if err != nil {
 		log.Error(
