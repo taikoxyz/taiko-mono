@@ -29,6 +29,10 @@ func (p *Processor) processSingle(ctx context.Context) error {
 	}
 
 	for _, log := range receipt.Logs {
+		if len(log.Topics) == 0 {
+			continue
+		}
+
 		topic := log.Topics[0]
 
 		if topic == bridgeAbi.Events["MessageSent"].ID {

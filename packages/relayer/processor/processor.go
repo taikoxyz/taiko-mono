@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -406,69 +407,111 @@ func (p *Processor) eventLoop(ctx context.Context) {
 			return
 		case msg := <-p.msgCh:
 			go func(m queue.Message) {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.Error("panic processing message", "panic", r)
+						if err := p.queue.Nack(ctx, m, false); err != nil {
+							slog.Error("Err nacking panicked message", "err", err.Error())
+						}
+					}
+				}()
+
 				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
+				p.handleProcessMessageResult(ctx, m, shouldRequeue, timesRetried, err)
 
-				if err != nil {
-					switch {
-					case errors.Is(err, errUnprocessable):
-						if err := p.queue.Ack(ctx, m); err != nil {
-							slog.Error("Err acking message", "err", err.Error())
-						}
-					case errors.Is(err, relayer.ErrUnprofitable):
-						slog.Info("publishing to unprofitable queue")
-
-						headers := make(map[string]interface{}, 0)
-
-						headers["retries"] = int64(timesRetried + 1)
-
-						if err := p.queue.Publish(
-							ctx,
-							fmt.Sprintf("%v-unprofitable", p.queueName()),
-							m.Body,
-							headers,
-							p.cfg.UnprofitableMessageQueueExpiration,
-						); err != nil {
-							slog.Error("error publishing to unprofitable queue", "error", err)
-						}
-
-						// after publishing successfully, we can acknowledge this message to remove it
-						// from our main queue.
-						if err := p.queue.Ack(ctx, m); err != nil {
-							slog.Error("Err acking message", "err", err.Error())
-						}
-					case errors.Is(err, context.Canceled) ||
-						strings.Contains(err.Error(), "timeout") ||
-						strings.Contains(err.Error(), "i/o") ||
-						strings.Contains(err.Error(), "connect") ||
-						strings.Contains(err.Error(), "failed to get tx into the mempool"):
-						// we want to do nothing, just log, and the message will be re-picked up
-						// by another consumer. no need to nack or ack.
-						slog.Error("process message failed", "err", err.Error())
-					default:
-						slog.Error("process message failed", "err", err.Error())
-
-						// we want to negatively acknowledge the message and requeue it if we
-						// encountered an error, but the message is processable.
-						if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
-							slog.Error("Err nacking message", "err", err.Error())
-						}
-					}
-
-					return
-				}
-
-				if shouldRequeue {
-					// we want to negatively acknowledge the message and let the broker requeue it
-					if err := p.queue.Nack(ctx, m, true); err != nil {
-						slog.Error("Err nacking message", "err", err.Error())
-					}
-				} else {
-					// otherwise if no error, we can acknowledge it successfully.
-					if err := p.queue.Ack(ctx, m); err != nil {
-						slog.Error("Err acking message", "err", err.Error())
-					}
-				}
 			}(msg)
 		}
 	}
+}
+
+func (p *Processor) handleProcessMessageResult(
+	ctx context.Context,
+	m queue.Message,
+	shouldRequeue bool,
+	timesRetried uint64,
+	err error,
+) {
+	if err != nil {
+		switch {
+		case errors.Is(err, errUnprocessable):
+			if err := p.queue.Ack(ctx, m); err != nil {
+				slog.Error("Err acking message", "err", err.Error())
+			}
+		case errors.Is(err, relayer.ErrUnprofitable):
+			p.handleUnprofitableMessage(ctx, m, timesRetried)
+		case isTransientProcessMessageError(err):
+			slog.Error("process message failed", "err", err.Error())
+			if err := p.queue.Nack(ctx, m, true); err != nil {
+				slog.Error("Err nacking message", "err", err.Error())
+			}
+		default:
+			slog.Error("process message failed", "err", err.Error())
+			if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
+				slog.Error("Err nacking message", "err", err.Error())
+			}
+		}
+
+		return
+	}
+
+	if shouldRequeue {
+		if err := p.queue.Nack(ctx, m, true); err != nil {
+			slog.Error("Err nacking message", "err", err.Error())
+		}
+	} else if err := p.queue.Ack(ctx, m); err != nil {
+		slog.Error("Err acking message", "err", err.Error())
+	}
+}
+
+func (p *Processor) handleUnprofitableMessage(ctx context.Context, m queue.Message, timesRetried uint64) {
+	slog.Info("publishing to unprofitable queue")
+
+	headers := make(map[string]interface{}, 0)
+	nextRetries := timesRetried + 1
+	headers["retries"] = int64(nextRetries)
+
+	msgBody := &queue.QueueMessageSentBody{}
+	if err := json.Unmarshal(m.Body, msgBody); err != nil {
+		slog.Error("error decoding unprofitable message", "error", err)
+		if err := p.queue.Nack(ctx, m, false); err != nil {
+			slog.Error("Err nacking message", "err", err.Error())
+		}
+		return
+	}
+
+	msgBody.TimesRetried = nextRetries
+	body, err := json.Marshal(msgBody)
+	if err != nil {
+		slog.Error("error encoding unprofitable message", "error", err)
+		if err := p.queue.Nack(ctx, m, false); err != nil {
+			slog.Error("Err nacking message", "err", err.Error())
+		}
+		return
+	}
+
+	if err := p.queue.Publish(
+		ctx,
+		fmt.Sprintf("%v-unprofitable", p.queueName()),
+		body,
+		headers,
+		p.cfg.UnprofitableMessageQueueExpiration,
+	); err != nil {
+		slog.Error("error publishing to unprofitable queue", "error", err)
+		if err := p.queue.Nack(ctx, m, true); err != nil {
+			slog.Error("Err nacking message", "err", err.Error())
+		}
+		return
+	}
+
+	if err := p.queue.Ack(ctx, m); err != nil {
+		slog.Error("Err acking message", "err", err.Error())
+	}
+}
+
+func isTransientProcessMessageError(err error) bool {
+	return errors.Is(err, context.Canceled) ||
+		strings.Contains(err.Error(), "timeout") ||
+		strings.Contains(err.Error(), "i/o") ||
+		strings.Contains(err.Error(), "connect") ||
+		strings.Contains(err.Error(), "failed to get tx into the mempool")
 }
