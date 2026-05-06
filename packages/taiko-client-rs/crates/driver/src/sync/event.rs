@@ -2374,4 +2374,41 @@ mod tests {
         // Watch was NOT updated because the on-disk pointer was not lowered.
         assert_eq!(*rollback_rx.borrow(), initial);
     }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_idempotent_under_repeated_calls() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        // First invocation: full sequence with rewind 1000 -> 950.
+        l1_asserter.push_success(&encoded_core_state(
+            mock_core_state_with_next_proposal_id(50),
+        ));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
+        l2_auth_asserter.push_success(&U256::from(950u64));
+
+        // Second invocation: same ancestor. head_l1_origin is now 950 (already at target),
+        // so the handler must enter the noop branch and NOT push another set_head call.
+        l1_asserter.push_success(&encoded_core_state(
+            mock_core_state_with_next_proposal_id(50),
+        ));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(950)));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        syncer.handle_reorg_detected(42).await;
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+
+        // Second call: must complete without panicking and without consuming a
+        // non-existent set_head_l1_origin push.
+        syncer.handle_reorg_detected(42).await;
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+    }
 }
