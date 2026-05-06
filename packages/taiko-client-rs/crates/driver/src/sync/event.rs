@@ -2286,4 +2286,33 @@ mod tests {
         rollback_rx.changed().await.expect("rollback should be published for target=0");
         assert_eq!(*rollback_rx.borrow(), Some(0));
     }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_skips_when_batch_mapping_missing() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(
+            mock_core_state_with_next_proposal_id(50),
+        ));
+        // last_block_id_by_batch_id(49) returns None.
+        l2_auth_asserter.push_success(&Option::<U256>::None);
+        // No head_l1_origin or set_head_l1_origin pushes — handler must short-circuit.
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let rollback_rx = syncer.subscribe_rollbacks();
+        let initial = *rollback_rx.borrow();
+        syncer.handle_reorg_detected(42).await;
+
+        // Ingress is still closed (closure happens before the abort).
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        // Watch was NOT updated.
+        assert_eq!(*rollback_rx.borrow(), initial);
+    }
 }
