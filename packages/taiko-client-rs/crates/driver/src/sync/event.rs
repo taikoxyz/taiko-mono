@@ -26,7 +26,7 @@ use event_scanner::{EventFilter, Notification, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot, watch},
     time::{sleep, timeout},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
@@ -230,6 +230,9 @@ where
     preconf_ingress_ready: Arc<AtomicBool>,
     /// Notifier signaled when strict ingress gating is satisfied and the loop becomes ready.
     preconf_ingress_notify: Arc<Notify>,
+    /// Sender side of the rollback signal published on `Notification::ReorgDetected`.
+    /// Carries the rollback L2 block id; receivers lower their derived caches to match.
+    rollback_tx: watch::Sender<Option<u64>>,
 }
 
 /// Maximum number of buffered preconfirmation payloads before backpressure applies.
@@ -649,6 +652,7 @@ where
             (None, None)
         };
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
+        let (rollback_tx, _rollback_rx) = watch::channel::<Option<u64>>(None);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
@@ -658,12 +662,21 @@ where
             preconf_rx: Mutex::new(preconf_rx),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            rollback_tx,
         })
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
     pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
         self.preconf_tx.clone()
+    }
+
+    /// Subscribe to reorg-rollback signals.
+    ///
+    /// Each emission carries the L2 block id to which derived caches should be lowered.
+    /// `None` is the initial value before any rollback has been published.
+    pub fn subscribe_rollbacks(&self) -> watch::Receiver<Option<u64>> {
+        self.rollback_tx.subscribe()
     }
 
     /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
@@ -1436,6 +1449,7 @@ mod tests {
             preconf_rx: Mutex::new(Some(preconf_rx)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            rollback_tx: watch::channel::<Option<u64>>(None).0,
         }
     }
 
