@@ -221,3 +221,24 @@ func TestBatchBlocksByHashes(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, blocks, 2)
 }
+
+func TestIsHTTPEndpoint(t *testing.T) {
+	cases := []struct {
+		url      string
+		wantHTTP bool
+	}{
+		{"http://localhost:8545", true},
+		{"https://rpc.example.com", true},
+		{"HTTP://localhost:8545", true},
+		{"ws://localhost:8546", false},
+		{"wss://rpc.example.com", false},
+		{"WS://localhost:8546", false},
+		{"localhost:8545", true},
+		{"", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.url, func(t *testing.T) {
+			require.Equal(t, tc.wantHTTP, isHTTPEndpoint(tc.url))
+		})
+	}
+}

@@ -15,7 +15,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	l1Endpoint := "http://localhost:8545"
 	l1BeaconEndpoint := "http://localhost:5052"
 	l2Endpoint := "http://localhost:9545"
-	l2HttpEndpoint := "http://localhost:10545"
 	inbox := common.HexToAddress("0x00000000000000000000000000000000000000aa")
 	taikoAnchor := common.HexToAddress("0x00000000000000000000000000000000000000bb")
 
@@ -24,7 +23,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
-		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
@@ -41,7 +39,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		s.Equal(l1Endpoint, c.L1WsEndpoint)
 		s.Equal(l1BeaconEndpoint, c.L1BeaconEndpoint)
 		s.Equal(l2Endpoint, c.L2WsEndpoint)
-		s.Equal(l2HttpEndpoint, c.L2HttpEndpoint)
 		s.Equal(inbox.String(), c.InboxAddress.String())
 		s.Equal(taikoAnchor.String(), c.TaikoAnchorAddress.String())
 		s.Equal("http://raiko.host", c.RaikoHostEndpoint)
@@ -60,7 +57,6 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
-		"--" + flags.L2HTTPEndpoint.Name, l2HttpEndpoint,
 		"--" + flags.InboxAddress.Name, inbox.Hex(),
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor.Hex(),
 		"--" + flags.L1ProverPrivKey.Name, encoding.GoldenTouchPrivKey,
@@ -86,7 +82,6 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
-		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
 		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
