@@ -330,6 +330,33 @@ fn record_runner_exit(reason: &'static str, result: Result<()>) -> Result<()> {
     result
 }
 
+/// Background task: when the rollback watch receiver fires, lower
+/// `highest_unsafe_l2_payload_block_id` to the rollback target if (and only if) the
+/// current value is strictly higher than the target.
+///
+/// Exits when the watch sender is dropped (i.e. the EventSyncer has terminated).
+async fn lower_highest_unsafe_on_rollback(
+    mut rollback_rx: tokio::sync::watch::Receiver<Option<u64>>,
+    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+) {
+    while rollback_rx.changed().await.is_ok() {
+        let Some(target) = *rollback_rx.borrow() else {
+            // Initial `None` value; nothing to do.
+            continue;
+        };
+
+        let mut guard = highest_unsafe_l2_payload_block_id.lock().await;
+        if *guard > target {
+            info!(
+                prior = *guard,
+                target,
+                "lowering highest_unsafe_l2_payload_block_id on reorg rollback"
+            );
+            *guard = target;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
