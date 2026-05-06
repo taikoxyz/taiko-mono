@@ -27,7 +27,7 @@ const (
 	// l2HeadPollInterval is the cadence at which the driver polls the L2 head
 	// when running against an HTTP-only L2 endpoint. Set faster than the L2
 	// block time so the driver tracks the L2 chain with sub-block latency.
-	l2HeadPollInterval = 1 * time.Second
+	l2HeadPollInterval = 500 * time.Millisecond
 )
 
 // State contains all states which will be used by driver.
