@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.1...ejector-v0.7.0) (2026-05-06)
+
+
+### Features
+
+* **ejector:** add stale missing preconfers metric for alerting ([#21634](https://github.com/taikoxyz/taiko-mono/issues/21634)) ([f16e282](https://github.com/taikoxyz/taiko-mono/commit/f16e2828755be3b65b3cae831587e3184dd26e67))
+* **ejector:** use HTTP-based L1 event scanning and L2 block polling ([#21548](https://github.com/taikoxyz/taiko-mono/issues/21548)) ([27ae763](https://github.com/taikoxyz/taiko-mono/commit/27ae763d3c12517f7627a3b09af9959bc18d2fdb))
+
+
+### Chores
+
+* **ejector:** remove redundant URL clone in eject path ([#21455](https://github.com/taikoxyz/taiko-mono/issues/21455)) ([eae6490](https://github.com/taikoxyz/taiko-mono/commit/eae649013910d7f10350a849c9f2bdfcf70b19f3))
+* **repo:** add concurrency gate to release please and bump ejector lock ([#21420](https://github.com/taikoxyz/taiko-mono/issues/21420)) ([1b97c19](https://github.com/taikoxyz/taiko-mono/commit/1b97c19bc2c8280dc91f16a82ee03eca2789a4db))
+
+
+### Code Refactoring
+
+* **ejector:** avoid cloning beacon URL in BeaconClient ([#21434](https://github.com/taikoxyz/taiko-mono/issues/21434)) ([295bdbe](https://github.com/taikoxyz/taiko-mono/commit/295bdbe65b0b7894969e3419455f6aafdad6e2d1))
+* **ejector:** remove redundant URL clones in startup ([#21441](https://github.com/taikoxyz/taiko-mono/issues/21441)) ([94730f4](https://github.com/taikoxyz/taiko-mono/commit/94730f4022f74c3a7e7aee5af6e6a5a91441d4c4))
+
 ## [0.6.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.0...ejector-v0.6.1) (2026-03-03)
 
 
