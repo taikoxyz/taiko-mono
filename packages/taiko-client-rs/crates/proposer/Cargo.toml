@@ -12,13 +12,11 @@ tokio = { workspace = true }
 # observability
 metrics = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # ethereum
 alloy = { workspace = true }
 alloy-consensus = { workspace = true, features = ["k256"] }
 alloy-eips = { workspace = true }
-alloy-hardforks = { workspace = true }
 alloy-network = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
@@ -48,4 +46,3 @@ test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
 tower = { workspace = true }
-tracing-subscriber = { workspace = true }

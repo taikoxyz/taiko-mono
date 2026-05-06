@@ -26,7 +26,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         address contractOwner;
         address proverManager;
         address ejectorManager;
-        address activator;
+        bytes32 l2GenesisHash;
         uint64 l2ChainId;
         address l1SignalService;
         address l2SignalService;
@@ -58,7 +58,7 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     function _validateConfig(DeploymentConfig memory config) internal pure {
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
-        require(config.activator != address(0), "ACTIVATOR not set");
+        require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
         require(config.l2ChainId != 0, "L2_CHAIN_ID not set");
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
@@ -104,8 +104,6 @@ abstract contract DeployShastaContracts is DeployCapability {
         }
         Ownable2StepUpgradeable(proverWhitelist).transferOwnership(config.contractOwner);
 
-        // We set the activator as the initial owner of the inbox to allow activation.
-        // Ownership will be later transferred to the DAO.
         address shastaInbox = deployProxy({
             name: "shasta_inbox",
             impl: address(
@@ -117,7 +115,7 @@ abstract contract DeployShastaContracts is DeployCapability {
                     config.taikoToken
                 )
             ),
-            data: abi.encodeCall(Inbox.init, config.activator)
+            data: abi.encodeCall(Inbox.init, (config.contractOwner, config.l2GenesisHash))
         });
         console2.log("ShastaInbox deployed:", shastaInbox);
 

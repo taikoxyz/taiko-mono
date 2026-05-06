@@ -9,19 +9,44 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check-for-typos:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'option.workflow_on') || github.event.pull_request.draft == false && github.head_ref != 'release-please-*' && !startsWith(github.head_ref, 'dependabot') }}
-    runs-on: [arc-runner-set]
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'option.workflow_on')
+      || (github.event.pull_request.draft == false
+          && github.head_ref != 'release-please-*'
+          && !startsWith(github.head_ref, 'dependabot'))
+    # SECURITY: route fork PRs to a hosted runner where the first step exits 1.
+    # The required check turns red for fork PRs (instead of silently skipping
+    # as success) without ever running PR-controlled code on arc-runner-set.
+    runs-on: >-
+      ${{
+        (github.event.pull_request.head.repo.fork == true)
+        && 'ubuntu-latest' || 'arc-runner-set'
+      }}
 
     steps:
+      - name: Block fork PR CI on self-hosted runners
+        if: github.event.pull_request.head.repo.fork == true
+        run: |
+          echo "::error::Fork PR CI on self-hosted runners is disabled for security."
+          echo "::error::A maintainer must move this CI to a hosted-runner job or trigger from a trusted ref."
+          exit 1
+
       - name: Checkout the repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Install wget
         run: sudo apt-get update && sudo apt-get install -y wget
 
       - name: Check for typos
-        uses: crate-ci/typos@master
+        # SECURITY: avoid @master. Pin to a released tag and follow up
+        # with a full commit SHA via Dependabot/Renovate.
+        uses: crate-ci/typos@v1
         with:
           config: ${{github.workspace}}/_typos.toml

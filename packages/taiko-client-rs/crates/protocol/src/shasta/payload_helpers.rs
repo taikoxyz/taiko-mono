@@ -2,7 +2,7 @@
 
 use alloy::{
     primitives::{B256, Bytes, U256, keccak256},
-    sol_types::{SolValue, sol},
+    sol_types::SolValue,
 };
 use alloy_consensus::TxEnvelope;
 use alloy_rlp::{BytesMut, encode_list};
@@ -13,7 +13,7 @@ use alloy_rpc_types_engine_2::PayloadId;
 /// The 8-byte payload identifier prepends this version byte to match the Execution API spec.
 pub const PAYLOAD_ID_VERSION_V2: u8 = 2;
 
-sol! {
+alloy::sol! {
     struct ShastaMixHashInput {
         bytes32 parentMixHash;
         uint256 blockNumber;

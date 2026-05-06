@@ -13,11 +13,32 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  # actions: write is required by styfle/cancel-workflow-action below.
+  actions: write
+
 jobs:
   build-nfts-contracts:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
-    runs-on: [arc-runner-set]
+    if: >-
+      github.event.pull_request.draft == false
+      && !startsWith(github.head_ref, 'release-please')
+    # SECURITY: route fork PRs to a hosted runner where the first step exits 1.
+    # The required check turns red for fork PRs (instead of silently skipping
+    # as success) without ever running PR-controlled code on arc-runner-set.
+    runs-on: >-
+      ${{
+        (github.event.pull_request.head.repo.fork == true)
+        && 'ubuntu-latest' || 'arc-runner-set'
+      }}
     steps:
+      - name: Block fork PR CI on self-hosted runners
+        if: github.event.pull_request.head.repo.fork == true
+        run: |
+          echo "::error::Fork PR CI on self-hosted runners is disabled for security."
+          echo "::error::A maintainer must move this CI to a hosted-runner job or trigger from a trusted ref."
+          exit 1
+
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.13.1
         with:
@@ -27,6 +48,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: recursive
+          persist-credentials: false
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1

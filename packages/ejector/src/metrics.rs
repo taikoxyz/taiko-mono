@@ -1,7 +1,9 @@
+use std::convert::TryFrom;
+
+use alloy::primitives::Address;
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use once_cell::sync::Lazy;
-use prometheus::{Encoder, IntCounter, IntCounterVec, IntGauge, Registry};
-use std::convert::TryFrom;
+use prometheus::{Encoder, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Registry};
 
 // registry we can re-use
 static REGISTRY: Lazy<Registry> = Lazy::new(Registry::new);
@@ -66,6 +68,17 @@ static LAST_REORGED_TO: Lazy<IntGauge> = Lazy::new(|| {
         .expect("last_reorged_to metric can be created")
 });
 
+static PRECONFER_MISSING_FROM_WHITELIST: Lazy<IntGaugeVec> = Lazy::new(|| {
+    IntGaugeVec::new(
+        prometheus::opts!(
+            "preconfer_missing_from_whitelist",
+            "Whether a configured preconfer is missing from the active whitelist"
+        ),
+        &["addr"],
+    )
+    .expect("preconfer_missing_from_whitelist metric can be created")
+});
+
 pub fn init() {
     REGISTRY
         .register(Box::new(L2_BLOCKS_TOTAL.clone()))
@@ -97,6 +110,9 @@ pub fn init() {
     REGISTRY
         .register(Box::new(LAST_REORGED_TO.clone()))
         .expect("last_reorged_to metric can be registered");
+    REGISTRY
+        .register(Box::new(PRECONFER_MISSING_FROM_WHITELIST.clone()))
+        .expect("preconfer_missing_from_whitelist metric can be registered");
 }
 
 pub fn router() -> axum::Router {
@@ -165,4 +181,10 @@ pub fn note_reorg(depth: usize, reorg_height: u64) {
 
 pub fn inc_reorg_skipped() {
     REORG_SKIPPED_TOTAL.inc();
+}
+
+pub fn set_preconfer_missing_from_whitelist(addr: Address, missing: bool) {
+    let addr = format!("{addr:#x}").to_ascii_lowercase();
+    let value = if missing { 1 } else { 0 };
+    PRECONFER_MISSING_FROM_WHITELIST.with_label_values(&[&addr]).set(value);
 }

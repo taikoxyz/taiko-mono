@@ -118,7 +118,7 @@ anyhow = "1"
 dashmap = "6.1.0"
 flate2 = { version = "1.0", default-features = false, features = ["zlib"] }
 once_cell = "1.19"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
 thiserror = { version = "2.0.12", default-features = false }
 url = "2.5.4"
 

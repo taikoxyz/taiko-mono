@@ -50,13 +50,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         bool allowsPermissionless;
     }
 
-    // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    event InboxActivated(bytes32 lastPacayaBlockHash);
-
-    // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
 
@@ -177,28 +170,27 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the owner of the inbox.
+    /// @notice Initializes the owner and genesis state of the inbox.
+    /// @dev The genesis block hash is permanent after initialization. Setting it incorrectly
+    ///      leaves the inbox in an unrecoverable state that can only be fixed via a proxy
+    ///      upgrade, so deployers must verify `_genesisBlockHash` before calling.
     /// @param _owner The owner of this contract
-    function init(address _owner) external initializer {
+    /// @param _genesisBlockHash The L2 genesis block hash, i.e. the block hash of the last Pacaya
+    ///        block, since Shasta inherits L2 state from Pacaya.
+    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Essential_init(_owner);
-    }
 
-    /// @notice Activates the inbox so that it can start accepting proposals.
-    /// @dev Can be called multiple times within the activation window to handle reorgs.
-    /// @param _lastPacayaBlockHash The block hash of the last Pacaya block
-    function activate(bytes32 _lastPacayaBlockHash) external onlyOwner {
         (
             uint48 newActivationTimestamp,
             CoreState memory state,
             Proposal memory proposal,
             bytes32 genesisProposalHash
-        ) = LibInboxSetup.activate(_lastPacayaBlockHash, activationTimestamp);
+        ) = LibInboxSetup.initCoreState(_genesisBlockHash);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
         _setProposalHash(0, genesisProposalHash);
         _emitProposedEvent(proposal);
-        emit InboxActivated(_lastPacayaBlockHash);
     }
 
     /// @inheritdoc IInbox

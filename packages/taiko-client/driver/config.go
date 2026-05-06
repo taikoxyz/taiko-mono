@@ -96,6 +96,9 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
 		}
 	}
+	if c.Uint64(flags.PreconfBlockServerPort.Name) > 0 && len(preconfBlockServerJWTSecret) == 0 {
+		return nil, errors.New("preconfirmation.jwtSecret is required when preconfirmation.serverPort is enabled")
+	}
 
 	// Resolve L1 / L2 endpoints (WS preferred, HTTP fallback).
 	l1Endpoint, err := resolveEndpoints(
