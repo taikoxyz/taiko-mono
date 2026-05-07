@@ -56,13 +56,6 @@ pub enum SyncError {
         number: u64,
     },
 
-    /// Event sync: execution engine missing batch-to-block mapping.
-    #[error("no execution block found for batch {proposal_id}")]
-    MissingExecutionBlockForBatch {
-        /// Proposal id whose batch mapping was absent.
-        proposal_id: u64,
-    },
-
     /// Event sync: failed to locate the expected anchor transaction for deriving resume point.
     #[error("anchor transaction missing in l2 block {block_number}: {reason}")]
     MissingAnchorTransaction {
