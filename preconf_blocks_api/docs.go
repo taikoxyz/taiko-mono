@@ -209,6 +209,10 @@ const docTemplate = `{
         "preconfblocks.Status": {
             "type": "object",
             "properties": {
+                "canShutdown": {
+                    "description": "CanShutdown is true when the server is safe to receive SIGTERM, i.e.,\nnot the active or imminent preconfer for the current L1 slot.",
+                    "type": "boolean"
+                },
                 "endOfSequencingBlockHash": {
                     "description": "@param whether the current epoch has received an end of sequencing block marker",
                     "type": "string"
