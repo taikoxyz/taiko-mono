@@ -4,10 +4,11 @@ import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
 import configuredCustomTokens from '../../config/schemas/configuredCustomTokens.schema.json';
-import type { Token } from '../../src/libs/token/types';
+import { type Token,TokenType } from '../../src/libs/token/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
+import { toTsLiteral, tsExpression } from './../utils/toTsLiteral';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
@@ -120,20 +121,19 @@ async function buildCustomTokenConfig(sourceFile: SourceFile, configuredTokenCon
   return sourceFile;
 }
 
-const _formatObjectToTsLiteral = (tokens: Token[]): string => {
-  const formatToken = (token: Token): string => {
-    const entries = Object.entries(token);
-    const formattedEntries = entries.map(([key, value]) => {
-      if (key === 'type' && typeof value === 'string') {
-        return `${key}: TokenType.${value}`;
-      }
-      if (typeof value === 'object') {
-        return `${key}: ${JSON.stringify(value)}`;
-      }
-      return `${key}: ${JSON.stringify(value)}`;
-    });
+function toTokenTypeExpression(value: unknown) {
+  if (!Object.values(TokenType).includes(value as TokenType)) {
+    throw new Error(`Invalid TokenType: ${String(value)}`);
+  }
+  return tsExpression(`TokenType.${value}`);
+}
 
-    return `{${formattedEntries.join(', ')}}`;
+export const _formatObjectToTsLiteral = (tokens: Token[]): string => {
+  const formatToken = (token: Token): string => {
+    return toTsLiteral({
+      ...token,
+      type: toTokenTypeExpression(token.type),
+    });
   };
 
   return `[${tokens.map(formatToken).join(', ')}]`;
