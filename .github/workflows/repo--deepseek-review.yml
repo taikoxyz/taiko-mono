@@ -69,7 +69,7 @@ jobs:
 
       - name: Run DeepSeek Code Review
         id: review
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const prNumber = '${{ steps.pr.outputs.number }}';
