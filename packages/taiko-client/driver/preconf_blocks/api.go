@@ -337,8 +337,7 @@ type Status struct {
 	// @param whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
 	// CanShutdown is true when the server is safe to receive SIGTERM, i.e.,
-	// not the active or imminent preconfer for the current L1 slot. Used by
-	// Kubernetes preStop hooks to defer shutdown.
+	// not the active or imminent preconfer for the current L1 slot.
 	CanShutdown bool `json:"canShutdown"`
 }
 

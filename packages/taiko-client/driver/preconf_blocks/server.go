@@ -197,7 +197,6 @@ func LogSkipper(c echo.Context) bool {
 }
 
 // jwtSkipPath returns true for routes that bypass JWT authentication.
-// These are unauthenticated health/status probe endpoints used by Kubernetes.
 // All other routes (POST /preconfBlocks, GET /ws, ...) remain authenticated
 // when a JWT secret is configured.
 func jwtSkipPath(c echo.Context) bool {
@@ -1072,9 +1071,6 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(globalSlot uint64) error 
 // given globalSlot — i.e., this pod is neither the active nor imminent preconfer
 // for the live slot. Returns true when lookahead state is uninitialized
 // (the driver hasn't loaded sequencing duties yet, so there's nothing to drop).
-//
-// Used by external HTTP probes via the /status endpoint so Kubernetes preStop
-// hooks can defer shutdown until the pod's sequencing window has passed.
 func (s *PreconfBlockAPIServer) CanShutdown(globalSlot uint64) bool {
 	s.lookaheadMutex.Lock()
 	defer s.lookaheadMutex.Unlock()
