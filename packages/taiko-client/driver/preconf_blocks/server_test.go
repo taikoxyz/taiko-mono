@@ -3,6 +3,8 @@ package preconfblocks
 import (
 	"context"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/labstack/echo/v4"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/suite"
 
@@ -135,6 +138,32 @@ func (s *PreconfBlockAPIServerTestSuite) TestCanShutdown() {
 				s.s.rpc.L1Beacon = nil
 			}
 			s.Equal(tt.want, s.s.CanShutdown(tt.globalSlot))
+		})
+	}
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestJWTSkipPath() {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"/", true},
+		{"/healthz", true},
+		{"/status", true},
+		{"/preconfBlocks", false},
+		{"/ws", false},
+		{"/anything-else", false},
+		{"", false},
+	}
+
+	for _, tc := range cases {
+		s.T().Run(tc.path, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "http://example.com"+tc.path, nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath(tc.path)
+			s.Equal(tc.want, jwtSkipPath(c))
 		})
 	}
 }

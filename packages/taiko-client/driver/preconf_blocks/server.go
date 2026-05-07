@@ -157,7 +157,10 @@ func New(
 	server.configureMiddleware([]string{cors})
 	server.configureRoutes()
 	if jwtSecret != nil {
-		server.echo.Use(echojwt.JWT(jwtSecret))
+		server.echo.Use(echojwt.WithConfig(echojwt.Config{
+			Skipper:    jwtSkipPath,
+			SigningKey: jwtSecret,
+		}))
 	}
 
 	return server, nil
@@ -191,6 +194,18 @@ func (s *PreconfBlockAPIServer) SetSyncReady(ready bool) {
 // skip all ECHO logs for the preconfirmation block server.
 func LogSkipper(c echo.Context) bool {
 	return true
+}
+
+// jwtSkipPath returns true for routes that bypass JWT authentication.
+// These are unauthenticated health/status probe endpoints used by Kubernetes.
+// All other routes (POST /preconfBlocks, GET /ws, ...) remain authenticated
+// when a JWT secret is configured.
+func jwtSkipPath(c echo.Context) bool {
+	switch c.Path() {
+	case "/", "/healthz", "/status":
+		return true
+	}
+	return false
 }
 
 // configureMiddleware configures the server middlewares.
