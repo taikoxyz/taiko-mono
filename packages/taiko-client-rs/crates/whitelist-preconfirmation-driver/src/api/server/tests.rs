@@ -44,6 +44,7 @@ impl WhitelistApi for MockApi {
             sync_ready: true,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            can_shutdown: true,
         })
     }
 
@@ -77,6 +78,7 @@ impl WhitelistApi for SyncReadyApi {
             sync_ready: self.sync_ready,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            can_shutdown: true,
         })
     }
 
@@ -229,7 +231,7 @@ fn jwt_auth_rejects_missing_header() {
 }
 
 #[tokio::test]
-async fn jwt_auth_is_required_when_secret_configured() {
+async fn jwt_auth_skips_probe_routes_when_secret_configured() {
     let config = WhitelistApiServerConfig {
         listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
         jwt_secret: Some(b"test-secret".to_vec()),
@@ -238,12 +240,45 @@ async fn jwt_auth_is_required_when_secret_configured() {
     let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
     let server = WhitelistApiServer::start(config, api).await.expect("server should start");
 
-    let response = reqwest::Client::new()
-        .get(format!("{}/status", server.http_url()))
-        .send()
-        .await
-        .expect("request should succeed");
-    assert_eq!(response.status(), reqwest::StatusCode::UNAUTHORIZED);
+    for path in ["/", "/healthz", "/status"] {
+        let response = reqwest::Client::new()
+            .get(format!("{}{}", server.http_url(), path))
+            .send()
+            .await
+            .expect("request should succeed");
+        assert_eq!(response.status(), reqwest::StatusCode::OK, "route {path} should be public");
+    }
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn jwt_auth_is_required_for_protected_routes_when_secret_configured() {
+    let config = WhitelistApiServerConfig {
+        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
+        jwt_secret: Some(b"test-secret".to_vec()),
+        ..test_config(true, true)
+    };
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+
+    let protected_routes = [
+        (reqwest::Method::POST, "/preconfBlocks"),
+        (reqwest::Method::GET, "/ws"),
+        (reqwest::Method::GET, "/anything-else"),
+    ];
+    for (method, path) in protected_routes {
+        let response = reqwest::Client::new()
+            .request(method, format!("{}{}", server.http_url(), path))
+            .send()
+            .await
+            .expect("request should succeed");
+        assert_eq!(
+            response.status(),
+            reqwest::StatusCode::UNAUTHORIZED,
+            "route {path} should require JWT"
+        );
+    }
 
     server.stop().await;
 }

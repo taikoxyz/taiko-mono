@@ -15,6 +15,9 @@ pub(crate) const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of epoch operator records retained by the tracker.
 const RING_CAPACITY: usize = 3;
 
+/// First slot-in-epoch where an existing window may be refreshed.
+const RELIABLE_REFRESH_SLOT_IN_EPOCH: u64 = 2;
+
 /// Half-open slot interval used by sequencing-window checks.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct SlotRange {
@@ -82,8 +85,16 @@ impl SequencingWindowTracker {
     }
 
     /// Return whether the tracker should refresh for `current_epoch`.
-    pub(crate) fn needs_refresh(&self, current_epoch: u64) -> bool {
-        self.snapshot.as_ref().is_none_or(|snapshot| snapshot.last_epoch_updated != current_epoch)
+    pub(crate) fn should_refresh(&self, current_epoch: u64, slot_in_epoch: u64) -> bool {
+        self.snapshot.as_ref().is_none_or(|snapshot| {
+            snapshot.last_epoch_updated != current_epoch &&
+                slot_in_epoch >= RELIABLE_REFRESH_SLOT_IN_EPOCH
+        })
+    }
+
+    /// Return whether this tracker already has a derived shutdown-safety view.
+    pub(crate) fn is_initialized(&self) -> bool {
+        self.snapshot.is_some()
     }
 
     /// Refresh the operator ring and derive ranges for `local_operator`.
@@ -245,20 +256,37 @@ mod tests {
     fn can_shutdown_is_true_before_initial_refresh() {
         let tracker = SequencingWindowTracker::new(10, DEFAULT_HANDOVER_SKIP_SLOTS);
 
+        assert!(!tracker.is_initialized());
         assert!(tracker.can_shutdown(0));
         assert!(tracker.can_shutdown(100));
+        assert!(tracker.should_refresh(0, 0));
     }
 
     #[test]
-    fn needs_refresh_tracks_initialization_and_epoch_changes() {
+    fn refresh_waits_for_reliable_epoch_slot_after_initialization() {
         let local_operator = address(0x44);
         let mut tracker = SequencingWindowTracker::new(10, DEFAULT_HANDOVER_SKIP_SLOTS);
 
-        assert!(tracker.needs_refresh(5));
+        assert!(tracker.should_refresh(5, 0));
 
         tracker.refresh(5, local_operator, Address::ZERO, local_operator);
 
-        assert!(!tracker.needs_refresh(5));
-        assert!(tracker.needs_refresh(6));
+        assert!(tracker.is_initialized());
+        assert!(!tracker.should_refresh(5, 0));
+        assert!(!tracker.should_refresh(6, 0));
+        assert!(!tracker.should_refresh(6, 1));
+        assert!(tracker.should_refresh(6, 2));
+    }
+
+    #[test]
+    fn early_epoch_rollover_preserves_cached_next_epoch_window() {
+        let local_operator = address(0x55);
+        let other_operator = address(0x66);
+        let mut tracker = SequencingWindowTracker::new(32, DEFAULT_HANDOVER_SKIP_SLOTS);
+
+        tracker.refresh(3, other_operator, local_operator, local_operator);
+
+        assert!(!tracker.should_refresh(4, 0));
+        assert!(!tracker.can_shutdown(128));
     }
 }
