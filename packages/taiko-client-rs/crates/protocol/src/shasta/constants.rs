@@ -72,7 +72,7 @@ pub const SHASTA_FORK_MAINNET: ForkCondition = ForkCondition::Timestamp(1_775_13
 pub const UNZEN_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
 
 /// Unzen fork activation on Taiko Masaya.
-pub const UNZEN_FORK_MASAYA: ForkCondition = ForkCondition::Never;
+pub const UNZEN_FORK_MASAYA: ForkCondition = ForkCondition::Timestamp(1_778_158_800);
 
 /// Unzen fork activation on Taiko Hoodi.
 pub const UNZEN_FORK_HOODI: ForkCondition = ForkCondition::Never;
@@ -290,7 +290,7 @@ mod tests {
         );
         assert_eq!(
             unzen_fork_condition_for_chain(TAIKO_MASAYA_CHAIN_ID),
-            Some(ForkCondition::Never)
+            Some(ForkCondition::Timestamp(1_778_158_800))
         );
         assert_eq!(
             unzen_fork_condition_for_chain(TAIKO_HOODI_CHAIN_ID),
@@ -309,10 +309,11 @@ mod tests {
                 .expect("devnet unzen timestamp should resolve"),
             0
         );
-        assert!(matches!(
-            unzen_fork_timestamp_for_chain(TAIKO_MASAYA_CHAIN_ID),
-            Err(ForkConfigError::UnsupportedActivation)
-        ));
+        assert_eq!(
+            unzen_fork_timestamp_for_chain(TAIKO_MASAYA_CHAIN_ID)
+                .expect("masaya unzen timestamp should resolve"),
+            1_778_158_800
+        );
         assert!(matches!(
             unzen_fork_timestamp_for_chain(TAIKO_HOODI_CHAIN_ID),
             Err(ForkConfigError::UnsupportedActivation)
@@ -332,9 +333,16 @@ mod tests {
         assert_eq!(
             super::derivation_source_max_blocks_for_chain_timestamp(
                 TAIKO_MASAYA_CHAIN_ID,
-                u64::MAX
+                1_778_158_799
             ),
             DERIVATION_SOURCE_MAX_BLOCKS
+        );
+        assert_eq!(
+            super::derivation_source_max_blocks_for_chain_timestamp(
+                TAIKO_MASAYA_CHAIN_ID,
+                1_778_158_800
+            ),
+            super::UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
         );
         assert_eq!(
             super::derivation_source_max_blocks_for_chain_timestamp(u64::MAX, u64::MAX),
