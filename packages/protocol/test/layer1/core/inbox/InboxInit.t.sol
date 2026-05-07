@@ -7,7 +7,6 @@ import { InboxTestBase } from "./InboxTestBase.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
-import { LibInboxSetup } from "src/layer1/core/libs/LibInboxSetup.sol";
 
 /// @notice Tests for Inbox initialization and pre-initialization behavior
 contract InboxInitTest is InboxTestBase {
@@ -57,7 +56,7 @@ contract InboxInitTest is InboxTestBase {
     function test_init_RevertWhen_InvalidGenesisBlockHash() public {
         address impl = address(new Inbox(config));
 
-        vm.expectRevert(LibInboxSetup.InvalidGenesisBlockHash.selector);
+        vm.expectRevert(Inbox.InvalidGenesisBlockHash.selector);
         new ERC1967Proxy(impl, abi.encodeCall(Inbox.init, (address(this), bytes32(0))));
     }
 
@@ -96,13 +95,13 @@ contract InboxInitTest is InboxTestBase {
     }
 }
 
-/// @notice Tests for LibInboxSetup config validation
-contract LibInboxSetupConfigValidationTest is InboxTestBase {
+/// @notice Tests for Inbox config validation
+contract InboxConfigValidationTest is InboxTestBase {
     function test_validateConfig_RevertWhen_ProofVerifierZero() public {
         IInbox.Config memory cfg = _buildConfig();
         cfg.proofVerifier = address(0);
 
-        vm.expectRevert(LibInboxSetup.ProofVerifierZero.selector);
+        vm.expectRevert(Inbox.ProofVerifierZero.selector);
         new Inbox(cfg);
     }
 
@@ -110,7 +109,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.proposerChecker = address(0);
 
-        vm.expectRevert(LibInboxSetup.ProposerCheckerZero.selector);
+        vm.expectRevert(Inbox.ProposerCheckerZero.selector);
         new Inbox(cfg);
     }
 
@@ -118,7 +117,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.signalService = address(0);
 
-        vm.expectRevert(LibInboxSetup.SignalServiceZero.selector);
+        vm.expectRevert(Inbox.SignalServiceZero.selector);
         new Inbox(cfg);
     }
 
@@ -126,7 +125,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.bondToken = address(0);
 
-        vm.expectRevert(LibInboxSetup.BondTokenZero.selector);
+        vm.expectRevert(Inbox.BondTokenZero.selector);
         new Inbox(cfg);
     }
 
@@ -134,7 +133,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.provingWindow = 0;
 
-        vm.expectRevert(LibInboxSetup.ProvingWindowZero.selector);
+        vm.expectRevert(Inbox.ProvingWindowZero.selector);
         new Inbox(cfg);
     }
 
@@ -142,7 +141,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.permissionlessProvingDelay = cfg.provingWindow;
 
-        vm.expectRevert(LibInboxSetup.PermissionlessProvingDelayTooSmall.selector);
+        vm.expectRevert(Inbox.PermissionlessProvingDelayTooSmall.selector);
         new Inbox(cfg);
     }
 
@@ -150,7 +149,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.ringBufferSize = 1; // Must be > 1
 
-        vm.expectRevert(LibInboxSetup.RingBufferSizeTooSmall.selector);
+        vm.expectRevert(Inbox.RingBufferSizeTooSmall.selector);
         new Inbox(cfg);
     }
 
@@ -158,7 +157,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.basefeeSharingPctg = 101; // Must be <= 100
 
-        vm.expectRevert(LibInboxSetup.BasefeeSharingPctgTooLarge.selector);
+        vm.expectRevert(Inbox.BasefeeSharingPctgTooLarge.selector);
         new Inbox(cfg);
     }
 
@@ -166,7 +165,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.forcedInclusionFeeInGwei = 0;
 
-        vm.expectRevert(LibInboxSetup.ForcedInclusionFeeInGweiZero.selector);
+        vm.expectRevert(Inbox.ForcedInclusionFeeInGweiZero.selector);
         new Inbox(cfg);
     }
 
@@ -174,7 +173,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.forcedInclusionFeeDoubleThreshold = 0;
 
-        vm.expectRevert(LibInboxSetup.ForcedInclusionFeeDoubleThresholdZero.selector);
+        vm.expectRevert(Inbox.ForcedInclusionFeeDoubleThresholdZero.selector);
         new Inbox(cfg);
     }
 
@@ -182,7 +181,7 @@ contract LibInboxSetupConfigValidationTest is InboxTestBase {
         IInbox.Config memory cfg = _buildConfig();
         cfg.permissionlessInclusionMultiplier = 1; // Must be > 1
 
-        vm.expectRevert(LibInboxSetup.PermissionlessInclusionMultiplierTooSmall.selector);
+        vm.expectRevert(Inbox.PermissionlessInclusionMultiplierTooSmall.selector);
         new Inbox(cfg);
     }
 }
