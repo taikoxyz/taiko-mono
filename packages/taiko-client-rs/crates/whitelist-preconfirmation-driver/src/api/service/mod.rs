@@ -7,12 +7,13 @@ use alethia_reth_primitives::payload::{
     builder::payload_id_taiko,
 };
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{B256, Bloom, FixedBytes, U256};
+use alloy_primitives::{Address, B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
+use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use driver::{PreconfPayload, sync::event::EventSyncer};
 use metrics::histogram;
 use protocol::{
@@ -37,6 +38,7 @@ use crate::{
     importer::validate_execution_payload_for_preconf,
     network::NetworkCommand,
     operator_set::SharedOperatorSet,
+    sequencing_window::{DEFAULT_HANDOVER_SKIP_SLOTS, SequencingWindowTracker},
 };
 
 mod handlers;
@@ -64,10 +66,14 @@ where
     signer: FixedKSigner,
     /// Beacon client used to derive current epoch values for EOS requests.
     beacon_client: Arc<BeaconClient>,
+    /// Preconfirmation whitelist contract used to read current and next operators.
+    whitelist: PreconfWhitelistInstance<P>,
     /// Channel to publish messages to the P2P network.
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
+    /// Cached sequencing-window view used by `/status` shutdown probes.
+    sequencing_window: Mutex<SequencingWindowTracker>,
     /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
     /// build requests when this node's own P2P signer has been deregistered on-chain.
     operator_set: SharedOperatorSet,
@@ -96,6 +102,8 @@ where
     pub(crate) signer: FixedKSigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
+    /// L1 address of the preconfirmation whitelist contract.
+    pub(crate) whitelist_address: Address,
     /// Shared operator set used to gate the build API on the node's own whitelist status.
     pub(crate) operator_set: SharedOperatorSet,
     /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
@@ -120,6 +128,7 @@ where
             chain_id,
             signer,
             beacon_client,
+            whitelist_address,
             operator_set,
             highest_unsafe_l2_payload_block_id,
             network_command_tx,
@@ -128,12 +137,18 @@ where
         }: WhitelistApiServiceParams<P>,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
+        let whitelist = PreconfWhitelistInstance::new(whitelist_address, rpc.l1_provider.clone());
+        let sequencing_window = Mutex::new(SequencingWindowTracker::new(
+            beacon_client.slots_per_epoch(),
+            DEFAULT_HANDOVER_SKIP_SLOTS,
+        ));
         Self {
             event_syncer,
             rpc,
             chain_id,
             signer,
             beacon_client,
+            whitelist,
             operator_set,
             local_peer_id,
             highest_unsafe_l2_payload_block_id,
@@ -141,6 +156,7 @@ where
             eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),
+            sequencing_window,
         }
     }
 }

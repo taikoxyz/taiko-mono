@@ -35,6 +35,7 @@ pub(super) async fn handle_status(State(state): State<AppState>) -> Result<Respo
         end_of_sequencing_block_hash: status
             .end_of_sequencing_block_hash
             .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
+        can_shutdown: status.can_shutdown,
     };
     Ok(json_response(http::StatusCode::OK, &response))
 }

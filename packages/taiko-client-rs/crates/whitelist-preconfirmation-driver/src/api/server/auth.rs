@@ -48,13 +48,20 @@ impl JwtAuth {
     }
 }
 
+/// Return whether this unauthenticated probe route should bypass JWT checks.
+fn is_public_probe_route(method: &Method, path: &str) -> bool {
+    *method == Method::GET && matches!(path, "/" | "/healthz" | "/status")
+}
+
 /// Validate request JWT credentials when a secret is configured.
 pub(super) async fn auth_middleware(
     State(state): State<AppState>,
     request: Request,
     next: Next,
 ) -> Response {
-    if request.method() == Method::OPTIONS {
+    if request.method() == Method::OPTIONS ||
+        is_public_probe_route(request.method(), request.uri().path())
+    {
         return next.run(request).await;
     }
 
@@ -65,4 +72,22 @@ pub(super) async fn auth_middleware(
     }
 
     next.run(request).await
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::Method;
+
+    use super::is_public_probe_route;
+
+    #[test]
+    fn public_probe_route_only_allows_get_probe_paths() {
+        for path in ["/", "/healthz", "/status"] {
+            assert!(is_public_probe_route(&Method::GET, path));
+        }
+
+        assert!(!is_public_probe_route(&Method::POST, "/status"));
+        assert!(!is_public_probe_route(&Method::GET, "/preconfBlocks"));
+        assert!(!is_public_probe_route(&Method::GET, "/ws"));
+    }
 }
