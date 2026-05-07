@@ -367,18 +367,20 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 	}
 	canShutdown := s.canShutdownLocked(currentSlot)
 
-	log.Debug(
-		"Get preconfirmation block server status",
-		"currOperator", s.lookahead.CurrOperator.Hex(),
-		"nextOperator", s.lookahead.NextOperator.Hex(),
-		"currRanges", s.lookahead.CurrRanges,
-		"nextRanges", s.lookahead.NextRanges,
-		"totalCached", s.envelopesCache.getTotalCached(),
-		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
-		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
-		"canShutdown", canShutdown,
-	)
+	if s.lookahead != nil && s.rpc.L1Beacon != nil {
+		log.Debug(
+			"Get preconfirmation block server status",
+			"currOperator", s.lookahead.CurrOperator.Hex(),
+			"nextOperator", s.lookahead.NextOperator.Hex(),
+			"currRanges", s.lookahead.CurrRanges,
+			"nextRanges", s.lookahead.NextRanges,
+			"totalCached", s.envelopesCache.getTotalCached(),
+			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+			"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
+			"canShutdown", canShutdown,
+		)
+	}
 
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
