@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.17.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.16.0...bridge-ui-v2.17.0) (2026-05-07)
+
+
+### Features
+
+* **bridge-ui:** add relayer navigation tab ([#21644](https://github.com/taikoxyz/taiko-mono/issues/21644)) ([86d0db0](https://github.com/taikoxyz/taiko-mono/commit/86d0db08f3eee371c5e34ee086785dd832a6a29f))
+
+
+### Reverted Commits
+
+* **bridge-ui:** revert "fall back to 500k gas when ERC20 sendToken estimation fails ([#21575](https://github.com/taikoxyz/taiko-mono/issues/21575))" ([#21588](https://github.com/taikoxyz/taiko-mono/issues/21588)) ([e6b1f4b](https://github.com/taikoxyz/taiko-mono/commit/e6b1f4b279e1217a60f70545df0f2f4831b46ba8))
+
 ## [2.16.0](https://github.com/taikoxyz/taiko-mono/compare/bridge-ui-v2.15.0...bridge-ui-v2.16.0) (2026-04-20)
 
 
