@@ -17,11 +17,18 @@ import { IPreconfSlasher } from "src/shared/preconf/IPreconfSlasher.sol";
 contract PreconfSlasherL1 is IPreconfSlasherL1 {
     address public immutable urc;
     address public immutable preconfSlasherL2;
+    uint64 public immutable preconfSlasherL2ChainId;
     address public immutable bridge;
 
-    constructor(address _urc, address _preconfSlasherL2, address _bridge) {
+    constructor(
+        address _urc,
+        address _preconfSlasherL2,
+        uint64 _preconfSlasherL2ChainId,
+        address _bridge
+    ) {
         urc = _urc;
         preconfSlasherL2 = _preconfSlasherL2;
+        preconfSlasherL2ChainId = _preconfSlasherL2ChainId;
         bridge = _bridge;
     }
 
@@ -68,9 +75,14 @@ contract PreconfSlasherL1 is IPreconfSlasherL1 {
     /// @inheritdoc IMessageInvocable
     /// @dev Invoked by the L2 preconf slasher
     function onMessageInvocation(bytes calldata _data) external payable {
+        require(msg.sender == bridge, CallerIsNotBridge());
+
         // Verify that the sender on the L2 side is the preconf slasher contract
         IBridge.Context memory ctx = IBridge(bridge).context();
-        require(ctx.from == preconfSlasherL2, CallerIsNotPreconfSlasherL2());
+        require(
+            ctx.srcChainId == preconfSlasherL2ChainId && ctx.from == preconfSlasherL2,
+            CallerIsNotPreconfSlasherL2()
+        );
 
         (
             IPreconfSlasher.Fault fault,
@@ -95,6 +107,7 @@ contract PreconfSlasherL1 is IPreconfSlasherL1 {
     // Errors
     // ---------------------------------------------------------------
 
+    error CallerIsNotBridge();
     error CallerIsNotPreconfSlasherL2();
     error ChallengerIsNotSelf();
     error InvalidCommitmentType();
