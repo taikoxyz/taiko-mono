@@ -157,7 +157,10 @@ func New(
 	server.configureMiddleware([]string{cors})
 	server.configureRoutes()
 	if jwtSecret != nil {
-		server.echo.Use(echojwt.JWT(jwtSecret))
+		server.echo.Use(echojwt.WithConfig(echojwt.Config{
+			Skipper:    jwtSkipPath,
+			SigningKey: jwtSecret,
+		}))
 	}
 
 	return server, nil
@@ -191,6 +194,17 @@ func (s *PreconfBlockAPIServer) SetSyncReady(ready bool) {
 // skip all ECHO logs for the preconfirmation block server.
 func LogSkipper(c echo.Context) bool {
 	return true
+}
+
+// jwtSkipPath returns true for routes that bypass JWT authentication.
+// All other routes (POST /preconfBlocks, GET /ws, ...) remain authenticated
+// when a JWT secret is configured.
+func jwtSkipPath(c echo.Context) bool {
+	switch c.Path() {
+	case "/", "/healthz", "/status":
+		return true
+	}
+	return false
 }
 
 // configureMiddleware configures the server middlewares.
@@ -1051,6 +1065,35 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(globalSlot uint64) error 
 	)
 
 	return errSlotOutsideSequencingWindow
+}
+
+// CanShutdown reports whether the server is safe to receive SIGTERM at the
+// given globalSlot — i.e., this pod is neither the active nor imminent preconfer
+// for the live slot. Returns true when lookahead state is uninitialized
+// (the driver hasn't loaded sequencing duties yet, so there's nothing to drop).
+func (s *PreconfBlockAPIServer) CanShutdown(globalSlot uint64) bool {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+	return s.canShutdownLocked(globalSlot)
+}
+
+// canShutdownLocked is the lock-held variant of CanShutdown for callers that
+// already hold s.lookaheadMutex.
+func (s *PreconfBlockAPIServer) canShutdownLocked(globalSlot uint64) bool {
+	if s.lookahead == nil || s.rpc.L1Beacon == nil {
+		return true
+	}
+	for _, r := range s.lookahead.CurrRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			return false
+		}
+	}
+	for _, r := range s.lookahead.NextRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			return false
+		}
+	}
+	return true
 }
 
 // PutPayloadsCache puts the given payload into the payload cache queue, should ONLY be used in testing.

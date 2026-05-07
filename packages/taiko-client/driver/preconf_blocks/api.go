@@ -336,6 +336,9 @@ type Status struct {
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
 	// @param whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
+	// CanShutdown is true when the server is safe to receive SIGTERM, i.e.,
+	// not the active or imminent preconfer for the current L1 slot.
+	CanShutdown bool `json:"canShutdown"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -358,23 +361,33 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		}
 	}
 
-	log.Debug(
-		"Get preconfirmation block server status",
-		"currOperator", s.lookahead.CurrOperator.Hex(),
-		"nextOperator", s.lookahead.NextOperator.Hex(),
-		"currRanges", s.lookahead.CurrRanges,
-		"nextRanges", s.lookahead.NextRanges,
-		"totalCached", s.envelopesCache.getTotalCached(),
-		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
-		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
-		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
-	)
+	currentSlot := uint64(0)
+	if s.rpc.L1Beacon != nil {
+		currentSlot = s.rpc.L1Beacon.CurrentSlot()
+	}
+	canShutdown := s.canShutdownLocked(currentSlot)
+
+	if s.lookahead != nil && s.rpc.L1Beacon != nil {
+		log.Debug(
+			"Get preconfirmation block server status",
+			"currOperator", s.lookahead.CurrOperator.Hex(),
+			"nextOperator", s.lookahead.NextOperator.Hex(),
+			"currRanges", s.lookahead.CurrRanges,
+			"nextRanges", s.lookahead.NextRanges,
+			"totalCached", s.envelopesCache.getTotalCached(),
+			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
+			"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+			"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
+			"canShutdown", canShutdown,
+		)
+	}
 
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
 		TotalCached:                   s.envelopesCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
 		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
+		CanShutdown:                   canShutdown,
 	})
 }
 
