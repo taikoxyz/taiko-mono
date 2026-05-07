@@ -336,6 +336,10 @@ type Status struct {
 	HighestUnsafeL2PayloadBlockID uint64 `json:"highestUnsafeL2PayloadBlockID"`
 	// @param whether the current epoch has received an end of sequencing block marker
 	EndOfSequencingBlockHash string `json:"endOfSequencingBlockHash"`
+	// CanShutdown is true when the server is safe to receive SIGTERM, i.e.,
+	// not the active or imminent preconfer for the current L1 slot. Used by
+	// Kubernetes preStop hooks to defer shutdown.
+	CanShutdown bool `json:"canShutdown"`
 }
 
 // GetStatus returns the current status of the preconfirmation block server.
@@ -358,6 +362,12 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		}
 	}
 
+	currentSlot := uint64(0)
+	if s.rpc.L1Beacon != nil {
+		currentSlot = s.rpc.L1Beacon.CurrentSlot()
+	}
+	canShutdown := s.canShutdownLocked(currentSlot)
+
 	log.Debug(
 		"Get preconfirmation block server status",
 		"currOperator", s.lookahead.CurrOperator.Hex(),
@@ -368,6 +378,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
 		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
+		"canShutdown", canShutdown,
 	)
 
 	return c.JSON(http.StatusOK, Status{
@@ -375,6 +386,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		TotalCached:                   s.envelopesCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
 		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
+		CanShutdown:                   canShutdown,
 	})
 }
 

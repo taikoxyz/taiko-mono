@@ -87,6 +87,58 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 	}
 }
 
+func (s *PreconfBlockAPIServerTestSuite) TestCanShutdown() {
+	curr := common.HexToAddress("0xAAA0000000000000000000000000000000000000")
+	next := common.HexToAddress("0xBBB0000000000000000000000000000000000000")
+
+	la := &Lookahead{
+		CurrOperator: curr,
+		NextOperator: next,
+		CurrRanges:   []SlotRange{{Start: 0, End: 24}},
+		NextRanges:   []SlotRange{{Start: 24, End: 32}},
+		UpdatedAt:    time.Now().UTC(),
+	}
+
+	tests := []struct {
+		name         string
+		setLookahead bool
+		setBeacon    bool
+		globalSlot   uint64
+		want         bool
+	}{
+		{name: "lookahead nil → safe", setLookahead: false, setBeacon: true, globalSlot: 10, want: true},
+		{name: "beacon nil → safe", setLookahead: true, setBeacon: false, globalSlot: 10, want: true},
+		{name: "slot inside curr range → unsafe", setLookahead: true, setBeacon: true, globalSlot: 10, want: false},
+		{name: "slot at curr range boundary start → unsafe", setLookahead: true, setBeacon: true, globalSlot: 0, want: false},
+		{
+			name:         "slot at curr range boundary end-1 → unsafe",
+			setLookahead: true, setBeacon: true, globalSlot: 23, want: false,
+		},
+		{name: "slot inside next range → unsafe", setLookahead: true, setBeacon: true, globalSlot: 28, want: false},
+		{
+			name:         "slot at next range boundary end-1 → unsafe",
+			setLookahead: true, setBeacon: true, globalSlot: 31, want: false,
+		},
+		{name: "slot outside both ranges → safe", setLookahead: true, setBeacon: true, globalSlot: 50, want: true},
+	}
+
+	for _, tt := range tests {
+		s.T().Run(tt.name, func(t *testing.T) {
+			if tt.setLookahead {
+				s.s.lookahead = la
+			} else {
+				s.s.lookahead = nil
+			}
+			if tt.setBeacon {
+				s.s.rpc.L1Beacon = &rpc.BeaconClient{SlotsPerEpoch: 32}
+			} else {
+				s.s.rpc.L1Beacon = nil
+			}
+			s.Equal(tt.want, s.s.CanShutdown(tt.globalSlot))
+		})
+	}
+}
+
 func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 	totalCached := s.s.envelopesCache.totalCached
 	isForcedInculsion := true

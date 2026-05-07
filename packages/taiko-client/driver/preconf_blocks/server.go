@@ -1053,6 +1053,38 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(globalSlot uint64) error 
 	return errSlotOutsideSequencingWindow
 }
 
+// CanShutdown reports whether the server is safe to receive SIGTERM at the
+// given globalSlot — i.e., this pod is neither the active nor imminent preconfer
+// for the live slot. Returns true when lookahead state is uninitialized
+// (the driver hasn't loaded sequencing duties yet, so there's nothing to drop).
+//
+// Used by external HTTP probes via the /status endpoint so Kubernetes preStop
+// hooks can defer shutdown until the pod's sequencing window has passed.
+func (s *PreconfBlockAPIServer) CanShutdown(globalSlot uint64) bool {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+	return s.canShutdownLocked(globalSlot)
+}
+
+// canShutdownLocked is the lock-held variant of CanShutdown for callers that
+// already hold s.lookaheadMutex.
+func (s *PreconfBlockAPIServer) canShutdownLocked(globalSlot uint64) bool {
+	if s.lookahead == nil || s.rpc.L1Beacon == nil {
+		return true
+	}
+	for _, r := range s.lookahead.CurrRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			return false
+		}
+	}
+	for _, r := range s.lookahead.NextRanges {
+		if globalSlot >= r.Start && globalSlot < r.End {
+			return false
+		}
+	}
+	return true
+}
+
 // PutPayloadsCache puts the given payload into the payload cache queue, should ONLY be used in testing.
 func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *preconf.Envelope) {
 	s.envelopesCache.put(id, payload)
