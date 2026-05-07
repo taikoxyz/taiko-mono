@@ -1,5 +1,74 @@
 # Changelog
 
+## [2.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.3.0...taiko-alethia-protocol-v2.4.0) (2026-05-07)
+
+
+### Features
+
+* **protocol,taiko-client,taiko-client-rs:** raise Unzen derivation source block limit ([#21600](https://github.com/taikoxyz/taiko-mono/issues/21600)) ([189d6d4](https://github.com/taikoxyz/taiko-mono/commit/189d6d47e20d49f0105a56b3a0b8c9fc2aed07bb))
+* **protocol,taiko-client,taiko-client-rs:** upgrade preconf whitelist in `DeployProtocolOnL1` ([#20700](https://github.com/taikoxyz/taiko-mono/issues/20700)) ([4e84208](https://github.com/taikoxyz/taiko-mono/commit/4e842086939a869f7287cc149c6b27b08803b032))
+* **protocol:** add preconf slasher for shasta ([#20304](https://github.com/taikoxyz/taiko-mono/issues/20304)) ([1d8634b](https://github.com/taikoxyz/taiko-mono/commit/1d8634bff642db6435cb7720dac7b8ba550790ba))
+* **protocol:** add prevAnchorBlockNumber in anchor event ([#20706](https://github.com/taikoxyz/taiko-mono/issues/20706)) ([c2d4697](https://github.com/taikoxyz/taiko-mono/commit/c2d4697b2963d3a0cd355f5412d83f803e59df3b))
+* **protocol:** dao proposal to retire the fork routers and use the implementations directly ([#21544](https://github.com/taikoxyz/taiko-mono/issues/21544)) ([6c2eaad](https://github.com/taikoxyz/taiko-mono/commit/6c2eaad119f288fd8eaf23dd14e7bef101ec1fa9))
+* **protocol:** dao proposal to upgrade Taiko mainnet to shasta ([#21430](https://github.com/taikoxyz/taiko-mono/issues/21430)) ([6de9a35](https://github.com/taikoxyz/taiko-mono/commit/6de9a3585d28a546403565650e38b521b5b9d663))
+* **protocol:** proposal 0010 to upgrade the verifier images ([#21531](https://github.com/taikoxyz/taiko-mono/issues/21531)) ([9ca74ea](https://github.com/taikoxyz/taiko-mono/commit/9ca74eae17e9c2086fe91536bd34e5d0e3ed6bb8))
+* **protocol:** proposal 008 to reduce the voting period from 21 days to 10 days ([#21239](https://github.com/taikoxyz/taiko-mono/issues/21239)) ([29a0b50](https://github.com/taikoxyz/taiko-mono/commit/29a0b502dafb9b9dd98c681b029dd53c644b35d9))
+* **protocol:** proposal 5 to transfer TAIKO token from controller to foundation treasury ([#20686](https://github.com/taikoxyz/taiko-mono/issues/20686)) ([b0f702f](https://github.com/taikoxyz/taiko-mono/commit/b0f702f7ad287156d16501326ba720790dc26023))
+* **protocol:** proposal 7 to update the minimum base fee ([#21004](https://github.com/taikoxyz/taiko-mono/issues/21004)) ([9e74be1](https://github.com/taikoxyz/taiko-mono/commit/9e74be10ac43c0cee49a11e881db4469163f038a))
+* **protocol:** Proposal0012 emergency re-arm of Shasta inbox pendingOwner to unblock Proposal28 ([#21608](https://github.com/taikoxyz/taiko-mono/issues/21608)) ([a82f1f0](https://github.com/taikoxyz/taiko-mono/commit/a82f1f01a92041fab4a249fcd65f4bbe1601b011))
+* **protocol:** remove `activate()` from Inbox ([#21613](https://github.com/taikoxyz/taiko-mono/issues/21613)) ([6cf9ac6](https://github.com/taikoxyz/taiko-mono/commit/6cf9ac64288f86f0ffdcac3b46c0d6f54f088b6c))
+* **protocol:** remove MIN_ANCHOR_OFFSET from Shasta derivation ([#20967](https://github.com/taikoxyz/taiko-mono/issues/20967)) ([1423e4a](https://github.com/taikoxyz/taiko-mono/commit/1423e4a0550cbf210a74c129a47da530195d7915))
+* **taiko-client:** introduce real proofs for shasta ([#20565](https://github.com/taikoxyz/taiko-mono/issues/20565)) ([9ca78e7](https://github.com/taikoxyz/taiko-mono/commit/9ca78e7f20b150cefe911f910dac95d279808e32))
+
+
+### Bug Fixes
+
+* **protocol,taiko-client:** harden manifest parsing, require blobs for Shasta, and add timeouts ([#20692](https://github.com/taikoxyz/taiko-mono/issues/20692)) ([6f287e3](https://github.com/taikoxyz/taiko-mono/commit/6f287e3a7cfac477ac9a0a01ed75f8b19176b2c9))
+* **protocol:** apply randomnessDelay in PreconfWhitelist operator selection ([#20302](https://github.com/taikoxyz/taiko-mono/issues/20302)) ([ef955d7](https://github.com/taikoxyz/taiko-mono/commit/ef955d71d101afd67bc5e9c229e57e876e8947a6))
+* **protocol:** dao proposal 005 description update ([#20738](https://github.com/taikoxyz/taiko-mono/issues/20738)) ([edda652](https://github.com/taikoxyz/taiko-mono/commit/edda65255c595a7aa0913ab040e9a0fe569615ac))
+* **protocol:** fix lookahead requirement and blacklist eligibility ([#21210](https://github.com/taikoxyz/taiko-mono/issues/21210)) ([c6cdced](https://github.com/taikoxyz/taiko-mono/commit/c6cdced4f85143ba2ecda7a34da608d742780920))
+* **protocol:** fix signal service proof issue ([#21129](https://github.com/taikoxyz/taiko-mono/issues/21129)) ([194f62e](https://github.com/taikoxyz/taiko-mono/commit/194f62ed7002d1a3c9efd5f58190d2afdfa7d992))
+* **protocol:** fix the genesis generation action in CI ([#20694](https://github.com/taikoxyz/taiko-mono/issues/20694)) ([d1196e0](https://github.com/taikoxyz/taiko-mono/commit/d1196e07a40a577d0275d60c82d31dc85c7f99b8))
+* **protocol:** handle L1 reorg for `activateInbox` ([#20645](https://github.com/taikoxyz/taiko-mono/issues/20645)) ([b66adda](https://github.com/taikoxyz/taiko-mono/commit/b66addacbfb849c547ac541d7d614db9a0e07774))
+* **protocol:** update signature hash calculation and refine instance validation ([#20646](https://github.com/taikoxyz/taiko-mono/issues/20646)) ([27a2577](https://github.com/taikoxyz/taiko-mono/commit/27a2577241cbacd87688ef670451e77cf3f50cd9))
+* **repo:** fix typos ([#20846](https://github.com/taikoxyz/taiko-mono/issues/20846)) ([00d8218](https://github.com/taikoxyz/taiko-mono/commit/00d82183eb0912b0b365b084a0797c43a109763d))
+* **taiko-client:** close event filter iterators ([#21374](https://github.com/taikoxyz/taiko-mono/issues/21374)) ([b4627ea](https://github.com/taikoxyz/taiko-mono/commit/b4627eaf7f4663e042005c6e23983b4e367cae98))
+
+
+### Chores
+
+* **protocol,taiko-client,taiko-client-rs:** cherry pick pr 20762 ([#20763](https://github.com/taikoxyz/taiko-mono/issues/20763)) ([09ff83f](https://github.com/taikoxyz/taiko-mono/commit/09ff83f348c19ad11c920adc881dcc76ed62194d))
+* **protocol:** add shasta audit pdf ([#21281](https://github.com/taikoxyz/taiko-mono/issues/21281)) ([8d0b9d9](https://github.com/taikoxyz/taiko-mono/commit/8d0b9d9ed28abb2318e6e75d15e7483e8dc47ae6))
+* **protocol:** add tolba-shasta sgx verifier addresses ([#21271](https://github.com/taikoxyz/taiko-mono/issues/21271)) ([df86a11](https://github.com/taikoxyz/taiko-mono/commit/df86a113cd3743408742c5f8b5288931009e27d1))
+* **protocol:** add zero address check in SigVerifyLib constructor ([#20538](https://github.com/taikoxyz/taiko-mono/issues/20538)) ([1388c9a](https://github.com/taikoxyz/taiko-mono/commit/1388c9a66a8a7eaa042e56ab29591e35837c6182))
+* **protocol:** merge 3.0.0 back to main ([#21359](https://github.com/taikoxyz/taiko-mono/issues/21359)) ([1df2675](https://github.com/taikoxyz/taiko-mono/commit/1df267517a7369a5381e357dfc29f11339966141))
+* **protocol:** merge 3.0.0 back to main ([#21484](https://github.com/taikoxyz/taiko-mono/issues/21484)) ([e337ff2](https://github.com/taikoxyz/taiko-mono/commit/e337ff2231eb1c42eadf8ae56ea84e453607405b))
+* **protocol:** merge v3.0.0 back to main ([#21100](https://github.com/taikoxyz/taiko-mono/issues/21100)) ([9fadda2](https://github.com/taikoxyz/taiko-mono/commit/9fadda25747b9d04984de5f23792ad83390648bd))
+* **protocol:** update layout file generation to use solidity 0.8.26 ([#21080](https://github.com/taikoxyz/taiko-mono/issues/21080)) ([85af980](https://github.com/taikoxyz/taiko-mono/commit/85af9804672f9180fafe07cedaf8a80a16310162))
+* **protocol:** update sgx verifier address ([#21322](https://github.com/taikoxyz/taiko-mono/issues/21322)) ([5fae71f](https://github.com/taikoxyz/taiko-mono/commit/5fae71fcef2273089aaa8d2b4799db7f978985fd))
+* **protocol:** use custom errors in Risc0Verifier constructor ([#20742](https://github.com/taikoxyz/taiko-mono/issues/20742)) ([9e23ac6](https://github.com/taikoxyz/taiko-mono/commit/9e23ac65d24e96208f7b73f54b54de820fc1049e))
+* **repo:** merge `taiko-alethia-v3.0.0` branch to main ([#20733](https://github.com/taikoxyz/taiko-mono/issues/20733)) ([225f319](https://github.com/taikoxyz/taiko-mono/commit/225f3192cb22d37d20f46bd40b285c828207d8c5))
+
+
+### Documentation
+
+* **protocol:** add new L1 address constants ([#21013](https://github.com/taikoxyz/taiko-mono/issues/21013)) ([7f2f60c](https://github.com/taikoxyz/taiko-mono/commit/7f2f60c26f73b58d3f81977bea50234a66568879))
+* **protocol:** add shasta fork timestamp to Pacaya inbox ([#21290](https://github.com/taikoxyz/taiko-mono/issues/21290)) ([9f04fb8](https://github.com/taikoxyz/taiko-mono/commit/9f04fb8d1fa3d572dd49693995e31360ded61b1e))
+* **protocol:** add zk gas spec ([#21394](https://github.com/taikoxyz/taiko-mono/issues/21394)) ([e853cb6](https://github.com/taikoxyz/taiko-mono/commit/e853cb6c8fe512c58ac266bfaca8770eb7d70ad6))
+* **protocol:** deployments for the Shasta fork on Hoodi ([#21248](https://github.com/taikoxyz/taiko-mono/issues/21248)) ([620ee91](https://github.com/taikoxyz/taiko-mono/commit/620ee9183b805bc733a1cd4c2ef88762ace87d3e))
+* **protocol:** improve Proposal0004 Q&A section ([#20643](https://github.com/taikoxyz/taiko-mono/issues/20643)) ([3d63968](https://github.com/taikoxyz/taiko-mono/commit/3d63968a855b09a6c5e25e5d7df071de2bdf3e57))
+* **protocol:** log Mar 2 2026 L2 upgrades on Hoodi ([#21408](https://github.com/taikoxyz/taiko-mono/issues/21408)) ([289eeca](https://github.com/taikoxyz/taiko-mono/commit/289eecafd5f69a1ae5e92e59c1c647b45b5566f2))
+* **protocol:** transfer owner of L2 contracts on Taiko Hoodi to delegate_controller ([#20838](https://github.com/taikoxyz/taiko-mono/issues/20838)) ([2f587e7](https://github.com/taikoxyz/taiko-mono/commit/2f587e7b2c7ea5712377dc1454cd2d96cc34d06b))
+* **protocol:** update erc20 vault contract on taiko hoodi ([#21323](https://github.com/taikoxyz/taiko-mono/issues/21323)) ([aaa7fe6](https://github.com/taikoxyz/taiko-mono/commit/aaa7fe6d7eea7d958b1506aa3b1ca5b9169192f7))
+* **protocol:** update Hoodi deployment logs ([#21395](https://github.com/taikoxyz/taiko-mono/issues/21395)) ([7deac7a](https://github.com/taikoxyz/taiko-mono/commit/7deac7a8572f7d3cf98148df757862b8946cfc78))
+* **protocol:** upgrade anchor contract with lower base fee floor ([#21054](https://github.com/taikoxyz/taiko-mono/issues/21054)) ([17b0498](https://github.com/taikoxyz/taiko-mono/commit/17b04984fd4ef126e4ceaa3366a70fecf911e60e))
+* **protocol:** upgrade pacaya inbox's new impl ([#20904](https://github.com/taikoxyz/taiko-mono/issues/20904)) ([fd2bdec](https://github.com/taikoxyz/taiko-mono/commit/fd2bdec02b09cc1a771396eaa755e60f84e1ae76))
+
+
+### Tests
+
+* **taiko-client,protocol:** introduce tests with bond instructions && improve `DeployProtocolOnL1` deployment script ([#20714](https://github.com/taikoxyz/taiko-mono/issues/20714)) ([fa61a1d](https://github.com/taikoxyz/taiko-mono/commit/fa61a1d8e509ebfff38b0b402c679a78da557e12))
+
 ## [2.3.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-protocol-v2.2.0...taiko-alethia-protocol-v2.3.0) (2025-05-06)
 
 
