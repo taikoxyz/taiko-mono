@@ -55,6 +55,11 @@ where
         self.event_syncer.clone()
     }
 
+    /// Subscribe to reorg-rollback signals from the underlying event syncer.
+    pub(crate) fn subscribe_rollbacks(&self) -> tokio::sync::watch::Receiver<Option<u64>> {
+        self.event_syncer.subscribe_rollbacks()
+    }
+
     /// Access the background event syncer task handle.
     pub(crate) fn handle_mut(&mut self) -> &mut JoinHandle<EventSyncResult> {
         &mut self.handle

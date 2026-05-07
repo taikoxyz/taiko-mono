@@ -179,6 +179,11 @@ impl WhitelistPreconfirmationDriverRunner {
                     ws_url = %server.ws_url(),
                     "whitelist preconfirmation REST server started"
                 );
+                let rollback_rx = preconf_ingress_sync.subscribe_rollbacks();
+                tokio::spawn(lower_highest_unsafe_on_rollback(
+                    rollback_rx,
+                    Arc::clone(&shared_highest),
+                ));
                 (Some(server), Some(shared_highest))
             } else {
                 (None, None)
@@ -328,4 +333,78 @@ fn record_runner_exit(reason: &'static str, result: Result<()>) -> Result<()> {
     metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL, "reason" => reason)
         .increment(1);
     result
+}
+
+/// Background task: when the rollback watch receiver fires, lower
+/// `highest_unsafe_l2_payload_block_id` to the rollback target if (and only if) the
+/// current value is strictly higher than the target.
+///
+/// Exits when the watch sender is dropped (i.e. the EventSyncer has terminated).
+async fn lower_highest_unsafe_on_rollback(
+    mut rollback_rx: tokio::sync::watch::Receiver<Option<u64>>,
+    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+) {
+    while rollback_rx.changed().await.is_ok() {
+        let Some(target) = *rollback_rx.borrow() else {
+            // Initial `None` value; nothing to do.
+            continue;
+        };
+
+        let mut guard = highest_unsafe_l2_payload_block_id.lock().await;
+        if *guard > target {
+            info!(
+                prior = *guard,
+                target, "lowering highest_unsafe_l2_payload_block_id on reorg rollback"
+            );
+            *guard = target;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use tokio::sync::{Mutex, watch};
+
+    use super::lower_highest_unsafe_on_rollback;
+
+    #[tokio::test]
+    async fn lowers_when_target_is_below_current() {
+        let highest = Arc::new(Mutex::new(1000u64));
+        let (tx, rx) = watch::channel::<Option<u64>>(None);
+
+        let task = tokio::spawn(lower_highest_unsafe_on_rollback(rx, Arc::clone(&highest)));
+
+        tx.send(Some(950)).expect("send rollback");
+        // Yield until the task has had a chance to apply the lower.
+        for _ in 0..50 {
+            tokio::task::yield_now().await;
+            if *highest.lock().await == 950 {
+                break;
+            }
+        }
+        assert_eq!(*highest.lock().await, 950);
+
+        drop(tx);
+        task.await.expect("task should exit when sender drops");
+    }
+
+    #[tokio::test]
+    async fn does_not_raise_when_target_is_above_current() {
+        let highest = Arc::new(Mutex::new(900u64));
+        let (tx, rx) = watch::channel::<Option<u64>>(None);
+
+        let task = tokio::spawn(lower_highest_unsafe_on_rollback(rx, Arc::clone(&highest)));
+
+        tx.send(Some(1100)).expect("send rollback");
+        // Wait briefly to make sure the task observed the change.
+        for _ in 0..50 {
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(*highest.lock().await, 900, "target above current must not raise");
+
+        drop(tx);
+        task.await.expect("task should exit when sender drops");
+    }
 }

@@ -30,6 +30,11 @@ impl DriverMetrics {
     /// Counter tracking orphaned proposal logs skipped after L1 reorg detection.
     pub const EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL: &'static str =
         "driver_event_orphaned_proposal_logs_total";
+    /// Counter tracking L1 reorg notifications received from the event scanner.
+    pub const EVENT_REORGS_DETECTED_TOTAL: &'static str = "driver_event_reorgs_detected_total";
+    /// Counter tracking outcomes of reorg rollback handling, labeled by `result`.
+    pub const EVENT_REORG_ROLLBACK_RESULTS_TOTAL: &'static str =
+        "driver_event_reorg_rollback_results_total";
     /// Counter tracking derived or confirmed L2 blocks per proposal.
     pub const EVENT_DERIVED_BLOCKS_TOTAL: &'static str = "driver_event_derived_blocks_total";
     /// Counter tracking proposals resolved entirely via canonical chain detection.
@@ -147,6 +152,16 @@ impl DriverMetrics {
             Self::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL,
             Unit::Count,
             "Proposal logs skipped because their source L1 block was reorged away"
+        );
+        metrics::describe_counter!(
+            Self::EVENT_REORGS_DETECTED_TOTAL,
+            Unit::Count,
+            "L1 reorg notifications received from the event scanner"
+        );
+        metrics::describe_counter!(
+            Self::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+            Unit::Count,
+            "Outcomes of reorg rollback handling, labeled by result"
         );
         metrics::describe_counter!(
             Self::EVENT_DERIVED_BLOCKS_TOTAL,

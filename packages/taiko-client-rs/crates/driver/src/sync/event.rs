@@ -26,7 +26,7 @@ use event_scanner::{EventFilter, Notification, ScannerMessage};
 use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
-    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
+    sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot, watch},
     time::{sleep, timeout},
 };
 use tokio_retry::{Retry, strategy::ExponentialBackoff};
@@ -87,13 +87,23 @@ struct EventStreamStartPoint {
 }
 
 /// Decide whether a confirmed-sync probe is still needed.
+///
+/// `rollback_pending` is the fail-closed gate for `Notification::ReorgDetected`: when the
+/// rollback handler aborts before lowering `head_l1_origin`, the EE's batch tables and
+/// head pointer remain stale and could otherwise let `confirmed_sync_snapshot` reopen
+/// ingress against pre-reorg state. Probing is suppressed until the next reorg
+/// notification reports a safe state or the scanner reconnects.
 fn should_probe_confirmed_sync(
     preconfirmation_enabled: bool,
     preconf_ingress_spawned: bool,
     preconf_ingress_ready: bool,
     scanner_live: bool,
+    rollback_pending: bool,
 ) -> bool {
-    preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
+    preconfirmation_enabled &&
+        scanner_live &&
+        !rollback_pending &&
+        (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
@@ -230,6 +240,9 @@ where
     preconf_ingress_ready: Arc<AtomicBool>,
     /// Notifier signaled when strict ingress gating is satisfied and the loop becomes ready.
     preconf_ingress_notify: Arc<Notify>,
+    /// Sender side of the rollback signal published on `Notification::ReorgDetected`.
+    /// Carries the rollback L2 block id; receivers lower their derived caches to match.
+    rollback_tx: watch::Sender<Option<u64>>,
 }
 
 /// Maximum number of buffered preconfirmation payloads before backpressure applies.
@@ -649,6 +662,7 @@ where
             (None, None)
         };
         gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
+        let (rollback_tx, _rollback_rx) = watch::channel::<Option<u64>>(None);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
@@ -658,12 +672,21 @@ where
             preconf_rx: Mutex::new(preconf_rx),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            rollback_tx,
         })
     }
 
     /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
     pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
         self.preconf_tx.clone()
+    }
+
+    /// Subscribe to reorg-rollback signals.
+    ///
+    /// Each emission carries the L2 block id to which derived caches should be lowered.
+    /// `None` is the initial value before any rollback has been published.
+    pub fn subscribe_rollbacks(&self) -> watch::Receiver<Option<u64>> {
+        self.rollback_tx.subscribe()
     }
 
     /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
@@ -698,6 +721,140 @@ where
             },
         )
         .await
+    }
+
+    /// Handle an L1 reorg notification from the event scanner.
+    ///
+    /// 1. Increments the reorg-detected counter.
+    /// 2. Atomically clears `preconf_ingress_ready` (idempotent — `swap` returns the prior value).
+    /// 3. Resolves the rollback target via `getCoreState` at the common ancestor and
+    ///    `last_block_id_by_batch_id(nextProposalId - 1)`.
+    /// 4. If `head_l1_origin > rollback_block`, calls `set_head_l1_origin(rollback_block)`.
+    /// 5. Publishes the rollback target on the watch channel.
+    ///
+    /// Every fallible step logs and increments
+    /// `EVENT_REORG_ROLLBACK_RESULTS_TOTAL{result=...}`, then returns. The handler never
+    /// propagates errors; the next reorg notification or scanner reconnect will retry.
+    ///
+    /// Returns `true` when the rollback reached a safe state (`rewound` or `noop`); the caller
+    /// can let the confirmed-sync gate re-open ingress. Returns `false` on any failure path
+    /// (`core_state_failed`, `mapping_missing`, `batch_lookup_failed`, `read_failed`,
+    /// `write_failed`); EE state may still be stale and the caller must keep ingress closed
+    /// until a subsequent rollback succeeds.
+    #[instrument(skip(self), fields(common_ancestor))]
+    pub(crate) async fn handle_reorg_detected(&self, common_ancestor: u64) -> bool {
+        counter!(DriverMetrics::EVENT_REORGS_DETECTED_TOTAL).increment(1);
+
+        let record_result = |label: &'static str| {
+            counter!(
+                DriverMetrics::EVENT_REORG_ROLLBACK_RESULTS_TOTAL,
+                "result" => label,
+            )
+            .increment(1);
+        };
+
+        let was_ready = self.preconf_ingress_ready.swap(false, Ordering::AcqRel);
+        if was_ready {
+            info!(common_ancestor, "closed preconfirmation ingress on L1 reorg detection");
+        }
+
+        // 1. Resolve canonical core state at the L1 common ancestor.
+        let core_state = match self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Number(common_ancestor.into()))
+            .call()
+            .await
+        {
+            Ok(state) => state,
+            Err(err) => {
+                warn!(
+                    ?err,
+                    common_ancestor,
+                    "reorg rollback aborted: getCoreState at common ancestor failed"
+                );
+                record_result("core_state_failed");
+                return false;
+            }
+        };
+
+        let target_proposal_id = core_state.nextProposalId.to::<u64>().saturating_sub(1);
+
+        // 2. Resolve the rollback L2 block id.
+        let rollback_block = if target_proposal_id == 0 {
+            0u64
+        } else {
+            match self.rpc.last_block_id_by_batch_id(U256::from(target_proposal_id)).await {
+                Ok(Some(block_id)) => block_id.to::<u64>(),
+                Ok(None) => {
+                    warn!(
+                        common_ancestor,
+                        target_proposal_id,
+                        "reorg rollback skipped: last_block_id_by_batch_id returned None; \
+                         confirmed-sync gate will reopen ingress once derivation catches up"
+                    );
+                    record_result("mapping_missing");
+                    return false;
+                }
+                Err(err) => {
+                    warn!(
+                        ?err,
+                        common_ancestor,
+                        target_proposal_id,
+                        "reorg rollback aborted: last_block_id_by_batch_id failed"
+                    );
+                    record_result("batch_lookup_failed");
+                    return false;
+                }
+            }
+        };
+
+        // 3. Read current head_l1_origin.
+        let current_head = match self.rpc.head_l1_origin().await {
+            Ok(Some(origin)) => Some(origin.block_id.to::<u64>()),
+            Ok(None) => None,
+            Err(err) => {
+                warn!(?err, common_ancestor, "reorg rollback aborted: head_l1_origin read failed");
+                record_result("read_failed");
+                return false;
+            }
+        };
+
+        // 4. Lower-write head_l1_origin only if currently above the rollback target.
+        let result_label = if current_head.is_some_and(|head| head > rollback_block) {
+            if let Err(err) = self.rpc.set_head_l1_origin(U256::from(rollback_block)).await {
+                warn!(
+                    ?err,
+                    common_ancestor,
+                    rollback_block,
+                    "reorg rollback aborted: set_head_l1_origin write failed"
+                );
+                record_result("write_failed");
+                // Do not publish the watch value — the on-disk pointer was not lowered.
+                return false;
+            }
+            info!(
+                common_ancestor,
+                rollback_block,
+                prior_head = ?current_head,
+                "rewound head_l1_origin on L1 reorg"
+            );
+            "rewound"
+        } else {
+            "noop"
+        };
+        record_result(result_label);
+
+        // 5. Publish the rollback signal regardless of whether we rewrote head_l1_origin (in the
+        //    noop case the watch carries the canonical tip; receivers may still want to lower their
+        //    own caches to it). Channel closure is benign.
+        if let Err(err) = self.rollback_tx.send(Some(rollback_block)) {
+            debug!(?err, rollback_block, "rollback watch send had no receivers");
+        }
+
+        true
     }
 
     /// Wait until strict preconfirmation ingress gating is satisfied and ingress accepts
@@ -1164,6 +1321,11 @@ where
         let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
         let mut scanner_started_once = false;
+        // Set when `Notification::ReorgDetected` is dispatched and the rollback handler
+        // returned a failure outcome. Suppresses confirmed-sync probing so a stale
+        // pre-reorg `head_l1_origin`/batch table cannot reopen ingress before a later
+        // rollback succeeds. Cleared on successful rollback or scanner reconnect.
+        let mut rollback_pending = false;
 
         loop {
             if !preconf_ingress_spawned {
@@ -1236,11 +1398,19 @@ where
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
-                        if matches!(notification, Notification::SwitchingToLive) {
-                            // Scanner live is necessary but not sufficient: confirmed-sync
-                            // readiness must also pass before ingress
-                            // opens.
-                            scanner_live = true;
+                        match notification {
+                            Notification::SwitchingToLive => {
+                                // Scanner live is necessary but not sufficient: confirmed-sync
+                                // readiness must also pass before ingress opens.
+                                scanner_live = true;
+                            }
+                            Notification::ReorgDetected { common_ancestor } => {
+                                rollback_pending =
+                                    !self.handle_reorg_detected(common_ancestor).await;
+                            }
+                            Notification::NoPastLogsFound => {
+                                // No action needed; logged above for observability.
+                            }
                         }
                     }
                     Err(err) => {
@@ -1255,6 +1425,7 @@ where
                     preconf_ingress_spawned,
                     self.preconf_ingress_ready.load(Ordering::Acquire),
                     scanner_live,
+                    rollback_pending,
                 ) {
                     let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
                     if let Err(err) = &confirmed_sync_probe {
@@ -1295,6 +1466,11 @@ where
             if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
                 info!("closing preconfirmation ingress during event scanner reconnect");
             }
+            // Reconnect rewinds the scanner cursor and replays logs, so any pending reorg
+            // rollback will be re-driven by a fresh `ReorgDetected` notification if the reorg
+            // is still on the canonical chain. Clear the pending flag so the confirmed-sync
+            // gate can re-evaluate normally.
+            rollback_pending = false;
 
             if let Some(block_number) = last_seen_l1_block_number {
                 let reconnect_finalized_block_number = match self.try_finalized_l1_snapshot().await
@@ -1334,9 +1510,11 @@ mod tests {
         time::Duration,
     };
 
+    use std::sync::atomic::Ordering;
+
     use super::*;
     use alethia_reth_primitives::payload::attributes::{
-        RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
+        EngineRpcL1Origin, RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
     };
     use alloy::{
         primitives::{
@@ -1352,7 +1530,11 @@ mod tests {
     use async_trait::async_trait;
     use bindings::{
         anchor::Anchor::AnchorInstance,
-        inbox::{IInbox::DerivationSource, Inbox::InboxInstance, LibBlobs::BlobSlice},
+        inbox::{
+            IInbox::{CoreState as InboxCoreState, DerivationSource},
+            Inbox::{InboxInstance, getCoreStateCall},
+            LibBlobs::BlobSlice,
+        },
     };
     use rpc::{
         SubscriptionSource,
@@ -1436,6 +1618,7 @@ mod tests {
             preconf_rx: Mutex::new(Some(preconf_rx)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            rollback_tx: watch::channel::<Option<u64>>(None).0,
         }
     }
 
@@ -1609,6 +1792,25 @@ mod tests {
         let l2_auth_provider = ProviderBuilder::new()
             .disable_recommended_fillers()
             .connect_mocked_client(Asserter::new());
+        let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
+        let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
+        let shasta = ShastaProtocolInstance { inbox, anchor };
+
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
+    }
+
+    fn mock_client_with_three_asserters(
+        l1_asserter: Asserter,
+        l2_asserter: Asserter,
+        l2_auth_asserter: Asserter,
+    ) -> Client<RootProvider> {
+        let l1_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
+        let l2_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
+        let l2_auth_provider = ProviderBuilder::new()
+            .disable_recommended_fillers()
+            .connect_mocked_client(l2_auth_asserter);
         let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
         let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
         let shasta = ShastaProtocolInstance { inbox, anchor };
@@ -1832,11 +2034,20 @@ mod tests {
 
     #[test]
     fn confirmed_sync_probe_rearms_when_ingress_gate_closes_after_spawn() {
-        assert!(should_probe_confirmed_sync(true, true, false, true));
-        assert!(!should_probe_confirmed_sync(true, true, true, true));
-        assert!(should_probe_confirmed_sync(true, false, false, true));
-        assert!(!should_probe_confirmed_sync(true, false, false, false));
-        assert!(!should_probe_confirmed_sync(false, true, false, true));
+        assert!(should_probe_confirmed_sync(true, true, false, true, false));
+        assert!(!should_probe_confirmed_sync(true, true, true, true, false));
+        assert!(should_probe_confirmed_sync(true, false, false, true, false));
+        assert!(!should_probe_confirmed_sync(true, false, false, false, false));
+        assert!(!should_probe_confirmed_sync(false, true, false, true, false));
+    }
+
+    #[test]
+    fn confirmed_sync_probe_is_suppressed_while_rollback_pending() {
+        // Otherwise-eligible probe condition (ingress gate closed, scanner live) must be
+        // suppressed when `rollback_pending` is set so a stale pre-reorg `head_l1_origin` /
+        // batch table cannot reopen ingress before a subsequent rollback succeeds.
+        assert!(!should_probe_confirmed_sync(true, true, false, true, true));
+        assert!(!should_probe_confirmed_sync(true, false, false, true, true));
     }
 
     #[test]
@@ -1971,5 +2182,242 @@ mod tests {
         let err = resolve_event_scanner_setup_error(true, "boom".into())
             .expect("post-start scanner errors should be retryable");
         assert_eq!(err, "boom");
+    }
+
+    /// Build a `CoreState` literal with all required fields set, exposing only
+    /// `nextProposalId` since the rollback handler reads no other field.
+    fn mock_core_state_with_next_proposal_id(next_proposal_id: u64) -> InboxCoreState {
+        InboxCoreState {
+            nextProposalId: U48::from(next_proposal_id),
+            lastProposalBlockId: U48::ZERO,
+            lastFinalizedProposalId: U48::ZERO,
+            lastFinalizedTimestamp: U48::ZERO,
+            lastCheckpointTimestamp: U48::ZERO,
+            lastFinalizedBlockHash: FixedBytes::ZERO,
+        }
+    }
+
+    /// Encode a `getCoreState` return value into the bytes format alloy's mocked
+    /// provider expects for `eth_call` responses.
+    fn encoded_core_state(core_state: InboxCoreState) -> Bytes {
+        Bytes::from(getCoreStateCall::abi_encode_returns(&core_state))
+    }
+
+    /// Build an `EngineRpcL1Origin` for use with `head_l1_origin` mocks.
+    fn engine_l1_origin_at(block_id: u64) -> EngineRpcL1Origin {
+        EngineRpcL1Origin::from(RpcL1Origin {
+            block_id: U256::from(block_id),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        })
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_rewinds_head_l1_origin_when_above_target() {
+        // The order of pushes per asserter must match per-provider call order:
+        //   l1_asserter:      1. inbox.getCoreState() at common_ancestor (eth_call)
+        //   l2_auth_asserter: 2. last_block_id_by_batch_id(target)
+        //                     4. set_head_l1_origin(rollback)
+        //   l2_asserter:      3. head_l1_origin()
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
+        l2_auth_asserter.push_success(&U256::from(950u64));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let mut rollback_rx = syncer.subscribe_rollbacks();
+        assert_eq!(*rollback_rx.borrow(), None);
+
+        let safe = syncer.handle_reorg_detected(42).await;
+
+        assert!(safe, "rewound rollback must report safe state");
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        rollback_rx.changed().await.expect("rollback should be published");
+        assert_eq!(*rollback_rx.borrow(), Some(950));
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_skips_set_head_when_target_at_or_above_current() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        // head_l1_origin currently at 800 (lower than rollback target 950).
+        l2_asserter.push_success(&Some(engine_l1_origin_at(800)));
+        // No `set_head_l1_origin` push — the handler must NOT call it.
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let mut rollback_rx = syncer.subscribe_rollbacks();
+        let safe = syncer.handle_reorg_detected(42).await;
+
+        assert!(safe, "noop rollback must report safe state");
+        // Ingress closed regardless of write outcome.
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        // Watch still receives the rollback target (callers may still want to lower
+        // their cache to the canonical tip).
+        rollback_rx.changed().await.expect("rollback should be published in noop case");
+        assert_eq!(*rollback_rx.borrow(), Some(950));
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_target_zero_rewinds_to_genesis() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        // nextProposalId = 1 -> target_proposal_id = 0 -> rollback_block = 0.
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(1)));
+        // No last_block_id_by_batch_id push — the handler short-circuits on target == 0.
+        // head_l1_origin currently at 5.
+        l2_asserter.push_success(&Some(engine_l1_origin_at(5)));
+        // set_head_l1_origin(0) returns 0.
+        l2_auth_asserter.push_success(&U256::from(0u64));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+
+        let mut rollback_rx = syncer.subscribe_rollbacks();
+        let safe = syncer.handle_reorg_detected(7).await;
+
+        assert!(safe, "target=0 rewind must report safe state");
+        rollback_rx.changed().await.expect("rollback should be published for target=0");
+        assert_eq!(*rollback_rx.borrow(), Some(0));
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_skips_when_batch_mapping_missing() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
+        // last_block_id_by_batch_id(49) returns None.
+        l2_auth_asserter.push_success(&Option::<U256>::None);
+        // No head_l1_origin or set_head_l1_origin pushes — handler must short-circuit.
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let rollback_rx = syncer.subscribe_rollbacks();
+        let initial = *rollback_rx.borrow();
+        let safe = syncer.handle_reorg_detected(42).await;
+
+        assert!(!safe, "mapping_missing must report unsafe state to keep ingress closed");
+        // Ingress is still closed (closure happens before the abort).
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        // Watch was NOT updated.
+        assert_eq!(*rollback_rx.borrow(), initial);
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_handles_core_state_failure_gracefully() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        // getCoreState fails.
+        l1_asserter.push_failure_msg("rpc unavailable");
+        // No further pushes — handler must abort before consuming them.
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let rollback_rx = syncer.subscribe_rollbacks();
+        let initial = *rollback_rx.borrow();
+        // Must not panic.
+        let safe = syncer.handle_reorg_detected(42).await;
+
+        assert!(!safe, "core_state_failed must report unsafe state to keep ingress closed");
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+        assert_eq!(*rollback_rx.borrow(), initial);
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_does_not_publish_when_set_head_fails() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
+        // set_head_l1_origin fails.
+        l2_auth_asserter.push_failure_msg("write failed");
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+
+        let rollback_rx = syncer.subscribe_rollbacks();
+        let initial = *rollback_rx.borrow();
+        let safe = syncer.handle_reorg_detected(42).await;
+
+        assert!(!safe, "write_failed must report unsafe state to keep ingress closed");
+        // Watch was NOT updated because the on-disk pointer was not lowered.
+        assert_eq!(*rollback_rx.borrow(), initial);
+    }
+
+    #[tokio::test]
+    async fn handle_reorg_detected_idempotent_under_repeated_calls() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+
+        // First invocation: full sequence with rewind 1000 -> 950.
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(1000)));
+        l2_auth_asserter.push_success(&U256::from(950u64));
+
+        // Second invocation: same ancestor. head_l1_origin is now 950 (already at target),
+        // so the handler must enter the noop branch and NOT push another set_head call.
+        l1_asserter.push_success(&encoded_core_state(mock_core_state_with_next_proposal_id(50)));
+        l2_auth_asserter.push_success(&Some(U256::from(950u64)));
+        l2_asserter.push_success(&Some(engine_l1_origin_at(950)));
+
+        let syncer = EventSyncer {
+            rpc: mock_client_with_three_asserters(l1_asserter, l2_asserter, l2_auth_asserter),
+            ..build_syncer().await
+        };
+        syncer.preconf_ingress_ready.store(true, Ordering::Release);
+
+        let first = syncer.handle_reorg_detected(42).await;
+        assert!(first, "first invocation rewinds to safe state");
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
+
+        // Second call: must complete without panicking and without consuming a
+        // non-existent set_head_l1_origin push.
+        let second = syncer.handle_reorg_detected(42).await;
+        assert!(second, "repeat invocation lands in noop branch (also safe)");
+        assert!(!syncer.preconf_ingress_ready.load(Ordering::Acquire));
     }
 }
