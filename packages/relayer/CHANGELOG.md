@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.1...relayer-v0.13.2) (2026-05-07)
+
+
+### Bug Fixes
+
+* **relayer:** harden message handling and config validation ([#21642](https://github.com/taikoxyz/taiko-mono/issues/21642)) ([6ec736f](https://github.com/taikoxyz/taiko-mono/commit/6ec736f8846e82b118f65de96e1e26369572b304))
+
 ## [0.13.1](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.0...relayer-v0.13.1) (2026-03-30)
 
 
