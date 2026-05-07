@@ -4,7 +4,7 @@ import path from 'path';
 import { Project, SourceFile, VariableDeclarationKind } from 'ts-morph';
 
 import configuredCustomTokens from '../../config/schemas/configuredCustomTokens.schema.json';
-import { type Token,TokenType } from '../../src/libs/token/types';
+import { type Token, TokenType } from '../../src/libs/token/types';
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
