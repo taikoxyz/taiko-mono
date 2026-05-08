@@ -8,7 +8,7 @@ license.workspace = true
 doctest = false
 
 [dependencies]
-alloy = { version = "1.0.36", features = ["sol-types", "contract"] }
+alloy = { workspace = true, features = ["sol-types", "contract"] }
 serde = { version = "1.0", features = ["derive"] }
 
 [lints]
