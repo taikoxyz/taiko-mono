@@ -532,25 +532,26 @@ where
         }
         let proposal_id = next_proposal_id - 1;
 
-        let block_id = match self.rpc.last_certain_block_id_by_batch_id(U256::from(proposal_id)).await {
-            Ok(Some(block_id)) => block_id,
-            Ok(None) => {
-                warn!(
-                    common_ancestor,
-                    proposal_id, "missing batch mapping; skipping head_l1_origin reset"
-                );
-                return;
-            }
-            Err(err) => {
-                warn!(
-                    common_ancestor,
-                    proposal_id,
-                    ?err,
-                    "failed to read batch mapping; skipping head_l1_origin reset"
-                );
-                return;
-            }
-        };
+        let block_id =
+            match self.rpc.last_certain_block_id_by_batch_id(U256::from(proposal_id)).await {
+                Ok(Some(block_id)) => block_id,
+                Ok(None) => {
+                    warn!(
+                        common_ancestor,
+                        proposal_id, "missing batch mapping; skipping head_l1_origin reset"
+                    );
+                    return;
+                }
+                Err(err) => {
+                    warn!(
+                        common_ancestor,
+                        proposal_id,
+                        ?err,
+                        "failed to read batch mapping; skipping head_l1_origin reset"
+                    );
+                    return;
+                }
+            };
 
         match self.rpc.set_head_l1_origin(block_id).await {
             Ok(_) => info!(
