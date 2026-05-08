@@ -109,6 +109,10 @@ where
     cache_state: SharedPreconfCacheState,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
+    /// Wall-clock instant of the most recent `build_preconf_block` invocation,
+    /// regardless of the request's outcome. `None` until the first request
+    /// arrives. Read by `/status` to compute `can_shutdown`.
+    last_preconf_request_at: Mutex<Option<Instant>>,
 }
 
 /// Dependency bundle for constructing `WhitelistApiService`.
@@ -171,6 +175,25 @@ where
             eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),
+            last_preconf_request_at: Mutex::new(None),
         }
+    }
+}
+
+impl<P> WhitelistApiService<P>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    /// Record that a `build_preconf_block` request has been received.
+    /// Called at the top of the request handler so that even rejected
+    /// requests count toward shutdown-safety.
+    pub(super) async fn mark_preconf_request_received(&self) {
+        *self.last_preconf_request_at.lock().await = Some(Instant::now());
+    }
+
+    /// Returns `true` when no `build_preconf_block` request has been received
+    /// within the last `SHUTDOWN_BLOCK_WINDOW`.
+    pub(super) async fn compute_can_shutdown(&self) -> bool {
+        can_shutdown_for(*self.last_preconf_request_at.lock().await)
     }
 }
