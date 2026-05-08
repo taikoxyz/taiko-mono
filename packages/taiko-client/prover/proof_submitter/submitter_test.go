@@ -50,14 +50,12 @@ func TestProofDistributionWithOutOfOrderResponses(t *testing.T) {
 
 	bufferItems, err := buffer.ReadAll()
 	require.NoError(t, err)
-	require.Len(t, bufferItems, 2)
+	require.Len(t, bufferItems, 3)
 	require.Equal(t, uint64(1), bufferItems[0].BatchID.Uint64())
 	require.Equal(t, uint64(2), bufferItems[1].BatchID.Uint64())
+	require.Equal(t, uint64(3), bufferItems[2].BatchID.Uint64())
 
-	cachedProof, ok := cacheMap.Get("3")
-	require.True(t, ok)
-	require.Equal(t, uint64(3), cachedProof.BatchID.Uint64())
-	require.Equal(t, 1, len(cacheMap.Keys()))
+	require.Empty(t, cacheMap.Keys())
 }
 
 func TestIsProposalOutOfRange(t *testing.T) {
@@ -83,6 +81,21 @@ func TestIsProposalOutOfRange(t *testing.T) {
 		lastFinalizedProposalID := big.NewInt(1000)
 		require.False(t, submitter.isProposalOutOfRange(big.NewInt(1100), lastFinalizedProposalID))
 		require.True(t, submitter.isProposalOutOfRange(big.NewInt(1101), lastFinalizedProposalID))
+	})
+}
+
+func TestFlushCacheSkipsEmptyCache(t *testing.T) {
+	submitter := &ProofSubmitter{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeOp: proofProducer.NewProofBuffer(8),
+		},
+		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+			proofProducer.ProofTypeOp: cmap.New[*proofProducer.ProofResponse](),
+		},
+	}
+
+	require.NotPanics(t, func() {
+		require.NoError(t, submitter.FlushCache(t.Context(), proofProducer.ProofTypeOp))
 	})
 }
 

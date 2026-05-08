@@ -48,6 +48,9 @@ where
         request: BuildPreconfBlockRequest,
     ) -> Result<BuildPreconfBlockResponse> {
         let started_at = Instant::now();
+        // Record receipt before any validation so even rejected requests
+        // mark this pod as the active preconfer for shutdown purposes.
+        self.mark_preconf_request_received().await;
         let _build_guard = self.build_preconf_lock.lock().await;
 
         // Guard against building on a genuinely syncing node, but tolerate the false-
