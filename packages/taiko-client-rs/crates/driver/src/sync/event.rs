@@ -532,7 +532,7 @@ where
         }
         let proposal_id = next_proposal_id - 1;
 
-        let block_id = match self.rpc.last_block_id_by_batch_id(U256::from(proposal_id)).await {
+        let block_id = match self.rpc.last_certain_block_id_by_batch_id(U256::from(proposal_id)).await {
             Ok(Some(block_id)) => block_id,
             Ok(None) => {
                 warn!(
@@ -1982,7 +1982,7 @@ mod tests {
         let core_state = sample_core_state(100);
         let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
         l1_asserter.push_success(&encoded_core_state);
-        l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // last_block_id_by_batch_id
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // last_certain_block_id_by_batch_id
         l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // set_head_l1_origin
 
         syncer.reset_head_l1_origin_after_reorg(1_234).await;
