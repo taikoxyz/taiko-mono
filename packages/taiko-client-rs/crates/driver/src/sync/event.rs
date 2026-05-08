@@ -501,10 +501,9 @@ where
     }
 
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
-    /// the stable post-reorg boundary. Mirrors the Go driver's `handleProposalReorg` fix
-    /// (taikoxyz/taiko-mono#21627): if the L2 EE's confirmed boundary is left ahead of the
-    /// post-reorg canonical chain, preconf and chain-syncer guards reject incoming blocks until the
-    /// chain syncer rewinds. Lowering it here unblocks them immediately. All failures are
+    /// the stable post-reorg boundary. If the L2 EE's confirmed boundary is left ahead of the
+    /// post-reorg canonical chain, preconf and chain-syncer guards reject incoming blocks until
+    /// the chain syncer rewinds. Lowering it here unblocks them immediately. All failures are
     /// non-fatal: log and return.
     async fn reset_head_l1_origin_after_reorg(&self, common_ancestor: u64) {
         let core_state = match self
