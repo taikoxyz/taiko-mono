@@ -15,8 +15,6 @@ contract Proposal0013 is BuildProposal {
     // raiko2 v0.1.0 guest digests exported from the checked-in Shasta guest ELFs.
     bytes32 public constant RISC0_SHASTA_PROPOSAL_IMAGE_ID =
         0xbee1be4cbe2bdf9b0034a1ab6572061a76019e73189ff96322e58ab229b75f92;
-    bytes32 public constant RISC0_SHASTA_AGGREGATION_IMAGE_ID =
-        0xa9cc799b246826a3a1b9545e82a290227a65044612a6273b0aaf90dd51169831;
     bytes32 public constant RISC0_SHASTA_BOUNDLESS_AGGREGATION_IMAGE_ID =
         0xcecc85819e15d173c2991577727525b136e820728f7aaaede612f1281cac2249;
 
@@ -30,9 +28,9 @@ contract Proposal0013 is BuildProposal {
         0x4e93501e442d39c35ded4672187c258a3b80eb500541491a09968d6a6cf9e540;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        actions = new Controller.Action[](7);
+        actions = new Controller.Action[](6);
 
-        // RISC0 Shasta: proposal, aggregation, and boundless aggregation image IDs.
+        // RISC0 Shasta: proposal and boundless aggregation image IDs.
         actions[0] = Controller.Action({
             target: RISC0_SHASTA_VERIFIER,
             value: 0,
@@ -44,40 +42,33 @@ contract Proposal0013 is BuildProposal {
             target: RISC0_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted, (RISC0_SHASTA_AGGREGATION_IMAGE_ID, true)
-            )
-        });
-        actions[2] = Controller.Action({
-            target: RISC0_SHASTA_VERIFIER,
-            value: 0,
-            data: abi.encodeCall(
                 Risc0Verifier.setImageIdTrusted, (RISC0_SHASTA_BOUNDLESS_AGGREGATION_IMAGE_ID, true)
             )
         });
 
         // SP1 Shasta: proposal and aggregation program digests (vk_bn254 + vk_hash_bytes).
-        actions[3] = Controller.Action({
+        actions[2] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (SP1_SHASTA_PROPOSAL_PROGRAM_VKEY_BN254, true)
             )
         });
-        actions[4] = Controller.Action({
+        actions[3] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (SP1_SHASTA_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
             )
         });
-        actions[5] = Controller.Action({
+        actions[4] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
                 SP1Verifier.setProgramTrusted, (SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_BN254, true)
             )
         });
-        actions[6] = Controller.Action({
+        actions[5] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
