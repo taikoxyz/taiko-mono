@@ -1,6 +1,9 @@
 //! Whitelist preconfirmation API service implementation.
 
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alethia_reth_primitives::payload::{
     attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
@@ -49,6 +52,33 @@ mod tests;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
 
+/// Number of L1 slots in the preconfer hand-over window. Doubled relative to
+/// the Go client's default `handover_slots = 4` because the Rust whitelist
+/// driver lacks lookahead-aware logic and must rely on a coarser time-based
+/// heuristic. See PR #21648 for the Go counterpart.
+const HAND_OVER_WINDOW_SLOTS: u64 = 8;
+
+/// L1 slot duration in seconds (Ethereum mainnet).
+const SECONDS_PER_SLOT: u64 = 12;
+
+/// Duration during which a recently received `build_preconf_block` request
+/// blocks pod shutdown. Computed as `1.5 × HAND_OVER_WINDOW_SLOTS ×
+/// SECONDS_PER_SLOT`, expressed as integer math (`× 3 / 2`) so the result is
+/// `const`-evaluable. Equals 144 s.
+const SHUTDOWN_BLOCK_WINDOW: Duration =
+    Duration::from_secs(HAND_OVER_WINDOW_SLOTS * SECONDS_PER_SLOT * 3 / 2);
+
+/// Pure helper deciding whether the pod is safe to shut down given the time
+/// of the most recent `build_preconf_block` invocation. Returns `true` when
+/// no invocation has been recorded or when the elapsed time meets or exceeds
+/// `SHUTDOWN_BLOCK_WINDOW`.
+fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
+    match last_preconf_request {
+        None => true,
+        Some(at) => at.elapsed() >= SHUTDOWN_BLOCK_WINDOW,
+    }
+}
+
 /// Implements whitelist preconfirmation API business logic.
 pub(crate) struct WhitelistApiService<P>
 where
@@ -79,6 +109,10 @@ where
     cache_state: SharedPreconfCacheState,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
+    /// Wall-clock instant of the most recent `build_preconf_block` invocation,
+    /// regardless of the request's outcome. `None` until the first request
+    /// arrives. Read by `/status` to compute `can_shutdown`.
+    last_preconf_request_at: Mutex<Option<Instant>>,
 }
 
 /// Dependency bundle for constructing `WhitelistApiService`.
@@ -141,6 +175,20 @@ where
             eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),
+            last_preconf_request_at: Mutex::new(None),
         }
+    }
+
+    /// Record that a `build_preconf_block` request has been received.
+    /// Called at the top of the request handler so that even rejected
+    /// requests count toward shutdown-safety.
+    pub(super) async fn mark_preconf_request_received(&self) {
+        *self.last_preconf_request_at.lock().await = Some(Instant::now());
+    }
+
+    /// Returns `true` when no `build_preconf_block` request has been received
+    /// within the last `SHUTDOWN_BLOCK_WINDOW`.
+    pub(super) async fn compute_can_shutdown(&self) -> bool {
+        can_shutdown_for(*self.last_preconf_request_at.lock().await)
     }
 }

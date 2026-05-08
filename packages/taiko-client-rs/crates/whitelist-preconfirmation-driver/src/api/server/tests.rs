@@ -44,6 +44,7 @@ impl WhitelistApi for MockApi {
             sync_ready: true,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            can_shutdown: true,
         })
     }
 
@@ -77,6 +78,7 @@ impl WhitelistApi for SyncReadyApi {
             sync_ready: self.sync_ready,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            can_shutdown: true,
         })
     }
 
@@ -112,6 +114,17 @@ fn test_config(enable_http: bool, enable_ws: bool) -> WhitelistApiServerConfig {
         jwt_secret: None,
         cors_origins: vec!["*".to_string()],
     }
+}
+
+/// Start a server configured with a JWT secret so probe-route auth-skip
+/// behavior and protected-route enforcement can be exercised.
+async fn start_jwt_server(enable_http: bool, enable_ws: bool) -> WhitelistApiServer {
+    let config = WhitelistApiServerConfig {
+        jwt_secret: Some(b"test-secret".to_vec()),
+        ..test_config(enable_http, enable_ws)
+    };
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    WhitelistApiServer::start(config, api).await.expect("server should start")
 }
 
 #[tokio::test]
@@ -230,16 +243,12 @@ fn jwt_auth_rejects_missing_header() {
 
 #[tokio::test]
 async fn jwt_auth_is_required_when_secret_configured() {
-    let config = WhitelistApiServerConfig {
-        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
-        jwt_secret: Some(b"test-secret".to_vec()),
-        ..test_config(true, false)
-    };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let server = start_jwt_server(true, false).await;
 
     let response = reqwest::Client::new()
-        .get(format!("{}/status", server.http_url()))
+        .post(format!("{}/preconfBlocks", server.http_url()))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(sample_preconf_request())
         .send()
         .await
         .expect("request should succeed");
@@ -341,6 +350,146 @@ async fn preconf_blocks_rejects_invalid_json() {
         .and_then(serde_json::Value::as_str)
         .expect("error field should be a string");
     assert!(error.starts_with("failed to parse request body: "));
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn get_status_returns_can_shutdown_field_in_camel_case() {
+    let config = test_config(true, false);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/status", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    let payload: serde_json::Value = response.json().await.expect("json body expected");
+    assert_eq!(
+        payload.get("canShutdown").and_then(serde_json::Value::as_bool),
+        Some(true),
+        "GET /status response must serialize canShutdown as a camelCase boolean field; got {payload:?}"
+    );
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn status_path_skips_jwt_when_secret_configured() {
+    let server = start_jwt_server(true, false).await;
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/status", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::OK,
+        "GET /status must succeed without auth so that busybox k8s probes can hit it"
+    );
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn healthz_path_skips_jwt_when_secret_configured() {
+    let server = start_jwt_server(true, false).await;
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/healthz", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn root_path_skips_jwt_when_secret_configured() {
+    let server = start_jwt_server(true, false).await;
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn preconf_blocks_still_requires_jwt_when_configured() {
+    let server = start_jwt_server(true, false).await;
+
+    let response = reqwest::Client::new()
+        .post(format!("{}/preconfBlocks", server.http_url()))
+        .header(reqwest::header::CONTENT_TYPE, "application/json")
+        .body(sample_preconf_request())
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::UNAUTHORIZED,
+        "POST /preconfBlocks must remain JWT-protected"
+    );
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn ws_still_requires_jwt_when_configured() {
+    let server = start_jwt_server(true, true).await;
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/ws", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::UNAUTHORIZED,
+        "GET /ws upgrades must remain JWT-protected"
+    );
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn unknown_path_requires_jwt_when_secret_configured() {
+    let server = start_jwt_server(true, false).await;
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/this-route-does-not-exist", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::UNAUTHORIZED,
+        "unknown paths must stay JWT-gated to avoid widening unauthenticated route probing"
+    );
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn unknown_path_returns_not_found_when_no_jwt_secret() {
+    let config = test_config(true, false);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/this-route-does-not-exist", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
 
     server.stop().await;
 }
