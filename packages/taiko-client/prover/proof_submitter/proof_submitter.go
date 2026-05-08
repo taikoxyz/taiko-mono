@@ -304,6 +304,9 @@ func (s *ProofSubmitter) handleProofResponse(
 				err,
 			)
 		}
+		if err := flushContiguousProofCache(proposalID, proofBuffer, cacheMap); err != nil {
+			return fmt.Errorf("failed to flush contiguous proof cache: %w", err)
+		}
 		// Try to aggregate the proofs in the buffer.
 		s.TryAggregate(proofBuffer, proofResponse.ProofType)
 	} else {
@@ -317,7 +320,7 @@ func (s *ProofSubmitter) handleProofResponse(
 		"maxBufferSize", proofBuffer.MaxLength,
 		"proofType", proofResponse.ProofType,
 		"bufferIsAggregating", proofBuffer.IsAggregating(),
-		"bufferFirstItemAt", proofBuffer.FirstItemAt(),
+		"bufferLastItemAt", proofBuffer.LastItemAt(),
 	)
 	return nil
 }
@@ -406,7 +409,7 @@ func (s *ProofSubmitter) ClearProofBuffers(batchProof *proofProducer.BatchProofs
 func (s *ProofSubmitter) TryAggregate(buffer *proofProducer.ProofBuffer, proofType proofProducer.ProofType) bool {
 	// Check conditions first (without locking)
 	if uint64(buffer.Len()) < buffer.MaxLength &&
-		(buffer.Len() == 0 || time.Since(buffer.FirstItemAt()) <= s.forceBatchProvingInterval) {
+		(buffer.Len() == 0 || time.Since(buffer.LastItemAt()) <= s.forceBatchProvingInterval) {
 		return false
 	}
 
@@ -596,6 +599,9 @@ func (s *ProofSubmitter) FlushCache(ctx context.Context, proofType proofProducer
 	if !exist {
 		return fmt.Errorf("failed to get cache map with expected proof type: %s", proofType)
 	}
+	if cacheMap.IsEmpty() {
+		return nil
+	}
 	coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return fmt.Errorf("failed to get core state: %w", err)
@@ -604,7 +610,12 @@ func (s *ProofSubmitter) FlushCache(ctx context.Context, proofType proofProducer
 	if buffer.LastInsertID() > 0 {
 		fromID = new(big.Int).SetUint64(buffer.LastInsertID() + 1)
 	}
-	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(buffer.AvailableCapacity()))
+	availableCapacity := buffer.AvailableCapacity()
+	if availableCapacity == 0 {
+		s.TryAggregate(buffer, proofType)
+		return nil
+	}
+	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(availableCapacity-1))
 	if err := flushProofCacheRange(fromID, toID, buffer, cacheMap); err != nil {
 		if !errors.Is(err, ErrCacheNotFound) {
 			log.Error(

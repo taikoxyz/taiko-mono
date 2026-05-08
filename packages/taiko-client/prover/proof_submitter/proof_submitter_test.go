@@ -277,10 +277,34 @@ func TestProofBufferMonitorTriggersAggregate(t *testing.T) {
 	require.True(t, buffer.IsAggregating())
 }
 
+func TestTryAggregateUsesLastItemInsertTimeForForcedInterval(t *testing.T) {
+	buffer := proofProducer.NewProofBuffer(3)
+	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(1)})
+	require.NoError(t, err)
+
+	time.Sleep(60 * time.Millisecond)
+
+	_, err = buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(2)})
+	require.NoError(t, err)
+
+	s := &ProofSubmitter{
+		batchAggregationNotify:    make(chan proofProducer.ProofType, 1),
+		forceBatchProvingInterval: 50 * time.Millisecond,
+	}
+
+	require.False(t, s.TryAggregate(buffer, proofProducer.ProofTypeOp))
+	require.False(t, buffer.IsAggregating())
+	require.Empty(t, s.batchAggregationNotify)
+}
+
 func TestCacheAccess(t *testing.T) {
 	cacheMap := cmap.New[*proofProducer.ProofResponse]()
 	cacheMap.Set("1", &proofProducer.ProofResponse{})
 	value, ok := cacheMap.Get("1")
 	require.True(t, ok)
 	require.NotNil(t, value)
+}
+
+func TestDefaultProofBufferMonitorInterval(t *testing.T) {
+	require.Equal(t, time.Minute, monitorInterval)
 }
