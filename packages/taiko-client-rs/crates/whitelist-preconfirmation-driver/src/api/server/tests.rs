@@ -346,3 +346,25 @@ async fn preconf_blocks_rejects_invalid_json() {
 
     server.stop().await;
 }
+
+#[tokio::test]
+async fn get_status_returns_can_shutdown_field_in_camel_case() {
+    let config = test_config(true, false);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/status", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+    let payload: serde_json::Value = response.json().await.expect("json body expected");
+    assert_eq!(
+        payload.get("canShutdown").and_then(serde_json::Value::as_bool),
+        Some(true),
+        "GET /status response must serialize canShutdown as a camelCase boolean field; got {payload:?}"
+    );
+
+    server.stop().await;
+}

@@ -100,6 +100,9 @@ pub struct ApiStatus {
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (if any).
     pub end_of_sequencing_block_hash: String,
+    /// True when SIGTERM is safe — no `build_preconf_block` request has been
+    /// received within the last shutdown-block window.
+    pub can_shutdown: bool,
 }
 
 /// `/ws` push notification payload.
@@ -188,6 +191,7 @@ mod tests {
         let status = ApiStatus {
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
+            can_shutdown: true,
         };
 
         let json =
@@ -199,5 +203,6 @@ mod tests {
                 .expect("missing highest unsafe block id"),
             1
         );
+        assert_eq!(json["canShutdown"].as_bool().expect("missing canShutdown"), true);
     }
 }
