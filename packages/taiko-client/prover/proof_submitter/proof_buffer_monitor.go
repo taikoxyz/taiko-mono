@@ -16,7 +16,7 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-var monitorInterval = 5 * time.Minute
+var monitorInterval = time.Minute
 
 // SetProofBufferMonitorInterval overrides the monitor interval.
 func SetProofBufferMonitorInterval(interval time.Duration) func() {
@@ -150,11 +150,12 @@ func flushProofCacheRange(
 	if proofBuffer == nil {
 		return fmt.Errorf("invalid arguments when flushing proof cache range")
 	}
-	currentID := fromID
+	currentID := new(big.Int).Set(fromID)
 	for currentID.Cmp(toID) <= 0 {
-		cachedProof, ok := cacheMap.Get(currentID.String())
+		cacheKey := currentID.String()
+		cachedProof, ok := cacheMap.Get(cacheKey)
 		if !ok {
-			log.Info("Cached proof not found for proposal", "proposalID", currentID)
+			log.Debug("Cached proof not found for proposal", "proposalID", currentID)
 			return ErrCacheNotFound
 		}
 		if _, err := proofBuffer.Write(cachedProof); err != nil {
@@ -168,7 +169,26 @@ func flushProofCacheRange(
 			}
 			return err
 		}
+		cacheMap.Remove(cacheKey)
 		currentID = new(big.Int).Add(currentID, common.Big1)
+	}
+	return nil
+}
+
+func flushContiguousProofCache(
+	insertedID *big.Int,
+	proofBuffer *proofProducer.ProofBuffer,
+	cacheMap cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
+) error {
+	availableCapacity := proofBuffer.AvailableCapacity()
+	if availableCapacity == 0 {
+		return nil
+	}
+
+	fromID := new(big.Int).Add(insertedID, common.Big1)
+	toID := new(big.Int).Add(fromID, new(big.Int).SetUint64(availableCapacity-1))
+	if err := flushProofCacheRange(fromID, toID, proofBuffer, cacheMap); err != nil && !errors.Is(err, ErrCacheNotFound) {
+		return err
 	}
 	return nil
 }

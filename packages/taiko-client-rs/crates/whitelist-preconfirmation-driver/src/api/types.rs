@@ -100,6 +100,9 @@ pub struct ApiStatus {
     pub highest_unsafe_l2_payload_block_id: u64,
     /// End-of-sequencing block hash for current epoch (if any).
     pub end_of_sequencing_block_hash: String,
+    /// True when SIGTERM is safe — no `build_preconf_block` request has been
+    /// received within the last shutdown-block window.
+    pub can_shutdown: bool,
 }
 
 /// `/ws` push notification payload.
@@ -129,6 +132,9 @@ pub struct WhitelistStatus {
     /// End-of-sequencing block hash for current epoch.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end_of_sequencing_block_hash: Option<String>,
+    /// True when SIGTERM is safe — no `build_preconf_block` request has been
+    /// received within the last `SHUTDOWN_BLOCK_WINDOW`.
+    pub can_shutdown: bool,
 }
 
 #[cfg(test)]
@@ -168,6 +174,7 @@ mod tests {
             sync_ready: true,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            can_shutdown: true,
         };
 
         let json = serde_json::to_string(&status).unwrap();
@@ -176,6 +183,7 @@ mod tests {
         assert!(json.contains("syncReady"));
         assert!(json.contains("highestUnsafeL2PayloadBlockId"));
         assert!(json.contains("endOfSequencingBlockHash"));
+        assert!(json.contains("canShutdown"));
     }
 
     #[test]
@@ -183,6 +191,7 @@ mod tests {
         let status = ApiStatus {
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
+            can_shutdown: true,
         };
 
         let json =
@@ -194,5 +203,6 @@ mod tests {
                 .expect("missing highest unsafe block id"),
             1
         );
+        assert_eq!(json["canShutdown"].as_bool().expect("missing canShutdown"), true);
     }
 }

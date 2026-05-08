@@ -48,32 +48,32 @@ hyper-util = { version = "0.1", features = ["client", "http1", "tokio"] }
 tower = { version = "0.5", features = ["timeout", "util"] }
 
 # ethereum
-alloy = { version = "1.4.3", default-features = false }
-alloy-consensus = { version = "1.4.3", default-features = false, features = [
+alloy = { version = "1.8.3", default-features = false }
+alloy-consensus = { version = "1.8.3", default-features = false, features = [
   "serde",
 ] }
-alloy-contract = { version = "1.4.3", default-features = false }
-alloy-eips = { version = "1.4.3", default-features = false }
-alloy-hardforks = { version = "0.4.5", default-features = false }
-alloy-json-rpc = { version = "1.4.3", default-features = false }
-alloy-network = { version = "1.4.3", default-features = false }
-alloy-node-bindings = { version = "1.4.3" }
-alloy-primitives = { version = "1.5.0", default-features = false }
-alloy-provider = { version = "1.4.3", default-features = false }
-alloy-rlp = { version = "0.3.12", default-features = false }
-alloy-rpc-client = { version = "1.4.3", default-features = false }
-alloy-rpc-types = { version = "1.4.3", default-features = false }
-alloy-rpc-types-engine = { version = "1.4.3", default-features = false }
-alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.0.1", default-features = false }
-alloy-rpc-types-eth = { version = "1.4.3", default-features = false }
-alloy-signer = { version = "1.4.3", default-features = false }
-alloy-signer-local = { version = "1.4.3", default-features = false }
-alloy-sol-macro = { version = "1.4.3", default-features = false, features = [
+alloy-contract = { version = "1.8.3", default-features = false }
+alloy-eips = { version = "1.8.3", default-features = false }
+alloy-hardforks = { version = "0.4.7", default-features = false }
+alloy-json-rpc = { version = "1.8.3", default-features = false }
+alloy-network = { version = "1.8.3", default-features = false }
+alloy-node-bindings = { version = "1.8.3" }
+alloy-primitives = { version = "1.5.7", default-features = false }
+alloy-provider = { version = "1.8.3", default-features = false }
+alloy-rlp = { version = "0.3.15", default-features = false }
+alloy-rpc-client = { version = "1.8.3", default-features = false }
+alloy-rpc-types = { version = "1.8.3", default-features = false }
+alloy-rpc-types-engine = { version = "1.8.3", default-features = false }
+alloy-rpc-types-engine-2 = { package = "alloy-rpc-types-engine", version = "2.0.4", default-features = false }
+alloy-rpc-types-eth = { version = "1.8.3", default-features = false }
+alloy-signer = { version = "1.8.3", default-features = false }
+alloy-signer-local = { version = "1.8.3", default-features = false }
+alloy-sol-macro = { version = "1.5.7", default-features = false, features = [
   "json",
 ] }
-alloy-sol-types = { version = "1.5.0", default-features = false }
-alloy-transport = { version = "1.4.3", default-features = false }
-alloy-transport-http = { version = "1.4.3", features = ["hyper", "jwt-auth"] }
+alloy-sol-types = { version = "1.5.7", default-features = false }
+alloy-transport = { version = "1.8.3", default-features = false }
+alloy-transport-http = { version = "1.8.3", features = ["hyper", "jwt-auth"] }
 base-tx-manager = { git = "https://github.com/base/base", rev = "1f1149cca0748f7ee7c6234f54d0be8dab51579a" }
 event-scanner = "1.1.0"
 jsonrpsee = { version = "0.26", features = ["server"] }
@@ -81,11 +81,11 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"
 
 # taiko
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "0ed31d96e91b5c7c37ab8a952c01e88ec7349e23", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "0ed31d96e91b5c7c37ab8a952c01e88ec7349e23", default-features = false, features = [
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "2ebe77c3afaae3992270186d4d026e97b4c62e4c", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "2ebe77c3afaae3992270186d4d026e97b4c62e4c", default-features = false, features = [
   "serde",
 ] }
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "0ed31d96e91b5c7c37ab8a952c01e88ec7349e23" }
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "2ebe77c3afaae3992270186d4d026e97b4c62e4c" }
 
 # networking
 arc-swap = "1.7"
