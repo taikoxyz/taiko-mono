@@ -178,12 +178,7 @@ where
             last_preconf_request_at: Mutex::new(None),
         }
     }
-}
 
-impl<P> WhitelistApiService<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
     /// Record that a `build_preconf_block` request has been received.
     /// Called at the top of the request handler so that even rejected
     /// requests count toward shutdown-safety.

@@ -1,8 +1,12 @@
-use std::io::Write;
+use std::{
+    io::Write,
+    time::{Duration, Instant},
+};
 
 use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
+    api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for},
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
 };
@@ -44,10 +48,6 @@ fn decompress_tx_list_accepts_non_empty_payload_within_limits() {
     let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
     assert_eq!(decoded, expected);
 }
-
-use std::time::{Duration, Instant};
-
-use crate::api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for};
 
 #[test]
 fn can_shutdown_returns_true_when_no_request_received() {

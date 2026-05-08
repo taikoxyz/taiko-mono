@@ -116,6 +116,17 @@ fn test_config(enable_http: bool, enable_ws: bool) -> WhitelistApiServerConfig {
     }
 }
 
+/// Start a server configured with a JWT secret so probe-route auth-skip
+/// behavior and protected-route enforcement can be exercised.
+async fn start_jwt_server(enable_http: bool, enable_ws: bool) -> WhitelistApiServer {
+    let config = WhitelistApiServerConfig {
+        jwt_secret: Some(b"test-secret".to_vec()),
+        ..test_config(enable_http, enable_ws)
+    };
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    WhitelistApiServer::start(config, api).await.expect("server should start")
+}
+
 #[tokio::test]
 async fn server_start_stop() {
     let config = test_config(true, true);
@@ -232,13 +243,7 @@ fn jwt_auth_rejects_missing_header() {
 
 #[tokio::test]
 async fn jwt_auth_is_required_when_secret_configured() {
-    let config = WhitelistApiServerConfig {
-        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
-        jwt_secret: Some(b"test-secret".to_vec()),
-        ..test_config(true, false)
-    };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let server = start_jwt_server(true, false).await;
 
     let response = reqwest::Client::new()
         .post(format!("{}/preconfBlocks", server.http_url()))
@@ -373,13 +378,7 @@ async fn get_status_returns_can_shutdown_field_in_camel_case() {
 
 #[tokio::test]
 async fn status_path_skips_jwt_when_secret_configured() {
-    let config = WhitelistApiServerConfig {
-        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
-        jwt_secret: Some(b"test-secret".to_vec()),
-        ..test_config(true, false)
-    };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let server = start_jwt_server(true, false).await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/status", server.http_url()))
@@ -397,13 +396,7 @@ async fn status_path_skips_jwt_when_secret_configured() {
 
 #[tokio::test]
 async fn healthz_path_skips_jwt_when_secret_configured() {
-    let config = WhitelistApiServerConfig {
-        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
-        jwt_secret: Some(b"test-secret".to_vec()),
-        ..test_config(true, false)
-    };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let server = start_jwt_server(true, false).await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/healthz", server.http_url()))
@@ -417,13 +410,7 @@ async fn healthz_path_skips_jwt_when_secret_configured() {
 
 #[tokio::test]
 async fn root_path_skips_jwt_when_secret_configured() {
-    let config = WhitelistApiServerConfig {
-        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
-        jwt_secret: Some(b"test-secret".to_vec()),
-        ..test_config(true, false)
-    };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let server = start_jwt_server(true, false).await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/", server.http_url()))
@@ -437,13 +424,7 @@ async fn root_path_skips_jwt_when_secret_configured() {
 
 #[tokio::test]
 async fn preconf_blocks_still_requires_jwt_when_configured() {
-    let config = WhitelistApiServerConfig {
-        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
-        jwt_secret: Some(b"test-secret".to_vec()),
-        ..test_config(true, false)
-    };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let server = start_jwt_server(true, false).await;
 
     let response = reqwest::Client::new()
         .post(format!("{}/preconfBlocks", server.http_url()))
@@ -463,13 +444,7 @@ async fn preconf_blocks_still_requires_jwt_when_configured() {
 
 #[tokio::test]
 async fn ws_still_requires_jwt_when_configured() {
-    let config = WhitelistApiServerConfig {
-        listen_addr: "127.0.0.1:0".parse().expect("valid loopback address"),
-        jwt_secret: Some(b"test-secret".to_vec()),
-        ..test_config(true, true)
-    };
-    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
-    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+    let server = start_jwt_server(true, true).await;
 
     let response = reqwest::Client::new()
         .get(format!("{}/ws", server.http_url()))
