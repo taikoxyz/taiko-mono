@@ -44,3 +44,38 @@ fn decompress_tx_list_accepts_non_empty_payload_within_limits() {
     let decoded = decompress_tx_list(&compressed).expect("valid payload should decode");
     assert_eq!(decoded, expected);
 }
+
+use std::time::{Duration, Instant};
+
+use crate::api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for};
+
+#[test]
+fn can_shutdown_returns_true_when_no_request_received() {
+    assert!(can_shutdown_for(None));
+}
+
+#[test]
+fn can_shutdown_returns_false_for_request_just_now() {
+    assert!(!can_shutdown_for(Some(Instant::now())));
+}
+
+#[test]
+fn can_shutdown_returns_true_after_full_window_has_elapsed() {
+    let well_past = Instant::now()
+        .checked_sub(SHUTDOWN_BLOCK_WINDOW + Duration::from_secs(1))
+        .expect("test platform must support subtracting from Instant::now");
+    assert!(can_shutdown_for(Some(well_past)));
+}
+
+#[test]
+fn can_shutdown_returns_false_just_before_window_boundary() {
+    let almost = Instant::now()
+        .checked_sub(SHUTDOWN_BLOCK_WINDOW - Duration::from_secs(1))
+        .expect("test platform must support subtracting from Instant::now");
+    assert!(!can_shutdown_for(Some(almost)));
+}
+
+#[test]
+fn shutdown_block_window_is_one_hundred_forty_four_seconds() {
+    assert_eq!(SHUTDOWN_BLOCK_WINDOW, Duration::from_secs(144));
+}
