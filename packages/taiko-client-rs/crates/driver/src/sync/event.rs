@@ -64,6 +64,8 @@ enum ProposalLogResult {
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+/// Timeout for best-effort `head_l1_origin` reconciliation after an event-scanner reorg.
+const REORG_HEAD_L1_ORIGIN_RECONCILE_TIMEOUT: Duration = Duration::from_secs(12);
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -200,6 +202,74 @@ fn resolve_event_scanner_setup_error(
     } else {
         Err(SyncError::EventScannerInit(error_message))
     }
+}
+
+/// Outcome of the best-effort `head_l1_origin` reconciliation after an L1 reorg.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ReorgHeadL1OriginOutcome {
+    /// No non-genesis proposal exists at the stable boundary, so reconciliation was skipped.
+    SkippedGenesis {
+        /// Next proposal id reported by Inbox core state at the stable boundary.
+        next_proposal_id: u64,
+    },
+    /// `head_l1_origin` was updated to the selected canonical proposal's last L2 block.
+    Reconciled {
+        /// Canonical proposal id selected from the stable post-reorg boundary.
+        proposal_id: u64,
+        /// Last L2 block id derived for the selected canonical proposal.
+        block_id: U256,
+    },
+    /// The selected canonical proposal does not have a local batch mapping.
+    MissingBatchMapping {
+        /// Canonical proposal id whose local batch mapping could not be found.
+        proposal_id: u64,
+    },
+    /// Reading Inbox core state at the stable boundary failed.
+    CoreStateReadFailed,
+    /// Reading the local batch mapping for the selected canonical proposal failed.
+    BatchMappingReadFailed {
+        /// Canonical proposal id whose local batch mapping read failed.
+        proposal_id: u64,
+    },
+    /// Writing the reconciled `head_l1_origin` failed.
+    SetHeadFailed {
+        /// Canonical proposal id selected from the stable post-reorg boundary.
+        proposal_id: u64,
+        /// Last L2 block id that could not be written as `head_l1_origin`.
+        block_id: U256,
+    },
+    /// Reading the current `head_l1_origin` failed before deciding whether to lower it.
+    CurrentHeadReadFailed {
+        /// Canonical proposal id selected from the stable post-reorg boundary.
+        proposal_id: u64,
+        /// Last L2 block id derived for the selected canonical proposal.
+        block_id: U256,
+    },
+    /// The current `head_l1_origin` is missing or is not ahead of the selected boundary.
+    SkippedCurrentHeadNotAhead {
+        /// Canonical proposal id selected from the stable post-reorg boundary.
+        proposal_id: u64,
+        /// Last L2 block id derived for the selected canonical proposal.
+        block_id: U256,
+        /// Current confirmed boundary block id, when present.
+        current_head_l1_origin_block_id: Option<U256>,
+    },
+}
+
+/// Return the latest existing canonical proposal id from an Inbox `nextProposalId`.
+fn latest_canonical_proposal_id(next_proposal_id: u64) -> Option<u64> {
+    let proposal_id = next_proposal_id.saturating_sub(1);
+    (proposal_id != 0).then_some(proposal_id)
+}
+
+/// Return whether a reorg reconciliation outcome is safe to use for reopening ingress.
+fn reorg_reconciliation_allows_ingress_probe(outcome: ReorgHeadL1OriginOutcome) -> bool {
+    matches!(
+        outcome,
+        ReorgHeadL1OriginOutcome::SkippedGenesis { .. } |
+            ReorgHeadL1OriginOutcome::Reconciled { .. } |
+            ReorgHeadL1OriginOutcome::SkippedCurrentHeadNotAhead { .. }
+    )
 }
 
 /// Return true when a preconfirmation target block is stale against the confirmed tip boundary.
@@ -498,13 +568,147 @@ where
         Ok(chain_head >= log_block_number)
     }
 
+    /// Reconcile `head_l1_origin` to the canonical proposal visible at the reorg boundary.
+    async fn reconcile_head_l1_origin_after_reorg(
+        &self,
+        common_ancestor: u64,
+    ) -> ReorgHeadL1OriginOutcome {
+        let core_state = match self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Number(BlockNumberOrTag::Number(common_ancestor)))
+            .call()
+            .await
+        {
+            Ok(core_state) => core_state,
+            Err(err) => {
+                warn!(
+                    common_ancestor,
+                    error = %err,
+                    "failed to read core state at stable reorg boundary while reconciling head_l1_origin"
+                );
+                return ReorgHeadL1OriginOutcome::CoreStateReadFailed;
+            }
+        };
+        let next_proposal_id = core_state.nextProposalId.to::<u64>();
+        let Some(proposal_id) = latest_canonical_proposal_id(next_proposal_id) else {
+            info!(
+                common_ancestor,
+                next_proposal_id,
+                "skipping head_l1_origin reconciliation at genesis stable reorg boundary"
+            );
+            return ReorgHeadL1OriginOutcome::SkippedGenesis { next_proposal_id };
+        };
+
+        let last_block_id = match self.rpc.last_block_id_by_batch_id(U256::from(proposal_id)).await
+        {
+            Ok(last_block_id) => last_block_id,
+            Err(err) => {
+                warn!(
+                    common_ancestor,
+                    proposal_id,
+                    error = ?err,
+                    "failed to read batch mapping for stable reorg boundary target while reconciling head_l1_origin"
+                );
+                return ReorgHeadL1OriginOutcome::BatchMappingReadFailed { proposal_id };
+            }
+        };
+
+        match last_block_id {
+            None => {
+                warn!(
+                    common_ancestor,
+                    proposal_id,
+                    "missing batch mapping for stable reorg boundary target while reconciling head_l1_origin"
+                );
+                ReorgHeadL1OriginOutcome::MissingBatchMapping { proposal_id }
+            }
+            Some(block_id) => {
+                let current_head_l1_origin = match self.rpc.head_l1_origin().await {
+                    Ok(current_head_l1_origin) => current_head_l1_origin,
+                    Err(err) => {
+                        warn!(
+                            common_ancestor,
+                            proposal_id,
+                            %block_id,
+                            error = ?err,
+                            "failed to read current head_l1_origin before reorg reconciliation"
+                        );
+                        return ReorgHeadL1OriginOutcome::CurrentHeadReadFailed {
+                            proposal_id,
+                            block_id,
+                        };
+                    }
+                };
+
+                let Some(current_head_l1_origin) = current_head_l1_origin else {
+                    info!(
+                        common_ancestor,
+                        proposal_id,
+                        %block_id,
+                        "skipping head_l1_origin reconciliation because current head is missing"
+                    );
+                    return ReorgHeadL1OriginOutcome::SkippedCurrentHeadNotAhead {
+                        proposal_id,
+                        block_id,
+                        current_head_l1_origin_block_id: None,
+                    };
+                };
+
+                if current_head_l1_origin.block_id <= block_id {
+                    info!(
+                        common_ancestor,
+                        proposal_id,
+                        %block_id,
+                        current_head_l1_origin_block_id = %current_head_l1_origin.block_id,
+                        "skipping head_l1_origin reconciliation because current head is not ahead of target"
+                    );
+                    return ReorgHeadL1OriginOutcome::SkippedCurrentHeadNotAhead {
+                        proposal_id,
+                        block_id,
+                        current_head_l1_origin_block_id: Some(current_head_l1_origin.block_id),
+                    };
+                }
+
+                match self.rpc.set_head_l1_origin(block_id).await {
+                    Ok(_) => {
+                        info!(
+                            common_ancestor,
+                            proposal_id,
+                            %block_id,
+                            current_head_l1_origin_block_id = %current_head_l1_origin.block_id,
+                            "reconciled head_l1_origin to stable reorg boundary target"
+                        );
+                        ReorgHeadL1OriginOutcome::Reconciled { proposal_id, block_id }
+                    }
+                    Err(err) => {
+                        warn!(
+                            common_ancestor,
+                            proposal_id,
+                            %block_id,
+                            error = ?err,
+                            "failed to set head_l1_origin to stable reorg boundary target"
+                        );
+                        ReorgHeadL1OriginOutcome::SetHeadFailed { proposal_id, block_id }
+                    }
+                }
+            }
+        }
+    }
+
     /// Process a batch of proposal logs from the event scanner.
+    ///
+    /// Returns `true` when at least one canonical proposal produced derived blocks.
     async fn process_log_batch(
         &self,
         router: Arc<AsyncMutex<ProductionRouter>>,
         logs: Vec<Log>,
-    ) -> Result<(), SyncError> {
+    ) -> Result<bool, SyncError> {
         debug!(log_batch_size = logs.len(), "processing proposal log batch");
+        let mut processed_canonical_blocks = false;
+
         for log in logs {
             let proposal_id = Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())
                 .map(|event| event.id.to::<u64>())
@@ -604,6 +808,7 @@ where
             if let Some(last_outcome) = outcomes.last() {
                 gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
                     .set(last_outcome.block_number() as f64);
+                processed_canonical_blocks = true;
             }
 
             info!(
@@ -616,7 +821,7 @@ where
             gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
             counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
         }
-        Ok(())
+        Ok(processed_canonical_blocks)
     }
 
     /// Construct a new event syncer from the provided configuration and RPC client.
@@ -1164,6 +1369,7 @@ where
         let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
         let mut scanner_started_once = false;
+        let mut reorg_replay_pending = false;
 
         loop {
             if !preconf_ingress_spawned {
@@ -1230,17 +1436,66 @@ where
                         if let Some(block_number) = logs.last().and_then(|log| log.block_number) {
                             last_seen_l1_block_number = Some(block_number);
                         }
+                        let proposal_count = logs.len();
                         counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
-                        counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
-                        self.process_log_batch(router.clone(), logs).await?;
+                        counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL)
+                            .increment(proposal_count as u64);
+                        let processed_canonical_blocks =
+                            self.process_log_batch(router.clone(), logs).await?;
+                        if processed_canonical_blocks && reorg_replay_pending {
+                            info!(
+                                proposal_count,
+                                "processed post-reorg canonical proposal replay; allowing confirmed-sync probe"
+                            );
+                            reorg_replay_pending = false;
+                        }
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
-                        if matches!(notification, Notification::SwitchingToLive) {
-                            // Scanner live is necessary but not sufficient: confirmed-sync
-                            // readiness must also pass before ingress
-                            // opens.
-                            scanner_live = true;
+                        match notification {
+                            Notification::SwitchingToLive => {
+                                // Scanner live is necessary but not sufficient: confirmed-sync
+                                // readiness must also pass before ingress
+                                // opens.
+                                scanner_live = true;
+                            }
+                            Notification::ReorgDetected { common_ancestor } => {
+                                reorg_replay_pending = true;
+                                if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
+                                    info!(
+                                        common_ancestor,
+                                        "closing preconfirmation ingress after event scanner reorg"
+                                    );
+                                }
+
+                                match timeout(
+                                    REORG_HEAD_L1_ORIGIN_RECONCILE_TIMEOUT,
+                                    self.reconcile_head_l1_origin_after_reorg(common_ancestor),
+                                )
+                                .await
+                                {
+                                    Ok(outcome) => {
+                                        info!(
+                                            common_ancestor,
+                                            ?outcome,
+                                            "completed best-effort head_l1_origin reconciliation after reorg"
+                                        );
+                                        if reorg_reconciliation_allows_ingress_probe(outcome) {
+                                            reorg_replay_pending = false;
+                                        }
+                                    }
+                                    Err(_) => {
+                                        warn!(
+                                            common_ancestor,
+                                            timeout_ms = REORG_HEAD_L1_ORIGIN_RECONCILE_TIMEOUT
+                                                .as_millis()
+                                                as u64,
+                                            "timed out best-effort head_l1_origin reconciliation after reorg"
+                                        );
+                                    }
+                                }
+                            }
+                            Notification::NoPastLogsFound => {}
                         }
                     }
                     Err(err) => {
@@ -1254,7 +1509,7 @@ where
                     self.cfg.preconfirmation_enabled,
                     preconf_ingress_spawned,
                     self.preconf_ingress_ready.load(Ordering::Acquire),
-                    scanner_live,
+                    scanner_live && !reorg_replay_pending,
                 ) {
                     let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
                     if let Err(err) = &confirmed_sync_probe {
@@ -1352,7 +1607,11 @@ mod tests {
     use async_trait::async_trait;
     use bindings::{
         anchor::Anchor::AnchorInstance,
-        inbox::{IInbox::DerivationSource, Inbox::InboxInstance, LibBlobs::BlobSlice},
+        inbox::{
+            IInbox::{CoreState, DerivationSource},
+            Inbox::{InboxInstance, getCoreStateCall},
+            LibBlobs::BlobSlice,
+        },
     };
     use rpc::{
         SubscriptionSource,
@@ -1398,6 +1657,18 @@ mod tests {
             block_metadata,
             l1_origin,
             anchor_transaction: None,
+        }
+    }
+
+    fn sample_l1_origin(block_id: u64) -> RpcL1Origin {
+        RpcL1Origin {
+            block_id: U256::from(block_id),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
         }
     }
 
@@ -1491,6 +1762,17 @@ mod tests {
         block.header.number = block_number;
         block.header.hash = B256::from([block_number as u8; 32]);
         EngineBlockOutcome { block, payload_id: PayloadId::new([block_number as u8; 8]) }
+    }
+
+    fn sample_core_state(next_proposal_id: u64) -> CoreState {
+        CoreState {
+            nextProposalId: U48::from(next_proposal_id),
+            lastProposalBlockId: U48::ZERO,
+            lastFinalizedProposalId: U48::ZERO,
+            lastFinalizedTimestamp: U48::ZERO,
+            lastCheckpointTimestamp: U48::ZERO,
+            lastFinalizedBlockHash: FixedBytes::ZERO,
+        }
     }
 
     #[derive(Clone)]
@@ -1601,14 +1883,28 @@ mod tests {
     }
 
     fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+        mock_client_with_asserters(l1_asserter, Asserter::new())
+    }
+
+    fn mock_client_with_asserters(
+        l1_asserter: Asserter,
+        l2_auth_asserter: Asserter,
+    ) -> Client<RootProvider> {
+        mock_client_with_all_asserters(l1_asserter, Asserter::new(), l2_auth_asserter)
+    }
+
+    fn mock_client_with_all_asserters(
+        l1_asserter: Asserter,
+        l2_asserter: Asserter,
+        l2_auth_asserter: Asserter,
+    ) -> Client<RootProvider> {
         let l1_provider =
             ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
-        let l2_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
+        let l2_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
         let l2_auth_provider = ProviderBuilder::new()
             .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
+            .connect_mocked_client(l2_auth_asserter);
         let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
         let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
         let shasta = ShastaProtocolInstance { inbox, anchor };
@@ -1729,10 +2025,39 @@ mod tests {
         .await;
 
         assert!(
-            matches!(result, Ok(Ok(()))),
+            matches!(result, Ok(Ok(true))),
             "orphaned log should be skipped so a later log in the same batch still processes",
         );
         assert_eq!(path.seen_tx_hashes(), vec![orphaned_tx_hash, later_tx_hash]);
+    }
+
+    #[tokio::test]
+    async fn process_log_batch_reports_no_canonical_blocks_when_all_logs_are_orphaned() {
+        let orphaned_block_hash = B256::from([0x13; 32]);
+        let orphaned_tx_hash = B256::from([0x23; 32]);
+        let asserter = Asserter::new();
+        asserter.push_success(&Option::<RpcBlock<TxEnvelope>>::None);
+        asserter.push_success(&2u64);
+
+        let syncer =
+            EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
+        let path = MockBatchPath::new([orphaned_tx_hash]);
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+
+        let result = timeout(
+            Duration::from_millis(250),
+            syncer.process_log_batch(
+                router,
+                vec![sample_proposed_log(1, orphaned_block_hash, orphaned_tx_hash)],
+            ),
+        )
+        .await;
+
+        assert!(
+            matches!(result, Ok(Ok(false))),
+            "a fully orphaned batch must not reopen the post-reorg confirmed-sync probe",
+        );
+        assert_eq!(path.seen_tx_hashes(), vec![orphaned_tx_hash]);
     }
 
     #[tokio::test]
@@ -1780,7 +2105,7 @@ mod tests {
         .await;
 
         assert!(
-            matches!(result, Ok(Ok(()))),
+            matches!(result, Ok(Ok(true))),
             "recheck rpc errors should keep the log retryable until a later attempt succeeds",
         );
         assert_eq!(path.seen_tx_hashes(), vec![retry_tx_hash, retry_tx_hash]);
@@ -1849,6 +2174,250 @@ mod tests {
     fn confirmed_sync_probe_error_keeps_ingress_closed() {
         let ready = resolve_confirmed_sync_probe(Err(SyncError::MissingCheckpointResumeHead));
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
+    }
+
+    #[test]
+    fn latest_canonical_proposal_id_skips_zero_and_genesis_target() {
+        assert_eq!(latest_canonical_proposal_id(0), None);
+        assert_eq!(latest_canonical_proposal_id(1), None);
+    }
+
+    #[test]
+    fn latest_canonical_proposal_id_returns_latest_existing_proposal() {
+        assert_eq!(latest_canonical_proposal_id(100), Some(99));
+    }
+
+    #[test]
+    fn stale_preconf_boundary_accepts_blocks_after_reconciled_head() {
+        assert!(is_stale_preconf(7_777, 7_777));
+        assert!(!is_stale_preconf(7_778, 7_777));
+    }
+
+    #[test]
+    fn reorg_reconciliation_probe_gate_allows_safe_outcomes() {
+        assert!(reorg_reconciliation_allows_ingress_probe(
+            ReorgHeadL1OriginOutcome::SkippedGenesis { next_proposal_id: 1 },
+        ));
+        assert!(reorg_reconciliation_allows_ingress_probe(ReorgHeadL1OriginOutcome::Reconciled {
+            proposal_id: 99,
+            block_id: U256::from(7_777u64),
+        },));
+        assert!(reorg_reconciliation_allows_ingress_probe(
+            ReorgHeadL1OriginOutcome::SkippedCurrentHeadNotAhead {
+                proposal_id: 99,
+                block_id: U256::from(7_777u64),
+                current_head_l1_origin_block_id: Some(U256::from(7_000u64)),
+            },
+        ));
+    }
+
+    #[test]
+    fn reorg_reconciliation_probe_gate_blocks_failed_outcomes() {
+        assert!(!reorg_reconciliation_allows_ingress_probe(
+            ReorgHeadL1OriginOutcome::CoreStateReadFailed,
+        ));
+        assert!(!reorg_reconciliation_allows_ingress_probe(
+            ReorgHeadL1OriginOutcome::BatchMappingReadFailed { proposal_id: 99 },
+        ));
+        assert!(!reorg_reconciliation_allows_ingress_probe(
+            ReorgHeadL1OriginOutcome::MissingBatchMapping { proposal_id: 99 },
+        ));
+        assert!(!reorg_reconciliation_allows_ingress_probe(
+            ReorgHeadL1OriginOutcome::CurrentHeadReadFailed {
+                proposal_id: 99,
+                block_id: U256::from(7_777u64),
+            },
+        ));
+        assert!(!reorg_reconciliation_allows_ingress_probe(
+            ReorgHeadL1OriginOutcome::SetHeadFailed {
+                proposal_id: 99,
+                block_id: U256::from(7_777u64),
+            },
+        ));
+    }
+
+    #[tokio::test]
+    async fn reorg_reconciliation_sets_head_l1_origin_to_latest_canonical_batch_tip() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_all_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                l2_auth_asserter.clone(),
+            ),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64)));
+        l2_asserter.push_success(&Some(sample_l1_origin(8_000)));
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64)));
+
+        let outcome = syncer.reconcile_head_l1_origin_after_reorg(1_234).await;
+
+        assert_eq!(
+            outcome,
+            ReorgHeadL1OriginOutcome::Reconciled {
+                proposal_id: 99,
+                block_id: U256::from(7_777u64),
+            },
+        );
+
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reorg_reconciliation_missing_batch_mapping_is_best_effort() {
+        let l1_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Option::<U256>::None);
+
+        let outcome = syncer.reconcile_head_l1_origin_after_reorg(1_234).await;
+
+        assert_eq!(outcome, ReorgHeadL1OriginOutcome::MissingBatchMapping { proposal_id: 99 },);
+
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reorg_reconciliation_skips_zero_target_without_auth_rpc() {
+        let l1_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(1);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+
+        let outcome = syncer.reconcile_head_l1_origin_after_reorg(1_234).await;
+
+        assert_eq!(outcome, ReorgHeadL1OriginOutcome::SkippedGenesis { next_proposal_id: 1 },);
+
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reorg_reconciliation_set_head_failure_is_best_effort() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_all_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                l2_auth_asserter.clone(),
+            ),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64)));
+        l2_asserter.push_success(&Some(sample_l1_origin(8_000)));
+        l2_auth_asserter.push_failure_msg("set failed");
+
+        let outcome = syncer.reconcile_head_l1_origin_after_reorg(1_234).await;
+
+        assert_eq!(
+            outcome,
+            ReorgHeadL1OriginOutcome::SetHeadFailed {
+                proposal_id: 99,
+                block_id: U256::from(7_777u64),
+            },
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reorg_reconciliation_skips_when_current_head_is_not_ahead_of_boundary() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_all_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                l2_auth_asserter.clone(),
+            ),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64)));
+        l2_asserter.push_success(&Some(sample_l1_origin(7_000)));
+
+        let outcome = syncer.reconcile_head_l1_origin_after_reorg(1_234).await;
+
+        assert_eq!(
+            outcome,
+            ReorgHeadL1OriginOutcome::SkippedCurrentHeadNotAhead {
+                proposal_id: 99,
+                block_id: U256::from(7_777u64),
+                current_head_l1_origin_block_id: Some(U256::from(7_000u64)),
+            },
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reorg_reconciliation_skips_when_current_head_is_missing() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_all_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                l2_auth_asserter.clone(),
+            ),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64)));
+        l2_asserter.push_success(&Option::<RpcL1Origin>::None);
+
+        let outcome = syncer.reconcile_head_l1_origin_after_reorg(1_234).await;
+
+        assert_eq!(
+            outcome,
+            ReorgHeadL1OriginOutcome::SkippedCurrentHeadNotAhead {
+                proposal_id: 99,
+                block_id: U256::from(7_777u64),
+                current_head_l1_origin_block_id: None,
+            },
+        );
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
     }
 
     #[test]
