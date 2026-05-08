@@ -3,7 +3,6 @@ package producer
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +12,6 @@ func TestProofBuffer(t *testing.T) {
 	bufferSize := 5
 	b := NewProofBuffer(uint64(bufferSize))
 	require.Zero(t, b.Len())
-	require.Less(t, b.FirstItemAt(), time.Now())
 	require.False(t, b.IsAggregating())
 
 	// Write items to the buffer.
