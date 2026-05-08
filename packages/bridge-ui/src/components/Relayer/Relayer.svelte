@@ -83,8 +83,6 @@
   <div class="f-col space-y-[35px]">
     <span class="mt-[30px]">{$t('relayer_component.step1.title')}</span>
 
-    {transactions?.length}
-    {transactionsToShow?.length}
     <AddressInput
       labelText={$t('relayer_component.address_input_label')}
       isDisabled={inputDisabled}
