@@ -552,6 +552,42 @@ where
             }
         };
 
+        // `set_head_l1_origin` is an unconditional put on the EE side, so writing it when the
+        // current head is missing or below `block_id` would actively raise the head — wrong if
+        // the node is still catching up. Only lower (current head strictly above target).
+        let current_head_block_id = match self.rpc.head_l1_origin().await {
+            Ok(Some(current)) => current.block_id,
+            Ok(None) => {
+                info!(
+                    common_ancestor,
+                    proposal_id,
+                    %block_id,
+                    "no current head_l1_origin recorded; skipping reset"
+                );
+                return;
+            }
+            Err(err) => {
+                warn!(
+                    common_ancestor,
+                    proposal_id,
+                    %block_id,
+                    ?err,
+                    "failed to read current head_l1_origin; skipping reset"
+                );
+                return;
+            }
+        };
+        if current_head_block_id <= block_id {
+            info!(
+                common_ancestor,
+                proposal_id,
+                %block_id,
+                %current_head_block_id,
+                "current head_l1_origin not ahead of target; skipping reset"
+            );
+            return;
+        }
+
         match self.rpc.set_head_l1_origin(block_id).await {
             Ok(_) => info!(
                 common_ancestor,
@@ -1502,6 +1538,18 @@ mod tests {
         }
     }
 
+    fn sample_l1_origin(block_id: u64) -> RpcL1Origin {
+        RpcL1Origin {
+            block_id: U256::from(block_id),
+            l2_block_hash: B256::ZERO,
+            l1_block_height: None,
+            l1_block_hash: None,
+            build_payload_args_id: [0u8; 8],
+            is_forced_inclusion: false,
+            signature: [0u8; 65],
+        }
+    }
+
     fn mock_client() -> Client<RootProvider> {
         mock_client_with_l1_asserter(Asserter::new())
     }
@@ -1720,11 +1768,18 @@ mod tests {
         l1_asserter: Asserter,
         l2_auth_asserter: Asserter,
     ) -> Client<RootProvider> {
+        mock_client_with_all_asserters(l1_asserter, Asserter::new(), l2_auth_asserter)
+    }
+
+    fn mock_client_with_all_asserters(
+        l1_asserter: Asserter,
+        l2_asserter: Asserter,
+        l2_auth_asserter: Asserter,
+    ) -> Client<RootProvider> {
         let l1_provider =
             ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
-        let l2_provider = ProviderBuilder::new()
-            .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
+        let l2_provider =
+            ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l2_asserter);
         let l2_auth_provider = ProviderBuilder::new()
             .disable_recommended_fillers()
             .connect_mocked_client(l2_auth_asserter);
@@ -1973,9 +2028,14 @@ mod tests {
     #[tokio::test]
     async fn reset_head_l1_origin_after_reorg_lowers_head_to_latest_canonical_batch_tip() {
         let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
         let l2_auth_asserter = Asserter::new();
         let syncer = EventSyncer {
-            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            rpc: mock_client_with_all_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                l2_auth_asserter.clone(),
+            ),
             ..build_syncer().await
         };
 
@@ -1983,11 +2043,13 @@ mod tests {
         let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
         l1_asserter.push_success(&encoded_core_state);
         l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // last_block_id_by_batch_id
+        l2_asserter.push_success(&Some(sample_l1_origin(8_000))); // head_l1_origin (above target)
         l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // set_head_l1_origin
 
         syncer.reset_head_l1_origin_after_reorg(1_234).await;
 
         assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
         assert!(l2_auth_asserter.read_q().is_empty());
     }
 
@@ -2009,6 +2071,35 @@ mod tests {
 
         // No set_head_l1_origin call should be queued: missing mapping is a best-effort skip.
         assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reset_head_l1_origin_after_reorg_skips_when_node_is_catching_up() {
+        let l1_asserter = Asserter::new();
+        let l2_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_all_asserters(
+                l1_asserter.clone(),
+                l2_asserter.clone(),
+                l2_auth_asserter.clone(),
+            ),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // last_block_id_by_batch_id
+        l2_asserter.push_success(&Some(sample_l1_origin(7_000))); // head below target
+
+        syncer.reset_head_l1_origin_after_reorg(1_234).await;
+
+        // No set_head_l1_origin call must be queued: writing it would raise the head and
+        // overshoot the chain that the node is still catching up to.
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_asserter.read_q().is_empty());
         assert!(l2_auth_asserter.read_q().is_empty());
     }
 
