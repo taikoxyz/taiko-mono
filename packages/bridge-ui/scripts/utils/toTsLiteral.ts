@@ -1,10 +1,14 @@
 const TS_EXPRESSION = Symbol('tsExpression');
+const TS_EXPRESSION_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/;
 
 type TsExpression = {
   [TS_EXPRESSION]: string;
 };
 
 export function tsExpression(expression: string): TsExpression {
+  if (!TS_EXPRESSION_PATTERN.test(expression)) {
+    throw new Error(`Invalid TypeScript expression: ${expression}`);
+  }
   return { [TS_EXPRESSION]: expression };
 }
 
@@ -15,6 +19,15 @@ function isTsExpression(value: unknown): value is TsExpression {
     Object.prototype.hasOwnProperty.call(value, TS_EXPRESSION) &&
     typeof (value as Partial<TsExpression>)[TS_EXPRESSION] === 'string'
   );
+}
+
+function isPlainObject(value: object): boolean {
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function objectName(value: object): string {
+  return value.constructor?.name || Object.prototype.toString.call(value).slice(8, -1);
 }
 
 export function toTsLiteral(value: unknown): string {
@@ -54,6 +67,10 @@ export function toTsLiteral(value: unknown): string {
   }
 
   if (typeof value === 'object') {
+    if (!isPlainObject(value)) {
+      throw new Error(`Cannot serialize non-plain object: ${objectName(value)}`);
+    }
+
     const entries = Object.entries(value).map(([key, nestedValue]) => {
       return `${JSON.stringify(key)}: ${toTsLiteral(nestedValue)}`;
     });
