@@ -21,6 +21,11 @@ use super::{
 };
 
 /// Construct the server router with optional HTTP and WebSocket route groups.
+///
+/// `/`, `/healthz`, and `/status` are served without JWT authentication so
+/// that lightweight Kubernetes liveness/readiness probes (which cannot
+/// generate HMAC-SHA256 bearer tokens) can reach them. `/preconfBlocks` and
+/// `/ws` remain JWT-protected when `jwt_secret` is configured.
 pub(super) fn build_router(
     state: AppState,
     cors_origins: &[String],
@@ -28,24 +33,30 @@ pub(super) fn build_router(
     enable_ws: bool,
 ) -> Router {
     let cors_layer = build_cors_layer(cors_origins);
-    let mut router = Router::new();
+
+    let mut public_router = Router::new();
+    let mut protected_router = Router::new();
 
     if enable_http {
-        router = router
+        public_router = public_router
             .route("/", get(handle_root))
             .route("/healthz", get(handle_root))
-            .route("/status", get(handle_status))
-            .route("/preconfBlocks", post(handle_preconf_blocks));
+            .route("/status", get(handle_status));
+        protected_router = protected_router.route("/preconfBlocks", post(handle_preconf_blocks));
     }
 
     if enable_ws {
-        router = router.route("/ws", get(handle_websocket_upgrade));
+        protected_router = protected_router.route("/ws", get(handle_websocket_upgrade));
     }
 
-    router = router
+    let protected_router =
+        protected_router.layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+
+    public_router
+        .merge(protected_router)
         .fallback(handle_not_found)
-        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
-    router.layer(cors_layer).with_state(state)
+        .layer(cors_layer)
+        .with_state(state)
 }
 
 /// Build CORS middleware from configured allowed origins.
