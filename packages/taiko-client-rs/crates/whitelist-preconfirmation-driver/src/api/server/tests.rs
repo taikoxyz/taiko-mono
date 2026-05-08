@@ -459,3 +459,37 @@ async fn ws_still_requires_jwt_when_configured() {
 
     server.stop().await;
 }
+
+#[tokio::test]
+async fn unknown_path_requires_jwt_when_secret_configured() {
+    let server = start_jwt_server(true, false).await;
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/this-route-does-not-exist", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(
+        response.status(),
+        reqwest::StatusCode::UNAUTHORIZED,
+        "unknown paths must stay JWT-gated to avoid widening unauthenticated route probing"
+    );
+
+    server.stop().await;
+}
+
+#[tokio::test]
+async fn unknown_path_returns_not_found_when_no_jwt_secret() {
+    let config = test_config(true, false);
+    let api: Arc<dyn WhitelistApi> = Arc::new(MockApi);
+    let server = WhitelistApiServer::start(config, api).await.expect("server should start");
+
+    let response = reqwest::Client::new()
+        .get(format!("{}/this-route-does-not-exist", server.http_url()))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert_eq!(response.status(), reqwest::StatusCode::NOT_FOUND);
+
+    server.stop().await;
+}

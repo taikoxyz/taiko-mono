@@ -49,14 +49,15 @@ pub(super) fn build_router(
         protected_router = protected_router.route("/ws", get(handle_websocket_upgrade));
     }
 
-    let protected_router =
-        protected_router.layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
-
-    public_router
-        .merge(protected_router)
+    // Place the not-found fallback inside the protected router so the auth
+    // middleware wraps it: when a JWT secret is configured, unknown paths
+    // must still return 401 rather than leaking their non-existence as 404
+    // to unauthenticated probers.
+    let protected_router = protected_router
         .fallback(handle_not_found)
-        .layer(cors_layer)
-        .with_state(state)
+        .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
+
+    public_router.merge(protected_router).layer(cors_layer).with_state(state)
 }
 
 /// Build CORS middleware from configured allowed origins.
