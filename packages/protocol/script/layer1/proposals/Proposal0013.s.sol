@@ -72,7 +72,8 @@ contract Proposal0013 is BuildProposal {
             target: SP1_SHASTA_VERIFIER,
             value: 0,
             data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted, (SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
+                SP1Verifier.setProgramTrusted,
+                (SP1_SHASTA_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
             )
         });
     }
