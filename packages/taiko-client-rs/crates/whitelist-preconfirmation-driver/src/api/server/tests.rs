@@ -44,6 +44,7 @@ impl WhitelistApi for MockApi {
             sync_ready: true,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            can_shutdown: true,
         })
     }
 
@@ -77,6 +78,7 @@ impl WhitelistApi for SyncReadyApi {
             sync_ready: self.sync_ready,
             highest_unsafe_l2_payload_block_id: 100,
             end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            can_shutdown: true,
         })
     }
 
