@@ -1317,12 +1317,6 @@ where
                                 scanner_live = true;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
-                                if self.preconf_ingress_ready.swap(false, Ordering::AcqRel) {
-                                    info!(
-                                        common_ancestor,
-                                        "closing preconfirmation ingress after event scanner reorg"
-                                    );
-                                }
                                 if timeout(
                                     REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
                                     self.reset_head_l1_origin_after_reorg(common_ancestor),
