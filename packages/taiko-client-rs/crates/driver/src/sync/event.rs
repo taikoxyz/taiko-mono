@@ -1066,20 +1066,21 @@ where
             });
         }
 
-        let target_block_number = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(target_proposal_id))
-            .await
-            .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlockForBatch { proposal_id: target_proposal_id })?;
+        let target_block_number = if target_proposal_id == resume_proposal_id {
+            resume_head_block_number
+        } else {
+            finalized_block_number.ok_or(SyncError::MissingExecutionBlockForBatch {
+                proposal_id: finalized_safe_proposal_id,
+            })?
+        };
         let target_block = self
             .rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(target_block_number.to()))
+            .get_block_by_number(BlockNumberOrTag::Number(target_block_number))
             .full()
             .await
             .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))?
-            .ok_or(SyncError::MissingExecutionBlock { number: target_block_number.to() })?
+            .ok_or(SyncError::MissingExecutionBlock { number: target_block_number })?
             .map_transactions(|tx: RpcTransaction| tx.into());
 
         info!(
@@ -1099,7 +1100,7 @@ where
         Ok(EventStreamStartPoint {
             anchor_block_number,
             initial_proposal_id: target_proposal_id,
-            bootstrap_confirmed_tip: target_block_number.to::<u64>(),
+            bootstrap_confirmed_tip: target_block_number,
         })
     }
 }
