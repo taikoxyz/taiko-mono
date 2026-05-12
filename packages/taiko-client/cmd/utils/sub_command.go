@@ -15,13 +15,21 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
+// SubcommandApplication defines the lifecycle hooks shared by Taiko client
+// subcommands such as the driver, proposer, and prover.
 type SubcommandApplication interface {
+	// InitFromCli initializes the application from CLI flags before startup.
 	InitFromCli(context.Context, *cli.Context) error
+	// Name returns the application name used in logs and lifecycle messages.
 	Name() string
+	// Start starts the application services and returns once startup succeeds or fails.
 	Start() error
+	// Close releases application resources during shutdown.
 	Close(context.Context)
 }
 
+// SubcommandAction wraps a SubcommandApplication as a urfave/cli action with
+// logger setup, devnet overrides, metrics serving, and signal-based shutdown.
 func SubcommandAction(app SubcommandApplication) cli.ActionFunc {
 	return func(c *cli.Context) error {
 		logger.InitLogger(c)
