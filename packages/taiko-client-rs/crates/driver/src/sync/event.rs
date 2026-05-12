@@ -1081,11 +1081,7 @@ where
         let target_batch_block_id = if target_proposal_id == resume_proposal_id {
             None
         } else {
-            match self
-                .rpc
-                .last_block_id_by_batch_id(U256::from(target_proposal_id))
-                .await
-            {
+            match self.rpc.last_block_id_by_batch_id(U256::from(target_proposal_id)).await {
                 Ok(block_id) => block_id.map(|block_id| block_id.to::<u64>()),
                 Err(err) => {
                     warn!(
