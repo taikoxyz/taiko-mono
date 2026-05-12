@@ -11,6 +11,24 @@ on:
       - "bridge-ui-mainnet-v*"
 
 jobs:
+  verify-production-tag:
+    if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-hoodi-v') || startsWith(github.ref, 'refs/tags/bridge-ui-mainnet-v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify tag is reachable from main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main;
+          then
+            echo "::error::Production bridge-ui tags must point to commits reachable from origin/main."
+            exit 1
+          fi
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hoodi|mainnet)>_<environment(preview|production)>
   # Internal Devnet
   deploy_bridge-ui_devnet_preview:
@@ -38,6 +56,7 @@ jobs:
 
   deploy_bridge-ui_hoodi_production:
     if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-hoodi-v') }}
+    needs: verify-production-tag
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
       environment: "production"
@@ -61,6 +80,7 @@ jobs:
 
   deploy_bridge-ui_mainnet_production:
     if: ${{ startsWith(github.ref, 'refs/tags/bridge-ui-mainnet-v') }}
+    needs: verify-production-tag
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
       environment: "production"
