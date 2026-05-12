@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Install Vercel CLI
-        run: pnpm add --global vercel@latest
+        run: pnpm add --global vercel@53.3.2
 
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=${{ inputs.environment }} --token=${{ secrets.vercel_token }}
