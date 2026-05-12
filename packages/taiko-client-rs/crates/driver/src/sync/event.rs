@@ -171,6 +171,10 @@ fn resolve_target_with_optional_finalization(
     }
 }
 
+/// Resolve the L2 block number for the selected target proposal.
+///
+/// Uses the batch mapping first, then a scanned block number when the mapping is unavailable.
+/// Fails closed for bounded targets that cannot be resolved by either source.
 fn resolve_target_block_number(
     target_proposal_id: u64,
     resume_proposal_id: u64,
@@ -1120,6 +1124,10 @@ where
         })
     }
 
+    /// Resolve the target L2 block number used for anchor extraction.
+    ///
+    /// A finalized-bounded target may not have a warm local batch mapping immediately after
+    /// checkpoint sync, so missing mappings fall back to scanning already-synced L2 blocks.
     async fn resolve_target_block_number(
         &self,
         target_proposal_id: u64,
@@ -1165,6 +1173,10 @@ where
         )
     }
 
+    /// Scan backwards from the resume head to find the latest block for the target proposal.
+    ///
+    /// The scan uses the proposal id encoded in block header extra data and stops once it finds
+    /// the target, crosses below it, or reaches genesis.
     async fn find_target_block_number_by_scanning_l2(
         &self,
         target_proposal_id: u64,
