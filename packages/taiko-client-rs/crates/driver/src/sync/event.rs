@@ -171,6 +171,18 @@ fn resolve_target_with_optional_finalization(
     }
 }
 
+fn resolve_target_block_number(
+    target_proposal_id: u64,
+    resume_proposal_id: u64,
+    resume_head_block_number: u64,
+    target_batch_block_id: Option<u64>,
+) -> u64 {
+    if target_proposal_id == resume_proposal_id {
+        return resume_head_block_number;
+    }
+    target_batch_block_id.unwrap_or(resume_head_block_number)
+}
+
 /// Resolve the reconnect start block after a scanner interruption.
 ///
 /// - Rewind one block from the last seen height to cover partial delivery from the boundary block.
@@ -1066,13 +1078,32 @@ where
             });
         }
 
-        let target_block_number = if target_proposal_id == resume_proposal_id {
-            resume_head_block_number
+        let target_batch_block_id = if target_proposal_id == resume_proposal_id {
+            None
         } else {
-            finalized_block_number.ok_or(SyncError::MissingExecutionBlockForBatch {
-                proposal_id: finalized_safe_proposal_id,
-            })?
+            match self
+                .rpc
+                .last_block_id_by_batch_id(U256::from(target_proposal_id))
+                .await
+            {
+                Ok(block_id) => block_id.map(|block_id| block_id.to::<u64>()),
+                Err(err) => {
+                    warn!(
+                        target_proposal_id,
+                        %err,
+                        resume_head_block_number,
+                        "failed to resolve target proposal block id; falling back to resume head",
+                    );
+                    None
+                }
+            }
         };
+        let target_block_number = resolve_target_block_number(
+            target_proposal_id,
+            resume_proposal_id,
+            resume_head_block_number,
+            target_batch_block_id,
+        );
         let target_block = self
             .rpc
             .l2_provider
@@ -2099,6 +2130,20 @@ mod tests {
         let (target, safe) = resolve_target_with_optional_finalization(50, Some(120));
         assert_eq!(target, 50);
         assert_eq!(safe, 120);
+    }
+
+    #[test]
+    fn target_block_resolution_uses_batch_mapping_when_finalized_bounds_resume() {
+        let target_block = resolve_target_block_number(90, 120, 12_000, Some(7_777));
+
+        assert_eq!(target_block, 7_777);
+    }
+
+    #[test]
+    fn target_block_resolution_falls_back_to_resume_when_batch_mapping_missing() {
+        let target_block = resolve_target_block_number(90, 120, 12_000, None);
+
+        assert_eq!(target_block, 12_000);
     }
 
     #[test]
