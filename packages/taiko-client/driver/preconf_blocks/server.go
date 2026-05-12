@@ -1213,7 +1213,7 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 			},
 			header.Time,
 		),
-		PreconfChainReorged: true,
+		PreconfChainReorged: false,
 		LastBlockID:         blockID.ToInt().Uint64(),
 	})
 }
