@@ -1213,6 +1213,8 @@ func (s *PreconfBlockAPIServer) handleProposalReorg(ctx context.Context, latestS
 			},
 			header.Time,
 		),
+		// Known proposals do not constitute a real reorg; the inserter will detect
+		// and signal a PreconfChainReorged if the payload actually changes.
 		PreconfChainReorged: false,
 		LastBlockID:         blockID.ToInt().Uint64(),
 	})
