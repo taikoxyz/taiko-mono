@@ -35,7 +35,7 @@ jobs:
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hoodi|mainnet)>_<environment(preview|production)>
   # Internal Devnet
   deploy_bridge-ui_devnet_preview:
-    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && github.event.pull_request.head.repo.fork == false }}
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
       environment: "preview"
