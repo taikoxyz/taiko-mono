@@ -52,10 +52,11 @@ contract TaikoToken is TaikoTokenBase {
 
     /// @notice Permanently renounces the caller's voting power. Irreversible.
     /// @dev After calling, `getVotes(msg.sender)` and `getPastVotes(msg.sender, _)` always return
-    /// 0, and the caller can neither delegate nor be delegated to. The caller's TAIKO balance is
-    /// unaffected and the total voting supply (`getPastTotalSupply`) is unchanged — the
-    /// renouncer's tokens remain in the raw checkpoint store so the governance denominator does
-    /// not shrink.
+    /// 0. The caller's TAIKO balance is unaffected and the total voting supply
+    /// (`getPastTotalSupply`) is unchanged — the renouncer's tokens remain in the raw checkpoint
+    /// store so the governance denominator does not shrink. Delegation calls (including
+    /// `delegateBySig`) are not blocked, but any voting power routed to the renouncer is read as
+    /// 0 via the view overrides.
     ///
     /// Side effect: any address that had previously delegated to the renouncer also loses voting
     /// power until it re-delegates elsewhere, because `getPastVotes` of the renouncer returns 0.
@@ -80,11 +81,6 @@ contract TaikoToken is TaikoTokenBase {
     }
 
     function delegate(address _account) public override {
-        require(
-            !_votingPowerRenounced[msg.sender] && !_votingPowerRenounced[_account],
-            TT_VOTING_POWER_RENOUNCED()
-        );
-
         // Ensure non-voting accounts cannot delegate or being delegated to.
         address[] memory accounts = getNonVotingAccounts();
         for (uint256 i; i < accounts.length; ++i) {

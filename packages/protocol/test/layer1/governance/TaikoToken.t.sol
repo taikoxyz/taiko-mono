@@ -87,22 +87,17 @@ contract TaikoTokenTest is CommonTest {
         token.renounceVotingPower();
     }
 
-    function test_delegate_RevertWhen_CallerHasRenounced() public {
-        vm.startPrank(Alice);
-        token.renounceVotingPower();
-
-        vm.expectRevert(TaikoToken.TT_VOTING_POWER_RENOUNCED.selector);
-        token.delegate(Bob);
-        vm.stopPrank();
-    }
-
-    function test_delegate_RevertWhen_DelegateeHasRenounced() public {
+    function test_delegate_afterRenounce_doesNotRestoreVotes() public {
+        _seed(Alice, 100 ether);
         vm.prank(Alice);
         token.renounceVotingPower();
 
-        vm.expectRevert(TaikoToken.TT_VOTING_POWER_RENOUNCED.selector);
-        vm.prank(Bob);
-        token.delegate(Alice);
+        vm.prank(Alice);
+        token.delegate(Bob);
+        _advance();
+
+        assertEq(token.getVotes(Alice), 0);
+        assertEq(token.getPastVotes(Alice, block.timestamp - 1), 0);
     }
 
     function test_getPastVotes_returnsZeroForRenouncedAccount() public {
