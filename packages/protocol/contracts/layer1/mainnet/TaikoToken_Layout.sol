@@ -38,3 +38,4 @@ pragma solidity ^0.8.26;
 //   _totalSupplyCheckpoints        | struct ERC20VotesUpgradeable.Checkpoint[]          | Slot: 456  | Offset: 0    | Bytes: 32  
 //   __gap                          | uint256[47]                                        | Slot: 457  | Offset: 0    | Bytes: 1504
 //   __gap                          | uint256[50]                                        | Slot: 504  | Offset: 0    | Bytes: 1600
+//   _votingPowerRenounced          | mapping(address => bool)                           | Slot: 554  | Offset: 0    | Bytes: 32  
