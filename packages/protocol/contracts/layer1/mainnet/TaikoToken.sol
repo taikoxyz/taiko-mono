@@ -94,8 +94,9 @@ contract TaikoToken is TaikoTokenBase {
     }
 
     function getVotes(address _account) public view override returns (uint256) {
-        if (_votingPowerRenounced[_account]) return 0;
-        return super.getVotes(_account);
+        uint256 votes = super.getVotes(_account);
+        if (votes == 0) return 0;
+        return _votingPowerRenounced[_account] ? 0 : votes;
     }
 
     function getPastVotes(
@@ -107,13 +108,13 @@ contract TaikoToken is TaikoTokenBase {
         override
         returns (uint256)
     {
-        if (_votingPowerRenounced[_account]) return 0;
-
         address[] memory accounts = getNonVotingAccounts();
         for (uint256 i; i < accounts.length; ++i) {
             if (_account == accounts[i]) return 0;
         }
-        return super.getPastVotes(_account, _timepoint);
+        uint256 votes = super.getPastVotes(_account, _timepoint);
+        if (votes == 0) return 0;
+        return _votingPowerRenounced[_account] ? 0 : votes;
     }
 
     /// @notice This override modifies the return value to reflect the past total supply eligible
