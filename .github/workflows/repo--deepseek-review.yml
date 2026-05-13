@@ -45,26 +45,13 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Get PR number (from comment trigger)
-        if: github.event_name == 'issue_comment'
-        id: pr-from-comment
-        run: |
-          PR_NUMBER=$(gh pr view "${{ github.event.issue.number }}" --json number -q '.number' 2>/dev/null || echo "")
-          if [ -n "$PR_NUMBER" ]; then
-            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-          else
-            echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set PR number
+      - name: Resolve PR number
         id: pr
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           else
-            echo "number=${{ steps.pr-from-comment.outputs.pr_number }}" >> $GITHUB_OUTPUT
+            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run DeepSeek Code Review
@@ -172,7 +159,18 @@ jobs:
               throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
             }
 
-            const reviewText = data.choices[0].message.content;
+            const choice = data.choices && data.choices[0];
+            const reviewText = (choice && choice.message && choice.message.content || '').trim();
+            const finishReason = choice && choice.finish_reason;
+
+            if (!reviewText) {
+              const usage = data.usage ? JSON.stringify(data.usage) : 'unknown';
+              core.warning(
+                `DeepSeek returned no review content (finish_reason=${finishReason || 'unknown'}, usage=${usage}). ` +
+                `Skipping comment to avoid posting an empty review.`
+              );
+              return { success: false, reason: 'empty-content', finishReason };
+            }
 
             // Build comment body
             const triggerInfo = context.eventName === 'pull_request'
