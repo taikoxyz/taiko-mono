@@ -9,14 +9,18 @@ Cap proving time per block with a protocol constant `BLOCK_ZK_GAS_LIMIT`
 | Constant | Value | Description |
 | --- | --- | --- |
 | `BLOCK_ZK_GAS_LIMIT` | 100,000,000 | Maximum zk gas allowed per block. See [Appendix C](#appendix-c-block_zk_gas_limit-rationale) for rationale. |
+| `TX_INTRINSIC_ZK_GAS` | 243,000 | Fixed zk gas charged once per transaction, primarily covering sender ecrecovery cost. |
 
 ## Core Idea
 
 `zk gas` is a weighted gas metric — the gas consumed by each opcode and precompile is scaled by a proving-cost multiplier.
 
+Each block transaction also pays `TX_INTRINSIC_ZK_GAS` before opcode or precompile metering begins.
+
 Each block has a `BLOCK_ZK_GAS_LIMIT`. If cumulative zk gas exceeds this limit during execution, the offending tx is aborted (all state changes discarded, as if the tx was never executed) and all remaining txs are skipped. Txs that completed before the offending one are kept.
 
-Two areas require special handling:
+Three areas require special handling:
+- Transaction intrinsic cost — see [Pseudocode](#pseudocode)
 - Spawn opcodes (`CALL`, `CREATE` family) — see [Problem with Spawn Opcodes](#problem-with-spawn-opcodes)
 - Precompile calls — see [Precompile Metering](#precompile-metering)
 
@@ -48,6 +52,7 @@ Definitions:
 - `SPAWN_OPCODES`: `CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`, `CREATE`, `CREATE2`
 - `child_frame_created`: true only when a spawn opcode creates a child EVM execution frame.
 - `precompile_invoked`: true when a CALL-family opcode (`CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`) resolves to an active precompile and executes it.
+- `tx_intrinsic_zk_gas`: transaction-level zk gas charged once per transaction, equal to `TX_INTRINSIC_ZK_GAS`.
 - `opcode_multiplier[opcode]`: per-opcode proving-cost multiplier. All valid opcodes are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted opcodes default to `max(uint16)` (fail-safe).
 - `precompile_multiplier[addr]`: per-precompile proving-cost multiplier, indexed by the low byte of the precompile address. All active precompiles are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted precompiles default to `max(uint16)` (fail-safe).
 - Multiplier values are listed in [Appendix B](#appendix-b-full-zk-multipliers).
@@ -59,6 +64,9 @@ Definitions:
 # uint16: unsigned 16-bit integer
 # opcode_multiplier: array[256] of uint16, indexed by opcode byte (0x00..0xFF)
 # precompile_multiplier: array[256] of uint16, indexed by low byte of precompile address
+
+# --- Transaction-level constants ---
+TX_INTRINSIC_ZK_GAS = 243_000
 
 # --- Spawn estimation constants ---
 SPAWN_ESTIMATE = {
@@ -97,13 +105,22 @@ def on_precompile(precompile_address: uint8, gas_used: uint64):
 
 
 # --- Block-level validation ---
-# All transactions in the block are metered, including system/anchor transactions.
+# All transactions in the block are metered, including the anchor transaction.
 
 def execute_block(txs, BLOCK_ZK_GAS_LIMIT: uint64):
     block_zk_gas_used: uint64 = 0
 
     for tx in txs:
         tx_zk_gas_used: uint64 = 0
+
+        tx_zk_gas_used += TX_INTRINSIC_ZK_GAS
+        if block_zk_gas_used + tx_zk_gas_used > BLOCK_ZK_GAS_LIMIT:
+            halt_execution()
+
+        if was_halted():                # zk gas limit exceeded before tx execution
+            abort_tx(tx)               # discard ALL state changes for the entire tx
+            break                      # skip all remaining txs
+
         execute_tx(tx)  # triggers on_opcode / on_precompile hooks above
 
         if was_halted():                # zk gas limit exceeded mid-tx
