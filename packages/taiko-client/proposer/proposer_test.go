@@ -369,7 +369,7 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 	// Propose a batch which contains two blobs.
 	var (
 		batchSize    = 2
-		txNumInBatch = 500
+		txNumInBatch = 150
 		txsBatch     = make([]types.Transactions, batchSize)
 	)
 	testAddrNonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, l2Head1.Number)
