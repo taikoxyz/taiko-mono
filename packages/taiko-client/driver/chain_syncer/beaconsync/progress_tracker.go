@@ -102,14 +102,14 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 		}
 
 		if new(big.Int).SetUint64(headHeight).Cmp(t.lastSyncedBlockID) >= 0 {
-			// EE reports `eth_syncing: false` and its head is at or past the
-			// latest beacon pivot. Mark out-of-sync so chain_syncer.Sync's
-			// needNewBeaconSyncTriggered returns false on the next tick and the
-			// syncer falls through to MarkFinished + SetUpEventSync, instead of
-			// waiting out the full `--p2p.syncTimeout`.
+			// EE reports `eth_syncing: false` at or past the latest beacon pivot.
+			// Mark the sync finished so chain_syncer skips the next checkpoint
+			// fetch, and out-of-sync so SetUpEventSync uses the EE's live head
+			// (not blockIDToSync=0, which would reset L1Current to genesis).
 			t.lastSyncProgress = nil
 			t.lastProgressedTime = time.Now()
 			t.outOfSync = true
+			t.finished = true
 			log.Info(
 				"L2 execution engine has finished the P2P sync work, all verified blocks synced, "+
 					"will switch to insert pending blocks one by one",

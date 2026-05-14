@@ -86,14 +86,16 @@ func (s *BeaconSyncProgressTrackerTestSuite) TestLastSyncedVerifiedBlockHash() {
 	s.Equal(randomHash, s.t.LastSyncedBlockHash())
 }
 
-// TestTrack_FlipsOutOfSync_WhenEEReportsSyncedAtPivot is a regression test for the
-// `--p2p.sync` plateau: once the EE reports `eth_syncing: false` AND its head is at
-// or past the last beacon pivot we asked it to sync to, the tracker must flip
-// `outOfSync = true` so chain_syncer.Sync's `needNewBeaconSyncTriggered` (which gates
-// on `!OutOfSync`) returns false and the syncer falls through to event-sync — instead
-// of waiting out the full `--p2p.syncTimeout` (default 1h). Without this flip, the
-// driver wedges in a TriggerBeaconSync→no-op loop until the timeout expires.
-func (s *BeaconSyncProgressTrackerTestSuite) TestTrack_FlipsOutOfSync_WhenEEReportsSyncedAtPivot() {
+// TestTrack_MarksFinishedAndFlipsOutOfSync_WhenEEReportsSyncedAtPivot is a regression
+// test for the `--p2p.sync` plateau: once the EE reports `eth_syncing: false` AND its
+// head is at or past the last beacon pivot we asked it to sync to, the tracker must
+// mark the beacon sync `finished = true` (so `needNewBeaconSyncTriggered` short-circuits
+// on the next tick) AND set `outOfSync = true` (so `SetUpEventSync` uses the EE's live
+// head instead of a `blockIDToSync=0` that would reset L1Current to genesis). Together
+// these flip the syncer to event-sync immediately, instead of waiting out the full
+// `--p2p.syncTimeout` (default 1h). Without both flips, the driver wedges in a
+// TriggerBeaconSync→no-op loop until the timeout expires.
+func (s *BeaconSyncProgressTrackerTestSuite) TestTrack_MarksFinishedAndFlipsOutOfSync_WhenEEReportsSyncedAtPivot() {
 	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
 
@@ -104,10 +106,12 @@ func (s *BeaconSyncProgressTrackerTestSuite) TestTrack_FlipsOutOfSync_WhenEERepo
 	s.t.lastSyncedBlockHash = head.Hash()
 	s.t.lastProgressedTime = time.Now()
 	s.False(s.t.outOfSync)
+	s.False(s.t.finished)
 
 	s.t.track(context.Background())
 
 	s.True(s.t.outOfSync, "track() must set outOfSync=true once the EE has caught the beacon pivot")
+	s.True(s.t.finished, "track() must mark the beacon sync finished once the EE has caught the beacon pivot")
 }
 
 // TestTrack_PreservesLastSyncProgress_OnRpcError protects against the
