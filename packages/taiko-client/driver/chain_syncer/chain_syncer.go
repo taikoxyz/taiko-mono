@@ -153,17 +153,9 @@ func (s *L2ChainSyncer) Sync() error {
 // This method should only be called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	var headNumber = new(big.Int).SetUint64(blockIDToSync)
-	// Fall back to the live EE head when either:
-	//   - the tracker is flagged OutOfSync (the existing timeout path), or
-	//   - blockIDToSync is 0, which happens once needNewBeaconSyncTriggered
-	//     short-circuits via Finished()=true. Without this guard,
-	//     HeaderByNumber(0) returns genesis and ResetL1Current(0) walks the
-	//     L1Current cursor back to the genesis L1 height (see
-	//     state/l1_current.go), kicking off a full proposal-by-proposal
-	//     re-anchor from the start of the chain even though the EE is
-	//     already at the live tip. The patched 2026-05-15 run on gavin's
-	//     devnet showed this firing 5 times for NMC and 1 for reth without
-	//     the guard.
+	// Fall back to the live EE head when the tracker is OutOfSync, or when
+	// blockIDToSync is 0 (the Finished() short-circuit path) — otherwise
+	// HeaderByNumber(0) resolves to genesis and resets L1Current there.
 	if s.progressTracker.OutOfSync() || blockIDToSync == 0 {
 		headNumber = nil
 	}
@@ -197,21 +189,10 @@ func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	return nil
 }
 
-// syncProgressGracePeriod is the block-count tolerance applied by AheadOfHeadToSync.
-// The EE is treated as "ahead enough" when it trails the checkpoint head by no more
-// than this many blocks, in which case the driver hands off to event-sync rather
-// than re-trigger beacon-sync.
-//
-// Beacon-sync over a small residual gap stalls in practice: the per-trigger Engine
-// API overhead (NewPayload + ForkchoiceUpdate + peer discovery for the new pivot)
-// dominates the work for gaps in the low single digits, and an EE that has just
-// caught up can wait indefinitely without making forward progress on the next
-// pivot. Event-sync, which inserts proposals one at a time, closes these short
-// gaps reliably. 64 matches gapToResync in the tracker — the threshold below which
-// NeedReSync already declines to re-trigger beacon-sync mid-flight — keeping both
-// decisions consistent. The previous 1-block tolerance was originally introduced
-// to avoid InsertBlockWithoutSetHead in the EE; that concern is still covered by
-// a strictly larger tolerance.
+// syncProgressGracePeriod is the AheadOfHeadToSync tolerance: if the EE is within this
+// many blocks of the checkpoint head, hand off to event-sync rather than re-trigger
+// beacon-sync. Beacon-sync over a few-block gap stalls in practice (per-trigger overhead
+// exceeds the work). 64 matches gapToResync in the tracker.
 const syncProgressGracePeriod uint64 = 64
 
 // AheadOfHeadToSync checks whether the L2 chain is ahead of the head to sync in protocol.
