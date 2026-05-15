@@ -110,6 +110,42 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
 	s.True(s.s.AheadOfHeadToSync(0))
 }
 
+// TestAheadOfHeadToSync_GracePeriod is the regression test for the `--p2p.sync`
+// plateau against NMC. Before this change AheadOfHeadToSync used a 1-block
+// tolerance: an EE that had just caught up to a beacon pivot but trailed the
+// freshly-fetched checkpoint head by only a few blocks was classified as
+// "behind", causing the driver to re-trigger beacon-sync over a tiny gap that
+// NMC cannot efficiently bridge via P2P. The driver and EE then waited on each
+// other until --p2p.syncTimeout (default 1h) fired. With the wider grace
+// window, the same scenario reports "ahead", so the driver hands off to
+// event-sync instead — which closes the residual gap one proposal at a time.
+func (s *ChainSyncerTestSuite) TestAheadOfHeadToSync_GracePeriod() {
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	// Pretend a beacon-sync to the current L2 head completed, then the
+	// checkpoint head advanced a few blocks ahead — the residual-gap regime.
+	s.s.state.SetL2Head(head)
+	s.s.progressTracker.UpdateMeta(head.Number, head.Hash())
+
+	smallGap := new(big.Int).Add(head.Number, big.NewInt(3))
+	s.True(
+		s.s.AheadOfHeadToSync(smallGap.Uint64()),
+		"EE that trails checkpoint by a handful of blocks must be considered ahead, "+
+			"otherwise the driver re-triggers beacon-sync over a gap NMC cannot bridge",
+	)
+
+	// A gap larger than the grace period is still classified as "behind",
+	// so beacon-sync is correctly re-triggered when the chain has run far
+	// enough ahead for bulk sync to be worthwhile again.
+	bigGap := new(big.Int).Add(head.Number, new(big.Int).SetUint64(syncProgressGracePeriod+1))
+	s.False(
+		s.s.AheadOfHeadToSync(bigGap.Uint64()),
+		"EE that trails checkpoint by more than the grace period must be considered "+
+			"behind so the driver re-triggers beacon-sync for the larger gap",
+	)
+}
+
 func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)

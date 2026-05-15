@@ -79,8 +79,6 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 
 	progress, err := t.client.SyncProgress(ctx)
 	if err != nil {
-		// Transient RPC error: preserve the previous sample so a successful
-		// poll on the next tick can still detect progress.
 		log.Error("Get L2 execution engine sync progress error", "error", err)
 		return
 	}
@@ -102,14 +100,7 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 		}
 
 		if new(big.Int).SetUint64(headHeight).Cmp(t.lastSyncedBlockID) >= 0 {
-			// EE reports `eth_syncing: false` at or past the latest beacon pivot.
-			// Mark the sync finished so chain_syncer skips the next checkpoint
-			// fetch, and out-of-sync so SetUpEventSync uses the EE's live head
-			// (not blockIDToSync=0, which would reset L1Current to genesis).
-			t.lastSyncProgress = nil
 			t.lastProgressedTime = time.Now()
-			t.outOfSync = true
-			t.finished = true
 			log.Info(
 				"L2 execution engine has finished the P2P sync work, all verified blocks synced, "+
 					"will switch to insert pending blocks one by one",
