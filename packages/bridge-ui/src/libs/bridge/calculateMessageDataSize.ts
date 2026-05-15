@@ -1,7 +1,7 @@
 import { encodeAbiParameters, encodeFunctionData, type Hex, zeroAddress } from 'viem';
 
 import { erc20VaultAbi, erc721VaultAbi, erc1155VaultAbi } from '$abi';
-import { type NFT, type Token, TokenType } from '$libs/token';
+import { type NFT, type Token, TokenType } from '$libs/token/types';
 import { getLogger } from '$libs/util/logger';
 
 type CanonicalERC20 = {
@@ -158,7 +158,15 @@ async function encodeData(token: Token | NFT, chainId: number, tokenIds?: number
       },
     ];
 
-    const values = [[cNFT.chainId, cNFT.addr, cNFT.symbol, cNFT.name], zeroAddress, zeroAddress, tokenIds, amounts];
+    const encodedTokenIds = normalizeTokenIds(tokenIds);
+    const encodedAmounts = (amounts?.length ? amounts : encodedTokenIds.map(() => 1)).map(BigInt);
+    const values = [
+      [cNFT.chainId, cNFT.addr, cNFT.symbol, cNFT.name],
+      zeroAddress,
+      zeroAddress,
+      encodedTokenIds,
+      encodedAmounts,
+    ];
 
     const callData = encodeAbiParameters(params, values);
     log('callData', callData);
@@ -204,7 +212,12 @@ async function encodeData(token: Token | NFT, chainId: number, tokenIds?: number
       },
     ];
 
-    const values = [[cNFT.chainId, cNFT.addr, cNFT.symbol, cNFT.name], zeroAddress, zeroAddress, tokenIds?.map(BigInt)];
+    const values = [
+      [cNFT.chainId, cNFT.addr, cNFT.symbol, cNFT.name],
+      zeroAddress,
+      zeroAddress,
+      normalizeTokenIds(tokenIds),
+    ];
 
     const callData = encodeAbiParameters(params, values);
     log('callData', callData);
@@ -220,4 +233,8 @@ async function encodeData(token: Token | NFT, chainId: number, tokenIds?: number
   } else {
     throw new Error('Unsupported token type');
   }
+}
+
+function normalizeTokenIds(tokenIds?: number[]): bigint[] {
+  return (tokenIds?.length ? tokenIds : [0]).map(BigInt);
 }

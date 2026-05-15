@@ -1,11 +1,9 @@
-import { getPublicClient, readContract, simulateContract, writeContract } from '@wagmi/core';
+import { readContract, simulateContract, writeContract } from '@wagmi/core';
 import { get } from 'svelte/store';
 import { getContract, UserRejectedRequestError } from 'viem';
 
-import { bridgeAbi, erc20Abi, erc20VaultAbi } from '$abi';
-import { routingContractsMap } from '$bridgeConfig';
+import { erc20Abi, erc20VaultAbi } from '$abi';
 import { destOwnerAddress, gasLimitZero } from '$components/Bridge/state';
-import { gasLimitConfig } from '$config';
 import {
   ApproveError,
   BridgePausedError,
@@ -20,7 +18,7 @@ import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
 
 import { Bridge } from './Bridge';
-import { calculateMessageDataSize } from './calculateMessageDataSize';
+import { estimateMessageGasLimit } from './estimateMessageGasLimit';
 import type { ApproveArgs, ERC20BridgeArgs, ERC20BridgeTransferOp, RequireAllowanceArgs } from './types';
 
 const log = getLogger('ERC20Bridge');
@@ -47,28 +45,17 @@ export class ERC20Bridge extends Bridge {
       address: tokenVaultAddress,
     });
 
-    const { size } = await calculateMessageDataSize({ token: tokenObject, chainId: srcChainId });
-
-    const client = await getPublicClient(config, { chainId: destChainId });
-    if (!client) throw new Error('Could not get public client');
-
-    const destBridgeAddress = routingContractsMap[destChainId][srcChainId].bridgeAddress;
-    const destBridgeContract = getContract({
-      client,
-      abi: bridgeAbi,
-      address: destBridgeAddress,
-    });
-
-    const minGasLimit = await destBridgeContract.read.getMessageMinGasLimit([BigInt(size)]);
-
     let gasLimit: number;
     if (get(gasLimitZero)) {
       log('Gas limit is set to 0');
       gasLimit = 0;
     } else {
-      gasLimit = !isTokenAlreadyDeployed
-        ? minGasLimit + gasLimitConfig.erc20NotDeployedGasLimit // Token is not deployed
-        : minGasLimit + gasLimitConfig.erc20DeployedGasLimit; // Token is deployed
+      gasLimit = await estimateMessageGasLimit({
+        token: tokenObject,
+        srcChainId,
+        destChainId,
+        isTokenAlreadyDeployed,
+      });
     }
 
     log('Calculated gasLimit for message', gasLimit);
