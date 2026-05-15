@@ -891,6 +891,8 @@ github.com/taikoxyz/taiko-geth v1.18.1-0.20260508015755-6c6a4df06d46 h1:vSQnXZ6c
 github.com/taikoxyz/taiko-geth v1.18.1-0.20260508015755-6c6a4df06d46/go.mod h1:KHcRXfGOUfUmKg51IhQ0IowiqZ6PqZf08CMtk0g5K1o=
 github.com/taikoxyz/taiko-geth v1.18.1-0.20260513112312-9d62780bfc85 h1:w2ZkiQRMvN9yGEnmBNy+CbItQ9rr4gIi+gNbB7wtCDQ=
 github.com/taikoxyz/taiko-geth v1.18.1-0.20260513112312-9d62780bfc85/go.mod h1:KHcRXfGOUfUmKg51IhQ0IowiqZ6PqZf08CMtk0g5K1o=
+github.com/taikoxyz/taiko-geth v1.18.1-0.20260515033657-f23532c7cbdc h1:jHgmGs7MCj10TpQKN7y9bcqop19wBqBwvYkCxxDaxXY=
+github.com/taikoxyz/taiko-geth v1.18.1-0.20260515033657-f23532c7cbdc/go.mod h1:KHcRXfGOUfUmKg51IhQ0IowiqZ6PqZf08CMtk0g5K1o=
 github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cbyO7IOYJZWg1U88JhDg3PB6klq9Hg2pA=
 github.com/testcontainers/testcontainers-go v0.40.0 h1:pSdJYLOVgLE8YdUY2FHQ1Fxu+aMnb6JfVz1mxk7OeMU=
 github.com/testcontainers/testcontainers-go v0.40.0/go.mod h1:FSXV5KQtX2HAMlm7U3APNyLkkap35zNLxukw9oBi/MY=

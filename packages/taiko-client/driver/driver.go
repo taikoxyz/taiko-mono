@@ -189,7 +189,6 @@ func (d *Driver) Start() error {
 
 		go d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
 	}
-
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
 		log.Info("Start P2P discovery process")
 
