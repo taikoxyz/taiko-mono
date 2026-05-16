@@ -18,15 +18,19 @@ func DialClientWithBackoff(
 	url string,
 	retryInterval time.Duration,
 	maxRetries uint64) (*ethclient.Client, error) {
-	var client *ethclient.Client
+	var (
+		client  *ethclient.Client
+		attempt uint64
+	)
 	if err := backoff.Retry(
 		func() (err error) {
+			attempt++
 			ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 			defer cancel()
 
 			client, err = ethclient.DialContext(ctxWithTimeout, url)
 			if err != nil {
-				log.Error("Dial ethclient error", "url", url, "error", err)
+				log.Error("Dial ethclient error", "url", url, "attempt", attempt, "maxRetries", maxRetries, "error", err)
 				return err
 			}
 
@@ -49,16 +53,20 @@ func DialEngineClientWithBackoff(
 	retryInterval time.Duration,
 	maxRetry uint64,
 ) (*EngineClient, error) {
-	var engineClient *EngineClient
+	var (
+		engineClient *EngineClient
+		attempt      uint64
+	)
 	if err := backoff.Retry(
 		func() (err error) {
+			attempt++
 			ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 			defer cancel()
 
 			jwtAuth := node.NewJWTAuth(StringToBytes32(jwtSecret))
 			client, err := rpc.DialOptions(ctxWithTimeout, url, rpc.WithHTTPAuth(jwtAuth))
 			if err != nil {
-				log.Error("Dial engine client error", "url", url, "error", err)
+				log.Error("Dial engine client error", "url", url, "attempt", attempt, "maxRetry", maxRetry, "error", err)
 				return err
 			}
 
