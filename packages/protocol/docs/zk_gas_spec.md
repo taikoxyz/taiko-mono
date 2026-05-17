@@ -10,10 +10,13 @@ Cap proving time per block with a protocol constant `BLOCK_ZK_GAS_LIMIT`
 | --- | --- | --- |
 | `BLOCK_ZK_GAS_LIMIT` | 100,000,000 | Maximum zk gas allowed per block. See [Appendix C](#appendix-c-block_zk_gas_limit-rationale) for rationale. |
 | `TX_INTRINSIC_ZK_GAS` | 243,000 | Fixed zk gas charged once per transaction, primarily covering sender ecrecovery cost. |
+| `ZK_GAS_METERING_OVERHEAD` | 90 | Fixed zk gas charged once per opcode execution and once per precompile call, covering the prover cost of the zk-gas metering hook itself. |
 
 ## Core Idea
 
 `zk gas` is a weighted gas metric — the gas consumed by each opcode and precompile is scaled by a proving-cost multiplier.
+
+Each opcode execution and each precompile call also pays a flat `ZK_GAS_METERING_OVERHEAD` on top of its `gas × multiplier`.
 
 Each block transaction also pays `TX_INTRINSIC_ZK_GAS` before opcode or precompile metering begins.
 
@@ -53,6 +56,7 @@ Definitions:
 - `child_frame_created`: true only when a spawn opcode creates a child EVM execution frame.
 - `precompile_invoked`: true when a CALL-family opcode (`CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`) resolves to an active precompile and executes it.
 - `tx_intrinsic_zk_gas`: transaction-level zk gas charged once per transaction, equal to `TX_INTRINSIC_ZK_GAS`.
+- `zk_gas_metering_overhead`: zk gas charged once per invocation of the zk gas metering hook (i.e. once per opcode execution and once per precompile call), equal to `ZK_GAS_METERING_OVERHEAD`.
 - `opcode_multiplier[opcode]`: per-opcode proving-cost multiplier. All valid opcodes are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted opcodes default to `max(uint16)` (fail-safe).
 - `precompile_multiplier[addr]`: per-precompile proving-cost multiplier, indexed by the low byte of the precompile address. All active precompiles are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted precompiles default to `max(uint16)` (fail-safe).
 - Multiplier values are listed in [Appendix B](#appendix-b-full-zk-multipliers).
@@ -67,6 +71,9 @@ Definitions:
 
 # --- Transaction-level constants ---
 TX_INTRINSIC_ZK_GAS = 243_000
+
+# --- Metering overhead ---
+ZK_GAS_METERING_OVERHEAD = 90
 
 # --- Spawn estimation constants ---
 SPAWN_ESTIMATE = {
@@ -89,7 +96,7 @@ def on_opcode(opcode: uint8, step_gas: uint64, child_frame_created: bool, precom
     else:
         raw_gas: uint64 = step_gas
 
-    tx_zk_gas_used += raw_gas * opcode_multiplier[opcode]
+    tx_zk_gas_used += raw_gas * opcode_multiplier[opcode] + ZK_GAS_METERING_OVERHEAD
 
     if block_zk_gas_used + tx_zk_gas_used > BLOCK_ZK_GAS_LIMIT:
         halt_execution()  # stop immediately, do not execute further opcodes
@@ -98,7 +105,7 @@ def on_opcode(opcode: uint8, step_gas: uint64, child_frame_created: bool, precom
 # --- Precompile hook (called when a CALL-family opcode resolves to a precompile) ---
 
 def on_precompile(precompile_address: uint8, gas_used: uint64):
-    tx_zk_gas_used += gas_used * precompile_multiplier[precompile_address]
+    tx_zk_gas_used += gas_used * precompile_multiplier[precompile_address] + ZK_GAS_METERING_OVERHEAD
 
     if block_zk_gas_used + tx_zk_gas_used > BLOCK_ZK_GAS_LIMIT:
         halt_execution()
@@ -139,7 +146,7 @@ Precompile detection is implementation-defined (e.g. checking the active precomp
 When a CALL-family opcode targets a precompile address:
 
 - The CALL-family opcode itself is metered via `on_opcode` with `precompile_invoked = True` and uses `SPAWN_ESTIMATE[opcode]` as raw gas (not `step_gas`). This covers only opcode-side spawn overhead.
-- `precompile_zk = precompile_gas_used * precompile_multiplier[low_byte]`
+- `precompile_zk = precompile_gas_used * precompile_multiplier[low_byte] + ZK_GAS_METERING_OVERHEAD`
 - `precompile_gas_used` is the gas charged by the precompile's own gas schedule (`base_cost + data_cost`), excluding the CALL-family opcode's own costs (cold account access, memory expansion, value transfer stipend). This is the value deducted from the calling frame's gas counter when the precompile runs.
 - The charge is applied after the precompile executes, since gas cost is only known after execution. Since precompiles are atomic (no child opcodes), the block limit check fires before any subsequent opcode.
 
