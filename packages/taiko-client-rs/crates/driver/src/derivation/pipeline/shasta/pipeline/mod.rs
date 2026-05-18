@@ -96,8 +96,11 @@ fn build_bundle_meta(
     event: &ProposedEventContext,
     last_finalized_proposal_id: Option<u64>,
 ) -> BundleMeta {
+    let proposal_id = event.event.id.to::<u64>();
+    let last_finalized_proposal_id = last_finalized_proposal_id.filter(|id| *id < proposal_id);
+
     BundleMeta {
-        proposal_id: event.event.id.to::<u64>(),
+        proposal_id,
         last_finalized_proposal_id,
         proposal_timestamp: event.l1_timestamp,
         l1_block_number: event.l1_block_number,
