@@ -294,7 +294,7 @@ mod tests {
         );
         assert_eq!(
             unzen_fork_condition_for_chain(TAIKO_HOODI_CHAIN_ID),
-            Some(ForkCondition::Timestamp(1_779_368_400))
+            Some(ForkCondition::Never)
         );
         assert_eq!(
             unzen_fork_condition_for_chain(TAIKO_MAINNET_CHAIN_ID),
@@ -314,11 +314,10 @@ mod tests {
                 .expect("masaya unzen timestamp should resolve"),
             1_778_158_800
         );
-        assert_eq!(
-            unzen_fork_timestamp_for_chain(TAIKO_HOODI_CHAIN_ID)
-                .expect("hoodi unzen timestamp should resolve"),
-            1_779_368_400
-        );
+        assert!(matches!(
+            unzen_fork_timestamp_for_chain(TAIKO_HOODI_CHAIN_ID),
+            Err(ForkConfigError::UnsupportedActivation)
+        ));
         assert!(matches!(
             unzen_fork_timestamp_for_chain(TAIKO_MAINNET_CHAIN_ID),
             Err(ForkConfigError::UnsupportedActivation)
@@ -357,7 +356,7 @@ mod tests {
                 TAIKO_HOODI_CHAIN_ID,
                 1_779_368_400
             ),
-            super::UNZEN_DERIVATION_SOURCE_MAX_BLOCKS
+            DERIVATION_SOURCE_MAX_BLOCKS
         );
         assert_eq!(
             super::derivation_source_max_blocks_for_chain_timestamp(u64::MAX, u64::MAX),
