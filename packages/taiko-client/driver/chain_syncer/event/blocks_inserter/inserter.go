@@ -46,8 +46,8 @@ func tryLastFinalizedCheckpoint(
 		return nil, nil
 	}
 
-	// We can skip this check when proposalID is nil
-	if proposalID != nil && coreState.LastFinalizedProposalId.Cmp(proposalID) < 0 {
+	// We can skip this check when proposalID is nil or LastFinalizedProposalId is larger than proposalID
+	if proposalID != nil && coreState.LastFinalizedProposalId.Cmp(proposalID) >= 0 {
 		return nil, nil
 	}
 
