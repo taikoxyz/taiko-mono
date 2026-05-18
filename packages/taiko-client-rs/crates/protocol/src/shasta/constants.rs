@@ -75,7 +75,7 @@ pub const UNZEN_FORK_DEVNET: ForkCondition = ForkCondition::Timestamp(0);
 pub const UNZEN_FORK_MASAYA: ForkCondition = ForkCondition::Timestamp(1_778_158_800);
 
 /// Unzen fork activation on Taiko Hoodi.
-pub const UNZEN_FORK_HOODI: ForkCondition = ForkCondition::Timestamp(1_779_368_400);
+pub const UNZEN_FORK_HOODI: ForkCondition = ForkCondition::Never;
 
 /// Unzen fork activation on Taiko Mainnet.
 pub const UNZEN_FORK_MAINNET: ForkCondition = ForkCondition::Never;
