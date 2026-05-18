@@ -46,7 +46,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 // getFirstShastaBlockHeight returns the first Shasta block height.
 func (i *Indexer) getFirstShastaBlockHeight(ctx context.Context) (uint64, error) {
 	if i.shastaInbox == nil {
-		return 0, errors.New("no compatible TaikoL1 contract version found")
+		return 0, errors.New("shasta inbox contract not configured")
 	}
 
 	ts, err := i.shastaInbox.ActivationTimestamp(nil)

@@ -23,13 +23,6 @@ var (
 		Value:    10,
 		EnvVars:  []string{"ETH_CLIENT_TIMEOUT"},
 	}
-	L1TaikoAddress = &cli.StringFlag{
-		Name:     "l1TaikoAddress",
-		Usage:    "Address of the TaikoL1 contract",
-		Required: false,
-		Category: indexerCategory,
-		EnvVars:  []string{"L1_TAIKO_ADDRESS"},
-	}
 	ShastaInboxAddress = &cli.StringFlag{
 		Name:     "shastaInboxAddress",
 		Usage:    "Address of the Inbox contract for Shasta",
@@ -87,7 +80,6 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	IndexerRPCUrl,
 	// optional
 	ETHClientTimeout,
-	L1TaikoAddress,
 	ShastaInboxAddress,
 	BridgeAddress,
 	BlockBatchSize,

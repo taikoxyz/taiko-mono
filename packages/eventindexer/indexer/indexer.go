@@ -14,7 +14,6 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/shasta/inbox"
-	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/taikol1"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/repo"
 )
@@ -53,7 +52,6 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	taikol1     *taikol1.TaikoL1
 	bridge      *bridge.Bridge
 	shastaInbox *inbox.Inbox
 
@@ -161,17 +159,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return errors.Wrap(err, "i.ethClient.ChainID()")
 	}
 
-	var taikoL1 *taikol1.TaikoL1
-
-	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
-
-		taikoL1, err = taikol1.NewTaikoL1(cfg.L1TaikoAddress, ethClient)
-		if err != nil {
-			return errors.Wrap(err, "contracts.NewTaikoL1")
-		}
-	}
-
 	var shastaInbox *inbox.Inbox
 
 	if cfg.ShastaInboxAddress.Hex() != ZeroAddress.Hex() {
@@ -205,7 +192,6 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.srcChainID = chainID.Uint64()
 
 	i.ethClient = ethClient
-	i.taikol1 = taikoL1
 	i.shastaInbox = shastaInbox
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
