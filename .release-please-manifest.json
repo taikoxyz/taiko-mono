@@ -4,7 +4,7 @@
   "packages/ejector": "0.7.0",
   "packages/fork-diff": "0.7.2",
   "packages/protocol": "2.3.0",
-  "packages/relayer": "0.13.1",
+  "packages/relayer": "0.13.2",
   "packages/snaefell-ui": "1.1.0",
   "packages/supplementary-contracts": "1.0.0",
   "packages/taiko-client": "2.3.0",
