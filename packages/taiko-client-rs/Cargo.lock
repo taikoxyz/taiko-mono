@@ -66,6 +66,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "alethia-reth-chainspec"
+version = "1.1.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=2213eabe288a267764160ba64eb86864930bc258#2213eabe288a267764160ba64eb86864930bc258"
+dependencies = [
+ "alloy-chains",
+ "alloy-consensus 2.0.4",
+ "alloy-eips 2.0.4",
+ "alloy-genesis 2.0.4",
+ "alloy-hardforks 0.4.7",
+ "alloy-primitives",
+ "auto_impl",
+ "reth-chainspec 2.0.0",
+ "reth-ethereum-forks 2.0.0",
+ "reth-ethereum-primitives",
+ "reth-evm",
+ "reth-network-peers 2.0.0",
+ "reth-primitives-traits 0.3.1",
+ "reth-revm",
+ "serde_json",
+]
+
+[[package]]
 name = "alethia-reth-consensus"
 version = "1.1.0"
 source = "git+https://github.com/taikoxyz/alethia-reth?rev=2213eabe288a267764160ba64eb86864930bc258#2213eabe288a267764160ba64eb86864930bc258"
@@ -6351,6 +6373,7 @@ dependencies = [
 name = "protocol"
 version = "2.0.0"
 dependencies = [
+ "alethia-reth-chainspec",
  "alethia-reth-consensus",
  "alethia-reth-primitives",
  "alloy",

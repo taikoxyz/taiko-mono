@@ -39,7 +39,7 @@ pub enum ForkConfigError {
     /// Chain ID is not recognised.
     #[error("unsupported chain id {0} for fork configuration")]
     UnsupportedChainId(u64),
-    /// The fork activation is not block-based (e.g. configured as timestamp/TTD).
+    /// The fork activation does not have a timestamp.
     #[error("unsupported fork activation condition")]
     UnsupportedActivation,
 }
