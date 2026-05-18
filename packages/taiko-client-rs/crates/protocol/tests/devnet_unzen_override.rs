@@ -58,7 +58,7 @@ fn devnet_override_flows_through_fork_lookups() {
     );
     assert_eq!(
         unzen_fork_condition_for_chain(TAIKO_HOODI_CHAIN_ID),
-        Some(ForkCondition::Timestamp(1_779_368_400)),
-        "hoodi must reflect its configured Unzen activation, not the devnet override"
+        Some(ForkCondition::Never),
+        "hoodi must remain disabled and not be affected by the devnet override"
     );
 }
