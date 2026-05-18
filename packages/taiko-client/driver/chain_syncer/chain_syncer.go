@@ -189,12 +189,6 @@ func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	return nil
 }
 
-// syncProgressGracePeriod is the AheadOfHeadToSync tolerance: if the EE is within this
-// many blocks of the checkpoint head, hand off to event-sync rather than re-trigger
-// beacon-sync. Beacon-sync over a few-block gap stalls in practice (per-trigger overhead
-// exceeds the work). 64 matches gapToResync in the tracker.
-const syncProgressGracePeriod uint64 = 64
-
 // AheadOfHeadToSync checks whether the L2 chain is ahead of the head to sync in protocol.
 func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 	log.Info(
@@ -202,10 +196,12 @@ func (s *L2ChainSyncer) AheadOfHeadToSync(heightToSync uint64) bool {
 		"heightToSync", heightToSync,
 		"executionEngineHead", s.state.GetL2Head().Number,
 	)
-	if heightToSync >= syncProgressGracePeriod {
-		heightToSync -= syncProgressGracePeriod
-	} else if heightToSync > 0 {
-		heightToSync = 0
+	if heightToSync > 0 {
+		// If head height is equal to L2 execution engine's synced head height minus one,
+		// we also mark the triggered P2P sync progress as finished to prevent a potential `InsertBlockWithoutSetHead` in
+		// execution engine, which may cause errors since we do not pass all transactions in ExecutePayload when calling
+		// `NewPayloadV1`.
+		heightToSync--
 	}
 
 	// If the L2 execution engine's chain is behind of the block head to sync,

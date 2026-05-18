@@ -110,23 +110,6 @@ func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
 	s.True(s.s.AheadOfHeadToSync(0))
 }
 
-// Regression test for the `--p2p.sync` NMC plateau: an EE that trails the
-// checkpoint head by a handful of blocks must be "ahead" (so the driver hands
-// off to event-sync), and by more than the grace period must be "behind" (so
-// beacon-sync correctly re-triggers).
-func (s *ChainSyncerTestSuite) TestAheadOfHeadToSync_GracePeriod() {
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.s.state.SetL2Head(head)
-	s.s.progressTracker.UpdateMeta(head.Number, head.Hash())
-
-	smallGap := new(big.Int).Add(head.Number, big.NewInt(3))
-	s.True(s.s.AheadOfHeadToSync(smallGap.Uint64()), "small residual gap must be ahead")
-
-	bigGap := new(big.Int).Add(head.Number, new(big.Int).SetUint64(syncProgressGracePeriod+1))
-	s.False(s.s.AheadOfHeadToSync(bigGap.Uint64()), "gap larger than grace must be behind")
-}
-
 func (s *ChainSyncerTestSuite) TestShastaInvalidBlobs() {
 	head, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
 	s.Nil(err)
