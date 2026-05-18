@@ -12,7 +12,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	ctx context.Context,
 	mode SyncMode,
 ) error {
-	startingBlock, err := i.getGenesisBlockHeight(ctx)
+	startingBlock, err := i.getFirstShastaBlockHeight(ctx)
 	if err != nil {
 		return err
 	}
@@ -43,19 +43,8 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 	return nil
 }
 
-// getGenesisBlockHeight returns the genesis block height by trying different
-// contract versions in order. Returns 0 if no TaikoL1 contract is configured.
-func (i *Indexer) getGenesisBlockHeight(ctx context.Context) (uint64, error) {
-	if i.taikol1 == nil {
-		return 0, nil
-	}
-
-	// Try v1 bindings
-	slotA, _, err := i.taikol1.GetStateVariables(nil)
-	if err == nil {
-		return slotA.GenesisHeight, nil
-	}
-
+// getFirstShastaBlockHeight returns the first Shasta block height.
+func (i *Indexer) getFirstShastaBlockHeight(ctx context.Context) (uint64, error) {
 	if i.shastaInbox == nil {
 		return 0, errors.New("no compatible TaikoL1 contract version found")
 	}

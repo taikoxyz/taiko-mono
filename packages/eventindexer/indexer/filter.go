@@ -26,68 +26,6 @@ func filterFunc(
 ) error {
 	wg, ctx := errgroup.WithContext(ctx)
 
-	if i.taikol1 != nil {
-		wg.Go(func() error {
-			transitionProvedEvents, err := i.taikol1.FilterTransitionProved(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterTransitionProved")
-			}
-			defer transitionProvedEvents.Close()
-
-			err = i.saveTransitionProvedEvents(ctx, chainID, transitionProvedEvents)
-			if err != nil {
-				return errors.Wrap(err, "i.saveTransitionProvedEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			transitionContestedEvents, err := i.taikol1.FilterTransitionContested(filterOpts, nil)
-			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterTransitionContested")
-			}
-			defer transitionContestedEvents.Close()
-
-			err = i.saveTransitionContestedEvents(ctx, chainID, transitionContestedEvents)
-			if err != nil {
-				return errors.Wrap(err, "i.saveTransitionContestedEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			blockProposedEvents, err := i.taikol1.FilterBlockProposed(filterOpts, nil, nil)
-			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterBlockProposed")
-			}
-			defer blockProposedEvents.Close()
-
-			err = i.saveBlockProposedEvents(ctx, chainID, blockProposedEvents)
-			if err != nil {
-				return errors.Wrap(err, "i.saveBlockProposedEvents")
-			}
-
-			return nil
-		})
-
-		wg.Go(func() error {
-			blockVerifiedEvents, err := i.taikol1.FilterBlockVerified(filterOpts, nil, nil)
-			if err != nil {
-				return errors.Wrap(err, "i.taikol1.FilterBlockVerified")
-			}
-			defer blockVerifiedEvents.Close()
-
-			err = i.saveBlockVerifiedEvents(ctx, chainID, blockVerifiedEvents)
-			if err != nil {
-				return errors.Wrap(err, "i.saveBlockVerifiedEvents")
-			}
-
-			return nil
-		})
-	}
-
 	if i.bridge != nil {
 		wg.Go(func() error {
 			messagesSent, err := i.bridge.FilterMessageSent(filterOpts, nil)
