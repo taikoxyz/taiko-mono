@@ -99,6 +99,7 @@ func (i *Indexer) filter(
 
 			return nil
 		})
+
 		if i.shastaInbox != nil {
 			wg.Go(func() error {
 				if err := filterFuncShasta(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
