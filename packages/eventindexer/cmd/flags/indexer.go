@@ -81,20 +81,6 @@ var (
 		Category: indexerCategory,
 		EnvVars:  []string{"INDEX_ERC20S"},
 	}
-	OntakeForkHeight = &cli.Uint64Flag{
-		Name:     "ontakeForkHeight",
-		Usage:    "Block number ontake fork height happened",
-		Value:    21134698,
-		Category: indexerCategory,
-		EnvVars:  []string{"ONTAKE_FORK_HEIGHT"},
-	}
-	PacayaForkHeight = &cli.Uint64Flag{
-		Name:     "pacayaForkHeight",
-		Usage:    "Block number pacaya fork height happened",
-		Value:    91134698,
-		Category: indexerCategory,
-		EnvVars:  []string{"PACAYA_FORK_HEIGHT"},
-	}
 )
 
 var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
@@ -109,6 +95,4 @@ var IndexerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SyncMode,
 	IndexNFTs,
 	IndexERC20s,
-	OntakeForkHeight,
-	PacayaForkHeight,
 })

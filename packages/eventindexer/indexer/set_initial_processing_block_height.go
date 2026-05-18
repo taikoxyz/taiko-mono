@@ -44,8 +44,7 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 }
 
 // getGenesisBlockHeight returns the genesis block height by trying different
-// contract versions in order (v1 -> v2 -> v3 -> v4). Returns 0 if no TaikoL1
-// contract is configured.
+// contract versions in order. Returns 0 if no TaikoL1 contract is configured.
 func (i *Indexer) getGenesisBlockHeight(ctx context.Context) (uint64, error) {
 	if i.taikol1 == nil {
 		return 0, nil
@@ -57,19 +56,6 @@ func (i *Indexer) getGenesisBlockHeight(ctx context.Context) (uint64, error) {
 		return slotA.GenesisHeight, nil
 	}
 
-	// Try v2 bindings
-	slotAV2, _, err := i.taikol1V2.GetStateVariables(nil)
-	if err == nil {
-		return slotAV2.GenesisHeight, nil
-	}
-
-	// Try v3 bindings
-	stats, err := i.taikoInbox.GetStats1(nil)
-	if err == nil {
-		return stats.GenesisHeight, nil
-	}
-
-	// Try v4 bindings
 	if i.shastaInbox == nil {
 		return 0, errors.New("no compatible TaikoL1 contract version found")
 	}
