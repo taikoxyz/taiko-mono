@@ -49,6 +49,7 @@ robust-provider = { workspace = true, optional = true, features = [
 k256 = { workspace = true }
 
 # taiko
+alethia-reth-chainspec = { workspace = true }
 alethia-reth-consensus = { workspace = true }
 alethia-reth-primitives = { workspace = true }
 bindings = { path = "../bindings", optional = true }
