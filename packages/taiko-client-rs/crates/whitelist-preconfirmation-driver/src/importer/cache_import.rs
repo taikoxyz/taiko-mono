@@ -249,6 +249,7 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
     match err {
         driver::DriverError::EngineSyncing(_) |
         driver::DriverError::BlockNotFound(_) |
+        driver::DriverError::PreconfIngressNotReady |
         driver::DriverError::PreconfEnqueueTimeout { .. } |
         driver::DriverError::PreconfResponseTimeout { .. } => true,
         driver::DriverError::PreconfInjectionFailed { source, .. } => matches!(
@@ -259,5 +260,17 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
                 driver::sync::error::EngineSubmissionError::MissingInsertedBlock(_)
         ),
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use driver::DriverError;
+
+    use super::should_defer_cached_driver_error;
+
+    #[test]
+    fn preconf_ingress_not_ready_defers_cached_import() {
+        assert!(should_defer_cached_driver_error(&DriverError::PreconfIngressNotReady));
     }
 }

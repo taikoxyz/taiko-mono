@@ -98,6 +98,15 @@ fn should_probe_confirmed_sync(
     preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
+/// Close preconfirmation ingress after an event-scanner reorg notification.
+///
+/// Reorgs invalidate the confirmed-boundary assumptions that opened ingress. Closing here forces
+/// the scanner loop to run the strict confirmed-sync probe again before accepting more unsafe
+/// payloads.
+fn close_preconf_ingress_for_reorg(preconf_ingress_ready: &AtomicBool) -> bool {
+    preconf_ingress_ready.swap(false, Ordering::AcqRel)
+}
+
 /// Resolve whether confirmed-sync readiness should open ingress.
 fn resolve_confirmed_sync_ready(confirmed_sync_snapshot: ConfirmedSyncSnapshot) -> bool {
     confirmed_sync_snapshot.is_ready()
@@ -1317,6 +1326,12 @@ where
                                 scanner_live = true;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
+                                if close_preconf_ingress_for_reorg(&self.preconf_ingress_ready) {
+                                    info!(
+                                        common_ancestor,
+                                        "closing preconfirmation ingress after event scanner reorg"
+                                    );
+                                }
                                 if timeout(
                                     REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
                                     self.reset_head_l1_origin_after_reorg(common_ancestor),
@@ -1951,6 +1966,16 @@ mod tests {
         assert!(should_probe_confirmed_sync(true, false, false, true));
         assert!(!should_probe_confirmed_sync(true, false, false, false));
         assert!(!should_probe_confirmed_sync(false, true, false, true));
+    }
+
+    #[test]
+    fn event_reorg_closes_preconf_ingress_until_confirmed_sync_reprobe() {
+        let ingress_ready = AtomicBool::new(true);
+
+        close_preconf_ingress_for_reorg(&ingress_ready);
+
+        assert!(!ingress_ready.load(Ordering::Acquire));
+        assert!(should_probe_confirmed_sync(true, true, false, true));
     }
 
     #[test]
