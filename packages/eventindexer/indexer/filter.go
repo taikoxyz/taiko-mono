@@ -100,7 +100,7 @@ func (i *Indexer) filter(
 			return nil
 		})
 
-		if i.shastaInbox != nil {
+		if i.inbox != nil {
 			wg.Go(func() error {
 				if err := filterFuncShasta(ctx, new(big.Int).SetUint64(i.srcChainID), i, filterOpts); err != nil {
 					return errors.Wrap(err, "filterFuncShasta")

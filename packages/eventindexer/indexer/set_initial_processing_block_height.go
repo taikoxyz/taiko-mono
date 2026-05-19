@@ -45,13 +45,13 @@ func (i *Indexer) setInitialIndexingBlockByMode(
 
 // getFirstShastaBlockHeight returns the first Shasta block height.
 func (i *Indexer) getFirstShastaBlockHeight(ctx context.Context) (uint64, error) {
-	if i.shastaInbox == nil {
-		return 0, errors.New("shasta inbox contract not configured")
+	if i.inbox == nil {
+		return 0, errors.New("inbox contract not configured")
 	}
 
-	ts, err := i.shastaInbox.ActivationTimestamp(nil)
+	ts, err := i.inbox.ActivationTimestamp(nil)
 	if err != nil {
-		return 0, errors.Wrap(err, "shastaInbox.ActivationTimestamp")
+		return 0, errors.Wrap(err, "inbox.ActivationTimestamp")
 	}
 
 	blockNum, err := i.getBlockByTimestamp(ctx, ts.Uint64())

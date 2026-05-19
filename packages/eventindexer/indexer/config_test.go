@@ -11,7 +11,7 @@ import (
 
 var (
 	metricsHttpPort         = "1001"
-	shastaInboxAddress      = "0x53FaC9201494f0bd17B9892B9fae4d52fe3BD377"
+	l1TaikoAddress          = "0x53FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	bridgeAddress           = "0x73FaC9201494f0bd17B9892B9fae4d52fe3BD377"
 	databaseMaxIdleConns    = "10"
 	databaseMaxOpenConns    = "10"
@@ -48,7 +48,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		assert.Equal(t, "dbhost", c.DatabaseHost)
 		assert.Equal(t, "rpcUrl", c.RPCUrl)
 		assert.Equal(t, uint64(1001), c.MetricsHTTPPort)
-		assert.Equal(t, common.HexToAddress(shastaInboxAddress), c.ShastaInboxAddress)
+		assert.Equal(t, common.HexToAddress(l1TaikoAddress), c.L1TaikoAddress)
 		assert.Equal(t, common.HexToAddress(bridgeAddress), c.BridgeAddress)
 		assert.Equal(t, uint64(10), c.DatabaseMaxIdleConns)
 		assert.Equal(t, uint64(10), c.DatabaseMaxOpenConns)
@@ -73,7 +73,7 @@ func TestNewConfigFromCliContext(t *testing.T) {
 		"--" + flags.DatabasePassword.Name, "dbpass",
 		"--" + flags.DatabaseHost.Name, "dbhost",
 		"--" + flags.DatabaseName.Name, "dbname",
-		"--" + flags.ShastaInboxAddress.Name, shastaInboxAddress,
+		"--" + flags.L1TaikoAddress.Name, l1TaikoAddress,
 		"--" + flags.BridgeAddress.Name, bridgeAddress,
 		"--" + flags.MetricsHTTPPort.Name, metricsHttpPort,
 		"--" + flags.DatabaseMaxIdleConns.Name, databaseMaxIdleConns,

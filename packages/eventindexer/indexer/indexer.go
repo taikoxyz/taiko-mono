@@ -52,8 +52,8 @@ type Indexer struct {
 	blockBatchSize      uint64
 	subscriptionBackoff time.Duration
 
-	bridge      *bridge.Bridge
-	shastaInbox *inbox.Inbox
+	bridge *bridge.Bridge
+	inbox  *inbox.Inbox
 
 	indexNfts   bool
 	indexERC20s bool
@@ -159,12 +159,12 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 		return errors.Wrap(err, "i.ethClient.ChainID()")
 	}
 
-	var shastaInbox *inbox.Inbox
+	var inboxContract *inbox.Inbox
 
-	if cfg.ShastaInboxAddress.Hex() != ZeroAddress.Hex() {
-		slog.Info("setting shastaInboxAddress", "addr", cfg.ShastaInboxAddress.Hex())
+	if cfg.L1TaikoAddress.Hex() != ZeroAddress.Hex() {
+		slog.Info("setting l1TaikoAddress", "addr", cfg.L1TaikoAddress.Hex())
 
-		shastaInbox, err = inbox.NewInbox(cfg.ShastaInboxAddress, ethClient)
+		inboxContract, err = inbox.NewInbox(cfg.L1TaikoAddress, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "inbox.Inbox")
 		}
@@ -192,7 +192,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) error {
 	i.srcChainID = chainID.Uint64()
 
 	i.ethClient = ethClient
-	i.shastaInbox = shastaInbox
+	i.inbox = inboxContract
 	i.bridge = bridgeContract
 	i.blockBatchSize = cfg.BlockBatchSize
 	i.subscriptionBackoff = time.Duration(cfg.SubscriptionBackoff) * time.Second

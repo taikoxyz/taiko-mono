@@ -23,7 +23,7 @@ type Config struct {
 	RPCUrl                  string
 	MetricsHTTPPort         uint64
 	ETHClientTimeout        uint64
-	ShastaInboxAddress      common.Address
+	L1TaikoAddress          common.Address
 	BridgeAddress           common.Address
 	BlockBatchSize          uint64
 	SubscriptionBackoff     uint64
@@ -46,7 +46,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		DatabaseMaxConnLifetime: c.Uint64(flags.DatabaseConnMaxLifetime.Name),
 		MetricsHTTPPort:         c.Uint64(flags.MetricsHTTPPort.Name),
 		ETHClientTimeout:        c.Uint64(flags.ETHClientTimeout.Name),
-		ShastaInboxAddress:      common.HexToAddress(c.String(flags.ShastaInboxAddress.Name)),
+		L1TaikoAddress:          common.HexToAddress(c.String(flags.L1TaikoAddress.Name)),
 		BridgeAddress:           common.HexToAddress(c.String(flags.BridgeAddress.Name)),
 		BlockBatchSize:          c.Uint64(flags.BlockBatchSize.Name),
 		SubscriptionBackoff:     c.Uint64(flags.SubscriptionBackoff.Name),
