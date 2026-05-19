@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/taikol2"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/proof"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
@@ -48,6 +49,31 @@ func Test_sendProcessMessageCall(t *testing.T) {
 		}, []byte{})
 
 	assert.Equal(t, err, errUnprocessable)
+}
+
+func TestGetBaseFee_Layer2UsesHeaderBaseFee(t *testing.T) {
+	p := newTestProcessor(false)
+	p.taikoL2 = &taikol2.TaikoL2{}
+	p.destEthClient = &blockByNumberEthClient{
+		EthClient: &mock.EthClient{},
+		block:     processorBlockWithBaseFee(big.NewInt(123)),
+	}
+
+	got, err := p.getBaseFee(context.Background())
+
+	assert.NoError(t, err)
+	assert.Equal(t, big.NewInt(123), got)
+}
+
+func TestGetBaseFee_Layer2MissingBaseFeeFails(t *testing.T) {
+	p := newTestProcessor(false)
+	p.taikoL2 = &taikol2.TaikoL2{}
+	p.destEthClient = &blockByNumberEthClient{EthClient: &mock.EthClient{}, block: processorBlockWithBaseFee(nil)}
+
+	got, err := p.getBaseFee(context.Background())
+
+	assert.Nil(t, got)
+	assert.ErrorIs(t, err, relayer.ErrMissingDestBaseFee)
 }
 
 func TestSaveMessageStatusChangedEventSkipsLogsWithoutTopics(t *testing.T) {
@@ -213,4 +239,20 @@ func TestGenerateEncodedSignalProofUsesDestChainCheckpoint(t *testing.T) {
 
 	_, err = p.generateEncodedSignalProof(context.Background(), event)
 	assert.Nil(t, err)
+}
+
+type blockByNumberEthClient struct {
+	*mock.EthClient
+	block *types.Block
+}
+
+func (c *blockByNumberEthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	return c.block, nil
+}
+
+func processorBlockWithBaseFee(baseFee *big.Int) *types.Block {
+	header := *mock.Header
+	header.BaseFee = baseFee
+
+	return types.NewBlockWithHeader(&header)
 }

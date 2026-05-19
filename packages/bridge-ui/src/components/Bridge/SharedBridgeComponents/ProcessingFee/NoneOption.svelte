@@ -1,13 +1,13 @@
 <script lang="ts">
   import { t } from 'svelte-i18n';
-  import type { Address } from 'viem';
+  import { type Address, parseEther } from 'viem';
 
   import Alert from '$components/Alert/Alert.svelte';
   import FlatAlert from '$components/Alert/FlatAlert.svelte';
-  import { destNetwork, selectedToken } from '$components/Bridge/state';
+  import { destNetwork, enteredAmount, recipientAddress, selectedNFTs, selectedToken } from '$components/Bridge/state';
   import { claimConfig } from '$config';
   import { recommendProcessingFee } from '$libs/fee';
-  import { fetchBalance, type NFT, type Token } from '$libs/token';
+  import { fetchBalance, type NFT, type Token, TokenType } from '$libs/token';
   import { account, connectedSourceChain } from '$stores';
 
   import { getManualClaimHref } from './noneOption';
@@ -19,7 +19,15 @@
   export let headless = false;
   let manualClaimHref: string | null = null;
 
-  async function compute(token: Maybe<Token | NFT>, userAddress?: Address, srcChain?: number, destChain?: number) {
+  async function compute(
+    token: Maybe<Token | NFT>,
+    userAddress?: Address,
+    srcChain?: number,
+    destChain?: number,
+    to?: Address,
+    tokenIds?: number[],
+    amounts?: number[],
+  ) {
     if (!token || !userAddress || !srcChain || !destChain) {
       enoughEth = false;
       return;
@@ -41,11 +49,15 @@
         token,
         destChainId: destChain,
         srcChainId: srcChain,
+        to,
+        tokenIds,
+        amounts,
       });
 
-      if (recommendedAmount <= claimConfig.minimumEthToClaim) {
+      const minimumClaimBalance = parseEther(String(claimConfig.minimumEthToClaim));
+      if (recommendedAmount <= minimumClaimBalance) {
         // should the fee be very small, set it to at least the minimum
-        recommendedAmount = BigInt(claimConfig.minimumEthToClaim);
+        recommendedAmount = minimumClaimBalance;
       }
 
       // Does the user have enough ETH to claim manually on the destination chain?
@@ -60,7 +72,15 @@
     }
   }
 
-  $: compute($selectedToken, $account?.address, $connectedSourceChain?.id, $destNetwork?.id);
+  $: compute(
+    $selectedToken,
+    $account?.address,
+    $connectedSourceChain?.id,
+    $destNetwork?.id,
+    $recipientAddress || $account?.address,
+    $selectedNFTs?.map((nft) => nft.tokenId),
+    $selectedToken?.type === TokenType.ERC1155 ? [Number($enteredAmount)] : undefined,
+  );
   $: manualClaimHref = getManualClaimHref({ selected, enoughEth });
 </script>
 

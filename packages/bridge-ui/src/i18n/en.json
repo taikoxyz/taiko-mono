@@ -381,7 +381,7 @@
     "faucet": "Faucet",
     "guide": "Guide",
     "nft": "NFT",
-    "relayer": "Relayer",
+    "relayer": "Manual Claim",
     "swap": "Swap",
     "theme": "Theme",
     "token": "Token",
@@ -444,7 +444,7 @@
   },
   "relayer_component": {
     "address_input_label": "Enter the recipient address",
-    "description": "This component allows you to manually claim any claimable transaction",
+    "description": "Search by recipient address, then claim eligible bridge transactions from any connected wallet with enough ETH.",
     "no_tx_found": "No claimable transactions found",
     "step1": {
       "title": "Step 1: Select the recipient"
@@ -452,7 +452,7 @@
     "step2": {
       "title": "Step 2: Search the transaction you want"
     },
-    "title": "Relayer Component"
+    "title": "Manual Claim"
   },
   "switch_modal": {
     "description": "Your current network is not supported. Please select one of the following chains to proceed:",
