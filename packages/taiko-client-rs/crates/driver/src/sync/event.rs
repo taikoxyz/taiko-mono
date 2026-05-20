@@ -517,11 +517,10 @@ where
     }
 
     /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
-    /// the stable post-reorg boundary. If the L2 EE's confirmed boundary is left ahead of the
-    /// post-reorg canonical chain, preconf and chain-syncer guards reject incoming blocks until
-    /// the chain syncer rewinds. Lowering it here unblocks them immediately. All failures are
-    /// non-fatal: log and return.
-    async fn reset_head_l1_origin_after_reorg(&self, common_ancestor: u64) {
+    /// the stable post-reorg boundary.
+    ///
+    /// Returns `true` only when the confirmed boundary was successfully reset.
+    async fn reset_head_l1_origin_after_reorg(&self, common_ancestor: u64) -> bool {
         let core_state = match self
             .rpc
             .shasta
@@ -534,7 +533,7 @@ where
             Ok(core_state) => core_state,
             Err(err) => {
                 warn!(common_ancestor, %err, "failed to read core state for head_l1_origin reset");
-                return;
+                return false;
             }
         };
 
@@ -544,7 +543,7 @@ where
                 common_ancestor,
                 next_proposal_id, "skipping head_l1_origin reset at genesis boundary"
             );
-            return;
+            return false;
         }
         let proposal_id = next_proposal_id - 1;
 
@@ -556,7 +555,7 @@ where
                         common_ancestor,
                         proposal_id, "missing batch mapping; skipping head_l1_origin reset"
                     );
-                    return;
+                    return false;
                 }
                 Err(err) => {
                     warn!(
@@ -565,24 +564,30 @@ where
                         ?err,
                         "failed to read batch mapping; skipping head_l1_origin reset"
                     );
-                    return;
+                    return false;
                 }
             };
 
         match self.rpc.set_head_l1_origin(block_id).await {
-            Ok(_) => info!(
-                common_ancestor,
-                proposal_id,
-                %block_id,
-                "reset head_l1_origin after reorg"
-            ),
-            Err(err) => warn!(
-                common_ancestor,
-                proposal_id,
-                %block_id,
-                ?err,
-                "failed to reset head_l1_origin after reorg"
-            ),
+            Ok(_) => {
+                info!(
+                    common_ancestor,
+                    proposal_id,
+                    %block_id,
+                    "reset head_l1_origin after reorg"
+                );
+                true
+            }
+            Err(err) => {
+                warn!(
+                    common_ancestor,
+                    proposal_id,
+                    %block_id,
+                    ?err,
+                    "failed to reset head_l1_origin after reorg"
+                );
+                false
+            }
         }
     }
 
@@ -1345,28 +1350,38 @@ where
                                         "closing preconfirmation ingress after event scanner reorg"
                                     );
                                 }
-                                if timeout(
+                                match timeout(
                                     REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
                                     self.reset_head_l1_origin_after_reorg(common_ancestor),
                                 )
                                 .await
-                                .is_err()
                                 {
-                                    warn!(
-                                        common_ancestor,
-                                        timeout_ms =
-                                            REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT.as_millis() as u64,
-                                        "timed out resetting head_l1_origin after reorg"
-                                    );
-                                } else {
-                                    let preconf_reorg_generation = record_preconf_reorg_state_reset(
-                                        &self.preconf_reorg_generation,
-                                    );
-                                    info!(
-                                        common_ancestor,
-                                        preconf_reorg_generation,
-                                        "published preconfirmation reorg state reset"
-                                    );
+                                    Ok(true) => {
+                                        let preconf_reorg_generation =
+                                            record_preconf_reorg_state_reset(
+                                                &self.preconf_reorg_generation,
+                                            );
+                                        info!(
+                                            common_ancestor,
+                                            preconf_reorg_generation,
+                                            "published preconfirmation reorg state reset"
+                                        );
+                                    }
+                                    Ok(false) => {
+                                        warn!(
+                                            common_ancestor,
+                                            "skipping preconfirmation reorg state reset publish"
+                                        );
+                                    }
+                                    Err(_) => {
+                                        warn!(
+                                            common_ancestor,
+                                            timeout_ms = REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT
+                                                .as_millis()
+                                                as u64,
+                                            "timed out resetting head_l1_origin after reorg"
+                                        );
+                                    }
                                 }
                             }
                             Notification::NoPastLogsFound => {}
@@ -2038,8 +2053,9 @@ mod tests {
         l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // last_certain_block_id_by_batch_id
         l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // set_head_l1_origin
 
-        syncer.reset_head_l1_origin_after_reorg(1_234).await;
+        let reset = syncer.reset_head_l1_origin_after_reorg(1_234).await;
 
+        assert!(reset);
         assert!(l1_asserter.read_q().is_empty());
         assert!(l2_auth_asserter.read_q().is_empty());
     }
@@ -2058,9 +2074,10 @@ mod tests {
         l1_asserter.push_success(&encoded_core_state);
         l2_auth_asserter.push_success(&Option::<U256>::None);
 
-        syncer.reset_head_l1_origin_after_reorg(1_234).await;
+        let reset = syncer.reset_head_l1_origin_after_reorg(1_234).await;
 
         // No set_head_l1_origin call should be queued: missing mapping is a best-effort skip.
+        assert!(!reset);
         assert!(l1_asserter.read_q().is_empty());
         assert!(l2_auth_asserter.read_q().is_empty());
     }

@@ -118,13 +118,20 @@ where
             return Ok(());
         }
 
-        self.observed_preconf_reorg_generation = current_generation;
         self.cache.clear();
         self.recent_cache.clear();
         self.cache_state.clear().await;
 
-        let Some(boundary) = self.head_l1_origin_block_id().await? else {
-            self.preconf_import_cursor = None;
+        let boundary = self.head_l1_origin_block_id().await?;
+        if !apply_preconf_reorg_boundary(
+            &mut self.observed_preconf_reorg_generation,
+            &mut self.preconf_import_cursor,
+            self.highest_unsafe_l2_payload_block_id.as_ref(),
+            current_generation,
+            boundary,
+        )
+        .await
+        {
             self.sync_ready = false;
             self.update_cache_gauges();
             warn!(
@@ -134,14 +141,10 @@ where
             return Ok(());
         };
 
-        self.preconf_import_cursor = Some(boundary);
-        if let Some(ref highest) = self.highest_unsafe_l2_payload_block_id {
-            set_highest_unsafe_block_id(highest, boundary).await;
-        }
         self.update_cache_gauges();
         info!(
             preconf_reorg_generation = current_generation,
-            head_l1_origin_block_id = boundary,
+            head_l1_origin_block_id = boundary.expect("applied reorg boundary must exist"),
             "reset whitelist preconfirmation unsafe state after event scanner reorg"
         );
         Ok(())
@@ -334,6 +337,27 @@ pub(super) async fn record_materialized_preconf_block(
     true
 }
 
+/// Apply a resolved post-reorg boundary to importer-local unsafe state.
+pub(super) async fn apply_preconf_reorg_boundary(
+    observed_generation: &mut u64,
+    cursor: &mut Option<u64>,
+    highest: Option<&Arc<Mutex<u64>>>,
+    current_generation: u64,
+    boundary: Option<u64>,
+) -> bool {
+    let Some(boundary) = boundary else {
+        *cursor = None;
+        return false;
+    };
+
+    *cursor = Some(boundary);
+    if let Some(highest) = highest {
+        set_highest_unsafe_block_id(highest, boundary).await;
+    }
+    *observed_generation = current_generation;
+    true
+}
+
 /// Returns true when a cached-envelope import error should be logged and dropped.
 pub(super) fn should_drop_cached_import_error(err: &WhitelistPreconfirmationDriverError) -> bool {
     match err {
@@ -394,9 +418,9 @@ mod tests {
     use tokio::sync::Mutex;
 
     use super::{
-        advance_preconf_import_cursor, preconf_reorg_cursor_allows_block,
-        record_materialized_preconf_block, set_highest_unsafe_block_id,
-        should_defer_cached_driver_error,
+        advance_preconf_import_cursor, apply_preconf_reorg_boundary,
+        preconf_reorg_cursor_allows_block, record_materialized_preconf_block,
+        set_highest_unsafe_block_id, should_defer_cached_driver_error,
     };
 
     #[test]
@@ -452,6 +476,48 @@ mod tests {
         let advanced = record_materialized_preconf_block(&mut cursor, Some(&highest), 102).await;
 
         assert!(!advanced);
+        assert_eq!(cursor, Some(100));
+        assert_eq!(*highest.lock().await, 100);
+    }
+
+    #[tokio::test]
+    async fn missing_reorg_boundary_does_not_mark_generation_observed() {
+        let highest = Arc::new(Mutex::new(150));
+        let mut observed_generation = 1;
+        let mut cursor = Some(150);
+
+        let applied = apply_preconf_reorg_boundary(
+            &mut observed_generation,
+            &mut cursor,
+            Some(&highest),
+            2,
+            None,
+        )
+        .await;
+
+        assert!(!applied);
+        assert_eq!(observed_generation, 1);
+        assert_eq!(cursor, None);
+        assert_eq!(*highest.lock().await, 150);
+    }
+
+    #[tokio::test]
+    async fn resolved_reorg_boundary_marks_generation_observed() {
+        let highest = Arc::new(Mutex::new(150));
+        let mut observed_generation = 1;
+        let mut cursor = Some(150);
+
+        let applied = apply_preconf_reorg_boundary(
+            &mut observed_generation,
+            &mut cursor,
+            Some(&highest),
+            2,
+            Some(100),
+        )
+        .await;
+
+        assert!(applied);
+        assert_eq!(observed_generation, 2);
         assert_eq!(cursor, Some(100));
         assert_eq!(*highest.lock().await, 100);
     }
