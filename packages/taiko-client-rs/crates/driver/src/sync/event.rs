@@ -107,9 +107,19 @@ fn close_preconf_ingress_for_reorg(preconf_ingress_ready: &AtomicBool) -> bool {
     preconf_ingress_ready.swap(false, Ordering::AcqRel)
 }
 
+/// Returns whether an already-queued preconfirmation job may still enter the engine.
+fn preconf_ingress_accepts_queued_job(preconf_ingress_ready: &AtomicBool) -> bool {
+    preconf_ingress_ready.load(Ordering::Acquire)
+}
+
 /// Publish that post-reorg head-L1-origin reset completed and unsafe state should be rebuilt.
 fn record_preconf_reorg_state_reset(preconf_reorg_generation: &AtomicU64) -> u64 {
     preconf_reorg_generation.fetch_add(1, Ordering::AcqRel) + 1
+}
+
+/// Resolve whether a successful confirmed-sync probe may open preconfirmation ingress.
+fn should_open_preconf_ingress(confirmed_sync_ready: bool, reorg_reset_pending: bool) -> bool {
+    confirmed_sync_ready && !reorg_reset_pending
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
@@ -246,6 +256,8 @@ where
     preconf_ingress_ready: Arc<AtomicBool>,
     /// Notifier signaled when strict ingress gating is satisfied and the loop becomes ready.
     preconf_ingress_notify: Arc<Notify>,
+    /// Whether a reorg reset must complete before preconfirmation ingress can re-open.
+    preconf_reorg_reset_pending: Arc<AtomicBool>,
     /// Monotonic counter bumped whenever an event-scanner reorg invalidates unsafe preconf state.
     preconf_reorg_generation: Arc<AtomicU64>,
 }
@@ -386,6 +398,16 @@ where
                 gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
+                if !preconf_ingress_accepts_queued_job(&ready_flag) {
+                    warn!(
+                        block_number,
+                        "rejecting queued preconfirmation payload while ingress is closed"
+                    );
+                    let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
+                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    continue;
+                }
+
                 match preconfirmation_payload_is_materialized(&rpc, job.payload.as_ref()).await {
                     Ok(true) => {
                         debug!(
@@ -410,6 +432,16 @@ where
                 }
 
                 let router_guard = router.lock().await;
+                if !preconf_ingress_accepts_queued_job(&ready_flag) {
+                    warn!(
+                        block_number,
+                        "rejecting queued preconfirmation payload after ingress closed"
+                    );
+                    let _ = job.respond_to.send(Err(DriverError::PreconfIngressNotReady));
+                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    continue;
+                }
+
                 // Re-check after acquiring router lock so event-sync updates cannot race this
                 // preconfirmation submission.
                 // On genesis chains head_l1_origin is not yet written; default to 0 so
@@ -591,6 +623,39 @@ where
         }
     }
 
+    /// Try to complete the post-reorg reset and publish the preconfirmation rebuild signal.
+    async fn complete_preconf_reorg_reset(&self, common_ancestor: u64) -> bool {
+        match timeout(
+            REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
+            self.reset_head_l1_origin_after_reorg(common_ancestor),
+        )
+        .await
+        {
+            Ok(true) => {
+                let preconf_reorg_generation =
+                    record_preconf_reorg_state_reset(&self.preconf_reorg_generation);
+                self.preconf_reorg_reset_pending.store(false, Ordering::Release);
+                info!(
+                    common_ancestor,
+                    preconf_reorg_generation, "published preconfirmation reorg state reset"
+                );
+                true
+            }
+            Ok(false) => {
+                warn!(common_ancestor, "skipping preconfirmation reorg state reset publish");
+                false
+            }
+            Err(_) => {
+                warn!(
+                    common_ancestor,
+                    timeout_ms = REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT.as_millis() as u64,
+                    "timed out resetting head_l1_origin after reorg"
+                );
+                false
+            }
+        }
+    }
+
     /// Process a batch of proposal logs from the event scanner.
     async fn process_log_batch(
         &self,
@@ -752,6 +817,7 @@ where
             preconf_rx: Mutex::new(preconf_rx),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            preconf_reorg_reset_pending: Arc::new(AtomicBool::new(false)),
             preconf_reorg_generation: Arc::new(AtomicU64::new(0)),
         })
     }
@@ -1264,6 +1330,7 @@ where
         let mut preconf_ingress_spawned = false;
         let mut scanner_live = false;
         let mut scanner_started_once = false;
+        let mut pending_reorg_common_ancestor = None;
 
         loop {
             if !preconf_ingress_spawned {
@@ -1344,44 +1411,20 @@ where
                                 scanner_live = true;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
+                                // Serialize reorg closure with preconfirmation production so a
+                                // queued job cannot pass the router gate after reorg handling
+                                // starts.
+                                let _router_guard = router.lock().await;
+                                pending_reorg_common_ancestor = Some(common_ancestor);
+                                self.preconf_reorg_reset_pending.store(true, Ordering::Release);
                                 if close_preconf_ingress_for_reorg(&self.preconf_ingress_ready) {
                                     info!(
                                         common_ancestor,
                                         "closing preconfirmation ingress after event scanner reorg"
                                     );
                                 }
-                                match timeout(
-                                    REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
-                                    self.reset_head_l1_origin_after_reorg(common_ancestor),
-                                )
-                                .await
-                                {
-                                    Ok(true) => {
-                                        let preconf_reorg_generation =
-                                            record_preconf_reorg_state_reset(
-                                                &self.preconf_reorg_generation,
-                                            );
-                                        info!(
-                                            common_ancestor,
-                                            preconf_reorg_generation,
-                                            "published preconfirmation reorg state reset"
-                                        );
-                                    }
-                                    Ok(false) => {
-                                        warn!(
-                                            common_ancestor,
-                                            "skipping preconfirmation reorg state reset publish"
-                                        );
-                                    }
-                                    Err(_) => {
-                                        warn!(
-                                            common_ancestor,
-                                            timeout_ms = REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT
-                                                .as_millis()
-                                                as u64,
-                                            "timed out resetting head_l1_origin after reorg"
-                                        );
-                                    }
+                                if self.complete_preconf_reorg_reset(common_ancestor).await {
+                                    pending_reorg_common_ancestor = None;
                                 }
                             }
                             Notification::NoPastLogsFound => {}
@@ -1411,7 +1454,19 @@ where
                         continue;
                     }
                     let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
-                    if confirmed_sync_ready {
+                    let reorg_reset_pending =
+                        self.preconf_reorg_reset_pending.load(Ordering::Acquire);
+                    if confirmed_sync_ready &&
+                        reorg_reset_pending &&
+                        let Some(common_ancestor) = pending_reorg_common_ancestor &&
+                        self.complete_preconf_reorg_reset(common_ancestor).await
+                    {
+                        pending_reorg_common_ancestor = None;
+                    }
+
+                    let reorg_reset_pending =
+                        self.preconf_reorg_reset_pending.load(Ordering::Acquire);
+                    if should_open_preconf_ingress(confirmed_sync_ready, reorg_reset_pending) {
                         let rx = self
                             .preconf_rx
                             .lock()
@@ -1430,6 +1485,11 @@ where
                             info!("re-opened preconfirmation ingress after scanner reconnect");
                             self.preconf_ingress_notify.notify_waiters();
                         }
+                    } else if confirmed_sync_ready {
+                        warn!(
+                            "confirmed-sync probe passed but preconfirmation ingress remains \
+                             closed until reorg reset completes"
+                        );
                     }
                 }
             }
@@ -1584,6 +1644,7 @@ mod tests {
             preconf_rx: Mutex::new(Some(preconf_rx)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            preconf_reorg_reset_pending: Arc::new(AtomicBool::new(false)),
             preconf_reorg_generation: Arc::new(AtomicU64::new(0)),
         }
     }
@@ -2014,6 +2075,20 @@ mod tests {
 
         assert!(!ingress_ready.load(Ordering::Acquire));
         assert!(should_probe_confirmed_sync(true, true, false, true));
+    }
+
+    #[test]
+    fn queued_preconf_job_is_rejected_when_ingress_closes_after_enqueue() {
+        let ingress_ready = AtomicBool::new(false);
+
+        assert!(!preconf_ingress_accepts_queued_job(&ingress_ready));
+    }
+
+    #[test]
+    fn confirmed_sync_probe_does_not_open_ingress_while_reorg_reset_is_pending() {
+        assert!(!should_open_preconf_ingress(true, true));
+        assert!(should_open_preconf_ingress(true, false));
+        assert!(!should_open_preconf_ingress(false, false));
     }
 
     #[test]
