@@ -73,6 +73,14 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
+            // Parse a positive integer from a repo variable, falling back to a
+            // default when unset or non-numeric (e.g. "64k") so a misconfigured
+            // variable can't serialize to null and break every review run.
+            const intFromEnv = (name, fallback) => {
+              const n = parseInt(process.env[name] || '', 10);
+              return Number.isFinite(n) && n > 0 ? n : fallback;
+            };
+
             // Fetch PR details
             const pr = await github.rest.pulls.get({
               owner, repo, pull_number: prNumber
@@ -99,7 +107,7 @@ jobs:
 
             // Truncate diff if too large. deepseek-v4-pro has a large context
             // window, so default high and allow overriding via repo variable.
-            const MAX_DIFF = parseInt(process.env.DEEPSEEK_MAX_DIFF || '2000000', 10);
+            const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
             const truncatedDiff = diffText.length > MAX_DIFF
               ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
               : diffText;
@@ -152,7 +160,7 @@ jobs:
             // fully consumed before any visible content is produced, yielding
             // an empty review. Default high (65536) to leave room for output.
             const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
-            const maxTokens = parseInt(process.env.DEEPSEEK_MAX_TOKENS || String(8192 * 8), 10);
+            const maxTokens = intFromEnv('DEEPSEEK_MAX_TOKENS', 8192 * 8);
 
             // Call DeepSeek API (OpenAI-compatible endpoint).
             async function requestReview() {
