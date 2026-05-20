@@ -6,7 +6,7 @@ const FINALIZED_BLOCK_NOT_FOUND: &str = "finalized block not found";
 use std::{
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -105,6 +105,11 @@ fn should_probe_confirmed_sync(
 /// payloads.
 fn close_preconf_ingress_for_reorg(preconf_ingress_ready: &AtomicBool) -> bool {
     preconf_ingress_ready.swap(false, Ordering::AcqRel)
+}
+
+/// Publish that post-reorg head-L1-origin reset completed and unsafe state should be rebuilt.
+fn record_preconf_reorg_state_reset(preconf_reorg_generation: &AtomicU64) -> u64 {
+    preconf_reorg_generation.fetch_add(1, Ordering::AcqRel) + 1
 }
 
 /// Resolve whether confirmed-sync readiness should open ingress.
@@ -241,6 +246,8 @@ where
     preconf_ingress_ready: Arc<AtomicBool>,
     /// Notifier signaled when strict ingress gating is satisfied and the loop becomes ready.
     preconf_ingress_notify: Arc<Notify>,
+    /// Monotonic counter bumped whenever an event-scanner reorg invalidates unsafe preconf state.
+    preconf_reorg_generation: Arc<AtomicU64>,
 }
 
 /// Maximum number of buffered preconfirmation payloads before backpressure applies.
@@ -740,6 +747,7 @@ where
             preconf_rx: Mutex::new(preconf_rx),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            preconf_reorg_generation: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -805,6 +813,11 @@ where
     /// This mirrors the internal readiness signal used by the strict ingress gate.
     pub fn is_preconf_ingress_ready(&self) -> bool {
         self.preconf_ingress_ready.load(Ordering::Acquire)
+    }
+
+    /// Returns the current event-scanner reorg generation for preconfirmation consumers.
+    pub fn preconf_reorg_generation(&self) -> u64 {
+        self.preconf_reorg_generation.load(Ordering::Acquire)
     }
 
     /// Submit a preconfirmation payload and await the processing result.
@@ -1345,6 +1358,15 @@ where
                                             REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT.as_millis() as u64,
                                         "timed out resetting head_l1_origin after reorg"
                                     );
+                                } else {
+                                    let preconf_reorg_generation = record_preconf_reorg_state_reset(
+                                        &self.preconf_reorg_generation,
+                                    );
+                                    info!(
+                                        common_ancestor,
+                                        preconf_reorg_generation,
+                                        "published preconfirmation reorg state reset"
+                                    );
                                 }
                             }
                             Notification::NoPastLogsFound => {}
@@ -1547,6 +1569,7 @@ mod tests {
             preconf_rx: Mutex::new(Some(preconf_rx)),
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
+            preconf_reorg_generation: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -1976,6 +1999,16 @@ mod tests {
 
         assert!(!ingress_ready.load(Ordering::Acquire));
         assert!(should_probe_confirmed_sync(true, true, false, true));
+    }
+
+    #[test]
+    fn preconf_reorg_generation_publishes_completed_state_reset() {
+        let reorg_generation = AtomicU64::new(0);
+
+        let generation = record_preconf_reorg_state_reset(&reorg_generation);
+
+        assert_eq!(generation, 1);
+        assert_eq!(reorg_generation.load(Ordering::Acquire), 1);
     }
 
     #[test]

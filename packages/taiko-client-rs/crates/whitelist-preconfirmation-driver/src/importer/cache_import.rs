@@ -1,8 +1,9 @@
 //! Cache re-import flow for out-of-order envelopes once parents arrive.
 
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use driver::PreconfPayload;
+use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -19,6 +20,8 @@ where
 {
     /// Attempt to import cached envelopes if sync is ready.
     pub(crate) async fn maybe_import_from_cache(&mut self) -> Result<()> {
+        self.reconcile_preconf_reorg_state().await?;
+
         let _ = self.refresh_sync_ready().await?;
         if !self.sync_ready || self.cache.is_empty() {
             return Ok(());
@@ -108,6 +111,42 @@ where
         Ok(())
     }
 
+    /// Reconcile importer-local unsafe state after the event scanner reports an L1 reorg.
+    pub(super) async fn reconcile_preconf_reorg_state(&mut self) -> Result<()> {
+        let current_generation = self.event_syncer.preconf_reorg_generation();
+        if current_generation == self.observed_preconf_reorg_generation {
+            return Ok(());
+        }
+
+        self.observed_preconf_reorg_generation = current_generation;
+        self.cache.clear();
+        self.recent_cache.clear();
+        self.cache_state.clear().await;
+
+        let Some(boundary) = self.head_l1_origin_block_id().await? else {
+            self.preconf_import_cursor = None;
+            self.sync_ready = false;
+            self.update_cache_gauges();
+            warn!(
+                preconf_reorg_generation = current_generation,
+                "cleared whitelist preconfirmation caches after reorg without head l1 origin"
+            );
+            return Ok(());
+        };
+
+        self.preconf_import_cursor = Some(boundary);
+        if let Some(ref highest) = self.highest_unsafe_l2_payload_block_id {
+            set_highest_unsafe_block_id(highest, boundary).await;
+        }
+        self.update_cache_gauges();
+        info!(
+            preconf_reorg_generation = current_generation,
+            head_l1_origin_block_id = boundary,
+            "reset whitelist preconfirmation unsafe state after event scanner reorg"
+        );
+        Ok(())
+    }
+
     /// Try to import one cached envelope.
     async fn try_import_cached(
         &mut self,
@@ -141,33 +180,35 @@ where
             return Ok(true);
         }
 
+        let parent_hash = payload.parent_hash;
+        let parent_number = block_number.saturating_sub(1);
         if block_number == 0 {
             return Ok(true);
         }
 
-        let parent_hash = payload.parent_hash;
-        let parent_number = block_number.saturating_sub(1);
-        if self.block_hash_by_number(parent_number).await? != Some(parent_hash) {
-            if self.request_throttle.should_request(parent_hash, Instant::now()) {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
-                    "result" => "issued",
-                )
-                .increment(1);
-                self.publish_unsafe_request(parent_hash).await;
-            } else {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
-                    "result" => "throttled",
-                )
-                .increment(1);
+        if !preconf_reorg_cursor_allows_block(self.preconf_import_cursor, block_number) {
+            if self.preconf_import_cursor.is_some_and(|cursor| block_number <= cursor) {
                 debug!(
                     block_number,
                     block_hash = %block_hash,
-                    parent_hash = %parent_hash,
-                    "suppressed duplicate whitelist preconfirmation parent request due to cooldown"
+                    preconf_import_cursor = ?self.preconf_import_cursor,
+                    "dropping cached whitelist preconfirmation payload at or before reorg cursor"
                 );
+                return Ok(true);
             }
+
+            self.request_missing_parent(parent_hash, block_number, block_hash).await;
+            debug!(
+                block_number,
+                block_hash = %block_hash,
+                preconf_import_cursor = ?self.preconf_import_cursor,
+                "deferring cached whitelist preconfirmation payload until reorg cursor advances"
+            );
+            return Ok(false);
+        }
+
+        if self.block_hash_by_number(parent_number).await? != Some(parent_hash) {
+            self.request_missing_parent(parent_hash, block_number, block_hash).await;
             return Ok(false);
         }
 
@@ -203,12 +244,70 @@ where
         );
 
         if let Some(ref highest) = self.highest_unsafe_l2_payload_block_id {
-            let mut guard = highest.lock().await;
-            *guard = block_number.max(*guard);
+            if self.preconf_import_cursor.is_some() {
+                set_highest_unsafe_block_id(highest, block_number).await;
+            } else {
+                advance_highest_unsafe_block_id(highest, block_number).await;
+            }
         }
+        advance_preconf_import_cursor(&mut self.preconf_import_cursor, block_number);
 
         Ok(true)
     }
+
+    async fn request_missing_parent(
+        &mut self,
+        parent_hash: alloy_primitives::B256,
+        block_number: u64,
+        block_hash: alloy_primitives::B256,
+    ) {
+        if self.request_throttle.should_request(parent_hash, Instant::now()) {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
+                "result" => "issued",
+            )
+            .increment(1);
+            self.publish_unsafe_request(parent_hash).await;
+        } else {
+            metrics::counter!(
+                WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
+                "result" => "throttled",
+            )
+            .increment(1);
+            debug!(
+                block_number,
+                block_hash = %block_hash,
+                parent_hash = %parent_hash,
+                "suppressed duplicate whitelist preconfirmation parent request due to cooldown"
+            );
+        }
+    }
+}
+
+/// Returns true when the reorg import cursor permits importing `block_number`.
+pub(super) fn preconf_reorg_cursor_allows_block(cursor: Option<u64>, block_number: u64) -> bool {
+    match cursor {
+        Some(cursor) => block_number == cursor.saturating_add(1),
+        None => true,
+    }
+}
+
+/// Advance the reorg import cursor after a successful unsafe payload import.
+pub(super) fn advance_preconf_import_cursor(cursor: &mut Option<u64>, block_number: u64) {
+    if cursor.is_some() {
+        *cursor = Some(block_number);
+    }
+}
+
+/// Set the shared highest unsafe block ID, allowing reorg resets to move it backward.
+pub(super) async fn set_highest_unsafe_block_id(highest: &Arc<Mutex<u64>>, block_number: u64) {
+    *highest.lock().await = block_number;
+}
+
+/// Advance the shared highest unsafe block ID without moving it backward.
+pub(super) async fn advance_highest_unsafe_block_id(highest: &Arc<Mutex<u64>>, block_number: u64) {
+    let mut guard = highest.lock().await;
+    *guard = block_number.max(*guard);
 }
 
 /// Returns true when a cached-envelope import error should be logged and dropped.
@@ -265,12 +364,46 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use driver::DriverError;
+    use std::sync::Arc;
 
-    use super::should_defer_cached_driver_error;
+    use driver::DriverError;
+    use tokio::sync::Mutex;
+
+    use super::{
+        advance_preconf_import_cursor, preconf_reorg_cursor_allows_block,
+        set_highest_unsafe_block_id, should_defer_cached_driver_error,
+    };
 
     #[test]
     fn preconf_ingress_not_ready_defers_cached_import() {
         assert!(should_defer_cached_driver_error(&DriverError::PreconfIngressNotReady));
+    }
+
+    #[test]
+    fn preconf_reorg_cursor_requires_contiguous_block_after_boundary() {
+        assert!(preconf_reorg_cursor_allows_block(None, 102));
+        assert!(preconf_reorg_cursor_allows_block(Some(100), 101));
+        assert!(!preconf_reorg_cursor_allows_block(Some(100), 102));
+        assert!(!preconf_reorg_cursor_allows_block(Some(100), 100));
+    }
+
+    #[test]
+    fn preconf_reorg_cursor_advances_only_when_active() {
+        let mut inactive = None;
+        advance_preconf_import_cursor(&mut inactive, 101);
+        assert_eq!(inactive, None);
+
+        let mut active = Some(100);
+        advance_preconf_import_cursor(&mut active, 101);
+        assert_eq!(active, Some(101));
+    }
+
+    #[tokio::test]
+    async fn highest_unsafe_block_id_can_move_backward_after_reorg() {
+        let highest = Arc::new(Mutex::new(150));
+
+        set_highest_unsafe_block_id(&highest, 100).await;
+
+        assert_eq!(*highest.lock().await, 100);
     }
 }

@@ -134,4 +134,32 @@ where
     pub(super) async fn update_highest_unsafe(&self, block_number: u64) {
         *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
     }
+
+    /// Reconcile API-visible unsafe state after event sync publishes a completed reorg reset.
+    pub(super) async fn reconcile_preconf_reorg_state(&self) -> Result<()> {
+        let current_generation = self.event_syncer.preconf_reorg_generation();
+        let observed_generation = self.observed_preconf_reorg_generation.load(Ordering::Acquire);
+        if current_generation == observed_generation {
+            return Ok(());
+        }
+
+        let Some(boundary) = self.rpc.head_l1_origin().await?.map(|head| head.block_id.to::<u64>())
+        else {
+            warn!(
+                preconf_reorg_generation = current_generation,
+                "skipping whitelist API unsafe-state reset until head l1 origin is available"
+            );
+            return Ok(());
+        };
+
+        self.update_highest_unsafe(boundary).await;
+        self.cache_state.clear().await;
+        self.observed_preconf_reorg_generation.store(current_generation, Ordering::Release);
+        info!(
+            preconf_reorg_generation = current_generation,
+            head_l1_origin_block_id = boundary,
+            "reset whitelist API unsafe state after event scanner reorg"
+        );
+        Ok(())
+    }
 }

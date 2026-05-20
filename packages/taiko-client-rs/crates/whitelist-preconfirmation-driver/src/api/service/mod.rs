@@ -1,7 +1,10 @@
 //! Whitelist preconfirmation API service implementation.
 
 use std::{
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{Duration, Instant},
 };
 
@@ -24,7 +27,7 @@ use protocol::{
 };
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     api::{
@@ -107,6 +110,8 @@ where
     highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Shared cache state used to back `/status` and EOS visibility.
     cache_state: SharedPreconfCacheState,
+    /// Last event-scanner reorg generation reflected in API-visible unsafe state.
+    observed_preconf_reorg_generation: AtomicU64,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
     /// Wall-clock instant of the most recent `build_preconf_block` invocation,
@@ -162,6 +167,7 @@ where
         }: WhitelistApiServiceParams<P>,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
+        let observed_preconf_reorg_generation = event_syncer.preconf_reorg_generation();
         Self {
             event_syncer,
             rpc,
@@ -172,6 +178,7 @@ where
             local_peer_id,
             highest_unsafe_l2_payload_block_id,
             cache_state,
+            observed_preconf_reorg_generation: AtomicU64::new(observed_preconf_reorg_generation),
             eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),

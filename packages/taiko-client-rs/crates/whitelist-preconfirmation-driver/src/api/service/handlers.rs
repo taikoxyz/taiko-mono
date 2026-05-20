@@ -52,6 +52,7 @@ where
         // mark this pod as the active preconfer for shutdown purposes.
         self.mark_preconf_request_received().await;
         let _build_guard = self.build_preconf_lock.lock().await;
+        self.reconcile_preconf_reorg_state().await?;
 
         // Guard against building on a genuinely syncing node, but tolerate the false-
         // positive that taiko-geth emits on genesis chains (currentBlock == highestBlock

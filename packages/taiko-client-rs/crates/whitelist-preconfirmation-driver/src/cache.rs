@@ -50,6 +50,11 @@ impl SharedPreconfCacheState {
     pub(crate) async fn end_of_sequencing_for_epoch(&self, epoch: u64) -> Option<B256> {
         self.end_of_sequencing_by_epoch.lock().await.get(&epoch).copied()
     }
+
+    /// Clear all shared cache state after the unsafe preconfirmation branch is invalidated.
+    pub(crate) async fn clear(&self) {
+        self.end_of_sequencing_by_epoch.lock().await.clear();
+    }
 }
 
 /// Simple in-memory cache keyed by block hash with bounded capacity.
@@ -92,6 +97,11 @@ impl EnvelopeCache {
     /// Remove a cached envelope by block hash.
     pub fn remove(&mut self, hash: &B256) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.remove(hash)
+    }
+
+    /// Clear all pending envelopes.
+    pub fn clear(&mut self) {
+        self.entries.clear();
     }
 
     /// Returns all cached envelope hashes sorted by block number and hash.
@@ -162,6 +172,11 @@ impl RecentEnvelopeCache {
     /// Get a recent envelope by block hash.
     pub fn get_recent(&self, hash: &B256) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
         self.entries.get(hash).cloned()
+    }
+
+    /// Clear all recently accepted envelopes.
+    pub fn clear(&mut self) {
+        self.entries.clear();
     }
 
     /// Returns current number of recent envelopes.
@@ -268,6 +283,21 @@ mod tests {
     }
 
     #[test]
+    fn recent_cache_clear_removes_all_entries() {
+        let mut recent = RecentEnvelopeCache::with_capacity(2);
+        let h1 = B256::from([0x01u8; 32]);
+        let h2 = B256::from([0x02u8; 32]);
+
+        recent.insert_recent(Arc::new(sample_envelope(h1, 1)));
+        recent.insert_recent(Arc::new(sample_envelope(h2, 2)));
+        recent.clear();
+
+        assert!(recent.get_recent(&h1).is_none());
+        assert!(recent.get_recent(&h2).is_none());
+        assert_eq!(recent.len(), 0);
+    }
+
+    #[test]
     fn request_throttle_applies_cooldown_per_hash() {
         let mut throttle = RequestThrottle::new(Duration::from_secs(10));
         let hash = B256::from([0xaau8; 32]);
@@ -309,6 +339,31 @@ mod tests {
         let hashes = cache.sorted_hashes_by_block_number();
         assert_eq!(hashes, vec![h2, h3]);
         assert_eq!(cache.len(), 2);
+    }
+
+    #[test]
+    fn pending_cache_clear_removes_all_entries() {
+        let mut cache = EnvelopeCache::with_capacity(2);
+        let h1 = B256::from([0x10u8; 32]);
+        let h2 = B256::from([0x20u8; 32]);
+
+        cache.insert(Arc::new(sample_envelope(h1, 1)));
+        cache.insert(Arc::new(sample_envelope(h2, 2)));
+        cache.clear();
+
+        assert!(cache.get(&h1).is_none());
+        assert!(cache.get(&h2).is_none());
+        assert_eq!(cache.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn shared_preconf_cache_state_clear_removes_eos_entries() {
+        let state = SharedPreconfCacheState::new();
+        state.record_end_of_sequencing(7, B256::from([0x07u8; 32])).await;
+
+        state.clear().await;
+
+        assert_eq!(state.end_of_sequencing_for_epoch(7).await, None);
     }
 
     #[test]

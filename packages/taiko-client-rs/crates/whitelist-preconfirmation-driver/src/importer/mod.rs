@@ -82,6 +82,10 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
     highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
+    /// Last event-scanner reorg generation reflected in importer-local unsafe state.
+    observed_preconf_reorg_generation: u64,
+    /// Required next unsafe import base after an event-scanner reorg reset.
+    preconf_import_cursor: Option<u64>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
@@ -106,6 +110,7 @@ where
         } = params;
         let anchor_address = *rpc.shasta.anchor.address();
 
+        let observed_preconf_reorg_generation = event_syncer.preconf_reorg_generation();
         let importer = Self {
             event_syncer,
             rpc,
@@ -118,6 +123,8 @@ where
             operator_set,
             network_command_tx,
             highest_unsafe_l2_payload_block_id,
+            observed_preconf_reorg_generation,
+            preconf_import_cursor: None,
             sync_ready: false,
             anchor_address,
         };
@@ -127,6 +134,8 @@ where
 
     /// Handle one network event.
     pub(crate) async fn handle_event(&mut self, event: NetworkEvent) -> Result<()> {
+        self.reconcile_preconf_reorg_state().await?;
+
         match event {
             NetworkEvent::UnsafePayload { from, payload } => {
                 if let Err(err) = self.handle_unsafe_payload(payload).await {

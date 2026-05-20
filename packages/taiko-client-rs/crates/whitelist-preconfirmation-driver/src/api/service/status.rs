@@ -8,6 +8,8 @@ where
 {
     /// Build the current status snapshot served by the REST `/status` route.
     pub(super) async fn get_status_snapshot(&self) -> Result<WhitelistStatus> {
+        self.reconcile_preconf_reorg_state().await?;
+
         let head_l1_origin = self.rpc.head_l1_origin().await?;
         let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
         let current_epoch = self.beacon_client.current_epoch();
