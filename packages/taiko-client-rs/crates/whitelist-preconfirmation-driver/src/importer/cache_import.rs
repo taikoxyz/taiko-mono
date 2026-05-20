@@ -172,6 +172,12 @@ where
         }
 
         if self.block_hash_by_number(block_number).await? == Some(block_hash) {
+            record_materialized_preconf_block(
+                &mut self.preconf_import_cursor,
+                self.highest_unsafe_l2_payload_block_id.as_ref(),
+                block_number,
+            )
+            .await;
             debug!(
                 block_number,
                 block_hash = %block_hash,
@@ -311,6 +317,23 @@ pub(super) async fn advance_highest_unsafe_block_id(highest: &Arc<Mutex<u64>>, b
     *guard = block_number.max(*guard);
 }
 
+/// Record an already-materialized block when it is the next block required by a reorg cursor.
+pub(super) async fn record_materialized_preconf_block(
+    cursor: &mut Option<u64>,
+    highest: Option<&Arc<Mutex<u64>>>,
+    block_number: u64,
+) -> bool {
+    if !preconf_reorg_cursor_allows_block(*cursor, block_number) {
+        return false;
+    }
+
+    if let Some(highest) = highest {
+        set_highest_unsafe_block_id(highest, block_number).await;
+    }
+    advance_preconf_import_cursor(cursor, block_number);
+    true
+}
+
 /// Returns true when a cached-envelope import error should be logged and dropped.
 pub(super) fn should_drop_cached_import_error(err: &WhitelistPreconfirmationDriverError) -> bool {
     match err {
@@ -372,7 +395,8 @@ mod tests {
 
     use super::{
         advance_preconf_import_cursor, preconf_reorg_cursor_allows_block,
-        set_highest_unsafe_block_id, should_defer_cached_driver_error,
+        record_materialized_preconf_block, set_highest_unsafe_block_id,
+        should_defer_cached_driver_error,
     };
 
     #[test]
@@ -405,6 +429,30 @@ mod tests {
 
         set_highest_unsafe_block_id(&highest, 100).await;
 
+        assert_eq!(*highest.lock().await, 100);
+    }
+
+    #[tokio::test]
+    async fn materialized_next_block_advances_active_reorg_cursor() {
+        let highest = Arc::new(Mutex::new(100));
+        let mut cursor = Some(100);
+
+        let advanced = record_materialized_preconf_block(&mut cursor, Some(&highest), 101).await;
+
+        assert!(advanced);
+        assert_eq!(cursor, Some(101));
+        assert_eq!(*highest.lock().await, 101);
+    }
+
+    #[tokio::test]
+    async fn materialized_later_block_does_not_skip_active_reorg_cursor() {
+        let highest = Arc::new(Mutex::new(100));
+        let mut cursor = Some(100);
+
+        let advanced = record_materialized_preconf_block(&mut cursor, Some(&highest), 102).await;
+
+        assert!(!advanced);
+        assert_eq!(cursor, Some(100));
         assert_eq!(*highest.lock().await, 100);
     }
 }
