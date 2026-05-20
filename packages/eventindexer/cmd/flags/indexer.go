@@ -26,7 +26,7 @@ var (
 	L1TaikoAddress = &cli.StringFlag{
 		Name:     "l1TaikoAddress",
 		Usage:    "Address of the L1 Taiko contract",
-		Required: false,
+		Required: true,
 		Category: indexerCategory,
 		EnvVars:  []string{"L1_TAIKO_ADDRESS"},
 	}
