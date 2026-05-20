@@ -175,7 +175,7 @@ where
         }
 
         if self.block_hash_by_number(block_number).await? == Some(block_hash) {
-            record_materialized_preconf_block(
+            let can_remove = record_materialized_preconf_cache_hit(
                 &mut self.preconf_import_cursor,
                 self.highest_unsafe_l2_payload_block_id.as_ref(),
                 block_number,
@@ -184,9 +184,10 @@ where
             debug!(
                 block_number,
                 block_hash = %block_hash,
-                "dropping already-inserted whitelist preconfirmation payload"
+                can_remove,
+                "handling already-inserted whitelist preconfirmation payload"
             );
-            return Ok(true);
+            return Ok(can_remove);
         }
 
         let parent_hash = payload.parent_hash;
@@ -337,6 +338,20 @@ pub(super) async fn record_materialized_preconf_block(
     true
 }
 
+/// Record a materialized cache hit and return whether the cached entry can be removed.
+pub(super) async fn record_materialized_preconf_cache_hit(
+    cursor: &mut Option<u64>,
+    highest: Option<&Arc<Mutex<u64>>>,
+    block_number: u64,
+) -> bool {
+    let original_cursor = *cursor;
+    if record_materialized_preconf_block(cursor, highest, block_number).await {
+        return true;
+    }
+
+    original_cursor.is_some_and(|cursor| block_number <= cursor)
+}
+
 /// Apply a resolved post-reorg boundary to importer-local unsafe state.
 pub(super) async fn apply_preconf_reorg_boundary(
     observed_generation: &mut u64,
@@ -420,7 +435,8 @@ mod tests {
     use super::{
         advance_preconf_import_cursor, apply_preconf_reorg_boundary,
         preconf_reorg_cursor_allows_block, record_materialized_preconf_block,
-        set_highest_unsafe_block_id, should_defer_cached_driver_error,
+        record_materialized_preconf_cache_hit, set_highest_unsafe_block_id,
+        should_defer_cached_driver_error,
     };
 
     #[test]
@@ -478,6 +494,35 @@ mod tests {
         assert!(!advanced);
         assert_eq!(cursor, Some(100));
         assert_eq!(*highest.lock().await, 100);
+    }
+
+    #[tokio::test]
+    async fn materialized_later_block_is_retained_until_reorg_cursor_can_record_it() {
+        let highest = Arc::new(Mutex::new(100));
+        let mut cursor = Some(100);
+
+        let can_remove =
+            record_materialized_preconf_cache_hit(&mut cursor, Some(&highest), 102).await;
+
+        assert!(!can_remove);
+        assert_eq!(cursor, Some(100));
+        assert_eq!(*highest.lock().await, 100);
+    }
+
+    #[tokio::test]
+    async fn materialized_recorded_or_old_block_can_be_removed_from_cache() {
+        let highest = Arc::new(Mutex::new(100));
+        let mut cursor = Some(100);
+
+        let next_can_remove =
+            record_materialized_preconf_cache_hit(&mut cursor, Some(&highest), 101).await;
+        let old_can_remove =
+            record_materialized_preconf_cache_hit(&mut cursor, Some(&highest), 100).await;
+
+        assert!(next_can_remove);
+        assert!(old_can_remove);
+        assert_eq!(cursor, Some(101));
+        assert_eq!(*highest.lock().await, 101);
     }
 
     #[tokio::test]
