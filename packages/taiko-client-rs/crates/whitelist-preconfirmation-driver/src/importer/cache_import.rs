@@ -255,6 +255,7 @@ where
         Ok(true)
     }
 
+    /// Publish or throttle a request for a missing parent payload.
     async fn request_missing_parent(
         &mut self,
         parent_hash: alloy_primitives::B256,
