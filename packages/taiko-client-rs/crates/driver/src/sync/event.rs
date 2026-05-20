@@ -107,6 +107,15 @@ fn close_preconf_ingress_for_reorg(preconf_ingress_ready: &AtomicBool) -> bool {
     preconf_ingress_ready.swap(false, Ordering::AcqRel)
 }
 
+/// Mark post-reorg reset pending and close preconfirmation ingress before serialization waits.
+fn begin_preconf_reorg_reset(
+    preconf_ingress_ready: &AtomicBool,
+    preconf_reorg_reset_pending: &AtomicBool,
+) -> bool {
+    preconf_reorg_reset_pending.store(true, Ordering::Release);
+    close_preconf_ingress_for_reorg(preconf_ingress_ready)
+}
+
 /// Returns whether an already-queued preconfirmation job may still enter the engine.
 fn preconf_ingress_accepts_queued_job(preconf_ingress_ready: &AtomicBool) -> bool {
     preconf_ingress_ready.load(Ordering::Acquire)
@@ -1411,13 +1420,16 @@ where
                                 scanner_live = true;
                             }
                             Notification::ReorgDetected { common_ancestor } => {
+                                pending_reorg_common_ancestor = Some(common_ancestor);
+                                let ingress_was_ready = begin_preconf_reorg_reset(
+                                    &self.preconf_ingress_ready,
+                                    &self.preconf_reorg_reset_pending,
+                                );
                                 // Serialize reorg closure with preconfirmation production so a
                                 // queued job cannot pass the router gate after reorg handling
                                 // starts.
                                 let _router_guard = router.lock().await;
-                                pending_reorg_common_ancestor = Some(common_ancestor);
-                                self.preconf_reorg_reset_pending.store(true, Ordering::Release);
-                                if close_preconf_ingress_for_reorg(&self.preconf_ingress_ready) {
+                                if ingress_was_ready {
                                     info!(
                                         common_ancestor,
                                         "closing preconfirmation ingress after event scanner reorg"
@@ -2075,6 +2087,17 @@ mod tests {
 
         assert!(!ingress_ready.load(Ordering::Acquire));
         assert!(should_probe_confirmed_sync(true, true, false, true));
+    }
+
+    #[test]
+    fn event_reorg_marks_reset_pending_before_serialization() {
+        let ingress_ready = AtomicBool::new(true);
+        let reset_pending = AtomicBool::new(false);
+
+        begin_preconf_reorg_reset(&ingress_ready, &reset_pending);
+
+        assert!(!ingress_ready.load(Ordering::Acquire));
+        assert!(reset_pending.load(Ordering::Acquire));
     }
 
     #[test]
