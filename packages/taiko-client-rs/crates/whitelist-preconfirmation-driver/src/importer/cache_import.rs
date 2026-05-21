@@ -375,9 +375,26 @@ where
     if original_cursor.is_none() {
         return Ok(record_materialized_preconf_block(cursor, highest, block_number).await);
     }
+    if original_cursor.is_some_and(|cursor| block_number <= cursor) {
+        return Ok(true);
+    }
+    if !highest_allows_materialized_cursor_advance(highest, block_number).await {
+        return Ok(false);
+    }
 
     advance_materialized_preconf_cursor(cursor, highest, block_number, is_materialized).await?;
     Ok(cursor.is_some_and(|cursor| block_number <= cursor))
+}
+
+/// Returns true when shared unsafe state confirms this materialized block is from this rebuild.
+pub(super) async fn highest_allows_materialized_cursor_advance(
+    highest: Option<&Arc<Mutex<u64>>>,
+    block_number: u64,
+) -> bool {
+    let Some(highest) = highest else {
+        return false;
+    };
+    *highest.lock().await >= block_number
 }
 
 /// Advance an active reorg cursor across locally materialized contiguous blocks.
@@ -538,6 +555,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn materialized_cache_hit_does_not_advance_active_cursor_past_highest_unsafe() {
+        let highest = Arc::new(Mutex::new(100));
+        let mut cursor = Some(100);
+
+        let can_remove =
+            record_materialized_preconf_cache_hit(&mut cursor, Some(&highest), 101, |_| async {
+                Ok(true)
+            })
+            .await
+            .unwrap();
+
+        assert!(!can_remove);
+        assert_eq!(cursor, Some(100));
+        assert_eq!(*highest.lock().await, 100);
+    }
+
+    #[tokio::test]
     async fn materialized_cache_hit_without_reorg_cursor_does_not_lower_highest_unsafe() {
         let highest = Arc::new(Mutex::new(150));
         let mut cursor = None;
@@ -587,7 +621,7 @@ mod tests {
 
     #[tokio::test]
     async fn materialized_cache_hit_advances_across_local_contiguous_blocks() {
-        let highest = Arc::new(Mutex::new(100));
+        let highest = Arc::new(Mutex::new(102));
         let mut cursor = Some(100);
 
         let can_remove = record_materialized_preconf_cache_hit(
@@ -606,7 +640,7 @@ mod tests {
 
     #[tokio::test]
     async fn materialized_recorded_or_old_block_can_be_removed_from_cache() {
-        let highest = Arc::new(Mutex::new(100));
+        let highest = Arc::new(Mutex::new(101));
         let mut cursor = Some(100);
 
         let next_can_remove =

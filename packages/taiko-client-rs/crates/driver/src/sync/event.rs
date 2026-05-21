@@ -584,7 +584,7 @@ where
                 common_ancestor,
                 next_proposal_id, "skipping head_l1_origin reset at genesis boundary"
             );
-            return false;
+            return true;
         }
         let proposal_id = next_proposal_id - 1;
 
@@ -2122,6 +2122,27 @@ mod tests {
 
         assert_eq!(generation, 1);
         assert_eq!(reorg_generation.load(Ordering::Acquire), 1);
+    }
+
+    #[tokio::test]
+    async fn complete_preconf_reorg_reset_publishes_generation_at_genesis_boundary() {
+        let l1_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            preconf_reorg_reset_pending: Arc::new(AtomicBool::new(true)),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(1);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+
+        assert!(syncer.complete_preconf_reorg_reset(1_234).await);
+        assert!(!syncer.preconf_reorg_reset_pending.load(Ordering::Acquire));
+        assert_eq!(syncer.preconf_reorg_generation.load(Ordering::Acquire), 1);
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
     }
 
     #[test]
