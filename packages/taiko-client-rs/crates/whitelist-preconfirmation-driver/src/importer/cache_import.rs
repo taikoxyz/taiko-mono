@@ -386,13 +386,14 @@ where
     Ok(cursor.is_some_and(|cursor| block_number <= cursor))
 }
 
-/// Returns true when shared unsafe state confirms this materialized block is from this rebuild.
+/// Returns true when shared unsafe state, if present, confirms this materialized block is from this
+/// rebuild.
 pub(super) async fn highest_allows_materialized_cursor_advance(
     highest: Option<&Arc<Mutex<u64>>>,
     block_number: u64,
 ) -> bool {
     let Some(highest) = highest else {
-        return false;
+        return true;
     };
     *highest.lock().await >= block_number
 }
@@ -636,6 +637,21 @@ mod tests {
         assert!(can_remove);
         assert_eq!(cursor, Some(102));
         assert_eq!(*highest.lock().await, 102);
+    }
+
+    #[tokio::test]
+    async fn materialized_cache_hit_advances_without_shared_highest_state() {
+        let mut cursor = Some(100);
+
+        let can_remove =
+            record_materialized_preconf_cache_hit(&mut cursor, None, 102, |number| async move {
+                Ok(matches!(number, 101 | 102))
+            })
+            .await
+            .unwrap();
+
+        assert!(can_remove);
+        assert_eq!(cursor, Some(102));
     }
 
     #[tokio::test]
