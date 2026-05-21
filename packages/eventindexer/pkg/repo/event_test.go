@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -10,25 +9,24 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
-	"gorm.io/gorm"
 )
 
 var (
 	blockID             int64 = 1
 	dummyProveEventOpts       = eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameTransitionProved,
+		Name:         eventindexer.EventNameProved,
 		Address:      "0x123",
 		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameTransitionProved,
+		Event:        eventindexer.EventNameProved,
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
 	}
 	dummyProposeEventOpts = eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBlockProposed,
+		Name:         eventindexer.EventNameProposed,
 		Address:      "0x123",
 		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBlockProposed,
+		Event:        eventindexer.EventNameProposed,
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
@@ -70,7 +68,7 @@ func TestIntegration_Event_Save(t *testing.T) {
 				Name:         "test",
 				ChainID:      big.NewInt(1),
 				Data:         "{\"data\":\"something\"}",
-				Event:        eventindexer.EventNameBlockProposed,
+				Event:        eventindexer.EventNameProposed,
 				Address:      "0x123",
 				TransactedAt: time.Now(),
 			},
@@ -99,10 +97,10 @@ func TestIntegration_Event_FindUniqueProvers_MultipleAddresses(t *testing.T) {
 	addr2 := "0xbbbb"
 
 	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameTransitionProved,
+		Name:         eventindexer.EventNameProved,
 		Address:      addr1,
 		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameTransitionProved,
+		Event:        eventindexer.EventNameProved,
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
@@ -110,21 +108,10 @@ func TestIntegration_Event_FindUniqueProvers_MultipleAddresses(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBatchesProven,
-		Address:      addr1,
-		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBatchesProven,
-		ChainID:      big.NewInt(1),
-		BlockID:      &blockID,
-		TransactedAt: time.Now(),
-	})
-	assert.Equal(t, nil, err)
-
-	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameTransitionProved,
+		Name:         eventindexer.EventNameProved,
 		Address:      addr2,
 		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameTransitionProved,
+		Event:        eventindexer.EventNameProved,
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
@@ -135,7 +122,7 @@ func TestIntegration_Event_FindUniqueProvers_MultipleAddresses(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	expected := map[string]int{
-		addr1: 2,
+		addr1: 1,
 		addr2: 1,
 	}
 
@@ -162,10 +149,10 @@ func TestIntegration_Event_FindUniqueProposers_MultipleAddresses(t *testing.T) {
 	addr2 := "0xdddd"
 
 	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBlockProposed,
+		Name:         eventindexer.EventNameProposed,
 		Address:      addr1,
 		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBlockProposed,
+		Event:        eventindexer.EventNameProposed,
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
@@ -173,21 +160,10 @@ func TestIntegration_Event_FindUniqueProposers_MultipleAddresses(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBatchProposed,
-		Address:      addr1,
-		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBatchProposed,
-		ChainID:      big.NewInt(1),
-		BlockID:      &blockID,
-		TransactedAt: time.Now(),
-	})
-	assert.Equal(t, nil, err)
-
-	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBlockProposed,
+		Name:         eventindexer.EventNameProposed,
 		Address:      addr2,
 		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBlockProposed,
+		Event:        eventindexer.EventNameProposed,
 		ChainID:      big.NewInt(1),
 		BlockID:      &blockID,
 		TransactedAt: time.Now(),
@@ -198,7 +174,7 @@ func TestIntegration_Event_FindUniqueProposers_MultipleAddresses(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	expected := map[string]int{
-		addr1: 2,
+		addr1: 1,
 		addr2: 1,
 	}
 
@@ -221,14 +197,6 @@ func TestIntegration_Event_FindUniqueProvers(t *testing.T) {
 	eventRepo, err := NewEventRepository(db)
 	assert.Equal(t, nil, err)
 
-	_, err = eventRepo.Save(context.Background(), dummyProveEventOpts)
-
-	assert.Equal(t, nil, err)
-
-	_, err = eventRepo.Save(context.Background(), dummyProposeEventOpts)
-
-	assert.Equal(t, nil, err)
-
 	_, err = eventRepo.Save(context.Background(), dummyShastaProvedEventOpts)
 
 	assert.Equal(t, nil, err)
@@ -243,7 +211,7 @@ func TestIntegration_Event_FindUniqueProvers(t *testing.T) {
 			[]eventindexer.UniqueProversResponse{
 				{
 					Address: "0x123",
-					Count:   2,
+					Count:   1,
 				},
 			},
 			nil,
@@ -273,14 +241,6 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 	eventRepo, err := NewEventRepository(db)
 	assert.Equal(t, nil, err)
 
-	_, err = eventRepo.Save(context.Background(), dummyProveEventOpts)
-
-	assert.Equal(t, nil, err)
-
-	_, err = eventRepo.Save(context.Background(), dummyProposeEventOpts)
-
-	assert.Equal(t, nil, err)
-
 	_, err = eventRepo.Save(context.Background(), dummyShastaProposedEventOpts)
 
 	assert.Equal(t, nil, err)
@@ -295,7 +255,7 @@ func TestIntegration_Event_FindUniqueProposers(t *testing.T) {
 			[]eventindexer.UniqueProposersResponse{
 				{
 					Address: dummyProposeEventOpts.Address,
-					Count:   2,
+					Count:   1,
 				},
 			},
 			nil,
@@ -463,181 +423,6 @@ func TestIntegration_Event_FirstByAddressAndEvent(t *testing.T) {
 
 			if tt.wantEventID != 0 {
 				assert.Equal(t, tt.wantEventID, found.ID)
-			}
-		})
-	}
-}
-
-func TestIntegration_Event_GetBlockProposedBy(t *testing.T) {
-	db, close, err := testMysql(t)
-	assert.Equal(t, nil, err)
-
-	defer close()
-
-	eventRepo, err := NewEventRepository(db)
-	assert.Equal(t, nil, err)
-
-	blockID := int64(0)
-
-	batchBlockId := int64(2)
-
-	numBlocks := int64(2)
-	// Save a single BlockProposed event
-	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBlockProposed,
-		Address:      "0x123",
-		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBlockProposed,
-		ChainID:      big.NewInt(1),
-		BlockID:      &blockID,
-		TransactedAt: time.Now(),
-	})
-	assert.Equal(t, nil, err)
-
-	// Save a BatchProposed event where blocks [0, 1] belong to the batch
-	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBatchProposed,
-		Address:      "0x1234",
-		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameBlockProposed,
-		ChainID:      big.NewInt(1),
-		BlockID:      &batchBlockId,
-		TransactedAt: time.Now(),
-		NumBlocks:    &numBlocks,
-	})
-	assert.Equal(t, nil, err)
-
-	tests := []struct {
-		name         string
-		blockID      int64
-		wantProposer string
-		wantErr      error
-	}{
-		{
-			"single block proposed event exists",
-			0,
-			"0x123",
-			nil,
-		},
-		{
-			"block is part of batch proposal",
-			2,
-			"0x1234",
-			nil,
-		},
-		{
-			"block does not exist",
-			99, // No event with this block ID exists
-			"",
-			gorm.ErrRecordNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			event, err := eventRepo.GetBlockProposedBy(context.Background(), int(tt.blockID))
-
-			assert.Equal(t, tt.wantErr, err)
-
-			if tt.wantErr == nil {
-				assert.NotNil(t, event)
-				assert.Equal(t, tt.wantProposer, event.Address)
-			} else {
-				assert.Nil(t, event)
-			}
-		})
-	}
-}
-
-func TestIntegration_Event_GetBlockProvenBy(t *testing.T) {
-	db, close, err := testMysql(t)
-	assert.Equal(t, nil, err)
-
-	defer close()
-
-	eventRepo, err := NewEventRepository(db)
-	assert.Equal(t, nil, err)
-
-	blockID := int64(0)
-	batchBlockID := int64(2)
-	numBlocks := int64(2)
-	batchID := int64(100)
-
-	// Save a single TransitionProved event
-	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameTransitionProved,
-		Address:      "0x123",
-		Data:         "{\"data\":\"something\"}",
-		Event:        eventindexer.EventNameTransitionProved,
-		ChainID:      big.NewInt(1),
-		BlockID:      &blockID,
-		TransactedAt: time.Now(),
-	})
-	assert.Equal(t, nil, err)
-
-	// Save a BatchProposed event where blocks [0, 1] belong to the batch
-	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBatchProposed,
-		Address:      "0x1234",
-		Data:         fmt.Sprintf("{\"batchID\": %d, \"num_blocks\": %d}", batchID, numBlocks),
-		Event:        eventindexer.EventNameBatchProposed,
-		ChainID:      big.NewInt(1),
-		BlockID:      &batchBlockID,
-		TransactedAt: time.Now(),
-		NumBlocks:    &numBlocks,
-		BatchID:      &batchID,
-	})
-	assert.Equal(t, nil, err)
-
-	// Save a BatchesProven event for the batch
-	_, err = eventRepo.Save(context.Background(), eventindexer.SaveEventOpts{
-		Name:         eventindexer.EventNameBatchesProven,
-		Address:      "0x5678",
-		Data:         fmt.Sprintf("{\"batchID\": %d}", batchID),
-		Event:        eventindexer.EventNameBatchesProven,
-		ChainID:      big.NewInt(1),
-		TransactedAt: time.Now(),
-		BatchID:      &batchID,
-	})
-	assert.Equal(t, nil, err)
-
-	tests := []struct {
-		name       string
-		blockID    int64
-		wantProver string
-		wantErr    error
-	}{
-		{
-			"single block proven event exists",
-			0,
-			"0x123",
-			nil,
-		},
-		{
-			"block is part of batch proof",
-			1,
-			"0x5678",
-			nil,
-		},
-		{
-			"block does not exist",
-			99,
-			"",
-			gorm.ErrRecordNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			events, err := eventRepo.GetBlockProvenBy(context.Background(), int(tt.blockID))
-
-			assert.Equal(t, tt.wantErr, err)
-
-			if tt.wantErr == nil {
-				assert.NotEmpty(t, events)
-				assert.Equal(t, tt.wantProver, events[0].Address)
-			} else {
-				assert.Empty(t, events)
 			}
 		})
 	}

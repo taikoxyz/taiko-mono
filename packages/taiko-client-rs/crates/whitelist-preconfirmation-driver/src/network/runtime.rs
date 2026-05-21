@@ -3,15 +3,25 @@
 //! Contains type definitions, swarm bootstrap, transport helpers, the network
 //! runtime event loop, gossipsub event handling, and decode/metrics helpers.
 
-use std::{collections::HashSet, net::SocketAddr, sync::Arc, time::Instant};
+use std::{
+    collections::HashSet,
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy_primitives::B256;
 use futures::StreamExt;
 use libp2p::{
-    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identity, noise, tcp, yamux,
+    Multiaddr, PeerId, Swarm, Transport, core::upgrade, dns, gossipsub, identity,
+    multiaddr::Protocol, noise, swarm::DialError, tcp, yamux,
 };
-use tokio::{sync::mpsc, task::JoinHandle};
-use tracing::{debug, warn};
+use tokio::{
+    sync::mpsc,
+    task::JoinHandle,
+    time::{Instant as TokioInstant, Interval, MissedTickBehavior},
+};
+use tracing::{debug, info, warn};
 
 use super::{
     behaviour::{BehaviourEvent, TaikoBehaviour, build_behaviour},
@@ -30,6 +40,12 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     operator_set::SharedOperatorSet,
 };
+
+/// Interval for retrying configured bootnode/static peer dials.
+const CONFIGURED_PEER_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+
+/// Interval for logging current preconfirmation peer connectivity.
+const PEER_STATUS_LOG_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Network event emitted by the whitelist preconfirmation gossipsub stack.
 #[derive(Debug)]
@@ -135,6 +151,15 @@ impl Default for NetworkConfig {
     }
 }
 
+/// Address configured for persistent preconfirmation peer dialing.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ConfiguredPeerAddr {
+    /// Dialable libp2p multiaddr.
+    addr: Multiaddr,
+    /// Human-readable source label used in logs and metrics.
+    source: &'static str,
+}
+
 impl WhitelistNetwork {
     /// Spawn the whitelist preconfirmation network task.
     pub(crate) async fn spawn(
@@ -163,7 +188,8 @@ impl WhitelistNetwork {
         configure_listen_addr(&mut swarm, enable_tcp, listen_addr)?;
 
         let bootnodes = classify_bootnodes(bootnodes);
-        let dialed_addrs = dial_initial_peers(&mut swarm, pre_dial_peers, bootnodes.dial_addrs);
+        let configured_peer_addrs =
+            dial_initial_peers(&mut swarm, pre_dial_peers, bootnodes.dial_addrs);
         let discovery_rx =
             init_discovery(enable_discovery, discovery_listen, bootnodes.discovery_enrs).await;
 
@@ -178,7 +204,11 @@ impl WhitelistNetwork {
             event_tx,
             command_rx,
             discovery_rx,
-            dialed_addrs,
+            discovered_dial_addrs: HashSet::new(),
+            connected_configured_addrs: HashSet::new(),
+            configured_peer_addrs,
+            peer_retry_interval: delayed_interval(CONFIGURED_PEER_RETRY_INTERVAL),
+            peer_status_log_interval: delayed_interval(PEER_STATUS_LOG_INTERVAL),
             inbound_validation_state,
             local_peer_id_for_events: local_peer_id,
         };
@@ -237,53 +267,127 @@ fn configure_listen_addr(
     Ok(())
 }
 
-/// Dial a peer address once.
-fn dial_once(
+/// Create an interval whose first tick fires after one full period.
+fn delayed_interval(period: Duration) -> Interval {
+    let mut interval = tokio::time::interval_at(TokioInstant::now() + period, period);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    interval
+}
+
+/// Extract the terminal peer id from a libp2p multiaddr when present.
+fn peer_id_from_addr(addr: &Multiaddr) -> Option<PeerId> {
+    addr.iter()
+        .filter_map(|protocol| match protocol {
+            Protocol::P2p(peer_id) => Some(peer_id),
+            _ => None,
+        })
+        .last()
+}
+
+/// Dial a configured peer address unless it is already connected by peer id.
+fn dial_configured_peer(
     swarm: &mut Swarm<TaikoBehaviour>,
-    dialed_addrs: &mut HashSet<Multiaddr>,
-    addr: Multiaddr,
-    source: &str,
+    connected_configured_addrs: &HashSet<Multiaddr>,
+    peer: &ConfiguredPeerAddr,
+    reason: &'static str,
 ) {
-    if !dialed_addrs.insert(addr.clone()) {
-        debug!(%addr, source, "already dialed address; skipping");
+    if connected_configured_addrs.contains(&peer.addr) {
+        record_dial_attempt(peer.source, "skipped_connected_addr");
+        debug!(addr = %peer.addr, source = peer.source, reason, "configured peer address already connected");
         return;
     }
 
+    if let Some(peer_id) = peer_id_from_addr(&peer.addr) &&
+        swarm.is_connected(&peer_id)
+    {
+        record_dial_attempt(peer.source, "skipped_connected");
+        debug!(addr = %peer.addr, source = peer.source, %peer_id, reason, "configured peer already connected");
+        return;
+    }
+
+    dial_addr(swarm, peer.addr.clone(), peer.source, reason);
+}
+
+/// Dial one discovered peer address at most once.
+fn dial_discovered_peer(
+    swarm: &mut Swarm<TaikoBehaviour>,
+    discovered_dial_addrs: &mut HashSet<Multiaddr>,
+    addr: Multiaddr,
+) {
+    if !discovered_dial_addrs.insert(addr.clone()) {
+        debug!(%addr, source = "discovery", "already dialed discovered address; skipping");
+        return;
+    }
+
+    dial_addr(swarm, addr, "discovery", "discovered");
+}
+
+/// Dial a peer address and record the immediate swarm result.
+fn dial_addr(
+    swarm: &mut Swarm<TaikoBehaviour>,
+    addr: Multiaddr,
+    source: &str,
+    reason: &'static str,
+) {
     if let Err(err) = swarm.dial(addr.clone()) {
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-            "source" => source.to_string(),
-            "result" => "failed",
-        )
-        .increment(1);
-        warn!(%addr, source, error = %err, "failed to dial address");
+        record_dial_attempt(source, "failed");
+        if matches!(err, DialError::DialPeerConditionFalse(_)) {
+            debug!(%addr, source, reason, error = %err, "configured peer dial skipped by swarm");
+        } else {
+            warn!(%addr, source, reason, error = %err, "failed to dial address");
+        }
     } else {
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-            "source" => source.to_string(),
-            "result" => "ok",
-        )
-        .increment(1);
+        record_dial_attempt(source, "ok");
     }
 }
 
-/// Dial configured static peers and bootnode multiaddrs once each.
+/// Record one configured or discovered dial attempt.
+fn record_dial_attempt(source: &str, result: &'static str) {
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
+        "source" => source.to_string(),
+        "result" => result,
+    )
+    .increment(1);
+}
+
+/// Dial configured static peers and bootnode multiaddrs, returning them for retries.
 fn dial_initial_peers(
     swarm: &mut Swarm<TaikoBehaviour>,
     pre_dial_peers: Vec<Multiaddr>,
     bootnode_dial_addrs: Vec<Multiaddr>,
-) -> HashSet<Multiaddr> {
-    let mut dialed_addrs = HashSet::new();
+) -> Vec<ConfiguredPeerAddr> {
+    let mut seen = HashSet::new();
+    let mut configured_peers = Vec::new();
 
     for peer in pre_dial_peers {
-        dial_once(swarm, &mut dialed_addrs, peer, "static peer");
+        push_configured_peer(&mut configured_peers, &mut seen, peer, "static peer");
     }
 
     for addr in bootnode_dial_addrs {
-        dial_once(swarm, &mut dialed_addrs, addr, "bootnode");
+        push_configured_peer(&mut configured_peers, &mut seen, addr, "bootnode");
     }
 
-    dialed_addrs
+    for peer in &configured_peers {
+        dial_configured_peer(swarm, &HashSet::new(), peer, "startup");
+    }
+
+    configured_peers
+}
+
+/// Add a configured peer once, preserving the first source label seen.
+fn push_configured_peer(
+    configured_peers: &mut Vec<ConfiguredPeerAddr>,
+    seen: &mut HashSet<Multiaddr>,
+    addr: Multiaddr,
+    source: &'static str,
+) {
+    if !seen.insert(addr.clone()) {
+        debug!(%addr, source, "duplicate configured peer address; skipping");
+        return;
+    }
+
+    configured_peers.push(ConfiguredPeerAddr { addr, source });
 }
 
 /// Runtime state machine that owns networking resources and processes loop inputs.
@@ -298,8 +402,16 @@ struct NetworkRuntime {
     command_rx: mpsc::Receiver<NetworkCommand>,
     /// Optional discovery stream for ENR-derived dial candidates.
     discovery_rx: Option<mpsc::Receiver<Multiaddr>>,
-    /// Set of addresses already dialed to avoid redundant dial attempts.
-    dialed_addrs: HashSet<Multiaddr>,
+    /// Set of discovered addresses already dialed to avoid discovery churn.
+    discovered_dial_addrs: HashSet<Multiaddr>,
+    /// Connected configured addresses used to prevent duplicate direct dials.
+    connected_configured_addrs: HashSet<Multiaddr>,
+    /// Configured static peer and bootnode addresses retried for connectivity.
+    configured_peer_addrs: Vec<ConfiguredPeerAddr>,
+    /// Periodic timer for retrying configured peer dials.
+    peer_retry_interval: Interval,
+    /// Periodic timer for logging peer connectivity status.
+    peer_status_log_interval: Interval,
     /// Inbound validation and dedupe state for gossipsub messages.
     inbound_validation_state: GossipsubInboundState,
     /// Local peer id used by loopback payload events.
@@ -331,6 +443,14 @@ impl NetworkRuntime {
             }
             maybe_addr = recv_discovered_multiaddr(&mut self.discovery_rx), if has_discovery => {
                 self.handle_discovery_multiaddr(maybe_addr);
+                Ok(true)
+            }
+            _ = self.peer_retry_interval.tick() => {
+                self.retry_configured_peers();
+                Ok(true)
+            }
+            _ = self.peer_status_log_interval.tick() => {
+                self.log_peer_status();
                 Ok(true)
             }
             event = self.swarm.select_next_some() => {
@@ -476,13 +596,55 @@ impl NetworkRuntime {
     fn handle_discovery_multiaddr(&mut self, maybe_addr: Option<Multiaddr>) {
         match maybe_addr {
             Some(addr) => {
-                dial_once(&mut self.swarm, &mut self.dialed_addrs, addr, "discovery");
+                dial_discovered_peer(&mut self.swarm, &mut self.discovered_dial_addrs, addr);
             }
             None => {
                 self.discovery_rx = None;
                 debug!("whitelist preconfirmation discovery stream closed");
             }
         }
+    }
+
+    /// Retry all configured bootnode/static peer addresses.
+    fn retry_configured_peers(&mut self) {
+        if self.configured_peer_addrs.is_empty() {
+            return;
+        }
+
+        for peer in &self.configured_peer_addrs {
+            dial_configured_peer(&mut self.swarm, &self.connected_configured_addrs, peer, "retry");
+        }
+    }
+
+    /// Log connected and gossipsub mesh peers for preconfirmation topics.
+    fn log_peer_status(&mut self) {
+        let connected_peers = self.swarm.connected_peers().copied().collect::<Vec<_>>();
+        let listeners = self.swarm.listeners().map(ToString::to_string).collect::<Vec<_>>();
+        let behaviour = self.swarm.behaviour();
+        let preconf_blocks_mesh_peers =
+            behaviour.gossipsub.mesh_peers(&self.topics.preconf_blocks.hash()).count();
+        let request_mesh_peers =
+            behaviour.gossipsub.mesh_peers(&self.topics.preconf_request.hash()).count();
+        let response_mesh_peers =
+            behaviour.gossipsub.mesh_peers(&self.topics.preconf_response.hash()).count();
+        let eos_request_mesh_peers =
+            behaviour.gossipsub.mesh_peers(&self.topics.eos_request.hash()).count();
+        let gossip_topic_peers = behaviour.gossipsub.all_peers().count();
+
+        info!(
+            connected_peer_count = connected_peers.len(),
+            connected_peers = %format_peer_ids(&connected_peers),
+            configured_peer_count = self.configured_peer_addrs.len(),
+            connected_configured_addr_count = self.connected_configured_addrs.len(),
+            discovered_peer_count = self.discovered_dial_addrs.len(),
+            gossip_topic_peer_count = gossip_topic_peers,
+            preconf_blocks_mesh_peers,
+            request_mesh_peers,
+            response_mesh_peers,
+            eos_request_mesh_peers,
+            listeners = %listeners.join(","),
+            "whitelist preconfirmation peer status"
+        );
     }
 
     /// Delegate one swarm event to the appropriate handler.
@@ -497,11 +659,20 @@ impl NetworkRuntime {
             libp2p::swarm::SwarmEvent::NewListenAddr { address, .. } => {
                 debug!(%address, "whitelist preconfirmation network listening");
             }
-            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                debug!(%peer_id, "peer connected");
+            libp2p::swarm::SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
+                self.track_configured_connection(endpoint.get_remote_address());
+                debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer connected");
             }
-            libp2p::swarm::SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                debug!(%peer_id, "peer disconnected");
+            libp2p::swarm::SwarmEvent::ConnectionClosed {
+                peer_id,
+                endpoint,
+                num_established,
+                ..
+            } => {
+                if num_established == 0 {
+                    self.connected_configured_addrs.remove(endpoint.get_remote_address());
+                }
+                debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer disconnected");
             }
             libp2p::swarm::SwarmEvent::Behaviour(
                 BehaviourEvent::Ping | BehaviourEvent::Identify,
@@ -511,6 +682,13 @@ impl NetworkRuntime {
             }
         }
         Ok(())
+    }
+
+    /// Track a newly connected configured address for duplicate-dial suppression.
+    fn track_configured_connection(&mut self, remote_addr: &Multiaddr) {
+        if self.configured_peer_addrs.iter().any(|peer| &peer.addr == remote_addr) {
+            self.connected_configured_addrs.insert(remote_addr.clone());
+        }
     }
 
     /// Handle one gossipsub event.
@@ -634,6 +812,40 @@ impl NetworkRuntime {
         }
 
         Ok(())
+    }
+}
+
+/// Format peer ids into a compact comma-separated log value.
+fn format_peer_ids(peers: &[PeerId]) -> String {
+    peers.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::Ipv4Addr;
+
+    use super::*;
+
+    #[test]
+    fn peer_id_from_addr_returns_terminal_peer_id() {
+        let relay_peer = PeerId::random();
+        let target_peer = PeerId::random();
+        let addr = Multiaddr::empty()
+            .with(Protocol::Ip4(Ipv4Addr::LOCALHOST))
+            .with(Protocol::Tcp(30303))
+            .with(Protocol::P2p(relay_peer))
+            .with(Protocol::P2pCircuit)
+            .with(Protocol::P2p(target_peer));
+
+        assert_eq!(peer_id_from_addr(&addr), Some(target_peer));
+    }
+
+    #[test]
+    fn peer_id_from_addr_returns_none_without_peer_id() {
+        let addr =
+            Multiaddr::empty().with(Protocol::Ip4(Ipv4Addr::LOCALHOST)).with(Protocol::Tcp(30303));
+
+        assert_eq!(peer_id_from_addr(&addr), None);
     }
 }
 
