@@ -153,7 +153,10 @@ func (s *L2ChainSyncer) Sync() error {
 // This method should only be called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	var headNumber = new(big.Int).SetUint64(blockIDToSync)
-	if s.progressTracker.OutOfSync() {
+	// Fall back to the live EE head when the tracker is OutOfSync, or when
+	// blockIDToSync is 0 (the Finished() short-circuit path) — otherwise
+	// HeaderByNumber(0) resolves to genesis and resets L1Current there.
+	if s.progressTracker.OutOfSync() || blockIDToSync == 0 {
 		headNumber = nil
 	}
 	log.Info(
