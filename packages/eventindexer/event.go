@@ -13,21 +13,13 @@ import (
 )
 
 var (
-	EventNameTransitionProved    = "TransitionProved"
-	EventNameTransitionContested = "TransitionContested"
-	EventNameBlockProposed       = "BlockProposed"
-	EventNameBatchProposed       = "BatchProposed"
-	EventNameBatchesProven       = "BatchesProved"
-	EventNameBatchesVerified     = "BatchesVerified"
-	EventNameBlockAssigned       = "BlockAssigned"
-	EventNameBlockVerified       = "BlockVerified"
-	EventNameProved              = "Proved"
-	EventNameProposed            = "Proposed"
-	EventNameMessageSent         = "MessageSent"
-	EventNameSwap                = "Swap"
-	EventNameMint                = "Mint"
-	EventNameNFTTransfer         = "Transfer"
-	EventNameInstanceAdded       = "InstanceAdded"
+	EventNameProved        = "Proved"
+	EventNameProposed      = "Proposed"
+	EventNameMessageSent   = "MessageSent"
+	EventNameSwap          = "Swap"
+	EventNameMint          = "Mint"
+	EventNameNFTTransfer   = "Transfer"
+	EventNameInstanceAdded = "InstanceAdded"
 )
 
 // Event represents a stored EVM event. The fields will be serialized
@@ -118,18 +110,11 @@ type EventRepository interface {
 		address string,
 		event string,
 	) (*Event, error)
-	GetAssignedBlocksByProverAddress(
-		ctx context.Context,
-		req *http.Request,
-		address string,
-	) (paginate.Page, error)
 	DeleteAllAfterBlockID(ctx context.Context, blockID uint64, srcChainID uint64) error
 	FindLatestBlockID(
 		ctx context.Context,
 		srcChainID uint64,
 	) (uint64, error)
-	GetBlockProvenBy(ctx context.Context, blockID int) ([]*Event, error)
-	GetBlockProposedBy(ctx context.Context, blockID int) (*Event, error)
 	GetProposalProposedBy(ctx context.Context, proposalID int) (*Event, error)
 	GetProposalProvedBy(ctx context.Context, proposalID int) (*Event, error)
 }
