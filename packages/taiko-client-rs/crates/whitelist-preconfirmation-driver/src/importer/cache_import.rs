@@ -118,9 +118,8 @@ where
         let block_hash = payload.block_hash;
         let end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false);
 
-        let Some(head_l1_origin_block_id) = self.head_l1_origin_block_id().await? else {
-            return Ok(false);
-        };
+        let head_l1_origin_block_id =
+            confirmed_boundary_or_genesis(self.head_l1_origin_block_id().await?);
 
         if block_number <= head_l1_origin_block_id {
             debug!(
@@ -260,4 +259,9 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
         ),
         _ => false,
     }
+}
+
+/// Resolve the confirmed boundary used for the cached-payload staleness check.
+pub(super) fn confirmed_boundary_or_genesis(head_l1_origin_block_id: Option<u64>) -> u64 {
+    head_l1_origin_block_id.unwrap_or(0)
 }

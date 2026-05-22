@@ -215,15 +215,21 @@ where
     }
 
     /// Refresh whether sync is ready.
+    ///
+    /// Ready when the confirmed head-origin pointer is written, or — at genesis only —
+    /// when no real proposal exists yet (`nextProposalId == 1`). Core state is read lazily,
+    /// only while the origin pointer is absent. During beacon-sync custom-table gaps
+    /// (`nextProposalId > 1`, origin unwritten) this stays fail-closed (WLP-INV-002).
     pub(super) async fn refresh_sync_ready(&mut self) -> Result<bool> {
-        let ready = self.head_l1_origin_block_id().await?.is_some();
+        let head_written = self.head_l1_origin_block_id().await?.is_some();
+        let next_proposal_id =
+            if head_written { None } else { Some(self.next_proposal_id().await?) };
+        let ready = should_enable_preconf_imports(head_written, next_proposal_id);
         let became_ready = sync_ready_transition(self.sync_ready, ready);
         if became_ready {
             metrics::counter!(WhitelistPreconfirmationDriverMetrics::SYNC_READY_TRANSITIONS_TOTAL)
                 .increment(1);
-            info!(
-                "event sync established head l1 origin; enabling whitelist preconfirmation imports"
-            );
+            info!("event sync ready; enabling whitelist preconfirmation imports");
         }
         self.sync_ready = ready;
         Ok(became_ready)
@@ -232,6 +238,19 @@ where
     /// Get the block ID of the head L1 origin.
     pub(super) async fn head_l1_origin_block_id(&self) -> Result<Option<u64>> {
         Ok(self.rpc.head_l1_origin().await?.map(|head| head.block_id.to::<u64>()))
+    }
+
+    /// Read `nextProposalId` from inbox core state.
+    pub(super) async fn next_proposal_id(&self) -> Result<u64> {
+        let core_state = self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .call()
+            .await
+            .map_err(WhitelistPreconfirmationDriverError::provider)?;
+        Ok(core_state.nextProposalId.to::<u64>())
     }
 
     /// Get the block hash by block number.
@@ -266,4 +285,18 @@ fn record_importer_event(event_type: &'static str, result: &'static str) {
 /// Returns true only when sync readiness transitions from disabled to enabled.
 fn sync_ready_transition(was_ready: bool, is_ready: bool) -> bool {
     !was_ready && is_ready
+}
+
+/// Whether preconf imports may be enabled after event sync.
+///
+/// Ready when the confirmed head-origin pointer is written, or when no real proposal exists
+/// yet (`nextProposalId == 1`, the from-genesis cold-start window). The genesis case is the
+/// only safe place to admit blocks without an origin: there is no event-confirmed proposal
+/// range to violate. When proposals exist but the origin is unwritten (beacon-sync
+/// custom-table gap), this stays fail-closed.
+fn should_enable_preconf_imports(
+    head_l1_origin_written: bool,
+    next_proposal_id: Option<u64>,
+) -> bool {
+    head_l1_origin_written || next_proposal_id == Some(1)
 }
