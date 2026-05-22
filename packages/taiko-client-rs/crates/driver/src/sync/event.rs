@@ -131,6 +131,14 @@ fn should_open_preconf_ingress(confirmed_sync_ready: bool, reorg_reset_pending: 
     confirmed_sync_ready && !reorg_reset_pending
 }
 
+/// Return the common ancestor whose pending post-reorg reset should be retried.
+fn pending_preconf_reorg_reset_common_ancestor(
+    reorg_reset_pending: bool,
+    pending_common_ancestor: Option<u64>,
+) -> Option<u64> {
+    reorg_reset_pending.then_some(pending_common_ancestor).flatten()
+}
+
 /// Resolve whether confirmed-sync readiness should open ingress.
 fn resolve_confirmed_sync_ready(confirmed_sync_snapshot: ConfirmedSyncSnapshot) -> bool {
     confirmed_sync_snapshot.is_ready()
@@ -1455,6 +1463,14 @@ where
                     self.preconf_ingress_ready.load(Ordering::Acquire),
                     scanner_live,
                 ) {
+                    if let Some(common_ancestor) = pending_preconf_reorg_reset_common_ancestor(
+                        self.preconf_reorg_reset_pending.load(Ordering::Acquire),
+                        pending_reorg_common_ancestor,
+                    ) && self.complete_preconf_reorg_reset(common_ancestor).await
+                    {
+                        pending_reorg_common_ancestor = None;
+                    }
+
                     let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
                     if let Err(err) = &confirmed_sync_probe {
                         counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL)
@@ -1466,16 +1482,6 @@ where
                         continue;
                     }
                     let confirmed_sync_ready = resolve_confirmed_sync_probe(confirmed_sync_probe);
-                    let reorg_reset_pending =
-                        self.preconf_reorg_reset_pending.load(Ordering::Acquire);
-                    if confirmed_sync_ready &&
-                        reorg_reset_pending &&
-                        let Some(common_ancestor) = pending_reorg_common_ancestor &&
-                        self.complete_preconf_reorg_reset(common_ancestor).await
-                    {
-                        pending_reorg_common_ancestor = None;
-                    }
-
                     let reorg_reset_pending =
                         self.preconf_reorg_reset_pending.load(Ordering::Acquire);
                     if should_open_preconf_ingress(confirmed_sync_ready, reorg_reset_pending) {
@@ -2112,6 +2118,13 @@ mod tests {
         assert!(!should_open_preconf_ingress(true, true));
         assert!(should_open_preconf_ingress(true, false));
         assert!(!should_open_preconf_ingress(false, false));
+    }
+
+    #[test]
+    fn pending_reorg_reset_retries_before_confirmed_sync_can_reopen_ingress() {
+        assert_eq!(pending_preconf_reorg_reset_common_ancestor(true, Some(42)), Some(42));
+        assert_eq!(pending_preconf_reorg_reset_common_ancestor(false, Some(42)), None);
+        assert_eq!(pending_preconf_reorg_reset_common_ancestor(true, None), None);
     }
 
     #[test]
