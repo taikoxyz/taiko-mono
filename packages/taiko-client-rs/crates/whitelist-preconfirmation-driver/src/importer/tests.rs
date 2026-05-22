@@ -15,8 +15,11 @@ use crate::{
 };
 
 use super::{
-    cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
-    sync_ready_transition,
+    cache_import::{
+        confirmed_boundary_or_genesis, should_defer_cached_import_error,
+        should_drop_cached_import_error,
+    },
+    should_enable_preconf_imports, sync_ready_transition,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
 
@@ -524,4 +527,34 @@ fn sync_ready_transition_detects_first_ready_edge() {
     assert!(sync_ready_transition(false, true));
     assert!(!sync_ready_transition(true, true));
     assert!(!sync_ready_transition(true, false));
+}
+
+#[test]
+fn confirmed_boundary_or_genesis_defaults_missing_origin_to_zero() {
+    assert_eq!(confirmed_boundary_or_genesis(None), 0);
+}
+
+#[test]
+fn confirmed_boundary_or_genesis_passes_through_known_origin() {
+    assert_eq!(confirmed_boundary_or_genesis(Some(42)), 42);
+}
+
+#[test]
+fn should_enable_preconf_imports_when_head_origin_written() {
+    assert!(should_enable_preconf_imports(true, None));
+}
+
+#[test]
+fn should_enable_preconf_imports_at_genesis_before_first_proposal() {
+    assert!(should_enable_preconf_imports(false, Some(1)));
+}
+
+#[test]
+fn should_not_enable_preconf_imports_when_proposals_exist_without_origin() {
+    assert!(!should_enable_preconf_imports(false, Some(2)));
+}
+
+#[test]
+fn should_not_enable_preconf_imports_when_next_proposal_id_unknown() {
+    assert!(!should_enable_preconf_imports(false, None));
 }
