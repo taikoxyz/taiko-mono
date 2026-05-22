@@ -29,7 +29,7 @@ This DAO `Execute` bundle contains **two intent blocks**:
 
 ## Executive Summary
 
-This proposal (**1**) **ENABLEs** the RISC Zero and SP1 guest digests from **[raiko2 v0.2.0](https://github.com/taikoxyz/raiko2/releases/tag/v0.2.0)** on the **Shasta-only** verifier proxies (`RISC0_SHASTA_VERIFIER`, `SP1_SHASTA_VERIFIER`), and (**2**) **DISABLEs** the legacy Shasta ZK identifier sets previously enabled under [`Proposal0009`](./Proposal0009.s.sol) and [`Proposal0010`](./Proposal0010.s.sol)—the same bytes32 revocation list Proposal0010 described for a future cleanup.
+This proposal (**1**) **enables** the RISC Zero and SP1 guest digests from **[raiko2 v0.2.0](https://github.com/taikoxyz/raiko2/releases/tag/v0.2.0)** on the **Shasta-only** verifier proxies (`RISC0_SHASTA_VERIFIER`, `SP1_SHASTA_VERIFIER`), and (**2**) **disables** the legacy Shasta ZK identifier sets previously enabled under [`Proposal0009`](./Proposal0009.s.sol) and [`Proposal0010`](./Proposal0010.s.sol)—the same bytes32 revocation list Proposal0010 described for a future cleanup.
 
 It executes **18 L1 actions** via the DAO Controller (**6 × true**, then **12 × false**). There are **no** L2 actions, **no** contract upgrades, and **no** SGX / attestation changes.
 
