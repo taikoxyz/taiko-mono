@@ -106,6 +106,48 @@ func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
 }
 
+func TestShouldEnablePreconfImportsAfterEventSync(t *testing.T) {
+	tests := []struct {
+		name                string
+		headL1OriginWritten bool
+		nextProposalID      *big.Int
+		expected            bool
+	}{
+		{
+			name:                "ready when head L1 origin exists",
+			headL1OriginWritten: true,
+			nextProposalID:      common.Big2,
+			expected:            true,
+		},
+		{
+			name:                "ready before first proposal",
+			headL1OriginWritten: false,
+			nextProposalID:      common.Big1,
+			expected:            true,
+		},
+		{
+			name:                "not ready without head L1 origin after proposals exist",
+			headL1OriginWritten: false,
+			nextProposalID:      common.Big2,
+			expected:            false,
+		},
+		{
+			name:                "not ready without any signal",
+			headL1OriginWritten: false,
+			nextProposalID:      nil,
+			expected:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnablePreconfImports(tt.headL1OriginWritten, tt.nextProposalID); got != tt.expected {
+				t.Fatalf("expected %v, got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
 	s.True(s.s.AheadOfHeadToSync(0))
 }
