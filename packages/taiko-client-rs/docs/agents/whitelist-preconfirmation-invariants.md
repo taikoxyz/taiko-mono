@@ -46,6 +46,9 @@ Preconf ingress must not go live until both conditions hold: scanner-live and co
 - Assumptions:
   - Scanner-live alone is insufficient.
   - Confirmed-sync readiness is strict and fail-closed.
+  - The whitelist importer's cache-drain gate is `head_l1_origin.is_some() || nextProposalId == 1`:
+    it opens at genesis (`nextProposalId == 1`, no proposals yet) but stays fail-closed during
+    beacon-sync custom-table gaps (proposals exist, origin unwritten).
 - Failure mode if broken:
   - Unsafe preconf blocks can be admitted before event-confirmed boundary is established.
 
@@ -55,6 +58,9 @@ Any preconf block where `block_number <= head_l1_origin` is stale and must be ig
 
 - Assumptions:
   - This stale boundary check must be enforced in all ingress paths.
+  - A missing `head_l1_origin` is treated as the genesis boundary `0` (proposal 0 is skipped
+    during derivation, so the origin row is unwritten at genesis), matching the event-sync
+    ingress convention.
 - Failure mode if broken:
   - Preconf data can overwrite or conflict with event-confirmed chain state.
 
