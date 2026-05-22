@@ -147,9 +147,7 @@ contract Proposal0014 is BuildProposal {
         actions[12] = Controller.Action({
             target: RISC0_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted, (RISC0_P10_BATCH_IMAGE_ID, false)
-            )
+            data: abi.encodeCall(Risc0Verifier.setImageIdTrusted, (RISC0_P10_BATCH_IMAGE_ID, false))
         });
         actions[13] = Controller.Action({
             target: RISC0_SHASTA_VERIFIER,
@@ -161,9 +159,7 @@ contract Proposal0014 is BuildProposal {
         actions[14] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted, (SP1_P10_BATCH_VKEY_BN256, false)
-            )
+            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_P10_BATCH_VKEY_BN256, false))
         });
         actions[15] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
