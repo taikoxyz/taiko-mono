@@ -399,7 +399,7 @@ func (i *Indexer) filter(ctx context.Context) error {
 				relayer.MessageSentEventsAfterRetryErrorCount.Inc()
 			}
 
-			// we dont want to watch for message status changed events
+			// we don't want to watch for message status changed events
 			// when crawling past blocks on a loop. but otherwise,
 			// we want to index all three event types when indexing MessageSent events,
 			// since they are related.

@@ -16,7 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-// EngineClient represents a RPC client connecting to an Ethereum Engine API
+// EngineClient represents an RPC client connecting to an Ethereum Engine API
 // endpoint.
 // ref: https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md
 type EngineClient struct {

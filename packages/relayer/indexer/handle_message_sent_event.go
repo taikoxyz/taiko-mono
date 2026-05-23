@@ -22,7 +22,7 @@ func (i *Indexer) handleMessageSentEvent(
 	event *bridge.BridgeMessageSent,
 	waitForConfirmations bool,
 ) error {
-	// if the destinatio chain doesn't match, we dont process it in this indexer.
+	// if the destinatio chain doesn't match, we don't process it in this indexer.
 	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
 		return nil
 	}
@@ -41,7 +41,7 @@ func (i *Indexer) handleMessageSentEvent(
 		return nil
 	}
 
-	// we should never see an empty msgHash, but if we do, we dont process.
+	// we should never see an empty msgHash, but if we do, we don't process.
 	if event.MsgHash == relayer.ZeroHash {
 		slog.Warn("Zero msgHash found. This is unexpected. Returning early")
 		return nil

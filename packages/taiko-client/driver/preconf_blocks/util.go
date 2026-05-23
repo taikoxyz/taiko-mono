@@ -156,7 +156,7 @@ func checkMessageBlockNumber(
 }
 
 // deterministicJitter returns a deterministic jitter based on the peer ID and block hash,
-// such that we dont immediately reply to messages.
+// such that we don't immediately reply to messages.
 func deterministicJitter(self peer.ID, h common.Hash, max time.Duration) time.Duration {
 	b := append([]byte(self), h.Bytes()...)
 	sum := sha256.Sum256(b)

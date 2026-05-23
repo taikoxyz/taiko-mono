@@ -469,7 +469,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		}
 
 		lookahead := d.preconfBlockServer.GetLookahead()
-		// We dont need to update the lookahead on every slot, we just need to make sure we do it
+		// We don't need to update the lookahead on every slot, we just need to make sure we do it
 		// once per epoch, since we push the next operator as the current range when we check.
 		// so, this means we should use a reliable slot past 0 where the operator has no possible
 		// way to change. mid-epooch works, so we use slot 16.
@@ -574,7 +574,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		return nil
 	}
 
-	// Run once initially, so we dont have to wait for ticker.
+	// Run once initially, so we don't have to wait for ticker.
 	if err := cacheLookahead(d.rpc.L1Beacon.CurrentEpoch(), d.rpc.L1Beacon.CurrentSlot()); err != nil {
 		log.Warn("Failed to cache initial lookahead", "error", err)
 	}
