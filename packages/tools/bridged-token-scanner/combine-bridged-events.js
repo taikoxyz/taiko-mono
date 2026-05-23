@@ -97,11 +97,14 @@ async function collectChunkFilesByVault(rootDir) {
     // Deduplicate by txHash + logIndex (canonical EVM event key)
     const unique = new Map();
     for (const r of merged) {
-      if (!r.txHash || r.logIndex == null) {
+      if (!r.txHash) {
         console.warn("⚠️ Skipping malformed record", r);
         continue;
       }
-      const key = `${r.txHash}-${r.logIndex}`;
+      const key =
+        r.logIndex != null
+          ? `${r.txHash}-${r.logIndex}`
+          : `${r.txHash}-${r.vaultType}-${r.bridgedToken}`;
       if (unique.has(key)) {
         console.warn(`⚠️ Duplicate detected: ${key}`);
         continue;
