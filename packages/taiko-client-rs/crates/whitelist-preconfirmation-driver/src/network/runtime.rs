@@ -44,6 +44,8 @@ use crate::{
 
 /// Interval for retrying configured bootnode/static peer dials.
 const CONFIGURED_PEER_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+/// Expected length of a secp256k1 private key.
+const SECP256K1_PRIVATE_KEY_LEN: usize = 32;
 
 /// Interval for logging current preconfirmation peer connectivity.
 const PEER_STATUS_LOG_INTERVAL: Duration = Duration::from_secs(60);
@@ -137,14 +139,13 @@ pub struct NetworkConfig {
     pub enable_discovery: bool,
     /// UDP listen address for discv5 discovery.
     pub discovery_listen: SocketAddr,
-    /// Optional hex-encoded secp256k1 private key for the local P2P network identity.
-    pub preconfirmation_p2p_priv_raw: Option<String>,
+    /// Optional parsed secp256k1 keypair for the local P2P network identity.
+    pub preconfirmation_p2p_key: Option<identity::Keypair>,
 }
 
 impl fmt::Debug for NetworkConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let preconfirmation_p2p_priv_raw =
-            self.preconfirmation_p2p_priv_raw.as_ref().map(|_| "<redacted>");
+        let preconfirmation_p2p_key = self.preconfirmation_p2p_key.as_ref().map(|_| "<redacted>");
 
         f.debug_struct("NetworkConfig")
             .field("enable_tcp", &self.enable_tcp)
@@ -153,7 +154,7 @@ impl fmt::Debug for NetworkConfig {
             .field("pre_dial_peers", &self.pre_dial_peers)
             .field("enable_discovery", &self.enable_discovery)
             .field("discovery_listen", &self.discovery_listen)
-            .field("preconfirmation_p2p_priv_raw", &preconfirmation_p2p_priv_raw)
+            .field("preconfirmation_p2p_key", &preconfirmation_p2p_key)
             .finish()
     }
 }
@@ -167,40 +168,47 @@ impl Default for NetworkConfig {
             pre_dial_peers: Vec::new(),
             enable_discovery: false,
             discovery_listen: SocketAddr::from(([0, 0, 0, 0], 9223)),
-            preconfirmation_p2p_priv_raw: None,
+            preconfirmation_p2p_key: None,
         }
     }
 }
 
 impl NetworkConfig {
-    /// Build the local libp2p identity key, falling back to an ephemeral key.
-    fn local_key(&self) -> Result<identity::Keypair> {
-        let Some(raw_key) = self.preconfirmation_p2p_priv_raw.as_deref() else {
-            return Ok(identity::Keypair::generate_ed25519());
-        };
-
-        let raw_key = raw_key.strip_prefix("0x").unwrap_or(raw_key);
-        let key_bytes = alloy_primitives::hex::decode(raw_key).map_err(|err| {
-            WhitelistPreconfirmationDriverError::p2p(format!(
-                "invalid preconfirmation.p2p-priv-raw hex: {err}"
-            ))
-        })?;
-        if key_bytes.len() != 32 {
-            return Err(WhitelistPreconfirmationDriverError::p2p(format!(
-                "invalid preconfirmation.p2p-priv-raw key length: expected 32 bytes, got {}",
-                key_bytes.len()
-            )));
-        }
-
-        let secret_key =
-            identity::secp256k1::SecretKey::try_from_bytes(key_bytes).map_err(|err| {
-                WhitelistPreconfirmationDriverError::p2p(format!(
-                    "invalid preconfirmation.p2p-priv-raw key: {err}"
-                ))
-            })?;
-
-        Ok(identity::Keypair::from(identity::secp256k1::Keypair::from(secret_key)))
+    /// Configure the local P2P network identity from a raw secp256k1 private key.
+    pub fn set_preconfirmation_p2p_priv_raw(&mut self, raw_key: Option<&str>) -> Result<()> {
+        self.preconfirmation_p2p_key =
+            raw_key.map(parse_preconfirmation_p2p_priv_raw).transpose()?;
+        Ok(())
     }
+
+    /// Build the local libp2p identity key, falling back to an ephemeral key.
+    fn local_key(&self) -> identity::Keypair {
+        self.preconfirmation_p2p_key.clone().unwrap_or_else(identity::Keypair::generate_ed25519)
+    }
+}
+
+/// Parse a raw secp256k1 private key into a libp2p identity keypair.
+fn parse_preconfirmation_p2p_priv_raw(raw_key: &str) -> Result<identity::Keypair> {
+    let raw_key = raw_key.strip_prefix("0x").unwrap_or(raw_key);
+    let key_bytes = alloy_primitives::hex::decode(raw_key).map_err(|err| {
+        WhitelistPreconfirmationDriverError::p2p(format!(
+            "invalid preconfirmation.p2p-priv-raw hex: {err}"
+        ))
+    })?;
+    if key_bytes.len() != SECP256K1_PRIVATE_KEY_LEN {
+        return Err(WhitelistPreconfirmationDriverError::p2p(format!(
+            "invalid preconfirmation.p2p-priv-raw key length: expected 32 bytes, got {}",
+            key_bytes.len()
+        )));
+    }
+
+    let secret_key = identity::secp256k1::SecretKey::try_from_bytes(key_bytes).map_err(|err| {
+        WhitelistPreconfirmationDriverError::p2p(format!(
+            "invalid preconfirmation.p2p-priv-raw key: {err}"
+        ))
+    })?;
+
+    Ok(identity::Keypair::from(identity::secp256k1::Keypair::from(secret_key)))
 }
 
 /// Address configured for persistent preconfirmation peer dialing.
@@ -219,7 +227,7 @@ impl WhitelistNetwork {
         cfg: NetworkConfig,
         operator_set: SharedOperatorSet,
     ) -> Result<Self> {
-        let local_key = cfg.local_key()?;
+        let local_key = cfg.local_key();
         let NetworkConfig {
             enable_tcp,
             listen_addr,
@@ -227,7 +235,7 @@ impl WhitelistNetwork {
             pre_dial_peers,
             enable_discovery,
             discovery_listen,
-            preconfirmation_p2p_priv_raw: _,
+            preconfirmation_p2p_key: _,
         } = cfg;
 
         let local_peer_id = local_key.public().to_peer_id();
@@ -903,12 +911,10 @@ mod tests {
     #[test]
     fn network_config_local_key_uses_raw_secp256k1_private_key() {
         let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
-        let cfg = NetworkConfig {
-            preconfirmation_p2p_priv_raw: Some(raw_key.to_string()),
-            ..Default::default()
-        };
+        let mut cfg = NetworkConfig::default();
+        cfg.set_preconfirmation_p2p_priv_raw(Some(raw_key)).expect("raw key should parse");
 
-        let local_key = cfg.local_key().expect("raw key should parse");
+        let local_key = cfg.local_key();
         let expected_key = identity::Keypair::from(identity::secp256k1::Keypair::from(
             identity::secp256k1::SecretKey::try_from_bytes(
                 hex::decode(raw_key).expect("valid hex"),
@@ -922,22 +928,19 @@ mod tests {
     #[test]
     fn network_config_local_key_accepts_hex_prefix() {
         let raw_key = "0x1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
-        let cfg = NetworkConfig {
-            preconfirmation_p2p_priv_raw: Some(raw_key.to_string()),
-            ..Default::default()
-        };
+        let mut cfg = NetworkConfig::default();
 
-        cfg.local_key().expect("raw key with prefix should parse");
+        cfg.set_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key with prefix should parse");
     }
 
     #[test]
     fn network_config_local_key_rejects_invalid_raw_key() {
-        let cfg = NetworkConfig {
-            preconfirmation_p2p_priv_raw: Some("not-hex".to_string()),
-            ..Default::default()
-        };
+        let mut cfg = NetworkConfig::default();
 
-        let err = cfg.local_key().expect_err("invalid raw key should fail");
+        let err = cfg
+            .set_preconfirmation_p2p_priv_raw(Some("not-hex"))
+            .expect_err("invalid raw key should fail");
 
         assert!(
             matches!(err, WhitelistPreconfirmationDriverError::P2p(message) if message.contains("preconfirmation.p2p-priv-raw"))
@@ -946,12 +949,12 @@ mod tests {
 
     #[test]
     fn network_config_local_key_rejects_wrong_raw_key_length() {
-        let cfg = NetworkConfig {
-            preconfirmation_p2p_priv_raw: Some("01".repeat(31)),
-            ..Default::default()
-        };
+        let mut cfg = NetworkConfig::default();
+        let raw_key = "01".repeat(31);
 
-        let err = cfg.local_key().expect_err("short raw key should fail");
+        let err = cfg
+            .set_preconfirmation_p2p_priv_raw(Some(&raw_key))
+            .expect_err("short raw key should fail");
 
         assert!(
             matches!(err, WhitelistPreconfirmationDriverError::P2p(message) if message.contains("expected 32 bytes"))
@@ -961,10 +964,8 @@ mod tests {
     #[test]
     fn network_config_debug_redacts_raw_key() {
         let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
-        let cfg = NetworkConfig {
-            preconfirmation_p2p_priv_raw: Some(raw_key.to_string()),
-            ..Default::default()
-        };
+        let mut cfg = NetworkConfig::default();
+        cfg.set_preconfirmation_p2p_priv_raw(Some(raw_key)).expect("raw key should parse");
 
         let debug = format!("{cfg:?}");
 

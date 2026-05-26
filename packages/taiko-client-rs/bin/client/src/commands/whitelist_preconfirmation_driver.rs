@@ -71,7 +71,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
     }
 
     /// Build P2P configuration from command-line arguments.
-    fn build_p2p_config(&self) -> NetworkConfig {
+    fn build_p2p_config(&self) -> Result<NetworkConfig> {
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -81,15 +81,16 @@ impl WhitelistPreconfirmationDriverSubCommand {
             })
             .collect();
 
-        NetworkConfig {
+        let mut cfg = NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
             pre_dial_peers,
-            preconfirmation_p2p_priv_raw: self.preconfirmation_p2p_priv_raw.clone(),
             ..Default::default()
-        }
+        };
+        cfg.set_preconfirmation_p2p_priv_raw(self.preconfirmation_p2p_priv_raw.as_deref())?;
+        Ok(cfg)
     }
 
     /// Resolve the whitelist RPC listen address.
@@ -151,7 +152,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
         self.init_metrics()?;
 
         let driver_config = self.build_driver_config()?;
-        let p2p_config = self.build_p2p_config();
+        let p2p_config = self.build_p2p_config()?;
 
         let runner_config = RunnerConfig::new(
             driver_config,
