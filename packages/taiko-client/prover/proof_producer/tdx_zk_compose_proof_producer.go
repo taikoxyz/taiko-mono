@@ -20,13 +20,13 @@ import (
 // matching the TdxAndZkVerifier contract.
 type TdxZkComposeProofProducer struct {
 	// VerifierIDs maps ZK proof types to their on-chain VerifierType enum values.
-	VerifierIDs             map[ProofType]uint8
-	RaikoZKVMHostEndpoint   string
-	RaikoRequestTimeout     time.Duration
-	ApiKey                  string
-	TdxProducer             *TdxProofProducer
-	ProofType               ProofType // ZK proof type: ProofTypeZKAny, ProofTypeZKSP1, or ProofTypeZKR0
-	Dummy                   bool
+	VerifierIDs           map[ProofType]uint8
+	RaikoZKVMHostEndpoint string
+	RaikoRequestTimeout   time.Duration
+	ApiKey                string
+	TdxProducer           *TdxProofProducer
+	ProofType             ProofType // ZK proof type: ProofTypeZKAny, ProofTypeZKSP1, or ProofTypeZKR0
+	Dummy                 bool
 	DummyProofProducer
 }
 
@@ -47,10 +47,10 @@ func (s *TdxZkComposeProofProducer) RequestProof(
 	)
 
 	var (
-		proof          []byte
-		proofType      ProofType
-		g              = new(errgroup.Group)
-		zkProofError   error
+		proof        []byte
+		proofType    ProofType
+		g            = new(errgroup.Group)
+		zkProofError error
 	)
 
 	g.Go(func() error {
