@@ -25,11 +25,12 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		// All activated proof types in protocol.
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
 
-		// VerifierIDs
+		// VerifierIDs match ComposeVerifier.VerifierType enum values.
 		sgxGethVerifierID   uint8 = 1
 		sgxRethVerifierID   uint8 = 4
 		risc0RethVerifierID uint8 = 5
 		sp1RethVerifierID   uint8 = 6
+		tdxRethVerifierID   uint8 = 7
 
 		err error
 	)
@@ -62,7 +63,26 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 	proofTypes = append(proofTypes, producer.ProofTypeZKSP1)
 	zkVerifierIDs[producer.ProofTypeZKSP1] = sp1RethVerifierID
 
-	if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
+	if len(p.cfg.RaikoTDXHostEndpoint) != 0 && len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
+		// TDX+ZK compose: TEE attestation (TDX_RETH) + ZK proof (RISC0_RETH or SP1_RETH).
+		// Requires TdxAndZkVerifier to be deployed and configured in the inbox.
+		tdxProducer := &producer.TdxProofProducer{
+			RaikoHostEndpoint:   p.cfg.RaikoTDXHostEndpoint,
+			VerifierID:          tdxRethVerifierID,
+			ApiKey:              p.cfg.RaikoApiKey,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			Dummy:               p.cfg.Dummy,
+		}
+		zkvmProducer = &producer.TdxZkComposeProofProducer{
+			VerifierIDs:           zkVerifierIDs,
+			TdxProducer:           tdxProducer,
+			RaikoZKVMHostEndpoint: p.cfg.RaikoZKVMHostEndpoint,
+			ApiKey:                p.cfg.RaikoApiKey,
+			RaikoRequestTimeout:   p.cfg.RaikoRequestTimeout,
+			ProofType:             producer.ProofTypeZKAny,
+			Dummy:                 p.cfg.Dummy,
+		}
+	} else if len(p.cfg.RaikoZKVMHostEndpoint) != 0 {
 		zkvmProducer = &producer.ComposeProofProducer{
 			VerifierIDs:         zkVerifierIDs,
 			SgxGethProducer:     sgxGethProducer,
@@ -72,6 +92,8 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 			ProofType:           producer.ProofTypeZKAny,
 			Dummy:               p.cfg.Dummy,
 		}
+	} else if len(p.cfg.RaikoTDXHostEndpoint) != 0 {
+		log.Warn("TDX endpoint configured but ZKVM endpoint is not set; TDX+ZK proving requires both endpoints")
 	}
 	// Init proof buffers.
 	var (

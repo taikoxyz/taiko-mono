@@ -17,7 +17,8 @@ abstract contract ComposeVerifier is IProofVerifier {
         OP,
         SGX_RETH,
         RISC0_RETH,
-        SP1_RETH
+        SP1_RETH,
+        TDX_RETH
     }
 
     struct SubProof {
@@ -38,6 +39,7 @@ abstract contract ComposeVerifier is IProofVerifier {
     address public immutable sgxRethVerifier;
     address public immutable risc0RethVerifier;
     address public immutable sp1RethVerifier;
+    address public immutable tdxRethVerifier;
 
     constructor(
         address _sgxGethVerifier,
@@ -45,7 +47,8 @@ abstract contract ComposeVerifier is IProofVerifier {
         address _opVerifier,
         address _sgxRethVerifier,
         address _risc0RethVerifier,
-        address _sp1RethVerifier
+        address _sp1RethVerifier,
+        address _tdxRethVerifier
     ) {
         sgxGethVerifier = _sgxGethVerifier;
         tdxGethVerifier = _tdxGethVerifier;
@@ -53,6 +56,7 @@ abstract contract ComposeVerifier is IProofVerifier {
         sgxRethVerifier = _sgxRethVerifier;
         risc0RethVerifier = _risc0RethVerifier;
         sp1RethVerifier = _sp1RethVerifier;
+        tdxRethVerifier = _tdxRethVerifier;
     }
 
     /// @inheritdoc IProofVerifier
@@ -99,6 +103,7 @@ abstract contract ComposeVerifier is IProofVerifier {
         if (_verifierId == VerifierType.SGX_RETH) return sgxRethVerifier;
         if (_verifierId == VerifierType.RISC0_RETH) return risc0RethVerifier;
         if (_verifierId == VerifierType.SP1_RETH) return sp1RethVerifier;
+        if (_verifierId == VerifierType.TDX_RETH) return tdxRethVerifier;
         return address(0);
     }
 

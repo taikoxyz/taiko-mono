@@ -33,6 +33,12 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
 	}
+	RaikoTDXHostEndpoint = &cli.StringFlag{
+		Name:     "raiko.host.tdx",
+		Usage:    "RPC endpoint of a Raiko TDX host service (nethermind-tdx) for post Shasta fork",
+		Category: proverCategory,
+		EnvVars:  []string{"RAIKO_HOST_TDX"},
+	}
 	RaikoApiKeyPath = &cli.StringFlag{
 		Name:     "raiko.apiKeyPath",
 		Usage:    "Path to an Api key for the Raiko service",
@@ -145,6 +151,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	BlockConfirmations,
 	RaikoRequestTimeout,
 	RaikoZKVMHostEndpoint,
+	RaikoTDXHostEndpoint,
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,

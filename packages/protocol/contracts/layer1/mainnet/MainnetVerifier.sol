@@ -24,7 +24,8 @@ contract MainnetVerifier is ComposeVerifier {
             address(0),
             _sgxRethVerifier,
             _risc0RethVerifier,
-            _sp1RethVerifier
+            _sp1RethVerifier,
+            address(0)
         )
     { }
 

@@ -16,6 +16,7 @@ const (
 	ProofTypeOp      ProofType = "op"
 	ProofTypeSgx     ProofType = "sgx"
 	ProofTypeSgxCPU  ProofType = "native"
+	ProofTypeTdx     ProofType = "tdx"
 	ProofTypeZKR0    ProofType = "risc0"
 	ProofTypeZKSP1   ProofType = "sp1"
 	ProofTypeZKAny   ProofType = "zk_any"
