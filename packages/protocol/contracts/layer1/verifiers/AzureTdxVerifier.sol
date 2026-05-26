@@ -150,7 +150,13 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// image rollouts).
     /// @param _index The index of the trusted parameters
     /// @param _params The trusted parameters
-    function setTrustedParams(uint256 _index, TrustedParams calldata _params) external onlyOwner {
+    function setTrustedParams(
+        uint256 _index,
+        TrustedParams calldata _params
+    )
+        external
+        onlyOwner
+    {
         trustedParams[_index] = _params;
         emit TrustedParamsUpdated(_index, _params);
     }

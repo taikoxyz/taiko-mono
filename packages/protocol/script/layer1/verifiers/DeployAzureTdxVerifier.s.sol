@@ -94,7 +94,9 @@ contract DeployAzureTdxVerifier is Script {
         console2.log("** Deployed AzureTdxVerifier implementation:", address(impl));
 
         proxy = address(
-            new ERC1967Proxy(address(impl), abi.encodeCall(AzureTdxVerifier.init, (vm.addr(privateKey))))
+            new ERC1967Proxy(
+                address(impl), abi.encodeCall(AzureTdxVerifier.init, (vm.addr(privateKey)))
+            )
         );
         console2.log("** Deployed AzureTdxVerifier proxy:", proxy);
 
