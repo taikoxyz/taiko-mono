@@ -106,6 +106,7 @@ libp2p = { version = "0.56.0", features = [
   "ping",
   "identify",
   "noise",
+  "secp256k1",
   "yamux",
   "macros",
   "tokio",

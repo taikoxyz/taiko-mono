@@ -56,6 +56,9 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Optional hex-encoded private key for P2P block signing.
     #[clap(long = "preconfirmation.p2p-signer-key", env = "PRECONFIRMATION_P2P_SIGNER_KEY")]
     pub preconfirmation_p2p_signer_key: Option<String>,
+    /// Optional raw secp256k1 private key for the local P2P network identity.
+    #[clap(long = "preconfirmation.p2p-priv-raw", env = "PRECONFIRMATION_P2P_PRIV_RAW")]
+    pub preconfirmation_p2p_priv_raw: Option<String>,
 }
 
 impl WhitelistPreconfirmationDriverSubCommand {
@@ -84,6 +87,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
             pre_dial_peers,
+            preconfirmation_p2p_priv_raw: self.preconfirmation_p2p_priv_raw.clone(),
             ..Default::default()
         }
     }
