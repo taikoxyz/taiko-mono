@@ -5,7 +5,6 @@
 
 use std::{
     collections::HashSet,
-    fmt,
     net::SocketAddr,
     sync::Arc,
     time::{Duration, Instant},
@@ -125,7 +124,7 @@ pub(crate) struct WhitelistNetwork {
 }
 
 /// Configuration for the whitelist preconfirmation P2P network.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct NetworkConfig {
     /// Enable TCP transport.
     pub enable_tcp: bool,
@@ -141,22 +140,6 @@ pub struct NetworkConfig {
     pub discovery_listen: SocketAddr,
     /// Optional parsed secp256k1 keypair for the local P2P network identity.
     pub preconfirmation_p2p_key: Option<identity::Keypair>,
-}
-
-impl fmt::Debug for NetworkConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let preconfirmation_p2p_key = self.preconfirmation_p2p_key.as_ref().map(|_| "<redacted>");
-
-        f.debug_struct("NetworkConfig")
-            .field("enable_tcp", &self.enable_tcp)
-            .field("listen_addr", &self.listen_addr)
-            .field("bootnodes", &self.bootnodes)
-            .field("pre_dial_peers", &self.pre_dial_peers)
-            .field("enable_discovery", &self.enable_discovery)
-            .field("discovery_listen", &self.discovery_listen)
-            .field("preconfirmation_p2p_key", &preconfirmation_p2p_key)
-            .finish()
-    }
 }
 
 impl Default for NetworkConfig {
@@ -962,7 +945,7 @@ mod tests {
     }
 
     #[test]
-    fn network_config_debug_redacts_raw_key() {
+    fn network_config_debug_does_not_include_raw_key() {
         let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
         let mut cfg = NetworkConfig::default();
         cfg.set_preconfirmation_p2p_priv_raw(Some(raw_key)).expect("raw key should parse");
@@ -970,7 +953,6 @@ mod tests {
         let debug = format!("{cfg:?}");
 
         assert!(!debug.contains(raw_key));
-        assert!(debug.contains("<redacted>"));
     }
 }
 
