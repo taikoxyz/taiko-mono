@@ -86,7 +86,14 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// Slot 4.
     mapping(uint256 index => TrustedParams trustedParams) public trustedParams;
 
-    uint256[45] private __gap;
+    /// @dev Instance id assigned to an address when it was added to the registry. A given
+    /// address is registered at most once (replay-protected by `addressRegistered`), so this
+    /// mapping is one-to-one with live entries in `instances`. Used by `isInstanceRegistered`
+    /// to answer live/non-expired queries; `instances[id].addr` is the source of truth.
+    /// Slot 5.
+    mapping(address instanceAddress => uint256 instanceId) public instanceIdByAddress;
+
+    uint256[44] private __gap;
 
     /// @notice Emitted when a new TDX instance is added to the registry.
     /// @param id The ID of the TDX instance.
@@ -104,6 +111,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
 
     constructor(uint64 _taikoChainId, address _automataDcapAttestation) {
         require(_taikoChainId != 0, TDX_INVALID_CHAIN_ID());
+        require(_automataDcapAttestation != address(0), TDX_INVALID_AUTOMATA_DCAP());
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
     }
@@ -157,6 +165,9 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
         external
         onlyOwner
     {
+        // pcrs must contain exactly one digest per set bit in pcrBitmap; otherwise
+        // _validateAttestationOutput would revert with an out-of-bounds access at registration.
+        require(_params.pcrs.length == _popcount24(_params.pcrBitmap), TDX_INVALID_TRUSTED_PARAMS());
         trustedParams[_index] = _params;
         emit TrustedParamsUpdated(_index, _params);
     }
@@ -230,9 +241,9 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
 
     /// @notice Checks if an address is a currently-registered (non-expired) TDX instance.
     /// @param _instance The address to check
-    /// @return True if the address has at least one live instance entry.
+    /// @return True if the address has a live (registered, non-expired, not deleted) instance.
     function isInstanceRegistered(address _instance) external view returns (bool) {
-        return addressRegistered[_instance];
+        return _isInstanceValid(instanceIdByAddress[_instance], _instance);
     }
 
     // ---------------------------------------------------------------
@@ -260,6 +271,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
             require(!addressRegistered[addr], TDX_ALREADY_ATTESTED());
 
             addressRegistered[addr] = true;
+            instanceIdByAddress[addr] = nextInstanceId;
 
             instances[nextInstanceId] = Instance(addr, validSince);
             ids[i] = nextInstanceId;
@@ -275,6 +287,12 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
         if (instance != instances[id].addr) return false;
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
+    }
+
+    function _popcount24(uint24 _bitmap) private pure returns (uint256 count) {
+        for (uint256 i; i < 24; ++i) {
+            if (_bitmap & (1 << i) != 0) ++count;
+        }
     }
 
     function _validateAttestationOutput(
@@ -322,6 +340,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
 
     error TDX_ALREADY_ATTESTED();
     error TDX_INVALID_ATTESTATION();
+    error TDX_INVALID_AUTOMATA_DCAP();
     error TDX_INVALID_CHAIN_ID();
     error TDX_INVALID_INSTANCE();
     error TDX_INVALID_MR_SEAM();

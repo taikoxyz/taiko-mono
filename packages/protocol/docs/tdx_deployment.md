@@ -42,12 +42,10 @@ on-chain PCCS + DCAP attestation stack, which is **chain-wide infrastructure**.
 
 ## When do I need to deploy Automata DCAP myself?
 
-| Network                           | Automata DCAP `AutomataDcapAttestationFee`   | Action                                             |
-| --------------------------------- | -------------------------------------------- | -------------------------------------------------- |
-| Mainnet                           | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | Use existing — only deploy `AzureTdxVerifier`      |
-| Hoodi                             | `0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0` | Use existing — only deploy `AzureTdxVerifier`      |
-| Devnet (`surge-ethereum-package`) | Pre-deployed in genesis                      | Use existing — only deploy `AzureTdxVerifier`      |
-| Local Anvil / custom L1           | Nothing deployed                             | Deploy Automata + PCCS extras + `AzureTdxVerifier` |
+| Network                       | Automata DCAP `AutomataDcapAttestationFee` | Action                                             |
+| ----------------------------- | ------------------------------------------ | -------------------------------------------------- |
+| Mainnet / Hoodi / Known chain | Probably deployed                          | Use existing — only deploy `AzureTdxVerifier`      |
+| Local Anvil / custom L1       | Nothing deployed                           | Deploy Automata + PCCS extras + `AzureTdxVerifier` |
 
 The chain-wide infrastructure (DCAP + PCCS) only has to be deployed **once per L1**. Once
 present, multiple Taiko / Surge instances on that L1 can each deploy their own `AzureTdxVerifier`

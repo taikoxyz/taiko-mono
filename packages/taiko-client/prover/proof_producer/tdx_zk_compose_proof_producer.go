@@ -55,7 +55,9 @@ func (s *TdxZkComposeProofProducer) RequestProof(
 
 	g.Go(func() error {
 		if s.Dummy {
-			proofType = s.ProofType
+			// Aggregate() rejects zk_any (it has no VerifierID), so resolve to a concrete
+			// ZK type for the dummy flow used by local/dev runs.
+			proofType = s.resolveDummyZKProofType()
 			if resp, err := s.DummyProofProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
 				return err
 			} else {
@@ -159,8 +161,8 @@ func (s *TdxZkComposeProofProducer) Aggregate(
 
 	g.Go(func() error {
 		if s.Dummy {
-			proofType = s.ProofType
-			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.ProofType)
+			proofType = s.resolveDummyZKProofType()
+			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, proofType)
 			zkBatchProof = resp.BatchProof
 		} else {
 			if resp, err := s.requestZKBatchProof(
@@ -199,6 +201,16 @@ func (s *TdxZkComposeProofProducer) Aggregate(
 		TdxProofVerifier: tdxBatchProofs.Verifier,
 		TdxVerifierID:    tdxBatchProofs.VerifierID,
 	}, nil
+}
+
+// resolveDummyZKProofType returns a concrete ZK proof type for the dummy flow.
+// s.ProofType may be ProofTypeZKAny, which Aggregate() rejects because it has no
+// associated VerifierID. ProofTypeZKR0 is used as the default concrete type.
+func (s *TdxZkComposeProofProducer) resolveDummyZKProofType() ProofType {
+	if s.ProofType == ProofTypeZKAny {
+		return ProofTypeZKR0
+	}
+	return s.ProofType
 }
 
 func (s *TdxZkComposeProofProducer) requestZKBatchProof(
