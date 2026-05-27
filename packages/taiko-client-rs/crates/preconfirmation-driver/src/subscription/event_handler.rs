@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use alloy_primitives::{B256, U256};
-use preconfirmation_net::{NetworkCommand, NetworkEvent};
+use preconfirmation_net::{NetworkCommand, NetworkEvent, PeerId};
 use preconfirmation_types::{
     Bytes20, RawTxListGossip, SignedCommitment, uint256_to_u256, validate_raw_txlist_gossip,
 };
@@ -55,6 +55,8 @@ where
     pub(super) command_tx: Sender<NetworkCommand>,
     /// Lookahead resolver for signer and window validation.
     pub(super) lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
+    /// Local libp2p peer ID used to ignore looped-back gossip messages.
+    pub(super) local_peer_id: Option<PeerId>,
 }
 
 /// Construction parameters for an [`EventHandler`].
@@ -93,12 +95,33 @@ where
             command_tx,
             lookahead_resolver,
         } = params;
-        Self { store, codec, driver, expected_slasher, event_tx, command_tx, lookahead_resolver }
+        Self {
+            store,
+            codec,
+            driver,
+            expected_slasher,
+            event_tx,
+            command_tx,
+            lookahead_resolver,
+            local_peer_id: None,
+        }
+    }
+
+    /// Create a new event handler that ignores gossip propagated by the local peer.
+    pub fn new_with_local_peer_id(params: EventHandlerParams<D>, local_peer_id: PeerId) -> Self {
+        let mut handler = Self::new(params);
+        handler.local_peer_id = Some(local_peer_id);
+        handler
     }
 
     /// Update the command tx used to notify the P2P node.
     pub(crate) fn set_command_tx(&mut self, command_tx: Sender<NetworkCommand>) {
         self.command_tx = command_tx;
+    }
+
+    /// Update the local peer ID used to suppress looped-back gossip.
+    pub(crate) fn set_local_peer_id(&mut self, local_peer_id: PeerId) {
+        self.local_peer_id = Some(local_peer_id);
     }
 
     /// Handle a network event.
@@ -110,10 +133,18 @@ where
             NetworkEvent::PeerDisconnected(peer_id) => {
                 self.handle_peer_disconnected(peer_id.to_string());
             }
-            NetworkEvent::GossipSignedCommitment { from: _, msg } => {
+            NetworkEvent::GossipSignedCommitment { from, msg } => {
+                if self.is_local_peer(from) {
+                    debug!(peer = %from, "ignoring self-propagated commitment gossip");
+                    return Ok(());
+                }
                 self.handle_commitment(*msg).await?;
             }
-            NetworkEvent::GossipRawTxList { from: _, msg } => {
+            NetworkEvent::GossipRawTxList { from, msg } => {
+                if self.is_local_peer(from) {
+                    debug!(peer = %from, "ignoring self-propagated raw txlist gossip");
+                    return Ok(());
+                }
                 self.handle_txlist(*msg).await?;
             }
             NetworkEvent::InboundCommitmentsRequest { from } => {
@@ -137,6 +168,11 @@ where
             }
         }
         Ok(())
+    }
+
+    /// Return whether a network event came from the local libp2p peer.
+    fn is_local_peer(&self, peer_id: PeerId) -> bool {
+        self.local_peer_id.is_some_and(|local_peer_id| local_peer_id == peer_id)
     }
 
     /// Emit a peer-connected event to subscribers.
