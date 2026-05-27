@@ -43,6 +43,8 @@ use crate::{
 
 /// Interval for retrying configured bootnode/static peer dials.
 const CONFIGURED_PEER_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+/// Expected length of a secp256k1 private key.
+const SECP256K1_PRIVATE_KEY_LEN: usize = 32;
 
 /// Interval for logging current preconfirmation peer connectivity.
 const PEER_STATUS_LOG_INTERVAL: Duration = Duration::from_secs(60);
@@ -136,6 +138,8 @@ pub struct NetworkConfig {
     pub enable_discovery: bool,
     /// UDP listen address for discv5 discovery.
     pub discovery_listen: SocketAddr,
+    /// Optional parsed secp256k1 keypair for the local P2P network identity.
+    pub preconfirmation_p2p_key: Option<identity::Keypair>,
 }
 
 impl Default for NetworkConfig {
@@ -147,8 +151,67 @@ impl Default for NetworkConfig {
             pre_dial_peers: Vec::new(),
             enable_discovery: false,
             discovery_listen: SocketAddr::from(([0, 0, 0, 0], 9223)),
+            preconfirmation_p2p_key: None,
         }
     }
+}
+
+impl NetworkConfig {
+    /// Parse an optional raw secp256k1 private key for the local P2P network identity.
+    pub fn parse_preconfirmation_p2p_priv_raw(
+        raw_key: Option<&str>,
+    ) -> Result<Option<identity::Keypair>> {
+        raw_key.map(parse_preconfirmation_p2p_priv_raw).transpose()
+    }
+
+    /// Build the local libp2p identity key, falling back to an ephemeral key.
+    fn local_key(&self) -> identity::Keypair {
+        self.preconfirmation_p2p_key.clone().unwrap_or_else(identity::Keypair::generate_ed25519)
+    }
+}
+
+/// Parse a raw secp256k1 private key into a libp2p identity keypair.
+fn parse_preconfirmation_p2p_priv_raw(raw_key: &str) -> Result<identity::Keypair> {
+    let raw_key = raw_key.strip_prefix("0x").unwrap_or(raw_key);
+    let key_bytes = alloy_primitives::hex::decode(raw_key).map_err(|err| {
+        WhitelistPreconfirmationDriverError::p2p(format!(
+            "invalid preconfirmation.p2p-priv-raw hex: {err}"
+        ))
+    })?;
+    if key_bytes.len() != SECP256K1_PRIVATE_KEY_LEN {
+        return Err(WhitelistPreconfirmationDriverError::p2p(format!(
+            "invalid preconfirmation.p2p-priv-raw key length: expected 32 bytes, got {}",
+            key_bytes.len()
+        )));
+    }
+
+    let secret_key = identity::secp256k1::SecretKey::try_from_bytes(key_bytes).map_err(|err| {
+        WhitelistPreconfirmationDriverError::p2p(format!(
+            "invalid preconfirmation.p2p-priv-raw key: {err}"
+        ))
+    })?;
+
+    Ok(identity::Keypair::from(identity::secp256k1::Keypair::from(secret_key)))
+}
+
+/// Build an Ethereum-style enode URL for the local secp256k1 P2P identity.
+fn local_enode_url(
+    local_key: &identity::Keypair,
+    enable_tcp: bool,
+    listen_addr: SocketAddr,
+) -> Option<String> {
+    if !enable_tcp {
+        return None;
+    }
+
+    let secp256k1_key = local_key.clone().try_into_secp256k1().ok()?;
+    let uncompressed_public_key = secp256k1_key.public().to_bytes_uncompressed();
+    Some(format!(
+        "enode://{}@{}:{}",
+        alloy_primitives::hex::encode(&uncompressed_public_key[1..]),
+        listen_addr.ip(),
+        listen_addr.port()
+    ))
 }
 
 /// Address configured for persistent preconfirmation peer dialing.
@@ -167,6 +230,7 @@ impl WhitelistNetwork {
         cfg: NetworkConfig,
         operator_set: SharedOperatorSet,
     ) -> Result<Self> {
+        let local_key = cfg.local_key();
         let NetworkConfig {
             enable_tcp,
             listen_addr,
@@ -174,13 +238,18 @@ impl WhitelistNetwork {
             pre_dial_peers,
             enable_discovery,
             discovery_listen,
+            preconfirmation_p2p_key: _,
         } = cfg;
 
-        // Keep the libp2p identity ephemeral until the Rust driver grows an
-        // explicit persisted node-key configuration. This avoids introducing a
-        // second on-disk key path alongside the existing payload signer.
-        let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
+        let local_enode = local_enode_url(&local_key, enable_tcp, listen_addr);
+        info!(
+            %local_peer_id,
+            local_enode = local_enode.as_deref().unwrap_or("unavailable"),
+            tcp_enabled = enable_tcp,
+            listen_addr = %listen_addr,
+            "whitelist preconfirmation local P2P identity"
+        );
 
         let topics = Topics::new(chain_id);
         let behaviour = build_behaviour(&local_key, &topics)?;
@@ -839,6 +908,8 @@ fn is_local_gossip_source(local_peer_id: PeerId, from: PeerId) -> bool {
 mod tests {
     use std::net::Ipv4Addr;
 
+    use alloy_primitives::hex;
+
     use super::*;
 
     #[test]
@@ -863,6 +934,100 @@ mod tests {
         assert_eq!(peer_id_from_addr(&addr), None);
     }
 
+    #[test]
+    fn network_config_local_key_uses_raw_secp256k1_private_key() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let cfg = NetworkConfig {
+            preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(
+                raw_key,
+            ))
+            .expect("raw key should parse"),
+            ..Default::default()
+        };
+
+        let local_key = cfg.local_key();
+        let expected_key = identity::Keypair::from(identity::secp256k1::Keypair::from(
+            identity::secp256k1::SecretKey::try_from_bytes(
+                hex::decode(raw_key).expect("valid hex"),
+            )
+            .expect("valid secp256k1 key"),
+        ));
+
+        assert_eq!(local_key.public().to_peer_id(), expected_key.public().to_peer_id());
+    }
+
+    #[test]
+    fn network_config_local_key_accepts_hex_prefix() {
+        let raw_key = "0x1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key with prefix should parse");
+    }
+
+    #[test]
+    fn network_config_local_key_rejects_invalid_raw_key() {
+        let err = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some("not-hex"))
+            .expect_err("invalid raw key should fail");
+
+        assert!(
+            matches!(err, WhitelistPreconfirmationDriverError::P2p(message) if message.contains("preconfirmation.p2p-priv-raw"))
+        );
+    }
+
+    #[test]
+    fn network_config_local_key_rejects_wrong_raw_key_length() {
+        let raw_key = "01".repeat(31);
+
+        let err = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(&raw_key))
+            .expect_err("short raw key should fail");
+
+        assert!(
+            matches!(err, WhitelistPreconfirmationDriverError::P2p(message) if message.contains("expected 32 bytes"))
+        );
+    }
+
+    #[test]
+    fn network_config_debug_does_not_include_raw_key() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let cfg = NetworkConfig {
+            preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(
+                raw_key,
+            ))
+            .expect("raw key should parse"),
+            ..Default::default()
+        };
+
+        let debug = format!("{cfg:?}");
+
+        assert!(!debug.contains(raw_key));
+    }
+
+    #[test]
+    fn local_enode_url_uses_secp256k1_public_key() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key should parse")
+            .expect("key should be configured");
+        let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
+
+        let enode = local_enode_url(&local_key, true, listen_addr).expect("secp key has enode");
+        let public_key = enode
+            .strip_prefix("enode://")
+            .and_then(|rest| rest.split_once('@'))
+            .map(|(public_key, _)| public_key)
+            .expect("enode should include public key");
+
+        assert!(enode.ends_with("@127.0.0.1:30303"));
+        assert_eq!(public_key.len(), 128);
+        assert!(!public_key.starts_with("04"));
+    }
+
+    #[test]
+    fn local_enode_url_is_unavailable_for_non_secp256k1_key() {
+        let local_key = identity::Keypair::generate_ed25519();
+        let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
+
+        assert_eq!(local_enode_url(&local_key, true, listen_addr), None);
+    }
     #[test]
     fn local_gossip_source_is_identified() {
         let local_peer = PeerId::random();

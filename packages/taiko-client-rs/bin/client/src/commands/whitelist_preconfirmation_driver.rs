@@ -56,6 +56,9 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Optional hex-encoded private key for P2P block signing.
     #[clap(long = "preconfirmation.p2p-signer-key", env = "PRECONFIRMATION_P2P_SIGNER_KEY")]
     pub preconfirmation_p2p_signer_key: Option<String>,
+    /// Optional raw secp256k1 private key for the local P2P network identity.
+    #[clap(long = "preconfirmation.p2p-priv-raw", env = "PRECONFIRMATION_P2P_PRIV_RAW")]
+    pub preconfirmation_p2p_priv_raw: Option<String>,
 }
 
 impl WhitelistPreconfirmationDriverSubCommand {
@@ -68,7 +71,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
     }
 
     /// Build P2P configuration from command-line arguments.
-    fn build_p2p_config(&self) -> NetworkConfig {
+    fn build_p2p_config(&self) -> Result<NetworkConfig> {
         let pre_dial_peers = self
             .preconf_flags
             .p2p_static_peers
@@ -78,14 +81,17 @@ impl WhitelistPreconfirmationDriverSubCommand {
             })
             .collect();
 
-        NetworkConfig {
+        Ok(NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
             pre_dial_peers,
+            preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(
+                self.preconfirmation_p2p_priv_raw.as_deref(),
+            )?,
             ..Default::default()
-        }
+        })
     }
 
     /// Resolve the whitelist RPC listen address.
@@ -147,7 +153,7 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
         self.init_metrics()?;
 
         let driver_config = self.build_driver_config()?;
-        let p2p_config = self.build_p2p_config();
+        let p2p_config = self.build_p2p_config()?;
 
         let runner_config = RunnerConfig::new(
             driver_config,
