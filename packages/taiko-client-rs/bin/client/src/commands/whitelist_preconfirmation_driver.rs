@@ -81,16 +81,17 @@ impl WhitelistPreconfirmationDriverSubCommand {
             })
             .collect();
 
-        let mut cfg = NetworkConfig {
+        Ok(NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),
             pre_dial_peers,
+            preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(
+                self.preconfirmation_p2p_priv_raw.as_deref(),
+            )?,
             ..Default::default()
-        };
-        cfg.set_preconfirmation_p2p_priv_raw(self.preconfirmation_p2p_priv_raw.as_deref())?;
-        Ok(cfg)
+        })
     }
 
     /// Resolve the whitelist RPC listen address.

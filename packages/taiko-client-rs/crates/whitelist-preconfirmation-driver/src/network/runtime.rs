@@ -157,11 +157,11 @@ impl Default for NetworkConfig {
 }
 
 impl NetworkConfig {
-    /// Configure the local P2P network identity from a raw secp256k1 private key.
-    pub fn set_preconfirmation_p2p_priv_raw(&mut self, raw_key: Option<&str>) -> Result<()> {
-        self.preconfirmation_p2p_key =
-            raw_key.map(parse_preconfirmation_p2p_priv_raw).transpose()?;
-        Ok(())
+    /// Parse an optional raw secp256k1 private key for the local P2P network identity.
+    pub fn parse_preconfirmation_p2p_priv_raw(
+        raw_key: Option<&str>,
+    ) -> Result<Option<identity::Keypair>> {
+        raw_key.map(parse_preconfirmation_p2p_priv_raw).transpose()
     }
 
     /// Build the local libp2p identity key, falling back to an ephemeral key.
@@ -894,8 +894,13 @@ mod tests {
     #[test]
     fn network_config_local_key_uses_raw_secp256k1_private_key() {
         let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
-        let mut cfg = NetworkConfig::default();
-        cfg.set_preconfirmation_p2p_priv_raw(Some(raw_key)).expect("raw key should parse");
+        let cfg = NetworkConfig {
+            preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(
+                raw_key,
+            ))
+            .expect("raw key should parse"),
+            ..Default::default()
+        };
 
         let local_key = cfg.local_key();
         let expected_key = identity::Keypair::from(identity::secp256k1::Keypair::from(
@@ -911,18 +916,13 @@ mod tests {
     #[test]
     fn network_config_local_key_accepts_hex_prefix() {
         let raw_key = "0x1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
-        let mut cfg = NetworkConfig::default();
-
-        cfg.set_preconfirmation_p2p_priv_raw(Some(raw_key))
+        NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
             .expect("raw key with prefix should parse");
     }
 
     #[test]
     fn network_config_local_key_rejects_invalid_raw_key() {
-        let mut cfg = NetworkConfig::default();
-
-        let err = cfg
-            .set_preconfirmation_p2p_priv_raw(Some("not-hex"))
+        let err = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some("not-hex"))
             .expect_err("invalid raw key should fail");
 
         assert!(
@@ -932,11 +932,9 @@ mod tests {
 
     #[test]
     fn network_config_local_key_rejects_wrong_raw_key_length() {
-        let mut cfg = NetworkConfig::default();
         let raw_key = "01".repeat(31);
 
-        let err = cfg
-            .set_preconfirmation_p2p_priv_raw(Some(&raw_key))
+        let err = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(&raw_key))
             .expect_err("short raw key should fail");
 
         assert!(
@@ -947,8 +945,13 @@ mod tests {
     #[test]
     fn network_config_debug_does_not_include_raw_key() {
         let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
-        let mut cfg = NetworkConfig::default();
-        cfg.set_preconfirmation_p2p_priv_raw(Some(raw_key)).expect("raw key should parse");
+        let cfg = NetworkConfig {
+            preconfirmation_p2p_key: NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(
+                raw_key,
+            ))
+            .expect("raw key should parse"),
+            ..Default::default()
+        };
 
         let debug = format!("{cfg:?}");
 
