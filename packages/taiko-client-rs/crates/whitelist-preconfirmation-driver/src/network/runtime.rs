@@ -702,6 +702,16 @@ impl NetworkRuntime {
         let from = propagation_source;
         let now = Instant::now();
 
+        if is_local_gossip_source(self.local_peer_id_for_events, from) {
+            debug!(peer = %from, topic = %topic, "ignoring self-propagated whitelist preconfirmation gossip");
+            let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
+                &message_id,
+                &from,
+                gossipsub::MessageAcceptance::Ignore,
+            );
+            return Ok(());
+        }
+
         let mut report = |acceptance: gossipsub::MessageAcceptance| {
             // Explicitly report every decision so mesh scoring remains aligned with local
             // validation.
@@ -820,6 +830,11 @@ fn format_peer_ids(peers: &[PeerId]) -> String {
     peers.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
 }
 
+/// Return whether an inbound gossip event was propagated by the local libp2p peer.
+fn is_local_gossip_source(local_peer_id: PeerId, from: PeerId) -> bool {
+    local_peer_id == from
+}
+
 #[cfg(test)]
 mod tests {
     use std::net::Ipv4Addr;
@@ -846,6 +861,15 @@ mod tests {
             Multiaddr::empty().with(Protocol::Ip4(Ipv4Addr::LOCALHOST)).with(Protocol::Tcp(30303));
 
         assert_eq!(peer_id_from_addr(&addr), None);
+    }
+
+    #[test]
+    fn local_gossip_source_is_identified() {
+        let local_peer = PeerId::random();
+        let remote_peer = PeerId::random();
+
+        assert!(is_local_gossip_source(local_peer, local_peer));
+        assert!(!is_local_gossip_source(local_peer, remote_peer));
     }
 }
 
