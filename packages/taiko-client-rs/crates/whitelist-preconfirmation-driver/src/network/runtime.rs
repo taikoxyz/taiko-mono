@@ -194,6 +194,26 @@ fn parse_preconfirmation_p2p_priv_raw(raw_key: &str) -> Result<identity::Keypair
     Ok(identity::Keypair::from(identity::secp256k1::Keypair::from(secret_key)))
 }
 
+/// Build an Ethereum-style enode URL for the local secp256k1 P2P identity.
+fn local_enode_url(
+    local_key: &identity::Keypair,
+    enable_tcp: bool,
+    listen_addr: SocketAddr,
+) -> Option<String> {
+    if !enable_tcp {
+        return None;
+    }
+
+    let secp256k1_key = local_key.clone().try_into_secp256k1().ok()?;
+    let uncompressed_public_key = secp256k1_key.public().to_bytes_uncompressed();
+    Some(format!(
+        "enode://{}@{}:{}",
+        alloy_primitives::hex::encode(&uncompressed_public_key[1..]),
+        listen_addr.ip(),
+        listen_addr.port()
+    ))
+}
+
 /// Address configured for persistent preconfirmation peer dialing.
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ConfiguredPeerAddr {
@@ -222,6 +242,14 @@ impl WhitelistNetwork {
         } = cfg;
 
         let local_peer_id = local_key.public().to_peer_id();
+        let local_enode = local_enode_url(&local_key, enable_tcp, listen_addr);
+        info!(
+            %local_peer_id,
+            local_enode = local_enode.as_deref().unwrap_or("unavailable"),
+            tcp_enabled = enable_tcp,
+            listen_addr = %listen_addr,
+            "whitelist preconfirmation local P2P identity"
+        );
 
         let topics = Topics::new(chain_id);
         let behaviour = build_behaviour(&local_key, &topics)?;
@@ -956,6 +984,34 @@ mod tests {
         let debug = format!("{cfg:?}");
 
         assert!(!debug.contains(raw_key));
+    }
+
+    #[test]
+    fn local_enode_url_uses_secp256k1_public_key() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key should parse")
+            .expect("key should be configured");
+        let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
+
+        let enode = local_enode_url(&local_key, true, listen_addr).expect("secp key has enode");
+        let public_key = enode
+            .strip_prefix("enode://")
+            .and_then(|rest| rest.split_once('@'))
+            .map(|(public_key, _)| public_key)
+            .expect("enode should include public key");
+
+        assert!(enode.ends_with("@127.0.0.1:30303"));
+        assert_eq!(public_key.len(), 128);
+        assert!(!public_key.starts_with("04"));
+    }
+
+    #[test]
+    fn local_enode_url_is_unavailable_for_non_secp256k1_key() {
+        let local_key = identity::Keypair::generate_ed25519();
+        let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
+
+        assert_eq!(local_enode_url(&local_key, true, listen_addr), None);
     }
 }
 
