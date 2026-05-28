@@ -216,34 +216,41 @@ impl WhitelistPreconfirmationDriverRunner {
         loop {
             tokio::select! {
                 result = &mut node_handle => {
-                    return finish_runner(
-                        &mut event_syncer_handle,
-                        &mut rest_ws_server,
-                        map_node_exit_for_runner(result),
-                    )
-                    .await;
+                    let (reason, mapped) = match result {
+                        Ok(Ok(())) => (
+                            "node_exit_unexpected",
+                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                                "whitelist preconfirmation network exited unexpectedly".to_string(),
+                            )),
+                        ),
+                        Ok(Err(err)) => ("node_error", Err(err)),
+                        Err(err) => (
+                            "node_join_error",
+                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(err.to_string())),
+                        ),
+                    };
+                    return finish(&mut event_syncer_handle, &mut rest_ws_server, reason, mapped).await;
                 }
                 result = &mut event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
-                    return finish_runner(
-                        &mut event_syncer_handle,
-                        &mut rest_ws_server,
-                        map_event_syncer_exit_for_runner(result),
-                    )
-                    .await;
+                    let reason = match &result {
+                        Ok(Ok(())) => "event_syncer_exit",
+                        Ok(Err(_)) => "event_syncer_error",
+                        Err(_) => "event_syncer_join_error",
+                    };
+                    let err = event_syncer_exit_error(result);
+                    return finish(&mut event_syncer_handle, &mut rest_ws_server, reason, Err(err)).await;
                 }
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
-                        return finish_runner(
+                        return finish(
                             &mut event_syncer_handle,
                             &mut rest_ws_server,
-                            (
-                                "network_event_channel_closed",
-                                Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                            "network_event_channel_closed",
+                            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
                                 "whitelist preconfirmation event channel closed".to_string(),
                             )),
-                            ),
                         )
                         .await;
                     };
@@ -268,76 +275,6 @@ impl WhitelistPreconfirmationDriverRunner {
     }
 }
 
-/// Abort sidecar tasks and stop the REST server during shutdown.
-async fn stop_sidecars<T>(
-    event_syncer_handle: &mut tokio::task::JoinHandle<T>,
-    rest_ws_server: &mut Option<WhitelistApiServer>,
-) {
-    event_syncer_handle.abort();
-    if let Some(server) = rest_ws_server.take() {
-        server.stop().await;
-    }
-}
-
-/// Tuple describing the runner exit reason and result.
-type RunnerExit = (&'static str, Result<()>);
-
-/// Stop sidecars and return the unified runner exit result.
-async fn finish_runner<T>(
-    event_syncer_handle: &mut tokio::task::JoinHandle<T>,
-    rest_ws_server: &mut Option<WhitelistApiServer>,
-    (reason, result): RunnerExit,
-) -> Result<()> {
-    stop_sidecars(event_syncer_handle, rest_ws_server).await;
-    record_runner_exit(reason, result)
-}
-
-/// Convert a node task result into a standardized runner exit reason.
-fn map_node_exit_for_runner(
-    result: std::result::Result<
-        std::result::Result<(), WhitelistPreconfirmationDriverError>,
-        tokio::task::JoinError,
-    >,
-) -> (&'static str, Result<()>) {
-    match result {
-        Ok(Ok(())) => (
-            "node_exit_unexpected",
-            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                "whitelist preconfirmation network exited unexpectedly".to_string(),
-            )),
-        ),
-        Ok(Err(err)) => ("node_error", Err(err)),
-        Err(err) => (
-            "node_join_error",
-            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(err.to_string())),
-        ),
-    }
-}
-
-/// Convert an event-syncer result into a standardized runner exit reason.
-fn map_event_syncer_exit_for_runner(result: EventSyncJoinResult) -> (&'static str, Result<()>) {
-    match result {
-        Ok(Ok(())) => {
-            ("event_syncer_exit", Err(WhitelistPreconfirmationDriverError::EventSyncerExited))
-        }
-        Ok(Err(err)) => (
-            "event_syncer_error",
-            Err(map_driver_error::<WhitelistPreconfirmationDriverError>(err)),
-        ),
-        Err(err) => (
-            "event_syncer_join_error",
-            Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),
-        ),
-    }
-}
-
-/// Record exit reason and return the final result.
-fn record_runner_exit(reason: &'static str, result: Result<()>) -> Result<()> {
-    metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL, "reason" => reason)
-        .increment(1);
-    result
-}
-
 /// Result returned by the event sync background task.
 type EventSyncResult = result::Result<(), driver::DriverError>;
 /// Join result returned by the event sync background task handle.
@@ -353,6 +290,27 @@ fn event_syncer_exit_error(result: EventSyncJoinResult) -> WhitelistPreconfirmat
         Ok(Err(err)) => map_driver_error(err),
         Err(err) => WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string()),
     }
+}
+
+/// Abort sidecar tasks, stop the REST server, record the exit metric,
+/// and return the final runner result. Called from each `select!` arm in
+/// `WhitelistPreconfirmationDriverRunner::run`.
+async fn finish(
+    event_syncer_handle: &mut JoinHandle<EventSyncResult>,
+    rest_ws_server: &mut Option<WhitelistApiServer>,
+    reason: &'static str,
+    result: Result<()>,
+) -> Result<()> {
+    event_syncer_handle.abort();
+    if let Some(server) = rest_ws_server.take() {
+        server.stop().await;
+    }
+    metrics::counter!(
+        WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
+        "reason" => reason,
+    )
+    .increment(1);
+    result
 }
 
 #[cfg(test)]
