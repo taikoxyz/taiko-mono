@@ -17,43 +17,20 @@ where
     ) -> Result<TaikoPayloadAttributes> {
         let tx_list = decompress_tx_list(request.transactions.as_ref())?;
 
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: request.fee_recipient,
+        Ok(crate::payload_build::build_driver_payload(crate::payload_build::DriverPayloadInputs {
+            parent_hash: request.parent_hash,
+            block_number: request.block_number,
+            fee_recipient: request.fee_recipient,
             gas_limit: request.gas_limit,
-            timestamp: U256::from(request.timestamp),
-            mix_hash: prev_randao,
-            tx_list: Some(tx_list.into()),
-            extra_data: request.extra_data.clone(),
-        };
-
-        let payload_attributes = EthPayloadAttributes {
             timestamp: request.timestamp,
             prev_randao,
-            suggested_fee_recipient: request.fee_recipient,
-            withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
-            slot_number: None,
-        };
-
-        let mut payload = TaikoPayloadAttributes {
-            payload_attributes,
+            extra_data: &request.extra_data,
             base_fee_per_gas: U256::from(request.base_fee_per_gas),
-            block_metadata,
-            l1_origin: RpcL1Origin {
-                block_id: U256::from(request.block_number),
-                l2_block_hash: B256::ZERO,
-                l1_block_height: None,
-                l1_block_hash: None,
-                build_payload_args_id: [0u8; 8],
-                is_forced_inclusion: request.is_forced_inclusion.unwrap_or(false),
-                signature,
-            },
-            anchor_transaction: None,
-        };
-
-        let payload_id = payload_id_taiko(&request.parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
-        payload.l1_origin.build_payload_args_id = payload_id_to_bytes(payload_id);
-        Ok(payload)
+            tx_list: tx_list.into(),
+            signature,
+            parent_beacon_block_root: None,
+            is_forced_inclusion: request.is_forced_inclusion.unwrap_or(false),
+        }))
     }
 
     /// Build a 65-byte signature from a digest.
