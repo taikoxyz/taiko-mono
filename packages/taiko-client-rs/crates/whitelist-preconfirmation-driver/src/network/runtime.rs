@@ -213,10 +213,9 @@ fn advertised_enode_url(
     let uncompressed_public_key = secp256k1_key.public().to_bytes_uncompressed();
     let advertised_addr = advertise_addr.unwrap_or(listen_addr);
     let mut enode = format!(
-        "enode://{}@{}:{}",
+        "enode://{}@{}",
         alloy_primitives::hex::encode(&uncompressed_public_key[1..]),
-        advertised_addr.ip(),
-        advertised_addr.port()
+        enode_endpoint(advertised_addr)
     );
     if let Some(discovery_listen) =
         discovery_listen.filter(|addr| addr.port() != advertised_addr.port())
@@ -224,6 +223,14 @@ fn advertised_enode_url(
         enode.push_str(&format!("?discport={}", discovery_listen.port()));
     }
     Some(enode)
+}
+
+/// Format the endpoint component of an enode URL.
+fn enode_endpoint(addr: SocketAddr) -> String {
+    match addr {
+        SocketAddr::V4(addr) => addr.to_string(),
+        SocketAddr::V6(addr) => format!("[{}]:{}", addr.ip(), addr.port()),
+    }
 }
 
 /// Address configured for persistent preconfirmation peer dialing.
@@ -921,7 +928,7 @@ fn is_local_gossip_source(peer_id: PeerId, from: PeerId) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv4Addr;
+    use std::net::{Ipv4Addr, Ipv6Addr};
 
     use alloy_primitives::hex;
 
@@ -1050,6 +1057,21 @@ mod tests {
             .expect("secp key has enode");
 
         assert!(enode.ends_with("@203.0.113.10:30303"));
+    }
+
+    #[test]
+    fn advertised_enode_url_brackets_ipv6_advertise_addr() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key should parse")
+            .expect("key should be configured");
+        let listen_addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 30303));
+        let advertise_addr = SocketAddr::from((Ipv6Addr::LOCALHOST, 30303));
+
+        let enode = advertised_enode_url(&local_key, true, listen_addr, Some(advertise_addr), None)
+            .expect("secp key has enode");
+
+        assert!(enode.ends_with("@[::1]:30303"));
     }
 
     #[test]
