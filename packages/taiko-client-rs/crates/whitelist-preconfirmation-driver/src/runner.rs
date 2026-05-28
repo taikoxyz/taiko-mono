@@ -1,14 +1,14 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, result, sync::Arc, time::Instant};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
-use driver::{DriverConfig, map_driver_error};
+use driver::{DriverConfig, SyncPipeline, map_driver_error};
 use protocol::signer::FixedKSigner;
-use rpc::beacon::BeaconClient;
-use tokio::sync::Mutex;
+use rpc::{beacon::BeaconClient, client::Client};
+use tokio::{sync::Mutex, task::JoinHandle};
 use tracing::{info, warn};
 
 use crate::{
@@ -23,7 +23,6 @@ use crate::{
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkConfig, WhitelistNetwork},
     operator_set::OperatorSetPoller,
-    preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -84,9 +83,13 @@ impl WhitelistPreconfirmationDriverRunner {
     pub async fn run(self) -> Result<()> {
         metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL).increment(1);
 
-        let mut preconf_ingress_sync =
-            PreconfIngressSync::start(&self.config.driver_config).await?;
-        let chain_id = preconf_ingress_sync.client().chain_id;
+        let client = Client::new(self.config.driver_config.client.clone()).await?;
+        let pipeline =
+            SyncPipeline::new(self.config.driver_config.clone(), client.clone()).await?;
+        let event_syncer = pipeline.event_syncer();
+        let mut event_syncer_handle: JoinHandle<EventSyncResult> =
+            tokio::spawn(async move { pipeline.run().await });
+        let chain_id = client.chain_id;
 
         info!(
             chain_id,
@@ -95,7 +98,14 @@ impl WhitelistPreconfirmationDriverRunner {
         );
 
         let wait_start = Instant::now();
-        preconf_ingress_sync.wait_preconf_ingress_ready().await?;
+        tokio::select! {
+            ready = event_syncer.wait_preconf_ingress_ready() => {
+                ready.map_err(map_driver_error::<WhitelistPreconfirmationDriverError>)?;
+            }
+            result = &mut event_syncer_handle => {
+                return Err(event_syncer_exit_error(result));
+            }
+        }
         metrics::histogram!(
             WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
         )
@@ -103,7 +113,7 @@ impl WhitelistPreconfirmationDriverRunner {
 
         let operator_poller = OperatorSetPoller::new(
             self.config.whitelist_address,
-            preconf_ingress_sync.client().l1_provider.clone(),
+            client.l1_provider.clone(),
         )
         .await?;
         let operator_set = operator_poller.shared_set();
@@ -138,8 +148,7 @@ impl WhitelistPreconfirmationDriverRunner {
                         "failed to create P2P signer: {e}"
                     ))
                 })?;
-                let initial_highest_unsafe_l2_payload_block_id = preconf_ingress_sync
-                    .client()
+                let initial_highest_unsafe_l2_payload_block_id = client
                     .l2_provider
                     .get_block_by_number(BlockNumberOrTag::Latest)
                     .await
@@ -155,8 +164,8 @@ impl WhitelistPreconfirmationDriverRunner {
                     Arc::new(Mutex::new(initial_highest_unsafe_l2_payload_block_id));
 
                 let handler = Arc::new(WhitelistApiService::new(WhitelistApiServiceParams {
-                    event_syncer: preconf_ingress_sync.event_syncer(),
-                    rpc: preconf_ingress_sync.client().clone(),
+                    event_syncer: event_syncer.clone(),
+                    rpc: client.clone(),
                     chain_id,
                     signer,
                     beacon_client: Arc::clone(&beacon_client),
@@ -186,8 +195,8 @@ impl WhitelistPreconfirmationDriverRunner {
 
         let mut importer =
             WhitelistPreconfirmationImporter::new(WhitelistPreconfirmationImporterParams {
-                event_syncer: preconf_ingress_sync.event_syncer(),
-                rpc: preconf_ingress_sync.client().clone(),
+                event_syncer: event_syncer.clone(),
+                rpc: client.clone(),
                 operator_set: operator_set.clone(),
                 chain_id,
                 network_command_tx: network.command_tx.clone(),
@@ -203,13 +212,12 @@ impl WhitelistPreconfirmationDriverRunner {
         sync_ready_interval.tick().await;
 
         let WhitelistNetwork { mut event_rx, command_tx, handle: mut node_handle, .. } = network;
-        let mut event_syncer_handle = preconf_ingress_sync.handle_mut();
 
         loop {
             tokio::select! {
                 result = &mut node_handle => {
                     return finish_runner(
-                        event_syncer_handle,
+                        &mut event_syncer_handle,
                         &mut rest_ws_server,
                         map_node_exit_for_runner(result),
                     )
@@ -219,7 +227,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
                     return finish_runner(
-                        event_syncer_handle,
+                        &mut event_syncer_handle,
                         &mut rest_ws_server,
                         map_event_syncer_exit_for_runner(result),
                     )
@@ -228,7 +236,7 @@ impl WhitelistPreconfirmationDriverRunner {
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
                         return finish_runner(
-                            event_syncer_handle,
+                            &mut event_syncer_handle,
                             &mut rest_ws_server,
                             (
                                 "network_event_channel_closed",
@@ -328,4 +336,68 @@ fn record_runner_exit(reason: &'static str, result: Result<()>) -> Result<()> {
     metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL, "reason" => reason)
         .increment(1);
     result
+}
+
+/// Result returned by the event sync background task.
+type EventSyncResult = result::Result<(), driver::DriverError>;
+/// Join result returned by the event sync background task handle.
+type EventSyncJoinResult = result::Result<EventSyncResult, tokio::task::JoinError>;
+
+/// Convert event syncer task termination into a whitelist driver error.
+///
+/// Returned by both the ingress-readiness wait (Task 3) and the main
+/// `select!` arm that observes the event syncer exiting mid-run (Task 4).
+fn event_syncer_exit_error(result: EventSyncJoinResult) -> WhitelistPreconfirmationDriverError {
+    match result {
+        Ok(Ok(())) => WhitelistPreconfirmationDriverError::EventSyncerExited,
+        Ok(Err(err)) => map_driver_error(err),
+        Err(err) => WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use driver::{DriverError, sync::SyncError};
+    use tokio::task::JoinError;
+
+    use super::{EventSyncJoinResult, WhitelistPreconfirmationDriverError, event_syncer_exit_error};
+
+    fn ok_join(value: Result<(), DriverError>) -> EventSyncJoinResult {
+        Ok(value)
+    }
+
+    #[tokio::test]
+    async fn event_syncer_exit_error_maps_preconfirmation_disabled() {
+        let mapped = event_syncer_exit_error(ok_join(Err(DriverError::PreconfirmationDisabled)));
+        assert!(matches!(
+            mapped,
+            WhitelistPreconfirmationDriverError::Driver(DriverError::PreconfirmationDisabled)
+        ));
+    }
+
+    #[tokio::test]
+    async fn event_syncer_exit_error_maps_sync_driver_error() {
+        let mapped = event_syncer_exit_error(ok_join(Err(DriverError::Sync(
+            SyncError::MissingCheckpointResumeHead,
+        ))));
+        assert!(matches!(
+            mapped,
+            WhitelistPreconfirmationDriverError::Sync(SyncError::MissingCheckpointResumeHead)
+        ));
+    }
+
+    #[tokio::test]
+    async fn event_syncer_exit_error_maps_clean_exit() {
+        let mapped = event_syncer_exit_error(ok_join(Ok(())));
+        assert!(matches!(mapped, WhitelistPreconfirmationDriverError::EventSyncerExited));
+    }
+
+    #[tokio::test]
+    async fn event_syncer_exit_error_maps_join_failure() {
+        let handle = tokio::spawn(async { std::future::pending::<EventSyncJoinResult>().await });
+        handle.abort();
+        let join_err: JoinError = handle.await.expect_err("aborted task should join with error");
+        let mapped = event_syncer_exit_error(Err(join_err));
+        assert!(matches!(mapped, WhitelistPreconfirmationDriverError::EventSyncerFailed(_)));
+    }
 }
