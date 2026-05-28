@@ -62,7 +62,9 @@ contract Proposal0014 is BuildProposal {
         actions[1] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_VKEY_HASH_BYTES, true))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_VKEY_HASH_BYTES, true)
+            )
         });
         actions[2] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
@@ -72,7 +74,9 @@ contract Proposal0014 is BuildProposal {
         actions[3] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_AGGREGATION_VKEY_HASH_BYTES, true))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_AGGREGATION_VKEY_HASH_BYTES, true)
+            )
         });
 
         // --- DISABLE: Proposal0009 Shasta ZK digests ---
@@ -84,7 +88,9 @@ contract Proposal0014 is BuildProposal {
         actions[5] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_P9_BATCH_VKEY_HASH_BYTES, false))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_P9_BATCH_VKEY_HASH_BYTES, false)
+            )
         });
         actions[6] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
@@ -106,7 +112,9 @@ contract Proposal0014 is BuildProposal {
         actions[9] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_P10_BATCH_VKEY_HASH_BYTES, false))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_P10_BATCH_VKEY_HASH_BYTES, false)
+            )
         });
         actions[10] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
@@ -116,7 +124,9 @@ contract Proposal0014 is BuildProposal {
         actions[11] = Controller.Action({
             target: SP1_SHASTA_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_P10_AGG_VKEY_HASH_BYTES, false))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_P10_AGG_VKEY_HASH_BYTES, false)
+            )
         });
     }
 }
