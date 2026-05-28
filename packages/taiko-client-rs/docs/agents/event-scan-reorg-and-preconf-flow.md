@@ -49,7 +49,7 @@ Primary Rust behavior anchors:
   - Exposes explicit wait path for ingress readiness.
 - `crates/preconfirmation-driver/src/runner/preconf_ingress_sync.rs`
   - Runner waits for ingress readiness before preconf operations proceed.
-- `crates/whitelist-preconfirmation-driver/src/preconf_ingress_sync.rs`
+- `crates/whitelist-preconfirmation-driver/src/runner.rs`
   - Whitelist importer path also blocks on event-sync ingress readiness.
 
 Rules:
