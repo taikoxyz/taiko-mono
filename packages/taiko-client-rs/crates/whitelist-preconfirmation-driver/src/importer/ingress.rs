@@ -33,7 +33,7 @@ where
         ingress_source: &'static str,
     ) {
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
+        self.recent_cache.insert(envelope.clone());
         self.update_cache_gauges();
         self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
     }
@@ -136,7 +136,8 @@ where
 
     /// Handle a block-hash request from the request topic.
     pub(super) async fn handle_unsafe_request(&mut self, hash: B256) -> Result<()> {
-        let (envelope, result_label) = if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+        let (envelope, result_label) = if let Some(envelope) = self.recent_cache.get(&hash).cloned()
+        {
             (envelope, "cache_hit")
         } else if let Some(envelope) = self.build_response_envelope_from_l2(hash).await? {
             (Arc::new(envelope), "l2_hit")
@@ -146,7 +147,7 @@ where
         };
 
         record_response_lookup(result_label);
-        self.recent_cache.insert_recent(envelope.clone());
+        self.recent_cache.insert(envelope.clone());
         self.update_cache_gauges();
         self.publish_unsafe_response(envelope).await;
         Ok(())

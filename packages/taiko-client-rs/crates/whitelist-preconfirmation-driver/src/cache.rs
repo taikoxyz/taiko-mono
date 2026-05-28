@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 use crate::codec::WhitelistExecutionPayloadEnvelope;
 
 /// Default maximum number of recently validated envelopes retained for serving responses.
-const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
+pub(crate) const DEFAULT_RECENT_ENVELOPE_CAPACITY: usize = 1024;
 /// Default maximum number of pending envelopes retained while waiting for parents.
 const DEFAULT_PENDING_ENVELOPE_CAPACITY: usize = 768;
 /// Maximum number of EOS cache entries retained.
@@ -121,55 +121,6 @@ impl EnvelopeCache {
     }
 }
 
-/// Recently seen validated envelopes used for serving request topic responses.
-#[derive(Debug)]
-pub(crate) struct RecentEnvelopeCache {
-    /// Fast lookup table keyed by payload block hash.
-    entries: LinkedHashMap<B256, Arc<WhitelistExecutionPayloadEnvelope>>,
-    /// Maximum number of envelopes to retain.
-    capacity: usize,
-}
-
-impl Default for RecentEnvelopeCache {
-    /// Build a recent cache with the standard bounded-capacity default.
-    fn default() -> Self {
-        Self::with_capacity(DEFAULT_RECENT_ENVELOPE_CAPACITY)
-    }
-}
-
-impl RecentEnvelopeCache {
-    /// Construct a recent-envelope cache with a fixed capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        let capacity = capacity.max(1);
-        Self { entries: LinkedHashMap::with_capacity(capacity), capacity }
-    }
-
-    /// Insert or replace a recent envelope.
-    pub fn insert_recent(&mut self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
-        let hash = envelope.execution_payload.block_hash;
-        self.entries.remove(&hash);
-        self.entries.insert(hash, envelope);
-        self.evict_oldest();
-    }
-
-    /// Evict oldest entries until capacity is satisfied.
-    fn evict_oldest(&mut self) {
-        while self.entries.len() > self.capacity {
-            let _ = self.entries.pop_front();
-        }
-    }
-
-    /// Get a recent envelope by block hash.
-    pub fn get_recent(&self, hash: &B256) -> Option<Arc<WhitelistExecutionPayloadEnvelope>> {
-        self.entries.get(hash).cloned()
-    }
-
-    /// Returns current number of recent envelopes.
-    pub fn len(&self) -> usize {
-        self.entries.len()
-    }
-}
-
 /// Per-hash request throttle used to avoid repeatedly requesting the same missing parent.
 #[derive(Debug)]
 pub(crate) struct RequestThrottle {
@@ -246,25 +197,6 @@ mod tests {
             },
             signature: Some([0x22u8; 65]),
         }
-    }
-
-    #[test]
-    fn recent_cache_gets_by_hash_and_eviction_is_bounded() {
-        let mut recent = RecentEnvelopeCache::with_capacity(2);
-        let h1 = B256::from([0x01u8; 32]);
-        let h2 = B256::from([0x02u8; 32]);
-        let h3 = B256::from([0x03u8; 32]);
-
-        recent.insert_recent(Arc::new(sample_envelope(h1, 1)));
-        recent.insert_recent(Arc::new(sample_envelope(h2, 2)));
-        assert!(recent.get_recent(&h1).is_some());
-        assert!(recent.get_recent(&h2).is_some());
-
-        recent.insert_recent(Arc::new(sample_envelope(h3, 3)));
-        assert!(recent.get_recent(&h1).is_none());
-        assert!(recent.get_recent(&h2).is_some());
-        assert!(recent.get_recent(&h3).is_some());
-        assert_eq!(recent.len(), 2);
     }
 
     #[test]

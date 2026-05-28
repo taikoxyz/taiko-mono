@@ -10,7 +10,9 @@ use tokio::sync::{Mutex, mpsc};
 use tracing::{info, warn};
 
 use crate::{
-    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, SharedPreconfCacheState},
+    cache::{
+        DEFAULT_RECENT_ENVELOPE_CAPACITY, EnvelopeCache, RequestThrottle, SharedPreconfCacheState,
+    },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
@@ -73,7 +75,7 @@ where
     /// Out-of-order payload cache waiting for parent availability.
     cache: EnvelopeCache,
     /// Recently accepted envelopes that can be served over response topic requests.
-    recent_cache: RecentEnvelopeCache,
+    recent_cache: EnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
     /// Lock-free shared set of allowed sequencer addresses, refreshed by background poller.
@@ -113,7 +115,7 @@ where
             cache_state,
             beacon_client,
             cache: EnvelopeCache::default(),
-            recent_cache: RecentEnvelopeCache::default(),
+            recent_cache: EnvelopeCache::with_capacity(DEFAULT_RECENT_ENVELOPE_CAPACITY),
             request_throttle: RequestThrottle::default(),
             operator_set,
             network_command_tx,
@@ -182,7 +184,7 @@ where
         };
 
         // Fast path: envelope still lives in the recent cache.
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+        if let Some(envelope) = self.recent_cache.get(&hash).cloned() {
             self.publish_unsafe_response(envelope).await;
             record_importer_event("end_of_sequencing_request", "served");
             return Ok(());
@@ -196,7 +198,7 @@ where
 
         envelope.end_of_sequencing = Some(true);
         let envelope = Arc::new(envelope);
-        self.recent_cache.insert_recent(envelope.clone());
+        self.recent_cache.insert(envelope.clone());
         self.update_cache_gauges();
         self.publish_unsafe_response(envelope).await;
         record_importer_event("end_of_sequencing_request", "served");
