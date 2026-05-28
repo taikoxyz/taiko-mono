@@ -1,6 +1,6 @@
 //! Whitelist preconfirmation driver subcommand.
 
-use std::path::PathBuf;
+use std::{net::SocketAddr, path::PathBuf};
 
 use alloy_primitives::Address;
 use async_trait::async_trait;
@@ -32,6 +32,9 @@ pub struct WhitelistPreconfirmationDriverSubCommand {
     /// Preconfirmation-specific CLI arguments.
     #[command(flatten)]
     pub preconf_flags: PreconfirmationArgs,
+    /// Externally dialable TCP address advertised in the local whitelist P2P enode URL.
+    #[clap(long = "p2p.advertise.addr", env = "P2P_ADVERTISE_ADDR")]
+    pub p2p_advertise_addr: Option<SocketAddr>,
     /// Shasta preconfirmation whitelist contract address.
     #[clap(long = "shasta.preconf-whitelist", env = "SHASTA_PRECONF_WHITELIST", required = true)]
     pub shasta_preconf_whitelist_address: Address,
@@ -83,6 +86,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
         Ok(NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
+            advertise_addr: self.p2p_advertise_addr,
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),

@@ -24,7 +24,7 @@ where
         Ok(WhitelistStatus {
             head_l1_origin_block_id: head_l1_origin.as_ref().map(|o| o.block_id.to::<u64>()),
             highest_unsafe_block_number: highest_unsafe,
-            peer_id: self.local_peer_id.clone(),
+            peer_id: self.peer_id.clone(),
             sync_ready,
             highest_unsafe_l2_payload_block_id: highest_unsafe,
             end_of_sequencing_block_hash,

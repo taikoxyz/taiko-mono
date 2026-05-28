@@ -121,7 +121,7 @@ impl WhitelistPreconfirmationDriverRunner {
             )?,
         );
         info!(
-            peer_id = %network.local_peer_id,
+            peer_id = %network.peer_id,
             chain_id,
             "whitelist preconfirmation p2p subscriber started"
         );
@@ -164,7 +164,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     highest_unsafe_l2_payload_block_id: shared_highest.clone(),
                     network_command_tx: network.command_tx.clone(),
                     cache_state: cache_state.clone(),
-                    local_peer_id: network.local_peer_id.to_string(),
+                    peer_id: network.peer_id.to_string(),
                 }));
                 let server_config = WhitelistApiServerConfig {
                     listen_addr,

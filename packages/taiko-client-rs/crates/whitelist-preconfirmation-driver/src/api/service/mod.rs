@@ -101,8 +101,8 @@ where
     /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
     /// build requests when this node's own P2P signer has been deregistered on-chain.
     operator_set: SharedOperatorSet,
-    /// Local peer ID string.
-    local_peer_id: String,
+    /// Peer ID string.
+    peer_id: String,
     /// Highest unsafe payload block ID tracked by this node (shared with importer).
     highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
     /// Shared cache state used to back `/status` and EOS visibility.
@@ -138,8 +138,8 @@ where
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Shared preconfirmation cache state.
     pub(crate) cache_state: SharedPreconfCacheState,
-    /// Local peer ID string.
-    pub(crate) local_peer_id: String,
+    /// Peer ID string.
+    pub(crate) peer_id: String,
 }
 
 impl<P> WhitelistApiService<P>
@@ -158,7 +158,7 @@ where
             highest_unsafe_l2_payload_block_id,
             network_command_tx,
             cache_state,
-            local_peer_id,
+            peer_id,
         }: WhitelistApiServiceParams<P>,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
@@ -169,7 +169,7 @@ where
             signer,
             beacon_client,
             operator_set,
-            local_peer_id,
+            peer_id,
             highest_unsafe_l2_payload_block_id,
             cache_state,
             eos_notification_tx,
