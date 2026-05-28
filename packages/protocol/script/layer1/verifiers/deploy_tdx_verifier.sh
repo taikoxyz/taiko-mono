@@ -7,7 +7,8 @@
 # params and register the first instance.
 #
 # You can optionally bootstrap trusted params + register the first instance inline by
-# passing the trusted-param env vars and `ATTESTATION_FILE_PATH` (or `TDX_RAIKO_HOST`).
+# passing the trusted-param env vars and `ATTESTATION_FILE_PATH` (or `TDX_RETH_HOST`,
+# falling back to the legacy `TDX_RAIKO_HOST` env var).
 
 set -euo pipefail
 
@@ -28,11 +29,11 @@ export MR_SEAM_BASE64="${MR_SEAM_BASE64:-}"
 export MR_TD_BASE64="${MR_TD_BASE64:-}"
 export PCRS_BASE64="${PCRS_BASE64:-}"
 
-# Optional: path to a pre-baked attestation JSON (takes priority over TDX_RAIKO_HOST)
+# Optional: path to a pre-baked attestation JSON (takes priority over TDX_RETH_HOST)
 export ATTESTATION_FILE_PATH="${ATTESTATION_FILE_PATH:-}"
 
 # Optional: live raiko node to fetch bootstrap data from
-TDX_RAIKO_HOST="${TDX_RAIKO_HOST:-}"
+TDX_RETH_HOST="${TDX_RETH_HOST:-${TDX_RAIKO_HOST:-}}"
 
 export FOUNDRY_PROFILE="${FOUNDRY_PROFILE:-layer1}"
 VERIFY="${VERIFY:-false}"
@@ -69,7 +70,8 @@ Optional env (set together to seed trusted params inline):
 
 Optional env (also register the first instance):
   ATTESTATION_FILE_PATH        Pre-baked attestation JSON for registerInstance
-  TDX_RAIKO_HOST               Live raiko URL; fetches /v3/proof/tdx/bootstrap
+  TDX_RETH_HOST                Live reth-tdx URL; fetches /bootstrap
+                               (`TDX_RAIKO_HOST` accepted as legacy alias)
 
 Other:
   FORK_URL                     RPC endpoint (default: http://localhost:8545)
@@ -85,8 +87,8 @@ Examples:
   PRIVATE_KEY=0x... CONTRACT_OWNER=0x... AUTOMATA_DCAP_ATTESTATION=0x... \\
     TAIKO_CHAIN_ID=167001 ./deploy_tdx_verifier.sh
 
-  # Deploy + seed trusted params + register from live raiko:
-  TDX_RAIKO_HOST=http://my-raiko:8080 \\
+  # Deploy + seed trusted params + register from live reth-tdx:
+  TDX_RETH_HOST=http://my-tdx-vm:8080 \\
     MR_SEAM_BASE64=... MR_TD_BASE64=... PCRS_BASE64=... \\
     PRIVATE_KEY=0x... CONTRACT_OWNER=0x... AUTOMATA_DCAP_ATTESTATION=0x... \\
     TAIKO_CHAIN_ID=167001 ./deploy_tdx_verifier.sh
@@ -100,9 +102,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-fetch_attestation_from_raiko() {
+fetch_attestation_from_reth_tdx() {
     local host="$1"
-    local endpoint="${host%/}/v3/proof/tdx/bootstrap"
+    local endpoint="${host%/}/bootstrap"
 
     echo "Fetching TDX bootstrap from $endpoint ..."
     local response
@@ -112,7 +114,9 @@ fetch_attestation_from_raiko() {
     }
 
     local metadata
-    metadata=$(echo "$response" | jq '.tdx.metadata // .metadata // empty')
+    # reth-tdx returns the record flat at .metadata; legacy raiko2 wrapped under
+    # .tdx.metadata. Accept either for backward compat.
+    metadata=$(echo "$response" | jq '.metadata // .tdx.metadata // empty')
     if [[ -z "$metadata" || "$metadata" == "null" ]]; then
         echo "ERROR: Could not parse .tdx.metadata from bootstrap response."
         echo "Response was: $response"
@@ -150,8 +154,8 @@ done
 [[ -z "$AUTOMATA_DCAP_ATTESTATION" ]] && { echo "ERROR: AUTOMATA_DCAP_ATTESTATION not set"; exit 1; }
 [[ -z "$TAIKO_CHAIN_ID" ]] && { echo "ERROR: TAIKO_CHAIN_ID not set"; exit 1; }
 
-if [[ -n "$TDX_RAIKO_HOST" && -z "$ATTESTATION_FILE_PATH" ]]; then
-    fetch_attestation_from_raiko "$TDX_RAIKO_HOST"
+if [[ -n "$TDX_RETH_HOST" && -z "$ATTESTATION_FILE_PATH" ]]; then
+    fetch_attestation_from_reth_tdx "$TDX_RETH_HOST"
 fi
 
 # ---------------------------------------------------------------

@@ -4,14 +4,15 @@
 #
 # This is a thin orchestrator that calls:
 #   1. deploy_automata_dcap.sh   — deploys P256Verifier, PCCS DAOs, DCAP contracts,
-#                                  uploads Intel collaterals (if FMSPC / RAIKO2_URL given)
+#                                  uploads Intel collaterals (if FMSPC / RETH_TDX_URL given;
+#                                  `RAIKO2_URL` accepted as legacy alias)
 #   2. deploy_tdx_verifier.sh    — deploys AzureTdxVerifier proxy + implementation
 #
 # The AutomataDcapAttestationFee address produced by step 1 is automatically
 # forwarded to step 2 as AUTOMATA_DCAP_ATTESTATION.
 #
 # Skip step 1 by providing AUTOMATA_DCAP_ATTESTATION directly.
-# Skip collateral upload in step 1 by omitting both FMSPC and RAIKO2_URL.
+# Skip collateral upload in step 1 by omitting both FMSPC and RETH_TDX_URL.
 #
 # Dependencies: git, cast, forge, jq, curl, openssl, python3
 
@@ -26,10 +27,10 @@ export PRIVATE_KEY="${PRIVATE_KEY:-}"
 RPC_URL="${RPC_URL:-http://localhost:8545}"
 
 # --- Step 1: Automata DCAP ---
-# 6-byte FMSPC hex (e.g. "90c06f000000").  Takes precedence over RAIKO2_URL.
+# 6-byte FMSPC hex (e.g. "90c06f000000").  Takes precedence over RETH_TDX_URL.
 FMSPC="${FMSPC:-}"
-# Running raiko2 instance; FMSPC is parsed from its TDX bootstrap quote when FMSPC is unset.
-RAIKO2_URL="${RAIKO2_URL:-}"
+# Running reth-tdx instance; FMSPC is parsed from its TDX bootstrap quote when FMSPC is unset.
+RETH_TDX_URL="${RETH_TDX_URL:-${RAIKO2_URL:-}}"
 # Pass an existing PCCS deployment JSON to skip the PCCS clone+deploy step.
 PCCS_JSON="${PCCS_JSON:-}"
 # Pass an existing AutomataDcapAttestationFee address to skip step 1 entirely.
@@ -53,7 +54,7 @@ MR_SEAM_BASE64="${MR_SEAM_BASE64:-}"
 MR_TD_BASE64="${MR_TD_BASE64:-}"
 PCRS_BASE64="${PCRS_BASE64:-}"
 ATTESTATION_FILE_PATH="${ATTESTATION_FILE_PATH:-}"
-TDX_RAIKO_HOST="${TDX_RAIKO_HOST:-}"
+TDX_RETH_HOST="${TDX_RETH_HOST:-${TDX_RAIKO_HOST:-}}"
 
 # Optional: path to write a combined deployment summary JSON
 # Defaults to /tmp/deploy_summary_<chain_id>.json once CHAIN_ID is known (below).
@@ -71,7 +72,7 @@ Deploy Automata DCAP contracts + AzureTdxVerifier in one go.
 Usage:
   PRIVATE_KEY=0x... RPC_URL=http://... \\
     CONTRACT_OWNER=0x... TAIKO_CHAIN_ID=<id> \\
-    [FMSPC=... | RAIKO2_URL=...] \\
+    [FMSPC=... | RETH_TDX_URL=...] \\
     ./deploy_dcap_and_tdx_verifier.sh
 
 Required env:
@@ -82,9 +83,11 @@ Required env:
 Optional env (step 1 — Automata DCAP):
   FMSPC                        6-byte FMSPC hex (e.g. "90c06f000000").
                                Triggers Intel collateral upload.
-                               Takes precedence over RAIKO2_URL.
-  RAIKO2_URL                   URL of a running raiko2 instance.
-                               FMSPC is auto-parsed from its TDX bootstrap quote.
+                               Takes precedence over RETH_TDX_URL.
+  RETH_TDX_URL                   URL of a running reth-tdx instance inside the TDX VM
+                               (`GET <url>/bootstrap`). FMSPC is auto-parsed from the
+                               TDX attestation quote. `RAIKO2_URL` is accepted as a
+                               legacy alias for backward compatibility.
   PCCS_JSON                    Existing PCCS deployment JSON — skips PCCS deploy.
   AUTOMATA_DCAP_ATTESTATION    Existing AutomataDcapAttestationFee address —
                                skips step 1 entirely (requires PCCS_JSON too).
@@ -98,7 +101,8 @@ Optional env (step 2 — AzureTdxVerifier):
   MR_SEAM_BASE64 / MR_TD_BASE64 / PCRS_BASE64
                                Inline trusted-params seeding (owner only).
   ATTESTATION_FILE_PATH        Pre-baked attestation JSON for registerInstance.
-  TDX_RAIKO_HOST               Live raiko URL to fetch bootstrap for registerInstance.
+  TDX_RETH_HOST                Live reth-tdx URL to fetch bootstrap for registerInstance
+                               (`TDX_RAIKO_HOST` accepted as legacy alias).
 
 Other:
   RPC_URL                      Chain RPC (default: http://localhost:8545).
@@ -151,7 +155,7 @@ echo "  Deployer:     $DEPLOYER"
 echo "  Owner:        $CONTRACT_OWNER"
 echo "  L2 chain ID:  $TAIKO_CHAIN_ID"
 [[ -n "$FMSPC" ]]                          && echo "  FMSPC:        $FMSPC"
-[[ -z "$FMSPC" && -n "$RAIKO2_URL" ]]      && echo "  RAIKO2_URL:   $RAIKO2_URL (FMSPC auto-detect)"
+[[ -z "$FMSPC" && -n "$RETH_TDX_URL" ]]      && echo "  RETH_TDX_URL:   $RETH_TDX_URL (FMSPC auto-detect)"
 [[ -n "$AUTOMATA_DCAP_ATTESTATION" ]]      && echo "  Step 1:       SKIPPED (using $AUTOMATA_DCAP_ATTESTATION)"
 echo "======================================="
 
@@ -175,7 +179,7 @@ if [[ -z "$AUTOMATA_DCAP_ATTESTATION" ]]; then
         KEEP_REPOS="$KEEP_REPOS"
     )
     [[ -n "$FMSPC" ]]               && _dcap_env+=(FMSPC="$FMSPC")
-    [[ -n "$RAIKO2_URL" ]]          && _dcap_env+=(RAIKO2_URL="$RAIKO2_URL")
+    [[ -n "$RETH_TDX_URL" ]]          && _dcap_env+=(RETH_TDX_URL="$RETH_TDX_URL")
     [[ -n "$PCCS_JSON" ]]           && _dcap_env+=(PCCS_JSON="$PCCS_JSON")
     [[ -n "$AUTOMATA_PCCS_REPO" ]]  && _dcap_env+=(AUTOMATA_PCCS_REPO="$AUTOMATA_PCCS_REPO")
     [[ -n "$AUTOMATA_PCCS_REF" ]]   && _dcap_env+=(AUTOMATA_PCCS_REF="$AUTOMATA_PCCS_REF")
@@ -207,7 +211,7 @@ export AUTOMATA_DCAP_ATTESTATION
 # Step 1.5: PCCS extras (versioned DAOs, TCB info, QE identity, TCB eval,
 # CRLs, PCK Platform CA). Required for V4 TDX quote verification.
 # ---------------------------------------------------------------
-if [[ -n "$RAIKO2_URL" ]]; then
+if [[ -n "$RETH_TDX_URL" ]]; then
     echo ""
     echo "##############################################"
     echo "# Step 1.5: PCCS extras (versioned DAOs + collateral)"
@@ -216,7 +220,7 @@ if [[ -n "$RAIKO2_URL" ]]; then
     _extras_env=(
         PRIVATE_KEY="$PRIVATE_KEY"
         RPC_URL="$RPC_URL"
-        RAIKO2_URL="$RAIKO2_URL"
+        RETH_TDX_URL="$RETH_TDX_URL"
         AUTOMATA_DCAP_ATTESTATION="$AUTOMATA_DCAP_ATTESTATION"
         PCCS_JSON="$PCCS_JSON"
     )
@@ -224,7 +228,7 @@ if [[ -n "$RAIKO2_URL" ]]; then
         || die "setup_tdx_pccs_extras.sh failed"
 else
     echo ""
-    echo "Step 1.5 skipped — RAIKO2_URL not set, registerInstance will not work until PCCS extras are loaded"
+    echo "Step 1.5 skipped — RETH_TDX_URL not set, registerInstance will not work until PCCS extras are loaded"
 fi
 
 # ---------------------------------------------------------------
@@ -250,7 +254,7 @@ _tdxv_env=(
 [[ -n "$MR_TD_BASE64" ]]          && _tdxv_env+=(MR_TD_BASE64="$MR_TD_BASE64")
 [[ -n "$PCRS_BASE64" ]]           && _tdxv_env+=(PCRS_BASE64="$PCRS_BASE64")
 [[ -n "$ATTESTATION_FILE_PATH" ]] && _tdxv_env+=(ATTESTATION_FILE_PATH="$ATTESTATION_FILE_PATH")
-[[ -n "$TDX_RAIKO_HOST" ]]        && _tdxv_env+=(TDX_RAIKO_HOST="$TDX_RAIKO_HOST")
+[[ -n "$TDX_RETH_HOST" ]]         && _tdxv_env+=(TDX_RETH_HOST="$TDX_RETH_HOST")
 
 env "${_tdxv_env[@]}" bash "$SCRIPT_DIR/deploy_tdx_verifier.sh" 2>&1 | tee /tmp/_tdxv_deploy.log
 _tdxv_rc=${PIPESTATUS[0]}

@@ -29,13 +29,13 @@ AUTOMATA_DCAP_REF="${AUTOMATA_DCAP_REF:-main}"
 
 # 6-byte FMSPC hex (e.g. "90c06f000000") — required for Intel collateral upload.
 # Without it the contracts deploy fine but registerInstance will reject real TDX quotes.
-# Provide either FMSPC directly or RAIKO2_URL to auto-fetch it from the running prover.
+# Provide either FMSPC directly or RETH_TDX_URL to auto-fetch it from the running prover.
 FMSPC="${FMSPC:-}"
 
-# Auto-detect FMSPC if not set: fetch from a running raiko2 instance.
-# When set, this script calls GET <RAIKO2_URL>/v3/proof/tdx/bootstrap, extracts the
+# Auto-detect FMSPC if not set: fetch from a running reth-tdx instance.
+# When set, this script calls GET <RETH_TDX_URL>/bootstrap, extracts the
 # raw TDX quote, and parses the FMSPC from the PCK certificate SGX extension.
-RAIKO2_URL="${RAIKO2_URL:-}"
+RETH_TDX_URL="${RETH_TDX_URL:-${RETH_TDX_URL:-}}"
 
 # Skip already-deployed steps by providing existing addresses/files:
 #   PCCS_JSON                  Path to existing PCCS deployment JSON → skips PCCS clone+deploy
@@ -68,9 +68,9 @@ Optional env:
   FMSPC          6-byte FMSPC of your TDX hardware (e.g. "90c06f000000").
                  Triggers download+upload of Intel DCAP collaterals so that
                  registerInstance works with real TDX quotes.
-                 Takes precedence over RAIKO2_URL when both are set.
-  RAIKO2_URL     URL of a running raiko2 instance (e.g. "http://localhost:8080").
-                 When FMSPC is not set, fetches GET <url>/v3/proof/tdx/bootstrap
+                 Takes precedence over RETH_TDX_URL when both are set.
+  RETH_TDX_URL     URL of a running reth-tdx instance (e.g. "http://localhost:8080").
+                 When FMSPC is not set, fetches GET <url>/bootstrap
                  and parses the FMSPC from the embedded PCK certificate.
   PCCS_JSON      Path to an existing PCCS deployment JSON — skips PCCS clone+deploy.
   AUTOMATA_DCAP_ATTESTATION
@@ -132,7 +132,7 @@ echo "  Chain ID:  $CHAIN_ID"
 echo "  RPC:       $RPC_URL"
 echo "  Deployer:  $DEPLOYER"
 [[ -n "$FMSPC" ]]                      && echo "  FMSPC:     $FMSPC"
-[[ -z "$FMSPC" && -n "$RAIKO2_URL" ]] && echo "  RAIKO2_URL: $RAIKO2_URL (will auto-detect FMSPC)"
+[[ -z "$FMSPC" && -n "$RETH_TDX_URL" ]] && echo "  RETH_TDX_URL: $RETH_TDX_URL (will auto-detect FMSPC)"
 [[ -n "$PCCS_JSON" ]]                  && echo "  PCCS:      using existing $PCCS_JSON"
 [[ -n "$AUTOMATA_DCAP_ATTESTATION" ]]  && echo "  DCAP:      using existing $AUTOMATA_DCAP_ATTESTATION"
 echo "======================================="
@@ -142,10 +142,10 @@ mkdir -p "$WORK_DIR"
 # ---------------------------------------------------------------
 # Auto-detect FMSPC from raiko2 bootstrap endpoint
 # ---------------------------------------------------------------
-if [[ -z "$FMSPC" && -n "$RAIKO2_URL" ]]; then
+if [[ -z "$FMSPC" && -n "$RETH_TDX_URL" ]]; then
     echo ""
-    echo "--- Fetching FMSPC from raiko2 bootstrap ---"
-    _bootstrap_url="${RAIKO2_URL%/}/v3/proof/tdx/bootstrap"
+    echo "--- Fetching FMSPC from reth-tdx bootstrap ---"
+    _bootstrap_url="${RETH_TDX_URL%/}/bootstrap"
     _bootstrap_json=$(curl -sS --max-time 30 "$_bootstrap_url") \
         || die "Failed to call $_bootstrap_url"
     _quote_hex=$(echo "$_bootstrap_json" | python3 -c "
@@ -155,11 +155,12 @@ try:
 except json.JSONDecodeError as e:
     sys.stderr.write(f'Invalid JSON from bootstrap endpoint: {e}\n')
     sys.exit(1)
-# Shape: { '<issuer_type>': { 'quote': '<hex>', ... } }
 if not isinstance(data, dict) or not data:
     sys.stderr.write('Unexpected bootstrap response shape\n')
     sys.exit(1)
-inner = next(iter(data.values()))
+# reth-tdx returns the record flat ({ 'quote': ..., ... }); legacy raiko2 wrapped
+# it under an issuer-type key ({ 'tdx': { 'quote': ..., ... } }). Accept either.
+inner = data if 'quote' in data else next(iter(data.values()))
 quote = inner.get('quote', '')
 if not quote:
     sys.stderr.write(f'No quote field in bootstrap response: {data}\n')

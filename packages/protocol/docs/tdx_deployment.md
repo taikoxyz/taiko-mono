@@ -4,11 +4,17 @@ End-to-end guide for deploying a TDX prover for taiko-mono and registering it on
 
 ## Overview
 
-The TDX prover runs a full Taiko stack (execution client + Raiko V2) inside a hardware-encrypted
-Intel TDX confidential VM. Rather than the SGX preflight/proving split, the prover trusts
-the local node's re-execution and produces an ECDSA signature over the proof's public input
-hash. The on-chain `AzureTdxVerifier` admits keys after remote attestation (Azure vTPM + Intel TDX
-DCAP) and then verifies proofs by checking that signature.
+The TDX prover runs a Nethermind execution client plus a minimal HTTP signing service
+(`reth-tdx`) inside a hardware-encrypted Intel TDX confidential VM. raiko2 runs
+**outside** the VM and forwards proof requests over HTTP — `reth-tdx` fetches the
+corresponding L2 block from the co-resident Nethermind, signs the Shasta aggregation
+hash with a TDX-bound bootstrap key, and returns the signed proof. The on-chain
+`AzureTdxVerifier` admits keys after remote attestation (Azure vTPM + Intel TDX DCAP)
+and then verifies proofs by checking that signature.
+
+Moving the signing service into its own binary closes a trust gap in the previous
+design: the attestation quote now binds the key to a TEE that sources L2 state from
+a fixed, in-VM RPC, not from an arbitrary URL operators can point at.
 
 The wire format of a TDX proof matches `SgxVerifier`'s 89-byte layout
 (`instance_id || address || signature`), so TDX can slot into any `ComposeVerifier`
@@ -17,11 +23,12 @@ configuration that accepts the SGX-style proof shape — it is exposed as
 
 ## Repository layout
 
-| Repo                                                                | Role                                                                          |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [`nethermind-tdx`](https://github.com/NethermindEth/nethermind-tdx) | Build the VM image (mkosi) + Azure deployment CLI                             |
-| `taiko-mono` (`packages/protocol`)                                  | `AzureTdxVerifier.sol`, `ComposeVerifier` TDX wiring, deploy scripts          |
-| [`raiko2`](https://github.com/taikoxyz/raiko2)                      | `TdxProver` (proof generation) + `xtask register-tdx` (on-chain registration) |
+| Repo                                                                                            | Role                                                                                       |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| [`nethermind-tdx`](https://github.com/NethermindEth/nethermind-tdx)                             | Build the VM image (mkosi) + Azure / GCP deployment CLIs                                   |
+| [`nethermind-tdx/reth-tdx`](https://github.com/NethermindEth/nethermind-tdx/tree/main/reth-tdx) | Remote TDX prover binary that ships inside the VM (HTTP server on :8080)                   |
+| `taiko-mono` (`packages/protocol`)                                                              | `AzureTdxVerifier.sol`, `ComposeVerifier` TDX wiring, deploy scripts                       |
+| [`raiko2`](https://github.com/taikoxyz/raiko2)                                                  | `RethTdxProver` HTTP client (forwards proof requests to `reth-tdx`) + `xtask register-tdx` |
 
 ## Smart-contract dependency graph
 
@@ -59,9 +66,9 @@ or chained together.
 | Script                                                                                          | What it does                                                                                                                                                                                                                                                                         | When to use                                               |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
 | [`deploy_tdx_verifier.sh`](../script/layer1/verifiers/deploy_tdx_verifier.sh)                   | Deploys `AzureTdxVerifier` impl + ERC1967 proxy and transfers ownership. Optionally seeds trusted params + first instance                                                                                                                                                            | Mainnet, Hoodi, or any L1 where DCAP + PCCS already exist |
-| [`deploy_automata_dcap.sh`](../script/layer1/verifiers/deploy_automata_dcap.sh)                 | Deploys the full Automata DCAP + PCCS stack (helpers, DAOs, PCCSRouter, V4QuoteVerifier, `AutomataDcapAttestationFee`). Loads Root CA + Signing certs. Auto-detects FMSPC from a running raiko2 if `RAIKO2_URL` is set                                                               | Custom L1 with no existing DCAP                           |
+| [`deploy_automata_dcap.sh`](../script/layer1/verifiers/deploy_automata_dcap.sh)                 | Deploys the full Automata DCAP + PCCS stack (helpers, DAOs, PCCSRouter, V4QuoteVerifier, `AutomataDcapAttestationFee`). Loads Root CA + Signing certs. Auto-detects FMSPC from a running reth-tdx if `RETH_TDX_URL` is set                                                           | Custom L1 with no existing DCAP                           |
 | [`setup_tdx_pccs_extras.sh`](../script/layer1/verifiers/setup_tdx_pccs_extras.sh)               | Deploys the **versioned** DAOs required by V4 TDX quotes (`AutomataFmspcTcbDaoVersioned`, `AutomataEnclaveIdentityDaoVersioned`), wires them into `PCCSRouter`, uploads PCK Platform CA + CRLs, and loads TCB info / QE identity / TCB eval data via the `LoadPccsData` forge script | Custom L1 — runs **after** `deploy_automata_dcap.sh`      |
-| [`deploy_dcap_and_tdx_verifier.sh`](../script/layer1/verifiers/deploy_dcap_and_tdx_verifier.sh) | One-shot orchestrator: runs `deploy_automata_dcap.sh` → `setup_tdx_pccs_extras.sh` (if `RAIKO2_URL` is set) → `deploy_tdx_verifier.sh`, then writes a summary JSON with all addresses                                                                                                | Custom L1 bring-up from scratch                           |
+| [`deploy_dcap_and_tdx_verifier.sh`](../script/layer1/verifiers/deploy_dcap_and_tdx_verifier.sh) | One-shot orchestrator: runs `deploy_automata_dcap.sh` → `setup_tdx_pccs_extras.sh` (if `RETH_TDX_URL` is set) → `deploy_tdx_verifier.sh`, then writes a summary JSON with all addresses                                                                                              | Custom L1 bring-up from scratch                           |
 
 ## Prerequisites
 
@@ -128,15 +135,15 @@ key:
 curl -X POST -d "$(cut -d' ' -f2 ~/.ssh/id_ed25519.pub)" http://<VM_IP>:8080
 ```
 
-This triggers disk encryption, then systemd starts the execution client and raiko2. After
-~1 minute raiko2's API is reachable:
+This triggers disk encryption, then systemd starts the execution client and `reth-tdx`.
+After ~1 minute `reth-tdx`'s API is reachable:
 
 ```bash
-curl http://<VM_IP>:8080/v3/proof/tdx/bootstrap | jq .
+curl http://<VM_IP>:8080/bootstrap | jq .
 ```
 
-The response includes `quote`, `public_key`, `nonce`, and `metadata` (the Azure TDX
-attestation document).
+The response is a flat JSON object with `quote`, `public_key`, `nonce`, `issuer_type`,
+and `metadata` (the Azure TDX attestation document).
 
 ---
 
@@ -182,11 +189,11 @@ PRIVATE_KEY=0x...                              \
 CONTRACT_OWNER=0x...                           \
 TAIKO_CHAIN_ID=167001                          \
 RPC_URL=http://localhost:8545                  \
-RAIKO2_URL=http://<VM_IP>:8080                 \
+RETH_TDX_URL=http://<VM_IP>:8080               \
 ./script/layer1/verifiers/deploy_dcap_and_tdx_verifier.sh
 ```
 
-The script auto-detects the FMSPC from the raiko bootstrap and the current Intel TCB
+The script auto-detects the FMSPC from the reth-tdx bootstrap and the current Intel TCB
 evaluation data number. After it finishes:
 
 ```bash
@@ -233,7 +240,7 @@ cargo run -p xtask -- register-tdx \
   --verifier $(jq -r .AzureTdxVerifier /tmp/deploy_summary_<chain_id>.json) \
   --rpc http://<L1 RPC>                                                \
   --private-key 0x<owner key>                                          \
-  --raiko-url http://<VM_IP>:8080                                      \
+  --reth-tdx-url http://<VM_IP>:8080                                   \
   --trust --register
 ```
 

@@ -38,9 +38,10 @@
 #                              PCCSRouter / new versioned DAOs — i.e. the same key
 #                              used in `deploy_dcap_and_tdx_verifier.sh`).
 #   RPC_URL                    Default: http://localhost:8545
-#   RAIKO2_URL                 Required when FMSPC is unset — used to auto-detect the
+#   RETH_TDX_URL               Required when FMSPC is unset — used to auto-detect the
 #                              FMSPC of your TDX hardware AND to extract the PCK
-#                              Platform CA cert from the live raiko bootstrap quote.
+#                              Platform CA cert from the live reth-tdx bootstrap quote
+#                              (`GET <url>/bootstrap`).
 #   FMSPC                      Optional override (6 hex bytes, e.g. 90c06f000000).
 #   AUTOMATA_DCAP_ATTESTATION  AutomataDcapAttestationFee address (printed by the
 #                              sibling deploy script). Used to find PCCSRouter via
@@ -55,7 +56,7 @@ set -euo pipefail
 
 PRIVATE_KEY="${PRIVATE_KEY:-}"
 RPC_URL="${RPC_URL:-http://localhost:8545}"
-RAIKO2_URL="${RAIKO2_URL:-}"
+RETH_TDX_URL="${RETH_TDX_URL:-${RAIKO2_URL:-}}"
 FMSPC="${FMSPC:-}"
 AUTOMATA_DCAP_ATTESTATION="${AUTOMATA_DCAP_ATTESTATION:-}"
 PCCS_JSON="${PCCS_JSON:-}"
@@ -103,13 +104,16 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 if [[ -z "$FMSPC" ]]; then
-    [[ -z "$RAIKO2_URL" ]] && die "RAIKO2_URL must be set when FMSPC is not provided"
-    log "auto-detecting FMSPC from $RAIKO2_URL"
-    curl -sSf --max-time 30 "${RAIKO2_URL%/}/v3/proof/tdx/bootstrap" > "$TMP/bootstrap.json"
+    [[ -z "$RETH_TDX_URL" ]] && die "RETH_TDX_URL must be set when FMSPC is not provided"
+    log "auto-detecting FMSPC from $RETH_TDX_URL"
+    curl -sSf --max-time 30 "${RETH_TDX_URL%/}/bootstrap" > "$TMP/bootstrap.json"
     FMSPC=$(python3 - "$TMP/bootstrap.json" <<'PY'
 import sys, json
 b = json.load(open(sys.argv[1]))
-inner = next(iter(b.values()))
+# reth-tdx's /bootstrap returns the record flat (issuer_type, public_key, quote, ...).
+# Pre-reth-tdx raiko2 wrapped the record under its issuer key (`{ "tdx": { ... } }`),
+# so accept either shape for forward compatibility with old image bootstrap dumps.
+inner = b if "quote" in b else next(iter(b.values()))
 quote = bytes.fromhex(inner["quote"])
 # Inner JSON envelope -> InstanceInfo (base64) -> {AttestationReport (base64), RuntimeData (base64)}
 import base64
@@ -259,11 +263,12 @@ openssl crl -in "$TMP/root_crl.pem" -outform DER -out "$TMP/root_crl.der"
 
 # PCK Platform CA cert is embedded in the live quote's cert chain (index 1).
 # Also fetch the PCK Platform CRL from the SGX PCS API.
-if [[ -n "$RAIKO2_URL" ]]; then
+if [[ -n "$RETH_TDX_URL" ]]; then
     python3 - "$TMP/bootstrap.json" "$TMP" <<'PY'
 import sys, json, base64, re
 b = json.load(open(sys.argv[1]))
-inner = next(iter(b.values()))
+# Accept either the flat reth-tdx /bootstrap shape or the legacy raiko2-wrapped one.
+inner = b if "quote" in b else next(iter(b.values()))
 doc = json.loads(bytes.fromhex(inner["quote"]))
 ii = json.loads(base64.b64decode(doc["InstanceInfo"]))
 ar = base64.b64decode(ii["AttestationReport"])
@@ -390,4 +395,4 @@ log "  AutomataFmspcTcbDaoVersioned (tcbEval=$TCB_EVAL): $FMSPC_TCB_DAO"
 log "  AutomataEnclaveIdentityDaoVersioned (tcbEval=$TCB_EVAL): $QE_ID_DAO"
 log "  PCCSRouter: $ROUTER"
 log "  PCCS_JSON updated with versioned DAO addresses"
-log "registerInstance is now ready: cargo run -p xtask -- register-tdx --register --raiko-url $RAIKO2_URL ..."
+log "registerInstance is now ready: cargo run -p xtask -- register-tdx --register --reth-tdx-url $RETH_TDX_URL ..."
