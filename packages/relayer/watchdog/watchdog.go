@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"os"
 	"sync"
 	"time"
 
@@ -239,7 +240,8 @@ func (w *Watchdog) Start() error {
 
 			return nil
 		}, bo); err != nil {
-			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
+			slog.Error("rabbitmq subscribe backoff retry error, exiting so container restarts", "err", err.Error())
+			os.Exit(1)
 		}
 	}()
 
