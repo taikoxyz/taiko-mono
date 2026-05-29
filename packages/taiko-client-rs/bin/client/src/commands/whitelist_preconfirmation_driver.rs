@@ -83,6 +83,7 @@ impl WhitelistPreconfirmationDriverSubCommand {
 
         Ok(NetworkConfig {
             listen_addr: self.preconf_flags.p2p_listen,
+            advertise_addr: self.preconf_flags.p2p_advertise_addr,
             discovery_listen: self.preconf_flags.p2p_discovery_addr,
             enable_discovery: !self.preconf_flags.p2p_disable_discovery,
             bootnodes: self.preconf_flags.p2p_bootnodes.clone(),

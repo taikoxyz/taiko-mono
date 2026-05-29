@@ -113,8 +113,8 @@ pub(crate) enum NetworkCommand {
 
 /// Handle to the running whitelist network.
 pub(crate) struct WhitelistNetwork {
-    /// Local peer id.
-    pub(crate) local_peer_id: PeerId,
+    /// Peer id for this network instance.
+    pub(crate) peer_id: PeerId,
     /// Inbound event stream.
     pub(crate) event_rx: mpsc::Receiver<NetworkEvent>,
     /// Outbound command sender.
@@ -130,6 +130,8 @@ pub struct NetworkConfig {
     pub enable_tcp: bool,
     /// TCP listen address.
     pub listen_addr: SocketAddr,
+    /// Optional externally dialable TCP address advertised in the local enode URL.
+    pub advertise_addr: Option<SocketAddr>,
     /// Bootnodes as ENR or multiaddr strings.
     pub bootnodes: Vec<String>,
     /// Static peers to dial on startup.
@@ -147,6 +149,7 @@ impl Default for NetworkConfig {
         Self {
             enable_tcp: true,
             listen_addr: SocketAddr::from(([0, 0, 0, 0], 9222)),
+            advertise_addr: None,
             bootnodes: Vec::new(),
             pre_dial_peers: Vec::new(),
             enable_discovery: false,
@@ -194,11 +197,13 @@ fn parse_preconfirmation_p2p_priv_raw(raw_key: &str) -> Result<identity::Keypair
     Ok(identity::Keypair::from(identity::secp256k1::Keypair::from(secret_key)))
 }
 
-/// Build an Ethereum-style enode URL for the local secp256k1 P2P identity.
-fn local_enode_url(
+/// Build the Ethereum-style enode URL advertised for the secp256k1 P2P identity.
+fn advertised_enode_url(
     local_key: &identity::Keypair,
     enable_tcp: bool,
     listen_addr: SocketAddr,
+    advertise_addr: Option<SocketAddr>,
+    discovery_listen: Option<SocketAddr>,
 ) -> Option<String> {
     if !enable_tcp {
         return None;
@@ -206,12 +211,26 @@ fn local_enode_url(
 
     let secp256k1_key = local_key.clone().try_into_secp256k1().ok()?;
     let uncompressed_public_key = secp256k1_key.public().to_bytes_uncompressed();
-    Some(format!(
-        "enode://{}@{}:{}",
+    let advertised_addr = advertise_addr.unwrap_or(listen_addr);
+    let mut enode = format!(
+        "enode://{}@{}",
         alloy_primitives::hex::encode(&uncompressed_public_key[1..]),
-        listen_addr.ip(),
-        listen_addr.port()
-    ))
+        enode_endpoint(advertised_addr)
+    );
+    if let Some(discovery_listen) =
+        discovery_listen.filter(|addr| addr.port() != advertised_addr.port())
+    {
+        enode.push_str(&format!("?discport={}", discovery_listen.port()));
+    }
+    Some(enode)
+}
+
+/// Format the endpoint component of an enode URL.
+fn enode_endpoint(addr: SocketAddr) -> String {
+    match addr {
+        SocketAddr::V4(addr) => addr.to_string(),
+        SocketAddr::V6(addr) => format!("[{}]:{}", addr.ip(), addr.port()),
+    }
 }
 
 /// Address configured for persistent preconfirmation peer dialing.
@@ -234,6 +253,7 @@ impl WhitelistNetwork {
         let NetworkConfig {
             enable_tcp,
             listen_addr,
+            advertise_addr,
             bootnodes,
             pre_dial_peers,
             enable_discovery,
@@ -241,19 +261,26 @@ impl WhitelistNetwork {
             preconfirmation_p2p_key: _,
         } = cfg;
 
-        let local_peer_id = local_key.public().to_peer_id();
-        let local_enode = local_enode_url(&local_key, enable_tcp, listen_addr);
+        let peer_id = local_key.public().to_peer_id();
+        let advertised_enode = advertised_enode_url(
+            &local_key,
+            enable_tcp,
+            listen_addr,
+            advertise_addr,
+            enable_discovery.then_some(discovery_listen),
+        );
         info!(
-            %local_peer_id,
-            local_enode = local_enode.as_deref().unwrap_or("unavailable"),
+            %peer_id,
+            advertised_enode = advertised_enode.as_deref().unwrap_or("unavailable"),
             tcp_enabled = enable_tcp,
             listen_addr = %listen_addr,
+            advertise_addr = advertise_addr.map(|addr| addr.to_string()).as_deref().unwrap_or("unset"),
             "whitelist preconfirmation local P2P identity"
         );
 
         let topics = Topics::new(chain_id);
         let behaviour = build_behaviour(&local_key, &topics)?;
-        let mut swarm = build_swarm(&local_key, local_peer_id, behaviour)?;
+        let mut swarm = build_swarm(&local_key, peer_id, behaviour)?;
         configure_listen_addr(&mut swarm, enable_tcp, listen_addr)?;
 
         let bootnodes = classify_bootnodes(bootnodes);
@@ -279,19 +306,19 @@ impl WhitelistNetwork {
             peer_retry_interval: delayed_interval(CONFIGURED_PEER_RETRY_INTERVAL),
             peer_status_log_interval: delayed_interval(PEER_STATUS_LOG_INTERVAL),
             inbound_validation_state,
-            local_peer_id_for_events: local_peer_id,
+            peer_id_for_events: peer_id,
         };
 
         let handle = tokio::spawn(async move { runtime.run().await });
 
-        Ok(Self { local_peer_id, event_rx, command_tx, handle })
+        Ok(Self { peer_id, event_rx, command_tx, handle })
     }
 }
 
 /// Build a libp2p swarm with DNS-over-TCP transport, noise auth, and yamux multiplexing.
 fn build_swarm(
     local_key: &identity::Keypair,
-    local_peer_id: PeerId,
+    peer_id: PeerId,
     behaviour: TaikoBehaviour,
 ) -> Result<Swarm<TaikoBehaviour>> {
     let noise_config =
@@ -305,12 +332,7 @@ fn build_swarm(
         .multiplex(yamux::Config::default())
         .boxed();
 
-    Ok(Swarm::new(
-        transport,
-        behaviour,
-        local_peer_id,
-        libp2p::swarm::Config::with_tokio_executor(),
-    ))
+    Ok(Swarm::new(transport, behaviour, peer_id, libp2p::swarm::Config::with_tokio_executor()))
 }
 
 /// Configure the TCP listen address when TCP serving is enabled.
@@ -483,8 +505,8 @@ struct NetworkRuntime {
     peer_status_log_interval: Interval,
     /// Inbound validation and dedupe state for gossipsub messages.
     inbound_validation_state: GossipsubInboundState,
-    /// Local peer id used by loopback payload events.
-    local_peer_id_for_events: PeerId,
+    /// Peer id used by loopback payload events.
+    peer_id_for_events: PeerId,
 }
 
 impl NetworkRuntime {
@@ -584,7 +606,7 @@ impl NetworkRuntime {
         // follow-up EOS catch-up requests even without peer echo.
         let payload_bytes = encode_envelope_ssz(&envelope);
         let local_event = NetworkEvent::UnsafePayload {
-            from: self.local_peer_id_for_events,
+            from: self.peer_id_for_events,
             payload: DecodedUnsafePayload {
                 wire_signature: signature,
                 payload_bytes,
@@ -771,7 +793,7 @@ impl NetworkRuntime {
         let from = propagation_source;
         let now = Instant::now();
 
-        if is_local_gossip_source(self.local_peer_id_for_events, from) {
+        if is_local_gossip_source(self.peer_id_for_events, from) {
             debug!(peer = %from, topic = %topic, "ignoring self-propagated whitelist preconfirmation gossip");
             let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
                 &message_id,
@@ -900,13 +922,13 @@ fn format_peer_ids(peers: &[PeerId]) -> String {
 }
 
 /// Return whether an inbound gossip event was propagated by the local libp2p peer.
-fn is_local_gossip_source(local_peer_id: PeerId, from: PeerId) -> bool {
-    local_peer_id == from
+fn is_local_gossip_source(peer_id: PeerId, from: PeerId) -> bool {
+    peer_id == from
 }
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv4Addr;
+    use std::net::{Ipv4Addr, Ipv6Addr};
 
     use alloy_primitives::hex;
 
@@ -1002,14 +1024,15 @@ mod tests {
     }
 
     #[test]
-    fn local_enode_url_uses_secp256k1_public_key() {
+    fn advertised_enode_url_uses_secp256k1_public_key() {
         let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
         let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
             .expect("raw key should parse")
             .expect("key should be configured");
         let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
 
-        let enode = local_enode_url(&local_key, true, listen_addr).expect("secp key has enode");
+        let enode = advertised_enode_url(&local_key, true, listen_addr, None, None)
+            .expect("secp key has enode");
         let public_key = enode
             .strip_prefix("enode://")
             .and_then(|rest| rest.split_once('@'))
@@ -1022,11 +1045,63 @@ mod tests {
     }
 
     #[test]
-    fn local_enode_url_is_unavailable_for_non_secp256k1_key() {
+    fn advertised_enode_url_uses_advertise_addr_when_configured() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key should parse")
+            .expect("key should be configured");
+        let listen_addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 30303));
+        let advertise_addr = SocketAddr::from(([203, 0, 113, 10], 30303));
+
+        let enode = advertised_enode_url(&local_key, true, listen_addr, Some(advertise_addr), None)
+            .expect("secp key has enode");
+
+        assert!(enode.ends_with("@203.0.113.10:30303"));
+    }
+
+    #[test]
+    fn advertised_enode_url_brackets_ipv6_advertise_addr() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key should parse")
+            .expect("key should be configured");
+        let listen_addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 30303));
+        let advertise_addr = SocketAddr::from((Ipv6Addr::LOCALHOST, 30303));
+
+        let enode = advertised_enode_url(&local_key, true, listen_addr, Some(advertise_addr), None)
+            .expect("secp key has enode");
+
+        assert!(enode.ends_with("@[::1]:30303"));
+    }
+
+    #[test]
+    fn advertised_enode_url_appends_discovery_port_when_different_from_tcp_port() {
+        let raw_key = "1875af8dad47674dd6897fb7bcdc1ba872144914082e02dace98dcf2ba16aa8d";
+        let local_key = NetworkConfig::parse_preconfirmation_p2p_priv_raw(Some(raw_key))
+            .expect("raw key should parse")
+            .expect("key should be configured");
+        let listen_addr = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 4001));
+        let advertise_addr = SocketAddr::from(([34, 41, 203, 88], 4001));
+        let discovery_listen = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 30304));
+
+        let enode = advertised_enode_url(
+            &local_key,
+            true,
+            listen_addr,
+            Some(advertise_addr),
+            Some(discovery_listen),
+        )
+        .expect("secp key has enode");
+
+        assert!(enode.ends_with("@34.41.203.88:4001?discport=30304"));
+    }
+
+    #[test]
+    fn advertised_enode_url_is_unavailable_for_non_secp256k1_key() {
         let local_key = identity::Keypair::generate_ed25519();
         let listen_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 30303));
 
-        assert_eq!(local_enode_url(&local_key, true, listen_addr), None);
+        assert_eq!(advertised_enode_url(&local_key, true, listen_addr, None, None), None);
     }
     #[test]
     fn local_gossip_source_is_identified() {
