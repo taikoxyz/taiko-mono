@@ -31,7 +31,35 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.disable-discovery", env = "P2P_DISABLE_DISCOVERY", default_value = "false")]
     pub p2p_disable_discovery: bool,
 
+    /// Externally dialable TCP address advertised in the local P2P node record.
+    #[clap(long = "p2p.advertise.addr", env = "P2P_ADVERTISE_ADDR")]
+    pub p2p_advertise_addr: Option<SocketAddr>,
+
     /// Optional address for user-facing preconfirmation RPC server.
     #[clap(long = "preconf.rpc.addr", env = "PRECONF_RPC_ADDR")]
     pub preconf_rpc_addr: Option<SocketAddr>,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::SocketAddr;
+
+    use clap::Parser;
+
+    use super::PreconfirmationArgs;
+
+    #[test]
+    fn parses_p2p_advertise_addr() {
+        let args = PreconfirmationArgs::try_parse_from([
+            "test",
+            "--p2p.advertise.addr",
+            "127.0.0.1:30303",
+        ])
+        .expect("p2p advertise addr should parse");
+
+        assert_eq!(
+            args.p2p_advertise_addr,
+            Some("127.0.0.1:30303".parse::<SocketAddr>().expect("socket addr"))
+        );
+    }
 }
