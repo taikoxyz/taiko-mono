@@ -68,7 +68,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-chainspec"
 version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=9b561aaf986c6294948163583023ee3aedee3842#9b561aaf986c6294948163583023ee3aedee3842"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6#c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6"
 dependencies = [
  "alloy-chains",
  "alloy-consensus 2.0.4",
@@ -90,7 +90,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-consensus"
 version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=9b561aaf986c6294948163583023ee3aedee3842#9b561aaf986c6294948163583023ee3aedee3842"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6#c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6"
 dependencies = [
  "alethia-reth-primitives",
  "alloy-consensus 2.0.4",
@@ -102,7 +102,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-primitives"
 version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=9b561aaf986c6294948163583023ee3aedee3842#9b561aaf986c6294948163583023ee3aedee3842"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6#c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6"
 dependencies = [
  "alloy-consensus 2.0.4",
  "alloy-primitives",
@@ -126,7 +126,7 @@ dependencies = [
 [[package]]
 name = "alethia-reth-rpc-types"
 version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=9b561aaf986c6294948163583023ee3aedee3842#9b561aaf986c6294948163583023ee3aedee3842"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6#c242b0dbe0c7bfb739d9e1cdc7afb70a91b255f6"
 dependencies = [
  "alloy-primitives",
  "serde",
