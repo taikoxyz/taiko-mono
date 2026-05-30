@@ -286,7 +286,7 @@ func evaluateProposalSeal(
 	// A preconfirmation candidate (L1Origin present with zero/empty L1 block height) means
 	// the driver has not landed the proposal yet; preconfirmation blocks must never be proven.
 	if candidateL1Origin != nil &&
-		(candidateL1Origin.L1BlockHeight == nil || candidateL1Origin.L1BlockHeight.Sign() == 0) {
+		(candidateL1Origin.L1BlockHeight == nil || candidateL1Origin.L1BlockHeight.Cmp(common.Big0) == 0) {
 		return false, nil
 	}
 
