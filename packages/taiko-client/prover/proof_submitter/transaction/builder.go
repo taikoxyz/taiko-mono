@@ -68,22 +68,15 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 			// Set first proposal information.
 			if i == 0 {
 				input.Commitment.FirstProposalId = proposals[i].Id
-				if proposals[i].Id.Cmp(common.Big1) == 0 {
-					block, err := a.rpc.L2.BlockByNumber(ctx, proofResponse.Opts.ProposalOptions().L2BlockNums[0])
-					if err != nil {
-						return nil, err
-					}
-					input.Commitment.FirstProposalParentBlockHash = block.ParentHash()
-				} else {
-					lastOriginInLastProposal, err := a.rpc.LastL1OriginInProposal(
-						ctx,
-						new(big.Int).Sub(proposals[i].Id, common.Big1),
-					)
-					if err != nil {
-						return nil, err
-					}
-					input.Commitment.FirstProposalParentBlockHash = lastOriginInLastProposal.L2BlockHash
+				// The parent of the first proposal's first block is the previous proposal's
+				// last block, so its hash is exactly that block's ParentHash. Reading the
+				// block by number works for beacon-synced blocks (no L1Origin) and the
+				// genesis-parent case alike.
+				block, err := a.rpc.L2.BlockByNumber(ctx, proofResponse.Opts.ProposalOptions().L2BlockNums[0])
+				if err != nil {
+					return nil, err
 				}
+				input.Commitment.FirstProposalParentBlockHash = block.ParentHash()
 			}
 
 			// Set last proposal information.
