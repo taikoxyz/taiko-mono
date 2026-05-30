@@ -273,6 +273,35 @@ func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*t
 	return waitForFetchResult(ctx, blockID, ethClient.HeaderByNumber)
 }
 
+// evaluateProposalSeal reports whether proposalID's last block is sealed (the whole
+// proposal has been landed by the driver). candidateL1Origin is the candidate last block's
+// L1Origin, or nil when the block was beacon-synced and has no L1Origin row. nextHeader is
+// the header of the block right after the candidate, or nil when it does not exist yet.
+func evaluateProposalSeal(
+	proposalID *big.Int,
+	candidateL1Origin *rawdb.L1Origin,
+	nextHeader *types.Header,
+) (bool, error) {
+	// A preconfirmation candidate (L1Origin present with zero/empty L1 block height) means
+	// the driver has not landed the proposal yet; preconfirmation blocks must never be proven.
+	if candidateL1Origin != nil &&
+		(candidateL1Origin.L1BlockHeight == nil || candidateL1Origin.L1BlockHeight.Sign() == 0) {
+		return false, nil
+	}
+
+	// The boundary is sealed only once the next block exists and belongs to a newer proposal.
+	if nextHeader == nil {
+		return false, nil
+	}
+
+	nextProposalID, err := encoding.DecodeShastaExtraDataProposalID(nextHeader.Extra)
+	if err != nil {
+		return false, err
+	}
+
+	return nextProposalID.Cmp(proposalID) > 0, nil
+}
+
 // WaitProposalHeader keeps waiting for the proposal block header of the given proposal ID from the L2 execution engine.
 func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*types.Header, error) {
 	var (
