@@ -713,23 +713,6 @@ func (c *Client) ProposalLastBlockID(ctx context.Context, proposalID *big.Int) (
 	return blockID.ToInt(), nil
 }
 
-// LastL1OriginInProposal fetches the L1Origin of the last block in the given proposal.
-func (c *Client) LastL1OriginInProposal(ctx context.Context, proposalID *big.Int) (*rawdb.L1Origin, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
-	defer cancel()
-
-	if proposalID.Cmp(common.Big0) == 0 {
-		return &rawdb.L1Origin{BlockID: common.Big0}, nil
-	}
-
-	l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, proposalID)
-	if err != nil {
-		return nil, fmt.Errorf("L1Origin not found for proposal ID %d: %w", proposalID, err)
-	}
-
-	return l1Origin, nil
-}
-
 // GetSyncedL1SnippetFromAnchor parses the anchor transaction calldata, and returns the synced L1 snippet,
 func (c *Client) GetSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 	l1StateRoot common.Hash,
