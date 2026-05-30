@@ -326,7 +326,7 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 
 		// Resolve the candidate last block of the proposal from block extraData. This works for
 		// both event-synced and beacon-synced blocks and never returns a preconfirmation block.
-		candidateID, err := c.L2Engine.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
+		candidateID, err := c.ProposalLastBlockID(ctxWithTimeout, proposalID)
 		if err != nil {
 			log.Debug(
 				"Resolve proposal last block ID not ready, keep retrying",
@@ -335,30 +335,27 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 			)
 			continue
 		}
-		if candidateID == nil {
-			continue
-		}
 
 		// Fetch the candidate's L1Origin: absent (NotFound) for beacon-synced blocks, present
 		// with zero L1 height for preconfirmation blocks.
-		candidateL1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, candidateID.ToInt())
+		candidateL1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, candidateID)
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			log.Debug(
 				"Fetch candidate L1Origin failed, keep retrying",
 				"proposalID", proposalID,
-				"blockID", candidateID.ToInt(),
+				"blockID", candidateID,
 				"error", err,
 			)
 			continue
 		}
 
 		// Fetch the header right after the candidate to confirm the proposal boundary.
-		nextHeader, err := c.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Add(candidateID.ToInt(), common.Big1))
+		nextHeader, err := c.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Add(candidateID, common.Big1))
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			log.Debug(
 				"Fetch boundary header failed, keep retrying",
 				"proposalID", proposalID,
-				"blockID", candidateID.ToInt(),
+				"blockID", candidateID,
 				"error", err,
 			)
 			continue
@@ -372,7 +369,7 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 			continue
 		}
 
-		return c.L2.HeaderByNumber(ctxWithTimeout, candidateID.ToInt())
+		return c.L2.HeaderByNumber(ctxWithTimeout, candidateID)
 	}
 
 	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, proposalID: %d", proposalID)
