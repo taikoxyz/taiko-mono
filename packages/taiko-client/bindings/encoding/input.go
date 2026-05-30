@@ -183,20 +183,3 @@ func EncodeShastaExtraData(basefeeSharingPctg uint8, proposalID *big.Int) ([]byt
 
 	return extraData, nil
 }
-
-// DecodeShastaExtraDataProposalID decodes the proposal ID encoded in a Shasta block's
-// extraData. It is the inverse of EncodeShastaExtraData: byte 0 is basefeeSharingPctg and
-// bytes 1..6 hold the proposal ID as a big-endian uint48.
-func DecodeShastaExtraDataProposalID(extraData []byte) (*big.Int, error) {
-	if len(extraData) < params.ShastaExtraDataLen {
-		return nil, fmt.Errorf(
-			"invalid Shasta extraData length: got %d, want at least %d",
-			len(extraData),
-			params.ShastaExtraDataLen,
-		)
-	}
-
-	start := params.ShastaExtraDataProposalIDIndex
-	end := start + params.ShastaExtraDataProposalIDLength
-	return new(big.Int).SetBytes(extraData[start:end]), nil
-}

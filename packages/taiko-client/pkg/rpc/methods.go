@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
@@ -294,7 +295,7 @@ func evaluateProposalSeal(
 		return false, nil
 	}
 
-	nextProposalID, err := encoding.DecodeShastaExtraDataProposalID(nextHeader.Extra)
+	nextProposalID, err := core.DecodeShastaProposalID(nextHeader.Extra)
 	if err != nil {
 		return false, err
 	}
