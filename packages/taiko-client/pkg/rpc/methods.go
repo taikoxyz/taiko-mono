@@ -339,20 +339,19 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 		if candidateID == nil {
 			continue
 		}
-		candidate := candidateID.ToInt()
 
 		// Fetch the candidate's L1Origin: absent (NotFound) for beacon-synced blocks, present
 		// with zero L1 height for preconfirmation blocks.
-		candidateL1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, candidate)
+		candidateL1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, candidateID.ToInt())
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
-			log.Debug("Fetch candidate L1Origin failed, keep retrying", "proposalID", proposalID, "blockID", candidate, "error", err)
+			log.Debug("Fetch candidate L1Origin failed, keep retrying", "proposalID", proposalID, "blockID", candidateID.ToInt(), "error", err)
 			continue
 		}
 
 		// Fetch the header right after the candidate to confirm the proposal boundary.
-		nextHeader, err := c.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Add(candidate, common.Big1))
+		nextHeader, err := c.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Add(candidateID.ToInt(), common.Big1))
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
-			log.Debug("Fetch boundary header failed, keep retrying", "proposalID", proposalID, "blockID", candidate, "error", err)
+			log.Debug("Fetch boundary header failed, keep retrying", "proposalID", proposalID, "blockID", candidateID.ToInt(), "error", err)
 			continue
 		}
 
@@ -364,7 +363,7 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 			continue
 		}
 
-		return c.L2.HeaderByNumber(ctxWithTimeout, candidate)
+		return c.L2.HeaderByNumber(ctxWithTimeout, candidateID.ToInt())
 	}
 
 	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, proposalID: %d", proposalID)
