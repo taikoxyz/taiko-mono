@@ -78,6 +78,7 @@ impl DriverInstance {
             Duration::from_millis(50),
             beacon_endpoint.clone(),
             None,
+            false,
             None,
         );
         driver_config.preconfirmation_enabled = true;

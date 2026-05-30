@@ -130,6 +130,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
+        false,
         None,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
@@ -189,6 +190,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_millis(50),
         beacon_endpoint.clone(),
         None,
+        false,
         None,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;
@@ -274,6 +276,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
+        false,
         None,
     );
     let driver_client = Client::new(driver_config.client.clone()).await?;

@@ -319,6 +319,7 @@ impl RealDriverSetup {
             Duration::from_millis(50),
             beacon_server.endpoint().clone(),
             None,
+            false,
             None,
         );
         driver_config.preconfirmation_enabled = true;

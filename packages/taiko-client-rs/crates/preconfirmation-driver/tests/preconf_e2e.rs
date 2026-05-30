@@ -234,6 +234,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_millis(50),
         beacon_server.endpoint().clone(),
         None,
+        false,
         None,
     );
     driver_config.preconfirmation_enabled = true;

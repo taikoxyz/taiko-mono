@@ -11,7 +11,6 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
-use anyhow::anyhow;
 use metrics::{counter, gauge};
 use rpc::{
     client::{Client, connect_http_with_timeout},
@@ -38,6 +37,8 @@ where
     rpc: Client<P>,
     /// Optional checkpoint provider used for remote catch-up blocks.
     checkpoint: Option<RootProvider>,
+    /// Whether beacon sync should submit every missing checkpoint block.
+    checkpoint_backfill: bool,
     /// Shared checkpoint head used to resume event sync after beacon sync.
     checkpoint_resume_head: Arc<CheckpointResumeHead>,
     /// Marker that ties this type to the generic provider parameter.
@@ -62,6 +63,7 @@ where
             retry_interval: config.retry_interval,
             rpc,
             checkpoint,
+            checkpoint_backfill: config.l2_checkpoint_backfill,
             checkpoint_resume_head,
             _marker: PhantomData,
         }
@@ -137,16 +139,35 @@ where
         };
 
         let forkchoice = self.rpc.engine_forkchoice_updated_v2(forkchoice_state, None).await?;
-        if forkchoice.payload_status.status != PayloadStatusEnum::Syncing {
-            return Err(DriverError::Other(anyhow!(
-                "unexpected forkchoice status {:?} for block {}",
-                forkchoice.payload_status.status,
-                block_number
-            )));
+        match forkchoice.payload_status.status {
+            PayloadStatusEnum::Valid | PayloadStatusEnum::Accepted => {}
+            PayloadStatusEnum::Syncing => {
+                debug!(block_number, "execution engine reported SYNCING after forkchoice update");
+            }
+            PayloadStatusEnum::Invalid { validation_error } => {
+                return Err(DriverError::EngineInvalidPayload(validation_error));
+            }
         }
 
         info!(block_number, ?block_hash, "checkpoint block submitted");
         Ok(())
+    }
+}
+
+/// Select remote checkpoint blocks to submit for the current local and checkpoint heads.
+fn checkpoint_submission_targets(
+    local_head: u64,
+    checkpoint_head: u64,
+    checkpoint_backfill: bool,
+) -> Vec<u64> {
+    if checkpoint_head <= local_head {
+        return Vec::new();
+    }
+
+    if checkpoint_backfill {
+        ((local_head + 1)..=checkpoint_head).collect()
+    } else {
+        vec![checkpoint_head]
     }
 }
 
@@ -219,29 +240,51 @@ where
                 );
                 let checkpoint_provider =
                     self.checkpoint.as_ref().ok_or(SyncError::CheckpointNoOrigin)?;
+                let target_blocks = checkpoint_submission_targets(
+                    local_head,
+                    checkpoint_head,
+                    self.checkpoint_backfill,
+                );
+                if self.checkpoint_backfill {
+                    info!(
+                        first_block = target_blocks.first().copied(),
+                        last_block = target_blocks.last().copied(),
+                        blocks = target_blocks.len(),
+                        "checkpoint range backfill started"
+                    );
+                }
 
-                let block = checkpoint_provider
-                    .get_block_by_number(BlockNumberOrTag::Number(checkpoint_head))
-                    .full()
-                    .await
-                    .map_err(RpcClientError::from)
-                    .map_err(|err| SyncError::RemoteBlockSubmit {
-                        block_number: checkpoint_head,
-                        error: DriverError::from(err).into(),
-                    })?
-                    .ok_or_else(|| SyncError::RemoteBlockSubmit {
-                        block_number: checkpoint_head,
-                        error: DriverError::BlockNotFound(checkpoint_head).into(),
-                    })?
-                    .map_transactions(|tx: RpcTransaction| tx.into());
+                for block_number in target_blocks {
+                    let block = checkpoint_provider
+                        .get_block_by_number(BlockNumberOrTag::Number(block_number))
+                        .full()
+                        .await
+                        .map_err(RpcClientError::from)
+                        .map_err(|err| SyncError::RemoteBlockSubmit {
+                            block_number,
+                            error: DriverError::from(err).into(),
+                        })?
+                        .ok_or_else(|| SyncError::RemoteBlockSubmit {
+                            block_number,
+                            error: DriverError::BlockNotFound(block_number).into(),
+                        })?
+                        .map_transactions(|tx: RpcTransaction| tx.into());
 
-                self.submit_remote_block(block).await.map_err(|err| {
-                    SyncError::RemoteBlockSubmit {
-                        block_number: checkpoint_head,
-                        error: err.into(),
-                    }
-                })?;
-                counter!(DriverMetrics::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).increment(1);
+                    self.submit_remote_block(block).await.map_err(|err| {
+                        SyncError::RemoteBlockSubmit { block_number, error: err.into() }
+                    })?;
+                    counter!(DriverMetrics::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).increment(1);
+                }
+
+                if self.checkpoint_backfill {
+                    self.checkpoint_resume_head.set(checkpoint_head);
+                    info!(
+                        checkpoint_head,
+                        local_head,
+                        "checkpoint range backfill completed; handing off to event sync"
+                    );
+                    break Ok(());
+                }
             } else {
                 // Persist the checkpoint head we have confirmed local execution is synced to.
                 // Event sync uses this exact value as its authoritative resume source when
@@ -251,5 +294,26 @@ where
                 break Ok(());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn checkpoint_submission_targets_single_head_without_range_backfill() {
+        assert_eq!(checkpoint_submission_targets(10, 15, false), vec![15]);
+    }
+
+    #[test]
+    fn checkpoint_submission_targets_full_missing_range_with_range_backfill() {
+        assert_eq!(checkpoint_submission_targets(10, 15, true), vec![11, 12, 13, 14, 15]);
+    }
+
+    #[test]
+    fn checkpoint_submission_targets_empty_when_local_at_checkpoint() {
+        assert!(checkpoint_submission_targets(15, 15, true).is_empty());
+        assert!(checkpoint_submission_targets(16, 15, false).is_empty());
     }
 }

@@ -42,7 +42,7 @@ alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine-2 = { workspace = true }
 event-scanner = { workspace = true, optional = true }
 robust-provider = { workspace = true, optional = true, features = [
-  "http-subscription",
+    "http-subscription",
 ] }
 
 # crypto

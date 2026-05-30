@@ -37,6 +37,7 @@ pub fn build_driver_config(common: &CommonArgs, driver: &DriverArgs) -> Result<D
         driver.retry_interval(),
         driver.l1_beacon_endpoint.clone(),
         driver.l2_checkpoint_endpoint.clone(),
+        driver.l2_checkpoint_backfill,
         driver.blob_server_endpoint.clone(),
     ))
 }

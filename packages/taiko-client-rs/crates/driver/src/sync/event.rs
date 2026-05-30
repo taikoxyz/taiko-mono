@@ -1516,6 +1516,7 @@ mod tests {
             Duration::from_secs(1),
             Url::parse("http://localhost:5052").expect("valid beacon url"),
             None,
+            false,
             None,
         );
         cfg.preconfirmation_enabled = true;

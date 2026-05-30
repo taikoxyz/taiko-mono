@@ -80,6 +80,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
         Duration::from_millis(50),
         beacon_endpoint.clone(),
         None,
+        false,
         None,
     );
     let driver = Driver::new(driver_config).await?;

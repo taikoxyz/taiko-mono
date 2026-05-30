@@ -16,6 +16,8 @@ pub struct DriverConfig {
     pub l1_beacon_endpoint: Url,
     /// Optional L2 checkpoint endpoint used for beacon sync.
     pub l2_checkpoint_url: Option<Url>,
+    /// Submit the full missing checkpoint range instead of only the checkpoint head.
+    pub l2_checkpoint_backfill: bool,
     /// Optional blob server endpoint used when beacon blobs are unavailable.
     pub blob_server_endpoint: Option<Url>,
     /// Enable preconfirmation handling (disabled by default).
@@ -33,6 +35,7 @@ impl DriverConfig {
         retry_interval: Duration,
         l1_beacon_endpoint: Url,
         l2_checkpoint_url: Option<Url>,
+        l2_checkpoint_backfill: bool,
         blob_server_endpoint: Option<Url>,
     ) -> Self {
         Self {
@@ -40,6 +43,7 @@ impl DriverConfig {
             retry_interval,
             l1_beacon_endpoint,
             l2_checkpoint_url,
+            l2_checkpoint_backfill,
             blob_server_endpoint,
             preconfirmation_enabled: false,
         }
