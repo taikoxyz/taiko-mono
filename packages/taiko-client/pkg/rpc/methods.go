@@ -691,6 +691,28 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	return false, nil
 }
 
+// ProposalLastBlockID returns the last L2 block number of the given proposal, resolved from
+// block extraData so it works for both event-synced and beacon-synced proposals. Proposal 0
+// (the genesis parent) resolves to block 0.
+func (c *Client) ProposalLastBlockID(ctx context.Context, proposalID *big.Int) (*big.Int, error) {
+	if proposalID.Sign() == 0 {
+		return common.Big0, nil
+	}
+
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
+	defer cancel()
+
+	blockID, err := c.L2Engine.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
+	if err != nil {
+		return nil, err
+	}
+	if blockID == nil {
+		return nil, fmt.Errorf("last block ID not found for proposal ID %d", proposalID)
+	}
+
+	return blockID.ToInt(), nil
+}
+
 // LastL1OriginInProposal fetches the L1Origin of the last block in the given proposal.
 func (c *Client) LastL1OriginInProposal(ctx context.Context, proposalID *big.Int) (*rawdb.L1Origin, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
