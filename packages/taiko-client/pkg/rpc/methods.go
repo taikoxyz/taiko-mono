@@ -695,7 +695,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 // block extraData so it works for both event-synced and beacon-synced proposals. Proposal 0
 // (the genesis parent) resolves to block 0.
 func (c *Client) ProposalLastBlockID(ctx context.Context, proposalID *big.Int) (*big.Int, error) {
-	if proposalID.Sign() == 0 {
+	if proposalID.Cmp(common.Big0) == 0 {
 		return common.Big0, nil
 	}
 

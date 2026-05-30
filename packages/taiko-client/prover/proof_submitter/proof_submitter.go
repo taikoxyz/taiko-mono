@@ -138,7 +138,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 	}
 	// Request proof.
 	blockStateOpts := &bind.CallOpts{Context: ctx}
-	if prevProposalLastBlockID.Sign() == 0 {
+	if prevProposalLastBlockID.Cmp(common.Big0) == 0 {
 		blockStateOpts.BlockNumber = common.Big0
 	} else {
 		// Pin GetBlockState to the previous proposal's last block. We read the header by number
