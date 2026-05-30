@@ -324,21 +324,46 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 			return nil, ctxWithTimeout.Err()
 		}
 
-		l1Origin, err := c.L2Engine.LastCertainL1OriginByBatchID(ctxWithTimeout, proposalID)
+		// Resolve the candidate last block of the proposal from block extraData. This works for
+		// both event-synced and beacon-synced blocks and never returns a preconfirmation block.
+		candidateID, err := c.L2Engine.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
 		if err != nil {
 			log.Debug(
-				"Fetch block header from L2 execution engine not found, keep retrying",
+				"Resolve proposal last block ID not ready, keep retrying",
 				"proposalID", proposalID,
 				"error", err,
 			)
 			continue
 		}
+		if candidateID == nil {
+			continue
+		}
+		candidate := candidateID.ToInt()
 
-		if l1Origin == nil {
+		// Fetch the candidate's L1Origin: absent (NotFound) for beacon-synced blocks, present
+		// with zero L1 height for preconfirmation blocks.
+		candidateL1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, candidate)
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
+			log.Debug("Fetch candidate L1Origin failed, keep retrying", "proposalID", proposalID, "blockID", candidate, "error", err)
 			continue
 		}
 
-		return c.L2.HeaderByHash(ctxWithTimeout, l1Origin.L2BlockHash)
+		// Fetch the header right after the candidate to confirm the proposal boundary.
+		nextHeader, err := c.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Add(candidate, common.Big1))
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
+			log.Debug("Fetch boundary header failed, keep retrying", "proposalID", proposalID, "blockID", candidate, "error", err)
+			continue
+		}
+
+		sealed, err := evaluateProposalSeal(proposalID, candidateL1Origin, nextHeader)
+		if err != nil {
+			return nil, err
+		}
+		if !sealed {
+			continue
+		}
+
+		return c.L2.HeaderByNumber(ctxWithTimeout, candidate)
 	}
 
 	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, proposalID: %d", proposalID)
