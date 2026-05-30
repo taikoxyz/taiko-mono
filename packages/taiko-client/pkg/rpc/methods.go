@@ -299,7 +299,6 @@ func evaluateProposalSeal(
 	if err != nil {
 		return false, err
 	}
-
 	return nextProposalID.Cmp(proposalID) > 0, nil
 }
 
