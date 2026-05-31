@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth"
@@ -273,6 +274,34 @@ func waitHeader(ctx context.Context, ethClient *EthClient, blockID *big.Int) (*t
 	return waitForFetchResult(ctx, blockID, ethClient.HeaderByNumber)
 }
 
+// evaluateProposalSeal reports whether proposalID's last block is sealed (the whole
+// proposal has been landed by the driver). candidateL1Origin is the candidate last block's
+// L1Origin, or nil when the block was beacon-synced and has no L1Origin row. nextHeader is
+// the header of the block right after the candidate, or nil when it does not exist yet.
+func evaluateProposalSeal(
+	proposalID *big.Int,
+	candidateL1Origin *rawdb.L1Origin,
+	nextHeader *types.Header,
+) (bool, error) {
+	// A preconfirmation candidate (L1Origin present with zero/empty L1 block height) means
+	// the driver has not landed the proposal yet; preconfirmation blocks must never be proven.
+	if candidateL1Origin != nil &&
+		(candidateL1Origin.L1BlockHeight == nil || candidateL1Origin.L1BlockHeight.Cmp(common.Big0) == 0) {
+		return false, nil
+	}
+
+	// The boundary is sealed only once the next block exists and belongs to a newer proposal.
+	if nextHeader == nil {
+		return false, nil
+	}
+
+	nextProposalID, err := core.DecodeShastaProposalID(nextHeader.Extra)
+	if err != nil {
+		return false, err
+	}
+	return nextProposalID.Cmp(proposalID) > 0, nil
+}
+
 // WaitProposalHeader keeps waiting for the proposal block header of the given proposal ID from the L2 execution engine.
 func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*types.Header, error) {
 	var (
@@ -295,21 +324,52 @@ func (c *Client) WaitProposalHeader(ctx context.Context, proposalID *big.Int) (*
 			return nil, ctxWithTimeout.Err()
 		}
 
-		l1Origin, err := c.L2Engine.LastCertainL1OriginByBatchID(ctxWithTimeout, proposalID)
+		// Resolve the candidate last block of the proposal from block extraData. This works for
+		// both event-synced and beacon-synced blocks and never returns a preconfirmation block.
+		candidateID, err := c.ProposalLastBlockID(ctxWithTimeout, proposalID)
 		if err != nil {
 			log.Debug(
-				"Fetch block header from L2 execution engine not found, keep retrying",
+				"Resolve proposal last block ID not ready, keep retrying",
 				"proposalID", proposalID,
 				"error", err,
 			)
 			continue
 		}
 
-		if l1Origin == nil {
+		// Fetch the candidate's L1Origin: absent (NotFound) for beacon-synced blocks, present
+		// with zero L1 height for preconfirmation blocks.
+		candidateL1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, candidateID)
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
+			log.Debug(
+				"Fetch candidate L1Origin failed, keep retrying",
+				"proposalID", proposalID,
+				"blockID", candidateID,
+				"error", err,
+			)
 			continue
 		}
 
-		return c.L2.HeaderByHash(ctxWithTimeout, l1Origin.L2BlockHash)
+		// Fetch the header right after the candidate to confirm the proposal boundary.
+		nextHeader, err := c.L2.HeaderByNumber(ctxWithTimeout, new(big.Int).Add(candidateID, common.Big1))
+		if err != nil && err.Error() != ethereum.NotFound.Error() {
+			log.Debug(
+				"Fetch boundary header failed, keep retrying",
+				"proposalID", proposalID,
+				"blockID", candidateID,
+				"error", err,
+			)
+			continue
+		}
+
+		sealed, err := evaluateProposalSeal(proposalID, candidateL1Origin, nextHeader)
+		if err != nil {
+			return nil, err
+		}
+		if !sealed {
+			continue
+		}
+
+		return c.L2.HeaderByNumber(ctxWithTimeout, candidateID)
 	}
 
 	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, proposalID: %d", proposalID)
@@ -637,21 +697,26 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	return false, nil
 }
 
-// LastL1OriginInProposal fetches the L1Origin of the last block in the given proposal.
-func (c *Client) LastL1OriginInProposal(ctx context.Context, proposalID *big.Int) (*rawdb.L1Origin, error) {
+// ProposalLastBlockID returns the last L2 block number of the given proposal, resolved from
+// block extraData so it works for both event-synced and beacon-synced proposals. Proposal 0
+// (the genesis parent) resolves to block 0.
+func (c *Client) ProposalLastBlockID(ctx context.Context, proposalID *big.Int) (*big.Int, error) {
+	if proposalID.Cmp(common.Big0) == 0 {
+		return common.Big0, nil
+	}
+
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
-	if proposalID.Cmp(common.Big0) == 0 {
-		return &rawdb.L1Origin{BlockID: common.Big0}, nil
-	}
-
-	l1Origin, err := c.L2Engine.LastL1OriginByBatchID(ctxWithTimeout, proposalID)
+	blockID, err := c.L2Engine.LastBlockIDByBatchID(ctxWithTimeout, proposalID)
 	if err != nil {
-		return nil, fmt.Errorf("L1Origin not found for proposal ID %d: %w", proposalID, err)
+		return nil, err
+	}
+	if blockID == nil {
+		return nil, fmt.Errorf("last block ID not found for proposal ID %d", proposalID)
 	}
 
-	return l1Origin, nil
+	return blockID.ToInt(), nil
 }
 
 // GetSyncedL1SnippetFromAnchor parses the anchor transaction calldata, and returns the synced L1 snippet,

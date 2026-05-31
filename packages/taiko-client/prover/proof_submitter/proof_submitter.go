@@ -121,27 +121,33 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		return fmt.Errorf("failed to wait for L2 header, blockID: %d, error: %w", proposalID, err)
 	}
 
-	lastOriginInLastProposal, err := s.rpc.LastL1OriginInProposal(
+	prevProposalLastBlockID, err := s.rpc.ProposalLastBlockID(
 		ctx,
 		new(big.Int).Sub(proposalID, common.Big1),
 	)
 	if err != nil {
 		return err
 	}
-	l2BlockLength := header.Number.Uint64() - lastOriginInLastProposal.BlockID.Uint64()
+	l2BlockLength := header.Number.Uint64() - prevProposalLastBlockID.Uint64()
 	l2BlockNums := make([]*big.Int, 0, l2BlockLength)
 	for i := uint64(0); i < l2BlockLength; i++ {
 		l2BlockNums = append(
 			l2BlockNums,
-			new(big.Int).SetUint64(i+lastOriginInLastProposal.BlockID.Uint64()+1),
+			new(big.Int).SetUint64(i+prevProposalLastBlockID.Uint64()+1),
 		)
 	}
 	// Request proof.
 	blockStateOpts := &bind.CallOpts{Context: ctx}
-	if lastOriginInLastProposal.BlockID.Cmp(common.Big0) == 0 {
+	if prevProposalLastBlockID.Cmp(common.Big0) == 0 {
 		blockStateOpts.BlockNumber = common.Big0
 	} else {
-		blockStateOpts.BlockHash = lastOriginInLastProposal.L2BlockHash
+		// Pin GetBlockState to the previous proposal's last block. We read the header by number
+		// (works for beacon-synced blocks, which carry no L1Origin) to recover its hash.
+		prevProposalLastHeader, err := s.rpc.L2.HeaderByNumber(ctx, prevProposalLastBlockID)
+		if err != nil {
+			return err
+		}
+		blockStateOpts.BlockHash = prevProposalLastHeader.Hash()
 	}
 	lastBlockState, err := s.rpc.ShastaClients.Anchor.GetBlockState(blockStateOpts)
 	if err != nil {

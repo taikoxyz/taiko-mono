@@ -171,6 +171,13 @@ func (s *ProverTestSuite) TestOnProposal() {
 	s.NotNil(payload)
 	s.NotNil(eventLog)
 
+	// `WaitProposalHeader` only resolves a proposal's last block once a block of a newer
+	// proposal sits on top of it (boundary confirmation), so each proposal we prove below
+	// must have a following proposal already inserted to seal it.
+
+	// Propose a second proposal to seal the first proposal inserted by the shared test setup.
+	secondProposal := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+
 	// Prove the first proposal inserted by shared test setup.
 	header, err := s.RPCClient.L1.HeaderByHash(context.Background(), eventLog.BlockHash)
 	s.Nil(err)
@@ -181,9 +188,9 @@ func (s *ProverTestSuite) TestOnProposal() {
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotify))
 	s.Nil(s.p.submitProofAggregationOp(<-s.p.batchProofGenerationCh))
 
-	// Propose and prove the second proposal.
-	m := s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
-	s.Nil(s.p.eventHandlers.proposalHandler.Handle(context.Background(), m, func() {}))
+	// Propose a third proposal to seal the second proposal, then prove the second proposal.
+	s.ProposeAndInsertValidBlock(s.proposer, s.d.ChainSyncer().EventSyncer())
+	s.Nil(s.p.eventHandlers.proposalHandler.Handle(context.Background(), secondProposal, func() {}))
 	req = <-s.p.proofSubmissionCh
 	s.Nil(s.p.requestProofOp(req.Meta))
 	s.Nil(s.p.aggregateOp(<-s.p.batchesAggregationNotify))
