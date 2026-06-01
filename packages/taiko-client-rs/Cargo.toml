@@ -75,7 +75,7 @@ alloy-sol-types = { version = "1.5.7", default-features = false }
 alloy-transport = { version = "1.8.3", default-features = false }
 alloy-transport-http = { version = "1.8.3", features = ["hyper", "jwt-auth"] }
 base-tx-manager = { git = "https://github.com/base/base", rev = "1f1149cca0748f7ee7c6234f54d0be8dab51579a" }
-event-scanner = "1.1.0"
+event-scanner = "1.1.1"
 jsonrpsee = { version = "0.26", features = ["server"] }
 k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"

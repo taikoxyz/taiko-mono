@@ -3075,9 +3075,9 @@ dependencies = [
 
 [[package]]
 name = "event-scanner"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d39e57acc785ab3a610f59942684fc790725d6e4b20d7460db34e899dbe93f77"
+checksum = "3ef10bba30394a8cc3b4c7a0038934162d09d2cab4b21e70ad76618546d03d29"
 dependencies = [
  "alloy",
  "futures",
