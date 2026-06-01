@@ -1,6 +1,16 @@
 nextest-version = "0.9.104"
 
 [profile.default]
+# Fail-fast safety net for hung tests. The preconfirmation E2E tests are built
+# from chains of async waits; if any signal is missed (e.g. a gossip message
+# dropped before the gossipsub mesh forms, or ingress readiness that never
+# fires) the test would otherwise block until the job-level timeout (~10+ min),
+# printing only SLOW markers and discarding the test's captured logs. Killing
+# the test after `period * terminate-after` reports it as a TIMEOUT failure and
+# surfaces its captured output so the stuck wait is immediately diagnosable.
+# Legitimate integration tests finish well under a minute (the longest bounded
+# wait is the 30s block-production poll), so 180s leaves ample headroom.
+slow-timeout = { period = "60s", terminate-after = 3 }
 
 [[profile.default.overrides]]
 # All integration test binaries (targets from any `tests/` dir) are serialized

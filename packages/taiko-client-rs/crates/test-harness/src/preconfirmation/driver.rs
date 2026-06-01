@@ -25,6 +25,7 @@ use rpc::client::{Client, ClientConfig};
 use tokio::{
     sync::{Mutex, Notify},
     task::JoinHandle,
+    time::timeout,
 };
 use tracing::{info, warn};
 
@@ -32,6 +33,13 @@ use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
 
 /// Fast event-sync poll interval used by the harness to keep E2E waits responsive.
 const HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
+
+/// Upper bound on how long the harness waits for preconfirmation ingress to become
+/// ready before failing the test. Ingress readiness depends on the event scanner
+/// switching to live and a confirmed-sync probe passing; if either signal is
+/// missed the underlying wait is unbounded, so this bound converts that hang into
+/// a fast, named failure.
+const HARNESS_INGRESS_READY_TIMEOUT: Duration = Duration::from_secs(90);
 
 /// A mock driver client that records submissions for test verification.
 ///
@@ -334,7 +342,14 @@ impl RealDriverSetup {
             }
         });
 
-        event_syncer.wait_preconf_ingress_ready().await?;
+        timeout(HARNESS_INGRESS_READY_TIMEOUT, event_syncer.wait_preconf_ingress_ready())
+            .await
+            .map_err(|_| {
+            anyhow::anyhow!(
+                "timed out after {}s waiting for preconfirmation ingress to become ready",
+                HARNESS_INGRESS_READY_TIMEOUT.as_secs()
+            )
+        })??;
 
         let l2_provider = rpc_client.l2_provider.clone();
         let embedded_client =

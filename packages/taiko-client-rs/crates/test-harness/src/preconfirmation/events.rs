@@ -5,9 +5,26 @@
 //! - [`wait_for_commitment_and_txlist`]: Waits for both commitment and txlist.
 //! - [`wait_for_commitments_and_txlists`]: Waits for multiple commitments/txlists.
 //! - [`wait_for_synced`]: Waits for the synced event.
+//!
+//! Every waiter is bounded by [`EVENT_WAIT_TIMEOUT`]. Without a bound, a missed
+//! event (for example a gossip message dropped before the gossipsub mesh forms)
+//! would block the test until the CI job-level timeout while discarding the
+//! test's captured logs. Failing fast with a descriptive panic turns an opaque
+//! multi-minute hang into an immediately diagnosable test failure that names the
+//! event that never arrived.
+
+use std::time::Duration;
 
 use preconfirmation_driver::subscription::PreconfirmationEvent;
-use tokio::sync::broadcast;
+use tokio::{sync::broadcast, time::timeout};
+
+/// Maximum time any single event-wait helper blocks before failing the test.
+///
+/// Healthy waits resolve within seconds; this bound only trips on a genuinely
+/// missed event. It is kept below the nextest `terminate-after` budget so the
+/// descriptive panic below fires (and is reported) before nextest hard-kills the
+/// process.
+const EVENT_WAIT_TIMEOUT: Duration = Duration::from_secs(60);
 
 // ============================================================================
 // Peer Connection Events
@@ -16,7 +33,7 @@ use tokio::sync::broadcast;
 /// Waits for a peer connection event.
 ///
 /// Blocks until `PreconfirmationEvent::PeerConnected` is received.
-/// Panics if the event stream closes unexpectedly.
+/// Panics if the event stream closes unexpectedly or [`EVENT_WAIT_TIMEOUT`] elapses.
 ///
 /// # Example
 ///
@@ -26,12 +43,18 @@ use tokio::sync::broadcast;
 /// // Peer is now connected, safe to publish gossip
 /// ```
 pub async fn wait_for_peer_connected(events: &mut broadcast::Receiver<PreconfirmationEvent>) {
-    loop {
-        match events.recv().await {
-            Ok(PreconfirmationEvent::PeerConnected(_)) => return,
-            Ok(_) => continue,
-            Err(err) => panic!("preconfirmation event stream closed: {err}"),
+    let wait = async {
+        loop {
+            match events.recv().await {
+                Ok(PreconfirmationEvent::PeerConnected(_)) => return,
+                Ok(_) => continue,
+                Err(err) => panic!("preconfirmation event stream closed: {err}"),
+            }
         }
+    };
+
+    if timeout(EVENT_WAIT_TIMEOUT, wait).await.is_err() {
+        panic!("timed out after {}s waiting for PeerConnected event", EVENT_WAIT_TIMEOUT.as_secs());
     }
 }
 
@@ -43,6 +66,10 @@ pub async fn wait_for_peer_connected(events: &mut broadcast::Receiver<Preconfirm
 ///
 /// Blocks until both `NewCommitment` and `NewTxList` events have been seen.
 /// The events may arrive in any order.
+///
+/// Panics if the event stream closes unexpectedly or [`EVENT_WAIT_TIMEOUT`]
+/// elapses; the timeout message reports which of the two events was still
+/// outstanding.
 ///
 /// # Example
 ///
@@ -57,13 +84,23 @@ pub async fn wait_for_commitment_and_txlist(
     let mut saw_commitment = false;
     let mut saw_txlist = false;
 
-    while !(saw_commitment && saw_txlist) {
-        match events.recv().await {
-            Ok(PreconfirmationEvent::NewCommitment(_)) => saw_commitment = true,
-            Ok(PreconfirmationEvent::NewTxList(_)) => saw_txlist = true,
-            Ok(_) => continue,
-            Err(err) => panic!("preconfirmation event stream closed: {err}"),
+    let wait = async {
+        while !(saw_commitment && saw_txlist) {
+            match events.recv().await {
+                Ok(PreconfirmationEvent::NewCommitment(_)) => saw_commitment = true,
+                Ok(PreconfirmationEvent::NewTxList(_)) => saw_txlist = true,
+                Ok(_) => continue,
+                Err(err) => panic!("preconfirmation event stream closed: {err}"),
+            }
         }
+    };
+
+    if timeout(EVENT_WAIT_TIMEOUT, wait).await.is_err() {
+        panic!(
+            "timed out after {}s waiting for commitment+txlist gossip \
+             (saw_commitment={saw_commitment}, saw_txlist={saw_txlist})",
+            EVENT_WAIT_TIMEOUT.as_secs()
+        );
     }
 }
 
@@ -71,6 +108,9 @@ pub async fn wait_for_commitment_and_txlist(
 ///
 /// Blocks until at least `commitment_count` commitments and `txlist_count`
 /// transaction lists have been received.
+///
+/// Panics if the event stream closes unexpectedly or [`EVENT_WAIT_TIMEOUT`]
+/// elapses; the timeout message reports the received-vs-expected counts.
 ///
 /// # Arguments
 ///
@@ -92,13 +132,24 @@ pub async fn wait_for_commitments_and_txlists(
     let mut commitments_received = 0;
     let mut txlists_received = 0;
 
-    while commitments_received < commitment_count || txlists_received < txlist_count {
-        match events.recv().await {
-            Ok(PreconfirmationEvent::NewCommitment(_)) => commitments_received += 1,
-            Ok(PreconfirmationEvent::NewTxList(_)) => txlists_received += 1,
-            Ok(_) => continue,
-            Err(err) => panic!("preconfirmation event stream closed: {err}"),
+    let wait = async {
+        while commitments_received < commitment_count || txlists_received < txlist_count {
+            match events.recv().await {
+                Ok(PreconfirmationEvent::NewCommitment(_)) => commitments_received += 1,
+                Ok(PreconfirmationEvent::NewTxList(_)) => txlists_received += 1,
+                Ok(_) => continue,
+                Err(err) => panic!("preconfirmation event stream closed: {err}"),
+            }
         }
+    };
+
+    if timeout(EVENT_WAIT_TIMEOUT, wait).await.is_err() {
+        panic!(
+            "timed out after {}s waiting for {commitment_count} commitments and \
+             {txlist_count} txlists (received {commitments_received} commitments, \
+             {txlists_received} txlists)",
+            EVENT_WAIT_TIMEOUT.as_secs()
+        );
     }
 }
 
@@ -111,6 +162,8 @@ pub async fn wait_for_commitments_and_txlists(
 /// Blocks until `PreconfirmationEvent::Synced` is received, indicating
 /// the preconfirmation client has caught up with the network.
 ///
+/// Panics if the event stream closes unexpectedly or [`EVENT_WAIT_TIMEOUT`] elapses.
+///
 /// # Example
 ///
 /// ```ignore
@@ -119,11 +172,17 @@ pub async fn wait_for_commitments_and_txlists(
 /// // Client is now synced and ready to process new commitments
 /// ```
 pub async fn wait_for_synced(events: &mut broadcast::Receiver<PreconfirmationEvent>) {
-    loop {
-        match events.recv().await {
-            Ok(PreconfirmationEvent::Synced) => return,
-            Ok(_) => continue,
-            Err(err) => panic!("preconfirmation event stream closed: {err}"),
+    let wait = async {
+        loop {
+            match events.recv().await {
+                Ok(PreconfirmationEvent::Synced) => return,
+                Ok(_) => continue,
+                Err(err) => panic!("preconfirmation event stream closed: {err}"),
+            }
         }
+    };
+
+    if timeout(EVENT_WAIT_TIMEOUT, wait).await.is_err() {
+        panic!("timed out after {}s waiting for Synced event", EVENT_WAIT_TIMEOUT.as_secs());
     }
 }

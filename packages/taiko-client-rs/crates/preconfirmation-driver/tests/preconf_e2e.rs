@@ -35,7 +35,13 @@ use test_harness::{
     },
     verify_anchor_block, wait_for_block_or_loop_error,
 };
-use tokio::{spawn, sync::oneshot};
+use tokio::{spawn, sync::oneshot, time::timeout};
+
+/// Upper bound on the unbounded setup waits in this test (ingress readiness,
+/// sync/catch-up, peer connection). Without these bounds a missed signal blocks
+/// the test until the job-level timeout while discarding its captured logs;
+/// wrapping each wait converts a hang into a fast, named failure.
+const SETUP_WAIT_TIMEOUT: Duration = Duration::from_secs(90);
 
 // ============================================================================
 // Block Validation Helper (test-specific)
@@ -245,9 +251,14 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
         async move { syncer.run().await }
     });
 
-    event_syncer
-        .wait_preconf_ingress_ready()
+    timeout(SETUP_WAIT_TIMEOUT, event_syncer.wait_preconf_ingress_ready())
         .await
+        .map_err(|_| {
+            anyhow!(
+                "timed out after {}s waiting for preconfirmation ingress to become ready",
+                SETUP_WAIT_TIMEOUT.as_secs()
+            )
+        })?
         .map_err(|err| anyhow!("preconfirmation ingress unavailable: {err}"))?;
 
     // Set up driver client with logging wrapper.
@@ -294,7 +305,13 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     let internal_client = PreconfirmationClient::new(int_cfg, driver_client)?;
     let mut events = internal_client.subscribe();
 
-    let mut event_loop = internal_client.sync_and_catchup().await?;
+    let mut event_loop =
+        timeout(SETUP_WAIT_TIMEOUT, internal_client.sync_and_catchup()).await.map_err(|_| {
+            anyhow!(
+                "timed out after {}s waiting for preconfirmation sync/catch-up",
+                SETUP_WAIT_TIMEOUT.as_secs()
+            )
+        })??;
     let (event_loop_tx, mut event_loop_rx) = oneshot::channel::<anyhow::Result<()>>();
     let event_loop_handle = spawn(async move {
         let _ = event_loop_tx.send(event_loop.run().await.map_err(Into::into));
@@ -302,7 +319,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
 
     // Wait for peer connection.
     wait_for_peer_connected(&mut events).await;
-    ext_handle.wait_for_peer_connected().await?;
+    ext_handle.wait_for_peer_connected_with_timeout(Some(SETUP_WAIT_TIMEOUT)).await?;
 
     // Build anchor + test transfers using helper.
     let PreconfTxList { raw_tx_bytes, transfers } = build_preconf_txlist(
