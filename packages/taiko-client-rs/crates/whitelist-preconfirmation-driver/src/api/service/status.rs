@@ -1,6 +1,7 @@
 //! Status and websocket-subscription helpers for the REST handler.
 
 use super::*;
+use crate::metrics::WhitelistPreconfirmationDriverMetrics;
 
 impl<P> WhitelistApiService<P>
 where
@@ -9,7 +10,47 @@ where
     /// Build the current status snapshot served by the REST `/status` route.
     pub(super) async fn get_status_snapshot(&self) -> Result<WhitelistStatus> {
         let head_l1_origin = self.rpc.head_l1_origin().await?;
-        let highest_unsafe = *self.highest_unsafe_l2_payload_block_id.lock().await;
+
+        // reth's canonical head — the same value the Catalyst compares against as
+        // "Taiko Geth Height". Best-effort: a failed read yields `None`, leaving the
+        // tracked counter unchanged so `/status` is no more fragile than before.
+        let reth_head = self
+            .rpc
+            .l2_provider
+            .get_block_by_number(BlockNumberOrTag::Latest)
+            .await
+            .ok()
+            .flatten()
+            .map(|block| block.header.number);
+
+        // The counter only ratchets upward on import/build, so after reth's head moves
+        // backward (e.g. an L1 reorg) it can be left stuck above the head, permanently
+        // failing the sequencer's `highest_unsafe == geth_height` gate. Clamp it down.
+        //
+        // `reth_head` is read lock-free above, so it can lag a concurrent importer that
+        // advances both the counter and the head between that read and this clamp. Worst
+        // case is a one-poll under-report of `highest_unsafe`; the next `/status` poll
+        // reads a fresh head and re-converges (the helper never raises the value).
+        // `/status` is advisory, so this is preferable to holding the mutex across the
+        // head RPC `.await`.
+        let highest_unsafe = {
+            let mut guard = self.highest_unsafe_l2_payload_block_id.lock().await;
+            let reconciled = reconcile_highest_unsafe(*guard, reth_head);
+            if reconciled != *guard {
+                warn!(
+                    tracked = *guard,
+                    reth_head = reconciled,
+                    "highest_unsafe ahead of reth head; reconciling down (L1 reorg / rewind)"
+                );
+                metrics::counter!(
+                    WhitelistPreconfirmationDriverMetrics::HIGHEST_UNSAFE_RECONCILED_TOTAL
+                )
+                .increment(1);
+                *guard = reconciled;
+            }
+            *guard
+        };
+
         let current_epoch = self.beacon_client.current_epoch();
         let end_of_sequencing_block_hash = self
             .cache_state

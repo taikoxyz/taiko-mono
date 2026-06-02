@@ -88,9 +88,6 @@ fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
 /// lowering the value to the head when it exceeds it. It never raises the value, so the
 /// legitimate `counter < reth_head` catch-up signal is preserved. A `None` head (the
 /// reth read failed) is treated as "unknown" and leaves the value unchanged.
-// `allow(dead_code)` is temporary: the production call site is added in the
-// `get_status_snapshot` wiring change, which removes this attribute.
-#[allow(dead_code)]
 fn reconcile_highest_unsafe(tracked: u64, reth_head: Option<u64>) -> u64 {
     reth_head.map_or(tracked, |head| tracked.min(head))
 }
