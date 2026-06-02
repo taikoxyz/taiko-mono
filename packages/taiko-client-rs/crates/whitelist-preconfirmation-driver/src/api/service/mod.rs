@@ -79,17 +79,14 @@ fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
     }
 }
 
-/// Clamp the tracked highest-unsafe payload block id down to reth's canonical head.
+/// Clamp `tracked` down to `head`; never raise it, and leave it unchanged when `head`
+/// is `None`.
 ///
-/// The counter is only ever advanced (never lowered) by the import and build paths, so
-/// after reth's head moves backward (most commonly an L1 reorg) it can be left stuck
-/// *above* the head, which permanently fails the Catalyst's `highest_unsafe ==
-/// geth_height` sync gate. This enforces the real invariant `counter <= reth_head` by
-/// lowering the value to the head when it exceeds it. It never raises the value, so the
-/// legitimate `counter < reth_head` catch-up signal is preserved. A `None` head (the
-/// reth read failed) is treated as "unknown" and leaves the value unchanged.
-fn reconcile_highest_unsafe(tracked: u64, reth_head: Option<u64>) -> u64 {
-    reth_head.map_or(tracked, |head| tracked.min(head))
+/// The tracked value only ever moves up, so after the head moves backward (e.g. an L1
+/// reorg) it can be left above the head. Lowering it restores `tracked <= head` while
+/// still preserving a value that legitimately trails the head.
+fn reconcile_highest_unsafe(tracked: u64, head: Option<u64>) -> u64 {
+    head.map_or(tracked, |h| tracked.min(h))
 }
 
 /// Implements whitelist preconfirmation API business logic.
