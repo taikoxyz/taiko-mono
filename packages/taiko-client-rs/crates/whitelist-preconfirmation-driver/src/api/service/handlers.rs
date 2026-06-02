@@ -37,6 +37,22 @@ where
     }
 }
 
+/// Emit the entry log for a preconfirmation block-building request.
+fn log_build_preconf_block_entry(request: &BuildPreconfBlockRequest) {
+    tracing::info!(
+        block_id = request.block_number,
+        coinbase = %request.fee_recipient,
+        timestamp = request.timestamp,
+        gas_limit = request.gas_limit,
+        base_fee_per_gas = request.base_fee_per_gas,
+        extra_data = %alloy_primitives::hex::encode(&request.extra_data),
+        parent_hash = %request.parent_hash,
+        end_of_sequencing = request.end_of_sequencing.unwrap_or(false),
+        is_forced_inclusion = request.is_forced_inclusion.unwrap_or(false),
+        "🏗️ New preconfirmation block building request"
+    );
+}
+
 #[async_trait]
 impl<P> WhitelistApi for WhitelistApiService<P>
 where
@@ -48,6 +64,7 @@ where
         request: BuildPreconfBlockRequest,
     ) -> Result<BuildPreconfBlockResponse> {
         let started_at = Instant::now();
+        log_build_preconf_block_entry(&request);
         // Record receipt before any validation so even rejected requests
         // mark this pod as the active preconfer for shutdown purposes.
         self.mark_preconf_request_received().await;
