@@ -25,30 +25,31 @@ where
 
         // The counter only ratchets upward on import/build, so after reth's head moves
         // backward (e.g. an L1 reorg) it can be left stuck above the head, permanently
-        // failing the sequencer's `highest_unsafe == geth_height` gate. Clamp it down.
+        // failing the sequencer's `highest_unsafe == geth_height` gate. Report it clamped
+        // down to reth's head.
         //
-        // `reth_head` is read lock-free above, so it can lag a concurrent importer that
-        // advances both the counter and the head between that read and this clamp. Worst
-        // case is a one-poll under-report of `highest_unsafe`; the next `/status` poll
-        // reads a fresh head and re-converges (the helper never raises the value).
-        // `/status` is advisory, so this is preferable to holding the mutex across the
-        // head RPC `.await`.
+        // We deliberately do NOT write the clamp back to the shared counter. `reth_head` is
+        // read lock-free above, so it can lag a concurrent import/build that advanced both
+        // reth and the counter between that read and here; persisting `min(counter, stale
+        // head)` would pin the counter below reth's real head (the helper never raises it)
+        // until the next import/build — long enough to stall the Catalyst equality gate.
+        // Clamping only the reported value keeps the stored counter intact, so the next
+        // poll recomputes against a fresh head and self-heals.
         let highest_unsafe = {
-            let mut guard = self.highest_unsafe_l2_payload_block_id.lock().await;
+            let guard = self.highest_unsafe_l2_payload_block_id.lock().await;
             let reconciled = reconcile_highest_unsafe(*guard, reth_head);
             if reconciled != *guard {
                 warn!(
                     tracked = *guard,
                     reth_head = reconciled,
-                    "highest_unsafe ahead of reth head; reconciling down (L1 reorg / rewind)"
+                    "highest_unsafe ahead of reth head; reporting clamped value (L1 reorg / rewind)"
                 );
                 metrics::counter!(
                     WhitelistPreconfirmationDriverMetrics::HIGHEST_UNSAFE_RECONCILED_TOTAL
                 )
                 .increment(1);
-                *guard = reconciled;
             }
-            *guard
+            reconciled
         };
 
         let current_epoch = self.beacon_client.current_epoch();
