@@ -1,7 +1,6 @@
 //! Status and websocket-subscription helpers for the REST handler.
 
 use super::*;
-use crate::metrics::WhitelistPreconfirmationDriverMetrics;
 
 impl<P> WhitelistApiService<P>
 where
@@ -39,10 +38,6 @@ where
                     head = reconciled,
                     "highest_unsafe ahead of head; reporting clamped value"
                 );
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::HIGHEST_UNSAFE_RECONCILED_TOTAL
-                )
-                .increment(1);
             }
             reconciled
         };
