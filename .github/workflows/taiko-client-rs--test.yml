@@ -71,7 +71,7 @@ jobs:
             packages/taiko-client-rs -> target
 
       - name: Setup just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
         with:
           just-version: 1.5.0
 
@@ -202,7 +202,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
         with:
           version: 9
           run_install: false
@@ -217,7 +217,7 @@ jobs:
             ${{ env.PROTOCOL_FORK_DIR }}/pnpm-lock.yaml
 
       - name: Setup just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
         with:
           just-version: 1.5.0
 

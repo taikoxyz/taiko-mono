@@ -61,7 +61,7 @@ jobs:
 
       - name: Run DeepSeek Code Review
         id: review
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
