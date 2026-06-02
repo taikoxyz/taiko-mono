@@ -819,21 +819,22 @@ impl NetworkRuntime {
             {
                 Ok((wire_signature, payload_bytes, envelope)) => {
                     let payload = DecodedUnsafePayload { wire_signature, payload_bytes, envelope };
-                    log_inbound_preconf_blocks_entry(from, &payload);
                     let acceptance =
                         self.inbound_validation_state.validate_preconf_blocks(&payload);
 
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                        let Err(err) = forward_event(
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                        log_inbound_preconf_blocks_entry(from, &payload);
+                        if let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafePayload { from, payload },
                         )
                         .await
-                    {
-                        // If forwarding to importer fails, reject to avoid silently
-                        // accepting data that local consumers could not process.
-                        report(gossipsub::MessageAcceptance::Reject);
-                        return Err(err);
+                        {
+                            // If forwarding to importer fails, reject to avoid silently
+                            // accepting data that local consumers could not process.
+                            report(gossipsub::MessageAcceptance::Reject);
+                            return Err(err);
+                        }
                     }
 
                     let label = acceptance_label(&acceptance);
@@ -850,17 +851,18 @@ impl NetworkRuntime {
         if *topic == self.topics.preconf_response.hash() {
             let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
                 Ok(envelope) => {
-                    log_inbound_preconf_response_entry(from, &envelope);
                     let acceptance = self.inbound_validation_state.validate_response(&envelope);
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                        let Err(err) = forward_event(
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                        log_inbound_preconf_response_entry(from, &envelope);
+                        if let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafeResponse { from, envelope },
                         )
                         .await
-                    {
-                        report(gossipsub::MessageAcceptance::Reject);
-                        return Err(err);
+                        {
+                            report(gossipsub::MessageAcceptance::Reject);
+                            return Err(err);
+                        }
                     }
 
                     let inbound_label = acceptance_label(&acceptance);
@@ -883,14 +885,13 @@ impl NetworkRuntime {
                 return Ok(());
             };
 
-            info!(
-                peer = %from,
-                requested_block_hash = %hash,
-                "📥 New preconfirmation block request gossip"
-            );
-
             let acceptance = self.inbound_validation_state.validate_request(from, hash, now);
             if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                info!(
+                    peer = %from,
+                    requested_block_hash = %hash,
+                    "📥 New preconfirmation block request gossip"
+                );
                 // Requests are relayed only after inbound dedupe/rate checks pass.
                 forward_event(&self.event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
             }
@@ -909,14 +910,13 @@ impl NetworkRuntime {
                 return Ok(());
             };
 
-            info!(
-                peer = %from,
-                epoch,
-                "📥 New end-of-sequencing preconfirmation request gossip"
-            );
-
             let acceptance = self.inbound_validation_state.validate_eos_request(from, epoch, now);
             if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                info!(
+                    peer = %from,
+                    epoch,
+                    "📥 New end-of-sequencing preconfirmation request gossip"
+                );
                 // EOS requests follow the same acceptance gate as preconf requests.
                 forward_event(&self.event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch })
                     .await?;
