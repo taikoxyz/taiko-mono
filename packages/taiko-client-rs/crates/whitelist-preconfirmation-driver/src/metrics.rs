@@ -55,6 +55,10 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Counter tracking parent request outcomes (issued/throttled).
     pub const PARENT_REQUESTS_TOTAL: &'static str =
         "whitelist_preconf_driver_parent_requests_total";
+    /// Counter tracking how many times the reported highest-unsafe payload block id was
+    /// reconciled (clamped) down to reth's canonical head after a backward head move.
+    pub const HIGHEST_UNSAFE_RECONCILED_TOTAL: &'static str =
+        "whitelist_preconf_driver_highest_unsafe_reconciled_total";
 
     // RPC metrics
     /// Counter tracking total RPC requests by method.
@@ -152,6 +156,11 @@ impl WhitelistPreconfirmationDriverMetrics {
             Unit::Count,
             "Parent request outcomes"
         );
+        metrics::describe_counter!(
+            Self::HIGHEST_UNSAFE_RECONCILED_TOTAL,
+            Unit::Count,
+            "Times highest-unsafe payload block id was clamped down to reth head"
+        );
 
         metrics::describe_counter!(
             Self::RPC_REQUESTS_TOTAL,
@@ -191,6 +200,7 @@ impl WhitelistPreconfirmationDriverMetrics {
         metrics::counter!(Self::CACHE_IMPORT_RESULTS_TOTAL).absolute(0);
         metrics::counter!(Self::DRIVER_SUBMIT_TOTAL).absolute(0);
         metrics::counter!(Self::PARENT_REQUESTS_TOTAL).absolute(0);
+        metrics::counter!(Self::HIGHEST_UNSAFE_RECONCILED_TOTAL).absolute(0);
         metrics::counter!(Self::RPC_REQUESTS_TOTAL).absolute(0);
         metrics::counter!(Self::RPC_ERRORS_TOTAL).absolute(0);
 
@@ -222,6 +232,7 @@ mod tests {
             WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
             WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_DURATION_SECONDS,
             WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
+            WhitelistPreconfirmationDriverMetrics::HIGHEST_UNSAFE_RECONCILED_TOTAL,
             WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL,
             WhitelistPreconfirmationDriverMetrics::RPC_ERRORS_TOTAL,
             WhitelistPreconfirmationDriverMetrics::RPC_DURATION_SECONDS,
