@@ -79,6 +79,16 @@ fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
     }
 }
 
+/// Clamp `tracked` down to `head`; never raise it, and leave it unchanged when `head`
+/// is `None`.
+///
+/// The tracked value only ever moves up, so after the head moves backward (e.g. an L1
+/// reorg) it can be left above the head. Lowering it restores `tracked <= head` while
+/// still preserving a value that legitimately trails the head.
+fn reconcile_highest_unsafe(tracked: u64, head: Option<u64>) -> u64 {
+    head.map_or(tracked, |h| tracked.min(h))
+}
+
 /// Implements whitelist preconfirmation API business logic.
 pub(crate) struct WhitelistApiService<P>
 where

@@ -6,7 +6,7 @@ use std::{
 use flate2::{Compression, write::ZlibEncoder};
 
 use crate::{
-    api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for},
+    api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for, reconcile_highest_unsafe},
     codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
 };
@@ -78,4 +78,28 @@ fn can_shutdown_returns_false_just_before_window_boundary() {
 #[test]
 fn shutdown_block_window_is_one_hundred_forty_four_seconds() {
     assert_eq!(SHUTDOWN_BLOCK_WINDOW, Duration::from_secs(144));
+}
+
+#[test]
+fn reconcile_clamps_down_when_counter_exceeds_reth_head() {
+    // The L1-reorg wedge: counter stuck above reth's rewound head -> clamp to head.
+    assert_eq!(reconcile_highest_unsafe(5_811_227, Some(5_811_208)), 5_811_208);
+}
+
+#[test]
+fn reconcile_keeps_counter_when_equal_to_reth_head() {
+    // Healthy steady state.
+    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_208)), 5_811_208);
+}
+
+#[test]
+fn reconcile_keeps_counter_when_below_reth_head() {
+    // Legitimate catch-up state (reth ahead via L1 derivation); must NOT be raised.
+    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_227)), 5_811_208);
+}
+
+#[test]
+fn reconcile_keeps_counter_when_reth_head_unknown() {
+    // Best-effort: a failed reth head read leaves the counter untouched.
+    assert_eq!(reconcile_highest_unsafe(5_811_227, None), 5_811_227);
 }
