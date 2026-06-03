@@ -88,13 +88,6 @@ pub enum CliError {
     #[error("invalid socket address: {0}")]
     AddrParse(#[from] std::net::AddrParseError),
 
-    /// Failed to initialize the metrics exporter.
-    ///
-    /// Occurs when the Prometheus metrics exporter fails to start,
-    /// typically due to port binding issues or configuration errors.
-    #[error("metrics initialization failed: {0}")]
-    MetricsInit(#[from] metrics_exporter_prometheus::BuildError),
-
     /// Invalid L1 transport configuration.
     ///
     /// Occurs when CLI arguments or programmatic construction provide either zero or multiple

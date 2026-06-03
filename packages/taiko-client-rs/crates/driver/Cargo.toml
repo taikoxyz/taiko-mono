@@ -20,7 +20,8 @@ alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 event-scanner = { workspace = true }
-metrics = { workspace = true }
+once_cell = { workspace = true }
+prometheus = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-retry = { workspace = true }

@@ -207,11 +207,10 @@ impl CommitmentStore for InMemoryCommitmentStore {
         if let Ok(mut guard) = self.commitments.write() {
             guard.insert(block_number, commitment.clone());
             self.prune_commitments(&mut guard);
-            metrics::gauge!(PreconfirmationClientMetrics::STORE_COMMITMENTS_COUNT)
-                .set(guard.len() as f64);
+            PreconfirmationClientMetrics::store_commitments_count().set(guard.len() as f64);
         }
         self.pending_commitments.remove(&block_number);
-        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+        PreconfirmationClientMetrics::store_pending_commitments_count()
             .set(self.pending_commitments.len() as f64);
         self.prune_txlists();
     }
@@ -226,11 +225,10 @@ impl CommitmentStore for InMemoryCommitmentStore {
     fn remove_commitment(&self, block_number: &U256) {
         if let Ok(mut guard) = self.commitments.write() {
             guard.remove(block_number);
-            metrics::gauge!(PreconfirmationClientMetrics::STORE_COMMITMENTS_COUNT)
-                .set(guard.len() as f64);
+            PreconfirmationClientMetrics::store_commitments_count().set(guard.len() as f64);
         }
         self.pending_commitments.remove(block_number);
-        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+        PreconfirmationClientMetrics::store_pending_commitments_count()
             .set(self.pending_commitments.len() as f64);
     }
 
@@ -239,8 +237,7 @@ impl CommitmentStore for InMemoryCommitmentStore {
         self.txlists.insert(hash, txlist);
         self.pending_txlists.remove(&hash);
         self.prune_txlists();
-        metrics::gauge!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT)
-            .set(self.txlists.len() as f64);
+        PreconfirmationClientMetrics::store_txlists_count().set(self.txlists.len() as f64);
     }
 
     /// See [`CommitmentStore::get_txlist`].
@@ -251,15 +248,14 @@ impl CommitmentStore for InMemoryCommitmentStore {
     /// See [`CommitmentStore::remove_txlist`].
     fn remove_txlist(&self, hash: &B256) {
         self.txlists.remove(hash);
-        metrics::gauge!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT)
-            .set(self.txlists.len() as f64);
+        PreconfirmationClientMetrics::store_txlists_count().set(self.txlists.len() as f64);
         self.pending_txlists.remove(hash);
     }
 
     /// See [`CommitmentStore::drop_pending_commitment`].
     fn drop_pending_commitment(&self, block_number: &U256) {
         self.pending_commitments.remove(block_number);
-        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+        PreconfirmationClientMetrics::store_pending_commitments_count()
             .set(self.pending_commitments.len() as f64);
     }
 
@@ -271,14 +267,14 @@ impl CommitmentStore for InMemoryCommitmentStore {
     /// See [`CommitmentStore::add_awaiting_txlist`].
     fn add_awaiting_txlist(&self, txlist_hash: &Bytes32, commitment: SignedCommitment) {
         self.awaiting_txlist.add(txlist_hash, commitment);
-        metrics::gauge!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH)
+        PreconfirmationClientMetrics::awaiting_txlist_depth()
             .set(self.awaiting_txlist.len() as f64);
     }
 
     /// See [`CommitmentStore::take_awaiting_txlist`].
     fn take_awaiting_txlist(&self, txlist_hash: &Bytes32) -> Vec<SignedCommitment> {
         let result = self.awaiting_txlist.take_waiting(txlist_hash);
-        metrics::gauge!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH)
+        PreconfirmationClientMetrics::awaiting_txlist_depth()
             .set(self.awaiting_txlist.len() as f64);
         result
     }
@@ -324,7 +320,7 @@ impl PreconfStorage for InMemoryCommitmentStore {
         }
         self.pending_commitments.insert(block, commitment);
         self.prune_pending_commitments();
-        metrics::gauge!(PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT)
+        PreconfirmationClientMetrics::store_pending_commitments_count()
             .set(self.pending_commitments.len() as f64);
     }
 

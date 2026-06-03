@@ -93,10 +93,7 @@ where
                 }
                 Err(err) => {
                     warn!(%err, "failed to refresh operator set from L1; retrying in {RETRY_DELAY_SECS}s");
-                    metrics::counter!(
-                        WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
-                    )
-                    .increment(1);
+                    WhitelistPreconfirmationDriverMetrics::inc_whitelist_lookup_failure();
                     next_sleep = retry_interval;
                 }
             }
@@ -115,10 +112,7 @@ where
         whitelist: &PreconfWhitelistInstance<P>,
     ) -> Result<HashSet<Address>> {
         let count: u8 = whitelist.operatorCount().call().await.map_err(|err| {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
-            )
-            .increment(1);
+            WhitelistPreconfirmationDriverMetrics::inc_whitelist_lookup_failure();
             WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
                 "failed to fetch operatorCount: {err}"
             ))
@@ -127,10 +121,7 @@ where
         // Fetch all proposer addresses in parallel.
         let proposer_futs = (0..count).map(|i| async move {
             whitelist.operatorMapping(U256::from(i)).call().await.map_err(|err| {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
-                )
-                .increment(1);
+                WhitelistPreconfirmationDriverMetrics::inc_whitelist_lookup_failure();
                 WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
                     "failed to fetch operatorMapping({i}): {err}"
                 ))
@@ -148,10 +139,7 @@ where
                     .await
                     .map(|info| info.sequencerAddress)
                     .map_err(|err| {
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL
-                        )
-                        .increment(1);
+                        WhitelistPreconfirmationDriverMetrics::inc_whitelist_lookup_failure();
                         WhitelistPreconfirmationDriverError::WhitelistLookup(format!(
                             "failed to fetch operators({proposer}): {err}"
                         ))

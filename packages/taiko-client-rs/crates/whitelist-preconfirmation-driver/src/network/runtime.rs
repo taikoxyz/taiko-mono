@@ -434,12 +434,7 @@ fn dial_addr(
 
 /// Record one configured or discovered dial attempt.
 fn record_dial_attempt(source: &str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-        "source" => source.to_string(),
-        "result" => result,
-    )
-    .increment(1);
+    WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(source, result);
 }
 
 /// Dial configured static peers and bootnode multiaddrs, returning them for retries.
@@ -1124,22 +1119,12 @@ fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
 
 /// Record one outbound publish lifecycle outcome for the given network topic label.
 fn record_publish(topic: &'static str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-        "topic" => topic,
-        "result" => result,
-    )
-    .increment(1);
+    WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(topic, result);
 }
 
 /// Record one inbound message result for the given network topic label.
 fn record_inbound(topic: &'static str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-        "topic" => topic,
-        "result" => result,
-    )
-    .increment(1);
+    WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(topic, result);
 }
 
 /// Forward one decoded event to the importer with backpressure.
@@ -1148,8 +1133,7 @@ pub(super) async fn forward_event(
     event: NetworkEvent,
 ) -> Result<()> {
     event_tx.send(event).await.map_err(|err| {
-        metrics::counter!(WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL)
-            .increment(1);
+        WhitelistPreconfirmationDriverMetrics::inc_network_forward_failure();
         warn!(error = %err, "whitelist preconfirmation event channel closed");
         WhitelistPreconfirmationDriverError::p2p(format!(
             "whitelist preconfirmation event channel closed: {err}"

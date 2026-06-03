@@ -7,7 +7,6 @@ use jsonrpsee::{
     server::{ServerBuilder, ServerConfig, ServerHandle},
     types::{ErrorCode, ErrorObjectOwned},
 };
-use metrics::{counter, histogram};
 use preconfirmation_types::MAX_TXLIST_BYTES;
 use protocol::preconfirmation::LookaheadError;
 use tracing::{info, warn};
@@ -16,6 +15,7 @@ use super::{PreconfRpcApi, PublishBlockRequest, types::PreconfRpcErrorCode};
 use crate::{
     Result,
     error::{PreconfirmationClientError, ValidationErrorCode},
+    metrics::PreconfirmationClientMetrics,
 };
 
 /// JSON-RPC method name for publishing a preconfirmation block.
@@ -26,13 +26,6 @@ pub const METHOD_GET_STATUS: &str = "preconf_getStatus";
 pub const METHOD_PRECONF_TIP: &str = "preconf_tip";
 /// JSON-RPC method name for querying preconfirmation slot info by timestamp.
 pub const METHOD_GET_PRECONF_SLOT_INFO: &str = "preconf_getPreconfSlotInfo";
-
-/// Metric name for total RPC requests.
-const METRIC_REQUESTS_TOTAL: &str = "preconf_rpc_requests_total";
-/// Metric name for total RPC errors.
-const METRIC_ERRORS_TOTAL: &str = "preconf_rpc_errors_total";
-/// Metric name for RPC duration histogram.
-const METRIC_DURATION_SECONDS: &str = "preconf_rpc_duration_seconds";
 
 /// Maximum request body size for the RPC server (about 5.3 MiB).
 ///
@@ -173,11 +166,9 @@ fn build_rpc_module(api: Arc<dyn PreconfRpcApi>) -> RpcModule<RpcContext> {
 /// Records Prometheus metrics for an RPC request (duration, request count, error count).
 /// Record request metrics for a single RPC call.
 fn record_metrics<T>(method: &str, result: &Result<T>, duration_secs: f64) {
-    histogram!(METRIC_DURATION_SECONDS, "method" => method.to_string()).record(duration_secs);
-    counter!(METRIC_REQUESTS_TOTAL, "method" => method.to_string()).increment(1);
+    PreconfirmationClientMetrics::record_rpc(method, result.is_err(), duration_secs);
 
     if let Err(err) = result {
-        counter!(METRIC_ERRORS_TOTAL, "method" => method.to_string()).increment(1);
         warn!(method, ?err, duration_secs, "RPC request failed");
     }
 }

@@ -95,18 +95,17 @@ impl TipCatchup {
                 .request_commitments(u256_to_uint256(current), count, None)
                 .await
                 .map_err(|err| {
-                    metrics::counter!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL)
-                        .increment(1);
+                    PreconfirmationClientMetrics::catchup_errors_total().inc();
                     PreconfirmationClientError::Catchup(format!(
                         "failed to fetch commitments: {err}"
                     ))
                 })?;
 
-            metrics::counter!(PreconfirmationClientMetrics::CATCHUP_BATCHES_TOTAL).increment(1);
+            PreconfirmationClientMetrics::catchup_batches_total().inc();
 
             if response.commitments.is_empty() {
                 error!(start = ?current, count, "peer returned empty commitment batch during catch-up");
-                metrics::counter!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL).increment(1);
+                PreconfirmationClientMetrics::catchup_errors_total().inc();
                 return Err(PreconfirmationClientError::Catchup(
                     "peer returned empty commitment batch during catch-up".to_string(),
                 ));
@@ -128,7 +127,7 @@ impl TipCatchup {
         .await;
 
         if chain.is_empty() {
-            metrics::counter!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL).increment(1);
+            PreconfirmationClientMetrics::catchup_errors_total().inc();
             return Err(PreconfirmationClientError::Catchup(
                 "no valid commitments found during catch-up".to_string(),
             ));

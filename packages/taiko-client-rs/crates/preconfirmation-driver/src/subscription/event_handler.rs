@@ -191,7 +191,7 @@ where
 
     /// Handle an incoming commitment.
     pub async fn handle_commitment(&self, commitment: SignedCommitment) -> Result<()> {
-        metrics::counter!(PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL).increment(1);
+        PreconfirmationClientMetrics::commitments_received_total().inc();
 
         let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
 
@@ -242,8 +242,7 @@ where
             Ok(signer) => Some(signer),
             Err(err) => {
                 warn!(error = %err, "dropping invalid commitment");
-                metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                    .increment(1);
+                PreconfirmationClientMetrics::validation_failures_total().inc();
                 self.store.drop_pending_commitment(&current_block);
                 None
             }
@@ -264,8 +263,7 @@ where
                 Ok(info) => info,
                 Err(err) => {
                     warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
-                    metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                        .increment(1);
+                    PreconfirmationClientMetrics::validation_failures_total().inc();
                     self.store.drop_pending_commitment(&current_block);
                     return false;
                 }
@@ -273,7 +271,7 @@ where
 
         if let Err(err) = validate_lookahead(commitment, recovered_signer, &expected_slot_info) {
             warn!(error = %err, "dropping commitment with invalid lookahead");
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            PreconfirmationClientMetrics::validation_failures_total().inc();
             self.store.drop_pending_commitment(&current_block);
             return false;
         }
@@ -283,14 +281,14 @@ where
 
     /// Handle an inbound txlist gossip payload.
     pub async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
-        metrics::counter!(PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL).increment(1);
+        PreconfirmationClientMetrics::txlists_received_total().inc();
 
         let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
         if let Err(err) = validate_raw_txlist_gossip(&txlist)
             .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
         {
             warn!(error = %err, "dropping invalid txlist gossip");
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            PreconfirmationClientMetrics::validation_failures_total().inc();
             self.store.drop_pending_txlist(&hash);
             return Ok(());
         }

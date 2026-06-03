@@ -19,8 +19,9 @@ clap = { workspace = true }
 # observability
 alloy-primitives = { workspace = true, default-features = false }
 async-trait = { workspace = true }
-metrics = { workspace = true }
-metrics-exporter-prometheus = { workspace = true }
+axum = { workspace = true }
+once_cell = { workspace = true }
+prometheus = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
@@ -40,3 +41,5 @@ url = { workspace = true }
 [dev-dependencies]
 alloy-consensus = { workspace = true }
 alloy-rpc-types-eth = { workspace = true }
+http-body-util = { workspace = true }
+tower = { workspace = true }
