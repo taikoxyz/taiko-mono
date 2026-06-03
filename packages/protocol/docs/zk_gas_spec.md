@@ -336,6 +336,7 @@ Indexed by opcode byte. Sorted by multiplier descending.
 | push13 | 0x6c | 15 |
 | push8 | 0x67 | 15 |
 | basefee | 0x48 | 14 |
+| clz | 0x1e | 14 |
 | push22 | 0x75 | 14 |
 | blobhash | 0x49 | 13 |
 | calldatacopy | 0x37 | 13 |
