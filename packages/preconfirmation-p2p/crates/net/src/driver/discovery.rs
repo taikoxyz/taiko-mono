@@ -20,17 +20,17 @@ impl NetworkDriver {
     /// `PeerReputationStore`. This keeps a single decision path for outbound dials.
     pub(super) fn allow_dial_addr(&mut self, addr: &Multiaddr) -> bool {
         if self.kona_gater.can_dial(addr).is_err() {
-            metrics::counter!("p2p_dial_blocked", "source" => "kona_gater").increment(1);
+            metrics::inc_vec("p2p_dial_blocked", &["kona_gater"]);
             return false;
         }
 
         let Some(peer) = Self::peer_id_from_multiaddr(addr) else {
-            metrics::counter!("p2p_dial_blocked", "source" => "missing_peer_id").increment(1);
+            metrics::inc_vec("p2p_dial_blocked", &["missing_peer_id"]);
             return false;
         };
 
         if self.reputation.is_banned(&peer) {
-            metrics::counter!("p2p_dial_blocked", "source" => "reputation").increment(1);
+            metrics::inc_vec("p2p_dial_blocked", &["reputation"]);
             return false;
         }
 

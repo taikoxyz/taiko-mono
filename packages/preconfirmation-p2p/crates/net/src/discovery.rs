@@ -9,11 +9,12 @@ use std::{
 
 use discv5::ListenConfig;
 use libp2p::Multiaddr;
-use metrics::{counter, histogram};
 use rand::RngCore;
 use reth_discv5::{Config as RethDiscv5Config, Discv5 as RethDiscv5};
 use secp256k1::SecretKey;
 use tokio::sync::mpsc;
+
+use crate::metrics;
 
 /// Spawns a Discv5 instance in the background and forwards discovered multiaddrs via a channel.
 ///
@@ -109,18 +110,24 @@ pub fn spawn_discovery(
                             .ok();
 
                             if let Some(multi) = maybe_multi {
-                                counter!("p2p_discovery_event", "kind" => "lookup_success").increment(1);
-                                histogram!("p2p_discovery_lookup_latency_seconds", "outcome" => "success")
-                                    .record(elapsed);
+                                metrics::inc_vec("p2p_discovery_event", &["lookup_success"]);
+                                metrics::observe_vec(
+                                    "p2p_discovery_lookup_latency_seconds",
+                                    &["success"],
+                                    elapsed,
+                                );
                                 if tx.send(multi).await.is_err() {
                                     break;
                                 }
                             }
                         }
                         None => {
-                            counter!("p2p_discovery_event", "kind" => "lookup_failure").increment(1);
-                            histogram!("p2p_discovery_lookup_latency_seconds", "outcome" => "error")
-                                .record(elapsed);
+                            metrics::inc_vec("p2p_discovery_event", &["lookup_failure"]);
+                            metrics::observe_vec(
+                                "p2p_discovery_lookup_latency_seconds",
+                                &["error"],
+                                elapsed,
+                            );
                         }
                     }
                 }

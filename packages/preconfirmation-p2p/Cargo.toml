@@ -50,10 +50,8 @@ reth-network-types = { git = "https://github.com/paradigmxyz/reth", package = "r
 reth-tokio-util = { git = "https://github.com/paradigmxyz/reth", package = "reth-tokio-util", tag = "v1.9.3" }
 
 # Metrics / observability
-metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.15", default-features = false, features = [
-  "http-listener",
-] }
+once_cell = "1"
+prometheus = "0.13"
 
 # Crypto / serialization / types
 ipnet = "2"
