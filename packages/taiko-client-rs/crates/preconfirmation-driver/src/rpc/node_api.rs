@@ -11,7 +11,7 @@ use preconfirmation_types::{
 use protocol::codec::ZlibTxListCodec;
 use ssz_rs::Deserialize;
 use tokio::sync::{mpsc, watch};
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::{
     Result,
@@ -157,6 +157,8 @@ pub(crate) async fn publish_block_impl(
             record_validation_failure();
         })?;
 
+    log_publish_block_entry(&signed_commitment, signer, request.tx_list_hash);
+
     // 4. Validate lookahead.
     let timestamp = uint256_to_u256(&signed_commitment.commitment.preconf.timestamp);
     let slot_info = lookahead_resolver
@@ -239,6 +241,25 @@ pub(crate) async fn publish_block_impl(
     tokio::try_join!(driver_submit, commitment_gossip, txlist_gossip)?;
 
     Ok(PublishBlockResponse { commitment_hash, tx_list_hash: calculated_hash })
+}
+
+/// Emit an entry log for a preconfirmation JSON-RPC block publish request.
+fn log_publish_block_entry(
+    commitment: &SignedCommitment,
+    signer: alloy_primitives::Address,
+    tx_list_hash: B256,
+) {
+    let preconf = &commitment.commitment.preconf;
+    info!(
+        block_id = %uint256_to_u256(&preconf.block_number),
+        signer = %signer,
+        timestamp = %uint256_to_u256(&preconf.timestamp),
+        submission_window_end = %uint256_to_u256(&preconf.submission_window_end),
+        raw_tx_list_hash = %B256::from_slice(preconf.raw_tx_list_hash.as_ref()),
+        request_tx_list_hash = %tx_list_hash,
+        eop = preconf.eop,
+        "🏗️ New preconfirmation block publish request"
+    );
 }
 
 /// Build a NodeStatus by querying peer count and computing sync state.

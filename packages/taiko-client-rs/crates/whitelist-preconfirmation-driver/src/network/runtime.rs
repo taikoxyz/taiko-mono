@@ -817,17 +817,19 @@ impl NetworkRuntime {
                     let acceptance =
                         self.inbound_validation_state.validate_preconf_blocks(&payload);
 
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                        let Err(err) = forward_event(
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                        log_inbound_preconf_blocks_entry(from, &payload);
+                        if let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafePayload { from, payload },
                         )
                         .await
-                    {
-                        // If forwarding to importer fails, reject to avoid silently
-                        // accepting data that local consumers could not process.
-                        report(gossipsub::MessageAcceptance::Reject);
-                        return Err(err);
+                        {
+                            // If forwarding to importer fails, reject to avoid silently
+                            // accepting data that local consumers could not process.
+                            report(gossipsub::MessageAcceptance::Reject);
+                            return Err(err);
+                        }
                     }
 
                     let label = acceptance_label(&acceptance);
@@ -845,15 +847,17 @@ impl NetworkRuntime {
             let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
                 Ok(envelope) => {
                     let acceptance = self.inbound_validation_state.validate_response(&envelope);
-                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) &&
-                        let Err(err) = forward_event(
+                    if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                        log_inbound_preconf_response_entry(from, &envelope);
+                        if let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafeResponse { from, envelope },
                         )
                         .await
-                    {
-                        report(gossipsub::MessageAcceptance::Reject);
-                        return Err(err);
+                        {
+                            report(gossipsub::MessageAcceptance::Reject);
+                            return Err(err);
+                        }
                     }
 
                     let inbound_label = acceptance_label(&acceptance);
@@ -878,6 +882,11 @@ impl NetworkRuntime {
 
             let acceptance = self.inbound_validation_state.validate_request(from, hash, now);
             if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                info!(
+                    peer = %from,
+                    requested_block_hash = %hash,
+                    "📥 New preconfirmation block request gossip"
+                );
                 // Requests are relayed only after inbound dedupe/rate checks pass.
                 forward_event(&self.event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
             }
@@ -898,6 +907,11 @@ impl NetworkRuntime {
 
             let acceptance = self.inbound_validation_state.validate_eos_request(from, epoch, now);
             if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
+                info!(
+                    peer = %from,
+                    epoch,
+                    "📥 New end-of-sequencing preconfirmation request gossip"
+                );
                 // EOS requests follow the same acceptance gate as preconf requests.
                 forward_event(&self.event_tx, NetworkEvent::EndOfSequencingRequest { from, epoch })
                     .await?;
@@ -1125,6 +1139,46 @@ fn record_publish(topic: &'static str, result: &'static str) {
 /// Record one inbound message result for the given network topic label.
 fn record_inbound(topic: &'static str, result: &'static str) {
     WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(topic, result);
+}
+
+/// Emit an entry log for an inbound `preconfBlocks` gossip payload.
+fn log_inbound_preconf_blocks_entry(from: PeerId, payload: &DecodedUnsafePayload) {
+    let execution_payload = &payload.envelope.execution_payload;
+    info!(
+        peer = %from,
+        block_id = execution_payload.block_number,
+        block_hash = %execution_payload.block_hash,
+        coinbase = %execution_payload.fee_recipient,
+        timestamp = execution_payload.timestamp,
+        gas_limit = execution_payload.gas_limit,
+        gas_used = execution_payload.gas_used,
+        base_fee_per_gas = %execution_payload.base_fee_per_gas,
+        extra_data = %alloy_primitives::hex::encode(&execution_payload.extra_data),
+        parent_hash = %execution_payload.parent_hash,
+        end_of_sequencing = payload.envelope.end_of_sequencing.unwrap_or(false),
+        is_forced_inclusion = payload.envelope.is_forced_inclusion.unwrap_or(false),
+        "📥 New preconfirmation block gossip"
+    );
+}
+
+/// Emit an entry log for an inbound `responsePreconfBlocks` gossip payload.
+fn log_inbound_preconf_response_entry(from: PeerId, envelope: &WhitelistExecutionPayloadEnvelope) {
+    let execution_payload = &envelope.execution_payload;
+    info!(
+        peer = %from,
+        block_id = execution_payload.block_number,
+        block_hash = %execution_payload.block_hash,
+        coinbase = %execution_payload.fee_recipient,
+        timestamp = execution_payload.timestamp,
+        gas_limit = execution_payload.gas_limit,
+        gas_used = execution_payload.gas_used,
+        base_fee_per_gas = %execution_payload.base_fee_per_gas,
+        extra_data = %alloy_primitives::hex::encode(&execution_payload.extra_data),
+        parent_hash = %execution_payload.parent_hash,
+        end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false),
+        is_forced_inclusion = envelope.is_forced_inclusion.unwrap_or(false),
+        "📥 New preconfirmation block response gossip"
+    );
 }
 
 /// Forward one decoded event to the importer with backpressure.
