@@ -240,6 +240,7 @@ Indexed by the low byte of the precompile address. Sorted by multiplier descendi
 | bls12_map_fp2_to_g2 | 0x13 | 208 |
 | bls12_g1add | 0x0b | 201 |
 | blake2f | 0x09 | 166 |
+| p256verify | 0x100 | 163 |
 | bls12_g1msm | 0x0c | 93 |
 | bls12_g2msm | 0x0f | 71 |
 | bn128_mul | 0x07 | 58 |
