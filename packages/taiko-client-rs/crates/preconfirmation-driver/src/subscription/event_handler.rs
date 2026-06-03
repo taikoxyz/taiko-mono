@@ -9,7 +9,7 @@ use preconfirmation_types::{
 };
 use protocol::{codec::ZlibTxListCodec, preconfirmation::PreconfSignerResolver};
 use tokio::sync::{broadcast, mpsc::Sender};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     driver_interface::DriverClient,
@@ -194,6 +194,15 @@ where
         metrics::counter!(PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL).increment(1);
 
         let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+        let preconf = &commitment.commitment.preconf;
+        info!(
+            block_id = %current_block,
+            timestamp = %uint256_to_u256(&preconf.timestamp),
+            submission_window_end = %uint256_to_u256(&preconf.submission_window_end),
+            raw_tx_list_hash = %B256::from_slice(preconf.raw_tx_list_hash.as_ref()),
+            eop = preconf.eop,
+            "📥 New preconfirmation commitment gossip"
+        );
 
         // If we're behind the event sync tip, drop the commitment.
         if current_block <= self.driver.event_sync_tip().await? {
@@ -286,6 +295,11 @@ where
         metrics::counter!(PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL).increment(1);
 
         let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
+        info!(
+            raw_tx_list_hash = %hash,
+            txlist_bytes = txlist.txlist.as_ref().len(),
+            "📥 New preconfirmation txlist gossip"
+        );
         if let Err(err) = validate_raw_txlist_gossip(&txlist)
             .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
         {
