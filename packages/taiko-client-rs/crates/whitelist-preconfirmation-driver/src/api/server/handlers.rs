@@ -1,5 +1,7 @@
 //! HTTP and websocket route handlers.
 
+use std::time::Instant;
+
 use axum::{
     extract::{Request, State, ws::WebSocketUpgrade},
     response::{IntoResponse, Response},
@@ -12,7 +14,10 @@ use super::{
     state::AppState,
     websocket::serve_websocket_notifications,
 };
-use crate::api::types::{ApiStatus, BuildPreconfBlockApiRequest};
+use crate::{
+    api::types::{ApiStatus, BuildPreconfBlockApiRequest},
+    metrics::WhitelistPreconfirmationDriverMetrics,
+};
 
 /// REST response payload for successful `/preconfBlocks` requests.
 #[derive(serde::Serialize)]
@@ -29,15 +34,26 @@ pub(super) async fn handle_root() -> Response {
 
 /// Status endpoint handler returning importer/runtime health.
 pub(super) async fn handle_status(State(state): State<AppState>) -> Result<Response, ApiHttpError> {
-    let status = state.api.get_status().await?;
-    let response = ApiStatus {
-        highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
-        end_of_sequencing_block_hash: status
-            .end_of_sequencing_block_hash
-            .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
-        can_shutdown: status.can_shutdown,
-    };
-    Ok(json_response(http::StatusCode::OK, &response))
+    let started_at = Instant::now();
+    let result = async {
+        let status = state.api.get_status().await?;
+        let response = ApiStatus {
+            highest_unsafe_l2_payload_block_id: status.highest_unsafe_l2_payload_block_id,
+            end_of_sequencing_block_hash: status
+                .end_of_sequencing_block_hash
+                .unwrap_or_else(|| alloy_primitives::B256::ZERO.to_string()),
+            can_shutdown: status.can_shutdown,
+        };
+        Ok(json_response(http::StatusCode::OK, &response))
+    }
+    .await;
+
+    WhitelistPreconfirmationDriverMetrics::record_rpc(
+        "status",
+        result.is_err(),
+        started_at.elapsed().as_secs_f64(),
+    );
+    result
 }
 
 /// `preconfBlocks` REST endpoint handler.
@@ -45,25 +61,36 @@ pub(super) async fn handle_preconf_blocks(
     State(state): State<AppState>,
     request: Request,
 ) -> Result<Response, ApiHttpError> {
-    let status = state.api.get_status().await?;
+    let started_at = Instant::now();
+    let result = async {
+        let status = state.api.get_status().await?;
 
-    if !status.sync_ready {
-        return Err(ApiHttpError::BadRequest(
-            "event sync is not ready to serve preconfBlocks".to_string(),
-        ));
+        if !status.sync_ready {
+            return Err(ApiHttpError::BadRequest(
+                "event sync is not ready to serve preconfBlocks".to_string(),
+            ));
+        }
+
+        let body = read_request_body(request.into_body(), PRECONF_BLOCKS_BODY_LIMIT_BYTES).await?;
+
+        let rest_request: BuildPreconfBlockApiRequest = serde_json::from_slice(&body)?;
+
+        let request = rest_request.into_rpc_request().map_err(ApiHttpError::BadRequest)?;
+
+        let response = state.api.build_preconf_block(request).await?;
+        Ok(json_response(
+            http::StatusCode::OK,
+            &BuildPreconfBlockRestResponse { block_header: response.block_header },
+        ))
     }
+    .await;
 
-    let body = read_request_body(request.into_body(), PRECONF_BLOCKS_BODY_LIMIT_BYTES).await?;
-
-    let rest_request: BuildPreconfBlockApiRequest = serde_json::from_slice(&body)?;
-
-    let request = rest_request.into_rpc_request().map_err(ApiHttpError::BadRequest)?;
-
-    let response = state.api.build_preconf_block(request).await?;
-    Ok(json_response(
-        http::StatusCode::OK,
-        &BuildPreconfBlockRestResponse { block_header: response.block_header },
-    ))
+    WhitelistPreconfirmationDriverMetrics::record_rpc(
+        "preconfBlocks",
+        result.is_err(),
+        started_at.elapsed().as_secs_f64(),
+    );
+    result
 }
 
 /// Upgrade a request to a websocket stream for EOS notifications.

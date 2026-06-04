@@ -6,6 +6,28 @@ use prometheus::{
     Gauge, GaugeVec, Histogram, HistogramVec, IntCounter, IntCounterVec, Opts, core::Collector,
 };
 
+/// Histogram buckets for gas-count observations.
+const GAS_BUCKETS: &[f64] = &[
+    10_000.0,
+    25_000.0,
+    50_000.0,
+    100_000.0,
+    200_000.0,
+    500_000.0,
+    1_000_000.0,
+    2_500_000.0,
+    5_000_000.0,
+    10_000_000.0,
+];
+
+/// Histogram buckets for fee observations expressed in gwei.
+const GWEI_BUCKETS: &[f64] =
+    &[1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1_000.0, 5_000.0, 10_000.0];
+
+/// Histogram buckets for transaction-manager send latency expressed in milliseconds.
+const LATENCY_MILLISECONDS_BUCKETS: &[f64] =
+    &[1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1_000.0, 5_000.0, 10_000.0];
+
 /// Metric keys and direct Prometheus handles emitted by the proposer service.
 #[derive(Debug, Clone)]
 pub struct ProposerMetrics;
@@ -168,7 +190,11 @@ impl ProposerMetricHandles {
                 ProposerMetrics::PROPOSALS_FAILED,
                 "Number of failed proposals",
             ),
-            gas_used: histogram(ProposerMetrics::GAS_USED, "Gas used by successful proposals"),
+            gas_used: histogram(
+                ProposerMetrics::GAS_USED,
+                "Gas used by successful proposals",
+                GAS_BUCKETS,
+            ),
         }
     }
 }
@@ -206,6 +232,7 @@ impl ProposerTxMetricHandles {
             tx_max_fee_gwei: histogram_vec(
                 "base_tx_manager_tx_max_fee_gwei",
                 "Maximum possible transaction fee in gwei (gas_limit * fee_cap)",
+                GWEI_BUCKETS,
             ),
             tx_gas_bump_count: counter_vec(
                 "base_tx_manager_tx_gas_bump_count",
@@ -214,6 +241,7 @@ impl ProposerTxMetricHandles {
             tx_send_latency_ms: histogram_vec(
                 "base_tx_manager_tx_send_latency_ms",
                 "Send-loop latency in milliseconds",
+                LATENCY_MILLISECONDS_BUCKETS,
             ),
             current_nonce: gauge_vec("base_tx_manager_current_nonce", "Current nonce value"),
             tx_publish_error_count: counter_vec(
@@ -270,19 +298,23 @@ fn gauge_vec(name: &'static str, help: &'static str) -> GaugeVec {
 }
 
 /// Construct and register a histogram.
-fn histogram(name: &'static str, help: &'static str) -> Histogram {
-    let metric = Histogram::with_opts(prometheus::HistogramOpts::new(name, help))
-        .unwrap_or_else(|error| panic!("failed to create Prometheus histogram {name}: {error}"));
+fn histogram(name: &'static str, help: &'static str, buckets: &[f64]) -> Histogram {
+    let metric =
+        Histogram::with_opts(prometheus::HistogramOpts::new(name, help).buckets(buckets.to_vec()))
+            .unwrap_or_else(|error| {
+                panic!("failed to create Prometheus histogram {name}: {error}")
+            });
     register(metric.clone());
     metric
 }
 
 /// Construct and register a histogram vector grouped by tx-manager instance name.
-fn histogram_vec(name: &'static str, help: &'static str) -> HistogramVec {
-    let metric = HistogramVec::new(prometheus::HistogramOpts::new(name, help), &["name"])
-        .unwrap_or_else(|error| {
-            panic!("failed to create Prometheus histogram vector {name}: {error}")
-        });
+fn histogram_vec(name: &'static str, help: &'static str, buckets: &[f64]) -> HistogramVec {
+    let metric = HistogramVec::new(
+        prometheus::HistogramOpts::new(name, help).buckets(buckets.to_vec()),
+        &["name"],
+    )
+    .unwrap_or_else(|error| panic!("failed to create Prometheus histogram vector {name}: {error}"));
     register(metric.clone());
     metric
 }
@@ -327,5 +359,26 @@ mod tests {
             .expect("tx-manager gas bump counter should include proposer label");
 
         assert_eq!(metric.get_counter().get_value(), 1.0);
+    }
+
+    #[test]
+    fn gas_used_histogram_has_gas_scale_buckets() {
+        ProposerMetrics::init();
+
+        let families = prometheus::gather();
+        let family = families
+            .iter()
+            .find(|family| family.get_name() == ProposerMetrics::GAS_USED)
+            .expect("gas-used histogram should be exported");
+        let metric = family.get_metric().first().expect("gas-used histogram should have a metric");
+
+        assert!(
+            metric
+                .get_histogram()
+                .get_bucket()
+                .iter()
+                .any(|bucket| bucket.get_upper_bound() >= 30_000.0),
+            "gas-used histogram should include buckets large enough for proposal gas"
+        );
     }
 }

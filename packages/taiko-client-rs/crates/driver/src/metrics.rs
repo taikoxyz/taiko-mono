@@ -3,6 +3,13 @@
 use once_cell::sync::Lazy;
 use prometheus::{Gauge, Histogram, IntCounter, core::Collector};
 
+/// Histogram buckets for operation durations expressed in seconds.
+const DURATION_SECONDS_BUCKETS: &[f64] =
+    &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
+
+/// Histogram buckets for retry-attempt counts.
+const RETRY_ATTEMPT_BUCKETS: &[f64] = &[0.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0];
+
 /// Metric namespace for the driver.
 pub struct DriverMetrics;
 
@@ -394,14 +401,17 @@ impl DriverMetricHandles {
                 histogram(
                     DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS,
                     "Wall-clock time to process a preconfirmation payload",
+                    DURATION_SECONDS_BUCKETS,
                 ),
                 histogram(
                     DriverMetrics::PRECONF_RETRY_ATTEMPTS,
                     "Retry attempts per preconfirmation payload",
+                    RETRY_ATTEMPT_BUCKETS,
                 ),
                 histogram(
                     DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_DURATION_SECONDS,
                     "Duration of parent hash lookups for preconfirmation",
+                    DURATION_SECONDS_BUCKETS,
                 ),
             ],
         }
@@ -440,9 +450,12 @@ fn gauge(name: &'static str, help: &'static str) -> (&'static str, Gauge) {
 }
 
 /// Construct and register a histogram.
-fn histogram(name: &'static str, help: &'static str) -> (&'static str, Histogram) {
-    let metric = Histogram::with_opts(prometheus::HistogramOpts::new(name, help))
-        .unwrap_or_else(|error| panic!("failed to create Prometheus histogram {name}: {error}"));
+fn histogram(name: &'static str, help: &'static str, buckets: &[f64]) -> (&'static str, Histogram) {
+    let metric =
+        Histogram::with_opts(prometheus::HistogramOpts::new(name, help).buckets(buckets.to_vec()))
+            .unwrap_or_else(|error| {
+                panic!("failed to create Prometheus histogram {name}: {error}")
+            });
     register(metric.clone());
     (name, metric)
 }
@@ -477,5 +490,26 @@ mod tests {
         assert_ne!(submit, ingress, "submit and ingress stale-drop metrics must differ");
         assert_ne!(submit, production, "submit and production stale-drop metrics must differ");
         assert_ne!(ingress, production, "ingress and production stale-drop metrics must differ");
+    }
+
+    #[test]
+    fn duration_histograms_include_long_running_operation_buckets() {
+        DriverMetrics::init();
+
+        let families = prometheus::gather();
+        let family = families
+            .iter()
+            .find(|family| family.get_name() == DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS)
+            .expect("preconfirmation injection duration histogram should be exported");
+        let metric = family.get_metric().first().expect("duration histogram should have a metric");
+
+        assert!(
+            metric
+                .get_histogram()
+                .get_bucket()
+                .iter()
+                .any(|bucket| bucket.get_upper_bound() >= 120.0),
+            "duration histograms should retain precision above the default 10s bucket"
+        );
     }
 }

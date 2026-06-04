@@ -1,7 +1,11 @@
 //! Metrics exposed by the whitelist preconfirmation driver runtime.
 
 use once_cell::sync::Lazy;
-use prometheus::{Gauge, Histogram, HistogramOpts, IntCounter, IntCounterVec, Opts};
+use prometheus::{Gauge, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts};
+
+/// Histogram buckets for operation durations expressed in seconds.
+const DURATION_SECONDS_BUCKETS: &[f64] =
+    &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
 
 /// Process-wide whitelist preconfirmation metrics registered with Prometheus.
 static METRICS: Lazy<WhitelistPreconfirmationMetricHandles> =
@@ -17,6 +21,12 @@ struct WhitelistPreconfirmationMetricHandles {
     gauges: Vec<(&'static str, Gauge)>,
     /// Histograms without labels.
     histograms: Vec<(&'static str, Histogram)>,
+    /// RPC request counter grouped by method.
+    rpc_requests_total: IntCounterVec,
+    /// RPC error counter grouped by method.
+    rpc_errors_total: IntCounterVec,
+    /// RPC duration histogram grouped by method.
+    rpc_duration_seconds: HistogramVec,
 }
 
 impl WhitelistPreconfirmationMetricHandles {
@@ -43,14 +53,6 @@ impl WhitelistPreconfirmationMetricHandles {
                 counter(
                     WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_ATTEMPTS_TOTAL,
                     "Cache import attempts",
-                ),
-                counter(
-                    WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL,
-                    "Total whitelist RPC requests by method",
-                ),
-                counter(
-                    WhitelistPreconfirmationDriverMetrics::RPC_ERRORS_TOTAL,
-                    "Total whitelist RPC errors by method",
                 ),
             ],
             counter_vecs: vec![
@@ -114,20 +116,37 @@ impl WhitelistPreconfirmationMetricHandles {
                 histogram(
                     WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS,
                     "Time spent waiting for preconfirmation ingress readiness",
+                    DURATION_SECONDS_BUCKETS,
                 ),
                 histogram(
                     WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_DURATION_SECONDS,
                     "Duration for driver submission path",
+                    DURATION_SECONDS_BUCKETS,
                 ),
                 histogram(
                     WhitelistPreconfirmationDriverMetrics::BUILD_PRECONF_BLOCK_DURATION_SECONDS,
                     "Duration for build_preconf_block RPC calls",
-                ),
-                histogram(
-                    WhitelistPreconfirmationDriverMetrics::RPC_DURATION_SECONDS,
-                    "Whitelist RPC request duration by method",
+                    DURATION_SECONDS_BUCKETS,
                 ),
             ],
+            rpc_requests_total: counter_vec(
+                WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL,
+                "Total whitelist RPC requests by method",
+                &["method"],
+            )
+            .1,
+            rpc_errors_total: counter_vec(
+                WhitelistPreconfirmationDriverMetrics::RPC_ERRORS_TOTAL,
+                "Total whitelist RPC errors by method",
+                &["method"],
+            )
+            .1,
+            rpc_duration_seconds: histogram_vec(
+                WhitelistPreconfirmationDriverMetrics::RPC_DURATION_SECONDS,
+                "Whitelist RPC request duration by method",
+                &["method"],
+                DURATION_SECONDS_BUCKETS,
+            ),
         }
     }
 }
@@ -226,6 +245,15 @@ impl WhitelistPreconfirmationDriverMetrics {
     /// Return a scalar histogram by its exported metric name.
     pub(crate) fn histogram(name: &'static str) -> Histogram {
         find(&METRICS.histograms, name)
+    }
+
+    /// Record one REST RPC request outcome.
+    pub(crate) fn record_rpc(method: &str, failed: bool, duration_secs: f64) {
+        METRICS.rpc_duration_seconds.with_label_values(&[method]).observe(duration_secs);
+        METRICS.rpc_requests_total.with_label_values(&[method]).inc();
+        if failed {
+            METRICS.rpc_errors_total.with_label_values(&[method]).inc();
+        }
     }
 
     /// Increment the runner start counter.
@@ -359,11 +387,25 @@ fn gauge(name: &'static str, help: &'static str) -> (&'static str, Gauge) {
 }
 
 /// Register a scalar histogram and return it with its exported name.
-fn histogram(name: &'static str, help: &'static str) -> (&'static str, Histogram) {
-    let metric =
-        Histogram::with_opts(HistogramOpts::new(name, help)).expect("valid histogram definition");
+fn histogram(name: &'static str, help: &'static str, buckets: &[f64]) -> (&'static str, Histogram) {
+    let metric = Histogram::with_opts(HistogramOpts::new(name, help).buckets(buckets.to_vec()))
+        .expect("valid histogram definition");
     prometheus::register(Box::new(metric.clone())).expect("histogram registration must succeed");
     (name, metric)
+}
+
+/// Register a labelled histogram family and return it.
+fn histogram_vec(
+    name: &'static str,
+    help: &'static str,
+    labels: &'static [&'static str],
+    buckets: &[f64],
+) -> HistogramVec {
+    let metric =
+        HistogramVec::new(HistogramOpts::new(name, help).buckets(buckets.to_vec()), labels)
+            .expect("valid histogram definition");
+    prometheus::register(Box::new(metric.clone())).expect("histogram registration must succeed");
+    metric
 }
 
 /// Clone a registered collector by its exported metric name.
@@ -413,5 +455,56 @@ mod tests {
     #[test]
     fn init_does_not_panic() {
         WhitelistPreconfirmationDriverMetrics::init();
+    }
+
+    #[test]
+    fn duration_histograms_include_long_running_operation_buckets() {
+        WhitelistPreconfirmationDriverMetrics::init();
+
+        let families = prometheus::gather();
+        let family = families
+            .iter()
+            .find(|family| {
+                family.get_name() ==
+                    WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
+            })
+            .expect("event-sync wait duration histogram should be exported");
+        let metric = family.get_metric().first().expect("duration histogram should have a metric");
+
+        assert!(
+            metric
+                .get_histogram()
+                .get_bucket()
+                .iter()
+                .any(|bucket| bucket.get_upper_bound() >= 120.0),
+            "duration histograms should retain precision above the default 10s bucket"
+        );
+    }
+
+    #[test]
+    fn rpc_metrics_are_recorded_with_method_label() {
+        WhitelistPreconfirmationDriverMetrics::init();
+
+        WhitelistPreconfirmationDriverMetrics::record_rpc("status", true, 0.25);
+
+        let families = prometheus::gather();
+        let requests = families
+            .iter()
+            .find(|family| {
+                family.get_name() == WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL
+            })
+            .expect("RPC request counter should be exported");
+        let request_metric = requests
+            .get_metric()
+            .iter()
+            .find(|metric| {
+                metric
+                    .get_label()
+                    .iter()
+                    .any(|label| label.get_name() == "method" && label.get_value() == "status")
+            })
+            .expect("RPC request counter should include method label");
+
+        assert!(request_metric.get_counter().get_value() >= 1.0);
     }
 }

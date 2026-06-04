@@ -5,6 +5,10 @@ use prometheus::{
     Gauge, Histogram, HistogramVec, IntCounter, IntCounterVec, Opts, core::Collector,
 };
 
+/// Histogram buckets for operation durations expressed in seconds.
+const DURATION_SECONDS_BUCKETS: &[f64] =
+    &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
+
 /// Metric namespace for the preconfirmation client.
 pub struct PreconfirmationClientMetrics;
 
@@ -244,14 +248,17 @@ impl PreconfirmationMetricHandles {
                 histogram(
                     PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS,
                     "Time spent performing tip catch-up",
+                    DURATION_SECONDS_BUCKETS,
                 ),
                 histogram(
                     PreconfirmationClientMetrics::PAYLOAD_BUILD_DURATION_SECONDS,
                     "Time spent building execution payload",
+                    DURATION_SECONDS_BUCKETS,
                 ),
                 histogram(
                     PreconfirmationClientMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS,
                     "Time spent waiting for driver event sync",
+                    DURATION_SECONDS_BUCKETS,
                 ),
             ],
             rpc_requests_total: counter_vec(
@@ -268,6 +275,7 @@ impl PreconfirmationMetricHandles {
                 PreconfirmationClientMetrics::RPC_DURATION_SECONDS,
                 "Preconfirmation RPC request duration by method",
                 &["method"],
+                DURATION_SECONDS_BUCKETS,
             ),
         }
     }
@@ -314,19 +322,28 @@ fn gauge(name: &'static str, help: &'static str) -> (&'static str, Gauge) {
 }
 
 /// Construct and register a histogram.
-fn histogram(name: &'static str, help: &'static str) -> (&'static str, Histogram) {
-    let metric = Histogram::with_opts(prometheus::HistogramOpts::new(name, help))
-        .unwrap_or_else(|error| panic!("failed to create Prometheus histogram {name}: {error}"));
+fn histogram(name: &'static str, help: &'static str, buckets: &[f64]) -> (&'static str, Histogram) {
+    let metric =
+        Histogram::with_opts(prometheus::HistogramOpts::new(name, help).buckets(buckets.to_vec()))
+            .unwrap_or_else(|error| {
+                panic!("failed to create Prometheus histogram {name}: {error}")
+            });
     register(metric.clone());
     (name, metric)
 }
 
 /// Construct and register a histogram vector.
-fn histogram_vec(name: &'static str, help: &'static str, labels: &[&str]) -> HistogramVec {
-    let metric = HistogramVec::new(prometheus::HistogramOpts::new(name, help), labels)
-        .unwrap_or_else(|error| {
-            panic!("failed to create Prometheus histogram vector {name}: {error}")
-        });
+fn histogram_vec(
+    name: &'static str,
+    help: &'static str,
+    labels: &[&str],
+    buckets: &[f64],
+) -> HistogramVec {
+    let metric = HistogramVec::new(
+        prometheus::HistogramOpts::new(name, help).buckets(buckets.to_vec()),
+        labels,
+    )
+    .unwrap_or_else(|error| panic!("failed to create Prometheus histogram vector {name}: {error}"));
     register(metric.clone());
     metric
 }
@@ -411,6 +428,29 @@ mod tests {
         assert_eq!(
             PreconfirmationClientMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS,
             "preconf_client_event_sync_wait_duration_seconds"
+        );
+    }
+
+    #[test]
+    fn duration_histograms_include_long_running_operation_buckets() {
+        PreconfirmationClientMetrics::init();
+
+        let families = prometheus::gather();
+        let family = families
+            .iter()
+            .find(|family| {
+                family.get_name() == PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS
+            })
+            .expect("catchup duration histogram should be exported");
+        let metric = family.get_metric().first().expect("duration histogram should have a metric");
+
+        assert!(
+            metric
+                .get_histogram()
+                .get_bucket()
+                .iter()
+                .any(|bucket| bucket.get_upper_bound() >= 120.0),
+            "duration histograms should retain precision above the default 10s bucket"
         );
     }
 }
