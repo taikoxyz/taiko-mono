@@ -7,6 +7,8 @@ on:
       - "taiko-alethia-client-v*"
     paths:
       - "packages/taiko-client/**"
+      - "go.mod"
+      - "go.sum"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
