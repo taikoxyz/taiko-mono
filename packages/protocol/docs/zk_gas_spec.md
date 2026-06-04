@@ -37,10 +37,10 @@ Example rows:
 
 ```text
 Operation              Multiplier
-modexp (precompile)    923
 point_evaluation       859
 bls12_pairing          365
 blake2f                166
+modexp (precompile)    154
 mulmod (opcode)        113
 ...
 ```
@@ -232,7 +232,6 @@ Indexed by the low byte of the precompile address. Sorted by multiplier descendi
 
 | Precompile | Address | Multiplier |
 | --- | --- | ---: |
-| modexp | 0x05 | 923 |
 | point_evaluation | 0x0a | 859 |
 | bls12_pairing | 0x0f | 365 |
 | bls12_map_fp_to_g1 | 0x10 | 246 |
@@ -241,6 +240,7 @@ Indexed by the low byte of the precompile address. Sorted by multiplier descendi
 | bls12_g1add | 0x0b | 201 |
 | blake2f | 0x09 | 166 |
 | p256verify | 0x100 | 163 |
+| modexp | 0x05 | 154 |
 | bls12_g1msm | 0x0c | 93 |
 | bls12_g2msm | 0x0e | 71 |
 | bn128_mul | 0x07 | 58 |
@@ -420,14 +420,14 @@ The initial value of 100M is a placeholder derived from the following model:
 
 The table below shows how the per-block limit scales with proving deadline, assuming 384 blocks per proposal. Values in the EVM Gas columns show the equivalent conventional gas budget if every opcode in the block were of that single type.
 
-| Proving Deadline | Total ZK Budget | ZK_GAS_LIMIT (÷384) | EVM Gas (modexp@923×) | EVM Gas (keccak256@31×) | EVM Gas (add@19×) | EVM Gas (push1@9×) |
+| Proving Deadline | Total ZK Budget | ZK_GAS_LIMIT (÷384) | EVM Gas (point_evaluation@859×) | EVM Gas (keccak256@31×) | EVM Gas (add@19×) | EVM Gas (push1@9×) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2 hours | 7.2B | 18.75M | 20.3K | 604.8K | 986.8K | 2.08M |
-| 4 hours | 14.4B | 37.5M | 40.6K | 1.21M | 1.97M | 4.17M |
-| 6 hours | 21.6B | 56.25M | 60.9K | 1.81M | 2.96M | 6.25M |
-| 8 hours | 28.8B | 75M | 81.3K | 2.42M | 3.95M | 8.33M |
-| 12 hours | 43.2B | 112.5M | 121.9K | 3.63M | 5.92M | 12.50M |
-| 24 hours | 86.4B | 225M | 243.8K | 7.26M | 11.84M | 25.00M |
+| 2 hours | 7.2B | 18.75M | 21.8K | 604.8K | 986.8K | 2.08M |
+| 4 hours | 14.4B | 37.5M | 43.7K | 1.21M | 1.97M | 4.17M |
+| 6 hours | 21.6B | 56.25M | 65.5K | 1.81M | 2.96M | 6.25M |
+| 8 hours | 28.8B | 75M | 87.3K | 2.42M | 3.95M | 8.33M |
+| 12 hours | 43.2B | 112.5M | 131.0K | 3.63M | 5.92M | 12.50M |
+| 24 hours | 86.4B | 225M | 261.9K | 7.26M | 11.84M | 25.00M |
 
 **This value is a placeholder and will almost certainly change.** Factors that will influence the final value include: number of GPUs available, prover software improvements and target proving deadline chosen for production.
 
