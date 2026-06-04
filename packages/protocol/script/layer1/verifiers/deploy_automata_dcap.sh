@@ -178,16 +178,20 @@ except ValueError as e:
     sys.stderr.write(f'Invalid hex quote: {e}\n')
     sys.exit(1)
 
-# Raiko bootstrap wraps the TDX quote in a JSON envelope:
-# tdx.quote = hex(JSON{ Attestation, InstanceInfo, UserData })
-# The raw DCAP quote is at: JSON → base64(InstanceInfo) → JSON → base64(AttestationReport)
+# reth-tdx wraps the TDX quote in a hex(JSON) envelope. Two shapes:
+#   native (tdx issuer): { "RawQuote": b64(raw DCAP quote), "UserData": b64 }
+#   azure  issuer:       { "InstanceInfo": b64(JSON{ "AttestationReport": b64 }), ... }
+# Unwrap whichever is present down to the raw DCAP quote bytes.
 import json as _json
 try:
     _doc = _json.loads(quote)
-    _inst = _json.loads(base64.b64decode(_doc["InstanceInfo"]))
-    quote = base64.b64decode(_inst["AttestationReport"])
+    if isinstance(_doc, dict) and "RawQuote" in _doc:
+        quote = base64.b64decode(_doc["RawQuote"])
+    elif isinstance(_doc, dict) and "InstanceInfo" in _doc:
+        _inst = _json.loads(base64.b64decode(_doc["InstanceInfo"]))
+        quote = base64.b64decode(_inst["AttestationReport"])
 except Exception:
-    pass  # already raw TDX bytes (non-raiko format)
+    pass  # already raw TDX bytes (non-wrapped format)
 
 # TDX / SGX quote structure (v3/v4):
 #   Header:        48 bytes

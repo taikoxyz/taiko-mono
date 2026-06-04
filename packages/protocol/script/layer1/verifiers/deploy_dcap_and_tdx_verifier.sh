@@ -1,12 +1,18 @@
 #!/bin/bash
 
-# Deploy Automata DCAP contracts + AzureTdxVerifier in a single run.
+# Deploy Automata DCAP contracts + a TDX verifier in a single run.
+#
+# The TDX verifier is selected with VERIFIER_KIND (default `tdx`):
+#   tdx   — GcpTdxVerifier (native Intel TDX DCAP; GCP CVMs, bare-metal; RTMRs)
+#   azure — AzureTdxVerifier (Azure vTPM-bound TDX; vTPM PCRs)
+# Both share the SAME Automata DCAP contract — the quote format is identical, so
+# step 1 does not need to be repeated when switching kinds.
 #
 # This is a thin orchestrator that calls:
 #   1. deploy_automata_dcap.sh   — deploys P256Verifier, PCCS DAOs, DCAP contracts,
 #                                  uploads Intel collaterals (if FMSPC / RETH_TDX_URL given;
 #                                  `RAIKO2_URL` accepted as legacy alias)
-#   2. deploy_tdx_verifier.sh    — deploys AzureTdxVerifier proxy + implementation
+#   2. deploy_tdx_verifier.sh    — deploys the selected TDX verifier proxy + impl
 #
 # The AutomataDcapAttestationFee address produced by step 1 is automatically
 # forwarded to step 2 as AUTOMATA_DCAP_ATTESTATION.
@@ -42,17 +48,21 @@ AUTOMATA_DCAP_REPO="${AUTOMATA_DCAP_REPO:-}"
 AUTOMATA_DCAP_REF="${AUTOMATA_DCAP_REF:-}"
 KEEP_REPOS="${KEEP_REPOS:-false}"
 
-# --- Step 2: AzureTdxVerifier ---
+# --- Step 2: TDX verifier ---
+# Which verifier to deploy: tdx (default, native DCAP / GcpTdxVerifier) | azure.
+VERIFIER_KIND="${VERIFIER_KIND:-tdx}"
 CONTRACT_OWNER="${CONTRACT_OWNER:-}"
 TAIKO_CHAIN_ID="${TAIKO_CHAIN_ID:-}"
 VERIFY="${VERIFY:-false}"
 # Optional trusted-params env vars — forwarded unchanged to deploy_tdx_verifier.sh
 TRUSTED_PARAMS_INDEX="${TRUSTED_PARAMS_INDEX:-}"
 TEE_TCB_SVN="${TEE_TCB_SVN:-}"
-PCR_BITMAP="${PCR_BITMAP:-}"
+PCR_BITMAP="${PCR_BITMAP:-}"        # azure-only
+PCRS_BASE64="${PCRS_BASE64:-}"      # azure-only
+RTMR_MASK="${RTMR_MASK:-}"          # tdx-only
+RTMRS_BASE64="${RTMRS_BASE64:-}"    # tdx-only
 MR_SEAM_BASE64="${MR_SEAM_BASE64:-}"
 MR_TD_BASE64="${MR_TD_BASE64:-}"
-PCRS_BASE64="${PCRS_BASE64:-}"
 ATTESTATION_FILE_PATH="${ATTESTATION_FILE_PATH:-}"
 TDX_RETH_HOST="${TDX_RETH_HOST:-${TDX_RAIKO_HOST:-}}"
 
@@ -67,7 +77,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
     cat <<EOF
-Deploy Automata DCAP contracts + AzureTdxVerifier in one go.
+Deploy Automata DCAP contracts + a TDX verifier (native tdx or azure) in one go.
 
 Usage:
   PRIVATE_KEY=0x... RPC_URL=http://... \\
@@ -95,14 +105,18 @@ Optional env (step 1 — Automata DCAP):
   AUTOMATA_DCAP_REPO / AUTOMATA_DCAP_REF   (passed through to sub-script)
   KEEP_REPOS                   Keep git clones after success (default: false)
 
-Optional env (step 2 — AzureTdxVerifier):
+Optional env (step 2 — TDX verifier):
+  VERIFIER_KIND                tdx (default, native DCAP / GcpTdxVerifier) | azure
+                               (Azure vTPM / AzureTdxVerifier).
   VERIFY                       Verify on-chain (default: false).
-  TRUSTED_PARAMS_INDEX / TEE_TCB_SVN / PCR_BITMAP /
-  MR_SEAM_BASE64 / MR_TD_BASE64 / PCRS_BASE64
+  TRUSTED_PARAMS_INDEX / TEE_TCB_SVN / MR_SEAM_BASE64 / MR_TD_BASE64
                                Inline trusted-params seeding (owner only).
-  ATTESTATION_FILE_PATH        Pre-baked attestation JSON for registerInstance.
-  TDX_RETH_HOST                Live reth-tdx URL to fetch bootstrap for registerInstance
-                               (`TDX_RAIKO_HOST` accepted as legacy alias).
+  PCR_BITMAP / PCRS_BASE64     Azure-only measurements (vTPM PCRs).
+  RTMR_MASK / RTMRS_BASE64     Native-only measurements (TDX RTMRs, 48 bytes each).
+  ATTESTATION_FILE_PATH        Azure-only: pre-baked attestation JSON for registerInstance.
+  TDX_RETH_HOST                Azure-only: live reth-tdx URL to fetch bootstrap
+                               (`TDX_RAIKO_HOST` legacy alias). Native instances
+                               register via `cargo run -p xtask -- register-tdx`.
 
 Other:
   RPC_URL                      Chain RPC (default: http://localhost:8545).
@@ -148,7 +162,7 @@ DEPLOYER=$(cast wallet address --private-key "$PRIVATE_KEY")
 OUTPUT_JSON="${OUTPUT_JSON:-/tmp/deploy_summary_${CHAIN_ID}.json}"
 
 echo "======================================="
-echo "DCAP + AzureTdxVerifier full deploy"
+echo "DCAP + TDX verifier full deploy (VERIFIER_KIND=$VERIFIER_KIND)"
 echo "  Chain ID:     $CHAIN_ID"
 echo "  RPC:          $RPC_URL"
 echo "  Deployer:     $DEPLOYER"
@@ -236,12 +250,13 @@ fi
 # ---------------------------------------------------------------
 echo ""
 echo "##############################################"
-echo "# Step 2: Deploy AzureTdxVerifier"
+echo "# Step 2: Deploy TDX verifier (VERIFIER_KIND=$VERIFIER_KIND)"
 echo "##############################################"
 
 _tdxv_env=(
     PRIVATE_KEY="$PRIVATE_KEY"
     FORK_URL="$RPC_URL"
+    VERIFIER_KIND="$VERIFIER_KIND"
     CONTRACT_OWNER="$CONTRACT_OWNER"
     AUTOMATA_DCAP_ATTESTATION="$AUTOMATA_DCAP_ATTESTATION"
     TAIKO_CHAIN_ID="$TAIKO_CHAIN_ID"
@@ -250,9 +265,11 @@ _tdxv_env=(
 [[ -n "$TRUSTED_PARAMS_INDEX" ]]  && _tdxv_env+=(TRUSTED_PARAMS_INDEX="$TRUSTED_PARAMS_INDEX")
 [[ -n "$TEE_TCB_SVN" ]]           && _tdxv_env+=(TEE_TCB_SVN="$TEE_TCB_SVN")
 [[ -n "$PCR_BITMAP" ]]            && _tdxv_env+=(PCR_BITMAP="$PCR_BITMAP")
+[[ -n "$PCRS_BASE64" ]]           && _tdxv_env+=(PCRS_BASE64="$PCRS_BASE64")
+[[ -n "$RTMR_MASK" ]]             && _tdxv_env+=(RTMR_MASK="$RTMR_MASK")
+[[ -n "$RTMRS_BASE64" ]]          && _tdxv_env+=(RTMRS_BASE64="$RTMRS_BASE64")
 [[ -n "$MR_SEAM_BASE64" ]]        && _tdxv_env+=(MR_SEAM_BASE64="$MR_SEAM_BASE64")
 [[ -n "$MR_TD_BASE64" ]]          && _tdxv_env+=(MR_TD_BASE64="$MR_TD_BASE64")
-[[ -n "$PCRS_BASE64" ]]           && _tdxv_env+=(PCRS_BASE64="$PCRS_BASE64")
 [[ -n "$ATTESTATION_FILE_PATH" ]] && _tdxv_env+=(ATTESTATION_FILE_PATH="$ATTESTATION_FILE_PATH")
 [[ -n "$TDX_RETH_HOST" ]]         && _tdxv_env+=(TDX_RETH_HOST="$TDX_RETH_HOST")
 
@@ -260,8 +277,8 @@ env "${_tdxv_env[@]}" bash "$SCRIPT_DIR/deploy_tdx_verifier.sh" 2>&1 | tee /tmp/
 _tdxv_rc=${PIPESTATUS[0]}
 [[ $_tdxv_rc -ne 0 ]] && die "deploy_tdx_verifier.sh failed"
 
-# Extract AzureTdxVerifier proxy address from deploy log
-TDX_VERIFIER_PROXY=$(grep -oE 'Deployed AzureTdxVerifier proxy: 0x[0-9a-fA-F]{40}' /tmp/_tdxv_deploy.log | tail -1 | awk '{print $NF}')
+# Extract the deployed verifier proxy address from the deploy log (Azure or Gcp).
+TDX_VERIFIER_PROXY=$(grep -oE 'Deployed (Azure|Gcp)TdxVerifier proxy: 0x[0-9a-fA-F]{40}' /tmp/_tdxv_deploy.log | tail -1 | awk '{print $NF}')
 
 # ---------------------------------------------------------------
 # Combined summary
@@ -272,7 +289,8 @@ echo "Full deployment complete"
 echo "  Chain ID:                   $CHAIN_ID"
 echo "  RPC:                        $RPC_URL"
 echo "  AutomataDcapAttestationFee: $AUTOMATA_DCAP_ATTESTATION"
-echo "  AzureTdxVerifier proxy:          ${TDX_VERIFIER_PROXY:-<not detected>}"
+echo "  Verifier kind:              $VERIFIER_KIND"
+echo "  TDX verifier proxy:         ${TDX_VERIFIER_PROXY:-<not detected>}"
 echo "======================================="
 
 if [[ -n "$OUTPUT_JSON" ]]; then
@@ -280,9 +298,10 @@ if [[ -n "$OUTPUT_JSON" ]]; then
         --arg chain  "$CHAIN_ID" \
         --arg rpc    "$RPC_URL" \
         --arg dcap   "$AUTOMATA_DCAP_ATTESTATION" \
+        --arg kind   "$VERIFIER_KIND" \
         --arg tdxv   "${TDX_VERIFIER_PROXY:-}" \
         --arg pccs   "${PCCS_JSON:-}" \
-        '{chain_id: $chain, rpc_url: $rpc, AutomataDcapAttestationFee: $dcap, AzureTdxVerifier: $tdxv, pccs_json: $pccs}' \
+        '{chain_id: $chain, rpc_url: $rpc, AutomataDcapAttestationFee: $dcap, verifier_kind: $kind, tdx_verifier: $tdxv, pccs_json: $pccs}' \
         > "$OUTPUT_JSON"
     echo "Summary written to $OUTPUT_JSON"
 fi

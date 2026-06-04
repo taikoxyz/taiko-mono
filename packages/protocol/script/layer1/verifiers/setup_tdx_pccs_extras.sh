@@ -115,11 +115,16 @@ b = json.load(open(sys.argv[1]))
 # so accept either shape for forward compatibility with old image bootstrap dumps.
 inner = b if "quote" in b else next(iter(b.values()))
 quote = bytes.fromhex(inner["quote"])
-# Inner JSON envelope -> InstanceInfo (base64) -> {AttestationReport (base64), RuntimeData (base64)}
+# Inner JSON envelope. Two shapes:
+#   native (tdx issuer): { "RawQuote": b64(raw DCAP quote), "UserData": b64 }
+#   azure  issuer:       { "InstanceInfo": b64(JSON{ "AttestationReport": b64 }), ... }
 import base64
 doc = json.loads(quote)
-ii = json.loads(base64.b64decode(doc["InstanceInfo"]))
-ar = base64.b64decode(ii["AttestationReport"])
+if "RawQuote" in doc:
+    ar = base64.b64decode(doc["RawQuote"])
+else:
+    ii = json.loads(base64.b64decode(doc["InstanceInfo"]))
+    ar = base64.b64decode(ii["AttestationReport"])
 # Parse TDX V4 sig data to reach PCK leaf cert and grab FMSPC from SGX extension.
 sig_off = 48 + 584
 sig_len = int.from_bytes(ar[sig_off:sig_off+4], "little")
@@ -270,8 +275,11 @@ b = json.load(open(sys.argv[1]))
 # Accept either the flat reth-tdx /bootstrap shape or the legacy raiko2-wrapped one.
 inner = b if "quote" in b else next(iter(b.values()))
 doc = json.loads(bytes.fromhex(inner["quote"]))
-ii = json.loads(base64.b64decode(doc["InstanceInfo"]))
-ar = base64.b64decode(ii["AttestationReport"])
+if "RawQuote" in doc:
+    ar = base64.b64decode(doc["RawQuote"])
+else:
+    ii = json.loads(base64.b64decode(doc["InstanceInfo"]))
+    ar = base64.b64decode(ii["AttestationReport"])
 sig_off = 48 + 584
 sig_len = int.from_bytes(ar[sig_off:sig_off+4], "little")
 sig = ar[sig_off+4:sig_off+4+sig_len]
