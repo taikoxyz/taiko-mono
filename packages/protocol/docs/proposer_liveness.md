@@ -324,9 +324,14 @@ nothing for a defaulter to withhold.
 
 ```solidity
 enum GapKind {
-    NoProposal,        // No proposal landed for the assigned window.
-    InternalGap,       // Gap between two adjacent proposals in the same window.
-    ShortTrailingGap   // Last proposal of window ends before windowEnd.
+    NoProposal,         // No proposal landed for the assigned window.
+    InternalGap,        // L2-timestamp gap between two adjacent proposals.
+    ShortTrailingGap,   // Last proposal's L2 blocks end before windowEnd.
+    L1InclusionGap      // L1-time gap between two consecutive proposals from the
+                        // same operator within their window. Uses only on-chain
+                        // Proposal.timestamp; works without §14.5's L2-timestamp
+                        // commitment. Catches spike-and-lull even when L2
+                        // backfill is dense.
 }
 
 struct GapEvidence {
@@ -393,6 +398,22 @@ struct GapEvidence {
    `TAKEOVER_OPEN_DELAY` to grow their own rescuer payout (the slash now
    scales with real staleness only, and a competing late rescuer who
    posts earlier strictly reduces the slash a delayer would receive).
+
+   For **`L1InclusionGap`**: evidence is two consecutive proposals
+   `p1, p2` from the same operator within `[windowStart, windowEnd]`
+   (verified by ring-buffer membership at lines 4–5 of this flow). Compute
+   `rawGap = p2.timestamp - p1.timestamp`, where both timestamps are the
+   L1 block timestamps stored in `Proposal.timestamp` (`IInbox.sol:62`).
+   No L2-block timestamps are required, so this fault type is implementable
+   independently of §14.5. The censorship exception (line 7) still applies:
+   subtract `SECONDS_IN_SLOT` for each L1 missed slot between `p1` and `p2`.
+
+   `L1InclusionGap` closes the spike-and-lull loophole called out in §7.3:
+   a dense L2 backfill makes `InternalGap` evaluate to zero, but a >MAX_GAP
+   delay between the operator's L1 submissions remains slashable here.
+   In other words, the operator is accountable both for **L2 density**
+   (InternalGap / ShortTrailingGap) and for **L1 cadence** (L1InclusionGap)
+   inside their window.
 7. **Censorship exception.** For each `slot` in `missedL1Slots`:
    - Require `LibPreconfUtils.getBeaconBlockRootAt(slot) == bytes32(0)`.
    - Require `slot ∈ [gapStart, gapEnd]`.
@@ -506,10 +527,15 @@ this cheap). A late re-entering assignee thus **backfills the gap with
 empty blocks** rather than skipping it.
 
 The retroactive `GapSlash` still applies to any gap that occurred before
-re-entry; self-rescuing does not erase the fault. The `closingProposal`
-in such a case is the assignee's own late proposal, and the gap measured
-runs from `windowStart` (or the last block of the previous window) to
-the assignee's first re-entry block timestamp.
+re-entry. With dense empty-block backfill, the `InternalGap` measure
+collapses to zero — there are no missing L2 seconds. But the
+`L1InclusionGap` fault (§6.2) catches the spike-and-lull pattern directly:
+the L1-time gap between the assignee's last on-time proposal and their
+late re-entry proposal is slashable when it exceeds `MAX_GAP`, regardless
+of whether they backfilled the L2 timestamps. The `closingProposal` for
+the `NoProposal` path in such a case is the assignee's own late proposal,
+and the gap measured runs from `windowStart` (or the last block of the
+previous window) to the assignee's first re-entry block timestamp.
 
 This is deliberate. Forbidding re-entry would force a takeover for every
 transient network hiccup. Allowing re-entry under the dense rule means:
@@ -894,7 +920,53 @@ replacement rule (§4.3): if the source is replaced, the committed
 `firstL2BlockTs` / `lastL2BlockTs` must be reinterpreted against the default
 manifest's timestamps, not the original.
 
-### 14.6 BLOCK_TIME_TARGET migration from 2 s to 1 s
+### 14.6 Lookahead-opening calldata cost in `GapEvidence`
+
+The `GapEvidence` payload (§6.2) carries the full `LookaheadSlot[]` for
+the relevant epoch so the slasher can reconstruct the committed
+`lookaheadHash`. For a densely-populated epoch (up to 32 slots) plus
+sparse-array overhead, this can dominate the slash transaction's calldata
+cost and discourage rescuers from attaching evidence atomically (§7.2).
+
+Two mitigations to consider:
+
+- **Merkle proof against stored lookahead root.** Have `LookaheadStore`
+  store the Merkle root of `LookaheadSlot[]` (in addition to or instead
+  of the current `bytes26` keccak hash). `GapEvidence` then carries only
+  the operator's single slot plus a log-depth Merkle proof. Slash cost
+  becomes O(log N) in lookahead size rather than O(N).
+- **Stored slot-by-slot lookahead.** Have `LookaheadStore` keep the
+  individual slot entries on-chain (one storage slot per entry) instead
+  of just the hash. Trades steady-state storage cost for slash-time
+  calldata savings — likely the wrong tradeoff at current lookahead sizes,
+  but worth re-evaluating if lookahead density grows.
+
+Prefer the Merkle approach. The change is local to `LookaheadStore` and
+`GapEvidence` and does not affect the broader slashing model.
+
+### 14.7 Per-block proving load under dense empty-block cadence
+
+Forcing an L2 block every second (§4.2) approximately doubles the L2
+block count relative to a 2-second target and ~8x increases it relative
+to the current observed sparse cadence. Each empty block still requires
+a block header, a state root commitment, and a state-transition proof
+slot in the proving pipeline. RLE (§4.4) addresses DA cost but does not
+reduce the proving surface — each empty block in a run is still a
+proven state transition.
+
+Open work to scope:
+
+- Measure prover gas and prove-time impact under dense empty-block load
+  on devnet at the target cadence.
+- If proving load is the dominant cost driver, consider a
+  protocol-level "compressed empty-run state transition" (single proof
+  covering N empty blocks at constant gas) — analogous in spirit to RLE
+  but on the proving side rather than the DA side.
+
+This is not a blocker for the slashing design but is a concrete
+deliverable for whoever sequences the 1-second cutover (§14.8).
+
+### 14.8 BLOCK_TIME_TARGET migration from 2 s to 1 s
 
 Today `BLOCK_TIME_TARGET = 2 seconds` (`Derivation.md` constants table). The
 design above assumes 1 s. The dense-derivation rule §4.2 is written in terms
