@@ -22,23 +22,13 @@ interface IAutomataDcapAttestation {
 /// @dev Combines two responsibilities:
 ///   1. Registry — admits TDX instances after on-chain attestation (Azure vTPM + Automata DCAP)
 ///      with measurement checks against `trustedParams`.
-///   2. Proof verifier — implements `IProofVerifier`; recovers the signer of an 89-byte
-///      `instance_id || address || signature` proof and checks it is a still-valid instance.
+///   2. Proof verifier — implements `IProofVerifier`; recovers the signer of an 85-byte
+///      `address || signature` proof and checks it is a still-valid instance.
 ///
-/// The proof wire format matches `SgxVerifier`, so a TDX prover can sit in any
-/// `ComposeVerifier` slot that expects the SGX-style proof layout.
-///
-/// Side-channel protection: instances expire after `INSTANCE_EXPIRY`; re-attestation
-/// produces a new keypair and a new `instance_id`.
+/// The proof wire format is 85 bytes: `address(20) || signature(65)`. There is no
+/// instance index — validity is looked up directly by address via `addressValidSince`.
 /// @custom:security-contact security@taiko.xyz
 contract AzureTdxVerifier is IProofVerifier, EssentialContract {
-    /// @dev Each public-private key pair (Ethereum address) is generated inside the TDX VM
-    /// at boot. The remote attestation flow binds that address to a verified image.
-    struct Instance {
-        address addr;
-        uint64 validSince;
-    }
-
     /// @dev Parameters describing a "trusted" TDX image — the hardware measurements an
     /// attestation must match for `registerInstance` to admit the prover.
     struct TrustedParams {
@@ -50,7 +40,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     }
 
     /// @notice Expiry window for a registered TDX instance. After this, the instance must
-    /// re-attest (which generates a fresh keypair and a new instance ID).
+    /// re-attest (which generates a fresh keypair).
     uint64 public constant INSTANCE_EXPIRY = 365 days;
 
     /// @notice Delay between registration and an instance becoming valid for proof submission.
@@ -63,48 +53,27 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// @notice The Automata DCAP attestation contract.
     address public immutable automataDcapAttestation;
 
-    /// @dev Auto-incrementing instance ID counter. The proof's first 4 bytes reference an entry
-    /// in `instances` by this ID for gas-efficient on-chain lookup.
-    /// Slot 0.
-    uint256 public nextInstanceId;
+    /// @dev Timestamp from which a registered address is valid. A zero value means the
+    /// address is not registered. Slot 0.
+    mapping(address instanceAddress => uint64 validSince) public addressValidSince;
 
-    /// @dev Registered TDX instances keyed by ID.
-    /// Slot 1.
-    mapping(uint256 instanceId => Instance instance) public instances;
-
-    /// @dev Tracks every address that has ever been registered, so that a single attestation
-    /// can't be replayed into multiple live instance IDs (which would bypass expiry).
-    /// Slot 2.
-    mapping(address instanceAddress => bool isAttested) public addressRegistered;
-
-    /// @dev Used attestation nonces (prevent attestation replay).
-    /// Slot 3.
+    /// @dev Used attestation nonces (prevent attestation replay). Slot 1.
     mapping(bytes32 nonceHash => bool isUsed) public nonceUsed;
 
     /// @dev Trusted measurement sets, keyed by index. Owner can register multiple sets to
-    /// support multiple valid image versions in parallel.
-    /// Slot 4.
+    /// support multiple valid image versions in parallel. Slot 2.
     mapping(uint256 index => TrustedParams trustedParams) public trustedParams;
 
-    /// @dev Instance id assigned to an address when it was added to the registry. A given
-    /// address is registered at most once (replay-protected by `addressRegistered`), so this
-    /// mapping is one-to-one with live entries in `instances`. Used by `isInstanceRegistered`
-    /// to answer live/non-expired queries; `instances[id].addr` is the source of truth.
-    /// Slot 5.
-    mapping(address instanceAddress => uint256 instanceId) public instanceIdByAddress;
-
-    uint256[44] private __gap;
+    uint256[47] private __gap;
 
     /// @notice Emitted when a new TDX instance is added to the registry.
-    /// @param id The ID of the TDX instance.
     /// @param instance The address of the TDX instance.
     /// @param validSince The time since the instance is valid.
-    event InstanceAdded(uint256 indexed id, address indexed instance, uint256 validSince);
+    event InstanceAdded(address indexed instance, uint256 validSince);
 
     /// @notice Emitted when a TDX instance is deleted from the registry.
-    /// @param id The ID of the TDX instance.
     /// @param instance The address of the TDX instance.
-    event InstanceDeleted(uint256 indexed id, address indexed instance);
+    event InstanceDeleted(address indexed instance);
 
     /// @notice Emitted when trusted params are written or replaced at an index.
     event TrustedParamsUpdated(uint256 indexed index, TrustedParams params);
@@ -130,26 +99,19 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// @dev Bypasses on-chain attestation; intended for genesis / governance recovery only.
     /// Use `registerInstance` for normal flow.
     /// @param _instances The address array of trusted TDX instances.
-    /// @return ids The respective instanceId array for each address.
-    function addInstances(address[] calldata _instances)
-        external
-        onlyOwner
-        returns (uint256[] memory ids)
-    {
-        return _addInstances(_instances, true);
+    function addInstances(address[] calldata _instances) external onlyOwner {
+        _addInstances(_instances, true);
     }
 
-    /// @notice Deletes TDX instances from the registry by ID.
-    /// @param _ids The ids array of TDX instances.
-    function deleteInstances(uint256[] calldata _ids) external onlyOwner {
-        uint256 size = _ids.length;
+    /// @notice Deletes TDX instances from the registry by address.
+    /// @param _instances The address array of TDX instances to delete.
+    function deleteInstances(address[] calldata _instances) external onlyOwner {
+        uint256 size = _instances.length;
         for (uint256 i; i < size; ++i) {
-            uint256 idx = _ids[i];
-            require(instances[idx].addr != address(0), TDX_INVALID_INSTANCE());
-
-            emit InstanceDeleted(idx, instances[idx].addr);
-
-            delete instances[idx];
+            address addr = _instances[i];
+            require(addressValidSince[addr] != 0, TDX_INVALID_INSTANCE());
+            emit InstanceDeleted(addr);
+            delete addressValidSince[addr];
         }
     }
 
@@ -186,13 +148,11 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     ///   5. Extract the prover's Ethereum address from `userData` and add it to the registry.
     /// @param _trustedParamsIdx The index of the trusted parameters set to validate against.
     /// @param _attestation The Azure TDX attestation verification parameters.
-    /// @return id The assigned instance ID.
     function registerInstance(
         uint256 _trustedParamsIdx,
         AzureTDX.VerifyParams memory _attestation
     )
         external
-        returns (uint256 id)
     {
         (bool verified, bytes memory output) = IAutomataDcapAttestation(automataDcapAttestation)
             .verifyAndAttestOnChain(AzureTDX.verify(_attestation));
@@ -209,14 +169,11 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_attestation.attestationDocument.userData));
 
-        return _addInstances(addresses, false)[0];
+        _addInstances(addresses, false);
     }
 
     /// @inheritdoc IProofVerifier
-    /// @dev Proof layout (89 bytes): `instance_id` (4) || `instance` (20) || `signature` (65).
-    /// Signature is over `LibPublicInput.hashPublicInputs(_commitmentHash, this, instance,
-    /// taikoChainId)`; the recovered signer must equal `instance` and be a valid registered
-    /// instance.
+    /// @dev Proof layout (85 bytes): `instance` (20) || `signature` (65).
     function verifyProof(
         uint256, /* _proposalAge */
         bytes32 _commitmentHash,
@@ -225,17 +182,16 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
         external
         view
     {
-        require(_proof.length == 89, TDX_INVALID_PROOF());
+        require(_proof.length == 85, TDX_INVALID_PROOF());
 
-        uint32 id = uint32(bytes4(_proof[:4]));
-        address instance = address(bytes20(_proof[4:24]));
-        require(_isInstanceValid(id, instance), TDX_INVALID_INSTANCE());
+        address instance = address(bytes20(_proof[:20]));
+        require(_isInstanceValid(instance), TDX_INVALID_INSTANCE());
 
         bytes32 signatureHash = LibPublicInput.hashPublicInputs(
             _commitmentHash, address(this), instance, taikoChainId
         );
 
-        bytes memory signature = _proof[24:];
+        bytes memory signature = _proof[20:];
         require(instance == ECDSA.recover(signatureHash, signature), TDX_INVALID_PROOF());
     }
 
@@ -243,7 +199,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// @param _instance The address to check
     /// @return True if the address has a live (registered, non-expired, not deleted) instance.
     function isInstanceRegistered(address _instance) external view returns (bool) {
-        return _isInstanceValid(instanceIdByAddress[_instance], _instance);
+        return _isInstanceValid(_instance);
     }
 
     // ---------------------------------------------------------------
@@ -255,10 +211,8 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
         bool instantValid
     )
         private
-        returns (uint256[] memory ids)
     {
         uint256 size = _instances.length;
-        ids = new uint256[](size);
 
         uint64 validSince = uint64(block.timestamp);
         if (!instantValid) {
@@ -268,25 +222,19 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
         for (uint256 i; i < size; ++i) {
             address addr = _instances[i];
             require(addr != address(0), TDX_INVALID_INSTANCE());
-            require(!addressRegistered[addr], TDX_ALREADY_ATTESTED());
+            require(addressValidSince[addr] == 0, TDX_ALREADY_ATTESTED());
 
-            addressRegistered[addr] = true;
-            instanceIdByAddress[addr] = nextInstanceId;
+            addressValidSince[addr] = validSince;
 
-            instances[nextInstanceId] = Instance(addr, validSince);
-            ids[i] = nextInstanceId;
-
-            emit InstanceAdded(nextInstanceId, addr, validSince);
-
-            ++nextInstanceId;
+            emit InstanceAdded(addr, validSince);
         }
     }
 
-    function _isInstanceValid(uint256 id, address instance) private view returns (bool) {
+    function _isInstanceValid(address instance) private view returns (bool) {
         if (instance == address(0)) return false;
-        if (instance != instances[id].addr) return false;
-        return instances[id].validSince <= block.timestamp
-            && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
+        uint64 vs = addressValidSince[instance];
+        if (vs == 0) return false;
+        return vs <= block.timestamp && block.timestamp <= vs + INSTANCE_EXPIRY;
     }
 
     function _popcount24(uint24 _bitmap) private pure returns (uint256 count) {
