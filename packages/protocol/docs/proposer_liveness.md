@@ -320,37 +320,49 @@ operator who never signs anything still has an implicit commitment: their
 presence in a posted lookahead. The lookahead is the commitment. There is
 nothing for a defaulter to withhold.
 
-### 6.2 Evidence
+### 6.2 Evidence — single fault type: `NoProposal`
+
+The slasher recognizes exactly one fault: the assigned operator made zero
+proposals in their window. The original draft of this design enumerated
+three fault types (`InternalGap`, `ShortTrailingGap`, `NoProposal`), but
+the dense-derivation rule and its default-manifest replacement (§4.2,
+§4.3) guarantee on-chain L2 history is structurally dense **after
+derivation**. There is therefore no on-chain "internal gap" or
+"trailing gap" to point at — those failure modes are absorbed by the
+soft penalty (loss of MEV from default-replaced sources). Only the
+**fully silent operator** leaves a trace the slasher can verify on-chain,
+because in that case no source exists to default-replace.
+
+This collapse has a useful corollary: the slasher needs **no L2 block
+timestamps**. It works entirely from `Proposal.timestamp` (L1) and
+`Proposal.proposer`, both already on-chain. Open question §14.5 (L2
+timestamp authentication) is resolved — no protocol struct change is
+required.
 
 ```solidity
-enum GapKind {
-    NoProposal,         // No proposal landed for the assigned window.
-    InternalGap,        // L2-timestamp gap between two adjacent proposals.
-    ShortTrailingGap    // Last proposal's L2 blocks end before windowEnd.
-}
-
 struct GapEvidence {
-    uint48              windowStart;
-    uint48              windowEnd;
+    uint48              windowStart;     // From lookahead.
+    uint48              windowEnd;       // From lookahead.
     address             expectedProposer;
-    LookaheadSlot[]     lookahead;       // opens the committed lookaheadHash
-    uint256             slotIndex;       // index of expectedProposer in lookahead
+    LookaheadSlot[]     lookahead;       // Opens the committed lookaheadHash.
+    uint256             slotIndex;       // Index of expectedProposer in lookahead.
 
-    GapKind             kind;
-    uint48              gapStart;          // first L2 second with no block
-    uint48              gapEnd;            // last L2 second with no block
+    // Non-existence proof: two proposals from the ring buffer that bracket
+    // the operator's window without containing any of the operator's own
+    // proposals. Linked via parentProposalHash (already in the Proposal struct)
+    // so the verifier can show they are adjacent in the canonical sequence.
+    Inbox.Proposal      lastProposalBefore;   // Last proposal with timestamp < windowStart.
+    Inbox.Proposal      firstProposalAfter;   // First proposal with timestamp >= windowStart;
+                                              // its proposer must != expectedProposer, or this
+                                              // proposal must itself have timestamp >= windowEnd
+                                              // (full silent window).
+    bytes32             lastProposalBeforeHash;
+    bytes32             firstProposalAfterHash;
 
-    // Proposals contextualizing the gap.
-    //   InternalGap:      beforeGap + afterGap required.
-    //   ShortTrailingGap: beforeGap required.
-    //   NoProposal:       closingProposal required if window is still open;
-    //                     omitted (zero) only when block.timestamp > windowEnd.
-    Inbox.Proposal      beforeGap;
-    Inbox.Proposal      afterGap;
-    Inbox.Proposal      closingProposal;
-    bytes32             beforeProposalHash;
-    bytes32             afterProposalHash;
-    bytes32             closingProposalHash;
+    // Adjacency proof: parentProposalHash chain showing nothing sits between
+    // lastProposalBefore and firstProposalAfter.
+    // (omitted struct detail; in practice this is just
+    //  firstProposalAfter.parentProposalHash == lastProposalBeforeHash.)
 
     // Censorship excision is performed automatically on-chain in §6.4 —
     // the challenger does NOT supply a missed-slot list, so they cannot
@@ -366,34 +378,43 @@ struct GapEvidence {
    `LookaheadStore.getLookaheadHash(_commitment.epochTimestamp)`.
 2. **Lookahead opening.** Decode `lookahead` from evidence; verify
    `bytes26(keccak256(abi.encode(epochTimestamp, lookahead))) == lookaheadHash`.
-3. **Window derivation.** Compute `windowStart`, `windowEnd`, and `expectedProposer`
-   from `lookahead[slotIndex]` using the same logic as
-   `LookaheadStore._determineProposerContext`.
-4. **Ring-buffer membership.** Verify `beforeGap` and `afterGap` (if applicable)
-   are stored at their declared ring-buffer slots in `Inbox`, matching
-   `beforeProposalHash` and `afterProposalHash`.
-5. **Attribution.** Both bounding proposals must lie within `expectedProposer`'s
-   window, or one must be the predecessor of the window for trailing-gap cases.
-6. **Raw gap.** Computed per `GapKind`:
-   - **`InternalGap`:**
-     `rawGap = afterGap.firstBlockTs - beforeGap.lastBlockTs - BLOCK_TIME_TARGET`.
-   - **`ShortTrailingGap`:**
-     `rawGap = windowEnd - beforeGap.lastBlockTs`.
-   - **`NoProposal`:** `rawGap = min(closingTs, windowEnd) - windowStart`,
-     where `closingTs = closingProposal.firstBlockTs` if `closingProposal`
-     was provided (the proposal that ended the silence: rescuer's takeover,
-     next-window operator's first proposal, or any later proposal filed
-     retroactively); otherwise `closingTs = block.timestamp` and the
-     slasher requires `block.timestamp > windowEnd` (the window has fully
-     elapsed). The cap at `windowEnd` ensures the slash is bounded by the
-     window length even when the closing proposal lies in a later window.
+3. **Window derivation.** Compute `windowStart`, `windowEnd`, and
+   `expectedProposer` from `lookahead[slotIndex]` using the same logic
+   as `LookaheadStore._determineProposerContext`.
+4. **Ring-buffer membership.** Verify both `lastProposalBefore` and
+   `firstProposalAfter` are stored at their declared ring-buffer slots,
+   matching their declared hashes.
+5. **Adjacency.** Verify
+   `firstProposalAfter.parentProposalHash == lastProposalBeforeHash`.
+   Together with step 4, this proves no other proposal sits between
+   them in the canonical sequence.
+6. **Non-membership of `expectedProposer`.** Verify both of:
+   - `lastProposalBefore.timestamp < windowStart`,
+   - `firstProposalAfter.proposer != expectedProposer` **or**
+     `firstProposalAfter.timestamp >= windowEnd`
+     (the latter covers the "fully silent window" case, in which the
+     next observed proposal lies past the window's end).
 
-   This formulation is deliberate: it measures the **actual** silent
-   duration, not the worst-case full window. It prevents strategic-delay
-   inflation, where a next-window assignee could otherwise wait close to
-   `TAKEOVER_OPEN_DELAY` to grow their own rescuer payout (the slash now
-   scales with real staleness only, and a competing late rescuer who
-   posts earlier strictly reduces the slash a delayer would receive).
+   Note that `firstProposalAfter.timestamp` may legitimately fall
+   inside or after `[windowStart, windowEnd]`; both are accepted as
+   long as the proposer is not `expectedProposer`. The closing proposal
+   is whoever broke the silence (rescuer, next-window operator, or any
+   later proposer).
+7. **Raw gap.**
+   ```
+   closingTs = min(firstProposalAfter.timestamp, windowEnd)
+   rawGap    = closingTs - windowStart
+   ```
+   All timestamps are L1 (the `Proposal.timestamp` field). The cap at
+   `windowEnd` ensures the slash is bounded by the window length even
+   when the closing proposal lies in a later window.
+
+   This formulation measures the **actual** silent duration, not the
+   worst-case full window. It prevents strategic-delay inflation, where
+   a next-window assignee could otherwise wait close to
+   `TAKEOVER_OPEN_DELAY` to grow their own rescuer payout (the slash
+   now scales with real staleness only, and a competing late rescuer
+   who posts earlier strictly reduces the slash a delayer would receive).
 7. **Censorship exception (automatic).** Iterate every L1 slot in
    `[gapStart, gapEnd]` aligned to `SECONDS_IN_SLOT = 12`. For each slot
    timestamp `ts`, call `LibPreconfUtils.getBeaconBlockRootAt(ts)`; if
@@ -452,16 +473,24 @@ atomic-slash-on-takeover path (§7.2), folded into the rescuer's
 EIP-4788 is the single oracle for "was L1 alive at second T",
 consistent with the rest of the preconfirmation system.
 
-### 6.5 What `GapSlash` catches that existing faults do not
+### 6.5 What `GapSlash` catches, and what other mechanisms cover
 
-| Failure mode | `PreconfSlasher`? | `GapSlash`? |
-|---|---|---|
-| Operator signs a preconfirmation, fails to submit it. | ✓ `MissedSubmission` | — |
-| Operator signs, submits a batch whose contents differ from the signed preconf. | ✓ `RawTxListHashOrAnchorBlockMismatch` | — |
-| Operator omits the `eop` flag on the terminal block. | ✓ `MissingEOP` | — |
-| Operator goes silent: signs nothing, submits nothing. | ✗ no signed object | ✓ via lookahead presence |
-| Operator submits a proposal that skips L2 seconds inside its window. | ✗ no signed gap | ✓ `InternalGap` |
-| Operator stops short of `endOfSubmissionWindowTimestamp`. | ✗ window deadline only enforces handoff | ✓ `ShortTrailingGap` |
+| Failure mode | `PreconfSlasher` | Soft penalty (§4.3) | `GapSlash` |
+|---|---|---|---|
+| Operator signs a preconfirmation, fails to submit it. | ✓ `MissedSubmission` | — | — |
+| Operator signs, submits a batch whose contents differ from the signed preconf. | ✓ `RawTxListHashOrAnchorBlockMismatch` | — | — |
+| Operator omits the `eop` flag on the terminal block. | ✓ `MissingEOP` | — | — |
+| Operator submits a sparse manifest (skips L2 seconds inside their window). | — | ✓ source replaced; MEV lost | — (subsumed) |
+| Operator stops short of `endOfSubmissionWindowTimestamp` (partial window). | — | ✓ next operator or default fills the tail; MEV lost | — (subsumed) |
+| **Operator goes fully silent: zero proposals in window.** | ✗ no signed object | — (no source to replace) | ✓ `NoProposal` |
+
+The two middle rows are why §6.2 collapses to a single fault: §4.3's
+default-manifest replacement *and* the next operator's dense rule
+*and* the rescuer's takeover all conspire to keep L2 history dense.
+Any "gap" that would justify slashing a partially-silent operator is
+already paid for in MEV they could not collect. Only the fully-silent
+case (no source ever submitted) leaves an on-chain object the slasher
+can verify.
 
 ---
 
@@ -500,6 +529,24 @@ committer in addition to the current one. The existing
 `_determineProposerContext` already computes the next-entry window; the
 takeover method exposes that branch directly.
 
+**Window assignment in the takeover path.** The rescuer inherits the
+**remainder of the delinquent assignee's window**, not a fresh window of
+their own. Concretely:
+
+- `stale` path: `endOfSubmissionWindowTimestamp = originalAssignee.windowEnd`
+  (the lookahead entry the delinquent operator was assigned to). The
+  rescuer's window of exclusivity ends when the delinquent operator's
+  would have. After that, normal lookahead-driven proposing resumes for
+  whoever the next entry assigns.
+- `dead` path: `endOfSubmissionWindowTimestamp = 0`. Anyone may propose
+  a single batch; the next `propose` call re-runs `checkProposer` from
+  scratch.
+
+This means the rescuer does not take on indefinite responsibility — they
+fill the gap, hold the window until its natural end, and hand off
+normally. No oversized bond exposure beyond what the original assignee
+would have faced.
+
 ### 7.2 Atomic slash on takeover
 
 The takeover transaction may include `GapEvidence` for the delinquent
@@ -532,6 +579,19 @@ making URC's atomic slash revert, and reverting the entire takeover —
 preventing the rescuer from posting and prolonging the chain stall. The
 `try/catch` makes liveness restoration unconditionally the priority and
 the slash purely opportunistic.
+
+**Failed atomic slashes do not lose the fault.** When the atomic slash
+reverts (caught by `try/catch`), the takeover proposal still lands but
+the operator is *not* slashed in that transaction. The fault remains
+slashable via the standard standalone path: anyone may file a separate
+`LivenessSlasher.slash` transaction against the same `NoProposal`
+evidence at any later time, subject only to the operator's URC
+collateral still having value left. The `AtomicSlashFailed` event is
+the public signal that a standalone retry is available. In practice
+this matters only when URC reverts for a deterministic state reason
+(e.g., a same-block prior drain); cases where a delinquent operator's
+collateral has been fully consumed are already the terminal economic
+outcome.
 
 Effects in the happy path:
 
@@ -955,39 +1015,29 @@ verification against the URC source vendored at `eth-fabric/urc`). If not,
 **D** is the right long-term answer, with **B** as a fallback if upstream
 coordination is slow.
 
-### 14.5 Authenticated on-chain source for L2 block timestamps
+### 14.5 Authenticated on-chain source for L2 block timestamps — RESOLVED
 
-`IInbox.Proposal` (`packages/protocol/contracts/layer1/core/iface/IInbox.sol:60-79`)
-stores the L1 proposal timestamp and blob references, but **not** the L2 block
-timestamps that the manifest will derive. The proposal hash binds the blob,
-not the per-L2-block timestamps inside it. The verifier described in §6.3
-cannot read `beforeGap.lastBlockTs` or `afterGap.firstBlockTs` directly from
-the on-chain `Proposal` struct.
+**Resolution: not needed.** The earlier draft of this design (commits
+prior to `7b01e95`) used L2 block timestamp bookends (`firstL2BlockTs`,
+`lastL2BlockTs`) on `Proposal` to verify `InternalGap` and
+`ShortTrailingGap` faults. The §6.2 simplification to a single
+`NoProposal` fault eliminated those evidence paths entirely. The slasher
+now uses only `Proposal.timestamp` (L1) and `Proposal.proposer`, both
+already present in the existing `Inbox.Proposal` struct
+(`packages/protocol/contracts/layer1/core/iface/IInbox.sol:60-79`).
 
-Three candidate fixes:
+No protocol struct change is required for slashing. (Other workstreams —
+e.g., MEV analytics, off-chain monitoring tools — may still want L2
+timestamp bookends in `Proposal` for their own reasons; that decision
+is independent of this design.)
 
-- **A. Commit L2 block timestamp bookends to the proposal.** Extend `Proposal`
-  to include `firstL2BlockTs` and `lastL2BlockTs` (uint48 each, ~12 bytes
-  total). Set by the proposer at propose time, hashed into the proposal hash.
-  Cheap on-chain, no blob decoding in the slasher. Storage impact is small but
-  this is a protocol-level struct change requiring coordinated client and
-  derivation-spec updates.
-- **B. Challenger provides blob inclusion + manifest decoding evidence.** The
-  slasher accepts a Merkle proof of the manifest entry against the blob KZG
-  commitment, decodes the relevant entry, and reads the L2 timestamp. Adds
-  significant gas to the slash path, especially under RLE encoding (§4.4)
-  where the relevant L2 timestamp may be implicit in a run.
-- **C. ZK proof of "manifest at position k contains block at L2 ts T".**
-  Cleanest semantically; potentially expensive per slash; needs a verifier
-  contract. Not worth it relative to **A** for this scope.
-
-Option **A** is preferred. It is a one-time protocol surface change that
-makes liveness slashing tractable in O(1) gas and aligns with how other
-proposal-bound data (e.g., `endOfSubmissionWindowTimestamp` already in the
-struct) is committed. Document interactions with the derivation default-manifest
-replacement rule (§4.3): if the source is replaced, the committed
-`firstL2BlockTs` / `lastL2BlockTs` must be reinterpreted against the default
-manifest's timestamps, not the original.
+The original concern (raised by automated review of the earlier draft)
+was correct: even adding `firstL2BlockTs`/`lastL2BlockTs` would have
+been problematic, because the default-manifest replacement (§4.3) makes
+the *effective* on-chain L2 history diverge from what the proposer
+declared in the bookends. Slashing on the declared bookends would have
+slashed for gaps that don't exist on the chain. Eliminating that whole
+class of evidence sidesteps the issue.
 
 ### 14.6 Lookahead-opening calldata cost in `GapEvidence`
 
@@ -1066,8 +1116,8 @@ behavior at the chosen cadence and is correct for either value of
 
 | Concern | Status before | Status after |
 |---|---|---|
-| Silent operator (no signing, no submission) | Unslashable. | Slashable via `GapSlash`. |
-| Sparse intra-window submission | Unslashable. | Slashable via `GapSlash` (`InternalGap` / `ShortTrailingGap`). |
+| Silent operator (no signing, no submission) | Unslashable. | Slashable via `GapSlash` `NoProposal` fault (uses only on-chain L1 `Proposal.timestamp` and `Proposal.proposer`; no L2 timestamp authentication needed). |
+| Sparse intra-window submission | Unslashable. | Soft penalty only: source replaced with default empty blocks (§4.3); operator loses MEV from the replaced portion. |
 | Chain head stall | Permissionless mode opens after 25.6 h. | Permissionless mode opens after 48 s. |
 | Liveness bond denomination | TAIKO (Inbox-managed); currently 0. | ETH in URC collateral, shared with safety bonds. |
 | `Blacklist` overseers | Required for any fault outside the existing slasher set. | Redundant; deprecation path in §13 (M4). |
