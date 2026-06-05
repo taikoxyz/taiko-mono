@@ -230,6 +230,15 @@ function slash(
 The contract is `view`-only with respect to its own state; URC performs the
 collateral debit and challenger payout after the call.
 
+Atomicity is provided by URC's `slashCommitment` entrypoint. Within a single
+call frame, URC verifies the operator's opt-in to `livenessSlasher`, invokes
+`LivenessSlasher.slash` (via `UnifiedSlasher.delegatecall`), debits the
+returned `slashAmount_` from the operator's collateral, and credits the
+challenger. There is no two-step settlement and no inter-tx window in which
+the verified-but-unsettled slash can be front-run. This is the same pattern
+already used by `PreconfSlasherL1` and `LookaheadSlasher`; reentrancy is
+gated by URC's own slash-pending checks per operator.
+
 ### 5.2 Routing through `UnifiedSlasher`
 
 Extend `UnifiedSlasher.slash`
@@ -328,14 +337,20 @@ struct GapEvidence {
     uint256             slotIndex;       // index of expectedProposer in lookahead
 
     GapKind             kind;
-    uint48              gapStart;        // first L2 second with no block
-    uint48              gapEnd;          // last L2 second with no block
+    uint48              gapStart;          // first L2 second with no block
+    uint48              gapEnd;            // last L2 second with no block
 
-    // Proposals bounding the gap. For NoProposal, only beforeGap is meaningful.
+    // Proposals contextualizing the gap.
+    //   InternalGap:      beforeGap + afterGap required.
+    //   ShortTrailingGap: beforeGap required.
+    //   NoProposal:       closingProposal required if window is still open;
+    //                     omitted (zero) only when block.timestamp > windowEnd.
     Inbox.Proposal      beforeGap;
     Inbox.Proposal      afterGap;
+    Inbox.Proposal      closingProposal;
     bytes32             beforeProposalHash;
     bytes32             afterProposalHash;
+    bytes32             closingProposalHash;
 
     // L1 slots inside [gapStart, gapEnd] where beacon root is zero (missed L1 slot)
     uint48[]            missedL1Slots;
@@ -358,10 +373,26 @@ struct GapEvidence {
    `beforeProposalHash` and `afterProposalHash`.
 5. **Attribution.** Both bounding proposals must lie within `expectedProposer`'s
    window, or one must be the predecessor of the window for trailing-gap cases.
-6. **Raw gap.** Compute
-   `rawGap = afterGap.firstBlockTs - beforeGap.lastBlockTs - BLOCK_TIME_TARGET`
-   (or `windowEnd - beforeGap.lastBlockTs` for `ShortTrailingGap`, or
-   `windowEnd - windowStart` for `NoProposal`).
+6. **Raw gap.** Computed per `GapKind`:
+   - **`InternalGap`:**
+     `rawGap = afterGap.firstBlockTs - beforeGap.lastBlockTs - BLOCK_TIME_TARGET`.
+   - **`ShortTrailingGap`:**
+     `rawGap = windowEnd - beforeGap.lastBlockTs`.
+   - **`NoProposal`:** `rawGap = min(closingTs, windowEnd) - windowStart`,
+     where `closingTs = closingProposal.firstBlockTs` if `closingProposal`
+     was provided (the proposal that ended the silence: rescuer's takeover,
+     next-window operator's first proposal, or any later proposal filed
+     retroactively); otherwise `closingTs = block.timestamp` and the
+     slasher requires `block.timestamp > windowEnd` (the window has fully
+     elapsed). The cap at `windowEnd` ensures the slash is bounded by the
+     window length even when the closing proposal lies in a later window.
+
+   This formulation is deliberate: it measures the **actual** silent
+   duration, not the worst-case full window. It prevents strategic-delay
+   inflation, where a next-window assignee could otherwise wait close to
+   `TAKEOVER_OPEN_DELAY` to grow their own rescuer payout (the slash now
+   scales with real staleness only, and a competing late rescuer who
+   posts earlier strictly reduces the slash a delayer would receive).
 7. **Censorship exception.** For each `slot` in `missedL1Slots`:
    - Require `LibPreconfUtils.getBeaconBlockRootAt(slot) == bytes32(0)`.
    - Require `slot ∈ [gapStart, gapEnd]`.
@@ -464,7 +495,36 @@ Recommended payout split, mirroring `LibBonds.settleLivenessBond`
 rescuer / 50% burn. Final split is determined by URC's settlement contract;
 this document does not prescribe URC-internal behavior.
 
-### 7.3 Parameter rationale
+### 7.3 Original assignee re-entry after `stale`
+
+The original window assignee is **not** rejected during `stale` or `dead`.
+They retain the right to propose throughout their window, but any late
+proposal must comply with the dense-timestamp rule (§4.2): the manifest's
+first block must sit at `parent.timestamp + BLOCK_TIME_TARGET`, and all
+intermediate seconds must be filled (RLE empty-block encoding, §4.4, makes
+this cheap). A late re-entering assignee thus **backfills the gap with
+empty blocks** rather than skipping it.
+
+The retroactive `GapSlash` still applies to any gap that occurred before
+re-entry; self-rescuing does not erase the fault. The `closingProposal`
+in such a case is the assignee's own late proposal, and the gap measured
+runs from `windowStart` (or the last block of the previous window) to
+the assignee's first re-entry block timestamp.
+
+This is deliberate. Forbidding re-entry would force a takeover for every
+transient network hiccup. Allowing re-entry under the dense rule means:
+
+- Honest assignees recover from brief outages at the cost of a gap-proportional
+  slash; the chain head stays close to live.
+- A "spike-and-lull" strategy — go silent for 23s, post a minimal batch to
+  reset `lastProposalTimestamp`, repeat — pays `GapSlash` every cycle *and*
+  earns zero MEV from the backfilled empty blocks. It is strictly dominated
+  by honest behavior.
+- Takeover by next-window assignees (after `TAKEOVER_DELAY`) or anyone
+  (after `TAKEOVER_OPEN_DELAY`) remains available if the original truly
+  goes silent.
+
+### 7.4 Parameter rationale
 
 | Parameter | Suggested | Lower bound | Upper bound |
 |---|---|---|---|
@@ -533,6 +593,18 @@ eligibility naturally (`LookaheadStore._validateLookaheadOperator`).
 The fourth (`settleLivenessBond` for late proving) remains scoped to *provers*,
 not proposers, and continues to live in Inbox-managed bond storage.
 
+**URC collateral debit ordering.** URC maintains a single ETH collateral pool
+per operator across all three slashers. When multiple slashes target the same
+operator (e.g., a safety fault challenge filed in the same block as a liveness
+takeover-with-slash), URC debits in transaction order from the same pot. Once
+collateral falls below `MIN_URC_COLLATERAL`, the operator becomes ineligible
+for inclusion in newly-posted lookaheads — `LookaheadStore._validateLookaheadOperator`
+must check current collateral against `MIN_URC_COLLATERAL` at lookahead build
+time. Operators already present in an unexpired posted lookahead remain there
+until the lookahead window passes; their next-window inclusion is what falls
+off. This produces a natural decay of bad operators from the schedule without
+any subjective intervention.
+
 ---
 
 ## 10. Why this enables removing the `Blacklist`
@@ -577,6 +649,17 @@ edges. `4 s` clears those without false-positive on missed-L1-slot scenarios
 **Calibration test:** measure the distribution of `t_blockN+1 - t_blockN`
 across historical L2 derivation. Choose `MAX_GAP` at the 99.9% percentile of
 the honest distribution.
+
+**Soft-launch (monitor-only mode).** Until measured jitter data are available
+under live mainnet conditions, deploy `LivenessSlasher` with a `slashingEnabled`
+flag (governance-controlled) defaulting to `false`. With the flag off,
+`LivenessSlasher.slash` performs full evidence verification and returns the
+computed `slashAmount_`, but URC's debit step is short-circuited (e.g., the
+slasher returns `0` to URC while emitting a `WouldSlash` event with the true
+amount). Watchtowers, operators, and the protocol team observe the false-positive
+rate against real traffic for a tuning period before any collateral is at risk.
+The flag flips on no earlier than milestone M3 (§13), after parameter calibration
+against observed data.
 
 ### 11.2 `PER_SECOND_PENALTY`
 
@@ -654,13 +737,17 @@ liveness; `LookaheadSlasher` defines its own; `MAX_PER_WINDOW_SLASH` is
 The design is intentionally splittable into four milestones, in order of
 increasing surface area and decreasing reversibility.
 
-### M1 — Substrate
+### M1 — Substrate (monitor-only)
 
 - Deploy `LivenessSlasher` + extend `UnifiedSlasher` (`§5.1, §5.2`).
 - Require `livenessSlasher` opt-in in `_validateLookaheadOperator`.
-- **No** dense-derivation rule yet. **No** takeover in `Inbox`. **Manual** slashing only.
+- `slashingEnabled = false` (§11.1 soft-launch): full verification runs, no
+  collateral debit.
+- **No** dense-derivation rule yet. **No** takeover in `Inbox`.
 
-Validates URC routing, bond pool composition, and the commitment-from-lookahead model.
+Validates URC routing, bond pool composition, the commitment model, and the
+gap-detection false-positive rate against live mainnet traffic before any
+collateral is at risk.
 
 ### M2 — Forced empty blocks + RLE
 
@@ -728,7 +815,86 @@ The choice affects (a) how attractive being a rescuer is and (b) the deflationar
 profile of the bond. The 50/50 mirroring of `LibBonds.settleLivenessBond` is a
 sane default.
 
-### 14.4 BLOCK_TIME_TARGET migration from 2 s to 1 s
+### 14.4 URC commitment-authentication model for unsigned-by-default faults
+
+URC's standard slashing entrypoint (`IRegistry.slashCommitment`) authenticates a
+**signed** commitment from the operator before invoking the slasher. The existing
+`PreconfSlasherL1` flow fits this model: the operator signs each `Preconfirmation`
+during normal operation, and the slasher punishes safety/liveness violations of
+something the operator signed.
+
+`LivenessSlasher` as specified above breaks that pattern: the "commitment" is the
+*lookahead hash* (derived from on-chain state, not signed per-window by the
+assignee). A silent operator never signs anything, so there is no per-window
+signed payload for URC to authenticate before calling the slasher.
+
+The atomic slash in §7.2 requires this to be reconciled before implementation.
+Four candidates, each with tradeoffs:
+
+- **A. Standing opt-in as the signed commitment.** The operator's `livenessSlasher`
+  opt-in signature (already required by §5.3) acts as a standing commitment
+  authorizing slashing for *any* future window in which the operator appears in
+  a posted lookahead. URC validates the opt-in signature once at slash time;
+  per-window evidence proves lookahead membership + gap. This is the cleanest
+  fit if URC supports a registration-bound slash entry. Requires verifying URC's
+  API does in fact accept this shape (the current `slashCommitment(registrationRoot,
+  SignedCommitment, evidence)` signature suggests it may not, in which case
+  upstream change is needed).
+- **B. Per-window pre-signed commitments.** Each operator pre-signs an "I will
+  produce during window W" attestation as part of opting into the lookahead. The
+  lookahead poster aggregates and posts these. A silent operator who refuses to
+  pre-sign simply isn't included in the lookahead — moving the problem from "we
+  can't slash silence" to "we can't include silent operators," which is a
+  weaker but acceptable property if lookahead inclusion is genuinely permissionless.
+- **C. Lookahead poster's signed commitment binds operators.** Reuse the
+  `LOOKAHEAD_COMMITMENT_TYPE` signed commitment as the slashable authentication.
+  Requires URC to support "this signed commitment authorizes slashing a third
+  party," which is unconventional and likely not supported.
+- **D. Upstream URC change.** Add a `slashRegistration(registrationRoot, evidence)`
+  entry that authorizes the slasher based purely on the operator's slasher
+  opt-in, no per-instance signed commitment. Cleanest model; requires upstream
+  coordination with `eth-fabric/urc`.
+
+Option **A** is preferred if URC's existing API already supports it (this needs
+verification against the URC source vendored at `eth-fabric/urc`). If not,
+**D** is the right long-term answer, with **B** as a fallback if upstream
+coordination is slow.
+
+### 14.5 Authenticated on-chain source for L2 block timestamps
+
+`IInbox.Proposal` (`packages/protocol/contracts/layer1/core/iface/IInbox.sol:60-79`)
+stores the L1 proposal timestamp and blob references, but **not** the L2 block
+timestamps that the manifest will derive. The proposal hash binds the blob,
+not the per-L2-block timestamps inside it. The verifier described in §6.3
+cannot read `beforeGap.lastBlockTs` or `afterGap.firstBlockTs` directly from
+the on-chain `Proposal` struct.
+
+Three candidate fixes:
+
+- **A. Commit L2 block timestamp bookends to the proposal.** Extend `Proposal`
+  to include `firstL2BlockTs` and `lastL2BlockTs` (uint48 each, ~12 bytes
+  total). Set by the proposer at propose time, hashed into the proposal hash.
+  Cheap on-chain, no blob decoding in the slasher. Storage impact is small but
+  this is a protocol-level struct change requiring coordinated client and
+  derivation-spec updates.
+- **B. Challenger provides blob inclusion + manifest decoding evidence.** The
+  slasher accepts a Merkle proof of the manifest entry against the blob KZG
+  commitment, decodes the relevant entry, and reads the L2 timestamp. Adds
+  significant gas to the slash path, especially under RLE encoding (§4.4)
+  where the relevant L2 timestamp may be implicit in a run.
+- **C. ZK proof of "manifest at position k contains block at L2 ts T".**
+  Cleanest semantically; potentially expensive per slash; needs a verifier
+  contract. Not worth it relative to **A** for this scope.
+
+Option **A** is preferred. It is a one-time protocol surface change that
+makes liveness slashing tractable in O(1) gas and aligns with how other
+proposal-bound data (e.g., `endOfSubmissionWindowTimestamp` already in the
+struct) is committed. Document interactions with the derivation default-manifest
+replacement rule (§4.3): if the source is replaced, the committed
+`firstL2BlockTs` / `lastL2BlockTs` must be reinterpreted against the default
+manifest's timestamps, not the original.
+
+### 14.6 BLOCK_TIME_TARGET migration from 2 s to 1 s
 
 Today `BLOCK_TIME_TARGET = 2 seconds` (`Derivation.md` constants table). The
 design above assumes 1 s. The dense-derivation rule §4.2 is written in terms
