@@ -387,7 +387,14 @@ struct GapEvidence {
 5. **Adjacency.** Verify
    `firstProposalAfter.parentProposalHash == lastProposalBeforeHash`.
    Together with step 4, this proves no other proposal sits between
-   them in the canonical sequence.
+   them in the canonical sequence. Soundness requires the Inbox ring
+   buffer to be **strictly append-only** within the relevant slash
+   window (which it is — proposals are assigned monotonically
+   incrementing IDs, and the ring buffer only wraps after
+   `ringBufferSize` slots, currently 21,600 / 3 days on mainnet per
+   `MainnetInbox.sol:20`). A challenger must therefore file the slash
+   before the buffer wraps past the relevant proposals; URC's own
+   slash-window expiry ensures this in practice.
 6. **Non-membership of `expectedProposer`.** Verify both of:
    - `lastProposalBefore.timestamp < windowStart`,
    - `firstProposalAfter.proposer != expectedProposer` **or**
@@ -547,6 +554,31 @@ fill the gap, hold the window until its natural end, and hand off
 normally. No oversized bond exposure beyond what the original assignee
 would have faced.
 
+**Edge case: `stale` fires after the delinquent's window has already
+elapsed.** If the chain has been silent long enough that `sinceLast >
+TAKEOVER_DELAY` but `block.timestamp > originalAssignee.windowEnd` —
+e.g., the delinquent posted once, went silent, and their entire window
+expired without takeover — the `stale` branch as drafted would return
+`endOfSubmissionWindowTimestamp = windowEnd` (in the past). Two correct
+behaviors are possible and the implementation should pick whichever is
+simpler:
+
+- **Fall through to dead-equivalent.** When the next-window operator's
+  natural window is also active or upcoming, normal `checkProposer`
+  already accepts them — no takeover needed. When neither current nor
+  next window is active, route to the permissionless branch
+  (`endOfSubmissionWindowTimestamp = 0`). Avoids the redundant 24 s
+  wait until `dead` opens.
+- **Tighten the trigger.** Compute `stale` as
+  `sinceLast > TAKEOVER_DELAY && block.timestamp <= currentWindowEnd`,
+  letting the normal `else` branch handle the post-window case via the
+  ordinary `checkProposer` for the next operator.
+
+Either way, the design intent is: never block the chain on a takeover
+permission gap when the assignee's window itself has already expired.
+The `dead` path is for sustained silence across multiple windows, not
+for cleanup after a single delinquent's window ends.
+
 ### 7.2 Atomic slash on takeover
 
 The takeover transaction may include `GapEvidence` for the delinquent
@@ -579,6 +611,16 @@ making URC's atomic slash revert, and reverting the entire takeover —
 preventing the rescuer from posting and prolonging the chain stall. The
 `try/catch` makes liveness restoration unconditionally the priority and
 the slash purely opportunistic.
+
+**Gas stipend.** The `try` block must reserve enough gas for the
+post-catch continuation of `Inbox.propose` (event emission, state
+updates, return). The §6.4 worst case for `LivenessSlasher.slash` is
+~320 k gas (full 32-slot epoch boundary enumeration); the implementation
+should pass a fixed cap via the inline-assembly `gas` argument (e.g.,
+`gas: 500_000`) rather than forwarding all remaining gas. Otherwise an
+unexpectedly heavy slash verification could exhaust gas mid-call,
+reverting the entire takeover even with `try/catch` in place — the
+"out of gas" outcome propagates up before the catch can run.
 
 **Failed atomic slashes do not lose the fault.** When the atomic slash
 reverts (caught by `try/catch`), the takeover proposal still lands but
