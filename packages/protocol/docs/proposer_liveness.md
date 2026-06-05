@@ -326,12 +326,7 @@ nothing for a defaulter to withhold.
 enum GapKind {
     NoProposal,         // No proposal landed for the assigned window.
     InternalGap,        // L2-timestamp gap between two adjacent proposals.
-    ShortTrailingGap,   // Last proposal's L2 blocks end before windowEnd.
-    L1InclusionGap      // L1-time gap between two consecutive proposals from the
-                        // same operator within their window. Uses only on-chain
-                        // Proposal.timestamp; works without §14.5's L2-timestamp
-                        // commitment. Catches spike-and-lull even when L2
-                        // backfill is dense.
+    ShortTrailingGap    // Last proposal's L2 blocks end before windowEnd.
 }
 
 struct GapEvidence {
@@ -357,8 +352,9 @@ struct GapEvidence {
     bytes32             afterProposalHash;
     bytes32             closingProposalHash;
 
-    // L1 slots inside [gapStart, gapEnd] where beacon root is zero (missed L1 slot)
-    uint48[]            missedL1Slots;
+    // Censorship excision is performed automatically on-chain in §6.4 —
+    // the challenger does NOT supply a missed-slot list, so they cannot
+    // omit legitimately missed L1 slots to bias the slash.
 }
 ```
 
@@ -398,26 +394,14 @@ struct GapEvidence {
    `TAKEOVER_OPEN_DELAY` to grow their own rescuer payout (the slash now
    scales with real staleness only, and a competing late rescuer who
    posts earlier strictly reduces the slash a delayer would receive).
-
-   For **`L1InclusionGap`**: evidence is two consecutive proposals
-   `p1, p2` from the same operator within `[windowStart, windowEnd]`
-   (verified by ring-buffer membership at lines 4–5 of this flow). Compute
-   `rawGap = p2.timestamp - p1.timestamp`, where both timestamps are the
-   L1 block timestamps stored in `Proposal.timestamp` (`IInbox.sol:62`).
-   No L2-block timestamps are required, so this fault type is implementable
-   independently of §14.5. The censorship exception (line 7) still applies:
-   subtract `SECONDS_IN_SLOT` for each L1 missed slot between `p1` and `p2`.
-
-   `L1InclusionGap` closes the spike-and-lull loophole called out in §7.3:
-   a dense L2 backfill makes `InternalGap` evaluate to zero, but a >MAX_GAP
-   delay between the operator's L1 submissions remains slashable here.
-   In other words, the operator is accountable both for **L2 density**
-   (InternalGap / ShortTrailingGap) and for **L1 cadence** (L1InclusionGap)
-   inside their window.
-7. **Censorship exception.** For each `slot` in `missedL1Slots`:
-   - Require `LibPreconfUtils.getBeaconBlockRootAt(slot) == bytes32(0)`.
-   - Require `slot ∈ [gapStart, gapEnd]`.
-   - Subtract `SECONDS_IN_SLOT = 12` from `rawGap`.
+7. **Censorship exception (automatic).** Iterate every L1 slot in
+   `[gapStart, gapEnd]` aligned to `SECONDS_IN_SLOT = 12`. For each slot
+   timestamp `ts`, call `LibPreconfUtils.getBeaconBlockRootAt(ts)`; if
+   the returned root is `bytes32(0)`, subtract `SECONDS_IN_SLOT` from
+   `rawGap` to obtain `effectiveGap`. The challenger does not supply
+   the missed-slot list; the slasher enumerates and verifies all
+   relevant slots directly from EIP-4788 beacon roots. See §6.4 for
+   gas cost analysis and rationale.
 8. **Threshold.** `require(effectiveGap > MAX_GAP, NoFault)`.
 9. **Penalty.**
    `slashAmount = min(effectiveGap * PER_SECOND_PENALTY, MAX_PER_WINDOW_SLASH)`.
@@ -426,7 +410,7 @@ struct GapEvidence {
 
 ### 6.4 Censorship exception, in detail
 
-This reuses the pattern already present in `PreconfSlasherL1`
+This reuses the EIP-4788 pattern already present in `PreconfSlasherL1`
 (`packages/protocol/contracts/layer1/preconf/impl/PreconfSlasherL1.sol:88-92`):
 
 ```solidity
@@ -435,10 +419,38 @@ if (LibPreconfUtils.getBeaconBlockRootAt(preconfirmation.submissionWindowEnd) ==
 }
 ```
 
-Here the exception is stronger: **excised**, not downgraded. An operator hit by
-an Ethereum missed-slot run **owes nothing** for the excised interval. EIP-4788
-is the single oracle for "was L1 alive at second T", consistent with the rest
-of the preconfirmation system.
+Here the exception is stronger: **excised**, not downgraded. An operator
+hit by an Ethereum missed-slot run **owes nothing** for the excised
+interval.
+
+**The excision is computed automatically on-chain by `LivenessSlasher`,
+not supplied by the challenger.** The slasher walks every L1 slot in
+`[gapStart, gapEnd]` (aligned to `SECONDS_IN_SLOT`), calls
+`getBeaconBlockRootAt(ts)` for each, and subtracts `SECONDS_IN_SLOT`
+from `rawGap` whenever the returned root is `bytes32(0)`. This makes
+the excision tamper-proof: a challenger cannot inflate `rawGap` by
+omitting legitimately missed L1 slots, and an honest operator hit by
+L1 turbulence cannot be slashed simply because no third party knew to
+include the right slots in evidence.
+
+**Gas bound.** Each EIP-4788 read is a single CALL to the beacon-roots
+precompile (~5–10 k gas including memory and return decoding). The
+loop is `O(gapDurationSeconds / SECONDS_IN_SLOT)` iterations:
+
+| Gap length | Iterations | Approx. gas |
+|---|---|---|
+| 24 s (one takeover window) | 2 | ~20 k |
+| 144 s (full lookahead window) | 12 | ~120 k |
+| Worst-case epoch boundary | 32 | ~320 k |
+
+All bounded by `MAX_PER_WINDOW_SLASH`'s structural cap on window length;
+no unbounded loop. The cost is paid by the challenger or, in the
+atomic-slash-on-takeover path (§7.2), folded into the rescuer's
+`Inbox.propose` transaction. Acceptable given how infrequently
+`LivenessSlasher.slash` is expected to fire.
+
+EIP-4788 is the single oracle for "was L1 alive at second T",
+consistent with the rest of the preconfirmation system.
 
 ### 6.5 What `GapSlash` catches that existing faults do not
 
@@ -491,19 +503,37 @@ takeover method exposes that branch directly.
 ### 7.2 Atomic slash on takeover
 
 The takeover transaction may include `GapEvidence` for the delinquent
-assignee. `Inbox.propose` then calls into URC atomically:
+assignee. `Inbox.propose` then calls into URC atomically, but **wraps the
+call in `try/catch` so that takeover liveness is never blocked by a slash
+failure**:
 
 ```solidity
 if ((stale || dead) && _slashData.length > 0) {
-    IRegistry(urc).slashCommitment(
+    try IRegistry(urc).slashCommitment(
         _slashRegistrationRoot,
         livenessSlasherCommitment,
         _slashData
-    );
+    ) returns (uint256 /* slashedAmount */) {
+        // ok — payout credited per URC's split rule
+    } catch {
+        // slash failed (e.g., collateral already exhausted by a prior
+        // slash in the same block, or the operator's URC opt-in changed).
+        // The takeover proceeds regardless; a separate challenger can
+        // retry the slash later if any collateral remains.
+        emit AtomicSlashFailed(_slashRegistrationRoot);
+    }
 }
 ```
 
-Effects:
+Without this wrapping, the optional slash becomes a griefing surface: a
+malicious challenger could front-run the rescuer's takeover with a
+standalone slash that drains the delinquent operator below the threshold,
+making URC's atomic slash revert, and reverting the entire takeover —
+preventing the rescuer from posting and prolonging the chain stall. The
+`try/catch` makes liveness restoration unconditionally the priority and
+the slash purely opportunistic.
+
+Effects in the happy path:
 
 - URC executes `LivenessSlasher.slash` against the delinquent operator's
   collateral.
@@ -526,16 +556,40 @@ intermediate seconds must be filled (RLE empty-block encoding, §4.4, makes
 this cheap). A late re-entering assignee thus **backfills the gap with
 empty blocks** rather than skipping it.
 
-The retroactive `GapSlash` still applies to any gap that occurred before
-re-entry. With dense empty-block backfill, the `InternalGap` measure
-collapses to zero — there are no missing L2 seconds. But the
-`L1InclusionGap` fault (§6.2) catches the spike-and-lull pattern directly:
-the L1-time gap between the assignee's last on-time proposal and their
-late re-entry proposal is slashable when it exceeds `MAX_GAP`, regardless
-of whether they backfilled the L2 timestamps. The `closingProposal` for
-the `NoProposal` path in such a case is the assignee's own late proposal,
-and the gap measured runs from `windowStart` (or the last block of the
-previous window) to the assignee's first re-entry block timestamp.
+The retroactive `GapSlash` applies for any gap that occurred before
+re-entry: `ShortTrailingGap` if the silence pushed the operator's last
+block before `windowEnd`, or `NoProposal` if they had no on-time
+proposal at all (with the late re-entry serving as `closingProposal`,
+§6.3).
+
+If the late re-entry is a **dense L2 backfill** (every silent second
+backfilled with an empty or transaction-bearing block at the correct
+L2 timestamp), `InternalGap` evaluates to zero — there are no missing
+L2 seconds in the historical record. This is intentional: from a
+derivation perspective, the chain history is whole. The cost of the
+spike-and-lull pattern is then bounded by three forces, in order of
+decreasing strength:
+
+1. **The fast takeover threshold.** Any L1-silence interval ≥
+   `TAKEOVER_DELAY` opens the door for a rescuer to step in (§7.1)
+   with atomic slash + dense backfill of their own. Spike-and-lull
+   above 24 s is racing the rescuers and loses the window.
+2. **Honest-operator MEV parity.** Order flow that arrives during a
+   23 s silence is the *same* order flow available to honest 1 s-block
+   operation; aggregating it into a late batch does not produce extra
+   MEV in expectation, only different transaction ordering. The
+   `PER_SECOND_PENALTY > MEV/s` invariant is unaffected.
+3. **User-experienced staleness.** Even a 23 s repeated stall is a
+   poor UX that causes order flow to route around the operator's L2;
+   self-imposed market pressure.
+
+A dedicated L1-cadence fault type was considered for this case and
+rejected: L1 blocks arrive every 12 s, so any threshold below
+`TAKEOVER_DELAY` would slash honest operators who legitimately batch
+across L1 slots, and any threshold above `TAKEOVER_DELAY` is
+structurally subsumed by the takeover trigger. Spike-and-lull below
+24 s is therefore an acknowledged minor liveness degradation, not a
+slashable fault.
 
 This is deliberate. Forbidding re-entry would force a takeover for every
 transient network hiccup. Allowing re-entry under the dense rule means:
@@ -594,8 +648,8 @@ Window W: operator O is assigned. Window timestamps: [T_start, T_end].
 
 ╭─ L1 censorship path ────────────────────────────────────────────────────╮
 │  O tries; L1 has missed slots inside [T_start, T_end].                  │
-│  → Challenger files GapEvidence with missedL1Slots populated.           │
-│  → Censorship exception excises those seconds.                          │
+│  → Challenger files GapEvidence; slasher auto-excises missed L1 slots.  │
+│  → Censorship exception (§6.4) cancels the punished interval.           │
 │  → effectiveGap ≤ MAX_GAP → NoFault; O is not punished.                 │
 ╰─────────────────────────────────────────────────────────────────────────╯
 ```
@@ -709,6 +763,21 @@ re-org could trigger a false takeover and produce a spurious slash. 2 and 4
 L1 slots (24 s, 48 s) give a comfortable margin while still keeping the
 worst-case stall to <1 minute. Below 24 s, false-positive risk grows quickly.
 
+**Blob propagation tradeoff.** `lastProposalTimestamp` advances only when
+a proposal is accepted on L1, which requires the blob to be included in
+an L1 block. Blob-bearing transactions typically take 1–2 L1 slots to
+land under normal congestion, occasionally longer under blob-fee spikes.
+An honest operator whose blob transaction is in-flight in the L1 mempool
+but not yet mined can therefore appear silent past `TAKEOVER_DELAY` and
+be subject to takeover-with-slash even though they were diligently
+attempting to propose. The 24 s threshold gives roughly one L1-slot of
+slack beyond the typical blob-inclusion latency, but operators on
+congested L1 conditions may legitimately be slashed for what is, in
+substance, an L1-mempool delay rather than malicious silence. The
+safety/liveness tradeoff here favors liveness — the chain head matters
+more to users than perfectly attributing blame — but the parameter
+should be revisited if observed blob-inclusion latency moves up.
+
 ### 11.4 `MIN_URC_COLLATERAL`
 
 Set high enough that a single operator can absorb the worst-case combined
@@ -809,17 +878,17 @@ either measurement, governance choice, or upstream coordination.
 ### 14.1 `MAX_GAP` floor under bad L1 weather
 
 Historical mainnet missed-slot rate hovers around 0.5–1%. Three consecutive
-missed L1 slots are rare but not impossible. The censorship exception
-(§6.4) handles them correctly **provided the challenger includes them in
-`missedL1Slots`**. If a challenger omits a legitimately missed L1 slot, the
-slash proceeds unjustly. Mitigations to consider:
+missed L1 slots are rare but not impossible. The censorship exception is
+**fully on-chain and automatic** (§6.4); the slasher itself enumerates the
+gap range and queries EIP-4788 beacon roots, so the slashed operator
+cannot be cheated by a challenger omitting legitimate missed L1 slots.
 
-- Make the censorship excision **automatic on-chain**: `LivenessSlasher`
-  iterates the gap range and checks beacon roots, rather than relying on the
-  challenger to enumerate. Higher gas, but tamper-proof. Likely the right
-  choice.
-- Alternatively, require the slashed operator to be able to post a single
-  counter-proof showing an omitted missed L1 slot, refunding the slash.
+What remains open is **calibration of `MAX_GAP` against measured jitter**.
+At 1-second L2 block time, with L1 censorship excised, the residual
+gap distribution is dominated by propagation noise around L1 slot
+boundaries. Until devnet/mainnet measurements are available, the soft-launch
+mode in §11.1 covers the calibration risk: false-positives are observed
+without collateral debit before `slashingEnabled` flips on.
 
 ### 14.2 Anchor cadence vs. RLE empty runs
 
@@ -973,12 +1042,23 @@ design above assumes 1 s. The dense-derivation rule §4.2 is written in terms
 of `BLOCK_TIME_TARGET`, so the cutover is parametric; what changes is:
 
 - DA cost (doubles per window) — addressed by §4.4 RLE.
-- `TIMESTAMP_MAX_OFFSET` may need re-calibration.
 - `MAX_GAP` and `PER_SECOND_PENALTY` should be revisited at the new cadence.
+- Proving load (§14.7) needs measurement at the new cadence.
+- **`TIMESTAMP_MAX_OFFSET` must be narrowed.** Today's value (Hoodi
+  `1536` ≈ 25 min, Mainnet `6144` ≈ 102 min) was set to absorb wide
+  off-cadence batching; the dense rule (§4.2) renders large offsets
+  meaningless and exploitable. After the cutover, `TIMESTAMP_MAX_OFFSET`
+  should be at most a small multiple of one lookahead-window length
+  (e.g., 384 s, one epoch), with the dense-timestamp rule taking
+  precedence wherever they would conflict. A wide
+  `TIMESTAMP_MAX_OFFSET` permits a proposer to push their L2
+  timestamps far from the L1 proposal timestamp; the dense rule alone
+  does not catch that drift, only its internal density. Narrowing
+  `TIMESTAMP_MAX_OFFSET` makes the two rules consistent.
 
 Migration is a separate fork operation; this document specifies the steady-state
 behavior at the chosen cadence and is correct for either value of
-`BLOCK_TIME_TARGET`.
+`BLOCK_TIME_TARGET` once `TIMESTAMP_MAX_OFFSET` is set consistently.
 
 ---
 
