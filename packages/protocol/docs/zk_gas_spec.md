@@ -37,10 +37,10 @@ Example rows:
 
 ```text
 Operation              Multiplier
-modexp (precompile)    923
 point_evaluation       859
 bls12_pairing          365
 blake2f                166
+modexp (precompile)    154
 mulmod (opcode)        113
 ...
 ```
@@ -55,7 +55,7 @@ Definitions:
 - `precompile_invoked`: true when a CALL-family opcode (`CALL`, `CALLCODE`, `DELEGATECALL`, `STATICCALL`) resolves to an active precompile and executes it.
 - `tx_intrinsic_zk_gas`: transaction-level zk gas charged once per transaction, equal to `TX_INTRINSIC_ZK_GAS`.
 - `opcode_multiplier[opcode]`: per-opcode proving-cost multiplier. All valid opcodes are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted opcodes default to `max(uint16)` (fail-safe).
-- `precompile_multiplier[addr]`: per-precompile proving-cost multiplier, indexed by the low byte of the precompile address. All active precompiles are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted precompiles default to `max(uint16)` (fail-safe).
+- `precompile_multiplier[addr]`: per-precompile proving-cost multiplier, indexed by the precompile address. All active precompiles are listed in [Appendix B](#appendix-b-full-zk-multipliers). Unlisted precompiles default to `max(uint16)` (fail-safe).
 - Multiplier values are listed in [Appendix B](#appendix-b-full-zk-multipliers).
 - **Arithmetic**: all zk gas arithmetic uses unsigned 64-bit integers. If any intermediate multiplication or addition overflows, the transaction is treated as having exceeded its limit and execution is halted immediately.
 
@@ -64,7 +64,8 @@ Definitions:
 # uint64: unsigned 64-bit integer
 # uint16: unsigned 16-bit integer
 # opcode_multiplier: array[256] of uint16, indexed by opcode byte (0x00..0xFF)
-# precompile_multiplier: array[256] of uint16, indexed by low byte of precompile address
+# precompile_multiplier: map[address -> uint16], indexed by the precompile address;
+#                        a missing entry returns FAILSAFE_MULTIPLIER = max(uint16)
 
 # --- Transaction-level constants ---
 TX_INTRINSIC_ZK_GAS = 243_000
@@ -98,7 +99,8 @@ def on_opcode(opcode: uint8, step_gas: uint64, child_frame_created: bool, precom
 
 # --- Precompile hook (called when a CALL-family opcode resolves to a precompile) ---
 
-def on_precompile(precompile_address: uint8, gas_used: uint64):
+def on_precompile(precompile_address: address, gas_used: uint64):
+    # Indexed by the precompile address; a missing entry returns FAILSAFE_MULTIPLIER = max(uint16).
     tx_zk_gas_used += gas_used * precompile_multiplier[precompile_address]
 
     if block_zk_gas_used + tx_zk_gas_used > BLOCK_ZK_GAS_LIMIT:
@@ -135,12 +137,12 @@ def execute_block(txs, BLOCK_ZK_GAS_LIMIT: uint64):
 
 Precompile calls do not execute opcodes — the EVM runs them directly and returns a result without creating a child execution frame. The per-opcode metering loop never sees precompile work, so precompiles must be metered explicitly.
 
-Precompile detection is implementation-defined (e.g. checking the active precompile set for the current fork). The multiplier is indexed by the low byte of the precompile address.
+Precompile detection is implementation-defined (e.g. checking the active precompile set for the current fork). The multiplier is indexed by the precompile address.
 
 When a CALL-family opcode targets a precompile address:
 
 - The CALL-family opcode itself is metered via `on_opcode` with `precompile_invoked = True` and uses `SPAWN_ESTIMATE[opcode]` as raw gas (not `step_gas`). This covers only opcode-side spawn overhead.
-- `precompile_zk = precompile_gas_used * precompile_multiplier[low_byte]`
+- `precompile_zk = precompile_gas_used * precompile_multiplier[precompile_address]`
 - `precompile_gas_used` is the gas charged by the precompile's own gas schedule (`base_cost + data_cost`), excluding the CALL-family opcode's own costs (cold account access, memory expansion, value transfer stipend). This is the value deducted from the calling frame's gas counter when the precompile runs.
 - The charge is applied after the precompile executes, since gas cost is only known after execution. Since precompiles are atomic (no child opcodes), the block limit check fires before any subsequent opcode.
 
@@ -228,28 +230,28 @@ All valid opcodes and all active precompiles are listed below. Unlisted opcodes 
 
 ### Precompile Multipliers
 
-Indexed by the low byte of the precompile address. Sorted by multiplier descending.
+Indexed by the precompile address. Sorted by multiplier descending.
 
 | Precompile | Address | Multiplier |
 | --- | --- | ---: |
-| modexp | 0x05 | 923 |
-| point_evaluation | 0x0a | 859 |
-| bls12_pairing | 0x0f | 365 |
-| bls12_map_fp_to_g1 | 0x10 | 246 |
-| bls12_g2add | 0x0d | 230 |
-| bls12_map_fp2_to_g2 | 0x11 | 208 |
-| bls12_g1add | 0x0b | 201 |
-| blake2f | 0x09 | 166 |
-| p256verify | 0x100 | 163 |
-| bls12_g1msm | 0x0c | 93 |
-| bls12_g2msm | 0x0e | 71 |
-| bn128_mul | 0x07 | 58 |
-| bn128_pairing | 0x08 | 54 |
-| ecrecover | 0x01 | 47 |
-| bn128_add | 0x06 | 19 |
-| sha256 | 0x02 | 10 |
-| identity | 0x04 | 6 |
-| ripemd160 | 0x03 | 4 |
+| point_evaluation | 0x000000000000000000000000000000000000000a | 859 |
+| bls12_pairing | 0x000000000000000000000000000000000000000f | 365 |
+| bls12_map_fp_to_g1 | 0x0000000000000000000000000000000000000010 | 246 |
+| bls12_g2add | 0x000000000000000000000000000000000000000d | 230 |
+| bls12_map_fp2_to_g2 | 0x0000000000000000000000000000000000000011 | 208 |
+| bls12_g1add | 0x000000000000000000000000000000000000000b | 201 |
+| blake2f | 0x0000000000000000000000000000000000000009 | 166 |
+| p256verify | 0x0000000000000000000000000000000000000100 | 163 |
+| modexp | 0x0000000000000000000000000000000000000005 | 154 |
+| bls12_g1msm | 0x000000000000000000000000000000000000000c | 93 |
+| bls12_g2msm | 0x000000000000000000000000000000000000000e | 71 |
+| bn128_mul | 0x0000000000000000000000000000000000000007 | 58 |
+| bn128_pairing | 0x0000000000000000000000000000000000000008 | 54 |
+| ecrecover | 0x0000000000000000000000000000000000000001 | 47 |
+| bn128_add | 0x0000000000000000000000000000000000000006 | 19 |
+| sha256 | 0x0000000000000000000000000000000000000002 | 10 |
+| identity | 0x0000000000000000000000000000000000000004 | 6 |
+| ripemd160 | 0x0000000000000000000000000000000000000003 | 4 |
 
 ### Opcode Multipliers
 
@@ -420,14 +422,14 @@ The initial value of 100M is a placeholder derived from the following model:
 
 The table below shows how the per-block limit scales with proving deadline, assuming 384 blocks per proposal. Values in the EVM Gas columns show the equivalent conventional gas budget if every opcode in the block were of that single type.
 
-| Proving Deadline | Total ZK Budget | ZK_GAS_LIMIT (÷384) | EVM Gas (modexp@923×) | EVM Gas (keccak256@31×) | EVM Gas (add@19×) | EVM Gas (push1@9×) |
+| Proving Deadline | Total ZK Budget | ZK_GAS_LIMIT (÷384) | EVM Gas (point_evaluation@859×) | EVM Gas (keccak256@31×) | EVM Gas (add@19×) | EVM Gas (push1@9×) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2 hours | 7.2B | 18.75M | 20.3K | 604.8K | 986.8K | 2.08M |
-| 4 hours | 14.4B | 37.5M | 40.6K | 1.21M | 1.97M | 4.17M |
-| 6 hours | 21.6B | 56.25M | 60.9K | 1.81M | 2.96M | 6.25M |
-| 8 hours | 28.8B | 75M | 81.3K | 2.42M | 3.95M | 8.33M |
-| 12 hours | 43.2B | 112.5M | 121.9K | 3.63M | 5.92M | 12.50M |
-| 24 hours | 86.4B | 225M | 243.8K | 7.26M | 11.84M | 25.00M |
+| 2 hours | 7.2B | 18.75M | 21.8K | 604.8K | 986.8K | 2.08M |
+| 4 hours | 14.4B | 37.5M | 43.7K | 1.21M | 1.97M | 4.17M |
+| 6 hours | 21.6B | 56.25M | 65.5K | 1.81M | 2.96M | 6.25M |
+| 8 hours | 28.8B | 75M | 87.3K | 2.42M | 3.95M | 8.33M |
+| 12 hours | 43.2B | 112.5M | 131.0K | 3.63M | 5.92M | 12.50M |
+| 24 hours | 86.4B | 225M | 261.9K | 7.26M | 11.84M | 25.00M |
 
 **This value is a placeholder and will almost certainly change.** Factors that will influence the final value include: number of GPUs available, prover software improvements and target proving deadline chosen for production.
 
