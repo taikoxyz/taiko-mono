@@ -5166,17 +5166,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd7399781913e5393588a8d8c6a2867bf85fb38eaf2502fdce465aad2dc6f034"
 dependencies = [
  "base64",
- "http-body-util",
- "hyper",
- "hyper-util",
  "indexmap 2.14.0",
- "ipnet",
  "metrics",
  "metrics-util",
  "quanta",
  "thiserror 1.0.69",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -6120,9 +6114,9 @@ dependencies = [
  "libp2p-allow-block-list",
  "libp2p-connection-limits",
  "libp2p-request-response",
- "metrics",
- "metrics-exporter-prometheus",
+ "once_cell",
  "preconfirmation-types",
+ "prometheus",
  "rand 0.8.6",
  "reth-discv5",
  "reth-network-types",

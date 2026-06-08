@@ -61,8 +61,7 @@ impl NetworkDriver {
     ) {
         let elapsed = start.elapsed().as_secs_f64();
         let proto = Self::reqresp_label(kind);
-        metrics::histogram!("p2p_reqresp_rtt_seconds", "protocol" => proto, "outcome" => outcome)
-            .record(elapsed);
+        metrics::observe_vec("p2p_reqresp_rtt_seconds", &[proto, outcome], elapsed);
     }
 
     /// Track outbound request responders so we can fulfill futures on completion.
@@ -113,8 +112,7 @@ impl NetworkDriver {
             NetworkErrorKind::ReqRespBackpressure,
             format!("req-resp {kind_label}: no peers available"),
         );
-        metrics::counter!("p2p_reqresp_error", "kind" => kind_label, "reason" => "no_peer")
-            .increment(1);
+        metrics::inc_vec("p2p_reqresp_error", &[kind_label, "no_peer"]);
         if let Some(responder) = responder {
             Self::respond_with_error(responder, err.clone());
         }
@@ -131,14 +129,13 @@ impl NetworkDriver {
     ) -> bool {
         let kind_label = Self::reqresp_label(kind);
         if self.reputation.is_banned(peer) {
-            metrics::counter!("p2p_reqresp_dropped", "kind" => kind_label, "reason" => "banned")
-                .increment(1);
+            metrics::inc_vec("p2p_reqresp_dropped", &[kind_label, "banned"]);
             return false;
         }
         match self.request_limiter.poll_allow(*peer, kind, cx) {
             Poll::Ready(true) => true,
             _ => {
-                metrics::counter!("p2p_reqresp_rate_limited", "kind" => kind_label).increment(1);
+                metrics::inc_vec("p2p_reqresp_rate_limited", &[kind_label]);
                 self.emit_error(NetworkErrorKind::ReqRespRateLimited, rate_limited_msg);
                 self.apply_reputation(*peer, PeerAction::Timeout);
                 false
@@ -155,8 +152,7 @@ impl NetworkDriver {
         detail: &'static str,
     ) {
         let kind_label = Self::reqresp_label(kind);
-        metrics::counter!("p2p_reqresp_error", "kind" => kind_label, "reason" => "validation")
-            .increment(1);
+        metrics::inc_vec("p2p_reqresp_error", &[kind_label, "validation"]);
         self.apply_reputation(peer, PeerAction::ReqRespError);
         let err =
             NetworkError::new(NetworkErrorKind::ReqRespValidation, format!("{detail} from {peer}"));
@@ -179,8 +175,7 @@ impl NetworkDriver {
     ) {
         let kind_label = Self::reqresp_label(kind);
         let err_label = Self::reqresp_label(kind);
-        metrics::counter!("p2p_reqresp_error", "kind" => kind_label, "reason" => "outbound_failure")
-            .increment(1);
+        metrics::inc_vec("p2p_reqresp_error", &[kind_label, "outbound_failure"]);
         self.apply_reputation(peer, PeerAction::ReqRespError);
         let err = NetworkError::new(
             NetworkErrorKind::ReqRespFailure,
@@ -211,8 +206,7 @@ impl NetworkDriver {
     ) {
         let kind_label = Self::reqresp_label(kind);
         let err_label = Self::reqresp_label(kind);
-        metrics::counter!("p2p_reqresp_error", "kind" => kind_label, "reason" => "inbound_failure")
-            .increment(1);
+        metrics::inc_vec("p2p_reqresp_error", &[kind_label, "inbound_failure"]);
         self.apply_reputation(peer, PeerAction::ReqRespError);
         self.emit_error(
             NetworkErrorKind::ReqRespFailure,
@@ -254,12 +248,12 @@ impl NetworkDriver {
                     }
                     let resp = GetCommitmentsByNumberResponse { commitments: list };
                     let _ = self.swarm.behaviour_mut().commitments_rr.send_response(channel, resp);
-                    metrics::counter!("p2p_reqresp_success", "kind" => "commitments", "direction" => "inbound").increment(1);
+                    metrics::inc_vec("p2p_reqresp_success", &["commitments", "inbound"]);
                     self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                 }
                 rr::Message::Response { request_id, response } => {
                     if self.validator.validate_commitments_response(&peer, &response).is_ok() {
-                        metrics::counter!("p2p_reqresp_success", "kind" => "commitments", "direction" => "outbound").increment(1);
+                        metrics::inc_vec("p2p_reqresp_success", &["commitments", "outbound"]);
                         self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                         if let Some(pending) =
                             self.take_pending_request(ReqRespKind::Commitments, request_id)
@@ -326,7 +320,7 @@ impl NetworkDriver {
                         };
                         let _ =
                             self.swarm.behaviour_mut().raw_txlists_rr.send_response(channel, resp);
-                        metrics::counter!("p2p_reqresp_success", "kind" => "raw_txlists", "direction" => "inbound").increment(1);
+                        metrics::inc_vec("p2p_reqresp_success", &["raw_txlists", "inbound"]);
                         self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                     } else {
                         // Explicit not-found response with empty body; avoid positive/negative
@@ -337,17 +331,16 @@ impl NetworkDriver {
                         };
                         let _ =
                             self.swarm.behaviour_mut().raw_txlists_rr.send_response(channel, resp);
-                        metrics::counter!("p2p_reqresp_not_found", "kind" => "raw_txlists")
-                            .increment(1);
+                        metrics::inc_vec("p2p_reqresp_not_found", &["raw_txlists", "inbound"]);
                     }
                 }
                 rr::Message::Response { request_id, response } => {
                     if self.validator.validate_raw_txlist_response(&peer, &response).is_ok() {
                         let not_found = response.txlist.is_empty();
                         if not_found {
-                            metrics::counter!("p2p_reqresp_not_found", "kind" => "raw_txlists", "direction" => "outbound").increment(1);
+                            metrics::inc_vec("p2p_reqresp_not_found", &["raw_txlists", "outbound"]);
                         } else {
-                            metrics::counter!("p2p_reqresp_success", "kind" => "raw_txlists", "direction" => "outbound").increment(1);
+                            metrics::inc_vec("p2p_reqresp_success", &["raw_txlists", "outbound"]);
                             self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                         }
                         if let Some(pending) =
@@ -410,12 +403,12 @@ impl NetworkDriver {
                         .behaviour_mut()
                         .head_rr
                         .send_response(channel, self.head.clone());
-                    metrics::counter!("p2p_reqresp_success", "kind" => "head", "direction" => "inbound").increment(1);
+                    metrics::inc_vec("p2p_reqresp_success", &["head", "inbound"]);
                     self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                 }
                 rr::Message::Response { request_id, response } => {
                     if self.validator.validate_head_response(&peer, &response).is_ok() {
-                        metrics::counter!("p2p_reqresp_success", "kind" => "head", "direction" => "outbound").increment(1);
+                        metrics::inc_vec("p2p_reqresp_success", &["head", "outbound"]);
                         self.apply_reputation(peer, PeerAction::ReqRespSuccess);
                         if let Some(pending) =
                             self.take_pending_request(ReqRespKind::Head, request_id)

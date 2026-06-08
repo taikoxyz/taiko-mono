@@ -69,7 +69,7 @@ impl NetworkDriver {
             }
             SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 self.connected_peers += 1;
-                metrics::gauge!("p2p_connected_peers").set(self.connected_peers as f64);
+                metrics::set_gauge("p2p_connected_peers", self.connected_peers as f64);
                 if self.reputation.is_banned(&peer_id) {
                     let _ = self.swarm.disconnect_peer_id(peer_id);
                 }
@@ -77,7 +77,7 @@ impl NetworkDriver {
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 self.connected_peers -= 1;
-                metrics::gauge!("p2p_connected_peers").set(self.connected_peers.max(0) as f64);
+                metrics::set_gauge("p2p_connected_peers", self.connected_peers.max(0) as f64);
                 let _ = self.events_tx.try_send(NetworkEvent::PeerDisconnected(peer_id));
                 self.emit_error(
                     NetworkErrorKind::Disconnect,
@@ -87,11 +87,9 @@ impl NetworkDriver {
             SwarmEvent::IncomingConnectionError { error, .. } => {
                 let reason =
                     if error.to_string().contains("Exceeded") { "limit_exceeded" } else { "other" };
-                metrics::counter!("p2p_conn_error", "direction" => "in", "reason" => reason)
-                    .increment(1);
+                metrics::inc_vec("p2p_conn_error", &["in", reason]);
                 if reason == "limit_exceeded" {
-                    metrics::counter!("p2p_conn_rejected_total", "direction" => "in", "reason" => reason)
-                        .increment(1);
+                    metrics::inc_vec("p2p_conn_rejected_total", &["in", reason]);
                 }
                 self.emit_error(
                     NetworkErrorKind::DialFailed,
@@ -101,10 +99,9 @@ impl NetworkDriver {
             SwarmEvent::OutgoingConnectionError { error, .. } => {
                 let reason =
                     if error.to_string().contains("Exceeded") { "limit_exceeded" } else { "other" };
-                metrics::counter!("p2p_conn_error", "direction" => "out", "reason" => reason)
-                    .increment(1);
+                metrics::inc_vec("p2p_conn_error", &["out", reason]);
                 if reason == "limit_exceeded" {
-                    metrics::counter!("p2p_dial_throttled_total", "reason" => reason).increment(1);
+                    metrics::inc_vec("p2p_dial_throttled_total", &[reason]);
                 }
                 self.emit_error(
                     NetworkErrorKind::DialFailed,
@@ -132,8 +129,7 @@ impl NetworkDriver {
             NetworkCommand::PublishCommitment(msg) => {
                 let topic = self.topics.0.clone();
                 if let Err(err) = self.publish_gossip(&topic, msg) {
-                    metrics::counter!("p2p_gossip_publish_error", "kind" => "commitment")
-                        .increment(1);
+                    metrics::inc_vec("p2p_gossip_publish_error", &["commitment"]);
                     self.emit_error(
                         NetworkErrorKind::PublishFailure,
                         format!("gossip commitment: {err}"),
@@ -143,8 +139,7 @@ impl NetworkDriver {
             NetworkCommand::PublishRawTxList(msg) => {
                 let topic = self.topics.1.clone();
                 if let Err(err) = self.publish_gossip(&topic, msg) {
-                    metrics::counter!("p2p_gossip_publish_error", "kind" => "raw_txlists")
-                        .increment(1);
+                    metrics::inc_vec("p2p_gossip_publish_error", &["raw_txlists"]);
                     self.emit_error(
                         NetworkErrorKind::PublishFailure,
                         format!("gossip raw-txlist: {err}"),
@@ -164,7 +159,7 @@ impl NetworkDriver {
                         },
                     );
                 } else {
-                    metrics::counter!("p2p_reqresp_error", "kind" => "commitments", "reason" => "validation").increment(1);
+                    metrics::inc_vec("p2p_reqresp_error", &["commitments", "validation"]);
                     let err = NetworkError::new(
                         NetworkErrorKind::ReqRespValidation,
                         format!("invalid commitments request: max_count {max_count} exceeds cap"),
