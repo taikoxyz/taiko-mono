@@ -1,6 +1,22 @@
 packages:
   - packages/*
+allowBuilds:
+  "@reown/appkit": true
+  "@sveltejs/kit": true
+  bufferutil: true
+  es5-ext: true
+  esbuild: true
+  keccak: true
+  lefthook: true
+  optimism: true
+  protobufjs: true
+  secp256k1: true
+  sharp: true
+  svelte-preprocess: true
+  unrs-resolver: true
+  utf-8-validate: true
 onlyBuiltDependencies:
+  - "@reown/appkit"
   - "@sveltejs/kit"
   - bufferutil
   - es5-ext
@@ -12,4 +28,5 @@ onlyBuiltDependencies:
   - secp256k1
   - sharp
   - svelte-preprocess
+  - unrs-resolver
   - utf-8-validate

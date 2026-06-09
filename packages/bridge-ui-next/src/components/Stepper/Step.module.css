@@ -1,0 +1,23 @@
+/*
+ * Ported verbatim from the Svelte component-scoped <style> in
+ * packages/bridge-ui/src/components/Stepper/Step.svelte.
+ *
+ * These override the daisyUI `step`/`step-primary`/`step-previous` connector
+ * bar (the `::before` pseudo-element). They live in a CSS Module to preserve
+ * the original component scoping (Svelte rewrote `.step::before` to a
+ * component-local selector), so they do not leak onto every daisyUI `.step`
+ * elsewhere in the app.
+ *
+ * The CSS-module class is applied ALONGSIDE the global daisyUI class
+ * (e.g. `cn('step', styles.step)`) so the daisyUI layout/coloring still
+ * applies and only the `::before` background-color is overridden here.
+ */
+.step::before {
+  background-color: rgba(255, 111, 200, 0.2) !important;
+}
+.step-primary::before {
+  background-color: var(--primary-brand) !important;
+}
+.step-previous::before {
+  background-color: var(--primary-brand) !important;
+}

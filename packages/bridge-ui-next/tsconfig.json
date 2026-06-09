@@ -1,0 +1,49 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "types": ["node", "vitest/globals"],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "$components/*": ["./src/components/*"],
+      "$stores": ["./src/stores/index.ts"],
+      "$stores/*": ["./src/stores/*"],
+      "$config": ["./src/app.config.ts"],
+      "$libs/*": ["./src/libs/*"],
+      "$abi": ["./src/abi/index.ts"],
+      "$bridgeConfig": ["./src/config/generated/bridgeConfig.ts"],
+      "$chainConfig": ["./src/config/generated/chainConfig.ts"],
+      "$relayerConfig": ["./src/config/generated/relayerConfig.ts"],
+      "$customToken": ["./src/config/generated/customTokenConfig.ts"],
+      "$eventIndexerConfig": ["./src/config/generated/eventIndexerConfig.ts"],
+      "$nftAPI/*": ["./src/libs/nft/*"],
+      "$mocks": ["./src/tests/mocks/index.ts"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}

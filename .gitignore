@@ -136,3 +136,4 @@ target
 
 #Env
 **/*.env
+.gstack/

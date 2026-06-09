@@ -1,0 +1,22 @@
+/*
+ * Ported verbatim from the Svelte component-scoped <style> in
+ * packages/bridge-ui/src/components/DialogTabs/DialogTab.svelte.
+ * These are component-local overrides layered on top of the global daisyUI
+ * `tab` / `tab-active` classes, so they live in a CSS Module to preserve the
+ * original scoping (no global collision with daisyUI's `.tab`).
+ */
+.tab {
+  box-sizing: border-box !important;
+  padding-bottom: 6px;
+}
+.tab:not(.tab-active) {
+  border-color: var(--tertiary-content) !important;
+  border-bottom: 1px solid;
+  margin-bottom: 2px;
+  padding-top: 2px;
+}
+.tab-active {
+  border-bottom: 4px solid;
+  border-color: var(--primary-brand) !important;
+  padding-bottom: 4px;
+}

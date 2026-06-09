@@ -1,0 +1,756 @@
+/* =====================================================================
+   Taiko Bridge — globals.css
+   Ported verbatim from packages/bridge-ui (daisyUI/Tailwind) for pixel parity.
+   Theme switches via [data-theme='light'|'dark'] on <html>.
+   ===================================================================== */
+
+/* Clash Grotesk is NOT on Google Fonts — loaded from Fontshare via <link> in layout.tsx.
+   Public Sans is loaded via next/font/google (CSS var --font-public-sans). */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------
+   Theme CSS variables (semantic tokens flip per data-theme)
+   --------------------------------------------------------------------- */
+:root {
+  /* shadcn radius token (numeric components use explicit px elsewhere) */
+  --radius: 0.625rem;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --btn-text-case: capitalize;
+
+  /* Semantic */
+  --primary-brand: #c8047d; /* pink-500 */
+  --primary-content: #f3f3f3; /* grey-10 */
+  --primary-link: #ff6fc8; /* pink-200 */
+  --primary-link-hover: #ffc6e9; /* pink-50 */
+  --primary-icon: #cacbce; /* grey-100 */
+  --primary-background: #0b101b; /* grey-900 */
+  --primary-interactive: #c8047d; /* pink-500 */
+  --primary-interactive-accent: #e81899; /* pink-400 */
+  --primary-interactive-hover: #e81899; /* pink-400 */
+  --primary-border-hover: #ff6fc8; /* pink-200 */
+  --primary-border-dark: #5d636f; /* grey-500 */
+  --primary-border-accent: #e81899; /* pink-400 */
+  --primary-base-background: #ffffff; /* grey-0 */
+  --primary-base-content: #191e28; /* grey-800 */
+  --secondary-brand: #e81899; /* pink-400 */
+  --secondary-content: #adb1b8; /* grey-200 */
+  --secondary-icon: #2b303b; /* grey-700 */
+  --secondary-interactive-accent: #2b303b; /* grey-700 */
+  --secondary-interactive-hover: #adb1b8; /* grey-200 */
+  --tertiary-content: #5d636f; /* grey-500 */
+  --tertiary-interactive-accent: #5d636f; /* grey-500 */
+  --tertiary-interactive-hover: #444a55; /* grey-600 */
+  --positive-sentiment: #47e0a0; /* green-300 */
+  --positive-background: #00321d; /* green-800 */
+  --negative-sentiment: #f15c5d; /* red-300 */
+  --negative-background: #440000; /* red-800 */
+  --warning-sentiment: #ebb222; /* yellow-400 */
+  --warning-background: #382800; /* yellow-800 */
+  --neutral-sentiment: #0052cc; /* blue-500 */
+  --neutral-sentiment-background: #002966; /* blue-700 */
+  --elevated-background: #191e28; /* grey-800 */
+  --neutral-background: #2b303b; /* grey-700 */
+  --neutral-content: #2b303b; /* grey-800 (value verbatim) */
+  --neutral-accent: #2b303b; /* grey-700 */
+  --overlay-background: rgba(12, 17, 28, 0.5); /* grey-900 | 50% */
+  --overlay-dialog: rgba(12, 17, 28, 0.9); /* grey-900 | 90% */
+  --divider-border: #444a55; /* grey-600 */
+  --dialog-background: #2b303b; /* grey-700 */
+  --dialog-dialog-interactive-disabled: #444a55; /* grey-600 */
+
+  /* shadcn/ui bridge aliases (hex via var(); use color: var(--background) directly, NOT hsl()) */
+  --background: var(--primary-background);
+  --foreground: var(--primary-content);
+  --card: var(--dialog-background);
+  --card-foreground: var(--primary-content);
+  --popover: var(--neutral-background);
+  --popover-foreground: var(--primary-content);
+  --primary: var(--primary-brand);
+  --primary-foreground: var(--primary-content);
+  --secondary: var(--secondary-brand);
+  --secondary-foreground: var(--secondary-content);
+  --muted: var(--elevated-background);
+  --muted-foreground: var(--tertiary-content);
+  --accent: var(--primary-interactive-accent);
+  --accent-foreground: var(--primary-content);
+  --destructive: var(--negative-sentiment);
+  --destructive-foreground: var(--primary-content);
+  --border: var(--divider-border);
+  --input: var(--primary-border-dark);
+  --ring: var(--primary-border-accent);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --btn-text-case: capitalize;
+
+  --primary-brand: #c8047d; /* pink-500 */
+  --primary-content: #191e28; /* grey-800 */
+  --primary-link: #c8047d; /* pink-500 */
+  --primary-link-hover: #e81899; /* pink-400 */
+  --primary-icon: #5d636f; /* grey-500 */
+  --primary-background: #fafafa; /* grey-5 */
+  --primary-interactive: #c8047d; /* pink-500 */
+  --primary-interactive-accent: #e81899; /* pink-400 */
+  --primary-interactive-hover: #e3e3e3; /* grey-50 */
+  --primary-border-hover: #ff6fc8; /* pink-200 */
+  --primary-border-accent: #e81899; /* pink-400 */
+  --primary-base-background: #ffffff; /* grey-0 */
+  --primary-base-content: #191e28; /* grey-800 */
+  --secondary-brand: #e81899; /* pink-400 */
+  --secondary-content: #444a55; /* grey-600 */
+  --secondary-icon: #2b303b; /* grey-700 */
+  --secondary-interactive-accent: #e3e3e3; /* grey-50 */
+  --secondary-interactive-hover: #f3f3f3; /* grey-10 */
+  --tertiary-content: #91969f; /* grey-300 */
+  --tertiary-interactive-hover: #444a55; /* grey-600 (carried from dark) */
+  --tertiary-interactive-accent: #5d636f; /* grey-500 (carried from dark) */
+  --positive-sentiment: #005e36; /* green-700 */
+  --positive-background: #bfffe4; /* green-50 */
+  --negative-sentiment: #bb1a1b; /* red-600 */
+  --negative-background: #ffe7e7; /* red-10 */
+  --warning-sentiment: #775602; /* yellow-700 */
+  --warning-background: #fff6de; /* yellow-10 */
+  --elevated-background: #fafafa; /* grey-5 */
+  --neutral-background: #ffffff; /* grey-0 */
+  --neutral-content: #191e28; /* grey-800 */
+  --neutral-accent: #e3e3e3; /* grey-50 */
+  --overlay-background: rgba(12, 17, 28, 0.2); /* grey-900 | 20% */
+  --overlay-dialog: rgba(12, 17, 28, 0.9);
+  --dialog-background: #ffffff; /* grey-0 */
+  --dialog-dialog-interactive-disabled: #e3e3e3; /* grey-50 */
+  --divider-border: #cacbce; /* grey-100 */
+
+  /* shadcn/ui bridge aliases */
+  --background: var(--primary-background);
+  --foreground: var(--primary-content);
+  --card: var(--dialog-background);
+  --card-foreground: var(--primary-content);
+  --popover: var(--neutral-background);
+  --popover-foreground: var(--primary-content);
+  --primary: var(--primary-brand);
+  --primary-foreground: var(--primary-content);
+  --secondary: var(--secondary-brand);
+  --secondary-foreground: var(--secondary-content);
+  --muted: var(--elevated-background);
+  --muted-foreground: var(--tertiary-content);
+  --accent: var(--primary-interactive-accent);
+  --accent-foreground: var(--primary-content);
+  --destructive: var(--negative-sentiment);
+  --destructive-foreground: var(--primary-content);
+  --border: var(--divider-border);
+  --input: var(--primary-border-dark);
+  --ring: var(--primary-border-accent);
+}
+
+/* ---------------------------------------------------------------------
+   Base layer (from src/styles/base.css)
+   --------------------------------------------------------------------- */
+@layer base {
+  *,
+  ::after,
+  ::before {
+    text-rendering: optimizespeed;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    backface-visibility: hidden;
+  }
+
+  html {
+    font-family: "Public Sans", sans-serif;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    height: 100%;
+  }
+
+  [data-theme="dark"] body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-image:
+      url(/bg/grid-dark.svg), url(/bg/spotlights-dark.svg),
+      linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
+    /* No grid background by default */
+    background-size: 0, cover, cover;
+    background-blend-mode: color-dodge, lighten, multiply;
+    z-index: -1;
+  }
+
+  [data-theme="light"] body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-image:
+      url(/bg/grid-light.svg), url(/bg/spotlights-light.svg),
+      linear-gradient(270deg, #e2e2e2 0%, #fff 100%);
+    /* No grid background by default */
+    background-size: 0, cover, cover;
+    background-blend-mode: color-dodge, color, hard-light;
+    z-index: -1;
+  }
+
+  @media (min-width: 768px) {
+    [data-theme="dark"] body::before {
+      background-size: 50px, cover, cover;
+    }
+
+    [data-theme="light"] body::before {
+      background-size: 50px, cover, cover;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Components layer (from src/styles/components.css)
+   --------------------------------------------------------------------- */
+@layer components {
+  /* Typography */
+  .title-screen-regular {
+    @apply font-normal text-[2rem]/10;
+  }
+
+  .title-screen-bold {
+    @apply font-bold text-[2rem]/10;
+  }
+
+  .title-section-regular {
+    @apply font-normal text-[1.625rem]/8;
+  }
+
+  .title-section-bold {
+    @apply font-bold text-[1.625rem]/8;
+  }
+
+  .title-subsection-regular {
+    @apply font-normal text-[1.375rem]/7;
+  }
+
+  .title-subsection-bold {
+    @apply font-bold text-[1.375rem]/7;
+  }
+
+  .title-body-regular {
+    @apply font-normal text-lg/6;
+  }
+
+  .title-body-bold {
+    @apply font-bold text-lg/6;
+  }
+
+  .body-regular {
+    @apply font-normal text-base;
+  }
+
+  .body-bold {
+    @apply font-bold text-base;
+  }
+
+  .body-small-regular {
+    @apply font-normal text-sm;
+  }
+
+  .body-small-bold {
+    @apply font-bold text-sm;
+  }
+
+  .callout-regular {
+    @apply font-normal text-sm;
+  }
+
+  .callout-bold {
+    @apply font-bold text-sm;
+  }
+
+  .link-large-regular {
+    @apply font-normal text-base;
+  }
+
+  .link-regular {
+    @apply font-normal text-sm;
+  }
+
+  /* Form Controls */
+  .input-box {
+    /* Using shadows to increase border size without impacting the surroundings */
+    @apply outline-none rounded-[10px] bg-transparent enabled:hover:shadow-[0_0_0_2px_#FF6FC8] focus:!shadow-[0_0_0_3px_#E81899];
+  }
+
+  .input-box.withValidation {
+    @apply outline-none;
+  }
+
+  .input-box.error {
+    @apply !shadow;
+    box-shadow: 0 0 0 3px var(--negative-sentiment) !important;
+  }
+
+  .input-box.success {
+    box-shadow: 0 0 0 3px var(--positive-sentiment) !important;
+  }
+
+  .input-box.warning {
+    box-shadow: 0 0 0 3px var(--warning-sentiment) !important;
+  }
+
+  .input-box.neutral {
+    box-shadow: 0 0 0 1px var(--primary-border-dark) !important;
+  }
+
+  /* Tooltip */
+  .dialog-tooltip {
+    @apply rounded-[10px] w-[283px] p-[24px] bg-neutral-background text-primary-content box-shadow-small;
+    letter-spacing: 0.14px;
+  }
+
+  .dialog-tooltip > div:first-of-type {
+    @apply title-body-bold;
+    padding-bottom: 8px;
+  }
+
+  .dialog-tooltip-top:before {
+    content: "";
+    position: absolute;
+    height: 0px;
+    width: 0px;
+    top: 100%;
+    left: 133px; /* (283px - 9px)/2 - 4px */
+    border-width: 9px;
+    border-color: transparent transparent transparent;
+    border-style: solid;
+    border-top: 9px solid var(--neutral-background);
+  }
+
+  /* Separators */
+  .h-sep {
+    @apply h-[1px] w-full self-stretch bg-divider-border;
+  }
+
+  .v-sep {
+    @apply w-[1px] self-stretch bg-divider-border;
+  }
+
+  /* Links and buttons */
+  .link {
+    @apply link-regular text-primary-link underline hover:text-primary-link-hover;
+  }
+
+  .status-btn {
+    @apply px-[20px] py-2 rounded-full bg-transparent shadow-[0_0_0_1px_#C8047D] hover:shadow-[0_0_0_2px_#E81899];
+  }
+
+  /* Other components */
+  .overlay-backdrop {
+    @apply bg-overlay-background rounded-xl z-30;
+  }
+
+  .overlay-dialog {
+    background-color: var(--overlay-dialog);
+  }
+
+  .glassy-gradient-card::before {
+    @apply glassy-background;
+    content: "";
+    position: absolute;
+    inset: 0%;
+    z-index: -1;
+  }
+
+  input {
+    border: 1px solid var(--primary-border-dark);
+  }
+  input:hover {
+    border: 1px solid transparent;
+  }
+
+  h1 {
+    color: var(--primary-content);
+    text-align: center;
+    /* Title Section/Bold */
+    font-family: "Clash Grotesk", sans-serif;
+    font-size: 26px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 32px; /* 123.077% */
+    letter-spacing: -0.39px;
+  }
+
+  h2 {
+    color: var(--primary-content);
+    font-family: "Clash Grotesk", sans-serif;
+    font-size: 18px;
+    font-style: normal;
+    font-weight: 600;
+    line-height: 24px; /* 133.333% */
+    letter-spacing: 0.09px;
+    margin-bottom: 8px;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  .radio {
+    border: 1px solid var(--primary-border-dark);
+  }
+  .radio:checked {
+    border: 1px solid var(--primary-interactive-accent);
+  }
+
+  /* daisyUI v4.10.3 loading component (verbatim from daisyui/dist/full.css).
+     The original bridge-ui app uses daisyUI's `loading loading-spinner`
+     classes; daisyUI is not installed here, so these rules are ported
+     verbatim to preserve pixel parity for <Spinner /> and any other
+     consumer of `loading`/`loading-spinner`. */
+  .loading {
+    pointer-events: none;
+    display: inline-block;
+    aspect-ratio: 1 / 1;
+    width: 1.5rem;
+    background-color: currentColor;
+    -webkit-mask-size: 100%;
+    mask-size: 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg width='24' height='24' stroke='%23000' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cstyle%3E.spinner_V8m1%7Btransform-origin:center;animation:spinner_zKoa 2s linear infinite%7D.spinner_V8m1 circle%7Bstroke-linecap:round;animation:spinner_YpZS 1.5s ease-out infinite%7D%40keyframes spinner_zKoa%7B100%25%7Btransform:rotate(360deg)%7D%7D%40keyframes spinner_YpZS%7B0%25%7Bstroke-dasharray:0 150;stroke-dashoffset:0%7D47.5%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-16%7D95%25%2C100%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-59%7D%7D%3C%2Fstyle%3E%3Cg class='spinner_V8m1'%3E%3Ccircle cx='12' cy='12' r='9.5' fill='none' stroke-width='3'%3E%3C%2Fcircle%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg width='24' height='24' stroke='%23000' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cstyle%3E.spinner_V8m1%7Btransform-origin:center;animation:spinner_zKoa 2s linear infinite%7D.spinner_V8m1 circle%7Bstroke-linecap:round;animation:spinner_YpZS 1.5s ease-out infinite%7D%40keyframes spinner_zKoa%7B100%25%7Btransform:rotate(360deg)%7D%7D%40keyframes spinner_YpZS%7B0%25%7Bstroke-dasharray:0 150;stroke-dashoffset:0%7D47.5%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-16%7D95%25%2C100%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-59%7D%7D%3C%2Fstyle%3E%3Cg class='spinner_V8m1'%3E%3Ccircle cx='12' cy='12' r='9.5' fill='none' stroke-width='3'%3E%3C%2Fcircle%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  }
+  .loading-spinner {
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg width='24' height='24' stroke='%23000' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cstyle%3E.spinner_V8m1%7Btransform-origin:center;animation:spinner_zKoa 2s linear infinite%7D.spinner_V8m1 circle%7Bstroke-linecap:round;animation:spinner_YpZS 1.5s ease-out infinite%7D%40keyframes spinner_zKoa%7B100%25%7Btransform:rotate(360deg)%7D%7D%40keyframes spinner_YpZS%7B0%25%7Bstroke-dasharray:0 150;stroke-dashoffset:0%7D47.5%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-16%7D95%25%2C100%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-59%7D%7D%3C%2Fstyle%3E%3Cg class='spinner_V8m1'%3E%3Ccircle cx='12' cy='12' r='9.5' fill='none' stroke-width='3'%3E%3C%2Fcircle%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg width='24' height='24' stroke='%23000' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cstyle%3E.spinner_V8m1%7Btransform-origin:center;animation:spinner_zKoa 2s linear infinite%7D.spinner_V8m1 circle%7Bstroke-linecap:round;animation:spinner_YpZS 1.5s ease-out infinite%7D%40keyframes spinner_zKoa%7B100%25%7Btransform:rotate(360deg)%7D%7D%40keyframes spinner_YpZS%7B0%25%7Bstroke-dasharray:0 150;stroke-dashoffset:0%7D47.5%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-16%7D95%25%2C100%25%7Bstroke-dasharray:42 150;stroke-dashoffset:-59%7D%7D%3C%2Fstyle%3E%3Cg class='spinner_V8m1'%3E%3Ccircle cx='12' cy='12' r='9.5' fill='none' stroke-width='3'%3E%3C%2Fcircle%3E%3C%2Fg%3E%3C%2Fsvg%3E");
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Utilities layer (from src/styles/utilities.css)
+   --------------------------------------------------------------------- */
+@layer utilities {
+  .block-hidden {
+    @apply block invisible opacity-0;
+  }
+
+  .md-show-block {
+    @apply hidden md:block;
+  }
+
+  .md-show-inblock {
+    @apply hidden md:inline-block;
+  }
+
+  .w-h-full {
+    @apply w-full h-full;
+  }
+
+  .sticky-top {
+    @apply sticky top-0;
+  }
+
+  .glassy-background {
+    @apply backdrop-filter backdrop-blur-sm;
+  }
+
+  .dark-glass-background-gradient {
+    background: linear-gradient(
+      226deg,
+      rgba(93, 99, 111, 0.1) 1.26%,
+      rgba(25, 30, 40, 0.2) 100%
+    );
+  }
+
+  .light-glass-background-gradient {
+    background: linear-gradient(
+      226deg,
+      rgba(250, 250, 250, 0.9) 1.26%,
+      rgba(250, 249, 249, 0.9) 100%
+    );
+  }
+
+  /* Flex shortcuts */
+  .f-between-center {
+    @apply flex justify-between items-center;
+  }
+
+  .f-center {
+    @apply flex justify-center items-center;
+  }
+
+  .f-justify-center {
+    @apply flex justify-center;
+  }
+
+  .f-items-center {
+    @apply flex items-center;
+  }
+
+  .f-row {
+    @apply flex flex-row;
+  }
+
+  .f-col {
+    @apply flex flex-col;
+  }
+
+  .box-shadow-small {
+    box-shadow: 0px 10px 48px 0px rgba(5, 9, 18, 0.3);
+  }
+
+  .box-shadow-large {
+    box-shadow: 0px 20px 66px 0px rgba(5, 9, 18, 0.48);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Override layer (from src/styles/override.css)
+   --------------------------------------------------------------------- */
+
+/* Remove Arrows/Spinners — Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  @apply appearance-none m-0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.title-body-bold {
+  color: var(--primary-content);
+  text-align: left;
+  font-size: 18px;
+  letter-spacing: 0.09px;
+}
+
+.label {
+  padding: 0;
+}
+
+:root:has(
+  :is(.modal-open, .modal:target, .modal-toggle:checked + .modal, .modal[open])
+) {
+  overflow: hidden;
+  scrollbar-gutter: unset;
+}
+
+/* ---------------------------------------------------------------------
+   Glow-border gimmick (from src/styles/gimmicks.css)
+   Driven by pointer vars --x/--y/--xp/--yp (set in JS, desktop only).
+   --------------------------------------------------------------------- */
+[data-glow-border] {
+  --base: 333;
+  --border-size: calc(var(--border, 2) * 1px);
+  --spotlight-size: calc(var(--size, 150) * 1px);
+  --hue: calc(var(--base) + (var(--xp, 0) * var(--spread, 0)));
+  background-image: radial-gradient(
+    var(--spotlight-size) var(--spotlight-size) at calc(var(--x, 0) * 1px)
+      calc(var(--y, 0) * 1px),
+    hsl(
+      var(--hue, 210) calc(var(--saturation, 100) * 1%)
+        calc(var(--lightness, 70) * 1%) / var(--bg-spot-opacity, 0.1)
+    ),
+    transparent
+  );
+  border-radius: 20px;
+  background-color: var(--backdrop, transparent);
+  background-size: calc(100% + (2 * var(--border-size)))
+    calc(100% + (2 * var(--border-size)));
+  background-position: 50% 50%;
+  background-attachment: fixed;
+  border: var(--border-size) solid var(--backup-border);
+  position: relative;
+  touch-action: none;
+}
+
+[data-glow-border]::before,
+[data-glow-border]::after {
+  border-radius: 20px;
+  pointer-events: none;
+  content: "";
+  position: absolute;
+  inset: calc(var(--border-size) * -1);
+  border: var(--border-size) solid transparent;
+  background-attachment: fixed;
+  background-size: calc(100% + (2 * var(--border-size)))
+    calc(100% + (2 * var(--border-size)));
+  background-repeat: no-repeat;
+  background-position: 50% 50%;
+  mask:
+    linear-gradient(transparent, transparent), linear-gradient(white, white);
+  mask-clip: padding-box, border-box;
+  mask-composite: intersect;
+}
+
+/* This is the emphasis light */
+[data-glow-border]::before {
+  border-radius: 20px;
+  background-image: radial-gradient(
+    calc(var(--spotlight-size) * 0.75) calc(var(--spotlight-size) * 0.75) at
+      calc(var(--x, 0) * 1px) calc(var(--y, 0) * 1px),
+    hsl(
+      var(--hue, 210) calc(var(--saturation, 100) * 1%)
+        calc(var(--lightness, 50) * 1%) / var(--border-spot-opacity, 1)
+    ),
+    transparent 100%
+  );
+  filter: brightness(2);
+}
+
+/* This is the spotlight */
+[data-glow-border]::after {
+  background-image: radial-gradient(
+    calc(var(--spotlight-size) * 0.5) calc(var(--spotlight-size) * 0.5) at
+      calc(var(--x, 0) * 1px) calc(var(--y, 0) * 1px),
+    hsl(0 100% 100% / var(--border-light-opacity, 1)),
+    transparent 100%
+  );
+}
+
+[data-glow-border] [data-glow-border] {
+  position: absolute;
+  inset: 0;
+  will-change: filter;
+  opacity: var(--outer, 1);
+}
+
+[data-glow-border] > [data-glow-border] {
+  border-radius: 20px;
+  border-width: calc(var(--border-size) * 20);
+  filter: blur(calc(var(--border-size) * 10));
+  background: none;
+  pointer-events: none;
+}
+
+[data-glow-border] > [data-glow-border]::before {
+  inset: -10px;
+  border-width: 10px;
+}
+
+[data-glow-border] [data-glow-border] {
+  border: none;
+}
+
+/*
+ * Ported from the scoped <style> block of
+ * src/components/ConnectButton/ConnectButton.svelte (the original had a
+ * "TODO: move to css" note). Svelte scoped these to the component; in the
+ * Next app they live globally but are only referenced by ConnectButton.
+ */
+.wc-parent-glass {
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 0.3s ease-in-out;
+  border: 1px solid rgb(255 255 255 / 5%);
+}
+.wc-parent-glass:hover {
+  background: rgb(255 255 255 / 5%);
+}
+.btn-glass-bg {
+  border: 1px solid rgb(255 255 255 / 5%);
+  background: rgb(255 255 255 / 5%);
+}
+
+/* =====================================================================
+   Ported from the original src/styles/override.css (was missed in the
+   initial migration). These plain (un-layered) rules intentionally override
+   daisyUI component defaults — load order/specificity must beat the daisyUI
+   `components` layer, so they stay outside @layer.
+   ===================================================================== */
+
+/**
+ * Overrides the default color for the overlay component used in daisyUI's
+ * drawer. Cannot be done via variables.
+ */
+.drawer-toggle:checked ~ .drawer-side > .drawer-overlay {
+  background-color: var(--primary-background);
+}
+
+/**
+ * By design we don't have any opacity on disabled buttons, and the font color
+ * is tertiary-content.
+ */
+.btn.btn-disabled,
+.btn[disabled],
+.btn:disabled {
+  --tw-border-opacity: 1;
+  --tw-bg-opacity: 1;
+  --tw-text-opacity: 1;
+  @apply text-tertiary-content;
+}
+
+.modal-box {
+  @apply z-40;
+  display: inline-flex;
+  padding: 20px 24px 45px 24px;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Stepper dots/connector overrides: inactive step dot is hidden (0x0), only the
+   active step shows an 8px dot; connector bar is 2px tinted/brand. */
+.step:after {
+  height: 0px !important;
+  width: 0px !important;
+}
+
+.step-primary:after {
+  height: 8px !important;
+  width: 8px !important;
+}
+
+.step:before {
+  background-color: rgba(255, 198, 233, 0.2) !important;
+  height: 2px !important;
+}
+
+.step-primary:before {
+  background-color: var(--primary-interactive-accent) !important;
+  height: 2px !important;
+}
+
+.step-previous:before {
+  background-color: var(--primary-interactive-accent) !important;
+  height: 2px !important;
+}
+
+.step-previous:after {
+  /* original used `@apply step-primary` here, but the element is forced to 0x0
+     (invisible) so the inherited styling is moot; inlining the daisyUI component
+     class breaks PostCSS, so it is omitted. */
+  height: 0px !important;
+  width: 0px !important;
+}
+
+/* Lock body scroll while the mobile drawer or a modal is open. */
+html:has(.drawer-toggle:checked) {
+  overflow-y: hidden;
+  scrollbar-gutter: unset;
+}
+
+:root:has(
+    :is(.modal-open, .modal:target, .modal-toggle:checked + .modal, .modal[open])
+  ) {
+  overflow: hidden;
+  scrollbar-gutter: unset;
+}

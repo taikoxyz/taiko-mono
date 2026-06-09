@@ -1,0 +1,44 @@
+/*
+ * Ported verbatim from the scoped <style> blocks of
+ * FungibleTransactionRow.svelte and NftTransactionRow.svelte (identical in both).
+ * `var(--primary-border-dark)` resolves against the [data-theme] token bridge in
+ * globals.css, so these dashed connector / circle decorations render identically.
+ */
+
+.dashed-border {
+  position: relative;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.dashed-border::before {
+  content: "";
+  position: absolute;
+  top: 23px;
+  bottom: 20px;
+  left: 10;
+  border-left: 1px dashed var(--primary-border-dark);
+}
+
+.before-circle::before {
+  content: "";
+  position: absolute;
+  top: 18px;
+  left: 12.5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  border: 1px solid var(--primary-border-dark);
+  background-color: transparent; /* Keep it transparent */
+}
+
+.after-circle::after {
+  content: "";
+  position: absolute;
+  bottom: 17px;
+  left: 12.5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--primary-border-dark);
+}
