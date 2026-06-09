@@ -14,6 +14,7 @@ use prometheus::{Encoder, TextEncoder};
 
 pub mod version;
 
+/// Handle for metrics emitted through the `metrics` facade by external dependencies.
 static METRICS_FACADE_HANDLE: Lazy<Option<PrometheusHandle>> = Lazy::new(|| {
     PrometheusBuilder::new()
         .install_recorder()
