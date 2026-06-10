@@ -206,12 +206,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     // Private functions
     // ---------------------------------------------------------------
 
-    function _addInstances(
-        address[] memory _instances,
-        bool instantValid
-    )
-        private
-    {
+    function _addInstances(address[] memory _instances, bool instantValid) private {
         uint256 size = _instances.length;
 
         uint64 validSince = uint64(block.timestamp);
