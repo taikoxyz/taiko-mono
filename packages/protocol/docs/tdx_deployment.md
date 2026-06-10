@@ -29,9 +29,9 @@ Moving the signing service into its own binary closes a trust gap in the previou
 design: the attestation quote now binds the key to a TEE that sources L2 state from
 a fixed, in-VM RPC, not from an arbitrary URL operators can point at.
 
-The wire format of a TDX proof matches `SgxVerifier`'s 89-byte layout
-(`instance_id || address || signature`), so TDX can slot into any `ComposeVerifier`
-configuration that accepts the SGX-style proof shape — it is exposed as
+The wire format of a TDX proof is 85 bytes (`address || signature`). The verifier
+looks up the internally assigned instance ID from the signed address, so the remote
+prover does not need to know the on-chain registry index. It is exposed as
 `ComposeVerifier.VerifierType.TDX_RETH`.
 
 ## Repository layout

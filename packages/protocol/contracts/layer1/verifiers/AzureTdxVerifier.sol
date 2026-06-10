@@ -22,11 +22,11 @@ interface IAutomataDcapAttestation {
 /// @dev Combines two responsibilities:
 ///   1. Registry — admits TDX instances after on-chain attestation (Azure vTPM + Automata DCAP)
 ///      with measurement checks against `trustedParams`.
-///   2. Proof verifier — implements `IProofVerifier`; recovers the signer of an 89-byte
-///      `instance_id || address || signature` proof and checks it is a still-valid instance.
+///   2. Proof verifier — implements `IProofVerifier`; recovers the signer of an 85-byte
+///      `address || signature` proof and checks it is a still-valid instance.
 ///
-/// The proof wire format matches `SgxVerifier`, so a TDX prover can sit in any
-/// `ComposeVerifier` slot that expects the SGX-style proof layout.
+/// The proof wire format is address-keyed so the remote prover does not need to know the
+/// verifier-assigned instance ID.
 ///
 /// Side-channel protection: instances expire after `INSTANCE_EXPIRY`; re-attestation
 /// produces a new keypair and a new `instance_id`.
@@ -63,8 +63,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// @notice The Automata DCAP attestation contract.
     address public immutable automataDcapAttestation;
 
-    /// @dev Auto-incrementing instance ID counter. The proof's first 4 bytes reference an entry
-    /// in `instances` by this ID for gas-efficient on-chain lookup.
+    /// @dev Auto-incrementing instance ID counter.
     /// Slot 0.
     uint256 public nextInstanceId;
 
@@ -158,13 +157,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// image rollouts).
     /// @param _index The index of the trusted parameters
     /// @param _params The trusted parameters
-    function setTrustedParams(
-        uint256 _index,
-        TrustedParams calldata _params
-    )
-        external
-        onlyOwner
-    {
+    function setTrustedParams(uint256 _index, TrustedParams calldata _params) external onlyOwner {
         // pcrs must contain exactly one digest per set bit in pcrBitmap; otherwise
         // _validateAttestationOutput would revert with an out-of-bounds access at registration.
         require(_params.pcrs.length == _popcount24(_params.pcrBitmap), TDX_INVALID_TRUSTED_PARAMS());
@@ -213,7 +206,7 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     }
 
     /// @inheritdoc IProofVerifier
-    /// @dev Proof layout (89 bytes): `instance_id` (4) || `instance` (20) || `signature` (65).
+    /// @dev Proof layout (85 bytes): `instance` (20) || `signature` (65).
     /// Signature is over `LibPublicInput.hashPublicInputs(_commitmentHash, this, instance,
     /// taikoChainId)`; the recovered signer must equal `instance` and be a valid registered
     /// instance.
@@ -225,17 +218,15 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
         external
         view
     {
-        require(_proof.length == 89, TDX_INVALID_PROOF());
+        require(_proof.length == 85, TDX_INVALID_PROOF());
 
-        uint32 id = uint32(bytes4(_proof[:4]));
-        address instance = address(bytes20(_proof[4:24]));
-        require(_isInstanceValid(id, instance), TDX_INVALID_INSTANCE());
+        address instance = address(bytes20(_proof[:20]));
+        require(_isInstanceValid(instanceIdByAddress[instance], instance), TDX_INVALID_INSTANCE());
 
-        bytes32 signatureHash = LibPublicInput.hashPublicInputs(
-            _commitmentHash, address(this), instance, taikoChainId
-        );
+        bytes32 signatureHash =
+            LibPublicInput.hashPublicInputs(_commitmentHash, address(this), instance, taikoChainId);
 
-        bytes memory signature = _proof[24:];
+        bytes memory signature = _proof[20:];
         require(instance == ECDSA.recover(signatureHash, signature), TDX_INVALID_PROOF());
     }
 

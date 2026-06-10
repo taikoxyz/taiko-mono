@@ -31,8 +31,8 @@ interface IAutomataDcapAttestation {
 ///     where `userData` carries the prover address in its first 20 bytes.
 ///
 /// Everything else — the instance registry, expiry, replay protection, and the
-/// 89-byte SgxVerifier-compatible proof layout — matches `AzureTdxVerifier`, so a
-/// GCP prover slots into the same `ComposeVerifier` position.
+/// 85-byte address-keyed proof layout — matches `AzureTdxVerifier`, so a GCP prover
+/// slots into the same `ComposeVerifier` position.
 /// @custom:security-contact security@taiko.xyz
 contract GcpTdxVerifier is IProofVerifier, EssentialContract {
     /// @dev Public-private key pair (Ethereum address) generated inside the TDX VM at
@@ -78,8 +78,7 @@ contract GcpTdxVerifier is IProofVerifier, EssentialContract {
     /// @notice The Automata DCAP attestation contract.
     address public immutable automataDcapAttestation;
 
-    /// @dev Auto-incrementing instance ID counter. The proof's first 4 bytes reference an
-    /// entry in `instances` by this ID. Slot 0.
+    /// @dev Auto-incrementing instance ID counter. Slot 0.
     uint256 public nextInstanceId;
 
     /// @dev Registered TDX instances keyed by ID. Slot 1.
@@ -150,13 +149,7 @@ contract GcpTdxVerifier is IProofVerifier, EssentialContract {
 
     /// @notice Sets the trusted parameters for quote verification at a specific index.
     /// @dev `rtmrs` must contain exactly one 48-byte digest per set bit in `rtmrMask`.
-    function setTrustedParams(
-        uint256 _index,
-        TrustedParams calldata _params
-    )
-        external
-        onlyOwner
-    {
+    function setTrustedParams(uint256 _index, TrustedParams calldata _params) external onlyOwner {
         require(_params.rtmrMask < 16, TDX_INVALID_TRUSTED_PARAMS());
         require(_params.rtmrs.length == _popcount4(_params.rtmrMask), TDX_INVALID_TRUSTED_PARAMS());
         trustedParams[_index] = _params;
@@ -216,7 +209,7 @@ contract GcpTdxVerifier is IProofVerifier, EssentialContract {
     }
 
     /// @inheritdoc IProofVerifier
-    /// @dev Proof layout (89 bytes): `instance_id` (4) || `instance` (20) || `signature` (65).
+    /// @dev Proof layout (85 bytes): `instance` (20) || `signature` (65).
     function verifyProof(
         uint256, /* _proposalAge */
         bytes32 _commitmentHash,
@@ -225,16 +218,15 @@ contract GcpTdxVerifier is IProofVerifier, EssentialContract {
         external
         view
     {
-        require(_proof.length == 89, TDX_INVALID_PROOF());
+        require(_proof.length == 85, TDX_INVALID_PROOF());
 
-        uint32 id = uint32(bytes4(_proof[:4]));
-        address instance = address(bytes20(_proof[4:24]));
-        require(_isInstanceValid(id, instance), TDX_INVALID_INSTANCE());
+        address instance = address(bytes20(_proof[:20]));
+        require(_isInstanceValid(instanceIdByAddress[instance], instance), TDX_INVALID_INSTANCE());
 
         bytes32 signatureHash =
             LibPublicInput.hashPublicInputs(_commitmentHash, address(this), instance, taikoChainId);
 
-        bytes memory signature = _proof[24:];
+        bytes memory signature = _proof[20:];
         require(instance == ECDSA.recover(signatureHash, signature), TDX_INVALID_PROOF());
     }
 
