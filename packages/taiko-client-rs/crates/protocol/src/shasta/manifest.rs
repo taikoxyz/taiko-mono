@@ -172,6 +172,19 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
 mod tests {
     use super::*;
 
+    fn manifest_with_gas_limit(gas_limit: u64) -> DerivationSourceManifest {
+        DerivationSourceManifest {
+            blocks: vec![BlockManifest { gas_limit, ..Default::default() }],
+        }
+    }
+
+    fn assert_decoded_gas_limit(payload: &[u8], expected_gas_limit: u64) {
+        let decoded = DerivationSourceManifest::decompress_and_decode(payload, 0)
+            .expect("manifest decoding should not return a hard error");
+        assert_eq!(decoded.blocks.len(), 1);
+        assert_eq!(decoded.blocks[0].gas_limit, expected_gas_limit);
+    }
+
     #[test]
     fn test_decode_manifest_payload_too_short() {
         let payload = vec![0u8; 32];
@@ -192,15 +205,43 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_manifest_payload_size_too_large() {
-        let mut payload = vec![0u8; 64];
-        payload[31] = SHASTA_PAYLOAD_VERSION;
-        // size_raw > u64::MAX should yield error.
-        payload[32] = 1;
+    fn test_decode_manifest_payload_version_truncates_uint64_to_uint32() {
+        let manifest = manifest_with_gas_limit(98_765);
+        let mut payload = manifest.encode_and_compress().unwrap();
+        let go_accepted_version = (1u64 << 32) + u64::from(SHASTA_PAYLOAD_VERSION);
 
-        let result = decode_manifest_payload(&payload, 0);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("size field exceeds u64 range"));
+        payload[..32].copy_from_slice(&U256::from(go_accepted_version).to_be_bytes::<32>());
+
+        assert_decoded_gas_limit(&payload, 98_765);
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_version_above_uint64_returns_default() {
+        let manifest = manifest_with_gas_limit(77_777);
+        let mut payload = manifest.encode_and_compress().unwrap();
+
+        // Any non-zero byte before the final 8 bytes makes the 32-byte word exceed uint64.
+        payload[23] = 1;
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0)
+            .expect("manifest decoding should fall back instead of returning a hard error");
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+        assert_eq!(
+            decoded.blocks[0].gas_limit,
+            DerivationSourceManifest::default().blocks[0].gas_limit
+        );
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_size_uses_low_64_bits() {
+        let manifest = manifest_with_gas_limit(123_456);
+        let mut payload = manifest.encode_and_compress().unwrap();
+
+        // Set a high bit outside the low uint64 size word. Go's big.Int.Uint64() keeps
+        // the low 64 bits, so Rust must keep decoding the real compressed length.
+        payload[55] = 1;
+
+        assert_decoded_gas_limit(&payload, 123_456);
     }
 
     #[test]
