@@ -191,8 +191,8 @@ impl BlobDataSource {
                 return Err(BlobDataError::Parse("blob hash mismatch from blob server".into()));
             }
 
-            if let Ok(reported_commitment) = parse_bytes48(&payload.commitment)
-                && reported_commitment != commitment
+            if let Ok(reported_commitment) = parse_bytes48(&payload.commitment) &&
+                reported_commitment != commitment
             {
                 debug!(
                     ?hash,
@@ -201,8 +201,8 @@ impl BlobDataSource {
                     "blob server reported mismatched KZG commitment metadata"
                 );
             }
-            if let Ok(reported_hash) = payload.versioned_hash.parse::<B256>()
-                && reported_hash != versioned_hash
+            if let Ok(reported_hash) = payload.versioned_hash.parse::<B256>() &&
+                reported_hash != versioned_hash
             {
                 debug!(
                     ?hash,
