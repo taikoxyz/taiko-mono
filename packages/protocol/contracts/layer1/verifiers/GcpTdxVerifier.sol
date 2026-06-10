@@ -149,7 +149,13 @@ contract GcpTdxVerifier is IProofVerifier, EssentialContract {
 
     /// @notice Sets the trusted parameters for quote verification at a specific index.
     /// @dev `rtmrs` must contain exactly one 48-byte digest per set bit in `rtmrMask`.
-    function setTrustedParams(uint256 _index, TrustedParams calldata _params) external onlyOwner {
+    function setTrustedParams(
+        uint256 _index,
+        TrustedParams calldata _params
+    )
+        external
+        onlyOwner
+    {
         require(_params.rtmrMask < 16, TDX_INVALID_TRUSTED_PARAMS());
         require(_params.rtmrs.length == _popcount4(_params.rtmrMask), TDX_INVALID_TRUSTED_PARAMS());
         trustedParams[_index] = _params;

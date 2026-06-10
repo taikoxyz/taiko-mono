@@ -157,7 +157,13 @@ contract AzureTdxVerifier is IProofVerifier, EssentialContract {
     /// image rollouts).
     /// @param _index The index of the trusted parameters
     /// @param _params The trusted parameters
-    function setTrustedParams(uint256 _index, TrustedParams calldata _params) external onlyOwner {
+    function setTrustedParams(
+        uint256 _index,
+        TrustedParams calldata _params
+    )
+        external
+        onlyOwner
+    {
         // pcrs must contain exactly one digest per set bit in pcrBitmap; otherwise
         // _validateAttestationOutput would revert with an out-of-bounds access at registration.
         require(_params.pcrs.length == _popcount24(_params.pcrBitmap), TDX_INVALID_TRUSTED_PARAMS());
