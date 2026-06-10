@@ -20,7 +20,7 @@ use super::{
     state::AppState,
 };
 
-/// Construct the server router with optional HTTP and WebSocket route groups.
+/// Construct the server router with public probe routes and protected REST/WS routes.
 ///
 /// `/`, `/healthz`, and `/status` are served without JWT authentication so
 /// that lightweight Kubernetes liveness/readiness probes (which cannot
