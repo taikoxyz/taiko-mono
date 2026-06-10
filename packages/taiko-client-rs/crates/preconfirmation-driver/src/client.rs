@@ -309,7 +309,7 @@ where
         if let Err(err) = event_tx.send(PreconfirmationEvent::Synced) {
             warn!(error = %err, "failed to emit synced event");
         }
-        metrics::counter!(PreconfirmationClientMetrics::SYNCED_TOTAL).increment(1);
+        PreconfirmationClientMetrics::synced_total().inc();
 
         Ok(EventLoop { config, p2p_storage, node_handle, handle, handler })
     }
@@ -352,8 +352,8 @@ where
         handler.handle_commitment(commitment).await?;
     }
 
-    metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)
-        .record(catchup_start.elapsed().as_secs_f64());
+    PreconfirmationClientMetrics::catchup_duration_seconds()
+        .observe(catchup_start.elapsed().as_secs_f64());
 
     Ok(())
 }

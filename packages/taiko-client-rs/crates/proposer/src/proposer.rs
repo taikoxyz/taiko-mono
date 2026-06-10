@@ -24,7 +24,6 @@ use alloy_rpc_types_engine::{ExecutionPayloadFieldV2, ForkchoiceState};
 use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use base_tx_manager::TxManagerError;
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
-use metrics::{counter, gauge, histogram};
 use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, calculate_shasta_mix_hash,
     constants::{
@@ -167,7 +166,7 @@ impl Proposer {
                     continue;
                 }
                 Err(err) if is_operational_loop_error(&err) => {
-                    counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+                    ProposerMetrics::proposals_failed().inc();
                     warn!(
                         epoch,
                         error = %err,
@@ -189,7 +188,7 @@ impl Proposer {
                     );
                 }
                 Err(err) if is_operational_loop_error(&err) => {
-                    counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+                    ProposerMetrics::proposals_failed().inc();
                     warn!(epoch, error = %err, "proposal attempt failed; continuing proposer loop");
                 }
                 Err(err) => return Err(err),
@@ -213,7 +212,7 @@ impl Proposer {
 
         // Record number of transactions in the pool
         let tx_count: usize = pool_content.iter().map(|list| list.len()).sum();
-        gauge!(ProposerMetrics::TX_POOL_SIZE).set(tx_count as f64);
+        ProposerMetrics::tx_pool_size().set(tx_count as f64);
         info!(
             txs_lists = pool_content.len(),
             tx_count,
@@ -623,13 +622,13 @@ fn record_submission_receipt(receipt: TransactionReceipt) -> TransactionReceipt 
             gas_used = receipt.gas_used,
             "proposal transaction mined successfully"
         );
-        counter!(ProposerMetrics::PROPOSALS_SUCCESS).increment(1);
+        ProposerMetrics::proposals_success().inc();
 
         // Record gas used once the confirmed receipt shows successful execution.
-        histogram!(ProposerMetrics::GAS_USED).record(receipt.gas_used as f64);
+        ProposerMetrics::gas_used().observe(receipt.gas_used as f64);
     } else {
         error!(tx_hash = %receipt.transaction_hash, "proposal transaction failed");
-        counter!(ProposerMetrics::PROPOSALS_FAILED).increment(1);
+        ProposerMetrics::proposals_failed().inc();
     }
 
     receipt
@@ -637,7 +636,7 @@ fn record_submission_receipt(receipt: TransactionReceipt) -> TransactionReceipt 
 
 /// Record that the proposer started an L1 submission attempt for a built proposal.
 fn record_submission_attempt() {
-    counter!(ProposerMetrics::PROPOSALS_SENT).increment(1);
+    ProposerMetrics::proposals_sent().inc();
 }
 
 /// Return the L1 account address controlled by a proposer private key.
@@ -717,7 +716,6 @@ mod tests {
     use alloy_json_rpc::ErrorPayload;
     use alloy_rpc_types::eth::{Block as RpcBlock, Header as RpcHeader};
     use base_tx_manager::TxManagerError;
-    use metrics_util::debugging::{DebugValue, DebuggingRecorder};
 
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -744,14 +742,9 @@ mod tests {
 
     #[test]
     fn submission_attempt_increments_sent_metric() {
-        let recorder = DebuggingRecorder::new();
-        let snapshotter = recorder.snapshotter();
-
-        metrics::with_local_recorder(&recorder, || {
-            record_submission_attempt();
-        });
-
-        assert_eq!(counter_value(&snapshotter, ProposerMetrics::PROPOSALS_SENT), Some(1));
+        let before = ProposerMetrics::proposals_sent().get();
+        record_submission_attempt();
+        assert_eq!(ProposerMetrics::proposals_sent().get(), before + 1);
     }
 
     #[test]
@@ -915,17 +908,5 @@ mod tests {
             .expect("parent snapshot should determine the next base fee"),
             expected
         );
-    }
-
-    fn counter_value(
-        snapshotter: &metrics_util::debugging::Snapshotter,
-        metric_name: &str,
-    ) -> Option<u64> {
-        snapshotter.snapshot().into_vec().into_iter().find_map(|(key, _, _, value)| {
-            (key.key().name() == metric_name).then(|| match value {
-                DebugValue::Counter(value) => value,
-                other => panic!("expected counter for {metric_name}, got {other:?}"),
-            })
-        })
     }
 }

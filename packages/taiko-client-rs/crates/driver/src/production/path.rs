@@ -12,7 +12,6 @@ use crate::{
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
-use metrics::{counter, histogram};
 use rpc::{RpcClientError, client::Client};
 use tracing::{debug, error};
 
@@ -102,8 +101,8 @@ where
                 let lookup_start = Instant::now();
                 let parent_hash_result = self.applier.block_hash_by_number(parent_number).await;
                 let lookup_duration_secs = lookup_start.elapsed().as_secs_f64();
-                histogram!(DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_DURATION_SECONDS)
-                    .record(lookup_duration_secs);
+                DriverMetrics::preconf_parent_hash_lookup_duration_seconds()
+                    .observe(lookup_duration_secs);
 
                 let parent_hash = match parent_hash_result {
                     Ok(hash) => {
@@ -117,8 +116,7 @@ where
                         hash
                     }
                     Err(err) => {
-                        counter!(DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_FAILURES_TOTAL)
-                            .increment(1);
+                        DriverMetrics::preconf_parent_hash_lookup_failures_total().inc();
                         error!(
                             block_number,
                             parent_number,

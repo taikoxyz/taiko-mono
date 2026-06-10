@@ -12,7 +12,6 @@ use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
 use anyhow::anyhow;
-use metrics::{counter, gauge};
 use rpc::{
     client::{Client, connect_http_with_timeout},
     error::RpcClientError,
@@ -174,7 +173,7 @@ where
             return Err(SyncError::CheckpointNoOrigin);
         };
 
-        gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
+        DriverMetrics::beacon_sync_checkpoint_head_block().set(checkpoint_head as f64);
         info!(checkpoint_head, "initial checkpoint head");
 
         let poll_interval = if self.retry_interval.is_zero() {
@@ -194,7 +193,7 @@ where
             let local_head =
                 match self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from) {
                     Ok(block_id) => {
-                        gauge!(DriverMetrics::BEACON_SYNC_LOCAL_HEAD_BLOCK).set(block_id as f64);
+                        DriverMetrics::beacon_sync_local_head_block().set(block_id as f64);
                         block_id
                     }
                     Err(err) => {
@@ -208,8 +207,8 @@ where
                 .await
                 .map_err(SyncError::CheckpointQuery)?
                 .ok_or(SyncError::CheckpointNoOrigin)?;
-            gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
-            gauge!(DriverMetrics::BEACON_SYNC_HEAD_LAG_BLOCKS)
+            DriverMetrics::beacon_sync_checkpoint_head_block().set(checkpoint_head as f64);
+            DriverMetrics::beacon_sync_head_lag_blocks()
                 .set(checkpoint_head.saturating_sub(local_head) as f64);
 
             if checkpoint_head > local_head {
@@ -241,7 +240,7 @@ where
                         error: err.into(),
                     }
                 })?;
-                counter!(DriverMetrics::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).increment(1);
+                DriverMetrics::beacon_sync_remote_submissions_total().inc();
             } else {
                 // Persist the checkpoint head we have confirmed local execution is synced to.
                 // Event sync uses this exact value as its authoritative resume source when

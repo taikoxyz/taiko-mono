@@ -215,10 +215,9 @@ where
             .await?;
         }
 
-        histogram!(
-            crate::metrics::WhitelistPreconfirmationDriverMetrics::BUILD_PRECONF_BLOCK_DURATION_SECONDS
-        )
-        .record(started_at.elapsed().as_secs_f64());
+        crate::metrics::WhitelistPreconfirmationDriverMetrics::observe_build_preconf_block_duration(
+            started_at.elapsed().as_secs_f64(),
+        );
 
         Ok(BuildPreconfBlockResponse { block_header })
     }
