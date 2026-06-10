@@ -155,9 +155,5 @@ where
 
 /// Increment the response-lookup counter with the given result label.
 fn record_response_lookup(result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-        "result" => result,
-    )
-    .increment(1);
+    WhitelistPreconfirmationDriverMetrics::inc_response_lookup(result);
 }

@@ -91,13 +91,11 @@ where
             .submit_preconfirmation(input)
             .await
             .inspect(|()| {
-                metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL)
-                    .increment(1);
+                PreconfirmationClientMetrics::driver_submit_success_total().inc();
             })
             .inspect_err(|err| {
                 warn!(block_number = %block_number, error = %err, "driver submit failed");
-                metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
-                    .increment(1);
+                PreconfirmationClientMetrics::driver_submit_failure_total().inc();
             })?;
 
         info!(block_number = %block_number, "driver submit succeeded");
@@ -119,7 +117,7 @@ where
         self.store.set_head(head.clone());
 
         let block_f64: f64 = new_block.into();
-        metrics::gauge!(PreconfirmationClientMetrics::HEAD_BLOCK).set(block_f64);
+        PreconfirmationClientMetrics::head_block().set(block_f64);
 
         if let Err(err) = self.notify_head_update(head).await {
             warn!(error = %err, "failed to notify p2p head update");

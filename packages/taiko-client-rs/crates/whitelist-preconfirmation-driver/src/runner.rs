@@ -82,7 +82,7 @@ impl WhitelistPreconfirmationDriverRunner {
 
     /// Run until either event syncer or whitelist network exits.
     pub async fn run(self) -> Result<()> {
-        metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL).increment(1);
+        WhitelistPreconfirmationDriverMetrics::inc_runner_start();
 
         let mut preconf_ingress_sync =
             PreconfIngressSync::start(&self.config.driver_config).await?;
@@ -96,10 +96,9 @@ impl WhitelistPreconfirmationDriverRunner {
 
         let wait_start = Instant::now();
         preconf_ingress_sync.wait_preconf_ingress_ready().await?;
-        metrics::histogram!(
-            WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
-        )
-        .record(wait_start.elapsed().as_secs_f64());
+        WhitelistPreconfirmationDriverMetrics::observe_event_sync_wait_duration(
+            wait_start.elapsed().as_secs_f64(),
+        );
 
         let operator_poller = OperatorSetPoller::new(
             self.config.whitelist_address,
@@ -325,7 +324,6 @@ fn map_event_syncer_exit_for_runner(result: EventSyncJoinResult) -> (&'static st
 
 /// Record exit reason and return the final result.
 fn record_runner_exit(reason: &'static str, result: Result<()>) -> Result<()> {
-    metrics::counter!(WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL, "reason" => reason)
-        .increment(1);
+    WhitelistPreconfirmationDriverMetrics::inc_runner_exit(reason);
     result
 }

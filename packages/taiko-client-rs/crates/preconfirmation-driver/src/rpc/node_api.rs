@@ -22,6 +22,11 @@ use crate::{
     validation::{is_eop_only, validate_commitment_with_signer, validate_lookahead},
 };
 
+/// Increment the counter tracking rejected preconfirmation inputs.
+fn record_validation_failure() {
+    PreconfirmationClientMetrics::validation_failures_total().inc();
+}
+
 /// Internal RPC API implementation backed by the preconfirmation driver node state.
 pub(crate) struct NodeRpcApiImpl<I: InboxReader, D: DriverClient> {
     /// Command tx for issuing commands to the P2P network layer.
@@ -112,7 +117,7 @@ pub(crate) async fn publish_block_impl(
     // 1. SSZ-decode the commitment.
     let signed_commitment = SignedCommitment::deserialize(request.commitment.as_ref())
         .inspect_err(|_| {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            record_validation_failure();
         })
         .map_err(|e| {
             PreconfirmationClientError::Validation(format!("invalid commitment SSZ: {e}"))
@@ -120,12 +125,12 @@ pub(crate) async fn publish_block_impl(
 
     // 2a. Validate txlist hash matches the provided bytes.
     let raw_tx_list = TxListBytes::try_from(request.tx_list.to_vec()).map_err(|_| {
-        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        record_validation_failure();
         PreconfirmationClientError::Validation("txlist too large".into())
     })?;
     let calculated_hash = keccak256_bytes(&raw_tx_list);
     if calculated_hash != request.tx_list_hash {
-        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        record_validation_failure();
         return Err(PreconfirmationClientError::Validation(format!(
             "tx_list_hash mismatch: expected {}, got {}",
             request.tx_list_hash, calculated_hash
@@ -138,7 +143,7 @@ pub(crate) async fn publish_block_impl(
         let embedded_hash =
             B256::from_slice(signed_commitment.commitment.preconf.raw_tx_list_hash.as_slice());
         if embedded_hash != calculated_hash {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            record_validation_failure();
             return Err(PreconfirmationClientError::Validation(format!(
                 "commitment raw_tx_list_hash mismatch: commitment contains {}, txlist hashes to {}",
                 embedded_hash, calculated_hash
@@ -149,7 +154,7 @@ pub(crate) async fn publish_block_impl(
     // 3. Validate commitment signature + recover signer.
     let signer = validate_commitment_with_signer(&signed_commitment, expected_slasher)
         .inspect_err(|_| {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            record_validation_failure();
         })?;
 
     log_publish_block_entry(&signed_commitment, signer, request.tx_list_hash);
@@ -161,14 +166,14 @@ pub(crate) async fn publish_block_impl(
         .await
         .map_err(PreconfirmationClientError::from)?;
     validate_lookahead(&signed_commitment, signer, &slot_info).inspect_err(|_| {
-        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        record_validation_failure();
     })?;
 
     // 5. Reject stale commitments whose block is already covered by confirmed sync.
     let current_block = uint256_to_u256(&signed_commitment.commitment.preconf.block_number);
     let event_sync_tip = driver.event_sync_tip().await?;
     if current_block <= event_sync_tip {
-        metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+        record_validation_failure();
         return Err(PreconfirmationClientError::validation_error(
             ValidationErrorCode::StaleCommitment,
             format!(
@@ -183,7 +188,7 @@ pub(crate) async fn publish_block_impl(
         PreconfirmationInput::new(signed_commitment.clone(), None, None)
     } else {
         let transactions = codec.decode(raw_tx_list.as_ref()).map_err(|e| {
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            record_validation_failure();
             PreconfirmationClientError::Codec(e.to_string())
         })?;
         PreconfirmationInput::new(
@@ -227,10 +232,9 @@ pub(crate) async fn publish_block_impl(
     let driver_submit = async {
         // 7a. Submit to driver — mine the block.
         driver.submit_preconfirmation(input).await.inspect_err(|_| {
-            metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL)
-                .increment(1);
+            PreconfirmationClientMetrics::driver_submit_failure_total().inc();
         })?;
-        metrics::counter!(PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL).increment(1);
+        PreconfirmationClientMetrics::driver_submit_success_total().inc();
         Ok(())
     };
 

@@ -17,7 +17,6 @@ use alloy_rpc_types_engine::ExecutionPayloadV1;
 use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
-use metrics::histogram;
 use protocol::{
     shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, payload_id_to_bytes},
     signer::FixedKSigner,

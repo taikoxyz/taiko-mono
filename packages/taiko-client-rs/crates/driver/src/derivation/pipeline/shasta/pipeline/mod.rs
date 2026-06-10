@@ -14,7 +14,6 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
-use metrics::{counter, gauge};
 use protocol::shasta::{
     constants::{
         MAINNET_ANCHOR_CHECK_SKIP_PROPOSAL_OFFSET, PROPOSAL_MAX_BLOB_BYTES, TAIKO_MAINNET_CHAIN_ID,
@@ -415,7 +414,7 @@ where
         };
 
         if let Some(last_finalized_proposal_id) = bundle.meta.last_finalized_proposal_id {
-            gauge!(DriverMetrics::DERIVATION_LAST_FINALIZED_PROPOSAL_ID)
+            DriverMetrics::derivation_last_finalized_proposal_id()
                 .set(last_finalized_proposal_id as f64);
         }
 
@@ -506,7 +505,7 @@ where
                 initial_proposal_id = ?self.initial_proposal_id,
                 "skipping proposal below initial proposal id"
             );
-            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
+            DriverMetrics::event_proposals_skipped_total().inc();
             return Ok(Vec::new());
         }
         info!(
@@ -527,7 +526,7 @@ where
         {
             let outcomes =
                 known_blocks.iter().map(|block| block.outcome.clone()).collect::<Vec<_>>();
-            counter!(DriverMetrics::DERIVATION_CANONICAL_HITS_TOTAL).increment(1);
+            DriverMetrics::derivation_canonical_hits_total().inc();
             self.update_canonical_proposal_origins(&meta, &known_blocks).await?;
             return Ok(outcomes);
         }
@@ -555,7 +554,7 @@ where
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
-            counter!(DriverMetrics::EVENT_PROPOSALS_SKIPPED_TOTAL).increment(1);
+            DriverMetrics::event_proposals_skipped_total().inc();
             return Ok(Vec::new());
         }
 

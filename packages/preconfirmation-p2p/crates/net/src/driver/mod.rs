@@ -23,6 +23,7 @@ use crate::{
     config::NetworkConfig,
     discovery::spawn_discovery,
     event::{NetworkError, NetworkErrorKind, NetworkEvent},
+    metrics,
     reputation::{
         PeerAction, PeerReputationStore, ReputationConfig, ReqRespKind, RequestRateLimiter,
     },
@@ -196,10 +197,10 @@ impl NetworkDriver {
         match self.events_tx.try_send(NetworkEvent::Error(err.clone())) {
             Ok(()) => {}
             Err(TrySendError::Full(_)) => {
-                metrics::counter!("p2p_event_dropped", "surface" => "event_tx", "reason" => "full", "kind" => err.kind.as_str()).increment(1);
+                metrics::inc_vec("p2p_event_dropped", &["event_tx", "full", err.kind.as_str()]);
             }
             Err(TrySendError::Closed(_)) => {
-                metrics::counter!("p2p_event_dropped", "surface" => "event_tx", "reason" => "closed", "kind" => err.kind.as_str()).increment(1);
+                metrics::inc_vec("p2p_event_dropped", &["event_tx", "closed", err.kind.as_str()]);
             }
         }
     }
@@ -223,13 +224,13 @@ impl NetworkDriver {
     fn apply_reputation(&mut self, peer: PeerId, action: PeerAction) {
         let ev = self.reputation.apply(peer, action);
         if ev.is_banned && !ev.was_banned {
-            metrics::counter!("p2p_reputation_ban").increment(1);
+            metrics::inc("p2p_reputation_ban");
             self.swarm.behaviour_mut().block_list.block_peer(ev.peer);
             self.kona_gater.block_peer(&ev.peer);
             let _ = self.swarm.disconnect_peer_id(ev.peer);
         }
         if ev.is_greylisted && !ev.was_greylisted {
-            metrics::counter!("p2p_reputation_greylist").increment(1);
+            metrics::inc("p2p_reputation_greylist");
         }
     }
 }

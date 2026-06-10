@@ -4,7 +4,6 @@ use std::{io::IsTerminal, net::SocketAddr};
 
 use ::driver::config::DriverConfig;
 use async_trait::async_trait;
-use metrics_exporter_prometheus::PrometheusBuilder;
 use rpc::client::ClientConfig;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
@@ -75,8 +74,8 @@ pub trait Subcommand {
             format!("{}:{}", self.common_args().metrics_addr, self.common_args().metrics_port);
         let socket_addr: SocketAddr = metrics_addr.parse()?;
 
-        PrometheusBuilder::new().with_http_listener(socket_addr).install()?;
         self.register_metrics()?;
+        crate::metrics::spawn_server(socket_addr)?;
 
         info!(
             target: "metrics",

@@ -23,7 +23,6 @@ use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, Notification, ScannerMessage};
-use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
@@ -367,7 +366,7 @@ where
             ready_notify.notify_waiters();
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
-                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
                 match preconfirmation_payload_is_materialized(&rpc, job.payload.as_ref()).await {
@@ -378,7 +377,7 @@ where
                             "acknowledging already materialized preconfirmation payload"
                         );
                         let _ = job.respond_to.send(Ok(()));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
                     Ok(false) => {}
@@ -388,7 +387,7 @@ where
                             block_number, "failed to check preconfirmation materialization state"
                         );
                         let _ = job.respond_to.send(Err(err));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
                 }
@@ -405,20 +404,20 @@ where
                     Err(err) => {
                         error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
                         let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
                 };
                 if is_stale_preconf(block_number, head_l1_origin_block_id) {
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL).increment(1);
+                    DriverMetrics::preconf_stale_dropped_total().inc();
+                    DriverMetrics::preconf_stale_dropped_ingress_total().inc();
                     warn!(
                         block_number,
                         head_l1_origin_block_id,
                         "dropping stale preconfirmation payload in ingress loop"
                     );
                     let _ = job.respond_to.send(Ok(()));
-                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                     continue;
                 }
 
@@ -428,11 +427,11 @@ where
                     .await;
 
                 let duration_secs = start.elapsed().as_secs_f64();
-                histogram!(DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS).record(duration_secs);
+                DriverMetrics::preconf_injection_duration_seconds().observe(duration_secs);
 
                 match router_call {
                     Ok(_) => {
-                        counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
+                        DriverMetrics::preconf_injection_success_total().inc();
                         info!(
                             block_number,
                             build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
@@ -443,7 +442,7 @@ where
                         let _ = job.respond_to.send(Ok(()));
                     }
                     Err(err) => {
-                        counter!(DriverMetrics::PRECONF_INJECTION_FAILURES_TOTAL).increment(1);
+                        DriverMetrics::preconf_injection_failures_total().inc();
                         error!(
                             ?err,
                             block_number,
@@ -455,7 +454,7 @@ where
                         let _ = job.respond_to.send(Err(err));
                     }
                 }
-                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
             }
         });
     }
@@ -629,8 +628,7 @@ where
                             .await
                         {
                             Ok(true) => {
-                                counter!(DriverMetrics::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL)
-                                    .increment(1);
+                                DriverMetrics::event_orphaned_proposal_logs_total().inc();
                                 warn!(
                                     ?err,
                                     block_number = log.block_number,
@@ -675,7 +673,7 @@ where
             };
 
             if let Some(last_outcome) = outcomes.last() {
-                gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+                DriverMetrics::event_last_canonical_block_number()
                     .set(last_outcome.block_number() as f64);
             }
 
@@ -686,8 +684,8 @@ where
                 "successfully processed proposal into L2 blocks",
             );
 
-            gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
-            counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
+            DriverMetrics::event_last_canonical_proposal_id().set(proposal_id as f64);
+            DriverMetrics::event_derived_blocks_total().inc_by(outcomes.len() as u64);
         }
         Ok(())
     }
@@ -721,7 +719,7 @@ where
         } else {
             (None, None)
         };
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
+        DriverMetrics::event_last_canonical_block_number().set(0.0);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
@@ -840,8 +838,8 @@ where
             None => 0,
         };
         if is_stale_preconf(block_number, head_l1_origin_block_id) {
-            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-            counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
+            DriverMetrics::preconf_stale_dropped_total().inc();
+            DriverMetrics::preconf_stale_dropped_before_enqueue_total().inc();
             warn!(
                 block_number,
                 head_l1_origin_block_id, "dropping stale preconfirmation payload before enqueue"
@@ -862,7 +860,7 @@ where
 
         match enqueue_result {
             Err(_) => {
-                counter!(DriverMetrics::PRECONF_ENQUEUE_TIMEOUTS_TOTAL).increment(1);
+                DriverMetrics::preconf_enqueue_timeouts_total().inc();
                 error!(
                     block_number,
                     timeout_ms = timeout_duration.as_millis() as u64,
@@ -871,7 +869,7 @@ where
                 return Err(DriverError::PreconfEnqueueTimeout { waited: timeout_duration });
             }
             Ok(Err(err)) => {
-                counter!(DriverMetrics::PRECONF_ENQUEUE_FAILURES_TOTAL).increment(1);
+                DriverMetrics::preconf_enqueue_failures_total().inc();
                 error!(block_number, ?err, "preconfirmation enqueue failed");
                 return Err(DriverError::PreconfEnqueueFailed(err.to_string()));
             }
@@ -885,7 +883,7 @@ where
 
         match response_result {
             Err(_) => {
-                counter!(DriverMetrics::PRECONF_RESPONSE_TIMEOUTS_TOTAL).increment(1);
+                DriverMetrics::preconf_response_timeouts_total().inc();
                 error!(
                     block_number,
                     timeout_ms = timeout_duration.as_millis() as u64,
@@ -894,7 +892,7 @@ where
                 return Err(DriverError::PreconfResponseTimeout { waited: timeout_duration });
             }
             Ok(Err(err)) => {
-                counter!(DriverMetrics::PRECONF_RESPONSE_DROPPED_TOTAL).increment(1);
+                DriverMetrics::preconf_response_dropped_total().inc();
                 error!(block_number, ?err, "preconfirmation response channel closed");
                 return Err(DriverError::PreconfResponseDropped { recv_error: err });
             }
@@ -1210,8 +1208,8 @@ where
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(initial_proposal_id as f64);
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+        DriverMetrics::event_last_canonical_proposal_id().set(initial_proposal_id as f64);
+        DriverMetrics::event_last_canonical_block_number()
             .set(start_point.bootstrap_confirmed_tip as f64);
         info!(
             initial_proposal_id,
@@ -1303,8 +1301,8 @@ where
                         if let Some(block_number) = logs.last().and_then(|log| log.block_number) {
                             last_seen_l1_block_number = Some(block_number);
                         }
-                        counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
-                        counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
+                        DriverMetrics::event_scanner_batches_total().inc();
+                        DriverMetrics::event_proposals_total().inc_by(logs.len() as u64);
                         self.process_log_batch(router.clone(), logs).await?;
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
@@ -1336,7 +1334,7 @@ where
                         }
                     }
                     Err(err) => {
-                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                        DriverMetrics::event_scanner_errors_total().inc();
                         error!(?err, "error receiving proposal logs from event scanner");
                         continue;
                     }
@@ -1350,8 +1348,7 @@ where
                 ) {
                     let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
                     if let Err(err) = &confirmed_sync_probe {
-                        counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL)
-                            .increment(1);
+                        DriverMetrics::event_confirmed_sync_probe_errors_total().inc();
                         warn!(
                             ?err,
                             "confirmed-sync probe failed; keeping preconfirmation ingress closed"

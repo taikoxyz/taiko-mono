@@ -12,7 +12,6 @@ use alloy_consensus::{Header, TxEnvelope};
 use alloy_rpc_types::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::PayloadId;
 use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
-use metrics::counter;
 use protocol::shasta::{
     PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
@@ -587,7 +586,7 @@ where
         }
 
         self.rpc.update_l1_origin(&origin).await?;
-        counter!(DriverMetrics::DERIVATION_L1_ORIGIN_UPDATES_TOTAL).increment(1);
+        DriverMetrics::derivation_l1_origin_updates_total().inc();
 
         if is_final_block {
             self.rpc.set_head_l1_origin(block_id).await?;
