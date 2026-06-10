@@ -9,13 +9,14 @@ use alloy::{
 use alloy_provider::RootProvider;
 use alloy_rpc_types::TransactionReceipt;
 use base_tx_manager::{
-    BaseTxMetrics, RpcErrorClassifier, SimpleTxManager, TxCandidate, TxManager, TxManagerError,
+    RpcErrorClassifier, SimpleTxManager, TxCandidate, TxManager, TxManagerError,
 };
 use tokio::time::timeout;
 
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
+    metrics::ProposerTxMetrics,
     transaction_builder::BuiltProposalTx,
 };
 
@@ -61,7 +62,7 @@ impl ProposalTxManager<SimpleTxManager> {
             wallet,
             tx_manager_config,
             chain_id,
-            Arc::new(BaseTxMetrics::new("proposer")),
+            Arc::new(ProposerTxMetrics::new("proposer")),
         )
         .await?;
 

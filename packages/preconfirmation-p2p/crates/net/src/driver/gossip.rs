@@ -69,7 +69,7 @@ impl NetworkDriver {
                         &propagation_source,
                         MessageAcceptance::Accept,
                     );
-                    metrics::counter!("p2p_gossip_valid", "kind" => kind.label()).increment(1);
+                    metrics::inc_vec("p2p_gossip_valid", &[kind.label()]);
                     self.apply_reputation(propagation_source, PeerAction::GossipValid);
                     on_valid(self, propagation_source, msg);
                 } else {
@@ -78,7 +78,7 @@ impl NetworkDriver {
                         &propagation_source,
                         MessageAcceptance::Reject,
                     );
-                    metrics::counter!("p2p_gossip_invalid", "kind" => kind.label(), "reason" => "validation").increment(1);
+                    metrics::inc_vec("p2p_gossip_invalid", &[kind.label(), "validation"]);
                     self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
                     self.emit_error(NetworkErrorKind::GossipValidation, kind.error_msg());
                 }
@@ -89,8 +89,7 @@ impl NetworkDriver {
                     &propagation_source,
                     MessageAcceptance::Reject,
                 );
-                metrics::counter!("p2p_gossip_invalid", "kind" => kind.label(), "reason" => "decode")
-                    .increment(1);
+                metrics::inc_vec("p2p_gossip_invalid", &[kind.label(), "decode"]);
                 self.apply_reputation(propagation_source, PeerAction::GossipInvalid);
                 self.emit_error(NetworkErrorKind::GossipDecode, kind.error_msg());
             }
@@ -106,7 +105,7 @@ impl NetworkDriver {
                     &propagation_source,
                     MessageAcceptance::Reject,
                 );
-                metrics::counter!("p2p_gossip_dropped_banned").increment(1);
+                metrics::inc("p2p_gossip_dropped_banned");
                 return;
             }
 

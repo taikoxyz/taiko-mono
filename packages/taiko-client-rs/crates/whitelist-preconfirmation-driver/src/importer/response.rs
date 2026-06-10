@@ -134,24 +134,20 @@ where
         if let Err(err) =
             self.network_command_tx.send(NetworkCommand::PublishUnsafeRequest { hash }).await
         {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                "topic" => "request_preconf_blocks",
-                "result" => "queue_failed",
-            )
-            .increment(1);
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                "request_preconf_blocks",
+                "queue_failed",
+            );
             warn!(
                 hash = %hash,
                 error = %err,
                 "failed to queue whitelist preconfirmation request publish command"
             );
         } else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                "topic" => "request_preconf_blocks",
-                "result" => "queued",
-            )
-            .increment(1);
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                "request_preconf_blocks",
+                "queued",
+            );
         }
     }
 
@@ -164,24 +160,20 @@ where
         if let Err(err) =
             self.network_command_tx.send(NetworkCommand::PublishUnsafeResponse { envelope }).await
         {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                "topic" => "response_preconf_blocks",
-                "result" => "queue_failed",
-            )
-            .increment(1);
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                "response_preconf_blocks",
+                "queue_failed",
+            );
             warn!(
                 hash = %hash,
                 error = %err,
                 "failed to queue whitelist preconfirmation response publish command"
             );
         } else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                "topic" => "response_preconf_blocks",
-                "result" => "queued",
-            )
-            .increment(1);
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                "response_preconf_blocks",
+                "queued",
+            );
         }
     }
 }

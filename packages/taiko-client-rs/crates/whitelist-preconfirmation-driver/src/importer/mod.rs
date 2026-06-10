@@ -227,8 +227,7 @@ where
         let ready = should_enable_preconf_imports(head_written, next_proposal_id);
         let became_ready = sync_ready_transition(self.sync_ready, ready);
         if became_ready {
-            metrics::counter!(WhitelistPreconfirmationDriverMetrics::SYNC_READY_TRANSITIONS_TOTAL)
-                .increment(1);
+            WhitelistPreconfirmationDriverMetrics::inc_sync_ready_transition();
             info!("event sync ready; enabling whitelist preconfirmation imports");
         }
         self.sync_ready = ready;
@@ -265,21 +264,14 @@ where
 
     /// Update cache gauges after cache mutations.
     pub(super) fn update_cache_gauges(&self) {
-        metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_PENDING_COUNT)
-            .set(self.cache.len() as f64);
-        metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
-            .set(self.recent_cache.len() as f64);
+        WhitelistPreconfirmationDriverMetrics::set_cache_pending_count(self.cache.len());
+        WhitelistPreconfirmationDriverMetrics::set_cache_recent_count(self.recent_cache.len());
     }
 }
 
 /// Record one importer event outcome for the given event type and result.
 fn record_importer_event(event_type: &'static str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-        "event_type" => event_type,
-        "result" => result,
-    )
-    .increment(1);
+    WhitelistPreconfirmationDriverMetrics::inc_importer_event(event_type, result);
 }
 
 /// Returns true only when sync readiness transitions from disabled to enabled.
