@@ -122,6 +122,13 @@ where
     Ok(output)
 }
 
+/// Return the least significant 64 bits of a 32-byte big-endian word.
+fn low_u64_from_word(word: &[u8]) -> u64 {
+    let mut low = [0u8; 8];
+    low.copy_from_slice(&word[24..32]);
+    u64::from_be_bytes(low)
+}
+
 /// Decode a manifest from the Shasta protocol payload format.
 fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     if bytes.len() < offset + 64 {
@@ -133,19 +140,17 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     }
 
     let version_raw = U256::from_be_slice(&bytes[offset..offset + 32]);
-    let version = u32::try_from(version_raw).map_err(|_| {
-        ProtocolError::InvalidPayload(format!("version field exceeds u32 range: {version_raw}"))
+    let version_u64 = u64::try_from(version_raw).map_err(|_| {
+        ProtocolError::InvalidPayload(format!("version field exceeds u64 range: {version_raw}"))
     })?;
+    let version = version_u64 as u32;
     if version != SHASTA_PAYLOAD_VERSION as u32 {
         return Err(ProtocolError::InvalidPayload(format!(
             "unsupported payload version: expected {SHASTA_PAYLOAD_VERSION}, got {version}"
         )));
     }
 
-    let size_raw = U256::from_be_slice(&bytes[offset + 32..offset + 64]);
-    let size_u64 = u64::try_from(size_raw).map_err(|_| {
-        ProtocolError::InvalidPayload(format!("size field exceeds u64 range: {size_raw}"))
-    })?;
+    let size_u64 = low_u64_from_word(&bytes[offset + 32..offset + 64]);
     let size = usize::try_from(size_u64).map_err(|_| {
         ProtocolError::InvalidPayload(format!("size field exceeds usize range: {size_u64}"))
     })?;
@@ -173,9 +178,7 @@ mod tests {
     use super::*;
 
     fn manifest_with_gas_limit(gas_limit: u64) -> DerivationSourceManifest {
-        DerivationSourceManifest {
-            blocks: vec![BlockManifest { gas_limit, ..Default::default() }],
-        }
+        DerivationSourceManifest { blocks: vec![BlockManifest { gas_limit, ..Default::default() }] }
     }
 
     fn assert_decoded_gas_limit(payload: &[u8], expected_gas_limit: u64) {
