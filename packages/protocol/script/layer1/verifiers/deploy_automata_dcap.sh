@@ -87,9 +87,8 @@ Output:
   in deploy_tdx_verifier.sh.
 
 Already-deployed addresses on supported networks (skip this script there):
+  Ethereum mainnet: 0x0387aB2eDAB2A138a43437e36AF63689Bb7030f4
   Hoodi: 0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F
-  Ethereum mainnet: not listed in Automata DCAP v1.1 deployment info;
-                    confirm the v1.1 entrypoint before use.
 EOF
 }
 
