@@ -22,7 +22,7 @@ use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
 use alloy_rpc_types_engine::{ExecutionPayloadFieldV2, ForkchoiceState};
 use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
-use base_tx_manager::TxManagerError;
+use base_tx_manager::{SimpleTxManager, TxManager, TxManagerError};
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use protocol::shasta::{
     AnchorTxConstructor, AnchorV4Input, calculate_shasta_mix_hash,
@@ -46,7 +46,7 @@ use crate::{
     error::{ProposerError, Result},
     metrics::ProposerMetrics,
     transaction_builder::ShastaProposalTransactionBuilder,
-    tx_manager_adapter::ProposalTxManager,
+    tx_manager_adapter::{build_tx_manager, proposal_candidate},
 };
 
 /// Type alias for batches of transaction lists fetched from the txpool.
@@ -73,7 +73,7 @@ pub struct Proposer {
     /// Builder that converts txpool content into proposal transactions.
     transaction_builder: ShastaProposalTransactionBuilder,
     /// Tx-manager responsible for proposal submission and retry handling.
-    tx_manager: ProposalTxManager,
+    tx_manager: SimpleTxManager,
     /// L1 address derived from the configured proposer private key.
     l1_proposer_address: Address,
     /// Optional anchor constructor used in engine mode.
@@ -115,7 +115,7 @@ impl Proposer {
         // proposer key, so all L1 proposal submissions must continue to flow through
         // tx-manager to avoid splitting nonce management across two send paths.
         let tx_manager =
-            ProposalTxManager::new(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
+            build_tx_manager(&cfg, rpc_provider.l1_provider.root().to_owned()).await?;
         let l1_proposer_address = proposer_address_from_key(&cfg.l1_proposer_private_key)?;
         // Match proposer-side base-fee clamping to chain policy used by derivation.
         let min_base_fee_to_clamp =
@@ -228,7 +228,8 @@ impl Proposer {
         }
 
         record_submission_attempt();
-        Ok(record_submission_receipt(self.tx_manager.send_proposal(proposal_tx).await?))
+        let receipt = self.tx_manager.send(proposal_candidate(proposal_tx)).await?;
+        Ok(record_submission_receipt(receipt))
     }
 
     /// Return a clone of the RPC client bundle used by the proposer.
