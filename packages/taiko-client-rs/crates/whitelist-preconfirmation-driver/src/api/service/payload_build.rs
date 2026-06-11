@@ -8,28 +8,29 @@ impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Build driver payload attributes from the RPC request.
+    /// Build driver payload attributes from the requested executable data.
     pub(super) fn build_driver_payload(
         &self,
-        request: &BuildPreconfBlockRequest,
+        data: &ExecutableData,
+        is_forced_inclusion: Option<bool>,
         prev_randao: B256,
         signature: [u8; 65],
     ) -> Result<TaikoPayloadAttributes> {
-        let tx_list = decompress_tx_list(request.transactions.as_ref())?;
+        let tx_list = decompress_tx_list(data.transactions.as_ref())?;
 
         let block_metadata = TaikoBlockMetadata {
-            beneficiary: request.fee_recipient,
-            gas_limit: request.gas_limit,
-            timestamp: U256::from(request.timestamp),
+            beneficiary: data.fee_recipient,
+            gas_limit: data.gas_limit,
+            timestamp: U256::from(data.timestamp),
             mix_hash: prev_randao,
             tx_list: Some(tx_list.into()),
-            extra_data: request.extra_data.clone(),
+            extra_data: data.extra_data.clone(),
         };
 
         let payload_attributes = EthPayloadAttributes {
-            timestamp: request.timestamp,
+            timestamp: data.timestamp,
             prev_randao,
-            suggested_fee_recipient: request.fee_recipient,
+            suggested_fee_recipient: data.fee_recipient,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
             slot_number: None,
@@ -37,21 +38,21 @@ where
 
         let mut payload = TaikoPayloadAttributes {
             payload_attributes,
-            base_fee_per_gas: U256::from(request.base_fee_per_gas),
+            base_fee_per_gas: U256::from(data.base_fee_per_gas),
             block_metadata,
             l1_origin: RpcL1Origin {
-                block_id: U256::from(request.block_number),
+                block_id: U256::from(data.block_number),
                 l2_block_hash: B256::ZERO,
                 l1_block_height: None,
                 l1_block_hash: None,
                 build_payload_args_id: [0u8; 8],
-                is_forced_inclusion: request.is_forced_inclusion.unwrap_or(false),
+                is_forced_inclusion: is_forced_inclusion.unwrap_or(false),
                 signature,
             },
             anchor_transaction: None,
         };
 
-        let payload_id = payload_id_taiko(&request.parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
+        let payload_id = payload_id_taiko(&data.parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
         payload.l1_origin.build_payload_args_id = payload_id_to_bytes(payload_id);
         Ok(payload)
     }
@@ -103,24 +104,24 @@ where
     /// Validate request payload shape before expensive insertion and signing operations.
     pub(super) fn validate_request_payload(
         &self,
-        request: &BuildPreconfBlockRequest,
+        data: &ExecutableData,
         prev_randao: B256,
     ) -> Result<()> {
         let payload = ExecutionPayloadV1 {
-            parent_hash: request.parent_hash,
-            fee_recipient: request.fee_recipient,
+            parent_hash: data.parent_hash,
+            fee_recipient: data.fee_recipient,
             state_root: B256::ZERO,
             receipts_root: B256::ZERO,
             logs_bloom: Bloom::default(),
             prev_randao,
-            block_number: request.block_number,
-            gas_limit: request.gas_limit,
+            block_number: data.block_number,
+            gas_limit: data.gas_limit,
             gas_used: 0,
-            timestamp: request.timestamp,
-            extra_data: request.extra_data.clone(),
-            base_fee_per_gas: U256::from(request.base_fee_per_gas),
+            timestamp: data.timestamp,
+            extra_data: data.extra_data.clone(),
+            base_fee_per_gas: U256::from(data.base_fee_per_gas),
             block_hash: B256::ZERO,
-            transactions: vec![request.transactions.clone()],
+            transactions: vec![data.transactions.clone()],
         };
 
         validate_execution_payload_for_preconf(
@@ -128,10 +129,5 @@ where
             self.chain_id,
             *self.rpc.shasta.anchor.address(),
         )
-    }
-
-    /// Update highest unsafe block tracking on each insertion/reorg point.
-    pub(super) async fn update_highest_unsafe(&self, block_number: u64) {
-        *self.highest_unsafe_l2_payload_block_id.lock().await = block_number;
     }
 }

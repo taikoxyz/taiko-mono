@@ -29,22 +29,21 @@ where
 
     /// Import as many cached envelopes as possible.
     pub(super) async fn import_from_cache(&mut self) -> Result<()> {
-        let mut cache = std::mem::take(&mut self.cache);
         loop {
             let mut progressed = false;
-            let hashes = cache.sorted_hashes_by_block_number();
+            let hashes = self.cache.sorted_hashes_by_block_number();
 
             for hash in hashes {
-                let Some(entry) = cache.get(&hash) else {
+                let Some(entry) = self.cache.get(&hash).cloned() else {
                     continue;
                 };
                 WhitelistPreconfirmationDriverMetrics::inc_cache_import_attempt();
-                match self.try_import_cached(entry).await {
+                match self.try_import_cached(&entry).await {
                     Ok(true) => {
                         WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
                             "progressed",
                         );
-                        cache.remove(&hash);
+                        self.cache.remove(&hash);
                         progressed = true;
                     }
                     Ok(false) => {
@@ -69,15 +68,14 @@ where
                             error = %err,
                             "dropping cached whitelist preconfirmation payload after invalid import"
                         );
-                        cache.remove(&hash);
+                        self.cache.remove(&hash);
                         progressed = true;
                     }
                     Err(err) => {
                         WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
                             "fatal_error",
                         );
-                        self.cache = cache;
-                        self.update_cache_gauges();
+                        self.update_pending_cache_gauge();
                         return Err(err);
                     }
                 }
@@ -88,8 +86,7 @@ where
             }
         }
 
-        self.cache = cache;
-        self.update_cache_gauges();
+        self.update_pending_cache_gauge();
         Ok(())
     }
 
@@ -171,10 +168,7 @@ where
             "inserted whitelist preconfirmation block"
         );
 
-        if let Some(ref highest) = self.highest_unsafe_l2_payload_block_id {
-            let mut guard = highest.lock().await;
-            *guard = block_number.max(*guard);
-        }
+        self.state.raise_highest_unsafe(block_number).await;
 
         Ok(true)
     }

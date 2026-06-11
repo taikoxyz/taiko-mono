@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use tokio::sync::broadcast;
 
 use super::types::{
-    BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
-    WhitelistStatus,
+    ApiStatus, BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
 };
 use crate::Result;
 
@@ -22,7 +21,10 @@ pub trait WhitelistApi: Send + Sync {
     ) -> Result<BuildPreconfBlockResponse>;
 
     /// Get the current status of the whitelist preconfirmation driver.
-    async fn get_status(&self) -> Result<WhitelistStatus>;
+    async fn get_status(&self) -> Result<ApiStatus>;
+
+    /// Whether preconfirmation ingress is ready to serve build requests.
+    fn is_sync_ready(&self) -> bool;
 
     /// Subscribe to end-of-sequencing notifications for the REST `/ws` endpoint.
     fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification>;

@@ -74,11 +74,6 @@ impl WhitelistPreconfirmationDriverError {
         Self::InvalidPayload(message.into())
     }
 
-    /// Build an `InvalidSignature` error from a complete message.
-    pub(crate) fn invalid_signature(message: impl Into<String>) -> Self {
-        Self::InvalidSignature(message.into())
-    }
-
     /// Map an arbitrary provider failure into an RPC provider error variant.
     pub(crate) fn provider(err: impl Display) -> Self {
         Self::Rpc(rpc::RpcClientError::Provider(err.to_string()))

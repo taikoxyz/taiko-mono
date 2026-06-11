@@ -1,4 +1,9 @@
 //! Ingress entrypoints for unsafe payload and response handling.
+//!
+//! Signature authenticity and operator-set membership are enforced at gossip
+//! acceptance time in the network layer's inbound validation
+//! (`network::handler::GossipsubInboundState`) before events are forwarded
+//! here, so these entrypoints perform payload-level validation only.
 
 use std::sync::Arc;
 
@@ -7,10 +12,8 @@ use alloy_provider::Provider;
 use tracing::debug;
 
 use crate::{
-    codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash, recover_signer,
-    },
-    error::{Result, WhitelistPreconfirmationDriverError},
+    codec::{DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope},
+    error::Result,
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
@@ -33,8 +36,8 @@ where
         ingress_source: &'static str,
     ) {
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
+        self.update_pending_cache_gauge();
+        self.state.insert_recent(envelope.clone()).await;
         self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
     }
 
@@ -63,21 +66,15 @@ where
                 ingress_source,
                 "recording end-of-sequencing envelope for epoch"
             );
-            self.cache_state
-                .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
-                .await;
+            self.state.record_end_of_sequencing(epoch, envelope.execution_payload.block_hash).await;
         }
     }
 
-    /// Handle an incoming unsafe payload.
+    /// Handle an incoming unsafe payload from the `preconfBlocks` topic.
     pub(super) async fn handle_unsafe_payload(
         &mut self,
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
-        let prehash = block_signing_hash(self.chain_id, payload.payload_bytes.as_slice());
-        let signer = recover_signer(prehash, &payload.wire_signature)?;
-        self.ensure_signer_allowed(signer)?;
-
         let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
@@ -94,30 +91,11 @@ where
         Ok(())
     }
 
-    /// Handle an incoming unsafe response (gossip or direct).
-    ///
-    /// The embedded `envelope.signature` is verified over
-    /// `block_signing_hash(chain_id, block_hash)`. This matches the signing
-    /// domain used by the sequencer when it stores the signature in L1 origin
-    /// (see `rest_handler.rs` — `set_l1_origin_signature`).  It is distinct
-    /// from the gossip *wire* signature on the `preconfBlocks` topic, which
-    /// signs SSZ envelope bytes instead.
+    /// Handle an incoming unsafe response from the `responsePreconfBlocks` topic.
     pub(super) async fn handle_unsafe_response(
         &mut self,
         envelope: WhitelistExecutionPayloadEnvelope,
     ) -> Result<()> {
-        let Some(signature) = envelope.signature else {
-            return Err(WhitelistPreconfirmationDriverError::invalid_signature(
-                "response payload is missing embedded signature",
-            ));
-        };
-
-        // Signing domain: block_signing_hash(chain_id, block_hash).
-        let prehash =
-            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-        let signer = recover_signer(prehash, &signature)?;
-        self.ensure_signer_allowed(signer)?;
-
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
             self.chain_id,
@@ -136,7 +114,7 @@ where
 
     /// Handle a block-hash request from the request topic.
     pub(super) async fn handle_unsafe_request(&mut self, hash: B256) -> Result<()> {
-        let (envelope, result_label) = if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+        let (envelope, result_label) = if let Some(envelope) = self.state.get_recent(&hash).await {
             (envelope, "cache_hit")
         } else if let Some(envelope) = self.build_response_envelope_from_l2(hash).await? {
             (Arc::new(envelope), "l2_hit")
@@ -146,8 +124,7 @@ where
         };
 
         WhitelistPreconfirmationDriverMetrics::inc_response_lookup(result_label);
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
+        self.state.insert_recent(envelope.clone()).await;
         self.publish_unsafe_response(envelope).await;
         Ok(())
     }

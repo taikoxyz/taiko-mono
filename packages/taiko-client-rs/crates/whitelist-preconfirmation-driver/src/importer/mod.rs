@@ -6,15 +6,14 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use driver::sync::event::EventSyncer;
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use crate::{
-    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, SharedPreconfCacheState},
+    cache::{EnvelopeCache, PENDING_ENVELOPE_CAPACITY, RequestThrottle, SharedPreconfState},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
-    operator_set::SharedOperatorSet,
 };
 
 /// Cache re-import flow for out-of-order envelopes once parents arrive.
@@ -41,21 +40,22 @@ where
     pub(crate) event_syncer: Arc<EventSyncer<P>>,
     /// RPC client used for L1/L2 reads and head-origin updates.
     pub(crate) rpc: Client<P>,
-    /// Shared operator set for signer validation.
-    pub(crate) operator_set: SharedOperatorSet,
     /// Chain id used for preconfirmation signature domain separation.
     pub(crate) chain_id: u64,
     /// Command channel used to publish P2P requests/responses.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared cache state used by status and EOS signaling.
-    pub(crate) cache_state: SharedPreconfCacheState,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    pub(crate) state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     pub(crate) beacon_client: Arc<BeaconClient>,
-    /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
-    pub(crate) highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
 }
 
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
+///
+/// Signature authenticity and operator-set membership of inbound gossip are
+/// enforced once, at gossip acceptance time in
+/// [`crate::network`]'s inbound validation state, before events reach this
+/// importer. The importer performs payload-level validation only.
 pub(crate) struct WhitelistPreconfirmationImporter<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -66,22 +66,16 @@ where
     rpc: Client<P>,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
-    /// Shared cache state used by status and EOS signaling.
-    cache_state: SharedPreconfCacheState,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     beacon_client: Arc<BeaconClient>,
     /// Out-of-order payload cache waiting for parent availability.
     cache: EnvelopeCache,
-    /// Recently accepted envelopes that can be served over response topic requests.
-    recent_cache: RecentEnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
-    /// Lock-free shared set of allowed sequencer addresses, refreshed by background poller.
-    operator_set: SharedOperatorSet,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
-    highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
@@ -97,12 +91,10 @@ where
         let WhitelistPreconfirmationImporterParams {
             event_syncer,
             rpc,
-            operator_set,
             chain_id,
             network_command_tx,
-            cache_state,
+            state,
             beacon_client,
-            highest_unsafe_l2_payload_block_id,
         } = params;
         let anchor_address = *rpc.shasta.anchor.address();
 
@@ -110,18 +102,15 @@ where
             event_syncer,
             rpc,
             chain_id,
-            cache_state,
+            state,
             beacon_client,
-            cache: EnvelopeCache::default(),
-            recent_cache: RecentEnvelopeCache::default(),
+            cache: EnvelopeCache::with_capacity(PENDING_ENVELOPE_CAPACITY),
             request_throttle: RequestThrottle::default(),
-            operator_set,
             network_command_tx,
-            highest_unsafe_l2_payload_block_id,
             sync_ready: false,
             anchor_address,
         };
-        importer.update_cache_gauges();
+        importer.update_pending_cache_gauge();
         importer
     }
 
@@ -197,7 +186,7 @@ where
     /// Handle an incoming end-of-sequencing request by serving from the recent
     /// cache, falling back to an L2 rebuild, or recording a miss.
     async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
-        let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await else {
+        let Some(hash) = self.state.end_of_sequencing_for_epoch(epoch).await else {
             WhitelistPreconfirmationDriverMetrics::inc_importer_event(
                 "end_of_sequencing_request",
                 "miss",
@@ -206,7 +195,7 @@ where
         };
 
         // Fast path: envelope still lives in the recent cache.
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
+        if let Some(envelope) = self.state.get_recent(&hash).await {
             self.publish_unsafe_response(envelope).await;
             WhitelistPreconfirmationDriverMetrics::inc_importer_event(
                 "end_of_sequencing_request",
@@ -226,25 +215,13 @@ where
 
         envelope.end_of_sequencing = Some(true);
         let envelope = Arc::new(envelope);
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
+        self.state.insert_recent(envelope.clone()).await;
         self.publish_unsafe_response(envelope).await;
         WhitelistPreconfirmationDriverMetrics::inc_importer_event(
             "end_of_sequencing_request",
             "served",
         );
         Ok(())
-    }
-
-    /// Validate that the recovered signer is present in the shared operator set.
-    pub(super) fn ensure_signer_allowed(&self, signer: Address) -> Result<()> {
-        if self.operator_set.load().contains(&signer) {
-            Ok(())
-        } else {
-            Err(WhitelistPreconfirmationDriverError::invalid_signature(format!(
-                "signer {signer} is not a registered operator"
-            )))
-        }
     }
 
     /// Refresh whether sync is ready.
@@ -293,10 +270,9 @@ where
             .map_err(WhitelistPreconfirmationDriverError::provider)
     }
 
-    /// Update cache gauges after cache mutations.
-    pub(super) fn update_cache_gauges(&self) {
+    /// Update the pending-cache gauge after pending-cache mutations.
+    pub(super) fn update_pending_cache_gauge(&self) {
         WhitelistPreconfirmationDriverMetrics::set_cache_pending_count(self.cache.len());
-        WhitelistPreconfirmationDriverMetrics::set_cache_recent_count(self.recent_cache.len());
     }
 }
 
