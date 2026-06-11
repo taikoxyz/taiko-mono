@@ -11,7 +11,7 @@ use anyhow::{Context, Result, anyhow, ensure};
 use bindings::inbox::Inbox::Proposed;
 use driver::{
     DriverConfig,
-    derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    derivation::ShastaDerivationPipeline,
     sync::{SyncStage, engine::PayloadApplier, event::EventSyncer},
 };
 use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};

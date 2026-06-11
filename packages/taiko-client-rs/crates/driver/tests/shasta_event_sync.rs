@@ -6,7 +6,7 @@ use alloy_rpc_types::Log;
 use anyhow::{Context, Result, ensure};
 use driver::{
     Driver, DriverConfig,
-    derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    derivation::ShastaDerivationPipeline,
     sync::engine::PayloadApplier,
 };
 use proposer::transaction_builder::ShastaProposalTransactionBuilder;
