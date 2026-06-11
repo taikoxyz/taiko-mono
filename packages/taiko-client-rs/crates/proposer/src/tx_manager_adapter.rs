@@ -62,7 +62,7 @@ impl ProposalTxManager<SimpleTxManager> {
             wallet,
             tx_manager_config,
             chain_id,
-            Arc::new(ProposerTxMetrics::new("proposer")),
+            Arc::new(ProposerTxMetrics::new()),
         )
         .await?;
 

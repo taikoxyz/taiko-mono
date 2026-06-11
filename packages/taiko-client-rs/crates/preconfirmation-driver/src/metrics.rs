@@ -1,57 +1,13 @@
 //! Metrics exposed by the preconfirmation client.
 
 use once_cell::sync::Lazy;
-use prometheus::{
-    Gauge, Histogram, HistogramVec, IntCounter, IntCounterVec, Opts, core::Collector,
-};
-
-/// Histogram buckets for operation durations expressed in seconds.
-const DURATION_SECONDS_BUCKETS: &[f64] =
-    &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
+use prometheus::{Gauge, Histogram, HistogramVec, IntCounter, IntCounterVec};
+use protocol::metrics::{DURATION_SECONDS_BUCKETS, counter, counter_vec, gauge, histogram, histogram_vec};
 
 /// Metric namespace for the preconfirmation client.
 pub struct PreconfirmationClientMetrics;
 
 impl PreconfirmationClientMetrics {
-    /// Histogram tracking catchup duration in seconds.
-    pub const CATCHUP_DURATION_SECONDS: &'static str = "preconf_client_catchup_duration_seconds";
-    /// Counter tracking the number of times the client reached synced state.
-    pub const SYNCED_TOTAL: &'static str = "preconf_client_synced_total";
-    /// Counter tracking received commitments.
-    pub const COMMITMENTS_RECEIVED_TOTAL: &'static str =
-        "preconf_client_commitments_received_total";
-    /// Counter tracking received txlists.
-    pub const TXLISTS_RECEIVED_TOTAL: &'static str = "preconf_client_txlists_received_total";
-    /// Counter tracking validation failures.
-    pub const VALIDATION_FAILURES_TOTAL: &'static str = "preconf_client_validation_failures_total";
-    /// Counter tracking successful driver submissions.
-    pub const DRIVER_SUBMIT_SUCCESS_TOTAL: &'static str =
-        "preconf_client_driver_submit_success_total";
-    /// Counter tracking failed driver submissions.
-    pub const DRIVER_SUBMIT_FAILURE_TOTAL: &'static str =
-        "preconf_client_driver_submit_failure_total";
-    /// Gauge tracking the head block number.
-    pub const HEAD_BLOCK: &'static str = "preconf_client_head_block";
-    /// Gauge tracking the number of commitments awaiting txlists.
-    pub const AWAITING_TXLIST_DEPTH: &'static str = "preconf_client_awaiting_txlist_depth";
-    /// Counter tracking commitment batches fetched during catchup.
-    pub const CATCHUP_BATCHES_TOTAL: &'static str = "preconf_client_catchup_batches_total";
-    /// Counter tracking errors during catchup.
-    pub const CATCHUP_ERRORS_TOTAL: &'static str = "preconf_client_catchup_errors_total";
-    /// Gauge tracking stored commitment count.
-    pub const STORE_COMMITMENTS_COUNT: &'static str = "preconf_client_store_commitments_count";
-    /// Gauge tracking stored txlist count.
-    pub const STORE_TXLISTS_COUNT: &'static str = "preconf_client_store_txlists_count";
-    /// Gauge tracking pending commitment count.
-    pub const STORE_PENDING_COMMITMENTS_COUNT: &'static str =
-        "preconf_client_store_pending_commitments_count";
-    /// Counter tracking RPC requests by method.
-    pub const RPC_REQUESTS_TOTAL: &'static str = "preconf_rpc_requests_total";
-    /// Counter tracking RPC errors by method.
-    pub const RPC_ERRORS_TOTAL: &'static str = "preconf_rpc_errors_total";
-    /// Histogram tracking RPC duration by method.
-    pub const RPC_DURATION_SECONDS: &'static str = "preconf_rpc_duration_seconds";
-
     /// Register direct Prometheus collectors.
     pub fn init() {
         Lazy::force(&METRICS);
@@ -183,74 +139,74 @@ impl PreconfirmationMetricHandles {
     fn new() -> Self {
         Self {
             synced_total: counter(
-                PreconfirmationClientMetrics::SYNCED_TOTAL,
+                "preconf_client_synced_total",
                 "Number of times the client reached synced state",
             ),
             commitments_received_total: counter(
-                PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL,
+                "preconf_client_commitments_received_total",
                 "Total commitments received from the P2P network",
             ),
             txlists_received_total: counter(
-                PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL,
+                "preconf_client_txlists_received_total",
                 "Total txlists received from the P2P network",
             ),
             validation_failures_total: counter(
-                PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL,
+                "preconf_client_validation_failures_total",
                 "Total validation failures for commitments or txlists",
             ),
             driver_submit_success_total: counter(
-                PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL,
+                "preconf_client_driver_submit_success_total",
                 "Successful submissions to the driver",
             ),
             driver_submit_failure_total: counter(
-                PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL,
+                "preconf_client_driver_submit_failure_total",
                 "Failed submissions to the driver",
             ),
             catchup_batches_total: counter(
-                PreconfirmationClientMetrics::CATCHUP_BATCHES_TOTAL,
+                "preconf_client_catchup_batches_total",
                 "Commitment batches fetched during tip catch-up",
             ),
             catchup_errors_total: counter(
-                PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL,
+                "preconf_client_catchup_errors_total",
                 "Errors encountered during tip catch-up",
             ),
             head_block: gauge(
-                PreconfirmationClientMetrics::HEAD_BLOCK,
+                "preconf_client_head_block",
                 "Current head block number tracked by the client",
             ),
             awaiting_txlist_depth: gauge(
-                PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH,
+                "preconf_client_awaiting_txlist_depth",
                 "Number of commitments awaiting their txlist payload",
             ),
             store_commitments_count: gauge(
-                PreconfirmationClientMetrics::STORE_COMMITMENTS_COUNT,
+                "preconf_client_store_commitments_count",
                 "Number of commitments in the store",
             ),
             store_txlists_count: gauge(
-                PreconfirmationClientMetrics::STORE_TXLISTS_COUNT,
+                "preconf_client_store_txlists_count",
                 "Number of txlists in the store",
             ),
             store_pending_commitments_count: gauge(
-                PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT,
+                "preconf_client_store_pending_commitments_count",
                 "Number of pending commitments in the store",
             ),
             catchup_duration_seconds: histogram(
-                PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS,
+                "preconf_client_catchup_duration_seconds",
                 "Time spent performing tip catch-up",
                 DURATION_SECONDS_BUCKETS,
             ),
             rpc_requests_total: counter_vec(
-                PreconfirmationClientMetrics::RPC_REQUESTS_TOTAL,
+                "preconf_rpc_requests_total",
                 "Total preconfirmation RPC requests by method",
                 &["method"],
             ),
             rpc_errors_total: counter_vec(
-                PreconfirmationClientMetrics::RPC_ERRORS_TOTAL,
+                "preconf_rpc_errors_total",
                 "Total preconfirmation RPC errors by method",
                 &["method"],
             ),
             rpc_duration_seconds: histogram_vec(
-                PreconfirmationClientMetrics::RPC_DURATION_SECONDS,
+                "preconf_rpc_duration_seconds",
                 "Preconfirmation RPC request duration by method",
                 &["method"],
                 DURATION_SECONDS_BUCKETS,
@@ -259,107 +215,9 @@ impl PreconfirmationMetricHandles {
     }
 }
 
-/// Construct and register an integer counter.
-fn counter(name: &'static str, help: &'static str) -> IntCounter {
-    let metric = IntCounter::new(name, help)
-        .unwrap_or_else(|error| panic!("failed to create Prometheus counter {name}: {error}"));
-    register(metric.clone());
-    metric
-}
-
-/// Construct and register an integer counter vector.
-fn counter_vec(name: &'static str, help: &'static str, labels: &[&str]) -> IntCounterVec {
-    let metric = IntCounterVec::new(Opts::new(name, help), labels).unwrap_or_else(|error| {
-        panic!("failed to create Prometheus counter vector {name}: {error}")
-    });
-    register(metric.clone());
-    metric
-}
-
-/// Construct and register a floating-point gauge.
-fn gauge(name: &'static str, help: &'static str) -> Gauge {
-    let metric = Gauge::new(name, help)
-        .unwrap_or_else(|error| panic!("failed to create Prometheus gauge {name}: {error}"));
-    register(metric.clone());
-    metric
-}
-
-/// Construct and register a histogram.
-fn histogram(name: &'static str, help: &'static str, buckets: &[f64]) -> Histogram {
-    let metric =
-        Histogram::with_opts(prometheus::HistogramOpts::new(name, help).buckets(buckets.to_vec()))
-            .unwrap_or_else(|error| {
-                panic!("failed to create Prometheus histogram {name}: {error}")
-            });
-    register(metric.clone());
-    metric
-}
-
-/// Construct and register a histogram vector.
-fn histogram_vec(
-    name: &'static str,
-    help: &'static str,
-    labels: &[&str],
-    buckets: &[f64],
-) -> HistogramVec {
-    let metric = HistogramVec::new(
-        prometheus::HistogramOpts::new(name, help).buckets(buckets.to_vec()),
-        labels,
-    )
-    .unwrap_or_else(|error| panic!("failed to create Prometheus histogram vector {name}: {error}"));
-    register(metric.clone());
-    metric
-}
-
-/// Register one collector with the process-wide Prometheus registry.
-fn register<C>(collector: C)
-where
-    C: Collector + Clone + 'static,
-{
-    prometheus::register(Box::new(collector))
-        .unwrap_or_else(|error| panic!("failed to register Prometheus collector: {error}"));
-}
-
 #[cfg(test)]
 mod tests {
     use super::PreconfirmationClientMetrics;
-
-    #[test]
-    fn metric_constants_have_correct_prefix() {
-        assert!(
-            PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS.starts_with("preconf_client_")
-        );
-        assert!(PreconfirmationClientMetrics::SYNCED_TOTAL.starts_with("preconf_client_"));
-        assert!(
-            PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL.starts_with("preconf_client_")
-        );
-        assert!(
-            PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL.starts_with("preconf_client_")
-        );
-        assert!(
-            PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL.starts_with("preconf_client_")
-        );
-        assert!(
-            PreconfirmationClientMetrics::DRIVER_SUBMIT_SUCCESS_TOTAL
-                .starts_with("preconf_client_")
-        );
-        assert!(
-            PreconfirmationClientMetrics::DRIVER_SUBMIT_FAILURE_TOTAL
-                .starts_with("preconf_client_")
-        );
-        assert!(PreconfirmationClientMetrics::HEAD_BLOCK.starts_with("preconf_client_"));
-        assert!(PreconfirmationClientMetrics::AWAITING_TXLIST_DEPTH.starts_with("preconf_client_"));
-        assert!(PreconfirmationClientMetrics::CATCHUP_BATCHES_TOTAL.starts_with("preconf_client_"));
-        assert!(PreconfirmationClientMetrics::CATCHUP_ERRORS_TOTAL.starts_with("preconf_client_"));
-        assert!(
-            PreconfirmationClientMetrics::STORE_COMMITMENTS_COUNT.starts_with("preconf_client_")
-        );
-        assert!(PreconfirmationClientMetrics::STORE_TXLISTS_COUNT.starts_with("preconf_client_"));
-        assert!(
-            PreconfirmationClientMetrics::STORE_PENDING_COMMITMENTS_COUNT
-                .starts_with("preconf_client_")
-        );
-    }
 
     #[test]
     fn init_does_not_panic() {
@@ -373,9 +231,7 @@ mod tests {
         let families = prometheus::gather();
         let family = families
             .iter()
-            .find(|family| {
-                family.get_name() == PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS
-            })
+            .find(|family| family.get_name() == "preconf_client_catchup_duration_seconds")
             .expect("catchup duration histogram should be exported");
         let metric = family.get_metric().first().expect("duration histogram should have a metric");
 
