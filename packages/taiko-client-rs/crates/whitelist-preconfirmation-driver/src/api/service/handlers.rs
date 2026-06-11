@@ -38,17 +38,21 @@ where
 }
 
 /// Emit the entry log for a preconfirmation block-building request.
-fn log_build_preconf_block_entry(request: &BuildPreconfBlockRequest) {
+fn log_build_preconf_block_entry(
+    data: &ExecutableData,
+    end_of_sequencing: Option<bool>,
+    is_forced_inclusion: Option<bool>,
+) {
     tracing::info!(
-        block_id = request.block_number,
-        coinbase = %request.fee_recipient,
-        timestamp = request.timestamp,
-        gas_limit = request.gas_limit,
-        base_fee_per_gas = request.base_fee_per_gas,
-        extra_data = %alloy_primitives::hex::encode(&request.extra_data),
-        parent_hash = %request.parent_hash,
-        end_of_sequencing = request.end_of_sequencing.unwrap_or(false),
-        is_forced_inclusion = request.is_forced_inclusion.unwrap_or(false),
+        block_id = data.block_number,
+        coinbase = %data.fee_recipient,
+        timestamp = data.timestamp,
+        gas_limit = data.gas_limit,
+        base_fee_per_gas = data.base_fee_per_gas,
+        extra_data = %alloy_primitives::hex::encode(&data.extra_data),
+        parent_hash = %data.parent_hash,
+        end_of_sequencing = end_of_sequencing.unwrap_or(false),
+        is_forced_inclusion = is_forced_inclusion.unwrap_or(false),
         "🏗️ New preconfirmation block building request"
     );
 }
@@ -64,10 +68,19 @@ where
         request: BuildPreconfBlockRequest,
     ) -> Result<BuildPreconfBlockResponse> {
         let started_at = Instant::now();
-        log_build_preconf_block_entry(&request);
         // Record receipt before any validation so even rejected requests
         // mark this pod as the active preconfer for shutdown purposes.
         self.mark_preconf_request_received().await;
+
+        let BuildPreconfBlockRequest { executable_data, end_of_sequencing, is_forced_inclusion } =
+            request;
+        let Some(data) = executable_data else {
+            return Err(WhitelistPreconfirmationDriverError::invalid_payload(
+                "executable data is required",
+            ));
+        };
+        log_build_preconf_block_entry(&data, end_of_sequencing, is_forced_inclusion);
+
         let _build_guard = self.build_preconf_lock.lock().await;
 
         // Guard against building on a genuinely syncing node, but tolerate the false-
@@ -84,19 +97,19 @@ where
             info.current_block < info.highest_block
         {
             return Err(WhitelistPreconfirmationDriverError::Driver(
-                driver::DriverError::EngineSyncing(request.block_number),
+                driver::DriverError::EngineSyncing(data.block_number),
             ));
         }
 
         self.ensure_node_signer_whitelisted()?;
 
-        let prev_randao =
-            self.derive_prev_randao(request.parent_hash, request.block_number).await?;
-        self.validate_request_payload(&request, prev_randao)?;
+        let prev_randao = self.derive_prev_randao(data.parent_hash, data.block_number).await?;
+        self.validate_request_payload(&data, prev_randao)?;
 
         // Insert the preconfirmation payload locally first to
         // obtain the canonical block hash before gossiping.
-        let driver_payload = self.build_driver_payload(&request, prev_randao, [0u8; 65])?;
+        let driver_payload =
+            self.build_driver_payload(&data, is_forced_inclusion, prev_randao, [0u8; 65])?;
         self.event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
             .await?;
@@ -104,23 +117,21 @@ where
         let inserted_block = self
             .rpc
             .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Number(request.block_number))
+            .get_block_by_number(BlockNumberOrTag::Number(data.block_number))
             .await
             .map_err(WhitelistPreconfirmationDriverError::provider)?
-            .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(
-                request.block_number,
-            ))?;
+            .ok_or(WhitelistPreconfirmationDriverError::MissingInsertedBlock(data.block_number))?;
 
-        if inserted_block.header.parent_hash != request.parent_hash {
+        if inserted_block.header.parent_hash != data.parent_hash {
             return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
                 "inserted block parent hash mismatch at block {}: expected {}, got {}",
-                request.block_number, request.parent_hash, inserted_block.header.parent_hash
+                data.block_number, data.parent_hash, inserted_block.header.parent_hash
             )));
         }
-        if inserted_block.header.number != request.block_number {
+        if inserted_block.header.number != data.block_number {
             return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
                 "inserted block number mismatch: expected {}, got {}",
-                request.block_number, inserted_block.header.number
+                data.block_number, inserted_block.header.number
             )));
         }
 
@@ -128,7 +139,7 @@ where
         let block_number = inserted_block.header.number;
         let block_header = inserted_block.header.clone();
         let base_fee_per_gas =
-            inserted_block.header.base_fee_per_gas.unwrap_or(request.base_fee_per_gas);
+            inserted_block.header.base_fee_per_gas.unwrap_or(data.base_fee_per_gas);
         let block_hash_signature =
             self.sign_digest(block_signing_hash(self.chain_id, block_hash.as_slice()))?;
 
@@ -140,7 +151,7 @@ where
                 FixedBytes::<65>::from(block_hash_signature),
             )
             .await?;
-        self.update_highest_unsafe(block_number).await;
+        self.state.set_highest_unsafe(block_number).await;
 
         let execution_payload = ExecutionPayloadV1 {
             parent_hash: inserted_block.header.parent_hash,
@@ -156,12 +167,12 @@ where
             extra_data: inserted_block.header.extra_data.clone(),
             base_fee_per_gas: U256::from(base_fee_per_gas),
             block_hash,
-            transactions: vec![request.transactions.clone()],
+            transactions: vec![data.transactions.clone()],
         };
 
         let envelope = WhitelistExecutionPayloadEnvelope {
-            end_of_sequencing: request.end_of_sequencing,
-            is_forced_inclusion: request.is_forced_inclusion,
+            end_of_sequencing,
+            is_forced_inclusion,
             parent_beacon_block_root: None,
             header_difficulty: (!inserted_block.header.difficulty.is_zero())
                 .then_some(inserted_block.header.difficulty),
@@ -179,25 +190,27 @@ where
             "publishing signed whitelist preconfirmation payload"
         );
 
+        // Cache the envelope locally before publishing so EOS catch-up and
+        // request-topic lookups can serve this block even without peer echo.
+        let envelope = Arc::new(envelope);
+        self.state.insert_recent(envelope.clone()).await;
+
         // Publish to gossipsub.
         self.send_network_command(
-            NetworkCommand::PublishUnsafePayload {
-                signature: wire_signature,
-                envelope: Arc::new(envelope),
-            },
+            NetworkCommand::PublishUnsafePayload { signature: wire_signature, envelope },
             "publish",
         )
         .await?;
 
         // If end-of-sequencing, also publish the EOS request.
-        if request.end_of_sequencing.unwrap_or(false) {
-            let epoch = self.beacon_client.timestamp_to_epoch(request.timestamp).map_err(|e| {
+        if end_of_sequencing.unwrap_or(false) {
+            let epoch = self.beacon_client.timestamp_to_epoch(data.timestamp).map_err(|e| {
                 WhitelistPreconfirmationDriverError::InvalidPayload(format!(
                     "failed to derive epoch from block timestamp {}: {e}",
-                    request.timestamp
+                    data.timestamp
                 ))
             })?;
-            self.cache_state.record_end_of_sequencing(epoch, block_hash).await;
+            self.state.record_end_of_sequencing(epoch, block_hash).await;
             if let Err(err) = self
                 .eos_notification_tx
                 .send(EndOfSequencingNotification { current_epoch: epoch, end_of_sequencing: true })
@@ -223,8 +236,13 @@ where
     }
 
     /// Return runtime status for the whitelist preconfirmation driver.
-    async fn get_status(&self) -> Result<WhitelistStatus> {
+    async fn get_status(&self) -> Result<ApiStatus> {
         self.get_status_snapshot().await
+    }
+
+    /// Whether preconfirmation ingress is ready to serve build requests.
+    fn is_sync_ready(&self) -> bool {
+        self.event_syncer.is_preconf_ingress_ready()
     }
 
     /// Subscribe to end-of-sequencing websocket notifications.

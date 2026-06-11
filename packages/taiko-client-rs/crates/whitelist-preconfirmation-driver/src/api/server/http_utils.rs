@@ -3,11 +3,12 @@
 use std::fmt::Display;
 
 use axum::{
+    Json,
     body::Body,
-    http::{StatusCode, header::CONTENT_TYPE},
-    response::Response,
+    http::StatusCode,
+    response::{IntoResponse, Response},
 };
-use http_body_util::{BodyExt, BodyStream};
+use http_body_util::{BodyExt, LengthLimitError, Limited};
 
 use crate::error::WhitelistPreconfirmationDriverError;
 
@@ -28,13 +29,7 @@ pub(super) fn error_response(status: StatusCode, message: String) -> Response {
 
 /// Build a JSON response from a serializable payload.
 pub(super) fn json_response<T: serde::Serialize>(status: StatusCode, value: &T) -> Response {
-    let bytes = serde_json::to_vec(value)
-        .unwrap_or_else(|_| b"{\"error\":\"serialization failed\"}".to_vec());
-    Response::builder()
-        .status(status)
-        .header(CONTENT_TYPE, "application/json")
-        .body(Body::from(bytes))
-        .expect("valid response")
+    (status, Json(value)).into_response()
 }
 
 /// Map internal driver errors to REST status codes.
@@ -81,28 +76,15 @@ pub(super) async fn read_request_body<B>(
     max_bytes: usize,
 ) -> std::result::Result<Vec<u8>, RequestBodyReadError>
 where
-    B: http_body::Body<Data = bytes::Bytes> + Send + Unpin + 'static,
+    B: http_body::Body + Send + 'static,
     B::Data: Send,
     B::Error: Into<axum::BoxError>,
 {
-    let mut stream = BodyStream::new(body);
-    let mut bytes = Vec::new();
-    while let Some(frame) = stream.frame().await {
-        let data = frame
-            .map_err(|err| {
-                let err: axum::BoxError = err.into();
-                RequestBodyReadError::Read(err.to_string())
-            })?
-            .into_data()
-            .map_err(|_| {
-                RequestBodyReadError::Read("unexpected non-data frame in request body".to_string())
-            })?;
-
-        if bytes.len().saturating_add(data.len()) > max_bytes {
-            return Err(RequestBodyReadError::TooLarge { max_bytes });
+    match Limited::new(body, max_bytes).collect().await {
+        Ok(collected) => Ok(collected.to_bytes().to_vec()),
+        Err(err) if err.is::<LengthLimitError>() => {
+            Err(RequestBodyReadError::TooLarge { max_bytes })
         }
-
-        bytes.extend_from_slice(&data);
+        Err(err) => Err(RequestBodyReadError::Read(err.to_string())),
     }
-    Ok(bytes)
 }

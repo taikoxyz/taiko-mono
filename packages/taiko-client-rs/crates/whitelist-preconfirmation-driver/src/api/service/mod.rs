@@ -29,11 +29,11 @@ use crate::{
     api::{
         WhitelistApi,
         types::{
-            BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
-            WhitelistStatus,
+            ApiStatus, BuildPreconfBlockRequest, BuildPreconfBlockResponse,
+            EndOfSequencingNotification, ExecutableData,
         },
     },
-    cache::SharedPreconfCacheState,
+    cache::SharedPreconfState,
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
     importer::validate_execution_payload_for_preconf,
@@ -110,12 +110,8 @@ where
     /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
     /// build requests when this node's own P2P signer has been deregistered on-chain.
     operator_set: SharedOperatorSet,
-    /// Peer ID string.
-    peer_id: String,
-    /// Highest unsafe payload block ID tracked by this node (shared with importer).
-    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
-    /// Shared cache state used to back `/status` and EOS visibility.
-    cache_state: SharedPreconfCacheState,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    state: SharedPreconfState,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
     /// Wall-clock instant of the most recent `build_preconf_block` invocation,
@@ -141,14 +137,10 @@ where
     pub(crate) beacon_client: Arc<BeaconClient>,
     /// Shared operator set used to gate the build API on the node's own whitelist status.
     pub(crate) operator_set: SharedOperatorSet,
-    /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
-    pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    pub(crate) state: SharedPreconfState,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared preconfirmation cache state.
-    pub(crate) cache_state: SharedPreconfCacheState,
-    /// Peer ID string.
-    pub(crate) peer_id: String,
 }
 
 impl<P> WhitelistApiService<P>
@@ -164,10 +156,8 @@ where
             signer,
             beacon_client,
             operator_set,
-            highest_unsafe_l2_payload_block_id,
+            state,
             network_command_tx,
-            cache_state,
-            peer_id,
         }: WhitelistApiServiceParams<P>,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
@@ -178,9 +168,7 @@ where
             signer,
             beacon_client,
             operator_set,
-            peer_id,
-            highest_unsafe_l2_payload_block_id,
-            cache_state,
+            state,
             eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),

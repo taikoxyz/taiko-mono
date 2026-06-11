@@ -16,8 +16,8 @@ use crate::{
     api::{
         WhitelistApi,
         types::{
-            BuildPreconfBlockApiRequest, BuildPreconfBlockRequest, BuildPreconfBlockResponse,
-            EndOfSequencingNotification, ExecutableData, WhitelistStatus,
+            ApiStatus, BuildPreconfBlockRequest, BuildPreconfBlockResponse,
+            EndOfSequencingNotification, ExecutableData,
         },
     },
 };
@@ -35,16 +35,16 @@ impl WhitelistApi for MockApi {
         Ok(BuildPreconfBlockResponse { block_header: Default::default() })
     }
 
-    async fn get_status(&self) -> Result<WhitelistStatus> {
-        Ok(WhitelistStatus {
-            head_l1_origin_block_id: Some(1),
-            highest_unsafe_block_number: 100,
-            peer_id: "test-peer".to_string(),
-            sync_ready: true,
+    async fn get_status(&self) -> Result<ApiStatus> {
+        Ok(ApiStatus {
             highest_unsafe_l2_payload_block_id: 100,
-            end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            end_of_sequencing_block_hash: B256::ZERO.to_string(),
             can_shutdown: true,
         })
+    }
+
+    fn is_sync_ready(&self) -> bool {
+        true
     }
 
     fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
@@ -69,16 +69,16 @@ impl WhitelistApi for SyncReadyApi {
         Ok(BuildPreconfBlockResponse { block_header: Default::default() })
     }
 
-    async fn get_status(&self) -> Result<WhitelistStatus> {
-        Ok(WhitelistStatus {
-            head_l1_origin_block_id: Some(1),
-            highest_unsafe_block_number: 100,
-            peer_id: "test-peer".to_string(),
-            sync_ready: self.sync_ready,
+    async fn get_status(&self) -> Result<ApiStatus> {
+        Ok(ApiStatus {
             highest_unsafe_l2_payload_block_id: 100,
-            end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
+            end_of_sequencing_block_hash: B256::ZERO.to_string(),
             can_shutdown: true,
         })
+    }
+
+    fn is_sync_ready(&self) -> bool {
+        self.sync_ready
     }
 
     fn subscribe_end_of_sequencing(&self) -> broadcast::Receiver<EndOfSequencingNotification> {
@@ -88,7 +88,7 @@ impl WhitelistApi for SyncReadyApi {
 }
 
 fn sample_preconf_request() -> Vec<u8> {
-    let request = BuildPreconfBlockApiRequest {
+    let request = BuildPreconfBlockRequest {
         executable_data: Some(ExecutableData {
             parent_hash: B256::ZERO,
             fee_recipient: Address::ZERO,

@@ -32,7 +32,7 @@ use super::{
 use crate::{
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_envelope_ssz,
-        decode_unsafe_payload_signature, decode_unsafe_response_message, encode_envelope_ssz,
+        decode_unsafe_payload_signature, decode_unsafe_response_message,
         encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
@@ -501,7 +501,7 @@ struct NetworkRuntime {
     peer_status_log_interval: Interval,
     /// Inbound validation and dedupe state for gossipsub messages.
     inbound_validation_state: GossipsubInboundState,
-    /// Peer id used by loopback payload events.
+    /// Local peer id used to ignore self-propagated gossip.
     peer_id_for_events: PeerId,
 }
 
@@ -523,7 +523,7 @@ impl NetworkRuntime {
                     None => Ok(false),
                     Some(NetworkCommand::Shutdown) => Ok(false),
                     Some(command) => {
-                        self.handle_command(command).await?;
+                        self.handle_command(command);
                         Ok(true)
                     },
                 }
@@ -548,7 +548,7 @@ impl NetworkRuntime {
     }
 
     /// Execute one outbound network command.
-    async fn handle_command(&mut self, command: NetworkCommand) -> Result<()> {
+    fn handle_command(&mut self, command: NetworkCommand) {
         match command {
             NetworkCommand::PublishUnsafeRequest { hash } => {
                 self.publish_unsafe_request(hash);
@@ -557,15 +557,13 @@ impl NetworkRuntime {
                 self.publish_unsafe_response(envelope);
             }
             NetworkCommand::PublishUnsafePayload { signature, envelope } => {
-                self.publish_unsafe_payload(signature, envelope).await?;
+                self.publish_unsafe_payload(signature, envelope);
             }
             NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
                 self.publish_end_of_sequencing_request(epoch);
             }
             NetworkCommand::Shutdown => unreachable!("handled in run_once"),
         }
-
-        Ok(())
     }
 
     /// Publish a `requestPreconfBlocks` message.
@@ -590,38 +588,19 @@ impl NetworkRuntime {
         );
     }
 
-    /// Publish a `preconfBlocks` message and emit loopback event for local cache/import.
-    async fn publish_unsafe_payload(
+    /// Publish a `preconfBlocks` message.
+    fn publish_unsafe_payload(
         &mut self,
         signature: [u8; 65],
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
-    ) -> Result<()> {
+    ) {
         let hash = envelope.execution_payload.block_hash;
-
-        // Loop back locally-built payloads so importer caches can serve
-        // follow-up EOS catch-up requests even without peer echo.
-        let payload_bytes = encode_envelope_ssz(&envelope);
-        let local_event = NetworkEvent::UnsafePayload {
-            from: self.peer_id_for_events,
-            payload: DecodedUnsafePayload {
-                wire_signature: signature,
-                payload_bytes,
-                envelope: (*envelope).clone(),
-            },
-        };
-
-        // Loopback first so downstream cache/import logic observes the
-        // payload even when there are no peers to echo it back.
-        forward_event(&self.event_tx, local_event).await?;
-
         self.encode_and_publish(
             encode_unsafe_payload_message(&signature, &envelope),
             self.topics.preconf_blocks.clone(),
             "preconf_blocks",
             &format!("{hash}"),
         );
-
-        Ok(())
     }
 
     /// Publish a `requestEndOfSequencingPreconfBlocks` message.
