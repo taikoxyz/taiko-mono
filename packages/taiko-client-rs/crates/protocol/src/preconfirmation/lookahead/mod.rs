@@ -37,9 +37,6 @@ pub enum LookaheadError {
     /// Failed to fetch or decode Inbox configuration.
     #[error("failed to fetch inbox config: {0}")]
     InboxConfig(alloy_contract::Error),
-    /// Failure when querying the LookaheadStore.
-    #[error("failed to call lookahead store: {0}")]
-    Lookahead(alloy_contract::Error),
     /// Failed to fetch lookahead store config from the LookaheadStore.
     #[error("failed to get lookahead store config: {0}")]
     GetLookaheadStoreConfig(alloy_contract::Error),
@@ -80,9 +77,6 @@ pub enum LookaheadError {
     /// The requested timestamp lies in a future epoch (beyond the current epoch boundary).
     #[error("timestamp {0} is beyond the current epoch window")]
     TooNew(u64),
-    /// Chain reorg detected while locating a block.
-    #[error("chain reorg detected while locating block for epoch")]
-    ReorgDetected,
     /// System clock produced an invalid (pre-UNIX) timestamp.
     #[error("system time error: {0}")]
     SystemTime(String),

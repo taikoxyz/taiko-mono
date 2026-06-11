@@ -232,7 +232,6 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
             source,
             driver::sync::error::EngineSubmissionError::EngineSyncing(_) |
                 driver::sync::error::EngineSubmissionError::MissingPayloadId |
-                driver::sync::error::EngineSubmissionError::MissingParent |
                 driver::sync::error::EngineSubmissionError::MissingInsertedBlock(_)
         ),
         _ => false,

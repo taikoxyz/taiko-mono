@@ -3,7 +3,6 @@
 //! Preconfirmation driver integration library.
 //!
 //! This crate provides the preconfirmation integration layer for the Taiko driver.
-//! It combines P2P network participation with embedded driver communication via channels.
 //!
 //! # Architecture
 //!
@@ -12,8 +11,8 @@
 //! - **PreconfirmationClient**: Handles P2P network operations including gossip, commitment
 //!   validation, and tip catch-up.
 //!
-//! - **EmbeddedDriverClient**: Communicates directly with the driver via channels, bypassing
-//!   JSON-RPC serialization.
+//! - **EventSyncerDriverClient**: Feeds validated preconfirmation payloads into the driver's event
+//!   syncer for ordered processing.
 //!
 //! - **PreconfRpcServer**: Exposes a preconfirmation sidecar JSON-RPC API for external clients to
 //!   submit preconfirmations.
@@ -36,8 +35,6 @@ pub mod driver_interface;
 pub mod error;
 /// Metrics exposed by the preconfirmation driver node.
 pub mod metrics;
-/// Preconfirmation driver node combining all components.
-pub mod node;
 /// Preconfirmation sidecar JSON-RPC API.
 pub mod rpc;
 /// Preconfirmation driver runner orchestration.
@@ -54,11 +51,10 @@ pub mod validation;
 pub use client::{EventLoop, PreconfirmationClient};
 pub use config::PreconfirmationClientConfig;
 pub use driver_interface::{
-    ContractInboxReader, DriverClient, EmbeddedDriverClient, EventSyncerDriverClient, InboxReader,
-    PreconfirmationInput, resolve_event_sync_tip,
+    ContractInboxReader, DriverClient, EventSyncerDriverClient, InboxReader, PreconfirmationInput,
+    resolve_event_sync_tip,
 };
 pub use error::{DriverApiError, PreconfirmationClientError, Result};
 pub use metrics::PreconfirmationClientMetrics;
-pub use node::{DriverChannels, PreconfirmationDriverNode, PreconfirmationDriverNodeConfig};
 pub use rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig};
 pub use runner::{PreconfirmationDriverRunner, RunnerConfig, RunnerError};

@@ -43,8 +43,6 @@ pub enum TaikoAuthMethod {
     LastL1OriginByBatchId,
     /// Fetch the last block id for a batch id.
     LastBlockIdByBatchId,
-    /// Fetch the cached last L1 origin for a batch id.
-    LastCertainL1OriginByBatchId,
     /// Fetch the cached last block id for a batch id.
     LastCertainBlockIdByBatchId,
 }
@@ -60,7 +58,6 @@ impl TaikoAuthMethod {
             Self::SetBatchToLastBlock => "taikoAuth_setBatchToLastBlock",
             Self::LastL1OriginByBatchId => "taikoAuth_lastL1OriginByBatchID",
             Self::LastBlockIdByBatchId => "taikoAuth_lastBlockIDByBatchID",
-            Self::LastCertainL1OriginByBatchId => "taikoAuth_lastCertainL1OriginByBatchID",
             Self::LastCertainBlockIdByBatchId => "taikoAuth_lastCertainBlockIDByBatchID",
         }
     }
@@ -255,20 +252,6 @@ impl<P: Provider + Clone> Client<P> {
             .or_else(handle_ignorable_origin_error)
     }
 
-    /// Fetch the cached last L1 origin associated with the given batch id via the authenticated
-    /// engine API, without allowing the engine to scan the chain as a fallback.
-    pub async fn last_certain_l1_origin_by_batch_id(
-        &self,
-        proposal_id: U256,
-    ) -> Result<Option<RpcL1Origin>> {
-        Self::request_l1_origin(
-            &self.l2_auth_provider,
-            TaikoAuthMethod::LastCertainL1OriginByBatchId.as_str(),
-            (proposal_id,),
-        )
-        .await
-    }
-
     /// Fetch the cached last block id that corresponds to the provided batch id via the
     /// authenticated engine API, without allowing the engine to scan the chain as a fallback.
     pub async fn last_certain_block_id_by_batch_id(
@@ -408,10 +391,6 @@ mod tests {
 
     #[test]
     fn taiko_auth_method_includes_last_certain_batch_lookups() {
-        assert_eq!(
-            TaikoAuthMethod::LastCertainL1OriginByBatchId.as_str(),
-            "taikoAuth_lastCertainL1OriginByBatchID"
-        );
         assert_eq!(
             TaikoAuthMethod::LastCertainBlockIdByBatchId.as_str(),
             "taikoAuth_lastCertainBlockIDByBatchID"

@@ -182,7 +182,6 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
             ValidationErrorCode::SubmissionWindowExpired => {
                 PreconfRpcErrorCode::SubmissionWindowExpired.code()
             }
-            ValidationErrorCode::Other => PreconfRpcErrorCode::InvalidCommitment.code(),
         },
         PreconfirmationClientError::Validation(msg) => {
             // Backward-compatible path for callers/tests that still use unclassified validation
@@ -204,13 +203,11 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
             LookaheadError::TooOld(_) |
             LookaheadError::TooNew(_) => ErrorCode::InvalidParams.code(),
             LookaheadError::InboxConfig(_) |
-            LookaheadError::Lookahead(_) |
             LookaheadError::PreconfWhitelist(_) |
             LookaheadError::BlockLookup { .. } |
             LookaheadError::MissingLogField { .. } |
             LookaheadError::EventDecode(_) |
             LookaheadError::EventScanner(_) |
-            LookaheadError::ReorgDetected |
             LookaheadError::SystemTime(_) |
             LookaheadError::UnknownChain(_) |
             LookaheadError::MissingLookahead(_) |
@@ -221,7 +218,6 @@ fn api_error_to_rpc(err: PreconfirmationClientError) -> ErrorObjectOwned {
             }
         },
         PreconfirmationClientError::Network(_) |
-        PreconfirmationClientError::Storage(_) |
         PreconfirmationClientError::DriverInterface(_) |
         PreconfirmationClientError::Config(_) => PreconfRpcErrorCode::InternalError.code(),
     };
@@ -317,11 +313,7 @@ mod tests {
 
     #[test]
     fn test_non_timestamp_lookahead_errors_map_to_lookahead_unavailable() {
-        let errors = [
-            LookaheadError::MissingLookahead(100),
-            LookaheadError::UnknownChain(167_001),
-            LookaheadError::ReorgDetected,
-        ];
+        let errors = [LookaheadError::MissingLookahead(100), LookaheadError::UnknownChain(167_001)];
 
         for err in errors {
             let rpc_error = api_error_to_rpc(PreconfirmationClientError::from(err));

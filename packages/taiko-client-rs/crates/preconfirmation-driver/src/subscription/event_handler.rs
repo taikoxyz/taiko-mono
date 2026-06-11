@@ -114,16 +114,6 @@ where
         handler
     }
 
-    /// Update the command tx used to notify the P2P node.
-    pub(crate) fn set_command_tx(&mut self, command_tx: Sender<NetworkCommand>) {
-        self.command_tx = command_tx;
-    }
-
-    /// Update the local peer ID used to suppress looped-back gossip.
-    pub(crate) fn set_local_peer_id(&mut self, local_peer_id: PeerId) {
-        self.local_peer_id = Some(local_peer_id);
-    }
-
     /// Handle a network event.
     pub async fn handle_event(&self, event: NetworkEvent) -> Result<()> {
         match event {

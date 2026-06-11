@@ -18,7 +18,7 @@ pub(crate) const DEFAULT_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::fro
 
 /// Trait for reading L1 Inbox contract state.
 ///
-/// This abstraction allows the embedded driver client to check L1 sync status
+/// This abstraction allows driver clients to check L1 sync status
 /// without requiring a concrete provider type, enabling easier testing.
 #[async_trait]
 pub trait InboxReader: Clone + Send + Sync {
