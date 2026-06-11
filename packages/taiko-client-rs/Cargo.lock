@@ -6331,7 +6331,6 @@ dependencies = [
  "alloy-rpc-types 1.8.3",
  "alloy-rpc-types-engine 2.0.4",
  "anyhow",
- "arc-swap",
  "async-trait",
  "bindings",
  "dashmap",

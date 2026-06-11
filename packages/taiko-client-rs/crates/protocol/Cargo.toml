@@ -56,7 +56,6 @@ bindings = { path = "../bindings", optional = true }
 
 # types
 anyhow = { workspace = true }
-arc-swap = { workspace = true }
 dashmap = { workspace = true }
 flate2 = { workspace = true }
 thiserror = { workspace = true }

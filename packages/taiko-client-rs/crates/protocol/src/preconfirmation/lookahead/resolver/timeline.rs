@@ -1,7 +1,6 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use alloy_primitives::Address;
-use arc_swap::ArcSwap;
 use tracing::warn;
 
 /// Generic, timestamp-ordered history of payloads of type `T`, pruned to a lookback window while
@@ -79,11 +78,6 @@ impl<T: Clone> Timeline<T> {
         let idx = self.events.partition_point(|(event_at, _)| *event_at <= ts);
         let slot = if idx == 0 { 0 } else { idx - 1 };
         Some(&self.events[slot].1)
-    }
-
-    /// Timestamp of the earliest event, if any.
-    fn earliest_at(&self) -> Option<u64> {
-        self.events.first().map(|(at, _)| *at)
     }
 }
 
@@ -174,66 +168,45 @@ impl FallbackTimeline {
     pub fn operator_at(&self, ts: u64) -> Option<Address> {
         self.inner.value_at_or_baseline(ts).copied()
     }
-
-    /// Timestamp of the earliest recorded fallback event, if any.
-    fn earliest_at(&self) -> Option<u64> {
-        self.inner.earliest_at()
-    }
 }
 
-/// Copy-on-write wrapper over `FallbackTimeline` providing lock-free reads and atomic updates.
-#[derive(Debug, Default)]
+/// Shared handle to the whitelist fallback timeline. Clones share the same underlying state, so
+/// updates recorded by the scanner ingest task are visible to every resolver clone.
+#[derive(Debug, Default, Clone)]
 pub struct FallbackTimelineStore {
-    /// Atomically swapped timeline used for lock-free readers.
-    inner: ArcSwap<FallbackTimeline>,
-}
-
-impl Clone for FallbackTimelineStore {
-    /// Clone the store, sharing the underlying timeline.
-    fn clone(&self) -> Self {
-        Self { inner: ArcSwap::from(self.inner.load_full()) }
-    }
+    /// Timeline shared across all clones of the store.
+    inner: Arc<Mutex<FallbackTimeline>>,
 }
 
 impl FallbackTimelineStore {
     /// Create a new store seeded with an empty timeline.
     pub fn new() -> Self {
-        Self { inner: ArcSwap::from_pointee(FallbackTimeline::default()) }
+        Self::default()
     }
 
     /// Insert or replace a fallback event, preserving timestamp order.
     pub fn apply(&self, event: FallbackEvent) {
-        self.update(|timeline| timeline.apply(event));
+        self.lock().apply(event);
     }
 
     /// Ensure a baseline exists at or before `at`; if none, insert the provided operator at `at`.
     pub fn ensure_baseline(&self, at: u64, operator: Address) {
-        // Fast-path read: skip COW if an event at or before `at` already exists.
-        if self.operator_at(at).is_some() {
-            let earliest = self.inner.load_full().earliest_at();
-            if earliest.is_some_and(|earliest_at| earliest_at <= at) {
-                return;
-            }
-        }
-        self.update(|timeline| timeline.ensure_baseline(at, operator));
+        self.lock().ensure_baseline(at, operator);
     }
 
     /// Remove history older than `cutoff`, keeping the last pre-cutoff entry as the new baseline.
     pub fn prune_before(&self, cutoff: u64) {
-        self.update(|timeline| timeline.prune_before(cutoff));
+        self.lock().prune_before(cutoff);
     }
 
     /// Return the active fallback operator at `ts`, if any history exists.
     pub fn operator_at(&self, ts: u64) -> Option<Address> {
-        let timeline = self.inner.load_full();
-        timeline.operator_at(ts)
+        self.lock().operator_at(ts)
     }
 
-    /// Internal helper to perform a copy-on-write update.
-    fn update(&self, f: impl FnOnce(&mut FallbackTimeline)) {
-        let mut next = (*self.inner.load_full()).clone();
-        f(&mut next);
-        self.inner.store(Arc::new(next));
+    /// Lock the shared timeline.
+    fn lock(&self) -> MutexGuard<'_, FallbackTimeline> {
+        self.inner.lock().expect("fallback timeline lock poisoned")
     }
 }
 
@@ -309,6 +282,20 @@ mod tests {
 
         assert_eq!(timeline.operator_at(1_200), Some(a));
         assert_eq!(timeline.operator_at(1_600), Some(b));
+    }
+
+    #[test]
+    fn fallback_store_clones_share_state() {
+        let store = FallbackTimelineStore::new();
+        let clone = store.clone();
+        let a = Address::from([1u8; 20]);
+
+        clone.apply(FallbackEvent { at: 1_000, operator: a });
+
+        // Events applied through one handle must be visible through every clone: the resolver is
+        // cloned into the scanner ingest task, and whitelist operator changes recorded there must
+        // be observable by queries on the original resolver.
+        assert_eq!(store.operator_at(1_500), Some(a));
     }
 
     #[test]
