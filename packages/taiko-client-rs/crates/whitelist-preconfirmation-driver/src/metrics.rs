@@ -26,18 +26,12 @@ struct Metrics {
     whitelist_lookup_failures: IntCounter,
     /// Unsafe request lookup outcomes.
     response_lookups: IntCounterVec,
-    /// Cache import attempts.
-    cache_import_attempts: IntCounter,
     /// Cache import results.
     cache_import_results: IntCounterVec,
-    /// Driver submission outcomes.
-    driver_submit: IntCounterVec,
-    /// Duration for the driver submission path.
-    driver_submit_duration: Histogram,
+    /// Duration for the driver submission path, labelled by submission result.
+    driver_submit_duration: HistogramVec,
     /// Parent request outcomes.
     parent_requests: IntCounterVec,
-    /// RPC request counter grouped by method.
-    rpc_requests: IntCounterVec,
     /// RPC error counter grouped by method.
     rpc_errors: IntCounterVec,
     /// RPC duration histogram grouped by method.
@@ -87,33 +81,20 @@ impl Metrics {
                 "Unsafe request lookup outcomes",
                 &["result"],
             ),
-            cache_import_attempts: counter(
-                "whitelist_preconf_driver_cache_import_attempts_total",
-                "Cache import attempts",
-            ),
             cache_import_results: counter_vec(
                 "whitelist_preconf_driver_cache_import_results_total",
                 "Cache import results",
                 &["result"],
             ),
-            driver_submit: counter_vec(
-                "whitelist_preconf_driver_driver_submit_total",
-                "Driver submission outcomes",
-                &["result"],
-            ),
-            driver_submit_duration: histogram(
+            driver_submit_duration: histogram_vec(
                 "whitelist_preconf_driver_driver_submit_duration_seconds",
-                "Duration for driver submission path",
+                "Duration for driver submission path by result",
+                &["result"],
             ),
             parent_requests: counter_vec(
                 "whitelist_preconf_driver_parent_requests_total",
                 "Parent request outcomes",
                 &["result"],
-            ),
-            rpc_requests: counter_vec(
-                "whitelist_preconf_driver_rpc_requests_total",
-                "Total whitelist RPC requests by method",
-                &["method"],
             ),
             rpc_errors: counter_vec(
                 "whitelist_preconf_driver_rpc_errors_total",
@@ -148,9 +129,10 @@ impl WhitelistPreconfirmationDriverMetrics {
     }
 
     /// Record one REST RPC request outcome.
+    ///
+    /// Request totals are derivable from the duration histogram's `_count`.
     pub(crate) fn record_rpc(method: &str, failed: bool, duration_secs: f64) {
         METRICS.rpc_duration.with_label_values(&[method]).observe(duration_secs);
-        METRICS.rpc_requests.with_label_values(&[method]).inc();
         if failed {
             METRICS.rpc_errors.with_label_values(&[method]).inc();
         }
@@ -191,24 +173,14 @@ impl WhitelistPreconfirmationDriverMetrics {
         METRICS.response_lookups.with_label_values(&[result]).inc();
     }
 
-    /// Increment the cache import attempt counter.
-    pub(crate) fn inc_cache_import_attempt() {
-        METRICS.cache_import_attempts.inc();
-    }
-
     /// Increment a cache import result counter.
     pub(crate) fn inc_cache_import_result(result: &str) {
         METRICS.cache_import_results.with_label_values(&[result]).inc();
     }
 
-    /// Increment a driver submission result counter.
-    pub(crate) fn inc_driver_submit(result: &str) {
-        METRICS.driver_submit.with_label_values(&[result]).inc();
-    }
-
-    /// Observe driver submission duration.
-    pub(crate) fn observe_driver_submit_duration(duration_secs: f64) {
-        METRICS.driver_submit_duration.observe(duration_secs);
+    /// Observe driver submission duration for the given submission result.
+    pub(crate) fn observe_driver_submit(result: &str, duration_secs: f64) {
+        METRICS.driver_submit_duration.with_label_values(&[result]).observe(duration_secs);
     }
 
     /// Increment a parent request counter.
@@ -287,6 +259,7 @@ mod tests {
     #[test]
     fn duration_histograms_include_long_running_operation_buckets() {
         WhitelistPreconfirmationDriverMetrics::init();
+        WhitelistPreconfirmationDriverMetrics::observe_driver_submit("success", 0.1);
 
         let families = prometheus::gather();
         let family = families
@@ -314,11 +287,11 @@ mod tests {
         WhitelistPreconfirmationDriverMetrics::record_rpc("status", true, 0.25);
 
         let families = prometheus::gather();
-        let requests = families
+        let errors = families
             .iter()
-            .find(|family| family.get_name() == "whitelist_preconf_driver_rpc_requests_total")
-            .expect("RPC request counter should be exported");
-        let request_metric = requests
+            .find(|family| family.get_name() == "whitelist_preconf_driver_rpc_errors_total")
+            .expect("RPC error counter should be exported");
+        let error_metric = errors
             .get_metric()
             .iter()
             .find(|metric| {
@@ -327,8 +300,8 @@ mod tests {
                     .iter()
                     .any(|label| label.get_name() == "method" && label.get_value() == "status")
             })
-            .expect("RPC request counter should include method label");
+            .expect("RPC error counter should include method label");
 
-        assert!(request_metric.get_counter().get_value() >= 1.0);
+        assert!(error_metric.get_counter().get_value() >= 1.0);
     }
 }

@@ -18,12 +18,8 @@ use crate::{
 
 /// Cache re-import flow for out-of-order envelopes once parents arrive.
 mod cache_import;
-/// Ingress entrypoints for unsafe payload handling.
+/// Ingress entrypoints for unsafe payload handling and request/response serving.
 mod ingress;
-/// Payload normalization helpers.
-mod payload;
-/// Response serving helpers for request/response gossip.
-mod response;
 /// Payload-level validation helpers.
 mod validation;
 
@@ -183,43 +179,16 @@ where
         self.maybe_import_from_cache().await
     }
 
-    /// Handle an incoming end-of-sequencing request by serving from the recent
-    /// cache, falling back to an L2 rebuild, or recording a miss.
+    /// Handle an incoming end-of-sequencing request by serving the recorded
+    /// envelope for the epoch from the recent cache or an L2 rebuild.
     async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
-        let Some(hash) = self.state.end_of_sequencing_for_epoch(epoch).await else {
-            WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                "end_of_sequencing_request",
-                "miss",
-            );
-            return Ok(());
+        let served = match self.state.end_of_sequencing_for_epoch(epoch).await {
+            Some(hash) => self.serve_envelope_by_hash(hash, true).await?.is_some(),
+            None => false,
         };
-
-        // Fast path: envelope still lives in the recent cache.
-        if let Some(envelope) = self.state.get_recent(&hash).await {
-            self.publish_unsafe_response(envelope).await;
-            WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                "end_of_sequencing_request",
-                "served",
-            );
-            return Ok(());
-        }
-
-        // Slow path: rebuild from local L2 state.
-        let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? else {
-            WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                "end_of_sequencing_request",
-                "miss",
-            );
-            return Ok(());
-        };
-
-        envelope.end_of_sequencing = Some(true);
-        let envelope = Arc::new(envelope);
-        self.state.insert_recent(envelope.clone()).await;
-        self.publish_unsafe_response(envelope).await;
         WhitelistPreconfirmationDriverMetrics::inc_importer_event(
             "end_of_sequencing_request",
-            "served",
+            if served { "served" } else { "miss" },
         );
         Ok(())
     }
@@ -235,7 +204,7 @@ where
         let next_proposal_id =
             if head_written { None } else { Some(self.next_proposal_id().await?) };
         let ready = should_enable_preconf_imports(head_written, next_proposal_id);
-        if sync_ready_transition(self.sync_ready, ready) {
+        if !self.sync_ready && ready {
             info!("event sync ready; enabling whitelist preconfirmation imports");
         }
         self.sync_ready = ready;
@@ -274,11 +243,6 @@ where
     pub(super) fn update_pending_cache_gauge(&self) {
         WhitelistPreconfirmationDriverMetrics::set_cache_pending_count(self.cache.len());
     }
-}
-
-/// Returns true only when sync readiness transitions from disabled to enabled.
-fn sync_ready_transition(was_ready: bool, is_ready: bool) -> bool {
-    !was_ready && is_ready
 }
 
 /// Whether preconf imports may be enabled after event sync.

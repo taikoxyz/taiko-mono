@@ -15,11 +15,8 @@ use crate::{
 };
 
 use super::{
-    cache_import::{
-        confirmed_boundary_or_genesis, should_defer_cached_import_error,
-        should_drop_cached_import_error,
-    },
-    should_enable_preconf_imports, sync_ready_transition,
+    cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
+    should_enable_preconf_imports,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
 
@@ -519,24 +516,6 @@ fn normalizes_unsafe_payload_envelope_keeps_existing_signature() {
     let normalized = normalize_unsafe_payload_envelope(envelope, wire_signature);
 
     assert_eq!(normalized.signature, Some(embedded));
-}
-
-#[test]
-fn sync_ready_transition_detects_first_ready_edge() {
-    assert!(!sync_ready_transition(false, false));
-    assert!(sync_ready_transition(false, true));
-    assert!(!sync_ready_transition(true, true));
-    assert!(!sync_ready_transition(true, false));
-}
-
-#[test]
-fn confirmed_boundary_or_genesis_defaults_missing_origin_to_zero() {
-    assert_eq!(confirmed_boundary_or_genesis(None), 0);
-}
-
-#[test]
-fn confirmed_boundary_or_genesis_passes_through_known_origin() {
-    assert_eq!(confirmed_boundary_or_genesis(Some(42)), 42);
 }
 
 #[test]

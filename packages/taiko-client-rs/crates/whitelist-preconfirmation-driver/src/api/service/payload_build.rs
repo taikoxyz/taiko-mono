@@ -4,6 +4,27 @@ use crate::codec::decompress_tx_list;
 
 use super::*;
 
+/// Build the execution-payload view of a build request used for validation and
+/// driver-payload construction. Hash and post-execution fields are zeroed.
+fn request_execution_payload(data: &ExecutableData, prev_randao: B256) -> ExecutionPayloadV1 {
+    ExecutionPayloadV1 {
+        parent_hash: data.parent_hash,
+        fee_recipient: data.fee_recipient,
+        state_root: B256::ZERO,
+        receipts_root: B256::ZERO,
+        logs_bloom: Bloom::default(),
+        prev_randao,
+        block_number: data.block_number,
+        gas_limit: data.gas_limit,
+        gas_used: 0,
+        timestamp: data.timestamp,
+        extra_data: data.extra_data.clone(),
+        base_fee_per_gas: U256::from(data.base_fee_per_gas),
+        block_hash: B256::ZERO,
+        transactions: vec![data.transactions.clone()],
+    }
+}
+
 impl<P> WhitelistApiService<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -17,44 +38,13 @@ where
         signature: [u8; 65],
     ) -> Result<TaikoPayloadAttributes> {
         let tx_list = decompress_tx_list(data.transactions.as_ref())?;
-
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: data.fee_recipient,
-            gas_limit: data.gas_limit,
-            timestamp: U256::from(data.timestamp),
-            mix_hash: prev_randao,
-            tx_list: Some(tx_list.into()),
-            extra_data: data.extra_data.clone(),
-        };
-
-        let payload_attributes = EthPayloadAttributes {
-            timestamp: data.timestamp,
-            prev_randao,
-            suggested_fee_recipient: data.fee_recipient,
-            withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
-            slot_number: None,
-        };
-
-        let mut payload = TaikoPayloadAttributes {
-            payload_attributes,
-            base_fee_per_gas: U256::from(data.base_fee_per_gas),
-            block_metadata,
-            l1_origin: RpcL1Origin {
-                block_id: U256::from(data.block_number),
-                l2_block_hash: B256::ZERO,
-                l1_block_height: None,
-                l1_block_hash: None,
-                build_payload_args_id: [0u8; 8],
-                is_forced_inclusion: is_forced_inclusion.unwrap_or(false),
-                signature,
-            },
-            anchor_transaction: None,
-        };
-
-        let payload_id = payload_id_taiko(&data.parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
-        payload.l1_origin.build_payload_args_id = payload_id_to_bytes(payload_id);
-        Ok(payload)
+        Ok(crate::payload::build_driver_payload(
+            &request_execution_payload(data, prev_randao),
+            tx_list,
+            None,
+            is_forced_inclusion.unwrap_or(false),
+            signature,
+        ))
     }
 
     /// Build a 65-byte signature from a digest.
@@ -107,25 +97,8 @@ where
         data: &ExecutableData,
         prev_randao: B256,
     ) -> Result<()> {
-        let payload = ExecutionPayloadV1 {
-            parent_hash: data.parent_hash,
-            fee_recipient: data.fee_recipient,
-            state_root: B256::ZERO,
-            receipts_root: B256::ZERO,
-            logs_bloom: Bloom::default(),
-            prev_randao,
-            block_number: data.block_number,
-            gas_limit: data.gas_limit,
-            gas_used: 0,
-            timestamp: data.timestamp,
-            extra_data: data.extra_data.clone(),
-            base_fee_per_gas: U256::from(data.base_fee_per_gas),
-            block_hash: B256::ZERO,
-            transactions: vec![data.transactions.clone()],
-        };
-
         validate_execution_payload_for_preconf(
-            &payload,
+            &request_execution_payload(data, prev_randao),
             self.chain_id,
             *self.rpc.shasta.anchor.address(),
         )

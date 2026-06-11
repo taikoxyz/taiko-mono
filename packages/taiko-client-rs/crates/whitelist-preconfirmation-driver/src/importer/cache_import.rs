@@ -2,16 +2,35 @@
 
 use std::time::Instant;
 
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use driver::PreconfPayload;
 use tracing::{debug, info, warn};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{WhitelistExecutionPayloadEnvelope, decompress_tx_list},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
 use super::WhitelistPreconfirmationImporter;
+
+/// Build the driver payload from a whitelist envelope.
+fn build_driver_payload(
+    envelope: &WhitelistExecutionPayloadEnvelope,
+) -> Result<TaikoPayloadAttributes> {
+    let compressed_tx_list = envelope.execution_payload.transactions.first().ok_or_else(|| {
+        WhitelistPreconfirmationDriverError::invalid_payload("missing transactions list")
+    })?;
+    let tx_list = decompress_tx_list(compressed_tx_list)?;
+
+    Ok(crate::payload::build_driver_payload(
+        &envelope.execution_payload,
+        tx_list,
+        envelope.parent_beacon_block_root,
+        envelope.is_forced_inclusion.unwrap_or(false),
+        envelope.signature.unwrap_or([0u8; 65]),
+    ))
+}
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -37,7 +56,6 @@ where
                 let Some(entry) = self.cache.get(&hash).cloned() else {
                     continue;
                 };
-                WhitelistPreconfirmationDriverMetrics::inc_cache_import_attempt();
                 match self.try_import_cached(&entry).await {
                     Ok(true) => {
                         WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
@@ -100,8 +118,8 @@ where
         let block_hash = payload.block_hash;
         let end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false);
 
-        let head_l1_origin_block_id =
-            confirmed_boundary_or_genesis(self.head_l1_origin_block_id().await?);
+        // An unwritten head origin means no confirmed boundary yet (genesis cold start).
+        let head_l1_origin_block_id = self.head_l1_origin_block_id().await?.unwrap_or(0);
 
         if block_number <= head_l1_origin_block_id {
             debug!(
@@ -144,21 +162,17 @@ where
             return Ok(false);
         }
 
-        let driver_payload = self.build_driver_payload(envelope)?;
+        let driver_payload = build_driver_payload(envelope)?;
         let submit_start = Instant::now();
         let submit_result = self
             .event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
             .await;
-        WhitelistPreconfirmationDriverMetrics::observe_driver_submit_duration(
+        WhitelistPreconfirmationDriverMetrics::observe_driver_submit(
+            if submit_result.is_ok() { "success" } else { "failure" },
             submit_start.elapsed().as_secs_f64(),
         );
-
-        if let Err(err) = submit_result {
-            WhitelistPreconfirmationDriverMetrics::inc_driver_submit("failure");
-            return Err(err.into());
-        }
-        WhitelistPreconfirmationDriverMetrics::inc_driver_submit("success");
+        submit_result?;
 
         info!(
             block_number,
@@ -223,9 +237,4 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
         ),
         _ => false,
     }
-}
-
-/// Resolve the confirmed boundary used for the cached-payload staleness check.
-pub(super) fn confirmed_boundary_or_genesis(head_l1_origin_block_id: Option<u64>) -> u64 {
-    head_l1_origin_block_id.unwrap_or(0)
 }

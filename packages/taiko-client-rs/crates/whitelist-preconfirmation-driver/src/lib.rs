@@ -10,6 +10,7 @@ mod importer;
 pub mod metrics;
 mod network;
 mod operator_set;
+mod payload;
 mod preconf_ingress_sync;
 mod runner;
 
