@@ -49,6 +49,8 @@
 #   PCCS_JSON                  Path to PCCS deployment JSON; must contain
 #                              AutomataDaoStorage, AutomataPcsDao, AutomataPckDao,
 #                              AutomataTcbEvalDao, and the helper addresses.
+#   PCCS_REPO                  automata-on-chain-pccs checkout. The one-shot wrapper
+#                              sets this to WORK_DIR/pccs when it deploys PCCS.
 #
 # Dependencies: cast, forge, curl, jq, openssl, python3.
 
@@ -60,7 +62,7 @@ RETH_TDX_URL="${RETH_TDX_URL:-${RAIKO2_URL:-}}"
 FMSPC="${FMSPC:-}"
 AUTOMATA_DCAP_ATTESTATION="${AUTOMATA_DCAP_ATTESTATION:-}"
 PCCS_JSON="${PCCS_JSON:-}"
-PCCS_REPO="${PCCS_REPO:-${HOME}/Documents/nethermind/automata-on-chain-pccs}"
+PCCS_REPO="${PCCS_REPO:-}"
 INTEL_API_TDX="${INTEL_API_TDX:-https://api.trustedservices.intel.com/tdx/certification/v4}"
 INTEL_CERTS="${INTEL_CERTS:-https://certificates.trustedservices.intel.com}"
 
@@ -70,7 +72,7 @@ log() { echo "[setup_tdx_pccs_extras] $*"; }
 [[ -z "$PRIVATE_KEY" ]] && die "PRIVATE_KEY is not set"
 [[ -z "$AUTOMATA_DCAP_ATTESTATION" ]] && die "AUTOMATA_DCAP_ATTESTATION is not set"
 [[ -z "$PCCS_JSON" || ! -f "$PCCS_JSON" ]] && die "PCCS_JSON is not set or not a file: $PCCS_JSON"
-[[ -d "$PCCS_REPO" ]] || die "PCCS_REPO not found at $PCCS_REPO (set PCCS_REPO=...)"
+[[ -n "$PCCS_REPO" && -d "$PCCS_REPO" ]] || die "PCCS_REPO is not set or not a directory (set PCCS_REPO=... or run via deploy_dcap_and_tdx_verifier.sh)"
 for cmd in cast forge curl jq openssl python3; do command -v "$cmd" >/dev/null || die "missing dep: $cmd"; done
 
 DEPLOYER=$(cast wallet address --private-key "$PRIVATE_KEY")

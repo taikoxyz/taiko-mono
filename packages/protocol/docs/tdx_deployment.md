@@ -13,16 +13,16 @@ TDX verifier admits keys after remote attestation and then verifies proofs by
 checking that signature.
 
 There are **two verifier variants**, selected by where/how the prover runs — every
-deploy script below handles both via the `VERIFIER_KIND` env var (default `tdx`):
+deploy script below handles both via the `VERIFIER_KIND` env var (default `tdx_dcap`):
 
-| `VERIFIER_KIND` | Contract           | Platform                             | Attestation                             | Boot measurements |
-| --------------- | ------------------ | ------------------------------------ | --------------------------------------- | ----------------- |
-| `azure`         | `AzureTdxVerifier` | Azure Confidential VMs               | Azure vTPM-bound TDX quote + Intel DCAP | vTPM **PCRs**     |
-| `tdx` (default) | `GcpTdxVerifier`   | GCP Confidential VMs, bare-metal TDX | raw Intel TDX DCAP quote (configfs-tsm) | TDX **RTMR0..3**  |
+| `VERIFIER_KIND`      | Contract           | Platform                             | Attestation                             | Boot measurements |
+| -------------------- | ------------------ | ------------------------------------ | --------------------------------------- | ----------------- |
+| `azure`              | `AzureTdxVerifier` | Azure Confidential VMs               | Azure vTPM-bound TDX quote + Intel DCAP | vTPM **PCRs**     |
+| `tdx_dcap` (default) | `GcpTdxVerifier`   | GCP Confidential VMs, bare-metal TDX | raw Intel TDX DCAP quote (configfs-tsm) | TDX **RTMR0..3**  |
 
 Both verifiers use the **same** Automata DCAP stack (the quote format is identical),
 so you deploy Automata once regardless of variant. The prover image's variant is
-fixed at build time (`make build AZURE=true` → azure, `GCP=true` / bare-metal → tdx),
+fixed at build time (`make build AZURE=true` → azure, `GCP=true` / bare-metal → tdx_dcap),
 and `xtask register-tdx` auto-detects it from the bootstrap.
 
 Moving the signing service into its own binary closes a trust gap in the previous
@@ -65,11 +65,11 @@ layer and checks PCRs.
 
 ## When do I need to deploy Automata DCAP myself?
 
-| Network                 | Automata DCAP `AutomataDcapAttestationFee`       | Action                                           |
-| ----------------------- | ------------------------------------------------ | ------------------------------------------------ |
-| Ethereum Hoodi          | `0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F`     | Use existing — only deploy the TDX verifier      |
-| Ethereum mainnet        | Not listed in Automata DCAP v1.1 deployment info | Confirm the v1.1 entrypoint before use           |
-| Local Anvil / custom L1 | Nothing deployed                                 | Deploy Automata + PCCS extras + the TDX verifier |
+| Network                 | Automata DCAP `AutomataDcapAttestationFee`   | Action                                           |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------ |
+| Ethereum Hoodi          | `0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F` | Use existing — only deploy the TDX verifier      |
+| Ethereum mainnet        | `0x0387aB2eDAB2A138a43437e36AF63689Bb7030f4` | Use existing — only deploy the TDX verifier      |
+| Local Anvil / custom L1 | Nothing deployed                             | Deploy Automata + PCCS extras + the TDX verifier |
 
 The chain-wide infrastructure (DCAP + PCCS) only has to be deployed **once per L1**, and is
 shared across both verifier variants. Once present, multiple Taiko / Surge instances on that
@@ -84,16 +84,16 @@ The Hoodi entry above was also checked against a live TDX bootstrap quote via
 
 All scripts live in `packages/protocol/script/layer1/verifiers/`. They can be run independently
 or chained together. **Every script supports both verifier variants** — `deploy_tdx_verifier.sh`
-and the orchestrator pick the contract from `VERIFIER_KIND` (`tdx` default / `azure`), while
+and the orchestrator pick the contract from `VERIFIER_KIND` (`tdx_dcap` default / `azure`), while
 `deploy_automata_dcap.sh` and `setup_tdx_pccs_extras.sh` auto-detect the FMSPC from either an
 Azure or a native bootstrap quote, so the Automata/PCCS stack is variant-agnostic.
 
-| Script                                                                                          | What it does                                                                                                                                                                                                                                                                         | When to use                                               |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| [`deploy_tdx_verifier.sh`](../script/layer1/verifiers/deploy_tdx_verifier.sh)                   | Deploys the TDX verifier impl + ERC1967 proxy and transfers ownership (`GcpTdxVerifier` for `VERIFIER_KIND=tdx`, `AzureTdxVerifier` for `azure`). Optionally seeds trusted params                                                                                                    | Mainnet, Hoodi, or any L1 where DCAP + PCCS already exist |
-| [`deploy_automata_dcap.sh`](../script/layer1/verifiers/deploy_automata_dcap.sh)                 | Deploys the full Automata DCAP + PCCS stack (helpers, DAOs, PCCSRouter, V4QuoteVerifier, `AutomataDcapAttestationFee`). Loads Root CA + Signing certs. Auto-detects FMSPC from a running reth-tdx (azure or native quote) if `RETH_TDX_URL` is set                                   | Custom L1 with no existing DCAP                           |
-| [`setup_tdx_pccs_extras.sh`](../script/layer1/verifiers/setup_tdx_pccs_extras.sh)               | Deploys the **versioned** DAOs required by V4 TDX quotes (`AutomataFmspcTcbDaoVersioned`, `AutomataEnclaveIdentityDaoVersioned`), wires them into `PCCSRouter`, uploads PCK Platform CA + CRLs, and loads TCB info / QE identity / TCB eval data via the `LoadPccsData` forge script | Custom L1 — runs **after** `deploy_automata_dcap.sh`      |
-| [`deploy_dcap_and_tdx_verifier.sh`](../script/layer1/verifiers/deploy_dcap_and_tdx_verifier.sh) | One-shot orchestrator: runs `deploy_automata_dcap.sh` → `setup_tdx_pccs_extras.sh` (if `RETH_TDX_URL` is set) → `deploy_tdx_verifier.sh` (honoring `VERIFIER_KIND`), then writes a summary JSON with all addresses                                                                   | Custom L1 bring-up from scratch                           |
+| Script                                                                                          | What it does                                                                                                                                                                                                                                                   | When to use                                               |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| [`deploy_tdx_verifier.sh`](../script/layer1/verifiers/deploy_tdx_verifier.sh)                   | Deploys the TDX verifier impl + ERC1967 proxy and transfers ownership (`GcpTdxVerifier` for `VERIFIER_KIND=tdx_dcap`, `AzureTdxVerifier` for `azure`). Optionally seeds trusted params                                                                         | Mainnet, Hoodi, or any L1 where DCAP + PCCS already exist |
+| [`deploy_automata_dcap.sh`](../script/layer1/verifiers/deploy_automata_dcap.sh)                 | Deploys the full Automata DCAP + PCCS stack (helpers, DAOs, PCCSRouter, V4QuoteVerifier, `AutomataDcapAttestationFee`). Loads Root CA + Signing certs. Auto-detects FMSPC from a running reth-tdx (azure or native quote) if `RETH_TDX_URL` is set             | Custom L1 with no existing DCAP                           |
+| [`setup_tdx_pccs_extras.sh`](../script/layer1/verifiers/setup_tdx_pccs_extras.sh)               | Deploys the **versioned** DAOs required by V4 TDX quotes (`AutomataFmspcTcbDaoVersioned`, `AutomataEnclaveIdentityDaoVersioned`), wires them into `PCCSRouter`, uploads PCK Platform CA + CRLs, and loads TCB info / QE identity / TCB eval data via DAO calls | Custom L1 — runs **after** `deploy_automata_dcap.sh`      |
+| [`deploy_dcap_and_tdx_verifier.sh`](../script/layer1/verifiers/deploy_dcap_and_tdx_verifier.sh) | One-shot orchestrator: runs `deploy_automata_dcap.sh` → `setup_tdx_pccs_extras.sh` (if `RETH_TDX_URL` is set) → `deploy_tdx_verifier.sh` (honoring `VERIFIER_KIND`), then writes a summary JSON with all addresses                                             | Custom L1 bring-up from scratch                           |
 
 ## Prerequisites
 
@@ -172,7 +172,7 @@ go run ./tools/deploy-gcp deploy \
 ```
 
 Whichever platform you pick, the rest of this guide is the same — just set
-`VERIFIER_KIND` accordingly in Step 4 (`azure` for the Azure VM, `tdx` for the GCP VM).
+`VERIFIER_KIND` accordingly in Step 4 (`azure` for the Azure VM, `tdx_dcap` for the GCP VM).
 
 ---
 
@@ -204,14 +204,14 @@ Two paths, depending on whether the L1 already has Automata DCAP deployed.
 ### Path A — L1 already has Automata DCAP (Hoodi / supported known chain)
 
 Only deploy the TDX verifier. Set `VERIFIER_KIND` for your prover platform
-(`tdx` for GCP/bare-metal — the default — or `azure`):
+(`tdx_dcap` for GCP/bare-metal — the default — or `azure`):
 
 ```bash
 cd packages/protocol
 
 PRIVATE_KEY=0x...                       \
 FORK_URL=https://<L1 RPC>               \
-VERIFIER_KIND=tdx                       \
+VERIFIER_KIND=tdx_dcap                  \
 CONTRACT_OWNER=0x...                    \
 AUTOMATA_DCAP_ATTESTATION=0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F \
 TAIKO_CHAIN_ID=167000                   \
@@ -219,20 +219,20 @@ BROADCAST=true                          \
 ./script/layer1/verifiers/deploy_tdx_verifier.sh
 ```
 
-| Variable                    | Description                                                      |
-| --------------------------- | ---------------------------------------------------------------- |
-| `PRIVATE_KEY`               | Deployer key                                                     |
-| `FORK_URL`                  | L1 RPC URL                                                       |
-| `VERIFIER_KIND`             | `tdx` (GcpTdxVerifier, default) or `azure` (AzureTdxVerifier)    |
-| `CONTRACT_OWNER`            | Final owner (Ownable2Step pendingOwner) — typically the timelock |
-| `AUTOMATA_DCAP_ATTESTATION` | Existing chain-wide DCAP entrypoint (table above)                |
-| `TAIKO_CHAIN_ID`            | L2 chain id; bound into proof signatures via `LibPublicInput`    |
-| `BROADCAST`                 | `true` to actually send transactions                             |
+| Variable                    | Description                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| `PRIVATE_KEY`               | Deployer key                                                                           |
+| `FORK_URL`                  | L1 RPC URL                                                                             |
+| `VERIFIER_KIND`             | `tdx_dcap` (GcpTdxVerifier, default; `tdx` legacy alias) or `azure` (AzureTdxVerifier) |
+| `CONTRACT_OWNER`            | Final owner (Ownable2Step pendingOwner) — typically the timelock                       |
+| `AUTOMATA_DCAP_ATTESTATION` | Existing chain-wide DCAP entrypoint (table above)                                      |
+| `TAIKO_CHAIN_ID`            | L2 chain id; bound into proof signatures via `LibPublicInput`                          |
+| `BROADCAST`                 | `true` to actually send transactions                                                   |
 
 ### Path B — Custom L1 with no DCAP yet (local Anvil / custom devnet)
 
 Use the one-shot orchestrator. It deploys DCAP, runs the PCCS extras (versioned DAOs + Intel
-collateral upload), and deploys the TDX verifier (selected by `VERIFIER_KIND`, default `tdx`)
+collateral upload), and deploys the TDX verifier (selected by `VERIFIER_KIND`, default `tdx_dcap`)
 in sequence, then writes `/tmp/deploy_summary_<chain_id>.json` with all relevant addresses.
 
 ```bash
@@ -243,11 +243,11 @@ CONTRACT_OWNER=0x...                           \
 TAIKO_CHAIN_ID=167001                          \
 RPC_URL=http://localhost:8545                  \
 RETH_TDX_URL=http://<VM_IP>:8080               \
-VERIFIER_KIND=tdx                              \
+VERIFIER_KIND=tdx_dcap                         \
 ./script/layer1/verifiers/deploy_dcap_and_tdx_verifier.sh
 ```
 
-`VERIFIER_KIND=tdx` (default) deploys `GcpTdxVerifier` for a GCP / bare-metal prover;
+`VERIFIER_KIND=tdx_dcap` (default; `tdx` legacy alias) deploys `GcpTdxVerifier` for a GCP / bare-metal prover;
 `VERIFIER_KIND=azure` deploys `AzureTdxVerifier` for an Azure prover. Either way the script
 auto-detects the FMSPC from the reth-tdx bootstrap (both quote formats are supported) and the
 current Intel TCB evaluation data number. After it finishes:
@@ -258,7 +258,7 @@ $ cat /tmp/deploy_summary_3151908.json
   "chain_id": "3151908",
   "rpc_url": "http://localhost:8545",
   "AutomataDcapAttestationFee": "0xD4766820a09E8C4c6f4FE80a82DAC29972EFB681",
-  "verifier_kind": "tdx",
+  "verifier_kind": "tdx_dcap",
   "tdx_verifier": "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570",
   "pccs_json": "/tmp/pccs_3151908.json"
 }
@@ -337,7 +337,7 @@ similar to `SgxAndZkVerifier` that wires `tdxRethVerifier` and accepts it in
 | 1    | `nethermind-tdx`             | `make build IMAGE=taiko-tdx-prover` (`AZURE=true` / `GCP=true`)                                                                                                         |
 | 2    | `nethermind-tdx`             | `go run tools/deploy-azure ...` or `go run ./tools/deploy-gcp ...`                                                                                                      |
 | 3    | VM                           | `curl -X POST -d "<ssh-pubkey>" http://<IP>:8080`                                                                                                                       |
-| 4a   | `taiko-mono` (mainnet/Hoodi) | `VERIFIER_KIND=tdx BROADCAST=true ./deploy_tdx_verifier.sh`                                                                                                             |
-| 4b   | `taiko-mono` (custom L1)     | `VERIFIER_KIND=tdx ./deploy_dcap_and_tdx_verifier.sh`                                                                                                                   |
+| 4a   | `taiko-mono` (mainnet/Hoodi) | `VERIFIER_KIND=tdx_dcap BROADCAST=true ./deploy_tdx_verifier.sh`                                                                                                        |
+| 4b   | `taiko-mono` (custom L1)     | `VERIFIER_KIND=tdx_dcap ./deploy_dcap_and_tdx_verifier.sh`                                                                                                              |
 | 5    | `raiko2`                     | `cargo run -p xtask -- register-tdx --trust --register` (auto-detects kind)                                                                                             |
 | 6    | (optional)                   | verify a proof on-chain — see [register doc § Verifying a proof on-chain](https://github.com/taikoxyz/raiko2/blob/main/docs/tdx_register.md#verifying-a-proof-on-chain) |

@@ -321,11 +321,12 @@ else
     # Step 3: deploy core DAOs on-chain.
     if ! PRIVATE_KEY="$PRIVATE_KEY" make deploy-dao RPC_URL="$RPC_URL"; then
         echo "  DAO deploy failed — DAOs may already be deployed, simulating for addresses..."
-        # Run deployAll(bool) with WITH_STORAGE=true in pure local simulation (no --rpc-url).
+        # Run deployAll(bool,bool) with WITH_STORAGE=true and LEGACY=false in pure
+        # local simulation (no --rpc-url).
         # This deploys Storage+PcsDao+PckDao on the local EVM and writes deployment/31337.json.
         # EnclaveIdDao and FmspcTcbDao are handled separately below (per-DAO simulation).
         OWNER="$DEPLOYER" forge script script/automata/DeployAutomataDao.s.sol:DeployAutomataDao \
-            --sig "deployAll(bool)" true \
+            --sig "deployAll(bool,bool)" true false \
             --private-key "$PRIVATE_KEY" -vv 2>&1 || die "DAO simulation failed"
         [[ -f "deployment/31337.json" ]] || die "Expected deployment/31337.json after DAO simulation"
         cp "deployment/31337.json" "deployment/${CHAIN_ID}.json"
