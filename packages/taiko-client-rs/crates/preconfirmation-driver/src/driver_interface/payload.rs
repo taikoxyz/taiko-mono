@@ -13,8 +13,7 @@ use super::{PreconfirmationInput, traits::BlockHeaderProvider};
 use crate::{Result, error::DriverApiError};
 use protocol::shasta::{
     PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash,
-    constants::calculate_next_block_eip4396_base_fee_for_parent, encode_extra_data,
-    encode_tx_list,
+    constants::calculate_next_block_eip4396_base_fee_for_parent, encode_extra_data, encode_tx_list,
 };
 
 #[async_trait]
@@ -131,11 +130,11 @@ pub async fn build_taiko_payload_attributes(
 mod tests {
     use super::*;
     use crate::error::{DriverApiError, PreconfirmationClientError};
-    use alloy_consensus::Header;
     use alethia_reth_primitives::payload::{
         attributes::{RpcL1Origin, TaikoBlockMetadata},
         builder::payload_id_taiko,
     };
+    use alloy_consensus::Header;
     use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use preconfirmation_types::{
         Bytes20, Bytes32, Bytes65, PreconfCommitment, Preconfirmation, SignedCommitment,

@@ -17,7 +17,7 @@ use driver::{
 use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
 use rpc::{
     blob::BlobDataSource,
-    client::{Client, ClientConfig, ClientWithWallet},
+    client::{Client, ClientWithWallet},
 };
 use serial_test::serial;
 use test_context::test_context;
@@ -25,18 +25,8 @@ use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 use tokio::spawn;
 use tracing::{info, warn};
 
-fn client_config(env: &ShastaEnv) -> ClientConfig {
-    ClientConfig {
-        l1_provider_source: env.l1_source.clone(),
-        l2_provider_url: env.l2_ws_0.clone(),
-        l2_auth_provider_url: env.l2_auth_0.clone(),
-        jwt_secret: env.jwt_secret.clone(),
-        inbox_address: env.inbox_address,
-    }
-}
-
 async fn proposer_client(env: &ShastaEnv) -> Result<ClientWithWallet> {
-    Client::new_with_wallet(client_config(env), env.l1_proposer_private_key)
+    Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key)
         .await
         .map_err(Into::into)
 }
@@ -126,7 +116,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
 
     // Start event syncer before submitting the proposal.
     let mut driver_config = DriverConfig::new(
-        client_config(env),
+        env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
@@ -187,7 +177,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     let mut driver_config = DriverConfig::new(
-        client_config(env),
+        env.client_config.clone(),
         Duration::from_millis(50),
         beacon_endpoint.clone(),
         None,
@@ -274,7 +264,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     let mut driver_config = DriverConfig::new(
-        client_config(env),
+        env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,

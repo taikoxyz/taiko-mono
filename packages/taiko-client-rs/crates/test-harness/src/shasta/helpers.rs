@@ -52,7 +52,7 @@ fn is_not_found_error(err: &RpcClientError) -> bool {
 }
 
 /// Reset the authenticated L1 RPC head.
-pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
     // Choose the highest L2 block that actually has an L1 origin row, then repoint
     // `head_l1_origin` there. Hardcoding block 1 is brittle when tests reset chains to genesis
     // or run against nodes with sparse origin rows.
@@ -94,7 +94,7 @@ pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
 }
 
 /// Revert the L1 snapshot.
-pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
+pub(crate) async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
     let reverted = provider
         .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (&snapshot_id,))
         .await
@@ -104,7 +104,10 @@ pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Resu
 }
 
 /// Create a new L1 snapshot to reuse across a single test run.
-pub async fn create_snapshot(phase: &'static str, provider: &RootProvider) -> Result<String> {
+pub(crate) async fn create_snapshot(
+    phase: &'static str,
+    provider: &RootProvider,
+) -> Result<String> {
     provider
         .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
         .await
@@ -116,7 +119,7 @@ fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
 }
 
 /// Reset the L2 chain head to the base block (height 1) using the engine API.
-pub async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
     let head: RpcBlock<TxEnvelope> = client
         .l2_provider
         .get_block_by_number(BlockNumberOrTag::Latest)

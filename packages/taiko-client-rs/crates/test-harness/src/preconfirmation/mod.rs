@@ -29,9 +29,7 @@ mod lookahead;
 mod p2p;
 mod payloads;
 
-pub use driver::{
-    EventSyncerDriverClient, LoggingDriverClient, RealDriverSetup, StartingBlockInfo,
-};
+pub use driver::{LoggingDriverClient, RealDriverSetup, StartingBlockInfo};
 pub use events::{
     wait_for_commitment_and_txlist, wait_for_commitments_and_txlists, wait_for_peer_connected,
     wait_for_synced,
@@ -39,7 +37,6 @@ pub use events::{
 pub use lookahead::StaticLookaheadResolver;
 pub use p2p::{ExternalP2pNode, test_p2p_config};
 pub use payloads::{
-    PreparedBlock, build_commitment_chain, build_empty_txlist, build_publish_payloads,
-    build_publish_payloads_with_txs, build_txlist_bytes, compress_raw_txs, compute_txlist_hash,
-    derive_signer,
+    PreparedBlock, build_commitment_chain, build_publish_payloads, build_publish_payloads_with_txs,
+    compress_raw_txs, derive_signer,
 };

@@ -68,9 +68,7 @@ where
 
 impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     /// Start the preconfirmation ingress sync pipeline and its background task.
-    pub async fn start(
-        config: &DriverConfig,
-    ) -> result::Result<Self, PreconfIngressSyncError> {
+    pub async fn start(config: &DriverConfig) -> result::Result<Self, PreconfIngressSyncError> {
         let client = rpc::client::Client::new(config.client.clone()).await?;
         let pipeline = SyncPipeline::new(config.clone(), client.clone()).await?;
         let event_syncer = pipeline.event_syncer();
@@ -155,8 +153,7 @@ mod tests {
         let ready = async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) };
         let mut handle = tokio::spawn(async { Ok::<(), DriverError>(()) });
 
-        let err =
-            super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
 
         assert!(matches!(
             err,
@@ -171,8 +168,7 @@ mod tests {
             Err::<(), DriverError>(DriverError::Sync(SyncError::MissingCheckpointResumeHead))
         });
 
-        let err =
-            super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
 
         assert!(matches!(
             err,
@@ -186,8 +182,7 @@ mod tests {
         let mut handle =
             tokio::spawn(async { Err::<(), DriverError>(DriverError::PreconfirmationDisabled) });
 
-        let err =
-            super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
+        let err = super::wait_for_preconf_ingress_ready(ready, &mut handle).await.unwrap_err();
 
         assert!(matches!(
             err,

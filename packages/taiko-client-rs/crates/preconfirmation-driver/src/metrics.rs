@@ -2,7 +2,9 @@
 
 use once_cell::sync::Lazy;
 use prometheus::{Gauge, Histogram, HistogramVec, IntCounter, IntCounterVec};
-use protocol::metrics::{DURATION_SECONDS_BUCKETS, counter, counter_vec, gauge, histogram, histogram_vec};
+use protocol::metrics::{
+    DURATION_SECONDS_BUCKETS, counter, counter_vec, gauge, histogram, histogram_vec,
+};
 
 /// Metric namespace for the preconfirmation client.
 pub struct PreconfirmationClientMetrics;

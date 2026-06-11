@@ -228,51 +228,12 @@ pub(crate) async fn build_node_status<I: InboxReader>(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Mock lookahead resolver for testing.
-    struct MockLookaheadResolver;
-
-    #[async_trait::async_trait]
-    impl protocol::preconfirmation::PreconfSignerResolver for MockLookaheadResolver {
-        async fn signer_for_timestamp(
-            &self,
-            _: U256,
-        ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
-            Ok(alloy_primitives::Address::repeat_byte(0x11))
-        }
-        async fn slot_info_for_timestamp(
-            &self,
-            _: U256,
-        ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
-            Ok(protocol::preconfirmation::PreconfSlotInfo {
-                signer: alloy_primitives::Address::repeat_byte(0x11),
-                submission_window_end: U256::from(2000),
-            })
-        }
-    }
-
-    /// Stub driver that accepts everything and keeps tip at zero.
-    struct StubDriver;
-    #[async_trait::async_trait]
-    impl DriverClient for StubDriver {
-        async fn submit_preconfirmation(&self, _: PreconfirmationInput) -> Result<()> {
-            Ok(())
-        }
-        async fn wait_event_sync(&self) -> Result<()> {
-            Ok(())
-        }
-        async fn event_sync_tip(&self) -> Result<U256> {
-            Ok(U256::ZERO)
-        }
-        async fn preconf_tip(&self) -> Result<U256> {
-            Ok(U256::ZERO)
-        }
-    }
+    use crate::test_support::{MockLookaheadResolver, StubDriver};
 
     #[tokio::test]
     async fn test_publish_block_rejects_hash_mismatch() {
         let (command_tx, _command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let driver = StubDriver;
+        let driver = StubDriver::default();
         let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
 
         let commitment = SignedCommitment::default();
@@ -286,9 +247,15 @@ mod tests {
             tx_list: alloy_primitives::Bytes::from(vec![1u8, 2u8, 3u8]),
         };
 
-        let result =
-            publish_block_impl(&command_tx, &driver, &codec, None, &MockLookaheadResolver, request)
-                .await;
+        let result = publish_block_impl(
+            &command_tx,
+            &driver,
+            &codec,
+            None,
+            &MockLookaheadResolver::default(),
+            request,
+        )
+        .await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("tx_list_hash mismatch"));
@@ -297,7 +264,7 @@ mod tests {
     #[tokio::test]
     async fn test_publish_block_rejects_commitment_hash_mismatch() {
         let (command_tx, _command_rx) = mpsc::channel::<NetworkCommand>(16);
-        let driver = StubDriver;
+        let driver = StubDriver::default();
         let codec = ZlibTxListCodec::new(preconfirmation_types::MAX_TXLIST_BYTES);
 
         let mut commitment = SignedCommitment::default();
@@ -316,9 +283,15 @@ mod tests {
             tx_list,
         };
 
-        let result =
-            publish_block_impl(&command_tx, &driver, &codec, None, &MockLookaheadResolver, request)
-                .await;
+        let result = publish_block_impl(
+            &command_tx,
+            &driver,
+            &codec,
+            None,
+            &MockLookaheadResolver::default(),
+            request,
+        )
+        .await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("commitment raw_tx_list_hash mismatch"));

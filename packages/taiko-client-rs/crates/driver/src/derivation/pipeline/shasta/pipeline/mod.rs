@@ -396,8 +396,7 @@ where
             let manifest = if !is_source_offset_valid(source) {
                 DerivationSourceManifest::default()
             } else {
-                let manifest =
-                    self.fetch_and_decode_manifest(source, event.l1_timestamp).await?;
+                let manifest = self.fetch_and_decode_manifest(source, event.l1_timestamp).await?;
                 validate_forced_inclusion_manifest(proposal_id, source, manifest)
             };
             manifest_segments.push(SourceManifestSegment {

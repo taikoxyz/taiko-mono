@@ -1,8 +1,7 @@
 //! Shared Prometheus registration helpers used by the client crates.
 
 use prometheus::{
-    Gauge, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts,
-    core::Collector,
+    Gauge, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, core::Collector,
 };
 
 /// Histogram buckets for operation durations expressed in seconds.

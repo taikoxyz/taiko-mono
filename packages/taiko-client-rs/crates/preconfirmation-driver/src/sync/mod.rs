@@ -11,43 +11,16 @@ pub use catchup::TipCatchup;
 #[cfg(test)]
 mod tests {
     use alloy_primitives::{Address, U256};
-    use async_trait::async_trait;
     use preconfirmation_types::{
         Bytes20, Bytes32, PreconfCommitment, Preconfirmation, SignedCommitment, Uint256,
         preconfirmation_hash, public_key_to_address, sign_commitment, uint256_to_u256,
     };
-    use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
 
     use super::catchup::{
         chain_from_tip, ensure_catchup_boundary, map_commitments, validate_commitment,
     };
-    use crate::error::PreconfirmationClientError;
-
-    struct MockResolver {
-        signer: Address,
-        submission_window_end: U256,
-    }
-
-    #[async_trait]
-    impl PreconfSignerResolver for MockResolver {
-        async fn signer_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<Address> {
-            Ok(self.signer)
-        }
-
-        async fn slot_info_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
-            Ok(PreconfSlotInfo {
-                signer: self.signer,
-                submission_window_end: self.submission_window_end,
-            })
-        }
-    }
+    use crate::{error::PreconfirmationClientError, test_support::MockLookaheadResolver};
 
     fn make_commitment(
         block_number: u64,
@@ -77,7 +50,7 @@ mod tests {
         let secp = Secp256k1::new();
         let pk = PublicKey::from_secret_key(&secp, &sk);
         let signer = public_key_to_address(&pk);
-        let resolver = MockResolver { signer, submission_window_end: U256::from(1000u64) };
+        let resolver = MockLookaheadResolver::new(signer, U256::from(1000u64));
 
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let commitment = make_commitment(1, parent_hash, 1000, 10, &sk);
@@ -89,10 +62,7 @@ mod tests {
     #[tokio::test]
     async fn validate_commitment_rejects_wrong_signer() {
         let sk = SecretKey::from_slice(&[1u8; 32]).expect("secret key");
-        let resolver = MockResolver {
-            signer: Address::repeat_byte(0x42),
-            submission_window_end: U256::from(1000u64),
-        };
+        let resolver = MockLookaheadResolver::new(Address::repeat_byte(0x42), U256::from(1000u64));
 
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let commitment = make_commitment(1, parent_hash, 1000, 10, &sk);
@@ -107,7 +77,7 @@ mod tests {
         let secp = Secp256k1::new();
         let pk = PublicKey::from_secret_key(&secp, &sk);
         let signer = public_key_to_address(&pk);
-        let resolver = MockResolver { signer, submission_window_end: U256::from(1000u64) };
+        let resolver = MockLookaheadResolver::new(signer, U256::from(1000u64));
 
         let zero_hash = Bytes32::try_from(vec![0u8; 32]).expect("zero hash");
         let commitment = make_commitment(0, zero_hash, 1000, 10, &sk);
@@ -139,7 +109,7 @@ mod tests {
         let secp = Secp256k1::new();
         let pk = PublicKey::from_secret_key(&secp, &sk);
         let signer = public_key_to_address(&pk);
-        let resolver = MockResolver { signer, submission_window_end: U256::from(1000u64) };
+        let resolver = MockLookaheadResolver::new(signer, U256::from(1000u64));
 
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let block1 = make_commitment(1, parent_hash, 1000, 10, &sk);

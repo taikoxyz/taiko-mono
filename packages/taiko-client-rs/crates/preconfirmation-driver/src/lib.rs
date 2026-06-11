@@ -45,6 +45,9 @@ pub mod storage;
 pub mod subscription;
 /// Tip catch-up helpers.
 pub mod sync;
+/// Shared test doubles for crate-internal unit tests.
+#[cfg(test)]
+mod test_support;
 /// Validation rules for commitments and txlists.
 pub mod validation;
 

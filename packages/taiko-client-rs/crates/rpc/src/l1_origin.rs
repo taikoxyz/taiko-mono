@@ -20,7 +20,6 @@ impl<P: Provider + Clone> Client<P> {
 
     /// Fetch the latest head L1 origin pointer from the public engine API.
     pub async fn head_l1_origin(&self) -> Result<Option<L1Origin>> {
-        Self::request_l1_origin(&self.l2_provider, "taiko_headL1Origin", ())
-            .await
+        Self::request_l1_origin(&self.l2_provider, "taiko_headL1Origin", ()).await
     }
 }

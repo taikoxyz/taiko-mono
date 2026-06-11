@@ -159,10 +159,7 @@ impl<P: Provider + Clone> Client<P> {
         block_id: U256,
     ) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed("taikoAuth_setBatchToLastBlock"),
-                (batch_id, block_id),
-            )
+            .raw_request(Cow::Borrowed("taikoAuth_setBatchToLastBlock"), (batch_id, block_id))
             .await
             .map_err(Into::into)
     }
@@ -185,10 +182,7 @@ impl<P: Provider + Clone> Client<P> {
     /// engine API.
     pub async fn last_block_id_by_batch_id(&self, proposal_id: U256) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed("taikoAuth_lastBlockIDByBatchID"),
-                (proposal_id,),
-            )
+            .raw_request(Cow::Borrowed("taikoAuth_lastBlockIDByBatchID"), (proposal_id,))
             .await
             .or_else(handle_ignorable_origin_error)
     }
@@ -200,10 +194,7 @@ impl<P: Provider + Clone> Client<P> {
         proposal_id: U256,
     ) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed("taikoAuth_lastCertainBlockIDByBatchID"),
-                (proposal_id,),
-            )
+            .raw_request(Cow::Borrowed("taikoAuth_lastCertainBlockIDByBatchID"), (proposal_id,))
             .await
             .or_else(handle_ignorable_origin_error)
     }
