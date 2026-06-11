@@ -139,7 +139,10 @@ impl NetBehaviour {
 /// requires penalty weights to be negative and rejects the whole parameter set otherwise,
 /// so it is applied as `-2.0`. Mesh-delivery penalties (P3/P3b) are not part of the spec
 /// profile and are explicitly disabled; their libp2p defaults would penalize peers on
-/// quiet topics.
+/// quiet topics. The IP-colocation, behaviour, and slow-peer penalties are disabled for
+/// the same reason: their libp2p defaults would graylist healthy peers in small or
+/// co-hosted deployments (e.g. several sidecars behind one NAT), and per ARCHITECTURE.md
+/// colocation/abuse protection relies on connection limits and request rate limiting.
 fn peer_score_settings(
     topics: &(IdentTopic, IdentTopic),
 ) -> (gossipsub::PeerScoreParams, gossipsub::PeerScoreThresholds) {
@@ -175,6 +178,11 @@ fn peer_score_settings(
     let params = PeerScoreParams {
         topics: topic_params,
         app_specific_weight: 1.0,
+        // Non-spec penalty components: disable explicitly instead of inheriting the
+        // libp2p defaults (-5.0 / -10.0 / -0.2), which would penalize healthy peers.
+        ip_colocation_factor_weight: 0.0,
+        behaviour_penalty_weight: 0.0,
+        slow_peer_weight: 0.0,
         decay_interval: Duration::from_secs(10),
         decay_to_zero: 0.1,
         retain_score: Duration::from_secs(3600),
@@ -218,6 +226,20 @@ mod tests {
         let (params, thresholds) = peer_score_settings(&topics);
         params.validate().expect("peer score params must pass gossipsub validation");
         thresholds.validate().expect("peer score thresholds must pass gossipsub validation");
+    }
+
+    #[test]
+    fn peer_score_settings_disable_non_spec_penalties() {
+        let (_, topics, _, _) = behaviour_inputs();
+        let (params, _) = peer_score_settings(&topics);
+        // Not part of the spec §7.1 profile; must not be inherited from libp2p defaults.
+        assert_eq!(params.ip_colocation_factor_weight, 0.0);
+        assert_eq!(params.behaviour_penalty_weight, 0.0);
+        assert_eq!(params.slow_peer_weight, 0.0);
+        for topic_params in params.topics.values() {
+            assert_eq!(topic_params.mesh_message_deliveries_weight, 0.0);
+            assert_eq!(topic_params.mesh_failure_penalty_weight, 0.0);
+        }
     }
 
     #[test]
