@@ -13,7 +13,7 @@ use super::{PreconfirmationInput, traits::BlockHeaderProvider};
 use crate::{Result, error::DriverApiError};
 use protocol::shasta::{
     PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash,
-    constants::calculate_next_block_eip4396_base_fee_from_parent_values, encode_extra_data,
+    constants::calculate_next_block_eip4396_base_fee_for_parent, encode_extra_data,
     encode_tx_list,
 };
 
@@ -50,21 +50,19 @@ async fn compute_base_fee_per_gas(
         return Ok(SHASTA_INITIAL_BASE_FEE);
     }
 
-    let parent_base_fee_per_gas = parent_header
-        .inner
-        .base_fee_per_gas
-        .ok_or(DriverApiError::MissingBaseFee { parent_block_number })?;
     let grandparent_header =
         l2_provider.header_by_number(parent_block_number.saturating_sub(1)).await?;
 
-    Ok(calculate_next_block_eip4396_base_fee_from_parent_values(
+    calculate_next_block_eip4396_base_fee_for_parent(
         parent_header.inner.number,
         parent_header.inner.gas_limit,
         parent_header.inner.gas_used,
-        parent_header.inner.timestamp.saturating_sub(grandparent_header.inner.timestamp),
-        parent_base_fee_per_gas,
+        parent_header.inner.timestamp,
+        parent_header.inner.base_fee_per_gas,
+        grandparent_header.inner.timestamp,
         min_base_fee_to_clamp,
-    ))
+    )
+    .ok_or_else(|| DriverApiError::MissingBaseFee { parent_block_number }.into())
 }
 
 /// Build [`TaikoPayloadAttributes`] from a [`PreconfirmationInput`].

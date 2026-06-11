@@ -27,7 +27,7 @@ use protocol::shasta::{
     calculate_shasta_mix_hash,
     constants::{
         MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES,
-        calculate_next_block_eip4396_base_fee_from_parent_values, min_base_fee_for_chain,
+        calculate_next_block_eip4396_base_fee_for_parent, min_base_fee_for_chain,
     },
     encode_extra_data,
 };
@@ -583,22 +583,18 @@ fn calculate_next_shasta_block_base_fee_from_parent(
 
     let grandparent =
         grandparent.ok_or(ProposerError::ParentBlockNotFound(parent.number().saturating_sub(1)))?;
-    let parent_block_time_delta_secs =
-        parent.header.timestamp.saturating_sub(grandparent.header.timestamp);
-    let parent_base_fee_per_gas = parent
-        .header
-        .inner
-        .base_fee_per_gas
-        .ok_or(ProposerError::MissingParentBaseFee { parent_block_number: parent.number() })?;
 
-    Ok(U256::from(calculate_next_block_eip4396_base_fee_from_parent_values(
+    calculate_next_block_eip4396_base_fee_for_parent(
         parent.header.inner.number,
         parent.header.inner.gas_limit,
         parent.header.inner.gas_used,
-        parent_block_time_delta_secs,
-        parent_base_fee_per_gas,
+        parent.header.timestamp,
+        parent.header.inner.base_fee_per_gas,
+        grandparent.header.timestamp,
         min_base_fee_to_clamp,
-    )))
+    )
+    .map(U256::from)
+    .ok_or(ProposerError::MissingParentBaseFee { parent_block_number: parent.number() })
 }
 
 /// Record metrics and logs for a proposer submission receipt.
