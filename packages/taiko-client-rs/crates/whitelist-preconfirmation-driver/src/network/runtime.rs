@@ -383,7 +383,10 @@ fn dial_configured_peer(
     reason: &'static str,
 ) {
     if connected_configured_addrs.contains(&peer.addr) {
-        record_dial_attempt(peer.source, "skipped_connected_addr");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+            peer.source,
+            "skipped_connected_addr",
+        );
         debug!(addr = %peer.addr, source = peer.source, reason, "configured peer address already connected");
         return;
     }
@@ -391,7 +394,10 @@ fn dial_configured_peer(
     if let Some(peer_id) = peer_id_from_addr(&peer.addr) &&
         swarm.is_connected(&peer_id)
     {
-        record_dial_attempt(peer.source, "skipped_connected");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+            peer.source,
+            "skipped_connected",
+        );
         debug!(addr = %peer.addr, source = peer.source, %peer_id, reason, "configured peer already connected");
         return;
     }
@@ -421,20 +427,15 @@ fn dial_addr(
     reason: &'static str,
 ) {
     if let Err(err) = swarm.dial(addr.clone()) {
-        record_dial_attempt(source, "failed");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(source, "failed");
         if matches!(err, DialError::DialPeerConditionFalse(_)) {
             debug!(%addr, source, reason, error = %err, "configured peer dial skipped by swarm");
         } else {
             warn!(%addr, source, reason, error = %err, "failed to dial address");
         }
     } else {
-        record_dial_attempt(source, "ok");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(source, "ok");
     }
-}
-
-/// Record one configured or discovered dial attempt.
-fn record_dial_attempt(source: &str, result: &'static str) {
-    WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(source, result);
 }
 
 /// Dial configured static peers and bootnode multiaddrs, returning them for retries.
@@ -648,7 +649,10 @@ impl NetworkRuntime {
                 self.publish_to_gossipsub(topic, payload, topic_label, context);
             }
             Err(err) => {
-                record_publish(topic_label, "encode_failed");
+                WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                    topic_label,
+                    "encode_failed",
+                );
                 warn!(
                     context,
                     error = %err,
@@ -667,14 +671,20 @@ impl NetworkRuntime {
         context: &str,
     ) {
         if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic, payload) {
-            record_publish(topic_label, "publish_failed");
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                topic_label,
+                "publish_failed",
+            );
             warn!(
                 context,
                 error = %err,
                 "failed to publish whitelist preconfirmation message"
             );
         } else {
-            record_publish(topic_label, "published");
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                topic_label,
+                "published",
+            );
         }
     }
 
@@ -788,7 +798,7 @@ impl NetworkRuntime {
         let from = propagation_source;
         let now = Instant::now();
 
-        if is_local_gossip_source(self.peer_id_for_events, from) {
+        if from == self.peer_id_for_events {
             debug!(peer = %from, topic = %topic, "ignoring self-propagated whitelist preconfirmation gossip");
             let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
                 &message_id,
@@ -838,7 +848,10 @@ impl NetworkRuntime {
                 Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
             };
 
-            record_inbound("preconf_blocks", inbound_label);
+            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+                "preconf_blocks",
+                inbound_label,
+            );
             report(acceptance);
             return Ok(());
         }
@@ -866,7 +879,10 @@ impl NetworkRuntime {
                 Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
             };
 
-            record_inbound("response_preconf_blocks", inbound_label);
+            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+                "response_preconf_blocks",
+                inbound_label,
+            );
             report(acceptance);
             return Ok(());
         }
@@ -875,7 +891,10 @@ impl NetworkRuntime {
             let Some(hash) = decode_request_hash_exact(&message.data) else {
                 let (acceptance, inbound_label) =
                     (gossipsub::MessageAcceptance::Reject, "decode_failed");
-                record_inbound("request_preconf_blocks", inbound_label);
+                WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+                    "request_preconf_blocks",
+                    inbound_label,
+                );
                 report(acceptance);
                 return Ok(());
             };
@@ -891,7 +910,10 @@ impl NetworkRuntime {
                 forward_event(&self.event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
             }
 
-            record_inbound("request_preconf_blocks", acceptance_label(&acceptance));
+            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+                "request_preconf_blocks",
+                acceptance_label(&acceptance),
+            );
             report(acceptance);
             return Ok(());
         }
@@ -900,7 +922,10 @@ impl NetworkRuntime {
             let Some(epoch) = decode_eos_epoch_exact(&message.data) else {
                 let (acceptance, inbound_label) =
                     (gossipsub::MessageAcceptance::Reject, "decode_failed");
-                record_inbound("request_eos_preconf_blocks", inbound_label);
+                WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+                    "request_eos_preconf_blocks",
+                    inbound_label,
+                );
                 report(acceptance);
                 return Ok(());
             };
@@ -917,7 +942,10 @@ impl NetworkRuntime {
                     .await?;
             }
 
-            record_inbound("request_eos_preconf_blocks", acceptance_label(&acceptance));
+            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+                "request_eos_preconf_blocks",
+                acceptance_label(&acceptance),
+            );
             report(acceptance);
         }
 
@@ -928,11 +956,6 @@ impl NetworkRuntime {
 /// Format peer ids into a compact comma-separated log value.
 fn format_peer_ids(peers: &[PeerId]) -> String {
     peers.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
-}
-
-/// Return whether an inbound gossip event was propagated by the local libp2p peer.
-fn is_local_gossip_source(peer_id: PeerId, from: PeerId) -> bool {
-    peer_id == from
 }
 
 #[cfg(test)]
@@ -1112,14 +1135,6 @@ mod tests {
 
         assert_eq!(advertised_enode_url(&local_key, true, listen_addr, None, None), None);
     }
-    #[test]
-    fn local_gossip_source_is_identified() {
-        let local_peer = PeerId::random();
-        let remote_peer = PeerId::random();
-
-        assert!(is_local_gossip_source(local_peer, local_peer));
-        assert!(!is_local_gossip_source(local_peer, remote_peer));
-    }
 }
 
 /// Convert a gossipsub message acceptance decision into a metrics label.
@@ -1129,16 +1144,6 @@ fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
         gossipsub::MessageAcceptance::Ignore => "ignored",
         gossipsub::MessageAcceptance::Reject => "rejected",
     }
-}
-
-/// Record one outbound publish lifecycle outcome for the given network topic label.
-fn record_publish(topic: &'static str, result: &'static str) {
-    WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(topic, result);
-}
-
-/// Record one inbound message result for the given network topic label.
-fn record_inbound(topic: &'static str, result: &'static str) {
-    WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(topic, result);
 }
 
 /// Emit an entry log for an inbound `preconfBlocks` gossip payload.

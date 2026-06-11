@@ -241,7 +241,7 @@ fn validate_payload_rejects_oversized_compressed_transactions_list() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("compressed transactions size exceeds")
+            if msg.contains("compressed txlist exceeds max size")
     ));
 }
 
@@ -374,7 +374,7 @@ fn validate_payload_rejects_invalid_zlib_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("invalid zlib bytes for transactions")
+            if msg.contains("zlib decode failed")
     ));
 }
 
@@ -392,7 +392,7 @@ fn validate_payload_rejects_invalid_rlp_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("invalid RLP bytes for transactions")
+            if msg.contains("rlp decode failed")
     ));
 }
 
@@ -412,7 +412,7 @@ fn validate_payload_rejects_oversized_decompressed_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("decompressed transactions size exceeds")
+            if msg.contains("decompressed txlist exceeds max size")
     ));
 }
 

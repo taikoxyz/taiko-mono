@@ -80,12 +80,12 @@ where
 {
     tokio::select! {
         ready = ready => ready.map_err(map_driver_error::<WhitelistPreconfirmationDriverError>),
-        result = event_syncer_handle => map_event_syncer_exit_for_ingress(result),
+        result = event_syncer_handle => map_event_syncer_exit(result),
     }
 }
 
-/// Convert event syncer task termination into ingress-readiness errors.
-fn map_event_syncer_exit_for_ingress(result: EventSyncJoinResult) -> WhitelistResult<()> {
+/// Convert event syncer task termination into driver errors.
+pub(crate) fn map_event_syncer_exit(result: EventSyncJoinResult) -> WhitelistResult<()> {
     match result {
         Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::EventSyncerExited),
         Ok(Err(err)) => Err(map_driver_error(err)),

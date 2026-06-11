@@ -1,11 +1,11 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{net::SocketAddr, sync::Arc, time::Instant};
+use std::{net::SocketAddr, sync::Arc};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
-use driver::{DriverConfig, map_driver_error};
+use driver::DriverConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
 use tokio::sync::Mutex;
@@ -20,10 +20,9 @@ use crate::{
     cache::{L1_EPOCH_DURATION_SECS, SharedPreconfCacheState},
     error::WhitelistPreconfirmationDriverError,
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
-    metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkConfig, WhitelistNetwork},
     operator_set::OperatorSetPoller,
-    preconf_ingress_sync::{EventSyncJoinResult, PreconfIngressSync},
+    preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -45,29 +44,6 @@ pub struct RunnerConfig {
     pub p2p_signer_key: Option<String>,
 }
 
-impl RunnerConfig {
-    /// Build runner configuration.
-    pub fn new(
-        driver_config: DriverConfig,
-        p2p_config: NetworkConfig,
-        whitelist_address: Address,
-        rpc_listen_addr: Option<SocketAddr>,
-        rpc_jwt_secret: Option<Vec<u8>>,
-        rpc_cors_origins: Vec<String>,
-        p2p_signer_key: Option<String>,
-    ) -> Self {
-        Self {
-            driver_config,
-            p2p_config,
-            whitelist_address,
-            rpc_listen_addr,
-            rpc_jwt_secret,
-            rpc_cors_origins,
-            p2p_signer_key,
-        }
-    }
-}
-
 /// Runs event sync plus whitelist preconfirmation message ingestion.
 pub struct WhitelistPreconfirmationDriverRunner {
     /// Static runtime configuration for the network and importer.
@@ -82,8 +58,6 @@ impl WhitelistPreconfirmationDriverRunner {
 
     /// Run until either event syncer or whitelist network exits.
     pub async fn run(self) -> Result<()> {
-        WhitelistPreconfirmationDriverMetrics::inc_runner_start();
-
         let mut preconf_ingress_sync =
             PreconfIngressSync::start(&self.config.driver_config).await?;
         let chain_id = preconf_ingress_sync.client().chain_id;
@@ -94,11 +68,7 @@ impl WhitelistPreconfirmationDriverRunner {
             "starting whitelist preconfirmation driver"
         );
 
-        let wait_start = Instant::now();
         preconf_ingress_sync.wait_preconf_ingress_ready().await?;
-        WhitelistPreconfirmationDriverMetrics::observe_event_sync_wait_duration(
-            wait_start.elapsed().as_secs_f64(),
-        );
 
         let operator_poller = OperatorSetPoller::new(
             self.config.whitelist_address,
@@ -169,7 +139,6 @@ impl WhitelistPreconfirmationDriverRunner {
                     listen_addr,
                     jwt_secret: self.config.rpc_jwt_secret.clone(),
                     cors_origins: self.config.rpc_cors_origins.clone(),
-                    ..Default::default()
                 };
                 let server = WhitelistApiServer::start(server_config, handler.clone()).await?;
                 info!(
@@ -207,36 +176,29 @@ impl WhitelistPreconfirmationDriverRunner {
         loop {
             tokio::select! {
                 result = &mut node_handle => {
-                    return finish_runner(
-                        event_syncer_handle,
-                        &mut rest_ws_server,
-                        map_node_exit_for_runner(result),
-                    )
-                    .await;
+                    stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                    return match result {
+                        Ok(Ok(())) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                            "whitelist preconfirmation network exited unexpectedly".to_string(),
+                        )),
+                        Ok(Err(err)) => Err(err),
+                        Err(err) => Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                            err.to_string(),
+                        )),
+                    };
                 }
                 result = &mut event_syncer_handle => {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
-                    return finish_runner(
-                        event_syncer_handle,
-                        &mut rest_ws_server,
-                        map_event_syncer_exit_for_runner(result),
-                    )
-                    .await;
+                    stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                    return map_event_syncer_exit(result);
                 }
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {
-                        return finish_runner(
-                            event_syncer_handle,
-                            &mut rest_ws_server,
-                            (
-                                "network_event_channel_closed",
-                                Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                                "whitelist preconfirmation event channel closed".to_string(),
-                            )),
-                            ),
-                        )
-                        .await;
+                        stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
+                        return Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
+                            "whitelist preconfirmation event channel closed".to_string(),
+                        ));
                     };
 
                     if let Err(err) = importer.handle_event(event).await {
@@ -268,62 +230,4 @@ async fn stop_sidecars<T>(
     if let Some(server) = rest_ws_server.take() {
         server.stop().await;
     }
-}
-
-/// Tuple describing the runner exit reason and result.
-type RunnerExit = (&'static str, Result<()>);
-
-/// Stop sidecars and return the unified runner exit result.
-async fn finish_runner<T>(
-    event_syncer_handle: &mut tokio::task::JoinHandle<T>,
-    rest_ws_server: &mut Option<WhitelistApiServer>,
-    (reason, result): RunnerExit,
-) -> Result<()> {
-    stop_sidecars(event_syncer_handle, rest_ws_server).await;
-    record_runner_exit(reason, result)
-}
-
-/// Convert a node task result into a standardized runner exit reason.
-fn map_node_exit_for_runner(
-    result: std::result::Result<
-        std::result::Result<(), WhitelistPreconfirmationDriverError>,
-        tokio::task::JoinError,
-    >,
-) -> (&'static str, Result<()>) {
-    match result {
-        Ok(Ok(())) => (
-            "node_exit_unexpected",
-            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(
-                "whitelist preconfirmation network exited unexpectedly".to_string(),
-            )),
-        ),
-        Ok(Err(err)) => ("node_error", Err(err)),
-        Err(err) => (
-            "node_join_error",
-            Err(WhitelistPreconfirmationDriverError::NodeTaskFailed(err.to_string())),
-        ),
-    }
-}
-
-/// Convert an event-syncer result into a standardized runner exit reason.
-fn map_event_syncer_exit_for_runner(result: EventSyncJoinResult) -> (&'static str, Result<()>) {
-    match result {
-        Ok(Ok(())) => {
-            ("event_syncer_exit", Err(WhitelistPreconfirmationDriverError::EventSyncerExited))
-        }
-        Ok(Err(err)) => (
-            "event_syncer_error",
-            Err(map_driver_error::<WhitelistPreconfirmationDriverError>(err)),
-        ),
-        Err(err) => (
-            "event_syncer_join_error",
-            Err(WhitelistPreconfirmationDriverError::EventSyncerFailed(err.to_string())),
-        ),
-    }
-}
-
-/// Record exit reason and return the final result.
-fn record_runner_exit(reason: &'static str, result: Result<()>) -> Result<()> {
-    WhitelistPreconfirmationDriverMetrics::inc_runner_exit(reason);
-    result
 }

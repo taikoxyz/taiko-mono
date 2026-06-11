@@ -45,9 +45,6 @@ pub enum WhitelistPreconfirmationDriverError {
         /// Underlying local-address error description.
         reason: String,
     },
-    /// Invalid transport configuration for the whitelist REST/WS server.
-    #[error("whitelist REST/WS server requires at least one transport to be enabled")]
-    RestWsServerNoTransportsEnabled,
     /// Failed to initialize the beacon client used by the whitelist REST/WS handler.
     #[error("failed to initialize beacon client for whitelist REST/WS: {reason}")]
     RestWsServerBeaconInit {

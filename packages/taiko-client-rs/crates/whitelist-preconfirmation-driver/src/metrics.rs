@@ -8,145 +8,132 @@ const DURATION_SECONDS_BUCKETS: &[f64] =
     &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
 
 /// Process-wide whitelist preconfirmation metrics registered with Prometheus.
-static METRICS: Lazy<WhitelistPreconfirmationMetricHandles> =
-    Lazy::new(WhitelistPreconfirmationMetricHandles::register);
+static METRICS: Lazy<Metrics> = Lazy::new(Metrics::register);
 
 /// Typed handles for whitelist preconfirmation metric families.
-struct WhitelistPreconfirmationMetricHandles {
-    /// Counters without labels.
-    counters: Vec<(&'static str, IntCounter)>,
-    /// Counters grouped by stable label dimensions.
-    counter_vecs: Vec<(&'static str, IntCounterVec)>,
-    /// Gauges without labels.
-    gauges: Vec<(&'static str, Gauge)>,
-    /// Histograms without labels.
-    histograms: Vec<(&'static str, Histogram)>,
+struct Metrics {
+    /// Inbound network messages by topic and decode result.
+    network_inbound_messages: IntCounterVec,
+    /// Outbound publish command outcomes by topic.
+    network_outbound_publish: IntCounterVec,
+    /// Dial attempts by source and result.
+    network_dial_attempts: IntCounterVec,
+    /// Failures forwarding network events to the importer.
+    network_forward_failures: IntCounter,
+    /// Importer event handling outcomes by event type and result.
+    importer_events: IntCounterVec,
+    /// Whitelist contract lookup failures.
+    whitelist_lookup_failures: IntCounter,
+    /// Unsafe request lookup outcomes.
+    response_lookups: IntCounterVec,
+    /// Cache import attempts.
+    cache_import_attempts: IntCounter,
+    /// Cache import results.
+    cache_import_results: IntCounterVec,
+    /// Driver submission outcomes.
+    driver_submit: IntCounterVec,
+    /// Duration for the driver submission path.
+    driver_submit_duration: Histogram,
+    /// Parent request outcomes.
+    parent_requests: IntCounterVec,
     /// RPC request counter grouped by method.
-    rpc_requests_total: IntCounterVec,
+    rpc_requests: IntCounterVec,
     /// RPC error counter grouped by method.
-    rpc_errors_total: IntCounterVec,
+    rpc_errors: IntCounterVec,
     /// RPC duration histogram grouped by method.
-    rpc_duration_seconds: HistogramVec,
+    rpc_duration: HistogramVec,
+    /// Duration for `build_preconf_block` RPC calls.
+    build_preconf_block_duration: Histogram,
+    /// Pending cache size.
+    cache_pending: Gauge,
+    /// Recent cache size.
+    cache_recent: Gauge,
 }
 
-impl WhitelistPreconfirmationMetricHandles {
+impl Metrics {
     /// Register every whitelist preconfirmation collector with the default registry.
     fn register() -> Self {
         Self {
-            counters: vec![
-                counter(
-                    WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL,
-                    "Runner start count",
-                ),
-                counter(
-                    WhitelistPreconfirmationDriverMetrics::SYNC_READY_TRANSITIONS_TOTAL,
-                    "Number of sync-ready state transitions",
-                ),
-                counter(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL,
-                    "Failures forwarding network events to importer",
-                ),
-                counter(
-                    WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL,
-                    "Whitelist contract lookup failures",
-                ),
-                counter(
-                    WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_ATTEMPTS_TOTAL,
-                    "Cache import attempts",
-                ),
-            ],
-            counter_vecs: vec![
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-                    "Runner exits grouped by reason",
-                    &["reason"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-                    "Inbound network messages by topic and decode result",
-                    &["topic", "result"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-                    "Outbound publish command outcomes by topic",
-                    &["topic", "result"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-                    "Dial attempts by source and result",
-                    &["source", "result"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-                    "Importer event handling outcomes",
-                    &["event_type", "result"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                    "Unsafe request lookup outcomes",
-                    &["result"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
-                    "Cache import results",
-                    &["result"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
-                    "Driver submission outcomes",
-                    &["result"],
-                ),
-                counter_vec(
-                    WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
-                    "Parent request outcomes",
-                    &["result"],
-                ),
-            ],
-            gauges: vec![
-                gauge(
-                    WhitelistPreconfirmationDriverMetrics::CACHE_PENDING_COUNT,
-                    "Pending cache size",
-                ),
-                gauge(
-                    WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT,
-                    "Recent cache size",
-                ),
-            ],
-            histograms: vec![
-                histogram(
-                    WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS,
-                    "Time spent waiting for preconfirmation ingress readiness",
-                    DURATION_SECONDS_BUCKETS,
-                ),
-                histogram(
-                    WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_DURATION_SECONDS,
-                    "Duration for driver submission path",
-                    DURATION_SECONDS_BUCKETS,
-                ),
-                histogram(
-                    WhitelistPreconfirmationDriverMetrics::BUILD_PRECONF_BLOCK_DURATION_SECONDS,
-                    "Duration for build_preconf_block RPC calls",
-                    DURATION_SECONDS_BUCKETS,
-                ),
-            ],
-            rpc_requests_total: counter_vec(
-                WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL,
+            network_inbound_messages: counter_vec(
+                "whitelist_preconf_driver_network_inbound_messages_total",
+                "Inbound network messages by topic and decode result",
+                &["topic", "result"],
+            ),
+            network_outbound_publish: counter_vec(
+                "whitelist_preconf_driver_network_outbound_publish_total",
+                "Outbound publish command outcomes by topic",
+                &["topic", "result"],
+            ),
+            network_dial_attempts: counter_vec(
+                "whitelist_preconf_driver_network_dial_attempts_total",
+                "Dial attempts by source and result",
+                &["source", "result"],
+            ),
+            network_forward_failures: counter(
+                "whitelist_preconf_driver_network_forward_failures_total",
+                "Failures forwarding network events to importer",
+            ),
+            importer_events: counter_vec(
+                "whitelist_preconf_driver_importer_events_total",
+                "Importer event handling outcomes",
+                &["event_type", "result"],
+            ),
+            whitelist_lookup_failures: counter(
+                "whitelist_preconf_driver_whitelist_lookup_failures_total",
+                "Whitelist contract lookup failures",
+            ),
+            response_lookups: counter_vec(
+                "whitelist_preconf_driver_response_lookups_total",
+                "Unsafe request lookup outcomes",
+                &["result"],
+            ),
+            cache_import_attempts: counter(
+                "whitelist_preconf_driver_cache_import_attempts_total",
+                "Cache import attempts",
+            ),
+            cache_import_results: counter_vec(
+                "whitelist_preconf_driver_cache_import_results_total",
+                "Cache import results",
+                &["result"],
+            ),
+            driver_submit: counter_vec(
+                "whitelist_preconf_driver_driver_submit_total",
+                "Driver submission outcomes",
+                &["result"],
+            ),
+            driver_submit_duration: histogram(
+                "whitelist_preconf_driver_driver_submit_duration_seconds",
+                "Duration for driver submission path",
+            ),
+            parent_requests: counter_vec(
+                "whitelist_preconf_driver_parent_requests_total",
+                "Parent request outcomes",
+                &["result"],
+            ),
+            rpc_requests: counter_vec(
+                "whitelist_preconf_driver_rpc_requests_total",
                 "Total whitelist RPC requests by method",
                 &["method"],
-            )
-            .1,
-            rpc_errors_total: counter_vec(
-                WhitelistPreconfirmationDriverMetrics::RPC_ERRORS_TOTAL,
+            ),
+            rpc_errors: counter_vec(
+                "whitelist_preconf_driver_rpc_errors_total",
                 "Total whitelist RPC errors by method",
                 &["method"],
-            )
-            .1,
-            rpc_duration_seconds: histogram_vec(
-                WhitelistPreconfirmationDriverMetrics::RPC_DURATION_SECONDS,
+            ),
+            rpc_duration: histogram_vec(
+                "whitelist_preconf_driver_rpc_duration_seconds",
                 "Whitelist RPC request duration by method",
                 &["method"],
-                DURATION_SECONDS_BUCKETS,
             ),
+            build_preconf_block_duration: histogram(
+                "whitelist_preconf_driver_build_preconf_block_duration_seconds",
+                "Duration for build_preconf_block RPC calls",
+            ),
+            cache_pending: gauge(
+                "whitelist_preconf_driver_cache_pending_count",
+                "Pending cache size",
+            ),
+            cache_recent: gauge("whitelist_preconf_driver_cache_recent_count", "Recent cache size"),
         }
     }
 }
@@ -155,302 +142,142 @@ impl WhitelistPreconfirmationMetricHandles {
 pub struct WhitelistPreconfirmationDriverMetrics;
 
 impl WhitelistPreconfirmationDriverMetrics {
-    // Runner lifecycle metrics
-    /// Counter tracking runner starts.
-    pub const RUNNER_START_TOTAL: &'static str = "whitelist_preconf_driver_runner_start_total";
-    /// Counter tracking runner exits by reason.
-    pub const RUNNER_EXIT_TOTAL: &'static str = "whitelist_preconf_driver_runner_exit_total";
-    /// Histogram tracking how long we wait for event-sync ingress readiness.
-    pub const EVENT_SYNC_WAIT_DURATION_SECONDS: &'static str =
-        "whitelist_preconf_driver_event_sync_wait_duration_seconds";
-    /// Counter tracking sync-ready transitions.
-    pub const SYNC_READY_TRANSITIONS_TOTAL: &'static str =
-        "whitelist_preconf_driver_sync_ready_transitions_total";
-    // Network metrics
-    /// Counter tracking inbound gossip/request messages by topic and decode status.
-    pub const NETWORK_INBOUND_MESSAGES_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_inbound_messages_total";
-    /// Counter tracking outbound publish commands by topic and result.
-    pub const NETWORK_OUTBOUND_PUBLISH_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_outbound_publish_total";
-    /// Counter tracking dial attempts by source and result.
-    pub const NETWORK_DIAL_ATTEMPTS_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_dial_attempts_total";
-    /// Counter tracking event-forward failures into importer queue.
-    pub const NETWORK_FORWARD_FAILURES_TOTAL: &'static str =
-        "whitelist_preconf_driver_network_forward_failures_total";
-
-    // Importer metrics
-    /// Counter tracking importer event handling by event type and result.
-    pub const IMPORTER_EVENTS_TOTAL: &'static str =
-        "whitelist_preconf_driver_importer_events_total";
-    /// Counter tracking whitelist contract lookup failures.
-    pub const WHITELIST_LOOKUP_FAILURES_TOTAL: &'static str =
-        "whitelist_preconf_driver_whitelist_lookup_failures_total";
-    /// Counter tracking request-response lookup outcomes.
-    pub const RESPONSE_LOOKUPS_TOTAL: &'static str =
-        "whitelist_preconf_driver_response_lookups_total";
-    /// Counter tracking cache import attempts.
-    pub const CACHE_IMPORT_ATTEMPTS_TOTAL: &'static str =
-        "whitelist_preconf_driver_cache_import_attempts_total";
-    /// Counter tracking cache import outcomes.
-    pub const CACHE_IMPORT_RESULTS_TOTAL: &'static str =
-        "whitelist_preconf_driver_cache_import_results_total";
-    /// Counter tracking driver submit outcomes.
-    pub const DRIVER_SUBMIT_TOTAL: &'static str = "whitelist_preconf_driver_driver_submit_total";
-    /// Histogram tracking duration of driver submission path.
-    pub const DRIVER_SUBMIT_DURATION_SECONDS: &'static str =
-        "whitelist_preconf_driver_driver_submit_duration_seconds";
-    /// Counter tracking parent request outcomes (issued/throttled).
-    pub const PARENT_REQUESTS_TOTAL: &'static str =
-        "whitelist_preconf_driver_parent_requests_total";
-
-    // RPC metrics
-    /// Counter tracking total RPC requests by method.
-    pub const RPC_REQUESTS_TOTAL: &'static str = "whitelist_preconf_driver_rpc_requests_total";
-    /// Counter tracking total RPC errors by method.
-    pub const RPC_ERRORS_TOTAL: &'static str = "whitelist_preconf_driver_rpc_errors_total";
-    /// Histogram tracking RPC request duration by method.
-    pub const RPC_DURATION_SECONDS: &'static str = "whitelist_preconf_driver_rpc_duration_seconds";
-    /// Histogram tracking build_preconf_block request duration.
-    pub const BUILD_PRECONF_BLOCK_DURATION_SECONDS: &'static str =
-        "whitelist_preconf_driver_build_preconf_block_duration_seconds";
-
-    // Cache gauges
-    /// Gauge tracking pending cache size.
-    pub const CACHE_PENDING_COUNT: &'static str = "whitelist_preconf_driver_cache_pending_count";
-    /// Gauge tracking recent cache size.
-    pub const CACHE_RECENT_COUNT: &'static str = "whitelist_preconf_driver_cache_recent_count";
-
     /// Register metric collectors with the process-wide Prometheus registry.
     pub fn init() {
         Lazy::force(&METRICS);
     }
 
-    /// Return a scalar counter by its exported metric name.
-    pub(crate) fn counter(name: &'static str) -> IntCounter {
-        find(&METRICS.counters, name)
-    }
-
-    /// Return a labelled counter family by its exported metric name.
-    pub(crate) fn counter_vec(name: &'static str) -> IntCounterVec {
-        find(&METRICS.counter_vecs, name)
-    }
-
-    /// Return a scalar gauge by its exported metric name.
-    pub(crate) fn gauge(name: &'static str) -> Gauge {
-        find(&METRICS.gauges, name)
-    }
-
-    /// Return a scalar histogram by its exported metric name.
-    pub(crate) fn histogram(name: &'static str) -> Histogram {
-        find(&METRICS.histograms, name)
-    }
-
     /// Record one REST RPC request outcome.
     pub(crate) fn record_rpc(method: &str, failed: bool, duration_secs: f64) {
-        METRICS.rpc_duration_seconds.with_label_values(&[method]).observe(duration_secs);
-        METRICS.rpc_requests_total.with_label_values(&[method]).inc();
+        METRICS.rpc_duration.with_label_values(&[method]).observe(duration_secs);
+        METRICS.rpc_requests.with_label_values(&[method]).inc();
         if failed {
-            METRICS.rpc_errors_total.with_label_values(&[method]).inc();
+            METRICS.rpc_errors.with_label_values(&[method]).inc();
         }
-    }
-
-    /// Increment the runner start counter.
-    pub(crate) fn inc_runner_start() {
-        Self::counter(Self::RUNNER_START_TOTAL).inc();
-    }
-
-    /// Increment a runner exit counter for the given reason.
-    pub(crate) fn inc_runner_exit(reason: &str) {
-        Self::counter_vec(Self::RUNNER_EXIT_TOTAL).with_label_values(&[reason]).inc();
-    }
-
-    /// Observe time spent waiting for event-sync readiness.
-    pub(crate) fn observe_event_sync_wait_duration(duration_secs: f64) {
-        Self::histogram(Self::EVENT_SYNC_WAIT_DURATION_SECONDS).observe(duration_secs);
-    }
-
-    /// Increment the sync-ready transition counter.
-    pub(crate) fn inc_sync_ready_transition() {
-        Self::counter(Self::SYNC_READY_TRANSITIONS_TOTAL).inc();
     }
 
     /// Increment an inbound network message counter.
     pub(crate) fn inc_network_inbound_message(topic: &str, result: &str) {
-        Self::counter_vec(Self::NETWORK_INBOUND_MESSAGES_TOTAL)
-            .with_label_values(&[topic, result])
-            .inc();
+        METRICS.network_inbound_messages.with_label_values(&[topic, result]).inc();
     }
 
     /// Increment an outbound network publish counter.
     pub(crate) fn inc_network_outbound_publish(topic: &str, result: &str) {
-        Self::counter_vec(Self::NETWORK_OUTBOUND_PUBLISH_TOTAL)
-            .with_label_values(&[topic, result])
-            .inc();
+        METRICS.network_outbound_publish.with_label_values(&[topic, result]).inc();
     }
 
     /// Increment a network dial attempt counter.
     pub(crate) fn inc_network_dial_attempt(source: &str, result: &str) {
-        Self::counter_vec(Self::NETWORK_DIAL_ATTEMPTS_TOTAL)
-            .with_label_values(&[source, result])
-            .inc();
+        METRICS.network_dial_attempts.with_label_values(&[source, result]).inc();
     }
 
     /// Increment the network forward failure counter.
     pub(crate) fn inc_network_forward_failure() {
-        Self::counter(Self::NETWORK_FORWARD_FAILURES_TOTAL).inc();
+        METRICS.network_forward_failures.inc();
     }
 
     /// Increment an importer event counter.
     pub(crate) fn inc_importer_event(event_type: &str, result: &str) {
-        Self::counter_vec(Self::IMPORTER_EVENTS_TOTAL)
-            .with_label_values(&[event_type, result])
-            .inc();
+        METRICS.importer_events.with_label_values(&[event_type, result]).inc();
     }
 
     /// Increment the whitelist lookup failure counter.
     pub(crate) fn inc_whitelist_lookup_failure() {
-        Self::counter(Self::WHITELIST_LOOKUP_FAILURES_TOTAL).inc();
+        METRICS.whitelist_lookup_failures.inc();
     }
 
     /// Increment a response lookup counter.
     pub(crate) fn inc_response_lookup(result: &str) {
-        Self::counter_vec(Self::RESPONSE_LOOKUPS_TOTAL).with_label_values(&[result]).inc();
+        METRICS.response_lookups.with_label_values(&[result]).inc();
     }
 
     /// Increment the cache import attempt counter.
     pub(crate) fn inc_cache_import_attempt() {
-        Self::counter(Self::CACHE_IMPORT_ATTEMPTS_TOTAL).inc();
+        METRICS.cache_import_attempts.inc();
     }
 
     /// Increment a cache import result counter.
     pub(crate) fn inc_cache_import_result(result: &str) {
-        Self::counter_vec(Self::CACHE_IMPORT_RESULTS_TOTAL).with_label_values(&[result]).inc();
+        METRICS.cache_import_results.with_label_values(&[result]).inc();
     }
 
     /// Increment a driver submission result counter.
     pub(crate) fn inc_driver_submit(result: &str) {
-        Self::counter_vec(Self::DRIVER_SUBMIT_TOTAL).with_label_values(&[result]).inc();
+        METRICS.driver_submit.with_label_values(&[result]).inc();
     }
 
     /// Observe driver submission duration.
     pub(crate) fn observe_driver_submit_duration(duration_secs: f64) {
-        Self::histogram(Self::DRIVER_SUBMIT_DURATION_SECONDS).observe(duration_secs);
+        METRICS.driver_submit_duration.observe(duration_secs);
     }
 
     /// Increment a parent request counter.
     pub(crate) fn inc_parent_request(result: &str) {
-        Self::counter_vec(Self::PARENT_REQUESTS_TOTAL).with_label_values(&[result]).inc();
+        METRICS.parent_requests.with_label_values(&[result]).inc();
     }
 
     /// Observe build_preconf_block duration.
     pub(crate) fn observe_build_preconf_block_duration(duration_secs: f64) {
-        Self::histogram(Self::BUILD_PRECONF_BLOCK_DURATION_SECONDS).observe(duration_secs);
+        METRICS.build_preconf_block_duration.observe(duration_secs);
     }
 
     /// Set the pending cache gauge.
     pub(crate) fn set_cache_pending_count(count: usize) {
-        Self::gauge(Self::CACHE_PENDING_COUNT).set(count as f64);
+        METRICS.cache_pending.set(count as f64);
     }
 
     /// Set the recent cache gauge.
     pub(crate) fn set_cache_recent_count(count: usize) {
-        Self::gauge(Self::CACHE_RECENT_COUNT).set(count as f64);
+        METRICS.cache_recent.set(count as f64);
     }
 }
 
-/// Register a scalar counter and return it with its exported name.
-fn counter(name: &'static str, help: &'static str) -> (&'static str, IntCounter) {
+/// Register a scalar counter with the default registry.
+fn counter(name: &str, help: &str) -> IntCounter {
     let metric = IntCounter::new(name, help).expect("valid counter definition");
     prometheus::register(Box::new(metric.clone())).expect("counter registration must succeed");
-    (name, metric)
+    metric
 }
 
-/// Register a labelled counter family and return it with its exported name.
-fn counter_vec(
-    name: &'static str,
-    help: &'static str,
-    labels: &'static [&'static str],
-) -> (&'static str, IntCounterVec) {
+/// Register a labelled counter family with the default registry.
+fn counter_vec(name: &str, help: &str, labels: &[&str]) -> IntCounterVec {
     let metric =
         IntCounterVec::new(Opts::new(name, help), labels).expect("valid counter definition");
     prometheus::register(Box::new(metric.clone())).expect("counter registration must succeed");
-    (name, metric)
+    metric
 }
 
-/// Register a scalar gauge and return it with its exported name.
-fn gauge(name: &'static str, help: &'static str) -> (&'static str, Gauge) {
+/// Register a scalar gauge with the default registry.
+fn gauge(name: &str, help: &str) -> Gauge {
     let metric = Gauge::new(name, help).expect("valid gauge definition");
     prometheus::register(Box::new(metric.clone())).expect("gauge registration must succeed");
-    (name, metric)
+    metric
 }
 
-/// Register a scalar histogram and return it with its exported name.
-fn histogram(name: &'static str, help: &'static str, buckets: &[f64]) -> (&'static str, Histogram) {
-    let metric = Histogram::with_opts(HistogramOpts::new(name, help).buckets(buckets.to_vec()))
-        .expect("valid histogram definition");
-    prometheus::register(Box::new(metric.clone())).expect("histogram registration must succeed");
-    (name, metric)
-}
-
-/// Register a labelled histogram family and return it.
-fn histogram_vec(
-    name: &'static str,
-    help: &'static str,
-    labels: &'static [&'static str],
-    buckets: &[f64],
-) -> HistogramVec {
-    let metric =
-        HistogramVec::new(HistogramOpts::new(name, help).buckets(buckets.to_vec()), labels)
-            .expect("valid histogram definition");
+/// Register a scalar duration histogram with the default registry.
+fn histogram(name: &str, help: &str) -> Histogram {
+    let metric = Histogram::with_opts(
+        HistogramOpts::new(name, help).buckets(DURATION_SECONDS_BUCKETS.to_vec()),
+    )
+    .expect("valid histogram definition");
     prometheus::register(Box::new(metric.clone())).expect("histogram registration must succeed");
     metric
 }
 
-/// Clone a registered collector by its exported metric name.
-fn find<T: Clone>(metrics: &[(&'static str, T)], name: &'static str) -> T {
-    metrics
-        .iter()
-        .find(|(metric_name, _)| *metric_name == name)
-        .expect("registered metric")
-        .1
-        .clone()
+/// Register a labelled duration histogram family with the default registry.
+fn histogram_vec(name: &str, help: &str, labels: &[&str]) -> HistogramVec {
+    let metric = HistogramVec::new(
+        HistogramOpts::new(name, help).buckets(DURATION_SECONDS_BUCKETS.to_vec()),
+        labels,
+    )
+    .expect("valid histogram definition");
+    prometheus::register(Box::new(metric.clone())).expect("histogram registration must succeed");
+    metric
 }
 
 #[cfg(test)]
 mod tests {
     use super::WhitelistPreconfirmationDriverMetrics;
-
-    #[test]
-    fn metric_constants_have_expected_prefix() {
-        let names = [
-            WhitelistPreconfirmationDriverMetrics::RUNNER_START_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::RUNNER_EXIT_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS,
-            WhitelistPreconfirmationDriverMetrics::SYNC_READY_TRANSITIONS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::WHITELIST_LOOKUP_FAILURES_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_ATTEMPTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_DURATION_SECONDS,
-            WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::RPC_ERRORS_TOTAL,
-            WhitelistPreconfirmationDriverMetrics::RPC_DURATION_SECONDS,
-            WhitelistPreconfirmationDriverMetrics::BUILD_PRECONF_BLOCK_DURATION_SECONDS,
-            WhitelistPreconfirmationDriverMetrics::CACHE_PENDING_COUNT,
-            WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT,
-        ];
-
-        assert!(names.into_iter().all(|name| name.starts_with("whitelist_preconf_driver_")));
-    }
 
     #[test]
     fn init_does_not_panic() {
@@ -465,10 +292,9 @@ mod tests {
         let family = families
             .iter()
             .find(|family| {
-                family.get_name() ==
-                    WhitelistPreconfirmationDriverMetrics::EVENT_SYNC_WAIT_DURATION_SECONDS
+                family.get_name() == "whitelist_preconf_driver_driver_submit_duration_seconds"
             })
-            .expect("event-sync wait duration histogram should be exported");
+            .expect("driver submit duration histogram should be exported");
         let metric = family.get_metric().first().expect("duration histogram should have a metric");
 
         assert!(
@@ -490,9 +316,7 @@ mod tests {
         let families = prometheus::gather();
         let requests = families
             .iter()
-            .find(|family| {
-                family.get_name() == WhitelistPreconfirmationDriverMetrics::RPC_REQUESTS_TOTAL
-            })
+            .find(|family| family.get_name() == "whitelist_preconf_driver_rpc_requests_total")
             .expect("RPC request counter should be exported");
         let request_metric = requests
             .get_metric()

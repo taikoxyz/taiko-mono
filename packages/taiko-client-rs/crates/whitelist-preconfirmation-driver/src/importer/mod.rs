@@ -131,17 +131,29 @@ where
             NetworkEvent::UnsafePayload { from, payload } => {
                 if let Err(err) = self.handle_unsafe_payload(payload).await {
                     warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation payload");
-                    record_importer_event("unsafe_payload", "dropped");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "unsafe_payload",
+                        "dropped",
+                    );
                 } else {
-                    record_importer_event("unsafe_payload", "accepted");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "unsafe_payload",
+                        "accepted",
+                    );
                 }
             }
             NetworkEvent::UnsafeResponse { from, envelope } => {
                 if let Err(err) = self.handle_unsafe_response(envelope).await {
                     warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation response");
-                    record_importer_event("unsafe_response", "dropped");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "unsafe_response",
+                        "dropped",
+                    );
                 } else {
-                    record_importer_event("unsafe_response", "accepted");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "unsafe_response",
+                        "accepted",
+                    );
                 }
             }
             NetworkEvent::UnsafeRequest { from, hash } => {
@@ -152,9 +164,15 @@ where
                         error = %err,
                         "failed to handle whitelist preconfirmation request"
                     );
-                    record_importer_event("unsafe_request", "error");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "unsafe_request",
+                        "error",
+                    );
                 } else {
-                    record_importer_event("unsafe_request", "handled");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "unsafe_request",
+                        "handled",
+                    );
                 }
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
@@ -165,7 +183,10 @@ where
                         error = %err,
                         "failed to handle whitelist preconfirmation end-of-sequencing request"
                     );
-                    record_importer_event("end_of_sequencing_request", "error");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "end_of_sequencing_request",
+                        "error",
+                    );
                 }
             }
         }
@@ -177,20 +198,29 @@ where
     /// cache, falling back to an L2 rebuild, or recording a miss.
     async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
         let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await else {
-            record_importer_event("end_of_sequencing_request", "miss");
+            WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                "end_of_sequencing_request",
+                "miss",
+            );
             return Ok(());
         };
 
         // Fast path: envelope still lives in the recent cache.
         if let Some(envelope) = self.recent_cache.get_recent(&hash) {
             self.publish_unsafe_response(envelope).await;
-            record_importer_event("end_of_sequencing_request", "served");
+            WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                "end_of_sequencing_request",
+                "served",
+            );
             return Ok(());
         }
 
         // Slow path: rebuild from local L2 state.
         let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? else {
-            record_importer_event("end_of_sequencing_request", "miss");
+            WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                "end_of_sequencing_request",
+                "miss",
+            );
             return Ok(());
         };
 
@@ -199,7 +229,10 @@ where
         self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
         self.publish_unsafe_response(envelope).await;
-        record_importer_event("end_of_sequencing_request", "served");
+        WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+            "end_of_sequencing_request",
+            "served",
+        );
         Ok(())
     }
 
@@ -220,18 +253,16 @@ where
     /// when no real proposal exists yet (`nextProposalId == 1`). Core state is read lazily,
     /// only while the origin pointer is absent. During beacon-sync custom-table gaps
     /// (`nextProposalId > 1`, origin unwritten) this stays fail-closed (WLP-INV-002).
-    pub(super) async fn refresh_sync_ready(&mut self) -> Result<bool> {
+    pub(super) async fn refresh_sync_ready(&mut self) -> Result<()> {
         let head_written = self.head_l1_origin_block_id().await?.is_some();
         let next_proposal_id =
             if head_written { None } else { Some(self.next_proposal_id().await?) };
         let ready = should_enable_preconf_imports(head_written, next_proposal_id);
-        let became_ready = sync_ready_transition(self.sync_ready, ready);
-        if became_ready {
-            WhitelistPreconfirmationDriverMetrics::inc_sync_ready_transition();
+        if sync_ready_transition(self.sync_ready, ready) {
             info!("event sync ready; enabling whitelist preconfirmation imports");
         }
         self.sync_ready = ready;
-        Ok(became_ready)
+        Ok(())
     }
 
     /// Get the block ID of the head L1 origin.
@@ -267,11 +298,6 @@ where
         WhitelistPreconfirmationDriverMetrics::set_cache_pending_count(self.cache.len());
         WhitelistPreconfirmationDriverMetrics::set_cache_recent_count(self.recent_cache.len());
     }
-}
-
-/// Record one importer event outcome for the given event type and result.
-fn record_importer_event(event_type: &'static str, result: &'static str) {
-    WhitelistPreconfirmationDriverMetrics::inc_importer_event(event_type, result);
 }
 
 /// Returns true only when sync readiness transitions from disabled to enabled.

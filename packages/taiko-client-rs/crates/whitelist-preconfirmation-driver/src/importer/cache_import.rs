@@ -19,7 +19,7 @@ where
 {
     /// Attempt to import cached envelopes if sync is ready.
     pub(crate) async fn maybe_import_from_cache(&mut self) -> Result<()> {
-        let _ = self.refresh_sync_ready().await?;
+        self.refresh_sync_ready().await?;
         if !self.sync_ready || self.cache.is_empty() {
             return Ok(());
         }

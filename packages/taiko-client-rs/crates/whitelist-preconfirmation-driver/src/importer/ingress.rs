@@ -141,19 +141,14 @@ where
         } else if let Some(envelope) = self.build_response_envelope_from_l2(hash).await? {
             (Arc::new(envelope), "l2_hit")
         } else {
-            record_response_lookup("not_found");
+            WhitelistPreconfirmationDriverMetrics::inc_response_lookup("not_found");
             return Ok(());
         };
 
-        record_response_lookup(result_label);
+        WhitelistPreconfirmationDriverMetrics::inc_response_lookup(result_label);
         self.recent_cache.insert_recent(envelope.clone());
         self.update_cache_gauges();
         self.publish_unsafe_response(envelope).await;
         Ok(())
     }
-}
-
-/// Increment the response-lookup counter with the given result label.
-fn record_response_lookup(result: &'static str) {
-    WhitelistPreconfirmationDriverMetrics::inc_response_lookup(result);
 }
