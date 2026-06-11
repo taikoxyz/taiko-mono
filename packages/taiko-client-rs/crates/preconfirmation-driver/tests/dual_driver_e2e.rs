@@ -5,114 +5,29 @@ use std::{sync::Arc, time::Duration};
 use alloy_consensus::transaction::SignerRecoverable;
 use alloy_eips::{BlockNumberOrTag, Encodable2718};
 use alloy_primitives::{Address, U256};
-use alloy_provider::{
-    Provider, RootProvider, fillers::FillProvider, utils::JoinedRecommendedFillers,
-};
+use alloy_provider::Provider;
 use anyhow::{Context, Result, anyhow, ensure};
-use driver::{
-    DriverConfig,
-    sync::{SyncStage, event::EventSyncer},
-};
 use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{
-    Bytes20, Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, Preconfirmation, RawTxListGossip,
-    SignedCommitment, TxListBytes, address_to_bytes20, keccak256_bytes, sign_commitment,
-    u256_to_uint256, uint256_to_u256,
-};
-use protocol::codec::ZlibTxListCodec;
-use rpc::{
-    SubscriptionSource,
-    client::{Client, ClientConfig, connect_provider_with_timeout},
+    Bytes20, Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
+    address_to_bytes20, keccak256_bytes, sign_commitment, u256_to_uint256, uint256_to_u256,
 };
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, PreconfTxList, ShastaEnv, build_preconf_txlist, compute_next_block_base_fee,
+    PreconfTxList, ShastaEnv, build_preconf_txlist, compute_next_block_base_fee,
     fetch_block_by_number,
     preconfirmation::{
-        EventSyncerDriverClient, LoggingDriverClient, StaticLookaheadResolver,
-        build_publish_payloads_with_txs, derive_signer, test_p2p_config,
-        wait_for_commitment_and_txlist, wait_for_peer_connected,
+        RealDriverSetup, StaticLookaheadResolver, build_publish_payloads_with_txs,
+        compress_raw_txs, derive_signer, test_p2p_config, wait_for_commitment_and_txlist,
+        wait_for_peer_connected,
     },
     wait_for_block, wait_for_block_or_loop_error,
 };
-use tokio::{spawn, sync::oneshot, task::JoinHandle};
-use tracing::{info, warn};
+use tokio::{spawn, sync::oneshot};
+use tracing::info;
 use url::Url;
-
-// ============================================================================
-// Driver Instance Helper
-// ============================================================================
-
-/// Running driver instance with its RPC server and background tasks.
-struct DriverInstance {
-    rpc_client: DriverRpcClient,
-    event_syncer: Arc<EventSyncer<DriverRpcProvider>>,
-    event_handle: JoinHandle<()>,
-}
-
-type DriverRpcProvider = FillProvider<JoinedRecommendedFillers, RootProvider>;
-type DriverRpcClient = Client<DriverRpcProvider>;
-
-impl DriverInstance {
-    /// Starts a new driver instance connected to the specified L2 node.
-    async fn start(
-        l2_ws: &Url,
-        l2_auth: &Url,
-        l1_source: &SubscriptionSource,
-        jwt_secret_path: &std::path::Path,
-        inbox_address: Address,
-        beacon_endpoint: &Url,
-    ) -> Result<Self> {
-        let client_config = ClientConfig {
-            l1_provider_source: l1_source.clone(),
-            l2_provider_url: l2_ws.clone(),
-            l2_auth_provider_url: l2_auth.clone(),
-            jwt_secret: jwt_secret_path.to_path_buf(),
-            inbox_address,
-        };
-
-        let mut driver_config = DriverConfig::new(
-            client_config.clone(),
-            Duration::from_millis(50),
-            beacon_endpoint.clone(),
-            None,
-            None,
-        );
-        driver_config.preconfirmation_enabled = true;
-
-        let rpc_client = Client::new(client_config).await?;
-        let event_syncer = Arc::new(EventSyncer::new(&driver_config, rpc_client.clone()).await?);
-        let event_handle = spawn({
-            let syncer = event_syncer.clone();
-            async move {
-                if let Err(err) = syncer.run().await {
-                    warn!(?err, "event syncer exited");
-                }
-            }
-        });
-
-        event_syncer
-            .wait_preconf_ingress_ready()
-            .await
-            .map_err(|err| anyhow!("preconfirmation ingress unavailable: {err}"))?;
-
-        Ok(Self { rpc_client, event_syncer, event_handle })
-    }
-
-    async fn stop(self) {
-        self.event_handle.abort();
-    }
-}
-
-fn build_txlist_bytes(raw_tx_bytes: &[Vec<u8>]) -> Result<TxListBytes> {
-    let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
-    let compressed = codec
-        .encode(raw_tx_bytes)
-        .map_err(|err| anyhow!("encode txlist before publishing: {err}"))?;
-    TxListBytes::try_from(compressed).map_err(|(_, err)| anyhow!("txlist bytes error: {err}"))
-}
 
 // ============================================================================
 // Test
@@ -126,41 +41,20 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let l2_ws_1: Url = env.l2_ws_1.clone();
     let l2_auth_1: Url = env.l2_auth_1.clone();
 
-    let beacon_server = BeaconStubServer::start().await?;
-
     info!("starting driver 1 (L2 node 0)");
-    let driver1 = DriverInstance::start(
-        &env.l2_ws_0.clone(),
-        &env.l2_auth_0.clone(),
-        &env.l1_source,
-        &env.jwt_secret,
-        env.inbox_address,
-        beacon_server.endpoint(),
-    )
-    .await
-    .context("starting driver 1")?;
+    let driver1 = RealDriverSetup::start_for_endpoints(env, &env.l2_ws_0, &env.l2_auth_0)
+        .await
+        .context("starting driver 1")?;
 
     info!("starting driver 2 (L2 node 1)");
-    let driver2 = DriverInstance::start(
-        &l2_ws_1,
-        &l2_auth_1,
-        &env.l1_source,
-        &env.jwt_secret,
-        env.inbox_address,
-        beacon_server.endpoint(),
-    )
-    .await
-    .context("starting driver 2")?;
+    let driver2 = RealDriverSetup::start_for_endpoints(env, &l2_ws_1, &l2_auth_1)
+        .await
+        .context("starting driver 2")?;
 
-    let l2_provider_1 = connect_provider_with_timeout(l2_ws_1.clone()).await?;
+    let l2_provider_1 = driver2.l2_provider.clone();
 
-    let driver1_embedded =
-        EventSyncerDriverClient::new(driver1.event_syncer.clone(), driver1.rpc_client.clone());
-    let driver1_client = LoggingDriverClient::new(Arc::new(driver1_embedded));
-
-    let driver2_embedded =
-        EventSyncerDriverClient::new(driver2.event_syncer.clone(), driver2.rpc_client.clone());
-    let driver2_client = LoggingDriverClient::new(Arc::new(driver2_embedded));
+    let driver1_client = driver1.driver_client.clone();
+    let driver2_client = driver2.driver_client.clone();
 
     let (signer_sk, signer) = derive_signer(1);
 
@@ -236,7 +130,7 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
             .as_transactions()
             .ok_or_else(|| anyhow!("expected full transactions for block {parent_block_num}"))?;
         let raw_tx_bytes: Vec<Vec<u8>> = txs.iter().map(|tx| tx.encoded_2718().to_vec()).collect();
-        let txlist_bytes = build_txlist_bytes(&raw_tx_bytes)?;
+        let txlist_bytes = compress_raw_txs(&raw_tx_bytes)?;
         let raw_tx_list_hash =
             Bytes32::try_from(keccak256_bytes(txlist_bytes.as_ref()).as_slice().to_vec())
                 .map_err(|(_, err)| anyhow!("txlist hash error: {err}"))?;
@@ -379,9 +273,8 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     event_loop1_handle.abort();
     event_loop2_handle.abort();
     ext_node_handle.abort();
-    driver1.stop().await;
-    driver2.stop().await;
-    beacon_server.shutdown().await?;
+    driver1.stop().await?;
+    driver2.stop().await?;
 
     Ok(())
 }

@@ -1,6 +1,6 @@
 //! Beacon sync logic.
 
-use std::{borrow::Cow, marker::PhantomData, sync::Arc, time::Duration};
+use std::{borrow::Cow, sync::Arc, time::Duration};
 
 use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
@@ -39,8 +39,6 @@ where
     checkpoint: Option<RootProvider>,
     /// Shared checkpoint head used to resume event sync after beacon sync.
     checkpoint_resume_head: Arc<CheckpointResumeHead>,
-    /// Marker that ties this type to the generic provider parameter.
-    _marker: PhantomData<P>,
 }
 
 impl<P> BeaconSyncer<P>
@@ -57,13 +55,7 @@ where
         let checkpoint =
             config.l2_checkpoint_url.as_ref().map(|url| connect_http_with_timeout(url.clone()));
 
-        Self {
-            retry_interval: config.retry_interval,
-            rpc,
-            checkpoint,
-            checkpoint_resume_head,
-            _marker: PhantomData,
-        }
+        Self { retry_interval: config.retry_interval, rpc, checkpoint, checkpoint_resume_head }
     }
 
     /// Query the checkpoint node for its head L1 origin block number.

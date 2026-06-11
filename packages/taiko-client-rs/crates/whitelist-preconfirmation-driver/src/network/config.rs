@@ -7,10 +7,10 @@
 use libp2p::gossipsub;
 use sha2::{Digest, Sha256};
 
-use crate::error::{Result, WhitelistPreconfirmationDriverError};
-
-/// Maximum allowed gossip payload size after decompression.
-const MAX_GOSSIP_SIZE_BYTES: usize = kona_gossip::MAX_GOSSIP_SIZE;
+use crate::{
+    codec::bounded_decompress_snappy,
+    error::{Result, WhitelistPreconfirmationDriverError},
+};
 
 /// Domain prefix used in message-ID hashing when snappy decompression succeeds.
 const MESSAGE_ID_PREFIX_VALID_SNAPPY: [u8; 4] = [1, 0, 0, 0];
@@ -68,21 +68,13 @@ pub(crate) fn taiko_message_id(message: &gossipsub::Message) -> gossipsub::Messa
 
 /// Try to decompress snappy data. Returns `(is_valid_snappy, data)`.
 ///
-/// If decoding fails or the decompressed length exceeds [`MAX_GOSSIP_SIZE_BYTES`],
-/// the original compressed bytes are returned alongside `false`.
+/// If decoding fails or the decompressed length exceeds the gossip limit, the
+/// original compressed bytes are returned alongside `false`.
 fn try_decompress_snappy(compressed: &[u8]) -> (bool, Vec<u8>) {
-    let Ok(decoded_len) = snap::raw::decompress_len(compressed) else {
-        return (false, compressed.to_vec());
-    };
-
-    if decoded_len > MAX_GOSSIP_SIZE_BYTES {
-        return (false, compressed.to_vec());
+    match bounded_decompress_snappy(compressed) {
+        Ok(data) => (true, data),
+        Err(_) => (false, compressed.to_vec()),
     }
-
-    snap::raw::Decoder::new()
-        .decompress_vec(compressed)
-        .map(|data| (true, data))
-        .unwrap_or_else(|_| (false, compressed.to_vec()))
 }
 
 #[cfg(test)]

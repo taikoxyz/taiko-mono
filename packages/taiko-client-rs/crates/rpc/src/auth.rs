@@ -7,8 +7,9 @@ use alethia_reth_primitives::{
     payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
 };
 use alethia_reth_rpc_types::PreBuiltTxList as TaikoPreBuiltTxList;
+use alloy::rpc::json_rpc::RpcSend;
 use alloy_primitives::{Address, B256, FixedBytes, U256};
-use alloy_provider::Provider;
+use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
     PayloadId, PayloadStatus,
@@ -140,6 +141,20 @@ fn engine_new_payload_v2_value(
 }
 
 impl<P: Provider + Clone> Client<P> {
+    /// Issue an L1-origin lookup against the given provider, mapping ignorable engine errors to
+    /// `Ok(None)` and converting the transport wrapper into the public [`RpcL1Origin`] type.
+    pub(crate) async fn request_l1_origin<Params: RpcSend>(
+        provider: &RootProvider,
+        method: &'static str,
+        params: Params,
+    ) -> Result<Option<RpcL1Origin>> {
+        provider
+            .raw_request::<_, Option<EngineRpcL1Origin>>(Cow::Borrowed(method), params)
+            .await
+            .or_else(handle_ignorable_origin_error)
+            .map(|origin| origin.map(Into::into))
+    }
+
     /// Fetch pre-built transaction lists from the authenticated L2 execution engine.
     pub async fn tx_pool_content_with_min_tip(
         &self,
@@ -220,14 +235,12 @@ impl<P: Provider + Clone> Client<P> {
         &self,
         proposal_id: U256,
     ) -> Result<Option<RpcL1Origin>> {
-        self.l2_auth_provider
-            .raw_request::<_, Option<EngineRpcL1Origin>>(
-                Cow::Borrowed(TaikoAuthMethod::LastL1OriginByBatchId.as_str()),
-                (proposal_id,),
-            )
-            .await
-            .or_else(handle_ignorable_origin_error)
-            .map(|origin| origin.map(Into::into))
+        Self::request_l1_origin(
+            &self.l2_auth_provider,
+            TaikoAuthMethod::LastL1OriginByBatchId.as_str(),
+            (proposal_id,),
+        )
+        .await
     }
 
     /// Fetch the last block id that corresponds to the provided batch id via the authenticated
@@ -248,14 +261,12 @@ impl<P: Provider + Clone> Client<P> {
         &self,
         proposal_id: U256,
     ) -> Result<Option<RpcL1Origin>> {
-        self.l2_auth_provider
-            .raw_request::<_, Option<EngineRpcL1Origin>>(
-                Cow::Borrowed(TaikoAuthMethod::LastCertainL1OriginByBatchId.as_str()),
-                (proposal_id,),
-            )
-            .await
-            .or_else(handle_ignorable_origin_error)
-            .map(|origin| origin.map(Into::into))
+        Self::request_l1_origin(
+            &self.l2_auth_provider,
+            TaikoAuthMethod::LastCertainL1OriginByBatchId.as_str(),
+            (proposal_id,),
+        )
+        .await
     }
 
     /// Fetch the cached last block id that corresponds to the provided batch id via the

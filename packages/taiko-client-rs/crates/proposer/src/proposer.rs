@@ -199,7 +199,6 @@ impl Proposer {
     }
 
     /// Fetch L2 EE mempool and propose a new proposal to protocol inbox.
-    /// Fetch transactions and submit a proposal once.
     pub async fn fetch_and_propose(&self) -> Result<TransactionReceipt> {
         // Fetch transactions based on mode.
         // Engine mode also returns the parameters used for the anchor transaction.

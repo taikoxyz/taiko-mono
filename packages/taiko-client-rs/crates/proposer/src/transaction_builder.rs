@@ -3,7 +3,7 @@
 use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
 use alloy::{
     consensus::{BlobTransactionSidecar, BlobTransactionSidecarVariant, SidecarBuilder},
-    eips::{BlockNumberOrTag, eip4844::Blob},
+    eips::BlockNumberOrTag,
     network::TransactionBuilder4844,
     primitives::{
         Address, Bytes, U256,
@@ -26,42 +26,6 @@ use crate::{
     proposer::{EngineBuildContext, TransactionLists, current_unix_timestamp},
 };
 
-/// Proposer-owned blob payload for a Shasta proposal transaction.
-#[derive(Debug, Clone)]
-pub(crate) struct ProposalBlobPayload {
-    /// The EIP-4844 sidecar that carries the encoded manifest blobs.
-    sidecar: BlobTransactionSidecar,
-}
-
-impl ProposalBlobPayload {
-    /// Create a blob payload from an already-built sidecar.
-    pub(crate) fn new(sidecar: BlobTransactionSidecar) -> Self {
-        Self { sidecar }
-    }
-
-    /// Return the blobs that will be translated into the tx-manager candidate payload.
-    #[cfg(test)]
-    pub(crate) fn blobs(&self) -> &[Blob] {
-        &self.sidecar.blobs
-    }
-
-    /// Consume the payload and return the owned blobs for tx-manager submission.
-    pub(crate) fn into_blobs(self) -> Vec<Blob> {
-        self.sidecar.blobs
-    }
-
-    #[cfg(test)]
-    pub(crate) fn from_test_blobs(blobs: Vec<Blob>) -> Self {
-        Self::new(
-            BlobTransactionSidecar::try_from_blobs_with_settings(
-                blobs,
-                alloy::eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
-            )
-            .expect("test blobs should produce a blob sidecar"),
-        )
-    }
-}
-
 /// A proposer-owned proposal transaction prepared for adapter-backed submission.
 #[derive(Debug, Clone)]
 pub struct BuiltProposalTx {
@@ -71,19 +35,19 @@ pub struct BuiltProposalTx {
     call_data: Bytes,
     /// Optional gas limit override for the eventual submission request.
     gas_limit: Option<u64>,
-    /// Blob payload carrying the encoded proposal manifest.
-    blob_payload: ProposalBlobPayload,
+    /// The EIP-4844 sidecar that carries the encoded manifest blobs.
+    sidecar: BlobTransactionSidecar,
 }
 
 impl BuiltProposalTx {
     /// Create a new proposer-owned built transaction.
-    pub(crate) fn new(to: Address, call_data: Bytes, blob_payload: ProposalBlobPayload) -> Self {
-        Self { to, call_data, gas_limit: None, blob_payload }
+    pub(crate) fn new(to: Address, call_data: Bytes, sidecar: BlobTransactionSidecar) -> Self {
+        Self { to, call_data, gas_limit: None, sidecar }
     }
 
     /// Return the blob sidecar variant needed by integration tests and beacon stubs.
     pub fn blob_sidecar(&self) -> BlobTransactionSidecarVariant {
-        BlobTransactionSidecarVariant::Eip4844(self.blob_payload.sidecar.clone())
+        BlobTransactionSidecarVariant::Eip4844(self.sidecar.clone())
     }
 
     /// Convert the built proposal into a plain transaction request for direct submission.
@@ -95,7 +59,7 @@ impl BuiltProposalTx {
             .to(self.to)
             .value(U256::ZERO)
             .input(TransactionInput::both(self.call_data.clone()))
-            .with_blob_sidecar(self.blob_payload.sidecar.clone());
+            .with_blob_sidecar(self.sidecar.clone());
 
         match self.gas_limit {
             Some(gas_limit) => request.gas_limit(gas_limit),
@@ -104,8 +68,8 @@ impl BuiltProposalTx {
     }
 
     /// Consume the built proposal into the parts needed by the tx-manager adapter.
-    pub(crate) fn into_parts(self) -> (Address, Bytes, Option<u64>, ProposalBlobPayload) {
-        (self.to, self.call_data, self.gas_limit, self.blob_payload)
+    pub(crate) fn into_parts(self) -> (Address, Bytes, Option<u64>, BlobTransactionSidecar) {
+        (self.to, self.call_data, self.gas_limit, self.sidecar)
     }
 
     /// Return a copy of this transaction with an explicit gas-limit override attached.
@@ -142,9 +106,11 @@ impl ShastaProposalTransactionBuilder {
     ) -> Result<BuiltProposalTx> {
         // Use provided engine params or derive defaults.
         let (anchor_block_number, timestamp, gas_limit) = match engine_params {
-            Some(params) => {
-                (params.anchor_block_number, params.timestamp, engine_manifest_gas_limit(params))
-            }
+            Some(params) => (
+                params.anchor_block_number,
+                params.timestamp,
+                manifest_gas_limit(params.parent_block_number, params.gas_limit),
+            ),
             None => {
                 let latest_parent = self
                     .rpc_provider
@@ -152,10 +118,8 @@ impl ShastaProposalTransactionBuilder {
                     .get_block_by_number(BlockNumberOrTag::Latest)
                     .await?
                     .ok_or(ProposerError::LatestBlockNotFound)?;
-                let gas_limit = non_engine_manifest_gas_limit(
-                    latest_parent.number(),
-                    latest_parent.header.gas_limit,
-                );
+                let gas_limit =
+                    manifest_gas_limit(latest_parent.number(), latest_parent.header.gas_limit);
                 (
                     self.rpc_provider.l1_provider.get_block_number().await?,
                     current_unix_timestamp(),
@@ -224,41 +188,28 @@ impl ShastaProposalTransactionBuilder {
         Ok(BuiltProposalTx::new(
             *self.rpc_provider.shasta.inbox.address(),
             propose_call.calldata().clone(),
-            ProposalBlobPayload::new(sidecar),
+            sidecar,
         ))
     }
 }
 
-/// Derive the manifest gas limit for engine mode by applying the anchor-gas discount.
+/// Derive the manifest gas limit from the parent block, applying the anchor-gas discount.
 ///
-/// This keeps the manifest aligned with the driver-side validation for engine-built payloads.
-fn engine_manifest_gas_limit(engine_params: EngineBuildContext) -> u64 {
-    if engine_params.parent_block_number == 0 {
-        engine_params.gas_limit
-    } else {
-        engine_params.gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
-    }
-}
-
-/// Derive the manifest gas limit for non-engine mode from the canonical parent block.
-///
-/// The genesis parent keeps its gas limit unchanged; all later parents apply the anchor-gas
-/// discount expected by the driver.
-fn non_engine_manifest_gas_limit(parent_block_number: u64, parent_gas_limit: u64) -> u64 {
+/// The genesis parent (block number 0) keeps its gas limit unchanged; all later parents apply the
+/// anchor-gas discount expected by the driver-side validation.
+fn manifest_gas_limit(parent_block_number: u64, gas_limit: u64) -> u64 {
     if parent_block_number == 0 {
-        parent_gas_limit
+        gas_limit
     } else {
-        parent_gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
+        gas_limit.saturating_sub(ANCHOR_V3_V4_GAS_LIMIT)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        ShastaProposalTransactionBuilder, engine_manifest_gas_limit, non_engine_manifest_gas_limit,
-    };
+    use super::{ShastaProposalTransactionBuilder, manifest_gas_limit};
     use alloy::{
-        consensus::{Header as ConsensusHeader, TxEnvelope},
+        consensus::{BlobTransactionSidecar, Header as ConsensusHeader, TxEnvelope},
         eips::eip4844::Blob,
         network::TransactionBuilder4844,
         primitives::{Address, Bytes},
@@ -283,24 +234,31 @@ mod tests {
         atomic::{AtomicBool, Ordering},
     };
 
-    use crate::{
-        proposer::EngineBuildContext,
-        transaction_builder::{BuiltProposalTx, ProposalBlobPayload},
-    };
+    use crate::transaction_builder::BuiltProposalTx;
 
     impl BuiltProposalTx {
-        /// Return the internal blob payload for crate-local tests.
-        pub(crate) fn blob_payload(&self) -> &ProposalBlobPayload {
-            &self.blob_payload
+        /// Build a proposal transaction from raw blobs for crate-local tests.
+        pub(crate) fn from_test_blobs(to: Address, call_data: Bytes, blobs: Vec<Blob>) -> Self {
+            let sidecar = BlobTransactionSidecar::try_from_blobs_with_settings(
+                blobs,
+                alloy::eips::eip4844::env_settings::EnvKzgSettings::Default.get(),
+            )
+            .expect("test blobs should produce a blob sidecar");
+            Self::new(to, call_data, sidecar)
+        }
+
+        /// Return the manifest blobs for crate-local test assertions.
+        pub(crate) fn blobs(&self) -> &[Blob] {
+            &self.sidecar.blobs
         }
     }
 
     #[test]
     fn built_proposal_tx_exposes_blob_sidecar_and_transaction_request() {
-        let built = BuiltProposalTx::new(
+        let built = BuiltProposalTx::from_test_blobs(
             Address::repeat_byte(0x44),
             Bytes::from_static(b"blobbed-proposal"),
-            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO]),
+            vec![Blob::ZERO],
         )
         .with_gas_limit(210_000);
 
@@ -511,26 +469,13 @@ mod tests {
     }
 
     #[test]
-    fn manifest_gas_limit_uses_effective_parent_limit_in_non_engine_mode() {
-        assert_eq!(non_engine_manifest_gas_limit(42, 45_000_000), 44_000_000);
+    fn manifest_gas_limit_applies_anchor_discount_for_non_genesis_parent() {
+        assert_eq!(manifest_gas_limit(42, 45_000_000), 44_000_000);
     }
 
     #[test]
-    fn manifest_gas_limit_keeps_genesis_parent_limit_in_non_engine_mode() {
-        assert_eq!(non_engine_manifest_gas_limit(0, 45_000_000), 45_000_000);
-    }
-
-    #[test]
-    fn manifest_gas_limit_keeps_genesis_parent_limit_in_engine_mode() {
-        assert_eq!(
-            engine_manifest_gas_limit(EngineBuildContext {
-                anchor_block_number: 7,
-                parent_block_number: 0,
-                timestamp: 1_234,
-                gas_limit: 45_000_000,
-            }),
-            45_000_000
-        );
+    fn manifest_gas_limit_keeps_genesis_parent_limit() {
+        assert_eq!(manifest_gas_limit(0, 45_000_000), 45_000_000);
     }
 
     #[tokio::test]
@@ -562,9 +507,8 @@ mod tests {
             ShastaProposalTransactionBuilder::new(rpc_provider, Address::repeat_byte(0x11));
 
         let built_tx = builder.build(vec![vec![]], None).await?;
-        let blob_payload = built_tx.blob_payload();
         let manifest_payload =
-            BlobCoder::decode_blob(&blob_payload.blobs()[0]).expect("manifest blob should decode");
+            BlobCoder::decode_blob(&built_tx.blobs()[0]).expect("manifest blob should decode");
         let manifest = DerivationSourceManifest::decompress_and_decode(&manifest_payload, 0)
             .expect("manifest should decode from blob sidecar");
 

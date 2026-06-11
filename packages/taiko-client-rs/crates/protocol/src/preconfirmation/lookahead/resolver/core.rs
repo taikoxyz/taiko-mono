@@ -19,7 +19,7 @@ use tracing::warn;
 use crate::preconfirmation::lookahead::{
     PreconfSlotInfo,
     client::LookaheadClient,
-    resolver::{BlockReader, LookaheadStoreClient, WhitelistClient},
+    resolver::{BlockReader, WhitelistClient},
 };
 
 use crate::preconfirmation::lookahead::resolver::epoch::current_unix_timestamp;
@@ -44,8 +44,8 @@ use super::{
 /// events, historical blacklist timelines, and whitelist fallbacks.
 #[derive(Clone)]
 pub struct LookaheadResolver {
-    /// Lookahead store API abstraction.
-    pub(crate) client: Arc<dyn LookaheadStoreClient>,
+    /// Address of the LookaheadStore contract whose events drive cache updates.
+    pub(crate) store_address: Address,
     /// Preconf whitelist abstraction.
     pub(crate) preconf_whitelist: Arc<dyn WhitelistClient>,
     /// Block reader abstraction.
@@ -111,14 +111,13 @@ impl LookaheadResolver {
             provider.clone(),
         );
 
-        let store_client: Arc<dyn LookaheadStoreClient> =
-            Arc::new(OnchainLookaheadStoreClient::new(client.clone()));
+        let store_address = client.lookahead_store_address();
         let whitelist_client: Arc<dyn WhitelistClient> =
             Arc::new(OnchainWhitelistClient::new(preconf_whitelist));
         let block_reader: Arc<dyn BlockReader> = Arc::new(OnchainBlockReader::new(provider));
 
         Ok(Self {
-            client: store_client,
+            store_address,
             preconf_whitelist: whitelist_client,
             block_reader,
             fallback_timeline: FallbackTimelineStore::new(),
@@ -135,7 +134,7 @@ impl LookaheadResolver {
     #[must_use = "filter must be passed to a scanner"]
     pub fn lookahead_filter(&self) -> EventFilter {
         EventFilter::new()
-            .contract_addresses([self.client.address(), self.preconf_whitelist.address()])
+            .contract_addresses([self.store_address, self.preconf_whitelist.address()])
             .event(LookaheadPosted::SIGNATURE)
             .event(Unblacklisted::SIGNATURE)
             .event(Blacklisted::SIGNATURE)
@@ -184,7 +183,7 @@ impl LookaheadResolver {
                 None => self.fetch_block_timestamp(block_number).await?,
             };
 
-            if log.address() == self.client.address() {
+            if log.address() == self.store_address {
                 // LookaheadStore events update epoch cache and blacklist state; these are the
                 // primary inputs for picking committers without further RPCs.
                 if first_topic == LookaheadPosted::SIGNATURE_HASH {
@@ -328,7 +327,7 @@ impl LookaheadResolver {
         let epoch_start = epoch_start_for(block_timestamp, self.genesis_timestamp);
         let next_epoch_start = epoch_start.saturating_add(SECONDS_IN_EPOCH);
 
-        let current_epoch_operator = self.whitelist_operator_at(block_number).await?;
+        let current_epoch_operator = self.preconf_whitelist.current_operator(block_number).await?;
         let next_epoch_operator = self.preconf_whitelist.next_operator(block_number).await?;
 
         // Apply the operator change to the fallback timeline, pruning history to the allowed
@@ -422,51 +421,45 @@ impl LookaheadResolver {
         };
 
         // Resolve based on selection and blacklist status.
-        match pick_slot_origin(ts, &curr_epoch.slots, next.as_ref().map(|n| n.slots.as_slice())) {
-            // Select from current epoch slots.
-            Some(SlotOrigin::Current(idx)) => {
-                let slot = &curr_epoch.slots[idx];
-                // Check blacklist status.
-                if self.was_blacklisted_at(slot.registrationRoot, ts) {
-                    let signer = self
-                        .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
-                        .await?;
-                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
-                }
-                Ok(PreconfSlotInfo {
-                    signer: slot.committer,
-                    submission_window_end: slot.timestamp,
-                })
-            }
-            // Select from next epoch slots.
+        let origin =
+            pick_slot_origin(ts, &curr_epoch.slots, next.as_ref().map(|n| n.slots.as_slice()));
+
+        // Resolve the chosen slot reference up front; the current and next-epoch arms share the
+        // same blacklist check and `PreconfSlotInfo` construction, differing only in the lookup.
+        let slot = match origin {
+            // Select from current epoch slots (direct index, guaranteed in-bounds by selection).
+            Some(SlotOrigin::Current(idx)) => &curr_epoch.slots[idx],
+            // Select from next epoch slots; the cache must contain the next epoch and the index.
             Some(SlotOrigin::Next(idx)) => {
-                let next_epoch = next.ok_or(LookaheadError::MissingLookahead(next_epoch_start))?;
-                let slot =
-                    next_epoch.slots.get(idx).ok_or(LookaheadError::CorruptLookaheadCache {
-                        epoch_start: next_epoch_start,
-                        index: idx,
-                        len: next_epoch.slots.len(),
-                    })?;
-                // Check blacklist status.
-                if self.was_blacklisted_at(slot.registrationRoot, ts) {
-                    let signer = self
-                        .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
-                        .await?;
-                    return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
-                }
-                Ok(PreconfSlotInfo {
-                    signer: slot.committer,
-                    submission_window_end: slot.timestamp,
-                })
+                let next_epoch =
+                    next.as_ref().ok_or(LookaheadError::MissingLookahead(next_epoch_start))?;
+                next_epoch.slots.get(idx).ok_or(LookaheadError::CorruptLookaheadCache {
+                    epoch_start: next_epoch_start,
+                    index: idx,
+                    len: next_epoch.slots.len(),
+                })?
             }
             // Fallback to current epoch whitelist operator.
-            None => Ok(PreconfSlotInfo {
-                signer: self
-                    .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
-                    .await?,
-                submission_window_end: U256::from(next_epoch_start.saturating_sub(SECONDS_IN_SLOT)),
-            }),
+            None => {
+                return Ok(PreconfSlotInfo {
+                    signer: self
+                        .resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist)
+                        .await?,
+                    submission_window_end: U256::from(
+                        next_epoch_start.saturating_sub(SECONDS_IN_SLOT),
+                    ),
+                });
+            }
+        };
+
+        // Shared construction for both current and next-epoch slots: a blacklisted slot falls back
+        // to the whitelist operator while preserving the slot timestamp as the window end.
+        if self.was_blacklisted_at(slot.registrationRoot, ts) {
+            let signer =
+                self.resolve_fallback(ts, epoch_start, curr_epoch.fallback_whitelist).await?;
+            return Ok(PreconfSlotInfo { signer, submission_window_end: slot.timestamp });
         }
+        Ok(PreconfSlotInfo { signer: slot.committer, submission_window_end: slot.timestamp })
     }
 
     /// Resolve the expected committer for a given L1 timestamp (seconds since epoch).
@@ -529,11 +522,6 @@ impl LookaheadResolver {
         }
 
         Ok(None)
-    }
-
-    /// Snapshot the whitelist operator for the current epoch at the specified block.
-    async fn whitelist_operator_at(&self, block_number: u64) -> Result<Address> {
-        self.preconf_whitelist.current_operator(block_number).await
     }
 
     /// Record a baseline fallback for the epoch if none exists before `epoch_start`.
@@ -676,31 +664,6 @@ where
     }
 }
 
-/// Production adapter for lookahead store access.
-#[derive(Clone)]
-struct OnchainLookaheadStoreClient<P: Provider + Clone + Send + Sync + 'static> {
-    /// Bound lookahead client (Inbox + LookaheadStore helpers).
-    client: LookaheadClient<P>,
-}
-
-impl<P: Provider + Clone + Send + Sync + 'static> OnchainLookaheadStoreClient<P> {
-    /// Create a lookahead store adapter over the given client.
-    fn new(client: LookaheadClient<P>) -> Self {
-        Self { client }
-    }
-}
-
-#[async_trait]
-impl<P> LookaheadStoreClient for OnchainLookaheadStoreClient<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Return the LookaheadStore contract address.
-    fn address(&self) -> Address {
-        self.client.lookahead_store_address()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -748,18 +711,6 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Default)]
-    struct FakeStore {
-        addr: Address,
-    }
-
-    #[async_trait]
-    impl LookaheadStoreClient for FakeStore {
-        fn address(&self) -> Address {
-            self.addr
-        }
-    }
-
     fn make_block(number: u64, timestamp: u64) -> RpcBlock {
         let mut block: RpcBlock = RpcBlock::default();
         block.header.number = number;
@@ -775,12 +726,12 @@ mod tests {
         genesis_timestamp: u64,
         block_reader: FakeBlockReader,
         whitelist: FakeWhitelist,
-        store: FakeStore,
+        store_address: Address,
     }
 
     fn test_resolver_with_cache(config: TestResolverConfig) -> LookaheadResolver {
         LookaheadResolver {
-            client: Arc::new(config.store),
+            store_address: config.store_address,
             preconf_whitelist: Arc::new(config.whitelist),
             block_reader: Arc::new(config.block_reader),
             fallback_timeline: config.fallback_timeline,
@@ -830,7 +781,7 @@ mod tests {
                     next: Address::from([0xdd; 20]),
                     addr: Address::from([0x12; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x56; 20]) },
+                store_address: Address::from([0x56; 20]),
             });
 
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
@@ -869,7 +820,7 @@ mod tests {
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x56; 20]) },
+                store_address: Address::from([0x56; 20]),
             });
 
             let result = resolver.committer_for_timestamp(U256::from(now)).await.unwrap();
@@ -934,7 +885,7 @@ mod tests {
                     next: committer_next,
                     addr: Address::from([0x9a; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x56; 20]) },
+                store_address: Address::from([0x56; 20]),
             });
 
             // Query inside current epoch but after the only current slot; should pick next-epoch
@@ -993,7 +944,7 @@ mod tests {
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x56; 20]) },
+                store_address: Address::from([0x56; 20]),
             });
 
             let result = resolver.committer_for_timestamp(U256::from(slot_ts)).await.unwrap();
@@ -1039,7 +990,7 @@ mod tests {
                     next: Address::from([0xdd; 20]),
                     addr: Address::from([0x12; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x56; 20]) },
+                store_address: Address::from([0x56; 20]),
             });
 
             let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
@@ -1080,7 +1031,7 @@ mod tests {
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x56; 20]) },
+                store_address: Address::from([0x56; 20]),
             });
 
             let info = resolver.slot_info_for_timestamp(U256::from(now)).await.unwrap();
@@ -1139,7 +1090,7 @@ mod tests {
                     next: fallback,
                     addr: Address::from([0x9a; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x56; 20]) },
+                store_address: Address::from([0x56; 20]),
             });
 
             let info = resolver.slot_info_for_timestamp(U256::from(slot_ts)).await.unwrap();
@@ -1173,7 +1124,7 @@ mod tests {
                     next: Address::from([0x02; 20]),
                     addr: Address::from([0x03; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x04; 20]) },
+                store_address: Address::from([0x04; 20]),
             });
 
             let result = resolver.committer_for_timestamp(U256::from(too_old_ts)).await;
@@ -1205,7 +1156,7 @@ mod tests {
                     next: Address::from([0x12; 20]),
                     addr: Address::from([0x13; 20]),
                 },
-                store: FakeStore { addr: Address::from([0x14; 20]) },
+                store_address: Address::from([0x14; 20]),
             });
 
             let result = resolver.committer_for_timestamp(U256::from(too_new_ts)).await;
@@ -1240,7 +1191,7 @@ mod tests {
                     next: fallback,
                     addr: Address::from([0xbb; 20]),
                 },
-                store: FakeStore { addr: Address::from([0xcc; 20]) },
+                store_address: Address::from([0xcc; 20]),
             });
 
             let result = resolver.committer_for_timestamp(U256::from(epoch_start + 20)).await;
@@ -1307,7 +1258,7 @@ mod tests {
                     next: fallback,
                     addr: Address::from([0x33; 20]),
                 },
-                store: FakeStore { addr: store_addr },
+                store_address: store_addr,
             });
 
             resolver.ingest_logs(vec![log]).await.unwrap();

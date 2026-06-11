@@ -20,4 +20,4 @@ pub use anchor::build_anchor_tx_bytes;
 pub use base_fee::compute_next_block_base_fee;
 pub use funding::{DEFAULT_FUND_AMOUNT, build_test_transfers, ensure_test_account_funded};
 pub use transfer::{TransferPayload, build_signed_transfer};
-pub use txlist::{PreconfTxList, build_preconf_txlist, build_preconf_txlist_with_transfers};
+pub use txlist::{PreconfTxList, build_preconf_txlist};

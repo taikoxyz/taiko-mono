@@ -749,9 +749,7 @@ impl NetworkRuntime {
                 }
                 debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer disconnected");
             }
-            libp2p::swarm::SwarmEvent::Behaviour(
-                BehaviourEvent::Ping | BehaviourEvent::Identify,
-            ) => {}
+            libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ignored) => {}
             other => {
                 debug!(event = ?other, "ignored swarm event");
             }
@@ -787,18 +785,8 @@ impl NetworkRuntime {
             return Ok(());
         }
 
-        let mut report = |acceptance: gossipsub::MessageAcceptance| {
-            // Explicitly report every decision so mesh scoring remains aligned with local
-            // validation.
-            let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
-                &message_id,
-                &from,
-                acceptance,
-            );
-        };
-
         if *topic == self.topics.preconf_blocks.hash() {
-            let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data)
+            let acceptance = match decode_unsafe_payload_signature(&message.data)
                 .and_then(|(sig, bytes)| decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env)))
             {
                 Ok((wire_signature, payload_bytes, envelope)) => {
@@ -820,27 +808,29 @@ impl NetworkRuntime {
                         {
                             // If forwarding to importer fails, reject to avoid silently
                             // accepting data that local consumers could not process.
-                            report(gossipsub::MessageAcceptance::Reject);
+                            self.report_validation(
+                                &message_id,
+                                from,
+                                gossipsub::MessageAcceptance::Reject,
+                            );
                             return Err(err);
                         }
                     }
 
-                    let label = acceptance_label(&acceptance);
-                    (acceptance, label)
+                    acceptance
                 }
-                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
+                Err(_) => {
+                    self.record_decode_failed("preconf_blocks", &message_id, from);
+                    return Ok(());
+                }
             };
 
-            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
-                "preconf_blocks",
-                inbound_label,
-            );
-            report(acceptance);
+            self.record_inbound_and_report("preconf_blocks", acceptance, &message_id, from);
             return Ok(());
         }
 
         if *topic == self.topics.preconf_response.hash() {
-            let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
+            let acceptance = match decode_unsafe_response_message(&message.data) {
                 Ok(envelope) => {
                     let acceptance = self.inbound_validation_state.validate_response(&envelope);
                     if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
@@ -855,34 +845,35 @@ impl NetworkRuntime {
                         )
                         .await
                         {
-                            report(gossipsub::MessageAcceptance::Reject);
+                            self.report_validation(
+                                &message_id,
+                                from,
+                                gossipsub::MessageAcceptance::Reject,
+                            );
                             return Err(err);
                         }
                     }
 
-                    let inbound_label = acceptance_label(&acceptance);
-                    (acceptance, inbound_label)
+                    acceptance
                 }
-                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
+                Err(_) => {
+                    self.record_decode_failed("response_preconf_blocks", &message_id, from);
+                    return Ok(());
+                }
             };
 
-            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+            self.record_inbound_and_report(
                 "response_preconf_blocks",
-                inbound_label,
+                acceptance,
+                &message_id,
+                from,
             );
-            report(acceptance);
             return Ok(());
         }
 
         if *topic == self.topics.preconf_request.hash() {
             let Some(hash) = decode_request_hash_exact(&message.data) else {
-                let (acceptance, inbound_label) =
-                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
-                WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
-                    "request_preconf_blocks",
-                    inbound_label,
-                );
-                report(acceptance);
+                self.record_decode_failed("request_preconf_blocks", &message_id, from);
                 return Ok(());
             };
 
@@ -897,23 +888,13 @@ impl NetworkRuntime {
                 forward_event(&self.event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
             }
 
-            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
-                "request_preconf_blocks",
-                acceptance_label(&acceptance),
-            );
-            report(acceptance);
+            self.record_inbound_and_report("request_preconf_blocks", acceptance, &message_id, from);
             return Ok(());
         }
 
         if *topic == self.topics.eos_request.hash() {
             let Some(epoch) = decode_eos_epoch_exact(&message.data) else {
-                let (acceptance, inbound_label) =
-                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
-                WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
-                    "request_eos_preconf_blocks",
-                    inbound_label,
-                );
-                report(acceptance);
+                self.record_decode_failed("request_eos_preconf_blocks", &message_id, from);
                 return Ok(());
             };
 
@@ -929,14 +910,84 @@ impl NetworkRuntime {
                     .await?;
             }
 
-            WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+            self.record_inbound_and_report(
                 "request_eos_preconf_blocks",
-                acceptance_label(&acceptance),
+                acceptance,
+                &message_id,
+                from,
             );
-            report(acceptance);
         }
 
         Ok(())
+    }
+
+    /// Report a gossipsub validation decision so mesh scoring stays aligned with
+    /// local validation.
+    fn report_validation(
+        &mut self,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+        acceptance: gossipsub::MessageAcceptance,
+    ) {
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .gossipsub
+            .report_message_validation_result(message_id, &from, acceptance);
+    }
+
+    /// Record an inbound-message metric for `topic_label` (using the acceptance's
+    /// label) and report the validation decision in one step.
+    fn record_inbound_and_report(
+        &mut self,
+        topic_label: &'static str,
+        acceptance: gossipsub::MessageAcceptance,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+    ) {
+        self.record_inbound_and_report_labeled(
+            topic_label,
+            acceptance_label(&acceptance),
+            acceptance,
+            message_id,
+            from,
+        );
+    }
+
+    /// Record an inbound-message metric for `topic_label` using an explicit
+    /// `inbound_label`, then report `acceptance` to gossipsub.
+    ///
+    /// Used for decode failures, where the metric label (`"decode_failed"`) differs
+    /// from the reported acceptance (`Reject`).
+    fn record_inbound_and_report_labeled(
+        &mut self,
+        topic_label: &'static str,
+        inbound_label: &str,
+        acceptance: gossipsub::MessageAcceptance,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+    ) {
+        WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+            topic_label,
+            inbound_label,
+        );
+        self.report_validation(message_id, from, acceptance);
+    }
+
+    /// Record a `decode_failed` inbound metric for `topic_label` and report `Reject`.
+    fn record_decode_failed(
+        &mut self,
+        topic_label: &'static str,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+    ) {
+        self.record_inbound_and_report_labeled(
+            topic_label,
+            "decode_failed",
+            gossipsub::MessageAcceptance::Reject,
+            message_id,
+            from,
+        );
     }
 }
 

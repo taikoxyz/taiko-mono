@@ -16,10 +16,6 @@ pub enum RpcClientError {
     #[error("failed to read JWT secret from {0}")]
     JwtSecretReadFailed(String),
 
-    /// Invalid JWT secret format
-    #[error("invalid JWT secret format")]
-    InvalidJwtSecret,
-
     /// Connection error
     #[error("connection error: {0}")]
     Connection(String),
@@ -95,8 +91,5 @@ mod tests {
     fn test_error_display() {
         let err = RpcClientError::JwtSecretReadFailed("/path/to/jwt.hex".to_string());
         assert_eq!(err.to_string(), "failed to read JWT secret from /path/to/jwt.hex");
-
-        let err = RpcClientError::InvalidJwtSecret;
-        assert_eq!(err.to_string(), "invalid JWT secret format");
     }
 }

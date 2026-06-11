@@ -22,10 +22,8 @@ pub(crate) struct TaikoBehaviour {
 pub(crate) enum BehaviourEvent {
     /// Wrapped gossipsub event.
     Gossipsub(Box<gossipsub::Event>),
-    /// Ping event (ignored).
-    Ping,
-    /// Identify event (ignored).
-    Identify,
+    /// Ping or identify event, both ignored by the runtime.
+    Ignored,
 }
 
 impl From<gossipsub::Event> for BehaviourEvent {
@@ -36,13 +34,13 @@ impl From<gossipsub::Event> for BehaviourEvent {
 
 impl From<ping::Event> for BehaviourEvent {
     fn from(_: ping::Event) -> Self {
-        Self::Ping
+        Self::Ignored
     }
 }
 
 impl From<identify::Event> for BehaviourEvent {
     fn from(_: identify::Event) -> Self {
-        Self::Identify
+        Self::Ignored
     }
 }
 

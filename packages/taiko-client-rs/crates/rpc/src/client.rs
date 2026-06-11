@@ -7,7 +7,7 @@ use std::{
 };
 
 use alethia_reth_primitives::addresses::get_treasury_address;
-use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
+use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
@@ -146,15 +146,6 @@ impl<P: Provider + Clone> Client<P> {
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
         Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
-    }
-
-    /// Fetch the L1 block hash for a given block number.
-    pub async fn l1_block_hash_by_number(&self, block_number: u64) -> Result<Option<B256>> {
-        self.l1_provider
-            .get_block_by_number(BlockNumberOrTag::Number(block_number))
-            .await
-            .map(|origin_block| origin_block.map(|block| block.hash()))
-            .map_err(|err| RpcClientError::Provider(err.to_string()))
     }
 
     /// Fetch the Shasta anchor state for the given parent block hash.

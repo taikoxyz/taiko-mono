@@ -275,14 +275,11 @@ impl GossipsubInboundState {
             return gossipsub::MessageAcceptance::Reject;
         }
 
-        let height = payload.envelope.execution_payload.block_number;
-        let hash = payload.envelope.execution_payload.block_hash;
-
-        if !self.preconf_seen_by_height.try_accept(height, hash, MAX_PRECONF_BLOCKS_PER_HEIGHT) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        gossipsub::MessageAcceptance::Accept
+        accept_by_height(
+            &mut self.preconf_seen_by_height,
+            &payload.envelope,
+            MAX_PRECONF_BLOCKS_PER_HEIGHT,
+        )
     }
 
     /// Validate a response payload including signature and signer authorization.
@@ -294,13 +291,7 @@ impl GossipsubInboundState {
             return gossipsub::MessageAcceptance::Reject;
         }
 
-        let height = envelope.execution_payload.block_number;
-        let hash = envelope.execution_payload.block_hash;
-        if !self.response_seen_by_height.try_accept(height, hash, MAX_RESPONSES_ACCEPTABLE) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
-        gossipsub::MessageAcceptance::Accept
+        accept_by_height(&mut self.response_seen_by_height, envelope, MAX_RESPONSES_ACCEPTABLE)
     }
 
     /// Validate a recovered signer against the shared operator set.
@@ -310,5 +301,24 @@ impl GossipsubInboundState {
         } else {
             gossipsub::MessageAcceptance::Reject
         }
+    }
+}
+
+/// Record an envelope's height/hash in `tracker`, accepting unless capacity is full.
+///
+/// Returns [`gossipsub::MessageAcceptance::Accept`] when the hash was newly recorded
+/// for its height, otherwise [`gossipsub::MessageAcceptance::Ignore`].
+fn accept_by_height(
+    tracker: &mut HeightSeenTracker,
+    envelope: &crate::codec::WhitelistExecutionPayloadEnvelope,
+    max_per_height: usize,
+) -> gossipsub::MessageAcceptance {
+    let height = envelope.execution_payload.block_number;
+    let hash = envelope.execution_payload.block_hash;
+
+    if tracker.try_accept(height, hash, max_per_height) {
+        gossipsub::MessageAcceptance::Accept
+    } else {
+        gossipsub::MessageAcceptance::Ignore
     }
 }

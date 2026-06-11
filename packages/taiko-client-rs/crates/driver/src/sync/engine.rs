@@ -47,17 +47,6 @@ impl EngineBlockOutcome {
 /// Trait that converts derivation payload attributes into concrete execution engine blocks.
 #[async_trait]
 pub trait PayloadApplier {
-    /// Submit the provided payload attributes to the execution engine, building canonical L2
-    /// blocks.
-    ///
-    /// Callers should supply the payloads in chain order as returned by the derivation pipeline.
-    /// The implementation queries the current engine head, advances forkchoice, and finally
-    /// materialises the payloads into blocks.
-    async fn attributes_to_blocks(
-        &self,
-        payloads: &[TaikoPayloadAttributes],
-    ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError>;
-
     /// Submit a single payload to the execution engine while internally managing forkchoice state.
     async fn apply_payload(
         &self,
@@ -72,48 +61,6 @@ impl<P> PayloadApplier for Client<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Submit the provided payload attributes to the execution engine, building canonical L2
-    /// blocks.
-    #[instrument(skip(self, payloads))]
-    async fn attributes_to_blocks(
-        &self,
-        payloads: &[TaikoPayloadAttributes],
-    ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError> {
-        if payloads.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let parent_block: RpcBlock<TxEnvelope> = self
-            .l2_provider
-            .get_block_by_number(BlockNumberOrTag::Latest)
-            .await
-            .map_err(|err| EngineSubmissionError::Provider(err.to_string()))?
-            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
-            .ok_or(EngineSubmissionError::MissingParent)?;
-        debug!(
-            parent_number = parent_block.header.number,
-            parent_hash = ?parent_block.hash(),
-            "fetched latest parent block for payload submission"
-        );
-
-        let mut outcomes = Vec::with_capacity(payloads.len());
-        let mut parent_hash = parent_block.hash();
-        debug!(
-            head = ?parent_hash,
-            payload_count = payloads.len(),
-            "submitting batched payloads"
-        );
-
-        for payload in payloads {
-            let applied = apply_payload_internal(self, payload, parent_hash, None).await?;
-            parent_hash = applied.outcome.block_hash();
-            outcomes.push(applied.outcome);
-        }
-
-        info!(inserted_blocks = outcomes.len(), "successfully applied payload batch");
-        Ok(outcomes)
-    }
-
     /// Submit a single payload to the execution engine while internally managing forkchoice state.
     #[instrument(skip(self, payload), fields(payload_id = tracing::field::Empty))]
     async fn apply_payload(

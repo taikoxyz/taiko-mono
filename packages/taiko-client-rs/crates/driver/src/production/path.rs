@@ -268,13 +268,6 @@ mod tests {
 
     #[async_trait]
     impl PayloadApplier for MockApplier {
-        async fn attributes_to_blocks(
-            &self,
-            _payloads: &[TaikoPayloadAttributes],
-        ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError> {
-            Ok(Vec::new())
-        }
-
         async fn apply_payload(
             &self,
             _payload: &TaikoPayloadAttributes,
