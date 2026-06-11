@@ -16,6 +16,7 @@ pub use constants::{
 };
 pub use error::{ForkConfigError, ForkConfigResult, ProtocolError, Result};
 pub use payload_helpers::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
-    encode_tx_list, payload_id_to_bytes,
+    PAYLOAD_ID_VERSION_V2, PayloadAttributesInput, build_payload_attributes,
+    build_payload_attributes_with_id, calculate_shasta_mix_hash, encode_extra_data,
+    encode_transactions, encode_tx_list, payload_id_to_bytes,
 };

@@ -2,8 +2,7 @@
 
 use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
 use alethia_reth_primitives::{
-    decode_shasta_proposal_id,
-    payload::attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
+    decode_shasta_proposal_id, payload::attributes::TaikoPayloadAttributes,
 };
 use alloy::{
     eips::BlockNumberOrTag,
@@ -21,11 +20,11 @@ use alloy_eips::eip2718::{Decodable2718, Encodable2718};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, TransactionReceipt};
 use alloy_rpc_types_engine::{ExecutionPayloadFieldV2, ForkchoiceState};
-use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use base_tx_manager::{SimpleTxManager, TxManager, TxManagerError};
 use bindings::preconf_whitelist::PreconfWhitelist::PreconfWhitelistInstance;
 use protocol::shasta::{
-    AnchorTxConstructor, AnchorV4Input, calculate_shasta_mix_hash,
+    AnchorTxConstructor, AnchorV4Input, PayloadAttributesInput, build_payload_attributes,
+    calculate_shasta_mix_hash,
     constants::{
         MIN_BLOCK_GAS_LIMIT, PROPOSAL_MAX_BLOB_BYTES,
         calculate_next_block_eip4396_base_fee_from_parent_values, min_base_fee_for_chain,
@@ -455,35 +454,23 @@ impl Proposer {
         // Calculate mix hash.
         let mix_hash = calculate_shasta_mix_hash(parent.header.inner.mix_hash, block_number);
 
-        let payload_attributes = TaikoPayloadAttributes {
-            payload_attributes: EthPayloadAttributes {
-                timestamp,
-                prev_randao: mix_hash,
-                suggested_fee_recipient: self.cfg.l2_suggested_fee_recipient,
-                withdrawals: Some(vec![]),
-                parent_beacon_block_root: None,
-                slot_number: None,
-            },
+        let payload_attributes = build_payload_attributes(PayloadAttributesInput {
+            beneficiary: self.cfg.l2_suggested_fee_recipient,
+            timestamp,
+            mix_hash,
+            gas_limit: parent.header.gas_limit,
+            // Engine mode: let the node select transactions from its mempool.
+            tx_list: None,
+            extra_data: encode_extra_data(basefee_sharing_pctg, proposal_id),
             base_fee_per_gas: base_fee,
-            block_metadata: TaikoBlockMetadata {
-                beneficiary: self.cfg.l2_suggested_fee_recipient,
-                gas_limit: parent.header.gas_limit,
-                timestamp: U256::from(timestamp),
-                mix_hash,
-                tx_list: None, // Engine mode: let node select from mempool
-                extra_data: encode_extra_data(basefee_sharing_pctg, proposal_id),
-            },
-            l1_origin: RpcL1Origin {
-                block_id: U256::from(block_number),
-                l2_block_hash: B256::ZERO,
-                l1_block_height: Some(U256::from(anchor_block_number)),
-                l1_block_hash: Some(l1_block.header.hash),
-                build_payload_args_id: [0; 8],
-                is_forced_inclusion: false,
-                signature: [0; 65],
-            },
+            block_number,
+            l1_block_height: Some(U256::from(anchor_block_number)),
+            l1_block_hash: Some(l1_block.header.hash),
+            is_forced_inclusion: false,
+            signature: [0; 65],
+            parent_beacon_block_root: None,
             anchor_transaction: Some(Bytes::from(anchor_tx.encoded_2718())),
-        };
+        });
 
         Ok((
             payload_attributes,

@@ -1,8 +1,5 @@
 use alethia_reth_consensus::validation::ANCHOR_V3_V4_GAS_LIMIT;
-use alethia_reth_primitives::payload::{
-    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
-};
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy::{
     eips::{BlockNumberOrTag, eip7685::EMPTY_REQUESTS_HASH},
     primitives::{Address, B256, U256, keccak256},
@@ -11,11 +8,11 @@ use alloy::{
 use alloy_consensus::{Header, TxEnvelope};
 use alloy_rpc_types::Transaction as RpcTransaction;
 use alloy_rpc_types_engine::PayloadId;
-use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use protocol::shasta::{
-    PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, encode_extra_data, encode_transactions,
+    PayloadAttributesInput, build_payload_attributes_with_id, calculate_shasta_mix_hash,
+    encode_extra_data, encode_transactions,
     manifest::{BlockManifest, DerivationSourceManifest},
-    payload_id_to_bytes, unzen_active_for_chain_timestamp,
+    unzen_active_for_chain_timestamp,
 };
 
 use crate::{
@@ -512,44 +509,25 @@ where
         // add it back here.
         let gas_limit = block.gas_limit.saturating_add(ANCHOR_V3_V4_GAS_LIMIT);
 
-        let block_metadata = TaikoBlockMetadata {
-            beneficiary: block.coinbase,
-            gas_limit,
-            timestamp: U256::from(block.timestamp),
-            mix_hash,
-            tx_list: Some(tx_list),
-            extra_data,
-        };
-
-        let payload_attributes = EthPayloadAttributes {
-            timestamp: block.timestamp,
-            prev_randao: mix_hash,
-            suggested_fee_recipient: block.coinbase,
-            withdrawals: Some(Vec::new()),
-            parent_beacon_block_root: None,
-            slot_number: None,
-        };
-
-        let l1_origin = RpcL1Origin {
-            block_id: U256::from(block_number),
-            l2_block_hash: B256::ZERO,
-            l1_block_height: Some(U256::from(meta.l1_block_number)),
-            l1_block_hash: Some(l1_block_hash),
-            build_payload_args_id: [0u8; 8],
-            is_forced_inclusion: position.is_forced_inclusion(),
-            signature: [0u8; 65],
-        };
-
-        let mut payload = TaikoPayloadAttributes {
-            payload_attributes,
-            base_fee_per_gas: U256::from(block_base_fee),
-            block_metadata,
-            l1_origin,
-            anchor_transaction: None,
-        };
-
-        let build_payload_args_id = payload_id_taiko(&parent_hash, &payload, PAYLOAD_ID_VERSION_V2);
-        payload.l1_origin.build_payload_args_id = payload_id_to_bytes(build_payload_args_id);
+        let payload = build_payload_attributes_with_id(
+            PayloadAttributesInput {
+                beneficiary: block.coinbase,
+                timestamp: block.timestamp,
+                mix_hash,
+                gas_limit,
+                tx_list: Some(tx_list),
+                extra_data,
+                base_fee_per_gas: U256::from(block_base_fee),
+                block_number,
+                l1_block_height: Some(U256::from(meta.l1_block_number)),
+                l1_block_hash: Some(l1_block_hash),
+                is_forced_inclusion: position.is_forced_inclusion(),
+                signature: [0u8; 65],
+                parent_beacon_block_root: None,
+                anchor_transaction: None,
+            },
+            &parent_hash,
+        );
 
         debug!(
             l1_origin = ?payload.l1_origin,

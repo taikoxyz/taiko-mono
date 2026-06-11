@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
-use alethia_reth_primitives::payload::attributes::{
-    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
-};
+use alethia_reth_primitives::payload::attributes::RpcL1Origin;
 use alloy::{eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall};
 use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_primitives::{Address, B256, Bytes, FixedBytes, U256};
@@ -14,9 +12,9 @@ use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
-use alloy_rpc_types_engine_2::PayloadAttributes;
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
+use protocol::shasta::{PayloadAttributesInput, build_payload_attributes};
 use rpc::{
     client::{Client, ClientWithWallet},
     error::RpcClientError,
@@ -205,41 +203,22 @@ async fn fork_to(
         })
         .unwrap_or_default();
 
-    let payload_attributes = PayloadAttributes {
-        timestamp,
-        prev_randao: mix_digest,
-        suggested_fee_recipient: coinbase,
-        withdrawals: Some(Vec::new()),
-        parent_beacon_block_root: None,
-        slot_number: None,
-    };
-
-    let block_metadata = TaikoBlockMetadata {
+    let taiko_attrs = build_payload_attributes(PayloadAttributesInput {
         beneficiary: coinbase,
-        gas_limit,
-        timestamp: U256::from(timestamp),
+        timestamp,
         mix_hash: mix_digest,
+        gas_limit,
         tx_list: Some(tx_list),
         extra_data,
-    };
-
-    let l1_origin_attrs = RpcL1Origin {
-        block_id: U256::from(block_number),
-        l2_block_hash: B256::ZERO,
+        base_fee_per_gas: U256::from(base_fee),
+        block_number,
         l1_block_height: l1_origin.l1_block_height,
         l1_block_hash: l1_origin.l1_block_hash,
-        build_payload_args_id: [0u8; 8],
         is_forced_inclusion: l1_origin.is_forced_inclusion,
         signature: l1_origin.signature,
-    };
-
-    let taiko_attrs = TaikoPayloadAttributes {
-        payload_attributes,
-        base_fee_per_gas: U256::from(base_fee),
-        block_metadata,
-        l1_origin: l1_origin_attrs,
+        parent_beacon_block_root: None,
         anchor_transaction: None,
-    };
+    });
 
     let forkchoice_state = ForkchoiceState {
         head_block_hash: parent_hash,
