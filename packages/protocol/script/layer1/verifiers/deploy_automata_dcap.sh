@@ -95,7 +95,9 @@ EOF
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 cleanup() {
-    [[ "$KEEP_REPOS" != "true" && -d "$WORK_DIR" ]] && rm -rf "$WORK_DIR"
+    if [[ "$KEEP_REPOS" != "true" && -d "$WORK_DIR" ]]; then
+        rm -rf "$WORK_DIR"
+    fi
 }
 trap cleanup EXIT
 
