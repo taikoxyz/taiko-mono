@@ -13,10 +13,6 @@ pub enum ProtocolError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// RLP encoding/decoding error
-    #[error("RLP error: {0}")]
-    Rlp(String),
-
     /// Compression error
     #[error("compression error: {0}")]
     Compression(String),
@@ -24,10 +20,6 @@ pub enum ProtocolError {
     /// Invalid payload format
     #[error("invalid payload format: {0}")]
     InvalidPayload(String),
-
-    /// Generic error
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
 }
 
 /// Result type alias for fork configuration lookups.

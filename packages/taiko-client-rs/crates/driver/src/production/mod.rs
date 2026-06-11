@@ -3,8 +3,8 @@
 //! Canonical flow: `ProductionInput::L1ProposalLog` is fed by the event scanner and routed to
 //! `CanonicalL1ProductionPath`, which delegates to the derivation pipeline.
 //!
-//! Preconfirmation flow: external components can inject prebuilt payloads via the
-//! `preconfirmation_sender` exposed on `EventSyncer` when `DriverConfig.preconfirmation_enabled` is
+//! Preconfirmation flow: external components inject prebuilt payloads via
+//! `EventSyncer::submit_preconfirmation_payload` when `DriverConfig.preconfirmation_enabled` is
 //! true. These payloads enter the `ProductionRouter` as `ProductionInput::Preconfirmation` and are
 //! applied through `PreconfirmationPath`, which uses the payload attributes path to submit the
 //! payload to the engine.
@@ -91,11 +91,6 @@ impl PreconfPayload {
     /// Access the underlying Taiko payload attributes.
     pub fn payload(&self) -> &TaikoPayloadAttributes {
         &self.payload
-    }
-
-    /// Consume the wrapper and return the underlying payload attributes.
-    pub fn into_payload(self) -> TaikoPayloadAttributes {
-        self.payload
     }
 
     /// Return the target block number for the preconfirmation payload.

@@ -7,10 +7,7 @@ use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
 use thiserror::Error;
 
-use crate::{
-    derivation::{manifest::ManifestFetcherError, pipeline::shasta::validation::ValidationError},
-    sync::error::EngineSubmissionError,
-};
+use crate::{derivation::manifest::ManifestFetcherError, sync::error::EngineSubmissionError};
 use protocol::shasta::AnchorTxConstructorError;
 
 /// Errors emitted by derivation stages.
@@ -22,9 +19,6 @@ pub enum DerivationError {
     /// Failure constructing anchor transactions.
     #[error(transparent)]
     Anchor(#[from] AnchorTxConstructorError),
-    /// Manifest validation failure.
-    #[error(transparent)]
-    Validation(#[from] ValidationError),
     /// Manifest fetch or decode failure.
     #[error(transparent)]
     Manifest(#[from] ManifestFetcherError),

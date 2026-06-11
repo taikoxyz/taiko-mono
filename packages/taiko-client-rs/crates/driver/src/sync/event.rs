@@ -727,11 +727,6 @@ where
         })
     }
 
-    /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
-    pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
-        self.preconf_tx.clone()
-    }
-
     /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
     ///
     /// Readiness is strict and fail-closed:

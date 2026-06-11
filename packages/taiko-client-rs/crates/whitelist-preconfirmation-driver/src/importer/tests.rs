@@ -150,11 +150,11 @@ fn drops_cached_import_errors_for_invalid_block_driver_error() {
 }
 
 #[test]
-fn defers_cached_import_errors_for_missing_parent_driver_error() {
+fn defers_cached_import_errors_for_missing_payload_id_driver_error() {
     let err =
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfInjectionFailed {
             block_number: 42,
-            source: driver::sync::error::EngineSubmissionError::MissingParent,
+            source: driver::sync::error::EngineSubmissionError::MissingPayloadId,
         });
     assert!(!should_drop_cached_import_error(&err));
     assert!(should_defer_cached_import_error(&err));

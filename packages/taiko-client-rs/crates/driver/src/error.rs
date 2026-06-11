@@ -1,6 +1,6 @@
 //! Driver specific error types.
 
-use std::{io, result::Result as StdResult, time::Duration};
+use std::{result::Result as StdResult, time::Duration};
 
 use anyhow::Error as AnyhowError;
 use rpc::error::RpcClientError;
@@ -22,10 +22,6 @@ pub enum DriverError {
     /// Sync subsystem reported a failure.
     #[error(transparent)]
     Sync(#[from] SyncError),
-
-    /// I/O error emitted by the runtime.
-    #[error("io error: {0}")]
-    Io(#[from] io::Error),
 
     /// Preconfirmation support is disabled in the driver configuration.
     #[error("preconfirmation is not enabled in driver config")]

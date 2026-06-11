@@ -1,17 +1,17 @@
 # preconfirmation-driver
 
-A preconfirmation integration library for Taiko, combining P2P network participation with embedded driver communication via channels.
+A preconfirmation integration library for Taiko, combining P2P network participation with event-syncer-backed driver integration.
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Preconfirmation driver node                   │
+│                  Preconfirmation driver runner                  │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌──────────────┐    ┌──────────────────┐    ┌───────────────┐  │
-│  │  Sidecar     │───>│  P2P Client      │───>│  Embedded     │  │
-│  │  JSON-RPC    │    │  (gossip, sync)  │    │  Driver       │  │
+│  │  Sidecar     │───>│  P2P Client      │───>│  Event Syncer │  │
+│  │  JSON-RPC    │    │  (gossip, sync)  │    │  Driver Client│  │
 │  └──────────────┘    └──────────────────┘    └───────────────┘  │
 │        ▲                     │                      │           │
 │        │                     ▼                      ▼           │
@@ -32,11 +32,11 @@ For preconfirmation, event-sync, and custom-table guardrails used across `taiko-
 
 ## Components
 
-### Preconfirmation driver node (`PreconfirmationDriverNode`)
+### Preconfirmation driver runner (`PreconfirmationDriverRunner`)
 
 The main orchestrator that combines:
 
-- **EmbeddedDriverClient**: Channel-based communication with the driver (no serialization overhead)
+- **EventSyncerDriverClient**: Feeds validated preconfirmation payloads into the driver's event syncer
 - **PreconfirmationClient**: P2P network operations (gossip, commitment validation, tip catch-up)
 - **PreconfRpcServer**: Preconfirmation sidecar JSON-RPC API for external clients
 
@@ -44,9 +44,9 @@ The main orchestrator that combines:
 
 Preconfirmation sidecar JSON-RPC methods:
 
-| Method                      | Description                                             |
-| --------------------------- | ------------------------------------------------------- |
-| `preconf_publishCommitment` | Publish a signed preconfirmation commitment (SSZ bytes) |
-| `preconf_publishTxList`     | Publish an encoded transaction list (RLP + zlib)        |
-| `preconf_getStatus`         | Get current node status                                 |
-| `preconf_tip`               | Get preconfirmation tip block number                    |
+| Method                       | Description                                           |
+| ---------------------------- | ----------------------------------------------------- |
+| `preconf_publishBlock`       | Publish a preconfirmation block (commitment + txlist) |
+| `preconf_getStatus`          | Get current node status                               |
+| `preconf_tip`                | Get preconfirmation tip block number                  |
+| `preconf_getPreconfSlotInfo` | Get slot info (signer, window end) for a timestamp    |

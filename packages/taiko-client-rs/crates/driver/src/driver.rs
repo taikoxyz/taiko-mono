@@ -39,9 +39,4 @@ impl Driver {
     pub fn rpc_client(&self) -> &DriverRpcClient {
         &self.rpc
     }
-
-    /// Access configuration.
-    pub fn config(&self) -> &DriverConfig {
-        &self.cfg
-    }
 }

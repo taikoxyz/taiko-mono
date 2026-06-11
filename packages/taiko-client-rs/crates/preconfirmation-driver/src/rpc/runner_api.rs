@@ -14,7 +14,7 @@ use crate::{
     driver_interface::{DriverClient, InboxReader},
     rpc::{
         NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse,
-        node_api::{build_node_status, publish_block_impl},
+        api_helpers::{build_node_status, publish_block_impl},
     },
 };
 
@@ -232,5 +232,28 @@ mod tests {
         assert_eq!(status.event_sync_tip, Some(U256::from(88)));
         assert_eq!(status.preconf_tip, U256::from(100));
         assert!(status.is_synced_with_inbox);
+        assert_eq!(status.peer_id, "test-peer");
+        assert_eq!(status.peer_count, 5);
+    }
+
+    /// Ensure slot info queries surface the lookahead resolver output.
+    #[tokio::test]
+    async fn runner_api_returns_resolver_slot_info() {
+        let (command_tx, mut command_rx) = mpsc::channel(8);
+        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
+
+        let api = RunnerRpcApiImpl::new(
+            command_tx,
+            Arc::new(TestDriver { tip: U256::ZERO }),
+            MockInboxReader::new(0, None, None),
+            Arc::new(MockLookaheadResolver),
+            Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
+            None,
+            "test-peer".to_string(),
+        );
+
+        let slot_info = api.get_preconf_slot_info(U256::from(500)).await.unwrap();
+        assert_eq!(slot_info.signer, alloy_primitives::Address::repeat_byte(0x11));
+        assert_eq!(slot_info.submission_window_end, U256::from(2000));
     }
 }

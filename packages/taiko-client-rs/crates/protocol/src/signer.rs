@@ -1,8 +1,6 @@
 //! Deterministic secp256k1 signer with fixed-k signing support.
 
-use alloy::signers::{Result as SignerResult, Signer, SignerSync};
-use alloy_primitives::{Address, B256, Signature as AlloySignature, U256, hex};
-use async_trait::async_trait;
+use alloy_primitives::{Address, Signature as AlloySignature, U256, hex};
 use k256::{
     AffinePoint, FieldBytes, ProjectivePoint, Scalar,
     elliptic_curve::{
@@ -50,8 +48,6 @@ pub struct FixedKSigner {
     secret_scalar: Scalar,
     /// Ethereum address derived from `secret_scalar`.
     address: Address,
-    /// Optional chain id used by Alloy signer traits.
-    chain_id: Option<u64>,
 }
 
 impl FixedKSigner {
@@ -73,7 +69,7 @@ impl FixedKSigner {
         let address = Self::derive_address(&scalar);
 
         debug!(?address, "initialised fixed-k signer");
-        Ok(Self { secret_scalar: scalar, address, chain_id: None })
+        Ok(Self { secret_scalar: scalar, address })
     }
 
     /// Convenience helper that instantiates the signer using the embedded golden-touch key.
@@ -162,57 +158,12 @@ impl FixedKSigner {
         let encoded = public_key.to_encoded_point(false);
         Address::from_raw_public_key(&encoded.as_bytes()[1..])
     }
-
-    /// Internal helper to implement the `SignerSync` trait.
-    fn sign_hash_internal(&self, hash: &B256) -> Result<AlloySignature, FixedKSignerError> {
-        let mut bytes = [0u8; 32];
-        bytes.copy_from_slice(hash.as_slice());
-        let sig = self.sign_with_predefined_k(&bytes)?;
-        debug!(address = ?self.address, "produced signature for hash");
-        Ok(sig.signature)
-    }
-}
-
-#[async_trait]
-impl Signer for FixedKSigner {
-    /// Asynchronously sign a 32-byte hash.
-    async fn sign_hash(&self, hash: &B256) -> SignerResult<AlloySignature> {
-        SignerSync::sign_hash_sync(self, hash)
-    }
-
-    /// Return the signer's Ethereum address.
-    fn address(&self) -> Address {
-        self.address
-    }
-
-    /// Return the signer's configured chain ID, if any.
-    fn chain_id(&self) -> Option<u64> {
-        self.chain_id
-    }
-
-    /// Set or clear the signer's chain ID.
-    fn set_chain_id(&mut self, chain_id: Option<u64>) {
-        self.chain_id = chain_id;
-    }
-}
-
-impl SignerSync for FixedKSigner {
-    /// Synchronously sign a 32-byte hash.
-    fn sign_hash_sync(&self, hash: &B256) -> SignerResult<AlloySignature> {
-        self.sign_hash_internal(hash).map_err(alloy::signers::Error::other)
-    }
-
-    /// Return the signer's Ethereum address.
-    fn chain_id_sync(&self) -> Option<u64> {
-        self.chain_id
-    }
 }
 
 #[cfg(all(test, feature = "net"))]
 mod tests {
     use super::*;
     use k256::Scalar;
-    use tokio::runtime::Runtime;
 
     fn expected_signature(r_hex: &str, s_hex: &str, v: u8) -> (AlloySignature, u8) {
         let r_bytes = hex::decode_to_array::<_, 32>(r_hex).unwrap();
@@ -270,20 +221,5 @@ mod tests {
         let matches_k1 = k1_sig.as_ref().map(|sig| sig.signature == actual).unwrap_or(false);
         let matches_k2 = k2_sig.signature == actual;
         assert!(matches_k1 || matches_k2, "predefined-k result matches neither k=1 nor k=2 output");
-    }
-
-    #[test]
-    fn signer_trait_impls_sign_hashed_payload() {
-        let signer = FixedKSigner::golden_touch().expect("golden touch key");
-        let payload = hex::decode_to_array::<_, 32>(
-            "0x44943399d1507f3ce7525e9be2f987c3db9136dc759cb7f92f742154196868b9",
-        )
-        .unwrap();
-        let hash = B256::from(payload);
-        let expected = SignerSync::sign_hash_sync(&signer, &hash).expect("sync sign");
-
-        let rt = Runtime::new().expect("runtime");
-        let async_sig = rt.block_on(signer.sign_hash(&hash)).expect("async sign");
-        assert_eq!(async_sig, expected);
     }
 }
