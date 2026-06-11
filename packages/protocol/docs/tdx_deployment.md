@@ -65,15 +65,20 @@ layer and checks PCRs.
 
 ## When do I need to deploy Automata DCAP myself?
 
-| Network                       | Automata DCAP `AutomataDcapAttestationFee` | Action                                           |
-| ----------------------------- | ------------------------------------------ | ------------------------------------------------ |
-| Mainnet / Hoodi / Known chain | Probably deployed                          | Use existing — only deploy the TDX verifier      |
-| Local Anvil / custom L1       | Nothing deployed                           | Deploy Automata + PCCS extras + the TDX verifier |
+| Network                 | Automata DCAP `AutomataDcapAttestationFee`       | Action                                           |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| Ethereum Hoodi          | `0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F`     | Use existing — only deploy the TDX verifier      |
+| Ethereum mainnet        | Not listed in Automata DCAP v1.1 deployment info | Confirm the v1.1 entrypoint before use           |
+| Local Anvil / custom L1 | Nothing deployed                                 | Deploy Automata + PCCS extras + the TDX verifier |
 
 The chain-wide infrastructure (DCAP + PCCS) only has to be deployed **once per L1**, and is
 shared across both verifier variants. Once present, multiple Taiko / Surge instances on that
 L1 can each deploy their own `GcpTdxVerifier` / `AzureTdxVerifier` and reuse the shared DCAP +
 PCCS.
+
+Use Automata's v1.1 deployment info as the source of truth for predeployed DCAP addresses.
+The Hoodi entry above was also checked against a live TDX bootstrap quote via
+`verifyAndAttestOnChain`.
 
 ## Scripts
 
@@ -196,7 +201,7 @@ and `metadata` (the Azure TDX attestation document).
 
 Two paths, depending on whether the L1 already has Automata DCAP deployed.
 
-### Path A — L1 already has Automata DCAP (mainnet, Hoodi, surge devnet)
+### Path A — L1 already has Automata DCAP (Hoodi / supported known chain)
 
 Only deploy the TDX verifier. Set `VERIFIER_KIND` for your prover platform
 (`tdx` for GCP/bare-metal — the default — or `azure`):
@@ -208,7 +213,7 @@ PRIVATE_KEY=0x...                       \
 FORK_URL=https://<L1 RPC>               \
 VERIFIER_KIND=tdx                       \
 CONTRACT_OWNER=0x...                    \
-AUTOMATA_DCAP_ATTESTATION=0x8d7C95...   \
+AUTOMATA_DCAP_ATTESTATION=0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F \
 TAIKO_CHAIN_ID=167000                   \
 BROADCAST=true                          \
 ./script/layer1/verifiers/deploy_tdx_verifier.sh
