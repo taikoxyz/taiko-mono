@@ -7,9 +7,6 @@ use prometheus::{Gauge, Histogram, IntCounter, core::Collector};
 const DURATION_SECONDS_BUCKETS: &[f64] =
     &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
 
-/// Histogram buckets for retry-attempt counts.
-const RETRY_ATTEMPT_BUCKETS: &[f64] = &[0.0, 1.0, 2.0, 3.0, 5.0, 8.0, 13.0, 21.0];
-
 /// Metric namespace for the driver.
 pub struct DriverMetrics;
 
@@ -60,8 +57,6 @@ impl DriverMetrics {
         "driver_preconf_injection_duration_seconds";
     /// Gauge tracking buffered preconfirmation jobs awaiting processing.
     pub const PRECONF_QUEUE_DEPTH: &'static str = "driver_preconf_queue_depth";
-    /// Histogram tracking retry attempts per preconfirmation payload.
-    pub const PRECONF_RETRY_ATTEMPTS: &'static str = "driver_preconf_retry_attempts";
     /// Gauge tracking the last canonical proposal id from L1 events.
     pub const EVENT_LAST_CANONICAL_PROPOSAL_ID: &'static str =
         "driver_event_last_canonical_proposal_id";
@@ -88,9 +83,6 @@ impl DriverMetrics {
     /// Counter for stale preconfirmation payloads dropped in ingress processing.
     pub const PRECONF_STALE_DROPPED_INGRESS_TOTAL: &'static str =
         "driver_preconf_stale_dropped_ingress_total";
-    /// Counter for stale preconfirmation payloads dropped in the production path.
-    pub const PRECONF_STALE_DROPPED_PRODUCTION_TOTAL: &'static str =
-        "driver_preconf_stale_dropped_production_total";
     /// Histogram for parent hash lookup duration.
     pub const PRECONF_PARENT_HASH_LOOKUP_DURATION_SECONDS: &'static str =
         "driver_preconf_parent_hash_lookup_duration_seconds";
@@ -359,10 +351,6 @@ impl DriverMetricHandles {
                     "Stale preconfirmation payloads dropped in the ingress loop",
                 ),
                 counter(
-                    DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL,
-                    "Stale preconfirmation payloads dropped in the production path",
-                ),
-                counter(
                     DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_FAILURES_TOTAL,
                     "Parent hash lookup failures during preconfirmation",
                 ),
@@ -402,11 +390,6 @@ impl DriverMetricHandles {
                     DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS,
                     "Wall-clock time to process a preconfirmation payload",
                     DURATION_SECONDS_BUCKETS,
-                ),
-                histogram(
-                    DriverMetrics::PRECONF_RETRY_ATTEMPTS,
-                    "Retry attempts per preconfirmation payload",
-                    RETRY_ATTEMPT_BUCKETS,
                 ),
                 histogram(
                     DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_DURATION_SECONDS,
@@ -485,11 +468,8 @@ mod tests {
     fn stale_drop_metrics_are_split_by_location() {
         let submit = DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL;
         let ingress = DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL;
-        let production = DriverMetrics::PRECONF_STALE_DROPPED_PRODUCTION_TOTAL;
 
         assert_ne!(submit, ingress, "submit and ingress stale-drop metrics must differ");
-        assert_ne!(submit, production, "submit and production stale-drop metrics must differ");
-        assert_ne!(ingress, production, "ingress and production stale-drop metrics must differ");
     }
 
     #[test]

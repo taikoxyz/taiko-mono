@@ -4,6 +4,89 @@ use alloy_primitives::Address;
 use arc_swap::ArcSwap;
 use tracing::warn;
 
+/// Generic, timestamp-ordered history of payloads of type `T`, pruned to a lookback window while
+/// retaining the last pre-cutoff entry as a baseline. Shared by the blacklist and fallback
+/// timelines, which differ only in their payload type and lookup semantics.
+#[derive(Debug, Clone)]
+struct Timeline<T> {
+    /// Timestamp-sorted `(at, payload)` pairs; the first entry acts as the baseline for lookups.
+    events: Vec<(u64, T)>,
+}
+
+impl<T> Default for Timeline<T> {
+    /// Create an empty timeline.
+    fn default() -> Self {
+        Self { events: Vec::new() }
+    }
+}
+
+impl<T: Clone> Timeline<T> {
+    /// Insert or replace the payload at `at`, keeping events ordered by timestamp. When an event
+    /// already exists at `at`, `on_replace` is invoked with the previous payload before it is
+    /// overwritten (used by the blacklist timeline to warn on conflicting flags).
+    fn apply(&mut self, at: u64, payload: T, on_replace: impl FnOnce(&T)) {
+        let idx = self.events.partition_point(|(event_at, _)| *event_at <= at);
+        if idx > 0 && self.events[idx - 1].0 == at {
+            on_replace(&self.events[idx - 1].1);
+            self.events[idx - 1] = (at, payload);
+        } else {
+            self.events.insert(idx, (at, payload));
+        }
+    }
+
+    /// Prune history older than `cutoff`, retaining the last event at or before cutoff to preserve
+    /// the baseline state for subsequent queries.
+    fn prune_before(&mut self, cutoff: u64) {
+        if self.events.is_empty() {
+            return;
+        }
+
+        let keep_from = self.events.partition_point(|(event_at, _)| *event_at < cutoff);
+        if keep_from == 0 {
+            return;
+        }
+
+        // Preserve the last pre-cutoff event as the new baseline.
+        let last_before = self.events[keep_from - 1].clone();
+        let baseline_idx = keep_from - 1;
+        // Drop everything earlier than the baseline event.
+        self.events.drain(..baseline_idx);
+        if let Some(first) = self.events.get_mut(0) {
+            *first = last_before;
+        }
+    }
+
+    /// Return the payload of the last event at or before `ts`, or `None` if no such event exists.
+    fn value_at(&self, ts: u64) -> Option<&T> {
+        if self.events.is_empty() {
+            return None;
+        }
+
+        let idx = self.events.partition_point(|(event_at, _)| *event_at <= ts);
+        if idx == 0 {
+            return None;
+        }
+        Some(&self.events[idx - 1].1)
+    }
+
+    /// Like [`value_at`](Self::value_at) but, when no event precedes `ts`, falls back to the
+    /// earliest (baseline) event. Returns `None` only when the timeline is empty.
+    fn value_at_or_baseline(&self, ts: u64) -> Option<&T> {
+        if self.events.is_empty() {
+            return None;
+        }
+
+        let idx = self.events.partition_point(|(event_at, _)| *event_at <= ts);
+        let slot = if idx == 0 { 0 } else { idx - 1 };
+        Some(&self.events[slot].1)
+    }
+
+    /// Timestamp of the earliest event, if any.
+    fn earliest_at(&self) -> Option<u64> {
+        self.events.first().map(|(at, _)| *at)
+    }
+}
+
 /// Blacklist status change for a single operator at a specific timestamp.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlacklistFlag {
@@ -26,59 +109,29 @@ pub struct BlacklistEvent {
 /// allowed lookback window while preserving the last pre-cutoff state for accurate queries.
 #[derive(Debug, Default, Clone)]
 pub struct BlacklistTimeline {
-    /// Timestamp-sorted blacklist events for one registration root.
-    pub(crate) events: Vec<BlacklistEvent>,
+    /// Timestamp-sorted blacklist flags for one registration root.
+    inner: Timeline<BlacklistFlag>,
 }
 
 impl BlacklistTimeline {
     /// Apply (insert or replace) a blacklist event, keeping events ordered by timestamp.
     pub fn apply(&mut self, event: BlacklistEvent) {
-        let idx = self.events.partition_point(|e| e.at <= event.at);
-        if idx > 0 && self.events[idx - 1].at == event.at {
-            if self.events[idx - 1].flag != event.flag {
-                warn!(at = event.at, ?event.flag, prev = ?self.events[idx - 1].flag, "duplicate blacklist timestamp, overriding");
+        self.inner.apply(event.at, event.flag, |prev| {
+            if *prev != event.flag {
+                warn!(at = event.at, ?event.flag, prev = ?prev, "duplicate blacklist timestamp, overriding");
             }
-            self.events[idx - 1] = event;
-        } else {
-            self.events.insert(idx, event);
-        }
+        });
     }
 
     /// Prune history older than `cutoff`, retaining the last event at or before cutoff to preserve
     /// the baseline state for subsequent queries.
     pub fn prune_before(&mut self, cutoff: u64) {
-        if self.events.is_empty() {
-            return;
-        }
-
-        let keep_from = self.events.partition_point(|e| e.at < cutoff);
-        if keep_from == 0 {
-            return;
-        }
-
-        // Preserve the last pre-cutoff event as the new baseline.
-        let last_before = self.events[keep_from - 1];
-        let baseline_idx = keep_from - 1;
-        // Drop everything earlier than the baseline event.
-        self.events.drain(..baseline_idx);
-        if let Some(first) = self.events.get_mut(0) {
-            *first = last_before;
-        }
+        self.inner.prune_before(cutoff);
     }
 
     /// Return blacklist state at the supplied timestamp.
     pub fn was_blacklisted_at(&self, ts: u64) -> bool {
-        if self.events.is_empty() {
-            return false;
-        }
-
-        let idx = self.events.partition_point(|e| e.at <= ts);
-        if idx == 0 {
-            return false;
-        }
-
-        let evt = self.events[idx - 1];
-        matches!(evt.flag, BlacklistFlag::Listed)
+        matches!(self.inner.value_at(ts), Some(BlacklistFlag::Listed))
     }
 }
 
@@ -95,19 +148,14 @@ pub struct FallbackEvent {
 /// resolver's lookback window while retaining the last pre-cutoff state as baseline.
 #[derive(Debug, Default, Clone)]
 pub struct FallbackTimeline {
-    /// Ordered fallback changes; first entry is treated as baseline for lookups.
-    events: Vec<FallbackEvent>,
+    /// Ordered fallback operators; the first entry is treated as baseline for lookups.
+    inner: Timeline<Address>,
 }
 
 impl FallbackTimeline {
     /// Insert or replace a fallback event, preserving timestamp order.
     pub fn apply(&mut self, event: FallbackEvent) {
-        let idx = self.events.partition_point(|e| e.at <= event.at);
-        if idx > 0 && self.events[idx - 1].at == event.at {
-            self.events[idx - 1] = event;
-        } else {
-            self.events.insert(idx, event);
-        }
+        self.inner.apply(event.at, event.operator, |_| {});
     }
 
     /// Ensure a baseline exists at or before `at`; if none, insert the provided operator at `at`.
@@ -119,32 +167,17 @@ impl FallbackTimeline {
 
     /// Remove history older than `cutoff`, keeping the last pre-cutoff entry as the new baseline.
     pub fn prune_before(&mut self, cutoff: u64) {
-        if self.events.is_empty() {
-            return;
-        }
-
-        let keep_from = self.events.partition_point(|e| e.at < cutoff);
-        if keep_from == 0 {
-            return;
-        }
-
-        let last_before = self.events[keep_from - 1];
-        let baseline_idx = keep_from - 1;
-        self.events.drain(..baseline_idx);
-        if let Some(first) = self.events.get_mut(0) {
-            *first = last_before;
-        }
+        self.inner.prune_before(cutoff);
     }
 
     /// Return the active fallback operator at `ts`, if any history exists.
     pub fn operator_at(&self, ts: u64) -> Option<Address> {
-        if self.events.is_empty() {
-            return None;
-        }
+        self.inner.value_at_or_baseline(ts).copied()
+    }
 
-        let idx = self.events.partition_point(|e| e.at <= ts);
-        let evt = if idx == 0 { self.events[0] } else { self.events[idx - 1] };
-        Some(evt.operator)
+    /// Timestamp of the earliest recorded fallback event, if any.
+    fn earliest_at(&self) -> Option<u64> {
+        self.inner.earliest_at()
     }
 }
 
@@ -177,8 +210,8 @@ impl FallbackTimelineStore {
     pub fn ensure_baseline(&self, at: u64, operator: Address) {
         // Fast-path read: skip COW if an event at or before `at` already exists.
         if self.operator_at(at).is_some() {
-            let earliest = self.inner.load_full().events.first().copied();
-            if earliest.is_some_and(|evt| evt.at <= at) {
+            let earliest = self.inner.load_full().earliest_at();
+            if earliest.is_some_and(|earliest_at| earliest_at <= at) {
                 return;
             }
         }

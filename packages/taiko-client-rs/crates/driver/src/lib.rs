@@ -17,6 +17,8 @@ pub mod driver;
 pub mod error;
 /// Metrics emitted by the driver.
 pub mod metrics;
+/// Shared preconfirmation ingress sync helper for preconfirmation drivers.
+pub mod preconf_ingress_sync;
 /// Production path routing and payload wrappers.
 pub mod production;
 /// Synchronization stages and event scanning.

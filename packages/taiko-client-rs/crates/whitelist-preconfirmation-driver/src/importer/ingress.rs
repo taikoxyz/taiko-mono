@@ -257,48 +257,52 @@ where
         }))
     }
 
-    /// Publish a block-hash request on `requestPreconfBlocks`.
-    pub(super) async fn publish_unsafe_request(&self, hash: B256) {
-        if let Err(err) =
-            self.network_command_tx.send(NetworkCommand::PublishUnsafeRequest { hash }).await
-        {
+    /// Queue an outbound network command and record the publish-queue outcome.
+    ///
+    /// `topic_label` identifies the metric series, `hash` is included in the failure
+    /// log to identify the affected block, and `failure_message` is the static log
+    /// message emitted when queuing fails.
+    async fn queue_network_command(
+        &self,
+        command: NetworkCommand,
+        topic_label: &'static str,
+        hash: B256,
+        failure_message: &'static str,
+    ) {
+        if let Err(err) = self.network_command_tx.send(command).await {
             WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
-                "request_preconf_blocks",
+                topic_label,
                 "queue_failed",
             );
-            warn!(
-                hash = %hash,
-                error = %err,
-                "failed to queue whitelist preconfirmation request publish command"
-            );
+            warn!(hash = %hash, error = %err, "{failure_message}");
         } else {
             WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
-                "request_preconf_blocks",
+                topic_label,
                 "queued",
             );
         }
     }
 
+    /// Publish a block-hash request on `requestPreconfBlocks`.
+    pub(super) async fn publish_unsafe_request(&self, hash: B256) {
+        self.queue_network_command(
+            NetworkCommand::PublishUnsafeRequest { hash },
+            "request_preconf_blocks",
+            hash,
+            "failed to queue whitelist preconfirmation request publish command",
+        )
+        .await;
+    }
+
     /// Publish an envelope response on `responsePreconfBlocks`.
     async fn publish_unsafe_response(&self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
         let hash = envelope.execution_payload.block_hash;
-        if let Err(err) =
-            self.network_command_tx.send(NetworkCommand::PublishUnsafeResponse { envelope }).await
-        {
-            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
-                "response_preconf_blocks",
-                "queue_failed",
-            );
-            warn!(
-                hash = %hash,
-                error = %err,
-                "failed to queue whitelist preconfirmation response publish command"
-            );
-        } else {
-            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
-                "response_preconf_blocks",
-                "queued",
-            );
-        }
+        self.queue_network_command(
+            NetworkCommand::PublishUnsafeResponse { envelope },
+            "response_preconf_blocks",
+            hash,
+            "failed to queue whitelist preconfirmation response publish command",
+        )
+        .await;
     }
 }

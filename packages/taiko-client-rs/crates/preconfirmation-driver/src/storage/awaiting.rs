@@ -7,8 +7,6 @@ use dashmap::DashMap;
 use alloy_primitives::{B256, U256};
 use preconfirmation_types::{Bytes32, SignedCommitment, uint256_to_u256};
 
-use crate::config::DEFAULT_RETENTION_LIMIT;
-
 /// Buffer for commitments awaiting their txlist payload.
 pub(crate) struct CommitmentsAwaitingTxList {
     /// Pending commitments grouped by their txlist hash.
@@ -20,11 +18,6 @@ pub(crate) struct CommitmentsAwaitingTxList {
 }
 
 impl CommitmentsAwaitingTxList {
-    /// Create a buffer with the default retention limit.
-    pub fn new() -> Self {
-        Self::with_retention_limit(DEFAULT_RETENTION_LIMIT)
-    }
-
     /// Create a buffer with a custom retention limit.
     pub fn with_retention_limit(retention_limit: usize) -> Self {
         Self { by_txlist_hash: DashMap::new(), count: AtomicUsize::new(0), retention_limit }
@@ -86,12 +79,5 @@ impl CommitmentsAwaitingTxList {
                 self.by_txlist_hash.remove(&key);
             }
         }
-    }
-}
-
-impl Default for CommitmentsAwaitingTxList {
-    /// Build a buffer with the default retention limit.
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -110,57 +110,51 @@ where
         importer
     }
 
+    /// Record an importer event outcome metric based on a handler result.
+    ///
+    /// Increments `event_type` with `ok_label` on success or `fail_label` on error.
+    fn record_event_result(
+        event_type: &str,
+        result: &Result<()>,
+        ok_label: &str,
+        fail_label: &str,
+    ) {
+        let label = if result.is_ok() { ok_label } else { fail_label };
+        WhitelistPreconfirmationDriverMetrics::inc_importer_event(event_type, label);
+    }
+
     /// Handle one network event.
     pub(crate) async fn handle_event(&mut self, event: NetworkEvent) -> Result<()> {
         match event {
             NetworkEvent::UnsafePayload { from, payload } => {
-                if let Err(err) = self.handle_unsafe_payload(payload).await {
+                let result = self.handle_unsafe_payload(payload).await;
+                if let Err(err) = &result {
                     warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation payload");
-                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                        "unsafe_payload",
-                        "dropped",
-                    );
-                } else {
-                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                        "unsafe_payload",
-                        "accepted",
-                    );
                 }
+                Self::record_event_result("unsafe_payload", &result, "accepted", "dropped");
             }
             NetworkEvent::UnsafeResponse { from, envelope } => {
-                if let Err(err) = self.handle_unsafe_response(envelope).await {
+                let result = self.handle_unsafe_response(envelope).await;
+                if let Err(err) = &result {
                     warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation response");
-                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                        "unsafe_response",
-                        "dropped",
-                    );
-                } else {
-                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                        "unsafe_response",
-                        "accepted",
-                    );
                 }
+                Self::record_event_result("unsafe_response", &result, "accepted", "dropped");
             }
             NetworkEvent::UnsafeRequest { from, hash } => {
-                if let Err(err) = self.handle_unsafe_request(hash).await {
+                let result = self.handle_unsafe_request(hash).await;
+                if let Err(err) = &result {
                     warn!(
                         peer = %from,
                         hash = %hash,
                         error = %err,
                         "failed to handle whitelist preconfirmation request"
                     );
-                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                        "unsafe_request",
-                        "error",
-                    );
-                } else {
-                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
-                        "unsafe_request",
-                        "handled",
-                    );
                 }
+                Self::record_event_result("unsafe_request", &result, "handled", "error");
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
+                // Asymmetric: the success metric is recorded inside `handle_eos_request`,
+                // so only the error case is counted here.
                 if let Err(err) = self.handle_eos_request(epoch).await {
                     warn!(
                         peer = %from,

@@ -16,9 +16,6 @@ pub use shasta::ShastaSourceManifestFetcher;
 /// Errors that can occur while fetching or decoding manifests.
 #[derive(Debug, Error)]
 pub enum ManifestFetcherError {
-    /// Index out of bounds when selecting a derivation source.
-    #[error("invalid derivation source index {0}")]
-    InvalidSourceIndex(usize),
     /// No blob hashes were provided for retrieval.
     #[error("no blob hashes provided for manifest fetch")]
     EmptyBlobHashes,

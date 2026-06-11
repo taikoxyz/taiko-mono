@@ -84,11 +84,11 @@ impl<M: TxManager> ProposalTxManager<M> {
 /// Translate a proposer-owned built proposal transaction into a tx-manager candidate.
 #[must_use]
 fn proposal_candidate(built_tx: BuiltProposalTx) -> TxCandidate {
-    let (to, tx_data, gas_limit, blob_payload) = built_tx.into_parts();
+    let (to, tx_data, gas_limit, sidecar) = built_tx.into_parts();
 
     TxCandidate {
         tx_data,
-        blobs: Arc::new(blob_payload.into_blobs()),
+        blobs: Arc::new(sidecar.blobs),
         to: Some(to),
         // tx-manager treats 0 as "auto-estimate gas" and will replace it
         // with `max(estimate_gas, gas_limit_floor)` during tx crafting.
@@ -117,9 +117,7 @@ mod tests {
     use tokio::sync::oneshot;
 
     use crate::{
-        config::ProposerConfigs,
-        error::ProposerError,
-        transaction_builder::{BuiltProposalTx, ProposalBlobPayload},
+        config::ProposerConfigs, error::ProposerError, transaction_builder::BuiltProposalTx,
     };
 
     use super::{ProposalTxManager, proposal_candidate};
@@ -152,12 +150,9 @@ mod tests {
     fn proposal_candidate_carries_call_data_to_inbox_destination() {
         let expected_to = Address::repeat_byte(0x11);
         let expected_data = Bytes::from_static(b"inbox-propose-call");
-        let built = BuiltProposalTx::new(
-            expected_to,
-            expected_data.clone(),
-            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO]),
-        )
-        .with_gas_limit(210_000);
+        let built =
+            BuiltProposalTx::from_test_blobs(expected_to, expected_data.clone(), vec![Blob::ZERO])
+                .with_gas_limit(210_000);
 
         let candidate = proposal_candidate(built);
 
@@ -168,17 +163,16 @@ mod tests {
 
     #[test]
     fn proposal_candidate_preserves_blob_payload() {
-        let blob_payload =
-            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO, Blob::repeat_byte(0x22)]);
-        let built = BuiltProposalTx::new(
+        let built = BuiltProposalTx::from_test_blobs(
             Address::repeat_byte(0x22),
             Bytes::from_static(b"blobbed-proposal"),
-            blob_payload.clone(),
+            vec![Blob::ZERO, Blob::repeat_byte(0x22)],
         );
+        let expected_blobs = built.blobs().to_vec();
 
         let candidate = proposal_candidate(built);
 
-        assert_eq!(candidate.blobs.as_ref(), blob_payload.blobs());
+        assert_eq!(candidate.blobs.as_ref(), &expected_blobs);
         assert_eq!(candidate.gas_limit, 0);
     }
 
@@ -357,7 +351,7 @@ mod tests {
         assert_eq!(candidate.tx_data, Bytes::from_static(b"propose-call"));
         assert_eq!(candidate.gas_limit, 210_000);
         assert_eq!(candidate.value, alloy::primitives::U256::ZERO);
-        assert_eq!(candidate.blobs.as_ref(), proposal.blob_payload().blobs());
+        assert_eq!(candidate.blobs.as_ref(), proposal.blobs());
     }
 
     fn proposer_config_for_tx_manager_mapping() -> ProposerConfigs {
@@ -386,10 +380,10 @@ mod tests {
     }
 
     fn sample_built_proposal() -> BuiltProposalTx {
-        BuiltProposalTx::new(
+        BuiltProposalTx::from_test_blobs(
             Address::repeat_byte(0x33),
             Bytes::from_static(b"propose-call"),
-            ProposalBlobPayload::from_test_blobs(vec![Blob::ZERO]),
+            vec![Blob::ZERO],
         )
         .with_gas_limit(210_000)
     }

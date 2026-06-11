@@ -97,11 +97,6 @@ fn should_probe_confirmed_sync(
     preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
-/// Resolve whether confirmed-sync readiness should open ingress.
-fn resolve_confirmed_sync_ready(confirmed_sync_snapshot: ConfirmedSyncSnapshot) -> bool {
-    confirmed_sync_snapshot.is_ready()
-}
-
 /// Resolve confirmed-sync probe readiness from a probe result.
 ///
 /// Any probe error keeps ingress closed (fail-closed) until a later successful probe.
@@ -109,7 +104,7 @@ fn resolve_confirmed_sync_probe(
     confirmed_sync_probe: Result<ConfirmedSyncSnapshot, SyncError>,
 ) -> bool {
     match confirmed_sync_probe {
-        Ok(confirmed_sync_snapshot) => resolve_confirmed_sync_ready(confirmed_sync_snapshot),
+        Ok(snap) => snap.is_ready(),
         Err(_) => false,
     }
 }
@@ -1933,12 +1928,6 @@ mod tests {
     fn confirmed_sync_ready_is_true_when_head_reaches_target_block() {
         assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(12)).is_ready());
         assert!(ConfirmedSyncSnapshot::new(7, Some(12), Some(15)).is_ready());
-    }
-
-    #[test]
-    fn confirmed_sync_ready_reflects_snapshot_readiness() {
-        let ready = resolve_confirmed_sync_ready(ConfirmedSyncSnapshot::new(0, None, None));
-        assert!(ready, "resolved readiness should mirror snapshot readiness");
     }
 
     #[test]

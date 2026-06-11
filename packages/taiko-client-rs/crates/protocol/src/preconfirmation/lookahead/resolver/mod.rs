@@ -48,10 +48,3 @@ pub trait WhitelistClient: Send + Sync {
     /// Operator for the next epoch at the given block number.
     async fn next_operator(&self, block_number: u64) -> Result<Address>;
 }
-
-/// Abstraction over lookahead store contract queries.
-#[async_trait]
-pub trait LookaheadStoreClient: Send + Sync {
-    /// Address of the lookahead store contract.
-    fn address(&self) -> Address;
-}

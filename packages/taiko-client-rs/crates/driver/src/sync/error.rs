@@ -32,15 +32,6 @@ pub enum SyncError {
         error: AnyhowError,
     },
 
-    /// Beacon sync: checkpoint head behind local head.
-    #[error("checkpoint head {checkpoint} is behind local head {local}")]
-    CheckpointBehind {
-        /// Checkpoint-synced head block number.
-        checkpoint: u64,
-        /// Local execution head block number.
-        local: u64,
-    },
-
     /// Event sync: checkpoint mode enabled, but beacon sync did not publish a resume head.
     #[error("checkpoint mode enabled but no checkpoint resume head is available")]
     MissingCheckpointResumeHead,

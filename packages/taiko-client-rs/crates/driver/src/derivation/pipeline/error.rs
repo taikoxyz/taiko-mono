@@ -1,6 +1,5 @@
 use alloy::{
     contract::Error as ContractError,
-    primitives::B256,
     sol_types::Error as SolTypeError,
     transports::{RpcError, TransportErrorKind},
 };
@@ -32,9 +31,6 @@ pub enum DerivationError {
     /// The required L2 block has not been produced yet.
     #[error("l2 block {0} not yet available")]
     BlockUnavailable(u64),
-    /// Missing metadata required to finalise the proposal.
-    #[error("proposal metadata incomplete for id {0}")]
-    IncompleteMetadata(u64),
     /// Failure decoding the L1 proposal event payload.
     #[error(transparent)]
     ProposalDecode(#[from] SolTypeError),
@@ -50,45 +46,12 @@ pub enum DerivationError {
     /// Failure while materialising payloads via the execution engine.
     #[error(transparent)]
     Engine(#[from] EngineSubmissionError),
-    /// Unable to fetch the latest L2 parent block.
-    #[error("latest L2 block not found")]
-    LatestL2BlockMissing,
-    /// Proposal was missing a transaction hash in the log.
-    #[error("missing transaction hash for proposal {proposal_id}")]
-    MissingProposeTxHash {
-        /// Proposal id whose log was missing a transaction hash.
-        proposal_id: u64,
-    },
     /// Proposal log was missing the emitting L1 block hash.
     #[error("proposal log missing block hash")]
     MissingL1BlockHash,
     /// Proposal log was missing the emitting L1 block number.
     #[error("proposal log missing block number")]
     MissingL1BlockNumber,
-    /// The propose transaction referenced by the log could not be found.
-    #[error("propose transaction {tx_hash:?} for proposal {proposal_id} not found")]
-    MissingProposeTransaction {
-        /// Proposal id associated with the missing transaction.
-        proposal_id: u64,
-        /// Transaction hash referenced by the proposal log.
-        tx_hash: B256,
-    },
-    /// Failed to decode the propose transaction input.
-    #[error("failed to decode propose input for proposal {proposal_id}: {reason}")]
-    ProposeInputDecode {
-        /// Proposal id whose input decoding failed.
-        proposal_id: u64,
-        /// Decode failure detail.
-        reason: String,
-    },
-    /// Failed to fetch the propose transaction from L1.
-    #[error("failed to fetch propose transaction for proposal {proposal_id}: {reason}")]
-    ProposeTransactionQuery {
-        /// Proposal id being resolved.
-        proposal_id: u64,
-        /// RPC failure detail.
-        reason: String,
-    },
     /// Failed to query the anchor block fields.
     #[error("failed to fetch anchor block {block_number}: {reason}")]
     AnchorBlockQuery {
@@ -102,12 +65,6 @@ pub enum DerivationError {
     AnchorBlockMissing {
         /// Missing anchor block number.
         block_number: u64,
-    },
-    /// Failed to convert an execution payload into a header.
-    #[error("execution payload header conversion failed: {reason}")]
-    HeaderConversion {
-        /// Header-conversion failure detail.
-        reason: String,
     },
     /// Execution engine returned an unexpected block number.
     #[error("engine returned block {actual} but derivation expected {expected}")]

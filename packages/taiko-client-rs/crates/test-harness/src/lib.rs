@@ -11,7 +11,6 @@
 //! - [`blocks::fetch_block_by_number`]: Fetches a block with full transactions.
 //! - [`blocks::wait_for_block`]: Polls until a block appears.
 //! - [`blocks::wait_for_block_or_loop_error`]: Waits for block with event loop monitoring.
-//! - [`blocks::wait_for_block_on_both`]: Waits for block on two providers.
 //!
 //! ## Transaction Utilities
 //! - [`transactions::TransferPayload`]: A signed transfer for assertions.
@@ -38,15 +37,13 @@ pub mod transactions;
 pub mod preconfirmation;
 
 pub use beacon_stub::BeaconStubServer;
-pub use blocks::{
-    fetch_block_by_number, wait_for_block, wait_for_block_on_both, wait_for_block_or_loop_error,
-};
+pub use blocks::{fetch_block_by_number, wait_for_block, wait_for_block_or_loop_error};
 pub use helper::{PRIORITY_FEE_GWEI, evm_mine, mine_l1_block};
 pub use shasta::{env::ShastaEnv, helpers::verify_anchor_block};
 pub use transactions::{
     PreconfTxList, TransferPayload, build_anchor_tx_bytes, build_preconf_txlist,
-    build_preconf_txlist_with_transfers, build_signed_transfer, build_test_transfers,
-    compute_next_block_base_fee, ensure_test_account_funded,
+    build_signed_transfer, build_test_transfers, compute_next_block_base_fee,
+    ensure_test_account_funded,
 };
 
 /// Initialise tracing for tests using a single global subscriber.

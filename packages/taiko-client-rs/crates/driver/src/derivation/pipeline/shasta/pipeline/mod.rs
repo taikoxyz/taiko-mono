@@ -308,6 +308,18 @@ where
             .ok_or(DerivationError::BlockUnavailable(block_number))
     }
 
+    /// Build a proposal bundle from a decoded event, resolving the last finalized proposal id.
+    async fn event_to_manifest(
+        &self,
+        event: &ProposedEventContext,
+    ) -> Result<ShastaProposalBundle, DerivationError> {
+        self.build_manifest_from_event(
+            event,
+            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await,
+        )
+        .await
+    }
+
     /// Decode a proposal log into the event payload and enrich it with L1 block metadata.
     #[instrument(skip(self, log), level = "debug")]
     async fn decode_log_to_event_context(
@@ -484,11 +496,7 @@ where
     #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
     async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
-        self.build_manifest_from_event(
-            &event,
-            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await,
-        )
-        .await
+        self.event_to_manifest(&event).await
     }
 
     // Convert a manifest into execution engine blocks for block production.
@@ -549,8 +557,6 @@ where
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let event = self.decode_log_to_event_context(log).await?;
         let proposal_id = event.event.id.to::<u64>();
-        let last_finalized_proposal_id =
-            try_last_finalized_proposal_id_at_block(&self.rpc, event.l1_block_hash).await;
 
         if proposal_id == 0 {
             info!(proposal_id, "skipping proposal with zero id");
@@ -558,7 +564,7 @@ where
             return Ok(Vec::new());
         }
 
-        let manifest = self.build_manifest_from_event(&event, last_finalized_proposal_id).await?;
+        let manifest = self.event_to_manifest(&event).await?;
         let outcomes = self.manifest_to_engine_blocks(manifest, applier).await?;
 
         if let Some(last) = outcomes.last() {
