@@ -82,8 +82,10 @@ impl WhitelistPreconfirmationDriverRunner {
                 .await?;
         let beacon_client = Arc::new(
             BeaconClient::new(self.config.driver_config.l1_beacon_endpoint.clone()).await.map_err(
-                |err| WhitelistPreconfirmationDriverError::RestWsServerBeaconInit {
-                    reason: err.to_string(),
+                |err| {
+                    WhitelistPreconfirmationDriverError::RestWsServerStartup(format!(
+                        "failed to initialize beacon client: {err}"
+                    ))
                 },
             )?,
         );

@@ -12,10 +12,8 @@ use crate::{
 
 mod auth;
 mod handlers;
-mod http_error;
-mod http_utils;
+mod http;
 mod router;
-mod state;
 mod websocket;
 
 #[cfg(test)]
@@ -24,6 +22,15 @@ mod tests;
 /// `transactions` are hex-encoded in JSON (`0x` + 2 chars per byte), so payload limits must
 /// account for expansion relative to compressed bytes on wire.
 const PRECONF_BLOCKS_BODY_LIMIT_BYTES: usize = (MAX_COMPRESSED_TX_LIST_BYTES * 2) + (64 * 1024);
+
+/// Shared state for REST/WS handlers.
+#[derive(Clone)]
+struct AppState {
+    /// Shared API implementation used by all request handlers.
+    api: Arc<dyn WhitelistApi>,
+    /// Optional shared JWT validator; `None` disables auth checks.
+    jwt_auth: Option<Arc<auth::JwtAuth>>,
+}
 
 /// Configuration for the whitelist preconfirmation REST/WS server.
 #[derive(Debug, Clone)]
@@ -66,7 +73,7 @@ impl WhitelistApiServer {
         config: WhitelistApiServerConfig,
         api: Arc<dyn WhitelistApi>,
     ) -> Result<Self> {
-        let state = state::AppState {
+        let state = AppState {
             api: Arc::clone(&api),
             jwt_auth: config
                 .jwt_secret
@@ -76,14 +83,16 @@ impl WhitelistApiServer {
         let app = router::build_router(state, &config.cors_origins);
 
         let listener = TcpListener::bind(config.listen_addr).await.map_err(|e| {
-            WhitelistPreconfirmationDriverError::RestWsServerBind {
-                listen_addr: config.listen_addr,
-                reason: e.to_string(),
-            }
+            WhitelistPreconfirmationDriverError::RestWsServerStartup(format!(
+                "failed to bind {}: {e}",
+                config.listen_addr
+            ))
         })?;
 
         let addr = listener.local_addr().map_err(|e| {
-            WhitelistPreconfirmationDriverError::RestWsServerLocalAddr { reason: e.to_string() }
+            WhitelistPreconfirmationDriverError::RestWsServerStartup(format!(
+                "failed to get local address: {e}"
+            ))
         })?;
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();

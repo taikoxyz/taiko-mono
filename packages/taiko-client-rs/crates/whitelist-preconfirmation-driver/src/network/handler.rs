@@ -14,8 +14,8 @@ use libp2p::{PeerId, gossipsub};
 
 use crate::codec::{DecodedUnsafePayload, block_signing_hash, recover_signer};
 
-/// Time window for duplicate-seen hash tracking and request de-duplication.
-const REQUEST_SEEN_WINDOW: Duration = Duration::from_secs(45);
+/// Idle window after which per-peer rate-limiter buckets are pruned.
+const RATE_LIMITER_PRUNE_WINDOW: Duration = Duration::from_secs(45);
 /// Maximum request-rate in requests per minute for inbound gossipsub throttling.
 const REQUEST_RATE_PER_MINUTE: f64 = 200.0;
 /// Maximum number of tokens in each per-peer request limiter bucket.
@@ -76,7 +76,7 @@ pub(crate) struct RateLimiter {
 impl RateLimiter {
     /// Allow only when peer has available request tokens.
     fn allow(&mut self, from: PeerId, now: Instant) -> bool {
-        self.prune(now, REQUEST_SEEN_WINDOW);
+        self.prune(now, RATE_LIMITER_PRUNE_WINDOW);
 
         let entry = self.buckets.entry(from).or_insert_with(|| TokenBucket::new(now));
         entry.refill(now, REQUEST_RATE_REFILL_PER_SEC, REQUEST_RATE_MAX_TOKENS);
@@ -87,32 +87,6 @@ impl RateLimiter {
     fn prune(&mut self, now: Instant, window: Duration) {
         self.buckets
             .retain(|_, bucket| now.saturating_duration_since(bucket.last_refill) <= window);
-    }
-}
-
-/// Hash tracker for seen request hashes.
-#[derive(Debug, Default)]
-struct WindowedHashTracker {
-    /// Last seen timestamps for each hash.
-    seen: LinkedHashMap<B256, Instant>,
-}
-
-impl WindowedHashTracker {
-    /// Returns true when the hash was already seen inside the window.
-    fn is_seen(&mut self, hash: B256, now: Instant) -> bool {
-        self.seen
-            .retain(|_, seen_at| now.saturating_duration_since(*seen_at) < REQUEST_SEEN_WINDOW);
-        self.seen.contains_key(&hash)
-    }
-
-    /// Record a hash as seen at the given instant.
-    fn mark(&mut self, hash: B256, now: Instant) {
-        self.seen.remove(&hash);
-        self.seen.insert(hash, now);
-
-        while self.seen.len() > PRECONF_INBOUND_LRU_CAPACITY {
-            self.seen.pop_front();
-        }
     }
 }
 
@@ -174,8 +148,6 @@ pub(crate) struct GossipsubInboundState {
     operator_set: Arc<ArcSwap<HashSet<Address>>>,
     /// Request-ratelimiter for `requestPreconfBlocks`.
     request_rate: RateLimiter,
-    /// Duplicate filter for request payload hashes.
-    request_seen: WindowedHashTracker,
     /// EOS request limiter per peer.
     eos_rate: RateLimiter,
     /// EOS duplicate filter by epoch.
@@ -193,7 +165,6 @@ impl GossipsubInboundState {
             chain_id,
             operator_set,
             request_rate: RateLimiter::default(),
-            request_seen: WindowedHashTracker::default(),
             eos_rate: RateLimiter::default(),
             eos_seen: EpochSeenTracker::default(),
             preconf_seen_by_height: HeightSeenTracker::default(),
@@ -202,21 +173,20 @@ impl GossipsubInboundState {
     }
 
     /// Validate a `requestPreconfBlocks` message.
+    ///
+    /// Repeated identical requests need no app-level dedupe: the message-id
+    /// function hashes topic + data, so gossipsub's duplicate cache (120s)
+    /// already drops them before they reach this handler. Only per-peer rate
+    /// limiting remains.
     pub(crate) fn validate_request(
         &mut self,
         from: PeerId,
-        hash: B256,
         now: Instant,
     ) -> gossipsub::MessageAcceptance {
-        if self.request_seen.is_seen(hash, now) {
-            return gossipsub::MessageAcceptance::Ignore;
-        }
-
         if !self.request_rate.allow(from, now) {
             return gossipsub::MessageAcceptance::Ignore;
         }
 
-        self.request_seen.mark(hash, now);
         gossipsub::MessageAcceptance::Accept
     }
 

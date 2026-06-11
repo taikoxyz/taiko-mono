@@ -12,12 +12,12 @@ use axum::{
 use tower_http::cors::{Any, CorsLayer};
 
 use super::{
+    AppState,
     auth::auth_middleware,
     handlers::{
         handle_not_found, handle_preconf_blocks, handle_root, handle_status,
         handle_websocket_upgrade,
     },
-    state::AppState,
 };
 
 /// Construct the server router with public probe routes and protected REST/WS routes.

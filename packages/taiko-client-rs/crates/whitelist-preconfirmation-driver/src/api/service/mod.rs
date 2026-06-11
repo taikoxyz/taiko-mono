@@ -5,22 +5,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-use alethia_reth_primitives::payload::{
-    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
-};
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
 use alloy_rpc_types_engine::ExecutionPayloadV1;
-use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
 use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
-use protocol::{
-    shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_mix_hash, payload_id_to_bytes},
-    signer::FixedKSigner,
-};
+use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
 use rpc::{beacon::BeaconClient, client::Client};
 use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};

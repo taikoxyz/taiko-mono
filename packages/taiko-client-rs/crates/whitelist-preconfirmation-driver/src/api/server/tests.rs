@@ -9,7 +9,7 @@ use tokio::sync::broadcast;
 use super::{
     PRECONF_BLOCKS_BODY_LIMIT_BYTES, WhitelistApiServer, WhitelistApiServerConfig,
     auth::JwtAuth,
-    http_utils::{RequestBodyReadError, read_request_body},
+    http::{RequestBodyReadError, read_request_body},
 };
 use crate::{
     Result,
