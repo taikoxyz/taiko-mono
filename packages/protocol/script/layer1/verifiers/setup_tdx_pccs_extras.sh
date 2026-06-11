@@ -49,6 +49,8 @@
 #   PCCS_JSON                  Path to PCCS deployment JSON; must contain
 #                              AutomataDaoStorage, AutomataPcsDao, AutomataPckDao,
 #                              AutomataTcbEvalDao, and the helper addresses.
+#   PCCS_REPO                  automata-on-chain-pccs checkout. The one-shot wrapper
+#                              sets this to WORK_DIR/pccs when it deploys PCCS.
 #
 # Dependencies: cast, forge, curl, jq, openssl, python3.
 
@@ -60,7 +62,7 @@ RETH_TDX_URL="${RETH_TDX_URL:-${RAIKO2_URL:-}}"
 FMSPC="${FMSPC:-}"
 AUTOMATA_DCAP_ATTESTATION="${AUTOMATA_DCAP_ATTESTATION:-}"
 PCCS_JSON="${PCCS_JSON:-}"
-PCCS_REPO="${PCCS_REPO:-${HOME}/Documents/nethermind/automata-on-chain-pccs}"
+PCCS_REPO="${PCCS_REPO:-}"
 INTEL_API_TDX="${INTEL_API_TDX:-https://api.trustedservices.intel.com/tdx/certification/v4}"
 INTEL_CERTS="${INTEL_CERTS:-https://certificates.trustedservices.intel.com}"
 
@@ -70,7 +72,7 @@ log() { echo "[setup_tdx_pccs_extras] $*"; }
 [[ -z "$PRIVATE_KEY" ]] && die "PRIVATE_KEY is not set"
 [[ -z "$AUTOMATA_DCAP_ATTESTATION" ]] && die "AUTOMATA_DCAP_ATTESTATION is not set"
 [[ -z "$PCCS_JSON" || ! -f "$PCCS_JSON" ]] && die "PCCS_JSON is not set or not a file: $PCCS_JSON"
-[[ -d "$PCCS_REPO" ]] || die "PCCS_REPO not found at $PCCS_REPO (set PCCS_REPO=...)"
+[[ -n "$PCCS_REPO" && -d "$PCCS_REPO" ]] || die "PCCS_REPO is not set or not a directory (set PCCS_REPO=... or run via deploy_dcap_and_tdx_verifier.sh)"
 for cmd in cast forge curl jq openssl python3; do command -v "$cmd" >/dev/null || die "missing dep: $cmd"; done
 
 DEPLOYER=$(cast wallet address --private-key "$PRIVATE_KEY")
@@ -339,7 +341,7 @@ send() {
     local out
     out=$(cast send "$@" --private-key "$PRIVATE_KEY" --rpc-url "$RPC_URL" --json 2>&1) || {
         # ignore idempotent "already granted" reverts
-        echo "$out" | grep -qE 'AlreadyExists|AccessControl|already|0xdb148880' && { log "$desc: already set"; return 0; }
+        echo "$out" | grep -qE 'AlreadyExists|AccessControl|already|0xdb148880|0x72bd8361' && { log "$desc: already set"; return 0; }
         log "$desc: $out"; return 1;
     }
     log "$desc: ok"
@@ -370,33 +372,33 @@ fi
 log "uploading PCK Platform CRL"
 send "upsertPckCrl(PLATFORM=2)"          "$PCS_DAO" "upsertPckCrl(uint8,bytes)"             2 "0x$(hex_of "$TMP/pck_plat_crl.der")" || true
 
-# ---- 5. Load TCB info / QE identity / TCB eval via LoadPccsData forge script ----
-pushd "$PCCS_REPO" >/dev/null
-mkdir -p .tmp_collateral
-cp "$TMP/root.der"               .tmp_collateral/root_ca.der
-cp "$TMP/signing.der"            .tmp_collateral/signing.der
-cp "$TMP/tcb_info_str.json"      .tmp_collateral/tcb_info_str.json
-cp "$TMP/qe_id_str.json"         .tmp_collateral/qe_id_str.json
-cp "$TMP/tcb_eval_str.json"      .tmp_collateral/tcb_eval_str.json
+# ---- 5. Load TCB info / QE identity / TCB eval directly ------------------
+# Automata's current PCCS checkout does not ship a stable Forge loader for
+# these three signed Intel JSON objects, so call the DAO upsert entrypoints
+# directly. Preserve Intel's exact signed JSON byte slices; do not reserialize
+# through jq before uploading.
+read_json_slice() {
+    python3 - "$1" <<'PY'
+import sys
+print(open(sys.argv[1]).read().strip(), end="")
+PY
+}
 
-PRIVATE_KEY="$PRIVATE_KEY" \
-PCS_DAO="$PCS_DAO" \
-FMSPC_TCB_DAO="$FMSPC_TCB_DAO" \
-ENCLAVE_IDENTITY_DAO="$QE_ID_DAO" \
-TCB_EVAL_DAO="$TCB_EVAL_DAO" \
-ROOT_CERT_PATH=.tmp_collateral/root_ca.der \
-SIGNING_CERT_PATH=.tmp_collateral/signing.der \
-TCB_INFO_STR_PATH=.tmp_collateral/tcb_info_str.json \
-TCB_SIG_HEX="$TCB_SIG" \
-IDENTITY_STR_PATH=.tmp_collateral/qe_id_str.json \
-IDENTITY_SIG_HEX="$QE_SIG" \
-QE_ID=2 \
-QE_VERSION=4 \
-TCB_EVAL_STR_PATH=.tmp_collateral/tcb_eval_str.json \
-TCB_EVAL_SIG_HEX="$EVAL_SIG" \
-forge script script/automata/LoadPccsData.s.sol:LoadPccsData \
-    --rpc-url "$RPC_URL" --broadcast --slow -vvv 2>&1 | tee /tmp/loadpccs.log | tail -30
-popd >/dev/null
+TCB_INFO_STR=$(read_json_slice "$TMP/tcb_info_str.json")
+QE_ID_STR=$(read_json_slice "$TMP/qe_id_str.json")
+TCB_EVAL_STR=$(read_json_slice "$TMP/tcb_eval_str.json")
+
+send "upsertTcbEvaluationData(TDX=1)" \
+    "$TCB_EVAL_DAO" "upsertTcbEvaluationData((string,bytes))" \
+    "('$TCB_EVAL_STR',$EVAL_SIG)" || true
+
+send "upsertFmspcTcb(tcbEval=$TCB_EVAL,fmspc=$FMSPC)" \
+    "$FMSPC_TCB_DAO" "upsertFmspcTcb((string,bytes))" \
+    "('$TCB_INFO_STR',$TCB_SIG)" || true
+
+send "upsertEnclaveIdentity(TD_QE=2,version=4)" \
+    "$QE_ID_DAO" "upsertEnclaveIdentity(uint256,uint256,(string,bytes))" \
+    2 4 "('$QE_ID_STR',$QE_SIG)" || true
 
 log "=== PCCS extras complete ==="
 log "  AutomataFmspcTcbDaoVersioned (tcbEval=$TCB_EVAL): $FMSPC_TCB_DAO"

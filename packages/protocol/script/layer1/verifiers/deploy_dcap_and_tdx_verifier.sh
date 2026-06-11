@@ -2,9 +2,10 @@
 
 # Deploy Automata DCAP contracts + a TDX verifier in a single run.
 #
-# The TDX verifier is selected with VERIFIER_KIND (default `tdx`):
-#   tdx   — GcpTdxVerifier (native Intel TDX DCAP; GCP CVMs, bare-metal; RTMRs)
-#   azure — AzureTdxVerifier (Azure vTPM-bound TDX; vTPM PCRs)
+# The TDX verifier is selected with VERIFIER_KIND (default `tdx_dcap`):
+#   tdx_dcap — GcpTdxVerifier (native Intel TDX DCAP; GCP CVMs, bare-metal; RTMRs)
+#   azure    — AzureTdxVerifier (Azure vTPM-bound TDX; vTPM PCRs)
+# `tdx` is accepted as a legacy alias for `tdx_dcap`.
 # Both share the SAME Automata DCAP contract — the quote format is identical, so
 # step 1 does not need to be repeated when switching kinds.
 #
@@ -47,10 +48,12 @@ AUTOMATA_PCCS_REF="${AUTOMATA_PCCS_REF:-}"
 AUTOMATA_DCAP_REPO="${AUTOMATA_DCAP_REPO:-}"
 AUTOMATA_DCAP_REF="${AUTOMATA_DCAP_REF:-}"
 KEEP_REPOS="${KEEP_REPOS:-false}"
+WORK_DIR="${WORK_DIR:-/tmp/automata-deploy-$$}"
+PCCS_REPO="${PCCS_REPO:-}"
 
 # --- Step 2: TDX verifier ---
-# Which verifier to deploy: tdx (default, native DCAP / GcpTdxVerifier) | azure.
-VERIFIER_KIND="${VERIFIER_KIND:-tdx}"
+# Which verifier to deploy: tdx_dcap (default, native DCAP / GcpTdxVerifier) | azure.
+VERIFIER_KIND="${VERIFIER_KIND:-tdx_dcap}"
 CONTRACT_OWNER="${CONTRACT_OWNER:-}"
 TAIKO_CHAIN_ID="${TAIKO_CHAIN_ID:-}"
 VERIFY="${VERIFY:-false}"
@@ -77,7 +80,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
     cat <<EOF
-Deploy Automata DCAP contracts + a TDX verifier (native tdx or azure) in one go.
+Deploy Automata DCAP contracts + a TDX verifier (native tdx_dcap or azure) in one go.
 
 Usage:
   PRIVATE_KEY=0x... RPC_URL=http://... \\
@@ -87,7 +90,7 @@ Usage:
 
 Required env:
   PRIVATE_KEY                  Deployer private key (needs ETH on the chain).
-  CONTRACT_OWNER               Owner address for the AzureTdxVerifier proxy.
+  CONTRACT_OWNER               Owner address for the selected TDX verifier proxy.
   TAIKO_CHAIN_ID               L2 chain id bound into proof signature hashes.
 
 Optional env (step 1 — Automata DCAP):
@@ -104,9 +107,14 @@ Optional env (step 1 — Automata DCAP):
   AUTOMATA_PCCS_REPO / AUTOMATA_PCCS_REF   (passed through to sub-script)
   AUTOMATA_DCAP_REPO / AUTOMATA_DCAP_REF   (passed through to sub-script)
   KEEP_REPOS                   Keep git clones after success (default: false)
+  WORK_DIR                     Clone directory passed to sub-script
+                               (default: /tmp/automata-deploy-<pid>).
+  PCCS_REPO                    Existing automata-on-chain-pccs checkout.
+                               Auto-set to WORK_DIR/pccs when step 1 deploys PCCS.
 
 Optional env (step 2 — TDX verifier):
-  VERIFIER_KIND                tdx (default, native DCAP / GcpTdxVerifier) | azure
+  VERIFIER_KIND                tdx_dcap (default, native DCAP / GcpTdxVerifier) |
+                               azure
                                (Azure vTPM / AzureTdxVerifier).
   VERIFY                       Verify on-chain (default: false).
   TRUSTED_PARAMS_INDEX / TEE_TCB_SVN / MR_SEAM_BASE64 / MR_TD_BASE64
@@ -123,12 +131,23 @@ Other:
   OUTPUT_JSON                  Path for combined deployment summary JSON.
 
 Already-deployed Automata DCAP addresses (skip step 1 with AUTOMATA_DCAP_ATTESTATION):
-  Mainnet: 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
-  Hoodi:   0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0
+  Ethereum mainnet: 0x0387aB2eDAB2A138a43437e36AF63689Bb7030f4
+  Hoodi: 0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F
 EOF
 }
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+
+case "$VERIFIER_KIND" in
+    tdx|tdx_dcap)
+        VERIFIER_KIND="tdx_dcap"
+        ;;
+    azure)
+        ;;
+    *)
+        die "VERIFIER_KIND must be 'tdx_dcap' (native DCAP; legacy alias: 'tdx') or 'azure'"
+        ;;
+esac
 
 # ---------------------------------------------------------------
 # Argument parsing
@@ -186,11 +205,21 @@ if [[ -z "$AUTOMATA_DCAP_ATTESTATION" ]]; then
     echo "# Step 1: Deploy Automata DCAP"
     echo "##############################################"
 
+    _dcap_keep_repos="$KEEP_REPOS"
+    _cleanup_work_dir_after_extras="false"
+    # Step 1.5 needs the cloned automata-on-chain-pccs checkout to deploy
+    # versioned DAOs. Keep the clone when the one-shot flow will run extras.
+    if [[ -n "$RETH_TDX_URL" && -z "$PCCS_REPO" && -z "$PCCS_JSON" ]]; then
+        _dcap_keep_repos="true"
+        _cleanup_work_dir_after_extras="true"
+    fi
+
     _dcap_env=(
         PRIVATE_KEY="$PRIVATE_KEY"
         RPC_URL="$RPC_URL"
         OUTPUT_JSON="$_DCAP_OUTPUT_JSON"
-        KEEP_REPOS="$KEEP_REPOS"
+        KEEP_REPOS="$_dcap_keep_repos"
+        WORK_DIR="$WORK_DIR"
     )
     [[ -n "$FMSPC" ]]               && _dcap_env+=(FMSPC="$FMSPC")
     [[ -n "$RETH_TDX_URL" ]]          && _dcap_env+=(RETH_TDX_URL="$RETH_TDX_URL")
@@ -211,6 +240,9 @@ if [[ -z "$AUTOMATA_DCAP_ATTESTATION" ]]; then
     # Capture PCCS_JSON path emitted by the sub-script for the summary
     _pccs_json_out=$(jq -r '.pccs_json // empty' "$_DCAP_OUTPUT_JSON")
     [[ -n "$_pccs_json_out" ]] && PCCS_JSON="$_pccs_json_out"
+    if [[ -z "$PCCS_REPO" && -d "$WORK_DIR/pccs" ]]; then
+        PCCS_REPO="$WORK_DIR/pccs"
+    fi
 
     echo ""
     echo "Step 1 complete — AutomataDcapAttestationFee: $AUTOMATA_DCAP_ATTESTATION"
@@ -238,8 +270,12 @@ if [[ -n "$RETH_TDX_URL" ]]; then
         AUTOMATA_DCAP_ATTESTATION="$AUTOMATA_DCAP_ATTESTATION"
         PCCS_JSON="$PCCS_JSON"
     )
+    [[ -n "$PCCS_REPO" ]] && _extras_env+=(PCCS_REPO="$PCCS_REPO")
     env "${_extras_env[@]}" bash "$SCRIPT_DIR/setup_tdx_pccs_extras.sh" \
         || die "setup_tdx_pccs_extras.sh failed"
+    if [[ "${_cleanup_work_dir_after_extras:-false}" == "true" && "$KEEP_REPOS" != "true" ]]; then
+        rm -rf "$WORK_DIR"
+    fi
 else
     echo ""
     echo "Step 1.5 skipped — RETH_TDX_URL not set, registerInstance will not work until PCCS extras are loaded"

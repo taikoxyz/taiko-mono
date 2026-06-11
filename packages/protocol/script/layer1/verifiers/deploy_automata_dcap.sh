@@ -87,15 +87,17 @@ Output:
   in deploy_tdx_verifier.sh.
 
 Already-deployed addresses on supported networks (skip this script there):
-  Mainnet: 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
-  Hoodi:   0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0
+  Ethereum mainnet: 0x0387aB2eDAB2A138a43437e36AF63689Bb7030f4
+  Hoodi: 0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F
 EOF
 }
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 cleanup() {
-    [[ "$KEEP_REPOS" != "true" && -d "$WORK_DIR" ]] && rm -rf "$WORK_DIR"
+    if [[ "$KEEP_REPOS" != "true" && -d "$WORK_DIR" ]]; then
+        rm -rf "$WORK_DIR"
+    fi
 }
 trap cleanup EXIT
 
@@ -319,11 +321,12 @@ else
     # Step 3: deploy core DAOs on-chain.
     if ! PRIVATE_KEY="$PRIVATE_KEY" make deploy-dao RPC_URL="$RPC_URL"; then
         echo "  DAO deploy failed — DAOs may already be deployed, simulating for addresses..."
-        # Run deployAll(bool) with WITH_STORAGE=true in pure local simulation (no --rpc-url).
+        # Run deployAll(bool,bool) with WITH_STORAGE=true and LEGACY=false in pure
+        # local simulation (no --rpc-url).
         # This deploys Storage+PcsDao+PckDao on the local EVM and writes deployment/31337.json.
         # EnclaveIdDao and FmspcTcbDao are handled separately below (per-DAO simulation).
         OWNER="$DEPLOYER" forge script script/automata/DeployAutomataDao.s.sol:DeployAutomataDao \
-            --sig "deployAll(bool)" true \
+            --sig "deployAll(bool,bool)" true false \
             --private-key "$PRIVATE_KEY" -vv 2>&1 || die "DAO simulation failed"
         [[ -f "deployment/31337.json" ]] || die "Expected deployment/31337.json after DAO simulation"
         cp "deployment/31337.json" "deployment/${CHAIN_ID}.json"

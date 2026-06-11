@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Deploy AzureTdxVerifier (impl + proxy).
+# Deploy a TDX verifier (impl + proxy).
 #
 # Trusted params and instance registration are decoupled: the typical flow is to deploy
 # the contract here, then run `raiko2 tdx register` from a live TDX VM to set trusted
@@ -22,10 +22,12 @@ export AUTOMATA_DCAP_ATTESTATION="${AUTOMATA_DCAP_ATTESTATION:-}"
 export TAIKO_CHAIN_ID="${TAIKO_CHAIN_ID:-}"
 
 # Which verifier to deploy:
-#   tdx   (default) — GcpTdxVerifier: native Intel TDX DCAP (GCP CVMs, bare-metal);
-#                     measurements are the quote's RTMR0..3.
-#   azure           — AzureTdxVerifier: Azure vTPM-bound TDX; measurements are vTPM PCRs.
-export VERIFIER_KIND="${VERIFIER_KIND:-tdx}"
+#   tdx_dcap (default) — GcpTdxVerifier: native Intel TDX DCAP (GCP CVMs,
+#                        bare-metal); measurements are the quote's RTMR0..3.
+#   azure              — AzureTdxVerifier: Azure vTPM-bound TDX; measurements
+#                        are vTPM PCRs.
+# `tdx` is accepted as a legacy alias for `tdx_dcap`.
+export VERIFIER_KIND="${VERIFIER_KIND:-tdx_dcap}"
 
 # Optional: trusted params (set together to seed the registry inline)
 export TRUSTED_PARAMS_INDEX="${TRUSTED_PARAMS_INDEX:-0}"
@@ -33,7 +35,7 @@ export TEE_TCB_SVN="${TEE_TCB_SVN:-0x0701030000000000000000000000000000000000000
 # Azure-only: 24-bit PCR mask + comma-separated base64 PCR digests (32 bytes each).
 export PCR_BITMAP="${PCR_BITMAP:-47632}"
 export PCRS_BASE64="${PCRS_BASE64:-}"
-# Native (tdx)-only: 4-bit RTMR mask + comma-separated base64 RTMR digests (48 bytes each).
+# Native (tdx_dcap)-only: 4-bit RTMR mask + comma-separated base64 RTMR digests (48 bytes each).
 export RTMR_MASK="${RTMR_MASK:-7}"
 export RTMRS_BASE64="${RTMRS_BASE64:-}"
 # Shared trusted-params measurements.
@@ -60,7 +62,7 @@ TEMP_ATTESTATION=""
 # ---------------------------------------------------------------
 usage() {
     cat <<EOF
-Deploy a TDX verifier (native tdx / GcpTdxVerifier, or azure / AzureTdxVerifier)
+Deploy a TDX verifier (native tdx_dcap / GcpTdxVerifier, or azure / AzureTdxVerifier)
 and optionally seed trusted params.
 
 Usage:
@@ -73,7 +75,8 @@ Required env:
   TAIKO_CHAIN_ID               L2 chain id bound into the proof signature hash
 
 Verifier selection:
-  VERIFIER_KIND                tdx (default; native DCAP / GcpTdxVerifier; RTMRs) |
+  VERIFIER_KIND                tdx_dcap (default; native DCAP / GcpTdxVerifier; RTMRs;
+                               legacy alias: tdx) |
                                azure (Azure vTPM / AzureTdxVerifier; PCRs)
 
 Optional env (set together to seed trusted params inline):
@@ -83,7 +86,7 @@ Optional env (set together to seed trusted params inline):
   MR_TD_BASE64                 mrTd bytes (base64, 48 bytes when decoded)
   PCR_BITMAP                   azure-only: 24-bit PCR index mask (default: 47632)
   PCRS_BASE64                  azure-only: comma-separated base64 PCR digests (32 bytes)
-  RTMR_MASK                    tdx-only: 4-bit RTMR mask (default: 7 = RTMR0,1,2)
+  RTMR_MASK                    tdx_dcap-only: 4-bit RTMR mask (default: 7 = RTMR0,1,2)
   RTMRS_BASE64                 tdx-only: comma-separated base64 RTMR digests (48 bytes)
 
 Optional env (also register the first instance):
@@ -97,8 +100,8 @@ Other:
   LOG_LEVEL                    Forge verbosity flag (default: -vvv)
 
 Known Automata DCAP Attestation addresses:
-  Mainnet: 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3
-  Hoodi:   0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0
+  Ethereum mainnet: 0x0387aB2eDAB2A138a43437e36AF63689Bb7030f4
+  Hoodi: 0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F
 
 Examples:
   # Deploy only — trusted params/registration handled later by raiko2:
@@ -174,7 +177,8 @@ done
 
 # Resolve the forge deploy script + contract name from VERIFIER_KIND.
 case "$VERIFIER_KIND" in
-    tdx)
+    tdx|tdx_dcap)
+        VERIFIER_KIND="tdx_dcap"
         DEPLOY_SCRIPT="DeployGcpTdxVerifier.s.sol:DeployGcpTdxVerifier"
         CONTRACT_NAME="GcpTdxVerifier"
         ;;
@@ -183,12 +187,12 @@ case "$VERIFIER_KIND" in
         CONTRACT_NAME="AzureTdxVerifier"
         ;;
     *)
-        echo "ERROR: VERIFIER_KIND must be 'tdx' (native DCAP) or 'azure'"; exit 1
+        echo "ERROR: VERIFIER_KIND must be 'tdx_dcap' (native DCAP; legacy alias: 'tdx') or 'azure'"; exit 1
         ;;
 esac
 
 # Inline registerInstance from a bootstrap attestation is only wired for the
-# Azure verifier; native (tdx) instances are registered via `cargo run -p xtask
+# Azure verifier; native (tdx_dcap) instances are registered via `cargo run -p xtask
 # -- register-tdx` (it auto-detects the issuer), so the deploy script just sets
 # trusted params.
 if [[ "$VERIFIER_KIND" == "azure" && -n "$TDX_RETH_HOST" && -z "$ATTESTATION_FILE_PATH" ]]; then
