@@ -35,6 +35,16 @@ type ProofResponse struct {
 }
 
 // BatchProofs represents a response of a batch proof request.
+//
+// For compose proofs, the main proof (BatchProof / Verifier / VerifierID) is paired
+// with a second sub-proof. Which set of fields holds the pair depends on the compose
+// flavor:
+//   - SGX+ZK compose: SgxGethBatchProof / SgxGethProofVerifier / SgxGethVerifierID
+//     carry the SGX_GETH sub-proof.
+//   - TDX+ZK compose: TdxBatchProof / TdxProofVerifier / TdxVerifierID carry the
+//     TDX_RETH sub-proof.
+//
+// The submitter must encode both sub-proofs in strictly ascending VerifierType order.
 type BatchProofs struct {
 	ProofResponses       []*ProofResponse
 	BatchProof           []byte
@@ -45,6 +55,9 @@ type BatchProofs struct {
 	SgxGethBatchProof    []byte
 	SgxGethProofVerifier common.Address
 	SgxGethVerifierID    uint8
+	TdxBatchProof        []byte
+	TdxProofVerifier     common.Address
+	TdxVerifierID        uint8
 }
 
 // ProofProducer is an interface that contains all methods to generate a proof.

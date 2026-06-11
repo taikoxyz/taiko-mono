@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import "./ComposeVerifier.sol";
 
-/// @title SgxAndZkVerifier
-/// @notice SGX + (SP1 or Risc0) verifier
+/// @title TdxAndZkVerifier
+/// @notice TDX + (SP1 or Risc0) verifier
 /// @custom:security-contact security@taiko.xyz
-contract SgxAndZkVerifier is ComposeVerifier {
+contract TdxAndZkVerifier is ComposeVerifier {
     constructor(
-        address _sgxRethVerifier,
+        address _tdxRethVerifier,
         address _risc0RethVerifier,
         address _sp1RethVerifier
     )
@@ -16,10 +16,10 @@ contract SgxAndZkVerifier is ComposeVerifier {
             address(0),
             address(0),
             address(0),
-            _sgxRethVerifier,
+            address(0),
             _risc0RethVerifier,
             _sp1RethVerifier,
-            address(0)
+            _tdxRethVerifier
         )
     { }
 
@@ -31,7 +31,10 @@ contract SgxAndZkVerifier is ComposeVerifier {
     {
         if (_verifiers.length != 2) return false;
 
-        return _verifiers[0] == sgxRethVerifier
-            && (_verifiers[1] == risc0RethVerifier || _verifiers[1] == sp1RethVerifier);
+        // ComposeVerifier iterates sub-proofs in strictly ascending VerifierType order
+        // (RISC0_RETH = 5, SP1_RETH = 6, TDX_RETH = 7), so the ZK verifier appears at
+        // index 0 and the TDX verifier at index 1.
+        return (_verifiers[0] == risc0RethVerifier || _verifiers[0] == sp1RethVerifier)
+            && _verifiers[1] == tdxRethVerifier;
     }
 }

@@ -119,18 +119,33 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(
 		if err != nil {
 			return nil, encoding.TryParsingCustomError(err)
 		}
+		// Build the compose sub-proofs in strictly ascending VerifierID order. SGX+ZK uses
+		// SGX_GETH (1) + ZK (5/6); TDX+ZK uses ZK (5/6) + TDX_RETH (7).
+		subProofs := []encoding.SubProofShasta{
+			{VerifierId: batchProof.VerifierID, Proof: batchProof.BatchProof},
+		}
+		if batchProof.SgxGethVerifierID != 0 {
+			subProofs = append([]encoding.SubProofShasta{
+				{VerifierId: batchProof.SgxGethVerifierID, Proof: batchProof.SgxGethBatchProof},
+			}, subProofs...)
+		}
+		if batchProof.TdxVerifierID != 0 {
+			subProofs = append(subProofs, encoding.SubProofShasta{
+				VerifierId: batchProof.TdxVerifierID, Proof: batchProof.TdxBatchProof,
+			})
+		}
+
 		log.Info(
 			"Verifier information",
 			"GethVerifierID", batchProof.SgxGethVerifierID,
 			"GethProof", common.Bytes2Hex(batchProof.SgxGethBatchProof),
 			"VerifierID", batchProof.VerifierID,
 			"Proof", common.Bytes2Hex(batchProof.BatchProof),
+			"TdxVerifierID", batchProof.TdxVerifierID,
+			"TdxProof", common.Bytes2Hex(batchProof.TdxBatchProof),
 		)
 
-		encodedSubProofs, err := encoding.EncodeBatchesSubProofs([]encoding.SubProofShasta{
-			{VerifierId: batchProof.SgxGethVerifierID, Proof: batchProof.SgxGethBatchProof},
-			{VerifierId: batchProof.VerifierID, Proof: batchProof.BatchProof},
-		})
+		encodedSubProofs, err := encoding.EncodeBatchesSubProofs(subProofs)
 		if err != nil {
 			return nil, err
 		}

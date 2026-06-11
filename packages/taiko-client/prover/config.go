@@ -37,6 +37,7 @@ type Config struct {
 	ProveBatchesGasLimit      uint64
 	RaikoHostEndpoint         string
 	RaikoZKVMHostEndpoint     string
+	RaikoTDXHostEndpoint      string
 	RaikoApiKey               string
 	RaikoRequestTimeout       time.Duration
 	LocalProposerAddresses    []common.Address
@@ -111,6 +112,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1ProverPrivKey:          l1ProverPrivKey,
 		RaikoHostEndpoint:        c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:    c.String(flags.RaikoZKVMHostEndpoint.Name),
+		RaikoTDXHostEndpoint:     c.String(flags.RaikoTDXHostEndpoint.Name),
 		RaikoApiKey:              strings.TrimSpace(string(raikoApiKey)),
 		RaikoRequestTimeout:      c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingProposalID:       startingProposalID,
