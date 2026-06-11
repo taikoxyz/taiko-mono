@@ -202,7 +202,12 @@ where
         )
         .await?;
 
-        // If end-of-sequencing, also publish the EOS request.
+        // If end-of-sequencing, record the marker and notify websocket subscribers.
+        //
+        // Deliberately no EOS-request gossip here (matching the Go driver): the
+        // block itself was just gossiped, and publishing the content-addressed
+        // request would seed every peer's gossipsub seen-cache with the exact
+        // message id a restarted node needs for startup EOS rehydration.
         if end_of_sequencing.unwrap_or(false) {
             let epoch = self.beacon_client.timestamp_to_epoch(data.timestamp).map_err(|e| {
                 WhitelistPreconfirmationDriverError::InvalidPayload(format!(
@@ -221,11 +226,6 @@ where
                     "failed to deliver end-of-sequencing websocket notification"
                 );
             }
-            self.send_network_command(
-                NetworkCommand::PublishEndOfSequencingRequest { epoch },
-                "end-of-sequencing",
-            )
-            .await?;
         }
 
         crate::metrics::WhitelistPreconfirmationDriverMetrics::observe_build_preconf_block_duration(

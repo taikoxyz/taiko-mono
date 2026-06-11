@@ -46,4 +46,9 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 reqwest = { workspace = true }
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness" }
+test-log = { workspace = true }

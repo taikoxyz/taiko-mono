@@ -1,6 +1,6 @@
 //! Whitelist preconfirmation runner orchestration.
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
@@ -8,7 +8,8 @@ use alloy_provider::Provider;
 use driver::DriverConfig;
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
-use tracing::{info, warn};
+use tokio::sync::mpsc;
+use tracing::{debug, info, warn};
 
 use crate::{
     Result,
@@ -23,6 +24,47 @@ use crate::{
     operator_set::OperatorSetPoller,
     preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
 };
+
+/// Maximum number of startup attempts to recover the current epoch's
+/// end-of-sequencing marker from peers.
+const EOS_REHYDRATE_MAX_ATTEMPTS: u32 = 30;
+/// Delay between startup end-of-sequencing rehydration attempts.
+///
+/// Attempts made before any peer subscribes to the request topic are skipped by
+/// the network runtime (publishing then would only poison the local gossipsub
+/// duplicate cache), so the first effective request goes out once the mesh forms.
+/// EOS requests for the same epoch are content-identical messages, so if another
+/// node requested this epoch recently, peers' gossipsub seen-caches (120s)
+/// suppress the resend; the total retry window (attempts x interval = 240s)
+/// comfortably outlives that cache so a later attempt still propagates.
+const EOS_REHYDRATE_RETRY_INTERVAL: Duration = Duration::from_secs(8);
+
+/// Recover the current epoch's end-of-sequencing marker from peers on startup.
+///
+/// EOS markers are held in memory only, so a driver restarted mid-epoch reports a
+/// zero EOS hash in `/status` until the next EOS block arrives, which can delay
+/// sequencer handover decisions downstream. Requesting the marker from peers
+/// replays the EOS envelope through the normal response ingress path (which also
+/// re-records the marker); retries stop as soon as the marker is observed.
+async fn rehydrate_end_of_sequencing(
+    state: SharedPreconfState,
+    beacon_client: Arc<BeaconClient>,
+    command_tx: mpsc::Sender<NetworkCommand>,
+) {
+    for _ in 0..EOS_REHYDRATE_MAX_ATTEMPTS {
+        let epoch = beacon_client.current_epoch();
+        if state.end_of_sequencing_for_epoch(epoch).await.is_some() {
+            info!(epoch, "end-of-sequencing marker recovered; stopping startup rehydration");
+            return;
+        }
+        if command_tx.send(NetworkCommand::PublishEndOfSequencingRequest { epoch }).await.is_err() {
+            // Network task is gone; the runner is shutting down.
+            return;
+        }
+        tokio::time::sleep(EOS_REHYDRATE_RETRY_INTERVAL).await;
+    }
+    debug!("end-of-sequencing marker not observed during startup rehydration window");
+}
 
 /// Configuration for the whitelist preconfirmation runner.
 #[derive(Clone, Debug)]
@@ -110,6 +152,14 @@ impl WhitelistPreconfirmationDriverRunner {
             .header
             .number;
         let state = SharedPreconfState::new(initial_highest_unsafe_l2_payload_block_id);
+
+        // Recover the current epoch's EOS marker from peers after a restart; markers are
+        // in-memory only and `/status` consumers rely on them for handover decisions.
+        tokio::spawn(rehydrate_end_of_sequencing(
+            state.clone(),
+            Arc::clone(&beacon_client),
+            network.command_tx.clone(),
+        ));
 
         // Optionally start the REST/WS server when both rpc_listen_addr and p2p_signer_key
         // are configured.

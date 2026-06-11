@@ -47,6 +47,16 @@ pub struct BeaconStubServer {
 
 impl BeaconStubServer {
     pub async fn start() -> Result<Self> {
+        Self::start_with_genesis_time(Self::GENESIS_TIME).await
+    }
+
+    /// Start a stub whose `/eth/v1/beacon/genesis` reports the given genesis time.
+    ///
+    /// Useful for tests asserting epoch-derived state (e.g. end-of-sequencing
+    /// markers): aligning genesis to "now" keeps the whole test inside epoch 0,
+    /// removing wall-clock epoch-boundary flakiness. Note `timestamp_to_slot`
+    /// always assumes the default [`Self::GENESIS_TIME`].
+    pub async fn start_with_genesis_time(genesis_time: u64) -> Result<Self> {
         let listener = TcpListener::bind("127.0.0.1:0").await?;
         let addr = listener.local_addr()?;
         let endpoint = Url::parse(&format!("http://{addr}"))?;
@@ -72,7 +82,11 @@ impl BeaconStubServer {
                             let service = service_fn(move |req| {
                                 let store = store.clone();
                                 async move {
-                                    Ok::<_, hyper::Error>(handle_beacon_request(req, &store))
+                                    Ok::<_, hyper::Error>(handle_beacon_request(
+                                        req,
+                                        &store,
+                                        genesis_time,
+                                    ))
                                 }
                             });
                             let _ = Http1Builder::new().serve_connection(io, service).await;
@@ -145,6 +159,7 @@ impl BeaconStubServer {
 fn handle_beacon_request(
     req: hyper::Request<hyper::body::Incoming>,
     store: &BlobSidecarStore,
+    genesis_time: u64,
 ) -> hyper::Response<Full<HyperBytes>> {
     let empty_response = |status| {
         hyper::Response::builder().status(status).body(Full::new(HyperBytes::new())).unwrap()
@@ -182,10 +197,15 @@ fn handle_beacon_request(
     }
 
     let json = match path {
-        "/eth/v1/beacon/genesis" => r#"{"data":{"genesis_time":"0"}}"#,
-        "/eth/v1/config/spec" => r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#,
+        "/eth/v1/beacon/genesis" => {
+            format!(r#"{{"data":{{"genesis_time":"{genesis_time}"}}}}"#)
+        }
+        "/eth/v1/config/spec" => {
+            r#"{"data":{"SECONDS_PER_SLOT":"12","SLOTS_PER_EPOCH":"32"}}"#.to_string()
+        }
         _ if path.starts_with("/eth/v2/beacon/blocks/") => {
             r#"{"data":{"message":{"body":{"execution_payload":{"block_number":"0"}}}}}"#
+                .to_string()
         }
         _ => return empty_response(StatusCode::NOT_FOUND),
     };

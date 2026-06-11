@@ -91,6 +91,7 @@ export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
 export TAIKO_TOKEN=$(echo "$DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
 export FORCED_INCLUSION_STORE=$(echo "$DEPLOYMENT_JSON" | jq '.forced_inclusion_store' | sed 's/\"//g')
 export COMPOSE_VERIFIER=$(echo "$DEPLOYMENT_JSON" | jq '.proof_verifier' | sed 's/\"//g')
+export SHASTA_PRECONF_WHITELIST=$(echo "$DEPLOYMENT_JSON" | jq '.preconf_whitelist' | sed 's/\"//g')
 export L1_CONTRACT_OWNER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 export L1_PROPOSER_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
 export L2_SUGGESTED_FEE_RECIPIENT=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266

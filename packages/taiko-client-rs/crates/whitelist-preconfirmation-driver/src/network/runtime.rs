@@ -642,6 +642,12 @@ impl NetworkRuntime {
     }
 
     /// Publish raw bytes to a gossipsub topic, recording publish success or failure.
+    ///
+    /// Publishing is skipped entirely while no connected peer subscribes to the
+    /// topic: a failed publish still inserts the message id into gossipsub's
+    /// duplicate cache, after which retries of the same bytes (request topics are
+    /// content-addressed) short-circuit locally as duplicates and never reach the
+    /// wire. Callers retry, so deferring until a subscriber exists is safe.
     fn publish_to_gossipsub(
         &mut self,
         topic: gossipsub::IdentTopic,
@@ -649,21 +655,49 @@ impl NetworkRuntime {
         topic_label: &'static str,
         context: &str,
     ) {
-        if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic, payload) {
+        let topic_hash = topic.hash();
+        let has_subscribed_peer = self
+            .swarm
+            .behaviour()
+            .gossipsub
+            .all_peers()
+            .any(|(_, topics)| topics.contains(&&topic_hash));
+        if !has_subscribed_peer {
             WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
                 topic_label,
-                "publish_failed",
+                "no_peers",
             );
-            warn!(
-                context,
-                error = %err,
-                "failed to publish whitelist preconfirmation message"
-            );
-        } else {
-            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
-                topic_label,
-                "published",
-            );
+            debug!(context, "deferring whitelist preconfirmation publish; no subscribed peers");
+            return;
+        }
+
+        match self.swarm.behaviour_mut().gossipsub.publish(topic, payload) {
+            Ok(_) => {
+                WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                    topic_label,
+                    "published",
+                );
+            }
+            // Identical bytes were already published within gossipsub's seen-cache
+            // window (e.g. EOS-request retries); peers would drop the resend anyway.
+            Err(gossipsub::PublishError::Duplicate) => {
+                WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                    topic_label,
+                    "duplicate",
+                );
+                debug!(context, "skipped duplicate whitelist preconfirmation publish");
+            }
+            Err(err) => {
+                WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                    topic_label,
+                    "publish_failed",
+                );
+                warn!(
+                    context,
+                    error = %err,
+                    "failed to publish whitelist preconfirmation message"
+                );
+            }
         }
     }
 
