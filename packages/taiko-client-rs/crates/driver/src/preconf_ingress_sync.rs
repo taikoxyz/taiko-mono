@@ -70,7 +70,12 @@ impl PreconfIngressSync<FillProvider<JoinedRecommendedFillers, RootProvider>> {
     /// Start the preconfirmation ingress sync pipeline and its background task.
     pub async fn start(config: &DriverConfig) -> result::Result<Self, PreconfIngressSyncError> {
         let client = rpc::client::Client::new(config.client.clone()).await?;
-        let pipeline = SyncPipeline::new(config.clone(), client.clone()).await?;
+        // Wrap (not flatten) so a sync failure during pipeline construction keeps its
+        // pre-refactor classification of `Driver(DriverError::Sync(_))`; only the readiness
+        // path below flattens `DriverError::Sync` into the consumer's sync variant.
+        let pipeline = SyncPipeline::new(config.clone(), client.clone())
+            .await
+            .map_err(PreconfIngressSyncError::Driver)?;
         let event_syncer = pipeline.event_syncer();
         let handle = tokio::spawn(async move { pipeline.run().await });
 
