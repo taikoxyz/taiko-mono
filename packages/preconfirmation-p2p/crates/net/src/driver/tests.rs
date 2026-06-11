@@ -460,6 +460,57 @@ async fn reqresp_errors_when_no_peer_available() {
     assert_eq!(err.kind, NetworkErrorKind::ReqRespBackpressure);
 }
 
+/// Local reputation changes are mirrored into gossipsub's app-specific score (spec §7.1),
+/// clamped to the spec's appScore bounds.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn reputation_mirrors_into_gossipsub_app_score() {
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let parts1 = build_memory_parts(cfg.chain_id, &cfg);
+    let parts2 = build_memory_parts(cfg.chain_id, &cfg);
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let (mut driver1, _handle1) = driver_from_parts(parts1, &cfg, lookahead.clone());
+    let (mut driver2, _handle2) = driver_from_parts(parts2, &cfg, lookahead);
+
+    let peer2_id = *driver2.swarm.local_peer_id();
+    let addr1: Multiaddr = "/memory/1101".parse().unwrap();
+    let mut addr1_full = addr1.clone();
+    addr1_full.push(libp2p::multiaddr::Protocol::P2p(*driver1.swarm.local_peer_id()));
+
+    driver1.swarm.listen_on(addr1).unwrap();
+    driver2.swarm.dial(addr1_full).unwrap();
+    for _ in 0..200 {
+        pump_async(&mut driver1).await;
+        pump_async(&mut driver2).await;
+        if driver1.swarm.is_connected(&peer2_id) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(driver1.swarm.is_connected(&peer2_id), "peers failed to connect");
+
+    // One invalid gossip message applies the spec's -1 app feedback delta.
+    driver1.apply_reputation(peer2_id, PeerAction::GossipInvalid);
+    let score = driver1
+        .swarm
+        .behaviour()
+        .gossipsub
+        .peer_score(&peer2_id)
+        .expect("gossipsub peer scoring must be active");
+    assert!((score + 1.0).abs() < 1e-6, "app score should be -1.0, got {score}");
+
+    // Repeated failures clamp at the spec's appScore floor of -10.
+    for _ in 0..14 {
+        driver1.apply_reputation(peer2_id, PeerAction::GossipInvalid);
+    }
+    let score = driver1
+        .swarm
+        .behaviour()
+        .gossipsub
+        .peer_score(&peer2_id)
+        .expect("gossipsub peer scoring must be active");
+    assert!((score + 10.0).abs() < 1e-6, "app score should clamp at -10.0, got {score}");
+}
+
 #[test]
 fn p2p_config_enable_quic_wiring() {
     let p2p = P2pConfig { enable_quic: false, enable_tcp: true, ..Default::default() };
