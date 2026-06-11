@@ -11,7 +11,6 @@ pub mod metrics;
 mod network;
 mod operator_set;
 mod payload;
-mod preconf_ingress_sync;
 mod runner;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};

@@ -1,10 +1,12 @@
 //! Preconfirmation driver runner orchestration.
 
-mod preconf_ingress_sync;
-
 use std::{result, sync::Arc};
 
-use driver::{DriverConfig, sync::SyncError};
+use driver::{
+    DriverConfig,
+    preconf_ingress_sync::{PreconfIngressSync, PreconfIngressSyncError, map_event_syncer_exit},
+    sync::SyncError,
+};
 use preconfirmation_net::P2pConfig;
 use preconfirmation_types::MAX_TXLIST_BYTES;
 use protocol::codec::ZlibTxListCodec;
@@ -17,8 +19,6 @@ use crate::{
 };
 use protocol::preconfirmation::LookaheadResolver;
 use rpc::beacon::BeaconClient;
-
-use preconf_ingress_sync::PreconfIngressSync;
 
 /// Join outcome emitted by the P2P node event-loop task.
 type NodeLoopResult =
@@ -51,6 +51,19 @@ pub enum RunnerError {
     /// Failed to fetch beacon genesis for lookahead resolver.
     #[error("beacon genesis fetch failed: {0}")]
     BeaconGenesis(String),
+}
+
+impl From<PreconfIngressSyncError> for RunnerError {
+    /// Absorb ingress-sync readiness failures into the matching runner error variants.
+    fn from(err: PreconfIngressSyncError) -> Self {
+        match err {
+            PreconfIngressSyncError::EventSyncerExited => Self::EventSyncerExited,
+            PreconfIngressSyncError::EventSyncerFailed(message) => Self::EventSyncerFailed(message),
+            PreconfIngressSyncError::Sync(err) => Self::Sync(err),
+            PreconfIngressSyncError::Driver(err) => Self::Driver(err),
+            PreconfIngressSyncError::Rpc(err) => Self::Rpc(err),
+        }
+    }
 }
 
 /// Configuration for the preconfirmation driver runner.
@@ -186,7 +199,7 @@ impl PreconfirmationDriverRunner {
             }
             result = &mut *event_syncer_handle => {
                 node_handle.abort();
-                preconf_ingress_sync::map_event_syncer_exit_result(result)
+                map_event_syncer_exit(result).map_err(RunnerError::from)
             }
         };
 
