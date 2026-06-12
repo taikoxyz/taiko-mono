@@ -124,9 +124,11 @@ where
         let store: Arc<dyn CommitmentStore> = store;
         // Build the txlist codec using the protocol constant.
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
-        // Build the network validator.
-        let validator: Box<dyn ValidationAdapter> =
-            Box::new(LocalValidationAdapter::new(config.expected_slasher.clone()));
+        // Build the network validator with the chain-configured signing domain.
+        let validator: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::with_domain(
+            config.expected_slasher.clone(),
+            config.signing_domain,
+        ));
         // Create the P2P handle and node.
         let (handle, node) = P2pNode::new_with_validator_and_storage(
             config.p2p.clone(),
@@ -201,7 +203,8 @@ where
                 lookahead_resolver: Arc::clone(&config.lookahead_resolver),
             },
             handle.local_peer_id(),
-        );
+        )
+        .with_signing_domain(config.signing_domain);
 
         // Spawn the P2P node loop before running catch-up.
         // Convert anyhow::Result from P2pNode::run() to our crate's Result type.

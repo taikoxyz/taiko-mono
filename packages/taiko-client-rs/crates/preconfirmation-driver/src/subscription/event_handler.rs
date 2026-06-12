@@ -5,7 +5,8 @@ use std::sync::Arc;
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::{NetworkCommand, NetworkEvent, PeerId};
 use preconfirmation_types::{
-    Bytes20, RawTxListGossip, SignedCommitment, uint256_to_u256, validate_raw_txlist_gossip,
+    Bytes20, DOMAIN_PRECONF, RawTxListGossip, SignedCommitment, uint256_to_u256,
+    validate_raw_txlist_gossip,
 };
 use protocol::{codec::ZlibTxListCodec, preconfirmation::PreconfSignerResolver};
 use tokio::sync::{broadcast, mpsc::Sender};
@@ -57,6 +58,8 @@ where
     pub(super) lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
     /// Local libp2p peer ID used to ignore looped-back gossip messages.
     pub(super) local_peer_id: Option<PeerId>,
+    /// Chain-configured 32-byte signing domain for commitment signatures (spec §4.1/§8).
+    pub(super) signing_domain: [u8; 32],
 }
 
 /// Construction parameters for an [`EventHandler`].
@@ -104,6 +107,7 @@ where
             command_tx,
             lookahead_resolver,
             local_peer_id: None,
+            signing_domain: DOMAIN_PRECONF,
         }
     }
 
@@ -112,6 +116,12 @@ where
         let mut handler = Self::new(params);
         handler.local_peer_id = Some(local_peer_id);
         handler
+    }
+
+    /// Override the chain-configured signing domain used for signature recovery.
+    pub fn with_signing_domain(mut self, signing_domain: [u8; 32]) -> Self {
+        self.signing_domain = signing_domain;
+        self
     }
 
     /// Handle a network event.
@@ -237,7 +247,11 @@ where
         commitment: &SignedCommitment,
         current_block: U256,
     ) -> Option<alloy_primitives::Address> {
-        match validate_commitment_with_signer(commitment, self.expected_slasher.as_ref()) {
+        match validate_commitment_with_signer(
+            commitment,
+            self.expected_slasher.as_ref(),
+            &self.signing_domain,
+        ) {
             Ok(signer) => Some(signer),
             Err(err) => {
                 warn!(error = %err, "dropping invalid commitment");

@@ -32,21 +32,45 @@ pub(crate) struct RunnerRpcApiImpl<I: InboxReader> {
     codec: Arc<ZlibTxListCodec>,
     /// Expected slasher address for commitment validation.
     expected_slasher: Option<Bytes20>,
+    /// Chain-configured 32-byte signing domain for commitment signatures (spec §4.1/§8).
+    signing_domain: [u8; 32],
     /// Local peer ID string used in status responses.
     local_peer_id: String,
 }
 
+/// Construction parameters for [`RunnerRpcApiImpl`].
+pub(crate) struct RunnerRpcApiParams<I: InboxReader> {
+    /// Channel used to send P2P/network commands.
+    pub command_tx: mpsc::Sender<NetworkCommand>,
+    /// Driver client used for tip queries and preconfirmation submission.
+    pub driver: Arc<dyn DriverClient>,
+    /// Inbox reader used to determine sync status.
+    pub inbox_reader: I,
+    /// Lookahead resolver for slot info by timestamp.
+    pub lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
+    /// Txlist codec for decompression.
+    pub codec: Arc<ZlibTxListCodec>,
+    /// Expected slasher address for commitment validation.
+    pub expected_slasher: Option<Bytes20>,
+    /// Chain-configured 32-byte signing domain for commitment signatures (spec §4.1/§8).
+    pub signing_domain: [u8; 32],
+    /// Local peer ID string used in status responses.
+    pub local_peer_id: String,
+}
+
 impl<I: InboxReader> RunnerRpcApiImpl<I> {
     /// Create a new runner RPC API instance.
-    pub(crate) fn new(
-        command_tx: mpsc::Sender<NetworkCommand>,
-        driver: Arc<dyn DriverClient>,
-        inbox_reader: I,
-        lookahead_resolver: Arc<dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync>,
-        codec: Arc<ZlibTxListCodec>,
-        expected_slasher: Option<Bytes20>,
-        local_peer_id: String,
-    ) -> Self {
+    pub(crate) fn new(params: RunnerRpcApiParams<I>) -> Self {
+        let RunnerRpcApiParams {
+            command_tx,
+            driver,
+            inbox_reader,
+            lookahead_resolver,
+            codec,
+            expected_slasher,
+            signing_domain,
+            local_peer_id,
+        } = params;
         Self {
             command_tx,
             driver,
@@ -54,6 +78,7 @@ impl<I: InboxReader> RunnerRpcApiImpl<I> {
             lookahead_resolver,
             codec,
             expected_slasher,
+            signing_domain,
             local_peer_id,
         }
     }
@@ -68,6 +93,7 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
             &self.codec,
             self.expected_slasher.as_ref(),
             self.lookahead_resolver.as_ref(),
+            &self.signing_domain,
             request,
         )
         .await
@@ -122,15 +148,16 @@ mod tests {
         let driver = Arc::new(StubDriver::with_preconf_tip(U256::from(100)));
         let inbox_reader = MockInboxReader::new(43, Some(88), Some(88));
 
-        let api = RunnerRpcApiImpl::new(
+        let api = RunnerRpcApiImpl::new(super::RunnerRpcApiParams {
             command_tx,
             driver,
             inbox_reader,
-            Arc::new(MockLookaheadResolver::default()),
-            Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
-            None,
-            "test-peer".to_string(),
-        );
+            lookahead_resolver: Arc::new(MockLookaheadResolver::default()),
+            codec: Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
+            expected_slasher: None,
+            signing_domain: preconfirmation_types::DOMAIN_PRECONF,
+            local_peer_id: "test-peer".to_string(),
+        });
 
         let status = api.get_status().await.unwrap();
         assert_eq!(status.event_sync_tip, Some(U256::from(88)));
@@ -146,15 +173,16 @@ mod tests {
         let (command_tx, mut command_rx) = mpsc::channel(8);
         tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
 
-        let api = RunnerRpcApiImpl::new(
+        let api = RunnerRpcApiImpl::new(super::RunnerRpcApiParams {
             command_tx,
-            Arc::new(StubDriver::default()),
-            MockInboxReader::new(0, None, None),
-            Arc::new(MockLookaheadResolver::default()),
-            Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
-            None,
-            "test-peer".to_string(),
-        );
+            driver: Arc::new(StubDriver::default()),
+            inbox_reader: MockInboxReader::new(0, None, None),
+            lookahead_resolver: Arc::new(MockLookaheadResolver::default()),
+            codec: Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
+            expected_slasher: None,
+            signing_domain: preconfirmation_types::DOMAIN_PRECONF,
+            local_peer_id: "test-peer".to_string(),
+        });
 
         let slot_info = api.get_preconf_slot_info(U256::from(500)).await.unwrap();
         assert_eq!(slot_info.signer, alloy_primitives::Address::repeat_byte(0x11));

@@ -50,11 +50,23 @@ pub fn keccak256_ssz_with_domain<T: SimpleSerialize>(
 }
 
 /// Sign the SSZ-serialized commitment with a secp256k1 key, returning a 65-byte (r,s,v) signature.
+///
+/// Uses the default `DOMAIN_PRECONF` separator; deployments with a chain-specific domain
+/// should use [`sign_commitment_with_domain`].
 pub fn sign_commitment(
     commitment: &PreconfCommitment,
     sk: &SecretKey,
 ) -> Result<Bytes65, CryptoError> {
-    let msg_hash = keccak256_ssz(commitment)?;
+    sign_commitment_with_domain(commitment, sk, &crate::constants::DOMAIN_PRECONF)
+}
+
+/// Sign the SSZ-serialized commitment with an explicit 32-byte signing domain (spec §4.1).
+pub fn sign_commitment_with_domain(
+    commitment: &PreconfCommitment,
+    sk: &SecretKey,
+    domain: &[u8; 32],
+) -> Result<Bytes65, CryptoError> {
+    let msg_hash = keccak256_ssz_with_domain(commitment, domain)?;
     let msg =
         Message::from_digest_slice(msg_hash.as_slice()).map_err(CryptoError::SignatureFormat)?;
     let sig = Secp256k1::new().sign_ecdsa_recoverable(&msg, sk);
@@ -67,11 +79,24 @@ pub fn sign_commitment(
 }
 
 /// Recover the signer address from a signature over SSZ(commitment).
+///
+/// Uses the default `DOMAIN_PRECONF` separator; deployments with a chain-specific domain
+/// should use [`recover_signer_with_domain`].
 pub fn recover_signer(
     commitment: &PreconfCommitment,
     signature: &Bytes65,
 ) -> Result<Address, CryptoError> {
-    let msg_hash = keccak256_ssz(commitment)?;
+    recover_signer_with_domain(commitment, signature, &crate::constants::DOMAIN_PRECONF)
+}
+
+/// Recover the signer address from a signature using an explicit 32-byte signing domain
+/// (spec §4.1).
+pub fn recover_signer_with_domain(
+    commitment: &PreconfCommitment,
+    signature: &Bytes65,
+    domain: &[u8; 32],
+) -> Result<Address, CryptoError> {
+    let msg_hash = keccak256_ssz_with_domain(commitment, domain)?;
     let msg =
         Message::from_digest_slice(msg_hash.as_slice()).map_err(CryptoError::SignatureFormat)?;
     let rec_id =
@@ -85,8 +110,20 @@ pub fn recover_signer(
 }
 
 /// Verify a `SignedCommitment`, returning the recovered address on success.
+///
+/// Uses the default `DOMAIN_PRECONF` separator; deployments with a chain-specific domain
+/// should use [`verify_signed_commitment_with_domain`].
 pub fn verify_signed_commitment(signed: &SignedCommitment) -> Result<Address, CryptoError> {
     recover_signer(&signed.commitment, &signed.signature)
+}
+
+/// Verify a `SignedCommitment` under an explicit 32-byte signing domain (spec §4.1),
+/// returning the recovered address on success.
+pub fn verify_signed_commitment_with_domain(
+    signed: &SignedCommitment,
+    domain: &[u8; 32],
+) -> Result<Address, CryptoError> {
+    recover_signer_with_domain(&signed.commitment, &signed.signature, domain)
 }
 
 /// Convert a secp256k1 public key into an Ethereum address (last 20 bytes of keccak256(pubkey)).
@@ -144,6 +181,49 @@ mod tests {
         let pk = PublicKey::from_secret_key(&Secp256k1::new(), &sk);
         let expected = public_key_to_address(&pk);
         assert_eq!(recovered, expected);
+    }
+
+    /// Signing and recovery agree when both sides use the same custom domain.
+    #[test]
+    fn custom_domain_sign_and_recover_roundtrip() {
+        let commitment = sample_commitment();
+        let sk = SecretKey::from_slice(&[42u8; 32]).unwrap();
+        let domain = *b"CUSTOM_PRECONF_DOMAIN_FOR_TESTS!";
+        let sig = sign_commitment_with_domain(&commitment, &sk, &domain).unwrap();
+        let recovered = recover_signer_with_domain(&commitment, &sig, &domain).unwrap();
+        let pk = PublicKey::from_secret_key(&Secp256k1::new(), &sk);
+        assert_eq!(recovered, public_key_to_address(&pk));
+
+        let signed = SignedCommitment { commitment, signature: sig };
+        let verified = verify_signed_commitment_with_domain(&signed, &domain).unwrap();
+        assert_eq!(verified, public_key_to_address(&pk));
+    }
+
+    /// Recovery under a different domain must not yield the signer's address.
+    #[test]
+    fn mismatched_domain_recovers_different_signer() {
+        let commitment = sample_commitment();
+        let sk = SecretKey::from_slice(&[42u8; 32]).unwrap();
+        let domain = *b"CUSTOM_PRECONF_DOMAIN_FOR_TESTS!";
+        let sig = sign_commitment_with_domain(&commitment, &sk, &domain).unwrap();
+        let pk = PublicKey::from_secret_key(&Secp256k1::new(), &sk);
+        let signer = public_key_to_address(&pk);
+
+        // Recovering with the default domain must not attribute the signature to the signer.
+        let recovered = recover_signer(&commitment, &sig);
+        assert!(recovered.is_err() || recovered.unwrap() != signer);
+    }
+
+    /// The default-domain helpers stay byte-identical to the explicit-domain variants.
+    #[test]
+    fn default_domain_helpers_match_explicit_variants() {
+        let commitment = sample_commitment();
+        let sk = SecretKey::from_slice(&[42u8; 32]).unwrap();
+        let default_sig = sign_commitment(&commitment, &sk).unwrap();
+        let explicit_sig =
+            sign_commitment_with_domain(&commitment, &sk, &crate::constants::DOMAIN_PRECONF)
+                .unwrap();
+        assert_eq!(default_sig, explicit_sig);
     }
 
     /// Verifying a signed commitment recovers the signer used to create it.

@@ -56,6 +56,7 @@ pub(crate) async fn publish_block_impl(
     codec: &ZlibTxListCodec,
     expected_slasher: Option<&Bytes20>,
     lookahead_resolver: &(dyn protocol::preconfirmation::PreconfSignerResolver + Send + Sync),
+    signing_domain: &[u8; 32],
     request: PublishBlockRequest,
 ) -> Result<PublishBlockResponse> {
     // 1. SSZ-decode the commitment.
@@ -96,10 +97,11 @@ pub(crate) async fn publish_block_impl(
     }
 
     // 3. Validate commitment signature + recover signer.
-    let signer = validate_commitment_with_signer(&signed_commitment, expected_slasher)
-        .inspect_err(|_| {
-            record_validation_failure();
-        })?;
+    let signer =
+        validate_commitment_with_signer(&signed_commitment, expected_slasher, signing_domain)
+            .inspect_err(|_| {
+                record_validation_failure();
+            })?;
 
     log_publish_block_entry(&signed_commitment, signer, request.tx_list_hash);
 
@@ -253,6 +255,7 @@ mod tests {
             &codec,
             None,
             &MockLookaheadResolver::default(),
+            &preconfirmation_types::DOMAIN_PRECONF,
             request,
         )
         .await;
@@ -289,6 +292,7 @@ mod tests {
             &codec,
             None,
             &MockLookaheadResolver::default(),
+            &preconfirmation_types::DOMAIN_PRECONF,
             request,
         )
         .await;

@@ -16,9 +16,9 @@ use alloy_primitives::Address;
 use libp2p::PeerId;
 
 use preconfirmation_types::{
-    Bytes20, GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip,
+    Bytes20, DOMAIN_PRECONF, GetCommitmentsByNumberResponse, GetRawTxListResponse, RawTxListGossip,
     SignedCommitment, Uint256, validate_commitments_response, validate_preconfirmation_basic,
-    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment,
+    validate_raw_txlist_gossip, validate_raw_txlist_response, verify_signed_commitment_with_domain,
 };
 
 /// Resolver that can validate commitments against an external lookahead schedule.
@@ -72,12 +72,20 @@ pub trait ValidationAdapter: Send + Sync {
 pub struct LocalValidationAdapter {
     /// Optional slasher address to enforce on inbound commitments.
     expected_slasher: Option<Bytes20>,
+    /// Signing domain used for commitment signature recovery (spec §4.1/§8).
+    domain: [u8; 32],
 }
 
 impl LocalValidationAdapter {
-    /// Construct a local validator that optionally enforces a specific slasher address.
+    /// Construct a local validator that optionally enforces a specific slasher address,
+    /// using the default `DOMAIN_PRECONF` signing domain.
     pub fn new(expected_slasher: Option<Bytes20>) -> Self {
-        Self { expected_slasher }
+        Self::with_domain(expected_slasher, DOMAIN_PRECONF)
+    }
+
+    /// Construct a local validator with an explicit chain-configured signing domain.
+    pub fn with_domain(expected_slasher: Option<Bytes20>, domain: [u8; 32]) -> Self {
+        Self { expected_slasher, domain }
     }
 
     /// Validate slasher address and basic preconfirmation invariants.
@@ -100,7 +108,7 @@ impl ValidationAdapter for LocalValidationAdapter {
         _from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        verify_signed_commitment(msg).map_err(|e| e.to_string())?;
+        verify_signed_commitment_with_domain(msg, &self.domain).map_err(|e| e.to_string())?;
         self.validate_commitment_fields(msg)
     }
 
@@ -154,9 +162,19 @@ pub struct LookaheadValidationAdapter {
 }
 
 impl LookaheadValidationAdapter {
-    /// Construct a lookahead validator wrapping the local validator and an external resolver.
+    /// Construct a lookahead validator wrapping the local validator and an external resolver,
+    /// using the default `DOMAIN_PRECONF` signing domain.
     pub fn new(expected_slasher: Option<Bytes20>, resolver: Arc<dyn LookaheadResolver>) -> Self {
-        Self { local: LocalValidationAdapter::new(expected_slasher), resolver }
+        Self::with_domain(expected_slasher, resolver, DOMAIN_PRECONF)
+    }
+
+    /// Construct a lookahead validator with an explicit chain-configured signing domain.
+    pub fn with_domain(
+        expected_slasher: Option<Bytes20>,
+        resolver: Arc<dyn LookaheadResolver>,
+        domain: [u8; 32],
+    ) -> Self {
+        Self { local: LocalValidationAdapter::with_domain(expected_slasher, domain), resolver }
     }
 }
 
@@ -167,7 +185,8 @@ impl ValidationAdapter for LookaheadValidationAdapter {
         _from: &PeerId,
         msg: &SignedCommitment,
     ) -> Result<(), String> {
-        let recovered = verify_signed_commitment(msg).map_err(|e| e.to_string())?;
+        let recovered = verify_signed_commitment_with_domain(msg, &self.local.domain)
+            .map_err(|e| e.to_string())?;
         self.local.validate_commitment_fields(msg)?;
         let slot_end = &msg.commitment.preconf.submission_window_end;
         let expected_signer = self.resolver.signer_for_timestamp(slot_end)?;
@@ -270,6 +289,37 @@ mod tests {
         let wrong = Vector::try_from(vec![8u8; 20]).unwrap();
         let msg = sample_signed_commitment(wrong);
         assert!(adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
+    }
+
+    /// A custom-domain commitment is rejected by the default adapter and accepted by a
+    /// domain-aware adapter (spec §4.1/§8 chain-configurable `DOMAIN_PRECONF`).
+    #[test]
+    fn custom_signing_domain_enforced() {
+        let domain = *b"CUSTOM_PRECONF_DOMAIN_FOR_TESTS!";
+        let slasher: Bytes20 = Vector::try_from(vec![7u8; 20]).unwrap();
+        let mut msg = sample_signed_commitment(slasher.clone());
+        let sk = SecretKey::from_slice(&[9u8; 32]).unwrap();
+        msg.signature =
+            preconfirmation_types::sign_commitment_with_domain(&msg.commitment, &sk, &domain)
+                .unwrap();
+
+        // The local adapter accepts under the matching domain (recovery succeeds).
+        let domain_adapter = LocalValidationAdapter::with_domain(Some(slasher), domain);
+        assert!(domain_adapter.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
+
+        // The lookahead adapter binds the recovered signer, making a domain mismatch
+        // observable: under the default domain the recovered signer cannot match.
+        let signer = preconfirmation_types::public_key_to_address(
+            &secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &sk),
+        );
+        let resolver = Arc::new(AcceptResolver {
+            signer,
+            slot_end: msg.commitment.preconf.submission_window_end.clone(),
+        });
+        let default_lookahead = LookaheadValidationAdapter::new(None, resolver.clone());
+        assert!(default_lookahead.validate_gossip_commitment(&PeerId::random(), &msg).is_err());
+        let domain_lookahead = LookaheadValidationAdapter::with_domain(None, resolver, domain);
+        assert!(domain_lookahead.validate_gossip_commitment(&PeerId::random(), &msg).is_ok());
     }
 
     /// Resolver that always returns a configured signer and slot end.

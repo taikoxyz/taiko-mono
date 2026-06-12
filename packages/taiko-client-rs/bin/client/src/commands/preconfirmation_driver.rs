@@ -96,6 +96,13 @@ impl Subcommand for PreconfirmationDriverSubCommand {
             runner_config =
                 runner_config.with_rpc(Some(PreconfRpcServerConfig { listen_addr: rpc_addr }));
         }
+        if let Some(domain) = self
+            .preconf_flags
+            .parse_signing_domain()
+            .map_err(preconfirmation_driver::PreconfirmationClientError::Config)?
+        {
+            runner_config = runner_config.with_signing_domain(domain);
+        }
 
         PreconfirmationDriverRunner::new(runner_config).run().await?;
         Ok(())

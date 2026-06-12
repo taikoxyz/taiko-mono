@@ -55,7 +55,13 @@ mod tests {
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let commitment = make_commitment(1, parent_hash, 1000, 10, &sk);
 
-        let result = validate_commitment(&commitment, None, &resolver).await;
+        let result = validate_commitment(
+            &commitment,
+            None,
+            &resolver,
+            &preconfirmation_types::DOMAIN_PRECONF,
+        )
+        .await;
         assert!(result.is_some());
     }
 
@@ -67,7 +73,13 @@ mod tests {
         let parent_hash = Bytes32::try_from(vec![1u8; 32]).expect("parent hash");
         let commitment = make_commitment(1, parent_hash, 1000, 10, &sk);
 
-        let result = validate_commitment(&commitment, None, &resolver).await;
+        let result = validate_commitment(
+            &commitment,
+            None,
+            &resolver,
+            &preconfirmation_types::DOMAIN_PRECONF,
+        )
+        .await;
         assert!(result.is_none());
     }
 
@@ -82,7 +94,13 @@ mod tests {
         let zero_hash = Bytes32::try_from(vec![0u8; 32]).expect("zero hash");
         let commitment = make_commitment(0, zero_hash, 1000, 10, &sk);
 
-        let result = validate_commitment(&commitment, None, &resolver).await;
+        let result = validate_commitment(
+            &commitment,
+            None,
+            &resolver,
+            &preconfirmation_types::DOMAIN_PRECONF,
+        )
+        .await;
         assert!(result.is_some());
     }
 
@@ -121,7 +139,15 @@ mod tests {
         let tip = make_commitment(3, block3_parent, 1000, 30, &sk);
 
         let map = map_commitments(vec![block1.clone(), block2.clone()]);
-        let chain = chain_from_tip(tip, &map, U256::ONE, None, &resolver).await;
+        let chain = chain_from_tip(
+            tip,
+            &map,
+            U256::ONE,
+            None,
+            &resolver,
+            &preconfirmation_types::DOMAIN_PRECONF,
+        )
+        .await;
 
         assert_eq!(chain.len(), 3);
         assert_eq!(uint256_to_u256(&chain[0].commitment.preconf.block_number), U256::from(3));

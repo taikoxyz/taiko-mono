@@ -38,6 +38,30 @@ pub struct PreconfirmationArgs {
     /// Optional address for user-facing preconfirmation RPC server.
     #[clap(long = "preconf.rpc.addr", env = "PRECONF_RPC_ADDR")]
     pub preconf_rpc_addr: Option<SocketAddr>,
+
+    /// Chain-configured 32-byte preconfirmation signing domain as hex (64 hex chars,
+    /// optional 0x prefix). Defaults to the protocol's built-in `DOMAIN_PRECONF`.
+    #[clap(long = "preconf.signing-domain", env = "PRECONF_SIGNING_DOMAIN")]
+    pub preconf_signing_domain: Option<String>,
+}
+
+impl PreconfirmationArgs {
+    /// Parse the optional signing-domain flag into a 32-byte array.
+    ///
+    /// Returns `None` when the flag is unset and an error when the value is not exactly
+    /// 32 bytes of hex.
+    pub fn parse_signing_domain(&self) -> Result<Option<[u8; 32]>, String> {
+        let Some(raw) = self.preconf_signing_domain.as_deref() else {
+            return Ok(None);
+        };
+        let stripped = raw.strip_prefix("0x").unwrap_or(raw);
+        let bytes = alloy_primitives::hex::decode(stripped)
+            .map_err(|err| format!("invalid preconf.signing-domain hex: {err}"))?;
+        let domain: [u8; 32] = bytes
+            .try_into()
+            .map_err(|_| "preconf.signing-domain must be exactly 32 bytes".to_string())?;
+        Ok(Some(domain))
+    }
 }
 
 #[cfg(test)]
@@ -47,6 +71,30 @@ mod tests {
     use clap::Parser;
 
     use super::PreconfirmationArgs;
+
+    #[test]
+    fn parses_signing_domain_hex() {
+        let domain_hex = "0x".to_string() + &"ab".repeat(32);
+        let args =
+            PreconfirmationArgs::try_parse_from(["test", "--preconf.signing-domain", &domain_hex])
+                .expect("signing domain should parse");
+        let parsed = args.parse_signing_domain().expect("valid domain");
+        assert_eq!(parsed, Some([0xab; 32]));
+    }
+
+    #[test]
+    fn rejects_wrong_length_signing_domain() {
+        let args =
+            PreconfirmationArgs::try_parse_from(["test", "--preconf.signing-domain", "0xabcd"])
+                .expect("flag parses as string");
+        assert!(args.parse_signing_domain().is_err());
+    }
+
+    #[test]
+    fn unset_signing_domain_is_none() {
+        let args = PreconfirmationArgs::try_parse_from(["test"]).expect("no flags");
+        assert_eq!(args.parse_signing_domain().expect("ok"), None);
+    }
 
     #[test]
     fn parses_p2p_advertise_addr() {

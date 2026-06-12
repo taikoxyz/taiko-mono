@@ -6,18 +6,22 @@
 use alloy_primitives::Address;
 use preconfirmation_types::{
     Bytes20, SignedCommitment, uint256_to_u256, validate_preconfirmation_basic,
-    verify_signed_commitment,
+    verify_signed_commitment_with_domain,
 };
 use protocol::preconfirmation::PreconfSlotInfo;
 
 use crate::error::{PreconfirmationClientError, Result, ValidationErrorCode};
 
 /// Validate a signed commitment with basic checks and return the recovered signer.
+///
+/// `signing_domain` is the chain-configured 32-byte `DOMAIN_PRECONF` separator used for
+/// the signature preimage (spec §4.1/§8).
 pub fn validate_commitment_with_signer(
     commitment: &SignedCommitment,
     expected_slasher: Option<&Bytes20>,
+    signing_domain: &[u8; 32],
 ) -> Result<Address> {
-    let recovered = verify_signed_commitment(commitment)
+    let recovered = verify_signed_commitment_with_domain(commitment, signing_domain)
         .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
     validate_preconfirmation_basic(&commitment.commitment.preconf)
         .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))?;
@@ -65,10 +69,36 @@ pub fn validate_lookahead(
 
 #[cfg(test)]
 mod tests {
-    use super::{is_eop_only, validate_lookahead};
+    use super::{is_eop_only, validate_commitment_with_signer, validate_lookahead};
     use alloy_primitives::{Address, U256};
-    use preconfirmation_types::{Bytes32, PreconfCommitment, Preconfirmation, SignedCommitment};
+    use preconfirmation_types::{
+        Bytes32, DOMAIN_PRECONF, PreconfCommitment, Preconfirmation, SignedCommitment,
+        public_key_to_address, sign_commitment_with_domain,
+    };
     use protocol::preconfirmation::PreconfSlotInfo;
+    use secp256k1::{PublicKey, Secp256k1, SecretKey};
+
+    /// A commitment signed under a chain-specific domain verifies only with that domain.
+    #[test]
+    fn signing_domain_is_enforced() {
+        let domain = *b"CUSTOM_PRECONF_DOMAIN_FOR_TESTS!";
+        let sk = SecretKey::from_slice(&[5u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+
+        let preconf = Preconfirmation { eop: true, ..Default::default() };
+        let commitment = PreconfCommitment { preconf, ..Default::default() };
+        let signature =
+            sign_commitment_with_domain(&commitment, &sk, &domain).expect("sign commitment");
+        let signed = SignedCommitment { commitment, signature };
+
+        let recovered =
+            validate_commitment_with_signer(&signed, None, &domain).expect("custom domain valid");
+        assert_eq!(recovered, signer);
+
+        // Under the default domain the recovered signer must differ (or recovery fails).
+        let default_result = validate_commitment_with_signer(&signed, None, &DOMAIN_PRECONF);
+        assert!(default_result.is_err() || default_result.unwrap() != signer);
+    }
 
     #[test]
     fn eop_only_detection() {

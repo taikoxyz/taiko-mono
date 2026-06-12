@@ -9,7 +9,7 @@ use std::{
 use alloy_primitives::Address;
 use alloy_provider::Provider;
 use preconfirmation_net::P2pConfig;
-use preconfirmation_types::Bytes20;
+use preconfirmation_types::{Bytes20, DOMAIN_PRECONF};
 use protocol::preconfirmation::{LookaheadResolver, PreconfSignerResolver};
 
 use crate::Result;
@@ -34,6 +34,8 @@ pub struct PreconfirmationClientConfig {
     pub lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
     /// Maximum number of commitments/txlists retained in memory.
     pub retention_limit: usize,
+    /// Chain-configured 32-byte signing domain for commitment signatures (spec §4.1/§8).
+    pub signing_domain: [u8; 32],
 }
 
 impl Debug for PreconfirmationClientConfig {
@@ -47,6 +49,7 @@ impl Debug for PreconfirmationClientConfig {
             .field("txlist_fetch_concurrency", &self.txlist_fetch_concurrency)
             .field("lookahead_resolver", &"<PreconfSignerResolver>")
             .field("retention_limit", &self.retention_limit)
+            .field("signing_domain", &alloy_primitives::hex::encode(self.signing_domain))
             .finish()
     }
 }
@@ -66,6 +69,7 @@ impl PreconfirmationClientConfig {
             txlist_fetch_concurrency: None,
             lookahead_resolver,
             retention_limit: DEFAULT_RETENTION_LIMIT,
+            signing_domain: DOMAIN_PRECONF,
         })
     }
 
@@ -82,6 +86,7 @@ impl PreconfirmationClientConfig {
             txlist_fetch_concurrency: None,
             lookahead_resolver,
             retention_limit: DEFAULT_RETENTION_LIMIT,
+            signing_domain: DOMAIN_PRECONF,
         }
     }
 
@@ -130,6 +135,7 @@ mod tests {
             txlist_fetch_concurrency: None,
             lookahead_resolver: Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO)),
             retention_limit,
+            signing_domain: preconfirmation_types::DOMAIN_PRECONF,
         }
     }
 

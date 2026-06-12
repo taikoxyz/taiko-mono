@@ -123,6 +123,7 @@ impl TipCatchup {
             catchup_start_block,
             self.config.expected_slasher.as_ref(),
             self.config.lookahead_resolver.as_ref(),
+            &self.config.signing_domain,
         )
         .await;
 
@@ -214,14 +215,16 @@ pub(crate) async fn validate_commitment(
     commitment: &SignedCommitment,
     expected_slasher: Option<&preconfirmation_types::Bytes20>,
     lookahead_resolver: &(dyn PreconfSignerResolver + Send + Sync),
+    signing_domain: &[u8; 32],
 ) -> Option<SignedCommitment> {
-    let recovered_signer = match validate_commitment_with_signer(commitment, expected_slasher) {
-        Ok(signer) => signer,
-        Err(err) => {
-            warn!(error = %err, "dropping catch-up commitment with invalid basics");
-            return None;
-        }
-    };
+    let recovered_signer =
+        match validate_commitment_with_signer(commitment, expected_slasher, signing_domain) {
+            Ok(signer) => signer,
+            Err(err) => {
+                warn!(error = %err, "dropping catch-up commitment with invalid basics");
+                return None;
+            }
+        };
 
     let timestamp = uint256_to_u256(&commitment.commitment.preconf.timestamp);
     let expected_slot_info = match lookahead_resolver.slot_info_for_timestamp(timestamp).await {
@@ -263,6 +266,7 @@ pub(crate) async fn chain_from_tip(
     stop_block: U256,
     expected_slasher: Option<&preconfirmation_types::Bytes20>,
     lookahead_resolver: &(dyn PreconfSignerResolver + Send + Sync),
+    signing_domain: &[u8; 32],
 ) -> Vec<SignedCommitment> {
     let mut chain = Vec::new();
     let mut current = tip;
@@ -272,10 +276,13 @@ pub(crate) async fn chain_from_tip(
         return Vec::new();
     }
 
-    let tip = match validate_commitment(&current, expected_slasher, lookahead_resolver).await {
-        Some(commitment) => commitment,
-        None => return Vec::new(),
-    };
+    let tip =
+        match validate_commitment(&current, expected_slasher, lookahead_resolver, signing_domain)
+            .await
+        {
+            Some(commitment) => commitment,
+            None => return Vec::new(),
+        };
 
     chain.push(tip.clone());
     current = tip;
@@ -300,7 +307,13 @@ pub(crate) async fn chain_from_tip(
             }
         };
 
-        let parent = match validate_commitment(&parent, expected_slasher, lookahead_resolver).await
+        let parent = match validate_commitment(
+            &parent,
+            expected_slasher,
+            lookahead_resolver,
+            signing_domain,
+        )
+        .await
         {
             Some(commitment) => commitment,
             None => {

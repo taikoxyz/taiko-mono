@@ -15,7 +15,10 @@ use tracing::info;
 use crate::{
     ContractInboxReader, EventSyncerDriverClient, PreconfirmationClient,
     PreconfirmationClientConfig, PreconfirmationClientError,
-    rpc::{PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig, runner_api::RunnerRpcApiImpl},
+    rpc::{
+        PreconfRpcApi, PreconfRpcServer, PreconfRpcServerConfig,
+        runner_api::{RunnerRpcApiImpl, RunnerRpcApiParams},
+    },
 };
 use protocol::preconfirmation::LookaheadResolver;
 use rpc::beacon::BeaconClient;
@@ -75,17 +78,30 @@ pub struct RunnerConfig {
     pub p2p_config: P2pConfig,
     /// Optional RPC server configuration for preconfirmation submissions.
     pub rpc_config: Option<PreconfRpcServerConfig>,
+    /// Chain-configured 32-byte signing domain for commitment signatures (spec §4.1/§8).
+    pub signing_domain: [u8; 32],
 }
 
 impl RunnerConfig {
     /// Build a runner configuration from driver and P2P config.
     pub fn new(driver_config: DriverConfig, p2p_config: P2pConfig) -> Self {
-        Self { driver_config, p2p_config, rpc_config: None }
+        Self {
+            driver_config,
+            p2p_config,
+            rpc_config: None,
+            signing_domain: preconfirmation_types::DOMAIN_PRECONF,
+        }
     }
 
     /// Enable the preconfirmation RPC server.
     pub fn with_rpc(mut self, rpc_config: Option<PreconfRpcServerConfig>) -> Self {
         self.rpc_config = rpc_config;
+        self
+    }
+
+    /// Override the chain-configured commitment signing domain.
+    pub fn with_signing_domain(mut self, signing_domain: [u8; 32]) -> Self {
+        self.signing_domain = signing_domain;
         self
     }
 }
@@ -145,10 +161,11 @@ impl PreconfirmationDriverRunner {
                 .map_err(PreconfirmationClientError::from)?;
 
         // Build the preconfirmation P2P client configuration.
-        let client_config = PreconfirmationClientConfig::new_with_resolver(
+        let mut client_config = PreconfirmationClientConfig::new_with_resolver(
             self.config.p2p_config,
             Arc::new(lookahead_resolver),
         );
+        client_config.signing_domain = self.config.signing_domain;
 
         // Wrap the driver so P2P submissions go through the event syncer.
         let driver_client =
@@ -169,15 +186,16 @@ impl PreconfirmationDriverRunner {
             let rpc_driver =
                 Arc::new(EventSyncerDriverClient::from_client(event_syncer.clone(), rpc_client));
             let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
-            let api: Arc<dyn PreconfRpcApi> = Arc::new(RunnerRpcApiImpl::new(
-                command_tx.clone(),
-                rpc_driver,
+            let api: Arc<dyn PreconfRpcApi> = Arc::new(RunnerRpcApiImpl::new(RunnerRpcApiParams {
+                command_tx: command_tx.clone(),
+                driver: rpc_driver,
                 inbox_reader,
                 lookahead_resolver,
                 codec,
                 expected_slasher,
+                signing_domain: self.config.signing_domain,
                 local_peer_id,
-            ));
+            }));
             let server = PreconfRpcServer::start(rpc_config.clone(), api).await?;
             info!(url = %server.http_url(), "preconfirmation RPC server started");
             rpc_server = Some(server);
