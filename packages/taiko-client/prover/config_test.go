@@ -2,9 +2,11 @@ package prover
 
 import (
 	"os"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -68,6 +70,20 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	}))
 }
 
+func TestNewConfigFromCliContextMaxZKProofProposalDistance(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.Equal(t, uint64(30), cfg.MaxZKProofProposalDistance)
+	})
+
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.MaxZKProofProposalDistance.Name, "12")
+
+		require.Equal(t, uint64(12), cfg.MaxZKProofProposalDistance)
+	})
+}
+
 func (s *ProverTestSuite) TestNewConfigFromCliContextProverKeyError() {
 	app := s.SetupApp()
 
@@ -98,4 +114,50 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 		return err
 	}
 	return app
+}
+
+func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
+	t.Helper()
+
+	jwtSecret := t.TempDir() + "/jwt-secret.txt"
+	require.NoError(
+		t,
+		os.WriteFile(
+			jwtSecret,
+			[]byte("0x1000000000000000000000000000000000000000000000000000000000000000"),
+			0o600,
+		),
+	)
+
+	app := cli.NewApp()
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
+		&cli.StringFlag{Name: flags.InboxAddress.Name},
+		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
+		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
+		&cli.StringFlag{Name: flags.JWTSecret.Name},
+		&cli.Uint64Flag{Name: flags.MaxZKProofProposalDistance.Name, Value: flags.MaxZKProofProposalDistance.Value},
+	}
+
+	var cfg *Config
+	app.Action = func(ctx *cli.Context) error {
+		var err error
+		cfg, err = NewConfigFromCliContext(ctx)
+		return err
+	}
+
+	args := []string{
+		"TestNewConfigFromCliContextMaxZKProofProposalDistance",
+		"--" + flags.L1WSEndpoint.Name, "http://localhost:8545",
+		"--" + flags.L2WSEndpoint.Name, "http://localhost:9545",
+		"--" + flags.InboxAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000aa").Hex(),
+		"--" + flags.TaikoAnchorAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000bb").Hex(),
+		"--" + flags.L1ProverPrivKey.Name, encoding.GoldenTouchPrivKey,
+		"--" + flags.JWTSecret.Name, jwtSecret,
+	}
+	args = append(args, extraArgs...)
+
+	require.NoError(t, app.Run(args))
+	return cfg
 }

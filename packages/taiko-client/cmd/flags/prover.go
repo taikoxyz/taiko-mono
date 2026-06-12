@@ -71,6 +71,15 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
 	}
+	MaxZKProofProposalDistance = &cli.Uint64Flag{
+		Name: "prover.maxZKProofProposalDistance",
+		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting ZK proofs. " +
+			"When proposalID is greater than lastFinalizedProposalID + maxZKProofProposalDistance, " +
+			"the prover skips ZK proof and requests base proof instead. This flag only works for post Shasta fork. ",
+		Value:    30,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE"},
+	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
 		Name:     "prover.dummy",
@@ -149,4 +158,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
 	ProposalWindowSize,
+	MaxZKProofProposalDistance,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)
