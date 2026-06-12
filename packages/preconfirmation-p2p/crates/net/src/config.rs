@@ -195,9 +195,12 @@ impl Default for NetworkConfig {
             gossipsub_heartbeat: *kona_gossip::GOSSIP_HEARTBEAT,
             request_timeout: Duration::from_secs(10),
             enable_discovery: true,
-            reputation_greylist: -5.0,
-            reputation_ban: -10.0,
-            reputation_halflife: Duration::from_secs(600),
+            // Spec §7.1 enforcement thresholds: prune (greylist) below -2, ban below -5
+            // sustained >30s. The 66s halflife matches the spec's ~0.9-per-10s decay
+            // (0.5^(10/66) ≈ 0.9).
+            reputation_greylist: -2.0,
+            reputation_ban: -5.0,
+            reputation_halflife: Duration::from_secs(66),
             request_window: Duration::from_secs(10),
             max_requests_per_window: 8,
             max_reqresp_concurrent_streams: 100,

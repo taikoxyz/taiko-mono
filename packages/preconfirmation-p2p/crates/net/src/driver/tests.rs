@@ -498,7 +498,7 @@ async fn reputation_mirrors_into_gossipsub_app_score() {
         .expect("gossipsub peer scoring must be active");
     assert!((score + 1.0).abs() < 1e-6, "app score should be -1.0, got {score}");
 
-    // Repeated failures clamp at the spec's appScore floor of -10.
+    // Rapid-fire failures within one 10s window cap at the spec's -4 failure budget.
     for _ in 0..14 {
         driver1.apply_reputation(peer2_id, PeerAction::GossipInvalid);
     }
@@ -508,7 +508,7 @@ async fn reputation_mirrors_into_gossipsub_app_score() {
         .gossipsub
         .peer_score(&peer2_id)
         .expect("gossipsub peer scoring must be active");
-    assert!((score + 10.0).abs() < 1e-6, "app score should clamp at -10.0, got {score}");
+    assert!((score + 4.0).abs() < 1e-3, "app score should cap at -4.0 per window, got {score}");
 }
 
 #[test]

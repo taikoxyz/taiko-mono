@@ -42,6 +42,17 @@ const DEFAULT_BAN_THRESHOLD: PeerScore = -5.0; // spec ban threshold
 const DEFAULT_GREYLIST_THRESHOLD: PeerScore = -2.0; // spec prune/grey threshold
 /// Reputation delta applied on successful responses.
 const SUCCESS_REWARD: PeerScore = 0.05; // acceptance delta
+/// Maximum failure penalty accumulated per window (spec §7.1: cap -4 per 10s per peer).
+const FAILURE_CAP_PER_WINDOW: PeerScore = 4.0;
+/// Rolling window over which failure penalties are capped (spec §7.1).
+const FAILURE_CAP_WINDOW: Duration = Duration::from_secs(10);
+/// Lower appScore clamp bound (spec §7.1: appScore clamp [-10, +10]).
+const SCORE_MIN: PeerScore = -10.0;
+/// Upper appScore clamp bound (spec §7.1: appScore clamp [-10, +10]).
+const SCORE_MAX: PeerScore = 10.0;
+/// Duration a score must remain at/below the ban threshold before a hard ban
+/// (spec §7.1: ban below -5 sustained >30s).
+const BAN_SUSTAIN: Duration = Duration::from_secs(30);
 
 /// Represents the current reputation score of a peer.
 #[derive(Debug, Clone)]
@@ -50,12 +61,25 @@ pub struct PeerReputation {
     score: PeerScore,
     /// The last `Instant` at which the score was updated. Used for decay calculation.
     last_updated: Instant,
+    /// Start of the current failure-cap window (spec §7.1).
+    window_start: Instant,
+    /// Failure penalty accumulated within the current window.
+    window_penalty: PeerScore,
+    /// Earliest instant since which the score has continuously been at/below the ban
+    /// threshold; `None` while above it.
+    below_ban_since: Option<Instant>,
 }
 
 impl PeerReputation {
     /// Creates a new `PeerReputation` with a default score of 0.0.
     pub fn new(now: Instant) -> Self {
-        Self { score: 0.0, last_updated: now }
+        Self {
+            score: 0.0,
+            last_updated: now,
+            window_start: now,
+            window_penalty: 0.0,
+            below_ban_since: None,
+        }
     }
 
     /// Returns the current score of the peer.
@@ -128,18 +152,42 @@ impl PeerReputationStore {
 
     /// Applies a `PeerAction` to a peer, updating its score and ban/greylist status.
     pub fn apply(&mut self, peer: PeerId, action: PeerAction) -> ReputationEvent {
-        let now = Instant::now();
+        self.apply_at(peer, action, Instant::now())
+    }
+
+    /// Applies a `PeerAction` at an explicit instant (spec §7.1 semantics).
+    ///
+    /// - Failure penalties are capped at -4 accumulated per 10s window per peer.
+    /// - Scores are clamped to the [-10, +10] appScore bounds.
+    /// - A hard ban requires the score to stay at/below the ban threshold for >30s.
+    fn apply_at(&mut self, peer: PeerId, action: PeerAction, now: Instant) -> ReputationEvent {
         let was_banned = self.banned.contains(&peer);
         let was_grey = self.greylisted.contains(&peer);
         let entry = self.scores.entry(peer).or_insert_with(|| PeerReputation::new(now));
-        // Split borrows: compute new score then update.
         // Decay ensures older infractions fade so recent behavior dominates decisions.
-        let mut score = entry.score;
-        score = Self::decayed(score, entry.last_updated, now, self.cfg.halflife);
-        score += action_delta(action, &self.weights);
+        let mut score = Self::decayed(entry.score, entry.last_updated, now, self.cfg.halflife);
+        let mut delta = action_delta(action, &self.weights);
+        if delta < 0.0 {
+            if now.saturating_duration_since(entry.window_start) >= FAILURE_CAP_WINDOW {
+                entry.window_start = now;
+                entry.window_penalty = 0.0;
+            }
+            let allowed = (FAILURE_CAP_PER_WINDOW - entry.window_penalty).max(0.0);
+            delta = delta.max(-allowed);
+            entry.window_penalty -= delta;
+        }
+        score = (score + delta).clamp(SCORE_MIN, SCORE_MAX);
         entry.score = score;
         entry.last_updated = now;
-        self.update_lists(peer, score);
+        // Track how long the score has continuously breached the ban threshold.
+        let ban_eligible = if score <= self.cfg.ban_threshold {
+            let since = *entry.below_ban_since.get_or_insert(now);
+            now.saturating_duration_since(since) > BAN_SUSTAIN
+        } else {
+            entry.below_ban_since = None;
+            false
+        };
+        self.update_lists(peer, score, ban_eligible);
         let is_banned = self.banned.contains(&peer);
         let is_greylisted = self.greylisted.contains(&peer);
         ReputationEvent {
@@ -168,9 +216,12 @@ impl PeerReputationStore {
         score * (-lambda * dt).exp()
     }
 
-    /// Updates banned/greylisted sets based on the peer's score.
-    fn update_lists(&mut self, peer: PeerId, score: PeerScore) {
-        if score <= self.cfg.ban_threshold {
+    /// Updates banned/greylisted sets based on the peer's score and ban eligibility.
+    ///
+    /// `ban_eligible` is true only when the score has stayed at/below the ban threshold
+    /// for the sustained period required by spec §7.1.
+    fn update_lists(&mut self, peer: PeerId, score: PeerScore, ban_eligible: bool) {
+        if ban_eligible {
             // Ban takes precedence: ensure greylist entry is cleared to avoid conflicting states.
             self.banned.insert(peer);
             self.greylisted.remove(&peer);
@@ -312,23 +363,109 @@ mod tests {
         ReputationConfig {
             greylist_threshold: DEFAULT_GREYLIST_THRESHOLD,
             ban_threshold: DEFAULT_BAN_THRESHOLD,
-            halflife: Duration::from_secs(600),
+            halflife: Duration::from_secs(66),
         }
     }
 
-    /// Repeated errors eventually ban a peer.
+    /// Negative deltas accumulate to at most -4 within a single 10s window (spec §7.1).
     #[test]
-    fn peer_store_reaches_ban_threshold() {
+    fn failure_cap_limits_negative_delta_per_window() {
         let mut store = PeerReputationStore::new(cfg());
         let peer = PeerId::random();
-        for _ in 0..20 {
-            let ev = store.apply(peer, PeerAction::ReqRespError);
-            if ev.is_banned {
-                assert!(store.is_banned(&peer));
-                return;
-            }
+        let now = Instant::now();
+        let mut last: PeerScore = 0.0;
+        for _ in 0..10 {
+            last = store.apply_at(peer, PeerAction::GossipInvalid, now).new_score;
         }
-        panic!("peer was not banned after repeated errors");
+        assert!((last + 4.0).abs() < 1e-9, "expected window cap at -4, got {last}");
+    }
+
+    /// The failure window resets after 10s, allowing further (capped) penalties.
+    #[test]
+    fn failure_cap_resets_after_window() {
+        let mut store = PeerReputationStore::new(cfg());
+        let peer = PeerId::random();
+        let t0 = Instant::now();
+        for _ in 0..10 {
+            store.apply_at(peer, PeerAction::GossipInvalid, t0);
+        }
+        let t1 = t0 + Duration::from_secs(11);
+        let mut last: PeerScore = 0.0;
+        for _ in 0..10 {
+            last = store.apply_at(peer, PeerAction::GossipInvalid, t1).new_score;
+        }
+        assert!(last < -7.0, "expected a second window of penalties, got {last}");
+    }
+
+    /// Scores clamp at the spec's appScore bounds of [-10, +10] (spec §7.1).
+    #[test]
+    fn scores_clamp_at_spec_bounds() {
+        let mut store = PeerReputationStore::new(cfg());
+        let peer = PeerId::random();
+        let mut now = Instant::now();
+        let mut last: PeerScore = 0.0;
+        for _ in 0..4 {
+            for _ in 0..10 {
+                last = store.apply_at(peer, PeerAction::GossipInvalid, now).new_score;
+            }
+            now += Duration::from_secs(11);
+        }
+        assert!((last + 10.0).abs() < 1e-9, "expected clamp at -10, got {last}");
+
+        let mut positive: PeerScore = 0.0;
+        let good = PeerId::random();
+        for _ in 0..300 {
+            positive = store.apply_at(good, PeerAction::GossipValid, now).new_score;
+        }
+        assert!(positive <= 10.0, "expected clamp at +10, got {positive}");
+    }
+
+    /// A ban requires the score to stay at or below the ban threshold for >30s (spec §7.1).
+    #[test]
+    fn ban_requires_sustained_breach() {
+        let mut store = PeerReputationStore::new(cfg());
+        let peer = PeerId::random();
+        let t0 = Instant::now();
+        // Two saturated windows push the score below the -5 ban threshold.
+        for _ in 0..10 {
+            store.apply_at(peer, PeerAction::GossipInvalid, t0);
+        }
+        let t1 = t0 + Duration::from_secs(11);
+        let mut ev = store.apply_at(peer, PeerAction::GossipInvalid, t1);
+        for _ in 0..9 {
+            ev = store.apply_at(peer, PeerAction::GossipInvalid, t1);
+        }
+        assert!(ev.new_score <= DEFAULT_BAN_THRESHOLD, "setup must breach the ban threshold");
+        assert!(!ev.is_banned, "breach must not ban before the sustain period");
+        assert!(!store.is_banned(&peer));
+
+        // Still below the threshold 31s later: the sustained breach bans the peer.
+        let t2 = t1 + Duration::from_secs(31);
+        let ev = store.apply_at(peer, PeerAction::GossipInvalid, t2);
+        assert!(ev.is_banned, "sustained breach (>30s) must ban; score {}", ev.new_score);
+        assert!(store.is_banned(&peer));
+    }
+
+    /// Healing above the ban threshold resets the sustained-breach timer.
+    #[test]
+    fn ban_timer_resets_when_score_heals() {
+        let mut store = PeerReputationStore::new(cfg());
+        let peer = PeerId::random();
+        let t0 = Instant::now();
+        for _ in 0..10 {
+            store.apply_at(peer, PeerAction::GossipInvalid, t0);
+        }
+        let t1 = t0 + Duration::from_secs(11);
+        for _ in 0..10 {
+            store.apply_at(peer, PeerAction::GossipInvalid, t1);
+        }
+
+        // Long quiet period: decay heals the score above the ban threshold.
+        let t2 = t1 + Duration::from_secs(120);
+        let ev = store.apply_at(peer, PeerAction::GossipValid, t2);
+        assert!(ev.new_score > DEFAULT_BAN_THRESHOLD, "decay should heal, got {}", ev.new_score);
+        assert!(!ev.is_banned, "healed peer must not be banned despite >30s since first breach");
+        assert!(!store.is_banned(&peer));
     }
 
     /// Fresh peers are not banned before any actions are applied.
