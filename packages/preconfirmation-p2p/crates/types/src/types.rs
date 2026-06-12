@@ -32,7 +32,7 @@ pub struct Preconfirmation {
     /// End Of Preconfirmation window flag for the preconfirmation,
     /// indicating if this is the final preconfirmation in a sequence.
     pub eop: bool,
-    /// L1 block number referenced by the preconfirmation.
+    /// L2 block number being preconfirmed (spec §3.1).
     pub block_number: Uint256,
     /// Timestamp for the preconfirmation window.
     pub timestamp: Uint256,
