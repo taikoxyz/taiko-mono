@@ -35,7 +35,7 @@ mod tests {
     use preconfirmation_types::{
         Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, PreconfHead, Preconfirmation,
         RawTxListGossip, SignedCommitment, TxListBytes, Uint256, keccak256_bytes,
-        public_key_to_address, sign_commitment, uint256_to_u256,
+        preconfirmation_hash, public_key_to_address, sign_commitment, uint256_to_u256,
     };
 
     struct TestDriver {
@@ -419,13 +419,93 @@ mod tests {
         });
 
         let parent_hash = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");
-        let commitment_two = build_signed_commitment(&sk, 2, parent_hash.clone(), 100, 200);
+        let commitment_one = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
+        let commitment_two =
+            build_signed_commitment(&sk, 2, linkage_hash(&commitment_one), 100, 200);
+
         handler.handle_commitment(commitment_two).await.expect("gap buffered");
         assert_eq!(driver.submissions(), 0);
 
-        let commitment_one = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
         handler.handle_commitment(commitment_one).await.expect("gap filled");
         assert_eq!(driver.submissions(), 2);
+    }
+
+    /// Convert a parent commitment's preconfirmation hash into the child's linkage field.
+    fn linkage_hash(parent: &SignedCommitment) -> Bytes32 {
+        let hash = preconfirmation_hash(&parent.commitment.preconf).expect("parent hash");
+        Bytes32::try_from(hash.as_slice().to_vec()).expect("linkage hash")
+    }
+
+    #[tokio::test]
+    async fn parent_hash_mismatch_blocks_submission() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_tx, _command_rx) = mpsc::channel(8);
+
+        let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(signer, U256::from(200u64)));
+
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
+            codec,
+            driver: driver.clone(),
+            expected_slasher: None,
+            event_tx,
+            command_tx,
+            lookahead_resolver,
+        });
+
+        let genesis_parent = Bytes32::try_from(vec![0u8; 32]).expect("parent hash");
+        let commitment_one = build_signed_commitment(&sk, 1, genesis_parent, 100, 200);
+        handler.handle_commitment(commitment_one).await.expect("block one processed");
+        assert_eq!(driver.submissions(), 1);
+
+        // Block two claims a parent hash that does not match block one's preconfirmation.
+        let bogus_parent = Bytes32::try_from(vec![9u8; 32]).expect("parent hash");
+        let commitment_two = build_signed_commitment(&sk, 2, bogus_parent, 100, 200);
+        handler.handle_commitment(commitment_two).await.expect("block two handled");
+
+        assert_eq!(driver.submissions(), 1, "linkage-broken commitment must not be submitted");
+        assert!(
+            store.get_commitment(&U256::from(2u64)).is_none(),
+            "linkage-broken commitment must be removed from the store"
+        );
+    }
+
+    #[tokio::test]
+    async fn chained_commitments_submit() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_tx, _command_rx) = mpsc::channel(8);
+
+        let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(signer, U256::from(200u64)));
+
+        let handler = EventHandler::new(EventHandlerParams {
+            store: store.clone(),
+            codec,
+            driver: driver.clone(),
+            expected_slasher: None,
+            event_tx,
+            command_tx,
+            lookahead_resolver,
+        });
+
+        let genesis_parent = Bytes32::try_from(vec![0u8; 32]).expect("parent hash");
+        let commitment_one = build_signed_commitment(&sk, 1, genesis_parent, 100, 200);
+        let commitment_two =
+            build_signed_commitment(&sk, 2, linkage_hash(&commitment_one), 100, 200);
+
+        handler.handle_commitment(commitment_one).await.expect("block one processed");
+        handler.handle_commitment(commitment_two).await.expect("block two processed");
+
+        assert_eq!(driver.submissions(), 2, "properly linked commitments must both submit");
     }
 
     #[tokio::test]

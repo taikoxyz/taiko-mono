@@ -2,7 +2,7 @@
 
 use alloy_primitives::{B256, U256};
 use preconfirmation_net::NetworkCommand;
-use preconfirmation_types::{PreconfHead, SignedCommitment, uint256_to_u256};
+use preconfirmation_types::{PreconfHead, SignedCommitment, uint256_to_u256, validate_parent_hash};
 use tracing::{debug, info, warn};
 
 use crate::{
@@ -19,10 +19,18 @@ where
     D: DriverClient,
 {
     /// Attempt to submit contiguous commitments starting at the provided block.
+    ///
+    /// Enforces spec §5 parent linkage: whenever the parent commitment is known locally,
+    /// the child's `parentPreconfirmationHash` must match the parent's preconfirmation
+    /// hash. When the parent commitment is unavailable (e.g. pruned or pre-startup) the
+    /// check is skipped per the spec's missing-parent rule.
     pub(super) async fn try_submit_contiguous_from(&self, start: U256) -> Result<()> {
         info!(start = %start, "attempting contiguous preconfirmation submit");
         let mut next = start;
         let mut submitted_count = 0usize;
+        let mut parent = start
+            .checked_sub(U256::ONE)
+            .and_then(|parent_block| self.store.get_commitment(&parent_block));
         loop {
             let Some(commitment) = self.store.get_commitment(&next) else {
                 debug!(
@@ -33,7 +41,23 @@ where
                 break;
             };
 
-            let submitted = self.submit_if_ready(commitment).await?;
+            if let Some(parent_commitment) = &parent &&
+                let Err(err) = validate_parent_hash(
+                    &commitment.commitment.preconf.parent_preconfirmation_hash,
+                    &parent_commitment.commitment.preconf,
+                )
+            {
+                warn!(
+                    block_number = %next,
+                    error = %err,
+                    "dropping commitment with broken parent linkage"
+                );
+                PreconfirmationClientMetrics::validation_failures_total().inc();
+                self.store.remove_commitment(&next);
+                break;
+            }
+
+            let submitted = self.submit_if_ready(commitment.clone()).await?;
             if !submitted {
                 debug!(
                     next = %next,
@@ -43,6 +67,7 @@ where
                 break;
             }
 
+            parent = Some(commitment);
             submitted_count += 1;
             next += U256::ONE;
         }
