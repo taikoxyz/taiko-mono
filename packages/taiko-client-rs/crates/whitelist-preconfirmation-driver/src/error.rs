@@ -51,6 +51,22 @@ pub enum WhitelistPreconfirmationDriverError {
     Rpc(#[from] rpc::RpcClientError),
 }
 
+impl From<driver::preconf_ingress_sync::PreconfIngressSyncError>
+    for WhitelistPreconfirmationDriverError
+{
+    /// Absorb ingress-sync readiness failures into the matching driver error variants.
+    fn from(err: driver::preconf_ingress_sync::PreconfIngressSyncError) -> Self {
+        use driver::preconf_ingress_sync::PreconfIngressSyncError;
+        match err {
+            PreconfIngressSyncError::EventSyncerExited => Self::EventSyncerExited,
+            PreconfIngressSyncError::EventSyncerFailed(message) => Self::EventSyncerFailed(message),
+            PreconfIngressSyncError::Sync(err) => Self::Sync(err),
+            PreconfIngressSyncError::Driver(err) => Self::Driver(err),
+            PreconfIngressSyncError::Rpc(err) => Self::Rpc(err),
+        }
+    }
+}
+
 impl WhitelistPreconfirmationDriverError {
     /// Build an `InvalidPayload` error from a complete message.
     pub(crate) fn invalid_payload(message: impl Into<String>) -> Self {

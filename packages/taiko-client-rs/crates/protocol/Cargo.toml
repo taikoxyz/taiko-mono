@@ -27,6 +27,7 @@ tokio-retry = { workspace = true, optional = true }
 tokio-stream = { workspace = true, optional = true }
 
 # observability
+prometheus = { workspace = true }
 tracing = { workspace = true }
 
 # ethereum

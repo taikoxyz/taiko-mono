@@ -12,39 +12,14 @@ pub(crate) use alethia_reth_primitives::payload::attributes::EngineRpcL1Origin;
 
 use crate::{client::Client, error::Result};
 
-/// Engine RPC method names used for public L1 origin queries.
-#[derive(Debug, Clone, Copy)]
-pub enum TaikoOriginMethod {
-    /// `taiko_l1OriginByID`
-    L1OriginById,
-    /// `taiko_headL1Origin`
-    HeadL1Origin,
-}
-
-impl TaikoOriginMethod {
-    /// Return the RPC method string for the variant.
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::L1OriginById => "taiko_l1OriginByID",
-            Self::HeadL1Origin => "taiko_headL1Origin",
-        }
-    }
-}
-
 impl<P: Provider + Clone> Client<P> {
     /// Fetch the L1 origin payload for the given block id via the public engine API.
     pub async fn l1_origin_by_id(&self, block_id: U256) -> Result<Option<L1Origin>> {
-        Self::request_l1_origin(
-            &self.l2_provider,
-            TaikoOriginMethod::L1OriginById.as_str(),
-            (block_id,),
-        )
-        .await
+        Self::request_l1_origin(&self.l2_provider, "taiko_l1OriginByID", (block_id,)).await
     }
 
     /// Fetch the latest head L1 origin pointer from the public engine API.
     pub async fn head_l1_origin(&self) -> Result<Option<L1Origin>> {
-        Self::request_l1_origin(&self.l2_provider, TaikoOriginMethod::HeadL1Origin.as_str(), ())
-            .await
+        Self::request_l1_origin(&self.l2_provider, "taiko_headL1Origin", ()).await
     }
 }

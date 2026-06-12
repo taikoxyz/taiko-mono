@@ -52,7 +52,7 @@ pub fn compress_raw_txs(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
 /// Builds a compressed txlist payload with deterministic contents based on block number.
 ///
 /// Used for tests that need non-empty but deterministic transaction data.
-pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
+pub(crate) fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
     let tx_payload = block_number.to_be_bytes().to_vec();
     compress_raw_txs(&[tx_payload])
 }
@@ -60,12 +60,12 @@ pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
 /// Builds a minimal compressed txlist (empty RLP list).
 ///
 /// Used for tests that just need a valid but empty txlist.
-pub fn build_empty_txlist() -> Result<TxListBytes> {
+pub(crate) fn build_empty_txlist() -> Result<TxListBytes> {
     compress_raw_txs(&[])
 }
 
 /// Computes the raw tx list hash from txlist bytes.
-pub fn compute_txlist_hash(txlist_bytes: &TxListBytes) -> Result<Bytes32> {
+pub(crate) fn compute_txlist_hash(txlist_bytes: &TxListBytes) -> Result<Bytes32> {
     Bytes32::try_from(keccak256_bytes(txlist_bytes.as_ref()).as_slice().to_vec())
         .map_err(|(_, err)| anyhow!("txlist hash error: {err}"))
 }

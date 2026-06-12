@@ -7,22 +7,20 @@
 #[path = "common/helpers.rs"]
 mod helpers;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use alloy_primitives::{B256, U256};
 use anyhow::anyhow;
 use helpers::{
-    ExternalP2pNode, build_commitment_chain, derive_signer, test_p2p_config,
-    wait_for_peer_connected, wait_for_synced,
+    ExternalP2pNode, build_commitment_chain, derive_signer, start_preconf_client, wait_for_synced,
 };
-use preconfirmation_driver::{PreconfirmationClient, PreconfirmationClientConfig};
 use preconfirmation_net::NetworkCommand;
 use preconfirmation_types::{PreconfHead, u256_to_uint256, uint256_to_u256};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
     ShastaEnv,
-    preconfirmation::{RealDriverSetup, StaticLookaheadResolver},
+    preconfirmation::{RealDriverSetup, StartingBlockInfo},
     wait_for_block,
 };
 
@@ -36,7 +34,8 @@ async fn catchup_backfills_and_fetches_txlists(env: &mut ShastaEnv) -> anyhow::R
     let (signer_sk, signer) = derive_signer(9);
     let submission_window_end = U256::from(5000u64);
 
-    let (start_block_num, base_timestamp) = setup.compute_starting_block_info().await?;
+    let StartingBlockInfo { block_number: start_block_num, base_timestamp, .. } =
+        setup.compute_starting_block_info().await?;
 
     let chain_len = 3usize;
     let chain = build_commitment_chain(
@@ -72,18 +71,13 @@ async fn catchup_backfills_and_fetches_txlists(env: &mut ShastaEnv) -> anyhow::R
 
     let ext_dial_addr = ext_node.handle.dialable_addr().await?;
 
-    let resolver = StaticLookaheadResolver::new(signer, submission_window_end);
-    let mut int_cfg =
-        PreconfirmationClientConfig::new_with_resolver(test_p2p_config(), Arc::new(resolver));
-    int_cfg.p2p.pre_dial_peers = vec![ext_dial_addr];
-
-    let internal_client = PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
-    let mut events = internal_client.subscribe();
-
-    let mut event_loop = internal_client.sync_and_catchup().await?;
-    let event_loop_handle = tokio::spawn(async move { event_loop.run().await });
-
-    wait_for_peer_connected(&mut events).await;
+    let (mut events, event_loop_handle, _) = start_preconf_client(
+        signer,
+        submission_window_end,
+        vec![ext_dial_addr],
+        setup.driver_client.clone(),
+    )
+    .await?;
     wait_for_synced(&mut events).await;
 
     // Wait for all blocks to be produced on chain.

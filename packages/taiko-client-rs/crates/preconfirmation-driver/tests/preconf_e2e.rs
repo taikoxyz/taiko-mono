@@ -1,5 +1,8 @@
 //! E2E tests for P2P preconfirmation block production.
 
+#[path = "common/helpers.rs"]
+mod helpers;
+
 use std::{sync::Arc, time::Duration};
 
 use alloy_consensus::{
@@ -12,7 +15,7 @@ use alloy_primitives::{Address, B64, B256, Bloom, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::{BlockNumberOrTag, TransactionReceipt, eth::Block as RpcBlock};
 use anyhow::{Context, Result, anyhow, ensure};
-use preconfirmation_driver::{PreconfirmationClient, PreconfirmationClientConfig};
+use helpers::start_preconf_client;
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
 use protocol::shasta::{
@@ -24,12 +27,12 @@ use test_harness::{
     PreconfTxList, ShastaEnv, TransferPayload, build_preconf_txlist, compute_next_block_base_fee,
     fetch_block_by_number,
     preconfirmation::{
-        RealDriverSetup, StaticLookaheadResolver, build_publish_payloads_with_txs, derive_signer,
-        test_p2p_config, wait_for_commitment_and_txlist, wait_for_peer_connected,
+        RealDriverSetup, build_publish_payloads_with_txs, derive_signer, test_p2p_config,
+        wait_for_commitment_and_txlist,
     },
     verify_anchor_block, wait_for_block_or_loop_error,
 };
-use tokio::{spawn, sync::oneshot};
+use tokio::spawn;
 
 // ============================================================================
 // Block Validation Helper (test-specific)
@@ -222,7 +225,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
 
     // Determine target block number and preconfirmation metadata from driver tips.
     let submission_window_end = U256::from(1000u64);
-    let starting_block = setup.compute_starting_block_info_full().await?;
+    let starting_block = setup.compute_starting_block_info().await?;
     let commitment_block_num = starting_block.block_number;
     let commitment_block = U256::from(commitment_block_num);
     let preconf_timestamp = starting_block.base_timestamp;
@@ -243,23 +246,13 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     )?;
     let ext_node_handle = spawn(async move { ext_node.run().await });
 
-    let mut int_cfg = PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config(),
-        Arc::new(StaticLookaheadResolver::new(signer, submission_window_end)),
-    );
-    int_cfg.p2p.pre_dial_peers = vec![ext_handle.dialable_addr().await?];
-
-    let internal_client = PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
-    let mut events = internal_client.subscribe();
-
-    let mut event_loop = internal_client.sync_and_catchup().await?;
-    let (event_loop_tx, mut event_loop_rx) = oneshot::channel::<anyhow::Result<()>>();
-    let event_loop_handle = spawn(async move {
-        let _ = event_loop_tx.send(event_loop.run().await.map_err(Into::into));
-    });
-
-    // Wait for peer connection.
-    wait_for_peer_connected(&mut events).await;
+    let (mut events, event_loop_handle, mut event_loop_rx) = start_preconf_client(
+        signer,
+        submission_window_end,
+        vec![ext_handle.dialable_addr().await?],
+        setup.driver_client.clone(),
+    )
+    .await?;
     ext_handle.wait_for_peer_connected().await?;
 
     // Build anchor + test transfers using helper.

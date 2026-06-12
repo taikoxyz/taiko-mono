@@ -322,22 +322,17 @@ where
         &self,
         derivation: Arc<ShastaDerivationPipeline<P>>,
     ) -> Arc<AsyncMutex<ProductionRouter>> {
-        let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
-
-        // Add canonical L1 proposal path.
         let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
             CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
         );
-        paths.push(canonical_path);
 
-        // Add preconfirmation path if enabled.
-        if self.cfg.preconfirmation_enabled {
-            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
-                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
-            paths.push(preconf_path);
-        }
+        // The preconfirmation path is only registered when preconfirmation is enabled.
+        let preconf_path = self.cfg.preconfirmation_enabled.then(|| {
+            Arc::new(PreconfirmationPath::new(self.rpc.clone()))
+                as Arc<dyn BlockProductionPath + Send + Sync>
+        });
 
-        Arc::new(AsyncMutex::new(ProductionRouter::new(paths)))
+        Arc::new(AsyncMutex::new(ProductionRouter::new(canonical_path, preconf_path)))
     }
 
     /// Spawn the preconfirmation ingress processing loop.
@@ -1444,7 +1439,7 @@ mod tests {
     };
 
     use crate::{
-        production::{BlockProductionPath, ProductionInput, ProductionPathKind, ProductionRouter},
+        production::{BlockProductionPath, ProductionInput, ProductionRouter},
         sync::engine::EngineBlockOutcome,
     };
 
@@ -1608,10 +1603,6 @@ mod tests {
 
     #[async_trait]
     impl BlockProductionPath for MockBatchPath {
-        fn kind(&self) -> ProductionPathKind {
-            ProductionPathKind::L1Events
-        }
-
         async fn produce(
             &self,
             input: ProductionInput,
@@ -1660,10 +1651,6 @@ mod tests {
 
     #[async_trait]
     impl BlockProductionPath for MockRetryBatchPath {
-        fn kind(&self) -> ProductionPathKind {
-            ProductionPathKind::L1Events
-        }
-
         async fn produce(
             &self,
             input: ProductionInput,
@@ -1815,7 +1802,7 @@ mod tests {
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
         let path = MockBatchPath::new([orphaned_tx_hash]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
             Duration::from_millis(250),
@@ -1843,7 +1830,7 @@ mod tests {
             ..build_syncer().await
         };
         let path = MockBatchPath::new([]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
         let mut log = sample_proposed_log(1, B256::from([0x31; 32]), B256::from([0x41; 32]));
         log.block_hash = None;
 
@@ -1869,7 +1856,7 @@ mod tests {
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
         let path = MockRetryBatchPath::new([retry_tx_hash]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
             Duration::from_millis(250),

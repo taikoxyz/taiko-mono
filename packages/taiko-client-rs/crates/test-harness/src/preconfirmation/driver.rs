@@ -1,24 +1,20 @@
 //! Driver clients for preconfirmation integration tests.
 //!
 //! This module provides:
-//! - [`EventSyncerDriverClient`]: Submits directly to an in-process event syncer.
 //! - [`LoggingDriverClient`]: Wraps a driver client with submission logging.
 //! - [`RealDriverSetup`]: Full driver setup for E2E tests with actual block production.
 
 use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::U256;
-use alloy_provider::{Provider, RootProvider};
+use alloy_provider::RootProvider;
 use anyhow::Result as AnyhowResult;
 use async_trait::async_trait;
 use driver::{
     DriverConfig,
     sync::{SyncStage, event::EventSyncer},
 };
-use preconfirmation_driver::{
-    DriverClient, EventSyncerDriverClient as RuntimeEventSyncerDriverClient, PreconfirmationInput,
-    Result,
-};
+use preconfirmation_driver::{DriverClient, EventSyncerDriverClient, PreconfirmationInput, Result};
 use preconfirmation_types::uint256_to_u256;
 use rpc::client::{Client, ClientConfig};
 use tokio::task::JoinHandle;
@@ -29,52 +25,6 @@ use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
 
 /// Fast event-sync poll interval used by the harness to keep E2E waits responsive.
 const HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
-
-/// Driver client that submits payloads directly to an in-process EventSyncer.
-pub struct EventSyncerDriverClient<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    inner: RuntimeEventSyncerDriverClient<EventSyncer<P>, P>,
-}
-
-impl<P> EventSyncerDriverClient<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Create a new client backed by the driver event syncer.
-    pub fn new(event_syncer: Arc<EventSyncer<P>>, client: Client<P>) -> Self {
-        Self {
-            inner: RuntimeEventSyncerDriverClient::from_client_with_poll_interval(
-                event_syncer,
-                client,
-                HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL,
-            ),
-        }
-    }
-}
-
-#[async_trait]
-impl<P> DriverClient for EventSyncerDriverClient<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
-        self.inner.submit_preconfirmation(input).await
-    }
-
-    async fn wait_event_sync(&self) -> Result<()> {
-        self.inner.wait_event_sync().await
-    }
-
-    async fn event_sync_tip(&self) -> Result<U256> {
-        self.inner.event_sync_tip().await
-    }
-
-    async fn preconf_tip(&self) -> Result<U256> {
-        self.inner.preconf_tip().await
-    }
-}
 
 /// Wraps a driver client with logging for submission results.
 #[derive(Clone)]
@@ -215,8 +165,11 @@ impl RealDriverSetup {
         event_syncer.wait_preconf_ingress_ready().await?;
 
         let l2_provider = rpc_client.l2_provider.clone();
-        let embedded_client =
-            EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());
+        let embedded_client = EventSyncerDriverClient::from_client_with_poll_interval(
+            event_syncer.clone(),
+            rpc_client.clone(),
+            HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL,
+        );
         let driver_client = LoggingDriverClient::new(Arc::new(embedded_client));
 
         Ok(Self { driver_client, l2_provider, beacon_server, event_handle })
@@ -229,28 +182,13 @@ impl RealDriverSetup {
         Ok(())
     }
 
-    /// Computes the starting block number and base timestamp for preconfirmation.
+    /// Computes the starting block info for preconfirmation.
     ///
     /// This is the common setup pattern used by E2E tests:
     /// 1. Gets the event sync and preconf tips from the driver
     /// 2. Computes the next block number (max tip + 1)
-    /// 3. Fetches the parent block to derive the valid base timestamp
-    ///
-    /// # Returns
-    ///
-    /// A tuple of (starting_block_number, base_timestamp) where:
-    /// - `starting_block_number` is the first block that should be preconfirmed
-    /// - `base_timestamp` is parent.timestamp + 1, suitable for commitment timestamps
-    pub async fn compute_starting_block_info(&self) -> AnyhowResult<(u64, u64)> {
-        let info = self.compute_starting_block_info_full().await?;
-        Ok((info.block_number, info.base_timestamp))
-    }
-
-    /// Computes full starting block info including parent gas limit.
-    ///
-    /// Use this when you need the parent's gas limit for the preconfirmation.
-    /// For simpler tests that use a constant gas limit, use [`compute_starting_block_info`].
-    pub async fn compute_starting_block_info_full(&self) -> AnyhowResult<StartingBlockInfo> {
+    /// 3. Fetches the parent block to derive the valid base timestamp and gas limit
+    pub async fn compute_starting_block_info(&self) -> AnyhowResult<StartingBlockInfo> {
         let event_sync_tip = self.driver_client.event_sync_tip().await?;
         let preconf_tip = self.driver_client.preconf_tip().await?;
         let starting_block = event_sync_tip.max(preconf_tip) + U256::ONE;

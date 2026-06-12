@@ -12,7 +12,6 @@ use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_provider::RootProvider;
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use anyhow::anyhow;
-use async_trait::async_trait;
 use bindings::inbox::{IInbox::DerivationSource, Inbox::Proposed};
 use protocol::shasta::{
     constants::{
@@ -26,13 +25,13 @@ use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
 
 use crate::{
-    derivation::manifest::{ManifestFetcher, fetcher::shasta::ShastaSourceManifestFetcher},
+    derivation::manifest::fetcher::shasta::ShastaSourceManifestFetcher,
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
 use protocol::shasta::AnchorTxConstructor;
 
-use super::super::{DerivationError, DerivationPipeline};
+use super::super::DerivationError;
 
 /// Decoded Shasta `Proposed` event enriched with the containing L1 block metadata.
 #[derive(Debug, Clone)]
@@ -200,8 +199,7 @@ where
     /// Builder for Shasta anchor transactions.
     anchor_constructor: AnchorTxConstructor<RootProvider>,
     /// Manifest fetcher used to resolve derivation-source blobs.
-    derivation_source_manifest_fetcher:
-        Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>>,
+    derivation_source_manifest_fetcher: ShastaSourceManifestFetcher,
     /// Activation timestamp for the Shasta fork on this chain.
     shasta_fork_timestamp: u64,
     /// Minimum base-fee clamp to use for EIP-4396 calculations on this chain.
@@ -226,8 +224,7 @@ where
         blob_source: Arc<BlobDataSource>,
         initial_proposal_id: U256,
     ) -> Result<Self, DerivationError> {
-        let source_manifest_fetcher: Arc<dyn ManifestFetcher<Manifest = DerivationSourceManifest>> =
-            Arc::new(ShastaSourceManifestFetcher::new(blob_source.clone()));
+        let source_manifest_fetcher = ShastaSourceManifestFetcher::new(blob_source.clone());
         let anchor_address = *rpc.shasta.anchor.address();
         let anchor_constructor =
             AnchorTxConstructor::new(rpc.l2_provider.clone(), anchor_address).await?;
@@ -351,19 +348,12 @@ where
         Ok(ProposedEventContext { event, l1_block_number, l1_block_hash, l1_timestamp })
     }
 
-    /// Fetch and decode a single manifest from the blob store.
-    ///
-    /// The caller is responsible for providing the correct fetcher implementation for
-    /// the manifest type.
-    async fn fetch_and_decode_manifest<M>(
+    /// Fetch and decode a single derivation-source manifest from the blob store.
+    async fn fetch_and_decode_manifest(
         &self,
-        fetcher: &dyn ManifestFetcher<Manifest = M>,
         source: &DerivationSource,
         proposal_timestamp: u64,
-    ) -> Result<M, DerivationError>
-    where
-        M: Send,
-    {
+    ) -> Result<DerivationSourceManifest, DerivationError> {
         let hashes = derivation_source_to_blob_hashes(source);
         let offset = source.blobSlice.offset.to::<u64>() as usize;
         let timestamp = source.blobSlice.timestamp.to::<u64>();
@@ -373,8 +363,10 @@ where
             hash_count = hashes.len(),
             offset, timestamp, proposal_timestamp, max_blocks, "fetching manifest sidecars"
         );
-        let manifest =
-            fetcher.fetch_and_decode_manifest(timestamp, &hashes, offset, max_blocks).await?;
+        let manifest = self
+            .derivation_source_manifest_fetcher
+            .fetch_and_decode_manifest(timestamp, &hashes, offset, max_blocks)
+            .await?;
         Ok(manifest)
     }
 
@@ -404,13 +396,7 @@ where
             let manifest = if !is_source_offset_valid(source) {
                 DerivationSourceManifest::default()
             } else {
-                let manifest = self
-                    .fetch_and_decode_manifest(
-                        self.derivation_source_manifest_fetcher.as_ref(),
-                        source,
-                        event.l1_timestamp,
-                    )
-                    .await?;
+                let manifest = self.fetch_and_decode_manifest(source, event.l1_timestamp).await?;
                 validate_forced_inclusion_manifest(proposal_id, source, manifest)
             };
             manifest_segments.push(SourceManifestSegment {
@@ -485,25 +471,15 @@ where
     }
 }
 
-#[async_trait]
-impl<P> DerivationPipeline for ShastaDerivationPipeline<P>
+impl<P> ShastaDerivationPipeline<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
-    type Manifest = ShastaProposalBundle;
-
-    // Convert a proposal log into a manifest for processing.
-    #[instrument(skip(self, log), name = "shasta_manifest_from_log")]
-    async fn log_to_manifest(&self, log: &Log) -> Result<Self::Manifest, DerivationError> {
-        let event = self.decode_log_to_event_context(log).await?;
-        self.event_to_manifest(&event).await
-    }
-
-    // Convert a manifest into execution engine blocks for block production.
+    /// Convert a manifest into execution engine blocks for block production.
     #[instrument(skip(self, manifest, applier), name = "shasta_manifest_to_blocks")]
     async fn manifest_to_engine_blocks(
         &self,
-        manifest: Self::Manifest,
+        manifest: ShastaProposalBundle,
         applier: &(dyn PayloadApplier + Send + Sync),
     ) -> Result<Vec<EngineBlockOutcome>, DerivationError> {
         let ShastaProposalBundle { meta, sources, .. } = manifest;
@@ -549,8 +525,10 @@ where
         Ok(outcomes)
     }
 
+    /// Process the provided proposal log, materialising the derived blocks in the execution
+    /// engine.
     #[instrument(skip(self, log, applier), name = "shasta_process_proposal")]
-    async fn process_proposal(
+    pub async fn process_proposal(
         &self,
         log: &Log,
         applier: &(dyn PayloadApplier + Send + Sync),
@@ -823,9 +801,7 @@ mod tests {
         let pipeline = ShastaDerivationPipeline {
             rpc: client,
             anchor_constructor,
-            derivation_source_manifest_fetcher: Arc::new(ShastaSourceManifestFetcher::new(
-                blob_source,
-            )),
+            derivation_source_manifest_fetcher: ShastaSourceManifestFetcher::new(blob_source),
             shasta_fork_timestamp: 0,
             min_base_fee_to_clamp: min_base_fee_for_chain(TAIKO_MAINNET_CHAIN_ID),
             chain_id: TAIKO_MAINNET_CHAIN_ID,

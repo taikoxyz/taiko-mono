@@ -1,5 +1,8 @@
 //! E2E test verifying P2P gossip propagation between two drivers.
 
+#[path = "common/helpers.rs"]
+mod helpers;
+
 use std::{sync::Arc, time::Duration};
 
 use alloy_consensus::transaction::SignerRecoverable;
@@ -7,7 +10,8 @@ use alloy_eips::{BlockNumberOrTag, Encodable2718};
 use alloy_primitives::{Address, U256};
 use alloy_provider::Provider;
 use anyhow::{Context, Result, anyhow, ensure};
-use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
+use helpers::start_preconf_client;
+use preconfirmation_driver::DriverClient;
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{
     Bytes20, Bytes32, PreconfCommitment, Preconfirmation, RawTxListGossip, SignedCommitment,
@@ -19,13 +23,12 @@ use test_harness::{
     PreconfTxList, ShastaEnv, build_preconf_txlist, compute_next_block_base_fee,
     fetch_block_by_number,
     preconfirmation::{
-        RealDriverSetup, StaticLookaheadResolver, build_publish_payloads_with_txs,
-        compress_raw_txs, derive_signer, test_p2p_config, wait_for_commitment_and_txlist,
-        wait_for_peer_connected,
+        RealDriverSetup, build_publish_payloads_with_txs, compress_raw_txs, derive_signer,
+        test_p2p_config, wait_for_commitment_and_txlist,
     },
     wait_for_block, wait_for_block_or_loop_error,
 };
-use tokio::{spawn, sync::oneshot};
+use tokio::spawn;
 use tracing::info;
 use url::Url;
 
@@ -81,42 +84,24 @@ async fn dual_driver_p2p_gossip_syncs_both_nodes(env: &mut ShastaEnv) -> Result<
     let ext_node_handle = spawn(async move { ext_node.run().await });
     let ext_dial_addr = ext_handle.dialable_addr().await?;
 
-    let mut preconf1_cfg = PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config(),
-        Arc::new(StaticLookaheadResolver::new(signer, submission_window_end)),
-    );
-    preconf1_cfg.p2p.pre_dial_peers = vec![ext_dial_addr.clone()];
-
-    let preconf_client1 = PreconfirmationClient::new(preconf1_cfg, driver1_client)?;
-    let mut events1 = preconf_client1.subscribe();
-
-    let mut event_loop1 = preconf_client1.sync_and_catchup().await?;
-    let (event_loop1_tx, mut event_loop1_rx) = oneshot::channel::<anyhow::Result<()>>();
-    let event_loop1_handle = spawn(async move {
-        let _ = event_loop1_tx.send(event_loop1.run().await.map_err(Into::into));
-    });
-
     info!("waiting for preconf client 1 to connect to external publisher");
-    wait_for_peer_connected(&mut events1).await;
+    let (mut events1, event_loop1_handle, mut event_loop1_rx) = start_preconf_client(
+        signer,
+        submission_window_end,
+        vec![ext_dial_addr.clone()],
+        driver1_client,
+    )
+    .await?;
     ext_handle.wait_for_peer_connected().await?;
 
-    let mut preconf2_cfg = PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config(),
-        Arc::new(StaticLookaheadResolver::new(signer, submission_window_end)),
-    );
-    preconf2_cfg.p2p.pre_dial_peers = vec![ext_dial_addr.clone()];
-
-    let preconf_client2 = PreconfirmationClient::new(preconf2_cfg, driver2_client)?;
-    let mut events2 = preconf_client2.subscribe();
-
-    let mut event_loop2 = preconf_client2.sync_and_catchup().await?;
-    let (event_loop2_tx, mut event_loop2_rx) = oneshot::channel::<anyhow::Result<()>>();
-    let event_loop2_handle = spawn(async move {
-        let _ = event_loop2_tx.send(event_loop2.run().await.map_err(Into::into));
-    });
-
     info!("waiting for preconf client 2 to join the mesh");
-    wait_for_peer_connected(&mut events2).await;
+    let (mut events2, event_loop2_handle, mut event_loop2_rx) = start_preconf_client(
+        signer,
+        submission_window_end,
+        vec![ext_dial_addr.clone()],
+        driver2_client,
+    )
+    .await?;
 
     if needs_warmup {
         info!(

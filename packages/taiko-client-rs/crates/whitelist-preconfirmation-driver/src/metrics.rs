@@ -1,11 +1,18 @@
 //! Metrics exposed by the whitelist preconfirmation driver runtime.
 
 use once_cell::sync::Lazy;
-use prometheus::{Gauge, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts};
+use prometheus::{Gauge, Histogram, HistogramVec, IntCounter, IntCounterVec};
+use protocol::metrics::{DURATION_SECONDS_BUCKETS, counter, counter_vec, gauge};
 
-/// Histogram buckets for operation durations expressed in seconds.
-const DURATION_SECONDS_BUCKETS: &[f64] =
-    &[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0];
+/// Register a scalar duration histogram with the shared duration buckets.
+fn duration_histogram(name: &str, help: &str) -> Histogram {
+    protocol::metrics::histogram(name, help, DURATION_SECONDS_BUCKETS)
+}
+
+/// Register a labelled duration histogram family with the shared duration buckets.
+fn duration_histogram_vec(name: &str, help: &str, labels: &[&str]) -> HistogramVec {
+    protocol::metrics::histogram_vec(name, help, labels, DURATION_SECONDS_BUCKETS)
+}
 
 /// Process-wide whitelist preconfirmation metrics registered with Prometheus.
 static METRICS: Lazy<Metrics> = Lazy::new(Metrics::register);
@@ -86,7 +93,7 @@ impl Metrics {
                 "Cache import results",
                 &["result"],
             ),
-            driver_submit_duration: histogram_vec(
+            driver_submit_duration: duration_histogram_vec(
                 "whitelist_preconf_driver_driver_submit_duration_seconds",
                 "Duration for driver submission path by result",
                 &["result"],
@@ -101,12 +108,12 @@ impl Metrics {
                 "Total whitelist RPC errors by method",
                 &["method"],
             ),
-            rpc_duration: histogram_vec(
+            rpc_duration: duration_histogram_vec(
                 "whitelist_preconf_driver_rpc_duration_seconds",
                 "Whitelist RPC request duration by method",
                 &["method"],
             ),
-            build_preconf_block_duration: histogram(
+            build_preconf_block_duration: duration_histogram(
                 "whitelist_preconf_driver_build_preconf_block_duration_seconds",
                 "Duration for build_preconf_block RPC calls",
             ),
@@ -202,49 +209,6 @@ impl WhitelistPreconfirmationDriverMetrics {
     pub(crate) fn set_cache_recent_count(count: usize) {
         METRICS.cache_recent.set(count as f64);
     }
-}
-
-/// Register a scalar counter with the default registry.
-fn counter(name: &str, help: &str) -> IntCounter {
-    let metric = IntCounter::new(name, help).expect("valid counter definition");
-    prometheus::register(Box::new(metric.clone())).expect("counter registration must succeed");
-    metric
-}
-
-/// Register a labelled counter family with the default registry.
-fn counter_vec(name: &str, help: &str, labels: &[&str]) -> IntCounterVec {
-    let metric =
-        IntCounterVec::new(Opts::new(name, help), labels).expect("valid counter definition");
-    prometheus::register(Box::new(metric.clone())).expect("counter registration must succeed");
-    metric
-}
-
-/// Register a scalar gauge with the default registry.
-fn gauge(name: &str, help: &str) -> Gauge {
-    let metric = Gauge::new(name, help).expect("valid gauge definition");
-    prometheus::register(Box::new(metric.clone())).expect("gauge registration must succeed");
-    metric
-}
-
-/// Register a scalar duration histogram with the default registry.
-fn histogram(name: &str, help: &str) -> Histogram {
-    let metric = Histogram::with_opts(
-        HistogramOpts::new(name, help).buckets(DURATION_SECONDS_BUCKETS.to_vec()),
-    )
-    .expect("valid histogram definition");
-    prometheus::register(Box::new(metric.clone())).expect("histogram registration must succeed");
-    metric
-}
-
-/// Register a labelled duration histogram family with the default registry.
-fn histogram_vec(name: &str, help: &str, labels: &[&str]) -> HistogramVec {
-    let metric = HistogramVec::new(
-        HistogramOpts::new(name, help).buckets(DURATION_SECONDS_BUCKETS.to_vec()),
-        labels,
-    )
-    .expect("valid histogram definition");
-    prometheus::register(Box::new(metric.clone())).expect("histogram registration must succeed");
-    metric
 }
 
 #[cfg(test)]

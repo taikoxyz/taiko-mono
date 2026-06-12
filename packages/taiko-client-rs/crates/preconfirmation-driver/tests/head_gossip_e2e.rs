@@ -6,26 +6,19 @@
 #[path = "common/helpers.rs"]
 mod helpers;
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use alloy_primitives::U256;
 use anyhow::{Result, anyhow};
 use helpers::{
-    ExternalP2pNode, PreparedBlock, build_publish_payloads, derive_signer, test_p2p_config,
-    wait_for_commitment_and_txlist, wait_for_peer_connected,
+    ExternalP2pNode, PreparedBlock, build_publish_payloads, derive_signer, start_preconf_client,
+    wait_for_commitment_and_txlist,
 };
 use preconfirmation_net::P2pHandle;
 use preconfirmation_types::uint256_to_u256;
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{
-    ShastaEnv,
-    preconfirmation::{RealDriverSetup, StaticLookaheadResolver},
-    wait_for_block,
-};
+use test_harness::{ShastaEnv, preconfirmation::RealDriverSetup, wait_for_block};
 use tokio::time::sleep;
 
 async fn wait_for_head(
@@ -59,29 +52,20 @@ async fn head_update_propagates_to_peer(env: &mut ShastaEnv) -> anyhow::Result<(
     let (signer_sk, signer) = derive_signer(7);
     let submission_window_end = U256::from(2500u64);
 
-    let block_info = setup.compute_starting_block_info_full().await?;
-
-    let resolver = StaticLookaheadResolver::new(signer, submission_window_end);
+    let block_info = setup.compute_starting_block_info().await?;
 
     // External P2P node used to publish gossip and query head.
     let mut ext_node = ExternalP2pNode::spawn()?;
     let ext_dial_addr = ext_node.handle.dialable_addr().await?;
 
     // Internal preconfirmation client.
-    let mut int_cfg = preconfirmation_driver::PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config(),
-        Arc::new(resolver),
-    );
-    int_cfg.p2p.pre_dial_peers = vec![ext_dial_addr];
-
-    let internal_client =
-        preconfirmation_driver::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
-    let mut events = internal_client.subscribe();
-
-    let mut event_loop = internal_client.sync_and_catchup().await?;
-    let event_loop_handle = tokio::spawn(async move { event_loop.run().await });
-
-    wait_for_peer_connected(&mut events).await;
+    let (mut events, event_loop_handle, _) = start_preconf_client(
+        signer,
+        submission_window_end,
+        vec![ext_dial_addr],
+        setup.driver_client.clone(),
+    )
+    .await?;
     ext_node.handle.wait_for_peer_connected().await?;
 
     let PreparedBlock { txlist, commitment } = build_publish_payloads(

@@ -5,7 +5,10 @@ use std::{net::SocketAddr, sync::Arc};
 use alloy_eips::BlockNumberOrTag;
 use alloy_primitives::Address;
 use alloy_provider::Provider;
-use driver::DriverConfig;
+use driver::{
+    DriverConfig,
+    preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
+};
 use protocol::signer::FixedKSigner;
 use rpc::beacon::BeaconClient;
 use tracing::{info, warn};
@@ -21,7 +24,6 @@ use crate::{
     importer::{WhitelistPreconfirmationImporter, WhitelistPreconfirmationImporterParams},
     network::{NetworkCommand, NetworkConfig, WhitelistNetwork},
     operator_set::OperatorSetPoller,
-    preconf_ingress_sync::{PreconfIngressSync, map_event_syncer_exit},
 };
 
 /// Configuration for the whitelist preconfirmation runner.
@@ -185,7 +187,7 @@ impl WhitelistPreconfirmationDriverRunner {
                     let _ = command_tx.send(NetworkCommand::Shutdown).await;
                     node_handle.abort();
                     stop_sidecars(event_syncer_handle, &mut rest_ws_server).await;
-                    return map_event_syncer_exit(result);
+                    return map_event_syncer_exit(result).map_err(Into::into);
                 }
                 maybe_event = event_rx.recv() => {
                     let Some(event) = maybe_event else {

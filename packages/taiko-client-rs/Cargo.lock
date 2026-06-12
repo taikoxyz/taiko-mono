@@ -6337,6 +6337,7 @@ dependencies = [
  "event-scanner",
  "flate2",
  "k256",
+ "prometheus",
  "rand 0.8.6",
  "robust-provider",
  "serde",
