@@ -18,6 +18,10 @@ pub enum ProverError {
     #[error("tx-manager error: {0}")]
     TxManager(#[from] TxManagerError),
 
+    /// raiko request failure (HTTP or response validation).
+    #[error("raiko error: {0}")]
+    Raiko(#[from] crate::raiko::RaikoError),
+
     /// A submitted aggregation contained proposals that are already proven or were reorged out.
     #[error("aggregation contains already-proven or reorged proposals")]
     InvalidProof,

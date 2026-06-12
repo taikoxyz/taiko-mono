@@ -4,3 +4,4 @@
 //! raiko, aggregates them, and submits them to the inbox contract.
 
 pub mod error;
+pub mod raiko;
