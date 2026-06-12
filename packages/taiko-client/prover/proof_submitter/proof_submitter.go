@@ -54,9 +54,10 @@ type ProofSubmitter struct {
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
 	// Intervals
-	forceBatchProvingInterval time.Duration
-	proofPollingInterval      time.Duration
-	proposalWindowSize        *big.Int
+	forceBatchProvingInterval  time.Duration
+	proofPollingInterval       time.Duration
+	proposalWindowSize         *big.Int
+	maxZKProofProposalDistance *big.Int
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -75,6 +76,7 @@ func NewProofSubmitter(
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
 	proposalWindowSize *big.Int,
+	maxZKProofProposalDistance *big.Int,
 ) (*ProofSubmitter, error) {
 	proofSubmitter := &ProofSubmitter{
 		rpc:                    senderOpts.RPCClient,
@@ -90,13 +92,14 @@ func NewProofSubmitter(
 			senderOpts.PrivateTxmgr,
 			senderOpts.GasLimit,
 		),
-		proverAddress:             senderOpts.Txmgr.From(),
-		proofPollingInterval:      proofPollingInterval,
-		proofBuffers:              proofBuffers,
-		forceBatchProvingInterval: forceBatchProvingInterval,
-		proofCacheMaps:            proofCacheMaps,
-		flushCacheNotify:          flushCacheNotify,
-		proposalWindowSize:        proposalWindowSize,
+		proverAddress:              senderOpts.Txmgr.From(),
+		proofPollingInterval:       proofPollingInterval,
+		proofBuffers:               proofBuffers,
+		forceBatchProvingInterval:  forceBatchProvingInterval,
+		proofCacheMaps:             proofCacheMaps,
+		flushCacheNotify:           flushCacheNotify,
+		proposalWindowSize:         proposalWindowSize,
+		maxZKProofProposalDistance: maxZKProofProposalDistance,
 	}
 
 	proofSubmitter.startBackgroundWorkers(ctx)
@@ -203,6 +206,15 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			)
 			return ErrProposalOutOfAllowedRange
 		}
+		if !s.shouldUseZKProof(proposalID, lastFinalizedProposalID) {
+			log.Info(
+				"Proposal too far from the last finalized proposal, skipping ZK proof",
+				"proposalID", proposalID,
+				"lastFinalizedProposalID", lastFinalizedProposalID,
+				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
+			)
+			useZK = false
+		}
 
 		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
 		if s.zkvmProofProducer != nil && useZK {
@@ -275,6 +287,16 @@ func (s *ProofSubmitter) isProposalOutOfRange(
 
 	maxAllowedProposalID := new(big.Int).Add(lastFinalizedProposalID, s.proposalWindowSize)
 	return proposalID.Cmp(maxAllowedProposalID) > 0 || proposalID.Cmp(lastFinalizedProposalID) <= 0
+}
+
+func (s *ProofSubmitter) shouldUseZKProof(proposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
+	maxZKProofProposalDistance := s.maxZKProofProposalDistance
+	if maxZKProofProposalDistance == nil {
+		return true
+	}
+
+	maxZKProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxZKProofProposalDistance)
+	return proposalID.Cmp(maxZKProofProposalID) <= 0
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.
