@@ -6,6 +6,7 @@ members = [
     "crates/preconfirmation-driver",
     "crates/proposer",
     "crates/protocol",
+    "crates/prover",
     "crates/rpc",
     "crates/test-harness",
     "crates/whitelist-preconfirmation-driver",
@@ -83,6 +84,7 @@ alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", pa
     "serde",
 ] }
 alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "1ed7c19d1f9652c5fed96185f4ab8f930e812dd3" }
+prover = { path = "crates/prover" }
 
 # networking
 arc-swap = "1.7"
