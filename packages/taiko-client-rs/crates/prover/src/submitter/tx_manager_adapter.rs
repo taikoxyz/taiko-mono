@@ -37,16 +37,14 @@ pub async fn build_tx_manager(
         )))
     })?;
     let wallet = EthereumWallet::from(signer);
-    let tx_manager = SimpleTxManager::new(
+    Ok(SimpleTxManager::new(
         provider,
         wallet,
         tx_manager_config,
         chain_id,
         Arc::new(ProverTxMetrics::new()),
     )
-    .await?;
-
-    Ok(tx_manager)
+    .await?)
 }
 
 #[cfg(test)]

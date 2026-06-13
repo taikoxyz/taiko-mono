@@ -31,15 +31,15 @@ impl ProverSubCommand {
         let l1_provider_source = self.common_flags.l1_provider_source()?;
         let prover = &self.prover_flags;
 
-        let raiko_api_key = match &prover.raiko_api_key_path {
-            Some(path) => {
-                let contents = std::fs::read_to_string(path).map_err(|err| {
-                    CliError::Config(format!("failed to read raiko API key file: {err}"))
-                })?;
-                Some(contents.trim().to_owned())
-            }
-            None => None,
-        };
+        let raiko_api_key = prover
+            .raiko_api_key_path
+            .as_ref()
+            .map(|path| {
+                std::fs::read_to_string(path).map(|contents| contents.trim().to_owned()).map_err(
+                    |err| CliError::Config(format!("failed to read raiko API key file: {err}")),
+                )
+            })
+            .transpose()?;
 
         Ok(ProverConfigs {
             l1_provider_source,

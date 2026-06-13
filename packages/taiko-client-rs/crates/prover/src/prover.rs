@@ -111,12 +111,11 @@ impl Prover {
         ));
         let zkvm_producer: Option<Arc<dyn ProofProducer>> =
             cfg.raiko_zkvm_host.as_ref().map(|host| {
-                let producer: Arc<dyn ProofProducer> = Arc::new(ComposeProofProducer::new_zkvm(
+                Arc::new(ComposeProofProducer::new_zkvm(
                     RaikoClient::new(raiko_client_config(&cfg, host.clone())),
                     sgx_geth.clone(),
                     cfg.dummy,
-                ));
-                producer
+                )) as Arc<dyn ProofProducer>
             });
 
         // Buffers/caches keyed exactly like Go `init.go:86-96`: SGX uses the

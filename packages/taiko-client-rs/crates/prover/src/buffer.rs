@@ -56,7 +56,7 @@ impl ProofBuffer {
         if inner.buffer.iter().any(|existing| existing.proposal_id() == item.proposal_id()) {
             return Ok(inner.buffer.len());
         }
-        if inner.buffer.len() as u64 + 1 > self.max_length {
+        if inner.buffer.len() as u64 >= self.max_length {
             return Err(BufferError::Overflow);
         }
         inner.last_insert_id = item.proposal_id();

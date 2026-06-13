@@ -135,15 +135,9 @@ mod tests {
                 }))
             }),
         );
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let addr = listener.local_addr().unwrap();
-        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let addr = spawn_app(app).await;
 
-        let client = RaikoClient::new(RaikoClientConfig {
-            endpoint: format!("http://{addr}").parse().unwrap(),
-            api_key: Some("secret".into()),
-            request_timeout: std::time::Duration::from_secs(5),
-        });
+        let client = client_for(addr, Some("secret".into()), Duration::from_secs(5));
         let resp =
             client.request_batch_proof(&sample_request(ProofType::Sgx, false)).await.unwrap();
         assert_eq!(resp.proof_type, Some(ProofType::Sgx));

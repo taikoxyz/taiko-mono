@@ -16,6 +16,27 @@ use crate::{
     raiko::{ProofType, RaikoClient, types::RaikoBatchProofRequest},
 };
 
+/// Join the base and sgxgeth results, prioritising the base error so
+/// `RaikoError::ZkAnyNotDrawn` stays matchable by the submitter's fallback
+/// logic. When the base side fails, an also-failed sgxgeth side is logged with
+/// `also_failed_msg` before the base error is returned.
+fn join_base_and_geth<A, B>(
+    base_result: Result<A>,
+    geth_result: Result<B>,
+    also_failed_msg: &'static str,
+) -> Result<(A, B)> {
+    match (base_result, geth_result) {
+        (Err(base_err), geth_result) => {
+            if let Err(geth_err) = geth_result {
+                tracing::debug!(error = %geth_err, "{}", also_failed_msg);
+            }
+            Err(base_err)
+        }
+        (Ok(_), Err(geth_err)) => Err(geth_err),
+        (Ok(base), Ok(geth)) => Ok((base, geth)),
+    }
+}
+
 /// Compose producer pairing sgxgeth with a configured base/zk proof type.
 #[derive(Debug, Clone)]
 pub struct ComposeProofProducer {
@@ -111,18 +132,8 @@ impl ProofProducer for ComposeProofProducer {
             request.reth_proof_generated = true;
         }
 
-        // Base errors take priority so `RaikoError::ZkAnyNotDrawn` stays
-        // matchable by the submitter's fallback logic.
-        let (drawn, proof) = match (base_result, geth_result) {
-            (Err(base_err), geth_result) => {
-                if let Err(geth_err) = geth_result {
-                    tracing::debug!(error = %geth_err, "sgxgeth proof request also failed");
-                }
-                return Err(base_err);
-            }
-            (Ok(_), Err(geth_err)) => return Err(geth_err),
-            (Ok(base), Ok(())) => base,
-        };
+        let ((drawn, proof), ()) =
+            join_base_and_geth(base_result, geth_result, "sgxgeth proof request also failed")?;
 
         Ok(ProofResponse { request: request.clone(), proof, proof_type: drawn })
     }
@@ -189,16 +200,8 @@ impl ProofProducer for ComposeProofProducer {
             items[0].request.reth_aggregation_generated = true;
         }
 
-        let (batch_proof, sgx_geth_batch_proof) = match (base_result, geth_result) {
-            (Err(base_err), geth_result) => {
-                if let Err(geth_err) = geth_result {
-                    tracing::debug!(error = %geth_err, "sgxgeth aggregation also failed");
-                }
-                return Err(base_err);
-            }
-            (Ok(_), Err(geth_err)) => return Err(geth_err),
-            (Ok(base), Ok(geth)) => (base, geth),
-        };
+        let (batch_proof, sgx_geth_batch_proof) =
+            join_base_and_geth(base_result, geth_result, "sgxgeth aggregation also failed")?;
 
         Ok(BatchProofs {
             responses: items.to_vec(),

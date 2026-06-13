@@ -49,6 +49,20 @@ pub struct ProofRequestMeta {
     pub event_l1_block_hash: B256,
 }
 
+impl ProofRequestMeta {
+    /// Recover the originating meta from an enriched [`ProofRequest`] (used to
+    /// re-queue a request after a failed submission).
+    fn from_request(request: &ProofRequest) -> Self {
+        Self {
+            proposal_id: request.proposal_id,
+            proposer: request.proposer,
+            proposal_timestamp: request.proposal_timestamp,
+            event_l1_block_number: request.event_l1_block_number,
+            event_l1_block_hash: request.event_l1_block_hash,
+        }
+    }
+}
+
 /// Channel endpoints the submitter publishes to; the orchestrator owns the
 /// matching receivers (Go's prover channel set, `prover.go:59-66`).
 #[derive(Debug, Clone)]
@@ -352,13 +366,7 @@ impl Pipeline {
                 let _ = self
                     .channels
                     .proof_request_tx
-                    .send(ProofRequestMeta {
-                        proposal_id: response.request.proposal_id,
-                        proposer: response.request.proposer,
-                        proposal_timestamp: response.request.proposal_timestamp,
-                        event_l1_block_number: response.request.event_l1_block_number,
-                        event_l1_block_hash: response.request.event_l1_block_hash,
-                    })
+                    .send(ProofRequestMeta::from_request(&response.request))
                     .await;
             }
         }
@@ -395,17 +403,18 @@ impl Pipeline {
 
     /// Look up the buffer for a proof type.
     fn buffer_for(&self, proof_type: ProofType) -> Result<Arc<ProofBuffer>> {
-        self.buffers.get(&proof_type).cloned().ok_or_else(|| {
-            ProverError::Other(anyhow::anyhow!("unexpected proof type from raiko: {proof_type:?}"))
-        })
+        self.buffers.get(&proof_type).cloned().ok_or_else(|| unexpected_proof_type(proof_type))
     }
 
     /// Look up the cache for a proof type.
     fn cache_for(&self, proof_type: ProofType) -> Result<Arc<ProofCache>> {
-        self.caches.get(&proof_type).cloned().ok_or_else(|| {
-            ProverError::Other(anyhow::anyhow!("unexpected proof type from raiko: {proof_type:?}"))
-        })
+        self.caches.get(&proof_type).cloned().ok_or_else(|| unexpected_proof_type(proof_type))
     }
+}
+
+/// Error for a proof type that has no configured buffer/cache.
+fn unexpected_proof_type(proof_type: ProofType) -> ProverError {
+    ProverError::Other(anyhow::anyhow!("unexpected proof type from raiko: {proof_type:?}"))
 }
 
 /// Requests proofs, buffers/aggregates them, and submits `Inbox.prove`.
@@ -830,6 +839,18 @@ mod tests {
     }
 
     fn harness(base: Arc<dyn ProofProducer>, force_interval: Duration, max: u64) -> Harness {
+        harness_with(base, None, force_interval, max, 30)
+    }
+
+    /// Like [`harness`] but with an optional zkvm producer and configurable ZK
+    /// proposal distance, for the SGX-fallback tests.
+    fn harness_with(
+        base: Arc<dyn ProofProducer>,
+        zkvm: Option<Arc<dyn ProofProducer>>,
+        force_interval: Duration,
+        max: u64,
+        max_zk_proof_proposal_distance: u64,
+    ) -> Harness {
         let (batch_proofs_tx, batch_rx) = mpsc::channel(16);
         let (aggregation_notify_tx, aggregation_rx) = mpsc::channel(16);
         let (proof_request_tx, request_rx) = mpsc::channel(16);
@@ -837,7 +858,7 @@ mod tests {
 
         let pipeline = Pipeline::new(
             base,
-            None,
+            zkvm,
             HashMap::from([(ProofType::Sgx, Arc::new(ProofBuffer::new(max)))]),
             HashMap::from([(ProofType::Sgx, Arc::new(ProofCache::new()))]),
             SubmitterChannels {
@@ -850,7 +871,7 @@ mod tests {
                 proof_polling_interval: Duration::from_millis(1),
                 force_batch_proving_interval: force_interval,
                 proposal_window_size: 0,
-                max_zk_proof_proposal_distance: 30,
+                max_zk_proof_proposal_distance,
                 shadow_mode: false,
                 inbox_address: Address::repeat_byte(0x11),
             },
@@ -992,36 +1013,14 @@ mod tests {
         let base_calls = base.clone();
         let zkvm_calls = zkvm.clone();
 
-        let (batch_proofs_tx, _b) = mpsc::channel(8);
-        let (aggregation_notify_tx, _a) = mpsc::channel(8);
-        let (proof_request_tx, _p) = mpsc::channel(8);
-        let (flush_cache_tx, _f) = mpsc::channel(8);
-        let pipeline = Pipeline::new(
-            base,
-            Some(zkvm),
-            HashMap::from([(ProofType::Sgx, Arc::new(ProofBuffer::new(2)))]),
-            HashMap::from([(ProofType::Sgx, Arc::new(ProofCache::new()))]),
-            SubmitterChannels {
-                batch_proofs_tx,
-                aggregation_notify_tx,
-                proof_request_tx,
-                flush_cache_tx,
-            },
-            SubmitterConfig {
-                proof_polling_interval: Duration::from_millis(1),
-                force_batch_proving_interval: Duration::from_secs(3_600),
-                proposal_window_size: 0,
-                max_zk_proof_proposal_distance: 5,
-                shadow_mode: false,
-                inbox_address: Address::repeat_byte(0x11),
-            },
-        );
+        let h = harness_with(base, Some(zkvm), Duration::from_secs(3_600), 2, 5);
 
         // last finalized 10, distance 5 → allowed up to 15; proposal 100 is too far.
         let mut request = response(100, ProofType::Sgx).request;
         let mut use_zk = true;
         let mut started = std::time::Instant::now();
-        let attempt = pipeline
+        let attempt = h
+            .pipeline
             .request_proof_attempt(&mut request, &mut use_zk, &mut started, 10)
             .await
             .unwrap();

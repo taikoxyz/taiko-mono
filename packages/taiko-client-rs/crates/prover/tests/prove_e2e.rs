@@ -9,7 +9,6 @@
 
 use std::{sync::Arc, time::Duration};
 
-use alloy::consensus::BlobTransactionSidecarVariant;
 use alloy_provider::Provider;
 use anyhow::{Result, anyhow, ensure};
 use driver::{
@@ -122,11 +121,6 @@ async fn wait_for_finalized(
     }
 }
 
-/// Return the blob sidecar needed by beacon-based derivation.
-fn built_proposal_sidecar(request: &BuiltProposalTx) -> BlobTransactionSidecarVariant {
-    request.blob_sidecar()
-}
-
 /// A single proposal is proven and finalized end-to-end.
 #[test_context(ShastaEnv)]
 #[serial]
@@ -138,7 +132,7 @@ async fn single_proposal_is_proven(env: &mut ShastaEnv) -> Result<()> {
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
     let request = builder.build(vec![Vec::new()], None).await?;
-    beacon.set_default_blob_sidecar(built_proposal_sidecar(&request));
+    beacon.set_default_blob_sidecar(request.blob_sidecar());
 
     let driver_handle = start_driver(env, &beacon).await?;
 
@@ -169,7 +163,7 @@ async fn two_proposals_aggregate_and_finalize(env: &mut ShastaEnv) -> Result<()>
     let builder =
         ShastaProposalTransactionBuilder::new(proposer.clone(), env.l2_suggested_fee_recipient);
     let request = builder.build(vec![Vec::new()], None).await?;
-    beacon.set_default_blob_sidecar(built_proposal_sidecar(&request));
+    beacon.set_default_blob_sidecar(request.blob_sidecar());
 
     let driver_handle = start_driver(env, &beacon).await?;
 

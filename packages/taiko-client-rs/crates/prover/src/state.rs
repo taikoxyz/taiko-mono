@@ -30,21 +30,11 @@ impl SharedState {
     /// `true` when it was newly handled (Go dedups with
     /// `proposalID <= lastHandled`, `proposal.go:56`).
     pub fn mark_handled(&self, proposal_id: u64) -> bool {
-        let mut current = self.last_handled_proposal_id.load(Ordering::Acquire);
-        loop {
-            if proposal_id <= current {
-                return false;
-            }
-            match self.last_handled_proposal_id.compare_exchange_weak(
-                current,
-                proposal_id,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => return true,
-                Err(observed) => current = observed,
-            }
-        }
+        self.last_handled_proposal_id
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
+                (proposal_id > current).then_some(proposal_id)
+            })
+            .is_ok()
     }
 
     /// Current L1 scan-cursor block number.

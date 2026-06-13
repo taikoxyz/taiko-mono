@@ -45,7 +45,7 @@ impl ProofCache {
     pub fn flush_contiguous(&self, written_id: u64, buffer: &ProofBuffer) {
         let mut next = written_id.saturating_add(1);
         while buffer.available_capacity() > 0 {
-            let Some(entry) = self.map.get(&next).map(|entry| entry.value().clone()) else {
+            let Some(entry) = self.cloned(next) else {
                 return;
             };
             if buffer.write(entry).is_err() {
@@ -64,7 +64,7 @@ impl ProofCache {
             if buffer.available_capacity() == 0 {
                 return Ok(());
             }
-            let Some(entry) = self.map.get(&id).map(|entry| entry.value().clone()) else {
+            let Some(entry) = self.cloned(id) else {
                 return Err(CacheError::CacheMiss(id));
             };
             if buffer.write(entry).is_err() {
@@ -73,6 +73,11 @@ impl ProofCache {
             self.map.remove(&id);
         }
         Ok(())
+    }
+
+    /// Clone the cached proof for `id` without removing it.
+    fn cloned(&self, id: u64) -> Option<ProofResponse> {
+        self.map.get(&id).map(|entry| entry.value().clone())
     }
 
     /// Drop all entries with id at or below `last_finalized` (stale-cache
