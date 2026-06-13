@@ -481,7 +481,6 @@ async fn run_proposed_scanner(
                     common_ancestor,
                 })) => {
                     tracing::info!(common_ancestor, "L1 reorg; cursor reset by replay");
-                    ctx.state.set_l1_current_block(common_ancestor);
                 }
                 Ok(ScannerMessage::Notification(_)) => {}
                 Err(err) => {
@@ -552,7 +551,6 @@ async fn handle_proposed_log(ctx: &ProposedContext, log: &alloy::rpc::types::Log
     if !ctx.state.mark_handled(proposal_id) {
         return Ok(());
     }
-    ctx.state.set_l1_current_block(block_number);
 
     let now = current_unix_timestamp();
     let (window_expired, time_to_expire) =

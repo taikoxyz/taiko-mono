@@ -26,10 +26,6 @@ pub enum ProverError {
     #[error("aggregation contains already-proven or reorged proposals")]
     InvalidProof,
 
-    /// Proposal is outside the configured proving range (deferred, retried later).
-    #[error("proposal {0} out of allowed proving range")]
-    ProposalOutOfRange(u64),
-
     /// Configuration error.
     #[error("invalid prover configuration: {0}")]
     Config(String),

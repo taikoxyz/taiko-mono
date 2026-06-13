@@ -3,14 +3,11 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// Atomic cursors shared across the prover's event-handling tasks.
+/// Atomic cursor shared across the prover's event-handling tasks.
 #[derive(Debug, Default)]
 pub struct SharedState {
     /// Highest proposal id whose `Proposed` event has been handled.
     last_handled_proposal_id: AtomicU64,
-    /// L1 block number of the scan cursor (Go tracks the full header; the
-    /// number is all the Rust orchestrator needs).
-    l1_current_block: AtomicU64,
 }
 
 impl SharedState {
@@ -36,17 +33,6 @@ impl SharedState {
             })
             .is_ok()
     }
-
-    /// Current L1 scan-cursor block number.
-    #[must_use]
-    pub fn l1_current_block(&self) -> u64 {
-        self.l1_current_block.load(Ordering::Acquire)
-    }
-
-    /// Set the L1 scan-cursor block number.
-    pub fn set_l1_current_block(&self, block_number: u64) {
-        self.l1_current_block.store(block_number, Ordering::Release);
-    }
 }
 
 #[cfg(test)]
@@ -66,13 +52,5 @@ mod tests {
 
         assert!(state.mark_handled(6));
         assert_eq!(state.last_handled_proposal_id(), 6);
-    }
-
-    #[test]
-    fn l1_current_block_round_trips() {
-        let state = SharedState::new();
-        assert_eq!(state.l1_current_block(), 0);
-        state.set_l1_current_block(42);
-        assert_eq!(state.l1_current_block(), 42);
     }
 }

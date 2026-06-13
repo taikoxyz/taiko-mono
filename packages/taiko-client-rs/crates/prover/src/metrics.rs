@@ -2,15 +2,8 @@
 
 use base_tx_manager::TxMetrics;
 use once_cell::sync::Lazy;
-use prometheus::{Gauge, Histogram, HistogramVec, IntCounter, IntCounterVec};
+use prometheus::{Gauge, Histogram, IntCounter};
 use protocol::metrics::{counter, gauge, histogram};
-
-use crate::raiko::ProofType;
-
-/// Histogram buckets for proof generation latency in seconds (raiko proofs
-/// take seconds in dummy mode up to tens of minutes for ZK).
-const PROOF_SECONDS_BUCKETS: &[f64] =
-    &[1.0, 5.0, 15.0, 60.0, 300.0, 600.0, 1_200.0, 1_800.0, 3_600.0, 7_200.0];
 
 /// Histogram buckets for fee observations expressed in gwei.
 const GWEI_BUCKETS: &[f64] =
@@ -19,17 +12,6 @@ const GWEI_BUCKETS: &[f64] =
 /// Histogram buckets for transaction-manager send latency in milliseconds.
 const LATENCY_MILLISECONDS_BUCKETS: &[f64] =
     &[1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1_000.0, 5_000.0, 10_000.0];
-
-/// Stable label value for a proof type on prover metrics.
-pub(crate) fn proof_type_label(proof_type: ProofType) -> &'static str {
-    match proof_type {
-        ProofType::SgxGeth => "sgxgeth",
-        ProofType::Sgx => "sgx",
-        ProofType::Risc0 => "risc0",
-        ProofType::Sp1 => "sp1",
-        ProofType::ZkAny => "zk_any",
-    }
-}
 
 /// Metric namespace and direct Prometheus handles emitted by the prover.
 #[derive(Debug, Clone)]
@@ -74,13 +56,6 @@ impl ProverMetrics {
     /// Prove transactions the shadow mode would have submitted.
     pub fn shadow_would_submit() -> &'static IntCounter {
         &METRICS.shadow_would_submit
-    }
-
-    /// Observe a successful proof generation (single or aggregation).
-    pub fn observe_proof_generated(proof_type: ProofType, aggregate: bool, seconds: f64) {
-        let labels = [proof_type_label(proof_type), if aggregate { "true" } else { "false" }];
-        METRICS.proof_generation_seconds.with_label_values(&labels).observe(seconds);
-        METRICS.proofs_generated.with_label_values(&labels).inc();
     }
 }
 
@@ -184,10 +159,6 @@ struct ProverMetricHandles {
     submission_errors: IntCounter,
     /// Prove transactions shadow mode would have submitted.
     shadow_would_submit: IntCounter,
-    /// Proof generation latency per proof type and aggregation flag.
-    proof_generation_seconds: HistogramVec,
-    /// Proofs generated per proof type and aggregation flag.
-    proofs_generated: IntCounterVec,
 }
 
 impl ProverMetricHandles {
@@ -222,19 +193,6 @@ impl ProverMetricHandles {
                 "taiko_prover_shadow_would_submit",
                 "Prove transactions shadow mode would have submitted",
             ),
-            proof_generation_seconds: prometheus::register_histogram_vec!(
-                "taiko_prover_proof_generation_seconds",
-                "Proof generation latency per proof type",
-                &["proof_type", "aggregate"],
-                PROOF_SECONDS_BUCKETS.to_vec()
-            )
-            .expect("register taiko_prover_proof_generation_seconds"),
-            proofs_generated: prometheus::register_int_counter_vec!(
-                "taiko_prover_proofs_generated",
-                "Proofs generated per proof type",
-                &["proof_type", "aggregate"]
-            )
-            .expect("register taiko_prover_proofs_generated"),
         }
     }
 }
@@ -311,7 +269,6 @@ mod tests {
     use base_tx_manager::TxMetrics;
 
     use super::{ProverMetrics, ProverTxMetrics};
-    use crate::raiko::ProofType;
 
     #[test]
     fn tx_manager_metrics_are_registered_with_direct_prometheus_registry() {
@@ -329,33 +286,5 @@ mod tests {
             family.get_metric().first().expect("tx-manager gas bump counter should have a metric");
 
         assert!(metric.get_counter().get_value() >= 1.0);
-    }
-
-    #[test]
-    fn proof_generation_metrics_export_per_type_labels() {
-        ProverMetrics::init();
-        ProverMetrics::observe_proof_generated(ProofType::Sgx, false, 12.5);
-        ProverMetrics::observe_proof_generated(ProofType::Risc0, true, 600.0);
-
-        let families = prometheus::gather();
-        let family = families
-            .iter()
-            .find(|family| family.get_name() == "taiko_prover_proofs_generated")
-            .expect("proofs generated counter should be exported");
-
-        let mut labels: Vec<(String, String)> = family
-            .get_metric()
-            .iter()
-            .flat_map(|metric| {
-                metric
-                    .get_label()
-                    .iter()
-                    .map(|label| (label.get_name().to_owned(), label.get_value().to_owned()))
-            })
-            .collect();
-        labels.sort();
-        assert!(labels.contains(&("proof_type".to_owned(), "sgx".to_owned())));
-        assert!(labels.contains(&("proof_type".to_owned(), "risc0".to_owned())));
-        assert!(labels.contains(&("aggregate".to_owned(), "true".to_owned())));
     }
 }
