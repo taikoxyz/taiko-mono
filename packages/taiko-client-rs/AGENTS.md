@@ -4,7 +4,8 @@
 
 - `bin/client/` hosts the CLI entry point; keep orchestration light and delegate protocol logic to the crates.
 - `crates/preconfirmation-driver/` contains the preconfirmation driver with P2P client integration, gossip handlers, and sync flows.
-- `crates/protocol`, `crates/proposer`, `crates/driver`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
+- `crates/protocol`, `crates/proposer`, `crates/prover`, `crates/driver`, and `crates/rpc` cover the core services. Document shared traits whenever exposing cross-crate APIs.
+- `crates/prover/` ports the Go prover (`packages/taiko-client/prover`): raiko HTTP client, per-type proof buffer/cache, compose (sgxgeth + sgx/zk) producers, and the request → buffer → aggregate → submit pipeline. The RPC-free routing core is `submitter::Pipeline`; `ProofSubmitter` wraps it with the client and tx-manager. See the migration runbook at `docs/prover-migration-runbook.md`.
 - `crates/bindings/` is generated via `just gen_bindings`; never hand-edit or reformat files under `crates/bindings/src`.
 - The entire `bindings` crate is auto-generated; do not modify any files there manually.
 - `tests/` contains Docker-backed integration assets run through `tests/entrypoint.sh`. Place every end-to-end scenario here and note any extra prerequisites.
