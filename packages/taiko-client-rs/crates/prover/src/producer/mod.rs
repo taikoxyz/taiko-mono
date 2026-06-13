@@ -1,8 +1,21 @@
 //! Proof pipeline types and producers.
 
-use alloy_primitives::{Address, B256, Bytes};
+mod compose;
+mod dummy;
+mod sgx_geth;
 
-use crate::raiko::ProofType;
+use alloy_primitives::{Address, B256, Bytes, hex};
+pub use compose::ComposeProofProducer;
+pub use dummy::DummyProofProducer;
+pub use sgx_geth::SgxGethProofProducer;
+
+use crate::{
+    error::{ProverError, Result},
+    raiko::{
+        ProofType, RaikoClient, RaikoError,
+        types::{RaikoCheckpoint, RaikoProofResponse, RaikoProposal},
+    },
+};
 
 /// On-chain verifier id for sgxgeth proofs (Go `prover/init.go:29`).
 pub const SGX_GETH_VERIFIER_ID: u8 = 1;
@@ -91,4 +104,85 @@ pub struct BatchProofs {
     pub verifier_id: u8,
     /// Verifier id for the sgxgeth sub-proof.
     pub sgx_geth_verifier_id: u8,
+}
+
+/// A proof backend: generates one proof per proposal and aggregates batches
+/// (Go `ProofProducer`, `proof_producer/interface.go`). Producers are
+/// single-shot: in-progress raiko statuses surface as [`RaikoError`] values and
+/// the caller owns the polling loop.
+#[async_trait::async_trait]
+pub trait ProofProducer: Send + Sync {
+    /// Request a single proof for one proposal. On success the producer flips
+    /// the request's `*_generated` flags so repeated polls don't re-record
+    /// metrics or logs.
+    async fn request_proof(&self, request: &mut ProofRequest) -> Result<ProofResponse>;
+
+    /// Request the aggregation over already-generated single proofs. Flips the
+    /// `*_aggregation_generated` flags on the first item's request.
+    async fn aggregate(&self, items: &mut [ProofResponse]) -> Result<BatchProofs>;
+}
+
+/// Build raiko proposal entries from proof requests (Go
+/// `compose_proof_producer.go:246-258`). Hashes are lowercase hex without the
+/// `0x` prefix, matching Go's `Hash.Hex()[2:]`.
+pub(crate) fn raiko_proposals(requests: &[&ProofRequest]) -> Vec<RaikoProposal> {
+    requests
+        .iter()
+        .map(|request| RaikoProposal {
+            proposal_id: request.proposal_id,
+            l1_inclusion_block_number: request.event_l1_block_number,
+            l2_block_numbers: request.l2_block_numbers.clone(),
+            checkpoint: RaikoCheckpoint {
+                block_number: request.end_block_number,
+                block_hash: hex::encode(request.end_block_hash),
+                state_root: hex::encode(request.end_state_root),
+            },
+            last_anchor_block_number: request.last_anchor_block_number,
+        })
+        .collect()
+}
+
+/// EIP-55 checksummed address without the `0x` prefix, matching Go's
+/// `Address.Hex()[2:]` used for the raiko `prover` field.
+pub(crate) fn prover_hex(address: Address) -> String {
+    address.to_checksum(None)[2..].to_owned()
+}
+
+/// POST a raiko batch request and validate the response (Go's shared
+/// `requestBatchProof` tail, `sgx_geth_proof_producer.go:154-192`). Logs the
+/// "generated" line only on the first successful generation
+/// (`already_generated == false`); the matching metrics hook is wired by the
+/// prover metrics module.
+pub(crate) async fn request_validated(
+    raiko: &RaikoClient,
+    request: &crate::raiko::types::RaikoBatchProofRequest,
+    already_generated: bool,
+) -> std::result::Result<RaikoProofResponse, RaikoError> {
+    let response = raiko.request_batch_proof(request).await?;
+    response.validate()?;
+    if !already_generated {
+        tracing::info!(
+            requested_type = ?request.proof_type,
+            drawn_type = ?response.proof_type,
+            aggregate = request.aggregate,
+            start = request.proposals.first().map(|p| p.proposal_id),
+            end = request.proposals.last().map(|p| p.proposal_id),
+            "batch proof generated"
+        );
+    }
+    Ok(response)
+}
+
+/// Decode the hex proof payload out of a validated raiko response.
+pub(crate) fn decode_proof_payload(response: &RaikoProofResponse) -> Result<Bytes> {
+    let hex_str = response
+        .data
+        .as_ref()
+        .and_then(|data| data.proof.as_ref())
+        .and_then(|payload| payload.proof.as_deref())
+        .unwrap_or_default();
+    let bytes = hex::decode(hex_str).map_err(|err| {
+        ProverError::Other(anyhow::anyhow!("invalid proof hex from raiko: {err}"))
+    })?;
+    Ok(bytes.into())
 }
