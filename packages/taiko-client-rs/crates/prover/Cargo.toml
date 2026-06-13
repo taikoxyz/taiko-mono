@@ -44,7 +44,11 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+anyhow = { workspace = true }
 axum = { workspace = true }
+driver = { path = "../driver" }
+proposer = { path = "../proposer" }
 serial_test = { workspace = true }
+test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
