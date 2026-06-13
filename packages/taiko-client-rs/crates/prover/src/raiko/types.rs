@@ -108,38 +108,25 @@ pub struct RaikoProofPayload {
 /// Errors surfaced by raiko requests and response validation.
 #[derive(Debug, Error)]
 pub enum RaikoError {
-    /// Proof generation is still running; poll again.
-    #[error("work_in_progress")]
-    ProofInProgress,
-
-    /// Request registered; poll again.
-    #[error("registered")]
-    Retry,
+    /// Proof generation has not completed yet (`work_in_progress` or
+    /// `registered`); poll again. The originating status word is carried in the
+    /// message for logging.
+    #[error("{0}, polling")]
+    Pending(String),
 
     /// raiko chose not to draw a ZK proof for this batch; fall back to SGX.
     #[error("zk_any_not_drawn")]
     ZkAnyNotDrawn,
 
-    /// Completed response carried no proof bytes for a non-sp1 type.
-    #[error("empty proof from raiko")]
-    EmptyProof,
-
-    /// raiko returned an error payload.
-    #[error("raiko error: {error:?}, message: {message:?}")]
-    Failed {
-        /// Machine error string.
-        error: Option<String>,
-        /// Human-readable message.
-        message: Option<String>,
-    },
+    /// A completed response was invalid: an error payload, a missing/empty
+    /// proof, or a non-200 HTTP status. The message preserves the specific
+    /// cause.
+    #[error("{0}")]
+    Failed(String),
 
     /// Transport-level failure.
     #[error("raiko http error: {0}")]
     Http(#[from] reqwest::Error),
-
-    /// Non-200 HTTP status.
-    #[error("raiko returned http status {0}")]
-    Status(u16),
 }
 
 impl RaikoProofResponse {
@@ -147,28 +134,33 @@ impl RaikoProofResponse {
     /// first, then status strings, then the sp1-null-proof exemption.
     ///
     /// A missing `data` field (Go's "unexpected structure error") maps to
-    /// [`RaikoError::EmptyProof`]. Empty-string `error`/`message` payloads are
-    /// treated as absent, matching Go's `len(..) > 0` checks.
+    /// [`RaikoError::Failed`] with an "empty proof from raiko" message.
+    /// Empty-string `error`/`message` payloads are treated as absent, matching
+    /// Go's `len(..) > 0` checks.
     pub fn validate(&self) -> Result<(), RaikoError> {
         if self.error.as_deref().is_some_and(|e| !e.is_empty()) ||
             self.message.as_deref().is_some_and(|m| !m.is_empty())
         {
-            return Err(RaikoError::Failed {
-                error: self.error.clone(),
-                message: self.message.clone(),
-            });
+            return Err(RaikoError::Failed(format!(
+                "raiko error: {:?}, message: {:?}",
+                self.error, self.message
+            )));
         }
-        let data = self.data.as_ref().ok_or(RaikoError::EmptyProof)?;
+        let data = self
+            .data
+            .as_ref()
+            .ok_or_else(|| RaikoError::Failed("empty proof from raiko".to_owned()))?;
         match data.status.as_str() {
-            "work_in_progress" => return Err(RaikoError::ProofInProgress),
-            "registered" => return Err(RaikoError::Retry),
+            "work_in_progress" | "registered" => {
+                return Err(RaikoError::Pending(data.status.clone()))
+            }
             "zk_any_not_drawn" => return Err(RaikoError::ZkAnyNotDrawn),
             _ => {}
         }
         let has_proof =
             data.proof.as_ref().is_some_and(|p| p.proof.as_deref().is_some_and(|s| !s.is_empty()));
         if self.proof_type != Some(ProofType::Sp1) && !has_proof {
-            return Err(RaikoError::EmptyProof);
+            return Err(RaikoError::Failed("empty proof from raiko".to_owned()));
         }
         Ok(())
     }
@@ -200,11 +192,17 @@ mod tests {
             error: None,
             proof_type: Some(ProofType::Sgx),
         };
-        assert!(matches!(resp("work_in_progress").validate(), Err(RaikoError::ProofInProgress)));
-        assert!(matches!(resp("registered").validate(), Err(RaikoError::Retry)));
+        assert!(matches!(
+            resp("work_in_progress").validate(),
+            Err(RaikoError::Pending(s)) if s == "work_in_progress"
+        ));
+        assert!(matches!(
+            resp("registered").validate(),
+            Err(RaikoError::Pending(s)) if s == "registered"
+        ));
         assert!(matches!(resp("zk_any_not_drawn").validate(), Err(RaikoError::ZkAnyNotDrawn)));
         // Non-sp1 with empty proof payload is an error (Go common.go:48-52).
-        assert!(matches!(resp("ok").validate(), Err(RaikoError::EmptyProof)));
+        assert!(matches!(resp("ok").validate(), Err(RaikoError::Failed(_))));
     }
 
     #[test]
@@ -241,9 +239,9 @@ mod tests {
         let body = r#"{"error":"err","message":"boom","proof_type":"sgx"}"#;
         let resp: RaikoProofResponse = serde_json::from_str(body).unwrap();
         match resp.validate() {
-            Err(RaikoError::Failed { error, message }) => {
-                assert_eq!(error.as_deref(), Some("err"));
-                assert_eq!(message.as_deref(), Some("boom"));
+            Err(RaikoError::Failed(msg)) => {
+                assert!(msg.contains("err"), "error string preserved: {msg}");
+                assert!(msg.contains("boom"), "message string preserved: {msg}");
             }
             other => panic!("expected RaikoError::Failed, got {other:?}"),
         }
@@ -256,7 +254,7 @@ mod tests {
         let body = r#"{"error":"err","message":"boom","proof_type":""}"#;
         let resp: RaikoProofResponse = serde_json::from_str(body).unwrap();
         assert_eq!(resp.proof_type, None);
-        assert!(matches!(resp.validate(), Err(RaikoError::Failed { .. })));
+        assert!(matches!(resp.validate(), Err(RaikoError::Failed(_))));
     }
 
     #[test]
@@ -265,7 +263,7 @@ mod tests {
         let resp: RaikoProofResponse = serde_json::from_str(body).unwrap();
         assert_eq!(resp.proof_type, None);
         // Non-sp1 (unknown ⇒ None) with no proof payload is an empty proof.
-        assert!(matches!(resp.validate(), Err(RaikoError::EmptyProof)));
+        assert!(matches!(resp.validate(), Err(RaikoError::Failed(_))));
     }
 
     #[test]

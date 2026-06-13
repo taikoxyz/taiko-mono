@@ -122,10 +122,9 @@ enum RequestAttempt {
     },
     /// The proposal is already finalized; stop requesting.
     Finalized,
-    /// Outside the proving range; keep polling until it comes into range.
-    OutOfRange,
-    /// Transient producer error or ZK redraw; sleep and retry.
-    Retry,
+    /// No proof this round — outside the proving range, a transient producer
+    /// error, or a ZK redraw. Sleep and poll again.
+    Defer,
 }
 
 /// The RPC-free routing/aggregation core (buffers, caches, producers,
@@ -283,7 +282,7 @@ impl Pipeline {
                     let _ = self.channels.batch_proofs_tx.send(batch).await;
                     return Ok(());
                 }
-                Err(ProverError::Raiko(RaikoError::ProofInProgress | RaikoError::Retry)) => {
+                Err(ProverError::Raiko(RaikoError::Pending(_))) => {
                     tokio::time::sleep(self.cfg.proof_polling_interval).await;
                 }
                 Err(err) => {
@@ -314,7 +313,7 @@ impl Pipeline {
             return Ok(RequestAttempt::Finalized);
         }
         if self.is_proposal_out_of_range(proposal_id, last_finalized) {
-            return Ok(RequestAttempt::OutOfRange);
+            return Ok(RequestAttempt::Defer);
         }
 
         // Too far ahead of finalization for a slow ZK proof: fall back to the
@@ -338,14 +337,14 @@ impl Pipeline {
                     tracing::debug!(proposal_id, "zk proof not drawn, falling back to SGX");
                     *use_zk = false;
                     *zk_started = std::time::Instant::now();
-                    return Ok(RequestAttempt::Retry);
+                    return Ok(RequestAttempt::Defer);
                 }
                 Err(err) => {
                     if zk_started.elapsed() > MAX_PROOF_REQUEST_TIMEOUT {
                         tracing::warn!("zk retry exceeded max timeout, switching to SGX fallback");
                         *use_zk = false;
                         *zk_started = std::time::Instant::now();
-                        return Ok(RequestAttempt::Retry);
+                        return Ok(RequestAttempt::Defer);
                     }
                     return Err(err);
                 }
@@ -726,7 +725,7 @@ impl ProofSubmitter {
                     return self.pipeline.route_proof_response(from_id, *response);
                 }
                 Ok(RequestAttempt::Finalized) => return Ok(()),
-                Ok(RequestAttempt::OutOfRange | RequestAttempt::Retry) => {}
+                Ok(RequestAttempt::Defer) => {}
                 Err(err) => {
                     tracing::warn!(
                         proposal_id = meta.proposal_id,
@@ -787,12 +786,9 @@ mod tests {
     impl ProofProducer for MockProducer {
         async fn request_proof(&self, request: &mut ProofRequest) -> Result<ProofResponse> {
             *self.single_calls.lock().unwrap() += 1;
-            let outcome = self
-                .single
-                .lock()
-                .await
-                .pop_front()
-                .unwrap_or(Err(ProverError::Raiko(RaikoError::Retry)))?;
+            let outcome = self.single.lock().await.pop_front().unwrap_or_else(|| {
+                Err(ProverError::Raiko(RaikoError::Pending("registered".to_owned())))
+            })?;
             Ok(ProofResponse {
                 request: request.clone(),
                 proof: Bytes::from_static(&[0xaa]),
@@ -966,7 +962,7 @@ mod tests {
             .request_proof_attempt(&mut request, &mut use_zk, &mut started, 4)
             .await
             .unwrap();
-        assert!(matches!(attempt, RequestAttempt::OutOfRange));
+        assert!(matches!(attempt, RequestAttempt::Defer));
         assert_eq!(*calls.single_calls.lock().unwrap(), 0);
     }
 

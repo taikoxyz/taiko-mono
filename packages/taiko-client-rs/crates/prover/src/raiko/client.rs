@@ -49,9 +49,11 @@ impl RaikoClient {
     ) -> Result<RaikoProofResponse, RaikoError> {
         // `Url::join` with an absolute path replaces any path on the endpoint,
         // matching Go's host+path string concatenation for host-only endpoints.
-        let url = self.cfg.endpoint.join(Self::BATCH_PROOF_PATH).map_err(|_| {
-            RaikoError::Failed { error: Some("invalid raiko endpoint".to_owned()), message: None }
-        })?;
+        let url = self
+            .cfg
+            .endpoint
+            .join(Self::BATCH_PROOF_PATH)
+            .map_err(|_| RaikoError::Failed("invalid raiko endpoint".to_owned()))?;
         let mut req = self.http.post(url).json(request);
         if let Some(key) = self.cfg.api_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
             req = req.header("X-API-KEY", key);
@@ -65,7 +67,10 @@ impl RaikoClient {
         }
         // Go accepts exactly HTTP 200 (common.go:123), not any 2xx.
         if status != reqwest::StatusCode::OK {
-            return Err(RaikoError::Status(status.as_u16()));
+            return Err(RaikoError::Failed(format!(
+                "raiko returned http status {}",
+                status.as_u16()
+            )));
         }
         Ok(resp.json::<RaikoProofResponse>().await?)
     }
@@ -178,7 +183,10 @@ mod tests {
         let client = client_for(addr, None, Duration::from_secs(5));
         let err =
             client.request_batch_proof(&sample_request(ProofType::Sgx, false)).await.unwrap_err();
-        assert!(matches!(err, RaikoError::Status(500)), "expected Status(500), got {err:?}");
+        assert!(
+            matches!(&err, RaikoError::Failed(msg) if msg == "raiko returned http status 500"),
+            "expected Failed(\"... 500\"), got {err:?}"
+        );
     }
 
     #[tokio::test]
