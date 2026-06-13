@@ -9446,6 +9446,7 @@ dependencies = [
  "prometheus",
  "proposer",
  "protocol",
+ "prover",
  "rpc",
  "thiserror 2.0.18",
  "tokio",

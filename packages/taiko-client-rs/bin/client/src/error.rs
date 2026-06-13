@@ -38,12 +38,23 @@ pub enum CliError {
     #[error(transparent)]
     Proposer(#[from] proposer::error::ProposerError),
 
+    /// Error from the prover crate.
+    ///
+    /// Wraps [`prover::error::ProverError`] for errors occurring during proof
+    /// production, aggregation, and L1 submission.
+    #[error(transparent)]
+    Prover(#[from] prover::error::ProverError),
+
     /// Error from the RPC client crate.
     ///
     /// Wraps [`rpc::RpcClientError`] for errors occurring during RPC client
     /// initialization and provider communication.
     #[error(transparent)]
     Rpc(#[from] rpc::RpcClientError),
+
+    /// CLI configuration error (e.g. reading a referenced file).
+    #[error("configuration error: {0}")]
+    Config(String),
 
     /// Error from the preconfirmation driver crate.
     ///
