@@ -10,9 +10,11 @@ pub mod blob;
 pub mod client;
 pub mod error;
 pub mod l1_origin;
+pub mod tx_manager;
 
 pub use auth::TxPoolContentParams;
 pub use error::{Result, RpcClientError};
 pub use protocol::subscription_source::{
     JoinedRecommendedFillersWithWallet, SubscriptionSource, SubscriptionSourceError,
 };
+pub use tx_manager::build_tx_manager;

@@ -8454,6 +8454,7 @@ dependencies = [
  "alloy-rpc-types-engine 1.8.3",
  "alloy-transport-http",
  "anyhow",
+ "base-tx-manager",
  "bindings",
  "http-body-util",
  "hyper",

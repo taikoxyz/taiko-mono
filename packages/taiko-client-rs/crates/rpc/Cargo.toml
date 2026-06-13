@@ -31,6 +31,7 @@ url = { workspace = true }
 # taiko
 alethia-reth-primitives = { workspace = true, features = ["net"] }
 alethia-reth-rpc-types = { workspace = true }
+base-tx-manager = { workspace = true }
 bindings = { path = "../bindings" }
 protocol = { path = "../protocol" }
 

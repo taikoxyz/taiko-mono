@@ -3,15 +3,12 @@
 
 use std::sync::Arc;
 
-use alloy::{network::EthereumWallet, providers::Provider, signers::local::PrivateKeySigner};
 use alloy_provider::RootProvider;
-use base_tx_manager::{RpcErrorClassifier, SimpleTxManager, TxManagerError};
-use tokio::time::timeout;
+use base_tx_manager::{BaseTxMetrics, SimpleTxManager, TxManagerError};
 
 use crate::{
     config::ProverConfigs,
     error::{ProverError, Result},
-    metrics::ProverTxMetrics,
 };
 
 /// Build the prover transaction manager from prover configuration and an L1
@@ -25,24 +22,11 @@ pub async fn build_tx_manager(
             "invalid prover tx-manager config: {err}"
         )))
     })?;
-    let chain_id = timeout(tx_manager_config.network_timeout, provider.get_chain_id())
-        .await
-        .map_err(|_| ProverError::from(TxManagerError::Rpc("get_chain_id timed out".into())))?
-        .map_err(|err| {
-            ProverError::from(RpcErrorClassifier::classify_rpc_error(&err.to_string()))
-        })?;
-    let signer = PrivateKeySigner::from_bytes(&cfg.l1_prover_private_key).map_err(|err| {
-        ProverError::from(TxManagerError::Sign(format!(
-            "failed to build prover signer from configured private key: {err}"
-        )))
-    })?;
-    let wallet = EthereumWallet::from(signer);
-    Ok(SimpleTxManager::new(
+    Ok(rpc::build_tx_manager(
         provider,
-        wallet,
+        cfg.l1_prover_private_key,
         tx_manager_config,
-        chain_id,
-        Arc::new(ProverTxMetrics::new()),
+        Arc::new(BaseTxMetrics::new("prover")),
     )
     .await?)
 }

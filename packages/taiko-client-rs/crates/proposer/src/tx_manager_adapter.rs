@@ -2,18 +2,13 @@
 
 use std::sync::Arc;
 
-use alloy::{
-    network::EthereumWallet, primitives::U256, providers::Provider,
-    signers::local::PrivateKeySigner,
-};
+use alloy::primitives::U256;
 use alloy_provider::RootProvider;
-use base_tx_manager::{RpcErrorClassifier, SimpleTxManager, TxCandidate, TxManagerError};
-use tokio::time::timeout;
+use base_tx_manager::{BaseTxMetrics, SimpleTxManager, TxCandidate, TxManagerError};
 
 use crate::{
     config::ProposerConfigs,
     error::{ProposerError, Result},
-    metrics::ProposerTxMetrics,
     transaction_builder::BuiltProposalTx,
 };
 
@@ -27,24 +22,11 @@ pub(crate) async fn build_tx_manager(
             "invalid proposer tx-manager config: {err}"
         )))
     })?;
-    let chain_id = timeout(tx_manager_config.network_timeout, provider.get_chain_id())
-        .await
-        .map_err(|_| ProposerError::from(TxManagerError::Rpc("get_chain_id timed out".into())))?
-        .map_err(|err| {
-            ProposerError::from(RpcErrorClassifier::classify_rpc_error(&err.to_string()))
-        })?;
-    let signer = PrivateKeySigner::from_bytes(&cfg.l1_proposer_private_key).map_err(|err| {
-        ProposerError::from(TxManagerError::Sign(format!(
-            "failed to build proposer signer from configured private key: {err}"
-        )))
-    })?;
-    let wallet = EthereumWallet::from(signer);
-    let tx_manager = SimpleTxManager::new(
+    let tx_manager = rpc::build_tx_manager(
         provider,
-        wallet,
+        cfg.l1_proposer_private_key,
         tx_manager_config,
-        chain_id,
-        Arc::new(ProposerTxMetrics::new()),
+        Arc::new(BaseTxMetrics::new("proposer")),
     )
     .await?;
 
