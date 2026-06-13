@@ -55,6 +55,7 @@ impl ProverSubCommand {
             starting_proposal_id: prover.starting_proposal_id,
             prove_unassigned_proposals: prover.prove_unassigned_proposals,
             proposal_window_size: prover.proposal_window_size,
+            max_zk_proof_proposal_distance: prover.max_zk_proof_proposal_distance,
             dummy: prover.dummy,
             proof_polling_interval: Duration::from_secs(prover.proof_polling_interval_secs),
             local_proposer_addresses: prover.local_proposer_addresses.clone(),

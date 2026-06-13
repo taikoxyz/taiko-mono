@@ -70,6 +70,14 @@ pub struct ProverArgs {
         help = "Allowed proving range above last finalized (0 = unlimited)"
     )]
     pub proposal_window_size: u64,
+    /// Maximum proposal distance above last finalized for requesting ZK proofs.
+    #[clap(
+        long = "prover.maxZKProofProposalDistance",
+        env = "PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE",
+        default_value = "30",
+        help = "Maximum proposal distance above lastFinalizedProposalID for requesting ZK proofs; beyond it the prover requests the base proof instead"
+    )]
+    pub max_zk_proof_proposal_distance: u64,
     /// Produce filler proofs instead of calling raiko (tests/devnet).
     #[clap(
         long = "prover.dummy",
@@ -194,7 +202,7 @@ pub struct ProverArgs {
 
 #[cfg(test)]
 mod tests {
-    use clap::CommandFactory;
+    use clap::{CommandFactory, Parser};
 
     use super::ProverArgs;
 
@@ -209,5 +217,19 @@ mod tests {
         assert!(help.contains("--prover.dummy"));
         assert!(help.contains("--prover.shadowMode"));
         assert!(help.contains("--l1.proverPrivKey"));
+        assert!(help.contains("--prover.maxZKProofProposalDistance"));
+    }
+
+    #[test]
+    fn max_zk_proof_proposal_distance_defaults_to_30() {
+        let args = ProverArgs::try_parse_from([
+            "prover",
+            "--l1.proverPrivKey",
+            "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "--raiko.host",
+            "http://localhost:8080",
+        ])
+        .expect("minimal prover args should parse");
+        assert_eq!(args.max_zk_proof_proposal_distance, 30);
     }
 }

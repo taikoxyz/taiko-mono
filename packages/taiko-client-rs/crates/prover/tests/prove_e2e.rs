@@ -49,6 +49,7 @@ fn prover_config(env: &ShastaEnv, sgx_batch_size: u64) -> ProverConfigs {
         starting_proposal_id: None,
         prove_unassigned_proposals: true,
         proposal_window_size: 0,
+        max_zk_proof_proposal_distance: 30,
         dummy: true,
         proof_polling_interval: Duration::from_millis(200),
         local_proposer_addresses: vec![],

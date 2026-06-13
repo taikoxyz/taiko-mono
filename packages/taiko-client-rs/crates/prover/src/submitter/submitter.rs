@@ -72,6 +72,9 @@ pub struct SubmitterConfig {
     pub force_batch_proving_interval: Duration,
     /// Allowed proving range above last finalized (0 = unlimited).
     pub proposal_window_size: u64,
+    /// Maximum proposal distance above last finalized for which a ZK proof is
+    /// requested; beyond it the prover falls back to the base proof.
+    pub max_zk_proof_proposal_distance: u64,
     /// Optional gas limit for prove transactions (0 = tx-manager estimates).
     pub gas_limit: u64,
     /// Build proofs but skip L1 submission (rollout shadow gate).
@@ -88,6 +91,7 @@ impl SubmitterConfig {
             proof_polling_interval: cfg.proof_polling_interval,
             force_batch_proving_interval: cfg.force_batch_proving_interval,
             proposal_window_size: cfg.proposal_window_size,
+            max_zk_proof_proposal_distance: cfg.max_zk_proof_proposal_distance,
             gas_limit: cfg.gas_limit.unwrap_or(0),
             shadow_mode: cfg.shadow_mode,
             inbox_address: cfg.inbox_address,
@@ -187,6 +191,15 @@ impl Pipeline {
         }
         proposal_id > last_finalized + self.cfg.proposal_window_size ||
             proposal_id <= last_finalized
+    }
+
+    /// Whether a ZK proof should be requested for `proposal_id`: false once it
+    /// is more than `max_zk_proof_proposal_distance` ahead of the last finalized
+    /// proposal, so the prover falls back to the faster base proof to catch up
+    /// (Go `shouldUseZKProof`, `proof_submitter.go:289-298`).
+    #[must_use]
+    fn should_use_zk_proof(&self, proposal_id: u64, last_finalized: u64) -> bool {
+        proposal_id <= last_finalized + self.cfg.max_zk_proof_proposal_distance
     }
 
     /// Route a freshly produced proof into the buffer (when contiguous) or the
@@ -291,6 +304,18 @@ impl Pipeline {
         }
         if self.is_proposal_out_of_range(proposal_id, last_finalized) {
             return Ok(RequestAttempt::OutOfRange);
+        }
+
+        // Too far ahead of finalization for a slow ZK proof: fall back to the
+        // base proof to keep catching up (Go `proof_submitter.go:206-217`).
+        if *use_zk && !self.should_use_zk_proof(proposal_id, last_finalized) {
+            tracing::info!(
+                proposal_id,
+                last_finalized,
+                max_zk_proof_proposal_distance = self.cfg.max_zk_proof_proposal_distance,
+                "proposal too far from last finalized, skipping ZK proof"
+            );
+            *use_zk = false;
         }
 
         if let (true, Some(zkvm)) = (*use_zk, self.zkvm_producer.as_ref()) {
@@ -827,6 +852,7 @@ mod tests {
                 proof_polling_interval: Duration::from_millis(1),
                 force_batch_proving_interval: force_interval,
                 proposal_window_size: 0,
+                max_zk_proof_proposal_distance: 30,
                 gas_limit: 0,
                 shadow_mode: false,
                 inbox_address: Address::repeat_byte(0x11),
@@ -942,6 +968,72 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(attempt, RequestAttempt::Finalized));
+    }
+
+    #[test]
+    fn should_use_zk_proof_matches_go_boundary() {
+        // distance 30, last finalized 10 → 40 ok, 41 falls back (Go TestShouldUseZKProof).
+        let h = harness(Arc::new(MockProducer::default()), Duration::from_secs(3_600), 2);
+        assert!(h.pipeline.should_use_zk_proof(40, 10));
+        assert!(!h.pipeline.should_use_zk_proof(41, 10));
+    }
+
+    #[test]
+    fn should_use_zk_proof_honors_configured_distance() {
+        // distance 5, last finalized 10 → 15 ok, 16 falls back (Go
+        // TestShouldUseZKProofUsesConfiguredDistance).
+        let mut h = harness(Arc::new(MockProducer::default()), Duration::from_secs(3_600), 2);
+        h.pipeline.cfg.max_zk_proof_proposal_distance = 5;
+        assert!(h.pipeline.should_use_zk_proof(15, 10));
+        assert!(!h.pipeline.should_use_zk_proof(16, 10));
+    }
+
+    #[tokio::test]
+    async fn far_ahead_proposal_falls_back_to_base_producer() {
+        let base = Arc::new(MockProducer::with_single(vec![Ok(ProofType::Sgx)]));
+        let zkvm = Arc::new(MockProducer::with_single(vec![Ok(ProofType::Risc0)]));
+        let base_calls = base.clone();
+        let zkvm_calls = zkvm.clone();
+
+        let (batch_proofs_tx, _b) = mpsc::channel(8);
+        let (aggregation_notify_tx, _a) = mpsc::channel(8);
+        let (proof_request_tx, _p) = mpsc::channel(8);
+        let (flush_cache_tx, _f) = mpsc::channel(8);
+        let pipeline = Pipeline::new(
+            base,
+            Some(zkvm),
+            HashMap::from([(ProofType::Sgx, Arc::new(ProofBuffer::new(2)))]),
+            HashMap::from([(ProofType::Sgx, Arc::new(ProofCache::new()))]),
+            SubmitterChannels {
+                batch_proofs_tx,
+                aggregation_notify_tx,
+                proof_request_tx,
+                flush_cache_tx,
+            },
+            SubmitterConfig {
+                proof_polling_interval: Duration::from_millis(1),
+                force_batch_proving_interval: Duration::from_secs(3_600),
+                proposal_window_size: 0,
+                max_zk_proof_proposal_distance: 5,
+                gas_limit: 0,
+                shadow_mode: false,
+                inbox_address: Address::repeat_byte(0x11),
+            },
+        );
+
+        // last finalized 10, distance 5 → allowed up to 15; proposal 100 is too far.
+        let mut request = response(100, ProofType::Sgx).request;
+        let mut use_zk = true;
+        let mut started = std::time::Instant::now();
+        let attempt = pipeline
+            .request_proof_attempt(&mut request, &mut use_zk, &mut started, 10)
+            .await
+            .unwrap();
+
+        assert!(matches!(attempt, RequestAttempt::Generated { .. }));
+        assert!(!use_zk, "zk disabled for a far-ahead proposal");
+        assert_eq!(*base_calls.single_calls.lock().unwrap(), 1, "base producer used");
+        assert_eq!(*zkvm_calls.single_calls.lock().unwrap(), 0, "zkvm producer skipped");
     }
 
     #[tokio::test]

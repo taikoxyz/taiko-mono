@@ -38,6 +38,11 @@ pub struct ProverConfigs {
     /// Allowed proving range above last finalized (0 = unlimited). Go
     /// `--prover.proposal.window.size`.
     pub proposal_window_size: u64,
+    /// Maximum proposal distance above the last finalized proposal for which a
+    /// ZK proof is requested; beyond it the prover falls back to the base proof
+    /// so a slow ZK proof does not block catch-up (Go
+    /// `--prover.maxZKProofProposalDistance`, default 30).
+    pub max_zk_proof_proposal_distance: u64,
     /// Produce filler proofs instead of calling raiko (tests/devnet).
     pub dummy: bool,
     /// raiko polling interval (Go default: 10s).
@@ -139,6 +144,7 @@ pub(crate) mod tests {
             starting_proposal_id: None,
             prove_unassigned_proposals: false,
             proposal_window_size: 0,
+            max_zk_proof_proposal_distance: 30,
             dummy: false,
             proof_polling_interval: Duration::from_secs(10),
             local_proposer_addresses: vec![],
