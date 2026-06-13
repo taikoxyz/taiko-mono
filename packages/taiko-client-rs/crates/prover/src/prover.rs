@@ -41,23 +41,12 @@ pub struct Prover {
     rpc: Arc<ClientWithWallet>,
     /// Proof request/aggregate/submit pipeline.
     submitter: Arc<ProofSubmitter>,
-    /// Shared RPC-free routing core (for monitors).
-    pipeline: Arc<Pipeline>,
     /// Shared cursors (dedup + L1 cursor).
     state: Arc<SharedState>,
     /// This prover's L1 address.
     prover_address: Address,
     /// Proving window in seconds (from `inbox.getConfig()`).
     proving_window_secs: u64,
-    /// Receivers paired with the submitter's senders.
-    channels: ProverReceivers,
-    /// `flush_cache` sender retained for the cache monitor.
-    flush_cache_tx: mpsc::Sender<ProofType>,
-}
-
-/// Channel receivers owned by the orchestrator (the submitter holds the
-/// senders).
-struct ProverReceivers {
     /// Proposals to prove (request enrichment + proving).
     proof_request_rx: mpsc::Receiver<ProofRequestMeta>,
     /// Aggregation-ready nudges per proof type.
@@ -145,7 +134,7 @@ impl Prover {
                 batch_proofs_tx,
                 aggregation_notify_tx,
                 proof_request_tx,
-                flush_cache_tx: flush_cache_tx.clone(),
+                flush_cache_tx,
             },
             SubmitterConfig::from_prover_configs(&cfg),
         ));
@@ -167,17 +156,13 @@ impl Prover {
             cfg,
             rpc,
             submitter,
-            pipeline,
             state: Arc::new(SharedState::new()),
             prover_address,
             proving_window_secs,
-            channels: ProverReceivers {
-                proof_request_rx,
-                aggregation_notify_rx,
-                flush_cache_rx,
-                batch_proofs_rx,
-            },
-            flush_cache_tx,
+            proof_request_rx,
+            aggregation_notify_rx,
+            flush_cache_rx,
+            batch_proofs_rx,
         })
     }
 
@@ -243,23 +228,18 @@ impl Prover {
             cfg,
             rpc,
             submitter,
-            pipeline,
             state,
             prover_address,
             proving_window_secs,
-            channels,
-            flush_cache_tx,
-        } = self;
-
-        let ProverReceivers {
             mut proof_request_rx,
             mut aggregation_notify_rx,
             mut flush_cache_rx,
             mut batch_proofs_rx,
-        } = channels;
+        } = self;
 
         // Background buffer/cache monitors.
-        spawn_monitors(pipeline.clone(), rpc.clone(), flush_cache_tx, MONITOR_INTERVAL);
+        let pipeline = submitter.pipeline();
+        spawn_monitors(pipeline.clone(), rpc.clone(), MONITOR_INTERVAL);
 
         // proof_request consumer: one proving task per proposal.
         let request_submitter = submitter.clone();
@@ -275,10 +255,10 @@ impl Prover {
         });
 
         // aggregation_notify consumer.
-        let aggregate_submitter = submitter.clone();
+        let aggregate_pipeline = submitter.pipeline();
         tokio::spawn(async move {
             while let Some(proof_type) = aggregation_notify_rx.recv().await {
-                if let Err(err) = aggregate_submitter.aggregate_proofs_by_type(proof_type).await {
+                if let Err(err) = aggregate_pipeline.aggregate_proofs_by_type(proof_type).await {
                     tracing::error!(%err, ?proof_type, "aggregate proofs failed");
                 }
             }
@@ -297,18 +277,19 @@ impl Prover {
         // batch_proofs consumer: submit, then clear with the Go error contract
         // (`prover.go:288-329`).
         let submit_submitter = submitter.clone();
+        let submit_pipeline = submitter.pipeline();
         tokio::spawn(async move {
             while let Some(batch) = batch_proofs_rx.recv().await {
                 match submit_submitter.batch_submit_proofs(&batch).await {
                     Ok(()) => {
-                        let _ = submit_submitter.clear_proof_buffers(&batch, false).await;
+                        let _ = submit_pipeline.clear_proof_buffers(&batch, false).await;
                     }
                     Err(ProverError::InvalidProof) => {
                         // Invalid items already cleared inside batch_submit_proofs.
                     }
                     Err(err) => {
                         tracing::error!(%err, "submit aggregation failed, resending requests");
-                        let _ = submit_submitter.clear_proof_buffers(&batch, true).await;
+                        let _ = submit_pipeline.clear_proof_buffers(&batch, true).await;
                     }
                 }
             }

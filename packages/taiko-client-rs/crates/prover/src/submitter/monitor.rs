@@ -14,30 +14,16 @@ use crate::{
 pub const MONITOR_INTERVAL: Duration = Duration::from_secs(60);
 
 /// Spawn one forced-aggregation monitor per buffer plus one cache-cleanup
-/// monitor, returning their join handles so the orchestrator can supervise
-/// them. Each monitor ticks every `interval` until aborted.
-pub fn spawn_monitors(
-    pipeline: Arc<Pipeline>,
-    rpc: Arc<ClientWithWallet>,
-    flush_cache_tx: Sender<ProofType>,
-    interval: Duration,
-) -> Vec<tokio::task::JoinHandle<()>> {
-    let mut handles = Vec::new();
-
+/// monitor. Each monitor ticks every `interval` until aborted.
+pub fn spawn_monitors(pipeline: Arc<Pipeline>, rpc: Arc<ClientWithWallet>, interval: Duration) {
     for (proof_type, buffer) in pipeline.buffers() {
-        handles.push(tokio::spawn(monitor_buffer(
-            pipeline.clone(),
-            *proof_type,
-            buffer.clone(),
-            interval,
-        )));
+        tokio::spawn(monitor_buffer(pipeline.clone(), *proof_type, buffer.clone(), interval));
     }
 
+    let flush_cache_tx = pipeline.flush_cache_sender();
     let caches: Vec<(ProofType, Arc<ProofCache>)> =
         pipeline.caches().iter().map(|(ty, cache)| (*ty, cache.clone())).collect();
-    handles.push(tokio::spawn(monitor_caches(rpc, caches, flush_cache_tx, interval)));
-
-    handles
+    tokio::spawn(monitor_caches(rpc, caches, flush_cache_tx, interval));
 }
 
 /// Periodically force-aggregate a single buffer (Go `monitorProofBuffer`).

@@ -177,6 +177,12 @@ impl Pipeline {
         self.channels.proof_request_tx.clone()
     }
 
+    /// Clone the cache-flush sender (the cache monitor nudges flushes here).
+    #[must_use]
+    pub fn flush_cache_sender(&self) -> Sender<ProofType> {
+        self.channels.flush_cache_tx.clone()
+    }
+
     /// Map a drawn proof type to the producer that can aggregate it
     /// (Go `AggregateProofsByType`, `proof_submitter.go:438-445`).
     fn producer_for(&self, proof_type: ProofType) -> Result<&Arc<dyn ProofProducer>> {
@@ -585,16 +591,6 @@ impl ProofSubmitter {
         }
         let last_finalized = self.last_finalized_proposal_id().await?;
         self.pipeline.flush_cache_with_finalized(proof_type, last_finalized)
-    }
-
-    /// Aggregate buffered proofs of a type (delegates to the pipeline).
-    pub async fn aggregate_proofs_by_type(&self, proof_type: ProofType) -> Result<()> {
-        self.pipeline.aggregate_proofs_by_type(proof_type).await
-    }
-
-    /// Clear buffers for a submitted batch (delegates to the pipeline).
-    pub async fn clear_proof_buffers(&self, batch: &BatchProofs, resend: bool) -> Result<()> {
-        self.pipeline.clear_proof_buffers(batch, resend).await
     }
 
     /// Enrich a `Proposed`-derived meta into a full [`ProofRequest`]: resolve
