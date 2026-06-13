@@ -507,6 +507,13 @@ async fn handle_proposed_log(ctx: &ProposedContext, log: &alloy::rpc::types::Log
         return Ok(());
     };
 
+    tracing::info!(
+        proposal_id,
+        l1_block = block_number,
+        proposer = %event.proposer,
+        "prover received Proposed event"
+    );
+
     wait_for_confirmations(ctx, block_number).await?;
 
     // Dedup early (without committing) so we skip already-handled proposals, but
@@ -568,11 +575,17 @@ async fn handle_proposed_log(ctx: &ProposedContext, log: &alloy::rpc::types::Log
         ctx.prove_unassigned,
     ) {
         ProvingDecision::SubmitNow => {
+            tracing::info!(proposal_id, "proposal is provable; requesting proof now");
             ProverMetrics::received_proposed_id().set(proposal_id as f64);
             ProverMetrics::proofs_assigned().inc();
             let _ = ctx.proof_request_tx.send(meta).await;
         }
         ProvingDecision::WaitForExpiry(delay) => {
+            tracing::info!(
+                proposal_id,
+                delay_secs = delay.as_secs(),
+                "proposal not assigned to this prover; waiting for proving-window expiry before proving"
+            );
             ProverMetrics::received_proposed_id().set(proposal_id as f64);
             let tx = ctx.proof_request_tx.clone();
             tokio::spawn(async move {

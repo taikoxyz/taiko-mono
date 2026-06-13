@@ -9,6 +9,8 @@
 
 use std::{sync::Arc, time::Duration};
 
+use alloy::signers::local::PrivateKeySigner;
+use alloy_primitives::Address;
 use alloy_provider::Provider;
 use anyhow::{Result, anyhow, ensure};
 use driver::{
@@ -31,7 +33,20 @@ async fn proposer_client(env: &ShastaEnv) -> Result<ClientWithWallet> {
         .map_err(Into::into)
 }
 
+/// Derive the proposer's L1 address from its private key.
+fn proposer_address(env: &ShastaEnv) -> Address {
+    PrivateKeySigner::from_bytes(&env.l1_proposer_private_key)
+        .expect("valid proposer private key")
+        .address()
+}
+
 /// Build a prover config in dummy mode (no raiko); proves every proposal.
+///
+/// The harness proposes from a different account than the prover, so the prover
+/// is not the designated prover for these proposals. Listing the proposer as a
+/// local proposer makes the prover treat them as assigned and prove immediately
+/// (mirrors Go `prover_test.go`'s `LocalProposerAddresses`); otherwise the
+/// prover would wait out the 4-hour proving window before proving them.
 fn prover_config(env: &ShastaEnv, sgx_batch_size: u64) -> ProverConfigs {
     ProverConfigs {
         l1_provider_source: env.client_config.l1_provider_source.clone(),
@@ -51,7 +66,7 @@ fn prover_config(env: &ShastaEnv, sgx_batch_size: u64) -> ProverConfigs {
         max_zk_proof_proposal_distance: 30,
         dummy: true,
         proof_polling_interval: Duration::from_millis(200),
-        local_proposer_addresses: vec![],
+        local_proposer_addresses: vec![proposer_address(env)],
         block_confirmations: 0,
         force_batch_proving_interval: Duration::from_secs(2),
         sgx_batch_size,
