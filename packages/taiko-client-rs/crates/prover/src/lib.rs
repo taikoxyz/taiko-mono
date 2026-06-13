@@ -4,6 +4,7 @@
 //! raiko, aggregates them, and submits them to the inbox contract.
 
 pub mod buffer;
+pub mod cache;
 pub mod error;
 pub mod producer;
 pub mod raiko;
