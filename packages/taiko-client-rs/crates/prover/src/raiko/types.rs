@@ -69,8 +69,20 @@ pub struct RaikoProofResponse {
     pub message: Option<String>,
     /// Machine error string, if any.
     pub error: Option<String>,
-    /// Proof type raiko actually produced (relevant for `zk_any` draws).
+    /// Proof type raiko actually produced (relevant for `zk_any` draws). Lenient:
+    /// empty or unknown strings deserialize to `None` (Go models this as a plain
+    /// string and tolerates anything).
+    #[serde(default, deserialize_with = "lenient_proof_type")]
     pub proof_type: Option<ProofType>,
+}
+
+/// Deserialize a proof type tolerantly: `null`/missing/empty/unknown → `None`.
+fn lenient_proof_type<'de, D>(deserializer: D) -> Result<Option<ProofType>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let raw = Option::<String>::deserialize(deserializer)?;
+    Ok(raw.and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok()))
 }
 
 /// Proof payload and status (Go `RaikoProofDataV2`).
@@ -235,6 +247,25 @@ mod tests {
             }
             other => panic!("expected RaikoError::Failed, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn error_response_with_empty_proof_type_string_parses_leniently() {
+        // raiko error bodies can carry `"proof_type": ""`; Go models the field
+        // as a plain string so this must not fail the whole parse.
+        let body = r#"{"error":"err","message":"boom","proof_type":""}"#;
+        let resp: RaikoProofResponse = serde_json::from_str(body).unwrap();
+        assert_eq!(resp.proof_type, None);
+        assert!(matches!(resp.validate(), Err(RaikoError::Failed { .. })));
+    }
+
+    #[test]
+    fn unknown_proof_type_string_parses_to_none() {
+        let body = r#"{"data":{"proof":null,"status":"ok"},"proof_type":"bogus"}"#;
+        let resp: RaikoProofResponse = serde_json::from_str(body).unwrap();
+        assert_eq!(resp.proof_type, None);
+        // Non-sp1 (unknown ⇒ None) with no proof payload is an empty proof.
+        assert!(matches!(resp.validate(), Err(RaikoError::EmptyProof)));
     }
 
     #[test]
