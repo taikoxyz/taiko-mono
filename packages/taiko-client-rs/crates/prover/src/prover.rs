@@ -41,7 +41,7 @@ pub struct Prover {
     rpc: Arc<ClientWithWallet>,
     /// Proof request/aggregate/submit pipeline.
     submitter: Arc<ProofSubmitter>,
-    /// Shared cursors (dedup + L1 cursor).
+    /// Shared dedup cursor (highest handled proposal id).
     state: Arc<SharedState>,
     /// This prover's L1 address.
     prover_address: Address,
