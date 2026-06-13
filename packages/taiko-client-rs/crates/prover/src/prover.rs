@@ -510,10 +510,13 @@ async fn handle_proposed_log(ctx: &ProposedContext, log: &alloy::rpc::types::Log
 
     wait_for_confirmations(ctx, block_number).await?;
 
-    if !ctx.state.mark_handled(proposal_id) {
+    // Dedup early (without committing) so we skip already-handled proposals, but
+    // do the fallible RPC reads before marking handled — a transient failure
+    // returns an error (logged by the caller) and leaves the proposal eligible
+    // for re-handling rather than silently dropping it.
+    if proposal_id <= ctx.state.last_handled_proposal_id() {
         return Ok(());
     }
-    ctx.state.set_l1_current_block(block_number);
 
     // Skip already-finalized proposals cheaply, before any enrichment.
     let core_state = ctx
@@ -538,6 +541,12 @@ async fn handle_proposed_log(ctx: &ProposedContext, log: &alloy::rpc::types::Log
         .map_err(RpcClientError::from)?
         .ok_or_else(|| ProverError::Other(anyhow::anyhow!("L1 block {block_hash} missing")))?;
     let proposal_timestamp = l1_block.header.timestamp;
+
+    // Commit the dedup cursor only once the fallible reads have succeeded.
+    if !ctx.state.mark_handled(proposal_id) {
+        return Ok(());
+    }
+    ctx.state.set_l1_current_block(block_number);
 
     let now = current_unix_timestamp();
     let (window_expired, time_to_expire) =

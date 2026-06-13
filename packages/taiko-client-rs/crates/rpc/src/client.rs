@@ -8,7 +8,7 @@ use std::{
 
 use alethia_reth_primitives::addresses::get_treasury_address;
 use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
-use alloy_eips::{BlockId, eip1898::RpcBlockHash};
+use alloy_eips::{BlockId, BlockNumberOrTag, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
@@ -151,6 +151,16 @@ impl<P: Provider + Clone> Client<P> {
     /// Fetch the Shasta anchor state for the given parent block hash.
     pub async fn shasta_anchor_state_by_hash(&self, block_hash: B256) -> Result<AnchorState> {
         let block_id = BlockId::Hash(RpcBlockHash { block_hash, require_canonical: Some(false) });
+
+        let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
+
+        Ok(AnchorState { anchor_block_number: block_state.anchorBlockNumber.to::<u64>() })
+    }
+
+    /// Fetch the Shasta anchor state at the given L2 block number. Used for the
+    /// genesis case (block 0), which has no resolvable block hash.
+    pub async fn shasta_anchor_state_by_number(&self, block_number: u64) -> Result<AnchorState> {
+        let block_id = BlockId::Number(BlockNumberOrTag::Number(block_number));
 
         let block_state = self.shasta.anchor.getBlockState().block(block_id).call().await?;
 

@@ -582,20 +582,23 @@ impl ProofSubmitter {
                 ProverError::Other(anyhow::anyhow!("L2 block {last_block_id} missing"))
             })?;
 
-        let prev_last_block_id = self
-            .rpc
-            .last_block_id_by_batch_id(U256::from(proposal_id.saturating_sub(1)))
-            .await?
-            .map(|id| id.to::<u64>())
-            .unwrap_or_default();
+        // Go `ProposalLastBlockID` short-circuits proposal id 0 to block 0
+        // without an engine call (`pkg/rpc/methods.go`).
+        let prev_last_block_id = if proposal_id <= 1 {
+            0
+        } else {
+            self.rpc
+                .last_block_id_by_batch_id(U256::from(proposal_id - 1))
+                .await?
+                .map(|id| id.to::<u64>())
+                .unwrap_or_default()
+        };
         let l2_block_numbers: Vec<u64> = (prev_last_block_id + 1..=last_block_id).collect();
 
+        // The genesis case reads anchor state at block number 0 (Go pins
+        // `GetBlockState` to block 0); block hash 0x0 does not resolve.
         let last_anchor_block_number = if prev_last_block_id == 0 {
-            self.rpc
-                .shasta_anchor_state_by_hash(B256::ZERO)
-                .await
-                .map(|state| state.anchor_block_number)
-                .unwrap_or_default()
+            self.rpc.shasta_anchor_state_by_number(0).await?.anchor_block_number
         } else {
             let prev_header = self
                 .rpc
@@ -646,12 +649,42 @@ impl ProofSubmitter {
 
     /// Request (and poll for) a proof for one proposal, routing the result into
     /// the buffer/cache (Go `RequestProof`, `proof_submitter.go:115-264`).
+    ///
+    /// Like Go's inner constant backoff, this retries on **any** transient
+    /// failure — raiko HTTP/status errors, L1/engine blips, and enrichment
+    /// failures all sleep and retry rather than dropping the proposal — and
+    /// only returns once the proof is produced and routed or the proposal is
+    /// finalized. The spawning task is aborted on shutdown.
     pub async fn request_proof(&self, meta: ProofRequestMeta) -> Result<()> {
-        let mut request = self.enrich_request(&meta).await?;
+        let interval = self.pipeline.cfg.proof_polling_interval;
+
+        // Enrich with retry so a transient L1/engine error does not drop the
+        // proposal (Go enriches inside the retried operation).
+        let mut request = loop {
+            match self.enrich_request(&meta).await {
+                Ok(request) => break request,
+                Err(err) => {
+                    tracing::warn!(
+                        proposal_id = meta.proposal_id,
+                        %err,
+                        "failed to enrich proof request, retrying"
+                    );
+                    tokio::time::sleep(interval).await;
+                }
+            }
+        };
+
         let mut use_zk = true;
         let mut zk_started = std::time::Instant::now();
         loop {
-            let last_finalized = self.last_finalized_proposal_id().await?;
+            let last_finalized = match self.last_finalized_proposal_id().await {
+                Ok(last_finalized) => last_finalized,
+                Err(err) => {
+                    tracing::warn!(%err, "failed to read core state during proof request, retrying");
+                    tokio::time::sleep(interval).await;
+                    continue;
+                }
+            };
             match self
                 .pipeline
                 .request_proof_attempt(&mut request, &mut use_zk, &mut zk_started, last_finalized)
@@ -661,16 +694,16 @@ impl ProofSubmitter {
                     return self.pipeline.route_proof_response(from_id, *response);
                 }
                 Ok(RequestAttempt::Finalized) => return Ok(()),
-                Ok(RequestAttempt::OutOfRange | RequestAttempt::Retry) => {
-                    tokio::time::sleep(self.pipeline.cfg.proof_polling_interval).await;
+                Ok(RequestAttempt::OutOfRange | RequestAttempt::Retry) => {}
+                Err(err) => {
+                    tracing::warn!(
+                        proposal_id = meta.proposal_id,
+                        %err,
+                        "proof request attempt failed, retrying"
+                    );
                 }
-                Err(ProverError::Raiko(
-                    RaikoError::ProofInProgress | RaikoError::Retry | RaikoError::ZkAnyNotDrawn,
-                )) => {
-                    tokio::time::sleep(self.pipeline.cfg.proof_polling_interval).await;
-                }
-                Err(err) => return Err(err),
             }
+            tokio::time::sleep(interval).await;
         }
     }
 }
