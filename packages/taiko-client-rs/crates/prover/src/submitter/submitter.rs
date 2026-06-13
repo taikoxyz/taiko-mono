@@ -157,6 +157,12 @@ impl Pipeline {
         &self.caches
     }
 
+    /// Clone the proof-request sender (orchestrator enqueues proposals here).
+    #[must_use]
+    pub fn proof_request_sender(&self) -> Sender<ProofRequestMeta> {
+        self.channels.proof_request_tx.clone()
+    }
+
     /// Map a drawn proof type to the producer that can aggregate it
     /// (Go `AggregateProofsByType`, `proof_submitter.go:438-445`).
     fn producer_for(&self, proof_type: ProofType) -> Result<&Arc<dyn ProofProducer>> {
@@ -385,8 +391,9 @@ impl Pipeline {
 pub struct ProofSubmitter {
     /// Wallet-bound RPC client.
     rpc: Arc<ClientWithWallet>,
-    /// RPC-free routing/aggregation core.
-    pipeline: Pipeline,
+    /// RPC-free routing/aggregation core (shared with the orchestrator's
+    /// background monitors).
+    pipeline: Arc<Pipeline>,
     /// L1 transaction manager for prove submissions.
     tx_manager: SimpleTxManager,
     /// This prover's address (`commitment.actualProver`).
@@ -398,17 +405,17 @@ impl ProofSubmitter {
     #[must_use]
     pub fn new(
         rpc: Arc<ClientWithWallet>,
-        pipeline: Pipeline,
+        pipeline: Arc<Pipeline>,
         tx_manager: SimpleTxManager,
         prover_address: Address,
     ) -> Self {
         Self { rpc, pipeline, tx_manager, prover_address }
     }
 
-    /// Borrow the RPC-free pipeline (orchestrator/monitor access).
+    /// Clone the shared RPC-free pipeline (monitor/consumer access).
     #[must_use]
-    pub fn pipeline(&self) -> &Pipeline {
-        &self.pipeline
+    pub fn pipeline(&self) -> Arc<Pipeline> {
+        self.pipeline.clone()
     }
 
     /// Read `inbox.getCoreState().lastFinalizedProposalId` as a `u64`.

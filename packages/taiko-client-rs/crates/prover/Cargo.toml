@@ -25,6 +25,7 @@ alloy = { workspace = true }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 base-tx-manager = { workspace = true }
+event-scanner = { workspace = true }
 
 # taiko
 bindings = { path = "../bindings" }

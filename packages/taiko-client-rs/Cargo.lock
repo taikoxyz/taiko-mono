@@ -6361,6 +6361,7 @@ dependencies = [
  "base-tx-manager",
  "bindings",
  "dashmap",
+ "event-scanner",
  "once_cell",
  "prometheus",
  "protocol",

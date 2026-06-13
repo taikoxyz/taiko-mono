@@ -10,6 +10,7 @@ pub mod error;
 pub mod handler;
 pub mod metrics;
 pub mod producer;
+pub mod prover;
 pub mod raiko;
 pub mod state;
 pub mod submitter;
