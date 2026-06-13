@@ -66,14 +66,11 @@ impl ProverSubCommand {
             sgx_batch_size: prover.sgx_batch_size,
             zkvm_batch_size: prover.zkvm_batch_size,
             shadow_mode: prover.shadow_mode,
-            gas_limit: prover.gas_limit,
             retry_interval: Duration::from_secs(prover.retry_interval_secs),
             confirmation_timeout: Duration::from_secs(prover.confirmation_timeout_secs),
             receipt_query_interval: None,
             min_tip_cap_gwei: prover.min_tip_cap_gwei,
             min_base_fee_gwei: prover.min_base_fee_gwei,
-            backoff_retry_interval: Duration::from_secs(prover.backoff_retry_interval_secs),
-            backoff_max_retries: prover.backoff_max_retries,
         })
     }
 

@@ -58,14 +58,11 @@ fn prover_config(env: &ShastaEnv, sgx_batch_size: u64) -> ProverConfigs {
         sgx_batch_size,
         zkvm_batch_size: 1,
         shadow_mode: false,
-        gas_limit: None,
         retry_interval: Duration::from_secs(2),
         confirmation_timeout: Duration::from_secs(60),
         receipt_query_interval: Some(Duration::from_millis(200)),
         min_tip_cap_gwei: 1,
         min_base_fee_gwei: 1,
-        backoff_retry_interval: Duration::from_secs(1),
-        backoff_max_retries: 30,
     }
 }
 

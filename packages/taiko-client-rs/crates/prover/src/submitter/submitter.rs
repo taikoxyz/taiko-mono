@@ -75,8 +75,6 @@ pub struct SubmitterConfig {
     /// Maximum proposal distance above last finalized for which a ZK proof is
     /// requested; beyond it the prover falls back to the base proof.
     pub max_zk_proof_proposal_distance: u64,
-    /// Optional gas limit for prove transactions (0 = tx-manager estimates).
-    pub gas_limit: u64,
     /// Build proofs but skip L1 submission (rollout shadow gate).
     pub shadow_mode: bool,
     /// Inbox address (prove transaction destination).
@@ -92,7 +90,6 @@ impl SubmitterConfig {
             force_batch_proving_interval: cfg.force_batch_proving_interval,
             proposal_window_size: cfg.proposal_window_size,
             max_zk_proof_proposal_distance: cfg.max_zk_proof_proposal_distance,
-            gas_limit: cfg.gas_limit.unwrap_or(0),
             shadow_mode: cfg.shadow_mode,
             inbox_address: cfg.inbox_address,
         }
@@ -546,7 +543,8 @@ impl ProofSubmitter {
             inbox_address: self.pipeline.cfg.inbox_address,
             batch,
             actual_prover: self.prover_address,
-            gas_limit: self.pipeline.cfg.gas_limit,
+            // Always let the tx-manager estimate gas for prove transactions.
+            gas_limit: 0,
         })
         .await?;
 
@@ -853,7 +851,6 @@ mod tests {
                 force_batch_proving_interval: force_interval,
                 proposal_window_size: 0,
                 max_zk_proof_proposal_distance: 30,
-                gas_limit: 0,
                 shadow_mode: false,
                 inbox_address: Address::repeat_byte(0x11),
             },
@@ -1015,7 +1012,6 @@ mod tests {
                 force_batch_proving_interval: Duration::from_secs(3_600),
                 proposal_window_size: 0,
                 max_zk_proof_proposal_distance: 5,
-                gas_limit: 0,
                 shadow_mode: false,
                 inbox_address: Address::repeat_byte(0x11),
             },

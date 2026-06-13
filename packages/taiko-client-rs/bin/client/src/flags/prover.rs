@@ -142,13 +142,6 @@ pub struct ProverArgs {
         help = "Run the full pipeline (incl. raiko proof generation) but skip L1 submission"
     )]
     pub shadow_mode: bool,
-    /// Optional gas limit for prove transactions.
-    #[clap(
-        long = "prove.gasLimit",
-        env = "PROVE_GAS_LIMIT",
-        help = "Optional gas limit for prove transactions; if unset, the tx-manager estimates"
-    )]
-    pub gas_limit: Option<u64>,
     /// Interval in seconds between tx-manager resubmissions for an unconfirmed
     /// prove transaction.
     #[clap(
@@ -182,22 +175,6 @@ pub struct ProverArgs {
         help = "Minimum base fee floor in gwei for prove transactions"
     )]
     pub min_base_fee_gwei: u64,
-    /// Per-proposal proof-request retry backoff interval in seconds.
-    #[clap(
-        long = "backoff.retryInterval",
-        env = "BACKOFF_RETRY_INTERVAL",
-        default_value = "12",
-        help = "Per-proposal proof-request retry backoff interval in seconds"
-    )]
-    pub backoff_retry_interval_secs: u64,
-    /// Maximum per-proposal proof-request retries.
-    #[clap(
-        long = "backoff.maxRetries",
-        env = "BACKOFF_MAX_RETRIES",
-        default_value = "10",
-        help = "Maximum per-proposal proof-request retries"
-    )]
-    pub backoff_max_retries: u64,
 }
 
 #[cfg(test)]

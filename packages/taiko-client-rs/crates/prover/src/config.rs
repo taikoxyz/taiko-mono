@@ -60,9 +60,6 @@ pub struct ProverConfigs {
     pub zkvm_batch_size: u64,
     /// Run the full pipeline but skip L1 submission (rollout shadow gate).
     pub shadow_mode: bool,
-    /// Optional gas limit for prove transactions; `None` lets the tx-manager
-    /// estimate.
-    pub gas_limit: Option<u64>,
     /// Interval between tx-manager resubmissions for an unconfirmed prove
     /// transaction.
     pub retry_interval: Duration,
@@ -75,12 +72,6 @@ pub struct ProverConfigs {
     pub min_tip_cap_gwei: u64,
     /// Minimum EIP-1559 base fee floor in gwei for prove transactions.
     pub min_base_fee_gwei: u64,
-    /// Per-proposal proof-request retry backoff interval (Go
-    /// `--backoff.retryInterval` default: 12s).
-    pub backoff_retry_interval: Duration,
-    /// Maximum per-proposal proof-request retries (Go `--backoff.maxRetries`
-    /// default: 10).
-    pub backoff_max_retries: u64,
 }
 
 impl ProverConfigs {
@@ -153,14 +144,11 @@ pub(crate) mod tests {
             sgx_batch_size: 1,
             zkvm_batch_size: 1,
             shadow_mode: false,
-            gas_limit: None,
             retry_interval: Duration::from_secs(45),
             confirmation_timeout: Duration::from_secs(180),
             receipt_query_interval: None,
             min_tip_cap_gwei: 2,
             min_base_fee_gwei: 3,
-            backoff_retry_interval: Duration::from_secs(12),
-            backoff_max_retries: 10,
         }
     }
 
