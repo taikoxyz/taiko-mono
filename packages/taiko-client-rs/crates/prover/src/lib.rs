@@ -5,7 +5,9 @@
 
 pub mod buffer;
 pub mod cache;
+pub mod config;
 pub mod error;
+pub mod metrics;
 pub mod producer;
 pub mod raiko;
 pub mod submitter;

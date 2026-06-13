@@ -6361,6 +6361,8 @@ dependencies = [
  "base-tx-manager",
  "bindings",
  "dashmap",
+ "once_cell",
+ "prometheus",
  "protocol",
  "reqwest",
  "rpc",
