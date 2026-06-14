@@ -39,9 +39,14 @@ impl ProverMetrics {
         &METRICS.proofs_sent
     }
 
-    /// Aggregation submissions that errored (reverted or failed to send).
+    /// Aggregation submissions that failed to send (tx-manager error).
     pub fn submission_errors() -> &'static IntCounter {
         &METRICS.submission_errors
+    }
+
+    /// Prove transactions that reached confirmation depth but reverted on-chain.
+    pub fn submission_reverted() -> &'static IntCounter {
+        &METRICS.submission_reverted
     }
 
     /// Prove transactions the shadow mode would have submitted.
@@ -65,8 +70,10 @@ struct ProverMetricHandles {
     latest_verified_id: Gauge,
     /// Proposals covered by successfully submitted aggregations.
     proofs_sent: IntCounter,
-    /// Aggregation submissions that errored.
+    /// Aggregation submissions that failed to send.
     submission_errors: IntCounter,
+    /// Prove transactions that reached confirmation depth but reverted on-chain.
+    submission_reverted: IntCounter,
     /// Prove transactions shadow mode would have submitted.
     shadow_would_submit: IntCounter,
 }
@@ -97,7 +104,11 @@ impl ProverMetricHandles {
             ),
             submission_errors: counter(
                 "taiko_prover_submission_errors",
-                "Aggregation submissions that reverted or failed to send",
+                "Aggregation submissions that failed to send (tx-manager error)",
+            ),
+            submission_reverted: counter(
+                "taiko_prover_submission_reverted",
+                "Prove transactions that reached confirmation depth but reverted on-chain",
             ),
             shadow_would_submit: counter(
                 "taiko_prover_shadow_would_submit",

@@ -577,9 +577,27 @@ impl ProofSubmitter {
             return Ok(());
         }
 
-        if let Err(err) = self.tx_manager.send(candidate).await {
-            ProverMetrics::submission_errors().inc();
-            return Err(ProverError::from(err));
+        let receipt = match self.tx_manager.send(candidate).await {
+            Ok(receipt) => receipt,
+            Err(err) => {
+                ProverMetrics::submission_errors().inc();
+                return Err(ProverError::from(err));
+            }
+        };
+
+        // base-tx-manager returns `Ok(receipt)` even for a transaction that reached
+        // confirmation depth but reverted, so the status must be checked explicitly.
+        // A revert means the proofs did not land; surface it so the caller resends
+        // the requests rather than dropping them, matching Go `prover.go:302-314`
+        // (reverted/unretryable -> `ClearProofBuffers(batchProof, true)`).
+        if !receipt.status() {
+            ProverMetrics::submission_reverted().inc();
+            tracing::error!(
+                tx_hash = %receipt.transaction_hash,
+                ?batch.batch_ids,
+                "prove transaction reverted on-chain; resending proof requests"
+            );
+            return Err(ProverError::SubmissionReverted);
         }
 
         ProverMetrics::proofs_sent().inc_by(batch.batch_ids.len() as u64);

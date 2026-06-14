@@ -26,6 +26,10 @@ pub enum ProverError {
     #[error("aggregation contains already-proven or reorged proposals")]
     InvalidProof,
 
+    /// A prove transaction reached confirmation depth but reverted on-chain.
+    #[error("prove transaction reverted on-chain")]
+    SubmissionReverted,
+
     /// Configuration error.
     #[error("invalid prover configuration: {0}")]
     Config(String),

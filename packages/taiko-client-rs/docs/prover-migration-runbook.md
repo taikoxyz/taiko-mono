@@ -82,6 +82,6 @@ delays finalization but does not lose funds.
 ## Metrics
 
 The Rust prover exports (prefix `taiko_prover_`): `received_proposed_id`, `proofs_assigned`,
-`latest_proven_block_id`, `latest_verified_id`, `proofs_sent`, `submission_errors`, and
-`shadow_would_submit`. The tx-manager exports under `base_tx_manager_*` with a `name="prover"`
-label (emitted via the `metrics` facade).
+`latest_proven_block_id`, `latest_verified_id`, `proofs_sent`, `submission_errors`,
+`submission_reverted`, and `shadow_would_submit`. The tx-manager exports under
+`base_tx_manager_*` with a `name="prover"` label (emitted via the `metrics` facade).
