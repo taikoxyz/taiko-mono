@@ -288,13 +288,18 @@ impl Pipeline {
                     let _ = self.channels.batch_proofs_tx.send(batch).await;
                     return Ok(());
                 }
+                // Retry every non-success outcome with constant backoff, keeping
+                // the buffered proofs (Go `AggregateProofsByType` wraps the
+                // aggregation in `backoff.Retry`; the in-progress vs. error
+                // distinction is logging-only). Dropping the buffer here would
+                // lose already-generated proofs whose `Proposed` events are
+                // already marked handled, so they would never be re-proven.
                 Err(ProverError::Raiko(RaikoError::Pending(_))) => {
                     tokio::time::sleep(self.cfg.proof_polling_interval).await;
                 }
                 Err(err) => {
-                    let ids: Vec<u64> = items.iter().map(ProofResponse::proposal_id).collect();
-                    buffer.clear_items(&ids);
-                    return Err(err);
+                    tracing::warn!(%err, ?proof_type, "aggregate proofs failed, retrying");
+                    tokio::time::sleep(self.cfg.proof_polling_interval).await;
                 }
             }
         }
@@ -927,20 +932,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn aggregate_clears_buffer_on_terminal_error() {
+    async fn aggregate_retries_error_without_dropping_buffer() {
         let producer = Arc::new(MockProducer::default());
+        // First aggregation attempt fails; the retry (empty queue -> Ok) succeeds.
         producer
             .batch
             .lock()
             .await
             .push_back(Err(ProverError::Other(anyhow::anyhow!("raiko down"))));
-        let h = harness(producer, Duration::from_secs(3_600), 2);
+        let mut h = harness(producer, Duration::from_secs(3_600), 2);
         let buffer = h.pipeline.buffers().get(&ProofType::Sgx).unwrap();
         buffer.write(response(5, ProofType::Sgx)).unwrap();
+        buffer.write(response(6, ProofType::Sgx)).unwrap();
 
-        let err = h.pipeline.aggregate_proofs_by_type(ProofType::Sgx).await.unwrap_err();
-        assert!(err.to_string().contains("raiko down"));
-        assert_eq!(buffer.len(), 0, "terminal error clears the buffer");
+        // The transient error is retried, not surfaced, and the proofs are kept.
+        h.pipeline.aggregate_proofs_by_type(ProofType::Sgx).await.unwrap();
+
+        let batch = h.batch_rx.try_recv().unwrap();
+        assert_eq!(batch.batch_ids, vec![5, 6], "buffered proofs aggregated on retry, not dropped");
+        assert_eq!(buffer.len(), 2, "buffer retained until post-submission clear");
     }
 
     #[tokio::test]
