@@ -95,14 +95,14 @@ pub struct RaikoProofData {
 }
 
 /// Inner proof bytes (Go `ProofDataV2`).
+///
+/// Go's `ProofDataV2` also carries `kzg_proof`/`quote`, but the prover never
+/// reads them; serde ignores those JSON keys (no `deny_unknown_fields`), so they
+/// are intentionally omitted here.
 #[derive(Debug, Clone, Deserialize)]
 pub struct RaikoProofPayload {
     /// Hex proof bytes (`0x`-prefixed), null for single sp1 proofs.
     pub proof: Option<String>,
-    /// KZG proof, unused by the client.
-    pub kzg_proof: Option<String>,
-    /// SGX quote, unused by the client.
-    pub quote: Option<String>,
 }
 
 /// Errors surfaced by raiko requests and response validation.
@@ -218,6 +218,8 @@ mod tests {
 
     #[test]
     fn success_response_round_trips_through_serde() {
+        // The unused `kzg_proof`/`quote` keys are still present in the wire body
+        // to assert they are silently ignored (no `deny_unknown_fields`).
         let body = r#"{"data":{"proof":{"proof":"0xabcd","kzg_proof":null,"quote":"0x11"},"status":"ok"},"proof_type":"risc0"}"#;
         let resp: RaikoProofResponse = serde_json::from_str(body).unwrap();
 
@@ -225,8 +227,6 @@ mod tests {
         assert_eq!(data.status, "ok");
         let payload = data.proof.as_ref().expect("proof payload present");
         assert_eq!(payload.proof.as_deref(), Some("0xabcd"));
-        assert_eq!(payload.kzg_proof, None);
-        assert_eq!(payload.quote.as_deref(), Some("0x11"));
         assert_eq!(resp.message, None);
         assert_eq!(resp.error, None);
         assert_eq!(resp.proof_type, Some(ProofType::Risc0));

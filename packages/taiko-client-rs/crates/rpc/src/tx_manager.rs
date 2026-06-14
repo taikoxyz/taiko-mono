@@ -7,15 +7,82 @@
 //! [`SimpleTxManager::new`]. This helper hoists that common body so the
 //! per-crate adapters reduce to a thin config-conversion wrapper.
 
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use alloy::{network::EthereumWallet, providers::Provider, signers::local::PrivateKeySigner};
-use alloy_primitives::B256;
+use alloy_primitives::{B256, utils::Unit};
 use alloy_provider::RootProvider;
 use base_tx_manager::{
-    RpcErrorClassifier, SimpleTxManager, TxManagerConfig, TxManagerError, TxMetrics,
+    ConfigError, RpcErrorClassifier, SimpleTxManager, TxManagerConfig, TxManagerError, TxMetrics,
 };
 use tokio::time::timeout;
+
+/// Fee-bump ceiling for prove/propose transactions. The base tx-manager default
+/// is `5`; Go's `--tx.feeLimitMultiplier` defaults to `10`, so we pin `10` here
+/// to keep the Rust clients' fee-escalation headroom at parity with Go during
+/// sustained L1 fee spikes.
+const FEE_LIMIT_MULTIPLIER: u64 = 10;
+
+/// Inputs shared by the prover and proposer when deriving a [`TxManagerConfig`].
+/// Both clients expose the same narrow surface (fee floors, retry/confirmation
+/// windows) and inherit base defaults for everything else.
+#[derive(Debug, Clone)]
+pub struct TxManagerConfigParams {
+    /// Minimum priority fee floor, in gwei.
+    pub min_tip_cap_gwei: u64,
+    /// Minimum EIP-1559 base fee floor, in gwei.
+    pub min_base_fee_gwei: u64,
+    /// Minimum blob base fee floor, in gwei. `None` for blobless (prove)
+    /// transactions, which keep the base-tx-manager default.
+    pub min_blob_fee_gwei: Option<u64>,
+    /// Interval between resubmissions of an unconfirmed transaction.
+    pub retry_interval: Duration,
+    /// Bound on confirmation polling and not-in-mempool waiting.
+    pub confirmation_timeout: Duration,
+    /// Optional override for receipt polling (integration tests); otherwise the
+    /// base-tx-manager default is used.
+    pub receipt_query_interval: Option<Duration>,
+}
+
+/// Derive a validated [`TxManagerConfig`] from the prover/proposer-facing knobs.
+///
+/// Pins the fields both clients agree on — `num_confirmations = 1` (success
+/// means "landed once", not deep-confirmation depth), [`FEE_LIMIT_MULTIPLIER`]
+/// for Go parity, and `tx_not_in_mempool_timeout = confirmation_timeout` (one
+/// bounded retry window) — and leaves the rest of the tx-manager tuning surface
+/// on its defaults so the CLIs do not have to expose it.
+///
+/// # Errors
+///
+/// Returns [`ConfigError`] when the derived config violates an upstream
+/// invariant, such as a zero resubmission or confirmation window.
+pub fn base_tx_manager_config(
+    params: &TxManagerConfigParams,
+) -> Result<TxManagerConfig, ConfigError> {
+    let defaults = TxManagerConfig::default();
+    let config = TxManagerConfig {
+        num_confirmations: 1,
+        fee_limit_multiplier: FEE_LIMIT_MULTIPLIER,
+        min_tip_cap: gwei_to_wei(params.min_tip_cap_gwei),
+        min_basefee: gwei_to_wei(params.min_base_fee_gwei),
+        min_blob_fee: params.min_blob_fee_gwei.map_or(defaults.min_blob_fee, gwei_to_wei),
+        resubmission_timeout: params.retry_interval,
+        receipt_query_interval: params
+            .receipt_query_interval
+            .unwrap_or(defaults.receipt_query_interval),
+        tx_not_in_mempool_timeout: params.confirmation_timeout,
+        confirmation_timeout: params.confirmation_timeout,
+        ..defaults
+    };
+    config.validate()?;
+    Ok(config)
+}
+
+/// Convert an integer gwei amount into wei for tx-manager configuration.
+#[must_use]
+pub fn gwei_to_wei(gwei: u64) -> u128 {
+    u128::from(gwei) * Unit::GWEI.wei().to::<u128>()
+}
 
 /// Build a [`SimpleTxManager`] from an L1 root provider and a signing key.
 ///

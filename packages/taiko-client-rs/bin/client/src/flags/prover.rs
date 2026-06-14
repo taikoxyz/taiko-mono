@@ -50,14 +50,14 @@ pub struct ProverArgs {
     /// Optional first proposal id to start proving from.
     #[clap(
         long = "prover.startingProposalID",
-        env = "STARTING_PROPOSAL_ID",
+        env = "PROVER_STARTING_PROPOSAL_ID",
         help = "Optional first proposal id to start proving from"
     )]
     pub starting_proposal_id: Option<u64>,
     /// Prove proposals whose designated prover is someone else, after expiry.
     #[clap(
         long = "prover.proveUnassignedProposals",
-        env = "PROVE_UNASSIGNED_PROPOSALS",
+        env = "PROVER_PROVE_UNASSIGNED_PROPOSALS",
         default_value = "false",
         help = "Prove proposals whose designated prover is someone else, after the proving window expires"
     )]

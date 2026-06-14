@@ -5,7 +5,9 @@ use prometheus::{Gauge, IntCounter};
 use protocol::metrics::{counter, gauge};
 
 /// Metric namespace and direct Prometheus handles emitted by the prover.
-#[derive(Debug, Clone)]
+///
+/// A zero-sized namespace whose methods are all associated functions; it is
+/// never instantiated, so it carries no `Debug`/`Clone` derives.
 pub struct ProverMetrics;
 
 impl ProverMetrics {

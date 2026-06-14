@@ -17,4 +17,6 @@ pub use error::{Result, RpcClientError};
 pub use protocol::subscription_source::{
     JoinedRecommendedFillersWithWallet, SubscriptionSource, SubscriptionSourceError,
 };
-pub use tx_manager::build_tx_manager;
+pub use tx_manager::{
+    TxManagerConfigParams, base_tx_manager_config, build_tx_manager, gwei_to_wei,
+};

@@ -33,6 +33,11 @@ const MAX_PROOF_REQUEST_TIMEOUT: Duration = Duration::from_secs(3_600);
 /// finalize (Go uses `chainiterator.DefaultRetryInterval` = 12s).
 const TRANSITION_POLL_INTERVAL: Duration = Duration::from_secs(12);
 
+/// Maximum time [`ProofSubmitter::wait_transition_verified`] blocks before
+/// returning a transient error so the submit op re-validates the batch and then
+/// waits again (Go bounds the wait with `rpc.DefaultRpcTimeout` = 1 minute).
+const TRANSITION_WAIT_TIMEOUT: Duration = Duration::from_secs(60);
+
 /// Minimal per-proposal info captured from a `Proposed` event; the submitter
 /// enriches it into a full [`ProofRequest`] before proving.
 #[derive(Debug, Clone)]
@@ -231,13 +236,17 @@ impl Pipeline {
         let proposal_id = response.proposal_id();
 
         if proposal_id == to_be_inserted {
-            buffer.write(response).map_err(|err| {
-                ProverError::Other(anyhow::anyhow!(
-                    "failed to add proof into buffer (id: {proposal_id}): {err}"
-                ))
-            })?;
-            cache.flush_contiguous(proposal_id, &buffer);
-            self.try_aggregate(&buffer, proof_type);
+            match buffer.write_or_return(response) {
+                Ok(_) => {
+                    cache.flush_contiguous(proposal_id, &buffer);
+                    self.try_aggregate(&buffer, proof_type);
+                }
+                Err(response) => {
+                    cache.insert(*response);
+                    let _ = self.channels.flush_cache_tx.try_send(proof_type);
+                    self.try_aggregate(&buffer, proof_type);
+                }
+            }
         } else {
             cache.insert(response);
             let _ = self.channels.flush_cache_tx.try_send(proof_type);
@@ -461,15 +470,7 @@ impl ProofSubmitter {
 
     /// Read `inbox.getCoreState().lastFinalizedProposalId` as a `u64`.
     async fn last_finalized_proposal_id(&self) -> Result<u64> {
-        let core_state = self
-            .rpc
-            .shasta
-            .inbox
-            .getCoreState()
-            .call()
-            .await
-            .map_err(|err| RpcClientError::Contract(err.to_string()))?;
-        Ok(core_state.lastFinalizedProposalId.to::<u64>())
+        Ok(self.rpc.core_state().await?.last_finalized_proposal_id)
     }
 
     /// Validate the corresponding L1 block is still canonical and the proposal
@@ -483,7 +484,17 @@ impl ProofSubmitter {
             .await
             .map_err(RpcClientError::from)?;
         let Some(block) = block else {
-            return Ok(false);
+            // A momentarily-absent L1 block (lagging / pruned / load-balanced
+            // backend) is transient, not a reorg. Surface it as an error so the
+            // submit op retries with the proofs still buffered, matching Go
+            // `ValidateProof` where `HeaderByNumber` returns `ethereum.NotFound`
+            // as an error rather than a "skip this proof" signal. Returning
+            // `Ok(false)` here would permanently drop a finished proof.
+            return Err(ProverError::Other(anyhow::anyhow!(
+                "L1 block {} for proposal {} not found yet; retrying",
+                response.request.event_l1_block_number,
+                response.proposal_id()
+            )));
         };
         if block.header.hash != response.request.event_l1_block_hash {
             tracing::warn!(
@@ -523,10 +534,21 @@ impl ProofSubmitter {
     /// submissions stay strictly ordered (Go `WaitTransitionVerified`,
     /// `proof_submitter.go:572-597`).
     async fn wait_transition_verified(&self, transition_id: u64) -> Result<()> {
+        let deadline = std::time::Instant::now() + TRANSITION_WAIT_TIMEOUT;
         loop {
             let last_finalized = self.last_finalized_proposal_id().await?;
             if last_finalized >= transition_id {
                 return Ok(());
+            }
+            if std::time::Instant::now() >= deadline {
+                // Bounded like Go's `rpc.DefaultRpcTimeout`: give up waiting and
+                // return a transient error so the caller re-validates the batch
+                // (catching a reorg/finalization that happened while waiting)
+                // before waiting again, instead of pinning the buffer forever.
+                return Err(ProverError::Other(anyhow::anyhow!(
+                    "transition {transition_id} not verified within {}s; retrying",
+                    TRANSITION_WAIT_TIMEOUT.as_secs()
+                )));
             }
             tracing::info!(transition_id, last_finalized, "waiting for transition to be verified");
             tokio::time::sleep(TRANSITION_POLL_INTERVAL).await;
@@ -562,8 +584,6 @@ impl ProofSubmitter {
             inbox_address: self.pipeline.cfg.inbox_address,
             batch,
             actual_prover: self.prover_address,
-            // Always let the tx-manager estimate gas for prove transactions.
-            gas_limit: 0,
         })
         .await?;
 
@@ -917,6 +937,22 @@ mod tests {
 
         let buffer = h.pipeline.buffers().get(&ProofType::Sgx).unwrap();
         assert_eq!(buffer.len(), 0);
+        assert_eq!(h.pipeline.caches().get(&ProofType::Sgx).unwrap().len(), 1);
+        assert_eq!(h.flush_rx.try_recv().unwrap(), ProofType::Sgx);
+    }
+
+    #[tokio::test]
+    async fn next_contiguous_proof_waits_in_cache_when_buffer_is_full() {
+        let mut h = harness(Arc::new(MockProducer::default()), Duration::from_secs(3_600), 1);
+
+        h.pipeline.route_proof_response(5, response(5, ProofType::Sgx)).unwrap();
+        assert_eq!(h.aggregation_rx.try_recv().unwrap(), ProofType::Sgx);
+
+        h.pipeline.route_proof_response(5, response(6, ProofType::Sgx)).unwrap();
+
+        let buffer = h.pipeline.buffers().get(&ProofType::Sgx).unwrap();
+        assert_eq!(buffer.len(), 1, "full buffer keeps only the aggregating proof");
+        assert_eq!(buffer.last_insert_id(), 5);
         assert_eq!(h.pipeline.caches().get(&ProofType::Sgx).unwrap().len(), 1);
         assert_eq!(h.flush_rx.try_recv().unwrap(), ProofType::Sgx);
     }

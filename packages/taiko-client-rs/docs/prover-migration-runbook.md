@@ -2,7 +2,6 @@
 
 This runbook covers operating the Rust prover (`taiko-client prover`, `crates/prover`)
 as a replacement for the Go prover (`packages/taiko-client` `prover` subcommand).
-See the design spec at `docs/superpowers/specs/2026-06-12-prover-migration-design.md`.
 
 ## What changed
 
@@ -14,6 +13,15 @@ The Rust prover keeps the same external behavior as the Go prover:
 - Same hard-coded verifier IDs: sgxgeth=1, sgx(reth)=4, risc0=5, sp1=6.
 - Same scheduling: proving-window expiry, `+72s` unassigned delay, contiguous buffer +
   out-of-order cache, forced aggregation interval, strict parent-transition ordering.
+- Same submission resilience: the submit op (validate → wait-for-parent-transition →
+  build → send) bounded-retries transient L1/contract read errors in place with the
+  aggregated proofs still buffered (mirroring Go's `withRetry`, `BackOffMaxRetries=10`),
+  and only re-requests proofs from raiko on an on-chain revert, an unretryable send, or
+  retry exhaustion. The parent-transition wait is bounded to 60s like Go's
+  `DefaultRpcTimeout`. A momentarily-missing L1 block during validation is treated as
+  transient (retried), not as a permanent skip.
+- Same fee-bump ceiling: the prove tx-manager's `fee_limit_multiplier` is pinned to 10 to
+  match Go's `--tx.feeLimitMultiplier` default (the base tx-manager library default is 5).
 
 Two deliberate behavior changes:
 
@@ -35,8 +43,8 @@ names also match except where noted.
 | `--raiko.host.zkvm` / `RAIKO_HOST_ZKVM`                                         | `--raiko.host.zkvm`                                          | enables zk_any-first                                                                 |
 | `--raiko.apiKeyPath` / `RAIKO_API_KEY_PATH`                                     | `--raiko.apiKeyPath`                                         | file read + trimmed                                                                  |
 | `--raiko.requestTimeout` / `RAIKO_REQUEST_TIMEOUT`                              | `--raiko.requestTimeout`                                     | seconds, default 600                                                                 |
-| `--prover.startingProposalID` / `STARTING_PROPOSAL_ID`                          | `--prover.startingProposalID`                                | clamped to `[lastFinalized, nextProposalId)`                                         |
-| `--prover.proveUnassignedProposals` / `PROVE_UNASSIGNED_PROPOSALS`              | `--prover.proveUnassignedProposals`                          | default false                                                                        |
+| `--prover.startingProposalID` / `PROVER_STARTING_PROPOSAL_ID`                   | `--prover.startingProposalID`                                | clamped to `[lastFinalized, nextProposalId)`                                         |
+| `--prover.proveUnassignedProposals` / `PROVER_PROVE_UNASSIGNED_PROPOSALS`       | `--prover.proveUnassignedProposals`                          | default false                                                                        |
 | `--prover.proposal.window.size` / `PROVER_PROPOSAL_WINDOW_SIZE`                 | `--prover.proposal.window.size`                              | 0 = unlimited                                                                        |
 | `--prover.maxZKProofProposalDistance` / `PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE` | `--prover.maxZKProofProposalDistance`                        | default 30; beyond this distance from last finalized, skip ZK and use the base proof |
 | `--prover.dummy` / `PROVER_DUMMY`                                               | `--prover.dummy`                                             | filler proofs (tests/devnet)                                                         |
@@ -85,3 +93,10 @@ The Rust prover exports (prefix `taiko_prover_`): `received_proposed_id`, `proof
 `latest_proven_block_id`, `latest_verified_id`, `proofs_sent`, `submission_errors`,
 `submission_reverted`, and `shadow_would_submit`. The tx-manager exports under
 `base_tx_manager_*` with a `name="prover"` label (emitted via the `metrics` facade).
+
+`taiko_prover_latest_verified_id` tracks the **L2 block number** of the latest finalized
+checkpoint (resolved from `coreState.lastFinalizedBlockHash`), matching Go's
+`prover_latestVerified_id` — not the proposal id. Note the metric names are not the Go
+names verbatim (Go used the `prover_` prefix); update dashboards/alerts accordingly.
+
+Not yet ported: Go's per-proof-type generation latency/count metrics (`updateProvingMetrics`).

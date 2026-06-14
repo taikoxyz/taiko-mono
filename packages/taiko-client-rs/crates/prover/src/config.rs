@@ -2,9 +2,9 @@
 
 use std::{path::PathBuf, time::Duration};
 
-use alloy_primitives::{Address, B256, utils::Unit};
+use alloy_primitives::{Address, B256};
 use base_tx_manager::{ConfigError, TxManagerConfig};
-use rpc::SubscriptionSource;
+use rpc::{SubscriptionSource, TxManagerConfigParams};
 use url::Url;
 
 /// Configuration for the prover (CLI flags map 1:1 onto these fields).
@@ -76,38 +76,23 @@ pub struct ProverConfigs {
 
 impl ProverConfigs {
     /// Translate the prover-facing retry and fee-floor knobs into a tx-manager
-    /// config. Mirrors the proposer's mapping
-    /// (`crates/proposer/src/config.rs:72-90`) minus the blob fee floor —
-    /// prove transactions carry no blobs.
+    /// config via the shared [`rpc::base_tx_manager_config`] builder, passing no
+    /// blob fee floor since prove transactions carry no blobs.
     ///
     /// # Errors
     ///
     /// Returns [`ConfigError`] when the derived tx-manager config violates
     /// upstream invariants, such as zero resubmission or confirmation windows.
     pub fn to_tx_manager_config(&self) -> Result<TxManagerConfig, ConfigError> {
-        let tx_manager_config = TxManagerConfig {
-            num_confirmations: 1,
-            min_tip_cap: gwei_to_wei(self.min_tip_cap_gwei),
-            min_basefee: gwei_to_wei(self.min_base_fee_gwei),
-            resubmission_timeout: self.retry_interval,
-            receipt_query_interval: self
-                .receipt_query_interval
-                .unwrap_or_else(|| TxManagerConfig::default().receipt_query_interval),
-            tx_not_in_mempool_timeout: self.confirmation_timeout,
+        rpc::base_tx_manager_config(&TxManagerConfigParams {
+            min_tip_cap_gwei: self.min_tip_cap_gwei,
+            min_base_fee_gwei: self.min_base_fee_gwei,
+            min_blob_fee_gwei: None,
+            retry_interval: self.retry_interval,
             confirmation_timeout: self.confirmation_timeout,
-            ..TxManagerConfig::default()
-        };
-
-        tx_manager_config.validate()?;
-
-        Ok(tx_manager_config)
+            receipt_query_interval: self.receipt_query_interval,
+        })
     }
-}
-
-/// Convert an integer gwei amount into wei for tx-manager configuration.
-#[must_use]
-fn gwei_to_wei(gwei: u64) -> u128 {
-    u128::from(gwei) * Unit::GWEI.wei().to::<u128>()
 }
 
 #[cfg(test)]
@@ -144,7 +129,9 @@ pub(crate) mod tests {
             sgx_batch_size: 1,
             zkvm_batch_size: 1,
             shadow_mode: false,
-            retry_interval: Duration::from_secs(45),
+            // Matches the shipping `--prove.retryInterval` default so the
+            // fixture exercises the real value.
+            retry_interval: Duration::from_secs(48),
             confirmation_timeout: Duration::from_secs(180),
             receipt_query_interval: None,
             min_tip_cap_gwei: 2,
@@ -159,12 +146,15 @@ pub(crate) mod tests {
         assert_eq!(tx_manager_config.min_basefee, 3_000_000_000);
         // No blob fee floor: prove transactions carry no blobs.
         assert_eq!(tx_manager_config.min_blob_fee, TxManagerConfig::default().min_blob_fee);
+        // Fee-bump ceiling pinned to Go's `--tx.feeLimitMultiplier` default (10),
+        // not the base tx-manager default of 5.
+        assert_eq!(tx_manager_config.fee_limit_multiplier, 10);
     }
 
     #[test]
     fn config_maps_retry_controls_into_resubmission_and_confirmation_timeouts() {
         let tx_manager_config = test_configs().to_tx_manager_config().unwrap();
-        assert_eq!(tx_manager_config.resubmission_timeout, Duration::from_secs(45));
+        assert_eq!(tx_manager_config.resubmission_timeout, Duration::from_secs(48));
         assert_eq!(tx_manager_config.tx_not_in_mempool_timeout, Duration::from_secs(180));
         assert_eq!(tx_manager_config.confirmation_timeout, Duration::from_secs(180));
         assert_eq!(tx_manager_config.num_confirmations, 1);

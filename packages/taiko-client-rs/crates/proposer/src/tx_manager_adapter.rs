@@ -144,6 +144,9 @@ mod tests {
 
         let expected = TxManagerConfig {
             num_confirmations: 1,
+            // Pinned to Go's `--tx.feeLimitMultiplier` default (10) by the shared
+            // builder, overriding the base tx-manager default of 5.
+            fee_limit_multiplier: 10,
             min_tip_cap: 2_000_000_000,
             min_basefee: 3_000_000_000,
             resubmission_timeout: Duration::from_secs(45),

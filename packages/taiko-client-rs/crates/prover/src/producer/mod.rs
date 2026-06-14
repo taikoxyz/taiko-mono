@@ -151,8 +151,11 @@ pub(crate) fn prover_hex(address: Address) -> String {
 /// POST a raiko batch request and validate the response (Go's shared
 /// `requestBatchProof` tail, `sgx_geth_proof_producer.go:154-192`). Logs the
 /// "generated" line only on the first successful generation
-/// (`already_generated == false`); the matching metrics hook is wired by the
-/// prover metrics module.
+/// (`already_generated == false`).
+///
+/// Note: Go additionally records per-proof-type generation latency/count
+/// metrics here (`updateProvingMetrics`); those collectors are not yet ported,
+/// so no generation metric is emitted on this path.
 pub(crate) async fn request_validated(
     raiko: &RaikoClient,
     request: &crate::raiko::types::RaikoBatchProofRequest,

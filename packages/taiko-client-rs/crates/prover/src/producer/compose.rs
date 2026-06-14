@@ -2,8 +2,6 @@
 //! base (sgx) or ZK (risc0/sp1 via zk_any) proof, requested in parallel
 //! (Go `compose_proof_producer.go`).
 
-use std::collections::HashMap;
-
 use alloy_primitives::Bytes;
 
 use super::{
@@ -46,8 +44,6 @@ pub struct ComposeProofProducer {
     sgx_geth: SgxGethProofProducer,
     /// Requested base type: [`ProofType::Sgx`] or [`ProofType::ZkAny`].
     proof_type: ProofType,
-    /// Verifier id per drawable proof type (Go `init.go:46-75`).
-    verifier_ids: HashMap<ProofType, u8>,
     /// Produce filler proofs instead of calling raiko (`--prover.dummy`).
     dummy: bool,
 }
@@ -56,28 +52,25 @@ impl ComposeProofProducer {
     /// Base SGX producer: requests `sgx` proofs (Go `init.go:46-56`).
     #[must_use]
     pub fn new_sgx(raiko: RaikoClient, sgx_geth: SgxGethProofProducer, dummy: bool) -> Self {
-        Self {
-            raiko,
-            sgx_geth,
-            proof_type: ProofType::Sgx,
-            verifier_ids: HashMap::from([(ProofType::Sgx, SGX_RETH_VERIFIER_ID)]),
-            dummy,
-        }
+        Self { raiko, sgx_geth, proof_type: ProofType::Sgx, dummy }
     }
 
     /// ZKVM producer: requests `zk_any` and lets raiko draw risc0 or sp1
     /// (Go `init.go:65-75`).
     #[must_use]
     pub fn new_zkvm(raiko: RaikoClient, sgx_geth: SgxGethProofProducer, dummy: bool) -> Self {
-        Self {
-            raiko,
-            sgx_geth,
-            proof_type: ProofType::ZkAny,
-            verifier_ids: HashMap::from([
-                (ProofType::Risc0, RISC0_VERIFIER_ID),
-                (ProofType::Sp1, SP1_VERIFIER_ID),
-            ]),
-            dummy,
+        Self { raiko, sgx_geth, proof_type: ProofType::ZkAny, dummy }
+    }
+}
+
+/// On-chain verifier id for a drawn base/zk proof type.
+fn verifier_id_for(drawn_type: ProofType) -> Result<u8> {
+    match drawn_type {
+        ProofType::Sgx => Ok(SGX_RETH_VERIFIER_ID),
+        ProofType::Risc0 => Ok(RISC0_VERIFIER_ID),
+        ProofType::Sp1 => Ok(SP1_VERIFIER_ID),
+        ProofType::SgxGeth | ProofType::ZkAny => {
+            Err(ProverError::Other(anyhow::anyhow!("unknown proof type from raiko {drawn_type:?}")))
         }
     }
 }
@@ -143,9 +136,7 @@ impl ProofProducer for ComposeProofProducer {
             return Err(ProverError::Other(anyhow::anyhow!("empty proof aggregation items")));
         }
         let drawn_type = items[0].proof_type;
-        let verifier_id = *self.verifier_ids.get(&drawn_type).ok_or_else(|| {
-            ProverError::Other(anyhow::anyhow!("unknown proof type from raiko {drawn_type:?}"))
-        })?;
+        let verifier_id = verifier_id_for(drawn_type)?;
         let batch_ids: Vec<u64> = items.iter().map(ProofResponse::proposal_id).collect();
 
         tracing::info!(

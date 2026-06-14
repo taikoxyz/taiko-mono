@@ -52,12 +52,22 @@ impl ProofBuffer {
     /// after the duplicate test, like Go). Returns the buffer length after the
     /// call.
     pub fn write(&self, item: ProofResponse) -> Result<usize, BufferError> {
+        self.write_or_return(item).map_err(|_| BufferError::Overflow)
+    }
+
+    /// Insert a proof, returning the original item (boxed, since
+    /// [`ProofResponse`] is large) when the buffer is full so the caller can
+    /// park it in the out-of-order cache instead of dropping it.
+    pub fn write_or_return(
+        &self,
+        item: ProofResponse,
+    ) -> std::result::Result<usize, Box<ProofResponse>> {
         let mut inner = self.lock();
         if inner.buffer.iter().any(|existing| existing.proposal_id() == item.proposal_id()) {
             return Ok(inner.buffer.len());
         }
         if inner.buffer.len() as u64 >= self.max_length {
-            return Err(BufferError::Overflow);
+            return Err(Box::new(item));
         }
         inner.last_insert_id = item.proposal_id();
         inner.buffer.push(item);

@@ -54,6 +54,19 @@ pub struct AnchorState {
     pub anchor_block_number: u64,
 }
 
+/// Snapshot of the Shasta inbox `CoreState`, with the proposal-id cursors
+/// decoded to `u64`. Centralizes the `getCoreState()` read so every consumer
+/// shares one accessor and error mapping (mirrors Go's single `GetCoreState`).
+#[derive(Clone, Copy, Debug)]
+pub struct CoreStateSnapshot {
+    /// Highest proposal id that has been finalized on L1.
+    pub last_finalized_proposal_id: u64,
+    /// Id the next proposal will receive (one past the latest proposal).
+    pub next_proposal_id: u64,
+    /// L2 block hash of the latest finalized checkpoint.
+    pub last_finalized_block_hash: B256,
+}
+
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct Client<P: Provider + Clone> {
@@ -146,6 +159,26 @@ impl<P: Provider + Clone> Client<P> {
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
         Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
+    }
+
+    /// Read `inbox.getCoreState()` and decode it into a [`CoreStateSnapshot`].
+    ///
+    /// This is the single accessor every prover/monitor path uses for the inbox
+    /// core state, so the contract-error mapping and `u48 -> u64` conversions
+    /// live in one place.
+    pub async fn core_state(&self) -> Result<CoreStateSnapshot> {
+        let core_state = self
+            .shasta
+            .inbox
+            .getCoreState()
+            .call()
+            .await
+            .map_err(|err| RpcClientError::Contract(err.to_string()))?;
+        Ok(CoreStateSnapshot {
+            last_finalized_proposal_id: core_state.lastFinalizedProposalId.to::<u64>(),
+            next_proposal_id: core_state.nextProposalId.to::<u64>(),
+            last_finalized_block_hash: core_state.lastFinalizedBlockHash,
+        })
     }
 
     /// Fetch the Shasta anchor state for the given parent block hash.

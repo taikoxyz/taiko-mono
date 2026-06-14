@@ -107,8 +107,6 @@ pub struct BuildProveTxInput<'a> {
     pub batch: &'a BatchProofs,
     /// `commitment.actualProver` — this prover's address.
     pub actual_prover: Address,
-    /// Gas limit override; 0 lets the tx-manager estimate.
-    pub gas_limit: u64,
 }
 
 /// Build the `Inbox.prove(bytes _data, bytes _proof)` candidate (Go
@@ -193,7 +191,7 @@ pub async fn build_prove_batches_tx(input: BuildProveTxInput<'_>) -> Result<TxCa
         tx_data: calldata.into(),
         blobs: Arc::new(vec![]),
         to: Some(input.inbox_address),
-        gas_limit: input.gas_limit,
+        gas_limit: 0,
         value: U256::ZERO,
     })
 }

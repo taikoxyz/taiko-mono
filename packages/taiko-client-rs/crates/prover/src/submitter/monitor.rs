@@ -71,12 +71,5 @@ async fn monitor_caches(
 
 /// Read `lastFinalizedProposalId` for the cache monitor.
 async fn read_last_finalized(rpc: &ClientWithWallet) -> Result<u64, RpcClientError> {
-    let core_state = rpc
-        .shasta
-        .inbox
-        .getCoreState()
-        .call()
-        .await
-        .map_err(|err| RpcClientError::Contract(err.to_string()))?;
-    Ok(core_state.lastFinalizedProposalId.to::<u64>())
+    Ok(rpc.core_state().await?.last_finalized_proposal_id)
 }

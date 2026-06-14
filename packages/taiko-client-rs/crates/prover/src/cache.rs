@@ -42,18 +42,15 @@ impl ProofCache {
     /// After `written_id` entered the buffer, drain `written_id + 1, + 2, ...`
     /// from the cache into the buffer until the first gap or the buffer fills.
     /// Entries leave the cache only once the buffer accepted them.
+    ///
+    /// Delegates to [`Self::flush_range`] over `written_id + 1 ..= written_id +
+    /// available_capacity`, mirroring Go's `flushContiguousProofCache` ->
+    /// `flushProofCacheRange`. A gap surfaces as [`CacheError::CacheMiss`] and
+    /// simply means "done for now" (Go ignores `ErrCacheNotFound`).
     pub fn flush_contiguous(&self, written_id: u64, buffer: &ProofBuffer) {
-        let mut next = written_id.saturating_add(1);
-        while buffer.available_capacity() > 0 {
-            let Some(entry) = self.cloned(next) else {
-                return;
-            };
-            if buffer.write(entry).is_err() {
-                return;
-            }
-            self.map.remove(&next);
-            next = next.saturating_add(1);
-        }
+        let from = written_id.saturating_add(1);
+        let to = written_id.saturating_add(buffer.available_capacity());
+        let _ = self.flush_range(from, to, buffer);
     }
 
     /// Flush `from..=to` strictly in order; the first missing id aborts with

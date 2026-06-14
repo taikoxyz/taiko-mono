@@ -6,13 +6,13 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use alloy::{eips::BlockNumberOrTag, providers::Provider, sol_types::SolEvent};
 use alloy_primitives::{Address, B256};
 use bindings::inbox::Inbox::{Proposed, Proved};
-use event_scanner::{EventFilter, Notification, ScannerMessage};
+use event_scanner::{EventFilter, EventScannerResult, Notification, ScannerMessage};
 use rpc::{
     RpcClientError,
     client::{Client, ClientConfig, ClientWithWallet},
 };
 use tokio::sync::mpsc;
-use tokio_stream::StreamExt;
+use tokio_stream::{StreamExt, wrappers::ReceiverStream};
 
 use crate::{
     buffer::ProofBuffer,
@@ -21,7 +21,7 @@ use crate::{
     error::{ProverError, Result},
     handler::{ProvingDecision, proving_window_status, route_proposal, should_prove},
     metrics::ProverMetrics,
-    producer::{ComposeProofProducer, ProofProducer, SgxGethProofProducer},
+    producer::{BatchProofs, ComposeProofProducer, ProofProducer, SgxGethProofProducer},
     raiko::{ProofType, RaikoClient, RaikoClientConfig},
     state::SharedState,
     submitter::{
@@ -32,6 +32,12 @@ use crate::{
 
 /// Block-window size when walking `Proposed` logs back to the start cursor.
 const START_SCAN_WINDOW: u64 = 10_000;
+
+/// Maximum in-place retries of the submit op before re-requesting the proofs,
+/// mirroring Go's `--backoff.maxRetries` default (`BackOffMaxRetries = 10`).
+/// Transient pre-send read/build failures retry with the proofs still buffered;
+/// only revert / unretryable send / exhaustion falls back to a full re-request.
+const MAX_SUBMISSION_RETRIES: u32 = 10;
 
 /// The prover service.
 pub struct Prover {
@@ -89,15 +95,10 @@ impl Prover {
 
         // Producers: sgxgeth is always paired with the base SGX producer; the
         // optional ZKVM producer requests zk_any (Go `init.go:37-75`).
-        let sgx_geth = SgxGethProofProducer::new(
-            RaikoClient::new(raiko_client_config(&cfg, cfg.raiko_host.clone())),
-            cfg.dummy,
-        );
-        let base_producer: Arc<dyn ProofProducer> = Arc::new(ComposeProofProducer::new_sgx(
-            RaikoClient::new(raiko_client_config(&cfg, cfg.raiko_host.clone())),
-            sgx_geth.clone(),
-            cfg.dummy,
-        ));
+        let base_raiko = RaikoClient::new(raiko_client_config(&cfg, cfg.raiko_host.clone()));
+        let sgx_geth = SgxGethProofProducer::new(base_raiko.clone(), cfg.dummy);
+        let base_producer: Arc<dyn ProofProducer> =
+            Arc::new(ComposeProofProducer::new_sgx(base_raiko, sgx_geth.clone(), cfg.dummy));
         let zkvm_producer: Option<Arc<dyn ProofProducer>> =
             cfg.raiko_zkvm_host.as_ref().map(|host| {
                 Arc::new(ComposeProofProducer::new_zkvm(
@@ -168,15 +169,8 @@ impl Prover {
 
     /// Read `inbox.getCoreState().lastFinalizedProposalId` and `nextProposalId`.
     async fn core_state_ids(&self) -> Result<(u64, u64)> {
-        let core_state = self
-            .rpc
-            .shasta
-            .inbox
-            .getCoreState()
-            .call()
-            .await
-            .map_err(|err| RpcClientError::Contract(err.to_string()))?;
-        Ok((core_state.lastFinalizedProposalId.to::<u64>(), core_state.nextProposalId.to::<u64>()))
+        let core_state = self.rpc.core_state().await?;
+        Ok((core_state.last_finalized_proposal_id, core_state.next_proposal_id))
     }
 
     /// Resolve the L1 block to start the scanner from by walking `Proposed`
@@ -223,6 +217,7 @@ impl Prover {
             clamp_starting_proposal_id(self.cfg.starting_proposal_id, last_finalized, next_id);
         let start_tag = self.resolve_start_block(starting_id).await?;
         tracing::info!(starting_id, ?start_tag, "resolved prover start cursor");
+        seed_start_cursor(&self.state, starting_id);
 
         let Prover {
             cfg,
@@ -274,24 +269,21 @@ impl Prover {
             }
         });
 
-        // batch_proofs consumer: submit, then clear with the Go error contract
-        // (`prover.go:288-329`).
+        // batch_proofs consumer: submit with the Go retry/clear contract
+        // (`prover.go:225-228` `withRetry(submitProofAggregationOp, …)`).
         let submit_submitter = submitter.clone();
         let submit_pipeline = submitter.pipeline();
+        let submit_retry_interval = cfg.proof_polling_interval;
         tokio::spawn(async move {
             while let Some(batch) = batch_proofs_rx.recv().await {
-                match submit_submitter.batch_submit_proofs(&batch).await {
-                    Ok(()) => {
-                        let _ = submit_pipeline.clear_proof_buffers(&batch, false).await;
-                    }
-                    Err(ProverError::InvalidProof) => {
-                        // Invalid items already cleared inside batch_submit_proofs.
-                    }
-                    Err(err) => {
-                        tracing::error!(%err, "submit aggregation failed, resending requests");
-                        let _ = submit_pipeline.clear_proof_buffers(&batch, true).await;
-                    }
-                }
+                submit_with_retry(
+                    &submit_submitter,
+                    &submit_pipeline,
+                    &batch,
+                    MAX_SUBMISSION_RETRIES,
+                    submit_retry_interval,
+                )
+                .await;
             }
         });
 
@@ -318,6 +310,84 @@ impl Prover {
         run_proposed_scanner(ctx, cfg.l1_provider_source.clone(), cfg.inbox_address, start_tag)
             .await;
         Ok(())
+    }
+}
+
+/// What to do with a completed-aggregation buffer after a failed submit attempt,
+/// per the Go submit contract (`prover.go:288-329`).
+#[derive(Debug, PartialEq, Eq)]
+enum SubmitErrorAction {
+    /// Already proven / reorged (`InvalidProof`): drop without re-requesting; the
+    /// invalid items were already cleared inside `batch_submit_proofs`.
+    DropWithoutResend,
+    /// On-chain revert or unretryable tx-manager send: clear and re-request the
+    /// proofs now (Go's reverted / `ErrUnretryableSubmission` branch).
+    ClearAndResend,
+    /// Transient validate/wait/build read failure: retry the submit op with the
+    /// proofs still buffered (Go's default branch, retried by `withRetry`).
+    Retry,
+}
+
+/// Classify a submit-attempt error into its Go-equivalent action. A
+/// [`ProverError::TxManager`] is treated as terminal/unretryable because the
+/// base tx-manager already retries the send internally, mirroring Go's
+/// `ErrUnretryableSubmission`.
+fn classify_submission_error(err: &ProverError) -> SubmitErrorAction {
+    match err {
+        ProverError::InvalidProof => SubmitErrorAction::DropWithoutResend,
+        ProverError::SubmissionReverted | ProverError::TxManager(_) => {
+            SubmitErrorAction::ClearAndResend
+        }
+        _ => SubmitErrorAction::Retry,
+    }
+}
+
+/// Submit one completed aggregation, mirroring Go
+/// `withRetry(submitProofAggregationOp, clearProofBuffer(resend=true))`
+/// (`prover.go:225-228`, `288-329`): success clears the buffer without
+/// re-requesting; transient failures retry in place (proofs buffered) up to
+/// `max_retries`; revert / unretryable send / retry exhaustion re-requests the
+/// proofs; an `InvalidProof` aggregation is dropped without a resend.
+async fn submit_with_retry(
+    submitter: &ProofSubmitter,
+    pipeline: &Pipeline,
+    batch: &BatchProofs,
+    max_retries: u32,
+    retry_interval: Duration,
+) {
+    for attempt in 0..=max_retries {
+        let err = match submitter.batch_submit_proofs(batch).await {
+            Ok(()) => {
+                let _ = pipeline.clear_proof_buffers(batch, false).await;
+                return;
+            }
+            Err(err) => err,
+        };
+        match classify_submission_error(&err) {
+            SubmitErrorAction::DropWithoutResend => return,
+            SubmitErrorAction::ClearAndResend => {
+                tracing::error!(%err, "prove submission reverted or unretryable; resending requests");
+                let _ = pipeline.clear_proof_buffers(batch, true).await;
+                return;
+            }
+            SubmitErrorAction::Retry => {
+                if attempt == max_retries {
+                    tracing::error!(
+                        %err,
+                        attempt,
+                        "submit aggregation failed after retries; resending requests"
+                    );
+                    let _ = pipeline.clear_proof_buffers(batch, true).await;
+                    return;
+                }
+                tracing::warn!(
+                    %err,
+                    attempt,
+                    "submit aggregation failed; retrying with proofs buffered"
+                );
+                tokio::time::sleep(retry_interval).await;
+            }
+        }
     }
 }
 
@@ -356,6 +426,12 @@ pub fn clamp_starting_proposal_id(starting: Option<u64>, last_finalized: u64, ne
     }
 }
 
+/// Seed the handled cursor so log replay from an earlier L1 block cannot prove
+/// proposals below the operator-selected starting proposal id.
+fn seed_start_cursor(state: &SharedState, starting_id: u64) {
+    state.mark_handled(starting_id.saturating_sub(1));
+}
+
 /// Build a raiko client config from the prover config and a host.
 fn raiko_client_config(cfg: &ProverConfigs, host: url::Url) -> RaikoClientConfig {
     RaikoClientConfig {
@@ -373,8 +449,43 @@ fn address_from_key(key: B256) -> Result<Address> {
     Ok(signer.address())
 }
 
-/// Run the `Proved` event scanner, updating the verified-id metric (Go
-/// `proofs_received_handler.go`).
+/// Build, subscribe, and start an event scanner for `event_signature`, retrying
+/// the connect/start steps every 3s until they succeed, then return the live
+/// event stream. `start()` consumes the scanner and spawns a detached fetch
+/// task, so the returned stream stays live without keeping the scanner around.
+async fn connect_scanner(
+    source: &rpc::SubscriptionSource,
+    inbox_address: Address,
+    start_tag: BlockNumberOrTag,
+    event_signature: &str,
+    scanner_label: &str,
+) -> ReceiverStream<EventScannerResult> {
+    loop {
+        let mut scanner = match source.to_event_scanner_from_tag(start_tag).await {
+            Ok(scanner) => scanner,
+            Err(err) => {
+                tracing::warn!(%err, scanner = scanner_label, "failed to build event scanner; retrying");
+                tokio::time::sleep(Duration::from_secs(3)).await;
+                continue;
+            }
+        };
+        let filter = EventFilter::new().contract_address(inbox_address).event(event_signature);
+        let subscription = scanner.subscribe(filter);
+        match scanner.start().await {
+            Ok(proof) => {
+                tracing::info!(scanner = scanner_label, "prover event scanner started");
+                return subscription.stream(&proof);
+            }
+            Err(err) => {
+                tracing::warn!(%err, scanner = scanner_label, "failed to start event scanner; retrying");
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
+        }
+    }
+}
+
+/// Run the `Proved` event scanner, updating the verified-id metric and logging
+/// the checkpoint (Go `proofs_received_handler.go`).
 async fn run_proved_scanner(
     rpc: Arc<ClientWithWallet>,
     source: rpc::SubscriptionSource,
@@ -382,42 +493,58 @@ async fn run_proved_scanner(
     start_tag: BlockNumberOrTag,
 ) {
     loop {
-        let mut scanner = match source.to_event_scanner_from_tag(start_tag).await {
-            Ok(scanner) => scanner,
-            Err(err) => {
-                tracing::warn!(%err, "failed to build Proved scanner; retrying");
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                continue;
-            }
-        };
-        let filter = EventFilter::new().contract_address(inbox_address).event(Proved::SIGNATURE);
-        let subscription = scanner.subscribe(filter);
-        let proof = match scanner.start().await {
-            Ok(proof) => proof,
-            Err(err) => {
-                tracing::warn!(%err, "failed to start Proved scanner; retrying");
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                continue;
-            }
-        };
-        let mut stream = subscription.stream(&proof);
+        let mut stream =
+            connect_scanner(&source, inbox_address, start_tag, Proved::SIGNATURE, "Proved").await;
         while let Some(message) = stream.next().await {
             if let Ok(ScannerMessage::Data(logs)) = message {
                 for log in logs {
-                    let decoded =
-                        Proved::decode_raw_log(log.topics(), log.data().data.as_ref()).is_ok();
-                    if let (true, Ok(core_state)) =
-                        (decoded, rpc.shasta.inbox.getCoreState().call().await)
-                    {
-                        ProverMetrics::latest_verified_id()
-                            .set(core_state.lastFinalizedProposalId.to::<u64>() as f64);
-                    }
+                    handle_proved_log(&rpc, &log).await;
                 }
             }
         }
         tracing::warn!("Proved scanner stream ended; reconnecting");
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
+}
+
+/// Handle one `Proved` log: set the verified-id gauge to the L2 block number of
+/// the latest finalized checkpoint and log its context, matching Go
+/// `ProofsReceivedEventHandler.Handle` (`proofs_received_handler.go:30-47`).
+async fn handle_proved_log(rpc: &ClientWithWallet, log: &alloy::rpc::types::Log) {
+    let event = match Proved::decode_raw_log(log.topics(), log.data().data.as_ref()) {
+        Ok(event) => event,
+        Err(err) => {
+            tracing::warn!(%err, "failed to decode Proved event");
+            return;
+        }
+    };
+    let core_state = match rpc.core_state().await {
+        Ok(core_state) => core_state,
+        Err(err) => {
+            tracing::warn!(%err, "failed to read core state for Proved event");
+            return;
+        }
+    };
+
+    // Go sets `prover_latestVerified_id` to the L2 BLOCK NUMBER of the finalized
+    // checkpoint (resolved from `lastFinalizedBlockHash`), not the proposal id.
+    match rpc.l2_provider.get_block_by_hash(core_state.last_finalized_block_hash).await {
+        Ok(Some(block)) => ProverMetrics::latest_verified_id().set(block.header.number as f64),
+        Ok(None) => tracing::warn!(
+            checkpoint_block_hash = %core_state.last_finalized_block_hash,
+            "finalized L2 checkpoint block not found yet; skipping verified-id update"
+        ),
+        Err(err) => tracing::warn!(%err, "failed to fetch finalized L2 checkpoint header"),
+    }
+
+    tracing::info!(
+        first_proposal_id = event.firstProposalId.to::<u64>(),
+        first_new_proposal_id = event.firstNewProposalId.to::<u64>(),
+        last_proposal_id = event.lastProposalId.to::<u64>(),
+        actual_prover = %event.actualProver,
+        checkpoint_block_hash = %core_state.last_finalized_block_hash,
+        "new valid proposal proofs received"
+    );
 }
 
 /// Run the `Proposed` event scanner, routing each proposal into the pipeline
@@ -429,26 +556,9 @@ async fn run_proposed_scanner(
     start_tag: BlockNumberOrTag,
 ) {
     loop {
-        let mut scanner = match source.to_event_scanner_from_tag(start_tag).await {
-            Ok(scanner) => scanner,
-            Err(err) => {
-                tracing::warn!(%err, "failed to build Proposed scanner; retrying");
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                continue;
-            }
-        };
-        let filter = EventFilter::new().contract_address(inbox_address).event(Proposed::SIGNATURE);
-        let subscription = scanner.subscribe(filter);
-        let proof = match scanner.start().await {
-            Ok(proof) => proof,
-            Err(err) => {
-                tracing::warn!(%err, "failed to start Proposed scanner; retrying");
-                tokio::time::sleep(Duration::from_secs(3)).await;
-                continue;
-            }
-        };
-        let mut stream = subscription.stream(&proof);
-        tracing::info!("prover Proposed scanner started");
+        let mut stream =
+            connect_scanner(&source, inbox_address, start_tag, Proposed::SIGNATURE, "Proposed")
+                .await;
         while let Some(message) = stream.next().await {
             match message {
                 Ok(ScannerMessage::Data(logs)) => {
@@ -505,15 +615,8 @@ async fn handle_proposed_log(ctx: &ProposedContext, log: &alloy::rpc::types::Log
     }
 
     // Skip already-finalized proposals cheaply, before any enrichment.
-    let core_state = ctx
-        .rpc
-        .shasta
-        .inbox
-        .getCoreState()
-        .call()
-        .await
-        .map_err(|err| RpcClientError::Contract(err.to_string()))?;
-    if proposal_id <= core_state.lastFinalizedProposalId.to::<u64>() {
+    let core_state = ctx.rpc.core_state().await?;
+    if proposal_id <= core_state.last_finalized_proposal_id {
         return Ok(());
     }
 
@@ -602,7 +705,47 @@ fn current_unix_timestamp() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::clamp_starting_proposal_id;
+    use base_tx_manager::TxManagerError;
+    use rpc::RpcClientError;
+
+    use super::{
+        SubmitErrorAction, clamp_starting_proposal_id, classify_submission_error, seed_start_cursor,
+    };
+    use crate::{error::ProverError, state::SharedState};
+
+    #[test]
+    fn classify_submission_error_matches_go_submit_contract() {
+        // Already proven / reorged -> drop without re-requesting.
+        assert_eq!(
+            classify_submission_error(&ProverError::InvalidProof),
+            SubmitErrorAction::DropWithoutResend
+        );
+        // On-chain revert -> clear and re-request.
+        assert_eq!(
+            classify_submission_error(&ProverError::SubmissionReverted),
+            SubmitErrorAction::ClearAndResend
+        );
+        // Unretryable tx-manager send (base tx-manager already retried) -> resend.
+        assert_eq!(
+            classify_submission_error(&ProverError::TxManager(TxManagerError::Rpc(
+                "send failed".to_owned()
+            ))),
+            SubmitErrorAction::ClearAndResend
+        );
+        // Transient validate/wait/build read errors -> retry with proofs buffered.
+        assert_eq!(
+            classify_submission_error(&ProverError::Rpc(RpcClientError::Contract(
+                "core state read blip".to_owned()
+            ))),
+            SubmitErrorAction::Retry
+        );
+        assert_eq!(
+            classify_submission_error(&ProverError::Other(anyhow::anyhow!(
+                "L1 block not found yet"
+            ))),
+            SubmitErrorAction::Retry
+        );
+    }
 
     #[test]
     fn clamp_matches_go_init_l1_current() {
@@ -615,5 +758,15 @@ mod tests {
         assert_eq!(clamp_starting_proposal_id(Some(7), 10, 15), 10);
         // In-range value is honored.
         assert_eq!(clamp_starting_proposal_id(Some(12), 10, 15), 12);
+    }
+
+    #[test]
+    fn seed_start_cursor_skips_replayed_events_before_starting_id() {
+        let state = SharedState::new();
+
+        seed_start_cursor(&state, 100);
+
+        assert!(!state.mark_handled(99));
+        assert!(state.mark_handled(100));
     }
 }
