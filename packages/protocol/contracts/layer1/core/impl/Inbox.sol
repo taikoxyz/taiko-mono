@@ -12,7 +12,6 @@ import { LibBonds } from "../libs/LibBonds.sol";
 import { LibCodec } from "../libs/LibCodec.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { LibHashOptimized } from "../libs/LibHashOptimized.sol";
-import { LibInboxSetup } from "../libs/LibInboxSetup.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IProofVerifier } from "src/layer1/verifiers/IProofVerifier.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
@@ -50,8 +49,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         bool allowsPermissionless;
     }
 
+    // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
+
+    /// @dev Minimum ring buffer size to keep one slot reserved in capacity calculations.
+    uint48 internal constant MIN_RING_BUFFER_SIZE = 2;
 
     /// @notice Maximum number of forced inclusions processed per proposal.
     /// @dev Must be < 12 to avoid derived block timestamps drifting into the future when proposals
@@ -145,7 +148,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(Config memory _config) {
-        LibInboxSetup.validateConfig(_config);
+        _validateConfig(_config);
 
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
@@ -185,7 +188,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             CoreState memory state,
             Proposal memory proposal,
             bytes32 genesisProposalHash
-        ) = LibInboxSetup.initCoreState(_genesisBlockHash);
+        ) = _initCoreState(_genesisBlockHash);
 
         activationTimestamp = newActivationTimestamp;
         _coreState = state;
@@ -708,6 +711,62 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Private View/Pure Functions
     // ---------------------------------------------------------------
 
+    /// @dev Validates the Inbox configuration parameters.
+    /// @param _config The configuration to validate.
+    function _validateConfig(Config memory _config) private pure {
+        // Validate in the order fields are defined in Config struct.
+        require(_config.proofVerifier != address(0), ProofVerifierZero());
+        require(_config.proposerChecker != address(0), ProposerCheckerZero());
+        require(_config.signalService != address(0), SignalServiceZero());
+        require(_config.bondToken != address(0), BondTokenZero());
+        require(_config.provingWindow != 0, ProvingWindowZero());
+        require(
+            _config.permissionlessProvingDelay > _config.provingWindow,
+            PermissionlessProvingDelayTooSmall()
+        );
+        require(_config.ringBufferSize >= MIN_RING_BUFFER_SIZE, RingBufferSizeTooSmall());
+        require(_config.basefeeSharingPctg <= 100, BasefeeSharingPctgTooLarge());
+        require(_config.forcedInclusionFeeInGwei != 0, ForcedInclusionFeeInGweiZero());
+        require(
+            _config.forcedInclusionFeeDoubleThreshold != 0, ForcedInclusionFeeDoubleThresholdZero()
+        );
+        require(
+            _config.permissionlessInclusionMultiplier > 1,
+            PermissionlessInclusionMultiplierTooSmall()
+        );
+    }
+
+    /// @dev Validates the genesis block hash and computes the initial inbox state.
+    /// @param _genesisBlockHash The genesis block hash.
+    /// @return activationTimestamp_ The activation timestamp to use.
+    /// @return state_ The initial CoreState.
+    /// @return proposal_ The genesis proposal.
+    /// @return genesisProposalHash_ The hash of the genesis proposal (id=0).
+    function _initCoreState(bytes32 _genesisBlockHash)
+        private
+        view
+        returns (
+            uint48 activationTimestamp_,
+            CoreState memory state_,
+            Proposal memory proposal_,
+            bytes32 genesisProposalHash_
+        )
+    {
+        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
+        activationTimestamp_ = uint48(block.timestamp);
+
+        // Set lastProposalBlockId to 1 to ensure the first proposal happens at block 2 or later.
+        // This prevents reading blockhash(0) in propose(), which would return 0x0 and create
+        // an invalid origin block hash. The EVM hardcodes blockhash(0) to 0x0, so we must
+        // ensure proposals never reference the genesis block.
+        state_.nextProposalId = 1;
+        state_.lastProposalBlockId = 1;
+        state_.lastFinalizedTimestamp = uint48(block.timestamp);
+        state_.lastFinalizedBlockHash = _genesisBlockHash;
+
+        genesisProposalHash_ = LibHashOptimized.hashProposal(proposal_);
+    }
+
     /// @dev Validates propose function inputs.
     /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
@@ -775,17 +834,29 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     // Errors
     // ---------------------------------------------------------------
     error ActivationRequired();
+    error BasefeeSharingPctgTooLarge();
+    error BondTokenZero();
     error CannotProposeInCurrentBlock();
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
+    error ForcedInclusionFeeDoubleThresholdZero();
+    error ForcedInclusionFeeInGweiZero();
     error IncorrectProposalCount();
     error InsufficientBond();
+    error InvalidGenesisBlockHash();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();
     error NotEnoughCapacity();
     error ParentBlockHashMismatch();
+    error PermissionlessInclusionMultiplierTooSmall();
+    error PermissionlessProvingDelayTooSmall();
+    error ProofVerifierZero();
+    error ProposerCheckerZero();
     error ProverNotWhitelisted();
+    error ProvingWindowZero();
+    error RingBufferSizeTooSmall();
+    error SignalServiceZero();
     error UnprocessedForcedInclusionIsDue();
 }
