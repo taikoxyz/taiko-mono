@@ -1,4 +1,4 @@
-import { getPublicClient, waitForTransactionReceipt } from '@wagmi/core';
+import { getPublicClient } from '@wagmi/core';
 import { type Address, type Hash, numberToHex, type TransactionReceipt } from 'viem';
 
 import { bridgeAbi } from '$abi';
@@ -11,24 +11,20 @@ import { FilterLogsError } from '$libs/error';
 import { jsonParseWithDefault } from '$libs/util/jsonParseWithDefault';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
+import { waitForTransactionReceiptOrNull } from '$libs/wagmi/transactionReceipt';
 
 const log = getLogger('storage:BridgeTxService');
 
 export class BridgeTxService {
   private readonly storage: Storage;
 
-  //Todo: duplicate code in RelayerAPIService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
-    try {
-      return await waitForTransactionReceipt(config, {
-        hash,
-        chainId: Number(chainId),
-        timeout: pendingTransaction.waitTimeout,
-      });
-    } catch (error) {
-      log(`Error getting transaction receipt for ${hash}: ${error}`);
-      return null;
-    }
+    return await waitForTransactionReceiptOrNull({
+      chainId,
+      hash,
+      timeout: pendingTransaction.waitTimeout,
+      onError: (error) => log(`Error getting transaction receipt for ${hash}: ${error}`),
+    });
   }
 
   private static async _getBridgeMessageSent({
@@ -286,3 +282,4 @@ export class BridgeTxService {
     return txs.some((t) => t.srcTxHash === tx.srcTxHash);
   }
 }
+

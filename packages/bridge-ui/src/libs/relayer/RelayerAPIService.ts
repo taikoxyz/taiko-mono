@@ -1,4 +1,4 @@
-import { getTransactionReceipt, readContract } from '@wagmi/core';
+import { readContract } from '@wagmi/core';
 import axios from 'axios';
 import { Buffer } from 'buffer';
 import { type Address, getAddress, type Hash, type Hex, numberToHex, type TransactionReceipt } from 'viem';
@@ -11,6 +11,7 @@ import { isSupportedChain } from '$libs/chain';
 import { TokenType } from '$libs/token';
 import { getLogger } from '$libs/util/logger';
 import { config } from '$libs/wagmi';
+import { getTransactionReceiptOrNull } from '$libs/wagmi/transactionReceipt';
 
 import {
   type APIRequestParams,
@@ -37,14 +38,12 @@ export class RelayerAPIService {
     this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
-  //Todo: duplicate code in BridgeTxService
   private static async _getTransactionReceipt(chainId: number, hash: Hash) {
-    try {
-      return await getTransactionReceipt(config, { chainId, hash });
-    } catch (error) {
-      log(`Error getting transaction receipt for ${hash}: ${error}`);
-      return null;
-    }
+    return await getTransactionReceiptOrNull({
+      chainId,
+      hash,
+      onError: (error) => log(`Error getting transaction receipt for ${hash}: ${error}`),
+    });
   }
 
   private static _filterDuplicateAndWrongBridge(items: APIResponseTransaction[]): APIResponseTransaction[] {
