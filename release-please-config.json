@@ -111,7 +111,47 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?((@.name == \"taiko-client\" || @.name == \"bindings\" || @.name == \"driver\" || @.name == \"preconfirmation-driver\" || @.name == \"whitelist-preconfirmation-driver\" || @.name == \"proposer\" || @.name == \"protocol\" || @.name == \"rpc\" || @.name == \"test-harness\") && !@.source)].version"
+          "jsonpath": "$.package[?(@.name == \"taiko-client\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"bindings\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"driver\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"preconfirmation-driver\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"whitelist-preconfirmation-driver\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"proposer\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"protocol\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"rpc\" && !@.source)].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"test-harness\" && !@.source)].version"
         }
       ]
     },
