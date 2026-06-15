@@ -2,7 +2,7 @@
   import { switchChain } from '@wagmi/core';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { type Chain, ContractFunctionExecutionError, SwitchChainError, UserRejectedRequestError } from 'viem';
+  import { type Chain, ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
   import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
@@ -15,6 +15,7 @@
   import { web3modal } from '$libs/connect';
   import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
   import { getAlternateNetwork } from '$libs/network';
+  import { handleSwitchChainError } from '$libs/network/handleSwitchChainError';
   import { checkMintable, isMintable, mint, testERC20Tokens, testNFT, type Token } from '$libs/token';
   import { config } from '$libs/wagmi';
   import { account, connectedSourceChain, pendingTransactions } from '$stores';
@@ -150,16 +151,8 @@
       }
       await switchChain(config, { chainId: alternateChain });
     } catch (err) {
-      if (err instanceof SwitchChainError) {
-        warningToast({
-          title: $t('messages.network.pending.title'),
-          message: $t('messages.network.pending.message'),
-        });
-      } else if (err instanceof UserRejectedRequestError) {
-        warningToast({
-          title: $t('messages.network.rejected.title'),
-          message: $t('messages.network.rejected.message'),
-        });
+      const handled = handleSwitchChainError(err);
+      if (handled && err instanceof UserRejectedRequestError) {
         console.error(err);
       }
     } finally {
