@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.4.0...taiko-alethia-client-v2.5.0) (2026-06-15)
+
+
+### Features
+
+* **taiko-client:** expose zk proof distance flag ([#21782](https://github.com/taikoxyz/taiko-mono/issues/21782)) ([a9adcce](https://github.com/taikoxyz/taiko-mono/commit/a9adcced7e9737876dda19cc2393295f49b4f101))
+
 ## [2.4.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.3.0...taiko-alethia-client-v2.4.0) (2026-06-12)
 
 
