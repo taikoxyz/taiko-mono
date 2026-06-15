@@ -232,7 +232,8 @@ func TestBuildProposalResponse(t *testing.T) {
 
 	var (
 		parentProposalHash = common.HexToHash("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-		originBlockHash    = common.HexToHash("0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+		eventBlockHash     = common.HexToHash("0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")
+		originBlockHash    = common.HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 		txHash             = common.HexToHash("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
 		blobHash           = common.HexToHash("0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd")
 		proposalHash       = common.HexToHash("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
@@ -254,14 +255,22 @@ func TestBuildProposalResponse(t *testing.T) {
 			},
 		}},
 		Raw: types.Log{
-			BlockNumber: 999,
-			BlockHash:   originBlockHash,
+			BlockNumber: 1000,
+			BlockHash:   eventBlockHash,
 			TxHash:      txHash,
 			Index:       7,
 		},
 	}
+	header := &types.Header{
+		Number:     big.NewInt(1000),
+		ParentHash: originBlockHash,
+		Time:       1000,
+	}
 
-	response := buildProposalResponse(event, 1000, proposalHash)
+	response, err := buildProposalResponse(event, header, proposalHash)
+	if err != nil {
+		t.Fatalf("build response: %v", err)
+	}
 
 	if response.ProposalHash != proposalHash.Hex() {
 		t.Fatalf("unexpected proposal hash: %s", response.ProposalHash)
@@ -274,6 +283,9 @@ func TestBuildProposalResponse(t *testing.T) {
 	}
 	if response.Proposal.OriginBlockNumber != 999 || response.Proposal.OriginBlockHash != originBlockHash.Hex() {
 		t.Fatalf("unexpected origin: %+v", response.Proposal)
+	}
+	if response.Event.BlockNumber != 1000 || response.Event.BlockHash != eventBlockHash.Hex() {
+		t.Fatalf("unexpected event block: %+v", response.Event)
 	}
 	if response.Event.LogIndex != 7 || response.Event.TxHash != txHash.Hex() {
 		t.Fatalf("unexpected event: %+v", response.Event)

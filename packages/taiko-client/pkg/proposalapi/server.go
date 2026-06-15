@@ -13,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -20,6 +21,7 @@ import (
 
 const (
 	defaultReadHeaderTimeout = 5 * time.Second
+	defaultRequestTimeout    = rpc.DefaultRpcTimeout
 	proposalPathPrefix       = "/internal/shasta/proposals/"
 )
 
@@ -82,7 +84,11 @@ func New(addr string, source Source) (*Server, error) {
 
 	server := &Server{addr: addr, source: source}
 	mux := http.NewServeMux()
-	mux.HandleFunc(proposalPathPrefix, server.handleProposal)
+	mux.Handle(proposalPathPrefix, http.TimeoutHandler(
+		http.HandlerFunc(server.handleProposal),
+		defaultRequestTimeout,
+		`{"error":"request timed out"}`+"\n",
+	))
 	server.handler = mux
 	return server, nil
 }
@@ -152,13 +158,13 @@ func (s *RPCSource) ProposalByID(ctx context.Context, id *big.Int) (*ProposalRes
 
 	proposalHash, err := s.client.ShastaClients.Inbox.HashProposal(
 		&bind.CallOpts{Context: ctx},
-		proposalFromEvent(event, header.Time),
+		proposalFromEvent(event, header),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash proposal: %w", err)
 	}
 
-	return buildProposalResponse(event, header.Time, common.Hash(proposalHash)), nil
+	return buildProposalResponse(event, header, common.Hash(proposalHash))
 }
 
 func ValidateLoopbackAddress(addr string) error {
@@ -226,21 +232,27 @@ func parseProposalID(path string) (*big.Int, bool) {
 func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		return
+	}
 }
 
 func proposalFromEvent(
 	event *shastaBindings.ShastaInboxClientProposed,
-	timestamp uint64,
+	header *types.Header,
 ) shastaBindings.IInboxProposal {
+	originBlockNumber := new(big.Int)
+	if header.Number != nil {
+		originBlockNumber = new(big.Int).Sub(header.Number, common.Big1)
+	}
 	return shastaBindings.IInboxProposal{
 		Id:                             cloneBig(event.Id),
-		Timestamp:                      new(big.Int).SetUint64(timestamp),
+		Timestamp:                      new(big.Int).SetUint64(header.Time),
 		EndOfSubmissionWindowTimestamp: cloneBig(event.EndOfSubmissionWindowTimestamp),
 		Proposer:                       event.Proposer,
 		ParentProposalHash:             event.ParentProposalHash,
-		OriginBlockNumber:              new(big.Int).SetUint64(event.Raw.BlockNumber),
-		OriginBlockHash:                event.Raw.BlockHash,
+		OriginBlockNumber:              originBlockNumber,
+		OriginBlockHash:                header.ParentHash,
 		BasefeeSharingPctg:             event.BasefeeSharingPctg,
 		Sources:                        event.Sources,
 	}
@@ -248,21 +260,44 @@ func proposalFromEvent(
 
 func buildProposalResponse(
 	event *shastaBindings.ShastaInboxClientProposed,
-	timestamp uint64,
+	header *types.Header,
 	proposalHash common.Hash,
-) *ProposalResponse {
+) (*ProposalResponse, error) {
+	proposalID, err := checkedUint64("proposal ID", event.Id)
+	if err != nil {
+		return nil, err
+	}
+	endOfSubmissionWindowTimestamp, err := checkedUint64(
+		"end of submission window timestamp",
+		event.EndOfSubmissionWindowTimestamp,
+	)
+	if err != nil {
+		return nil, err
+	}
+	originBlockNumber, err := eventOriginBlockNumber(header)
+	if err != nil {
+		return nil, err
+	}
 	sources := make([]DerivationSource, 0, len(event.Sources))
 	for _, source := range event.Sources {
 		blobHashes := make([]string, 0, len(source.BlobSlice.BlobHashes))
 		for _, blobHash := range source.BlobSlice.BlobHashes {
 			blobHashes = append(blobHashes, common.Hash(blobHash).Hex())
 		}
+		offset, err := checkedUint64("blob slice offset", source.BlobSlice.Offset)
+		if err != nil {
+			return nil, err
+		}
+		timestamp, err := checkedUint64("blob slice timestamp", source.BlobSlice.Timestamp)
+		if err != nil {
+			return nil, err
+		}
 		sources = append(sources, DerivationSource{
 			IsForcedInclusion: source.IsForcedInclusion,
 			BlobSlice: BlobSlice{
 				BlobHashes: blobHashes,
-				Offset:     bigToUint64(source.BlobSlice.Offset),
-				Timestamp:  bigToUint64(source.BlobSlice.Timestamp),
+				Offset:     offset,
+				Timestamp:  timestamp,
 			},
 		})
 	}
@@ -270,13 +305,13 @@ func buildProposalResponse(
 	return &ProposalResponse{
 		ProposalHash: proposalHash.Hex(),
 		Proposal: Proposal{
-			ID:                             bigToUint64(event.Id),
-			Timestamp:                      timestamp,
-			EndOfSubmissionWindowTimestamp: bigToUint64(event.EndOfSubmissionWindowTimestamp),
+			ID:                             proposalID,
+			Timestamp:                      header.Time,
+			EndOfSubmissionWindowTimestamp: endOfSubmissionWindowTimestamp,
 			Proposer:                       event.Proposer.Hex(),
 			ParentProposalHash:             common.Hash(event.ParentProposalHash).Hex(),
-			OriginBlockNumber:              event.Raw.BlockNumber,
-			OriginBlockHash:                event.Raw.BlockHash.Hex(),
+			OriginBlockNumber:              originBlockNumber,
+			OriginBlockHash:                header.ParentHash.Hex(),
 			BasefeeSharingPctg:             event.BasefeeSharingPctg,
 			Sources:                        sources,
 		},
@@ -286,7 +321,7 @@ func buildProposalResponse(
 			TxHash:      event.Raw.TxHash.Hex(),
 			LogIndex:    event.Raw.Index,
 		},
-	}
+	}, nil
 }
 
 func cloneBig(value *big.Int) *big.Int {
@@ -296,9 +331,22 @@ func cloneBig(value *big.Int) *big.Int {
 	return new(big.Int).Set(value)
 }
 
-func bigToUint64(value *big.Int) uint64 {
+func checkedUint64(name string, value *big.Int) (uint64, error) {
 	if value == nil {
-		return 0
+		return 0, fmt.Errorf("%s is nil", name)
 	}
-	return value.Uint64()
+	if !value.IsUint64() {
+		return 0, fmt.Errorf("%s does not fit in uint64: %s", name, value.String())
+	}
+	return value.Uint64(), nil
+}
+
+func eventOriginBlockNumber(header *types.Header) (uint64, error) {
+	if header == nil || header.Number == nil {
+		return 0, errors.New("proposal L1 header number is missing")
+	}
+	if header.Number.Sign() == 0 {
+		return 0, errors.New("proposal L1 header has no parent block")
+	}
+	return checkedUint64("origin block number", new(big.Int).Sub(header.Number, common.Big1))
 }

@@ -202,10 +202,13 @@ func (d *Driver) Start() error {
 		go d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
 	}
 	if d.proposalAPIServer != nil {
+		d.wg.Add(1)
 		go func() {
+			defer d.wg.Done()
 			log.Info("Starting local proposal API", "addr", d.ProposalAPIAddr)
 			if err := d.proposalAPIServer.Start(); err != nil {
-				log.Crit("Failed to start local proposal API", "error", err)
+				log.Error("Failed to start local proposal API", "error", err)
+				d.cancel()
 			}
 		}()
 	}
