@@ -2,6 +2,8 @@
 //! base (sgx) or ZK (risc0/sp1 via zk_any) proof, requested in parallel
 //! (Go `compose_proof_producer.go`).
 
+use std::time::Instant;
+
 use alloy_primitives::Bytes;
 
 use super::{
@@ -77,7 +79,11 @@ fn verifier_id_for(drawn_type: ProofType) -> Result<u8> {
 
 #[async_trait::async_trait]
 impl ProofProducer for ComposeProofProducer {
-    async fn request_proof(&self, request: &mut ProofRequest) -> Result<ProofResponse> {
+    async fn request_proof(
+        &self,
+        request: &mut ProofRequest,
+        request_at: Instant,
+    ) -> Result<ProofResponse> {
         tracing::info!(
             proposal_id = request.proposal_id,
             proof_type = ?self.proof_type,
@@ -98,9 +104,10 @@ impl ProofProducer for ComposeProofProducer {
                     aggregate: false,
                     proof_type: self.proof_type,
                 };
-                let response = request_validated(&self.raiko, &body, request.reth_proof_generated)
-                    .await
-                    .map_err(ProverError::from)?;
+                let response =
+                    request_validated(&self.raiko, &body, request.reth_proof_generated, request_at)
+                        .await
+                        .map_err(ProverError::from)?;
                 // The drawn type decides decoding: single sp1 proof bodies are
                 // null (Go `compose_proof_producer.go:101-104`).
                 let drawn = response.proof_type.ok_or_else(|| {
@@ -113,7 +120,7 @@ impl ProofProducer for ComposeProofProducer {
                 };
                 Ok::<_, ProverError>((drawn, proof))
             };
-            tokio::join!(base_future, self.sgx_geth.request_proof(request))
+            tokio::join!(base_future, self.sgx_geth.request_proof(request, request_at))
         };
 
         // Mark first-generation flags individually, like Go's errgroup
@@ -131,7 +138,11 @@ impl ProofProducer for ComposeProofProducer {
         Ok(ProofResponse { request: request.clone(), proof, proof_type: drawn })
     }
 
-    async fn aggregate(&self, items: &mut [ProofResponse]) -> Result<BatchProofs> {
+    async fn aggregate(
+        &self,
+        items: &mut [ProofResponse],
+        request_at: Instant,
+    ) -> Result<BatchProofs> {
         if items.is_empty() {
             return Err(ProverError::Other(anyhow::anyhow!("empty proof aggregation items")));
         }
@@ -148,7 +159,7 @@ impl ProofProducer for ComposeProofProducer {
         );
 
         if self.dummy {
-            let sgx_geth_batch_proof = self.sgx_geth.aggregate(items).await?;
+            let sgx_geth_batch_proof = self.sgx_geth.aggregate(items, request_at).await?;
             return Ok(BatchProofs {
                 responses: items.to_vec(),
                 batch_proof: DummyProofProducer.request_batch_proofs(),
@@ -176,12 +187,13 @@ impl ProofProducer for ComposeProofProducer {
                     &self.raiko,
                     &body,
                     items[0].request.reth_aggregation_generated,
+                    request_at,
                 )
                 .await
                 .map_err(ProverError::from)?;
                 decode_proof_payload(&response)
             };
-            tokio::join!(base_future, self.sgx_geth.aggregate(items))
+            tokio::join!(base_future, self.sgx_geth.aggregate(items, request_at))
         };
 
         if geth_result.is_ok() {
@@ -208,7 +220,11 @@ impl ProofProducer for ComposeProofProducer {
 
 #[cfg(test)]
 mod tests {
-    use std::{net::SocketAddr, sync::Arc, time::Duration};
+    use std::{
+        net::SocketAddr,
+        sync::Arc,
+        time::{Duration, Instant},
+    };
 
     use alloy_primitives::{Address, B256};
     use tokio::sync::Mutex;
@@ -311,7 +327,7 @@ mod tests {
         );
 
         let mut request = test_request(7);
-        let response = producer.request_proof(&mut request).await.unwrap();
+        let response = producer.request_proof(&mut request, Instant::now()).await.unwrap();
 
         assert_eq!(response.proof_type, ProofType::Sgx);
         assert_eq!(response.proof.as_ref(), &[0x22, 0x22]);
@@ -353,7 +369,7 @@ mod tests {
         );
 
         let mut request = test_request(7);
-        let err = producer.request_proof(&mut request).await.unwrap_err();
+        let err = producer.request_proof(&mut request, Instant::now()).await.unwrap_err();
 
         assert!(matches!(err, ProverError::Raiko(RaikoError::ZkAnyNotDrawn)), "got {err:?}");
         // The sgxgeth side succeeded and stays marked for metrics dedup.
@@ -383,7 +399,7 @@ mod tests {
         );
 
         let mut request = test_request(7);
-        let response = producer.request_proof(&mut request).await.unwrap();
+        let response = producer.request_proof(&mut request, Instant::now()).await.unwrap();
 
         assert_eq!(response.proof_type, ProofType::Sp1);
         assert!(response.proof.is_empty());
@@ -408,7 +424,7 @@ mod tests {
         );
 
         let mut items = vec![test_response(1, ProofType::Sgx), test_response(2, ProofType::Sgx)];
-        let batch = producer.aggregate(&mut items).await.unwrap();
+        let batch = producer.aggregate(&mut items, Instant::now()).await.unwrap();
 
         assert_eq!(batch.batch_ids, vec![1, 2]);
         assert_eq!(batch.proof_type, ProofType::Sgx);
@@ -444,7 +460,7 @@ mod tests {
         );
 
         let mut items = vec![test_response(3, ProofType::Sp1)];
-        let batch = producer.aggregate(&mut items).await.unwrap();
+        let batch = producer.aggregate(&mut items, Instant::now()).await.unwrap();
 
         assert_eq!(batch.proof_type, ProofType::Sp1);
         assert_eq!(batch.verifier_id, SP1_VERIFIER_ID);
@@ -462,13 +478,13 @@ mod tests {
         );
 
         let mut request = test_request(5);
-        let response = producer.request_proof(&mut request).await.unwrap();
+        let response = producer.request_proof(&mut request, Instant::now()).await.unwrap();
         assert_eq!(response.proof_type, ProofType::Sgx);
         assert_eq!(response.proof.len(), 100);
         assert!(response.proof.iter().all(|b| *b == 0xff));
 
         let mut items = vec![response];
-        let batch = producer.aggregate(&mut items).await.unwrap();
+        let batch = producer.aggregate(&mut items, Instant::now()).await.unwrap();
         assert_eq!(batch.proof_type, ProofType::Sgx);
         assert!(batch.batch_proof.iter().all(|b| *b == 0xbb));
         assert!(batch.sgx_geth_batch_proof.iter().all(|b| *b == 0xbb));

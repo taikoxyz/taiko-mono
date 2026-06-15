@@ -1,7 +1,8 @@
 //! Shared Prometheus registration helpers used by the client crates.
 
 use prometheus::{
-    Gauge, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, core::Collector,
+    Counter, Gauge, Histogram, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts,
+    core::Collector,
 };
 
 /// Histogram buckets for operation durations expressed in seconds.
@@ -11,6 +12,18 @@ pub const DURATION_SECONDS_BUCKETS: &[f64] =
 /// Construct and register an integer counter with the process-wide registry.
 pub fn counter(name: &str, help: &str) -> IntCounter {
     let metric = IntCounter::new(name, help)
+        .unwrap_or_else(|error| panic!("failed to create Prometheus counter {name}: {error}"));
+    register(metric.clone());
+    metric
+}
+
+/// Construct and register a floating-point counter with the process-wide registry.
+///
+/// Use for monotonically increasing sums of fractional quantities (e.g.
+/// cumulative durations in seconds), where [`counter`]'s integer counter would
+/// lose precision.
+pub fn float_counter(name: &str, help: &str) -> Counter {
+    let metric = Counter::new(name, help)
         .unwrap_or_else(|error| panic!("failed to create Prometheus counter {name}: {error}"));
     register(metric.clone());
     metric

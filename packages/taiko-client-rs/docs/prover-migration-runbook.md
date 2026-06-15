@@ -30,38 +30,43 @@ Two deliberate behavior changes:
    `--l1.http` / `--l1.ws`.
 2. **No private-mempool submission yet.** The Go `--l1.private` second tx-manager is not
    ported (deferred post-cutover). All prove transactions go through the public path.
+3. **ZK proposal-distance catch-up gate (new, Rust-only).** When a proposal is more than
+   `--prover.maxZKProofProposalDistance` (default 30) ahead of the last finalized proposal,
+   the prover requests the faster base (SGX) proof instead of a ZK proof so a slow ZK proof
+   does not block catch-up. The Go prover has no such gate — under deep backlog the two
+   produce different proof-type mixes. Set the distance very high to match Go.
 
 ## Flag mapping (Go → Rust)
 
 Env var names are unchanged, so existing operator env files port directly. CLI long-flag
 names also match except where noted.
 
-| Go flag / env                                                                   | Rust flag                                                    | Notes                                                                                |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `--l1.proverPrivKey` / `L1_PROVER_PRIV_KEY`                                     | `--l1.proverPrivKey`                                         | required                                                                             |
-| `--raiko.host` / `RAIKO_HOST`                                                   | `--raiko.host`                                               | required                                                                             |
-| `--raiko.host.zkvm` / `RAIKO_HOST_ZKVM`                                         | `--raiko.host.zkvm`                                          | enables zk_any-first                                                                 |
-| `--raiko.apiKeyPath` / `RAIKO_API_KEY_PATH`                                     | `--raiko.apiKeyPath`                                         | file read + trimmed                                                                  |
-| `--raiko.requestTimeout` / `RAIKO_REQUEST_TIMEOUT`                              | `--raiko.requestTimeout`                                     | seconds, default 600                                                                 |
-| `--prover.startingProposalID` / `PROVER_STARTING_PROPOSAL_ID`                   | `--prover.startingProposalID`                                | clamped to `[lastFinalized, nextProposalId)`                                         |
-| `--prover.proveUnassignedProposals` / `PROVER_PROVE_UNASSIGNED_PROPOSALS`       | `--prover.proveUnassignedProposals`                          | default false                                                                        |
-| `--prover.proposal.window.size` / `PROVER_PROPOSAL_WINDOW_SIZE`                 | `--prover.proposal.window.size`                              | 0 = unlimited                                                                        |
-| `--prover.maxZKProofProposalDistance` / `PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE` | `--prover.maxZKProofProposalDistance`                        | default 30; beyond this distance from last finalized, skip ZK and use the base proof |
-| `--prover.dummy` / `PROVER_DUMMY`                                               | `--prover.dummy`                                             | filler proofs (tests/devnet)                                                         |
-| `--prover.proofPollingInterval` / `PROVER_PROOF_POLLING_INTERVAL`               | `--prover.proofPollingInterval`                              | seconds, default 10                                                                  |
-| `--prover.localProposerAddresses` / `PROVER_LOCAL_PROPOSER_ADDRESSES`           | `--prover.localProposerAddresses`                            | comma-separated                                                                      |
-| `--prover.blockConfirmations` / `PROVER_BLOCK_CONFIRMATIONS`                    | `--prover.blockConfirmations`                                | default 6                                                                            |
-| `--prover.forceBatchProvingInterval` / `PROVER_FORCE_BATCH_PROVING_INTERVAL`    | `--prover.forceBatchProvingInterval`                         | seconds, default 1800                                                                |
-| `--prover.sgx.batchSize` / `PROVER_SGX_BATCH_SIZE`                              | `--prover.sgx.batchSize`                                     | default 1                                                                            |
-| `--prover.zkvm.batchSize` / `PROVER_ZKVM_BATCH_SIZE`                            | `--prover.zkvm.batchSize`                                    | default 1                                                                            |
-| txmgr retry interval                                                            | `--prove.retryInterval` / `PROVE_RETRY_INTERVAL`             | seconds, default 48                                                                  |
-| txmgr confirmation timeout                                                      | `--prove.confirmationTimeout` / `PROVE_CONFIRMATION_TIMEOUT` | seconds, default 180                                                                 |
-| txmgr min tip cap                                                               | `--prove.minTipCap` / `PROVE_MIN_TIP_CAP`                    | gwei, default 1                                                                      |
-| txmgr min base fee                                                              | `--prove.minBaseFee` / `PROVE_MIN_BASE_FEE`                  | gwei, default 1                                                                      |
-| (new)                                                                           | `--prover.shadowMode` / `PROVER_SHADOW_MODE`                 | full pipeline, no L1 submit                                                          |
-| `--tx.gasLimit`                                                                 | —                                                            | **not ported**; prove gas is always estimated                                        |
-| `--backoff.retryInterval` / `--backoff.maxRetries`                              | —                                                            | **not ported**; request retries use `--prover.proofPollingInterval`                  |
-| `--l1.private`                                                                  | —                                                            | **not ported**; remove from configs                                                  |
+| Go flag / env                                                                | Rust flag                                                                       | Notes                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--l1.proverPrivKey` / `L1_PROVER_PRIV_KEY`                                  | `--l1.proverPrivKey`                                                            | required                                                                                                                                                                                                                |
+| `--raiko.host` / `RAIKO_HOST`                                                | `--raiko.host`                                                                  | required                                                                                                                                                                                                                |
+| `--raiko.host.zkvm` / `RAIKO_HOST_ZKVM`                                      | `--raiko.host.zkvm`                                                             | enables zk_any-first                                                                                                                                                                                                    |
+| `--raiko.apiKeyPath` / `RAIKO_API_KEY_PATH`                                  | `--raiko.apiKeyPath`                                                            | file read + trimmed                                                                                                                                                                                                     |
+| `--raiko.requestTimeout` / `RAIKO_REQUEST_TIMEOUT`                           | `--raiko.requestTimeout`                                                        | seconds, default 600                                                                                                                                                                                                    |
+| `--prover.startingProposalID` / `PROVER_STARTING_PROPOSAL_ID`                | `--prover.startingProposalID`                                                   | clamped to `[lastFinalized, nextProposalId)`                                                                                                                                                                            |
+| `--prover.proveUnassignedProposals` / `PROVER_PROVE_UNASSIGNED_PROPOSALS`    | `--prover.proveUnassignedProposals`                                             | default false                                                                                                                                                                                                           |
+| `--prover.proposal.window.size` / `PROVER_PROPOSAL_WINDOW_SIZE`              | `--prover.proposal.window.size`                                                 | 0 = unlimited                                                                                                                                                                                                           |
+| `--prover.dummy` / `PROVER_DUMMY`                                            | `--prover.dummy`                                                                | filler proofs (tests/devnet)                                                                                                                                                                                            |
+| `--prover.proofPollingInterval` / `PROVER_PROOF_POLLING_INTERVAL`            | `--prover.proofPollingInterval`                                                 | seconds, default 10                                                                                                                                                                                                     |
+| `--prover.localProposerAddresses` / `PROVER_LOCAL_PROPOSER_ADDRESSES`        | `--prover.localProposerAddresses`                                               | comma-separated                                                                                                                                                                                                         |
+| `--prover.blockConfirmations` / `PROVER_BLOCK_CONFIRMATIONS`                 | `--prover.blockConfirmations`                                                   | default 6                                                                                                                                                                                                               |
+| `--prover.forceBatchProvingInterval` / `PROVER_FORCE_BATCH_PROVING_INTERVAL` | `--prover.forceBatchProvingInterval`                                            | seconds, default 1800                                                                                                                                                                                                   |
+| `--prover.sgx.batchSize` / `PROVER_SGX_BATCH_SIZE`                           | `--prover.sgx.batchSize`                                                        | default 1                                                                                                                                                                                                               |
+| `--prover.zkvm.batchSize` / `PROVER_ZKVM_BATCH_SIZE`                         | `--prover.zkvm.batchSize`                                                       | default 1                                                                                                                                                                                                               |
+| txmgr retry interval                                                         | `--prove.retryInterval` / `PROVE_RETRY_INTERVAL`                                | seconds, default 48                                                                                                                                                                                                     |
+| txmgr confirmation timeout                                                   | `--prove.confirmationTimeout` / `PROVE_CONFIRMATION_TIMEOUT`                    | seconds, default 180                                                                                                                                                                                                    |
+| txmgr min tip cap                                                            | `--prove.minTipCap` / `PROVE_MIN_TIP_CAP`                                       | gwei, default 1                                                                                                                                                                                                         |
+| txmgr min base fee                                                           | `--prove.minBaseFee` / `PROVE_MIN_BASE_FEE`                                     | gwei, default 1                                                                                                                                                                                                         |
+| (new)                                                                        | `--prover.shadowMode` / `PROVER_SHADOW_MODE`                                    | full pipeline, no L1 submit                                                                                                                                                                                             |
+| (new)                                                                        | `--prover.maxZKProofProposalDistance` / `PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE` | Rust-only catch-up gate, default 30; beyond this distance from last finalized, skip ZK and use the base proof. Go has no equivalent (its ZK fallback is the 1h timeout + `zk_any_not_drawn`). Set very high to disable. |
+| `--tx.gasLimit`                                                              | —                                                                               | **not ported**; prove gas is always estimated                                                                                                                                                                           |
+| `--backoff.retryInterval` / `--backoff.maxRetries`                           | —                                                                               | **not ported**; request retries use `--prover.proofPollingInterval`                                                                                                                                                     |
+| `--l1.private`                                                               | —                                                                               | **not ported**; remove from configs                                                                                                                                                                                     |
 
 Common flags supplying L1/L2 endpoints, JWT, inbox, and metrics are shared with the other
 subcommands (`--l1.http`/`--l1.ws`, `--l2.http`, `--l2.auth`, `--jwt.secret`,
@@ -87,6 +92,18 @@ the gate when they match for two consecutive weeks (excluding raiko-side inciden
 the same key. Proving is permissionless after `permissionlessProvingDelay`, so a brief gap
 delays finalization but does not lose funds.
 
+## Operational notes
+
+**No periodic proposal re-scan.** The Go prover re-ran `proveOp` from the L1 cursor every 15s
+(`forceProvingTicker`), so a proposal whose handling hit a transient error was retried on the
+next tick. The Rust prover consumes the `event-scanner` live stream once per proposal: the
+proving loop itself retries forever once a proposal is enqueued, and the dedup cursor is only
+committed after the routing reads succeed (so a transient read failure leaves the proposal
+un-handled rather than mis-skipped). But a proposal is only re-examined on an L1 reorg replay
+or a restart — there is no standalone periodic re-scan. The exposure is narrow (the routing
+reads — core state + the event's L1 block — are fast), but if `taiko_prover_received_proposed_id`
+stalls while `nextProposalId` advances, restart the prover to force a re-scan from the cursor.
+
 ## Metrics
 
 The Rust prover exports (prefix `taiko_prover_`): `received_proposed_id`, `proofs_assigned`,
@@ -99,4 +116,9 @@ checkpoint (resolved from `coreState.lastFinalizedBlockHash`), matching Go's
 `prover_latestVerified_id` — not the proposal id. Note the metric names are not the Go
 names verbatim (Go used the `prover_` prefix); update dashboards/alerts accordingly.
 
-Not yet ported: Go's per-proof-type generation latency/count metrics (`updateProvingMetrics`).
+Per-proof-type generation metrics (Go's `updateProvingMetrics`) are exported, recorded once
+per first successful generation, for each of `sgx_geth`, `sgx`, `r0`, `sp1` in both single
+and `_aggregation` modes: `taiko_prover_proof_<type>[_aggregation]_generation_time` (gauge,
+last generation seconds), `…_generation_time_sum` (counter, cumulative seconds), and
+`…_generated` (counter, count). These mirror Go's `prover_proof_*` series under the
+`taiko_` prefix.

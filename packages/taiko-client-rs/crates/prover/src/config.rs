@@ -40,8 +40,10 @@ pub struct ProverConfigs {
     pub proposal_window_size: u64,
     /// Maximum proposal distance above the last finalized proposal for which a
     /// ZK proof is requested; beyond it the prover falls back to the base proof
-    /// so a slow ZK proof does not block catch-up (Go
-    /// `--prover.maxZKProofProposalDistance`, default 30).
+    /// so a slow ZK proof does not block catch-up.
+    ///
+    /// Rust-only catch-up optimization (default 30); the Go prover has no
+    /// proposal-distance gate. `--prover.maxZKProofProposalDistance`.
     pub max_zk_proof_proposal_distance: u64,
     /// Produce filler proofs instead of calling raiko (tests/devnet).
     pub dummy: bool,

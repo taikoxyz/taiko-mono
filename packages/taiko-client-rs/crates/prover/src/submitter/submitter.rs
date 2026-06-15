@@ -6,7 +6,11 @@
 //! unit-tested without a live node; [`ProofSubmitter`] adds the RPC and
 //! tx-manager touchpoints around it.
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use alloy::{eips::BlockNumberOrTag, providers::Provider};
 use alloy_primitives::{Address, B256, U256};
@@ -216,8 +220,12 @@ impl Pipeline {
 
     /// Whether a ZK proof should be requested for `proposal_id`: false once it
     /// is more than `max_zk_proof_proposal_distance` ahead of the last finalized
-    /// proposal, so the prover falls back to the faster base proof to catch up
-    /// (Go `shouldUseZKProof`, `proof_submitter.go:289-298`).
+    /// proposal, so the prover falls back to the faster base proof to catch up.
+    ///
+    /// Rust-only catch-up optimization with no Go equivalent: the Go prover has
+    /// no proposal-distance gate (its ZK fallback is purely the 1h timeout plus
+    /// `zk_any_not_drawn`). Disable by setting the distance high enough that it
+    /// never triggers.
     #[must_use]
     fn should_use_zk_proof(&self, proposal_id: u64, last_finalized: u64) -> bool {
         proposal_id <= last_finalized + self.cfg.max_zk_proof_proposal_distance
@@ -291,8 +299,11 @@ impl Pipeline {
             return Ok(());
         }
 
+        // Captured once so the recorded generation time spans the whole poll
+        // loop, like Go's `requestAt` for the aggregation path.
+        let request_at = Instant::now();
         loop {
-            match producer.aggregate(&mut items).await {
+            match producer.aggregate(&mut items, request_at).await {
                 Ok(batch) => {
                     let _ = self.channels.batch_proofs_tx.send(batch).await;
                     return Ok(());
@@ -323,8 +334,9 @@ impl Pipeline {
         &self,
         request: &mut ProofRequest,
         use_zk: &mut bool,
-        zk_started: &mut std::time::Instant,
+        zk_started: &mut Instant,
         last_finalized: u64,
+        request_at: Instant,
     ) -> Result<RequestAttempt> {
         let proposal_id = request.proposal_id;
         let from_id = last_finalized + 1;
@@ -337,7 +349,8 @@ impl Pipeline {
         }
 
         // Too far ahead of finalization for a slow ZK proof: fall back to the
-        // base proof to keep catching up (Go `proof_submitter.go:206-217`).
+        // base proof to keep catching up (Rust-only distance gate; see
+        // `should_use_zk_proof`).
         if *use_zk && !self.should_use_zk_proof(proposal_id, last_finalized) {
             tracing::info!(
                 proposal_id,
@@ -349,21 +362,21 @@ impl Pipeline {
         }
 
         if let (true, Some(zkvm)) = (*use_zk, self.zkvm_producer.as_ref()) {
-            match zkvm.request_proof(request).await {
+            match zkvm.request_proof(request, request_at).await {
                 Ok(response) => {
                     return Ok(RequestAttempt::Generated { response: Box::new(response), from_id });
                 }
                 Err(ProverError::Raiko(RaikoError::ZkAnyNotDrawn)) => {
                     tracing::debug!(proposal_id, "zk proof not drawn, falling back to SGX");
                     *use_zk = false;
-                    *zk_started = std::time::Instant::now();
+                    *zk_started = Instant::now();
                     return Ok(RequestAttempt::Defer);
                 }
                 Err(err) => {
                     if zk_started.elapsed() > MAX_PROOF_REQUEST_TIMEOUT {
                         tracing::warn!("zk retry exceeded max timeout, switching to SGX fallback");
                         *use_zk = false;
-                        *zk_started = std::time::Instant::now();
+                        *zk_started = Instant::now();
                         return Ok(RequestAttempt::Defer);
                     }
                     return Err(err);
@@ -371,7 +384,7 @@ impl Pipeline {
             }
         }
 
-        let response = self.base_producer.request_proof(request).await?;
+        let response = self.base_producer.request_proof(request, request_at).await?;
         Ok(RequestAttempt::Generated { response: Box::new(response), from_id })
     }
 
@@ -745,7 +758,10 @@ impl ProofSubmitter {
         };
 
         let mut use_zk = true;
-        let mut zk_started = std::time::Instant::now();
+        let mut zk_started = Instant::now();
+        // Captured once so the recorded generation time spans the whole poll
+        // loop (all raiko polls), like Go's `requestAt`.
+        let request_at = Instant::now();
         loop {
             let last_finalized = match self.last_finalized_proposal_id().await {
                 Ok(last_finalized) => last_finalized,
@@ -757,7 +773,13 @@ impl ProofSubmitter {
             };
             match self
                 .pipeline
-                .request_proof_attempt(&mut request, &mut use_zk, &mut zk_started, last_finalized)
+                .request_proof_attempt(
+                    &mut request,
+                    &mut use_zk,
+                    &mut zk_started,
+                    last_finalized,
+                    request_at,
+                )
                 .await
             {
                 Ok(RequestAttempt::Generated { response, from_id }) => {
@@ -783,7 +805,7 @@ mod tests {
     use std::{
         collections::{HashMap, VecDeque},
         sync::{Arc, Mutex},
-        time::Duration,
+        time::{Duration, Instant},
     };
 
     use alloy_primitives::{Address, B256, Bytes};
@@ -823,7 +845,11 @@ mod tests {
 
     #[async_trait::async_trait]
     impl ProofProducer for MockProducer {
-        async fn request_proof(&self, request: &mut ProofRequest) -> Result<ProofResponse> {
+        async fn request_proof(
+            &self,
+            request: &mut ProofRequest,
+            _request_at: Instant,
+        ) -> Result<ProofResponse> {
             *self.single_calls.lock().unwrap() += 1;
             let outcome = self.single.lock().await.pop_front().unwrap_or_else(|| {
                 Err(ProverError::Raiko(RaikoError::Pending("registered".to_owned())))
@@ -835,7 +861,11 @@ mod tests {
             })
         }
 
-        async fn aggregate(&self, items: &mut [ProofResponse]) -> Result<BatchProofs> {
+        async fn aggregate(
+            &self,
+            items: &mut [ProofResponse],
+            _request_at: Instant,
+        ) -> Result<BatchProofs> {
             self.batch.lock().await.pop_front().unwrap_or(Ok(()))?;
             Ok(BatchProofs {
                 responses: items.to_vec(),
@@ -1019,7 +1049,7 @@ mod tests {
         let mut started = std::time::Instant::now();
         let attempt = h
             .pipeline
-            .request_proof_attempt(&mut request, &mut use_zk, &mut started, 4)
+            .request_proof_attempt(&mut request, &mut use_zk, &mut started, 4, Instant::now())
             .await
             .unwrap();
         assert!(matches!(attempt, RequestAttempt::Defer));
@@ -1038,15 +1068,16 @@ mod tests {
         let mut started = std::time::Instant::now();
         let attempt = h
             .pipeline
-            .request_proof_attempt(&mut request, &mut use_zk, &mut started, 5)
+            .request_proof_attempt(&mut request, &mut use_zk, &mut started, 5, Instant::now())
             .await
             .unwrap();
         assert!(matches!(attempt, RequestAttempt::Finalized));
     }
 
     #[test]
-    fn should_use_zk_proof_matches_go_boundary() {
-        // distance 30, last finalized 10 → 40 ok, 41 falls back (Go TestShouldUseZKProof).
+    fn should_use_zk_proof_boundary() {
+        // Rust-only distance gate (no Go equivalent): distance 30, last
+        // finalized 10 → 40 ok, 41 falls back to the base proof.
         let h = harness(Arc::new(MockProducer::default()), Duration::from_secs(3_600), 2);
         assert!(h.pipeline.should_use_zk_proof(40, 10));
         assert!(!h.pipeline.should_use_zk_proof(41, 10));
@@ -1054,8 +1085,7 @@ mod tests {
 
     #[test]
     fn should_use_zk_proof_honors_configured_distance() {
-        // distance 5, last finalized 10 → 15 ok, 16 falls back (Go
-        // TestShouldUseZKProofUsesConfiguredDistance).
+        // distance 5, last finalized 10 → 15 ok, 16 falls back to the base proof.
         let mut h = harness(Arc::new(MockProducer::default()), Duration::from_secs(3_600), 2);
         h.pipeline.cfg.max_zk_proof_proposal_distance = 5;
         assert!(h.pipeline.should_use_zk_proof(15, 10));
@@ -1077,7 +1107,7 @@ mod tests {
         let mut started = std::time::Instant::now();
         let attempt = h
             .pipeline
-            .request_proof_attempt(&mut request, &mut use_zk, &mut started, 10)
+            .request_proof_attempt(&mut request, &mut use_zk, &mut started, 10, Instant::now())
             .await
             .unwrap();
 

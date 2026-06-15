@@ -1,8 +1,12 @@
 //! Prometheus metrics for tracking the prover.
 
+use std::time::Duration;
+
 use once_cell::sync::Lazy;
-use prometheus::{Gauge, IntCounter};
-use protocol::metrics::{counter, gauge};
+use prometheus::{Counter, Gauge, IntCounter};
+use protocol::metrics::{counter, float_counter, gauge};
+
+use crate::raiko::ProofType;
 
 /// Metric namespace and direct Prometheus handles emitted by the prover.
 ///
@@ -55,6 +59,72 @@ impl ProverMetrics {
     pub fn shadow_would_submit() -> &'static IntCounter {
         &METRICS.shadow_would_submit
     }
+
+    /// Record one completed proof generation of `elapsed` for `proof_type`,
+    /// distinguishing single proofs from aggregations, mirroring Go's
+    /// `updateProvingMetrics` (`prover/proof_producer/common.go:139-189`):
+    /// it sets the last generation-time gauge, adds to the cumulative-time
+    /// counter, and increments the generated counter. Placeholder types
+    /// (`ZkAny`, which raiko always resolves to a concrete type before a proof
+    /// exists) are ignored with a warning, like Go's default branch.
+    pub fn record_proof_generation(proof_type: ProofType, is_aggregation: bool, elapsed: Duration) {
+        let target = match (proof_type, is_aggregation) {
+            (ProofType::SgxGeth, false) => &METRICS.sgx_geth_single,
+            (ProofType::SgxGeth, true) => &METRICS.sgx_geth_aggregation,
+            (ProofType::Sgx, false) => &METRICS.sgx_single,
+            (ProofType::Sgx, true) => &METRICS.sgx_aggregation,
+            (ProofType::Risc0, false) => &METRICS.r0_single,
+            (ProofType::Risc0, true) => &METRICS.r0_aggregation,
+            (ProofType::Sp1, false) => &METRICS.sp1_single,
+            (ProofType::Sp1, true) => &METRICS.sp1_aggregation,
+            (ProofType::ZkAny, _) => {
+                tracing::warn!(?proof_type, "no generation metric for proof type");
+                return;
+            }
+        };
+        target.record(elapsed.as_secs_f64());
+    }
+}
+
+/// Per-(proof type, mode) generation collectors: the most recent generation
+/// time, the cumulative generation time, and the number generated. Mirrors the
+/// triples Go's `updateProvingMetrics` maintains per proof type.
+struct GenerationMetrics {
+    /// Most recent generation time in seconds.
+    time: Gauge,
+    /// Cumulative generation time in seconds.
+    time_sum: Counter,
+    /// Number of proofs generated.
+    count: IntCounter,
+}
+
+impl GenerationMetrics {
+    /// Register the three collectors as `{prefix}_generation_time`,
+    /// `{prefix}_generation_time_sum`, and `{prefix}_generated`. `label` is the
+    /// human-readable proof description used in the help text.
+    fn new(prefix: &str, label: &str) -> Self {
+        Self {
+            time: gauge(
+                &format!("{prefix}_generation_time"),
+                &format!("Most recent {label} proof generation time in seconds"),
+            ),
+            time_sum: float_counter(
+                &format!("{prefix}_generation_time_sum"),
+                &format!("Cumulative {label} proof generation time in seconds"),
+            ),
+            count: counter(
+                &format!("{prefix}_generated"),
+                &format!("Number of {label} proofs generated"),
+            ),
+        }
+    }
+
+    /// Record one completed generation lasting `elapsed_secs` seconds.
+    fn record(&self, elapsed_secs: f64) {
+        self.time.set(elapsed_secs);
+        self.time_sum.inc_by(elapsed_secs);
+        self.count.inc();
+    }
 }
 
 /// Direct Prometheus collector handles used by the prover.
@@ -78,6 +148,22 @@ struct ProverMetricHandles {
     submission_reverted: IntCounter,
     /// Prove transactions shadow mode would have submitted.
     shadow_would_submit: IntCounter,
+    /// sgxgeth single-proof generation collectors.
+    sgx_geth_single: GenerationMetrics,
+    /// sgx single-proof generation collectors.
+    sgx_single: GenerationMetrics,
+    /// risc0 single-proof generation collectors.
+    r0_single: GenerationMetrics,
+    /// sp1 single-proof generation collectors.
+    sp1_single: GenerationMetrics,
+    /// sgxgeth aggregation generation collectors.
+    sgx_geth_aggregation: GenerationMetrics,
+    /// sgx aggregation generation collectors.
+    sgx_aggregation: GenerationMetrics,
+    /// risc0 aggregation generation collectors.
+    r0_aggregation: GenerationMetrics,
+    /// sp1 aggregation generation collectors.
+    sp1_aggregation: GenerationMetrics,
 }
 
 impl ProverMetricHandles {
@@ -115,6 +201,26 @@ impl ProverMetricHandles {
             shadow_would_submit: counter(
                 "taiko_prover_shadow_would_submit",
                 "Prove transactions shadow mode would have submitted",
+            ),
+            sgx_geth_single: GenerationMetrics::new("taiko_prover_proof_sgx_geth", "sgxgeth"),
+            sgx_single: GenerationMetrics::new("taiko_prover_proof_sgx", "sgx"),
+            r0_single: GenerationMetrics::new("taiko_prover_proof_r0", "risc0"),
+            sp1_single: GenerationMetrics::new("taiko_prover_proof_sp1", "sp1"),
+            sgx_geth_aggregation: GenerationMetrics::new(
+                "taiko_prover_proof_sgx_geth_aggregation",
+                "sgxgeth aggregation",
+            ),
+            sgx_aggregation: GenerationMetrics::new(
+                "taiko_prover_proof_sgx_aggregation",
+                "sgx aggregation",
+            ),
+            r0_aggregation: GenerationMetrics::new(
+                "taiko_prover_proof_r0_aggregation",
+                "risc0 aggregation",
+            ),
+            sp1_aggregation: GenerationMetrics::new(
+                "taiko_prover_proof_sp1_aggregation",
+                "sp1 aggregation",
             ),
         }
     }

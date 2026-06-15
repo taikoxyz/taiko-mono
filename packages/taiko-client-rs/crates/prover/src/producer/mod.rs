@@ -4,6 +4,8 @@ mod compose;
 mod dummy;
 mod sgx_geth;
 
+use std::time::Instant;
+
 use alloy_primitives::{Address, B256, Bytes, hex};
 pub use compose::ComposeProofProducer;
 pub use dummy::DummyProofProducer;
@@ -11,6 +13,7 @@ pub use sgx_geth::SgxGethProofProducer;
 
 use crate::{
     error::{ProverError, Result},
+    metrics::ProverMetrics,
     raiko::{
         ProofType, RaikoClient, RaikoError,
         types::{RaikoCheckpoint, RaikoProofResponse, RaikoProposal},
@@ -114,12 +117,23 @@ pub struct BatchProofs {
 pub trait ProofProducer: Send + Sync {
     /// Request a single proof for one proposal. On success the producer flips
     /// the request's `*_generated` flags so repeated polls don't re-record
-    /// metrics or logs.
-    async fn request_proof(&self, request: &mut ProofRequest) -> Result<ProofResponse>;
+    /// metrics or logs. `request_at` is when proving for this proposal began
+    /// (captured once before the poll loop) and bounds the recorded generation
+    /// time.
+    async fn request_proof(
+        &self,
+        request: &mut ProofRequest,
+        request_at: Instant,
+    ) -> Result<ProofResponse>;
 
     /// Request the aggregation over already-generated single proofs. Flips the
-    /// `*_aggregation_generated` flags on the first item's request.
-    async fn aggregate(&self, items: &mut [ProofResponse]) -> Result<BatchProofs>;
+    /// `*_aggregation_generated` flags on the first item's request. `request_at`
+    /// is when this aggregation began and bounds the recorded generation time.
+    async fn aggregate(
+        &self,
+        items: &mut [ProofResponse],
+        request_at: Instant,
+    ) -> Result<BatchProofs>;
 }
 
 /// Build raiko proposal entries from proof requests (Go
@@ -149,29 +163,32 @@ pub(crate) fn prover_hex(address: Address) -> String {
 }
 
 /// POST a raiko batch request and validate the response (Go's shared
-/// `requestBatchProof` tail, `sgx_geth_proof_producer.go:154-192`). Logs the
-/// "generated" line only on the first successful generation
-/// (`already_generated == false`).
-///
-/// Note: Go additionally records per-proof-type generation latency/count
-/// metrics here (`updateProvingMetrics`); those collectors are not yet ported,
-/// so no generation metric is emitted on this path.
+/// `requestBatchProof` tail, `sgx_geth_proof_producer.go:154-192`). On the first
+/// successful generation (`already_generated == false`) it logs the "generated"
+/// line and records the per-proof-type generation latency/count metrics, exactly
+/// where Go calls `updateProvingMetrics` (`common.go:139-189`). The recorded
+/// type is the drawn type raiko returned, falling back to the requested type
+/// (e.g. for sgxgeth, where requested == drawn) when the response omits it.
 pub(crate) async fn request_validated(
     raiko: &RaikoClient,
     request: &crate::raiko::types::RaikoBatchProofRequest,
     already_generated: bool,
+    request_at: Instant,
 ) -> std::result::Result<RaikoProofResponse, RaikoError> {
     let response = raiko.request_batch_proof(request).await?;
     response.validate()?;
     if !already_generated {
+        let drawn_type = response.proof_type.unwrap_or(request.proof_type);
         tracing::info!(
             requested_type = ?request.proof_type,
-            drawn_type = ?response.proof_type,
+            drawn_type = ?drawn_type,
             aggregate = request.aggregate,
             start = request.proposals.first().map(|p| p.proposal_id),
             end = request.proposals.last().map(|p| p.proposal_id),
+            elapsed_secs = request_at.elapsed().as_secs_f64(),
             "batch proof generated"
         );
+        ProverMetrics::record_proof_generation(drawn_type, request.aggregate, request_at.elapsed());
     }
     Ok(response)
 }
