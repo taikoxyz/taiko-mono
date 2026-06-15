@@ -295,8 +295,19 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _processLivenessBond(commitment, offset);
             }
 
+            // ---------------------------------------------------------
+            // 4. Verify the proof
+            // ---------------------------------------------------------
+            // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
+            // Single-proposal proofs pass actual age for age-based verification logic.
+            _proofVerifier.verifyProof(
+                numProposals - offset == 1 ? proposalAge : 0,
+                LibHashOptimized.hashCommitment(commitment),
+                _proof
+            );
+
             // -----------------------------------------------------------------------------
-            // 4. Sync checkpoint
+            // 5. Sync checkpoint
             // -----------------------------------------------------------------------------
             _signalService.saveCheckpoint(
                 ICheckpointStore.Checkpoint({
@@ -308,7 +319,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             state.lastCheckpointTimestamp = uint48(block.timestamp);
 
             // ---------------------------------------------------------
-            // 5. Update core state and emit event
+            // 6. Update core state and emit event
             // ---------------------------------------------------------
             state.lastFinalizedProposalId = uint48(lastProposalId);
             state.lastFinalizedTimestamp = uint48(block.timestamp);
@@ -321,17 +332,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 commitment.firstProposalId + offset,
                 uint48(lastProposalId),
                 commitment.actualProver
-            );
-
-            // ---------------------------------------------------------
-            // 6. Verify the proof
-            // ---------------------------------------------------------
-            // For multi-proposal batches (more than 1 unfinalized proposal), pass 0 to verifier.
-            // Single-proposal proofs pass actual age for age-based verification logic.
-            _proofVerifier.verifyProof(
-                numProposals - offset == 1 ? proposalAge : 0,
-                LibHashOptimized.hashCommitment(commitment),
-                _proof
             );
         }
     }
