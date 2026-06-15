@@ -45,6 +45,25 @@ Review each sub-command's command line flags:
 bin/taiko-client <sub-command> --help
 ```
 
+### Local proposal metadata API
+
+The driver can expose a disabled-by-default, loopback-only Shasta proposal metadata API for co-located
+TDX provers:
+
+```sh
+bin/taiko-client driver --proposalApi.enabled --proposalApi.addr 127.0.0.1:9876 ...
+```
+
+The API rejects non-loopback bind addresses. The only endpoint is:
+
+```sh
+GET /internal/shasta/proposals/{proposal_id}
+```
+
+The response contains the reconstructed Shasta proposal, its `hashProposal` value, and the source L1
+event coordinates. It is intended for local validation by a prover running on the same machine, not as
+a public API.
+
 ## Testing
 
 Ensure you have Docker running, and pnpm installed.
