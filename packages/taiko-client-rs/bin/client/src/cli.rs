@@ -12,7 +12,7 @@ use tokio::runtime::{Builder, Runtime};
 
 use crate::commands::{
     driver::DriverSubCommand, preconfirmation_driver::PreconfirmationDriverSubCommand,
-    proposer::ProposerSubCommand,
+    proposer::ProposerSubCommand, prover::ProverSubCommand,
     whitelist_preconfirmation_driver::WhitelistPreconfirmationDriverSubCommand,
 };
 
@@ -21,6 +21,8 @@ use crate::commands::{
 pub enum Commands {
     /// Run the proposer.
     Proposer(Box<ProposerSubCommand>),
+    /// Run the prover.
+    Prover(Box<ProverSubCommand>),
     /// Run the driver.
     Driver(Box<DriverSubCommand>),
     /// Run the preconfirmation driver with P2P client.
@@ -43,6 +45,7 @@ impl Cli {
     pub fn run(self) -> Result<()> {
         match self.subcommand {
             Commands::Proposer(proposer_cmd) => Self::run_until_ctrl_c(proposer_cmd.run()),
+            Commands::Prover(prover_cmd) => Self::run_until_ctrl_c(prover_cmd.run()),
             Commands::Driver(driver_cmd) => Self::run_until_ctrl_c(driver_cmd.run()),
             Commands::PreconfirmationDriver(cmd) => Self::run_until_ctrl_c(cmd.run()),
             Commands::WhitelistPreconfirmationDriver(cmd) => Self::run_until_ctrl_c(cmd.run()),

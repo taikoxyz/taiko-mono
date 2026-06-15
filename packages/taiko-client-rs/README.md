@@ -11,6 +11,7 @@ A Rust implementation of the Taiko Alethia protocol client, designed as an alter
 | `crates/driver/`                 | Driver implementation for proposal derivation and syncing    |
 | `crates/preconfirmation-driver/` | Preconfirmation driver with P2P client integration           |
 | `crates/proposer/`               | Proposer implementation for submitting block proposals to L1 |
+| `crates/prover/`                 | Prover: raiko proof production, aggregation, and submission  |
 | `crates/protocol/`               | Core protocol types and data structures                      |
 | `crates/rpc/`                    | RPC client utilities and helper functions                    |
 | `crates/test-harness/`           | Test utilities and harness for integration tests             |

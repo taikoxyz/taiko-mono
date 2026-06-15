@@ -6,6 +6,7 @@ members = [
     "crates/preconfirmation-driver",
     "crates/proposer",
     "crates/protocol",
+    "crates/prover",
     "crates/rpc",
     "crates/test-harness",
     "crates/whitelist-preconfirmation-driver",

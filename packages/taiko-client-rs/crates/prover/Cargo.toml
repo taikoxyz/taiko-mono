@@ -1,0 +1,54 @@
+[package]
+name = "prover"
+description = "Taiko Alethia prover for the Shasta protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+# async
+async-trait = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+
+# observability
+once_cell = { workspace = true }
+prometheus = { workspace = true }
+tracing = { workspace = true }
+
+# ethereum
+alloy = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-provider = { workspace = true }
+base-tx-manager = { workspace = true }
+event-scanner = { workspace = true }
+
+# taiko
+bindings = { path = "../bindings" }
+protocol = { path = "../protocol" }
+rpc = { path = "../rpc" }
+
+# types
+anyhow = { workspace = true }
+dashmap = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+
+# serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+driver = { path = "../driver" }
+proposer = { path = "../proposer" }
+serial_test = { workspace = true }
+test-context = { workspace = true }
+test-harness = { path = "../test-harness" }
+test-log = { workspace = true }

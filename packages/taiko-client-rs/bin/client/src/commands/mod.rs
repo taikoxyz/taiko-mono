@@ -16,6 +16,7 @@ use crate::{
 pub mod driver;
 pub mod preconfirmation_driver;
 pub mod proposer;
+pub mod prover;
 pub mod whitelist_preconfirmation_driver;
 
 /// Build a [`DriverConfig`] from the shared common/driver CLI flags.

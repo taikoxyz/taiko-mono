@@ -3,11 +3,11 @@
 use std::{path::PathBuf, time::Duration};
 
 use alloy::{
-    primitives::{Address, B256, utils::Unit},
+    primitives::{Address, B256},
     transports::http::reqwest::Url,
 };
 use base_tx_manager::{ConfigError, TxManagerConfig};
-use rpc::SubscriptionSource;
+use rpc::{SubscriptionSource, TxManagerConfigParams};
 
 /// Configuration for the proposer.
 #[derive(Debug, Clone)]
@@ -53,45 +53,22 @@ pub struct ProposerConfigs {
 }
 
 impl ProposerConfigs {
-    /// Translate the proposer-facing retry and fee-floor knobs into a tx-manager config.
-    ///
-    /// Internal defaults stay narrow and explicit:
-    /// - `num_confirmations` is pinned to `1` so proposer success still means the transaction made
-    ///   it on-chain once, rather than waiting for deep confirmation depth.
-    /// - `tx_not_in_mempool_timeout` matches `confirmation_timeout` so the proposer has a single
-    ///   bounded retry window even when a submission never propagates into the mempool.
-    /// - `receipt_query_interval` stays on `TxManagerConfig::default()` unless callers explicitly
-    ///   set [`Self::receipt_query_interval`].
-    /// - All other runtime controls stay on `TxManagerConfig::default()` so proposer CLI does not
-    ///   expose the broader tx-manager tuning surface.
+    /// Translate the proposer-facing retry and fee-floor knobs into a tx-manager
+    /// config via the shared [`rpc::base_tx_manager_config`] builder, passing the
+    /// blob fee floor since proposal transactions carry blobs.
     ///
     /// # Errors
     ///
     /// Returns [`ConfigError`] when the derived tx-manager config violates upstream invariants,
     /// such as zero resubmission or confirmation windows.
     pub fn to_tx_manager_config(&self) -> Result<TxManagerConfig, ConfigError> {
-        let tx_manager_config = TxManagerConfig {
-            num_confirmations: 1,
-            min_tip_cap: gwei_to_wei(self.min_tip_cap_gwei),
-            min_basefee: gwei_to_wei(self.min_base_fee_gwei),
-            resubmission_timeout: self.retry_interval,
-            receipt_query_interval: self
-                .receipt_query_interval
-                .unwrap_or_else(|| TxManagerConfig::default().receipt_query_interval),
-            tx_not_in_mempool_timeout: self.confirmation_timeout,
+        rpc::base_tx_manager_config(&TxManagerConfigParams {
+            min_tip_cap_gwei: self.min_tip_cap_gwei,
+            min_base_fee_gwei: self.min_base_fee_gwei,
+            min_blob_fee_gwei: Some(self.min_blob_fee_gwei),
+            retry_interval: self.retry_interval,
             confirmation_timeout: self.confirmation_timeout,
-            min_blob_fee: gwei_to_wei(self.min_blob_fee_gwei),
-            ..TxManagerConfig::default()
-        };
-
-        tx_manager_config.validate()?;
-
-        Ok(tx_manager_config)
+            receipt_query_interval: self.receipt_query_interval,
+        })
     }
-}
-
-/// Convert an integer gwei amount into wei for tx-manager configuration.
-#[must_use]
-fn gwei_to_wei(gwei: u64) -> u128 {
-    u128::from(gwei) * Unit::GWEI.wei().to::<u128>()
 }

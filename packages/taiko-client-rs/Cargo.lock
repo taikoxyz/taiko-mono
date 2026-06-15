@@ -6349,6 +6349,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "prover"
+version = "2.1.0"
+dependencies = [
+ "alloy",
+ "alloy-primitives",
+ "alloy-provider",
+ "anyhow",
+ "async-trait",
+ "axum",
+ "base-tx-manager",
+ "bindings",
+ "dashmap",
+ "driver",
+ "event-scanner",
+ "once_cell",
+ "prometheus",
+ "proposer",
+ "protocol",
+ "reqwest",
+ "rpc",
+ "serde",
+ "serde_json",
+ "serial_test",
+ "test-context",
+ "test-harness",
+ "test-log",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "quanta"
 version = "0.12.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8420,6 +8454,7 @@ dependencies = [
  "alloy-rpc-types-engine 1.8.3",
  "alloy-transport-http",
  "anyhow",
+ "base-tx-manager",
  "bindings",
  "http-body-util",
  "hyper",
@@ -9415,6 +9450,7 @@ dependencies = [
  "prometheus",
  "proposer",
  "protocol",
+ "prover",
  "rpc",
  "thiserror 2.0.18",
  "tokio",

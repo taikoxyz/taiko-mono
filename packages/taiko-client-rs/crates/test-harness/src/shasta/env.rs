@@ -30,6 +30,8 @@ pub struct ShastaEnv {
     pub inbox_address: Address,
     pub l2_suggested_fee_recipient: Address,
     pub l1_proposer_private_key: B256,
+    /// L1 prover private key (signs `Inbox.prove`), from `L1_PROVER_PRIVATE_KEY`.
+    pub l1_prover_private_key: B256,
     pub taiko_anchor_address: Address,
     pub client_config: ClientConfig,
     pub client: RpcClient,
@@ -88,6 +90,10 @@ impl ShastaEnv {
             .context("invalid L2_SUGGESTED_FEE_RECIPIENT")?;
         let l1_proposer_private_key =
             proposer_key.parse().context("invalid L1_PROPOSER_PRIVATE_KEY hex value")?;
+        let l1_prover_private_key = env::var("L1_PROVER_PRIVATE_KEY")
+            .context("L1_PROVER_PRIVATE_KEY env var is required")?
+            .parse()
+            .context("invalid L1_PROVER_PRIVATE_KEY hex value")?;
         let taiko_anchor_address =
             Address::from_str(anchor.as_str()).context("invalid TAIKO_ANCHOR address")?;
         let (l2_ws_1, l2_auth_1) = Self::load_l2_secondary_endpoints()?;
@@ -131,6 +137,7 @@ impl ShastaEnv {
             inbox_address,
             l2_suggested_fee_recipient,
             l1_proposer_private_key,
+            l1_prover_private_key,
             taiko_anchor_address,
             client_config,
             client,
