@@ -47,10 +47,14 @@ contract Anchor is EssentialContract {
     }
 
     /// @notice Metadata that will be required for slashing violations of permissionless preconfs.
+    /// @dev `stored` marks an existing entry so callers can distinguish a recorded block whose
+    /// `anchorBlockNumber` is 0 (a valid "skip checkpoint" value) from a block that was never
+    /// recorded. It packs into the same slot as the preceding `uint48` fields.
     struct PreconfMetadata {
         uint48 anchorBlockNumber;
         uint48 submissionWindowEnd;
         uint48 parentSubmissionWindowEnd;
+        bool stored;
         bytes32 rawTxListHash;
         bytes32 parentRawTxListHash;
     }
@@ -205,7 +209,7 @@ contract Anchor is EssentialContract {
         returns (PreconfMetadata memory)
     {
         PreconfMetadata memory preconfMetadata = _preconfMetadata[_blockNumber];
-        require(preconfMetadata.anchorBlockNumber != 0, InvalidBlockNumber());
+        require(preconfMetadata.stored, InvalidBlockNumber());
         return preconfMetadata;
     }
 
@@ -251,6 +255,7 @@ contract Anchor is EssentialContract {
             anchorBlockNumber: _blockParams.anchorBlockNumber,
             submissionWindowEnd: _proposalParams.submissionWindowEnd,
             parentSubmissionWindowEnd: parentPreconfMetadata.submissionWindowEnd,
+            stored: true,
             rawTxListHash: _blockParams.rawTxListHash,
             parentRawTxListHash: parentPreconfMetadata.rawTxListHash
         });

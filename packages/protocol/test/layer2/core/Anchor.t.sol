@@ -105,6 +105,30 @@ contract AnchorTest is Test {
         assertEq(checkpointStore.getCheckpoint(staleBlockParams.anchorBlockNumber).blockNumber, 0);
     }
 
+    function test_getPreconfMetadata_recordsBlockAnchoredAtZero() external {
+        // A block may legitimately be anchored with `anchorBlockNumber == 0` ("skip checkpoint").
+        // Its preconf metadata must still be retrievable so the slasher can validate faults; the
+        // `stored` marker distinguishes it from a block that was never recorded.
+        Anchor.ProposalParams memory proposalParams =
+            Anchor.ProposalParams({ submissionWindowEnd: 7 });
+        Anchor.BlockParams memory blockParams = _blockParams(0, 0x1234, 0x5678);
+
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.prank(GOLDEN_TOUCH);
+        anchor.anchorV4(proposalParams, blockParams);
+
+        Anchor.PreconfMetadata memory meta = anchor.getPreconfMetadata(block.number);
+        assertTrue(meta.stored);
+        assertEq(meta.anchorBlockNumber, 0);
+        assertEq(meta.submissionWindowEnd, 7);
+    }
+
+    function test_getPreconfMetadata_RevertWhen_BlockNotRecorded() external {
+        vm.roll(SHASTA_FORK_HEIGHT);
+        vm.expectRevert(Anchor.InvalidBlockNumber.selector);
+        anchor.getPreconfMetadata(SHASTA_FORK_HEIGHT + 999);
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
