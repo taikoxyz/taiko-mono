@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.7.0...ejector-v0.7.1) (2026-06-15)
+
+
+### Chores
+
+* **taiko-client-rs,ejector:** bump event-scanner to `v1.1.1` ([#21737](https://github.com/taikoxyz/taiko-mono/issues/21737)) ([729a43e](https://github.com/taikoxyz/taiko-mono/commit/729a43e0e0e22958c295bd7fbbb30cdde6b3ce06))
+
 ## [0.7.0](https://github.com/taikoxyz/taiko-mono/compare/ejector-v0.6.1...ejector-v0.7.0) (2026-05-06)
 
 
