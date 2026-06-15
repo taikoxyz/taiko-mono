@@ -9,6 +9,7 @@ import type { ChainConfig, ChainConfigMap, ConfiguredChains } from '../../src/li
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
+import { toTsLiteral, tsExpression } from './../utils/toTsLiteral';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 dotenv.config();
 
@@ -154,32 +155,28 @@ enum LayerType {
   L3 = 'L3',
 }
 
-const _formatObjectToTsLiteral = (obj: ChainConfigMap): string => {
-  const formatValue = (value: ChainConfig): string => {
-    if (typeof value === 'string') {
-      if (Object.values(LayerType).includes(value as LayerType)) {
-        return `LayerType.${value}`; // This line is using LayerType as an enum, but it is now a type
-      }
-      return `"${value}"`;
-    }
-    if (typeof value === 'number' || typeof value === 'boolean' || value === null) {
-      return String(value);
-    }
-    if (Array.isArray(value)) {
-      return `[${value.map(formatValue).join(', ')}]`;
-    }
-    if (typeof value === 'object') {
-      return _formatObjectToTsLiteral(value);
-    }
-    return 'undefined';
-  };
+function toLayerTypeExpression(value: unknown) {
+  if (!Object.values(LayerType).includes(value as LayerType)) {
+    throw new Error(`Invalid LayerType: ${String(value)}`);
+  }
+  return tsExpression(`LayerType.${value}`);
+}
 
-  if (Array.isArray(obj)) {
-    return `[${obj.map(formatValue).join(', ')}]`;
+function withLayerTypeExpressions(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(withLayerTypeExpressions);
   }
 
-  const entries = Object.entries(obj);
-  const formattedEntries = entries.map(([key, value]) => `${key}: ${formatValue(value)}`);
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        key === 'type' ? toLayerTypeExpression(nestedValue) : withLayerTypeExpressions(nestedValue),
+      ]),
+    );
+  }
 
-  return `{${formattedEntries.join(', ')}}`;
-};
+  return value;
+}
+
+export const _formatObjectToTsLiteral = (obj: ChainConfigMap): string => toTsLiteral(withLayerTypeExpressions(obj));
