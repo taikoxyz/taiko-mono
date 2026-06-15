@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.1.0...taiko-alethia-client-rs-v2.1.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **taiko-client-rs:** keep release lockfile current ([#21780](https://github.com/taikoxyz/taiko-mono/issues/21780)) ([c4786c2](https://github.com/taikoxyz/taiko-mono/commit/c4786c2bcd898c4674d8e1a8a4bfb26b95cdeb3e))
+
 ## [2.1.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-rs-v2.0.0...taiko-alethia-client-rs-v2.1.0) (2026-06-12)
 
 
