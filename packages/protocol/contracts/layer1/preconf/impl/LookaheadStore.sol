@@ -438,6 +438,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
         require(isLookaheadRequired(), LookaheadNotRequired());
 
         unchecked {
+            uint256 nextEpochEnd = _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
             // Set this value to the last slot timestamp of the previous epoch
             uint256 prevSlotTimestamp = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
@@ -446,17 +447,17 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
 
             for (uint256 i; i < _lookaheadSlots.length; ++i) {
                 LookaheadSlot memory lookaheadSlot = _lookaheadSlots[i];
+                uint256 slotTimestamp = lookaheadSlot.timestamp;
 
+                require(slotTimestamp >= _nextEpochTimestamp, InvalidLookaheadEpoch());
+                require(slotTimestamp > prevSlotTimestamp, SlotTimestampIsNotIncrementing());
                 require(
-                    lookaheadSlot.timestamp > prevSlotTimestamp, SlotTimestampIsNotIncrementing()
-                );
-                require(
-                    (lookaheadSlot.timestamp - _nextEpochTimestamp)
-                            % LibPreconfConstants.SECONDS_IN_SLOT == 0,
+                    (slotTimestamp - _nextEpochTimestamp) % LibPreconfConstants.SECONDS_IN_SLOT
+                        == 0,
                     InvalidSlotTimestamp()
                 );
 
-                prevSlotTimestamp = lookaheadSlot.timestamp;
+                prevSlotTimestamp = slotTimestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference
@@ -478,10 +479,7 @@ contract LookaheadStore is ILookaheadStore, IProposerChecker, Blacklist, Essenti
             }
 
             // Validate that the last slot timestamp is within the next epoch
-            require(
-                prevSlotTimestamp < _nextEpochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH,
-                InvalidLookaheadEpoch()
-            );
+            require(prevSlotTimestamp < nextEpochEnd, InvalidLookaheadEpoch());
         }
 
         // Hash the lookahead slots and update the lookahead hash for next epoch
