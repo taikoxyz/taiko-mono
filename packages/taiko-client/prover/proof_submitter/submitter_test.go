@@ -231,7 +231,7 @@ func TestShouldUseZKProofRequiresCleanProver(t *testing.T) {
 	require.False(t, useZK)
 }
 
-func TestShouldUseZKProofRequiresClearResendExecuted(t *testing.T) {
+func TestShouldUseZKProofAllowsZKBeforeClearResendExecuted(t *testing.T) {
 	submitter := &ProofSubmitter{
 		maxZKProofProposalDistance: big.NewInt(30),
 		zkvmProofProducer:          &mockProverAdminProducer{cleanAfter: 1},
@@ -239,7 +239,18 @@ func TestShouldUseZKProofRequiresClearResendExecuted(t *testing.T) {
 
 	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(40), big.NewInt(10))
 	require.NoError(t, err)
-	require.False(t, useZK)
+	require.True(t, useZK)
+}
+
+func TestShouldUseZKProofAllowsZKBeforeClearResendExecutedWithoutDistanceLimit(t *testing.T) {
+	submitter := &ProofSubmitter{
+		maxZKProofProposalDistance: nil,
+		zkvmProofProducer:          &mockProverAdminProducer{cleanAfter: 2},
+	}
+
+	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(1000), big.NewInt(10))
+	require.NoError(t, err)
+	require.True(t, useZK)
 }
 
 func TestFlushCacheSkipsEmptyCache(t *testing.T) {

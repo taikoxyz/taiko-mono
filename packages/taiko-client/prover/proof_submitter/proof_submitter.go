@@ -311,22 +311,19 @@ func (s *ProofSubmitter) shouldUseZKProof(
 	lastFinalizedProposalID *big.Int,
 ) (bool, error) {
 	maxZKProofProposalDistance := s.maxZKProofProposalDistance
-	if maxZKProofProposalDistance == nil {
-		return s.isZKVMProofProducerClean(ctx)
+	if maxZKProofProposalDistance != nil {
+		maxZKProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxZKProofProposalDistance)
+		if nextProposalID.Cmp(maxZKProofProposalID) > 0 {
+			return false, nil
+		}
 	}
-
-	maxZKProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxZKProofProposalDistance)
-	if nextProposalID.Cmp(maxZKProofProposalID) > 0 {
-		return false, nil
+	if !s.proofItemsClearResendExecuted.Load() {
+		return true, nil
 	}
 	return s.isZKVMProofProducerClean(ctx)
 }
 
 func (s *ProofSubmitter) isZKVMProofProducerClean(ctx context.Context) (bool, error) {
-	if !s.proofItemsClearResendExecuted.Load() {
-		return false, nil
-	}
-
 	proverAdmin, ok := s.zkvmProofProducer.(proofProducer.ProverAdmin)
 	if !ok {
 		return true, nil
