@@ -78,7 +78,7 @@ func newZKFallbackSubmitter(backlog proofProducer.ZKBacklogController) *ProofSub
 		maxZKProofProposalDistance: big.NewInt(30),
 		zkBacklog:                  backlog,
 		proofPollingInterval:       time.Millisecond,
-		// fireClearAsync now reads s.ctx; the breach tests trigger it indirectly.
+		// fireClearAsync reads s.ctx; the breach tests trigger it indirectly.
 		ctx: context.Background(),
 	}
 }

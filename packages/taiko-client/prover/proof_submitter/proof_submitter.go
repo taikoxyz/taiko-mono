@@ -106,6 +106,7 @@ func NewProofSubmitter(
 		flushCacheNotify:           flushCacheNotify,
 		proposalWindowSize:         proposalWindowSize,
 		maxZKProofProposalDistance: maxZKProofProposalDistance,
+		ctx:                        ctx,
 	}
 
 	// Use the ZK producer's raiko2 control-plane API when available; otherwise
@@ -113,10 +114,6 @@ func NewProofSubmitter(
 	if zkBacklog, ok := zkvmProofProducer.(proofProducer.ZKBacklogController); ok {
 		proofSubmitter.zkBacklog = zkBacklog
 	}
-
-	// Store the prover's long-lived context for background goroutines (e.g. the ZK
-	// backlog clear) that must outlive a single RequestProof call.
-	proofSubmitter.ctx = ctx
 
 	proofSubmitter.startBackgroundWorkers(ctx)
 	return proofSubmitter, nil

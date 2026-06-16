@@ -22,16 +22,11 @@ type ZKBacklogController interface {
 	StatusClean(ctx context.Context) (bool, error)
 }
 
-// raikoControlPlaneResponse is the minimal body returned by POST /v3/prover/clear.
-type raikoControlPlaneResponse struct {
-	Status string `json:"status"`
-}
-
-// RaikoProverStatusResponse is the body returned by GET /v3/prover/status. Only
-// `data.clean` is consumed; `tasks` and `network` are intentionally ignored.
-type RaikoProverStatusResponse struct {
-	Status string `json:"status"`
-	Data   struct {
+// raikoProverStatusResponse is the body returned by GET /v3/prover/status. Only
+// `data.clean` is consumed; the remaining fields (`status`, `tasks`, `network`)
+// are intentionally ignored.
+type raikoProverStatusResponse struct {
+	Data struct {
 		Clean bool `json:"clean"`
 	} `json:"data"`
 }
@@ -83,7 +78,8 @@ func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
-	if _, err := requestRaikoControlPlane[raikoControlPlaneResponse](
+	// The clear endpoint only needs to return HTTP 200; its response body is unused.
+	if _, err := requestRaikoControlPlane[struct{}](
 		ctx,
 		http.MethodPost,
 		s.RaikoHostEndpoint+"/v3/prover/clear",
@@ -102,7 +98,7 @@ func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
-	out, err := requestRaikoControlPlane[RaikoProverStatusResponse](
+	out, err := requestRaikoControlPlane[raikoProverStatusResponse](
 		ctx,
 		http.MethodGet,
 		s.RaikoHostEndpoint+"/v3/prover/status",
