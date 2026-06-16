@@ -109,8 +109,12 @@ func NewProofSubmitter(
 		ctx:                        ctx,
 	}
 
-	// Use the ZK producer's raiko2 control-plane API when available; otherwise
-	// the state machine falls back to the stateless distance check.
+	// Wire the raiko2 control-plane client (ClearBacklog/StatusClean) when a ZK
+	// producer is configured. This is a compile-time capability check, not a probe
+	// of the remote host: with no ZK endpoint set, zkvmProofProducer is nil and
+	// zkBacklog stays nil, so decideUseZK bypasses the drain/resume machine. When a
+	// ZK endpoint IS set but its host predates raiko2 #93, the control-plane calls
+	// return 404 and the machine degrades by design (see canResumeZK).
 	if zkBacklog, ok := zkvmProofProducer.(proofProducer.ZKBacklogController); ok {
 		proofSubmitter.zkBacklog = zkBacklog
 	}

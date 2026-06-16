@@ -71,7 +71,9 @@ func (s *ProofSubmitter) decideUseZK(
 	if s.maxZKProofProposalDistance == nil || s.maxZKProofProposalDistance.Sign() <= 0 {
 		return true
 	}
-	// Without control-plane support, preserve the stateless distance behavior.
+	// No ZK endpoint configured (no control-plane client): bypass the drain/resume
+	// machine and keep the stateless distance check. This also guarantees zkBacklog
+	// is non-nil below, so canResumeZK/fireClearAsync can dereference it safely.
 	if s.zkBacklog == nil {
 		return s.shouldUseZKProof(proposalID, lastFinalizedProposalID)
 	}
