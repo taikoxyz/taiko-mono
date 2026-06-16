@@ -321,6 +321,10 @@ func (s *ProofSubmitter) shouldUseZKProof(
 }
 
 func (s *ProofSubmitter) isZKVMProofProducerClean(ctx context.Context) (bool, error) {
+	if !s.proofItemsClearResendExecuted.Load() {
+		return false, nil
+	}
+
 	proverAdmin, ok := s.zkvmProofProducer.(proofProducer.ProverAdmin)
 	if !ok {
 		return true, nil

@@ -189,6 +189,7 @@ func TestShouldUseZKProof(t *testing.T) {
 		maxZKProofProposalDistance: big.NewInt(30),
 		zkvmProofProducer:          zkvmProducer,
 	}
+	submitter.proofItemsClearResendExecuted.Store(true)
 
 	lastFinalizedProposalID := big.NewInt(10)
 	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(40), lastFinalizedProposalID)
@@ -206,6 +207,7 @@ func TestShouldUseZKProofUsesConfiguredDistance(t *testing.T) {
 		maxZKProofProposalDistance: big.NewInt(5),
 		zkvmProofProducer:          &mockProverAdminProducer{cleanAfter: 1},
 	}
+	submitter.proofItemsClearResendExecuted.Store(true)
 
 	lastFinalizedProposalID := big.NewInt(10)
 	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(15), lastFinalizedProposalID)
@@ -221,6 +223,18 @@ func TestShouldUseZKProofRequiresCleanProver(t *testing.T) {
 	submitter := &ProofSubmitter{
 		maxZKProofProposalDistance: big.NewInt(30),
 		zkvmProofProducer:          &mockProverAdminProducer{cleanAfter: 2},
+	}
+	submitter.proofItemsClearResendExecuted.Store(true)
+
+	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(40), big.NewInt(10))
+	require.NoError(t, err)
+	require.False(t, useZK)
+}
+
+func TestShouldUseZKProofRequiresClearResendExecuted(t *testing.T) {
+	submitter := &ProofSubmitter{
+		maxZKProofProposalDistance: big.NewInt(30),
+		zkvmProofProducer:          &mockProverAdminProducer{cleanAfter: 1},
 	}
 
 	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(40), big.NewInt(10))
