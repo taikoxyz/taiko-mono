@@ -98,7 +98,7 @@ func (s *ProofSubmitter) decideUseZK(
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
 			)
-			s.fireClearAsync(ctx)
+			s.fireClearAsync()
 		}
 		return false
 	}
@@ -133,9 +133,9 @@ func (s *ProofSubmitter) canResumeZK(
 
 // fireClearAsync clears the ZK backlog in the background with bounded retries.
 // It is best-effort: clearing only accelerates the drain, so a final failure is
-// logged and otherwise ignored. ctx is the prover's long-lived context, so the
-// goroutine outlives the triggering proposal's RequestProof call.
-func (s *ProofSubmitter) fireClearAsync(ctx context.Context) {
+// logged and otherwise ignored. It uses the submitter's long-lived context
+// (s.ctx), so the goroutine outlives the triggering proposal's RequestProof call.
+func (s *ProofSubmitter) fireClearAsync() {
 	// Defensive: decideUseZK already guards against a nil zkBacklog.
 	if s.zkBacklog == nil {
 		return
@@ -147,9 +147,9 @@ func (s *ProofSubmitter) fireClearAsync(ctx context.Context) {
 				backoff.NewConstantBackOff(s.proofPollingInterval),
 				clearBackoffMaxRetries,
 			),
-			ctx,
+			s.ctx,
 		)
-		if err := backoff.Retry(func() error { return s.zkBacklog.ClearBacklog(ctx) }, bo); err != nil {
+		if err := backoff.Retry(func() error { return s.zkBacklog.ClearBacklog(s.ctx) }, bo); err != nil {
 			log.Warn("Failed to clear ZK backlog after retries", "error", err)
 			return
 		}

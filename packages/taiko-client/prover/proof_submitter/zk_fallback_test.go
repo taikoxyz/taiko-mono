@@ -78,6 +78,8 @@ func newZKFallbackSubmitter(backlog proofProducer.ZKBacklogController) *ProofSub
 		maxZKProofProposalDistance: big.NewInt(30),
 		zkBacklog:                  backlog,
 		proofPollingInterval:       time.Millisecond,
+		// fireClearAsync now reads s.ctx; the breach tests trigger it indirectly.
+		ctx: context.Background(),
 	}
 }
 
@@ -116,6 +118,24 @@ func TestDecideUseZKBreachLatchesAndClearsOnce(t *testing.T) {
 	// A second breach while latched must not clear again.
 	require.False(t, s.decideUseZK(t.Context(), big.NewInt(50), big.NewInt(10)))
 	require.Equal(t, int32(1), fake.clearCalls.Load())
+}
+
+func TestFireClearAsyncRetriesThenGivesUp(t *testing.T) {
+	fake := &fakeZKBacklog{clearErr: errors.New("clear failed")}
+	s := newZKFallbackSubmitter(fake)
+	s.ctx = t.Context()
+
+	// Distance breach: 41 > 10 + 30 -> latch + fireClearAsync.
+	require.False(t, s.decideUseZK(t.Context(), big.NewInt(41), big.NewInt(10)))
+	require.True(t, s.inSGXFallback()) // latched even though clear will fail
+
+	// fireClearAsync retries 1 + clearBackoffMaxRetries times, then gives up.
+	require.Eventually(t, func() bool {
+		return fake.clearCalls.Load() == int32(clearBackoffMaxRetries)+1
+	}, 2*time.Second, 5*time.Millisecond)
+
+	// Still latched after clear ultimately failed (best-effort; resume is gated elsewhere).
+	require.True(t, s.inSGXFallback())
 }
 
 func TestDecideUseZKResumeWhenDrainedAndClean(t *testing.T) {

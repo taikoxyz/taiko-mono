@@ -61,6 +61,9 @@ type ProofSubmitter struct {
 	// ZK backlog drain/resume state machine (see zk_fallback.go).
 	zkBacklog  proofProducer.ZKBacklogController
 	zkFallback zkFallback
+	// ctx is the prover's long-lived context, used by background goroutines
+	// (e.g. the ZK backlog clear) that must outlive a single RequestProof call.
+	ctx context.Context
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -110,6 +113,10 @@ func NewProofSubmitter(
 	if zkBacklog, ok := zkvmProofProducer.(proofProducer.ZKBacklogController); ok {
 		proofSubmitter.zkBacklog = zkBacklog
 	}
+
+	// Store the prover's long-lived context for background goroutines (e.g. the ZK
+	// backlog clear) that must outlive a single RequestProof call.
+	proofSubmitter.ctx = ctx
 
 	proofSubmitter.startBackgroundWorkers(ctx)
 	return proofSubmitter, nil
