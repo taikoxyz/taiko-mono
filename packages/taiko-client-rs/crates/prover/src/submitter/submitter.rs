@@ -24,9 +24,12 @@ use crate::{
     config::ProverConfigs,
     error::{ProverError, Result},
     metrics::ProverMetrics,
-    producer::{BatchProofs, ProofProducer, ProofRequest, ProofResponse},
+    producer::{BatchProofs, ProofProducer, ProofRequest, ProofResponse, ZkBacklogController},
     raiko::{ProofType, RaikoError},
-    submitter::transaction::{BuildProveTxInput, build_prove_batches_tx},
+    submitter::{
+        transaction::{BuildProveTxInput, build_prove_batches_tx},
+        zk_fallback::ZkFallback,
+    },
 };
 
 /// Maximum time a single proof request keeps trying the ZK path before it falls
@@ -150,6 +153,8 @@ pub struct Pipeline {
     caches: HashMap<ProofType, Arc<ProofCache>>,
     /// Outgoing channel endpoints.
     channels: SubmitterChannels,
+    /// Shared ZK→SGX drain/resume latch + raiko2 control-plane handle.
+    zk_fallback: ZkFallback,
     /// Runtime knobs.
     cfg: SubmitterConfig,
 }
@@ -160,12 +165,21 @@ impl Pipeline {
     pub fn new(
         base_producer: Arc<dyn ProofProducer>,
         zkvm_producer: Option<Arc<dyn ProofProducer>>,
+        zk_backlog: Option<Arc<dyn ZkBacklogController>>,
         buffers: HashMap<ProofType, Arc<ProofBuffer>>,
         caches: HashMap<ProofType, Arc<ProofCache>>,
         channels: SubmitterChannels,
         cfg: SubmitterConfig,
     ) -> Self {
-        Self { base_producer, zkvm_producer, buffers, caches, channels, cfg }
+        Self {
+            base_producer,
+            zkvm_producer,
+            zk_fallback: ZkFallback::new(zk_backlog, cfg.proof_polling_interval),
+            buffers,
+            caches,
+            channels,
+            cfg,
+        }
     }
 
     /// Per-type buffers (orchestrator wires the monitor against these).
@@ -229,6 +243,89 @@ impl Pipeline {
     #[must_use]
     fn should_use_zk_proof(&self, proposal_id: u64, last_finalized: u64) -> bool {
         proposal_id <= last_finalized + self.cfg.max_zk_proof_proposal_distance
+    }
+
+    /// Apply the ZK backlog drain/resume state machine and report whether this
+    /// proposal should be proven via ZK (Go `decideUseZK`). Side effects: on the
+    /// first distance breach it latches SGX-draining mode, flushes buffered ZK
+    /// proofs for re-proving via SGX, and fires a one-off backlog clear; it
+    /// unlatches once the backlog is drained and the ZK backend reports clean.
+    ///
+    /// Inactive (distance 0, or no control-plane client) reduces to the stateless
+    /// [`Self::should_use_zk_proof`] check, preserving the pre-#21795 behavior.
+    pub(crate) async fn decide_use_zk(&self, proposal_id: u64, last_finalized: u64) -> bool {
+        if self.cfg.max_zk_proof_proposal_distance == 0 || !self.zk_fallback.has_controller() {
+            return self.should_use_zk_proof(proposal_id, last_finalized);
+        }
+
+        if self.zk_fallback.in_sgx() {
+            if self.zk_fallback.can_resume(proposal_id, last_finalized).await {
+                if self.zk_fallback.resume() {
+                    tracing::info!(
+                        proposal_id,
+                        last_finalized,
+                        "ZK backlog drained, resuming ZK proofs"
+                    );
+                }
+                return true;
+            }
+            return false;
+        }
+
+        if !self.should_use_zk_proof(proposal_id, last_finalized) {
+            if self.zk_fallback.mark_sgx() {
+                tracing::warn!(
+                    proposal_id,
+                    last_finalized,
+                    max_zk_proof_proposal_distance = self.cfg.max_zk_proof_proposal_distance,
+                    "ZK proof backlog detected, clearing ZK backlog and draining via SGX"
+                );
+                self.clear_zk_buffers_and_resend().await;
+                self.zk_fallback.fire_clear_async();
+            }
+            return false;
+        }
+        true
+    }
+
+    /// Flush buffered/cached ZK proofs (risc0, sp1) and re-enqueue their
+    /// proposals so they are re-proven via SGX while draining (Go
+    /// `clearZKProofBuffersAndResend`).
+    async fn clear_zk_buffers_and_resend(&self) {
+        for proof_type in [ProofType::Risc0, ProofType::Sp1] {
+            self.clear_proof_buffer_and_resend(proof_type).await;
+        }
+    }
+
+    /// Flush the buffer and cache for `proof_type` and resend each cleared
+    /// proposal to the request channel. No-op when the type has no buffer/cache
+    /// (no ZK producer configured).
+    async fn clear_proof_buffer_and_resend(&self, proof_type: ProofType) {
+        let (Some(buffer), Some(cache)) =
+            (self.buffers.get(&proof_type), self.caches.get(&proof_type))
+        else {
+            return;
+        };
+        let buffered = buffer.read_all();
+        let ids: Vec<u64> = buffered.iter().map(ProofResponse::proposal_id).collect();
+        buffer.clear_items(&ids);
+
+        let mut resend = buffered;
+        resend.extend(cache.drain_all());
+        for response in &resend {
+            let _ = self
+                .channels
+                .proof_request_tx
+                .send(ProofRequestMeta::from_request(&response.request))
+                .await;
+        }
+        if !resend.is_empty() {
+            tracing::info!(
+                ?proof_type,
+                count = resend.len(),
+                "cleared ZK proof buffer and resent proposals for SGX draining"
+            );
+        }
     }
 
     /// Route a freshly produced proof into the buffer (when contiguous) or the
@@ -348,20 +445,17 @@ impl Pipeline {
             return Ok(RequestAttempt::Defer);
         }
 
-        // Too far ahead of finalization for a slow ZK proof: fall back to the
-        // base proof to keep catching up (Rust-only distance gate; see
-        // `should_use_zk_proof`).
-        if *use_zk && !self.should_use_zk_proof(proposal_id, last_finalized) {
-            tracing::info!(
-                proposal_id,
-                last_finalized,
-                max_zk_proof_proposal_distance = self.cfg.max_zk_proof_proposal_distance,
-                "proposal too far from last finalized, skipping ZK proof"
-            );
-            *use_zk = false;
-        }
+        // ZK backlog drain/resume state machine (see `zk_fallback.rs`): shared
+        // across all per-proposal tasks via the latch on `self.zk_fallback`. May
+        // latch SGX-draining mode (firing a one-off backlog clear + flushing
+        // buffered ZK proofs) on the first distance breach, or resume ZK once the
+        // backlog is drained and clean. Inactive (distance 0 / no control plane)
+        // reduces to the stateless `should_use_zk_proof` check. The per-task
+        // `use_zk` flag still handles the `zk_any_not_drawn` / timeout fallbacks.
+        let backlog_allows_zk = self.decide_use_zk(proposal_id, last_finalized).await;
 
-        if let (true, Some(zkvm)) = (*use_zk, self.zkvm_producer.as_ref()) {
+        if let (true, true, Some(zkvm)) = (*use_zk, backlog_allows_zk, self.zkvm_producer.as_ref())
+        {
             match zkvm.request_proof(request, request_at).await {
                 Ok(response) => {
                     return Ok(RequestAttempt::Generated { response: Box::new(response), from_id });
@@ -818,6 +912,7 @@ mod tests {
         error::{ProverError, Result},
         producer::{BatchProofs, ProofProducer, ProofRequest, ProofResponse},
         raiko::{ProofType, RaikoError},
+        submitter::zk_fallback::FakeZkBacklog,
     };
 
     /// Pipeline plus retained channel receivers for assertions.
@@ -904,7 +999,7 @@ mod tests {
     }
 
     fn harness(base: Arc<dyn ProofProducer>, force_interval: Duration, max: u64) -> Harness {
-        harness_with(base, None, force_interval, max, 30)
+        harness_with(base, None, None, force_interval, max, 30)
     }
 
     /// Like [`harness`] but with an optional zkvm producer and configurable ZK
@@ -912,6 +1007,7 @@ mod tests {
     fn harness_with(
         base: Arc<dyn ProofProducer>,
         zkvm: Option<Arc<dyn ProofProducer>>,
+        zk_backlog: Option<Arc<dyn crate::producer::ZkBacklogController>>,
         force_interval: Duration,
         max: u64,
         max_zk_proof_proposal_distance: u64,
@@ -924,8 +1020,15 @@ mod tests {
         let pipeline = Pipeline::new(
             base,
             zkvm,
-            HashMap::from([(ProofType::Sgx, Arc::new(ProofBuffer::new(max)))]),
-            HashMap::from([(ProofType::Sgx, Arc::new(ProofCache::new()))]),
+            zk_backlog,
+            HashMap::from([
+                (ProofType::Sgx, Arc::new(ProofBuffer::new(max))),
+                (ProofType::Risc0, Arc::new(ProofBuffer::new(max))),
+            ]),
+            HashMap::from([
+                (ProofType::Sgx, Arc::new(ProofCache::new())),
+                (ProofType::Risc0, Arc::new(ProofCache::new())),
+            ]),
             SubmitterChannels {
                 batch_proofs_tx,
                 aggregation_notify_tx,
@@ -1099,7 +1202,7 @@ mod tests {
         let base_calls = base.clone();
         let zkvm_calls = zkvm.clone();
 
-        let h = harness_with(base, Some(zkvm), Duration::from_secs(3_600), 2, 5);
+        let h = harness_with(base, Some(zkvm), None, Duration::from_secs(3_600), 2, 5);
 
         // last finalized 10, distance 5 → allowed up to 15; proposal 100 is too far.
         let mut request = response(100, ProofType::Sgx).request;
@@ -1112,7 +1215,10 @@ mod tests {
             .unwrap();
 
         assert!(matches!(attempt, RequestAttempt::Generated { .. }));
-        assert!(!use_zk, "zk disabled for a far-ahead proposal");
+        assert!(
+            use_zk,
+            "the per-task zk flag is untouched by the distance gate; the latch governs ZK"
+        );
         assert_eq!(*base_calls.single_calls.lock().unwrap(), 1, "base producer used");
         assert_eq!(*zkvm_calls.single_calls.lock().unwrap(), 0, "zkvm producer skipped");
     }
@@ -1135,5 +1241,114 @@ mod tests {
         assert_eq!(h.request_rx.try_recv().unwrap().proposal_id, 5);
         assert_eq!(h.request_rx.try_recv().unwrap().proposal_id, 6);
         assert!(h.request_rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn decide_use_zk_inactive_when_distance_zero() {
+        // distance 0 disables the machine: stateless skip, no latch.
+        let h = harness_with(
+            Arc::new(MockProducer::default()),
+            Some(Arc::new(MockProducer::default())),
+            Some(Arc::new(FakeZkBacklog::new(true))),
+            Duration::from_secs(3_600),
+            2,
+            0,
+        );
+        assert!(!h.pipeline.decide_use_zk(1000, 1).await);
+        assert!(!h.pipeline.zk_fallback.in_sgx(), "machine never latched");
+    }
+
+    #[tokio::test]
+    async fn decide_use_zk_inactive_without_controller() {
+        // No control-plane client: stateless distance behavior, no latch.
+        let h = harness_with(
+            Arc::new(MockProducer::default()),
+            Some(Arc::new(MockProducer::default())),
+            None,
+            Duration::from_secs(3_600),
+            2,
+            5,
+        );
+        assert!(h.pipeline.decide_use_zk(15, 10).await, "within distance uses ZK");
+        assert!(!h.pipeline.decide_use_zk(16, 10).await, "beyond distance skips ZK");
+        assert!(!h.pipeline.zk_fallback.in_sgx(), "no latch without a controller");
+    }
+
+    #[tokio::test]
+    async fn decide_use_zk_breach_latches_clears_and_resends() {
+        let controller = Arc::new(FakeZkBacklog::new(true));
+        let mut h = harness_with(
+            Arc::new(MockProducer::default()),
+            Some(Arc::new(MockProducer::default())),
+            Some(controller.clone()),
+            Duration::from_secs(3_600),
+            4,
+            5,
+        );
+        // Seed a buffered ZK (risc0) proof that must be flushed and resent.
+        h.pipeline
+            .buffers()
+            .get(&ProofType::Risc0)
+            .unwrap()
+            .write(response(11, ProofType::Risc0))
+            .unwrap();
+
+        // Breach: proposal 100 > last_finalized 10 + distance 5.
+        assert!(!h.pipeline.decide_use_zk(100, 10).await);
+        assert!(h.pipeline.zk_fallback.in_sgx(), "breach latches SGX mode");
+        assert_eq!(
+            h.pipeline.buffers().get(&ProofType::Risc0).unwrap().len(),
+            0,
+            "ZK buffer flushed on latch"
+        );
+        // The flushed proposal is resent for SGX proving.
+        assert_eq!(h.request_rx.try_recv().unwrap().proposal_id, 11);
+
+        // The one-off clear fires in the background; wait briefly for it.
+        for _ in 0..200 {
+            if controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        assert!(
+            controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst) >= 1,
+            "one-off clear fired on latch"
+        );
+    }
+
+    #[tokio::test]
+    async fn decide_use_zk_stays_draining_until_clean() {
+        let controller = Arc::new(FakeZkBacklog::new(false)); // not clean
+        let h = harness_with(
+            Arc::new(MockProducer::default()),
+            Some(Arc::new(MockProducer::default())),
+            Some(controller),
+            Duration::from_secs(3_600),
+            2,
+            5,
+        );
+        assert!(h.pipeline.zk_fallback.mark_sgx(), "manually latch for the test");
+
+        // Drained (11 <= 10+1) but not clean → keep draining.
+        assert!(!h.pipeline.decide_use_zk(11, 10).await);
+        assert!(h.pipeline.zk_fallback.in_sgx());
+    }
+
+    #[tokio::test]
+    async fn decide_use_zk_resumes_when_drained_and_clean() {
+        let controller = Arc::new(FakeZkBacklog::new(true)); // clean
+        let h = harness_with(
+            Arc::new(MockProducer::default()),
+            Some(Arc::new(MockProducer::default())),
+            Some(controller),
+            Duration::from_secs(3_600),
+            2,
+            5,
+        );
+        assert!(h.pipeline.zk_fallback.mark_sgx());
+
+        assert!(h.pipeline.decide_use_zk(11, 10).await, "drained + clean resumes ZK");
+        assert!(!h.pipeline.zk_fallback.in_sgx(), "latch released");
     }
 }

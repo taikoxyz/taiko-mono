@@ -129,6 +129,7 @@ impl Prover {
         let pipeline = Arc::new(Pipeline::new(
             base_producer,
             zkvm_producer,
+            None,
             buffers,
             caches,
             SubmitterChannels {
