@@ -1,7 +1,13 @@
 package submitter
 
 import (
+	"context"
+	"math/big"
 	"sync"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
@@ -40,12 +46,113 @@ func (s *ProofSubmitter) inSGXFallback() bool {
 }
 
 // resumeZK unlatches SGX-draining mode so subsequent proposals use ZK again.
-func (s *ProofSubmitter) resumeZK() {
+// It returns true only for the caller that performed the transition.
+func (s *ProofSubmitter) resumeZK() bool {
 	s.zkFallback.mu.Lock()
 	defer s.zkFallback.mu.Unlock()
 	if !s.zkFallback.inSGX {
-		return
+		return false
 	}
 	s.zkFallback.inSGX = false
 	metrics.ProverZKBacklogModeGauge.Set(0)
+	return true
+}
+
+// decideUseZK applies the ZK backlog drain/resume state machine and reports
+// whether this proposal should be proven via ZK. It has side effects: it latches
+// into SGX-draining mode (and fires a one-off backlog clear) on the first
+// distance breach, and unlatches when the backlog is drained.
+func (s *ProofSubmitter) decideUseZK(
+	ctx context.Context,
+	proposalID *big.Int,
+	lastFinalizedProposalID *big.Int,
+) bool {
+	// Machine disabled when no distance is configured.
+	if s.maxZKProofProposalDistance == nil || s.maxZKProofProposalDistance.Sign() <= 0 {
+		return true
+	}
+	// Without control-plane support, preserve the stateless distance behavior.
+	if s.zkBacklog == nil {
+		return s.shouldUseZKProof(proposalID, lastFinalizedProposalID)
+	}
+
+	if s.inSGXFallback() {
+		if s.canResumeZK(ctx, proposalID, lastFinalizedProposalID) {
+			if s.resumeZK() {
+				log.Info(
+					"ZK backlog drained, resuming ZK proofs",
+					"proposalID", proposalID,
+					"lastFinalizedProposalID", lastFinalizedProposalID,
+				)
+			}
+			return true
+		}
+		return false
+	}
+
+	if !s.shouldUseZKProof(proposalID, lastFinalizedProposalID) {
+		if s.markSGXFallback() {
+			log.Warn(
+				"ZK proof backlog detected, clearing ZK backlog and draining via SGX",
+				"proposalID", proposalID,
+				"lastFinalizedProposalID", lastFinalizedProposalID,
+				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
+			)
+			s.fireClearAsync(ctx)
+		}
+		return false
+	}
+	return true
+}
+
+// canResumeZK reports whether SGX-draining mode can switch back to ZK. It checks
+// the cheap local "backlog drained" condition first and only queries the ZK
+// backend status when that holds. A status error (e.g. the endpoint is absent)
+// degrades to resuming on the backlog-drained condition alone.
+func (s *ProofSubmitter) canResumeZK(
+	ctx context.Context,
+	proposalID *big.Int,
+	lastFinalizedProposalID *big.Int,
+) bool {
+	// (A) backlog drained: proposalID <= lastFinalizedProposalID + 1.
+	if proposalID.Cmp(new(big.Int).Add(lastFinalizedProposalID, common.Big1)) > 0 {
+		return false
+	}
+	// (B) ZK backend idle.
+	clean, err := s.zkBacklog.StatusClean(ctx)
+	if err != nil {
+		log.Warn(
+			"ZK prover status unavailable, resuming ZK on backlog-drained condition alone",
+			"proposalID", proposalID,
+			"error", err,
+		)
+		return true
+	}
+	return clean
+}
+
+// fireClearAsync clears the ZK backlog in the background with bounded retries.
+// It is best-effort: clearing only accelerates the drain, so a final failure is
+// logged and otherwise ignored. ctx is the prover's long-lived context, so the
+// goroutine outlives the triggering proposal's RequestProof call.
+func (s *ProofSubmitter) fireClearAsync(ctx context.Context) {
+	// Defensive: decideUseZK already guards against a nil zkBacklog.
+	if s.zkBacklog == nil {
+		return
+	}
+	metrics.ProverZKBacklogClearCounter.Add(1)
+	go func() {
+		bo := backoff.WithContext(
+			backoff.WithMaxRetries(
+				backoff.NewConstantBackOff(s.proofPollingInterval),
+				clearBackoffMaxRetries,
+			),
+			ctx,
+		)
+		if err := backoff.Retry(func() error { return s.zkBacklog.ClearBacklog(ctx) }, bo); err != nil {
+			log.Warn("Failed to clear ZK backlog after retries", "error", err)
+			return
+		}
+		log.Info("Cleared ZK backlog after entering SGX-draining mode")
+	}()
 }
