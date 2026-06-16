@@ -93,7 +93,7 @@ func requestRaiko[U any](
 		req = req.SetHeader("X-API-KEY", apiKey)
 	}
 
-	log.Debug("Requesting raiko", "url", url, "method", method)
+	log.Debug("Requesting raiko", "url", url, "method", method, "body", body)
 	resp, err := req.Execute(method, url)
 	if err != nil {
 		return nil, err

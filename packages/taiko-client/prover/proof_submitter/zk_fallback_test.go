@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/stretchr/testify/suite"
 
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -219,4 +220,53 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKConcurrentBreachClearsOnce() {
 		s.FailNow("clear was not called")
 	}
 	s.Equal(int32(1), fake.clearCalls.Load())
+}
+
+func (s *ZKFallbackTestSuite) TestDecideUseZKBreachClearsLocalZKBuffers() {
+	const zkType = proofProducer.ProofTypeZKR0
+	buffer := proofProducer.NewProofBuffer(8)
+	cache := cmap.New[*proofProducer.ProofResponse]()
+
+	// One buffered proof and one cached proof of the ZK type.
+	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(5), Meta: newShastaMetaForTest(5)})
+	s.NoError(err)
+	cache.Set("6", &proofProducer.ProofResponse{BatchID: big.NewInt(6), Meta: newShastaMetaForTest(6)})
+
+	fake := &fakeZKBacklog{cleared: make(chan struct{}, 1)}
+	ch := make(chan *proofProducer.ProofRequestBody, 8)
+	sub := &ProofSubmitter{
+		maxZKProofProposalDistance: big.NewInt(30),
+		zkBacklog:                  fake,
+		proofPollingInterval:       time.Millisecond,
+		ctx:                        context.Background(),
+		proofBuffers:               map[proofProducer.ProofType]*proofProducer.ProofBuffer{zkType: buffer},
+		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+			zkType: cache,
+		},
+		proofSubmissionCh: ch,
+	}
+
+	// Breach (41 > 10+30): latch, flush local ZK buffer/cache, resend, clear raiko.
+	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
+	s.True(sub.inSGXFallback())
+	s.Equal(0, buffer.Len())
+	s.Equal(0, cache.Count())
+
+	resent := map[uint64]bool{}
+	for i := 0; i < 2; i++ {
+		select {
+		case req := <-ch:
+			resent[req.Meta.GetProposalID().Uint64()] = true
+		case <-time.After(time.Second):
+			s.FailNow("expected resend on proofSubmissionCh")
+		}
+	}
+	s.True(resent[5])
+	s.True(resent[6])
+
+	select {
+	case <-fake.cleared:
+	case <-time.After(time.Second):
+		s.FailNow("expected raiko backlog clear")
+	}
 }

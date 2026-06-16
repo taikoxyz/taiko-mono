@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 // clearBackoffMaxRetries bounds the best-effort retries of POST /v3/prover/clear
@@ -99,6 +100,7 @@ func (s *ProofSubmitter) decideUseZK(
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
 			)
+			s.clearZKProofBuffersAndResend()
 			s.fireClearAsync()
 		}
 		return false
@@ -156,4 +158,72 @@ func (s *ProofSubmitter) fireClearAsync() {
 		}
 		log.Info("Cleared ZK backlog after entering SGX-draining mode")
 	}()
+}
+
+// zkProofTypes are the ZK proof types whose local buffers and caches are flushed
+// when entering SGX-draining mode.
+var zkProofTypes = []proofProducer.ProofType{
+	proofProducer.ProofTypeZKR0,
+	proofProducer.ProofTypeZKSP1,
+}
+
+// clearZKProofBuffersAndResend discards any buffered or cached ZK proofs and
+// re-enqueues their proposals so they are re-proven via SGX while draining. This
+// prevents a partially-filled ZK proof batch from stranding once new ZK requests
+// stop.
+func (s *ProofSubmitter) clearZKProofBuffersAndResend() {
+	for _, proofType := range zkProofTypes {
+		s.clearProofBufferAndResend(proofType)
+	}
+}
+
+// clearProofBufferAndResend flushes the buffer and cache for the given proof type
+// and resends each cleared proposal to the submission channel.
+func (s *ProofSubmitter) clearProofBufferAndResend(proofType proofProducer.ProofType) {
+	proofBuffer, ok := s.proofBuffers[proofType]
+	if !ok {
+		return
+	}
+	cacheMap, ok := s.proofCacheMaps[proofType]
+	if !ok {
+		return
+	}
+
+	buffered, err := proofBuffer.ReadAll()
+	if err != nil {
+		log.Warn("Failed to read ZK proof buffer for resend", "proofType", proofType, "error", err)
+		return
+	}
+
+	resend := make([]*proofProducer.ProofResponse, 0, len(buffered)+cacheMap.Count())
+	batchIDs := make([]uint64, 0, len(buffered))
+	for _, proof := range buffered {
+		if proof == nil || proof.BatchID == nil {
+			continue
+		}
+		resend = append(resend, proof)
+		batchIDs = append(batchIDs, proof.BatchID.Uint64())
+	}
+	proofBuffer.ClearItems(batchIDs...)
+
+	for item := range cacheMap.IterBuffered() {
+		if item.Val != nil {
+			resend = append(resend, item.Val)
+		}
+		cacheMap.Remove(item.Key)
+	}
+
+	for _, proof := range resend {
+		if proof.Meta == nil {
+			continue
+		}
+		s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proof.Meta}
+	}
+	if len(resend) > 0 {
+		log.Info(
+			"Cleared ZK proof buffer and resent proposals for SGX draining",
+			"proofType", proofType,
+			"count", len(resend),
+		)
+	}
 }
