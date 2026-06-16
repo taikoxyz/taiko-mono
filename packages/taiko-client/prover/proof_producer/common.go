@@ -1,15 +1,13 @@
 package producer
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/go-resty/resty/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
@@ -67,73 +65,57 @@ type ProofDataV2 struct {
 	Quote    string `json:"quote"`
 }
 
-// requestHTTPProof sends a POST request to the given URL with the given ApiKey and request body,
-// to get a proof of the given type.
-func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, reqBody T) (*U, error) {
-	res, err := requestHTTPProofResponse(ctx, url, apiKey, reqBody)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
+// raikoHTTPClient is the shared resty client used for all raiko HTTP requests.
+// Each request carries its own deadline via the per-call context, matching the
+// previous net/http behavior.
+var raikoHTTPClient = resty.New()
 
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug("Proof generation output", "url", url, "output", string(resBytes))
-	var output U
-	if err := json.Unmarshal(resBytes, &output); err != nil {
-		return nil, err
-	}
-
-	return &output, nil
-}
-
-// requestHTTPProofResponse sends a POST request to the given URL with the given ApiKey and request body,
-// and returns the raw HTTP response, the caller is responsible for closing the response body.
-func requestHTTPProofResponse[T any](
+// requestRaiko sends an HTTP request to a raiko endpoint with the shared resty
+// client and unmarshals a successful (HTTP 200) JSON response into U. A nil body
+// is sent without a request body; a non-nil body is JSON-encoded. The response is
+// always parsed as JSON, regardless of the Content-Type the server returns.
+func requestRaiko[U any](
 	ctx context.Context,
+	method string,
 	url string,
 	apiKey string,
-	reqBody T,
-) (*http.Response, error) {
-	client := http.DefaultClient
-
-	jsonValue, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, err
+	body any,
+) (*U, error) {
+	var output U
+	req := raikoHTTPClient.R().
+		SetContext(ctx).
+		ForceContentType("application/json").
+		SetResult(&output)
+	if body != nil {
+		req = req.SetHeader("Content-Type", "application/json").SetBody(body)
 	}
-
-	log.Debug("Requesting proof", "url", url, "body", string(jsonValue))
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonValue))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
 	if len(apiKey) > 0 {
-		req.Header.Set("X-API-KEY", apiKey)
+		req = req.SetHeader("X-API-KEY", apiKey)
 	}
 
-	res, err := client.Do(req)
+	log.Debug("Requesting raiko", "url", url, "method", method, "body", body)
+	resp, err := req.Execute(method, url)
 	if err != nil {
 		return nil, err
 	}
 
-	if res.StatusCode != http.StatusOK {
+	if resp.StatusCode() != http.StatusOK {
 		// Check for rate limiting (429 Too Many Requests)
-		if res.StatusCode == http.StatusTooManyRequests {
+		if resp.StatusCode() == http.StatusTooManyRequests {
 			log.Error("Rate limit on L2 RPC has been reached. Using your own Taiko L2 node as RPC for Raiko is recommended")
 		}
 
-		return nil, fmt.Errorf(
-			"failed to request proof, url: %s, statusCode: %d",
-			url,
-			res.StatusCode,
-		)
+		return nil, fmt.Errorf("failed to request raiko, url: %s, statusCode: %d", url, resp.StatusCode())
 	}
 
-	return res, nil
+	log.Debug("Raiko response", "url", url, "body", string(resp.Body()))
+	return &output, nil
+}
+
+// requestHTTPProof sends a POST request with the given JSON body to a raiko proof
+// endpoint and unmarshals the response into U.
+func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, reqBody T) (*U, error) {
+	return requestRaiko[U](ctx, http.MethodPost, url, apiKey, reqBody)
 }
 
 // updateProvingMetrics updates the metrics for the given proof type, including
