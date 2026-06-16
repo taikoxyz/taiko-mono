@@ -215,18 +215,15 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			)
 			return ErrProposalOutOfAllowedRange
 		}
-		if !s.shouldUseZKProof(proposalID, lastFinalizedProposalID) {
-			log.Info(
-				"Proposal too far from the last finalized proposal, skipping ZK proof",
-				"proposalID", proposalID,
-				"lastFinalizedProposalID", lastFinalizedProposalID,
-				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
-			)
-			useZK = false
-		}
+		// machineSaysZK is the drain/resume state machine's verdict for this proposal
+		// (it may latch SGX mode + fire a one-off backlog clear, or resume ZK; see
+		// zk_fallback.go). useZK is the per-call fallback (zk_any_not_drawn / timeout)
+		// that sticks for the rest of this call. ZK is used only when both agree; once
+		// either goes false the ZK path stays off for the remaining retries.
+		machineSaysZK := s.decideUseZK(ctx, proposalID, lastFinalizedProposalID)
 
 		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
-		if s.zkvmProofProducer != nil && useZK {
+		if s.zkvmProofProducer != nil && useZK && machineSaysZK {
 			if proofResponse, err = s.zkvmProofProducer.RequestProof(
 				ctx,
 				opts,
