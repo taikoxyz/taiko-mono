@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -219,6 +220,58 @@ func (s *ComposeProofProducer) Aggregate(
 		SgxGethProofVerifier: sgxGethBatchProofs.Verifier,
 		SgxGethVerifierID:    sgxGethBatchProofs.VerifierID,
 	}, nil
+}
+
+// ClearProver discards all non-terminal zk_any tasks in Raiko.
+func (s *ComposeProofProducer) ClearProver(ctx context.Context) error {
+	if s.Dummy {
+		return nil
+	}
+
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	defer cancel()
+
+	output, err := requestHTTPNoBody[RaikoProverClearResponse](
+		ctx,
+		http.MethodPost,
+		s.RaikoHostEndpoint+"/v3/prover/clear",
+		s.ApiKey,
+	)
+	if err != nil {
+		return err
+	}
+	if output.Status != "ok" {
+		return fmt.Errorf("failed to clear Raiko prover, status: %s", output.Status)
+	}
+	return nil
+}
+
+// ProverStatus returns Raiko prover backlog state.
+func (s *ComposeProofProducer) ProverStatus(ctx context.Context) (*RaikoProverStatusResponse, error) {
+	if s.Dummy {
+		return &RaikoProverStatusResponse{
+			Status: "ok",
+			Data: RaikoProverStatusData{
+				Clean: true,
+			},
+		}, nil
+	}
+
+	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
+	defer cancel()
+
+	output, err := requestHTTPGet[RaikoProverStatusResponse](
+		ctx,
+		s.RaikoHostEndpoint+"/v3/prover/status",
+		s.ApiKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if output.Status != "ok" {
+		return nil, fmt.Errorf("failed to get Raiko prover status, status: %s", output.Status)
+	}
+	return output, nil
 }
 
 // requestBatchProof poll the proof aggregation service to get the aggregated proof.

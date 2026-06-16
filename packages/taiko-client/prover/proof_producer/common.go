@@ -67,6 +67,43 @@ type ProofDataV2 struct {
 	Quote    string `json:"quote"`
 }
 
+// RaikoProverStatusResponse represents the JSON body of /v3/prover/status.
+type RaikoProverStatusResponse struct {
+	Status string                `json:"status"`
+	Data   RaikoProverStatusData `json:"data"`
+}
+
+// RaikoProverStatusData contains Raiko prover backlog state.
+type RaikoProverStatusData struct {
+	Clean   bool               `json:"clean"`
+	Tasks   RaikoProverTasks   `json:"tasks"`
+	Network RaikoProverNetwork `json:"network"`
+}
+
+// RaikoProverTasks contains local Raiko task counts.
+type RaikoProverTasks struct {
+	Pending  uint64 `json:"pending"`
+	Ready    uint64 `json:"ready"`
+	Retrying uint64 `json:"retrying"`
+	Running  uint64 `json:"running"`
+}
+
+// RaikoProverNetwork contains upstream prover network counts.
+type RaikoProverNetwork struct {
+	SP1   RaikoProverNetworkStatus `json:"sp1"`
+	Risc0 RaikoProverNetworkStatus `json:"risc0"`
+}
+
+// RaikoProverNetworkStatus contains upstream inflight orders.
+type RaikoProverNetworkStatus struct {
+	InflightOrders uint64 `json:"inflight_orders"`
+}
+
+// RaikoProverClearResponse represents the JSON body of /v3/prover/clear.
+type RaikoProverClearResponse struct {
+	Status string `json:"status"`
+}
+
 // requestHTTPProof sends a POST request to the given URL with the given ApiKey and request body,
 // to get a proof of the given type.
 func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, reqBody T) (*U, error) {
@@ -74,20 +111,25 @@ func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, 
 	if err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
+	return decodeHTTPResponse[U](url, res)
+}
 
-	resBytes, err := io.ReadAll(res.Body)
+func requestHTTPGet[U any](ctx context.Context, url string, apiKey string) (*U, error) {
+	log.Debug("Requesting proof", "url", url, "body", "")
+	res, err := requestHTTPResponse(ctx, http.MethodGet, url, apiKey, nil)
 	if err != nil {
 		return nil, err
 	}
+	return decodeHTTPResponse[U](url, res)
+}
 
-	log.Debug("Proof generation output", "url", url, "output", string(resBytes))
-	var output U
-	if err := json.Unmarshal(resBytes, &output); err != nil {
+func requestHTTPNoBody[U any](ctx context.Context, method string, url string, apiKey string) (*U, error) {
+	log.Debug("Requesting proof", "url", url, "body", "")
+	res, err := requestHTTPResponse(ctx, method, url, apiKey, nil)
+	if err != nil {
 		return nil, err
 	}
-
-	return &output, nil
+	return decodeHTTPResponse[U](url, res)
 }
 
 // requestHTTPProofResponse sends a POST request to the given URL with the given ApiKey and request body,
@@ -98,19 +140,30 @@ func requestHTTPProofResponse[T any](
 	apiKey string,
 	reqBody T,
 ) (*http.Response, error) {
-	client := http.DefaultClient
-
 	jsonValue, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, err
 	}
 
 	log.Debug("Requesting proof", "url", url, "body", string(jsonValue))
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonValue))
+	return requestHTTPResponse(ctx, http.MethodPost, url, apiKey, bytes.NewBuffer(jsonValue))
+}
+
+func requestHTTPResponse(
+	ctx context.Context,
+	method string,
+	url string,
+	apiKey string,
+	body io.Reader,
+) (*http.Response, error) {
+	client := http.DefaultClient
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if len(apiKey) > 0 {
 		req.Header.Set("X-API-KEY", apiKey)
 	}
@@ -134,6 +187,23 @@ func requestHTTPProofResponse[T any](
 	}
 
 	return res, nil
+}
+
+func decodeHTTPResponse[U any](url string, res *http.Response) (*U, error) {
+	defer res.Body.Close()
+
+	resBytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug("Raiko HTTP output", "url", url, "output", string(resBytes))
+	var output U
+	if err := json.Unmarshal(resBytes, &output); err != nil {
+		return nil, err
+	}
+
+	return &output, nil
 }
 
 // updateProvingMetrics updates the metrics for the given proof type, including

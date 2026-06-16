@@ -47,6 +47,12 @@ type BatchProofs struct {
 	SgxGethVerifierID    uint8
 }
 
+// ProverAdmin contains Raiko prover administration APIs.
+type ProverAdmin interface {
+	ClearProver(ctx context.Context) error
+	ProverStatus(ctx context.Context) (*RaikoProverStatusResponse, error)
+}
+
 // ProofProducer is an interface that contains all methods to generate a proof.
 type ProofProducer interface {
 	RequestProof(

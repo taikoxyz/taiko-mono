@@ -1,6 +1,7 @@
 package submitter
 
 import (
+	"context"
 	"math/big"
 	"testing"
 	"time"
@@ -13,6 +14,28 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
+
+type mockProverAdminProducer struct {
+	proofProducer.ProofProducer
+	clearCount  int
+	statusCount int
+	cleanAfter  int
+}
+
+func (m *mockProverAdminProducer) ClearProver(_ context.Context) error {
+	m.clearCount++
+	return nil
+}
+
+func (m *mockProverAdminProducer) ProverStatus(_ context.Context) (*proofProducer.RaikoProverStatusResponse, error) {
+	m.statusCount++
+	return &proofProducer.RaikoProverStatusResponse{
+		Status: "ok",
+		Data: proofProducer.RaikoProverStatusData{
+			Clean: m.statusCount >= m.cleanAfter,
+		},
+	}, nil
+}
 
 func TestProofDistributionWithOutOfOrderResponses(t *testing.T) {
 	buffer := proofProducer.NewProofBuffer(8)
@@ -56,6 +79,82 @@ func TestProofDistributionWithOutOfOrderResponses(t *testing.T) {
 	require.Equal(t, uint64(3), bufferItems[2].BatchID.Uint64())
 
 	require.Empty(t, cacheMap.Keys())
+}
+
+func TestClearProofItemsByTypeAndResend(t *testing.T) {
+	buffer := proofProducer.NewProofBuffer(8)
+	cacheMap := cmap.New[*proofProducer.ProofResponse]()
+	proofSubmissionCh := make(chan *proofProducer.ProofRequestBody, 4)
+
+	bufferedProof := newProofResponse(1)
+	bufferedProof.Meta = newShastaMetaForTest(1)
+	cachedProof := newProofResponse(2)
+	cachedProof.Meta = newShastaMetaForTest(2)
+
+	_, err := buffer.Write(bufferedProof)
+	require.NoError(t, err)
+	cacheMap.Set(cachedProof.BatchID.String(), cachedProof)
+
+	submitter := &ProofSubmitter{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeOp: buffer,
+		},
+		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+			proofProducer.ProofTypeOp: cacheMap,
+		},
+		proofSubmissionCh: proofSubmissionCh,
+	}
+
+	require.NoError(t, submitter.clearProofItemsByTypeAndResend(proofProducer.ProofTypeOp))
+
+	require.Zero(t, buffer.Len())
+	require.Empty(t, cacheMap.Keys())
+	require.Len(t, proofSubmissionCh, 2)
+
+	require.Equal(t, big.NewInt(1), (<-proofSubmissionCh).Meta.GetProposalID())
+	require.Equal(t, big.NewInt(2), (<-proofSubmissionCh).Meta.GetProposalID())
+}
+
+func TestClearProofItemsByTypeAndResendOnceOnlyTriggersOnce(t *testing.T) {
+	buffer := proofProducer.NewProofBuffer(8)
+	cacheMap := cmap.New[*proofProducer.ProofResponse]()
+	proofSubmissionCh := make(chan *proofProducer.ProofRequestBody, 4)
+	zkvmProducer := &mockProverAdminProducer{cleanAfter: 1}
+
+	firstProof := newProofResponse(1)
+	firstProof.Meta = newShastaMetaForTest(1)
+	_, err := buffer.Write(firstProof)
+	require.NoError(t, err)
+
+	submitter := &ProofSubmitter{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeOp: buffer,
+		},
+		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+			proofProducer.ProofTypeOp: cacheMap,
+		},
+		proofSubmissionCh: proofSubmissionCh,
+		zkvmProofProducer: zkvmProducer,
+	}
+
+	require.NoError(t, submitter.clearProofItemsByTypeAndResendOnce(t.Context(), proofProducer.ProofTypeOp))
+
+	secondBufferedProof := newProofResponse(2)
+	secondBufferedProof.Meta = newShastaMetaForTest(2)
+	secondCachedProof := newProofResponse(3)
+	secondCachedProof.Meta = newShastaMetaForTest(3)
+	_, err = buffer.Write(secondBufferedProof)
+	require.NoError(t, err)
+	cacheMap.Set(secondCachedProof.BatchID.String(), secondCachedProof)
+
+	require.NoError(t, submitter.clearProofItemsByTypeAndResendOnce(t.Context(), proofProducer.ProofTypeOp))
+
+	require.Len(t, proofSubmissionCh, 1)
+	require.Equal(t, big.NewInt(1), (<-proofSubmissionCh).Meta.GetProposalID())
+	require.Equal(t, 1, buffer.Len())
+	require.True(t, cacheMap.Has(secondCachedProof.BatchID.String()))
+	require.Equal(t, 1, zkvmProducer.clearCount)
+	require.Equal(t, 1, zkvmProducer.statusCount)
 }
 
 func TestIsProposalOutOfRange(t *testing.T) {

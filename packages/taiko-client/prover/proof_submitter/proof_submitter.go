@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -51,8 +52,9 @@ type ProofSubmitter struct {
 	// Addresses
 	proverAddress common.Address
 	// Batch proof related
-	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
-	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
+	proofBuffers                  map[proofProducer.ProofType]*proofProducer.ProofBuffer
+	proofCacheMaps                map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
+	proofItemsClearResendExecuted atomic.Bool
 	// Intervals
 	forceBatchProvingInterval  time.Duration
 	proofPollingInterval       time.Duration
@@ -187,6 +189,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			return fmt.Errorf("failed to get core state: %w", err)
 		}
 		lastFinalizedProposalID := coreState.LastFinalizedProposalId
+		nextProposalID := coreState.NextProposalId
 		fromID := new(big.Int).Add(lastFinalizedProposalID, common.Big1)
 		if fromID.Cmp(proposalID) > 0 {
 			log.Info(
@@ -206,14 +209,21 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			)
 			return ErrProposalOutOfAllowedRange
 		}
-		if !s.shouldUseZKProof(proposalID, lastFinalizedProposalID) {
+		if !s.shouldUseZKProof(nextProposalID, lastFinalizedProposalID) {
 			log.Info(
 				"Proposal too far from the last finalized proposal, skipping ZK proof",
+				"nextProposalID", nextProposalID,
 				"proposalID", proposalID,
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
 			)
 			useZK = false
+			if proofResponse != nil && proofResponse.ProofType != "" {
+				if err := s.clearProofItemsByTypeAndResendOnce(ctx, proofResponse.ProofType); err != nil {
+					return err
+				}
+				proofResponse = nil
+			}
 		}
 
 		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
@@ -289,14 +299,14 @@ func (s *ProofSubmitter) isProposalOutOfRange(
 	return proposalID.Cmp(maxAllowedProposalID) > 0 || proposalID.Cmp(lastFinalizedProposalID) <= 0
 }
 
-func (s *ProofSubmitter) shouldUseZKProof(proposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
+func (s *ProofSubmitter) shouldUseZKProof(nextProposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
 	maxZKProofProposalDistance := s.maxZKProofProposalDistance
 	if maxZKProofProposalDistance == nil {
 		return true
 	}
 
 	maxZKProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxZKProofProposalDistance)
-	return proposalID.Cmp(maxZKProofProposalID) <= 0
+	return nextProposalID.Cmp(maxZKProofProposalID) <= 0
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.
@@ -430,6 +440,89 @@ func (s *ProofSubmitter) ClearProofBuffers(batchProof *proofProducer.BatchProofs
 		}
 	}
 	return nil
+}
+
+func (s *ProofSubmitter) clearProofItemsByTypeAndResend(proofType proofProducer.ProofType) error {
+	proofBuffer, exist := s.proofBuffers[proofType]
+	if !exist {
+		return fmt.Errorf("unexpected proof type to clear and resend: %s", proofType)
+	}
+	cacheMap, exist := s.proofCacheMaps[proofType]
+	if !exist {
+		return fmt.Errorf("unexpected proof type cache to clear and resend: %s", proofType)
+	}
+
+	bufferedProofs, err := proofBuffer.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read proof buffer: %w", err)
+	}
+
+	resendProofs := make([]*proofProducer.ProofResponse, 0, len(bufferedProofs)+cacheMap.Count())
+	batchIDs := make([]uint64, 0, len(bufferedProofs))
+	for _, proof := range bufferedProofs {
+		if proof == nil || proof.BatchID == nil {
+			continue
+		}
+		resendProofs = append(resendProofs, proof)
+		batchIDs = append(batchIDs, proof.BatchID.Uint64())
+	}
+	proofBuffer.ClearItems(batchIDs...)
+
+	for item := range cacheMap.IterBuffered() {
+		if item.Val != nil {
+			resendProofs = append(resendProofs, item.Val)
+		}
+		cacheMap.Remove(item.Key)
+	}
+
+	for _, proof := range resendProofs {
+		s.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: proof.Meta}
+	}
+	return nil
+}
+
+func (s *ProofSubmitter) clearProofItemsByTypeAndResendOnce(ctx context.Context, proofType proofProducer.ProofType) error {
+	if !s.proofItemsClearResendExecuted.CompareAndSwap(false, true) {
+		return nil
+	}
+	if err := s.clearZKVMProofProducerAndWaitClean(ctx); err != nil {
+		return err
+	}
+	return s.clearProofItemsByTypeAndResend(proofType)
+}
+
+func (s *ProofSubmitter) clearZKVMProofProducerAndWaitClean(ctx context.Context) error {
+	proverAdmin, ok := s.zkvmProofProducer.(proofProducer.ProverAdmin)
+	if !ok {
+		return nil
+	}
+	if err := proverAdmin.ClearProver(ctx); err != nil {
+		return fmt.Errorf("failed to clear zkvm prover: %w", err)
+	}
+
+	pollingInterval := s.proofPollingInterval
+	if pollingInterval <= 0 {
+		pollingInterval = chainiterator.DefaultRetryInterval
+	}
+	return backoff.Retry(func() error {
+		status, err := proverAdmin.ProverStatus(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get zkvm prover status: %w", err)
+		}
+		if status.Data.Clean {
+			return nil
+		}
+		log.Info(
+			"Waiting for zkvm prover to become clean",
+			"pending", status.Data.Tasks.Pending,
+			"ready", status.Data.Tasks.Ready,
+			"retrying", status.Data.Tasks.Retrying,
+			"running", status.Data.Tasks.Running,
+			"sp1InflightOrders", status.Data.Network.SP1.InflightOrders,
+			"risc0InflightOrders", status.Data.Network.Risc0.InflightOrders,
+		)
+		return proofProducer.ErrProofInProgress
+	}, backoff.WithContext(backoff.NewConstantBackOff(pollingInterval), ctx))
 }
 
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
