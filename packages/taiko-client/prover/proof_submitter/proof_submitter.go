@@ -223,10 +223,10 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 					"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
 				)
 				useZK = false
-				if proofResponse != nil && proofResponse.ProofType != "" {
-					if err := s.clearProofItemsByTypeAndResendOnce(ctx, proofResponse.ProofType); err != nil {
-						return err
-					}
+				if err := s.clearZKProofItemsAndResendOnce(ctx); err != nil {
+					return err
+				}
+				if proofResponse != nil {
 					proofResponse = nil
 				}
 			}
@@ -511,13 +511,31 @@ func (s *ProofSubmitter) clearProofItemsByTypeAndResend(proofType proofProducer.
 }
 
 func (s *ProofSubmitter) clearProofItemsByTypeAndResendOnce(ctx context.Context, proofType proofProducer.ProofType) error {
+	return s.clearProofItemsByTypesAndResendOnce(ctx, proofType)
+}
+
+func (s *ProofSubmitter) clearZKProofItemsAndResendOnce(ctx context.Context) error {
+	return s.clearProofItemsByTypesAndResendOnce(ctx, proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1)
+}
+
+func (s *ProofSubmitter) clearProofItemsByTypesAndResendOnce(
+	ctx context.Context,
+	proofTypes ...proofProducer.ProofType,
+) error {
 	if !s.proofItemsClearResendExecuted.CompareAndSwap(false, true) {
 		return nil
 	}
 	if err := s.clearZKVMProofProducer(ctx); err != nil {
+		s.proofItemsClearResendExecuted.Store(false)
 		return err
 	}
-	return s.clearProofItemsByTypeAndResend(proofType)
+	for _, proofType := range proofTypes {
+		if err := s.clearProofItemsByTypeAndResend(proofType); err != nil {
+			s.proofItemsClearResendExecuted.Store(false)
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *ProofSubmitter) resetProofItemsClearResendAfterZKProofRequest(wasClearResendExecuted bool) {

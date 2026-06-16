@@ -17,13 +17,17 @@ import (
 
 type mockProverAdminProducer struct {
 	proofProducer.ProofProducer
-	clearCount  int
-	statusCount int
-	cleanAfter  int
+	clearCount     int
+	statusCount    int
+	cleanAfter     int
+	failClearCount int
 }
 
 func (m *mockProverAdminProducer) ClearProver(_ context.Context) error {
 	m.clearCount++
+	if m.clearCount <= m.failClearCount {
+		return context.Canceled
+	}
 	return nil
 }
 
@@ -155,6 +159,77 @@ func TestClearProofItemsByTypeAndResendOnceOnlyTriggersOnce(t *testing.T) {
 	require.True(t, cacheMap.Has(secondCachedProof.BatchID.String()))
 	require.Equal(t, 1, zkvmProducer.clearCount)
 	require.Zero(t, zkvmProducer.statusCount)
+}
+
+func TestClearZKProofItemsAndResendOnceClearsBothZKProofTypes(t *testing.T) {
+	risc0Buffer := proofProducer.NewProofBuffer(8)
+	sp1Buffer := proofProducer.NewProofBuffer(8)
+	risc0CacheMap := cmap.New[*proofProducer.ProofResponse]()
+	sp1CacheMap := cmap.New[*proofProducer.ProofResponse]()
+	proofSubmissionCh := make(chan *proofProducer.ProofRequestBody, 4)
+	zkvmProducer := &mockProverAdminProducer{cleanAfter: 1}
+
+	risc0BufferedProof := newProofResponse(1)
+	risc0BufferedProof.ProofType = proofProducer.ProofTypeZKR0
+	risc0BufferedProof.Meta = newShastaMetaForTest(1)
+	_, err := risc0Buffer.Write(risc0BufferedProof)
+	require.NoError(t, err)
+
+	sp1CachedProof := newProofResponse(2)
+	sp1CachedProof.ProofType = proofProducer.ProofTypeZKSP1
+	sp1CachedProof.Meta = newShastaMetaForTest(2)
+	sp1CacheMap.Set(sp1CachedProof.BatchID.String(), sp1CachedProof)
+
+	submitter := &ProofSubmitter{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeZKR0:  risc0Buffer,
+			proofProducer.ProofTypeZKSP1: sp1Buffer,
+		},
+		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+			proofProducer.ProofTypeZKR0:  risc0CacheMap,
+			proofProducer.ProofTypeZKSP1: sp1CacheMap,
+		},
+		proofSubmissionCh: proofSubmissionCh,
+		zkvmProofProducer: zkvmProducer,
+	}
+
+	require.NoError(t, submitter.clearZKProofItemsAndResendOnce(t.Context()))
+
+	require.Zero(t, risc0Buffer.Len())
+	require.Zero(t, sp1Buffer.Len())
+	require.Empty(t, risc0CacheMap.Keys())
+	require.Empty(t, sp1CacheMap.Keys())
+	require.Len(t, proofSubmissionCh, 2)
+	require.Equal(t, 1, zkvmProducer.clearCount)
+	require.True(t, submitter.proofItemsClearResendExecuted.Load())
+}
+
+func TestClearZKProofItemsAndResendOnceRetriesAfterClearFailure(t *testing.T) {
+	proofSubmissionCh := make(chan *proofProducer.ProofRequestBody, 1)
+	zkvmProducer := &mockProverAdminProducer{
+		cleanAfter:     1,
+		failClearCount: 1,
+	}
+
+	submitter := &ProofSubmitter{
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeZKR0:  proofProducer.NewProofBuffer(8),
+			proofProducer.ProofTypeZKSP1: proofProducer.NewProofBuffer(8),
+		},
+		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+			proofProducer.ProofTypeZKR0:  cmap.New[*proofProducer.ProofResponse](),
+			proofProducer.ProofTypeZKSP1: cmap.New[*proofProducer.ProofResponse](),
+		},
+		proofSubmissionCh: proofSubmissionCh,
+		zkvmProofProducer: zkvmProducer,
+	}
+
+	require.Error(t, submitter.clearZKProofItemsAndResendOnce(t.Context()))
+	require.False(t, submitter.proofItemsClearResendExecuted.Load())
+
+	require.NoError(t, submitter.clearZKProofItemsAndResendOnce(t.Context()))
+	require.True(t, submitter.proofItemsClearResendExecuted.Load())
+	require.Equal(t, 2, zkvmProducer.clearCount)
 }
 
 func TestResetProofItemsClearResendAfterZKProofRequest(t *testing.T) {
