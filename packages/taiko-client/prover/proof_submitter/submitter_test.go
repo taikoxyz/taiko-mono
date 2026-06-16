@@ -184,19 +184,48 @@ func TestIsProposalOutOfRange(t *testing.T) {
 }
 
 func TestShouldUseZKProof(t *testing.T) {
-	submitter := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(30)}
+	zkvmProducer := &mockProverAdminProducer{cleanAfter: 1}
+	submitter := &ProofSubmitter{
+		maxZKProofProposalDistance: big.NewInt(30),
+		zkvmProofProducer:          zkvmProducer,
+	}
 
 	lastFinalizedProposalID := big.NewInt(10)
-	require.True(t, submitter.shouldUseZKProof(big.NewInt(40), lastFinalizedProposalID))
-	require.False(t, submitter.shouldUseZKProof(big.NewInt(41), lastFinalizedProposalID))
+	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(40), lastFinalizedProposalID)
+	require.NoError(t, err)
+	require.True(t, useZK)
+
+	useZK, err = submitter.shouldUseZKProof(t.Context(), big.NewInt(41), lastFinalizedProposalID)
+	require.NoError(t, err)
+	require.False(t, useZK)
+	require.Equal(t, 1, zkvmProducer.statusCount)
 }
 
 func TestShouldUseZKProofUsesConfiguredDistance(t *testing.T) {
-	submitter := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(5)}
+	submitter := &ProofSubmitter{
+		maxZKProofProposalDistance: big.NewInt(5),
+		zkvmProofProducer:          &mockProverAdminProducer{cleanAfter: 1},
+	}
 
 	lastFinalizedProposalID := big.NewInt(10)
-	require.True(t, submitter.shouldUseZKProof(big.NewInt(15), lastFinalizedProposalID))
-	require.False(t, submitter.shouldUseZKProof(big.NewInt(16), lastFinalizedProposalID))
+	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(15), lastFinalizedProposalID)
+	require.NoError(t, err)
+	require.True(t, useZK)
+
+	useZK, err = submitter.shouldUseZKProof(t.Context(), big.NewInt(16), lastFinalizedProposalID)
+	require.NoError(t, err)
+	require.False(t, useZK)
+}
+
+func TestShouldUseZKProofRequiresCleanProver(t *testing.T) {
+	submitter := &ProofSubmitter{
+		maxZKProofProposalDistance: big.NewInt(30),
+		zkvmProofProducer:          &mockProverAdminProducer{cleanAfter: 2},
+	}
+
+	useZK, err := submitter.shouldUseZKProof(t.Context(), big.NewInt(40), big.NewInt(10))
+	require.NoError(t, err)
+	require.False(t, useZK)
 }
 
 func TestFlushCacheSkipsEmptyCache(t *testing.T) {

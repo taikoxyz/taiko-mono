@@ -209,9 +209,13 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			)
 			return ErrProposalOutOfAllowedRange
 		}
-		if !s.shouldUseZKProof(nextProposalID, lastFinalizedProposalID) {
+		shouldUseZK, err := s.shouldUseZKProof(ctx, nextProposalID, lastFinalizedProposalID)
+		if err != nil {
+			return err
+		}
+		if !shouldUseZK {
 			log.Info(
-				"Proposal too far from the last finalized proposal, skipping ZK proof",
+				"Skipping ZK proof",
 				"nextProposalID", nextProposalID,
 				"proposalID", proposalID,
 				"lastFinalizedProposalID", lastFinalizedProposalID,
@@ -299,14 +303,33 @@ func (s *ProofSubmitter) isProposalOutOfRange(
 	return proposalID.Cmp(maxAllowedProposalID) > 0 || proposalID.Cmp(lastFinalizedProposalID) <= 0
 }
 
-func (s *ProofSubmitter) shouldUseZKProof(nextProposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
+func (s *ProofSubmitter) shouldUseZKProof(
+	ctx context.Context,
+	nextProposalID *big.Int,
+	lastFinalizedProposalID *big.Int,
+) (bool, error) {
 	maxZKProofProposalDistance := s.maxZKProofProposalDistance
 	if maxZKProofProposalDistance == nil {
-		return true
+		return s.isZKVMProofProducerClean(ctx)
 	}
 
 	maxZKProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxZKProofProposalDistance)
-	return nextProposalID.Cmp(maxZKProofProposalID) <= 0
+	if nextProposalID.Cmp(maxZKProofProposalID) > 0 {
+		return false, nil
+	}
+	return s.isZKVMProofProducerClean(ctx)
+}
+
+func (s *ProofSubmitter) isZKVMProofProducerClean(ctx context.Context) (bool, error) {
+	proverAdmin, ok := s.zkvmProofProducer.(proofProducer.ProverAdmin)
+	if !ok {
+		return true, nil
+	}
+	status, err := proverAdmin.ProverStatus(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to get zkvm prover status: %w", err)
+	}
+	return status.Data.Clean, nil
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.
