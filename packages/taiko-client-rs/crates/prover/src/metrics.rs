@@ -60,6 +60,16 @@ impl ProverMetrics {
         &METRICS.shadow_would_submit
     }
 
+    /// Set the ZK backlog drain-mode gauge (1 = draining via SGX, 0 = ZK).
+    pub fn set_zk_backlog_sgx_mode(draining: bool) {
+        METRICS.zk_backlog_sgx_mode.set(if draining { 1.0 } else { 0.0 });
+    }
+
+    /// Count one fired ZK backlog clear.
+    pub fn inc_zk_backlog_clear() {
+        METRICS.zk_backlog_clear.inc();
+    }
+
     /// Record one completed proof generation of `elapsed` for `proof_type`,
     /// distinguishing single proofs from aggregations, mirroring Go's
     /// `updateProvingMetrics` (`prover/proof_producer/common.go:139-189`):
@@ -148,6 +158,10 @@ struct ProverMetricHandles {
     submission_reverted: IntCounter,
     /// Prove transactions shadow mode would have submitted.
     shadow_would_submit: IntCounter,
+    /// 1 while draining the ZK backlog via SGX, 0 while proving via ZK.
+    zk_backlog_sgx_mode: Gauge,
+    /// Number of ZK backlog clear requests fired on entering SGX-draining mode.
+    zk_backlog_clear: IntCounter,
     /// sgxgeth single-proof generation collectors.
     sgx_geth_single: GenerationMetrics,
     /// sgx single-proof generation collectors.
@@ -202,6 +216,14 @@ impl ProverMetricHandles {
                 "taiko_prover_shadow_would_submit",
                 "Prove transactions shadow mode would have submitted",
             ),
+            zk_backlog_sgx_mode: gauge(
+                "taiko_prover_zk_backlog_sgx_mode",
+                "1 while draining the ZK backlog via SGX, 0 while proving via ZK",
+            ),
+            zk_backlog_clear: counter(
+                "taiko_prover_zk_backlog_clear",
+                "ZK backlog clear requests fired on entering SGX-draining mode",
+            ),
             sgx_geth_single: GenerationMetrics::new("taiko_prover_proof_sgx_geth", "sgxgeth"),
             sgx_single: GenerationMetrics::new("taiko_prover_proof_sgx", "sgx"),
             r0_single: GenerationMetrics::new("taiko_prover_proof_r0", "risc0"),
@@ -223,5 +245,20 @@ impl ProverMetricHandles {
                 "sp1 aggregation",
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProverMetrics;
+
+    #[test]
+    fn zk_backlog_setters_are_callable_after_init() {
+        ProverMetrics::init();
+        // Exercising the setters must not panic and must be idempotent.
+        ProverMetrics::set_zk_backlog_sgx_mode(true);
+        ProverMetrics::set_zk_backlog_sgx_mode(false);
+        ProverMetrics::inc_zk_backlog_clear();
+        ProverMetrics::inc_zk_backlog_clear();
     }
 }
