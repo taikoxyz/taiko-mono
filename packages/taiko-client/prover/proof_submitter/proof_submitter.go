@@ -209,24 +209,26 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			)
 			return ErrProposalOutOfAllowedRange
 		}
-		shouldUseZK, err := s.shouldUseZKProof(ctx, nextProposalID, lastFinalizedProposalID)
-		if err != nil {
-			return err
-		}
-		if !shouldUseZK {
-			log.Info(
-				"Skipping ZK proof",
-				"nextProposalID", nextProposalID,
-				"proposalID", proposalID,
-				"lastFinalizedProposalID", lastFinalizedProposalID,
-				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
-			)
-			useZK = false
-			if proofResponse != nil && proofResponse.ProofType != "" {
-				if err := s.clearProofItemsByTypeAndResendOnce(ctx, proofResponse.ProofType); err != nil {
-					return err
+		if s.zkvmProofProducer != nil {
+			shouldUseZK, err := s.shouldUseZKProof(ctx, nextProposalID, lastFinalizedProposalID)
+			if err != nil {
+				return err
+			}
+			if !shouldUseZK {
+				log.Info(
+					"Skipping ZK proof",
+					"nextProposalID", nextProposalID,
+					"proposalID", proposalID,
+					"lastFinalizedProposalID", lastFinalizedProposalID,
+					"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
+				)
+				useZK = false
+				if proofResponse != nil && proofResponse.ProofType != "" {
+					if err := s.clearProofItemsByTypeAndResendOnce(ctx, proofResponse.ProofType); err != nil {
+						return err
+					}
+					proofResponse = nil
 				}
-				proofResponse = nil
 			}
 		}
 
