@@ -82,7 +82,7 @@ fn shutdown_block_window_is_one_hundred_forty_four_seconds() {
 
 #[test]
 fn reconcile_clamps_down_when_counter_exceeds_reth_head() {
-    // The L1-reorg wedge: counter stuck above reth's rewound head -> clamp to head.
+    // The L1-reorg wedge: counter stuck above reth's rewound head -> report the head.
     assert_eq!(reconcile_highest_unsafe(5_811_227, Some(5_811_208)), 5_811_208);
 }
 
@@ -93,9 +93,12 @@ fn reconcile_keeps_counter_when_equal_to_reth_head() {
 }
 
 #[test]
-fn reconcile_keeps_counter_when_below_reth_head() {
-    // Legitimate catch-up state (reth ahead via L1 derivation); must NOT be raised.
-    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_227)), 5_811_208);
+fn reconcile_reports_head_when_counter_below_reth_head() {
+    // The catch-up wedge: reth advanced via canonical L1 derivation while no gossip was
+    // flowing, so the counter was never raised. Catalyst's sync gate requires the
+    // reported value to equal the head exactly; a lagging report blocks preconfirmation
+    // (and triggers Catalyst self-restarts) until a driver restart re-seeds the counter.
+    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_227)), 5_811_227);
 }
 
 #[test]
