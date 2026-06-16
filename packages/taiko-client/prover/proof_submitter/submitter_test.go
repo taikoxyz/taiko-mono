@@ -157,6 +157,22 @@ func TestClearProofItemsByTypeAndResendOnceOnlyTriggersOnce(t *testing.T) {
 	require.Zero(t, zkvmProducer.statusCount)
 }
 
+func TestResetProofItemsClearResendAfterZKProofRequest(t *testing.T) {
+	submitter := &ProofSubmitter{}
+
+	submitter.resetProofItemsClearResendAfterZKProofRequest(false)
+	require.False(t, submitter.proofItemsClearResendExecuted.Load())
+
+	submitter.proofItemsClearResendExecuted.Store(true)
+	require.True(t, submitter.proofItemsClearResendExecuted.Load())
+
+	submitter.resetProofItemsClearResendAfterZKProofRequest(false)
+	require.True(t, submitter.proofItemsClearResendExecuted.Load())
+
+	submitter.resetProofItemsClearResendAfterZKProofRequest(true)
+	require.False(t, submitter.proofItemsClearResendExecuted.Load())
+}
+
 func TestIsProposalOutOfRange(t *testing.T) {
 	t.Run("nil window size disables range check", func(t *testing.T) {
 		submitter := &ProofSubmitter{proposalWindowSize: nil}

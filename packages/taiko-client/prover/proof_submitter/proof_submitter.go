@@ -234,13 +234,16 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 
 		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
 		if s.zkvmProofProducer != nil && useZK {
-			if proofResponse, err = s.zkvmProofProducer.RequestProof(
+			wasClearResendExecuted := s.proofItemsClearResendExecuted.Load()
+			proofResponse, err = s.zkvmProofProducer.RequestProof(
 				ctx,
 				opts,
 				meta.Shasta().GetEventData().Id,
 				meta,
 				startAt,
-			); err != nil {
+			)
+			s.resetProofItemsClearResendAfterZKProofRequest(wasClearResendExecuted)
+			if err != nil {
 				if time.Since(startAt) > maxProofRequestTimeout {
 					log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
 					useZK = false
@@ -515,6 +518,12 @@ func (s *ProofSubmitter) clearProofItemsByTypeAndResendOnce(ctx context.Context,
 		return err
 	}
 	return s.clearProofItemsByTypeAndResend(proofType)
+}
+
+func (s *ProofSubmitter) resetProofItemsClearResendAfterZKProofRequest(wasClearResendExecuted bool) {
+	if wasClearResendExecuted {
+		s.proofItemsClearResendExecuted.Store(false)
+	}
 }
 
 func (s *ProofSubmitter) clearZKVMProofProducer(ctx context.Context) error {
