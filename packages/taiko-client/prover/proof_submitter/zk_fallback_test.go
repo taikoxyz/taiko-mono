@@ -91,9 +91,11 @@ func (s *ZKFallbackTestSuite) TestMarkSGXFallbackConcurrentSingleWinner() {
 	s.True(sub.inSGXFallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKMachineDisabled() {
+func (s *ZKFallbackTestSuite) TestDecideUseZKDistanceZeroSkipsZK() {
+	// distance 0 preserves the pre-#21795 stateless behavior: never use ZK, and the
+	// drain/resume machine stays inactive (no latch, no clear).
 	sub := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(0), zkBacklog: &fakeZKBacklog{}}
-	s.True(sub.decideUseZK(context.Background(), big.NewInt(1000), big.NewInt(1)))
+	s.False(sub.decideUseZK(context.Background(), big.NewInt(1000), big.NewInt(1)))
 	s.False(sub.inSGXFallback())
 }
 

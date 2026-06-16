@@ -67,14 +67,13 @@ func (s *ProofSubmitter) decideUseZK(
 	proposalID *big.Int,
 	lastFinalizedProposalID *big.Int,
 ) bool {
-	// Machine disabled when no distance is configured.
-	if s.maxZKProofProposalDistance == nil || s.maxZKProofProposalDistance.Sign() <= 0 {
-		return true
-	}
-	// No ZK endpoint configured (no control-plane client): bypass the drain/resume
-	// machine and keep the stateless distance check. This also guarantees zkBacklog
-	// is non-nil below, so canResumeZK/fireClearAsync can dereference it safely.
-	if s.zkBacklog == nil {
+	// Machine inactive: no positive distance configured, or no control-plane client.
+	// Preserve the stateless behavior from #21782 (nil = use ZK, 0 = skip ZK,
+	// N = within N proposals). When zkBacklog is nil this also guarantees the machine
+	// paths below never dereference it (canResumeZK/fireClearAsync).
+	if s.maxZKProofProposalDistance == nil ||
+		s.maxZKProofProposalDistance.Sign() <= 0 ||
+		s.zkBacklog == nil {
 		return s.shouldUseZKProof(proposalID, lastFinalizedProposalID)
 	}
 
