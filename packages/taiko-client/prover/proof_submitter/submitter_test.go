@@ -154,7 +154,7 @@ func TestClearProofItemsByTypeAndResendOnceOnlyTriggersOnce(t *testing.T) {
 	require.Equal(t, 1, buffer.Len())
 	require.True(t, cacheMap.Has(secondCachedProof.BatchID.String()))
 	require.Equal(t, 1, zkvmProducer.clearCount)
-	require.Equal(t, 1, zkvmProducer.statusCount)
+	require.Zero(t, zkvmProducer.statusCount)
 }
 
 func TestIsProposalOutOfRange(t *testing.T) {

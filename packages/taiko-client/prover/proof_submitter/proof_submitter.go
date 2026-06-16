@@ -508,13 +508,13 @@ func (s *ProofSubmitter) clearProofItemsByTypeAndResendOnce(ctx context.Context,
 	if !s.proofItemsClearResendExecuted.CompareAndSwap(false, true) {
 		return nil
 	}
-	if err := s.clearZKVMProofProducerAndWaitClean(ctx); err != nil {
+	if err := s.clearZKVMProofProducer(ctx); err != nil {
 		return err
 	}
 	return s.clearProofItemsByTypeAndResend(proofType)
 }
 
-func (s *ProofSubmitter) clearZKVMProofProducerAndWaitClean(ctx context.Context) error {
+func (s *ProofSubmitter) clearZKVMProofProducer(ctx context.Context) error {
 	proverAdmin, ok := s.zkvmProofProducer.(proofProducer.ProverAdmin)
 	if !ok {
 		return nil
@@ -522,30 +522,7 @@ func (s *ProofSubmitter) clearZKVMProofProducerAndWaitClean(ctx context.Context)
 	if err := proverAdmin.ClearProver(ctx); err != nil {
 		return fmt.Errorf("failed to clear zkvm prover: %w", err)
 	}
-
-	pollingInterval := s.proofPollingInterval
-	if pollingInterval <= 0 {
-		pollingInterval = chainiterator.DefaultRetryInterval
-	}
-	return backoff.Retry(func() error {
-		status, err := proverAdmin.ProverStatus(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get zkvm prover status: %w", err)
-		}
-		if status.Data.Clean {
-			return nil
-		}
-		log.Info(
-			"Waiting for zkvm prover to become clean",
-			"pending", status.Data.Tasks.Pending,
-			"ready", status.Data.Tasks.Ready,
-			"retrying", status.Data.Tasks.Retrying,
-			"running", status.Data.Tasks.Running,
-			"sp1InflightOrders", status.Data.Network.SP1.InflightOrders,
-			"risc0InflightOrders", status.Data.Network.Risc0.InflightOrders,
-		)
-		return proofProducer.ErrProofInProgress
-	}, backoff.WithContext(backoff.NewConstantBackOff(pollingInterval), ctx))
+	return nil
 }
 
 // TryAggregate tries to aggregate the proofs in the buffer, if the buffer is full,
