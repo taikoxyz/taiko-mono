@@ -21,7 +21,9 @@ use crate::{
     error::{ProverError, Result},
     handler::{ProvingDecision, proving_window_status, route_proposal, should_prove},
     metrics::ProverMetrics,
-    producer::{BatchProofs, ComposeProofProducer, ProofProducer, SgxGethProofProducer},
+    producer::{
+        BatchProofs, ComposeProofProducer, ProofProducer, SgxGethProofProducer, ZkBacklogController,
+    },
     raiko::{ProofType, RaikoClient, RaikoClientConfig},
     state::SharedState,
     submitter::{
@@ -99,14 +101,23 @@ impl Prover {
         let sgx_geth = SgxGethProofProducer::new(base_raiko.clone(), cfg.dummy);
         let base_producer: Arc<dyn ProofProducer> =
             Arc::new(ComposeProofProducer::new_sgx(base_raiko, sgx_geth.clone(), cfg.dummy));
-        let zkvm_producer: Option<Arc<dyn ProofProducer>> =
+        // Build the ZK compose producer once, then view the same Arc as both a
+        // proof producer and a raiko2 control-plane client (no downcasting). When
+        // no ZK host is set, both stay None and the drain/resume machine is
+        // inactive; when the host predates raiko2 #93 the control-plane calls 404
+        // and the machine degrades by design (see `ZkFallback::can_resume`).
+        let zkvm_compose: Option<Arc<ComposeProofProducer>> =
             cfg.raiko_zkvm_host.as_ref().map(|host| {
                 Arc::new(ComposeProofProducer::new_zkvm(
                     RaikoClient::new(raiko_client_config(&cfg, host.clone())),
                     sgx_geth.clone(),
                     cfg.dummy,
-                )) as Arc<dyn ProofProducer>
+                ))
             });
+        let zkvm_producer: Option<Arc<dyn ProofProducer>> =
+            zkvm_compose.clone().map(|producer| producer as Arc<dyn ProofProducer>);
+        let zk_backlog: Option<Arc<dyn ZkBacklogController>> =
+            zkvm_compose.map(|producer| producer as Arc<dyn ZkBacklogController>);
 
         // Buffers/caches keyed exactly like Go `init.go:86-96`: SGX uses the
         // sgx batch size; risc0/sp1 share the zkvm batch size.
@@ -129,7 +140,7 @@ impl Prover {
         let pipeline = Arc::new(Pipeline::new(
             base_producer,
             zkvm_producer,
-            None,
+            zk_backlog,
             buffers,
             caches,
             SubmitterChannels {
