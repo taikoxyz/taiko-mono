@@ -232,14 +232,11 @@ impl Pipeline {
             proposal_id <= last_finalized
     }
 
-    /// Whether a ZK proof should be requested for `proposal_id`: false once it
-    /// is more than `max_zk_proof_proposal_distance` ahead of the last finalized
-    /// proposal, so the prover falls back to the faster base proof to catch up.
-    ///
-    /// Rust-only catch-up optimization with no Go equivalent: the Go prover has
-    /// no proposal-distance gate (its ZK fallback is purely the 1h timeout plus
-    /// `zk_any_not_drawn`). Disable by setting the distance high enough that it
-    /// never triggers.
+    /// Stateless distance check: whether a ZK proof is allowed for `proposal_id`,
+    /// i.e. it is within `max_zk_proof_proposal_distance` of the last finalized
+    /// proposal (Go `shouldUseZKProof`, #21782). This is the input to the latched
+    /// drain/resume machine in [`Self::decide_use_zk`] (#21795); when that machine
+    /// is inactive it is also the final verdict.
     #[must_use]
     fn should_use_zk_proof(&self, proposal_id: u64, last_finalized: u64) -> bool {
         proposal_id <= last_finalized + self.cfg.max_zk_proof_proposal_distance
@@ -1179,8 +1176,8 @@ mod tests {
 
     #[test]
     fn should_use_zk_proof_boundary() {
-        // Rust-only distance gate (no Go equivalent): distance 30, last
-        // finalized 10 → 40 ok, 41 falls back to the base proof.
+        // Stateless distance gate (Go `shouldUseZKProof`, #21782): distance 30,
+        // last finalized 10 → 40 ok, 41 falls back to the base proof.
         let h = harness(Arc::new(MockProducer::default()), Duration::from_secs(3_600), 2);
         assert!(h.pipeline.should_use_zk_proof(40, 10));
         assert!(!h.pipeline.should_use_zk_proof(41, 10));

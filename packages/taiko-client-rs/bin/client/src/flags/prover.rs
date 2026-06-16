@@ -75,7 +75,10 @@ pub struct ProverArgs {
         long = "prover.maxZKProofProposalDistance",
         env = "PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE",
         default_value = "30",
-        help = "Maximum proposal distance above lastFinalizedProposalID for requesting ZK proofs; beyond it the prover requests the base proof instead"
+        help = "Maximum proposal distance above lastFinalizedProposalID for requesting ZK proofs. \
+                Beyond it the prover stops requesting ZK, clears the ZK backlog, and drains via the \
+                base (SGX) proof until the backlog is cleared and the ZK endpoint reports clean, then \
+                resumes ZK. Set to 0 to disable ZK proving (always use the base/SGX proof)."
     )]
     pub max_zk_proof_proposal_distance: u64,
     /// Produce filler proofs instead of calling raiko (tests/devnet).
@@ -195,6 +198,7 @@ mod tests {
         assert!(help.contains("--prover.shadowMode"));
         assert!(help.contains("--l1.proverPrivKey"));
         assert!(help.contains("--prover.maxZKProofProposalDistance"));
+        assert!(help.contains("drains via the base (SGX) proof"));
     }
 
     #[test]
