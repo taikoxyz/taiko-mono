@@ -95,10 +95,11 @@ impl RaikoClient {
             .join(Self::CLEAR_PATH)
             .map_err(|_| RaikoError::Failed("invalid raiko endpoint".to_owned()))?;
         let resp = self.with_api_key(self.http.post(url)).send().await?;
-        if resp.status() != reqwest::StatusCode::OK {
+        let status = resp.status();
+        if status != reqwest::StatusCode::OK {
             return Err(RaikoError::Failed(format!(
                 "raiko returned http status {}",
-                resp.status().as_u16()
+                status.as_u16()
             )));
         }
         Ok(())
@@ -113,10 +114,11 @@ impl RaikoClient {
             .join(Self::STATUS_PATH)
             .map_err(|_| RaikoError::Failed("invalid raiko endpoint".to_owned()))?;
         let resp = self.with_api_key(self.http.get(url)).send().await?;
-        if resp.status() != reqwest::StatusCode::OK {
+        let status = resp.status();
+        if status != reqwest::StatusCode::OK {
             return Err(RaikoError::Failed(format!(
                 "raiko returned http status {}",
-                resp.status().as_u16()
+                status.as_u16()
             )));
         }
         Ok(resp.json::<RaikoProverStatusResponse>().await?.data.clean)
