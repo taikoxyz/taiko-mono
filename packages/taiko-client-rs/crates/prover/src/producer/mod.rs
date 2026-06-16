@@ -3,6 +3,7 @@
 mod compose;
 mod dummy;
 mod sgx_geth;
+mod zk_backlog;
 
 use std::time::Instant;
 
@@ -10,6 +11,7 @@ use alloy_primitives::{Address, B256, Bytes, hex};
 pub use compose::ComposeProofProducer;
 pub use dummy::DummyProofProducer;
 pub use sgx_geth::SgxGethProofProducer;
+pub use zk_backlog::ZkBacklogController;
 
 use crate::{
     error::{ProverError, Result},

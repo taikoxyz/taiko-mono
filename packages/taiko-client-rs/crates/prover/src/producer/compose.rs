@@ -9,11 +9,11 @@ use alloy_primitives::Bytes;
 use super::{
     BatchProofs, DummyProofProducer, ProofProducer, ProofRequest, ProofResponse, RISC0_VERIFIER_ID,
     SGX_GETH_VERIFIER_ID, SGX_RETH_VERIFIER_ID, SP1_VERIFIER_ID, SgxGethProofProducer,
-    decode_proof_payload, prover_hex, raiko_proposals, request_validated,
+    ZkBacklogController, decode_proof_payload, prover_hex, raiko_proposals, request_validated,
 };
 use crate::{
     error::{ProverError, Result},
-    raiko::{ProofType, RaikoClient, types::RaikoBatchProofRequest},
+    raiko::{ProofType, RaikoClient, RaikoError, types::RaikoBatchProofRequest},
 };
 
 /// Join the base and sgxgeth results, prioritising the base error so
@@ -62,6 +62,25 @@ impl ComposeProofProducer {
     #[must_use]
     pub fn new_zkvm(raiko: RaikoClient, sgx_geth: SgxGethProofProducer, dummy: bool) -> Self {
         Self { raiko, sgx_geth, proof_type: ProofType::ZkAny, dummy }
+    }
+}
+
+#[async_trait::async_trait]
+impl ZkBacklogController for ComposeProofProducer {
+    /// Short-circuits in dummy mode; otherwise clears the ZK host's backlog.
+    async fn clear_backlog(&self) -> std::result::Result<(), RaikoError> {
+        if self.dummy {
+            return Ok(());
+        }
+        self.raiko.clear_backlog().await
+    }
+
+    /// Short-circuits to "clean" in dummy mode; otherwise queries the ZK host.
+    async fn status_clean(&self) -> std::result::Result<bool, RaikoError> {
+        if self.dummy {
+            return Ok(true);
+        }
+        self.raiko.prover_status_clean().await
     }
 }
 
@@ -491,5 +510,65 @@ mod tests {
         assert_eq!(batch.verifier_id, SGX_RETH_VERIFIER_ID);
 
         assert!(seen.lock().await.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod zk_backlog_tests {
+    use std::{net::SocketAddr, time::Duration};
+
+    use super::ComposeProofProducer;
+    use crate::{
+        producer::{SgxGethProofProducer, ZkBacklogController},
+        raiko::{RaikoClient, RaikoClientConfig},
+    };
+
+    fn raiko_for(addr: SocketAddr) -> RaikoClient {
+        RaikoClient::new(RaikoClientConfig {
+            endpoint: format!("http://{addr}").parse().unwrap(),
+            api_key: None,
+            request_timeout: Duration::from_secs(5),
+        })
+    }
+
+    async fn spawn_app(app: axum::Router) -> SocketAddr {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        addr
+    }
+
+    fn dummy_compose() -> ComposeProofProducer {
+        // endpoint is never hit in dummy mode; any URL parses fine.
+        let raiko = RaikoClient::new(RaikoClientConfig {
+            endpoint: "http://127.0.0.1:1".parse().unwrap(),
+            api_key: None,
+            request_timeout: Duration::from_secs(5),
+        });
+        let sgx_geth = SgxGethProofProducer::new(raiko.clone(), true);
+        ComposeProofProducer::new_zkvm(raiko, sgx_geth, true)
+    }
+
+    #[tokio::test]
+    async fn dummy_short_circuits_clear_and_status() {
+        let producer = dummy_compose();
+        producer.clear_backlog().await.unwrap();
+        assert!(producer.status_clean().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn non_dummy_delegates_status_to_raiko() {
+        let app = axum::Router::new().route(
+            "/v3/prover/status",
+            axum::routing::get(|| async {
+                axum::Json(serde_json::json!({ "data": { "clean": true } }))
+            }),
+        );
+        let addr = spawn_app(app).await;
+        let raiko = raiko_for(addr);
+        let sgx_geth = SgxGethProofProducer::new(raiko.clone(), false);
+        let producer = ComposeProofProducer::new_zkvm(raiko, sgx_geth, false);
+
+        assert!(producer.status_clean().await.unwrap());
     }
 }
