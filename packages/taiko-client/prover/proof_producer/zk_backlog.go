@@ -2,9 +2,7 @@ package producer
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -31,45 +29,6 @@ type raikoProverStatusResponse struct {
 	} `json:"data"`
 }
 
-// requestRaikoControlPlane sends a bodyless request (GET or POST) to a raiko2
-// control-plane endpoint and unmarshals the JSON response into U. A non-200
-// status code (including 404 when the endpoint is absent) returns an error.
-func requestRaikoControlPlane[U any](
-	ctx context.Context,
-	method string,
-	url string,
-	apiKey string,
-) (*U, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	if len(apiKey) > 0 {
-		req.Header.Set("X-API-KEY", apiKey)
-	}
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code from %s: %d", url, res.StatusCode)
-	}
-
-	resBytes, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var output U
-	if err := json.Unmarshal(resBytes, &output); err != nil {
-		return nil, err
-	}
-	return &output, nil
-}
-
 // ClearBacklog implements the ZKBacklogController interface.
 func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	if s.Dummy {
@@ -79,11 +38,12 @@ func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	defer cancel()
 
 	// The clear endpoint only needs to return HTTP 200; its response body is unused.
-	if _, err := requestRaikoControlPlane[struct{}](
+	if _, err := requestRaiko[struct{}](
 		ctx,
 		http.MethodPost,
 		s.RaikoHostEndpoint+"/v3/prover/clear",
 		s.ApiKey,
+		nil,
 	); err != nil {
 		return fmt.Errorf("failed to clear ZK backlog: %w", err)
 	}
@@ -98,11 +58,12 @@ func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 	ctx, cancel := rpc.CtxWithTimeoutOrDefault(ctx, s.RaikoRequestTimeout)
 	defer cancel()
 
-	out, err := requestRaikoControlPlane[raikoProverStatusResponse](
+	out, err := requestRaiko[raikoProverStatusResponse](
 		ctx,
 		http.MethodGet,
 		s.RaikoHostEndpoint+"/v3/prover/status",
 		s.ApiKey,
+		nil,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to get ZK prover status: %w", err)
