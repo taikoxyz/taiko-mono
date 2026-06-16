@@ -254,6 +254,21 @@ mod tests {
         assert!(f.can_resume(11, 10).await, "status error degrades to resume on (A) alone");
     }
 
+    #[tokio::test]
+    async fn fire_clear_async_retries_then_gives_up() {
+        // Persistent clear failure → exactly CLEAR_MAX_RETRIES + 1 = 6 attempts.
+        let controller = Arc::new(FakeZkBacklog { clear_err: true, ..FakeZkBacklog::new(true) });
+        let f = ZkFallback::new(Some(controller.clone()), Duration::from_millis(1));
+        f.fire_clear_async();
+        for _ in 0..1000 {
+            if controller.clear_calls.load(Ordering::SeqCst) >= 6 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        assert_eq!(controller.clear_calls.load(Ordering::SeqCst), 6, "6 attempts then give up");
+    }
+
     #[test]
     fn inactive_without_controller() {
         let f = ZkFallback::new(None, Duration::from_millis(1));

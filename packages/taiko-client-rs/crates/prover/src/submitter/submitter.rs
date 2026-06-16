@@ -1282,13 +1282,14 @@ mod tests {
             4,
             5,
         );
-        // Seed a buffered ZK (risc0) proof that must be flushed and resent.
+        // Seed a buffered ZK (risc0) proof AND a cached one; both must be flushed + resent.
         h.pipeline
             .buffers()
             .get(&ProofType::Risc0)
             .unwrap()
             .write(response(11, ProofType::Risc0))
             .unwrap();
+        h.pipeline.caches().get(&ProofType::Risc0).unwrap().insert(response(12, ProofType::Risc0));
 
         // Breach: proposal 100 > last_finalized 10 + distance 5.
         assert!(!h.pipeline.decide_use_zk(100, 10).await);
@@ -1298,19 +1299,77 @@ mod tests {
             0,
             "ZK buffer flushed on latch"
         );
-        // The flushed proposal is resent for SGX proving.
-        assert_eq!(h.request_rx.try_recv().unwrap().proposal_id, 11);
+        assert_eq!(
+            h.pipeline.caches().get(&ProofType::Risc0).unwrap().len(),
+            0,
+            "ZK cache flushed on latch"
+        );
 
-        // The one-off clear fires in the background; wait briefly for it.
-        for _ in 0..200 {
+        // Both the buffered (11) and cached (12) proposals are resent for SGX proving.
+        let mut resent = vec![
+            h.request_rx.try_recv().unwrap().proposal_id,
+            h.request_rx.try_recv().unwrap().proposal_id,
+        ];
+        resent.sort_unstable();
+        assert_eq!(resent, vec![11, 12]);
+        assert!(h.request_rx.try_recv().is_err(), "nothing else resent");
+
+        // The one-off clear fires in the background; wait for it.
+        for _ in 0..500 {
             if controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst) > 0 {
                 break;
             }
             tokio::time::sleep(Duration::from_millis(1)).await;
         }
-        assert!(
-            controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst) >= 1,
-            "one-off clear fired on latch"
+        assert_eq!(
+            controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "one-off clear fired exactly once on latch"
+        );
+
+        // A second breach while already latched must NOT re-clear or re-latch.
+        assert!(!h.pipeline.decide_use_zk(200, 10).await);
+        assert!(h.pipeline.zk_fallback.in_sgx());
+        assert_eq!(
+            controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "no re-clear on a second breach while latched"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn decide_use_zk_concurrent_breach_clears_once() {
+        let controller = Arc::new(FakeZkBacklog::new(true));
+        let h = harness_with(
+            Arc::new(MockProducer::default()),
+            Some(Arc::new(MockProducer::default())),
+            Some(controller.clone()),
+            Duration::from_secs(3_600),
+            4,
+            5,
+        );
+        let pipeline = Arc::new(h.pipeline);
+        let mut handles = Vec::new();
+        for _ in 0..50 {
+            let p = pipeline.clone();
+            handles.push(tokio::spawn(async move { p.decide_use_zk(100, 10).await }));
+        }
+        for handle in handles {
+            assert!(!handle.await.unwrap(), "every concurrent caller sees the breach (SGX)");
+        }
+        assert!(pipeline.zk_fallback.in_sgx(), "latched exactly once");
+
+        // Only the single mark_sgx winner fires the clear.
+        for _ in 0..500 {
+            if controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+        assert_eq!(
+            controller.clear_calls.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "clear fires exactly once under concurrent breaches"
         );
     }
 
