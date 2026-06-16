@@ -85,6 +85,22 @@ where
     Ok(raw.and_then(|s| serde_json::from_value(serde_json::Value::String(s)).ok()))
 }
 
+/// Body of `GET /v3/prover/status` (raiko2 #93). Only `data.clean` is consumed;
+/// the other fields (`status`, `tasks`, `network`) are intentionally ignored.
+#[derive(Debug, Clone, Deserialize)]
+pub struct RaikoProverStatusResponse {
+    /// Status payload; only `clean` is read.
+    pub data: RaikoProverStatusData,
+}
+
+/// The `data` object of `GET /v3/prover/status`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct RaikoProverStatusData {
+    /// Whether the ZK backend is fully idle (no in-flight or queued work).
+    #[serde(default)]
+    pub clean: bool,
+}
+
 /// Proof payload and status (Go `RaikoProofDataV2`).
 #[derive(Debug, Clone, Deserialize)]
 pub struct RaikoProofData {

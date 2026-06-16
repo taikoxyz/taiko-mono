@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use url::Url;
 
-use super::types::{RaikoBatchProofRequest, RaikoError, RaikoProofResponse};
+use super::types::{
+    RaikoBatchProofRequest, RaikoError, RaikoProofResponse, RaikoProverStatusResponse,
+};
 
 /// Connection settings for [`RaikoClient`].
 #[derive(Debug, Clone)]
@@ -29,6 +31,10 @@ pub struct RaikoClient {
 impl RaikoClient {
     /// Endpoint path for Shasta batch proofs (Go `compose_proof_producer.go:261`).
     const BATCH_PROOF_PATH: &'static str = "/v3/proof/batch/shasta";
+    /// Endpoint path for discarding the ZK (`zk_any`) backlog (raiko2 #93).
+    const CLEAR_PATH: &'static str = "/v3/prover/clear";
+    /// Endpoint path for the ZK backend idle status (raiko2 #93).
+    const STATUS_PATH: &'static str = "/v3/prover/status";
 
     /// Build a client; panics only if the TLS backend fails to initialize.
     #[must_use]
@@ -54,11 +60,7 @@ impl RaikoClient {
             .endpoint
             .join(Self::BATCH_PROOF_PATH)
             .map_err(|_| RaikoError::Failed("invalid raiko endpoint".to_owned()))?;
-        let mut req = self.http.post(url).json(request);
-        if let Some(key) = self.cfg.api_key.as_deref().map(str::trim).filter(|k| !k.is_empty()) {
-            req = req.header("X-API-KEY", key);
-        }
-        let resp = req.send().await?;
+        let resp = self.with_api_key(self.http.post(url).json(request)).send().await?;
         let status = resp.status();
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
             tracing::error!(
@@ -73,6 +75,51 @@ impl RaikoClient {
             )));
         }
         Ok(resp.json::<RaikoProofResponse>().await?)
+    }
+
+    /// Apply the optional `X-API-KEY` header (omitted when `None`/empty), Go
+    /// `common.go:114-116`.
+    fn with_api_key(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        match self.cfg.api_key.as_deref().map(str::trim).filter(|key| !key.is_empty()) {
+            Some(key) => req.header("X-API-KEY", key),
+            None => req,
+        }
+    }
+
+    /// `POST /v3/prover/clear` — discard non-terminal `zk_any` tasks on the ZK
+    /// backend. HTTP 200 = success; the response body is unused.
+    pub async fn clear_backlog(&self) -> Result<(), RaikoError> {
+        let url = self
+            .cfg
+            .endpoint
+            .join(Self::CLEAR_PATH)
+            .map_err(|_| RaikoError::Failed("invalid raiko endpoint".to_owned()))?;
+        let resp = self.with_api_key(self.http.post(url)).send().await?;
+        if resp.status() != reqwest::StatusCode::OK {
+            return Err(RaikoError::Failed(format!(
+                "raiko returned http status {}",
+                resp.status().as_u16()
+            )));
+        }
+        Ok(())
+    }
+
+    /// `GET /v3/prover/status` — true iff `data.clean`, i.e. the ZK backend is
+    /// fully idle.
+    pub async fn prover_status_clean(&self) -> Result<bool, RaikoError> {
+        let url = self
+            .cfg
+            .endpoint
+            .join(Self::STATUS_PATH)
+            .map_err(|_| RaikoError::Failed("invalid raiko endpoint".to_owned()))?;
+        let resp = self.with_api_key(self.http.get(url)).send().await?;
+        if resp.status() != reqwest::StatusCode::OK {
+            return Err(RaikoError::Failed(format!(
+                "raiko returned http status {}",
+                resp.status().as_u16()
+            )));
+        }
+        Ok(resp.json::<RaikoProverStatusResponse>().await?.data.clean)
     }
 }
 
@@ -207,5 +254,75 @@ mod tests {
             RaikoError::Http(e) => assert!(e.is_timeout(), "expected timeout, got {e:?}"),
             other => panic!("expected RaikoError::Http, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn clear_backlog_posts_to_clear_endpoint() {
+        let app = axum::Router::new().route(
+            "/v3/prover/clear",
+            axum::routing::post(|headers: axum::http::HeaderMap| async move {
+                assert_eq!(headers.get("x-api-key").unwrap(), "secret");
+                axum::Json(serde_json::json!({ "status": "ok" }))
+            }),
+        );
+        let addr = spawn_app(app).await;
+
+        let client = client_for(addr, Some("secret".into()), Duration::from_secs(5));
+        client.clear_backlog().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn clear_backlog_errors_on_non_200() {
+        let app = axum::Router::new().route(
+            "/v3/prover/clear",
+            axum::routing::post(|| async { axum::http::StatusCode::INTERNAL_SERVER_ERROR }),
+        );
+        let addr = spawn_app(app).await;
+
+        let client = client_for(addr, None, Duration::from_secs(5));
+        assert!(client.clear_backlog().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn prover_status_clean_parses_clean_field() {
+        let app = axum::Router::new().route(
+            "/v3/prover/status",
+            axum::routing::get(|| async {
+                axum::Json(serde_json::json!({
+                    "status": "ok",
+                    "data": { "clean": true, "tasks": { "pending": 0 } }
+                }))
+            }),
+        );
+        let addr = spawn_app(app).await;
+
+        let client = client_for(addr, None, Duration::from_secs(5));
+        assert!(client.prover_status_clean().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn prover_status_not_clean() {
+        let app = axum::Router::new().route(
+            "/v3/prover/status",
+            axum::routing::get(|| async {
+                axum::Json(serde_json::json!({ "data": { "clean": false } }))
+            }),
+        );
+        let addr = spawn_app(app).await;
+
+        let client = client_for(addr, None, Duration::from_secs(5));
+        assert!(!client.prover_status_clean().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn prover_status_errors_on_non_200() {
+        let app = axum::Router::new().route(
+            "/v3/prover/status",
+            axum::routing::get(|| async { axum::http::StatusCode::NOT_FOUND }),
+        );
+        let addr = spawn_app(app).await;
+
+        let client = client_for(addr, None, Duration::from_secs(5));
+        assert!(client.prover_status_clean().await.is_err());
     }
 }
