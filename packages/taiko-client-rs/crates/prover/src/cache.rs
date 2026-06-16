@@ -85,6 +85,14 @@ impl ProofCache {
         before - self.map.len()
     }
 
+    /// Remove and return every cached proof (used when flushing ZK caches on
+    /// entering SGX-draining mode). Keys are collected before removal so the
+    /// `DashMap` is never iterated while a shard is being mutated.
+    pub fn drain_all(&self) -> Vec<ProofResponse> {
+        let ids: Vec<u64> = self.map.iter().map(|entry| *entry.key()).collect();
+        ids.into_iter().filter_map(|id| self.map.remove(&id).map(|(_, value)| value)).collect()
+    }
+
     /// Number of cached proofs.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -199,5 +207,21 @@ mod tests {
         assert!(!cache.is_empty());
         assert_eq!(cache.prune_finalized(8), 1);
         assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn drain_all_removes_and_returns_every_entry() {
+        let cache = ProofCache::new();
+        for id in [3, 4, 7] {
+            cache.insert(test_response(id));
+        }
+
+        let mut drained: Vec<u64> =
+            cache.drain_all().iter().map(ProofResponse::proposal_id).collect();
+        drained.sort_unstable();
+
+        assert_eq!(drained, vec![3, 4, 7]);
+        assert!(cache.is_empty(), "cache emptied after drain_all");
+        assert!(cache.drain_all().is_empty(), "second drain returns nothing");
     }
 }
