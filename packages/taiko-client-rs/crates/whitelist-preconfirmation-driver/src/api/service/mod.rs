@@ -71,14 +71,18 @@ fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
     }
 }
 
-/// Clamp `tracked` down to `head`; never raise it, and leave it unchanged when `head`
-/// is `None`.
+/// Report `head` whenever it is known; fall back to `tracked` when it is `None`.
 ///
-/// The tracked value only ever moves up, so after the head moves backward (e.g. an L1
-/// reorg) it can be left above the head. Lowering it restores `tracked <= head` while
-/// still preserving a value that legitimately trails the head.
+/// The tracked value only moves on preconfirmation imports and local builds, so it can
+/// drift from the head in both directions: an L1 reorg rewinds the head below the
+/// counter, while canonical L1 derivation with no gossip traffic advances the head past
+/// it. Every canonical block was inserted by this driver, so the head is always an
+/// honest answer — and the Catalyst sidecar's sync gate requires the reported value to
+/// equal the execution head exactly before it starts (or resumes) preconfirming. A
+/// permanently lagging report would wedge the operator in a restart loop that only a
+/// driver restart clears.
 fn reconcile_highest_unsafe(tracked: u64, head: Option<u64>) -> u64 {
-    head.map_or(tracked, |h| tracked.min(h))
+    head.unwrap_or(tracked)
 }
 
 /// Implements whitelist preconfirmation API business logic.

@@ -54,9 +54,16 @@ type ProofSubmitter struct {
 	proofBuffers   map[proofProducer.ProofType]*proofProducer.ProofBuffer
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]
 	// Intervals
-	forceBatchProvingInterval time.Duration
-	proofPollingInterval      time.Duration
-	proposalWindowSize        *big.Int
+	forceBatchProvingInterval  time.Duration
+	proofPollingInterval       time.Duration
+	proposalWindowSize         *big.Int
+	maxZKProofProposalDistance *big.Int
+	// ZK backlog drain/resume state machine (see zk_fallback.go).
+	zkBacklog  proofProducer.ZKBacklogController
+	zkFallback zkFallback
+	// ctx is the prover's long-lived context, used by background goroutines
+	// (e.g. the ZK backlog clear) that must outlive a single RequestProof call.
+	ctx context.Context
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -75,6 +82,7 @@ func NewProofSubmitter(
 	proofCacheMaps map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse],
 	flushCacheNotify chan proofProducer.ProofType,
 	proposalWindowSize *big.Int,
+	maxZKProofProposalDistance *big.Int,
 ) (*ProofSubmitter, error) {
 	proofSubmitter := &ProofSubmitter{
 		rpc:                    senderOpts.RPCClient,
@@ -90,13 +98,25 @@ func NewProofSubmitter(
 			senderOpts.PrivateTxmgr,
 			senderOpts.GasLimit,
 		),
-		proverAddress:             senderOpts.Txmgr.From(),
-		proofPollingInterval:      proofPollingInterval,
-		proofBuffers:              proofBuffers,
-		forceBatchProvingInterval: forceBatchProvingInterval,
-		proofCacheMaps:            proofCacheMaps,
-		flushCacheNotify:          flushCacheNotify,
-		proposalWindowSize:        proposalWindowSize,
+		proverAddress:              senderOpts.Txmgr.From(),
+		proofPollingInterval:       proofPollingInterval,
+		proofBuffers:               proofBuffers,
+		forceBatchProvingInterval:  forceBatchProvingInterval,
+		proofCacheMaps:             proofCacheMaps,
+		flushCacheNotify:           flushCacheNotify,
+		proposalWindowSize:         proposalWindowSize,
+		maxZKProofProposalDistance: maxZKProofProposalDistance,
+		ctx:                        ctx,
+	}
+
+	// Wire the raiko2 control-plane client (ClearBacklog/StatusClean) when a ZK
+	// producer is configured. This is a compile-time capability check, not a probe
+	// of the remote host: with no ZK endpoint set, zkvmProofProducer is nil and
+	// zkBacklog stays nil, so decideUseZK bypasses the drain/resume machine. When a
+	// ZK endpoint IS set but its host predates raiko2 #93, the control-plane calls
+	// return 404 and the machine degrades by design (see canResumeZK).
+	if zkBacklog, ok := zkvmProofProducer.(proofProducer.ZKBacklogController); ok {
+		proofSubmitter.zkBacklog = zkBacklog
 	}
 
 	proofSubmitter.startBackgroundWorkers(ctx)
@@ -203,9 +223,15 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 			)
 			return ErrProposalOutOfAllowedRange
 		}
+		// backlogAllowsZK is the drain/resume state machine's verdict for this proposal
+		// (it may latch SGX mode + fire a one-off backlog clear, or resume ZK; see
+		// zk_fallback.go). useZK is the per-call fallback (zk_any_not_drawn / timeout)
+		// that sticks for the rest of this call. ZK is used only when both agree; once
+		// either goes false the ZK path stays off for the remaining retries.
+		backlogAllowsZK := s.decideUseZK(ctx, proposalID, lastFinalizedProposalID)
 
 		// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
-		if s.zkvmProofProducer != nil && useZK {
+		if s.zkvmProofProducer != nil && useZK && backlogAllowsZK {
 			if proofResponse, err = s.zkvmProofProducer.RequestProof(
 				ctx,
 				opts,
@@ -275,6 +301,16 @@ func (s *ProofSubmitter) isProposalOutOfRange(
 
 	maxAllowedProposalID := new(big.Int).Add(lastFinalizedProposalID, s.proposalWindowSize)
 	return proposalID.Cmp(maxAllowedProposalID) > 0 || proposalID.Cmp(lastFinalizedProposalID) <= 0
+}
+
+func (s *ProofSubmitter) shouldUseZKProof(proposalID *big.Int, lastFinalizedProposalID *big.Int) bool {
+	maxZKProofProposalDistance := s.maxZKProofProposalDistance
+	if maxZKProofProposalDistance == nil {
+		return true
+	}
+
+	maxZKProofProposalID := new(big.Int).Add(lastFinalizedProposalID, maxZKProofProposalDistance)
+	return proposalID.Cmp(maxZKProofProposalID) <= 0
 }
 
 // handleProofResponse routes a new proof into either the sequential buffer or cache.
