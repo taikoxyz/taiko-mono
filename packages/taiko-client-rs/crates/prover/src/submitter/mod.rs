@@ -6,6 +6,7 @@ pub mod monitor;
 pub mod submitter;
 pub mod transaction;
 pub mod tx_manager_adapter;
+mod zk_fallback;
 
 pub use submitter::{
     Pipeline, ProofRequestMeta, ProofSubmitter, SubmitterChannels, SubmitterConfig,
