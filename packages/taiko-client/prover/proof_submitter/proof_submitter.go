@@ -58,6 +58,9 @@ type ProofSubmitter struct {
 	proofPollingInterval       time.Duration
 	proposalWindowSize         *big.Int
 	maxZKProofProposalDistance *big.Int
+	// ZK backlog drain/resume state machine (see zk_fallback.go).
+	zkBacklog  proofProducer.ZKBacklogController
+	zkFallback zkFallback
 }
 
 // NewProofSubmitter creates a new ProofSubmitter instance.
@@ -100,6 +103,12 @@ func NewProofSubmitter(
 		flushCacheNotify:           flushCacheNotify,
 		proposalWindowSize:         proposalWindowSize,
 		maxZKProofProposalDistance: maxZKProofProposalDistance,
+	}
+
+	// Use the ZK producer's raiko2 control-plane API when available; otherwise
+	// the state machine falls back to the stateless distance check.
+	if zkBacklog, ok := zkvmProofProducer.(proofProducer.ZKBacklogController); ok {
+		proofSubmitter.zkBacklog = zkBacklog
 	}
 
 	proofSubmitter.startBackgroundWorkers(ctx)
