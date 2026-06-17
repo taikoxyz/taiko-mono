@@ -15,7 +15,7 @@ on:
 
 concurrency:
   group: taiko-client-rs-test-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   lockfile:
@@ -39,7 +39,7 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Lint
     runs-on: [arc-runner-set]
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
 
@@ -81,7 +81,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: "taiko-client-rs"
+          # Only the Tests job saves this shared key; lint just consumes it.
+          # (immutable cache keys mean the first saver wins, and lint compiles
+          # less than nextest — see clippy's --exclude test-harness)
+          save-if: "false"
           workspaces: |
             packages/taiko-client-rs -> target
 
@@ -107,16 +111,11 @@ jobs:
     if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
     runs-on: [arc-runner-set]
-    timeout-minutes: 30
+    timeout-minutes: 50
     env:
       PROTOCOL_FORK_DIR: protocol-taiko-mono
 
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.13.1
-        with:
-          access_token: ${{ github.token }}
-
       - uses: actions/checkout@v6
 
       - name: Ensure native build tools
@@ -209,7 +208,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: "taiko-client-rs"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: |
             packages/taiko-client-rs -> target
 
