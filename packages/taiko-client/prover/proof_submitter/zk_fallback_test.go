@@ -15,8 +15,8 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-// fakeZKBacklog is a programmable ZKBacklogController for unit tests.
-type fakeZKBacklog struct {
+// fakeRisc0Backlog is a programmable ZKBacklogController for unit tests.
+type fakeRisc0Backlog struct {
 	clearCalls  atomic.Int32
 	clearErr    error
 	clean       bool
@@ -25,7 +25,7 @@ type fakeZKBacklog struct {
 	cleared     chan struct{}
 }
 
-func (f *fakeZKBacklog) ClearBacklog(_ context.Context) error {
+func (f *fakeRisc0Backlog) ClearBacklog(_ context.Context) error {
 	f.clearCalls.Add(1)
 	if f.cleared != nil {
 		select {
@@ -36,42 +36,42 @@ func (f *fakeZKBacklog) ClearBacklog(_ context.Context) error {
 	return f.clearErr
 }
 
-func (f *fakeZKBacklog) StatusClean(_ context.Context) (bool, error) {
+func (f *fakeRisc0Backlog) StatusClean(_ context.Context) (bool, error) {
 	f.statusCalls.Add(1)
 	return f.clean, f.statusErr
 }
 
-func newZKFallbackSubmitter(backlog proofProducer.ZKBacklogController) *ProofSubmitter {
+func newRisc0SP1FallbackSubmitter(backlog proofProducer.ZKBacklogController) *ProofSubmitter {
 	return &ProofSubmitter{
-		maxZKProofProposalDistance: big.NewInt(30),
-		zkBacklog:                  backlog,
-		proofPollingInterval:       time.Millisecond,
+		maxRisc0ProofProposalDistance: big.NewInt(30),
+		risc0Backlog:                  backlog,
+		proofPollingInterval:          time.Millisecond,
 		// fireClearAsync reads s.ctx; the breach tests trigger it indirectly.
 		ctx: context.Background(),
 	}
 }
 
-type ZKFallbackTestSuite struct {
+type Risc0SP1FallbackTestSuite struct {
 	suite.Suite
 }
 
-func TestZKFallbackTestSuite(t *testing.T) {
-	suite.Run(t, new(ZKFallbackTestSuite))
+func TestRisc0SP1FallbackTestSuite(t *testing.T) {
+	suite.Run(t, new(Risc0SP1FallbackTestSuite))
 }
 
-func (s *ZKFallbackTestSuite) TestMarkSGXFallbackOnlyFirstCallerWins() {
+func (s *Risc0SP1FallbackTestSuite) TestMarkSP1FallbackOnlyFirstCallerWins() {
 	sub := &ProofSubmitter{}
-	s.False(sub.inSGXFallback())
-	s.True(sub.markSGXFallback())  // first caller latches
-	s.False(sub.markSGXFallback()) // already latched
-	s.True(sub.inSGXFallback())
+	s.False(sub.inSP1Fallback())
+	s.True(sub.markSP1Fallback())  // first caller latches
+	s.False(sub.markSP1Fallback()) // already latched
+	s.True(sub.inSP1Fallback())
 
-	sub.resumeZK()
-	s.False(sub.inSGXFallback())
-	s.True(sub.markSGXFallback()) // can latch again after a resume
+	sub.resumeRisc0()
+	s.False(sub.inSP1Fallback())
+	s.True(sub.markSP1Fallback()) // can latch again after a resume
 }
 
-func (s *ZKFallbackTestSuite) TestMarkSGXFallbackConcurrentSingleWinner() {
+func (s *Risc0SP1FallbackTestSuite) TestMarkSP1FallbackConcurrentSingleWinner() {
 	sub := &ProofSubmitter{}
 	const n = 50
 	var (
@@ -82,44 +82,44 @@ func (s *ZKFallbackTestSuite) TestMarkSGXFallbackConcurrentSingleWinner() {
 	for i := 0; i < n; i++ {
 		go func() {
 			defer wg.Done()
-			if sub.markSGXFallback() {
+			if sub.markSP1Fallback() {
 				winners.Add(1)
 			}
 		}()
 	}
 	wg.Wait()
 	s.Equal(int32(1), winners.Load())
-	s.True(sub.inSGXFallback())
+	s.True(sub.inSP1Fallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKDistanceZeroSkipsZK() {
-	// distance 0 preserves the pre-#21795 stateless behavior: never use ZK, and the
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeDistanceZeroUsesSP1() {
+	// distance 0 preserves stateless behavior: never use RISC0, and the
 	// drain/resume machine stays inactive (no latch, no clear).
-	sub := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(0), zkBacklog: &fakeZKBacklog{}}
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(1000), big.NewInt(1)))
-	s.False(sub.inSGXFallback())
+	sub := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(0), risc0Backlog: &fakeRisc0Backlog{}}
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(1000), big.NewInt(1)))
+	s.False(sub.inSP1Fallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKNilBacklogFallsBackToStateless() {
-	sub := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(30)} // zkBacklog nil
-	// 40 <= 10+30 stays ZK; 41 > 10+30 skips ZK; neither latches without a control-plane client.
-	s.True(sub.decideUseZK(context.Background(), big.NewInt(40), big.NewInt(10)))
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeNilBacklogFallsBackToStateless() {
+	sub := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(30)} // risc0Backlog nil
+	// 40 <= 10+30 stays RISC0; 41 > 10+30 uses SP1; neither latches without a control-plane client.
+	s.Equal(proofProducer.ProofTypeZKR0, sub.decideZKProofType(context.Background(), big.NewInt(40), big.NewInt(10)))
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKWithinDistanceStaysZK() {
-	sub := newZKFallbackSubmitter(&fakeZKBacklog{})
-	s.True(sub.decideUseZK(context.Background(), big.NewInt(40), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeWithinDistanceStaysRisc0() {
+	sub := newRisc0SP1FallbackSubmitter(&fakeRisc0Backlog{})
+	s.Equal(proofProducer.ProofTypeZKR0, sub.decideZKProofType(context.Background(), big.NewInt(40), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKBreachLatchesAndClearsOnce() {
-	fake := &fakeZKBacklog{cleared: make(chan struct{}, 1)}
-	sub := newZKFallbackSubmitter(fake)
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeBreachLatchesAndClearsOnce() {
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
 
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10))) // breach
-	s.True(sub.inSGXFallback())
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10))) // breach
+	s.True(sub.inSP1Fallback())
 
 	select {
 	case <-fake.cleared:
@@ -128,17 +128,17 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKBreachLatchesAndClearsOnce() {
 	}
 
 	// A second breach while latched must not clear again.
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(50), big.NewInt(10)))
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(50), big.NewInt(10)))
 	s.Equal(int32(1), fake.clearCalls.Load())
 }
 
-func (s *ZKFallbackTestSuite) TestFireClearAsyncRetriesThenGivesUp() {
-	fake := &fakeZKBacklog{clearErr: errors.New("clear failed")}
-	sub := newZKFallbackSubmitter(fake)
+func (s *Risc0SP1FallbackTestSuite) TestFireClearAsyncRetriesThenGivesUp() {
+	fake := &fakeRisc0Backlog{clearErr: errors.New("clear failed")}
+	sub := newRisc0SP1FallbackSubmitter(fake)
 
 	// Distance breach: 41 > 10 + 30 -> latch + fireClearAsync (which will keep failing).
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10)))
+	s.True(sub.inSP1Fallback())
 
 	// fireClearAsync retries 1 + clearBackoffMaxRetries times, then gives up.
 	s.Eventually(func() bool {
@@ -146,74 +146,74 @@ func (s *ZKFallbackTestSuite) TestFireClearAsyncRetriesThenGivesUp() {
 	}, 2*time.Second, 5*time.Millisecond)
 
 	// Still latched after clear ultimately failed (best-effort; resume is gated elsewhere).
-	s.True(sub.inSGXFallback())
+	s.True(sub.inSP1Fallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKResumeWhenDrainedAndClean() {
-	fake := &fakeZKBacklog{clean: true}
-	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeResumeWhenDrainedAndClean() {
+	fake := &fakeRisc0Backlog{clean: true}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	s.True(sub.markSP1Fallback())
 
-	// (A) 11 <= 10+1 holds and status is clean -> resume ZK.
-	s.True(sub.decideUseZK(context.Background(), big.NewInt(11), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+	// (A) 11 <= 10+1 holds and status is clean -> resume RISC0.
+	s.Equal(proofProducer.ProofTypeZKR0, sub.decideZKProofType(context.Background(), big.NewInt(11), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
 	s.Equal(int32(1), fake.statusCalls.Load())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKStaysSGXWhenNotDrained() {
-	fake := &fakeZKBacklog{clean: true}
-	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeStaysSP1WhenNotDrained() {
+	fake := &fakeRisc0Backlog{clean: true}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	s.True(sub.markSP1Fallback())
 
-	// (A) fails (20 > 10+1) -> stay SGX; status must not be queried until (A) holds.
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(20), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
+	// (A) fails (20 > 10+1) -> stay SP1; status must not be queried until (A) holds.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(20), big.NewInt(10)))
+	s.True(sub.inSP1Fallback())
 	s.Equal(int32(0), fake.statusCalls.Load())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKStaysSGXWhenNotClean() {
-	fake := &fakeZKBacklog{clean: false}
-	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeStaysSP1WhenNotClean() {
+	fake := &fakeRisc0Backlog{clean: false}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	s.True(sub.markSP1Fallback())
 
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(11), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(11), big.NewInt(10)))
+	s.True(sub.inSP1Fallback())
 	s.Equal(int32(1), fake.statusCalls.Load())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKDegradesOnStatusError() {
-	fake := &fakeZKBacklog{statusErr: errors.New("status endpoint absent")}
-	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeDegradesOnStatusError() {
+	fake := &fakeRisc0Backlog{statusErr: errors.New("status endpoint absent")}
+	sub := newRisc0SP1FallbackSubmitter(fake)
+	s.True(sub.markSP1Fallback())
 
 	// (A) holds but status errors -> degrade -> resume on backlog-drained alone.
-	s.True(sub.decideUseZK(context.Background(), big.NewInt(11), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+	s.Equal(proofProducer.ProofTypeZKR0, sub.decideZKProofType(context.Background(), big.NewInt(11), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKConcurrentBreachClearsOnce() {
-	fake := &fakeZKBacklog{cleared: make(chan struct{}, 1)}
-	sub := newZKFallbackSubmitter(fake)
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeConcurrentBreachClearsOnce() {
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	sub := newRisc0SP1FallbackSubmitter(fake)
 
 	const n = 50
 	var (
-		wg        sync.WaitGroup
-		nonBreach atomic.Int32
+		wg          sync.WaitGroup
+		nonFallback atomic.Int32
 	)
 	wg.Add(n)
 	for i := 0; i < n; i++ {
 		go func() {
 			defer wg.Done()
-			// 41 > 10 + 30 -> every caller sees a breach and must not use ZK.
-			if sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)) {
-				nonBreach.Add(1)
+			// 41 > 10 + 30 -> every caller sees a breach and must use SP1.
+			if sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10)) != proofProducer.ProofTypeZKSP1 {
+				nonFallback.Add(1)
 			}
 		}()
 	}
 	wg.Wait()
 
-	s.Equal(int32(0), nonBreach.Load()) // every caller saw the breach
-	s.True(sub.inSGXFallback())
+	s.Equal(int32(0), nonFallback.Load()) // every caller saw the breach
+	s.True(sub.inSP1Fallback())
 	select {
 	case <-fake.cleared:
 	case <-time.After(time.Second):
@@ -222,35 +222,46 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKConcurrentBreachClearsOnce() {
 	s.Equal(int32(1), fake.clearCalls.Load())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKBreachClearsLocalZKBuffers() {
-	const zkType = proofProducer.ProofTypeZKR0
-	buffer := proofProducer.NewProofBuffer(8)
-	cache := cmap.New[*proofProducer.ProofResponse]()
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeBreachClearsLocalRisc0Buffers() {
+	const risc0Type = proofProducer.ProofTypeZKR0
+	risc0Buffer := proofProducer.NewProofBuffer(8)
+	risc0Cache := cmap.New[*proofProducer.ProofResponse]()
+	sp1Buffer := proofProducer.NewProofBuffer(8)
+	sp1Cache := cmap.New[*proofProducer.ProofResponse]()
 
-	// One buffered proof and one cached proof of the ZK type.
-	_, err := buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(5), Meta: newShastaMetaForTest(5)})
+	// One buffered proof and one cached proof of the RISC0 type.
+	_, err := risc0Buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(5), Meta: newShastaMetaForTest(5)})
 	s.NoError(err)
-	cache.Set("6", &proofProducer.ProofResponse{BatchID: big.NewInt(6), Meta: newShastaMetaForTest(6)})
+	risc0Cache.Set("6", &proofProducer.ProofResponse{BatchID: big.NewInt(6), Meta: newShastaMetaForTest(6)})
+	_, err = sp1Buffer.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(7), Meta: newShastaMetaForTest(7)})
+	s.NoError(err)
+	sp1Cache.Set("8", &proofProducer.ProofResponse{BatchID: big.NewInt(8), Meta: newShastaMetaForTest(8)})
 
-	fake := &fakeZKBacklog{cleared: make(chan struct{}, 1)}
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
 	ch := make(chan *proofProducer.ProofRequestBody, 8)
 	sub := &ProofSubmitter{
-		maxZKProofProposalDistance: big.NewInt(30),
-		zkBacklog:                  fake,
-		proofPollingInterval:       time.Millisecond,
-		ctx:                        context.Background(),
-		proofBuffers:               map[proofProducer.ProofType]*proofProducer.ProofBuffer{zkType: buffer},
+		maxRisc0ProofProposalDistance: big.NewInt(30),
+		risc0Backlog:                  fake,
+		proofPollingInterval:          time.Millisecond,
+		ctx:                           context.Background(),
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			risc0Type:                    risc0Buffer,
+			proofProducer.ProofTypeZKSP1: sp1Buffer,
+		},
 		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
-			zkType: cache,
+			risc0Type:                    risc0Cache,
+			proofProducer.ProofTypeZKSP1: sp1Cache,
 		},
 		proofSubmissionCh: ch,
 	}
 
-	// Breach (41 > 10+30): latch, flush local ZK buffer/cache, resend, clear raiko.
-	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
-	s.Equal(0, buffer.Len())
-	s.Equal(0, cache.Count())
+	// Breach (41 > 10+30): latch, flush local RISC0 buffer/cache, resend, clear raiko.
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10)))
+	s.True(sub.inSP1Fallback())
+	s.Equal(0, risc0Buffer.Len())
+	s.Equal(0, risc0Cache.Count())
+	s.Equal(1, sp1Buffer.Len())
+	s.Equal(1, sp1Cache.Count())
 
 	resent := map[uint64]bool{}
 	for i := 0; i < 2; i++ {

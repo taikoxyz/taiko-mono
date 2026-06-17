@@ -20,7 +20,8 @@ import (
 func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
 		// ZKVM proof producers.
-		zkvmProducer producer.ProofProducer
+		zkvmProducer             producer.ProofProducer
+		sp1FallbackProofProducer producer.ProofProducer
 
 		// All activated proof types in protocol.
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
@@ -69,7 +70,16 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
 			ApiKey:              p.cfg.RaikoApiKey,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			ProofType:           producer.ProofTypeZKAny,
+			ProofType:           producer.ProofTypeZKR0,
+			Dummy:               p.cfg.Dummy,
+		}
+		sp1FallbackProofProducer = &producer.ComposeProofProducer{
+			VerifierIDs:         zkVerifierIDs,
+			SgxGethProducer:     sgxGethProducer,
+			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
+			ApiKey:              p.cfg.RaikoApiKey,
+			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
+			ProofType:           producer.ProofTypeZKSP1,
 			Dummy:               p.cfg.Dummy,
 		}
 	}
@@ -99,6 +109,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		p.ctx,
 		sgxRethProducer,
 		zkvmProducer,
+		sp1FallbackProofProducer,
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,
@@ -115,7 +126,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		cacheMaps,
 		p.flushCacheNotify,
 		new(big.Int).SetUint64(p.cfg.ProposalWindowSize),
-		new(big.Int).SetUint64(p.cfg.MaxZKProofProposalDistance),
+		new(big.Int).SetUint64(p.cfg.MaxRisc0ProofProposalDistance),
 	); err != nil {
 		return fmt.Errorf("failed to initialize proof submitter: %w", err)
 	}

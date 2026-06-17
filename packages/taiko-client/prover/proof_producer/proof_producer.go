@@ -16,7 +16,6 @@ var (
 	ErrInvalidLength   = errors.New("invalid items length")
 	ErrProofInProgress = errors.New("work_in_progress")
 	ErrRetry           = errors.New("retry")
-	ErrZkAnyNotDrawn   = errors.New("zk_any_not_drawn")
 	StatusRegistered   = "registered"
 )
 

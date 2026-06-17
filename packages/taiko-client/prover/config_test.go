@@ -70,17 +70,23 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	}))
 }
 
-func TestNewConfigFromCliContextMaxZKProofProposalDistance(t *testing.T) {
+func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
 
-		require.Equal(t, uint64(30), cfg.MaxZKProofProposalDistance)
+		require.Equal(t, uint64(30), cfg.MaxRisc0ProofProposalDistance)
 	})
 
 	t.Run("uses flag value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.MaxZKProofProposalDistance.Name, "12")
+		cfg := newTestConfigFromCLI(t, "--"+flags.MaxRisc0ProofProposalDistance.Name, "12")
 
-		require.Equal(t, uint64(12), cfg.MaxZKProofProposalDistance)
+		require.Equal(t, uint64(12), cfg.MaxRisc0ProofProposalDistance)
+	})
+
+	t.Run("keeps legacy flag alias", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--prover.maxZKProofProposalDistance", "13")
+
+		require.Equal(t, uint64(13), cfg.MaxRisc0ProofProposalDistance)
 	})
 }
 
@@ -137,7 +143,11 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
-		&cli.Uint64Flag{Name: flags.MaxZKProofProposalDistance.Name, Value: flags.MaxZKProofProposalDistance.Value},
+		&cli.Uint64Flag{
+			Name:    flags.MaxRisc0ProofProposalDistance.Name,
+			Aliases: flags.MaxRisc0ProofProposalDistance.Aliases,
+			Value:   flags.MaxRisc0ProofProposalDistance.Value,
+		},
 	}
 
 	var cfg *Config
@@ -148,7 +158,7 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 	}
 
 	args := []string{
-		"TestNewConfigFromCliContextMaxZKProofProposalDistance",
+		"TestNewConfigFromCliContextMaxRisc0ProofProposalDistance",
 		"--" + flags.L1WSEndpoint.Name, "http://localhost:8545",
 		"--" + flags.L2WSEndpoint.Name, "http://localhost:9545",
 		"--" + flags.InboxAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000aa").Hex(),

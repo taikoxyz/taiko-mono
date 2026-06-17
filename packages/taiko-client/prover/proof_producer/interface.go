@@ -18,7 +18,6 @@ const (
 	ProofTypeSgxCPU  ProofType = "native"
 	ProofTypeZKR0    ProofType = "risc0"
 	ProofTypeZKSP1   ProofType = "sp1"
-	ProofTypeZKAny   ProofType = "zk_any"
 )
 
 // ProofRequestOptions is an interface that contains all options that need to be passed to a backend proof producer

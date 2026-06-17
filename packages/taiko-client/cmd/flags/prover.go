@@ -71,16 +71,20 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
 	}
-	MaxZKProofProposalDistance = &cli.Uint64Flag{
-		Name: "prover.maxZKProofProposalDistance",
-		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting ZK proofs. " +
-			"When proposalID exceeds lastFinalizedProposalID + maxZKProofProposalDistance, the prover stops " +
-			"requesting ZK proofs, clears the ZK backlog, and drains via the base (SGX) proof until the backlog " +
-			"is cleared and the ZK endpoint reports clean, then resumes ZK. Set to 0 to disable ZK proving " +
-			"(always use the base/SGX proof). Post Shasta fork only.",
+	MaxRisc0ProofProposalDistance = &cli.Uint64Flag{
+		Name:    "prover.maxRisc0ProofProposalDistance",
+		Aliases: []string{"prover.maxZKProofProposalDistance"},
+		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting RISC0 proofs. " +
+			"When proposalID exceeds lastFinalizedProposalID + maxRisc0ProofProposalDistance, the prover stops " +
+			"requesting RISC0 proofs, clears the RISC0 backlog, and falls back to SP1 until the backlog " +
+			"is cleared and the RISC0 endpoint reports clean, then resumes RISC0. Set to 0 to always use SP1. " +
+			"Post Shasta fork only.",
 		Value:    30,
 		Category: proverCategory,
-		EnvVars:  []string{"PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE"},
+		EnvVars: []string{
+			"PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE",
+			"PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE",
+		},
 	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
@@ -160,5 +164,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
 	ProposalWindowSize,
-	MaxZKProofProposalDistance,
+	MaxRisc0ProofProposalDistance,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

@@ -3,7 +3,6 @@ package submitter
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -19,7 +18,6 @@ var (
 const (
 	MaxNumSupportedZkTypes    = 2
 	MaxNumSupportedProofTypes = 3
-	maxProofRequestTimeout    = 1 * time.Hour
 )
 
 // Submitter is the interface for submitting proofs of the L2 blocks.
