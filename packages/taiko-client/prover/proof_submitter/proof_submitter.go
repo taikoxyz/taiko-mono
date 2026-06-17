@@ -269,8 +269,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 		// While latched with an SP1 target this is the SP1 producer; otherwise (SGX target,
 		// or a per-call zk_any_not_drawn / timeout) it is the base (SGX) producer.
 		if proofResponse == nil {
-			fallbackProducer := s.resolveFallbackProducer()
-			if proofResponse, err = fallbackProducer.RequestProof(
+			if proofResponse, err = s.resolveFallbackProducer().RequestProof(
 				ctx,
 				opts,
 				meta.Shasta().GetEventData().Id,
