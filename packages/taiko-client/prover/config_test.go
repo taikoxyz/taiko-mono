@@ -83,10 +83,10 @@ func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
 		require.Equal(t, uint64(12), cfg.MaxRisc0ProofProposalDistance)
 	})
 
-	t.Run("keeps legacy flag alias", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--prover.maxZKProofProposalDistance", "13")
+	t.Run("rejects removed legacy flag", func(t *testing.T) {
+		err := runTestConfigFromCLI(t, "--prover.maxZKProofProposalDistance", "13")
 
-		require.Equal(t, uint64(13), cfg.MaxRisc0ProofProposalDistance)
+		require.ErrorContains(t, err, "flag provided but not defined")
 	})
 }
 
@@ -125,6 +125,21 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 	t.Helper()
 
+	var cfg *Config
+	require.NoError(t, runTestConfigFromCLIWithConfig(t, &cfg, extraArgs...))
+	return cfg
+}
+
+func runTestConfigFromCLI(t *testing.T, extraArgs ...string) error {
+	t.Helper()
+
+	var cfg *Config
+	return runTestConfigFromCLIWithConfig(t, &cfg, extraArgs...)
+}
+
+func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...string) error {
+	t.Helper()
+
 	jwtSecret := t.TempDir() + "/jwt-secret.txt"
 	require.NoError(
 		t,
@@ -150,10 +165,9 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 		},
 	}
 
-	var cfg *Config
 	app.Action = func(ctx *cli.Context) error {
 		var err error
-		cfg, err = NewConfigFromCliContext(ctx)
+		*cfg, err = NewConfigFromCliContext(ctx)
 		return err
 	}
 
@@ -168,6 +182,5 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 	}
 	args = append(args, extraArgs...)
 
-	require.NoError(t, app.Run(args))
-	return cfg
+	return app.Run(args)
 }

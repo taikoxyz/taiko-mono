@@ -72,8 +72,7 @@ var (
 		EnvVars:  []string{"PROVER_PROPOSAL_WINDOW_SIZE"},
 	}
 	MaxRisc0ProofProposalDistance = &cli.Uint64Flag{
-		Name:    "prover.maxRisc0ProofProposalDistance",
-		Aliases: []string{"prover.maxZKProofProposalDistance"},
+		Name: "prover.maxRisc0ProofProposalDistance",
 		Usage: "The maximum proposal distance counted from lastFinalizedProposalID for requesting RISC0 proofs. " +
 			"When proposalID exceeds lastFinalizedProposalID + maxRisc0ProofProposalDistance, the prover stops " +
 			"requesting RISC0 proofs, clears the RISC0 backlog, and falls back to SP1 until the backlog " +
@@ -81,10 +80,7 @@ var (
 			"Post Shasta fork only.",
 		Value:    30,
 		Category: proverCategory,
-		EnvVars: []string{
-			"PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE",
-			"PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE",
-		},
+		EnvVars:  []string{"PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE"},
 	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
