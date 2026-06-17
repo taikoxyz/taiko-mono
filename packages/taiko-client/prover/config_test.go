@@ -189,3 +189,38 @@ func (s *ZKFallbackWiringTestSuite) TestParseZKFallbackProofType() {
 	_, err = parseZKFallbackProofType("risc0")
 	s.Error(err)
 }
+
+func (s *ZKFallbackWiringTestSuite) TestBuildZKFallbackProducer() {
+	ids := map[producer.ProofType]uint8{producer.ProofTypeZKSP1: 6}
+	geth := &producer.SgxGethProofProducer{}
+
+	// Default (sgx) -> nil even with a ZKVM endpoint. Assert with `== nil` rather than
+	// s.Nil (which unwraps typed nils) to lock in the untyped-nil-interface contract that
+	// the submitter's `fallbackProofProducer != nil` guards depend on.
+	p := buildZKFallbackProducer(
+		&Config{ZKFallbackProofType: producer.ProofTypeSgx, RaikoZKVMHostEndpoint: "http://zkvm"}, ids, geth,
+	)
+	s.True(p == nil)
+
+	// sp1 but no ZKVM endpoint -> nil.
+	p = buildZKFallbackProducer(
+		&Config{ZKFallbackProofType: producer.ProofTypeZKSP1}, ids, geth,
+	)
+	s.True(p == nil)
+
+	// sp1 + ZKVM endpoint -> a forced-SP1 ComposeProofProducer.
+	p = buildZKFallbackProducer(
+		&Config{
+			ZKFallbackProofType:   producer.ProofTypeZKSP1,
+			RaikoZKVMHostEndpoint: "http://zkvm",
+			RaikoApiKey:           "key",
+		}, ids, geth,
+	)
+	s.Require().NotNil(p)
+	cp, ok := p.(*producer.ComposeProofProducer)
+	s.True(ok)
+	s.Equal(producer.ProofTypeZKSP1, cp.ProofType)
+	s.Equal("http://zkvm", cp.RaikoHostEndpoint)
+	s.Equal(ids, cp.VerifierIDs)
+	s.Same(geth, cp.SgxGethProducer)
+}

@@ -99,7 +99,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		p.ctx,
 		sgxRethProducer,
 		zkvmProducer,
-		nil, // fallbackProofProducer wired in the next task
+		buildZKFallbackProducer(p.cfg, zkVerifierIDs, sgxGethProducer),
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,
@@ -203,4 +203,27 @@ func (p *Prover) initEventHandlers() error {
 	)
 
 	return nil
+}
+
+// buildZKFallbackProducer returns the producer the drain/resume machine falls
+// back to: a forced-SP1 ZK producer when configured (and a ZKVM endpoint exists),
+// or nil to fall back to the base (SGX) producer. Without a ZKVM endpoint there is
+// no ZK proving, so the machine never engages and nil (base) is correct.
+func buildZKFallbackProducer(
+	cfg *Config,
+	zkVerifierIDs map[producer.ProofType]uint8,
+	sgxGethProducer *producer.SgxGethProofProducer,
+) producer.ProofProducer {
+	if cfg.ZKFallbackProofType != producer.ProofTypeZKSP1 || len(cfg.RaikoZKVMHostEndpoint) == 0 {
+		return nil
+	}
+	return &producer.ComposeProofProducer{
+		VerifierIDs:         zkVerifierIDs,
+		SgxGethProducer:     sgxGethProducer,
+		RaikoHostEndpoint:   cfg.RaikoZKVMHostEndpoint,
+		ApiKey:              cfg.RaikoApiKey,
+		RaikoRequestTimeout: cfg.RaikoRequestTimeout,
+		ProofType:           producer.ProofTypeZKSP1,
+		Dummy:               cfg.Dummy,
+	}
 }
