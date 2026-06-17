@@ -82,6 +82,15 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_MAX_ZK_PROOF_PROPOSAL_DISTANCE"},
 	}
+	ZKFallbackProofType = &cli.StringFlag{
+		Name: "prover.zkFallbackProofType",
+		Usage: "Which proof type to fall back to when the ZK (zk_any) backlog breaches " +
+			"prover.maxZKProofProposalDistance: 'sgx' (the base proof) or 'sp1' (force the stable " +
+			"ZK proof, avoiding risc0). 'sp1' requires a ZKVM endpoint. Post Shasta fork only.",
+		Value:    "sgx",
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_ZK_FALLBACK_PROOF_TYPE"},
+	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
 		Name:     "prover.dummy",
@@ -161,4 +170,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ForceBatchProvingInterval,
 	ProposalWindowSize,
 	MaxZKProofProposalDistance,
+	ZKFallbackProofType,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

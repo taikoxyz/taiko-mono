@@ -7,10 +7,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
+	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
@@ -47,6 +49,7 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 		s.Equal("http://raiko.zkvm", c.RaikoZKVMHostEndpoint)
 		s.Equal("secret-key", c.RaikoApiKey)
 		s.Equal(7*time.Second, c.RaikoRequestTimeout)
+		s.Equal(producer.ProofTypeSgx, c.ZKFallbackProofType)
 
 		return nil
 	}
@@ -160,4 +163,29 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 
 	require.NoError(t, app.Run(args))
 	return cfg
+}
+
+type ZKFallbackWiringTestSuite struct {
+	suite.Suite
+}
+
+func TestZKFallbackWiringTestSuite(t *testing.T) {
+	suite.Run(t, new(ZKFallbackWiringTestSuite))
+}
+
+func (s *ZKFallbackWiringTestSuite) TestParseZKFallbackProofType() {
+	sgx, err := parseZKFallbackProofType("sgx")
+	s.NoError(err)
+	s.Equal(producer.ProofTypeSgx, sgx)
+
+	def, err := parseZKFallbackProofType("")
+	s.NoError(err)
+	s.Equal(producer.ProofTypeSgx, def)
+
+	sp1, err := parseZKFallbackProofType("sp1")
+	s.NoError(err)
+	s.Equal(producer.ProofTypeZKSP1, sp1)
+
+	_, err = parseZKFallbackProofType("risc0")
+	s.Error(err)
 }

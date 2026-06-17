@@ -17,6 +17,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 // Config contains the configurations to initialize a Taiko prover.
@@ -50,6 +51,24 @@ type Config struct {
 	Dummy                      bool
 	ProposalWindowSize         uint64
 	MaxZKProofProposalDistance uint64
+	ZKFallbackProofType        producer.ProofType
+}
+
+// parseZKFallbackProofType maps the prover.zkFallbackProofType flag value to a
+// proof type. Empty (the default) and "sgx" select the base proof; "sp1" selects
+// the stable ZK proof. Any other value is rejected.
+func parseZKFallbackProofType(v string) (producer.ProofType, error) {
+	switch v {
+	case "", string(producer.ProofTypeSgx):
+		return producer.ProofTypeSgx, nil
+	case string(producer.ProofTypeZKSP1):
+		return producer.ProofTypeZKSP1, nil
+	default:
+		return "", fmt.Errorf(
+			"invalid --%s: %q (want %q or %q)",
+			flags.ZKFallbackProofType.Name, v, producer.ProofTypeSgx, producer.ProofTypeZKSP1,
+		)
+	}
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -101,6 +120,11 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
+	zkFallbackProofType, err := parseZKFallbackProofType(c.String(flags.ZKFallbackProofType.Name))
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		L1WsEndpoint:             c.String(flags.L1WSEndpoint.Name),
 		L1BeaconEndpoint:         c.String(flags.L1BeaconEndpoint.Name),
@@ -123,6 +147,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MaxZKProofProposalDistance: c.Uint64(
 			flags.MaxZKProofProposalDistance.Name,
 		),
+		ZKFallbackProofType:    zkFallbackProofType,
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
 		LocalProposerAddresses: localProposerAddresses,
