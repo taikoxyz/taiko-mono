@@ -23,11 +23,14 @@ type ZKBacklogController interface {
 // raikoProverStatusResponse is the body returned by GET /v3/prover/status. Only
 // `data.network.risc0.inflight_orders` is consumed; the remaining fields
 // (`status`, `tasks`, `network.sp1`, `data.clean`, ...) are intentionally ignored.
+// The risc0 section and its inflight_orders are pointers so a response that omits
+// them (e.g. an older status schema) is treated as "unavailable" rather than
+// silently decoding to a zero (idle) value.
 type raikoProverStatusResponse struct {
 	Data struct {
 		Network struct {
-			Risc0 struct {
-				InflightOrders uint64 `json:"inflight_orders"`
+			Risc0 *struct {
+				InflightOrders *uint64 `json:"inflight_orders"`
 			} `json:"risc0"`
 		} `json:"network"`
 	} `json:"data"`
@@ -72,5 +75,10 @@ func (s *ComposeProofProducer) Risc0Idle(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to get ZK prover status: %w", err)
 	}
-	return out.Data.Network.Risc0.InflightOrders == 0, nil
+	// Treat a missing risc0 section as unavailable (not idle) so canResumeZK takes
+	// the status-unavailable path instead of silently trusting a zero value.
+	if out.Data.Network.Risc0 == nil || out.Data.Network.Risc0.InflightOrders == nil {
+		return false, fmt.Errorf("risc0 inflight_orders missing from /v3/prover/status response")
+	}
+	return *out.Data.Network.Risc0.InflightOrders == 0, nil
 }

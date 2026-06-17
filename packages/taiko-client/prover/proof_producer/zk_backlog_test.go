@@ -59,6 +59,31 @@ func (s *ZKBacklogTestSuite) TestRisc0IdleErrorsOnNon200() {
 	s.Error(err)
 }
 
+func (s *ZKBacklogTestSuite) TestRisc0IdleErrorsWhenRisc0Missing() {
+	// 200 with an older schema lacking network.risc0: treated as unavailable, not
+	// silently idle (a busy `clean:false` must not be read as idle).
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"ok","data":{"clean":false}}`))
+	}))
+	defer server.Close()
+
+	p := &ComposeProofProducer{RaikoHostEndpoint: server.URL, RaikoRequestTimeout: time.Second}
+	_, err := p.Risc0Idle(s.T().Context())
+	s.Error(err)
+}
+
+func (s *ZKBacklogTestSuite) TestRisc0IdleErrorsWhenInflightMissing() {
+	// risc0 present but without inflight_orders: also unavailable, not idle.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"status":"ok","data":{"network":{"risc0":{}}}}`))
+	}))
+	defer server.Close()
+
+	p := &ComposeProofProducer{RaikoHostEndpoint: server.URL, RaikoRequestTimeout: time.Second}
+	_, err := p.Risc0Idle(s.T().Context())
+	s.Error(err)
+}
+
 func (s *ZKBacklogTestSuite) TestRisc0IdleDummyShortCircuits() {
 	p := &ComposeProofProducer{Dummy: true}
 	idle, err := p.Risc0Idle(s.T().Context())
