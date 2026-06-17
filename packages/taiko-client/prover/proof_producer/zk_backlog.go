@@ -10,22 +10,26 @@ import (
 
 // ZKBacklogController is implemented by proof producers whose backend exposes the
 // raiko2 control-plane endpoints for draining the ZK (`zk_any`) task backlog and
-// reporting when the backend is idle. See raiko2 issue #93.
+// reporting risc0 progress. See raiko2 issue #93.
 type ZKBacklogController interface {
 	// ClearBacklog discards all non-terminal `zk_any` tasks on the ZK backend
 	// (POST /v3/prover/clear).
 	ClearBacklog(ctx context.Context) error
-	// StatusClean reports whether the ZK backend is fully idle, i.e. the
-	// `data.clean` field of GET /v3/prover/status is true.
-	StatusClean(ctx context.Context) (bool, error)
+	// Risc0Idle reports whether the ZK backend has no in-flight risc0 orders, i.e.
+	// `data.network.risc0.inflight_orders` of GET /v3/prover/status is 0.
+	Risc0Idle(ctx context.Context) (bool, error)
 }
 
 // raikoProverStatusResponse is the body returned by GET /v3/prover/status. Only
-// `data.clean` is consumed; the remaining fields (`status`, `tasks`, `network`)
-// are intentionally ignored.
+// `data.network.risc0.inflight_orders` is consumed; the remaining fields
+// (`status`, `tasks`, `network.sp1`, `data.clean`, ...) are intentionally ignored.
 type raikoProverStatusResponse struct {
 	Data struct {
-		Clean bool `json:"clean"`
+		Network struct {
+			Risc0 struct {
+				InflightOrders uint64 `json:"inflight_orders"`
+			} `json:"risc0"`
+		} `json:"network"`
 	} `json:"data"`
 }
 
@@ -50,8 +54,8 @@ func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	return nil
 }
 
-// StatusClean implements the ZKBacklogController interface.
-func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
+// Risc0Idle implements the ZKBacklogController interface.
+func (s *ComposeProofProducer) Risc0Idle(ctx context.Context) (bool, error) {
 	if s.Dummy {
 		return true, nil
 	}
@@ -68,5 +72,5 @@ func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to get ZK prover status: %w", err)
 	}
-	return out.Data.Clean, nil
+	return out.Data.Network.Risc0.InflightOrders == 0, nil
 }

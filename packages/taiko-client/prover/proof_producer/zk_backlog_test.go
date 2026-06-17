@@ -20,50 +20,50 @@ func TestZKBacklogTestSuite(t *testing.T) {
 	suite.Run(t, new(ZKBacklogTestSuite))
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanReturnsTrue() {
+func (s *ZKBacklogTestSuite) TestRisc0IdleReturnsTrueWhenZero() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodGet, r.Method)
 		s.Equal("/v3/prover/status", r.URL.Path)
 		_, _ = w.Write([]byte(
-			`{"status":"ok","data":{"clean":true,"tasks":{"pending":0},"network":{"risc0":{"inflight_orders":0}}}}`,
+			`{"status":"ok","data":{"network":{"risc0":{"inflight_orders":0}}}}`,
 		))
 	}))
 	defer server.Close()
 
 	p := &ComposeProofProducer{RaikoHostEndpoint: server.URL, RaikoRequestTimeout: time.Second}
-	clean, err := p.StatusClean(s.T().Context())
+	idle, err := p.Risc0Idle(s.T().Context())
 	s.NoError(err)
-	s.True(clean)
+	s.True(idle)
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanReturnsFalse() {
+func (s *ZKBacklogTestSuite) TestRisc0IdleReturnsFalseWhenInflight() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"status":"ok","data":{"clean":false}}`))
+		_, _ = w.Write([]byte(`{"status":"ok","data":{"network":{"risc0":{"inflight_orders":3}}}}`))
 	}))
 	defer server.Close()
 
 	p := &ComposeProofProducer{RaikoHostEndpoint: server.URL, RaikoRequestTimeout: time.Second}
-	clean, err := p.StatusClean(s.T().Context())
+	idle, err := p.Risc0Idle(s.T().Context())
 	s.NoError(err)
-	s.False(clean)
+	s.False(idle)
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanErrorsOnNon200() {
+func (s *ZKBacklogTestSuite) TestRisc0IdleErrorsOnNon200() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer server.Close()
 
 	p := &ComposeProofProducer{RaikoHostEndpoint: server.URL, RaikoRequestTimeout: time.Second}
-	_, err := p.StatusClean(s.T().Context())
+	_, err := p.Risc0Idle(s.T().Context())
 	s.Error(err)
 }
 
-func (s *ZKBacklogTestSuite) TestStatusCleanDummyShortCircuits() {
+func (s *ZKBacklogTestSuite) TestRisc0IdleDummyShortCircuits() {
 	p := &ComposeProofProducer{Dummy: true}
-	clean, err := p.StatusClean(s.T().Context())
+	idle, err := p.Risc0Idle(s.T().Context())
 	s.NoError(err)
-	s.True(clean)
+	s.True(idle)
 }
 
 func (s *ZKBacklogTestSuite) TestClearBacklogPostsToEndpoint() {

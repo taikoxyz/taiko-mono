@@ -14,54 +14,55 @@ import (
 )
 
 // clearBackoffMaxRetries bounds the best-effort retries of POST /v3/prover/clear
-// when entering SGX-draining mode.
+// when entering fallback mode.
 const clearBackoffMaxRetries uint64 = 5
 
-// zkFallback tracks whether the submitter is draining the ZK backlog via SGX.
-// It is shared across the concurrent RequestProof goroutines, so all access is
-// guarded by mu.
+// zkFallback tracks whether the submitter is draining the ZK backlog via the
+// fallback producer (SGX or SP1). It is shared across the concurrent RequestProof
+// goroutines, so all access is guarded by mu.
 type zkFallback struct {
-	mu    sync.Mutex
-	inSGX bool
+	mu      sync.Mutex
+	latched bool
 }
 
-// markSGXFallback latches into SGX-draining mode. It returns true only for the
+// markFallback latches into fallback-draining mode. It returns true only for the
 // first caller that performs the transition; that caller is responsible for
 // clearing the ZK backlog exactly once.
-func (s *ProofSubmitter) markSGXFallback() bool {
+func (s *ProofSubmitter) markFallback() bool {
 	s.zkFallback.mu.Lock()
 	defer s.zkFallback.mu.Unlock()
-	if s.zkFallback.inSGX {
+	if s.zkFallback.latched {
 		return false
 	}
-	s.zkFallback.inSGX = true
+	s.zkFallback.latched = true
 	metrics.ProverZKBacklogModeGauge.Set(1)
 	return true
 }
 
-// inSGXFallback reports whether the submitter is currently draining via SGX.
-func (s *ProofSubmitter) inSGXFallback() bool {
+// inFallback reports whether the submitter is currently draining via the fallback
+// producer.
+func (s *ProofSubmitter) inFallback() bool {
 	s.zkFallback.mu.Lock()
 	defer s.zkFallback.mu.Unlock()
-	return s.zkFallback.inSGX
+	return s.zkFallback.latched
 }
 
-// resumeZK unlatches SGX-draining mode so subsequent proposals use ZK again.
+// resumeZK unlatches fallback-draining mode so subsequent proposals use ZK again.
 // It returns true only for the caller that performed the transition.
 func (s *ProofSubmitter) resumeZK() bool {
 	s.zkFallback.mu.Lock()
 	defer s.zkFallback.mu.Unlock()
-	if !s.zkFallback.inSGX {
+	if !s.zkFallback.latched {
 		return false
 	}
-	s.zkFallback.inSGX = false
+	s.zkFallback.latched = false
 	metrics.ProverZKBacklogModeGauge.Set(0)
 	return true
 }
 
 // decideUseZK applies the ZK backlog drain/resume state machine and reports
 // whether this proposal should be proven via ZK. It has side effects: it latches
-// into SGX-draining mode (and fires a one-off backlog clear) on the first
+// into fallback mode (and fires a one-off backlog clear) on the first
 // distance breach, and unlatches when the backlog is drained.
 func (s *ProofSubmitter) decideUseZK(
 	ctx context.Context,
@@ -78,7 +79,7 @@ func (s *ProofSubmitter) decideUseZK(
 		return s.shouldUseZKProof(proposalID, lastFinalizedProposalID)
 	}
 
-	if s.inSGXFallback() {
+	if s.inFallback() {
 		if s.canResumeZK(ctx, proposalID, lastFinalizedProposalID) {
 			if s.resumeZK() {
 				log.Info(
@@ -93,9 +94,9 @@ func (s *ProofSubmitter) decideUseZK(
 	}
 
 	if !s.shouldUseZKProof(proposalID, lastFinalizedProposalID) {
-		if s.markSGXFallback() {
+		if s.markFallback() {
 			log.Warn(
-				"ZK proof backlog detected, clearing ZK backlog and draining via SGX",
+				"ZK proof backlog detected, clearing ZK backlog and draining via fallback",
 				"proposalID", proposalID,
 				"lastFinalizedProposalID", lastFinalizedProposalID,
 				"maxZKProofProposalDistance", s.maxZKProofProposalDistance,
@@ -108,8 +109,8 @@ func (s *ProofSubmitter) decideUseZK(
 	return true
 }
 
-// canResumeZK reports whether SGX-draining mode can switch back to ZK. It checks
-// the cheap local "backlog drained" condition first and only queries the ZK
+// canResumeZK reports whether fallback-draining mode can switch back to ZK. It
+// checks the cheap local "backlog drained" condition first and only queries the ZK
 // backend status when that holds. A status error (e.g. the endpoint is absent)
 // degrades to resuming on the backlog-drained condition alone.
 func (s *ProofSubmitter) canResumeZK(
@@ -121,8 +122,8 @@ func (s *ProofSubmitter) canResumeZK(
 	if proposalID.Cmp(new(big.Int).Add(lastFinalizedProposalID, common.Big1)) > 0 {
 		return false
 	}
-	// (B) ZK backend idle.
-	clean, err := s.zkBacklog.StatusClean(ctx)
+	// (B) ZK backend risc0 idle.
+	idle, err := s.zkBacklog.Risc0Idle(ctx)
 	if err != nil {
 		log.Warn(
 			"ZK prover status unavailable, resuming ZK on backlog-drained condition alone",
@@ -131,7 +132,7 @@ func (s *ProofSubmitter) canResumeZK(
 		)
 		return true
 	}
-	return clean
+	return idle
 }
 
 // fireClearAsync clears the ZK backlog in the background with bounded retries.
@@ -156,7 +157,7 @@ func (s *ProofSubmitter) fireClearAsync() {
 			log.Warn("Failed to clear ZK backlog after retries", "error", err)
 			return
 		}
-		log.Info("Cleared ZK backlog after entering SGX-draining mode")
+		log.Info("Cleared ZK backlog after entering fallback mode")
 	}()
 }
 

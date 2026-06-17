@@ -19,7 +19,7 @@ import (
 type fakeZKBacklog struct {
 	clearCalls  atomic.Int32
 	clearErr    error
-	clean       bool
+	risc0Idle   bool
 	statusErr   error
 	statusCalls atomic.Int32
 	cleared     chan struct{}
@@ -36,9 +36,9 @@ func (f *fakeZKBacklog) ClearBacklog(_ context.Context) error {
 	return f.clearErr
 }
 
-func (f *fakeZKBacklog) StatusClean(_ context.Context) (bool, error) {
+func (f *fakeZKBacklog) Risc0Idle(_ context.Context) (bool, error) {
 	f.statusCalls.Add(1)
-	return f.clean, f.statusErr
+	return f.risc0Idle, f.statusErr
 }
 
 func newZKFallbackSubmitter(backlog proofProducer.ZKBacklogController) *ProofSubmitter {
@@ -59,19 +59,19 @@ func TestZKFallbackTestSuite(t *testing.T) {
 	suite.Run(t, new(ZKFallbackTestSuite))
 }
 
-func (s *ZKFallbackTestSuite) TestMarkSGXFallbackOnlyFirstCallerWins() {
+func (s *ZKFallbackTestSuite) TestMarkFallbackOnlyFirstCallerWins() {
 	sub := &ProofSubmitter{}
-	s.False(sub.inSGXFallback())
-	s.True(sub.markSGXFallback())  // first caller latches
-	s.False(sub.markSGXFallback()) // already latched
-	s.True(sub.inSGXFallback())
+	s.False(sub.inFallback())
+	s.True(sub.markFallback())  // first caller latches
+	s.False(sub.markFallback()) // already latched
+	s.True(sub.inFallback())
 
 	sub.resumeZK()
-	s.False(sub.inSGXFallback())
-	s.True(sub.markSGXFallback()) // can latch again after a resume
+	s.False(sub.inFallback())
+	s.True(sub.markFallback()) // can latch again after a resume
 }
 
-func (s *ZKFallbackTestSuite) TestMarkSGXFallbackConcurrentSingleWinner() {
+func (s *ZKFallbackTestSuite) TestMarkFallbackConcurrentSingleWinner() {
 	sub := &ProofSubmitter{}
 	const n = 50
 	var (
@@ -82,14 +82,14 @@ func (s *ZKFallbackTestSuite) TestMarkSGXFallbackConcurrentSingleWinner() {
 	for i := 0; i < n; i++ {
 		go func() {
 			defer wg.Done()
-			if sub.markSGXFallback() {
+			if sub.markFallback() {
 				winners.Add(1)
 			}
 		}()
 	}
 	wg.Wait()
 	s.Equal(int32(1), winners.Load())
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 }
 
 func (s *ZKFallbackTestSuite) TestDecideUseZKDistanceZeroSkipsZK() {
@@ -97,7 +97,7 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKDistanceZeroSkipsZK() {
 	// drain/resume machine stays inactive (no latch, no clear).
 	sub := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(0), zkBacklog: &fakeZKBacklog{}}
 	s.False(sub.decideUseZK(context.Background(), big.NewInt(1000), big.NewInt(1)))
-	s.False(sub.inSGXFallback())
+	s.False(sub.inFallback())
 }
 
 func (s *ZKFallbackTestSuite) TestDecideUseZKNilBacklogFallsBackToStateless() {
@@ -105,13 +105,13 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKNilBacklogFallsBackToStateless() {
 	// 40 <= 10+30 stays ZK; 41 > 10+30 skips ZK; neither latches without a control-plane client.
 	s.True(sub.decideUseZK(context.Background(), big.NewInt(40), big.NewInt(10)))
 	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+	s.False(sub.inFallback())
 }
 
 func (s *ZKFallbackTestSuite) TestDecideUseZKWithinDistanceStaysZK() {
 	sub := newZKFallbackSubmitter(&fakeZKBacklog{})
 	s.True(sub.decideUseZK(context.Background(), big.NewInt(40), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+	s.False(sub.inFallback())
 }
 
 func (s *ZKFallbackTestSuite) TestDecideUseZKBreachLatchesAndClearsOnce() {
@@ -119,7 +119,7 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKBreachLatchesAndClearsOnce() {
 	sub := newZKFallbackSubmitter(fake)
 
 	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10))) // breach
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 
 	select {
 	case <-fake.cleared:
@@ -138,7 +138,7 @@ func (s *ZKFallbackTestSuite) TestFireClearAsyncRetriesThenGivesUp() {
 
 	// Distance breach: 41 > 10 + 30 -> latch + fireClearAsync (which will keep failing).
 	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 
 	// fireClearAsync retries 1 + clearBackoffMaxRetries times, then gives up.
 	s.Eventually(func() bool {
@@ -146,49 +146,49 @@ func (s *ZKFallbackTestSuite) TestFireClearAsyncRetriesThenGivesUp() {
 	}, 2*time.Second, 5*time.Millisecond)
 
 	// Still latched after clear ultimately failed (best-effort; resume is gated elsewhere).
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKResumeWhenDrainedAndClean() {
-	fake := &fakeZKBacklog{clean: true}
+func (s *ZKFallbackTestSuite) TestDecideUseZKResumeWhenDrainedAndRisc0Idle() {
+	fake := &fakeZKBacklog{risc0Idle: true}
 	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+	s.True(sub.markFallback())
 
-	// (A) 11 <= 10+1 holds and status is clean -> resume ZK.
+	// (A) 11 <= 10+1 holds and risc0 is idle -> resume ZK.
 	s.True(sub.decideUseZK(context.Background(), big.NewInt(11), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+	s.False(sub.inFallback())
 	s.Equal(int32(1), fake.statusCalls.Load())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKStaysSGXWhenNotDrained() {
-	fake := &fakeZKBacklog{clean: true}
+func (s *ZKFallbackTestSuite) TestDecideUseZKStaysInFallbackWhenNotDrained() {
+	fake := &fakeZKBacklog{risc0Idle: true}
 	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+	s.True(sub.markFallback())
 
-	// (A) fails (20 > 10+1) -> stay SGX; status must not be queried until (A) holds.
+	// (A) fails (20 > 10+1) -> stay in fallback; status must not be queried until (A) holds.
 	s.False(sub.decideUseZK(context.Background(), big.NewInt(20), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 	s.Equal(int32(0), fake.statusCalls.Load())
 }
 
-func (s *ZKFallbackTestSuite) TestDecideUseZKStaysSGXWhenNotClean() {
-	fake := &fakeZKBacklog{clean: false}
+func (s *ZKFallbackTestSuite) TestDecideUseZKStaysInFallbackWhenRisc0Busy() {
+	fake := &fakeZKBacklog{risc0Idle: false}
 	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+	s.True(sub.markFallback())
 
 	s.False(sub.decideUseZK(context.Background(), big.NewInt(11), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 	s.Equal(int32(1), fake.statusCalls.Load())
 }
 
 func (s *ZKFallbackTestSuite) TestDecideUseZKDegradesOnStatusError() {
 	fake := &fakeZKBacklog{statusErr: errors.New("status endpoint absent")}
 	sub := newZKFallbackSubmitter(fake)
-	s.True(sub.markSGXFallback())
+	s.True(sub.markFallback())
 
 	// (A) holds but status errors -> degrade -> resume on backlog-drained alone.
 	s.True(sub.decideUseZK(context.Background(), big.NewInt(11), big.NewInt(10)))
-	s.False(sub.inSGXFallback())
+	s.False(sub.inFallback())
 }
 
 func (s *ZKFallbackTestSuite) TestDecideUseZKConcurrentBreachClearsOnce() {
@@ -213,7 +213,7 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKConcurrentBreachClearsOnce() {
 	wg.Wait()
 
 	s.Equal(int32(0), nonBreach.Load()) // every caller saw the breach
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 	select {
 	case <-fake.cleared:
 	case <-time.After(time.Second):
@@ -248,7 +248,7 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKBreachClearsLocalZKBuffers() {
 
 	// Breach (41 > 10+30): latch, flush local ZK buffer/cache, resend, clear raiko.
 	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
-	s.True(sub.inSGXFallback())
+	s.True(sub.inFallback())
 	s.Equal(0, buffer.Len())
 	s.Equal(0, cache.Count())
 
