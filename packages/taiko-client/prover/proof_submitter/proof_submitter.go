@@ -116,7 +116,7 @@ func NewProofSubmitter(
 		ctx:                        ctx,
 	}
 
-	// Wire the raiko2 control-plane client (ClearBacklog/StatusClean) when a ZK
+	// Wire the raiko2 control-plane client (ClearBacklog/Risc0Idle) when a ZK
 	// producer is configured. This is a compile-time capability check, not a probe
 	// of the remote host: with no ZK endpoint set, zkvmProofProducer is nil and
 	// zkBacklog stays nil, so decideUseZK bypasses the drain/resume machine. When a
