@@ -22,6 +22,7 @@
     "test:deploy:l1": "./script/layer1/core/deploy_protocol_on_l1.sh",
     "eslint": "pnpm exec eslint --fix --ignore-path .eslintignore --ext .js,.ts .",
     "fmt:sol": "forge fmt && pnpm solhint 'contracts/**/*.sol'",
+    "fmt:check": "forge fmt --check $(find contracts test script -name '*.sol' ! -name '*_Layout.sol')",
     "test:coverage": "mkdir -p coverage && forge coverage --report lcov && lcov --ignore-errors inconsistent --ignore-errors unused --remove ./lcov.info -o ./coverage/lcov.info 'test/' 'script/' 'contracts/thirdparty/' && genhtml coverage/lcov.info --branch-coverage --output-dir coverage --ignore-errors category --ignore-errors inconsistent --ignore-errors corrupt && open coverage/index.html",
     "proposal": "FOUNDRY_PROFILE=layer1 MODE=print forge script script/layer1/proposals/Proposal$P.s.sol:Proposal$P",
     "proposal:dryrun:l1": "FOUNDRY_PROFILE=layer1 MODE=l1dryrun forge script --chain-id=1 --broadcast --rpc-url https://ethereum.publicnode.com script/layer1/proposals/Proposal$P.s.sol:Proposal$P",

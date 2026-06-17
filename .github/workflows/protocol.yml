@@ -74,6 +74,17 @@ jobs:
           # Configure merge strategy for auto-generated files
           git config merge.ours.driver true
 
+      - name: Check Solidity formatting
+        # Fork PRs cannot be auto-formatted and auto-committed (no write token),
+        # so verify formatting and fail the run instead. Non-fork PRs are repaired
+        # by the "Clean up and fmt" + auto-commit steps below.
+        # The command is inlined (rather than calling `pnpm fmt:check`) so it works
+        # on fork branches cut before this script was added. Auto-generated
+        # *_Layout.sol files are excluded: gen-layouts.sh emits trailing whitespace.
+        if: github.event.pull_request.head.repo.fork == true
+        working-directory: ./packages/protocol
+        run: forge fmt --check $(find contracts test script -name '*.sol' ! -name '*_Layout.sol')
+
       - name: Clean up and fmt
         if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
