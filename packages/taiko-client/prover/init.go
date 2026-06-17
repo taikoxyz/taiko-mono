@@ -99,6 +99,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		p.ctx,
 		sgxRethProducer,
 		zkvmProducer,
+		nil, // fallbackProofProducer wired in the next task
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,

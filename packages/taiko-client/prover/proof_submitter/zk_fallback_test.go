@@ -270,3 +270,71 @@ func (s *ZKFallbackTestSuite) TestDecideUseZKBreachClearsLocalZKBuffers() {
 		s.FailNow("expected raiko backlog clear")
 	}
 }
+
+func (s *ZKFallbackTestSuite) TestResolveFallbackProducer() {
+	base := &mockProofProducer{}
+	sp1 := &mockProofProducer{}
+
+	// Not latched -> base, even with an SP1 target configured.
+	sub := &ProofSubmitter{baseLevelProofProducer: base, fallbackProofProducer: sp1}
+	s.Same(base, sub.resolveFallbackProducer())
+
+	// Latched + SP1 target -> SP1.
+	s.True(sub.markFallback())
+	s.Same(sp1, sub.resolveFallbackProducer())
+
+	// Latched + no SP1 target (nil) -> base.
+	sub2 := &ProofSubmitter{baseLevelProofProducer: base}
+	s.True(sub2.markFallback())
+	s.Same(base, sub2.resolveFallbackProducer())
+}
+
+func (s *ZKFallbackTestSuite) TestDecideUseZKBreachSP1KeepsZKSP1Buffer() {
+	r0Buf := proofProducer.NewProofBuffer(8)
+	sp1Buf := proofProducer.NewProofBuffer(8)
+	r0Cache := cmap.New[*proofProducer.ProofResponse]()
+	sp1Cache := cmap.New[*proofProducer.ProofResponse]()
+
+	_, err := r0Buf.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(5), Meta: newShastaMetaForTest(5)})
+	s.NoError(err)
+	_, err = sp1Buf.Write(&proofProducer.ProofResponse{BatchID: big.NewInt(7), Meta: newShastaMetaForTest(7)})
+	s.NoError(err)
+
+	fake := &fakeZKBacklog{cleared: make(chan struct{}, 1)}
+	ch := make(chan *proofProducer.ProofRequestBody, 8)
+	sub := &ProofSubmitter{
+		maxZKProofProposalDistance: big.NewInt(30),
+		zkBacklog:                  fake,
+		proofPollingInterval:       time.Millisecond,
+		ctx:                        context.Background(),
+		fallbackProofProducer:      &mockProofProducer{}, // non-nil => SP1 target
+		proofBuffers: map[proofProducer.ProofType]*proofProducer.ProofBuffer{
+			proofProducer.ProofTypeZKR0:  r0Buf,
+			proofProducer.ProofTypeZKSP1: sp1Buf,
+		},
+		proofCacheMaps: map[proofProducer.ProofType]cmap.ConcurrentMap[string, *proofProducer.ProofResponse]{
+			proofProducer.ProofTypeZKR0:  r0Cache,
+			proofProducer.ProofTypeZKSP1: sp1Cache,
+		},
+		proofSubmissionCh: ch,
+	}
+
+	// Breach (41 > 10+30): latch, flush ZKR0 only (keep ZKSP1), resend the risc0 proposal.
+	s.False(sub.decideUseZK(context.Background(), big.NewInt(41), big.NewInt(10)))
+	s.True(sub.inFallback())
+	s.Equal(0, r0Buf.Len())  // risc0 flushed
+	s.Equal(1, sp1Buf.Len()) // sp1 kept
+
+	select {
+	case req := <-ch:
+		s.Equal(uint64(5), req.Meta.GetProposalID().Uint64())
+	case <-time.After(time.Second):
+		s.FailNow("expected risc0 proposal resent")
+	}
+	// No second resend: the sp1 buffer was not flushed.
+	select {
+	case <-ch:
+		s.FailNow("did not expect the sp1 proposal to be resent")
+	default:
+	}
+}

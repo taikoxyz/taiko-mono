@@ -47,6 +47,17 @@ func (s *ProofSubmitter) inFallback() bool {
 	return s.zkFallback.latched
 }
 
+// resolveFallbackProducer returns the producer for the non-zk_any attempt. While
+// latched into fallback with a configured non-base (SP1) target it returns that
+// producer; otherwise (a per-call zk_any_not_drawn / timeout, or an SGX target) it
+// returns the base producer.
+func (s *ProofSubmitter) resolveFallbackProducer() proofProducer.ProofProducer {
+	if s.inFallback() && s.fallbackProofProducer != nil {
+		return s.fallbackProofProducer
+	}
+	return s.baseLevelProofProducer
+}
+
 // resumeZK unlatches fallback-draining mode so subsequent proposals use ZK again.
 // It returns true only for the caller that performed the transition.
 func (s *ProofSubmitter) resumeZK() bool {
@@ -161,19 +172,23 @@ func (s *ProofSubmitter) fireClearAsync() {
 	}()
 }
 
-// zkProofTypes are the ZK proof types whose local buffers and caches are flushed
-// when entering SGX-draining mode.
-var zkProofTypes = []proofProducer.ProofType{
-	proofProducer.ProofTypeZKR0,
-	proofProducer.ProofTypeZKSP1,
+// zkFallbackFlushTypes lists the ZK proof types flushed when entering fallback
+// mode. Falling back to the base (SGX) producer stops all ZK proving, so both ZK
+// buffers must be flushed and re-proven. Falling back to SP1 keeps producing sp1
+// proofs, so the ZKSP1 buffer still aggregates and is kept; only the stranded
+// risc0 (ZKR0) proofs are flushed and re-proven as sp1.
+func (s *ProofSubmitter) zkFallbackFlushTypes() []proofProducer.ProofType {
+	if s.fallbackProofProducer != nil {
+		return []proofProducer.ProofType{proofProducer.ProofTypeZKR0}
+	}
+	return []proofProducer.ProofType{proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1}
 }
 
-// clearZKProofBuffersAndResend discards any buffered or cached ZK proofs and
-// re-enqueues their proposals so they are re-proven via SGX while draining. This
-// prevents a partially-filled ZK proof batch from stranding once new ZK requests
-// stop.
+// clearZKProofBuffersAndResend discards buffered/cached ZK proofs for the
+// target-dependent set and re-enqueues their proposals so they are re-proven via
+// the fallback producer while draining.
 func (s *ProofSubmitter) clearZKProofBuffersAndResend() {
-	for _, proofType := range zkProofTypes {
+	for _, proofType := range s.zkFallbackFlushTypes() {
 		s.clearProofBufferAndResend(proofType)
 	}
 }
@@ -222,7 +237,7 @@ func (s *ProofSubmitter) clearProofBufferAndResend(proofType proofProducer.Proof
 	}
 	if len(resend) > 0 {
 		log.Info(
-			"Cleared ZK proof buffer and resent proposals for SGX draining",
+			"Cleared ZK proof buffer and resent proposals for fallback draining",
 			"proofType", proofType,
 			"count", len(resend),
 		)

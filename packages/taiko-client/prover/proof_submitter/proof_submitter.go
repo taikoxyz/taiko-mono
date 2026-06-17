@@ -40,6 +40,11 @@ type ProofSubmitter struct {
 	// Proof producers
 	baseLevelProofProducer proofProducer.ProofProducer
 	zkvmProofProducer      proofProducer.ProofProducer
+	// fallbackProofProducer is the producer used while latched into fallback when a
+	// non-base (SP1) target is configured; nil means fall back to the base (SGX)
+	// baseLevelProofProducer. Distinguishes the SP1 target from SGX for both the
+	// request routing and the on-latch buffer flush.
+	fallbackProofProducer proofProducer.ProofProducer
 	// Channels
 	batchResultCh          chan *proofProducer.BatchProofs
 	batchAggregationNotify chan proofProducer.ProofType
@@ -71,6 +76,7 @@ func NewProofSubmitter(
 	ctx context.Context,
 	baseLevelProofProducer proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
+	fallbackProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
@@ -88,6 +94,7 @@ func NewProofSubmitter(
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProofProducer,
 		zkvmProofProducer:      zkvmProofProducer,
+		fallbackProofProducer:  fallbackProofProducer,
 		batchResultCh:          batchResultCh,
 		batchAggregationNotify: batchAggregationNotify,
 		proofSubmissionCh:      proofSubmissionCh,
@@ -258,9 +265,12 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 				}
 			}
 		}
-		// If zk proof is not enabled or zk proof is not drawn, request the base level proof.
+		// If zk proof is not enabled or zk proof is not drawn, request the fallback proof.
+		// While latched with an SP1 target this is the SP1 producer; otherwise (SGX target,
+		// or a per-call zk_any_not_drawn / timeout) it is the base (SGX) producer.
 		if proofResponse == nil {
-			if proofResponse, err = s.baseLevelProofProducer.RequestProof(
+			fallbackProducer := s.resolveFallbackProducer()
+			if proofResponse, err = fallbackProducer.RequestProof(
 				ctx,
 				opts,
 				meta.Shasta().GetEventData().Id,
@@ -270,7 +280,7 @@ func (s *ProofSubmitter) RequestProof(ctx context.Context, meta metadata.TaikoPr
 				if time.Since(startAt) > maxProofRequestTimeout {
 					log.Warn("WARN: Proof generation taking too long, please investigate")
 				}
-				return fmt.Errorf("failed to request base proof, error: %w", err)
+				return fmt.Errorf("failed to request fallback proof, error: %w", err)
 			}
 		}
 		return s.handleProofResponse(meta, fromID, proofResponse)
