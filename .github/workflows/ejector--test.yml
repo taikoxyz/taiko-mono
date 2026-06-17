@@ -42,7 +42,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "ejector"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the Test job saves this shared key; lint just consumes it.
+          save-if: "false"
           workspaces: |
             packages/ejector
 
@@ -109,7 +110,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           shared-key: "ejector"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the Test job saves this shared key; coverage just consumes it.
+          save-if: "false"
           workspaces: |
             packages/ejector
 

@@ -82,7 +82,10 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: "taiko-client-rs"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the Tests job saves this shared key; lint just consumes it.
+          # (immutable cache keys mean the first saver wins, and lint compiles
+          # less than nextest — see clippy's --exclude test-harness)
+          save-if: "false"
           workspaces: |
             packages/taiko-client-rs -> target
 

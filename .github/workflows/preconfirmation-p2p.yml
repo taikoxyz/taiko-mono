@@ -59,7 +59,8 @@ jobs:
         with:
           cache-on-failure: true
           shared-key: "preconfirmation-p2p"
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Only the Tests job saves this shared key; lint just consumes it.
+          save-if: "false"
           workspaces: |
             packages/preconfirmation-p2p
 
