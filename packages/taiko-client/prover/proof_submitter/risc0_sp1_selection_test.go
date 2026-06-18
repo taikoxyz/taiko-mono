@@ -17,6 +17,7 @@ type recordingProofProducer struct {
 	proofType      proofProducer.ProofType
 	requests       int
 	requestedTypes []proofProducer.ProofType
+	nilResponse    bool
 }
 
 func (p *recordingProofProducer) RequestProof(
@@ -32,6 +33,9 @@ func (p *recordingProofProducer) RequestProof(
 		requestedType = p.proofType
 	}
 	p.requestedTypes = append(p.requestedTypes, requestedType)
+	if p.nilResponse {
+		return nil, nil
+	}
 	return &proofProducer.ProofResponse{
 		BatchID:   batchID,
 		Meta:      meta,
@@ -121,6 +125,30 @@ func TestRequestProposalProofForceSP1UsesSP1WithinRisc0Distance(t *testing.T) {
 	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
 	require.Equal(t, 1, risc0.requests)
 	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
+	require.Zero(t, base.requests)
+}
+
+func TestRequestProposalProofErrorsOnNilZKVMResponse(t *testing.T) {
+	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
+	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0, nilResponse: true}
+	submitter := &ProofSubmitter{
+		baseLevelProofProducer:        base,
+		zkvmProofProducer:             risc0,
+		maxRisc0ProofProposalDistance: big.NewInt(30),
+	}
+
+	resp, err := submitter.requestProposalProof(
+		context.Background(),
+		&proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(40)},
+		big.NewInt(40),
+		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(40)}, 0),
+		time.Now(),
+		big.NewInt(10),
+	)
+
+	require.ErrorContains(t, err, "nil proof response")
+	require.Nil(t, resp)
+	require.Equal(t, 1, risc0.requests)
 	require.Zero(t, base.requests)
 }
 

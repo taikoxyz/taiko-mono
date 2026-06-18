@@ -279,6 +279,9 @@ func (s *ProofSubmitter) requestProposalProof(
 		if err != nil {
 			return nil, fmt.Errorf("failed to request base proof, error: %w", err)
 		}
+		if proofResponse == nil {
+			return nil, fmt.Errorf("received nil proof response from base proof producer")
+		}
 		return proofResponse, nil
 	}
 
@@ -288,6 +291,9 @@ func (s *ProofSubmitter) requestProposalProof(
 	proofResponse, err := s.zkvmProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request %s proof, error: %w", proofType, err)
+	}
+	if proofResponse == nil {
+		return nil, fmt.Errorf("received nil proof response from ZKVM producer for type %s", proofType)
 	}
 	return proofResponse, nil
 }
