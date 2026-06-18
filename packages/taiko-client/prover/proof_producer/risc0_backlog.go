@@ -8,10 +8,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// ZKBacklogController is implemented by proof producers whose backend exposes the
+// Risc0BacklogController is implemented by proof producers whose backend exposes the
 // raiko2 control-plane endpoints for draining the RISC0 task backlog and
 // reporting when the backend is idle. See raiko2 issue #93.
-type ZKBacklogController interface {
+type Risc0BacklogController interface {
 	// ClearBacklog discards non-terminal proof tasks on the RISC0 backend.
 	ClearBacklog(ctx context.Context) error
 	// StatusClean reports whether the RISC0 backend is fully idle, i.e. the
@@ -28,7 +28,7 @@ type raikoProverStatusResponse struct {
 	} `json:"data"`
 }
 
-// ClearBacklog implements the ZKBacklogController interface.
+// ClearBacklog implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	if s.Dummy {
 		return nil
@@ -49,7 +49,7 @@ func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	return nil
 }
 
-// StatusClean implements the ZKBacklogController interface.
+// StatusClean implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 	if s.Dummy {
 		return true, nil

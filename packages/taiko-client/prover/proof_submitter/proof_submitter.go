@@ -59,7 +59,7 @@ type ProofSubmitter struct {
 	proposalWindowSize            *big.Int
 	maxRisc0ProofProposalDistance *big.Int
 	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
-	risc0Backlog proofProducer.ZKBacklogController
+	risc0Backlog proofProducer.Risc0BacklogController
 	sp1Fallback  sp1Fallback
 	// ctx is the prover's long-lived context, used by background goroutines
 	// (e.g. the RISC0 backlog clear) that must outlive a single RequestProof call.
@@ -116,7 +116,7 @@ func NewProofSubmitter(
 	// machine. When a ZK endpoint IS set but its host predates raiko2 #93, the
 	// control-plane calls return 404 and the machine degrades by design (see
 	// canResumeRisc0).
-	if risc0Backlog, ok := zkvmProofProducer.(proofProducer.ZKBacklogController); ok {
+	if risc0Backlog, ok := zkvmProofProducer.(proofProducer.Risc0BacklogController); ok {
 		proofSubmitter.risc0Backlog = risc0Backlog
 	}
 

@@ -15,7 +15,7 @@ import (
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
-// fakeRisc0Backlog is a programmable ZKBacklogController for unit tests.
+// fakeRisc0Backlog is a programmable Risc0BacklogController for unit tests.
 type fakeRisc0Backlog struct {
 	clearCalls  atomic.Int32
 	clearErr    error
@@ -41,7 +41,7 @@ func (f *fakeRisc0Backlog) StatusClean(_ context.Context) (bool, error) {
 	return f.clean, f.statusErr
 }
 
-func newRisc0SP1FallbackSubmitter(backlog proofProducer.ZKBacklogController) *ProofSubmitter {
+func newRisc0SP1FallbackSubmitter(backlog proofProducer.Risc0BacklogController) *ProofSubmitter {
 	return &ProofSubmitter{
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 		risc0Backlog:                  backlog,
