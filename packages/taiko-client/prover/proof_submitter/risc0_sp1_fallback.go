@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"sync"
-	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,36 +17,24 @@ import (
 // when entering SP1 fallback mode.
 const clearBackoffMaxRetries uint64 = 5
 
-// sp1FallbackWarningInterval limits how often the submitter warns that it is
-// still proving through SP1 while waiting for the RISC0 backlog to drain.
-const sp1FallbackWarningInterval = 10 * time.Minute
-
 // sp1Fallback tracks whether the submitter is draining the RISC0 backlog via SP1.
 // It is shared across the concurrent RequestProof goroutines, so all access is
 // guarded by mu.
 type sp1Fallback struct {
-	mu         sync.Mutex
-	inSP1      bool
-	enteredAt  time.Time
-	lastWarnAt time.Time
+	mu    sync.Mutex
+	inSP1 bool
 }
 
 // markSP1Fallback latches into SP1 fallback mode. It returns true only for the
 // first caller that performs the transition; that caller is responsible for
 // clearing the RISC0 backlog exactly once.
 func (s *ProofSubmitter) markSP1Fallback() bool {
-	return s.markSP1FallbackAt(time.Now())
-}
-
-func (s *ProofSubmitter) markSP1FallbackAt(now time.Time) bool {
 	s.sp1Fallback.mu.Lock()
 	defer s.sp1Fallback.mu.Unlock()
 	if s.sp1Fallback.inSP1 {
 		return false
 	}
 	s.sp1Fallback.inSP1 = true
-	s.sp1Fallback.enteredAt = now
-	s.sp1Fallback.lastWarnAt = time.Time{}
 	metrics.ProverRisc0BacklogSP1ModeGauge.Set(1)
 	return true
 }
@@ -68,26 +55,7 @@ func (s *ProofSubmitter) resumeRisc0() bool {
 		return false
 	}
 	s.sp1Fallback.inSP1 = false
-	s.sp1Fallback.enteredAt = time.Time{}
-	s.sp1Fallback.lastWarnAt = time.Time{}
 	metrics.ProverRisc0BacklogSP1ModeGauge.Set(0)
-	return true
-}
-
-func (s *ProofSubmitter) recordSP1FallbackStuckWarning(now time.Time) bool {
-	s.sp1Fallback.mu.Lock()
-	defer s.sp1Fallback.mu.Unlock()
-
-	if !s.sp1Fallback.inSP1 ||
-		s.sp1Fallback.enteredAt.IsZero() ||
-		now.Sub(s.sp1Fallback.enteredAt) < sp1FallbackWarningInterval {
-		return false
-	}
-	if !s.sp1Fallback.lastWarnAt.IsZero() &&
-		now.Sub(s.sp1Fallback.lastWarnAt) < sp1FallbackWarningInterval {
-		return false
-	}
-	s.sp1Fallback.lastWarnAt = now
 	return true
 }
 
@@ -127,14 +95,6 @@ func (s *ProofSubmitter) decideZKProofType(
 				)
 			}
 			return proofProducer.ProofTypeZKR0
-		}
-		if s.recordSP1FallbackStuckWarning(time.Now()) {
-			log.Warn(
-				"Still in SP1 fallback mode while waiting for RISC0 backlog to drain",
-				"proposalID", proposalID,
-				"lastFinalizedProposalID", lastFinalizedProposalID,
-				"warningInterval", sp1FallbackWarningInterval,
-			)
 		}
 		return proofProducer.ProofTypeZKSP1
 	}

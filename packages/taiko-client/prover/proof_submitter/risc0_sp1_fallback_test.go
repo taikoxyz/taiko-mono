@@ -188,19 +188,6 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeStaysSP1WhenNotDrained(
 	s.Equal(int32(0), fake.statusCalls.Load())
 }
 
-func (s *Risc0SP1FallbackTestSuite) TestRecordSP1FallbackStuckWarningRateLimits() {
-	sub := &ProofSubmitter{}
-	startedAt := time.Unix(100, 0)
-	now := startedAt.Add(sp1FallbackWarningInterval)
-
-	s.False(sub.recordSP1FallbackStuckWarning(now))
-	s.True(sub.markSP1FallbackAt(startedAt))
-	s.False(sub.recordSP1FallbackStuckWarning(startedAt.Add(sp1FallbackWarningInterval - time.Second)))
-	s.True(sub.recordSP1FallbackStuckWarning(now))
-	s.False(sub.recordSP1FallbackStuckWarning(now.Add(time.Second)))
-	s.True(sub.recordSP1FallbackStuckWarning(now.Add(sp1FallbackWarningInterval)))
-}
-
 func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeStaysSP1WhenNotClean() {
 	fake := &fakeRisc0Backlog{clean: false}
 	sub := newRisc0SP1FallbackSubmitter(fake)
