@@ -14,8 +14,9 @@ import (
 )
 
 type recordingProofProducer struct {
-	proofType proofProducer.ProofType
-	requests  int
+	proofType      proofProducer.ProofType
+	requests       int
+	requestedTypes []proofProducer.ProofType
 }
 
 func (p *recordingProofProducer) RequestProof(
@@ -26,11 +27,16 @@ func (p *recordingProofProducer) RequestProof(
 	_ time.Time,
 ) (*proofProducer.ProofResponse, error) {
 	p.requests++
+	requestedType := opts.ProposalOptions().ProofType
+	if requestedType == "" {
+		requestedType = p.proofType
+	}
+	p.requestedTypes = append(p.requestedTypes, requestedType)
 	return &proofProducer.ProofResponse{
 		BatchID:   batchID,
 		Meta:      meta,
 		Opts:      opts,
-		ProofType: p.proofType,
+		ProofType: requestedType,
 	}, nil
 }
 
@@ -45,11 +51,9 @@ func (p *recordingProofProducer) Aggregate(
 func TestRequestProposalProofUsesRisc0FirstWhenZKVMConfigured(t *testing.T) {
 	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
-	sp1 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKSP1}
 	submitter := &ProofSubmitter{
 		baseLevelProofProducer:        base,
 		zkvmProofProducer:             risc0,
-		sp1FallbackProofProducer:      sp1,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 	}
 
@@ -65,18 +69,16 @@ func TestRequestProposalProofUsesRisc0FirstWhenZKVMConfigured(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, proofProducer.ProofTypeZKR0, resp.ProofType)
 	require.Equal(t, 1, risc0.requests)
-	require.Zero(t, sp1.requests)
+	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKR0}, risc0.requestedTypes)
 	require.Zero(t, base.requests)
 }
 
-func TestRequestProposalProofUsesSP1FallbackWhenRisc0DistanceExceeded(t *testing.T) {
+func TestRequestProposalProofUsesSameZKVMProducerForSP1Fallback(t *testing.T) {
 	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
-	sp1 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKSP1}
 	submitter := &ProofSubmitter{
 		baseLevelProofProducer:        base,
 		zkvmProofProducer:             risc0,
-		sp1FallbackProofProducer:      sp1,
 		maxRisc0ProofProposalDistance: big.NewInt(30),
 	}
 
@@ -91,8 +93,8 @@ func TestRequestProposalProofUsesSP1FallbackWhenRisc0DistanceExceeded(t *testing
 
 	require.NoError(t, err)
 	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
-	require.Zero(t, risc0.requests)
-	require.Equal(t, 1, sp1.requests)
+	require.Equal(t, 1, risc0.requests)
+	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
 	require.Zero(t, base.requests)
 }
 

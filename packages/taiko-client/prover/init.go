@@ -20,8 +20,7 @@ import (
 func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.ProveBatchesTxBuilder) error {
 	var (
 		// ZKVM proof producers.
-		zkvmProducer             producer.ProofProducer
-		sp1FallbackProofProducer producer.ProofProducer
+		zkvmProducer producer.ProofProducer
 
 		// All activated proof types in protocol.
 		proofTypes = make([]producer.ProofType, 0, proofSubmitter.MaxNumSupportedProofTypes)
@@ -73,15 +72,6 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 			ProofType:           producer.ProofTypeZKR0,
 			Dummy:               p.cfg.Dummy,
 		}
-		sp1FallbackProofProducer = &producer.ComposeProofProducer{
-			VerifierIDs:         zkVerifierIDs,
-			SgxGethProducer:     sgxGethProducer,
-			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-			ApiKey:              p.cfg.RaikoApiKey,
-			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
-			ProofType:           producer.ProofTypeZKSP1,
-			Dummy:               p.cfg.Dummy,
-		}
 	}
 	// Init proof buffers.
 	var (
@@ -109,7 +99,6 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		p.ctx,
 		sgxRethProducer,
 		zkvmProducer,
-		sp1FallbackProofProducer,
 		p.batchProofGenerationCh,
 		p.batchesAggregationNotify,
 		p.proofSubmissionCh,

@@ -59,10 +59,15 @@ func (s *ComposeProofProducer) RequestProof(
 	meta metadata.TaikoProposalMetaData,
 	requestAt time.Time,
 ) (*ProofResponse, error) {
+	requestProofType := s.ProofType
+	if opts.ProposalOptions().ProofType != "" {
+		requestProofType = opts.ProposalOptions().ProofType
+	}
+
 	log.Info(
 		"Request proof from raiko-host service",
 		"proposalID", proposalID,
-		"proofType", s.ProofType,
+		"proofType", requestProofType,
 		"time", time.Since(requestAt),
 		"dummy", s.Dummy,
 	)
@@ -76,7 +81,7 @@ func (s *ComposeProofProducer) RequestProof(
 
 	g.Go(func() error {
 		if s.Dummy {
-			proofType = s.ProofType
+			proofType = requestProofType
 			if resp, err := s.DummyProofProducer.RequestProof(ctx, opts, proposalID, meta, requestAt); err != nil {
 				return err
 			} else {
@@ -88,7 +93,7 @@ func (s *ComposeProofProducer) RequestProof(
 				[]ProofRequestOptions{opts},
 				[]metadata.TaikoProposalMetaData{meta},
 				false,
-				s.ProofType,
+				requestProofType,
 				requestAt,
 				opts.IsRethProofGenerated(),
 			); err != nil {
@@ -182,8 +187,7 @@ func (s *ComposeProofProducer) Aggregate(
 	})
 	g.Go(func() error {
 		if s.Dummy {
-			proofType = s.ProofType
-			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, s.ProofType)
+			resp, _ := s.DummyProofProducer.RequestBatchProofs(items, proofType)
 			batchProofs = resp.BatchProof
 		} else {
 			if resp, err := s.requestBatchProof(

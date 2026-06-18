@@ -49,6 +49,7 @@ type ProposalProofRequestOptions struct {
 	GethProofAggregationGenerated bool
 	RethProofGenerated            bool
 	RethProofAggregationGenerated bool
+	ProofType                     ProofType
 	L2BlockNums                   []*big.Int
 	DesignatedProver              common.Address
 	Checkpoint                    *Checkpoint

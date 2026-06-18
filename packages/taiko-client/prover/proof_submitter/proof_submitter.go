@@ -38,9 +38,8 @@ type SenderOptions struct {
 type ProofSubmitter struct {
 	rpc *rpc.Client
 	// Proof producers
-	baseLevelProofProducer   proofProducer.ProofProducer
-	zkvmProofProducer        proofProducer.ProofProducer
-	sp1FallbackProofProducer proofProducer.ProofProducer
+	baseLevelProofProducer proofProducer.ProofProducer
+	zkvmProofProducer      proofProducer.ProofProducer
 	// Channels
 	batchResultCh          chan *proofProducer.BatchProofs
 	batchAggregationNotify chan proofProducer.ProofType
@@ -72,7 +71,6 @@ func NewProofSubmitter(
 	ctx context.Context,
 	baseLevelProofProducer proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
-	sp1FallbackProofProducer proofProducer.ProofProducer,
 	batchResultCh chan *proofProducer.BatchProofs,
 	batchAggregationNotify chan proofProducer.ProofType,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
@@ -87,14 +85,13 @@ func NewProofSubmitter(
 	maxRisc0ProofProposalDistance *big.Int,
 ) (*ProofSubmitter, error) {
 	proofSubmitter := &ProofSubmitter{
-		rpc:                      senderOpts.RPCClient,
-		baseLevelProofProducer:   baseLevelProofProducer,
-		zkvmProofProducer:        zkvmProofProducer,
-		sp1FallbackProofProducer: sp1FallbackProofProducer,
-		batchResultCh:            batchResultCh,
-		batchAggregationNotify:   batchAggregationNotify,
-		proofSubmissionCh:        proofSubmissionCh,
-		txBuilder:                builder,
+		rpc:                    senderOpts.RPCClient,
+		baseLevelProofProducer: baseLevelProofProducer,
+		zkvmProofProducer:      zkvmProofProducer,
+		batchResultCh:          batchResultCh,
+		batchAggregationNotify: batchAggregationNotify,
+		proofSubmissionCh:      proofSubmissionCh,
+		txBuilder:              builder,
 		sender: transaction.NewSender(
 			senderOpts.RPCClient,
 			senderOpts.Txmgr,
@@ -283,15 +280,9 @@ func (s *ProofSubmitter) requestProposalProof(
 	}
 
 	proofType := s.decideZKProofType(ctx, proposalID, lastFinalizedProposalID)
-	producer := s.zkvmProofProducer
-	if proofType == proofProducer.ProofTypeZKSP1 {
-		producer = s.sp1FallbackProofProducer
-	}
-	if producer == nil {
-		return nil, fmt.Errorf("proof producer is not configured for proof type %s", proofType)
-	}
+	opts.ProposalOptions().ProofType = proofType
 
-	proofResponse, err := producer.RequestProof(ctx, opts, proposalID, meta, startAt)
+	proofResponse, err := s.zkvmProofProducer.RequestProof(ctx, opts, proposalID, meta, startAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request %s proof, error: %w", proofType, err)
 	}
@@ -469,10 +460,8 @@ func (s *ProofSubmitter) AggregateProofsByType(ctx context.Context, proofType pr
 	switch proofType {
 	case proofProducer.ProofTypeOp, proofProducer.ProofTypeSgx:
 		producer = s.baseLevelProofProducer
-	case proofProducer.ProofTypeZKR0:
+	case proofProducer.ProofTypeZKR0, proofProducer.ProofTypeZKSP1:
 		producer = s.zkvmProofProducer
-	case proofProducer.ProofTypeZKSP1:
-		producer = s.sp1FallbackProofProducer
 	default:
 		return fmt.Errorf("unknown proof type: %s", proofType)
 	}
