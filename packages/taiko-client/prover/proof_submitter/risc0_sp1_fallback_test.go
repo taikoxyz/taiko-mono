@@ -132,7 +132,10 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeBreachLatchesAndClearsO
 	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
 	sub := newRisc0SP1FallbackSubmitter(fake)
 
-	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10))) // breach
+	s.Equal(
+		proofProducer.ProofTypeZKSP1,
+		sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10)),
+	) // breach
 	s.True(sub.inSP1Fallback())
 
 	select {
