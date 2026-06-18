@@ -82,6 +82,14 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"PROVER_MAX_RISC0_PROOF_PROPOSAL_DISTANCE"},
 	}
+	ForceSP1Proof = &cli.BoolFlag{
+		Name: "prover.forceSP1Proof",
+		Usage: "Always request SP1 proofs from the ZKVM proof producer instead of trying RISC0 first. " +
+			"Post Shasta fork only.",
+		Value:    false,
+		Category: proverCategory,
+		EnvVars:  []string{"PROVER_FORCE_SP1_PROOF"},
+	}
 	// Special flags for testing.
 	Dummy = &cli.BoolFlag{
 		Name:     "prover.dummy",
@@ -161,4 +169,5 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	ForceBatchProvingInterval,
 	ProposalWindowSize,
 	MaxRisc0ProofProposalDistance,
+	ForceSP1Proof,
 }, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)

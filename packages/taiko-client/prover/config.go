@@ -50,6 +50,7 @@ type Config struct {
 	Dummy                         bool
 	ProposalWindowSize            uint64
 	MaxRisc0ProofProposalDistance uint64
+	ForceSP1Proof                 bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -123,6 +124,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		MaxRisc0ProofProposalDistance: c.Uint64(
 			flags.MaxRisc0ProofProposalDistance.Name,
 		),
+		ForceSP1Proof:          c.Bool(flags.ForceSP1Proof.Name),
 		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
 		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
 		LocalProposerAddresses: localProposerAddresses,

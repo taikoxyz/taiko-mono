@@ -68,6 +68,10 @@ func (s *ProofSubmitter) decideZKProofType(
 	proposalID *big.Int,
 	lastFinalizedProposalID *big.Int,
 ) proofProducer.ProofType {
+	if s.forceSP1Proof {
+		return proofProducer.ProofTypeZKSP1
+	}
+
 	// Machine inactive: no positive distance configured, or no control-plane client.
 	// Preserve stateless behavior: nil = use RISC0, 0 = always use SP1,
 	// N = RISC0 within N proposals. When risc0Backlog is nil this also guarantees

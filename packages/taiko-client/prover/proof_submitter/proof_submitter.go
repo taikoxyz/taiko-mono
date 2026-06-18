@@ -58,6 +58,7 @@ type ProofSubmitter struct {
 	proofPollingInterval          time.Duration
 	proposalWindowSize            *big.Int
 	maxRisc0ProofProposalDistance *big.Int
+	forceSP1Proof                 bool
 	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
 	risc0Backlog proofProducer.Risc0BacklogController
 	sp1Fallback  sp1Fallback
@@ -83,6 +84,7 @@ func NewProofSubmitter(
 	flushCacheNotify chan proofProducer.ProofType,
 	proposalWindowSize *big.Int,
 	maxRisc0ProofProposalDistance *big.Int,
+	forceSP1Proof bool,
 ) (*ProofSubmitter, error) {
 	proofSubmitter := &ProofSubmitter{
 		rpc:                    senderOpts.RPCClient,
@@ -106,6 +108,7 @@ func NewProofSubmitter(
 		flushCacheNotify:              flushCacheNotify,
 		proposalWindowSize:            proposalWindowSize,
 		maxRisc0ProofProposalDistance: maxRisc0ProofProposalDistance,
+		forceSP1Proof:                 forceSP1Proof,
 		ctx:                           ctx,
 	}
 

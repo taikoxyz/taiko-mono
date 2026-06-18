@@ -98,6 +98,32 @@ func TestRequestProposalProofUsesSameZKVMProducerForSP1Fallback(t *testing.T) {
 	require.Zero(t, base.requests)
 }
 
+func TestRequestProposalProofForceSP1UsesSP1WithinRisc0Distance(t *testing.T) {
+	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
+	risc0 := &recordingProofProducer{proofType: proofProducer.ProofTypeZKR0}
+	submitter := &ProofSubmitter{
+		baseLevelProofProducer:        base,
+		zkvmProofProducer:             risc0,
+		maxRisc0ProofProposalDistance: big.NewInt(30),
+		forceSP1Proof:                 true,
+	}
+
+	resp, err := submitter.requestProposalProof(
+		context.Background(),
+		&proofProducer.ProposalProofRequestOptions{ProposalID: big.NewInt(40)},
+		big.NewInt(40),
+		metadata.NewTaikoProposalMetadataShasta(&shastaBindings.ShastaInboxClientProposed{Id: big.NewInt(40)}, 0),
+		time.Now(),
+		big.NewInt(10),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, proofProducer.ProofTypeZKSP1, resp.ProofType)
+	require.Equal(t, 1, risc0.requests)
+	require.Equal(t, []proofProducer.ProofType{proofProducer.ProofTypeZKSP1}, risc0.requestedTypes)
+	require.Zero(t, base.requests)
+}
+
 func TestRequestProposalProofUsesBaseOnlyWhenZKVMDisabled(t *testing.T) {
 	base := &recordingProofProducer{proofType: proofProducer.ProofTypeSgx}
 	submitter := &ProofSubmitter{

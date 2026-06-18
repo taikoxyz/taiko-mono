@@ -100,6 +100,20 @@ func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeDistanceZeroUsesSP1() {
 	s.False(sub.inSP1Fallback())
 }
 
+func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeForceSP1DoesNotClearBacklog() {
+	fake := &fakeRisc0Backlog{cleared: make(chan struct{}, 1)}
+	sub := &ProofSubmitter{
+		maxRisc0ProofProposalDistance: big.NewInt(30),
+		risc0Backlog:                  fake,
+		forceSP1Proof:                 true,
+		ctx:                           context.Background(),
+	}
+
+	s.Equal(proofProducer.ProofTypeZKSP1, sub.decideZKProofType(context.Background(), big.NewInt(41), big.NewInt(10)))
+	s.False(sub.inSP1Fallback())
+	s.Equal(int32(0), fake.clearCalls.Load())
+}
+
 func (s *Risc0SP1FallbackTestSuite) TestDecideZKProofTypeNilBacklogFallsBackToStateless() {
 	sub := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(30)} // risc0Backlog nil
 	// 40 <= 10+30 stays RISC0; 41 > 10+30 uses SP1; neither latches without a control-plane client.

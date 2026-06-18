@@ -90,6 +90,20 @@ func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
 	})
 }
 
+func TestNewConfigFromCliContextForceSP1Proof(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.ForceSP1Proof)
+	})
+
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.ForceSP1Proof.Name)
+
+		require.True(t, cfg.ForceSP1Proof)
+	})
+}
+
 func (s *ProverTestSuite) TestNewConfigFromCliContextProverKeyError() {
 	app := s.SetupApp()
 
@@ -163,6 +177,7 @@ func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...str
 			Aliases: flags.MaxRisc0ProofProposalDistance.Aliases,
 			Value:   flags.MaxRisc0ProofProposalDistance.Value,
 		},
+		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
 	}
 
 	app.Action = func(ctx *cli.Context) error {
