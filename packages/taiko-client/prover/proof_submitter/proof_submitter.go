@@ -58,7 +58,7 @@ type ProofSubmitter struct {
 	proofPollingInterval          time.Duration
 	proposalWindowSize            *big.Int
 	maxRisc0ProofProposalDistance *big.Int
-	// RISC0-to-SP1 fallback state machine (see zk_fallback.go).
+	// RISC0-to-SP1 fallback state machine (see risc0_sp1_fallback.go).
 	risc0Backlog proofProducer.ZKBacklogController
 	sp1Fallback  sp1Fallback
 	// ctx is the prover's long-lived context, used by background goroutines
