@@ -35,7 +35,7 @@ func (s *ProofSubmitter) markSP1Fallback() bool {
 		return false
 	}
 	s.sp1Fallback.inSP1 = true
-	metrics.ProverZKBacklogModeGauge.Set(1)
+	metrics.ProverRisc0BacklogSP1ModeGauge.Set(1)
 	return true
 }
 
@@ -55,7 +55,7 @@ func (s *ProofSubmitter) resumeRisc0() bool {
 		return false
 	}
 	s.sp1Fallback.inSP1 = false
-	metrics.ProverZKBacklogModeGauge.Set(0)
+	metrics.ProverRisc0BacklogSP1ModeGauge.Set(0)
 	return true
 }
 
@@ -150,7 +150,7 @@ func (s *ProofSubmitter) fireClearAsync() {
 	if s.risc0Backlog == nil {
 		return
 	}
-	metrics.ProverZKBacklogClearCounter.Add(1)
+	metrics.ProverRisc0BacklogClearCounter.Add(1)
 	go func() {
 		bo := backoff.WithContext(
 			backoff.WithMaxRetries(

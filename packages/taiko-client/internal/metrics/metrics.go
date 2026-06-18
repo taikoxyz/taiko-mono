@@ -96,8 +96,8 @@ var (
 	ProverQueuedProofCounter         = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_all_queued"})
 	ProverSentProofCounter           = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_all_sent"})
 	ProverProofsAssigned             = factory.NewCounter(prometheus.CounterOpts{Name: "prover_proof_assigned"})
-	ProverZKBacklogModeGauge         = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_zk_backlog_sgx_mode"})
-	ProverZKBacklogClearCounter      = factory.NewCounter(prometheus.CounterOpts{Name: "prover_zk_backlog_clear"})
+	ProverRisc0BacklogSP1ModeGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_risc0_backlog_sp1_mode"})
+	ProverRisc0BacklogClearCounter   = factory.NewCounter(prometheus.CounterOpts{Name: "prover_risc0_backlog_clear"})
 	ProverReceivedProposedBlockGauge = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proposed_received"})
 	ProverReceivedProvenBlockGauge   = factory.NewGauge(prometheus.GaugeOpts{Name: "prover_proven_received"})
 	ProverSubmissionAcceptedCounter  = factory.NewCounter(prometheus.CounterOpts{
