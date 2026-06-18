@@ -85,6 +85,7 @@ var (
 	ForceSP1Proof = &cli.BoolFlag{
 		Name: "prover.forceSP1Proof",
 		Usage: "Always request SP1 proofs from the ZKVM proof producer instead of trying RISC0 first. " +
+			"If no ZKVM proof producer is configured, the prover keeps using the base proof producer. " +
 			"Post Shasta fork only.",
 		Value:    false,
 		Category: proverCategory,
