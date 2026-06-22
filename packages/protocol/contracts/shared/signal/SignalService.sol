@@ -56,21 +56,19 @@ contract SignalService is EssentialContract, ISignalService {
     // slot2: isAuthorized
     uint256[2] private _slotsUsedByPacaya;
 
-    /// @dev Cache for received signals.
+    /// @dev Cache for received signals, namespaced by VERSION so a version bump invalidates the
+    /// cache together with the checkpoints it was derived from.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
     /// Does NOT reuse the pacaya slot.
-    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
-
-    /// @dev Deprecated unversioned checkpoint storage. Retained only to preserve the storage
-    /// layout; no longer read from or written to.
-    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _deprecatedCheckpoints;
+    mapping(uint256 version => mapping(bytes32 signalSlot => bool received)) internal
+        _receivedSignals;
 
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps checkpoint version => block number => checkpoint data.
     mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) private
         _checkpoints;
 
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor and Initialization
@@ -114,7 +112,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
-        _receivedSignals[getSignalSlot(_chainId, _app, _signal)] = true;
+        _receivedSignals[VERSION][getSignalSlot(_chainId, _app, _signal)] = true;
         return 0;
     }
 
@@ -253,7 +251,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
-            require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
+            require(_receivedSignals[VERSION][slot], SS_SIGNAL_NOT_RECEIVED());
             return;
         }
 
