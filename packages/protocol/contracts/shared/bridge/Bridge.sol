@@ -48,6 +48,9 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     ///@dev The max proof size for a message to be processable by a relayer.
     uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
 
+    /// @notice The version of the message status mapping.
+    uint256 public constant MESSAGE_STATUS_VERSION = 1;
+
     /// @dev The amount of gas not to charge fee per cache operation.
     uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
@@ -83,6 +86,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     /// @dev Slot 7.
     mapping(address ethMinter => bool enabled) public isEthMinter;
+
     uint256[43] private __gap;
 
     // ---------------------------------------------------------------
