@@ -126,6 +126,18 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         __reserved3 = 0;
     }
 
+    /// @notice Deletes the status of a list of messages, resetting each to the default
+    /// `Status.NEW`. Each message must currently be in `Status.RETRIABLE`. Intended to be
+    /// called once by previously deployed contracts to clear stale message statuses.
+    /// @param _msgHashes The hashes of the messages whose status should be deleted.
+    function init3(bytes32[] calldata _msgHashes) external onlyOwner reinitializer(3) {
+        for (uint256 i; i < _msgHashes.length; ++i) {
+            _checkStatus(_msgHashes[i], Status.RETRIABLE);
+            delete messageStatus[_msgHashes[i]];
+            emit MessageStatusReset(_msgHashes[i]);
+        }
+    }
+
     /// @inheritdoc IBridge
     function sendMessage(Message calldata _message)
         external

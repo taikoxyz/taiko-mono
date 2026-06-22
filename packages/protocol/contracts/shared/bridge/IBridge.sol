@@ -71,6 +71,10 @@ interface IBridge {
     /// @param status The new status of the message.
     event MessageStatusChanged(bytes32 indexed msgHash, Status status);
 
+    /// @notice Emitted when the status of a message is reset to `Status.NEW`.
+    /// @param msgHash The hash of the message.
+    event MessageStatusReset(bytes32 indexed msgHash);
+
     /// @notice Sends a message to the destination chain and takes custody
     /// of Ether required in this contract.
     /// @param _message The message to be sent.
