@@ -132,7 +132,7 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function _deploySignalService(address _authorizedSyncer) internal returns (SignalService) {
-        SignalService impl = new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE, 1);
+        SignalService impl = new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE);
         return SignalService(
             address(
                 new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (address(this))))
@@ -142,7 +142,7 @@ abstract contract InboxTestBase is CommonTest {
 
     function _setSignalServiceSyncer(address _authorizedSyncer) internal {
         signalService.upgradeTo(
-            address(new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE, 1))
+            address(new SignalService(_authorizedSyncer, REMOTE_SIGNAL_SERVICE))
         );
     }
 

@@ -164,7 +164,7 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (SignalService)
     {
-        SignalService impl = new SignalService(authorizedSyncer, remoteSignalService, 1);
+        SignalService impl = new SignalService(authorizedSyncer, remoteSignalService);
         SignalService proxy = SignalService(
             deploy({
                 name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))

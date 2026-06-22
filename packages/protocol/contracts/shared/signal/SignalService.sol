@@ -41,7 +41,7 @@ contract SignalService is EssentialContract, ISignalService {
 
     /// @notice Version of the checkpoints mapping. Stored checkpoints are namespaced
     /// by this value; bumping it invalidates all previously stored checkpoints.
-    uint256 public immutable checkpointVersion;
+    uint256 public immutable version;
 
     // ---------------------------------------------------------------
     // Storage variables
@@ -68,17 +68,13 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    constructor(
-        address authorizedSyncer,
-        address remoteSignalService,
-        uint256 checkpointVersion_
-    ) {
+    constructor(address authorizedSyncer, address remoteSignalService) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
-        checkpointVersion = checkpointVersion_;
+        version = 1;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -165,7 +161,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[checkpointVersion][_checkpoint.blockNumber] = CheckpointRecord({
+        _checkpoints[version][_checkpoint.blockNumber] = CheckpointRecord({
             blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
         });
 
@@ -194,7 +190,7 @@ contract SignalService is EssentialContract, ISignalService {
         view
         returns (Checkpoint memory checkpoint_)
     {
-        CheckpointRecord storage record = _checkpoints[checkpointVersion][_blockNumber];
+        CheckpointRecord storage record = _checkpoints[version][_blockNumber];
         bytes32 blockHash = record.blockHash;
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 

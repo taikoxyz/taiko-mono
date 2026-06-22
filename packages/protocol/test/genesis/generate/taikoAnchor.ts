@@ -221,7 +221,7 @@ async function generateContractConfigs(
     );
     const signalServiceReferencesMap: any = getImmutableReference(
         "SignalService",
-        ["_authorizedSyncer", "_remoteSignalService", "checkpointVersion"],
+        ["_authorizedSyncer", "_remoteSignalService", "version"],
     );
 
     for (const [contractName, artifact] of Object.entries(contractArtifacts)) {
@@ -588,7 +588,7 @@ async function generateContractConfigs(
                         value: ethers.utils.hexZeroPad(remoteSignalService, 32),
                     },
                     {
-                        id: signalServiceReferencesMap.checkpointVersion.id,
+                        id: signalServiceReferencesMap.version.id,
                         value: ethers.utils.hexZeroPad("0x01", 32),
                     },
                 ]),
