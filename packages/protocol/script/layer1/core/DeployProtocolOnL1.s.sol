@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {
-    AutomataDcapAttestationFee
-} from "@automata-network/automata-dcap-attestation/contracts/AutomataDcapAttestationFee.sol";
-import {
-    V3QuoteVerifier
-} from "@automata-network/automata-dcap-attestation/contracts/verifiers/V3QuoteVerifier.sol";
-import "@p256-verifier/contracts/P256Verifier.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 
@@ -60,7 +53,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
-        address pccsRouter;
+        address automataDcap;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -114,9 +107,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
-        // Automata's deployed on-chain PCCS router (Intel collateral source) for the SGX verifier.
-        // Optional for dummy-verifier deployments, which don't exercise real attestation.
-        config.pccsRouter = vm.envOr("PCCS_ROUTER", address(0));
+        // Taiko-owned Automata DCAP attestation entrypoint for the SGX verifiers. Deploy it first
+        // with DeployAutomataDcapAttestation (under FOUNDRY_PROFILE=layer1o) and pass its address
+        // here. Optional for dummy-verifier deployments, which don't exercise real attestation.
+        config.automataDcap = vm.envOr("DCAP_ATTESTATION", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -132,13 +126,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         verifiers.op = address(new OpVerifier());
         console2.log("OpVerifier deployed:", verifiers.op);
 
-        // Deploy our own Taiko-owned Automata DCAP attestation entrypoint, pointed at Automata's
-        // deployed on-chain PCCS. Shared by both SGX verifier instances; each SgxVerifier enforces
-        // its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment). Skipped for dummy
-        // deployments, which don't exercise real attestation and need no PCCS_ROUTER.
-        address automataDcap;
+        // Taiko-owned Automata DCAP attestation entrypoint (deployed separately by
+        // DeployAutomataDcapAttestation), shared by both SGX verifier instances; each SgxVerifier
+        // enforces its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment). Required for
+        // real deployments; dummy deployments don't exercise real attestation.
+        address automataDcap = config.automataDcap;
         if (!config.useDummyVerifiers) {
-            automataDcap = _deployAutomataAttestation(config.contractOwner, config.pccsRouter);
+            require(automataDcap != address(0), "DCAP_ATTESTATION not set");
         }
 
         // Deploy SGX verifier
@@ -355,34 +349,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(
             sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(erc1155Vault)))
         );
-    }
-
-    function _deployAutomataAttestation(
-        address owner,
-        address pccsRouter
-    )
-        private
-        returns (address entrypoint)
-    {
-        require(pccsRouter != address(0), "PCCS_ROUTER not set");
-
-        // SGX (V3) quote verifier, using the RIP-7212 P256 verifier and Automata's deployed PCCS.
-        V3QuoteVerifier v3QuoteVerifier =
-            new V3QuoteVerifier(address(new P256Verifier()), pccsRouter);
-        console2.log("V3QuoteVerifier deployed:", address(v3QuoteVerifier));
-
-        // Deploy the entrypoint owned by the deployer so we can wire the verifier, then hand
-        // ownership to the contract owner. AutomataDcapAttestationFee is non-upgradeable (no proxy).
-        AutomataDcapAttestationFee attestation = new AutomataDcapAttestationFee(msg.sender);
-        attestation.setQuoteVerifier(address(v3QuoteVerifier));
-        // Force a zero verification fee: registerInstance forwards no ETH, so any non-zero fee
-        // would revert every SGX instance registration. Set explicitly (the default is already 0)
-        // while the deployer is still the owner, before handing ownership to `owner`.
-        attestation.setBp(0);
-        attestation.transferOwnership(owner);
-
-        entrypoint = address(attestation);
-        console2.log("AutomataDcapAttestationFee deployed:", entrypoint);
     }
 
     function _deployZKVerifiers(
