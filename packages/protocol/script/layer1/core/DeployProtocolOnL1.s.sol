@@ -302,9 +302,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         address signalService = IResolver(sharedResolver)
             .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
 
+        // The quota manager is wired in via a later upgrade once it is deployed; the bridge is
+        // bootstrapped with address(0), which disables the Ether quota check.
+        address quotaManager = address(0);
+
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
+            impl: address(new MainnetBridge(address(sharedResolver), signalService, quotaManager)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });
