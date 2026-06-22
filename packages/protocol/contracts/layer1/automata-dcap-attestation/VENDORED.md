@@ -64,10 +64,18 @@ All other imports (`solady/utils/*`, `openzeppelin/contracts/*`) resolve via exi
   generic Automata entrypoint verifies quote authenticity + TCB status but does not enforce
   enclave-identity policy.
 
-## NOT done (intentional / follow-ups)
+## Security fix included
 
-- **The SGX DEBUG-attribute gap is intentionally NOT fixed** (per request). `registerInstance` still
-  does not reject quotes whose enclave report has the DEBUG bit set; see the `NOTE` in that function.
+- **The SGX DEBUG-attribute gap is FIXED.** `registerInstance` now rejects any quote whose enclave
+  report has the DEBUG attribute bit set (revert `SGX_DEBUG_ENCLAVE`). DEBUG is bit 1 of the
+  little-endian SGX ATTRIBUTES flags, read from the authenticated enclave-report body at raw-quote
+  offset `HEADER_LENGTH + 48`. The check is unconditional (debug enclaves are never trustworthy
+  on-chain, since their memory — including the in-enclave signing key — is host-accessible).
+
+## NOT done (follow-ups)
+
+- A unit test asserting the DEBUG-enclave revert should be added with the test migration below
+  (the existing SgxVerifier test suite must be migrated to the raw-quote flow first).
 - **Deployment scripts** (`DeployProtocolOnL1`, `DeployShastaContracts`, `ConfigureSgxVerifier`)
   still deploy/wire the legacy attestation contract; they must be updated to deploy
   `AutomataDcapAttestationFee` + a `V3QuoteVerifier` pointed at Automata's deployed PCCS router

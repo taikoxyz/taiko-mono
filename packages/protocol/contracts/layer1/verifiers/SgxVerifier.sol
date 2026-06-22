@@ -45,6 +45,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     uint256 private constant MRSIGNER_OFFSET = HEADER_LENGTH + 128;
     /// @dev reportData offset within the raw quote (header + enclave-report offset 320).
     uint256 private constant REPORT_DATA_OFFSET = HEADER_LENGTH + 320;
+    /// @dev `attributes` offset within the raw quote (header + enclave-report offset 48).
+    uint256 private constant ATTRIBUTES_OFFSET = HEADER_LENGTH + 48;
+    /// @dev DEBUG bit (bit 1) of the little-endian SGX ATTRIBUTES flags.
+    uint8 private constant SGX_FLAGS_DEBUG = 0x02;
 
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
@@ -108,6 +112,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     event LocalReportCheckToggled(bool checkLocalEnclaveReport);
 
     error SGX_ALREADY_ATTESTED();
+    error SGX_DEBUG_ENCLAVE();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
@@ -198,9 +203,14 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
             _rawQuote.length >= HEADER_LENGTH + ENCLAVE_REPORT_LENGTH, SGX_INVALID_ATTESTATION()
         );
 
-        // NOTE: the SGX DEBUG attribute (bit 1 of the `attributes` field at body offset 48, i.e.
-        // _rawQuote[HEADER_LENGTH + 48]) is intentionally NOT checked here. This preserves the exact
-        // pre-migration behavior; closing this gap is tracked as a follow-up (see VENDORED.md).
+        // Reject DEBUG-mode enclaves: a debug enclave's memory (including the in-enclave signing
+        // key recorded in reportData) is readable and writable by the host, so its quotes must
+        // never be trusted on-chain. DEBUG is bit 1 of the SGX ATTRIBUTES flags; the flags are
+        // little-endian, so the bit lives in the low byte of the 16-byte `attributes` field at
+        // enclave-report offset 48 (raw-quote offset HEADER_LENGTH + 48).
+        require(
+            (uint8(_rawQuote[ATTRIBUTES_OFFSET]) & SGX_FLAGS_DEBUG) == 0, SGX_DEBUG_ENCLAVE()
+        );
 
         if (checkLocalEnclaveReport) {
             bytes32 mrEnclave = bytes32(_rawQuote[MRENCLAVE_OFFSET:MRENCLAVE_OFFSET + 32]);
