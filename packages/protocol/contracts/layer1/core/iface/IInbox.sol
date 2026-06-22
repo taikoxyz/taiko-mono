@@ -187,6 +187,14 @@ interface IInbox {
         address indexed actualProver
     );
 
+    /// @notice Emitted when the core state is reset via the one-time recovery re-initializer.
+    /// @param nextProposalId The next proposal ID set by the recovery.
+    /// @param lastFinalizedProposalId The last finalized proposal ID set by the recovery.
+    /// @param lastFinalizedBlockHash The last finalized block hash set by the recovery.
+    event StateRecovered(
+        uint48 nextProposalId, uint48 lastFinalizedProposalId, bytes32 lastFinalizedBlockHash
+    );
+
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
