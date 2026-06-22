@@ -113,7 +113,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
         // Automata's deployed on-chain PCCS router (Intel collateral source) for the SGX verifier.
-        config.pccsRouter = vm.envAddress("PCCS_ROUTER");
+        // Optional for dummy-verifier deployments, which don't exercise real attestation.
+        config.pccsRouter = vm.envOr("PCCS_ROUTER", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -131,8 +132,12 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy our own Taiko-owned Automata DCAP attestation entrypoint, pointed at Automata's
         // deployed on-chain PCCS. Shared by both SGX verifier instances; each SgxVerifier enforces
-        // its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment).
-        address automataDcap = _deployAutomataAttestation(config.contractOwner, config.pccsRouter);
+        // its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment). Skipped for dummy
+        // deployments, which don't exercise real attestation and need no PCCS_ROUTER.
+        address automataDcap;
+        if (!config.useDummyVerifiers) {
+            automataDcap = _deployAutomataAttestation(config.contractOwner, config.pccsRouter);
+        }
 
         // Deploy SGX verifier
         verifiers.sgx =
@@ -368,6 +373,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         // ownership to the contract owner. AutomataDcapAttestationFee is non-upgradeable (no proxy).
         AutomataDcapAttestationFee attestation = new AutomataDcapAttestationFee(msg.sender);
         attestation.setQuoteVerifier(address(v3QuoteVerifier));
+        // Force a zero verification fee: registerInstance forwards no ETH, so any non-zero fee
+        // would revert every SGX instance registration. Set explicitly (the default is already 0)
+        // while the deployer is still the owner, before handing ownership to `owner`.
+        attestation.setBp(0);
         attestation.transferOwnership(owner);
 
         entrypoint = address(attestation);

@@ -35,6 +35,8 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     uint256 private constant OUTPUT_BODY_OFFSET = 11;
     /// @dev `quoteBodyType` value identifying an SGX Enclave Report body.
     uint8 private constant SGX_QUOTE_BODY_TYPE = 1;
+    /// @dev Quote version handled by this verifier (Intel DCAP V3 / SGX).
+    uint8 private constant SGX_QUOTE_VERSION = 3;
     /// @dev Length of an Intel SGX quote header.
     uint256 private constant HEADER_LENGTH = 48;
     /// @dev Length of an SGX Enclave Report body.
@@ -49,6 +51,17 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     uint256 private constant ATTRIBUTES_OFFSET = HEADER_LENGTH + 48;
     /// @dev DEBUG bit (bit 1) of the little-endian SGX ATTRIBUTES flags.
     uint8 private constant SGX_FLAGS_DEBUG = 0x02;
+    /// @dev Accepted TCB status codes, verified against @automata-network/on-chain-pccs
+    /// FmspcTcbHelper.TCBStatus (v1.1.x): 0=OK, 1=SW_HARDENING_NEEDED,
+    /// 2=CONFIG_AND_SW_HARDENING_NEEDED, 3=CONFIG_NEEDED, 4=OUT_OF_DATE,
+    /// 5=OUT_OF_DATE_CONFIG_NEEDED, 6=REVOKED, 7=UNRECOGNIZED. We intentionally keep these as local
+    /// constants rather than importing the enum, to avoid coupling this core verifier to the
+    /// version-drift-prone PCCS helper libraries.
+    uint8 private constant TCB_STATUS_OK = 0;
+    uint8 private constant TCB_STATUS_SW_HARDENING_NEEDED = 1;
+    uint8 private constant TCB_STATUS_CONFIG_AND_SW_HARDENING_NEEDED = 2;
+    uint8 private constant TCB_STATUS_OUT_OF_DATE = 4;
+    uint8 private constant TCB_STATUS_OUT_OF_DATE_CONFIG_NEEDED = 5;
 
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
@@ -80,8 +93,6 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     mapping(bytes32 mrEnclave => bool trusted) public trustedUserMrEnclave;
     /// Slot 6.
     mapping(bytes32 mrSigner => bool trusted) public trustedUserMrSigner;
-
-    uint256[44] private __gap;
 
     /// @notice Emitted when a new SGX instance is added to the registry.
     /// @param id The ID of the SGX instance.
@@ -190,6 +201,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(
             output.length >= OUTPUT_BODY_OFFSET + ENCLAVE_REPORT_LENGTH, SGX_INVALID_ATTESTATION()
         );
+        // quoteVersion is a big-endian uint16 at output[0:2]; this verifier handles V3 only.
+        require(
+            uint8(output[0]) == 0 && uint8(output[1]) == SGX_QUOTE_VERSION, SGX_INVALID_ATTESTATION()
+        );
         // quoteBodyType is a big-endian uint16 at output[2:4]; 1 == SGX Enclave Report.
         require(
             uint8(output[2]) == 0 && uint8(output[3]) == SGX_QUOTE_BODY_TYPE,
@@ -297,10 +312,8 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @param _status The TCB status code from the attestation output.
     /// @return Whether the status is accepted.
     function _isTcbStatusAccepted(uint8 _status) private pure returns (bool) {
-        return _status == 0 // OK
-            || _status == 1 // TCB_SW_HARDENING_NEEDED
-            || _status == 2 // TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED
-            || _status == 4 // TCB_OUT_OF_DATE
-            || _status == 5; // TCB_OUT_OF_DATE_CONFIGURATION_NEEDED
+        return _status == TCB_STATUS_OK || _status == TCB_STATUS_SW_HARDENING_NEEDED
+            || _status == TCB_STATUS_CONFIG_AND_SW_HARDENING_NEEDED
+            || _status == TCB_STATUS_OUT_OF_DATE || _status == TCB_STATUS_OUT_OF_DATE_CONFIG_NEEDED;
     }
 }
