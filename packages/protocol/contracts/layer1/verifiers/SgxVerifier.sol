@@ -51,8 +51,8 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     uint256 private constant ATTRIBUTES_OFFSET = HEADER_LENGTH + 48;
     /// @dev DEBUG bit (bit 1) of the little-endian SGX ATTRIBUTES flags.
     uint8 private constant SGX_FLAGS_DEBUG = 0x02;
-    /// @dev Accepted TCB status codes, verified against @automata-network/on-chain-pccs
-    /// FmspcTcbHelper.TCBStatus (v1.1.x): 0=OK, 1=SW_HARDENING_NEEDED,
+    /// @dev Accepted TCB status codes, verified against the automata-network/on-chain-pccs
+    /// FmspcTcbHelper.TCBStatus enum (v1.1.x): 0=OK, 1=SW_HARDENING_NEEDED,
     /// 2=CONFIG_AND_SW_HARDENING_NEEDED, 3=CONFIG_NEEDED, 4=OUT_OF_DATE,
     /// 5=OUT_OF_DATE_CONFIG_NEEDED, 6=REVOKED, 7=UNRECOGNIZED. We intentionally keep these as local
     /// constants rather than importing the enum, to avoid coupling this core verifier to the
@@ -193,6 +193,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
     /// @return The respective instanceId.
     function registerInstance(bytes calldata _rawQuote) external returns (uint256) {
+        // Fail fast with a clear error if this verifier was deployed without an attestation
+        // entrypoint (e.g. a dummy-verifier deployment).
+        require(automataDcapAttestation != address(0), SGX_INVALID_ATTESTATION());
+
         (bool verified, bytes memory output) =
             IDcapAttestation(automataDcapAttestation).verifyAndAttestOnChain(_rawQuote);
         require(verified, SGX_INVALID_ATTESTATION());

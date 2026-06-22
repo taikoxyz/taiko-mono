@@ -38,7 +38,10 @@ remappings = [
     # ZK-coprocessor verifier interfaces imported by the DCAP entrypoint (ZK route is unused
     # on-chain, but these must resolve for the entrypoint to compile):
     "risc0/=node_modules/risc0-ethereum/contracts/src/",
-    "@sp1-contracts/ISP1Verifier.sol=node_modules/sp1-contracts/contracts/src/ISP1Verifier.sol",
+    # Context-scoped: only the Automata DCAP entrypoint imports "@sp1-contracts/ISP1Verifier.sol"
+    # (at contracts/src/), whereas taiko's own code uses "@sp1-contracts/src/...". Scope this remap
+    # to the dependency so it doesn't collide with the global "@sp1-contracts/" remap above.
+    "node_modules/@automata-network/automata-dcap-attestation/:@sp1-contracts/=node_modules/sp1-contracts/contracts/src/",
     "ds-test/=node_modules/ds-test/",
     "src/=contracts/",
     "test/=test/",

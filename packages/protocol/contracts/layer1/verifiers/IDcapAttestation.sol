@@ -6,11 +6,11 @@ pragma solidity ^0.8.24;
 /// (`AutomataDcapAttestationFee`), used by `SgxVerifier` to verify remote-attestation quotes
 /// fully on-chain.
 /// @dev The implementation is the pinned npm dependency
-/// `@automata-network/automata-dcap-attestation@1.1.0` (latest stable release; Trail of Bits
+/// "automata-network/automata-dcap-attestation" v1.1.0 (latest stable release; Trail of Bits
 /// audited the v1.0 baseline and v1.1.0 incorporates the audit remediation). It reads Intel
-/// collateral from on-chain PCCS (`@automata-network/on-chain-pccs`). Enclave-identity policy
-/// (MRENCLAVE/MRSIGNER allowlist), TCB-status acceptance, and DEBUG-enclave rejection are enforced
-/// by `SgxVerifier`, not here.
+/// collateral from on-chain PCCS (the "automata-network/on-chain-pccs" package). Enclave-identity
+/// policy (MRENCLAVE/MRSIGNER allowlist), TCB-status acceptance, and DEBUG-enclave rejection are
+/// enforced by SgxVerifier, not here.
 /// @custom:security-contact security@taiko.xyz
 interface IDcapAttestation {
     /// @notice Verifies an Intel DCAP quote fully on-chain.
