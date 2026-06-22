@@ -1,4 +1,4 @@
-# PROPOSAL-0014: Upgrade Shasta Inbox Implementation
+# PROPOSAL-0016: Upgrade Shasta Inbox Implementation
 
 ## Executive Summary
 
@@ -59,13 +59,13 @@ Before submission:
 3. Generate proposal calldata:
 
    ```bash
-   P=0014 pnpm proposal
+   P=0016 pnpm proposal
    ```
 
 4. Dryrun on L1:
 
    ```bash
-   P=0014 pnpm proposal:dryrun:l1
+   P=0016 pnpm proposal:dryrun:l1
    ```
 
 After execution:

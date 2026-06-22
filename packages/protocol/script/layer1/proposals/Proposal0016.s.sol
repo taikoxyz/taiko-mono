@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import "../governance/BuildProposal.sol";
 
-// To print the proposal action data: `P=0014 pnpm proposal`
-// To dryrun the proposal on L1: `P=0014 pnpm proposal:dryrun:l1`
-contract Proposal0014 is BuildProposal {
+// To print the proposal action data: `P=0016 pnpm proposal`
+// To dryrun the proposal on L1: `P=0016 pnpm proposal:dryrun:l1`
+contract Proposal0016 is BuildProposal {
     address public constant INBOX_NEW_IMPL = 0x349Ae3578f48F758d79451EeAB61Cdd5fedD0098;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
