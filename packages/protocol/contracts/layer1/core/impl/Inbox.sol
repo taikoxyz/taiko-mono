@@ -204,8 +204,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Invoke via `upgradeToAndCall` on the proxy. The caller must supply a consistent
     ///      `(_lastFinalizedProposalId, _lastFinalizedBlockHash)` pair: `_lastFinalizedBlockHash`
     ///      must be the true L2 end-block hash of `_lastFinalizedProposalId`, otherwise `prove`
-    ///      cannot resume. This uses initializer version 3 because deployed proxies may have
-    ///      already consumed version 2.
+    ///      cannot resume.
     /// @param _nextProposalId The next proposal ID to assign. Must be greater than zero.
     /// @param _lastProposalBlockId The L1 block number of the most recent proposal.
     /// @param _lastFinalizedProposalId The ID to record as last finalized. Must be less than
@@ -221,7 +220,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     )
         external
         onlyOwner
-        reinitializer(3)
+        reinitializer(2)
     {
         CoreState memory currentState = _coreState;
 

@@ -72,17 +72,11 @@ contract InboxInit2Test is InboxTestBase {
         assertEq(state.lastFinalizedBlockHash, transitions[0].blockHash);
     }
 
-    function test_init2_WorksWhenProxyAlreadyAtVersion2() public {
+    function test_init2_RevertWhen_ProxyAlreadyAtVersion2() public {
         vm.store(address(inbox), bytes32(0), bytes32(uint256(2)));
 
-        bytes32 lastFinalizedBlockHash = keccak256("trustedBlockHash");
-
-        inbox.init2(1, 0, 0, lastFinalizedBlockHash);
-
-        IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.nextProposalId, 1);
-        assertEq(state.lastFinalizedProposalId, 0);
-        assertEq(state.lastFinalizedBlockHash, lastFinalizedBlockHash);
+        vm.expectRevert();
+        inbox.init2(1, 0, 0, keccak256("trustedBlockHash"));
     }
 
     function test_init2_RevertWhen_CallerNotOwner() public {
