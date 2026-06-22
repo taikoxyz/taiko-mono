@@ -352,6 +352,11 @@ contract PEMCertChainLib is IPEMCertChainLib {
         // get the first svn object in the sequence
         uint256 svnParentPtr = der.firstChildOf(tcbPtr);
         cpusvns = new uint256[](SGX_TCB_CPUSVN_SIZE);
+        // Track how many cpusvns have been written so far. The cpusvns must be
+        // indexed independently of the loop counter: the loop also visits the
+        // PCESVN entry, and not relying on it being in a fixed position avoids
+        // an out-of-bounds write when the entries are ordered unexpectedly.
+        uint256 cpusvnsFound;
         for (uint256 i; i < SGX_TCB_CPUSVN_SIZE + 1; ++i) {
             uint256 svnPtr = der.firstChildOf(svnParentPtr); // OID
             uint256 svnValuePtr = der.nextSiblingOf(svnPtr); // value
@@ -362,10 +367,9 @@ contract PEMCertChainLib is IPEMCertChainLib {
             if (BytesUtils.compareBytes(der.bytesAt(svnPtr), PCESVN_OID)) {
                 // pcesvn is 4 bytes in size
                 pcesvn = uint256(svnValue);
-            } else {
+            } else if (cpusvnsFound < SGX_TCB_CPUSVN_SIZE) {
                 // each cpusvn is at maximum two bytes in size
-                uint256 cpusvn = uint256(svnValue);
-                cpusvns[i] = cpusvn;
+                cpusvns[cpusvnsFound++] = uint256(svnValue);
             }
 
             // iterate to the next svn object in the sequence
