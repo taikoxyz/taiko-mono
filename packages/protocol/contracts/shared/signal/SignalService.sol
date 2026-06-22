@@ -39,9 +39,13 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
 
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
     /// @notice Version of the checkpoints mapping. Stored checkpoints are namespaced
     /// by this value; bumping it invalidates all previously stored checkpoints.
-    uint256 public immutable version;
+    uint256 public constant VERSION = 1;
 
     // ---------------------------------------------------------------
     // Storage variables
@@ -57,12 +61,16 @@ contract SignalService is EssentialContract, ISignalService {
     /// Does NOT reuse the pacaya slot.
     mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
 
+    /// @dev Deprecated unversioned checkpoint storage. Retained only to preserve the storage
+    /// layout; no longer read from or written to.
+    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _deprecatedCheckpoints;
+
     /// @notice Storage for checkpoints persisted via the SignalService.
     /// @dev Maps checkpoint version => block number => checkpoint data.
     mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) private
         _checkpoints;
 
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor and Initialization
@@ -74,7 +82,6 @@ contract SignalService is EssentialContract, ISignalService {
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
-        version = 1;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -161,7 +168,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[version][_checkpoint.blockNumber] = CheckpointRecord({
+        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
             blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
         });
 
@@ -190,7 +197,7 @@ contract SignalService is EssentialContract, ISignalService {
         view
         returns (Checkpoint memory checkpoint_)
     {
-        CheckpointRecord storage record = _checkpoints[version][_blockNumber];
+        CheckpointRecord storage record = _checkpoints[VERSION][_blockNumber];
         bytes32 blockHash = record.blockHash;
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
