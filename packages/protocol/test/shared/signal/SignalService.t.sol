@@ -90,15 +90,21 @@ contract TestSignalService is CommonTest {
 
     function test_getCheckpoint_RevertWhen_OnlyDeprecatedCheckpointExists() public {
         uint48 blockNumber = 42;
-        bytes32 deprecatedRecordSlot = keccak256(abi.encode(uint256(blockNumber), uint256(254)));
-
-        vm.store(address(signalService), deprecatedRecordSlot, bytes32(uint256(1)));
-        vm.store(
-            address(signalService), bytes32(uint256(deprecatedRecordSlot) + 1), bytes32(uint256(2))
-        );
+        _storeDeprecatedCheckpoint(blockNumber, bytes32(uint256(1)), bytes32(uint256(2)));
 
         vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
         signalService.getCheckpoint(blockNumber);
+    }
+
+    function test_proveSignalReceived_RevertWhen_OnlyDeprecatedCheckpointExists() public {
+        _storeDeprecatedCheckpoint(
+            uint48(VALID_PROOF_BLOCK_ID), VALID_BLOCK_HASH, VALID_PROOF_STATE_ROOT
+        );
+
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        signalService.proveSignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
+        );
     }
 
     function test_verifySignalReceived_RevertWhen_SignalNotCached() public {
@@ -114,6 +120,16 @@ contract TestSignalService is CommonTest {
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_proveSignalReceived_RevertWhen_OnlyDeprecatedCacheExists() public {
+        bytes32 slot = signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 deprecatedCacheSlot = keccak256(abi.encode(slot, uint256(253)));
+
+        vm.store(address(signalService), deprecatedCacheSlot, bytes32(uint256(1)));
+
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+        signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
     }
 
     function test_proveSignalReceived_RevertWhen_ProofBytesEmpty() public {
@@ -222,5 +238,18 @@ contract TestSignalService is CommonTest {
                 blockNumber: uint48(blockNumber), blockHash: VALID_BLOCK_HASH, stateRoot: stateRoot
             })
         );
+    }
+
+    function _storeDeprecatedCheckpoint(
+        uint48 blockNumber,
+        bytes32 blockHash,
+        bytes32 stateRoot
+    )
+        private
+    {
+        bytes32 deprecatedRecordSlot = keccak256(abi.encode(uint256(blockNumber), uint256(254)));
+
+        vm.store(address(signalService), deprecatedRecordSlot, blockHash);
+        vm.store(address(signalService), bytes32(uint256(deprecatedRecordSlot) + 1), stateRoot);
     }
 }

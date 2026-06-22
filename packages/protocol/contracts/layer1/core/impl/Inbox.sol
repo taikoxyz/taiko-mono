@@ -204,12 +204,14 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @dev Invoke via `upgradeToAndCall` on the proxy. The caller must supply a consistent
     ///      `(_lastFinalizedProposalId, _lastFinalizedBlockHash)` pair: `_lastFinalizedBlockHash`
     ///      must be the true L2 end-block hash of `_lastFinalizedProposalId`, otherwise `prove`
-    ///      cannot resume.
+    ///      cannot resume. This uses initializer version 3 because deployed proxies may have
+    ///      already consumed version 2.
     /// @param _nextProposalId The next proposal ID to assign. Must be greater than zero.
     /// @param _lastProposalBlockId The L1 block number of the most recent proposal.
     /// @param _lastFinalizedProposalId The ID to record as last finalized. Must be less than
     ///        `_nextProposalId`, and the unfinalized range `_nextProposalId - _lastFinalizedProposalId`
-    ///        must be smaller than the ring buffer size so proposing can resume.
+    ///        must be smaller than the ring buffer size so proposing can resume. The chosen
+    ///        finalized proposal must still be anchored in the current ring buffer.
     /// @param _lastFinalizedBlockHash The true L2 block hash at the end of `_lastFinalizedProposalId`.
     function init2(
         uint48 _nextProposalId,
@@ -219,13 +221,25 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     )
         external
         onlyOwner
-        reinitializer(2)
+        reinitializer(3)
     {
+        CoreState memory currentState = _coreState;
+
+        require(currentState.nextProposalId > 0, InvalidRecoveryState());
         require(_nextProposalId > 0, InvalidRecoveryState());
+        require(_nextProposalId <= currentState.nextProposalId, InvalidRecoveryState());
         require(_lastFinalizedProposalId < _nextProposalId, InvalidRecoveryState());
+        require(
+            currentState.nextProposalId - _lastFinalizedProposalId < _ringBufferSize,
+            InvalidRecoveryState()
+        );
         require(
             _nextProposalId - _lastFinalizedProposalId < _ringBufferSize, InvalidRecoveryState()
         );
+        require(
+            uint256(_nextProposalId) + _ringBufferSize <= type(uint48).max, InvalidRecoveryState()
+        );
+        require(_lastProposalBlockId <= block.number, InvalidRecoveryState());
         require(_lastFinalizedBlockHash != 0, InvalidRecoveryState());
 
         _coreState = CoreState({

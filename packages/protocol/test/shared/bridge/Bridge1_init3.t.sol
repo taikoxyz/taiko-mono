@@ -32,6 +32,14 @@ contract TestBridge1_init3 is TestBridge2Base {
         vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
         vm.prank(Alice);
         eBridge.retryMessage(message, false);
+
+        vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
+        vm.prank(Carol);
+        eBridge.processMessage(message, FAKE_PROOF);
+
+        vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
+        vm.prank(Alice);
+        eBridge.failMessage(message);
     }
 
     function test_init3_RevertWhen_CallerNotOwner() public {
@@ -41,6 +49,12 @@ contract TestBridge1_init3 is TestBridge2Base {
         vm.expectRevert();
         vm.prank(Alice);
         eBridge.init3(msgHashes);
+    }
+
+    function test_init3_RevertWhen_EmptyMessageList() public {
+        vm.expectRevert(Bridge.B_INVALID_VALUE.selector);
+        vm.prank(deployer);
+        eBridge.init3(new bytes32[](0));
     }
 
     function test_init3_RevertWhen_MessageNotRetriable() public {

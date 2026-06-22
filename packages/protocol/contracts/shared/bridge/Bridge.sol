@@ -132,6 +132,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     /// later re-processing as a new message.
     /// @param _msgHashes The hashes of the messages to invalidate.
     function init3(bytes32[] calldata _msgHashes) external onlyOwner reinitializer(3) {
+        if (_msgHashes.length == 0) revert B_INVALID_VALUE();
         for (uint256 i; i < _msgHashes.length; ++i) {
             _checkStatus(_msgHashes[i], Status.RETRIABLE);
             _updateMessageStatus(_msgHashes[i], Status.DONE);
