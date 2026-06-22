@@ -23,11 +23,15 @@ remappings = [
     "@solady/=node_modules/solady/",
     "solady/src/=node_modules/solady/src/",
     "solady/utils/=node_modules/solady/src/utils/",
+    "solady/auth/=node_modules/solady/src/auth/",
     "@optimism/=node_modules/optimism/",
     "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
     "forge-std/=node_modules/forge-std/",
     "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
     "@eth-fabric/urc/=node_modules/urc/src/",
+    # Vendored Automata DCAP attestation (v1.1.0) reads Intel collateral from on-chain PCCS;
+    # the helper/type libraries it links against are vendored under contracts/layer1.
+    "@automata-network/on-chain-pccs/=contracts/layer1/automata-on-chain-pccs/",
     "ds-test/=node_modules/ds-test/",
     "src/=contracts/",
     "test/=test/",

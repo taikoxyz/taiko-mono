@@ -5,8 +5,7 @@ import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { IAttestation } from "src/layer1/automata-attestation/interfaces/IAttestation.sol";
-import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import { IDcapAttestation } from "./IDcapAttestation.sol";
 
 /// @title SgxVerifier
 /// @notice This contract verifies SGX signature proofs onchain using attested SGX instances.
@@ -31,6 +30,22 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
+    /// @dev Offset of the quote body within the Automata DCAP `Output`: quoteVersion (2) +
+    /// quoteBodyType (2) + tcbStatus (1) + fmspc (6) = 11 bytes.
+    uint256 private constant OUTPUT_BODY_OFFSET = 11;
+    /// @dev `quoteBodyType` value identifying an SGX Enclave Report body.
+    uint8 private constant SGX_QUOTE_BODY_TYPE = 1;
+    /// @dev Length of an Intel SGX quote header.
+    uint256 private constant HEADER_LENGTH = 48;
+    /// @dev Length of an SGX Enclave Report body.
+    uint256 private constant ENCLAVE_REPORT_LENGTH = 384;
+    /// @dev MRENCLAVE offset within the raw quote (header + enclave-report offset 64).
+    uint256 private constant MRENCLAVE_OFFSET = HEADER_LENGTH + 64;
+    /// @dev MRSIGNER offset within the raw quote (header + enclave-report offset 128).
+    uint256 private constant MRSIGNER_OFFSET = HEADER_LENGTH + 128;
+    /// @dev reportData offset within the raw quote (header + enclave-report offset 320).
+    uint256 private constant REPORT_DATA_OFFSET = HEADER_LENGTH + 320;
+
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
 
@@ -51,7 +66,18 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// Slot 3.
     mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
 
-    uint256[47] private __gap;
+    /// @dev Relocated from the replaced AutomataDcapV3Attestation contract. The new Automata DCAP
+    /// entrypoint verifies quote authenticity and TCB status but does NOT allowlist the application
+    /// enclave's identity, so the trusted MRENCLAVE/MRSIGNER policy is enforced here to preserve the
+    /// pre-migration security model.
+    /// Slot 4.
+    bool public checkLocalEnclaveReport;
+    /// Slot 5.
+    mapping(bytes32 mrEnclave => bool trusted) public trustedUserMrEnclave;
+    /// Slot 6.
+    mapping(bytes32 mrSigner => bool trusted) public trustedUserMrSigner;
+
+    uint256[44] private __gap;
 
     /// @notice Emitted when a new SGX instance is added to the registry.
     /// @param id The ID of the SGX instance.
@@ -66,6 +92,20 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @param id The ID of the SGX instance.
     /// @param instance The address of the SGX instance.
     event InstanceDeleted(uint256 indexed id, address indexed instance);
+
+    /// @notice Emitted when a trusted MRENCLAVE value is updated.
+    /// @param mrEnclave The MRENCLAVE value.
+    /// @param trusted Whether the value is trusted.
+    event MrEnclaveUpdated(bytes32 indexed mrEnclave, bool trusted);
+
+    /// @notice Emitted when a trusted MRSIGNER value is updated.
+    /// @param mrSigner The MRSIGNER value.
+    /// @param trusted Whether the value is trusted.
+    event MrSignerUpdated(bytes32 indexed mrSigner, bool trusted);
+
+    /// @notice Emitted when enforcement of the local enclave identity allowlist is toggled.
+    /// @param checkLocalEnclaveReport Whether the allowlist is enforced.
+    event LocalReportCheckToggled(bool checkLocalEnclaveReport);
 
     error SGX_ALREADY_ATTESTED();
     error SGX_INVALID_ATTESTATION();
@@ -107,18 +147,72 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         }
     }
 
-    /// @notice Adds an SGX instance after the attestation is verified
-    /// @param _attestation The parsed attestation quote.
-    /// @return The respective instanceId
-    function registerInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
-        external
-        returns (uint256)
-    {
-        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
+    /// @notice Sets whether a given MRENCLAVE is trusted for instance registration.
+    /// @param _mrEnclave The MRENCLAVE value.
+    /// @param _trusted Whether the value is trusted.
+    function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
+        trustedUserMrEnclave[_mrEnclave] = _trusted;
+        emit MrEnclaveUpdated(_mrEnclave, _trusted);
+    }
+
+    /// @notice Sets whether a given MRSIGNER is trusted for instance registration.
+    /// @param _mrSigner The MRSIGNER value.
+    /// @param _trusted Whether the value is trusted.
+    function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
+        trustedUserMrSigner[_mrSigner] = _trusted;
+        emit MrSignerUpdated(_mrSigner, _trusted);
+    }
+
+    /// @notice Toggles enforcement of the trusted MRENCLAVE/MRSIGNER allowlist.
+    function toggleLocalReportCheck() external onlyOwner {
+        checkLocalEnclaveReport = !checkLocalEnclaveReport;
+        emit LocalReportCheckToggled(checkLocalEnclaveReport);
+    }
+
+    /// @notice Adds an SGX instance after remote attestation is verified fully on-chain.
+    /// @dev Migrated to the Automata DCAP attestation entrypoint
+    /// (`IDcapAttestation.verifyAndAttestOnChain`), which consumes a raw quote and reads Intel
+    /// collateral from on-chain PCCS. The trusted MRENCLAVE/MRSIGNER allowlist and the TCB-status
+    /// acceptance policy are enforced here (previously in AutomataDcapV3Attestation).
+    /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
+    /// @return The respective instanceId.
+    function registerInstance(bytes calldata _rawQuote) external returns (uint256) {
+        (bool verified, bytes memory output) =
+            IDcapAttestation(automataDcapAttestation).verifyAndAttestOnChain(_rawQuote);
         require(verified, SGX_INVALID_ATTESTATION());
 
+        // `output` is the serialized Automata `Output`; require a full SGX enclave report body.
+        require(
+            output.length >= OUTPUT_BODY_OFFSET + ENCLAVE_REPORT_LENGTH, SGX_INVALID_ATTESTATION()
+        );
+        // quoteBodyType is a big-endian uint16 at output[2:4]; 1 == SGX Enclave Report.
+        require(
+            uint8(output[2]) == 0 && uint8(output[3]) == SGX_QUOTE_BODY_TYPE,
+            SGX_INVALID_ATTESTATION()
+        );
+        // Preserve the pre-migration TCB-status acceptance policy (output[4] == tcbStatus).
+        require(_isTcbStatusAccepted(uint8(output[4])), SGX_INVALID_ATTESTATION());
+
+        // On success, the authenticated enclave report body is rawQuote[HEADER_LENGTH:+384].
+        require(
+            _rawQuote.length >= HEADER_LENGTH + ENCLAVE_REPORT_LENGTH, SGX_INVALID_ATTESTATION()
+        );
+
+        // NOTE: the SGX DEBUG attribute (bit 1 of the `attributes` field at body offset 48, i.e.
+        // _rawQuote[HEADER_LENGTH + 48]) is intentionally NOT checked here. This preserves the exact
+        // pre-migration behavior; closing this gap is tracked as a follow-up (see VENDORED.md).
+
+        if (checkLocalEnclaveReport) {
+            bytes32 mrEnclave = bytes32(_rawQuote[MRENCLAVE_OFFSET:MRENCLAVE_OFFSET + 32]);
+            bytes32 mrSigner = bytes32(_rawQuote[MRSIGNER_OFFSET:MRSIGNER_OFFSET + 32]);
+            require(
+                trustedUserMrEnclave[mrEnclave] && trustedUserMrSigner[mrSigner],
+                SGX_INVALID_ATTESTATION()
+            );
+        }
+
         address[] memory addresses = new address[](1);
-        addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
+        addresses[0] = address(bytes20(_rawQuote[REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 20]));
 
         return _addInstances(addresses, false)[0];
     }
@@ -184,5 +278,19 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(instance == instances[id].addr, SGX_INVALID_INSTANCE());
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
+    }
+
+    /// @dev Preserves the TCB-status acceptance policy of the replaced AutomataDcapV3Attestation
+    /// (`_attestationTcbIsValid`): accept OK, SW-hardening-needed, configuration-and-SW-hardening-
+    /// needed, out-of-date, and out-of-date-configuration-needed; reject configuration-needed,
+    /// revoked, and unrecognized. Codes follow Automata's TCBStatus enumeration.
+    /// @param _status The TCB status code from the attestation output.
+    /// @return Whether the status is accepted.
+    function _isTcbStatusAccepted(uint8 _status) private pure returns (bool) {
+        return _status == 0 // OK
+            || _status == 1 // TCB_SW_HARDENING_NEEDED
+            || _status == 2 // TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED
+            || _status == 4 // TCB_OUT_OF_DATE
+            || _status == 5; // TCB_OUT_OF_DATE_CONFIGURATION_NEEDED
     }
 }
