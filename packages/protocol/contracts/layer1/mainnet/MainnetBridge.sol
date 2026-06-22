@@ -26,7 +26,13 @@ contract MainnetBridge is Bridge {
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
-    constructor(address _resolver, address _signalService) Bridge(_resolver, _signalService) { }
+    constructor(
+        address _resolver,
+        address _signalService,
+        address _pauser
+    )
+        Bridge(_resolver, _signalService, _pauser)
+    { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
@@ -37,14 +43,7 @@ contract MainnetBridge is Bridge {
     }
 
     /// @inheritdoc Bridge
-    function _storeContext(
-        bytes32 _msgHash,
-        address _from,
-        uint64 _srcChainId
-    )
-        internal
-        override
-    {
+    function _storeContext(bytes32 _msgHash, address _from, uint64 _srcChainId) internal override {
         assembly {
             tstore(_CTX_SLOT, _msgHash)
             tstore(add(_CTX_SLOT, 1), _from)

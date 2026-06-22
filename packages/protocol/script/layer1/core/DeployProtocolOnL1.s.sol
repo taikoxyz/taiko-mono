@@ -54,6 +54,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address sharedResolver;
         address remoteSigSvc;
         address signalServicePauser;
+        address bridgePauser;
         address preconfWhitelist;
         address taikoToken;
         address taikoTokenPremintRecipient;
@@ -108,6 +109,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
         config.signalServicePauser = vm.envOr("SIGNAL_SERVICE_PAUSER", address(0));
+        config.bridgePauser = vm.envOr("BRIDGE_PAUSER", address(0));
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
@@ -311,7 +313,9 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
+            impl: address(
+                new MainnetBridge(address(sharedResolver), signalService, config.bridgePauser)
+            ),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });

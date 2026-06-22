@@ -21,7 +21,9 @@ contract TestERC1155Vault is CommonTest {
         eERC1155Token = new FreeMintERC1155Token("http://example.host.com/");
 
         eSignalService = _deployMockSignalService("ETH");
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
+        eBridge = deployBridge(
+            address(new Bridge(address(resolver), address(eSignalService), address(0)))
+        );
         eVault = deployERC1155Vault();
 
         register("bridged_erc1155", address(new BridgedERC1155(address(eVault))));

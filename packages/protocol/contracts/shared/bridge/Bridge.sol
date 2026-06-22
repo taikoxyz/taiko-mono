@@ -63,6 +63,9 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     ISignalService public immutable signalService;
 
+    /// @dev Address authorized to pause/unpause alongside the owner. Optional (may be zero).
+    address public immutable pauser;
+
     /// @notice The next message ID.
     /// @dev Slot 1.
     uint64 private __reserved1;
@@ -101,11 +104,13 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     constructor(
         address _resolver,
-        address _signalService
+        address _signalService,
+        address _pauser
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
+        pauser = _pauser;
     }
 
     // ---------------------------------------------------------------
@@ -197,8 +202,9 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from)
-            .onMessageRecalled{ value: _message.value }(_message, msgHash);
+            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
+                _message, msgHash
+            );
 
             // Must reset the context after the message call
             _storeContext(
@@ -375,14 +381,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     }
 
     /// @inheritdoc IEthMinter
-    function mintEth(
-        address _recipient,
-        uint256 _amount
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
+    function mintEth(address _recipient, uint256 _amount) external whenNotPaused nonReentrant {
         if (_recipient == address(0)) revert ZERO_ADDRESS();
         if (_recipient == address(this)) revert B_INVALID_MINT_RECIPIENT();
         if (_amount == 0) revert B_INVALID_VALUE();
@@ -478,6 +477,9 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
+
+    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
+    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
