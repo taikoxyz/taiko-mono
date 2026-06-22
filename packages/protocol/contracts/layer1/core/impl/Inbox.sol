@@ -200,10 +200,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      must be the true L2 end-block hash of `_lastFinalizedProposalId`, otherwise `prove`
     ///      cannot resume.
     /// @param _nextProposalId The next proposal ID to assign. Must be greater than zero.
-    /// @param _lastProposalBlockId The L1 block number of the most recent proposal. Must not exceed
-    ///        the current block number to avoid blocking proposing.
+    /// @param _lastProposalBlockId The L1 block number of the most recent proposal.
     /// @param _lastFinalizedProposalId The ID to record as last finalized. Must be less than
-    ///        `_nextProposalId`.
+    ///        `_nextProposalId`, and the unfinalized range `_nextProposalId - _lastFinalizedProposalId`
+    ///        must be smaller than the ring buffer size so proposing can resume.
     /// @param _lastFinalizedBlockHash The true L2 block hash at the end of `_lastFinalizedProposalId`.
     function init2(
         uint48 _nextProposalId,
@@ -216,8 +216,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         reinitializer(2)
     {
         require(_nextProposalId > 0, InvalidRecoveryState());
-        require(_lastProposalBlockId <= block.number, InvalidRecoveryState());
         require(_lastFinalizedProposalId < _nextProposalId, InvalidRecoveryState());
+        require(
+            _nextProposalId - _lastFinalizedProposalId < _ringBufferSize, InvalidRecoveryState()
+        );
         require(_lastFinalizedBlockHash != 0, InvalidRecoveryState());
 
         _coreState = CoreState({

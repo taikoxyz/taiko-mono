@@ -72,9 +72,10 @@ contract InboxInit2Test is InboxTestBase {
         inbox.init2(0, uint48(block.number), 0, keccak256("x"));
     }
 
-    function test_init2_RevertWhen_LastProposalBlockInFuture() public {
+    function test_init2_RevertWhen_UnfinalizedRangeExceedsRingBuffer() public {
+        // ringBufferSize is 100; an unfinalized range of 100 leaves no capacity to propose.
         vm.expectRevert(Inbox.InvalidRecoveryState.selector);
-        inbox.init2(1, uint48(block.number + 1), 0, keccak256("x"));
+        inbox.init2(100, uint48(block.number), 0, keccak256("x"));
     }
 
     function test_init2_RevertWhen_FinalizedIdNotLessThanNext() public {
