@@ -108,7 +108,7 @@ contract InboxProposeTest is InboxTestBase {
         inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(forcedRef);
     }
 
-    function test_propose_RevertWhen_ForcedInclusionDueNotProcessed() public {
+    function test_propose_allowsSkippingDueForcedInclusion() public {
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -122,13 +122,17 @@ contract InboxProposeTest is InboxTestBase {
         vm.roll(block.number + 1);
 
         IInbox.ProposeInput memory input = _defaultProposeInput();
-        bytes memory encodedInput = codec.encodeProposeInput(input);
-        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
+        ProposedEvent memory payload = _proposeAndDecode(input);
+
+        assertEq(payload.sources.length, 1, "sources");
+        assertFalse(payload.sources[0].isForcedInclusion, "normal source only");
+
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, 0, "head");
+        assertEq(tail, 1, "tail");
     }
 
-    function test_propose_RevertWhen_DueForcedInclusionsNotFullyProcessed() public {
+    function test_propose_allowsPartialProcessingOfDueForcedInclusions() public {
         _setBlobHashes(5);
         _proposeAndDecode(_defaultProposeInput());
 
@@ -146,13 +150,18 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 2;
 
-        bytes memory encodedInput = codec.encodeProposeInput(input);
-        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
+        ProposedEvent memory payload = _proposeAndDecode(input);
+        assertEq(payload.sources.length, 3, "sources");
+        assertTrue(payload.sources[0].isForcedInclusion, "forced inclusion 0");
+        assertTrue(payload.sources[1].isForcedInclusion, "forced inclusion 1");
+        assertFalse(payload.sources[2].isForcedInclusion, "normal source");
+
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, 2, "head");
+        assertEq(tail, 3, "tail");
     }
 
-    function test_propose_RevertWhen_DueForcedInclusionsExceedMaxAndRequestedBelowMax() public {
+    function test_propose_allowsProcessingBelowDueForcedInclusionMax() public {
         _setBlobHashes(13);
         _proposeAndDecode(_defaultProposeInput());
 
@@ -172,10 +181,12 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 9;
 
-        bytes memory encodedInput = codec.encodeProposeInput(input);
-        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
-        vm.prank(proposer);
-        inbox.propose(bytes(""), encodedInput);
+        ProposedEvent memory payload = _proposeAndDecode(input);
+        assertEq(payload.sources.length, 10, "sources");
+
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, 9, "head");
+        assertEq(tail, 12, "tail");
     }
 
     function test_propose_processesDueForcedInclusionsUpToMaxWhen_MoreAreDue() public {
@@ -206,7 +217,7 @@ contract InboxProposeTest is InboxTestBase {
         assertEq(tail, 12, "tail");
     }
 
-    function test_propose_RevertWhen_ForcedInclusionDueAtExactDelayBoundary() public {
+    function test_propose_allowsSkippingForcedInclusionDueAtExactDelayBoundary() public {
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
 
@@ -224,9 +235,12 @@ contract InboxProposeTest is InboxTestBase {
         _setBlobHashes(1);
 
         bytes memory encodedInput = codec.encodeProposeInput(_defaultProposeInput());
-        vm.expectRevert(Inbox.UnprocessedForcedInclusionIsDue.selector);
         vm.prank(proposer);
         inbox.propose(bytes(""), encodedInput);
+
+        (uint48 head, uint48 tail) = inbox.getForcedInclusionState();
+        assertEq(head, 0, "head");
+        assertEq(tail, 1, "tail");
     }
 
     function test_propose_processesForcedInclusionBeforeDue() public {
@@ -293,9 +307,9 @@ contract InboxProposeTest is InboxTestBase {
         assertEq(tail, 12, "tail");
     }
 
-    function test_propose_allowsPermissionlessWhen_ForcedInclusionTooOld() public {
+    function test_propose_RevertWhen_PermissionlessProposingDisabled() public {
         _setBlobHashes(3);
-        ProposedEvent memory first = _proposeAndDecode(_defaultProposeInput());
+        _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 1);
 
@@ -311,22 +325,10 @@ contract InboxProposeTest is InboxTestBase {
         IInbox.ProposeInput memory input = _defaultProposeInput();
         input.numForcedInclusions = 1;
 
-        ProposedEvent memory payload = _proposeWithCaller(David, input);
-
-        uint48 proposalTimestamp = uint48(block.timestamp);
-        uint48 originBlockNumber = uint48(block.number - 1);
-        bytes32 originBlockHash = blockhash(block.number - 1);
-        IInbox.Proposal memory expectedProposal =
-            _proposalFromPayload(payload, proposalTimestamp, originBlockNumber, originBlockHash);
-
-        assertEq(payload.proposer, David, "proposer");
-        assertTrue(payload.sources[0].isForcedInclusion, "forced inclusion");
-        assertEq(payload.id, first.id + 1, "proposal id");
-        assertEq(
-            inbox.getProposalHash(expectedProposal.id),
-            codec.hashProposal(expectedProposal),
-            "proposal hash"
-        );
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert();
+        vm.prank(David);
+        inbox.propose(bytes(""), encodedInput);
     }
 
     function test_propose_processesForcedInclusion_andRecordsGas() public {
@@ -500,7 +502,7 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
-    function test_propose_permissionless_AllowsCallerWithoutBond() public {
+    function test_propose_RevertWhen_PermissionlessCallerHasNoBond() public {
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -520,9 +522,10 @@ contract InboxProposeTest is InboxTestBase {
 
         assertEq(inbox.getBond(Emma).balance, 0, "emma has no bond");
 
-        ProposedEvent memory payload = _proposeWithCaller(Emma, input);
-        assertEq(payload.id, 2, "permissionless proposal accepted");
-        assertEq(payload.proposer, Emma, "permissionless proposer");
+        bytes memory encodedInput = codec.encodeProposeInput(input);
+        vm.expectRevert();
+        vm.prank(Emma);
+        inbox.propose(bytes(""), encodedInput);
     }
 
     /// @notice Test permissionless proposal at exact boundary

@@ -47,7 +47,6 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// @notice Result from consuming forced inclusions
     struct ConsumptionResult {
         DerivationSource[] sources;
-        bool allowsPermissionless;
     }
 
     // ---------------------------------------------------------------
@@ -542,19 +541,12 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             result.sources[result.sources.length - 1] =
                 DerivationSource(false, LibBlobs.validateBlobReference(_input.blobReference));
 
-            // If forced inclusion is old enough, allow anyone to propose
-            // set endOfSubmissionWindowTimestamp = 0, and do not require a bond
-            // Otherwise, only the current preconfer can propose
-            uint48 endOfSubmissionWindowTimestamp;
-            if (!result.allowsPermissionless) {
-                endOfSubmissionWindowTimestamp =
-                    _proposerChecker.checkProposer(msg.sender, _lookahead);
-                if (_minBond > 0) {
-                    // Only if thre is a minimum bond set, execute this check
-                    require(
-                        _bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond()
-                    );
-                }
+            // Permissionless proposing is temporarily disabled.
+            uint48 endOfSubmissionWindowTimestamp =
+                _proposerChecker.checkProposer(msg.sender, _lookahead);
+            if (_minBond > 0) {
+                // Only if thre is a minimum bond set, execute this check
+                require(_bondStorage.hasSufficientBond(msg.sender, _minBond), InsufficientBond());
             }
 
             // Use previous block as the origin for the proposal to be able to call `blockhash`
@@ -599,34 +591,17 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
             (uint48 head, uint48 tail) = ($.head, $.tail);
 
             uint256 available = tail - head;
-            uint256 dueToProcess;
-            uint256 maxToInspect = available.min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
-            for (uint256 i; i < maxToInspect; ++i) {
-                IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[head + i];
-                uint256 timestamp = inclusion.blobSlice.timestamp;
-                if (timestamp == 0 || block.timestamp < timestamp + uint256(_forcedInclusionDelay))
-                {
-                    break;
-                }
-                ++dueToProcess;
-            }
-            require(
-                _numForcedInclusionsRequested >= dueToProcess, UnprocessedForcedInclusionIsDue()
-            );
+            // Temporarily do not force proposers to process due forced inclusions.
+            // The previous due scan and `UnprocessedForcedInclusionIsDue` check are disabled.
 
             uint256 toProcess = _numForcedInclusionsRequested.min(available)
                 .min(MAX_FORCED_INCLUSIONS_PER_PROPOSAL);
 
             result_.sources = new DerivationSource[](toProcess + 1);
 
-            uint48 oldestTimestamp;
-            (oldestTimestamp, head) = _dequeueAndProcessForcedInclusions(
+            (, head) = _dequeueAndProcessForcedInclusions(
                 $, _feeRecipient, result_.sources, head, toProcess
             );
-
-            uint256 permissionlessTimestamp = uint256(_forcedInclusionDelay)
-                * _permissionlessInclusionMultiplier + oldestTimestamp;
-            result_.allowsPermissionless = block.timestamp > permissionlessTimestamp;
         }
     }
 
