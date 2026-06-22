@@ -46,7 +46,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         console2.log("New anchorImpl deployed:", anchorImpl);
 
         address signalServiceImpl =
-            address(new SignalService(config.anchorProxy, config.l1SignalService));
+            address(new SignalService(config.anchorProxy, config.l1SignalService, 1));
         console2.log("New signalServiceImpl deployed:", signalServiceImpl);
     }
 }

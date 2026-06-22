@@ -119,7 +119,8 @@ abstract contract DeployShastaContracts is DeployCapability {
         });
         console2.log("ShastaInbox deployed:", shastaInbox);
 
-        address signalServiceImpl = address(new SignalService(shastaInbox, config.l2SignalService));
+        address signalServiceImpl =
+            address(new SignalService(shastaInbox, config.l2SignalService, 1));
         console2.log("SignalService deployed:", signalServiceImpl);
     }
 

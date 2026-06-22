@@ -200,7 +200,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
 
         if (signalService == address(0)) {
-            SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
+            SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc, 1);
             signalService = deployProxy({
                 name: "signal_service",
                 impl: address(signalServiceImpl),
@@ -227,7 +227,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("ShastaInbox deployed:", shastaInbox);
 
         SignalService(signalService)
-            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc)));
+            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc, 1)));
         console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
         if (config.contractOwner != msg.sender) {
