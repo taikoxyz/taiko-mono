@@ -27,6 +27,13 @@ contract TestPEMCertChainLib is Test {
     uint256 internal constant SUBSEQ_LEN = 18;
     uint256 internal constant NOT_BEFORE_TAG_OFF = 164;
 
+    // A minimal, structurally valid (non-PCK) X509 certificate whose ECDSA
+    // signature has a 30-byte `r` component. DER encodes integers minimally, so
+    // an r/s value < 2**248 (leading zero bytes) is shorter than 32 bytes. Such
+    // a certificate is produced by ~0.4% of keys at random.
+    bytes internal constant SHORT_SIG_CERT =
+        hex"3081e030818aa00302010202020123300a06082a8648ce3d0403023000301e170d3233303832383131313330355a170d3330303832383131313330355a3000304f300906072a8648ce3d02010342000411111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111300a06082a8648ce3d0403020345003042021e7f111111111111111111111111111111111111111111111111111111111102207f22222222222222222222222222222222222222222222222222222222222222";
+
     function setUp() public {
         lib = new PEMCertChainLib();
     }
@@ -76,5 +83,24 @@ contract TestPEMCertChainLib is Test {
 
         (bool ok,) = lib.decodeCert(der, true);
         assertFalse(ok, "invalid notBefore date tag must be rejected");
+    }
+
+    /// @dev Regression test for ECDSA signature extraction (`_trimBytes`).
+    ///
+    /// The signature stored on the parsed certificate must always be 64 bytes
+    /// (a 32-byte `r` concatenated with a 32-byte `s`) so that the ES256
+    /// verifier accepts it. DER integers are minimally encoded, so a component
+    /// shorter than 32 bytes must be left-padded with zeros. Returning the raw,
+    /// shorter bytes yields a <64-byte signature that the verifier rejects,
+    /// failing certificate-chain verification for otherwise valid certificates.
+    function test_decodeCert_padsShortSignatureComponentTo64Bytes() public view {
+        (bool ok, IPEMCertChainLib.ECSha256Certificate memory cert) =
+            lib.decodeCert(SHORT_SIG_CERT, false);
+        assertTrue(ok, "minimal cert must decode");
+        assertEq(cert.signature.length, 64, "signature must be 64 bytes");
+        // The 30-byte r is left-padded with two zero bytes.
+        assertEq(uint8(cert.signature[0]), 0, "r pad byte 0");
+        assertEq(uint8(cert.signature[1]), 0, "r pad byte 1");
+        assertEq(uint8(cert.signature[2]), 0x7f, "r first significant byte");
     }
 }
