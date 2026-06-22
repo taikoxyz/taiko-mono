@@ -236,46 +236,8 @@ contract TestSignalService is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // Paused state blocks signal sending and checkpoint saving
+    // Paused state blocks signal proving and verification
     // ---------------------------------------------------------------
-
-    function test_sendSignal_RevertWhen_Paused() public {
-        bytes32 signal = keccak256("signal");
-
-        vm.prank(deployer);
-        signalService.pause();
-
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        signalService.sendSignal(signal);
-
-        vm.prank(deployer);
-        signalService.unpause();
-
-        // Succeeds again once unpaused.
-        signalService.sendSignal(signal);
-        assertTrue(signalService.isSignalSent(address(this), signal));
-    }
-
-    function test_saveCheckpoint_RevertWhen_Paused() public {
-        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
-            blockNumber: 1, blockHash: bytes32(uint256(1)), stateRoot: bytes32(uint256(2))
-        });
-
-        vm.prank(deployer);
-        signalService.pause();
-
-        vm.prank(AUTHORIZED_SYNCER);
-        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
-        signalService.saveCheckpoint(checkpoint);
-
-        vm.prank(deployer);
-        signalService.unpause();
-
-        // Succeeds again once unpaused.
-        vm.prank(AUTHORIZED_SYNCER);
-        signalService.saveCheckpoint(checkpoint);
-        assertEq(signalService.getCheckpoint(1).blockHash, checkpoint.blockHash);
-    }
 
     function test_proveSignalReceived_RevertWhen_Paused() public {
         vm.prank(deployer);
