@@ -51,8 +51,7 @@ contract SgxVerifierTest is Test {
         pure
         returns (bytes memory)
     {
-        bytes16 attributes =
-            debug ? bytes16(0x02000000000000000000000000000000) : bytes16(0);
+        bytes16 attributes = debug ? bytes16(0x02000000000000000000000000000000) : bytes16(0);
         bytes memory reportData = abi.encodePacked(bytes20(instance), new bytes(44)); // 64 bytes
         bytes memory report = abi.encodePacked(
             new bytes(48), // cpuSvn(16)+miscSelect(4)+reserved1(28)        [0:48]
@@ -124,13 +123,37 @@ contract SgxVerifierTest is Test {
     }
 
     function test_registerInstance_acceptsAllAllowedTcbStatuses() external {
-        uint8[5] memory ok = [TCB_OK, TCB_SW_HARDENING, TCB_CONFIG_AND_SW_HARDENING, TCB_OUT_OF_DATE, TCB_OUT_OF_DATE_CONFIG];
+        uint8[5] memory ok = [
+            TCB_OK,
+            TCB_SW_HARDENING,
+            TCB_CONFIG_AND_SW_HARDENING,
+            TCB_OUT_OF_DATE,
+            TCB_OUT_OF_DATE_CONFIG
+        ];
         for (uint256 i; i < ok.length; ++i) {
             address instance = address(uint160(0x1000 + i));
             _mockAttest(true, _output(3, 1, ok[i]));
             verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance));
             assertTrue(verifier.addressRegistered(instance));
         }
+    }
+
+    function test_registerInstance_forwardsAttestationFee() external {
+        address instance = address(0xBEEF);
+        uint256 fee = 1 ether;
+        vm.deal(address(this), fee);
+        _mockAttest(true, _validOutput());
+        bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance);
+
+        // msg.value must be forwarded to the entrypoint so a non-zero fee (if ever configured on
+        // the entrypoint) is payable rather than bricking every registration.
+        vm.expectCall(
+            ATTESTATION,
+            fee,
+            abi.encodeWithSelector(IDcapAttestation.verifyAndAttestOnChain.selector, quote)
+        );
+        verifier.registerInstance{ value: fee }(quote);
+        assertTrue(verifier.addressRegistered(instance));
     }
 
     // ---------------------------------------------------------------
@@ -354,11 +377,26 @@ contract SgxVerifierTest is Test {
     // verifyProof
     // ---------------------------------------------------------------
 
-    function _proof(uint32 id, address instance, bytes memory sig) internal pure returns (bytes memory) {
+    function _proof(
+        uint32 id,
+        address instance,
+        bytes memory sig
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         return abi.encodePacked(id, bytes20(instance), sig);
     }
 
-    function _sign(uint256 pk, bytes32 aggHash, address instance) internal returns (bytes memory) {
+    function _sign(
+        uint256 pk,
+        bytes32 aggHash,
+        address instance
+    )
+        internal
+        returns (bytes memory)
+    {
         bytes32 h = LibPublicInput.hashPublicInputs(aggHash, address(verifier), instance, CHAIN_ID);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(pk, h);
         return abi.encodePacked(r, s, v);

@@ -30,8 +30,12 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
-    /// @dev Offset of the quote body within the Automata DCAP `Output`: quoteVersion (2) +
-    /// quoteBodyType (2) + tcbStatus (1) + fmspc (6) = 11 bytes.
+    /// @dev Field offsets within the Automata DCAP `Output` header: quoteVersion (BE uint16) at 0,
+    /// quoteBodyType (BE uint16) at 2, tcbStatus (1 byte) at 4, fmspc (6 bytes) at 5; the quote
+    /// body follows at offset 11 (= 2 + 2 + 1 + 6).
+    uint256 private constant OUTPUT_VERSION_OFFSET = 0;
+    uint256 private constant OUTPUT_BODY_TYPE_OFFSET = 2;
+    uint256 private constant OUTPUT_TCB_STATUS_OFFSET = 4;
     uint256 private constant OUTPUT_BODY_OFFSET = 11;
     /// @dev `quoteBodyType` value identifying an SGX Enclave Report body.
     uint8 private constant SGX_QUOTE_BODY_TYPE = 1;
@@ -192,13 +196,22 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// acceptance policy are enforced here (previously in AutomataDcapV3Attestation).
     /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
     /// @return The respective instanceId.
-    function registerInstance(bytes calldata _rawQuote) external returns (uint256) {
+    function registerInstance(bytes calldata _rawQuote) external payable returns (uint256) {
         // Fail fast with a clear error if this verifier was deployed without an attestation
         // entrypoint (e.g. a dummy-verifier deployment).
         require(automataDcapAttestation != address(0), SGX_INVALID_ATTESTATION());
 
-        (bool verified, bytes memory output) =
-            IDcapAttestation(automataDcapAttestation).verifyAndAttestOnChain(_rawQuote);
+        // Reject anything too short to hold a header + SGX enclave report body before the
+        // expensive attestation call. This also guarantees every fixed-offset slice below
+        // (attributes, MRENCLAVE, MRSIGNER, reportData) is in bounds.
+        require(
+            _rawQuote.length >= HEADER_LENGTH + ENCLAVE_REPORT_LENGTH, SGX_INVALID_ATTESTATION()
+        );
+
+        // Forward msg.value so a non-zero attestation fee (if the entrypoint owner ever sets one)
+        // can be paid; the fee is zero by default, so callers normally send nothing.
+        (bool verified, bytes memory output) = IDcapAttestation(automataDcapAttestation)
+        .verifyAndAttestOnChain{ value: msg.value }(_rawQuote);
         require(verified, SGX_INVALID_ATTESTATION());
 
         // `output` is the serialized Automata `Output`; require a full SGX enclave report body.
@@ -207,20 +220,19 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         );
         // quoteVersion is a big-endian uint16 at output[0:2]; this verifier handles V3 only.
         require(
-            uint8(output[0]) == 0 && uint8(output[1]) == SGX_QUOTE_VERSION,
+            uint8(output[OUTPUT_VERSION_OFFSET]) == 0
+                && uint8(output[OUTPUT_VERSION_OFFSET + 1]) == SGX_QUOTE_VERSION,
             SGX_INVALID_ATTESTATION()
         );
         // quoteBodyType is a big-endian uint16 at output[2:4]; 1 == SGX Enclave Report.
         require(
-            uint8(output[2]) == 0 && uint8(output[3]) == SGX_QUOTE_BODY_TYPE,
+            uint8(output[OUTPUT_BODY_TYPE_OFFSET]) == 0
+                && uint8(output[OUTPUT_BODY_TYPE_OFFSET + 1]) == SGX_QUOTE_BODY_TYPE,
             SGX_INVALID_ATTESTATION()
         );
-        // Preserve the pre-migration TCB-status acceptance policy (output[4] == tcbStatus).
-        require(_isTcbStatusAccepted(uint8(output[4])), SGX_INVALID_ATTESTATION());
-
-        // On success, the authenticated enclave report body is rawQuote[HEADER_LENGTH:+384].
+        // Preserve the pre-migration TCB-status acceptance policy.
         require(
-            _rawQuote.length >= HEADER_LENGTH + ENCLAVE_REPORT_LENGTH, SGX_INVALID_ATTESTATION()
+            _isTcbStatusAccepted(uint8(output[OUTPUT_TCB_STATUS_OFFSET])), SGX_INVALID_ATTESTATION()
         );
 
         // Reject DEBUG-mode enclaves: a debug enclave's memory (including the in-enclave signing
