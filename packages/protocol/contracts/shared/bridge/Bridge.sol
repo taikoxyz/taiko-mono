@@ -9,6 +9,7 @@ import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
 import "./IEthMinter.sol";
+import "./IQuotaManager.sol";
 
 import "./Bridge_Layout.sol"; // DO NOT DELETE
 
@@ -62,6 +63,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
     ISignalService public immutable signalService;
+    IQuotaManager public immutable quotaManager;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -101,11 +103,13 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     constructor(
         address _resolver,
-        address _signalService
+        address _signalService,
+        address _quotaManager
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
+        quotaManager = IQuotaManager(_quotaManager);
     }
 
     // ---------------------------------------------------------------
@@ -190,6 +194,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
+        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -249,6 +254,8 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         stats.proofSize = uint32(_proof.length);
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
+
+        if (!_consumeEtherQuota(_message.value + _message.fee)) revert B_OUT_OF_ETH_QUOTA();
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -321,6 +328,8 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
+
+        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
 
         bool succeeded;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -565,6 +574,20 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         }
     }
 
+    /// @notice Consumes a given amount of Ether from quota manager.
+    /// @param _amount The amount of Ether to consume.
+    /// @return true if quota manager has unlimited quota for Ether or the given amount of Ether is
+    /// consumed already.
+    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
+        if (address(quotaManager) == address(0)) return true;
+
+        try quotaManager.consumeQuota(address(0), _amount) {
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
     /// @notice Loads and returns the call context.
     /// @return ctx_ The call context.
     function _loadContext() internal view virtual returns (Context memory) {
@@ -718,6 +741,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     error B_INVALID_STATUS();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_SENT();
+    error B_OUT_OF_ETH_QUOTA();
     error B_PERMISSION_DENIED();
     error B_PROOF_TOO_LARGE();
     error B_RETRY_FAILED();

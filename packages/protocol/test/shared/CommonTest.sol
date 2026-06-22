@@ -14,6 +14,7 @@ import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/shared/bridge/Bridge.sol";
+import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
@@ -228,6 +229,22 @@ abstract contract CommonTest is Test, Script {
         return Bridge(
             deploy({
                 name: "bridge", impl: bridgeImpl, data: abi.encodeCall(Bridge.init, (address(0)))
+            })
+        );
+    }
+
+    function deployQuotaManager(
+        address bridge,
+        address erc20Vault
+    )
+        internal
+        returns (QuotaManager)
+    {
+        return QuotaManager(
+            deploy({
+                name: "quota_manager",
+                impl: address(new QuotaManager(address(bridge), address(erc20Vault))),
+                data: abi.encodeCall(QuotaManager.init, (address(0), 24 hours))
             })
         );
     }

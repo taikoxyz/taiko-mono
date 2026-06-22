@@ -19,7 +19,9 @@ contract TestDelegateController is Layer2Test {
 
     function setUpOnTaiko() internal override {
         tSignalService = _deployMockSignalService();
-        tBridge = deployBridge(address(new Bridge(address(resolver), address(tSignalService))));
+        tBridge = deployBridge(
+            address(new Bridge(address(resolver), address(tSignalService), address(0)))
+        );
         tDelegateController =
             deployDelegateController(ethereumChainId, address(tBridge), daoController);
     }

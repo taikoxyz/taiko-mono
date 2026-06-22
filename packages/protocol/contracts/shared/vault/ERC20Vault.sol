@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../bridge/IQuotaManager.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibNames.sol";
 import "./BaseVault.sol";
@@ -365,6 +366,14 @@ contract ERC20Vault is BaseVault {
             //For native bridged tokens (like USDC), the mint() signature is the same, so no need to
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
+        }
+        _consumeTokenQuota(token_, _amount);
+    }
+
+    function _consumeTokenQuota(address _token, uint256 _amount) private {
+        address quotaManager = resolve(LibNames.B_QUOTA_MANAGER, true);
+        if (quotaManager != address(0)) {
+            IQuotaManager(quotaManager).consumeQuota(_token, _amount);
         }
     }
 
