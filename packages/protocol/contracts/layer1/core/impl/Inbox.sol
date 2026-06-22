@@ -58,6 +58,10 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// happen every L1 slot (Derivation enforces 1s block times).
     uint256 internal constant MAX_FORCED_INCLUSIONS_PER_PROPOSAL = 10;
 
+    /// @notice Multisig held by Taiko Labs as one security council member, the only caller allowed
+    ///         to run `init2` recovery.
+    address internal constant RECOVERY_ADMIN = 0xb47fE76aC588101BFBdA9E68F66433bA51E8029a;
+
     // ---------------------------------------------------------------
     // Immutable Variables
     // ---------------------------------------------------------------
@@ -193,7 +197,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         _emitProposedEvent(proposal);
     }
 
-    /// @notice One-time, owner-only recovery that resets the inbox core state after an incident.
+    /// @notice One-time recovery that resets the inbox core state after an incident. Callable only
+    ///         by the `RECOVERY_ADMIN` multisig held by Taiko Labs as one security council member.
     /// @dev Invoke via `upgradeToAndCall` on the proxy. Timestamps are forced to `block.timestamp`
     ///      to reset the proving-deadline clock. The caller must supply a consistent
     ///      `(_lastFinalizedProposalId, _lastFinalizedBlockHash)` pair: `_lastFinalizedBlockHash`
@@ -212,7 +217,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         bytes32 _lastFinalizedBlockHash
     )
         external
-        onlyOwner
+        onlyFrom(RECOVERY_ADMIN)
         reinitializer(2)
     {
         require(_nextProposalId > 0, InvalidRecoveryState());
