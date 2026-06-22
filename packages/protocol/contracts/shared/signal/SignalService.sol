@@ -39,6 +39,9 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
 
+    /// @dev Address authorized to pause/unpause alongside the owner. Optional (may be zero).
+    address internal immutable _pauser;
+
     // ---------------------------------------------------------------
     // Storage variables
     // ---------------------------------------------------------------
@@ -63,12 +66,13 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService) {
+    constructor(address authorizedSyncer, address remoteSignalService, address pauser) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
+        _pauser = pauser;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -175,6 +179,9 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
+    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(_pauser) { }
 
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint

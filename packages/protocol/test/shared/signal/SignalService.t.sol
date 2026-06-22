@@ -192,6 +192,56 @@ contract TestSignalService is CommonTest {
         vm.chainId(originalChainId);
     }
 
+    // ---------------------------------------------------------------
+    // Pause authorization (owner or designated immutable pauser)
+    // ---------------------------------------------------------------
+
+    function test_pause_byDesignatedPauser() public {
+        SignalService svc = _deployWithPauser(Alice);
+
+        vm.prank(Alice);
+        svc.pause();
+        assertTrue(svc.paused());
+
+        vm.prank(Alice);
+        svc.unpause();
+        assertFalse(svc.paused());
+    }
+
+    function test_pause_byOwner_stillWorks() public {
+        SignalService svc = _deployWithPauser(Alice);
+
+        vm.prank(deployer);
+        svc.pause();
+        assertTrue(svc.paused());
+
+        vm.prank(deployer);
+        svc.unpause();
+        assertFalse(svc.paused());
+    }
+
+    function test_pause_RevertWhen_notOwnerOrPauser() public {
+        SignalService svc = _deployWithPauser(Alice);
+
+        vm.prank(Bob);
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        svc.pause();
+    }
+
+    function test_pause_RevertWhen_zeroPauser_nonOwner() public {
+        // `signalService` from setUp was deployed with a zero pauser -> owner-only.
+        vm.prank(Alice);
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        signalService.pause();
+    }
+
+    function _deployWithPauser(address pauser) private returns (SignalService) {
+        SignalService impl = new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, pauser);
+        return SignalService(
+            address(new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (deployer))))
+        );
+    }
+
     function _saveCheckpoint(uint64 blockNumber, bytes32 stateRoot) private {
         vm.prank(AUTHORIZED_SYNCER);
         signalService.saveCheckpoint(
