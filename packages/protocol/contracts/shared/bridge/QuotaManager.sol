@@ -17,6 +17,12 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
         uint104 available;
     }
 
+    /// @notice Sentinel value returned by `availableQuota` and recognized by `consumeQuota` to mean
+    /// "unlimited": a token with no configured quota (quota == 0) is never rate-limited.
+    /// @dev Intentional sentinel. Always treat `availableQuota(...) == UNLIMITED_QUOTA` as "no
+    /// limit" and never as a real, consumable amount.
+    uint256 public constant UNLIMITED_QUOTA = type(uint256).max;
+
     address public immutable bridge;
     address public immutable erc20Vault;
 
@@ -25,6 +31,7 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
 
     event QuotaUpdated(address indexed token, uint256 oldQuota, uint256 newQuota);
     event QuotaPeriodUpdated(uint256 quotaPeriod);
+    event QuotaConsumed(address indexed token, uint256 amount, uint256 available);
 
     error QM_INVALID_PARAM();
     error QM_OUT_OF_QUOTA();
@@ -61,7 +68,7 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
         if (msg.sender != bridge && msg.sender != erc20Vault) revert QM_PERMISSION_DENIED();
 
         uint256 available = availableQuota(_token, 0);
-        if (available == type(uint256).max) return;
+        if (available == UNLIMITED_QUOTA) return;
         if (available < _amount) revert QM_OUT_OF_QUOTA();
 
         unchecked {
@@ -69,6 +76,7 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
         }
         tokenQuota[_token].available = uint104(available);
         tokenQuota[_token].updatedAt = uint48(block.timestamp);
+        emit QuotaConsumed(_token, _amount, available);
     }
 
     /// @notice Returns the available quota for a given token.
@@ -77,7 +85,7 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
     /// @return The available quota.
     function availableQuota(address _token, uint256 _leap) public view returns (uint256) {
         Quota memory q = tokenQuota[_token];
-        if (q.quota == 0) return type(uint256).max;
+        if (q.quota == 0) return UNLIMITED_QUOTA;
         if (q.updatedAt == 0) return q.quota;
 
         uint256 issuance = q.quota * (block.timestamp + _leap - q.updatedAt) / quotaPeriod;

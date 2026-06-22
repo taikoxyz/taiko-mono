@@ -6,6 +6,9 @@ pragma solidity ^0.8.24;
 interface IQuotaManager {
     /// @notice Consumes a specific amount of quota for a given address.
     /// This function must revert if available quota is smaller than the given amount of quota.
+    /// A token with no configured quota is treated as "unlimited" and its consumption is never
+    /// restricted (implementations may signal this with a sentinel such as
+    /// `QuotaManager.UNLIMITED_QUOTA`).
     ///
     /// @dev Note that IQuotaManager is used by vaults and bridge, and should be registered in a
     /// shared address manager on the L1, therefore, a registered IQuotaManager and its per-token

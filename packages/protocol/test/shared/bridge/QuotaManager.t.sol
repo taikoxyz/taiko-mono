@@ -16,7 +16,7 @@ contract TestQuotaManager is CommonTest {
 
     function test_quota_manager_consume_configged() public {
         address Ether = address(0);
-        assertEq(qm.availableQuota(Ether, 0), type(uint256).max);
+        assertEq(qm.availableQuota(Ether, 0), qm.UNLIMITED_QUOTA());
 
         vm.expectRevert();
         qm.updateQuota(Ether, 10 ether);
@@ -62,11 +62,27 @@ contract TestQuotaManager is CommonTest {
 
     function test_quota_manager_consume_unconfigged() public {
         address token = address(999);
-        assertEq(qm.availableQuota(token, 0), type(uint256).max);
+        assertEq(qm.UNLIMITED_QUOTA(), type(uint256).max);
+        assertEq(qm.availableQuota(token, 0), qm.UNLIMITED_QUOTA());
 
         vm.prank(bridge);
         qm.consumeQuota(token, 6 ether);
-        assertEq(qm.availableQuota(token, 0), type(uint256).max);
+        assertEq(qm.availableQuota(token, 0), qm.UNLIMITED_QUOTA());
+    }
+
+    function test_quota_manager_consume_emits_event() public {
+        address Ether = address(0);
+
+        vm.prank(deployer);
+        qm.updateQuota(Ether, 10 ether);
+
+        vm.expectEmit();
+        emit QuotaManager.QuotaConsumed(Ether, 6 ether, 4 ether);
+
+        vm.prank(bridge);
+        qm.consumeQuota(Ether, 6 ether);
+
+        assertEq(qm.availableQuota(Ether, 0), 4 ether);
     }
 
     function test_calc_quota() public pure {

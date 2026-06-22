@@ -375,8 +375,12 @@ contract ERC20Vault is BaseVault {
     }
 
     /// @dev Consumes a given amount of token quota from the quota manager; reverts if quota is
-    /// insufficient. Called only after the tokens have been transferred/minted to the recipient, so
-    /// quota is debited exactly when tokens are actually released.
+    /// insufficient. This is the final step of `_transferTokens`, so it runs only after the tokens
+    /// have been transferred/minted — quota is debited exactly when tokens are actually released.
+    /// Because it is the last step, a `QM_OUT_OF_QUOTA` revert rolls back the whole transaction
+    /// atomically: the token transfer/mint is undone and no partial state remains. Integrators
+    /// driving this flow externally (or via a custom vault) must expect the entire release to
+    /// revert when quota is exhausted, never a partial release.
     /// @param _token The token address.
     /// @param _amount The amount of token quota to consume.
     function _consumeTokenQuota(address _token, uint256 _amount) private {
