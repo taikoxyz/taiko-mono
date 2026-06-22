@@ -200,6 +200,46 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         emit InboxActivated(_lastPacayaBlockHash);
     }
 
+    /// @notice One-time owner recovery that resets the inbox core state after an incident.
+    /// @dev Invoke via `upgradeToAndCall` on the proxy. The caller must supply a consistent
+    ///      `(_lastFinalizedProposalId, _lastFinalizedBlockHash)` pair: `_lastFinalizedBlockHash`
+    ///      must be the true L2 end-block hash of `_lastFinalizedProposalId`, otherwise `prove`
+    ///      cannot resume.
+    /// @param _nextProposalId The next proposal ID to assign. Must be greater than zero.
+    /// @param _lastProposalBlockId The L1 block number of the most recent proposal.
+    /// @param _lastFinalizedProposalId The ID to record as last finalized. Must be less than
+    ///        `_nextProposalId`, and the unfinalized range `_nextProposalId - _lastFinalizedProposalId`
+    ///        must be smaller than the ring buffer size so proposing can resume.
+    /// @param _lastFinalizedBlockHash The true L2 block hash at the end of `_lastFinalizedProposalId`.
+    function init2(
+        uint48 _nextProposalId,
+        uint48 _lastProposalBlockId,
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedBlockHash
+    )
+        external
+        onlyOwner
+        reinitializer(2)
+    {
+        require(_nextProposalId > 0, InvalidRecoveryState());
+        require(_lastFinalizedProposalId < _nextProposalId, InvalidRecoveryState());
+        require(
+            _nextProposalId - _lastFinalizedProposalId < _ringBufferSize, InvalidRecoveryState()
+        );
+        require(_lastFinalizedBlockHash != 0, InvalidRecoveryState());
+
+        _coreState = CoreState({
+            nextProposalId: _nextProposalId,
+            lastProposalBlockId: _lastProposalBlockId,
+            lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedTimestamp: uint48(block.timestamp),
+            lastCheckpointTimestamp: uint48(block.timestamp),
+            lastFinalizedBlockHash: _lastFinalizedBlockHash
+        });
+
+        emit StateRecovered(_nextProposalId, _lastFinalizedProposalId, _lastFinalizedBlockHash);
+    }
+
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
@@ -753,6 +793,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error FirstProposalIdTooLarge();
     error IncorrectProposalCount();
     error InsufficientBond();
+    error InvalidRecoveryState();
     error LastProposalAlreadyFinalized();
     error LastProposalHashMismatch();
     error LastProposalIdTooLarge();

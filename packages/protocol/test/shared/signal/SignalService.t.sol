@@ -88,7 +88,30 @@ contract TestSignalService is CommonTest {
         signalService.getCheckpoint(42);
     }
 
+    function test_getCheckpoint_RevertWhen_OnlyDeprecatedCheckpointExists() public {
+        uint48 blockNumber = 42;
+        bytes32 deprecatedRecordSlot = keccak256(abi.encode(uint256(blockNumber), uint256(254)));
+
+        vm.store(address(signalService), deprecatedRecordSlot, bytes32(uint256(1)));
+        vm.store(
+            address(signalService), bytes32(uint256(deprecatedRecordSlot) + 1), bytes32(uint256(2))
+        );
+
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        signalService.getCheckpoint(blockNumber);
+    }
+
     function test_verifySignalReceived_RevertWhen_SignalNotCached() public {
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_verifySignalReceived_RevertWhen_OnlyDeprecatedCacheExists() public {
+        bytes32 slot = signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 deprecatedCacheSlot = keccak256(abi.encode(slot, uint256(253)));
+
+        vm.store(address(signalService), deprecatedCacheSlot, bytes32(uint256(1)));
+
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
     }
