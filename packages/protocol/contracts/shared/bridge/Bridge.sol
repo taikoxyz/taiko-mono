@@ -581,10 +581,10 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     }
 
     /// @dev Consumes a given amount of Ether from the quota manager; reverts if quota is
-    /// insufficient.
+    /// insufficient. Skips the external call when nothing is released (`_amount == 0`).
     /// @param _amount The amount of Ether to consume.
     function _consumeEtherQuota(uint256 _amount) private {
-        if (address(quotaManager) != address(0)) {
+        if (_amount != 0 && address(quotaManager) != address(0)) {
             quotaManager.consumeQuota(address(0), _amount);
         }
     }

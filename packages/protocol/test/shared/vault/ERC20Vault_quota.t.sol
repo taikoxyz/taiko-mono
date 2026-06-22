@@ -127,4 +127,14 @@ contract TestERC20Vault_quota is CommonTest {
         assertEq(qm.consumed(address(eERC20Token1)), 2 * uint256(amount));
         assertEq(qm.totalConsumed(), 2 * uint256(amount));
     }
+
+    // Releasing zero tokens skips the quota manager call entirely.
+    function test_quota_zero_amount_skips_external_call() public {
+        vm.chainId(taikoChainId);
+
+        _receive(0);
+
+        assertEq(qm.calls(), 0);
+        assertEq(qm.totalConsumed(), 0);
+    }
 }

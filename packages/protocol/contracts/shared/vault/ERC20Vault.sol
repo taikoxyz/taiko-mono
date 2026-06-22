@@ -380,11 +380,12 @@ contract ERC20Vault is BaseVault {
     /// Because it is the last step, a `QM_OUT_OF_QUOTA` revert rolls back the whole transaction
     /// atomically: the token transfer/mint is undone and no partial state remains. Integrators
     /// driving this flow externally (or via a custom vault) must expect the entire release to
-    /// revert when quota is exhausted, never a partial release.
+    /// revert when quota is exhausted, never a partial release. Skips the external call when nothing
+    /// is released (`_amount == 0`).
     /// @param _token The token address.
     /// @param _amount The amount of token quota to consume.
     function _consumeTokenQuota(address _token, uint256 _amount) private {
-        if (address(quotaManager) != address(0)) {
+        if (_amount != 0 && address(quotaManager) != address(0)) {
             quotaManager.consumeQuota(_token, _amount);
         }
     }

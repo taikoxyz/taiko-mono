@@ -163,4 +163,21 @@ contract TestBridge2_quotaAccounting is TestBridge2Base {
         assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.RECALLED);
         assertEq(_ethConsumed(), message.value);
     }
+
+    // Releasing zero Ether (here: a zero-value recall) skips the quota manager call entirely.
+    function test_quota_zero_value_skips_external_call() public transactBy(Carol) {
+        IBridge.Message memory message;
+        message.srcOwner = Alice;
+        message.destOwner = Bob;
+        message.destChainId = taikoChainId;
+        message.srcChainId = ethereumChainId;
+        message.value = 0;
+        message.to = Zachary;
+
+        (, IBridge.Message memory m) = eBridge.sendMessage{ value: 0 }(message);
+
+        eBridge.recallMessage(m, FAKE_PROOF);
+        assertTrue(eBridge.messageStatus(eBridge.hashMessage(m)) == IBridge.Status.RECALLED);
+        assertEq(qm.calls(), 0);
+    }
 }
