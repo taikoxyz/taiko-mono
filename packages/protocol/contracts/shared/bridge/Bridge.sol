@@ -194,7 +194,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
+        require(_consumeEtherQuota(_message.value), B_OUT_OF_ETH_QUOTA());
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -255,7 +255,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
-        if (!_consumeEtherQuota(_message.value + _message.fee)) revert B_OUT_OF_ETH_QUOTA();
+        require(_consumeEtherQuota(_message.value + _message.fee), B_OUT_OF_ETH_QUOTA());
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -329,7 +329,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
-        if (!_consumeEtherQuota(_message.value)) revert B_OUT_OF_ETH_QUOTA();
+        require(_consumeEtherQuota(_message.value), B_OUT_OF_ETH_QUOTA());
 
         bool succeeded;
         if (_unableToInvokeMessageCall(_message, signalService)) {

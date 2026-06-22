@@ -317,10 +317,14 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function _deployVaults(address sharedResolver, address owner) private {
+        // The quota manager is wired in via a later upgrade once it is deployed; the vault is
+        // bootstrapped with address(0), which disables the token quota check.
+        address quotaManager = address(0);
+
         // Deploy ERC20 Vault
         address erc20Vault = deployProxy({
             name: "erc20_vault",
-            impl: address(new MainnetERC20Vault(address(sharedResolver))),
+            impl: address(new MainnetERC20Vault(address(sharedResolver), quotaManager)),
             data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });

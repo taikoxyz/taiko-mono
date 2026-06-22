@@ -247,7 +247,7 @@ contract TestGenerateGenesis is Test {
         vm.startPrank(erc20VaultProxy.owner());
 
         erc20VaultProxy.upgradeTo(
-            address(new ERC20Vault(getPredeployedContractAddress("SharedResolver")))
+            address(new ERC20Vault(getPredeployedContractAddress("SharedResolver"), address(0)))
         );
 
         vm.stopPrank();

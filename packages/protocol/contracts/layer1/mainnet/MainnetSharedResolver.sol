@@ -19,9 +19,6 @@ contract MainnetSharedResolver is ResolverBase {
         returns (address)
     {
         if (_chainId == LibNetwork.ETHEREUM_MAINNET) {
-            if (_name == LibNames.B_QUOTA_MANAGER) {
-                return 0x91f67118DD47d502B1f0C354D0611997B022f29E;
-            }
             if (_name == LibNames.B_BRIDGE) {
                 return 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
             }

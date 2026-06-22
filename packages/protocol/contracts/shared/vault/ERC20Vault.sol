@@ -27,6 +27,8 @@ contract ERC20Vault is BaseVault {
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
 
+    IQuotaManager public immutable quotaManager;
+
     /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
         uint64 chainId;
@@ -161,7 +163,9 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
-    constructor(address _resolver) BaseVault(_resolver) { }
+    constructor(address _resolver, address _quotaManager) BaseVault(_resolver) {
+        quotaManager = IQuotaManager(_quotaManager);
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -371,9 +375,8 @@ contract ERC20Vault is BaseVault {
     }
 
     function _consumeTokenQuota(address _token, uint256 _amount) private {
-        address quotaManager = resolve(LibNames.B_QUOTA_MANAGER, true);
-        if (quotaManager != address(0)) {
-            IQuotaManager(quotaManager).consumeQuota(_token, _amount);
+        if (address(quotaManager) != address(0)) {
+            quotaManager.consumeQuota(_token, _amount);
         }
     }
 

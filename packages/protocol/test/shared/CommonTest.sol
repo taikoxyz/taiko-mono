@@ -253,7 +253,7 @@ abstract contract CommonTest is Test, Script {
         return ERC20Vault(
             deploy({
                 name: "erc20_vault",
-                impl: address(new ERC20Vault(address(resolver))),
+                impl: address(new ERC20Vault(address(resolver), address(0))),
                 data: abi.encodeCall(ERC20Vault.init, (address(0)))
             })
         );
