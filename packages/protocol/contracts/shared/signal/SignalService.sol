@@ -87,7 +87,7 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
 
     /// @inheritdoc ISignalService
-    function sendSignal(bytes32 _signal) external returns (bytes32) {
+    function sendSignal(bytes32 _signal) external whenNotPaused returns (bytes32) {
         return _sendSignal(msg.sender, _signal, _signal);
     }
 
@@ -154,7 +154,7 @@ contract SignalService is EssentialContract, ISignalService {
     }
 
     /// @inheritdoc ICheckpointStore
-    function saveCheckpoint(Checkpoint calldata _checkpoint) external override {
+    function saveCheckpoint(Checkpoint calldata _checkpoint) external override whenNotPaused {
         if (msg.sender != _authorizedSyncer) revert SS_UNAUTHORIZED();
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
