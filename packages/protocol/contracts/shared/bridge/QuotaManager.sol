@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "../libs/LibMath.sol";
 import "./IQuotaManager.sol";
+import "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 /// @title QuotaManager
 /// @dev A non-upgradeable implementation of IQuotaManager for Ether and ERC20 tokens.

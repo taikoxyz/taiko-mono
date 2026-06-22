@@ -18,7 +18,8 @@ contract DeployQuotaManager is BaseScript {
         address newOwner = vm.envOr("OWNER", msg.sender);
 
         address bridge = IResolver(resolver).resolve(block.chainid, LibNames.B_BRIDGE, false);
-        address erc20Vault = IResolver(resolver).resolve(block.chainid, LibNames.B_ERC20_VAULT, false);
+        address erc20Vault =
+            IResolver(resolver).resolve(block.chainid, LibNames.B_ERC20_VAULT, false);
 
         QuotaManager qm = new QuotaManager(msg.sender, bridge, erc20Vault, 15 minutes);
         console2.log("QuotaManager deployed:", address(qm));
