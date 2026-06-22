@@ -29,9 +29,12 @@ remappings = [
     "forge-std/=node_modules/forge-std/",
     "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
     "@eth-fabric/urc/=node_modules/urc/src/",
-    # Vendored Automata DCAP attestation (v1.1.0) reads Intel collateral from on-chain PCCS;
-    # the helper/type libraries it links against are vendored under contracts/layer1.
-    "@automata-network/on-chain-pccs/=contracts/layer1/automata-on-chain-pccs/",
+    # Automata DCAP attestation, pinned as npm dependencies (see package.json):
+    #   @automata-network/automata-dcap-attestation@1.1.0 (ToB audited v1.0 baseline + remediation)
+    #   @automata-network/on-chain-pccs@1.1.1
+    # The attestation contracts read Intel collateral from on-chain PCCS via these libraries.
+    "@automata-network/on-chain-pccs/=node_modules/@automata-network/on-chain-pccs/src/",
+    "@automata-network/automata-dcap-attestation/=node_modules/@automata-network/automata-dcap-attestation/",
     "ds-test/=node_modules/ds-test/",
     "src/=contracts/",
     "test/=test/",
