@@ -57,13 +57,19 @@ contract TestBridge1_init3 is TestBridge2Base {
         eBridge.init3(new bytes32[](0));
     }
 
-    function test_init3_RevertWhen_MessageNotRetriable() public {
+    function test_init3_MarksNewMessageAsDone() public {
         bytes32[] memory msgHashes = new bytes32[](1);
         msgHashes[0] = keccak256("msgHash");
 
-        vm.expectRevert(Bridge.B_INVALID_STATUS.selector);
+        assertEq(uint8(eBridge.messageStatus(msgHashes[0])), uint8(IBridge.Status.NEW));
+
+        vm.expectEmit(true, false, false, true, address(eBridge));
+        emit IBridge.MessageStatusChanged(msgHashes[0], IBridge.Status.DONE);
+
         vm.prank(deployer);
         eBridge.init3(msgHashes);
+
+        assertEq(uint8(eBridge.messageStatus(msgHashes[0])), uint8(IBridge.Status.DONE));
     }
 
     function test_init3_RevertWhen_CalledTwice() public dealEther(Alice) {
