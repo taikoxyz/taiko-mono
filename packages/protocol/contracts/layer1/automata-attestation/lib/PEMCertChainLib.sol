@@ -260,11 +260,23 @@ contract PEMCertChainLib is IPEMCertChainLib {
     {
         uint256 n = input.length;
 
-        if (n <= expectedLength) {
+        if (n == expectedLength) {
             return input;
+        } else if (n > expectedLength) {
+            // Drop the extra leading bytes, e.g. the sign byte of a DER integer
+            // or the 0x04 prefix of an uncompressed public key.
+            uint256 lengthDiff = n - expectedLength;
+            output = input.substring(lengthDiff, expectedLength);
+        } else {
+            // Left-pad with zeros. DER integers are minimally encoded, so an
+            // ECDSA r/s component < 2 ** (8 * expectedLength) loses its leading
+            // zero bytes and must be padded back to the fixed width.
+            output = new bytes(expectedLength);
+            uint256 offset = expectedLength - n;
+            for (uint256 i; i < n; ++i) {
+                output[offset + i] = input[i];
+            }
         }
-        uint256 lengthDiff = n - expectedLength;
-        output = input.substring(lengthDiff, expectedLength);
     }
 
     function _findPckTcbInfo(
