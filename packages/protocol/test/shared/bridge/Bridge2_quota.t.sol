@@ -5,7 +5,7 @@ import "./TestBridge2Base.sol";
 
 contract OutOfQuotaManager is IQuotaManager {
     function consumeQuota(address, uint256) external pure {
-        revert("out of quota");
+        revert QuotaManager.QM_OUT_OF_QUOTA();
     }
 }
 
@@ -32,11 +32,11 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.to = David;
 
         vm.prank(Bob);
-        vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
         eBridge.processMessage(message, FAKE_PROOF);
 
         vm.prank(Alice);
-        vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
         eBridge.processMessage(message, FAKE_PROOF);
     }
 
@@ -61,7 +61,7 @@ contract TestBridge2_processMessage is TestBridge2Base {
         message.data = abi.encodeWithSignature("sendSignal(bytes32)", hashOfMaliciousMessage);
 
         vm.prank(Alice);
-        vm.expectRevert(Bridge.B_OUT_OF_ETH_QUOTA.selector);
+        vm.expectRevert(QuotaManager.QM_OUT_OF_QUOTA.selector);
         eBridge.processMessage(message, FAKE_PROOF);
     }
 }

@@ -374,6 +374,11 @@ contract ERC20Vault is BaseVault {
         _consumeTokenQuota(token_, _amount);
     }
 
+    /// @dev Consumes a given amount of token quota from the quota manager; reverts if quota is
+    /// insufficient. Called only after the tokens have been transferred/minted to the recipient, so
+    /// quota is debited exactly when tokens are actually released.
+    /// @param _token The token address.
+    /// @param _amount The amount of token quota to consume.
     function _consumeTokenQuota(address _token, uint256 _amount) private {
         if (address(quotaManager) != address(0)) {
             quotaManager.consumeQuota(_token, _amount);

@@ -194,7 +194,8 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
-        require(_consumeEtherQuota(_message.value), B_OUT_OF_ETH_QUOTA());
+        // A recall always releases `_message.value` back to the source owner, so debit its quota.
+        _consumeEtherQuota(_message.value);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -255,8 +256,6 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         stats.numCacheOps =
             _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
-        require(_consumeEtherQuota(_message.value + _message.fee), B_OUT_OF_ETH_QUOTA());
-
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
             // Handle special addresses and message.data encoded function calldata that don't
@@ -275,6 +274,11 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
                 reason_ = StatusReason.INVOCATION_FAILED;
             }
         }
+
+        // Debit the Ether quota only for funds actually leaving the bridge: the fee is always
+        // released here, while the value is released only when the message reaches DONE. When the
+        // message stays RETRIABLE, its value remains in the bridge and is debited by retryMessage.
+        _consumeEtherQuota(status_ == Status.DONE ? _message.value + _message.fee : _message.fee);
 
         if (_message.fee != 0) {
             refundAmount += _message.fee;
@@ -329,8 +333,6 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         bytes32 msgHash = hashMessage(_message);
         _checkStatus(msgHash, Status.RETRIABLE);
 
-        require(_consumeEtherQuota(_message.value), B_OUT_OF_ETH_QUOTA());
-
         bool succeeded;
         if (_unableToInvokeMessageCall(_message, signalService)) {
             succeeded = _message.destOwner.sendEther(_message.value, _SEND_ETHER_GAS_LIMIT, "");
@@ -344,6 +346,10 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         }
 
         if (succeeded) {
+            // The value is released to the recipient only on a successful retry, so debit its
+            // quota here. A failed retry leaves the message RETRIABLE/FAILED with the value still
+            // in the bridge, consuming no quota.
+            _consumeEtherQuota(_message.value);
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -574,17 +580,12 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         }
     }
 
-    /// @notice Consumes a given amount of Ether from quota manager.
+    /// @dev Consumes a given amount of Ether from the quota manager; reverts if quota is
+    /// insufficient.
     /// @param _amount The amount of Ether to consume.
-    /// @return true if quota manager has unlimited quota for Ether or the given amount of Ether is
-    /// consumed already.
-    function _consumeEtherQuota(uint256 _amount) private returns (bool) {
-        if (address(quotaManager) == address(0)) return true;
-
-        try quotaManager.consumeQuota(address(0), _amount) {
-            return true;
-        } catch {
-            return false;
+    function _consumeEtherQuota(uint256 _amount) private {
+        if (address(quotaManager) != address(0)) {
+            quotaManager.consumeQuota(address(0), _amount);
         }
     }
 
@@ -741,7 +742,6 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     error B_INVALID_STATUS();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_SENT();
-    error B_OUT_OF_ETH_QUOTA();
     error B_PERMISSION_DENIED();
     error B_PROOF_TOO_LARGE();
     error B_RETRY_FAILED();
