@@ -234,9 +234,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     }
 
     /// @inheritdoc IInbox
-    /// @dev When the prover whitelist is enabled, only whitelisted
-    ///      provers may prove until a proposal becomes older than `permissionlessProvingDelay`,
-    ///      after which proving becomes permissionless for that proposal.
+    /// @dev When the prover whitelist is enabled and contains at least one prover, only
+    ///      whitelisted provers may prove.
     /// @dev The proof covers a contiguous range of proposals. The input contains an array of
     ///      Transition structs, each with the proposal metadata and end block hash. The proof
     ///      range can start at or before the last finalized proposal to handle race conditions
@@ -279,7 +278,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
                 _validateCommitment(state, commitment);
 
             uint256 proposalAge = block.timestamp - commitment.transitions[offset].timestamp;
-            bool isWhitelistEnabled = _checkProver(msg.sender, proposalAge);
+            bool isWhitelistEnabled = _checkProver(msg.sender);
 
             // ---------------------------------------------------------
             // 2. Verify parent block-hash continuity and last proposal hash
@@ -722,27 +721,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
     }
 
-    /// @dev Checks if the caller is an authorized prover. When whitelist is enabled, proving
-    ///      becomes permissionless once a proposal is older than the permissionless delay.
+    /// @dev Checks if the caller is an authorized prover.
     /// @param _addr The address of the caller to check.
-    /// @param _proposalAge The age in seconds since the proposal became available for proving.
     /// @return whitelistEnabled_ True if whitelist is enabled (proverCount > 0), false otherwise.
-    function _checkProver(
-        address _addr,
-        uint256 _proposalAge
-    )
-        private
-        view
-        returns (bool whitelistEnabled_)
-    {
+    function _checkProver(address _addr) private view returns (bool whitelistEnabled_) {
         if (address(_proverWhitelist) == address(0)) return false;
 
         (bool isWhitelisted, uint256 proverCount) = _proverWhitelist.isProverWhitelisted(_addr);
         if (proverCount == 0) return false;
 
-        if (!isWhitelisted) {
-            require(_proposalAge > uint256(_permissionlessProvingDelay), ProverNotWhitelisted());
-        }
+        require(isWhitelisted, ProverNotWhitelisted());
         return true;
     }
 
