@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+import { IDcapAttestation } from "./IDcapAttestation.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import { IDcapAttestation } from "./IDcapAttestation.sol";
 
 /// @title SgxVerifier
 /// @notice This contract verifies SGX signature proofs onchain using attested SGX instances.
@@ -207,7 +207,8 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         );
         // quoteVersion is a big-endian uint16 at output[0:2]; this verifier handles V3 only.
         require(
-            uint8(output[0]) == 0 && uint8(output[1]) == SGX_QUOTE_VERSION, SGX_INVALID_ATTESTATION()
+            uint8(output[0]) == 0 && uint8(output[1]) == SGX_QUOTE_VERSION,
+            SGX_INVALID_ATTESTATION()
         );
         // quoteBodyType is a big-endian uint16 at output[2:4]; 1 == SGX Enclave Report.
         require(
@@ -227,9 +228,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         // never be trusted on-chain. DEBUG is bit 1 of the SGX ATTRIBUTES flags; the flags are
         // little-endian, so the bit lives in the low byte of the 16-byte `attributes` field at
         // enclave-report offset 48 (raw-quote offset HEADER_LENGTH + 48).
-        require(
-            (uint8(_rawQuote[ATTRIBUTES_OFFSET]) & SGX_FLAGS_DEBUG) == 0, SGX_DEBUG_ENCLAVE()
-        );
+        require((uint8(_rawQuote[ATTRIBUTES_OFFSET]) & SGX_FLAGS_DEBUG) == 0, SGX_DEBUG_ENCLAVE());
 
         if (checkLocalEnclaveReport) {
             bytes32 mrEnclave = bytes32(_rawQuote[MRENCLAVE_OFFSET:MRENCLAVE_OFFSET + 32]);

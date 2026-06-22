@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {
+    AutomataDcapAttestationFee
+} from "@automata-network/automata-dcap-attestation/contracts/AutomataDcapAttestationFee.sol";
+import {
+    V3QuoteVerifier
+} from "@automata-network/automata-dcap-attestation/contracts/verifiers/V3QuoteVerifier.sol";
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
-import { AutomataDcapAttestationFee } from
-    "@automata-network/automata-dcap-attestation/contracts/AutomataDcapAttestationFee.sol";
-import { V3QuoteVerifier } from
-    "@automata-network/automata-dcap-attestation/contracts/verifiers/V3QuoteVerifier.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
