@@ -115,6 +115,10 @@ contract AttestationBase is Test, DcapTestUtils, V3QuoteParseUtils {
         AutomataDcapV3Attestation(_attestationAddress).toggleLocalReportCheck();
     }
 
+    function setLocalReportCheck(address _attestationAddress, bool _enabled) internal {
+        AutomataDcapV3Attestation(_attestationAddress).setLocalReportCheck(_enabled);
+    }
+
     function configureQeIdentityJson(
         address _attestationAddress,
         string memory _enclaveIdJson

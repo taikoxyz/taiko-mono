@@ -73,6 +73,8 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         __Essential_init(owner);
         sigVerifyLib = ISigVerifyLib(sigVerifyLibAddr);
         pemCertLib = PEMCertChainLib(pemCertLibAddr);
+        checkLocalEnclaveReport = true;
+        emit LocalReportCheckToggled(checkLocalEnclaveReport);
     }
 
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
@@ -142,6 +144,11 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
     function toggleLocalReportCheck() external onlyOwner {
         checkLocalEnclaveReport = !checkLocalEnclaveReport;
+        emit LocalReportCheckToggled(checkLocalEnclaveReport);
+    }
+
+    function setLocalReportCheck(bool _checkLocalEnclaveReport) external onlyOwner {
+        checkLocalEnclaveReport = _checkLocalEnclaveReport;
         emit LocalReportCheckToggled(checkLocalEnclaveReport);
     }
 
