@@ -244,26 +244,25 @@ Ensure TCB and QE Identity JSON files:
 
 Ensure the private key corresponds to:
 
-- The owner of `AutomataDcapV3Attestation` (for TCB/QE/MR configuration)
+- The owner of `SgxVerifier` (for MRENCLAVE/MRSIGNER configuration)
 - Any account with ETH (for instance registration via `registerInstance`)
 
 ## Contract Functions Called
 
 The script interacts with these contract functions:
 
-### AutomataDcapV3Attestation
-
-- `setMrEnclave(bytes32 _mrEnclave, bool _trusted)` - Configure MR_ENCLAVE
-- `setMrSigner(bytes32 _mrSigner, bool _trusted)` - Configure MR_SIGNER
-- `configureQeIdentityJson(EnclaveId memory qeIdentityInput)` - Configure QE Identity
-- `configureTcbInfoJson(string memory fmspc, TCBInfo memory tcbInfoInput)` - Configure TCB Info
-
 ### SgxVerifier
 
-- `registerInstance(ParsedV3QuoteStruct memory _attestation)` - Register SGX instance
+- `setMrEnclave(bytes32 _mrEnclave, bool _trusted)` - Configure trusted MRENCLAVE
+- `setMrSigner(bytes32 _mrSigner, bool _trusted)` - Configure trusted MRSIGNER
+- `toggleLocalReportCheck()` - Toggle MRENCLAVE/MRSIGNER allowlist enforcement
+- `registerInstance(bytes _rawQuote)` - Register an SGX instance from a raw Intel DCAP quote
+
+> Note: TCB info and QE identity are no longer configured on-chain by Taiko; they are sourced from
+> Automata's on-chain PCCS. SGX attestation is provided by the pinned
+> `@automata-network/automata-dcap-attestation` dependency, called via `IDcapAttestation`.
 
 ## See Also
 
-- [AutomataDcapV3Attestation.sol](../../../contracts/layer1/automata-attestation/AutomataDcapV3Attestation.sol)
 - [SgxVerifier.sol](../../../contracts/layer1/verifiers/SgxVerifier.sol)
-- [AttestationBase.sol](../../../test/layer1/automata-attestation/AttestationBase.sol)
+- [IDcapAttestation.sol](../../../contracts/layer1/verifiers/IDcapAttestation.sol)
