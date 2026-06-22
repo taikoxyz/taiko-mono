@@ -6,19 +6,19 @@
 #[path = "common/helpers.rs"]
 mod helpers;
 
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use alloy_primitives::U256;
 use helpers::{
-    ExternalP2pNode, PreparedBlock, build_publish_payloads, derive_signer, test_p2p_config,
-    wait_for_commitments_and_txlists, wait_for_peer_connected,
+    ExternalP2pNode, PreparedBlock, build_publish_payloads, derive_signer, start_preconf_client,
+    wait_for_commitments_and_txlists,
 };
 use preconfirmation_types::uint256_to_u256;
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
     ShastaEnv,
-    preconfirmation::{RealDriverSetup, StaticLookaheadResolver},
+    preconfirmation::{RealDriverSetup, StartingBlockInfo},
     wait_for_block,
 };
 
@@ -37,30 +37,21 @@ async fn contiguous_blocks_submitted_in_order(env: &mut ShastaEnv) -> anyhow::Re
     let (signer_sk, signer) = derive_signer(1);
     let submission_window_end = U256::from(1000u64);
 
-    let (starting_block_num, base_timestamp) = setup.compute_starting_block_info().await?;
-
-    let resolver = StaticLookaheadResolver::new(signer, submission_window_end);
+    let StartingBlockInfo { block_number: starting_block_num, base_timestamp, .. } =
+        setup.compute_starting_block_info().await?;
 
     // External P2P node used to publish gossip.
     let mut ext_node = ExternalP2pNode::spawn()?;
     let ext_dial_addr = ext_node.handle.dialable_addr().await?;
 
     // Internal preconfirmation client.
-    let mut int_cfg = preconfirmation_driver::PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config(),
-        Arc::new(resolver),
-    );
-    int_cfg.p2p.pre_dial_peers = vec![ext_dial_addr];
-
-    let internal_client =
-        preconfirmation_driver::PreconfirmationClient::new(int_cfg, setup.driver_client.clone())?;
-    let mut events = internal_client.subscribe();
-
-    let mut event_loop = internal_client.sync_and_catchup().await?;
-    let event_loop_handle = tokio::spawn(async move { event_loop.run().await });
-
-    // Wait for peer connection.
-    wait_for_peer_connected(&mut events).await;
+    let (mut events, event_loop_handle, _) = start_preconf_client(
+        signer,
+        submission_window_end,
+        vec![ext_dial_addr],
+        setup.driver_client.clone(),
+    )
+    .await?;
     ext_node.handle.wait_for_peer_connected().await?;
 
     // Build and publish 3 contiguous blocks in sequential order: N, N+1, N+2.

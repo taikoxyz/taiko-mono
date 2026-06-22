@@ -4,44 +4,10 @@ use alloy_primitives::{Address, B256, Bytes};
 use alloy_rpc_types::Header as RpcHeader;
 use serde::{Deserialize, Serialize};
 
-/// Internal request body used by `POST /preconfBlocks`.
+/// Request body for `POST /preconfBlocks`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildPreconfBlockRequest {
-    /// Parent block hash.
-    pub parent_hash: B256,
-    /// Fee recipient address.
-    pub fee_recipient: Address,
-    /// Block number.
-    pub block_number: u64,
-    /// Gas limit.
-    pub gas_limit: u64,
-    /// Block timestamp.
-    pub timestamp: u64,
-    /// RLP-encoded then zlib-compressed transaction list.
-    pub transactions: Bytes,
-    /// Extra data for the block header.
-    pub extra_data: Bytes,
-    /// Base fee per gas.
-    pub base_fee_per_gas: u64,
-    /// Whether this is the last preconfirmation block in the epoch.
-    pub end_of_sequencing: Option<bool>,
-    /// Whether this is a forced inclusion block.
-    pub is_forced_inclusion: Option<bool>,
-}
-
-/// Internal response body returned by the build-preconf flow.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BuildPreconfBlockResponse {
-    /// Full block header of the built preconfirmation block.
-    pub block_header: RpcHeader,
-}
-
-/// REST-compatible request body for `POST /preconfBlocks`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BuildPreconfBlockApiRequest {
     /// Nested executable payload fields.
     pub executable_data: Option<ExecutableData>,
     /// Whether this is the last preconfirmation block in the epoch.
@@ -50,7 +16,7 @@ pub struct BuildPreconfBlockApiRequest {
     pub is_forced_inclusion: Option<bool>,
 }
 
-/// REST-compatible nested executable data.
+/// Executable payload fields nested in [`BuildPreconfBlockRequest`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutableData {
@@ -72,33 +38,21 @@ pub struct ExecutableData {
     pub base_fee_per_gas: u64,
 }
 
-impl BuildPreconfBlockApiRequest {
-    /// Convert REST request format into internal RPC request format.
-    pub fn into_rpc_request(self) -> std::result::Result<BuildPreconfBlockRequest, String> {
-        let executable_data =
-            self.executable_data.ok_or_else(|| "executable data is required".to_string())?;
-        Ok(BuildPreconfBlockRequest {
-            parent_hash: executable_data.parent_hash,
-            fee_recipient: executable_data.fee_recipient,
-            block_number: executable_data.block_number,
-            gas_limit: executable_data.gas_limit,
-            timestamp: executable_data.timestamp,
-            transactions: executable_data.transactions,
-            extra_data: executable_data.extra_data,
-            base_fee_per_gas: executable_data.base_fee_per_gas,
-            end_of_sequencing: self.end_of_sequencing,
-            is_forced_inclusion: self.is_forced_inclusion,
-        })
-    }
+/// Response body returned by `POST /preconfBlocks`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildPreconfBlockResponse {
+    /// Full block header of the built preconfirmation block.
+    pub block_header: RpcHeader,
 }
 
-/// REST status response for `GET /status`.
+/// Status response for `GET /status`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiStatus {
     /// Highest unsafe payload block ID tracked by this node.
     pub highest_unsafe_l2_payload_block_id: u64,
-    /// End-of-sequencing block hash for current epoch (if any).
+    /// End-of-sequencing block hash for current epoch (zero hash when unknown).
     pub end_of_sequencing_block_hash: String,
     /// True when SIGTERM is safe — no `build_preconf_block` request has been
     /// received within the last shutdown-block window.
@@ -115,28 +69,6 @@ pub struct EndOfSequencingNotification {
     pub end_of_sequencing: bool,
 }
 
-/// Internal status model used by `GET /status`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WhitelistStatus {
-    /// Head L1 origin block ID, if available.
-    pub head_l1_origin_block_id: Option<u64>,
-    /// Highest unsafe block number on L2.
-    pub highest_unsafe_block_number: u64,
-    /// Local libp2p peer ID.
-    pub peer_id: String,
-    /// Whether preconfirmation ingress is ready.
-    pub sync_ready: bool,
-    /// Highest unsafe payload block ID tracked by this node.
-    pub highest_unsafe_l2_payload_block_id: u64,
-    /// End-of-sequencing block hash for current epoch.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub end_of_sequencing_block_hash: Option<String>,
-    /// True when SIGTERM is safe — no `build_preconf_block` request has been
-    /// received within the last `SHUTDOWN_BLOCK_WINDOW`.
-    pub can_shutdown: bool,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,19 +76,22 @@ mod tests {
     #[test]
     fn build_preconf_block_request_camel_case() {
         let request = BuildPreconfBlockRequest {
-            parent_hash: B256::ZERO,
-            fee_recipient: Address::ZERO,
-            block_number: 1,
-            gas_limit: 30_000_000,
-            timestamp: 1_735_000_000,
-            transactions: Bytes::from(vec![0x01]),
-            extra_data: Bytes::default(),
-            base_fee_per_gas: 1_000_000_000,
+            executable_data: Some(ExecutableData {
+                parent_hash: B256::ZERO,
+                fee_recipient: Address::ZERO,
+                block_number: 1,
+                gas_limit: 30_000_000,
+                timestamp: 1_735_000_000,
+                transactions: Bytes::from(vec![0x01]),
+                extra_data: Bytes::default(),
+                base_fee_per_gas: 1_000_000_000,
+            }),
             end_of_sequencing: Some(true),
             is_forced_inclusion: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("executableData"));
         assert!(json.contains("parentHash"));
         assert!(json.contains("feeRecipient"));
         assert!(json.contains("blockNumber"));
@@ -166,28 +101,7 @@ mod tests {
     }
 
     #[test]
-    fn whitelist_status_camel_case() {
-        let status = WhitelistStatus {
-            head_l1_origin_block_id: Some(42),
-            highest_unsafe_block_number: 100,
-            peer_id: "test-peer".to_string(),
-            sync_ready: true,
-            highest_unsafe_l2_payload_block_id: 100,
-            end_of_sequencing_block_hash: Some(B256::ZERO.to_string()),
-            can_shutdown: true,
-        };
-
-        let json = serde_json::to_string(&status).unwrap();
-        assert!(json.contains("headL1OriginBlockId"));
-        assert!(json.contains("highestUnsafeBlockNumber"));
-        assert!(json.contains("syncReady"));
-        assert!(json.contains("highestUnsafeL2PayloadBlockId"));
-        assert!(json.contains("endOfSequencingBlockHash"));
-        assert!(json.contains("canShutdown"));
-    }
-
-    #[test]
-    fn rest_status_serializes_fields() {
+    fn status_serializes_fields_in_camel_case() {
         let status = ApiStatus {
             highest_unsafe_l2_payload_block_id: 1,
             end_of_sequencing_block_hash: B256::ZERO.to_string(),
@@ -203,6 +117,9 @@ mod tests {
                 .expect("missing highest unsafe block id"),
             1
         );
-        assert_eq!(json["canShutdown"].as_bool().expect("missing canShutdown"), true);
+        assert!(
+            json["endOfSequencingBlockHash"].as_str().expect("missing EOS hash").starts_with("0x")
+        );
+        assert!(json["canShutdown"].as_bool().expect("missing canShutdown"));
     }
 }

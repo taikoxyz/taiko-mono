@@ -4,7 +4,6 @@
 //! - [`fetch_block_by_number`]: Fetches a block with full transaction details.
 //! - [`wait_for_block`]: Polls until a block appears or times out.
 //! - [`wait_for_block_or_loop_error`]: Waits for block while monitoring event loop.
-//! - [`wait_for_block_on_both`]: Waits for block on two providers with error handling.
 
 use std::time::Duration;
 
@@ -159,67 +158,4 @@ where
             }
         }
     }
-}
-
-/// Waits for a block on two providers while monitoring event loops.
-///
-/// Useful for dual-driver tests where we need to verify block appears on both L2 nodes.
-/// Waits sequentially on each provider while monitoring both event loops.
-///
-/// # Arguments
-///
-/// * `provider1` - First L2 provider.
-/// * `provider2` - Second L2 provider.
-/// * `block_number` - The block number to wait for on both providers.
-/// * `timeout` - Maximum time to wait per provider.
-/// * `event_loop1_rx` - Oneshot receiver from the first event loop.
-/// * `event_loop2_rx` - Oneshot receiver from the second event loop.
-///
-/// # Returns
-///
-/// A tuple of blocks from each provider.
-///
-/// # Example
-///
-/// ```ignore
-/// let (block0, block1) = wait_for_block_on_both(
-///     &provider0,
-///     &provider1,
-///     100,
-///     Duration::from_secs(30),
-///     &mut rx1,
-///     &mut rx2,
-/// ).await?;
-/// ```
-pub async fn wait_for_block_on_both<P1, P2>(
-    provider1: &P1,
-    provider2: &P2,
-    block_number: u64,
-    timeout: Duration,
-    event_loop1_rx: &mut oneshot::Receiver<anyhow::Result<()>>,
-    event_loop2_rx: &mut oneshot::Receiver<anyhow::Result<()>>,
-) -> Result<(RpcBlock<TxEnvelope>, RpcBlock<TxEnvelope>)>
-where
-    P1: Provider + Send + Sync,
-    P2: Provider + Send + Sync,
-{
-    let block1 = wait_for_block_or_loop_error(
-        provider1,
-        block_number,
-        timeout,
-        event_loop1_rx,
-        "event loop 1",
-    )
-    .await?;
-
-    let block2 = wait_for_block_or_loop_error(
-        provider2,
-        block_number,
-        timeout,
-        event_loop2_rx,
-        "event loop 2",
-    )
-    .await?;
-
-    Ok((block1, block2))
 }

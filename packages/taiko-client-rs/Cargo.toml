@@ -13,7 +13,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "2.0.0"
+version = "2.1.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Taiko Labs"]
@@ -33,11 +33,7 @@ tokio-stream = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 
 # observability
-metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.16.2", default-features = false, features = [
-  "http-listener",
-] }
-metrics-util = "0.19"
+prometheus = "0.13"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
@@ -50,7 +46,7 @@ tower = { version = "0.5", features = ["timeout", "util"] }
 # ethereum
 alloy = { version = "1.8.3", default-features = false }
 alloy-consensus = { version = "1.8.3", default-features = false, features = [
-  "serde",
+    "serde",
 ] }
 alloy-contract = { version = "1.8.3", default-features = false }
 alloy-eips = { version = "1.8.3", default-features = false }
@@ -69,7 +65,7 @@ alloy-rpc-types-eth = { version = "1.8.3", default-features = false }
 alloy-signer = { version = "1.8.3", default-features = false }
 alloy-signer-local = { version = "1.8.3", default-features = false }
 alloy-sol-macro = { version = "1.5.7", default-features = false, features = [
-  "json",
+    "json",
 ] }
 alloy-sol-types = { version = "1.5.7", default-features = false }
 alloy-transport = { version = "1.8.3", default-features = false }
@@ -81,12 +77,12 @@ k256 = { version = "0.13", default-features = false, features = ["arithmetic"] }
 robust-provider = "1.0.1"
 
 # taiko
-alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "ec1650bfc5925af4f763795cfeb7872f9e85813b", default-features = false }
-alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "ec1650bfc5925af4f763795cfeb7872f9e85813b", default-features = false }
-alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "ec1650bfc5925af4f763795cfeb7872f9e85813b", default-features = false, features = [
-  "serde",
+alethia-reth-chainspec = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-chainspec", rev = "2c791d83843e81828411ca7a4aaadb7f6149983f", default-features = false }
+alethia-reth-consensus = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-consensus", rev = "2c791d83843e81828411ca7a4aaadb7f6149983f", default-features = false }
+alethia-reth-primitives = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-primitives", rev = "2c791d83843e81828411ca7a4aaadb7f6149983f", default-features = false, features = [
+    "serde",
 ] }
-alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "ec1650bfc5925af4f763795cfeb7872f9e85813b" }
+alethia-reth-rpc-types = { git = "https://github.com/taikoxyz/alethia-reth", package = "alethia-reth-rpc-types", rev = "2c791d83843e81828411ca7a4aaadb7f6149983f" }
 
 # networking
 arc-swap = "1.7"
@@ -100,16 +96,16 @@ http-body = "1"
 jsonwebtoken = "9"
 kona-gossip = { git = "https://github.com/ethereum-optimism/optimism", package = "kona-gossip", tag = "kona-node/v1.2.9", default-features = false }
 libp2p = { version = "0.56.0", features = [
-  "tcp",
-  "dns",
-  "gossipsub",
-  "ping",
-  "identify",
-  "noise",
-  "secp256k1",
-  "yamux",
-  "macros",
-  "tokio",
+    "tcp",
+    "dns",
+    "gossipsub",
+    "ping",
+    "identify",
+    "noise",
+    "secp256k1",
+    "yamux",
+    "macros",
+    "tokio",
 ] }
 snap = "1.1"
 ssz = { package = "ethereum_ssz", version = "0.9.1" }

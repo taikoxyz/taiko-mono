@@ -15,11 +15,8 @@ use crate::{
 };
 
 use super::{
-    cache_import::{
-        confirmed_boundary_or_genesis, should_defer_cached_import_error,
-        should_drop_cached_import_error,
-    },
-    should_enable_preconf_imports, sync_ready_transition,
+    cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
+    should_enable_preconf_imports,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
 
@@ -153,11 +150,11 @@ fn drops_cached_import_errors_for_invalid_block_driver_error() {
 }
 
 #[test]
-fn defers_cached_import_errors_for_missing_parent_driver_error() {
+fn defers_cached_import_errors_for_missing_payload_id_driver_error() {
     let err =
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfInjectionFailed {
             block_number: 42,
-            source: driver::sync::error::EngineSubmissionError::MissingParent,
+            source: driver::sync::error::EngineSubmissionError::MissingPayloadId,
         });
     assert!(!should_drop_cached_import_error(&err));
     assert!(should_defer_cached_import_error(&err));
@@ -241,7 +238,7 @@ fn validate_payload_rejects_oversized_compressed_transactions_list() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("compressed transactions size exceeds")
+            if msg.contains("compressed txlist exceeds max size")
     ));
 }
 
@@ -374,7 +371,7 @@ fn validate_payload_rejects_invalid_zlib_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("invalid zlib bytes for transactions")
+            if msg.contains("zlib decode failed")
     ));
 }
 
@@ -392,7 +389,7 @@ fn validate_payload_rejects_invalid_rlp_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("invalid RLP bytes for transactions")
+            if msg.contains("rlp decode failed")
     ));
 }
 
@@ -412,7 +409,7 @@ fn validate_payload_rejects_oversized_decompressed_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("decompressed transactions size exceeds")
+            if msg.contains("decompressed txlist exceeds max size")
     ));
 }
 
@@ -519,24 +516,6 @@ fn normalizes_unsafe_payload_envelope_keeps_existing_signature() {
     let normalized = normalize_unsafe_payload_envelope(envelope, wire_signature);
 
     assert_eq!(normalized.signature, Some(embedded));
-}
-
-#[test]
-fn sync_ready_transition_detects_first_ready_edge() {
-    assert!(!sync_ready_transition(false, false));
-    assert!(sync_ready_transition(false, true));
-    assert!(!sync_ready_transition(true, true));
-    assert!(!sync_ready_transition(true, false));
-}
-
-#[test]
-fn confirmed_boundary_or_genesis_defaults_missing_origin_to_zero() {
-    assert_eq!(confirmed_boundary_or_genesis(None), 0);
-}
-
-#[test]
-fn confirmed_boundary_or_genesis_passes_through_known_origin() {
-    assert_eq!(confirmed_boundary_or_genesis(Some(42)), 42);
 }
 
 #[test]

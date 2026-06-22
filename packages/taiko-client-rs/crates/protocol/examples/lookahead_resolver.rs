@@ -47,8 +47,8 @@ async fn main() -> Result<()> {
                     println!(
                         "cached epoch {} with {} slots (whitelist fallback: {:?})",
                         update.epoch_start,
-                        update.epoch.slots().len(),
-                        update.epoch.fallback_whitelist(),
+                        update.epoch.slots.len(),
+                        update.epoch.fallback_whitelist,
                     );
                 }
                 LookaheadBroadcast::Blacklisted { root } => {

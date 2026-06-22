@@ -118,29 +118,9 @@ mod tests {
 
     /// Create a minimal test config with the given parameters.
     fn test_config(catchup_batch_size: u32, retention_limit: usize) -> PreconfirmationClientConfig {
-        use async_trait::async_trait;
-        use protocol::preconfirmation::{PreconfSignerResolver, PreconfSlotInfo};
+        use alloy_primitives::U256;
 
-        struct NoopResolver;
-
-        #[async_trait]
-        impl PreconfSignerResolver for NoopResolver {
-            async fn signer_for_timestamp(
-                &self,
-                _: alloy_primitives::U256,
-            ) -> protocol::preconfirmation::Result<Address> {
-                Ok(Address::ZERO)
-            }
-            async fn slot_info_for_timestamp(
-                &self,
-                _: alloy_primitives::U256,
-            ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
-                Ok(PreconfSlotInfo {
-                    signer: Address::ZERO,
-                    submission_window_end: alloy_primitives::U256::ZERO,
-                })
-            }
-        }
+        use crate::test_support::MockLookaheadResolver;
 
         PreconfirmationClientConfig {
             p2p: P2pConfig::default(),
@@ -148,7 +128,7 @@ mod tests {
             request_timeout: std::time::Duration::from_secs(10),
             catchup_batch_size,
             txlist_fetch_concurrency: None,
-            lookahead_resolver: Arc::new(NoopResolver),
+            lookahead_resolver: Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO)),
             retention_limit,
         }
     }

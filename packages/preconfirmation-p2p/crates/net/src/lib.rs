@@ -19,6 +19,7 @@ mod discovery;
 mod driver;
 pub mod event;
 mod handle;
+mod metrics;
 mod node;
 mod reputation;
 mod storage;

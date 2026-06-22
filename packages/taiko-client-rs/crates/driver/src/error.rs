@@ -1,6 +1,6 @@
 //! Driver specific error types.
 
-use std::{io, result::Result as StdResult, time::Duration};
+use std::{result::Result as StdResult, time::Duration};
 
 use anyhow::Error as AnyhowError;
 use rpc::error::RpcClientError;
@@ -22,10 +22,6 @@ pub enum DriverError {
     /// Sync subsystem reported a failure.
     #[error(transparent)]
     Sync(#[from] SyncError),
-
-    /// I/O error emitted by the runtime.
-    #[error("io error: {0}")]
-    Io(#[from] io::Error),
 
     /// Preconfirmation support is disabled in the driver configuration.
     #[error("preconfirmation is not enabled in driver config")]
@@ -87,18 +83,4 @@ pub enum DriverError {
     /// Generic boxed error.
     #[error(transparent)]
     Other(#[from] AnyhowError),
-}
-
-/// Map a [`DriverError`] into a target error type while preserving sync errors.
-///
-/// This ensures `DriverError::Sync` is converted through `From<SyncError>` instead of being
-/// wrapped as a generic driver error.
-pub fn map_driver_error<T>(err: DriverError) -> T
-where
-    T: From<SyncError> + From<DriverError>,
-{
-    match err {
-        DriverError::Sync(sync_err) => sync_err.into(),
-        other => other.into(),
-    }
 }

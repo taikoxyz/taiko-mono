@@ -17,7 +17,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   lint:
@@ -58,7 +58,11 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: "preconfirmation-p2p"
+          # Only the Tests job saves this shared key; lint just consumes it.
+          save-if: "false"
+          workspaces: |
+            packages/preconfirmation-p2p
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -88,13 +92,8 @@ jobs:
     if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
     name: Tests
     runs-on: [arc-runner-set]
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.13.1
-        with:
-          access_token: ${{ github.token }}
-
       - uses: actions/checkout@v6
 
       - name: Ensure native build tools
@@ -147,7 +146,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          shared-key: "preconfirmation-p2p"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: |
+            packages/preconfirmation-p2p
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master

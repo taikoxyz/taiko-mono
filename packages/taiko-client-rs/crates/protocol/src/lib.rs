@@ -4,6 +4,8 @@
 
 /// Byte-level encoding and decoding helpers shared across protocol crates.
 pub mod codec;
+/// Shared Prometheus registration helpers.
+pub mod metrics;
 /// Lookahead resolver and preconfirmation helpers.
 #[cfg(feature = "net")]
 pub mod preconfirmation;

@@ -36,8 +36,12 @@ pub struct PreparedBlock {
 // TxList Compression Utilities
 // ============================================================================
 
-/// Encode transactions into a Go-compatible zlib-compressed RLP txlist.
-fn encode_and_compress_txlist_bytes(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
+/// Encodes raw transactions into a Go-compatible zlib-compressed RLP txlist.
+///
+/// Each entry in `transactions` is a raw (already-encoded) transaction; the
+/// list is RLP-encoded and zlib-compressed, matching the wire format expected
+/// by preconfirmation gossip.
+pub fn compress_raw_txs(transactions: &[Vec<u8>]) -> Result<TxListBytes> {
     let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
     let compressed = codec
         .encode(transactions)
@@ -48,20 +52,20 @@ fn encode_and_compress_txlist_bytes(transactions: &[Vec<u8>]) -> Result<TxListBy
 /// Builds a compressed txlist payload with deterministic contents based on block number.
 ///
 /// Used for tests that need non-empty but deterministic transaction data.
-pub fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
+pub(crate) fn build_txlist_bytes(block_number: u64) -> Result<TxListBytes> {
     let tx_payload = block_number.to_be_bytes().to_vec();
-    encode_and_compress_txlist_bytes(&[tx_payload])
+    compress_raw_txs(&[tx_payload])
 }
 
 /// Builds a minimal compressed txlist (empty RLP list).
 ///
 /// Used for tests that just need a valid but empty txlist.
-pub fn build_empty_txlist() -> Result<TxListBytes> {
-    encode_and_compress_txlist_bytes(&[])
+pub(crate) fn build_empty_txlist() -> Result<TxListBytes> {
+    compress_raw_txs(&[])
 }
 
 /// Computes the raw tx list hash from txlist bytes.
-pub fn compute_txlist_hash(txlist_bytes: &TxListBytes) -> Result<Bytes32> {
+pub(crate) fn compute_txlist_hash(txlist_bytes: &TxListBytes) -> Result<Bytes32> {
     Bytes32::try_from(keccak256_bytes(txlist_bytes.as_ref()).as_slice().to_vec())
         .map_err(|(_, err)| anyhow!("txlist hash error: {err}"))
 }
@@ -176,7 +180,7 @@ pub fn build_publish_payloads_with_txs(
 /// Verifies round-trip decoding to catch encoding issues early.
 fn compress_transactions(raw_tx_bytes: &[Bytes]) -> Result<TxListBytes> {
     let tx_list_items: Vec<Vec<u8>> = raw_tx_bytes.iter().map(|tx| tx.to_vec()).collect();
-    let txlist_bytes = encode_and_compress_txlist_bytes(&tx_list_items)?;
+    let txlist_bytes = compress_raw_txs(&tx_list_items)?;
 
     // Verify round-trip decoding to catch encoding issues early.
     let codec = ZlibTxListCodec::new(MAX_TXLIST_BYTES);
@@ -340,17 +344,4 @@ pub fn derive_signer(seed: u8) -> (SecretKey, Address) {
     let pk = secp256k1::PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), &sk);
     let addr = preconfirmation_types::public_key_to_address(&pk);
     (sk, addr)
-}
-
-/// Computes the starting block number based on driver tips.
-///
-/// Returns the maximum of event_sync_tip and preconf_tip plus one,
-/// which is the next block that should be preconfirmed.
-pub async fn compute_starting_block<D: preconfirmation_driver::DriverClient>(
-    driver: &D,
-) -> Result<u64> {
-    let event_sync_tip = driver.event_sync_tip().await?;
-    let preconf_tip = driver.preconf_tip().await?;
-    let starting_block = event_sync_tip.max(preconf_tip) + U256::ONE;
-    Ok(starting_block.to::<u64>())
 }

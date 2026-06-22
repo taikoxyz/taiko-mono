@@ -10,7 +10,7 @@ mod importer;
 pub mod metrics;
 mod network;
 mod operator_set;
-mod preconf_ingress_sync;
+mod payload;
 mod runner;
 
 pub use error::{Result, WhitelistPreconfirmationDriverError};

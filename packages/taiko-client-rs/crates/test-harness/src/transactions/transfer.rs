@@ -9,7 +9,7 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
 
 use super::compute_next_block_base_fee;
-use crate::PRIORITY_FEE_GWEI;
+use crate::helper::PRIORITY_FEE_GWEI;
 
 /// A signed transfer transaction with expected hash and sender for assertions.
 ///
@@ -57,7 +57,7 @@ pub struct TransferPayload {
 ///
 /// assert_eq!(transfer.hash, expected_hash);
 /// ```
-pub async fn build_signed_transfer<P>(
+pub(crate) async fn build_signed_transfer<P>(
     provider: &P,
     block_number: u64,
     private_key: &str,

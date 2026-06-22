@@ -156,15 +156,15 @@ impl Subcommand for WhitelistPreconfirmationDriverSubCommand {
         let driver_config = self.build_driver_config()?;
         let p2p_config = self.build_p2p_config()?;
 
-        let runner_config = RunnerConfig::new(
+        let runner_config = RunnerConfig {
             driver_config,
             p2p_config,
-            self.shasta_preconf_whitelist_address,
-            self.resolve_rpc_addr(),
-            self.resolve_rpc_jwt_secret()?,
-            self.resolve_rpc_cors_origins(),
-            self.preconfirmation_p2p_signer_key.clone(),
-        );
+            whitelist_address: self.shasta_preconf_whitelist_address,
+            rpc_listen_addr: self.resolve_rpc_addr(),
+            rpc_jwt_secret: self.resolve_rpc_jwt_secret()?,
+            rpc_cors_origins: self.resolve_rpc_cors_origins(),
+            p2p_signer_key: self.preconfirmation_p2p_signer_key.clone(),
+        };
 
         WhitelistPreconfirmationDriverRunner::new(runner_config).run().await?;
         Ok(())

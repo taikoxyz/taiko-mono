@@ -115,6 +115,7 @@ func (p *Prover) initProofSubmitter(ctx context.Context, txBuilder *transaction.
 		cacheMaps,
 		p.flushCacheNotify,
 		new(big.Int).SetUint64(p.cfg.ProposalWindowSize),
+		new(big.Int).SetUint64(p.cfg.MaxZKProofProposalDistance),
 	); err != nil {
 		return fmt.Errorf("failed to initialize proof submitter: %w", err)
 	}

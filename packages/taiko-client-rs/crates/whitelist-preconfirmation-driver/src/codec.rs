@@ -110,25 +110,52 @@ pub(crate) fn decode_unsafe_response_message(
     decode_envelope_ssz(&decoded)
 }
 
-/// Decode snappy bytes after validating decompressed length against gossip limits.
-fn decompress_snappy_with_limit(data: &[u8], kind: &str) -> Result<Vec<u8>> {
-    let decoded_len = snap::raw::decompress_len(data).map_err(|err| {
-        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "failed to inspect snappy {kind} size: {err}"
-        ))
-    })?;
+/// Failure mode of [`bounded_decompress_snappy`], distinguishing the stage that failed.
+pub(crate) enum SnappyDecompressError {
+    /// `decompress_len` could not inspect the snappy frame.
+    Inspect(snap::Error),
+    /// Decompressed length would exceed [`MAX_DECOMPRESSED_GOSSIP_BYTES`].
+    TooLarge(usize),
+    /// `decompress_vec` failed to produce the decompressed bytes.
+    Decompress(snap::Error),
+}
+
+/// Decompress snappy bytes, bounding the decompressed length against gossip limits.
+///
+/// On success returns the decompressed bytes; on failure returns a
+/// [`SnappyDecompressError`] identifying the stage so callers can choose their own
+/// error-reporting or fallback behavior.
+pub(crate) fn bounded_decompress_snappy(
+    data: &[u8],
+) -> core::result::Result<Vec<u8>, SnappyDecompressError> {
+    let decoded_len = match snap::raw::decompress_len(data) {
+        Ok(len) => len,
+        Err(err) => return Err(SnappyDecompressError::Inspect(err)),
+    };
 
     if decoded_len > MAX_DECOMPRESSED_GOSSIP_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "snappy {kind} too large after decompression: {decoded_len} > {MAX_DECOMPRESSED_GOSSIP_BYTES}"
-        )));
+        return Err(SnappyDecompressError::TooLarge(decoded_len));
     }
 
-    let mut decoder = snap::raw::Decoder::new();
-    decoder.decompress_vec(data).map_err(|err| {
-        WhitelistPreconfirmationDriverError::InvalidPayload(format!(
-            "failed to decompress snappy {kind}: {err}"
-        ))
+    snap::raw::Decoder::new().decompress_vec(data).map_err(SnappyDecompressError::Decompress)
+}
+
+/// Decode snappy bytes after validating decompressed length against gossip limits.
+fn decompress_snappy_with_limit(data: &[u8], kind: &str) -> Result<Vec<u8>> {
+    bounded_decompress_snappy(data).map_err(|err| match err {
+        SnappyDecompressError::Inspect(err) => WhitelistPreconfirmationDriverError::InvalidPayload(
+            format!("failed to inspect snappy {kind} size: {err}"),
+        ),
+        SnappyDecompressError::TooLarge(decoded_len) => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "snappy {kind} too large after decompression: {decoded_len} > {MAX_DECOMPRESSED_GOSSIP_BYTES}"
+            ))
+        }
+        SnappyDecompressError::Decompress(err) => {
+            WhitelistPreconfirmationDriverError::InvalidPayload(format!(
+                "failed to decompress snappy {kind}: {err}"
+            ))
+        }
     })
 }
 

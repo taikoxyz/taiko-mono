@@ -93,19 +93,6 @@ impl PreconfRpcErrorCode {
     pub const fn code(self) -> i32 {
         self as i32
     }
-
-    /// Get a human-readable message for this error.
-    pub const fn message(self) -> &'static str {
-        match self {
-            Self::InternalError => "Internal error",
-            Self::InvalidCommitment => "Invalid commitment format or signature",
-            Self::InvalidTxList => "Invalid transaction list format",
-            Self::NotSynced => "Node is not synced",
-            Self::SubmissionWindowExpired => "Submission window has expired",
-            Self::InvalidSigner => "Signer is not the expected preconfirmer",
-            Self::LookaheadUnavailable => "Lookahead data is unavailable",
-        }
-    }
 }
 
 #[cfg(test)]

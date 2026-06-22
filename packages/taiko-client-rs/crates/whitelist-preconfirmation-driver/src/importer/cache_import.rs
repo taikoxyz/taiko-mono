@@ -2,16 +2,35 @@
 
 use std::time::Instant;
 
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use driver::PreconfPayload;
 use tracing::{debug, info, warn};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{WhitelistExecutionPayloadEnvelope, decompress_tx_list},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
 };
 
 use super::WhitelistPreconfirmationImporter;
+
+/// Build the driver payload from a whitelist envelope.
+fn build_driver_payload(
+    envelope: &WhitelistExecutionPayloadEnvelope,
+) -> Result<TaikoPayloadAttributes> {
+    let compressed_tx_list = envelope.execution_payload.transactions.first().ok_or_else(|| {
+        WhitelistPreconfirmationDriverError::invalid_payload("missing transactions list")
+    })?;
+    let tx_list = decompress_tx_list(compressed_tx_list)?;
+
+    Ok(crate::payload::build_driver_payload(
+        &envelope.execution_payload,
+        tx_list,
+        envelope.parent_beacon_block_root,
+        envelope.is_forced_inclusion.unwrap_or(false),
+        envelope.signature.unwrap_or([0u8; 65]),
+    ))
+}
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -19,7 +38,7 @@ where
 {
     /// Attempt to import cached envelopes if sync is ready.
     pub(crate) async fn maybe_import_from_cache(&mut self) -> Result<()> {
-        let _ = self.refresh_sync_ready().await?;
+        self.refresh_sync_ready().await?;
         if !self.sync_ready || self.cache.is_empty() {
             return Ok(());
         }
@@ -29,42 +48,29 @@ where
 
     /// Import as many cached envelopes as possible.
     pub(super) async fn import_from_cache(&mut self) -> Result<()> {
-        let mut cache = std::mem::take(&mut self.cache);
         loop {
             let mut progressed = false;
-            let hashes = cache.sorted_hashes_by_block_number();
+            let hashes = self.cache.sorted_hashes_by_block_number();
 
             for hash in hashes {
-                let Some(entry) = cache.get(&hash) else {
+                let Some(entry) = self.cache.get(&hash).cloned() else {
                     continue;
                 };
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_ATTEMPTS_TOTAL
-                )
-                .increment(1);
-                match self.try_import_cached(entry).await {
+                match self.try_import_cached(&entry).await {
                     Ok(true) => {
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
-                            "result" => "progressed",
-                        )
-                        .increment(1);
-                        cache.remove(&hash);
+                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
+                            "progressed",
+                        );
+                        self.cache.remove(&hash);
                         progressed = true;
                     }
                     Ok(false) => {
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
-                            "result" => "deferred",
-                        )
-                        .increment(1);
+                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result("deferred");
                     }
                     Err(err) if should_defer_cached_import_error(&err) => {
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
-                            "result" => "deferred_error",
-                        )
-                        .increment(1);
+                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
+                            "deferred_error",
+                        );
                         debug!(
                             block_hash = %hash,
                             error = %err,
@@ -72,27 +78,22 @@ where
                         );
                     }
                     Err(err) if should_drop_cached_import_error(&err) => {
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
-                            "result" => "dropped_error",
-                        )
-                        .increment(1);
+                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
+                            "dropped_error",
+                        );
                         warn!(
                             block_hash = %hash,
                             error = %err,
                             "dropping cached whitelist preconfirmation payload after invalid import"
                         );
-                        cache.remove(&hash);
+                        self.cache.remove(&hash);
                         progressed = true;
                     }
                     Err(err) => {
-                        metrics::counter!(
-                            WhitelistPreconfirmationDriverMetrics::CACHE_IMPORT_RESULTS_TOTAL,
-                            "result" => "fatal_error",
-                        )
-                        .increment(1);
-                        self.cache = cache;
-                        self.update_cache_gauges();
+                        WhitelistPreconfirmationDriverMetrics::inc_cache_import_result(
+                            "fatal_error",
+                        );
+                        self.update_pending_cache_gauge();
                         return Err(err);
                     }
                 }
@@ -103,8 +104,7 @@ where
             }
         }
 
-        self.cache = cache;
-        self.update_cache_gauges();
+        self.update_pending_cache_gauge();
         Ok(())
     }
 
@@ -118,8 +118,8 @@ where
         let block_hash = payload.block_hash;
         let end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false);
 
-        let head_l1_origin_block_id =
-            confirmed_boundary_or_genesis(self.head_l1_origin_block_id().await?);
+        // An unwritten head origin means no confirmed boundary yet (genesis cold start).
+        let head_l1_origin_block_id = self.head_l1_origin_block_id().await?.unwrap_or(0);
 
         if block_number <= head_l1_origin_block_id {
             debug!(
@@ -148,18 +148,10 @@ where
         let parent_number = block_number.saturating_sub(1);
         if self.block_hash_by_number(parent_number).await? != Some(parent_hash) {
             if self.request_throttle.should_request(parent_hash, Instant::now()) {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
-                    "result" => "issued",
-                )
-                .increment(1);
+                WhitelistPreconfirmationDriverMetrics::inc_parent_request("issued");
                 self.publish_unsafe_request(parent_hash).await;
             } else {
-                metrics::counter!(
-                    WhitelistPreconfirmationDriverMetrics::PARENT_REQUESTS_TOTAL,
-                    "result" => "throttled",
-                )
-                .increment(1);
+                WhitelistPreconfirmationDriverMetrics::inc_parent_request("throttled");
                 debug!(
                     block_number,
                     block_hash = %block_hash,
@@ -170,28 +162,17 @@ where
             return Ok(false);
         }
 
-        let driver_payload = self.build_driver_payload(envelope)?;
+        let driver_payload = build_driver_payload(envelope)?;
         let submit_start = Instant::now();
         let submit_result = self
             .event_syncer
             .submit_preconfirmation_payload(PreconfPayload::new(driver_payload))
             .await;
-        metrics::histogram!(WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_DURATION_SECONDS)
-            .record(submit_start.elapsed().as_secs_f64());
-
-        if let Err(err) = submit_result {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
-                "result" => "failure",
-            )
-            .increment(1);
-            return Err(err.into());
-        }
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::DRIVER_SUBMIT_TOTAL,
-            "result" => "success",
-        )
-        .increment(1);
+        WhitelistPreconfirmationDriverMetrics::observe_driver_submit(
+            if submit_result.is_ok() { "success" } else { "failure" },
+            submit_start.elapsed().as_secs_f64(),
+        );
+        submit_result?;
 
         info!(
             block_number,
@@ -201,10 +182,7 @@ where
             "inserted whitelist preconfirmation block"
         );
 
-        if let Some(ref highest) = self.highest_unsafe_l2_payload_block_id {
-            let mut guard = highest.lock().await;
-            *guard = block_number.max(*guard);
-        }
+        self.state.raise_highest_unsafe(block_number).await;
 
         Ok(true)
     }
@@ -254,14 +232,8 @@ fn should_defer_cached_driver_error(err: &driver::DriverError) -> bool {
             source,
             driver::sync::error::EngineSubmissionError::EngineSyncing(_) |
                 driver::sync::error::EngineSubmissionError::MissingPayloadId |
-                driver::sync::error::EngineSubmissionError::MissingParent |
                 driver::sync::error::EngineSubmissionError::MissingInsertedBlock(_)
         ),
         _ => false,
     }
-}
-
-/// Resolve the confirmed boundary used for the cached-payload staleness check.
-pub(super) fn confirmed_boundary_or_genesis(head_l1_origin_block_id: Option<u64>) -> u64 {
-    head_l1_origin_block_id.unwrap_or(0)
 }

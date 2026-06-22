@@ -6,25 +6,20 @@ use alloy_primitives::{Address, B256};
 use alloy_provider::Provider;
 use driver::sync::event::EventSyncer;
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 use tracing::{info, warn};
 
 use crate::{
-    cache::{EnvelopeCache, RecentEnvelopeCache, RequestThrottle, SharedPreconfCacheState},
+    cache::{EnvelopeCache, PENDING_ENVELOPE_CAPACITY, RequestThrottle, SharedPreconfState},
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
     network::{NetworkCommand, NetworkEvent},
-    operator_set::SharedOperatorSet,
 };
 
 /// Cache re-import flow for out-of-order envelopes once parents arrive.
 mod cache_import;
-/// Ingress entrypoints for unsafe payload handling.
+/// Ingress entrypoints for unsafe payload handling and request/response serving.
 mod ingress;
-/// Payload normalization helpers.
-mod payload;
-/// Response serving helpers for request/response gossip.
-mod response;
 /// Payload-level validation helpers.
 mod validation;
 
@@ -41,21 +36,22 @@ where
     pub(crate) event_syncer: Arc<EventSyncer<P>>,
     /// RPC client used for L1/L2 reads and head-origin updates.
     pub(crate) rpc: Client<P>,
-    /// Shared operator set for signer validation.
-    pub(crate) operator_set: SharedOperatorSet,
     /// Chain id used for preconfirmation signature domain separation.
     pub(crate) chain_id: u64,
     /// Command channel used to publish P2P requests/responses.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared cache state used by status and EOS signaling.
-    pub(crate) cache_state: SharedPreconfCacheState,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    pub(crate) state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     pub(crate) beacon_client: Arc<BeaconClient>,
-    /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
-    pub(crate) highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
 }
 
 /// Imports whitelist preconfirmation payloads into the driver after event sync catches up.
+///
+/// Signature authenticity and operator-set membership of inbound gossip are
+/// enforced once, at gossip acceptance time in
+/// [`crate::network`]'s inbound validation state, before events reach this
+/// importer. The importer performs payload-level validation only.
 pub(crate) struct WhitelistPreconfirmationImporter<P>
 where
     P: Provider + Clone + Send + Sync + 'static,
@@ -66,22 +62,16 @@ where
     rpc: Client<P>,
     /// Chain id used for preconfirmation signature domain separation.
     chain_id: u64,
-    /// Shared cache state used by status and EOS signaling.
-    cache_state: SharedPreconfCacheState,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    state: SharedPreconfState,
     /// Beacon client used for EOS epoch validation.
     beacon_client: Arc<BeaconClient>,
     /// Out-of-order payload cache waiting for parent availability.
     cache: EnvelopeCache,
-    /// Recently accepted envelopes that can be served over response topic requests.
-    recent_cache: RecentEnvelopeCache,
     /// Cooldown gate for repeated missing-parent requests.
     request_throttle: RequestThrottle,
-    /// Lock-free shared set of allowed sequencer addresses, refreshed by background poller.
-    operator_set: SharedOperatorSet,
     /// Command channel used to publish P2P requests/responses.
     network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared highest unsafe L2 payload block ID (updated on P2P import when REST server enabled).
-    highest_unsafe_l2_payload_block_id: Option<Arc<Mutex<u64>>>,
     /// Latched flag indicating event sync has exposed a head L1 origin.
     sync_ready: bool,
     /// Shasta anchor contract address used to validate the first transaction.
@@ -97,12 +87,10 @@ where
         let WhitelistPreconfirmationImporterParams {
             event_syncer,
             rpc,
-            operator_set,
             chain_id,
             network_command_tx,
-            cache_state,
+            state,
             beacon_client,
-            highest_unsafe_l2_payload_block_id,
         } = params;
         let anchor_address = *rpc.shasta.anchor.address();
 
@@ -110,54 +98,63 @@ where
             event_syncer,
             rpc,
             chain_id,
-            cache_state,
+            state,
             beacon_client,
-            cache: EnvelopeCache::default(),
-            recent_cache: RecentEnvelopeCache::default(),
+            cache: EnvelopeCache::with_capacity(PENDING_ENVELOPE_CAPACITY),
             request_throttle: RequestThrottle::default(),
-            operator_set,
             network_command_tx,
-            highest_unsafe_l2_payload_block_id,
             sync_ready: false,
             anchor_address,
         };
-        importer.update_cache_gauges();
+        importer.update_pending_cache_gauge();
         importer
+    }
+
+    /// Record an importer event outcome metric based on a handler result.
+    ///
+    /// Increments `event_type` with `ok_label` on success or `fail_label` on error.
+    fn record_event_result(
+        event_type: &str,
+        result: &Result<()>,
+        ok_label: &str,
+        fail_label: &str,
+    ) {
+        let label = if result.is_ok() { ok_label } else { fail_label };
+        WhitelistPreconfirmationDriverMetrics::inc_importer_event(event_type, label);
     }
 
     /// Handle one network event.
     pub(crate) async fn handle_event(&mut self, event: NetworkEvent) -> Result<()> {
         match event {
             NetworkEvent::UnsafePayload { from, payload } => {
-                if let Err(err) = self.handle_unsafe_payload(payload).await {
+                let result = self.handle_unsafe_payload(payload).await;
+                if let Err(err) = &result {
                     warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation payload");
-                    record_importer_event("unsafe_payload", "dropped");
-                } else {
-                    record_importer_event("unsafe_payload", "accepted");
                 }
+                Self::record_event_result("unsafe_payload", &result, "accepted", "dropped");
             }
             NetworkEvent::UnsafeResponse { from, envelope } => {
-                if let Err(err) = self.handle_unsafe_response(envelope).await {
+                let result = self.handle_unsafe_response(envelope).await;
+                if let Err(err) = &result {
                     warn!(peer = %from, error = %err, "dropping invalid whitelist preconfirmation response");
-                    record_importer_event("unsafe_response", "dropped");
-                } else {
-                    record_importer_event("unsafe_response", "accepted");
                 }
+                Self::record_event_result("unsafe_response", &result, "accepted", "dropped");
             }
             NetworkEvent::UnsafeRequest { from, hash } => {
-                if let Err(err) = self.handle_unsafe_request(hash).await {
+                let result = self.handle_unsafe_request(hash).await;
+                if let Err(err) = &result {
                     warn!(
                         peer = %from,
                         hash = %hash,
                         error = %err,
                         "failed to handle whitelist preconfirmation request"
                     );
-                    record_importer_event("unsafe_request", "error");
-                } else {
-                    record_importer_event("unsafe_request", "handled");
                 }
+                Self::record_event_result("unsafe_request", &result, "handled", "error");
             }
             NetworkEvent::EndOfSequencingRequest { from, epoch } => {
+                // Asymmetric: the success metric is recorded inside `handle_eos_request`,
+                // so only the error case is counted here.
                 if let Err(err) = self.handle_eos_request(epoch).await {
                     warn!(
                         peer = %from,
@@ -165,7 +162,10 @@ where
                         error = %err,
                         "failed to handle whitelist preconfirmation end-of-sequencing request"
                     );
-                    record_importer_event("end_of_sequencing_request", "error");
+                    WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+                        "end_of_sequencing_request",
+                        "error",
+                    );
                 }
             }
         }
@@ -173,45 +173,18 @@ where
         self.maybe_import_from_cache().await
     }
 
-    /// Handle an incoming end-of-sequencing request by serving from the recent
-    /// cache, falling back to an L2 rebuild, or recording a miss.
+    /// Handle an incoming end-of-sequencing request by serving the recorded
+    /// envelope for the epoch from the recent cache or an L2 rebuild.
     async fn handle_eos_request(&mut self, epoch: u64) -> Result<()> {
-        let Some(hash) = self.cache_state.end_of_sequencing_for_epoch(epoch).await else {
-            record_importer_event("end_of_sequencing_request", "miss");
-            return Ok(());
+        let served = match self.state.end_of_sequencing_for_epoch(epoch).await {
+            Some(hash) => self.serve_envelope_by_hash(hash, true).await?.is_some(),
+            None => false,
         };
-
-        // Fast path: envelope still lives in the recent cache.
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
-            self.publish_unsafe_response(envelope).await;
-            record_importer_event("end_of_sequencing_request", "served");
-            return Ok(());
-        }
-
-        // Slow path: rebuild from local L2 state.
-        let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? else {
-            record_importer_event("end_of_sequencing_request", "miss");
-            return Ok(());
-        };
-
-        envelope.end_of_sequencing = Some(true);
-        let envelope = Arc::new(envelope);
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
-        self.publish_unsafe_response(envelope).await;
-        record_importer_event("end_of_sequencing_request", "served");
+        WhitelistPreconfirmationDriverMetrics::inc_importer_event(
+            "end_of_sequencing_request",
+            if served { "served" } else { "miss" },
+        );
         Ok(())
-    }
-
-    /// Validate that the recovered signer is present in the shared operator set.
-    pub(super) fn ensure_signer_allowed(&self, signer: Address) -> Result<()> {
-        if self.operator_set.load().contains(&signer) {
-            Ok(())
-        } else {
-            Err(WhitelistPreconfirmationDriverError::invalid_signature(format!(
-                "signer {signer} is not a registered operator"
-            )))
-        }
     }
 
     /// Refresh whether sync is ready.
@@ -220,19 +193,16 @@ where
     /// when no real proposal exists yet (`nextProposalId == 1`). Core state is read lazily,
     /// only while the origin pointer is absent. During beacon-sync custom-table gaps
     /// (`nextProposalId > 1`, origin unwritten) this stays fail-closed (WLP-INV-002).
-    pub(super) async fn refresh_sync_ready(&mut self) -> Result<bool> {
+    pub(super) async fn refresh_sync_ready(&mut self) -> Result<()> {
         let head_written = self.head_l1_origin_block_id().await?.is_some();
         let next_proposal_id =
             if head_written { None } else { Some(self.next_proposal_id().await?) };
         let ready = should_enable_preconf_imports(head_written, next_proposal_id);
-        let became_ready = sync_ready_transition(self.sync_ready, ready);
-        if became_ready {
-            metrics::counter!(WhitelistPreconfirmationDriverMetrics::SYNC_READY_TRANSITIONS_TOTAL)
-                .increment(1);
+        if !self.sync_ready && ready {
             info!("event sync ready; enabling whitelist preconfirmation imports");
         }
         self.sync_ready = ready;
-        Ok(became_ready)
+        Ok(())
     }
 
     /// Get the block ID of the head L1 origin.
@@ -263,28 +233,10 @@ where
             .map_err(WhitelistPreconfirmationDriverError::provider)
     }
 
-    /// Update cache gauges after cache mutations.
-    pub(super) fn update_cache_gauges(&self) {
-        metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_PENDING_COUNT)
-            .set(self.cache.len() as f64);
-        metrics::gauge!(WhitelistPreconfirmationDriverMetrics::CACHE_RECENT_COUNT)
-            .set(self.recent_cache.len() as f64);
+    /// Update the pending-cache gauge after pending-cache mutations.
+    pub(super) fn update_pending_cache_gauge(&self) {
+        WhitelistPreconfirmationDriverMetrics::set_cache_pending_count(self.cache.len());
     }
-}
-
-/// Record one importer event outcome for the given event type and result.
-fn record_importer_event(event_type: &'static str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::IMPORTER_EVENTS_TOTAL,
-        "event_type" => event_type,
-        "result" => result,
-    )
-    .increment(1);
-}
-
-/// Returns true only when sync readiness transitions from disabled to enabled.
-fn sync_ready_transition(was_ready: bool, is_ready: bool) -> bool {
-    !was_ready && is_ready
 }
 
 /// Whether preconf imports may be enabled after event sync.

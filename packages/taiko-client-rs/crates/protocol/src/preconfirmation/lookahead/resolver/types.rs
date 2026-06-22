@@ -17,19 +17,6 @@ pub struct CachedLookaheadEpoch {
     pub block_timestamp: u64,
 }
 
-impl CachedLookaheadEpoch {
-    /// Read-only view of ordered slots for this epoch.
-    pub fn slots(&self) -> &[LookaheadSlot] {
-        &self.slots
-    }
-
-    /// Blacklist flags are tracked separately via live events.
-    /// Whitelist fallback captured for this epoch at ingest time.
-    pub fn fallback_whitelist(&self) -> Address {
-        self.fallback_whitelist
-    }
-}
-
 /// Broadcast messages emitted by the resolver.
 #[derive(Clone, Debug)]
 pub enum LookaheadBroadcast {

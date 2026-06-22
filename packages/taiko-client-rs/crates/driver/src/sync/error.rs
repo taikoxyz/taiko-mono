@@ -3,13 +3,9 @@
 use alloy::primitives::B256;
 use anyhow::Error as AnyhowError;
 use rpc::RpcClientError;
-use std::result::Result as StdResult;
 use thiserror::Error;
 
 use crate::derivation::DerivationError;
-
-/// Result type alias for sync operations.
-pub type Result<T> = StdResult<T, SyncError>;
 
 /// Errors emitted by sync components.
 #[derive(Debug, Error)]
@@ -30,15 +26,6 @@ pub enum SyncError {
         #[source]
         /// Underlying submission error.
         error: AnyhowError,
-    },
-
-    /// Beacon sync: checkpoint head behind local head.
-    #[error("checkpoint head {checkpoint} is behind local head {local}")]
-    CheckpointBehind {
-        /// Checkpoint-synced head block number.
-        checkpoint: u64,
-        /// Local execution head block number.
-        local: u64,
     },
 
     /// Event sync: checkpoint mode enabled, but beacon sync did not publish a resume head.
@@ -118,9 +105,6 @@ pub enum EngineSubmissionError {
     /// Failure communicating with the execution engine's public RPC.
     #[error("execution engine provider error: {0}")]
     Provider(String),
-    /// Unable to determine the latest canonical L2 block.
-    #[error("latest L2 block not found")]
-    MissingParent,
     /// Execution engine is syncing and cannot accept the provided block.
     #[error("execution engine syncing while inserting block {0}")]
     EngineSyncing(u64),

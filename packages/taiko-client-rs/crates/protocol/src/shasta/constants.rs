@@ -101,6 +101,35 @@ pub const fn min_base_fee_for_chain(chain_id: u64) -> u64 {
     if chain_id == TAIKO_MAINNET_CHAIN_ID { MAINNET_MIN_BASE_FEE } else { MIN_BASE_FEE }
 }
 
+/// Calculate the next EIP-4396 base fee from a parent header and the grandparent timestamp.
+///
+/// Owns the wrapper logic shared by every fetching call site: a genesis parent yields
+/// [`SHASTA_INITIAL_BASE_FEE`], the parent block time is `parent_timestamp -
+/// grandparent_timestamp`, and a non-genesis parent missing `base_fee_per_gas` yields `None`
+/// for the caller to map into its own error type.
+pub fn calculate_next_block_eip4396_base_fee_for_parent(
+    parent_number: u64,
+    parent_gas_limit: u64,
+    parent_gas_used: u64,
+    parent_timestamp: u64,
+    parent_base_fee_per_gas: Option<u64>,
+    grandparent_timestamp: u64,
+    min_base_fee_to_clamp: u64,
+) -> Option<u64> {
+    if parent_number == 0 {
+        return Some(SHASTA_INITIAL_BASE_FEE);
+    }
+
+    Some(calculate_next_block_eip4396_base_fee_from_parent_values(
+        parent_number,
+        parent_gas_limit,
+        parent_gas_used,
+        parent_timestamp.saturating_sub(grandparent_timestamp),
+        parent_base_fee_per_gas?,
+        min_base_fee_to_clamp,
+    ))
+}
+
 /// Calculate the next EIP-4396 base fee from parent-header values.
 ///
 /// This mirrors alethia-reth's calculation while accepting raw values, so callers using the

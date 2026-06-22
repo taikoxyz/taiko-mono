@@ -67,8 +67,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-chainspec"
-version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=ec1650bfc5925af4f763795cfeb7872f9e85813b#ec1650bfc5925af4f763795cfeb7872f9e85813b"
+version = "1.2.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
 dependencies = [
  "alloy-chains",
  "alloy-consensus 2.0.4",
@@ -89,8 +89,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-consensus"
-version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=ec1650bfc5925af4f763795cfeb7872f9e85813b#ec1650bfc5925af4f763795cfeb7872f9e85813b"
+version = "1.2.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
 dependencies = [
  "alethia-reth-primitives",
  "alloy-consensus 2.0.4",
@@ -101,8 +101,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-primitives"
-version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=ec1650bfc5925af4f763795cfeb7872f9e85813b#ec1650bfc5925af4f763795cfeb7872f9e85813b"
+version = "1.2.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
 dependencies = [
  "alloy-consensus 2.0.4",
  "alloy-primitives",
@@ -125,8 +125,8 @@ dependencies = [
 
 [[package]]
 name = "alethia-reth-rpc-types"
-version = "1.1.0"
-source = "git+https://github.com/taikoxyz/alethia-reth?rev=ec1650bfc5925af4f763795cfeb7872f9e85813b#ec1650bfc5925af4f763795cfeb7872f9e85813b"
+version = "1.2.0"
+source = "git+https://github.com/taikoxyz/alethia-reth?rev=2c791d83843e81828411ca7a4aaadb7f6149983f#2c791d83843e81828411ca7a4aaadb7f6149983f"
 dependencies = [
  "alloy-primitives",
  "serde",
@@ -1791,7 +1791,7 @@ dependencies = [
  "alloy-provider",
  "alloy-rpc-types-eth 1.8.3",
  "backon",
- "metrics 0.24.5",
+ "metrics",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -1866,7 +1866,7 @@ dependencies = [
 
 [[package]]
 name = "bindings"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alloy",
  "serde",
@@ -2767,7 +2767,7 @@ dependencies = [
 
 [[package]]
 name = "driver"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -2788,9 +2788,10 @@ dependencies = [
  "async-trait",
  "bindings",
  "event-scanner",
- "metrics 0.24.5",
+ "once_cell",
  "preconfirmation-net",
  "preconfirmation-types",
+ "prometheus",
  "proposer",
  "protocol",
  "rand 0.8.6",
@@ -2918,12 +2919,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "endian-type"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
-
-[[package]]
 name = "enr"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3009,7 +3004,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3796,7 +3791,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "system-configuration",
  "tokio",
  "tower-layer",
@@ -5145,16 +5140,6 @@ dependencies = [
 
 [[package]]
 name = "metrics"
-version = "0.23.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3045b4193fbdc5b5681f32f11070da9be3609f189a79f3390706d42587f46bb5"
-dependencies = [
- "ahash",
- "portable-atomic",
-]
-
-[[package]]
-name = "metrics"
 version = "0.24.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff56c2e7dce6bd462e3b8919986a617027481b1dcc703175b58cf9dd98a2f071"
@@ -5176,57 +5161,16 @@ dependencies = [
 
 [[package]]
 name = "metrics-exporter-prometheus"
-version = "0.15.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4f0c8427b39666bf970460908b213ec09b3b350f20c0c2eabcbba51704a08e6"
-dependencies = [
- "base64",
- "http-body-util",
- "hyper",
- "hyper-util",
- "indexmap 2.14.0",
- "ipnet",
- "metrics 0.23.1",
- "metrics-util 0.17.0",
- "quanta",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "metrics-exporter-prometheus"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd7399781913e5393588a8d8c6a2867bf85fb38eaf2502fdce465aad2dc6f034"
 dependencies = [
  "base64",
- "http-body-util",
- "hyper",
- "hyper-util",
  "indexmap 2.14.0",
- "ipnet",
- "metrics 0.24.5",
- "metrics-util 0.19.1",
+ "metrics",
+ "metrics-util",
  "quanta",
  "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "metrics-util"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4259040465c955f9f2f1a4a8a16dc46726169bca0f88e8fb2dbeced487c3e828"
-dependencies = [
- "crossbeam-epoch",
- "crossbeam-utils",
- "hashbrown 0.14.5",
- "metrics 0.23.1",
- "num_cpus",
- "quanta",
- "sketches-ddsketch 0.2.2",
 ]
 
 [[package]]
@@ -5235,18 +5179,14 @@ version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8496cc523d1f94c1385dd8f0f0c2c480b2b8aeccb5b7e4485ad6365523ae376"
 dependencies = [
- "aho-corasick",
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.15.5",
- "indexmap 2.14.0",
- "metrics 0.24.5",
- "ordered-float",
+ "metrics",
  "quanta",
- "radix_trie",
  "rand 0.9.4",
  "rand_xoshiro",
- "sketches-ddsketch 0.3.1",
+ "sketches-ddsketch",
 ]
 
 [[package]]
@@ -5444,15 +5384,6 @@ dependencies = [
  "libc",
  "log",
  "tokio",
-]
-
-[[package]]
-name = "nibble_vec"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77a5d83df9f36fe23f0c3648c6bbb8b0298bb5f1939c8f2704431371f4b84d43"
-dependencies = [
- "smallvec",
 ]
 
 [[package]]
@@ -5839,15 +5770,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
-name = "ordered-float"
-version = "4.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bb71e1b3fa6ca1c61f383464aaf2bb0e2f8e772a1f01d486832464de363b951"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "p256"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6129,7 +6051,7 @@ dependencies = [
 
 [[package]]
 name = "preconfirmation-driver"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -6151,9 +6073,10 @@ dependencies = [
  "driver",
  "flate2",
  "jsonrpsee",
- "metrics 0.24.5",
+ "once_cell",
  "preconfirmation-net",
  "preconfirmation-types",
+ "prometheus",
  "protocol",
  "rand 0.8.6",
  "rpc",
@@ -6191,9 +6114,9 @@ dependencies = [
  "libp2p-allow-block-list",
  "libp2p-connection-limits",
  "libp2p-request-response",
- "metrics 0.24.5",
- "metrics-exporter-prometheus 0.15.3",
+ "once_cell",
  "preconfirmation-types",
+ "prometheus",
  "rand 0.8.6",
  "reth-discv5",
  "reth-network-types",
@@ -6294,6 +6217,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "prometheus"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d33c28a30771f7f96db69893f78b857f7450d7e0237e9c8fc6427a81bae7ed1"
+dependencies = [
+ "cfg-if",
+ "fnv",
+ "lazy_static",
+ "memchr",
+ "parking_lot",
+ "protobuf",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "prometheus-client"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6318,7 +6256,7 @@ dependencies = [
 
 [[package]]
 name = "proposer"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -6334,8 +6272,8 @@ dependencies = [
  "anyhow",
  "base-tx-manager",
  "bindings",
- "metrics 0.24.5",
- "metrics-util 0.19.1",
+ "once_cell",
+ "prometheus",
  "protocol",
  "rpc",
  "serde_json",
@@ -6370,8 +6308,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "2.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
+
+[[package]]
 name = "protocol"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alethia-reth-chainspec",
  "alethia-reth-consensus",
@@ -6387,13 +6331,13 @@ dependencies = [
  "alloy-rpc-types 1.8.3",
  "alloy-rpc-types-engine 2.0.4",
  "anyhow",
- "arc-swap",
  "async-trait",
  "bindings",
  "dashmap",
  "event-scanner",
  "flate2",
  "k256",
+ "prometheus",
  "rand 0.8.6",
  "robust-provider",
  "serde",
@@ -6461,7 +6405,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -6499,9 +6443,9 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2 0.6.3",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -6530,16 +6474,6 @@ name = "radium"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
-
-[[package]]
-name = "radix_trie"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c069c179fcdc6a2fe24d8d18305cf085fdbd4f922c041943e203685d6a1c58fd"
-dependencies = [
- "endian-type",
- "nibble_vec",
-]
 
 [[package]]
 name = "rand"
@@ -6813,7 +6747,7 @@ dependencies = [
  "alloy-eips 2.0.4",
  "alloy-primitives",
  "derive_more",
- "metrics 0.24.5",
+ "metrics",
  "parking_lot",
  "pin-project",
  "reth-chainspec 2.0.0",
@@ -6921,7 +6855,7 @@ dependencies = [
  "alloy-primitives",
  "derive_more",
  "eyre",
- "metrics 0.24.5",
+ "metrics",
  "page_size",
  "quanta",
  "reth-db-api",
@@ -6949,7 +6883,7 @@ dependencies = [
  "arrayvec",
  "bytes",
  "derive_more",
- "metrics 0.24.5",
+ "metrics",
  "modular-bitfield",
  "reth-codecs",
  "reth-db-models",
@@ -6989,7 +6923,7 @@ dependencies = [
  "enr",
  "futures",
  "itertools 0.14.0",
- "metrics 0.24.5",
+ "metrics",
  "rand 0.9.4",
  "reth-chainspec 1.9.3",
  "reth-ethereum-forks 1.9.3",
@@ -7186,7 +7120,7 @@ source = "git+https://github.com/paradigmxyz/reth?rev=27bfddeada3953edc22759080a
 dependencies = [
  "alloy-primitives",
  "fixed-cache",
- "metrics 0.24.5",
+ "metrics",
  "parking_lot",
  "reth-errors",
  "reth-metrics 2.0.0",
@@ -7270,7 +7204,7 @@ name = "reth-metrics"
 version = "1.9.3"
 source = "git+https://github.com/paradigmxyz/reth?tag=v1.9.3#27a8c0f5a6dfb27dea84c5751776ecabdd069646"
 dependencies = [
- "metrics 0.24.5",
+ "metrics",
  "metrics-derive",
 ]
 
@@ -7280,7 +7214,7 @@ version = "2.0.0"
 source = "git+https://github.com/paradigmxyz/reth?rev=27bfddeada3953edc22759080a3659ccea62ca1f#27bfddeada3953edc22759080a3659ccea62ca1f"
 dependencies = [
  "futures",
- "metrics 0.24.5",
+ "metrics",
  "metrics-derive",
  "tokio",
  "tokio-util",
@@ -7372,7 +7306,7 @@ dependencies = [
  "alloy-rpc-types 2.0.4",
  "derive_more",
  "futures-util",
- "metrics 0.24.5",
+ "metrics",
  "reth-chain-state",
  "reth-ethereum-engine-primitives",
  "reth-execution-cache",
@@ -7485,7 +7419,7 @@ dependencies = [
  "alloy-rpc-types-engine 2.0.4",
  "eyre",
  "itertools 0.14.0",
- "metrics 0.24.5",
+ "metrics",
  "notify",
  "parking_lot",
  "rayon",
@@ -7621,7 +7555,7 @@ dependencies = [
  "dashmap",
  "futures-util",
  "libc",
- "metrics 0.24.5",
+ "metrics",
  "parking_lot",
  "pin-project",
  "rayon",
@@ -7672,7 +7606,7 @@ dependencies = [
  "auto_impl",
  "bitflags",
  "futures-util",
- "metrics 0.24.5",
+ "metrics",
  "parking_lot",
  "pin-project",
  "reth-chain-state",
@@ -7713,7 +7647,7 @@ dependencies = [
  "alloy-trie",
  "auto_impl",
  "itertools 0.14.0",
- "metrics 0.24.5",
+ "metrics",
  "reth-execution-errors",
  "reth-metrics 2.0.0",
  "reth-primitives-traits 0.3.1",
@@ -7755,7 +7689,7 @@ version = "2.0.0"
 source = "git+https://github.com/paradigmxyz/reth?rev=27bfddeada3953edc22759080a3659ccea62ca1f#27bfddeada3953edc22759080a3659ccea62ca1f"
 dependencies = [
  "alloy-primitives",
- "metrics 0.24.5",
+ "metrics",
  "parking_lot",
  "reth-db-api",
  "reth-execution-errors",
@@ -7782,7 +7716,7 @@ dependencies = [
  "crossbeam-utils",
  "derive_more",
  "itertools 0.14.0",
- "metrics 0.24.5",
+ "metrics",
  "rayon",
  "reth-execution-errors",
  "reth-metrics 2.0.0",
@@ -7806,7 +7740,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-trie",
  "auto_impl",
- "metrics 0.24.5",
+ "metrics",
  "rayon",
  "reth-execution-errors",
  "reth-metrics 2.0.0",
@@ -8474,7 +8408,7 @@ checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 
 [[package]]
 name = "rpc"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alethia-reth-primitives",
  "alethia-reth-rpc-types",
@@ -8604,7 +8538,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8662,7 +8596,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9187,12 +9121,6 @@ checksum = "8ee5873ec9cce0195efcb7a4e9507a04cd49aec9c83d0389df45b1ef7ba2e649"
 
 [[package]]
 name = "sketches-ddsketch"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85636c14b73d81f541e525f585c0a2109e6744e1565b5c1668e31c70c10ed65c"
-
-[[package]]
-name = "sketches-ddsketch"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c6f73aeb92d671e0cc4dca167e59b2deb6387c375391bc99ee743f326994a2b"
@@ -9469,23 +9397,28 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 
 [[package]]
 name = "taiko-client"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alloy-consensus 1.8.3",
  "alloy-primitives",
  "alloy-rpc-types-eth 1.8.3",
  "async-trait",
+ "axum",
  "clap",
  "driver",
- "metrics 0.24.5",
- "metrics-exporter-prometheus 0.16.2",
+ "http-body-util",
+ "metrics",
+ "metrics-exporter-prometheus",
+ "once_cell",
  "preconfirmation-driver",
  "preconfirmation-net",
+ "prometheus",
  "proposer",
  "protocol",
  "rpc",
  "thiserror 2.0.18",
  "tokio",
+ "tower",
  "tracing",
  "tracing-subscriber 0.3.23",
  "url",
@@ -9508,7 +9441,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9534,7 +9467,7 @@ dependencies = [
 
 [[package]]
 name = "test-harness"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -10513,7 +10446,7 @@ dependencies = [
 
 [[package]]
 name = "whitelist-preconfirmation-driver"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "alethia-reth-consensus",
  "alethia-reth-primitives",
@@ -10541,7 +10474,8 @@ dependencies = [
  "jsonwebtoken",
  "kona-gossip",
  "libp2p",
- "metrics 0.24.5",
+ "once_cell",
+ "prometheus",
  "protocol",
  "reqwest",
  "rpc",
@@ -10583,7 +10517,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

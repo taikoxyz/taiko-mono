@@ -1,16 +1,16 @@
 //! Driver integration traits and data types.
 //!
-//! This module provides the [`EmbeddedDriverClient`] for direct in-process
-//! communication with the driver via channels.
+//! This module provides the [`EventSyncerDriverClient`] used to feed validated
+//! preconfirmation payloads into the driver's event syncer.
 
 use preconfirmation_types::SignedCommitment;
 
 use crate::validation::is_eop_only;
 
-/// Embedded driver client for direct in-process communication.
-pub mod embedded;
 /// Event syncer-backed driver client for runner integration.
 pub mod event_syncer_client;
+/// Inbox-backed reader for L1 sync state.
+pub mod inbox;
 /// Execution payload builder.
 pub mod payload;
 /// Driver-facing traits and input structures.
@@ -44,8 +44,8 @@ impl PreconfirmationInput {
     }
 }
 
-pub use embedded::{ContractInboxReader, EmbeddedDriverClient};
 pub use event_syncer_client::EventSyncerDriverClient;
+pub use inbox::ContractInboxReader;
 pub use traits::{BlockHeaderProvider, DriverClient, InboxReader, resolve_event_sync_tip};
 
 #[cfg(test)]

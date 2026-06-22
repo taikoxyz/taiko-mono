@@ -32,7 +32,7 @@ use super::{
 use crate::{
     codec::{
         DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, decode_envelope_ssz,
-        decode_unsafe_payload_signature, decode_unsafe_response_message, encode_envelope_ssz,
+        decode_unsafe_payload_signature, decode_unsafe_response_message,
         encode_eos_request_message, encode_unsafe_payload_message, encode_unsafe_request_message,
         encode_unsafe_response_message,
     },
@@ -383,7 +383,10 @@ fn dial_configured_peer(
     reason: &'static str,
 ) {
     if connected_configured_addrs.contains(&peer.addr) {
-        record_dial_attempt(peer.source, "skipped_connected_addr");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+            peer.source,
+            "skipped_connected_addr",
+        );
         debug!(addr = %peer.addr, source = peer.source, reason, "configured peer address already connected");
         return;
     }
@@ -391,7 +394,10 @@ fn dial_configured_peer(
     if let Some(peer_id) = peer_id_from_addr(&peer.addr) &&
         swarm.is_connected(&peer_id)
     {
-        record_dial_attempt(peer.source, "skipped_connected");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(
+            peer.source,
+            "skipped_connected",
+        );
         debug!(addr = %peer.addr, source = peer.source, %peer_id, reason, "configured peer already connected");
         return;
     }
@@ -421,25 +427,15 @@ fn dial_addr(
     reason: &'static str,
 ) {
     if let Err(err) = swarm.dial(addr.clone()) {
-        record_dial_attempt(source, "failed");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(source, "failed");
         if matches!(err, DialError::DialPeerConditionFalse(_)) {
             debug!(%addr, source, reason, error = %err, "configured peer dial skipped by swarm");
         } else {
             warn!(%addr, source, reason, error = %err, "failed to dial address");
         }
     } else {
-        record_dial_attempt(source, "ok");
+        WhitelistPreconfirmationDriverMetrics::inc_network_dial_attempt(source, "ok");
     }
-}
-
-/// Record one configured or discovered dial attempt.
-fn record_dial_attempt(source: &str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_DIAL_ATTEMPTS_TOTAL,
-        "source" => source.to_string(),
-        "result" => result,
-    )
-    .increment(1);
 }
 
 /// Dial configured static peers and bootnode multiaddrs, returning them for retries.
@@ -505,7 +501,7 @@ struct NetworkRuntime {
     peer_status_log_interval: Interval,
     /// Inbound validation and dedupe state for gossipsub messages.
     inbound_validation_state: GossipsubInboundState,
-    /// Peer id used by loopback payload events.
+    /// Local peer id used to ignore self-propagated gossip.
     peer_id_for_events: PeerId,
 }
 
@@ -527,7 +523,7 @@ impl NetworkRuntime {
                     None => Ok(false),
                     Some(NetworkCommand::Shutdown) => Ok(false),
                     Some(command) => {
-                        self.handle_command(command).await?;
+                        self.handle_command(command);
                         Ok(true)
                     },
                 }
@@ -552,7 +548,7 @@ impl NetworkRuntime {
     }
 
     /// Execute one outbound network command.
-    async fn handle_command(&mut self, command: NetworkCommand) -> Result<()> {
+    fn handle_command(&mut self, command: NetworkCommand) {
         match command {
             NetworkCommand::PublishUnsafeRequest { hash } => {
                 self.publish_unsafe_request(hash);
@@ -561,15 +557,13 @@ impl NetworkRuntime {
                 self.publish_unsafe_response(envelope);
             }
             NetworkCommand::PublishUnsafePayload { signature, envelope } => {
-                self.publish_unsafe_payload(signature, envelope).await?;
+                self.publish_unsafe_payload(signature, envelope);
             }
             NetworkCommand::PublishEndOfSequencingRequest { epoch } => {
                 self.publish_end_of_sequencing_request(epoch);
             }
             NetworkCommand::Shutdown => unreachable!("handled in run_once"),
         }
-
-        Ok(())
     }
 
     /// Publish a `requestPreconfBlocks` message.
@@ -594,38 +588,19 @@ impl NetworkRuntime {
         );
     }
 
-    /// Publish a `preconfBlocks` message and emit loopback event for local cache/import.
-    async fn publish_unsafe_payload(
+    /// Publish a `preconfBlocks` message.
+    fn publish_unsafe_payload(
         &mut self,
         signature: [u8; 65],
         envelope: Arc<WhitelistExecutionPayloadEnvelope>,
-    ) -> Result<()> {
+    ) {
         let hash = envelope.execution_payload.block_hash;
-
-        // Loop back locally-built payloads so importer caches can serve
-        // follow-up EOS catch-up requests even without peer echo.
-        let payload_bytes = encode_envelope_ssz(&envelope);
-        let local_event = NetworkEvent::UnsafePayload {
-            from: self.peer_id_for_events,
-            payload: DecodedUnsafePayload {
-                wire_signature: signature,
-                payload_bytes,
-                envelope: (*envelope).clone(),
-            },
-        };
-
-        // Loopback first so downstream cache/import logic observes the
-        // payload even when there are no peers to echo it back.
-        forward_event(&self.event_tx, local_event).await?;
-
         self.encode_and_publish(
             encode_unsafe_payload_message(&signature, &envelope),
             self.topics.preconf_blocks.clone(),
             "preconf_blocks",
             &format!("{hash}"),
         );
-
-        Ok(())
     }
 
     /// Publish a `requestEndOfSequencingPreconfBlocks` message.
@@ -653,7 +628,10 @@ impl NetworkRuntime {
                 self.publish_to_gossipsub(topic, payload, topic_label, context);
             }
             Err(err) => {
-                record_publish(topic_label, "encode_failed");
+                WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                    topic_label,
+                    "encode_failed",
+                );
                 warn!(
                     context,
                     error = %err,
@@ -672,14 +650,20 @@ impl NetworkRuntime {
         context: &str,
     ) {
         if let Err(err) = self.swarm.behaviour_mut().gossipsub.publish(topic, payload) {
-            record_publish(topic_label, "publish_failed");
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                topic_label,
+                "publish_failed",
+            );
             warn!(
                 context,
                 error = %err,
                 "failed to publish whitelist preconfirmation message"
             );
         } else {
-            record_publish(topic_label, "published");
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                topic_label,
+                "published",
+            );
         }
     }
 
@@ -765,9 +749,7 @@ impl NetworkRuntime {
                 }
                 debug!(%peer_id, remote_addr = %endpoint.get_remote_address(), "peer disconnected");
             }
-            libp2p::swarm::SwarmEvent::Behaviour(
-                BehaviourEvent::Ping | BehaviourEvent::Identify,
-            ) => {}
+            libp2p::swarm::SwarmEvent::Behaviour(BehaviourEvent::Ignored) => {}
             other => {
                 debug!(event = ?other, "ignored swarm event");
             }
@@ -793,7 +775,7 @@ impl NetworkRuntime {
         let from = propagation_source;
         let now = Instant::now();
 
-        if is_local_gossip_source(self.peer_id_for_events, from) {
+        if from == self.peer_id_for_events {
             debug!(peer = %from, topic = %topic, "ignoring self-propagated whitelist preconfirmation gossip");
             let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
                 &message_id,
@@ -803,18 +785,8 @@ impl NetworkRuntime {
             return Ok(());
         }
 
-        let mut report = |acceptance: gossipsub::MessageAcceptance| {
-            // Explicitly report every decision so mesh scoring remains aligned with local
-            // validation.
-            let _ = self.swarm.behaviour_mut().gossipsub.report_message_validation_result(
-                &message_id,
-                &from,
-                acceptance,
-            );
-        };
-
         if *topic == self.topics.preconf_blocks.hash() {
-            let (acceptance, inbound_label) = match decode_unsafe_payload_signature(&message.data)
+            let acceptance = match decode_unsafe_payload_signature(&message.data)
                 .and_then(|(sig, bytes)| decode_envelope_ssz(&bytes).map(|env| (sig, bytes, env)))
             {
                 Ok((wire_signature, payload_bytes, envelope)) => {
@@ -823,7 +795,11 @@ impl NetworkRuntime {
                         self.inbound_validation_state.validate_preconf_blocks(&payload);
 
                     if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
-                        log_inbound_preconf_blocks_entry(from, &payload);
+                        log_inbound_envelope(
+                            from,
+                            &payload.envelope,
+                            "📥 New preconfirmation block gossip",
+                        );
                         if let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafePayload { from, payload },
@@ -832,60 +808,76 @@ impl NetworkRuntime {
                         {
                             // If forwarding to importer fails, reject to avoid silently
                             // accepting data that local consumers could not process.
-                            report(gossipsub::MessageAcceptance::Reject);
+                            self.report_validation(
+                                &message_id,
+                                from,
+                                gossipsub::MessageAcceptance::Reject,
+                            );
                             return Err(err);
                         }
                     }
 
-                    let label = acceptance_label(&acceptance);
-                    (acceptance, label)
+                    acceptance
                 }
-                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
+                Err(_) => {
+                    self.record_decode_failed("preconf_blocks", &message_id, from);
+                    return Ok(());
+                }
             };
 
-            record_inbound("preconf_blocks", inbound_label);
-            report(acceptance);
+            self.record_inbound_and_report("preconf_blocks", acceptance, &message_id, from);
             return Ok(());
         }
 
         if *topic == self.topics.preconf_response.hash() {
-            let (acceptance, inbound_label) = match decode_unsafe_response_message(&message.data) {
+            let acceptance = match decode_unsafe_response_message(&message.data) {
                 Ok(envelope) => {
                     let acceptance = self.inbound_validation_state.validate_response(&envelope);
                     if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
-                        log_inbound_preconf_response_entry(from, &envelope);
+                        log_inbound_envelope(
+                            from,
+                            &envelope,
+                            "📥 New preconfirmation block response gossip",
+                        );
                         if let Err(err) = forward_event(
                             &self.event_tx,
                             NetworkEvent::UnsafeResponse { from, envelope },
                         )
                         .await
                         {
-                            report(gossipsub::MessageAcceptance::Reject);
+                            self.report_validation(
+                                &message_id,
+                                from,
+                                gossipsub::MessageAcceptance::Reject,
+                            );
                             return Err(err);
                         }
                     }
 
-                    let inbound_label = acceptance_label(&acceptance);
-                    (acceptance, inbound_label)
+                    acceptance
                 }
-                Err(_) => (gossipsub::MessageAcceptance::Reject, "decode_failed"),
+                Err(_) => {
+                    self.record_decode_failed("response_preconf_blocks", &message_id, from);
+                    return Ok(());
+                }
             };
 
-            record_inbound("response_preconf_blocks", inbound_label);
-            report(acceptance);
+            self.record_inbound_and_report(
+                "response_preconf_blocks",
+                acceptance,
+                &message_id,
+                from,
+            );
             return Ok(());
         }
 
         if *topic == self.topics.preconf_request.hash() {
             let Some(hash) = decode_request_hash_exact(&message.data) else {
-                let (acceptance, inbound_label) =
-                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
-                record_inbound("request_preconf_blocks", inbound_label);
-                report(acceptance);
+                self.record_decode_failed("request_preconf_blocks", &message_id, from);
                 return Ok(());
             };
 
-            let acceptance = self.inbound_validation_state.validate_request(from, hash, now);
+            let acceptance = self.inbound_validation_state.validate_request(from, now);
             if matches!(acceptance, gossipsub::MessageAcceptance::Accept) {
                 info!(
                     peer = %from,
@@ -896,17 +888,13 @@ impl NetworkRuntime {
                 forward_event(&self.event_tx, NetworkEvent::UnsafeRequest { from, hash }).await?;
             }
 
-            record_inbound("request_preconf_blocks", acceptance_label(&acceptance));
-            report(acceptance);
+            self.record_inbound_and_report("request_preconf_blocks", acceptance, &message_id, from);
             return Ok(());
         }
 
         if *topic == self.topics.eos_request.hash() {
             let Some(epoch) = decode_eos_epoch_exact(&message.data) else {
-                let (acceptance, inbound_label) =
-                    (gossipsub::MessageAcceptance::Reject, "decode_failed");
-                record_inbound("request_eos_preconf_blocks", inbound_label);
-                report(acceptance);
+                self.record_decode_failed("request_eos_preconf_blocks", &message_id, from);
                 return Ok(());
             };
 
@@ -922,22 +910,90 @@ impl NetworkRuntime {
                     .await?;
             }
 
-            record_inbound("request_eos_preconf_blocks", acceptance_label(&acceptance));
-            report(acceptance);
+            self.record_inbound_and_report(
+                "request_eos_preconf_blocks",
+                acceptance,
+                &message_id,
+                from,
+            );
         }
 
         Ok(())
+    }
+
+    /// Report a gossipsub validation decision so mesh scoring stays aligned with
+    /// local validation.
+    fn report_validation(
+        &mut self,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+        acceptance: gossipsub::MessageAcceptance,
+    ) {
+        let _ = self
+            .swarm
+            .behaviour_mut()
+            .gossipsub
+            .report_message_validation_result(message_id, &from, acceptance);
+    }
+
+    /// Record an inbound-message metric for `topic_label` (using the acceptance's
+    /// label) and report the validation decision in one step.
+    fn record_inbound_and_report(
+        &mut self,
+        topic_label: &'static str,
+        acceptance: gossipsub::MessageAcceptance,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+    ) {
+        self.record_inbound_and_report_labeled(
+            topic_label,
+            acceptance_label(&acceptance),
+            acceptance,
+            message_id,
+            from,
+        );
+    }
+
+    /// Record an inbound-message metric for `topic_label` using an explicit
+    /// `inbound_label`, then report `acceptance` to gossipsub.
+    ///
+    /// Used for decode failures, where the metric label (`"decode_failed"`) differs
+    /// from the reported acceptance (`Reject`).
+    fn record_inbound_and_report_labeled(
+        &mut self,
+        topic_label: &'static str,
+        inbound_label: &str,
+        acceptance: gossipsub::MessageAcceptance,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+    ) {
+        WhitelistPreconfirmationDriverMetrics::inc_network_inbound_message(
+            topic_label,
+            inbound_label,
+        );
+        self.report_validation(message_id, from, acceptance);
+    }
+
+    /// Record a `decode_failed` inbound metric for `topic_label` and report `Reject`.
+    fn record_decode_failed(
+        &mut self,
+        topic_label: &'static str,
+        message_id: &gossipsub::MessageId,
+        from: PeerId,
+    ) {
+        self.record_inbound_and_report_labeled(
+            topic_label,
+            "decode_failed",
+            gossipsub::MessageAcceptance::Reject,
+            message_id,
+            from,
+        );
     }
 }
 
 /// Format peer ids into a compact comma-separated log value.
 fn format_peer_ids(peers: &[PeerId]) -> String {
     peers.iter().map(ToString::to_string).collect::<Vec<_>>().join(",")
-}
-
-/// Return whether an inbound gossip event was propagated by the local libp2p peer.
-fn is_local_gossip_source(peer_id: PeerId, from: PeerId) -> bool {
-    peer_id == from
 }
 
 #[cfg(test)]
@@ -1117,14 +1173,6 @@ mod tests {
 
         assert_eq!(advertised_enode_url(&local_key, true, listen_addr, None, None), None);
     }
-    #[test]
-    fn local_gossip_source_is_identified() {
-        let local_peer = PeerId::random();
-        let remote_peer = PeerId::random();
-
-        assert!(is_local_gossip_source(local_peer, local_peer));
-        assert!(!is_local_gossip_source(local_peer, remote_peer));
-    }
 }
 
 /// Convert a gossipsub message acceptance decision into a metrics label.
@@ -1136,48 +1184,12 @@ fn acceptance_label(acceptance: &gossipsub::MessageAcceptance) -> &'static str {
     }
 }
 
-/// Record one outbound publish lifecycle outcome for the given network topic label.
-fn record_publish(topic: &'static str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_OUTBOUND_PUBLISH_TOTAL,
-        "topic" => topic,
-        "result" => result,
-    )
-    .increment(1);
-}
-
-/// Record one inbound message result for the given network topic label.
-fn record_inbound(topic: &'static str, result: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::NETWORK_INBOUND_MESSAGES_TOTAL,
-        "topic" => topic,
-        "result" => result,
-    )
-    .increment(1);
-}
-
-/// Emit an entry log for an inbound `preconfBlocks` gossip payload.
-fn log_inbound_preconf_blocks_entry(from: PeerId, payload: &DecodedUnsafePayload) {
-    let execution_payload = &payload.envelope.execution_payload;
-    info!(
-        peer = %from,
-        block_id = execution_payload.block_number,
-        block_hash = %execution_payload.block_hash,
-        coinbase = %execution_payload.fee_recipient,
-        timestamp = execution_payload.timestamp,
-        gas_limit = execution_payload.gas_limit,
-        gas_used = execution_payload.gas_used,
-        base_fee_per_gas = %execution_payload.base_fee_per_gas,
-        extra_data = %alloy_primitives::hex::encode(&execution_payload.extra_data),
-        parent_hash = %execution_payload.parent_hash,
-        end_of_sequencing = payload.envelope.end_of_sequencing.unwrap_or(false),
-        is_forced_inclusion = payload.envelope.is_forced_inclusion.unwrap_or(false),
-        "📥 New preconfirmation block gossip"
-    );
-}
-
-/// Emit an entry log for an inbound `responsePreconfBlocks` gossip payload.
-fn log_inbound_preconf_response_entry(from: PeerId, envelope: &WhitelistExecutionPayloadEnvelope) {
+/// Emit an entry log for an inbound gossip envelope.
+fn log_inbound_envelope(
+    from: PeerId,
+    envelope: &WhitelistExecutionPayloadEnvelope,
+    message: &'static str,
+) {
     let execution_payload = &envelope.execution_payload;
     info!(
         peer = %from,
@@ -1192,7 +1204,7 @@ fn log_inbound_preconf_response_entry(from: PeerId, envelope: &WhitelistExecutio
         parent_hash = %execution_payload.parent_hash,
         end_of_sequencing = envelope.end_of_sequencing.unwrap_or(false),
         is_forced_inclusion = envelope.is_forced_inclusion.unwrap_or(false),
-        "📥 New preconfirmation block response gossip"
+        "{message}"
     );
 }
 
@@ -1202,8 +1214,7 @@ pub(super) async fn forward_event(
     event: NetworkEvent,
 ) -> Result<()> {
     event_tx.send(event).await.map_err(|err| {
-        metrics::counter!(WhitelistPreconfirmationDriverMetrics::NETWORK_FORWARD_FAILURES_TOTAL)
-            .increment(1);
+        WhitelistPreconfirmationDriverMetrics::inc_network_forward_failure();
         warn!(error = %err, "whitelist preconfirmation event channel closed");
         WhitelistPreconfirmationDriverError::p2p(format!(
             "whitelist preconfirmation event channel closed: {err}"

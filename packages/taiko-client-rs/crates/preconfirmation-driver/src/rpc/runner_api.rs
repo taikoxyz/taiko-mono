@@ -14,7 +14,7 @@ use crate::{
     driver_interface::{DriverClient, InboxReader},
     rpc::{
         NodeStatus, PreconfRpcApi, PreconfSlotInfo, PublishBlockRequest, PublishBlockResponse,
-        node_api::{build_node_status, publish_block_impl},
+        api_helpers::{build_node_status, publish_block_impl},
     },
 };
 
@@ -95,113 +95,17 @@ impl<I: InboxReader + 'static> PreconfRpcApi for RunnerRpcApiImpl<I> {
 #[cfg(test)]
 mod tests {
     use super::RunnerRpcApiImpl;
-    use std::sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    };
+    use std::sync::Arc;
 
     use alloy_primitives::U256;
-    use async_trait::async_trait;
     use preconfirmation_types::MAX_TXLIST_BYTES;
     use protocol::codec::ZlibTxListCodec;
     use tokio::sync::mpsc;
 
     use crate::{
-        driver_interface::{DriverClient, PreconfirmationInput},
         rpc::PreconfRpcApi,
+        test_support::{MockInboxReader, MockLookaheadResolver, StubDriver},
     };
-
-    /// Test driver that returns a fixed preconfirmation tip.
-    struct TestDriver {
-        /// Preconfigured tip height returned by the driver.
-        tip: U256,
-    }
-
-    #[async_trait::async_trait]
-    impl DriverClient for TestDriver {
-        async fn submit_preconfirmation(&self, _input: PreconfirmationInput) -> crate::Result<()> {
-            Ok(())
-        }
-        async fn wait_event_sync(&self) -> crate::Result<()> {
-            Ok(())
-        }
-        async fn event_sync_tip(&self) -> crate::Result<U256> {
-            Ok(U256::ZERO)
-        }
-        async fn preconf_tip(&self) -> crate::Result<U256> {
-            Ok(self.tip)
-        }
-    }
-
-    /// Mock lookahead resolver for runner API tests.
-    struct MockLookaheadResolver;
-
-    #[async_trait]
-    impl protocol::preconfirmation::PreconfSignerResolver for MockLookaheadResolver {
-        async fn signer_for_timestamp(
-            &self,
-            _: U256,
-        ) -> protocol::preconfirmation::Result<alloy_primitives::Address> {
-            Ok(alloy_primitives::Address::repeat_byte(0x11))
-        }
-        async fn slot_info_for_timestamp(
-            &self,
-            _: U256,
-        ) -> protocol::preconfirmation::Result<protocol::preconfirmation::PreconfSlotInfo> {
-            Ok(protocol::preconfirmation::PreconfSlotInfo {
-                signer: alloy_primitives::Address::repeat_byte(0x11),
-                submission_window_end: U256::from(2000),
-            })
-        }
-    }
-
-    /// Inbox reader backed by an atomic counter.
-    #[derive(Clone)]
-    struct MockInboxReader {
-        next_proposal_id: Arc<AtomicU64>,
-        target_block: Arc<AtomicU64>,
-        head_l1_origin_block_id: Arc<AtomicU64>,
-    }
-
-    const NONE_SENTINEL: u64 = u64::MAX;
-
-    impl MockInboxReader {
-        fn new(
-            next_proposal_id: u64,
-            target_block: Option<u64>,
-            head_l1_origin: Option<u64>,
-        ) -> Self {
-            Self {
-                next_proposal_id: Arc::new(AtomicU64::new(next_proposal_id)),
-                target_block: Arc::new(AtomicU64::new(target_block.unwrap_or(NONE_SENTINEL))),
-                head_l1_origin_block_id: Arc::new(AtomicU64::new(
-                    head_l1_origin.unwrap_or(NONE_SENTINEL),
-                )),
-            }
-        }
-
-        fn read_optional(value: u64) -> Option<u64> {
-            (value != NONE_SENTINEL).then_some(value)
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl crate::driver_interface::InboxReader for MockInboxReader {
-        async fn get_next_proposal_id(&self) -> crate::Result<u64> {
-            Ok(self.next_proposal_id.load(Ordering::SeqCst))
-        }
-
-        async fn get_last_block_id_by_batch_id(
-            &self,
-            _proposal_id: u64,
-        ) -> crate::Result<Option<u64>> {
-            Ok(Self::read_optional(self.target_block.load(Ordering::SeqCst)))
-        }
-
-        async fn get_head_l1_origin_block_id(&self) -> crate::Result<Option<u64>> {
-            Ok(Self::read_optional(self.head_l1_origin_block_id.load(Ordering::SeqCst)))
-        }
-    }
 
     /// Ensure status reporting includes driver tip and confirmed event-sync tip.
     #[tokio::test]
@@ -215,14 +119,14 @@ mod tests {
             }
         });
 
-        let driver = Arc::new(TestDriver { tip: U256::from(100) });
+        let driver = Arc::new(StubDriver::with_preconf_tip(U256::from(100)));
         let inbox_reader = MockInboxReader::new(43, Some(88), Some(88));
 
         let api = RunnerRpcApiImpl::new(
             command_tx,
             driver,
             inbox_reader,
-            Arc::new(MockLookaheadResolver),
+            Arc::new(MockLookaheadResolver::default()),
             Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
             None,
             "test-peer".to_string(),
@@ -232,5 +136,28 @@ mod tests {
         assert_eq!(status.event_sync_tip, Some(U256::from(88)));
         assert_eq!(status.preconf_tip, U256::from(100));
         assert!(status.is_synced_with_inbox);
+        assert_eq!(status.peer_id, "test-peer");
+        assert_eq!(status.peer_count, 5);
+    }
+
+    /// Ensure slot info queries surface the lookahead resolver output.
+    #[tokio::test]
+    async fn runner_api_returns_resolver_slot_info() {
+        let (command_tx, mut command_rx) = mpsc::channel(8);
+        tokio::spawn(async move { while command_rx.recv().await.is_some() {} });
+
+        let api = RunnerRpcApiImpl::new(
+            command_tx,
+            Arc::new(StubDriver::default()),
+            MockInboxReader::new(0, None, None),
+            Arc::new(MockLookaheadResolver::default()),
+            Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES)),
+            None,
+            "test-peer".to_string(),
+        );
+
+        let slot_info = api.get_preconf_slot_info(U256::from(500)).await.unwrap();
+        assert_eq!(slot_info.signer, alloy_primitives::Address::repeat_byte(0x11));
+        assert_eq!(slot_info.submission_window_end, U256::from(2000));
     }
 }

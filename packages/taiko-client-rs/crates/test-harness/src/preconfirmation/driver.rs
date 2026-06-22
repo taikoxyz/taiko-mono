@@ -1,222 +1,30 @@
 //! Driver clients for preconfirmation integration tests.
 //!
 //! This module provides:
-//! - [`MockDriverClient`]: Records submissions for unit-style tests.
-//! - [`EventSyncerDriverClient`]: Submits directly to an in-process event syncer.
 //! - [`LoggingDriverClient`]: Wraps a driver client with submission logging.
 //! - [`RealDriverSetup`]: Full driver setup for E2E tests with actual block production.
 
 use std::{sync::Arc, time::Duration};
 
 use alloy_primitives::U256;
-use alloy_provider::{Provider, RootProvider};
+use alloy_provider::RootProvider;
 use anyhow::Result as AnyhowResult;
 use async_trait::async_trait;
 use driver::{
     DriverConfig,
     sync::{SyncStage, event::EventSyncer},
 };
-use preconfirmation_driver::{
-    DriverClient, EventSyncerDriverClient as RuntimeEventSyncerDriverClient, PreconfirmationInput,
-    Result,
-};
+use preconfirmation_driver::{DriverClient, EventSyncerDriverClient, PreconfirmationInput, Result};
 use preconfirmation_types::uint256_to_u256;
 use rpc::client::{Client, ClientConfig};
-use tokio::{
-    sync::{Mutex, Notify},
-    task::JoinHandle,
-};
+use tokio::task::JoinHandle;
 use tracing::{info, warn};
+use url::Url;
 
 use crate::{BeaconStubServer, ShastaEnv, fetch_block_by_number};
 
 /// Fast event-sync poll interval used by the harness to keep E2E waits responsive.
 const HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL: Duration = Duration::from_millis(200);
-
-/// A mock driver client that records submissions for test verification.
-///
-/// This client:
-/// - Records all `PreconfirmationInput` submissions.
-/// - Allows configuring event sync behavior.
-/// - Provides accessors to verify submissions were made correctly.
-///
-/// # Example
-///
-/// ```ignore
-/// let driver = MockDriverClient::new();
-/// let submissions = driver.submissions().await;
-/// assert!(submissions.is_empty());
-/// ```
-pub struct MockDriverClient {
-    /// Recorded submissions for verification.
-    submissions: Mutex<Vec<PreconfirmationInput>>,
-    /// Event sync tip to return.
-    event_sync_tip: Mutex<U256>,
-    /// Preconf tip to return.
-    preconf_tip: Mutex<U256>,
-    /// Notify for new submissions.
-    submission_notify: Notify,
-    /// Notify for event sync completion.
-    event_sync_notify: Notify,
-    /// Whether event sync is complete.
-    event_sync_complete: Mutex<bool>,
-}
-
-impl MockDriverClient {
-    /// Create a new mock driver client.
-    pub fn new() -> Self {
-        Self {
-            submissions: Mutex::new(Vec::new()),
-            event_sync_tip: Mutex::new(U256::ZERO),
-            preconf_tip: Mutex::new(U256::ZERO),
-            submission_notify: Notify::new(),
-            event_sync_notify: Notify::new(),
-            event_sync_complete: Mutex::new(false),
-        }
-    }
-
-    /// Create a new mock driver client that is already synced.
-    pub fn new_synced() -> Self {
-        Self { event_sync_complete: Mutex::new(true), ..Self::new() }
-    }
-
-    /// Create a new shared mock driver client.
-    pub fn new_shared() -> Arc<Self> {
-        Arc::new(Self::new())
-    }
-
-    /// Create a new shared mock driver client that is already synced.
-    pub fn new_synced_shared() -> Arc<Self> {
-        Arc::new(Self::new_synced())
-    }
-
-    /// Signal that event sync is complete.
-    pub async fn complete_event_sync(&self) {
-        *self.event_sync_complete.lock().await = true;
-        self.event_sync_notify.notify_waiters();
-    }
-
-    /// Set the event sync tip.
-    pub async fn set_event_sync_tip(&self, tip: U256) {
-        *self.event_sync_tip.lock().await = tip;
-    }
-
-    /// Set the preconf tip.
-    pub async fn set_preconf_tip(&self, tip: U256) {
-        *self.preconf_tip.lock().await = tip;
-    }
-
-    /// Get all recorded submissions.
-    pub async fn submissions(&self) -> Vec<PreconfirmationInput> {
-        self.submissions.lock().await.clone()
-    }
-
-    /// Get the number of submissions.
-    pub async fn submission_count(&self) -> usize {
-        self.submissions.lock().await.len()
-    }
-
-    /// Clear recorded submissions.
-    pub async fn clear_submissions(&self) {
-        self.submissions.lock().await.clear();
-    }
-
-    /// Wait for a specific number of submissions.
-    pub async fn wait_for_submissions(&self, count: usize) -> Vec<PreconfirmationInput> {
-        loop {
-            let notified = self.submission_notify.notified();
-            let submissions = self.submissions.lock().await;
-            if submissions.len() >= count {
-                return submissions.clone();
-            }
-            drop(submissions);
-            notified.await;
-        }
-    }
-}
-
-impl Default for MockDriverClient {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[async_trait]
-impl DriverClient for MockDriverClient {
-    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
-        tracing::debug!(
-            block_number = ?input.commitment.commitment.preconf.block_number,
-            "mock driver received preconfirmation input"
-        );
-        self.submissions.lock().await.push(input);
-        self.submission_notify.notify_waiters();
-        Ok(())
-    }
-
-    async fn wait_event_sync(&self) -> Result<()> {
-        loop {
-            let notified = self.event_sync_notify.notified();
-            if *self.event_sync_complete.lock().await {
-                return Ok(());
-            }
-            notified.await;
-        }
-    }
-
-    async fn event_sync_tip(&self) -> Result<U256> {
-        Ok(*self.event_sync_tip.lock().await)
-    }
-
-    async fn preconf_tip(&self) -> Result<U256> {
-        Ok(*self.preconf_tip.lock().await)
-    }
-}
-
-/// Driver client that submits payloads directly to an in-process EventSyncer.
-pub struct EventSyncerDriverClient<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    inner: RuntimeEventSyncerDriverClient<EventSyncer<P>, P>,
-}
-
-impl<P> EventSyncerDriverClient<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    /// Create a new client backed by the driver event syncer.
-    pub fn new(event_syncer: Arc<EventSyncer<P>>, client: Client<P>) -> Self {
-        Self {
-            inner: RuntimeEventSyncerDriverClient::from_client_with_poll_interval(
-                event_syncer,
-                client,
-                HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL,
-            ),
-        }
-    }
-}
-
-#[async_trait]
-impl<P> DriverClient for EventSyncerDriverClient<P>
-where
-    P: Provider + Clone + Send + Sync + 'static,
-{
-    async fn submit_preconfirmation(&self, input: PreconfirmationInput) -> Result<()> {
-        self.inner.submit_preconfirmation(input).await
-    }
-
-    async fn wait_event_sync(&self) -> Result<()> {
-        self.inner.wait_event_sync().await
-    }
-
-    async fn event_sync_tip(&self) -> Result<U256> {
-        self.inner.event_sync_tip().await
-    }
-
-    async fn preconf_tip(&self) -> Result<U256> {
-        self.inner.preconf_tip().await
-    }
-}
 
 /// Wraps a driver client with logging for submission results.
 #[derive(Clone)]
@@ -299,20 +107,40 @@ pub struct RealDriverSetup {
 }
 
 impl RealDriverSetup {
-    /// Starts a real driver connected to L2.
+    /// Starts a real driver connected to the environment's primary L2 node
+    /// (`env.l2_ws_0` / `env.l2_auth_0`).
     ///
     /// This sets up:
     /// 1. Beacon stub server
     /// 2. Event syncer with preconfirmation enabled
     /// 3. Embedded driver client with logging wrapper
     pub async fn start(env: &ShastaEnv) -> AnyhowResult<Self> {
+        Self::start_for_endpoints(env, &env.l2_ws_0, &env.l2_auth_0).await
+    }
+
+    /// Starts a real driver connected to the given L2 WebSocket and auth endpoints.
+    ///
+    /// Use this when a test needs drivers on distinct L2 nodes (for example,
+    /// dual-driver gossip tests); [`start`] delegates here with the environment's
+    /// primary endpoints.
+    ///
+    /// # Arguments
+    ///
+    /// * `env` - Test environment supplying L1 source, JWT secret, and inbox address.
+    /// * `l2_ws` - L2 WebSocket provider URL the driver should connect to.
+    /// * `l2_auth` - L2 engine-API (auth) provider URL the driver should drive.
+    pub async fn start_for_endpoints(
+        env: &ShastaEnv,
+        l2_ws: &Url,
+        l2_auth: &Url,
+    ) -> AnyhowResult<Self> {
         let beacon_server = BeaconStubServer::start().await?;
 
         let mut driver_config = DriverConfig::new(
             ClientConfig {
                 l1_provider_source: env.l1_source.clone(),
-                l2_provider_url: env.l2_ws_0.clone(),
-                l2_auth_provider_url: env.l2_auth_0.clone(),
+                l2_provider_url: l2_ws.clone(),
+                l2_auth_provider_url: l2_auth.clone(),
                 jwt_secret: env.jwt_secret.clone(),
                 inbox_address: env.inbox_address,
             },
@@ -337,8 +165,11 @@ impl RealDriverSetup {
         event_syncer.wait_preconf_ingress_ready().await?;
 
         let l2_provider = rpc_client.l2_provider.clone();
-        let embedded_client =
-            EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());
+        let embedded_client = EventSyncerDriverClient::from_client_with_poll_interval(
+            event_syncer.clone(),
+            rpc_client.clone(),
+            HARNESS_WAIT_EVENT_SYNC_POLL_INTERVAL,
+        );
         let driver_client = LoggingDriverClient::new(Arc::new(embedded_client));
 
         Ok(Self { driver_client, l2_provider, beacon_server, event_handle })
@@ -351,28 +182,13 @@ impl RealDriverSetup {
         Ok(())
     }
 
-    /// Computes the starting block number and base timestamp for preconfirmation.
+    /// Computes the starting block info for preconfirmation.
     ///
     /// This is the common setup pattern used by E2E tests:
     /// 1. Gets the event sync and preconf tips from the driver
     /// 2. Computes the next block number (max tip + 1)
-    /// 3. Fetches the parent block to derive the valid base timestamp
-    ///
-    /// # Returns
-    ///
-    /// A tuple of (starting_block_number, base_timestamp) where:
-    /// - `starting_block_number` is the first block that should be preconfirmed
-    /// - `base_timestamp` is parent.timestamp + 1, suitable for commitment timestamps
-    pub async fn compute_starting_block_info(&self) -> AnyhowResult<(u64, u64)> {
-        let info = self.compute_starting_block_info_full().await?;
-        Ok((info.block_number, info.base_timestamp))
-    }
-
-    /// Computes full starting block info including parent gas limit.
-    ///
-    /// Use this when you need the parent's gas limit for the preconfirmation.
-    /// For simpler tests that use a constant gas limit, use [`compute_starting_block_info`].
-    pub async fn compute_starting_block_info_full(&self) -> AnyhowResult<StartingBlockInfo> {
+    /// 3. Fetches the parent block to derive the valid base timestamp and gas limit
+    pub async fn compute_starting_block_info(&self) -> AnyhowResult<StartingBlockInfo> {
         let event_sync_tip = self.driver_client.event_sync_tip().await?;
         let preconf_tip = self.driver_client.preconf_tip().await?;
         let starting_block = event_sync_tip.max(preconf_tip) + U256::ONE;
@@ -396,25 +212,4 @@ pub struct StartingBlockInfo {
     pub base_timestamp: u64,
     /// Parent block's gas limit (useful for tests that inherit it).
     pub parent_gas_limit: u64,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn mock_driver_records_submissions() {
-        let driver = MockDriverClient::new_synced();
-
-        // Create a minimal input (we'd need preconfirmation-types for real inputs)
-        // For now just verify the driver can be created
-        assert_eq!(driver.submission_count().await, 0);
-    }
-
-    #[tokio::test]
-    async fn mock_driver_event_sync_flow() {
-        let driver = MockDriverClient::new();
-        driver.complete_event_sync().await;
-        driver.wait_event_sync().await.unwrap();
-    }
 }

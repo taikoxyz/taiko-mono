@@ -1,6 +1,6 @@
 //! Error types for RPC operations.
 
-use alloy::transports::{RpcError, TransportError, TransportErrorKind};
+use alloy::transports::TransportError;
 use anyhow::anyhow;
 use protocol::subscription_source::SubscriptionSourceError;
 use std::result::Result as StdResult;
@@ -15,10 +15,6 @@ pub enum RpcClientError {
     /// Failed to read JWT secret
     #[error("failed to read JWT secret from {0}")]
     JwtSecretReadFailed(String),
-
-    /// Invalid JWT secret format
-    #[error("invalid JWT secret format")]
-    InvalidJwtSecret,
 
     /// Connection error
     #[error("connection error: {0}")]
@@ -43,29 +39,6 @@ pub enum RpcClientError {
     /// Generic error
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-impl From<TransportError<TransportErrorKind>> for RpcClientError {
-    /// Convert low-level transport errors while preserving retryable transport failures.
-    ///
-    /// `ErrorResp` is flattened to a stringified `RpcMessage` so callers can treat it as a
-    /// non-retryable RPC response; all other variants stay typed under `Rpc(_)` so transport
-    /// failures remain distinguishable for retry classification.
-    fn from(err: TransportError<TransportErrorKind>) -> Self {
-        match err {
-            RpcError::ErrorResp(err) => RpcClientError::RpcMessage(err.to_string()),
-            RpcError::NullResp => RpcClientError::Rpc(RpcError::NullResp),
-            RpcError::UnsupportedFeature(feature) => {
-                RpcClientError::Rpc(RpcError::UnsupportedFeature(feature))
-            }
-            RpcError::LocalUsageError(err) => RpcClientError::Rpc(RpcError::LocalUsageError(err)),
-            RpcError::SerError(err) => RpcClientError::Rpc(RpcError::SerError(err)),
-            RpcError::DeserError { err, text } => {
-                RpcClientError::Rpc(RpcError::DeserError { err, text })
-            }
-            RpcError::Transport(err) => RpcClientError::Rpc(RpcError::Transport(err)),
-        }
-    }
 }
 
 // Manual From implementation for alloy contract Error
@@ -95,8 +68,5 @@ mod tests {
     fn test_error_display() {
         let err = RpcClientError::JwtSecretReadFailed("/path/to/jwt.hex".to_string());
         assert_eq!(err.to_string(), "failed to read JWT secret from /path/to/jwt.hex");
-
-        let err = RpcClientError::InvalidJwtSecret;
-        assert_eq!(err.to_string(), "invalid JWT secret format");
     }
 }

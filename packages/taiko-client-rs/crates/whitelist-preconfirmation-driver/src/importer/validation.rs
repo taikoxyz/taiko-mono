@@ -8,10 +8,7 @@ use alloy_consensus::{
 };
 use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
-use protocol::{
-    codec::{TxListCodecError, ZlibTxListCodec},
-    shasta::unzen_active_for_chain_timestamp,
-};
+use protocol::{codec::ZlibTxListCodec, shasta::unzen_active_for_chain_timestamp};
 use thiserror::Error;
 
 use crate::{
@@ -107,46 +104,16 @@ pub(crate) fn validate_execution_payload_for_preconf(
     }
 
     let compressed_tx_list = &payload.transactions[0];
-    if compressed_tx_list.len() > MAX_COMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload(
-            "compressed transactions size exceeds max blob data size".to_string(),
-        ));
-    }
-
     let txs = ZlibTxListCodec::new_with_limits(
         MAX_COMPRESSED_TX_LIST_BYTES,
         MAX_DECOMPRESSED_TX_LIST_BYTES,
     )
     .decode(compressed_tx_list)
-    .map_err(|err| match err {
-        TxListCodecError::ZlibDecode(reason) => {
-            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "invalid zlib bytes for transactions",
-                reason,
-            )
-        }
-        TxListCodecError::RlpDecode(reason) => {
-            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "invalid RLP bytes for transactions",
-                reason,
-            )
-        }
-        TxListCodecError::CompressedTooLarge { .. } => {
-            WhitelistPreconfirmationDriverError::invalid_payload(
-                "compressed transactions size exceeds max blob data size".to_string(),
-            )
-        }
-        TxListCodecError::DecompressedTooLarge { .. } => {
-            WhitelistPreconfirmationDriverError::invalid_payload(
-                "decompressed transactions size exceeds max tx list size".to_string(),
-            )
-        }
-        TxListCodecError::ZlibEncode(reason) | TxListCodecError::ZlibFinish(reason) => {
-            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "invalid transactions list bytes",
-                reason,
-            )
-        }
+    .map_err(|err| {
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            "invalid transactions list bytes",
+            err,
+        )
     })?;
 
     if txs.is_empty() {
