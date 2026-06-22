@@ -35,6 +35,10 @@ remappings = [
     # The attestation contracts read Intel collateral from on-chain PCCS via these libraries.
     "@automata-network/on-chain-pccs/=node_modules/@automata-network/on-chain-pccs/src/",
     "@automata-network/automata-dcap-attestation/=node_modules/@automata-network/automata-dcap-attestation/",
+    # ZK-coprocessor verifier interfaces imported by the DCAP entrypoint (ZK route is unused
+    # on-chain, but these must resolve for the entrypoint to compile):
+    "risc0/=node_modules/risc0-ethereum/contracts/src/",
+    "@sp1-contracts/ISP1Verifier.sol=node_modules/sp1-contracts/contracts/src/ISP1Verifier.sol",
     "ds-test/=node_modules/ds-test/",
     "src/=contracts/",
     "test/=test/",

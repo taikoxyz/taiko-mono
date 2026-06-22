@@ -4,9 +4,10 @@ pragma solidity ^0.8.24;
 import "@p256-verifier/contracts/P256Verifier.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
 import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
-import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
-import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import { AutomataDcapAttestationFee } from
+    "@automata-network/automata-dcap-attestation/contracts/AutomataDcapAttestationFee.sol";
+import { V3QuoteVerifier } from
+    "@automata-network/automata-dcap-attestation/contracts/verifiers/V3QuoteVerifier.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
@@ -57,6 +58,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
+        address pccsRouter;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -110,6 +112,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
+        // Automata's deployed on-chain PCCS router (Intel collateral source) for the SGX verifier.
+        config.pccsRouter = vm.envAddress("PCCS_ROUTER");
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -125,17 +129,18 @@ contract DeployProtocolOnL1 is DeployCapability {
         verifiers.op = address(new OpVerifier());
         console2.log("OpVerifier deployed:", verifiers.op);
 
-        // Deploy automata attestation for SGX
-        (address automataProxy, address sgxGethAutomataProxy) =
-            _deployAutomataAttestation(config.contractOwner);
+        // Deploy our own Taiko-owned Automata DCAP attestation entrypoint, pointed at Automata's
+        // deployed on-chain PCCS. Shared by both SGX verifier instances; each SgxVerifier enforces
+        // its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment).
+        address automataDcap = _deployAutomataAttestation(config.contractOwner, config.pccsRouter);
 
         // Deploy SGX verifier
         verifiers.sgx =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
+            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap));
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
         verifiers.sgxGeth =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
+            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap));
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
@@ -345,35 +350,28 @@ contract DeployProtocolOnL1 is DeployCapability {
         );
     }
 
-    function _deployAutomataAttestation(address owner)
+    function _deployAutomataAttestation(
+        address owner,
+        address pccsRouter
+    )
         private
-        returns (address automataProxy, address automataProxySgxGeth)
+        returns (address entrypoint)
     {
-        // Deploy library dependencies
-        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
-        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
+        require(pccsRouter != address(0), "PCCS_ROUTER not set");
 
-        console2.log("SigVerifyLib deployed:", address(sigVerifyLib));
-        console2.log("PEMCertChainLib deployed:", address(pemCertChainLib));
+        // SGX (V3) quote verifier, using the RIP-7212 P256 verifier and Automata's deployed PCCS.
+        V3QuoteVerifier v3QuoteVerifier =
+            new V3QuoteVerifier(address(new P256Verifier()), pccsRouter);
+        console2.log("V3QuoteVerifier deployed:", address(v3QuoteVerifier));
 
-        // Deploy automata attestation proxy
-        automataProxy = deployProxy({
-            name: "automata_dcap_attestation",
-            impl: address(new AutomataDcapV3Attestation()),
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
-            )
-        });
-        // Deploy sgx-geth automata attestation proxy
-        automataProxySgxGeth = deployProxy({
-            name: "sgx_geth_automata_dcap_attestation",
-            impl: address(new AutomataDcapV3Attestation()),
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
-            )
-        });
+        // Deploy the entrypoint owned by the deployer so we can wire the verifier, then hand
+        // ownership to the contract owner. AutomataDcapAttestationFee is non-upgradeable (no proxy).
+        AutomataDcapAttestationFee attestation = new AutomataDcapAttestationFee(msg.sender);
+        attestation.setQuoteVerifier(address(v3QuoteVerifier));
+        attestation.transferOwnership(owner);
+
+        entrypoint = address(attestation);
+        console2.log("AutomataDcapAttestationFee deployed:", entrypoint);
     }
 
     function _deployZKVerifiers(
