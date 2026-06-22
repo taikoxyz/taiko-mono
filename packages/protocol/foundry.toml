@@ -109,6 +109,9 @@ test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
 cache_path = "cache/layer1"
+# Required: the vendored Automata DCAP verifier (X.509/ASN.1 parsing in QuoteVerifierBase) hits
+# "stack too deep" without the IR pipeline. profile.layer1o already uses via_ir; align layer1.
+via_ir = true
 
 [profile.layer1o]
 src = "contracts/layer1"
