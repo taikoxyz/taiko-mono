@@ -68,7 +68,11 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService, uint256 checkpointVersion_) {
+    constructor(
+        address authorizedSyncer,
+        address remoteSignalService,
+        uint256 checkpointVersion_
+    ) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
