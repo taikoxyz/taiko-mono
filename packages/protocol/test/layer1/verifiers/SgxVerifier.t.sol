@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
 import "forge-std/src/Test.sol";
 import { IDcapAttestation } from "src/layer1/verifiers/IDcapAttestation.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
@@ -15,15 +16,21 @@ contract SgxVerifierTest is Test {
     uint64 internal constant CHAIN_ID = 167;
     address internal constant ATTESTATION = address(0xA11CE);
 
-    // Automata FmspcTcbHelper.TCBStatus codes.
-    uint8 internal constant TCB_OK = 0;
-    uint8 internal constant TCB_SW_HARDENING = 1;
-    uint8 internal constant TCB_CONFIG_AND_SW_HARDENING = 2;
-    uint8 internal constant TCB_CONFIG_NEEDED = 3; // rejected
-    uint8 internal constant TCB_OUT_OF_DATE = 4;
-    uint8 internal constant TCB_OUT_OF_DATE_CONFIG = 5;
-    uint8 internal constant TCB_REVOKED = 6; // rejected
-    uint8 internal constant TCB_UNRECOGNIZED = 7; // rejected
+    // Bind the test's TCB codes to Automata's real FmspcTcbHelper.TCBStatus enum (pinned
+    // @automata-network/on-chain-pccs). Every TCB test below therefore exercises SgxVerifier's
+    // hardcoded accept/reject policy against the actual enum values, so a future dependency bump
+    // that reorders the enum breaks these tests instead of silently misclassifying statuses
+    // on-chain. See also test_tcbStatusEnum_matchesExpectedValues.
+    uint8 internal constant TCB_OK = uint8(TCBStatus.OK);
+    uint8 internal constant TCB_SW_HARDENING = uint8(TCBStatus.TCB_SW_HARDENING_NEEDED);
+    uint8 internal constant TCB_CONFIG_AND_SW_HARDENING =
+        uint8(TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED);
+    uint8 internal constant TCB_CONFIG_NEEDED = uint8(TCBStatus.TCB_CONFIGURATION_NEEDED); // rejected
+    uint8 internal constant TCB_OUT_OF_DATE = uint8(TCBStatus.TCB_OUT_OF_DATE);
+    uint8 internal constant TCB_OUT_OF_DATE_CONFIG =
+        uint8(TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED);
+    uint8 internal constant TCB_REVOKED = uint8(TCBStatus.TCB_REVOKED); // rejected
+    uint8 internal constant TCB_UNRECOGNIZED = uint8(TCBStatus.TCB_UNRECOGNIZED); // rejected
 
     SgxVerifier internal verifier;
 
@@ -169,6 +176,20 @@ contract SgxVerifierTest is Test {
             verifier.registerInstance(quote);
             assertTrue(verifier.addressRegistered(instance));
         }
+    }
+
+    /// @notice Guards against silent TCB-status drift: pins Automata's TCBStatus enum to the exact
+    /// numeric values SgxVerifier's accept/reject policy is built on. If a future dependency bump
+    /// reorders the enum, this fails loudly so the on-chain policy can be re-reviewed.
+    function test_tcbStatusEnum_matchesExpectedValues() external pure {
+        assertEq(uint256(uint8(TCBStatus.OK)), 0);
+        assertEq(uint256(uint8(TCBStatus.TCB_SW_HARDENING_NEEDED)), 1);
+        assertEq(uint256(uint8(TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED)), 2);
+        assertEq(uint256(uint8(TCBStatus.TCB_CONFIGURATION_NEEDED)), 3);
+        assertEq(uint256(uint8(TCBStatus.TCB_OUT_OF_DATE)), 4);
+        assertEq(uint256(uint8(TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED)), 5);
+        assertEq(uint256(uint8(TCBStatus.TCB_REVOKED)), 6);
+        assertEq(uint256(uint8(TCBStatus.TCB_UNRECOGNIZED)), 7);
     }
 
     function test_registerInstance_forwardsAttestationFee() external {
