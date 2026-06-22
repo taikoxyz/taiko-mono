@@ -72,31 +72,25 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     address public immutable automataDcapAttestation;
 
     /// @dev For gas savings, we assign each SGX instance with an ID to minimize storage operations.
-    /// Slot 1.
     uint256 public nextInstanceId;
 
     /// @dev One SGX instance is uniquely identified (on-chain) by its ECDSA public key
     /// (or rather ethereum address). The instance address remains valid for INSTANCE_EXPIRY
     /// duration (365 days) to protect against side-channel attacks through forced key expiry.
     /// After expiry, the instance must be re-attested and registered with a new address.
-    /// Slot 2.
     mapping(uint256 instanceId => Instance instance) public instances;
 
     /// @dev One address shall be registered (during attestation) only once, otherwise it could
     /// bypass this contract's expiry check by always registering with the same attestation and
     /// getting multiple valid instanceIds.
-    /// Slot 3.
     mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
 
     /// @dev Relocated from the replaced AutomataDcapV3Attestation contract. The new Automata DCAP
     /// entrypoint verifies quote authenticity and TCB status but does NOT allowlist the application
     /// enclave's identity, so the trusted MRENCLAVE/MRSIGNER policy is enforced here to preserve the
     /// pre-migration security model.
-    /// Slot 4.
     bool public checkLocalEnclaveReport;
-    /// Slot 5.
     mapping(bytes32 mrEnclave => bool trusted) public trustedUserMrEnclave;
-    /// Slot 6.
     mapping(bytes32 mrSigner => bool trusted) public trustedUserMrSigner;
 
     /// @notice Emitted when a new SGX instance is added to the registry.
