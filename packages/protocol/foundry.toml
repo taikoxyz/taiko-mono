@@ -25,7 +25,10 @@ remappings = [
     "solady/utils/=node_modules/solady/src/utils/",
     "solady/auth/=node_modules/solady/src/auth/",
     "@optimism/=node_modules/optimism/",
-    "@sp1-contracts/=node_modules/sp1-contracts/contracts/",
+    # sp1-contracts publishes its sources under contracts/src/. Taiko imports use "@sp1-contracts/X"
+    # (X under contracts/src/), which also matches the vendored DCAP entrypoint's
+    # "@sp1-contracts/ISP1Verifier.sol" import.
+    "@sp1-contracts/=node_modules/sp1-contracts/contracts/src/",
     "forge-std/=node_modules/forge-std/",
     "@p256-verifier/contracts/=node_modules/p256-verifier/src/",
     "@eth-fabric/urc/=node_modules/urc/src/",
@@ -35,13 +38,9 @@ remappings = [
     # The attestation contracts read Intel collateral from on-chain PCCS via these libraries.
     "@automata-network/on-chain-pccs/=node_modules/@automata-network/on-chain-pccs/src/",
     "@automata-network/automata-dcap-attestation/=node_modules/@automata-network/automata-dcap-attestation/",
-    # ZK-coprocessor verifier interfaces imported by the DCAP entrypoint (ZK route is unused
-    # on-chain, but these must resolve for the entrypoint to compile):
+    # risc0 verifier interface imported by the DCAP entrypoint (ZK route is unused on-chain, but
+    # must resolve for the entrypoint to compile). The sp1 interface resolves via "@sp1-contracts/".
     "risc0/=node_modules/risc0-ethereum/contracts/src/",
-    # Context-scoped: only the Automata DCAP entrypoint imports "@sp1-contracts/ISP1Verifier.sol"
-    # (at contracts/src/), whereas taiko's own code uses "@sp1-contracts/src/...". Scope this remap
-    # to the dependency so it doesn't collide with the global "@sp1-contracts/" remap above.
-    "node_modules/@automata-network/automata-dcap-attestation/:@sp1-contracts/=node_modules/sp1-contracts/contracts/src/",
     "ds-test/=node_modules/ds-test/",
     "src/=contracts/",
     "test/=test/",
