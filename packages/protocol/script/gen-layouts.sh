@@ -22,7 +22,6 @@ contracts_shared=(
 "contracts/shared/vault/BridgedERC721.sol:BridgedERC721"
 "contracts/shared/vault/BridgedERC1155.sol:BridgedERC1155"
 "contracts/shared/bridge/Bridge.sol:Bridge"
-"contracts/shared/bridge/QuotaManager.sol:QuotaManager"
 "contracts/shared/common/DefaultResolver.sol:DefaultResolver"
 "contracts/shared/signal/SignalService.sol:SignalService"
 "contracts/shared/fork-router/ForkRouter.sol:ForkRouter"

@@ -240,13 +240,7 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (QuotaManager)
     {
-        return QuotaManager(
-            deploy({
-                name: "quota_manager",
-                impl: address(new QuotaManager(address(bridge), address(erc20Vault))),
-                data: abi.encodeCall(QuotaManager.init, (address(0), 24 hours))
-            })
-        );
+        return new QuotaManager(deployer, bridge, erc20Vault, 24 hours);
     }
 
     function deployERC20Vault() internal returns (ERC20Vault) {
