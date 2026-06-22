@@ -118,7 +118,9 @@ skip = ["*DeployAutomataDcapAttestation.s.sol"]
 src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
-out = "out/layer1"
+# Separate out/cache dirs so this IR build never overwrites the non-IR artifacts in out/layer1
+# (mixing them makes the Shasta suite fail under the IR codegen).
+out = "out/layer1o"
 cache_path = "cache/layer1o"
 # via_ir is required to compile the Automata DCAP verifier. Use this profile to run
 # DeployAutomataDcapAttestation (and any other IR-only L1 build); the standard suite uses layer1.

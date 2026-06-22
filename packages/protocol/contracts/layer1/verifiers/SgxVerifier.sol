@@ -5,6 +5,7 @@ import { IDcapAttestation } from "./IDcapAttestation.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title SgxVerifier
@@ -13,7 +14,7 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @dev Side-channel protection is achieved through mandatory instance expiry (INSTANCE_EXPIRY),
 /// requiring periodic re-attestation with new keypairs.
 /// @custom:security-contact security@taiko.xyz
-contract SgxVerifier is IProofVerifier, Ownable2Step {
+contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
@@ -196,7 +197,12 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// acceptance policy are enforced here (previously in AutomataDcapV3Attestation).
     /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
     /// @return The respective instanceId.
-    function registerInstance(bytes calldata _rawQuote) external payable returns (uint256) {
+    function registerInstance(bytes calldata _rawQuote)
+        external
+        payable
+        nonReentrant
+        returns (uint256)
+    {
         // Fail fast with a clear error if this verifier was deployed without an attestation
         // entrypoint (e.g. a dummy-verifier deployment).
         require(automataDcapAttestation != address(0), SGX_INVALID_ATTESTATION());
@@ -235,6 +241,27 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
             _isTcbStatusAccepted(uint8(output[OUTPUT_TCB_STATUS_OFFSET])), SGX_INVALID_ATTESTATION()
         );
 
+        // Bind the fields read from the raw quote below (DEBUG attributes, MRENCLAVE/MRSIGNER,
+        // reportData) to the enclave report the entrypoint actually authenticated. Automata's
+        // verifier copies the raw enclave report into the Output body verbatim
+        // (output[OUTPUT_BODY_OFFSET : +ENCLAVE_REPORT_LENGTH] == _rawQuote enclave report) and
+        // verifies its integrity, so requiring byte-equality proves those fields come from verified
+        // bytes — not attacker-controlled data outside the authenticated region. Reading the body
+        // from `output` (memory) needs assembly; the prior output.length check makes the region
+        // safe to hash.
+        bytes32 verifiedBodyHash;
+        assembly {
+            verifiedBodyHash := keccak256(
+                add(add(output, 0x20), OUTPUT_BODY_OFFSET),
+                ENCLAVE_REPORT_LENGTH
+            )
+        }
+        require(
+            verifiedBodyHash
+                == keccak256(_rawQuote[HEADER_LENGTH:HEADER_LENGTH + ENCLAVE_REPORT_LENGTH]),
+            SGX_INVALID_ATTESTATION()
+        );
+
         // Reject DEBUG-mode enclaves: a debug enclave's memory (including the in-enclave signing
         // key recorded in reportData) is readable and writable by the host, so its quotes must
         // never be trusted on-chain. DEBUG is bit 1 of the SGX ATTRIBUTES flags; the flags are
@@ -251,6 +278,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
             );
         }
 
+        // The SGX program embeds its freshly generated instance address in the first 20 bytes of
+        // the report's reportData; we trust the off-chain prover to do so (unchanged from the
+        // pre-migration design). A zero address is rejected by _addInstances, and the value is
+        // bound to the verified enclave report by the body-hash check above.
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_rawQuote[REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 20]));
 

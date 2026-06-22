@@ -39,9 +39,8 @@ contract SgxVerifierTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Builds a 432-byte raw quote (48-byte header + 384-byte SGX enclave report) with the
-    /// given fields placed at their Intel-spec offsets.
-    function _rawQuote(
+    /// @dev Builds a 384-byte SGX enclave report with the given fields at their Intel-spec offsets.
+    function _report(
         bool debug,
         bytes32 mrEnclave,
         bytes32 mrSigner,
@@ -53,7 +52,7 @@ contract SgxVerifierTest is Test {
     {
         bytes16 attributes = debug ? bytes16(0x02000000000000000000000000000000) : bytes16(0);
         bytes memory reportData = abi.encodePacked(bytes20(instance), new bytes(44)); // 64 bytes
-        bytes memory report = abi.encodePacked(
+        return abi.encodePacked(
             new bytes(48), // cpuSvn(16)+miscSelect(4)+reserved1(28)        [0:48]
             attributes, //                                                  [48:64]
             mrEnclave, //                                                   [64:96]
@@ -63,26 +62,36 @@ contract SgxVerifierTest is Test {
             new bytes(64), // isvProdId(2)+isvSvn(2)+reserved4(60)          [256:320]
             reportData //                                                   [320:384]
         );
-        return abi.encodePacked(new bytes(48), report); // header + report = 432 bytes
     }
 
-    /// @dev Builds the serialized Automata `Output`: version(2,BE) | bodyType(2,BE) | tcbStatus(1)
-    /// | fmspc(6) | quoteBody(384).
-    function _output(
-        uint16 version,
-        uint16 bodyType,
-        uint8 tcbStatus
+    /// @dev Builds a 432-byte raw quote (48-byte header + 384-byte SGX enclave report).
+    function _rawQuote(
+        bool debug,
+        bytes32 mrEnclave,
+        bytes32 mrSigner,
+        address instance
     )
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(version, bodyType, tcbStatus, bytes6(0), new bytes(384));
+        return abi.encodePacked(new bytes(48), _report(debug, mrEnclave, mrSigner, instance));
     }
 
-    /// @dev Returns a valid V3/SGX/OK output.
-    function _validOutput() internal pure returns (bytes memory) {
-        return _output(3, 1, TCB_OK);
+    /// @dev Builds the serialized Automata `Output`: version(2,BE) | bodyType(2,BE) | tcbStatus(1)
+    /// | fmspc(6) | quoteBody(384). The body must equal the raw quote's enclave report for the
+    /// on-chain verified-body binding to pass.
+    function _output(
+        uint16 version,
+        uint16 bodyType,
+        uint8 tcbStatus,
+        bytes memory report
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(version, bodyType, tcbStatus, bytes6(0), report);
     }
 
     function _mockAttest(bool verified, bytes memory output) internal {
@@ -91,6 +100,30 @@ contract SgxVerifierTest is Test {
             abi.encodeWithSelector(IDcapAttestation.verifyAndAttestOnChain.selector),
             abi.encode(verified, output)
         );
+    }
+
+    /// @dev Builds a raw quote and mocks the entrypoint to return a *matching* verified Output
+    /// (body == the quote's enclave report, so the verified-body binding passes). Returns the quote.
+    function _mockQuote(
+        bool debug,
+        bytes32 mrEnclave,
+        bytes32 mrSigner,
+        address instance,
+        uint16 version,
+        uint16 bodyType,
+        uint8 tcbStatus
+    )
+        internal
+        returns (bytes memory quote)
+    {
+        bytes memory report = _report(debug, mrEnclave, mrSigner, instance);
+        quote = abi.encodePacked(new bytes(48), report);
+        _mockAttest(true, _output(version, bodyType, tcbStatus, report));
+    }
+
+    /// @dev Common valid case: non-debug, trusted MR values, V3/SGX/OK.
+    function _mockValidQuote(address instance) internal returns (bytes memory) {
+        return _mockQuote(false, MR_ENCLAVE, MR_SIGNER, instance, 3, 1, TCB_OK);
     }
 
     // ---------------------------------------------------------------
@@ -108,11 +141,11 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_succeeds() external {
         address instance = address(0xBEEF);
-        _mockAttest(true, _validOutput());
+        bytes memory quote = _mockValidQuote(instance);
 
         vm.expectEmit();
         emit SgxVerifier.InstanceAdded(0, instance, address(0), block.timestamp);
-        uint256 id = verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance));
+        uint256 id = verifier.registerInstance(quote);
 
         assertEq(id, 0);
         (address addr, uint64 validSince) = verifier.instances(0);
@@ -132,8 +165,8 @@ contract SgxVerifierTest is Test {
         ];
         for (uint256 i; i < ok.length; ++i) {
             address instance = address(uint160(0x1000 + i));
-            _mockAttest(true, _output(3, 1, ok[i]));
-            verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance));
+            bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, instance, 3, 1, ok[i]);
+            verifier.registerInstance(quote);
             assertTrue(verifier.addressRegistered(instance));
         }
     }
@@ -142,8 +175,7 @@ contract SgxVerifierTest is Test {
         address instance = address(0xBEEF);
         uint256 fee = 1 ether;
         vm.deal(address(this), fee);
-        _mockAttest(true, _validOutput());
-        bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance);
+        bytes memory quote = _mockValidQuote(instance);
 
         // msg.value must be forwarded to the entrypoint so a non-zero fee (if ever configured on
         // the entrypoint) is payable rather than bricking every registration.
@@ -167,39 +199,42 @@ contract SgxVerifierTest is Test {
     }
 
     function test_registerInstance_RevertWhen_DebugEnclave() external {
-        _mockAttest(true, _validOutput());
+        bytes memory quote = _mockQuote(true, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_OK);
         vm.expectRevert(SgxVerifier.SGX_DEBUG_ENCLAVE.selector);
-        verifier.registerInstance(_rawQuote(true, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbRevoked() external {
-        _mockAttest(true, _output(3, 1, TCB_REVOKED));
+        bytes memory quote =
+            _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_REVOKED);
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbConfigNeeded() external {
-        _mockAttest(true, _output(3, 1, TCB_CONFIG_NEEDED));
+        bytes memory quote =
+            _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_CONFIG_NEEDED);
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbUnrecognized() external {
-        _mockAttest(true, _output(3, 1, TCB_UNRECOGNIZED));
+        bytes memory quote =
+            _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_UNRECOGNIZED);
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_WrongQuoteVersion() external {
-        _mockAttest(true, _output(4, 1, TCB_OK));
+        bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 4, 1, TCB_OK);
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_WrongBodyType() external {
-        _mockAttest(true, _output(3, 2, TCB_OK));
+        bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 2, TCB_OK);
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_OutputTooShort() external {
@@ -208,8 +243,17 @@ contract SgxVerifierTest is Test {
         verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
     }
 
+    function test_registerInstance_RevertWhen_VerifiedBodyMismatch() external {
+        // Attestation succeeds and the Output header is well-formed (V3/SGX/OK), but its body does
+        // not match the raw quote's enclave report — the verified-body binding must reject it.
+        bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF));
+        _mockAttest(true, _output(3, 1, TCB_OK, new bytes(384))); // zero body != quote body
+        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        verifier.registerInstance(quote);
+    }
+
     function test_registerInstance_RevertWhen_RawQuoteTooShort() external {
-        _mockAttest(true, _validOutput());
+        _mockAttest(true, _output(3, 1, TCB_OK, new bytes(384)));
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(new bytes(100)); // < 432
     }
@@ -223,18 +267,18 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_RevertWhen_DuplicateInstance() external {
         address instance = address(0xBEEF);
-        _mockAttest(true, _validOutput());
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance));
+        bytes memory quote = _mockValidQuote(instance);
+        verifier.registerInstance(quote);
 
         vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_InstanceZeroAddress() external {
-        _mockAttest(true, _validOutput());
         // reportData -> instance == address(0); _addInstances rejects it.
+        bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0), 3, 1, TCB_OK);
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0)));
+        verifier.registerInstance(quote);
     }
 
     // ---------------------------------------------------------------
@@ -244,17 +288,17 @@ contract SgxVerifierTest is Test {
     function test_registerInstance_RevertWhen_AllowlistOnAndMrEnclaveUntrusted() external {
         verifier.toggleLocalReportCheck();
         verifier.setMrSigner(MR_SIGNER, true); // signer trusted, enclave not
-        _mockAttest(true, _validOutput());
+        bytes memory quote = _mockValidQuote(address(0xBEEF));
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_AllowlistOnAndMrSignerUntrusted() external {
         verifier.toggleLocalReportCheck();
         verifier.setMrEnclave(MR_ENCLAVE, true); // enclave trusted, signer not
-        _mockAttest(true, _validOutput());
+        bytes memory quote = _mockValidQuote(address(0xBEEF));
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
+        verifier.registerInstance(quote);
     }
 
     function test_registerInstance_WithAllowlist_succeeds() external {
@@ -262,8 +306,8 @@ contract SgxVerifierTest is Test {
         verifier.toggleLocalReportCheck();
         verifier.setMrEnclave(MR_ENCLAVE, true);
         verifier.setMrSigner(MR_SIGNER, true);
-        _mockAttest(true, _validOutput());
-        verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, instance));
+        bytes memory quote = _mockValidQuote(instance);
+        verifier.registerInstance(quote);
         assertTrue(verifier.addressRegistered(instance));
     }
 
