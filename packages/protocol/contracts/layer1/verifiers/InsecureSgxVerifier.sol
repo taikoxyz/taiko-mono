@@ -2,11 +2,12 @@
 pragma solidity ^0.8.26;
 
 import { SgxVerifier } from "./SgxVerifier.sol";
+import { TCBInfoStruct } from "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
 
 /// @title InsecureSgxVerifier
-/// @notice SGX verifier intended for testnet/devnet. It shares the same enclave-attribute policy as
-/// the mainnet `SecureSgxVerifier`; the policy is kept as an overridable hook so testnet liveness
-/// needs can relax it independently of mainnet without touching shared logic.
+/// @notice SGX verifier with a lenient TCB-status acceptance policy for testnet/devnet ONLY. In
+/// addition to the up-to-date statuses it also accepts out-of-date platforms to preserve liveness on
+/// development hardware that lags on microcode/configuration. This MUST NOT be used on mainnet.
 /// @custom:security-contact security@taiko.xyz
 contract InsecureSgxVerifier is SgxVerifier {
     constructor(
@@ -18,12 +19,21 @@ contract InsecureSgxVerifier is SgxVerifier {
         SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     { }
 
-    /// @dev Reject application enclaves that set DEBUG(0x02) or PROVISION_KEY(0x10). A DEBUG
-    /// enclave's memory (including the in-enclave signing key) is readable/writable by the host, and
-    /// PROVISION_KEY lets the enclave derive platform-identifying keys; neither must be trusted
-    /// on-chain. The bits live in the first byte of the little-endian 16-byte attributes field.
-    /// @return The forbidden ATTRIBUTES.FLAGS bitmask checked against an enclave's attributes.
-    function _forbiddenAttributeMask() internal pure override returns (bytes16) {
-        return bytes16(0x12000000000000000000000000000000);
+    /// @dev Lenient policy for testnet/devnet ONLY: in addition to the up-to-date statuses (`OK`,
+    /// `TCB_SW_HARDENING_NEEDED`) it also accepts `TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED`,
+    /// `TCB_OUT_OF_DATE` and `TCB_OUT_OF_DATE_CONFIGURATION_NEEDED` so dev hardware lagging on
+    /// microcode/configuration stays usable. This MUST NOT be used on mainnet: out-of-date platforms
+    /// may be missing the microcode that patches SGX key-extraction vulnerabilities. It still rejects
+    /// `TCB_CONFIGURATION_NEEDED`, `TCB_REVOKED` and `TCB_UNRECOGNIZED`. The policy is expressed
+    /// against the attestation's `TCBInfoStruct.TCBStatus` enum so an enum reorder is caught at
+    /// compile time.
+    /// @param _status The TCB status code from the attestation output.
+    /// @return Whether the status is accepted.
+    function _isTcbStatusAccepted(uint8 _status) internal pure override returns (bool) {
+        return _status == uint8(TCBInfoStruct.TCBStatus.OK)
+            || _status == uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED)
+            || _status == uint8(TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED)
+            || _status == uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE)
+            || _status == uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED);
     }
 }

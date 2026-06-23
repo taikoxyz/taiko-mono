@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Test.sol";
 import { IAttestation } from "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
+import { TCBInfoStruct } from "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
 import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
 import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
@@ -11,22 +12,29 @@ import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 
 contract MockAttestation is IAttestation {
     bool private _shouldSucceed;
+    uint8 private _tcbStatus;
 
     function setResult(bool _result) external {
         _shouldSucceed = _result;
+    }
+
+    function setTcbStatus(uint8 _status) external {
+        _tcbStatus = _status;
     }
 
     function verifyAttestation(bytes calldata) external view override returns (bool) {
         return _shouldSucceed;
     }
 
-    function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata)
+    function verifyParsedQuote(V3Struct.ParsedV3QuoteStruct calldata _quote)
         external
         view
         override
         returns (bool success, bytes memory retData)
     {
-        return (_shouldSucceed, "");
+        // Mirror AutomataDcapV3Attestation: on a successful verification the return data is
+        // abi.encodePacked(sha256(quote), uint8 tcbStatus), so the TCB status is the 33rd byte.
+        return (_shouldSucceed, abi.encodePacked(sha256(abi.encode(_quote)), _tcbStatus));
     }
 }
 
@@ -165,6 +173,15 @@ abstract contract SgxVerifierTestBase is Test {
         assertEq(id, 0);
     }
 
+    function test_registerInstance_AcceptsSwHardeningNeededTcb() external {
+        // `TCB_SW_HARDENING_NEEDED` is an up-to-date status accepted by every network policy.
+        attestation.setResult(true);
+        attestation.setTcbStatus(uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED));
+
+        uint256 id = verifier.registerInstance(_makeQuote(address(0xC0FFEE)));
+        assertEq(id, 0);
+    }
+
     function test_registerInstance_AllowsRegistrarWhenSet() external {
         address registrar = address(0x5151);
         SgxVerifier gatedVerifier =
@@ -267,7 +284,7 @@ abstract contract SgxVerifierTestBase is Test {
         returns (SgxVerifier);
 
     function _makeQuote(address _instance)
-        private
+        internal
         pure
         returns (V3Struct.ParsedV3QuoteStruct memory quote)
     {
@@ -311,6 +328,16 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
     {
         return new SecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
     }
+
+    function test_registerInstance_RevertWhen_TcbOutOfDate() external {
+        // The strict mainnet policy rejects out-of-date platforms even though the attestation's own
+        // (lenient) check accepts them.
+        attestation.setResult(true);
+        attestation.setTcbStatus(uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE));
+
+        vm.expectRevert(SgxVerifier.SGX_INVALID_TCB_STATUS.selector);
+        verifier.registerInstance(_makeQuote(address(0xC0FFEE)));
+    }
 }
 
 contract InsecureSgxVerifierTest is SgxVerifierTestBase {
@@ -325,5 +352,14 @@ contract InsecureSgxVerifierTest is SgxVerifierTestBase {
         returns (SgxVerifier)
     {
         return new InsecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
+    }
+
+    function test_registerInstance_AcceptsOutOfDateTcb() external {
+        // The lenient testnet policy accepts out-of-date platforms for dev-hardware liveness.
+        attestation.setResult(true);
+        attestation.setTcbStatus(uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE));
+
+        uint256 id = verifier.registerInstance(_makeQuote(address(0xC0FFEE)));
+        assertEq(id, 0);
     }
 }

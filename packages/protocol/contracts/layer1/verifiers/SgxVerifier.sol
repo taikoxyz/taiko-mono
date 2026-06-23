@@ -10,9 +10,9 @@ import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Stru
 
 /// @title SgxVerifier
 /// @notice Abstract base that verifies SGX signature proofs onchain using attested SGX instances.
-/// Each instance is registered via remote attestation and can verify proofs until expiry. The set
-/// of SGX ATTRIBUTES.FLAGS bits that an application enclave must not set is left abstract so that
-/// per-network subclasses define the policy (the strict policy must remain the secure default).
+/// Each instance is registered via remote attestation and can verify proofs until expiry. The
+/// TCB-status acceptance policy is left abstract so that per-network subclasses define it (the
+/// strict mainnet policy must remain the secure default).
 /// @dev Side-channel protection is achieved through mandatory instance expiry (INSTANCE_EXPIRY),
 /// requiring periodic re-attestation with new keypairs.
 /// @custom:security-contact security@taiko.xyz
@@ -32,6 +32,15 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @notice A security feature, a delay until an instance is enabled when using onchain RA
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
+
+    /// @dev SGX ATTRIBUTES.FLAGS bits that production application enclaves must not set. In DCAP
+    /// quote bytes, FLAGS is little-endian, so these bits are encoded in the first byte of the
+    /// 16-byte attributes field. This is enforced uniformly on every network (it is NOT part of the
+    /// per-network policy): a debug/provisioning enclave must never be trusted on-chain.
+    /// DEBUG(0x02): host can read/write enclave memory.
+    /// PROVISION_KEY(0x10): enclave can derive platform-identifying provisioning keys.
+    bytes16 private constant SGX_FORBIDDEN_ATTRIBUTE_MASK =
+        bytes16(0x12000000000000000000000000000000);
 
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
@@ -80,6 +89,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
     error SGX_FORBIDDEN_ATTRIBUTES();
+    error SGX_INVALID_TCB_STATUS();
     error SGX_NOT_REGISTRAR();
 
     constructor(
@@ -131,10 +141,19 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     {
         require(registrar == address(0) || msg.sender == registrar, SGX_NOT_REGISTRAR());
 
-        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
+        (bool verified, bytes memory retData) =
+            IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
+
+        // On a successful verification the attestation returns
+        // retData = abi.encodePacked(sha256(quote), uint8 tcbStatus), so the platform TCB status is
+        // the 33rd byte (offset 32). Enforce the per-network TCB-status policy on top of the
+        // attestation's own acceptance check.
+        require(retData.length >= 33, SGX_INVALID_ATTESTATION());
+        require(_isTcbStatusAccepted(uint8(retData[32])), SGX_INVALID_TCB_STATUS());
+
         require(
-            _attestation.localEnclaveReport.attributes & _forbiddenAttributeMask() == bytes16(0),
+            _attestation.localEnclaveReport.attributes & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0),
             SGX_FORBIDDEN_ATTRIBUTES()
         );
 
@@ -168,14 +187,14 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
     }
 
-    /// @dev Returns the SGX ATTRIBUTES.FLAGS bits that an application enclave must NOT set. In DCAP
-    /// quote bytes, FLAGS is little-endian, so these bits are encoded in the first byte of the
-    /// 16-byte attributes field. Per-network subclasses define the policy; the strict policy must
-    /// remain the secure default.
-    /// DEBUG(0x02): host can read/write enclave memory.
-    /// PROVISION_KEY(0x10): enclave can derive platform-identifying provisioning keys.
-    /// @return The forbidden ATTRIBUTES.FLAGS bitmask checked against an enclave's attributes.
-    function _forbiddenAttributeMask() internal pure virtual returns (bytes16);
+    /// @dev The TCB-status acceptance policy, defined by per-network subclasses. The platform TCB
+    /// status is read from the attestation output and expressed against the attestation's
+    /// `TCBInfoStruct.TCBStatus` enum, so the on-chain policy and the attestation cannot diverge and
+    /// an enum reorder is caught at compile time. The strict mainnet policy must remain the secure
+    /// default.
+    /// @param _status The TCB status code from the attestation output.
+    /// @return Whether the status is accepted.
+    function _isTcbStatusAccepted(uint8 _status) internal pure virtual returns (bool);
 
     function _addInstances(
         address[] memory _instances,
