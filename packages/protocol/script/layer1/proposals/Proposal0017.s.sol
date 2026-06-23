@@ -8,23 +8,21 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 // To print the proposal action data after replacing placeholders: `P=0017 pnpm proposal`
 // To dryrun the proposal on L1 after replacing placeholders: `P=0017 pnpm proposal:dryrun:l1`
 contract Proposal0017 is BuildProposal {
-    address private constant _MAINNET_INBOX_NEW_IMPL_PLACEHOLDER =
-        0x1111111111111111111111111111111111111111;
-    address private constant _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER =
-        0x2222222222222222222222222222222222222222;
-    address private constant _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER =
-        0x3333333333333333333333333333333333333333;
-    address private constant _MAINNET_VERIFIER_PLACEHOLDER =
-        0x4444444444444444444444444444444444444444;
-    address private constant _NEW_SGXGETH_VERIFIER_PLACEHOLDER =
-        0x5555555555555555555555555555555555555555;
-    address private constant _NEW_SGXRETH_VERIFIER_PLACEHOLDER =
-        0x6666666666666666666666666666666666666666;
+    address private constant _MAINNET_INBOX_NEW_IMPL_PLACEHOLDER = 0x1111111111111111111111111111111111111111;
+    address private constant _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER = 0x2222222222222222222222222222222222222222;
+    address private constant _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER = 0x3333333333333333333333333333333333333333;
+    address private constant _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER = 0x4444444444444444444444444444444444444444;
+    address private constant _QUOTA_MANAGER_NEW_IMPL_PLACEHOLDER = 0x5555555555555555555555555555555555555555;
+    address private constant _MAINNET_VERIFIER_PLACEHOLDER = 0x6666666666666666666666666666666666666666;
+    address private constant _NEW_SGXGETH_VERIFIER_PLACEHOLDER = 0x7777777777777777777777777777777777777777;
+    address private constant _NEW_SGXRETH_VERIFIER_PLACEHOLDER = 0x8888888888888888888888888888888888888888;
 
     // PLACEHOLDER: replace these with the deployment outputs before generating calldata.
     address public constant MAINNET_INBOX_NEW_IMPL = _MAINNET_INBOX_NEW_IMPL_PLACEHOLDER;
     address public constant SIGNAL_SERVICE_NEW_IMPL = _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER;
     address public constant MAINNET_BRIDGE_NEW_IMPL = _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER;
+    address public constant MAINNET_ERC20_VAULT_NEW_IMPL = _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER;
+    address public constant QUOTA_MANAGER_NEW_IMPL = _QUOTA_MANAGER_NEW_IMPL_PLACEHOLDER;
 
     // PLACEHOLDER: the new MainnetInbox implementation must be deployed with this verifier.
     // This address is not calldata because Inbox stores the proof verifier as an immutable.
@@ -37,11 +35,10 @@ contract Proposal0017 is BuildProposal {
     address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
+    address public constant QUOTA_MANAGER = 0x91f67118DD47d502B1f0C354D0611997B022f29E;
 
-    bytes32 public constant NEW_MR_SIGNER =
-        0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
-    bytes32 public constant OLD_MR_SIGNER =
-        0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
+    bytes32 public constant NEW_MR_SIGNER = 0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
+    bytes32 public constant OLD_MR_SIGNER = 0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
 
     // Last finalized state at L1 block 25,367,937, one block before the first forged proof tx.
     uint48 public constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
@@ -60,6 +57,8 @@ contract Proposal0017 is BuildProposal {
             MAINNET_INBOX_NEW_IMPL == _MAINNET_INBOX_NEW_IMPL_PLACEHOLDER
                 || SIGNAL_SERVICE_NEW_IMPL == _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER
                 || MAINNET_BRIDGE_NEW_IMPL == _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER
+                || MAINNET_ERC20_VAULT_NEW_IMPL == _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER
+                || QUOTA_MANAGER_NEW_IMPL == _QUOTA_MANAGER_NEW_IMPL_PLACEHOLDER
                 || MAINNET_VERIFIER == _MAINNET_VERIFIER_PLACEHOLDER
                 || NEW_SGXGETH_VERIFIER == _NEW_SGXGETH_VERIFIER_PLACEHOLDER
                 || NEW_SGXRETH_VERIFIER == _NEW_SGXRETH_VERIFIER_PLACEHOLDER
@@ -68,19 +67,21 @@ contract Proposal0017 is BuildProposal {
         }
 
         actions = buildL1Actions(
-            MAINNET_INBOX_NEW_IMPL, SIGNAL_SERVICE_NEW_IMPL, MAINNET_BRIDGE_NEW_IMPL
+            MAINNET_INBOX_NEW_IMPL,
+            SIGNAL_SERVICE_NEW_IMPL,
+            MAINNET_BRIDGE_NEW_IMPL,
+            MAINNET_ERC20_VAULT_NEW_IMPL,
+            QUOTA_MANAGER_NEW_IMPL
         );
     }
 
     function buildL1Actions(
         address _mainnetInboxNewImpl,
         address _signalServiceNewImpl,
-        address _mainnetBridgeNewImpl
-    )
-        internal
-        pure
-        returns (Controller.Action[] memory actions)
-    {
+        address _mainnetBridgeNewImpl,
+        address _mainnetErc20VaultNewImpl,
+        address _quotaManagerNewImpl
+    ) internal pure returns (Controller.Action[] memory actions) {
         bytes32[] memory risc0ImageIds = _risc0ImageIdsToDisable();
         bytes32[] memory sp1ProgramIds = _sp1ProgramIdsToDisable();
         bytes32[] memory sgxGethMrEnclaves = _sgxGethMrEnclavesToDisable();
@@ -88,15 +89,16 @@ contract Proposal0017 is BuildProposal {
 
         actions = new Controller
             .Action[](
-            9 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
-                + sgxRethMrEnclaves.length
+            11 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length + sgxRethMrEnclaves.length
         );
 
         uint256 cursor;
 
-        // Group One: eliminate forged checkpoints and retriable messages.
+        // Group One: eliminate forged checkpoints, wire quota accounting, and retriable messages.
         actions[cursor++] = buildUpgradeAction(L1.SIGNAL_SERVICE, _signalServiceNewImpl);
+        actions[cursor++] = buildUpgradeAction(QUOTA_MANAGER, _quotaManagerNewImpl);
         actions[cursor++] = buildUpgradeAction(L1.BRIDGE, _mainnetBridgeNewImpl);
+        actions[cursor++] = buildUpgradeAction(L1.ERC20_VAULT, _mainnetErc20VaultNewImpl);
         actions[cursor++] = Controller.Action({
             target: L1.BRIDGE,
             value: 0,
@@ -164,9 +166,7 @@ contract Proposal0017 is BuildProposal {
             actions[cursor++] = Controller.Action({
                 target: SGXGETH_ATTESTER,
                 value: 0,
-                data: abi.encodeCall(
-                    IProposal0017Attestation.setMrEnclave, (sgxGethMrEnclaves[i], false)
-                )
+                data: abi.encodeCall(IProposal0017Attestation.setMrEnclave, (sgxGethMrEnclaves[i], false))
             });
         }
 
@@ -174,9 +174,7 @@ contract Proposal0017 is BuildProposal {
             actions[cursor++] = Controller.Action({
                 target: SGXRETH_ATTESTER,
                 value: 0,
-                data: abi.encodeCall(
-                    IProposal0017Attestation.setMrEnclave, (sgxRethMrEnclaves[i], false)
-                )
+                data: abi.encodeCall(IProposal0017Attestation.setMrEnclave, (sgxRethMrEnclaves[i], false))
             });
         }
     }

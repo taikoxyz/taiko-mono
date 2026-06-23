@@ -4,17 +4,19 @@
 
 This proposal restores the L1 recovery surface after the Shasta forged-proof incident.
 
-It executes **58 L1 actions** and **no L2 actions**:
+It executes **60 L1 actions** and **no L2 actions**:
 
 1. Upgrade `SignalService`.
-2. Upgrade `Bridge`.
-3. Call `Bridge.init3(bytes32[])` to disable the three remaining attacker retriable messages.
-4. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`.
-5. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
+2. Upgrade `QuotaManager`.
+3. Upgrade `Bridge`.
+4. Upgrade `ERC20Vault`.
+5. Call `Bridge.init3(bytes32[])` to disable the three remaining attacker retriable messages.
+6. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`.
+7. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
    `25,367,937`, one block before the first forged proof.
-6. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
-7. Disable all currently trusted RISC0 and SP1 image/program IDs.
-8. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
+8. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
+9. Disable all currently trusted RISC0 and SP1 image/program IDs.
+10. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
 
 The implementation and new verifier addresses are placeholders in
 [`Proposal0017.s.sol`](./Proposal0017.s.sol). Replace them with the deployment outputs before
@@ -28,11 +30,16 @@ New RISC0, SP1, SGX-geth, and SGX-reth IDs remain pending and are intentionally 
 ### Group One: Eliminate Forged Checkpoints and Retriable Messages
 
 1. Upgrade `L1.SIGNAL_SERVICE` to `SIGNAL_SERVICE_NEW_IMPL`.
-2. Upgrade `L1.BRIDGE` to `MAINNET_BRIDGE_NEW_IMPL`.
-3. Call `Bridge.init3(...)` with the three remaining retriable message hashes.
+2. Upgrade `QUOTA_MANAGER` to `QUOTA_MANAGER_NEW_IMPL`.
+3. Upgrade `L1.BRIDGE` to `MAINNET_BRIDGE_NEW_IMPL`.
+4. Upgrade `L1.ERC20_VAULT` to `MAINNET_ERC20_VAULT_NEW_IMPL`.
+5. Call `Bridge.init3(...)` with the three remaining retriable message hashes.
 
 The SignalService upgrade must execute before the Bridge action so old forged checkpoints become
-unreachable before retriable message cleanup.
+unreachable before retriable message cleanup. The new Bridge and ERC20Vault implementations are
+deployed with the existing QuotaManager proxy address, which this proposal upgrades first. The new
+`QUOTA_MANAGER_NEW_IMPL` must be UUPS-compatible because the live proxy upgrade path checks
+`proxiableUUID()`.
 
 ### Group Two: Restore the Proving System
 
@@ -55,7 +62,9 @@ longer be part of the verification chain.
 | --------------------- | -------------------------------------------- | -------------------- |
 | `L1.SIGNAL_SERVICE`   | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | SignalService proxy  |
 | `L1.BRIDGE`           | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | Mainnet Bridge proxy |
+| `L1.ERC20_VAULT`      | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | ERC20Vault proxy     |
 | `L1.INBOX`            | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | Shasta Inbox proxy   |
+| `QUOTA_MANAGER`       | `0x91f67118DD47d502B1f0C354D0611997B022f29E` | QuotaManager proxy   |
 | `RISC0_RETH_VERIFIER` | `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | RISC0 verifier       |
 | `SP1_RETH_VERIFIER`   | `0x96337327648dcFA22b014009cf10A2D5E2F305f6` | SP1 verifier         |
 | `SGXGETH_ATTESTER`    | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | SGX-geth attester    |
@@ -71,9 +80,11 @@ documentation and live L1 calls.
 | `MAINNET_INBOX_NEW_IMPL`  | `0x1111111111111111111111111111111111111111` | `MainnetInbox` implementation deployment output   |
 | `SIGNAL_SERVICE_NEW_IMPL` | `0x2222222222222222222222222222222222222222` | `SignalService` implementation deployment output  |
 | `MAINNET_BRIDGE_NEW_IMPL` | `0x3333333333333333333333333333333333333333` | `MainnetBridge` implementation deployment output  |
-| `MAINNET_VERIFIER`        | `0x4444444444444444444444444444444444444444` | New `MainnetVerifier` used by `MainnetInbox` impl |
-| `NEW_SGXGETH_VERIFIER`    | `0x5555555555555555555555555555555555555555` | New SGX-geth verifier used by `MainnetVerifier`   |
-| `NEW_SGXRETH_VERIFIER`    | `0x6666666666666666666666666666666666666666` | New SGX-reth verifier used by `MainnetVerifier`   |
+| `MAINNET_ERC20_VAULT_NEW_IMPL` | `0x4444444444444444444444444444444444444444` | `MainnetERC20Vault` implementation deployment output |
+| `QUOTA_MANAGER_NEW_IMPL`  | `0x5555555555555555555555555555555555555555` | `QuotaManager` implementation deployment output   |
+| `MAINNET_VERIFIER`        | `0x6666666666666666666666666666666666666666` | New `MainnetVerifier` used by `MainnetInbox` impl |
+| `NEW_SGXGETH_VERIFIER`    | `0x7777777777777777777777777777777777777777` | New SGX-geth verifier used by `MainnetVerifier`   |
+| `NEW_SGXRETH_VERIFIER`    | `0x8888888888888888888888888888888888888888` | New SGX-reth verifier used by `MainnetVerifier`   |
 
 ## Retriable Messages
 
