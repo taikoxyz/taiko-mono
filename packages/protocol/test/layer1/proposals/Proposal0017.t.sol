@@ -20,6 +20,11 @@ contract Proposal0017Test is Test {
     address internal constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address internal constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
+    bytes32 internal constant NEW_MR_SIGNER =
+        0xe08aef23d4357d47e5ac5f278ba5492a5f5fb145c4fc026995367210f21a333c;
+    bytes32 internal constant OLD_MR_SIGNER =
+        0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
+
     uint48 internal constant RECOVERY_NEXT_PROPOSAL_ID = 18_059;
     uint48 internal constant RECOVERY_LAST_PROPOSAL_BLOCK_ID = 25_367_925;
     uint48 internal constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
@@ -44,7 +49,7 @@ contract Proposal0017Test is Test {
 
         uint256 cursor;
 
-        assertEq(actions.length, 54);
+        assertEq(actions.length, 58);
 
         assertEq(actions[cursor].target, L1.SIGNAL_SERVICE);
         assertEq(actions[cursor].value, 0);
@@ -87,6 +92,34 @@ contract Proposal0017Test is Test {
                     RECOVERY_LAST_FINALIZED_BLOCK_HASH
                 )
             )
+        );
+
+        assertEq(actions[cursor].target, SGXGETH_ATTESTER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (NEW_MR_SIGNER, true))
+        );
+
+        assertEq(actions[cursor].target, SGXRETH_ATTESTER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (NEW_MR_SIGNER, true))
+        );
+
+        assertEq(actions[cursor].target, SGXGETH_ATTESTER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (OLD_MR_SIGNER, false))
+        );
+
+        assertEq(actions[cursor].target, SGXRETH_ATTESTER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (OLD_MR_SIGNER, false))
         );
 
         bytes32[] memory risc0ImageIds = _risc0ImageIdsToDisable();
@@ -244,4 +277,5 @@ interface IInboxRecovery {
 
 interface IAutomataAttestationRecovery {
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
+    function setMrSigner(bytes32 _mrSigner, bool _trusted) external;
 }

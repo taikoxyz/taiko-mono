@@ -38,6 +38,11 @@ contract Proposal0017 is BuildProposal {
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
+    bytes32 public constant NEW_MR_SIGNER =
+        0xe08aef23d4357d47e5ac5f278ba5492a5f5fb145c4fc026995367210f21a333c;
+    bytes32 public constant OLD_MR_SIGNER =
+        0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
+
     // State at L1 block 25,367,937, one block before the first forged proof tx.
     uint48 public constant RECOVERY_NEXT_PROPOSAL_ID = 18_059;
     uint48 public constant RECOVERY_LAST_PROPOSAL_BLOCK_ID = 25_367_925;
@@ -85,7 +90,7 @@ contract Proposal0017 is BuildProposal {
 
         actions = new Controller
             .Action[](
-            5 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
+            9 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
                 + sgxRethMrEnclaves.length
         );
 
@@ -117,6 +122,28 @@ contract Proposal0017 is BuildProposal {
                     RECOVERY_LAST_FINALIZED_BLOCK_HASH
                 )
             )
+        });
+
+        // Rotate MRSIGNER trust because the new SGX verifiers keep using these attesters.
+        actions[cursor++] = Controller.Action({
+            target: SGXGETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(IProposal0017Attestation.setMrSigner, (NEW_MR_SIGNER, true))
+        });
+        actions[cursor++] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(IProposal0017Attestation.setMrSigner, (NEW_MR_SIGNER, true))
+        });
+        actions[cursor++] = Controller.Action({
+            target: SGXGETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(IProposal0017Attestation.setMrSigner, (OLD_MR_SIGNER, false))
+        });
+        actions[cursor++] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(IProposal0017Attestation.setMrSigner, (OLD_MR_SIGNER, false))
         });
 
         // Remove all currently trusted RISC0 image IDs.
@@ -261,4 +288,5 @@ interface IProposal0017InboxRecovery {
 
 interface IProposal0017Attestation {
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external;
+    function setMrSigner(bytes32 _mrSigner, bool _trusted) external;
 }

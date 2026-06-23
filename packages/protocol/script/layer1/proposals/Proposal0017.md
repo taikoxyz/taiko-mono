@@ -4,7 +4,7 @@
 
 This proposal restores the L1 recovery surface after the Shasta forged-proof incident.
 
-It executes **54 L1 actions** and **no L2 actions**:
+It executes **58 L1 actions** and **no L2 actions**:
 
 1. Upgrade `SignalService`.
 2. Upgrade `Bridge`.
@@ -12,8 +12,9 @@ It executes **54 L1 actions** and **no L2 actions**:
 4. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`.
 5. Call `Inbox.init2(...)` with the last known-good Shasta core state from L1 block
    `25,367,937`, one block before the first forged proof.
-6. Disable all currently trusted RISC0 and SP1 image/program IDs.
-7. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
+6. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
+7. Disable all currently trusted RISC0 and SP1 image/program IDs.
+8. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
 
 The implementation and new verifier addresses are placeholders in
 [`Proposal0017.s.sol`](./Proposal0017.s.sol). Replace them with the deployment outputs before
@@ -37,7 +38,8 @@ unreachable before retriable message cleanup.
 
 1. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
 2. Call `Inbox.init2(...)` with the last correct pre-forgery core state.
-3. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth.
+3. Rotate SGX attester MRSIGNER trust.
+4. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth.
 
 `MainnetInbox` stores its proof verifier as an immutable. The proposal therefore cannot set the new
 `MainnetVerifier` by calldata; the new `MAINNET_INBOX_NEW_IMPL` must be deployed with the new
@@ -108,8 +110,17 @@ For comparison, the forged proof finalized proposal `18,056` in block `25,367,93
 
 ## Verifier Cleanup
 
-The proposal removes all trust entries currently enabled on the existing mainnet verifiers. New
-image IDs are pending and must be added in a follow-up edit once available.
+The proposal removes all trust entries currently enabled on the existing mainnet verifiers. Because
+the new SGX verifier contracts keep using the existing SGX attesters, it also rotates MRSIGNER trust
+on those attesters. New image IDs are pending and must be added in a follow-up edit once available.
+
+### SGX MRSIGNER Values
+
+`SGXGETH_ATTESTER.setMrSigner(mrSigner, trusted)` and
+`SGXRETH_ATTESTER.setMrSigner(mrSigner, trusted)`:
+
+- `0xe08aef23d4357d47e5ac5f278ba5492a5f5fb145c4fc026995367210f21a333c` -> `true`
+- `0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5` -> `false`
 
 ### RISC0 Image IDs
 
@@ -222,7 +233,8 @@ Before submission:
      --rpc-url <ARCHIVE_RPC_URL>
    ```
 
-8. Confirm every verifier cleanup target is still trusted before execution.
+8. Confirm every verifier cleanup target is still trusted before execution, and confirm the new
+   MRSIGNER is not yet trusted while the old MRSIGNER is still trusted.
 9. Generate calldata:
 
    ```bash
@@ -240,7 +252,8 @@ After execution:
 1. Confirm proxy implementations match the three replacement constants.
 2. Confirm the three message hashes return `2` (`DONE`).
 3. Confirm `Inbox.getCoreState()` matches the restored state.
-4. Confirm every removed RISC0, SP1, and SGX trust entry returns false.
+4. Confirm the new MRSIGNER returns true and the old MRSIGNER returns false on both SGX attesters.
+5. Confirm every removed RISC0, SP1, and SGX trust entry returns false.
 
 ## Security Contacts
 
