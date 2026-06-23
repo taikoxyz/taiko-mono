@@ -27,11 +27,12 @@ contract SecureSgxVerifier is SgxVerifier {
     /// @notice The ATTRIBUTES pin for each allowlisted application-enclave measurement.
     mapping(bytes32 mrEnclave => AttributePolicy policy) public enclaveAttributePolicy;
 
-    /// @notice A security delay between permissionless registration via `registerInstance` and the
+    /// @notice A security delay between a non-owner registration via `registerInstance` and the
     /// instance becoming usable for proof verification. It gives off-chain monitoring a window to
     /// evict a rogue self-registered instance (via `deleteInstances`) before it can prove. Owner
-    /// registrations via `addInstances` are NOT delayed. Set once at construction (mainnet/testnet
-    /// deployments use 24 hours); it must not exceed `INSTANCE_EXPIRY`.
+    /// registrations — `addInstances`, or `registerInstance` called by the owner — are NOT delayed.
+    /// Set once at construction (mainnet/testnet deployments use 24 hours); it must not exceed
+    /// `INSTANCE_EXPIRY`.
     uint64 public immutable instanceValidityDelay;
 
     /// @notice Emitted when an MRENCLAVE's ATTRIBUTES pin is set or updated.
@@ -145,7 +146,7 @@ contract SecureSgxVerifier is SgxVerifier {
     }
 
     /// @inheritdoc SgxVerifier
-    function _instanceValidityDelay() internal view override returns (uint64) {
+    function _validityDelay() internal view override returns (uint64) {
         return instanceValidityDelay;
     }
 

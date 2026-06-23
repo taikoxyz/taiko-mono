@@ -133,6 +133,8 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     }
 
     /// @notice Adds an SGX instance after the attestation is verified
+    /// @dev A non-owner (permissionless or registrar) registration is subject to the validity delay;
+    /// an owner-submitted registration is as trusted as `addInstances` and takes effect immediately.
     /// @param _attestation The parsed attestation quote.
     /// @return The respective instanceId
     function registerInstance(V3Struct.ParsedV3QuoteStruct calldata _attestation)
@@ -166,7 +168,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
 
-        return _addInstances(addresses, false)[0];
+        // An owner-submitted registration is as trusted as `addInstances`, so it skips the validity
+        // delay; permissionless (and registrar) registrations remain delayed.
+        return _addInstances(addresses, msg.sender == owner())[0];
     }
 
     /// @inheritdoc IProofVerifier
@@ -211,13 +215,14 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// ATTRIBUTES (FLAGS || XFRM) field, both authenticated by the attestation.
     function _validateEnclaveAttributes(bytes32, bytes16) internal view virtual { }
 
-    /// @dev The delay applied to a permissionless (`registerInstance`) registration before the
-    /// instance becomes usable, giving off-chain monitoring a window to evict a rogue self-registered
-    /// instance (via `deleteInstances`) before it can prove. Owner `addInstances` registrations are
-    /// never delayed. The base applies no delay; production subclasses override this to return their
-    /// configured delay (which must not exceed `INSTANCE_EXPIRY`).
+    /// @dev The delay applied to a non-owner `registerInstance` registration before the instance
+    /// becomes usable, giving off-chain monitoring a window to evict a rogue self-registered instance
+    /// (via `deleteInstances`) before it can prove. Owner registrations — `addInstances`, or
+    /// `registerInstance` called by the owner — are never delayed. The base applies no delay;
+    /// production subclasses override this to return their configured delay (which must not exceed
+    /// `INSTANCE_EXPIRY`).
     /// @return The registration validity delay, in seconds.
-    function _instanceValidityDelay() internal view virtual returns (uint64) {
+    function _validityDelay() internal view virtual returns (uint64) {
         return 0;
     }
 
@@ -234,7 +239,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
         uint64 validSince = uint64(block.timestamp);
 
         if (!instantValid) {
-            validSince += _instanceValidityDelay();
+            validSince += _validityDelay();
         }
 
         for (uint256 i; i < size; ++i) {

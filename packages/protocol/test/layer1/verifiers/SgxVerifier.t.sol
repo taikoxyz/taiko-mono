@@ -341,6 +341,8 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
     bytes16 private constant STRICT_EXPECTED = bytes16(0x05000000000000000000000000000000);
     // A non-zero registrar used by the dedicated role tests: besides the owner it may remove pins.
     address private constant REGISTRAR = address(0x9111A40);
+    // A non-owner caller: the validity delay applies only to non-owner registrations.
+    address private constant NON_OWNER = address(0xBEEF);
 
     function _deployVerifier(
         uint64 _chainId,
@@ -579,9 +581,23 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
             _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
         attestation.setResult(true);
 
+        // A non-owner self-registration is delayed.
+        vm.prank(NON_OWNER);
         uint256 id = delayed.registerInstance(_makeQuote(address(0xC0FFEE)));
         (, uint64 validSince) = delayed.instances(id);
         assertEq(validSince, uint64(block.timestamp) + delay);
+    }
+
+    function test_registerInstance_OwnerSkipsValidityDelay() external {
+        uint64 delay = 24 hours;
+        SgxVerifier delayed =
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
+        attestation.setResult(true);
+
+        // The owner (this test) is as trusted as addInstances, so registerInstance skips the delay.
+        uint256 id = delayed.registerInstance(_makeQuote(address(0xC0FFEE)));
+        (, uint64 validSince) = delayed.instances(id);
+        assertEq(validSince, uint64(block.timestamp));
     }
 
     function test_addInstances_IgnoresValidityDelay() external {
@@ -606,6 +622,7 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
 
         uint256 key = 0xA11CE;
         address instance = vm.addr(key);
+        vm.prank(NON_OWNER);
         uint256 id = delayed.registerInstance(_makeQuote(instance));
 
         bytes32 aggregatedHash = bytes32(uint256(0x1234));
