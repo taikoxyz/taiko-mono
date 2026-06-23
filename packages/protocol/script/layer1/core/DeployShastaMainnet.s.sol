@@ -35,7 +35,7 @@ contract DeployShastaMainnet is DeployShastaContracts {
         config.provers[0] = 0xa5cb34B75bD72f15290ef37A01F06183E8036875; // We can add new provers later using the prover manager role
         config.shastaForkTimestamp = 1_775_135_700; // 2026-04-02 13:15:00 UTC
 
-        // Mainnet MUST use the strict TCB-status policy (MainnetSgxVerifier). Set explicitly for
+        // Mainnet MUST use the strict TCB-status policy (SgxVerifier). Set explicitly for
         // clarity even though false is the default.
         config.useTestnetSgxPolicy = false;
     }

@@ -6,14 +6,14 @@ import "forge-std/src/Test.sol";
 import { BaseSgxVerifier } from "src/layer1/verifiers/BaseSgxVerifier.sol";
 import { IDcapAttestation } from "src/layer1/verifiers/IDcapAttestation.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
-import { MainnetSgxVerifier } from "src/layer1/verifiers/MainnetSgxVerifier.sol";
+import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 
 /// @title SgxVerifierTest
 /// @notice Unit tests for the SGX verifier's shared logic plus the strict MAINNET TCB-status
 /// policy: raw-quote registration via the Automata DCAP entrypoint, DEBUG-enclave rejection,
 /// TCB-status policy, MRENCLAVE/MRSIGNER allowlist, instance management, and proof verification.
 /// The shared logic lives in the abstract `BaseSgxVerifier`, exercised here through a concrete
-/// `MainnetSgxVerifier`; see `TestnetSgxVerifierTest` for the lenient policy.
+/// `SgxVerifier`; see `TestnetSgxVerifierTest` for the lenient policy.
 /// @custom:security-contact security@taiko.xyz
 contract SgxVerifierTest is Test {
     uint64 internal constant CHAIN_ID = 167;
@@ -36,7 +36,7 @@ contract SgxVerifierTest is Test {
     uint8 internal constant TCB_UNRECOGNIZED = uint8(TCBStatus.TCB_UNRECOGNIZED); // rejected
 
     // Typed as the abstract base to validate shared logic, but instantiated as a concrete
-    // MainnetSgxVerifier so the TCB tests below also assert the strict mainnet policy.
+    // SgxVerifier so the TCB tests below also assert the strict mainnet policy.
     BaseSgxVerifier internal verifier;
 
     bytes32 internal constant MR_ENCLAVE = bytes32(uint256(0x1111));
@@ -44,7 +44,7 @@ contract SgxVerifierTest is Test {
 
     function setUp() external {
         // owner == address(this) so this test can call the onlyOwner admin functions.
-        verifier = new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
+        verifier = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
     }
 
     // ---------------------------------------------------------------
@@ -151,11 +151,11 @@ contract SgxVerifierTest is Test {
 
     function test_constructor_RevertWhen_ChainIdZero() external {
         vm.expectRevert(BaseSgxVerifier.SGX_INVALID_CHAIN_ID.selector);
-        new MainnetSgxVerifier(0, address(this), ATTESTATION, address(0));
+        new SgxVerifier(0, address(this), ATTESTATION, address(0));
     }
 
     function test_constructor_enablesLocalReportCheckByDefault() external {
-        BaseSgxVerifier v = new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
+        BaseSgxVerifier v = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
         assertTrue(v.checkLocalEnclaveReport());
     }
 
@@ -228,7 +228,7 @@ contract SgxVerifierTest is Test {
     function test_registerInstance_AllowsRegistrarWhenSet() external {
         address registrar = address(0x5151);
         BaseSgxVerifier gated =
-            new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+            new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
         gated.setMrEnclave(MR_ENCLAVE, true);
         gated.setMrSigner(MR_SIGNER, true);
 
@@ -244,7 +244,7 @@ contract SgxVerifierTest is Test {
     function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
         address registrar = address(0x5151);
         BaseSgxVerifier gated =
-            new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+            new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
 
         // The registrar gate reverts before any attestation work, so no entrypoint mock is needed.
         bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xC0FFEE));
@@ -348,7 +348,7 @@ contract SgxVerifierTest is Test {
     function test_registerInstance_RevertWhen_NoAttestationEntrypoint() external {
         // A verifier deployed without an attestation entrypoint (e.g. a dummy deployment).
         BaseSgxVerifier dummy =
-            new MainnetSgxVerifier(CHAIN_ID, address(this), address(0), address(0));
+            new SgxVerifier(CHAIN_ID, address(this), address(0), address(0));
         vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         dummy.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
     }
