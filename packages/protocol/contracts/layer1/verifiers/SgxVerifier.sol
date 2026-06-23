@@ -31,6 +31,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
+    /// @dev SGX ATTRIBUTES.FLAGS debug bit. In DCAP quote bytes, FLAGS is little-endian, so bit 1
+    /// is encoded in the first byte of the 16-byte attributes field.
+    bytes16 private constant SGX_DEBUG_ATTRIBUTE_MASK = bytes16(0x02000000000000000000000000000000);
+
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
 
@@ -72,6 +76,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
+    error SGX_DEBUG_MODE_NOT_ALLOWED();
 
     constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
         require(_taikoChainId != 0, SGX_INVALID_CHAIN_ID());
@@ -116,6 +121,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     {
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
+        require(
+            _attestation.localEnclaveReport.attributes & SGX_DEBUG_ATTRIBUTE_MASK == bytes16(0),
+            SGX_DEBUG_MODE_NOT_ALLOWED()
+        );
 
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));

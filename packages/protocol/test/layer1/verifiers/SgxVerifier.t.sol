@@ -116,6 +116,17 @@ contract SgxVerifierTest is Test {
         verifier.registerInstance(_makeQuote(newInstance));
     }
 
+    function test_registerInstance_RevertWhen_DebugModeEnabled() external {
+        attestation.setResult(true);
+        address newInstance = address(0xC0FFEE);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
+        quote.localEnclaveReport.attributes = bytes16(0x07000000000000000700000000000000);
+
+        vm.expectRevert(SgxVerifier.SGX_DEBUG_MODE_NOT_ALLOWED.selector);
+        verifier.registerInstance(quote);
+    }
+
     // ---------------------------------------------------------------
     // Proof verification
     // ---------------------------------------------------------------
