@@ -39,7 +39,7 @@ contract SgxVerifierTest is Test {
 
     function setUp() external {
         // owner == address(this) so this test can call the onlyOwner admin functions.
-        verifier = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION);
+        verifier = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
     }
 
     // ---------------------------------------------------------------
@@ -146,11 +146,11 @@ contract SgxVerifierTest is Test {
 
     function test_constructor_RevertWhen_ChainIdZero() external {
         vm.expectRevert(SgxVerifier.SGX_INVALID_CHAIN_ID.selector);
-        new SgxVerifier(0, address(this), ATTESTATION);
+        new SgxVerifier(0, address(this), ATTESTATION, address(0));
     }
 
     function test_constructor_enablesLocalReportCheckByDefault() external {
-        SgxVerifier v = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION);
+        SgxVerifier v = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
         assertTrue(v.checkLocalEnclaveReport());
     }
 
@@ -206,22 +206,50 @@ contract SgxVerifierTest is Test {
         assertEq(uint256(uint8(TCBStatus.TCB_UNRECOGNIZED)), 7);
     }
 
-    function test_registerInstance_forwardsAttestationFee() external {
+    function test_registerInstance_doesNotForwardValue() external {
         _trustStandardEnclave();
         address instance = address(0xBEEF);
-        uint256 fee = 1 ether;
-        vm.deal(address(this), fee);
         bytes memory quote = _mockValidQuote(instance);
 
-        // msg.value must be forwarded to the entrypoint so a non-zero fee (if ever configured on
-        // the entrypoint) is payable rather than bricking every registration.
+        // The entrypoint must be called with zero value: it runs feeless and registerInstance is
+        // non-payable, so no ETH is ever forwarded.
         vm.expectCall(
             ATTESTATION,
-            fee,
+            0,
             abi.encodeWithSelector(IDcapAttestation.verifyAndAttestOnChain.selector, quote)
         );
-        verifier.registerInstance{ value: fee }(quote);
+        verifier.registerInstance(quote);
         assertTrue(verifier.addressRegistered(instance));
+    }
+
+    // ---------------------------------------------------------------
+    // registerInstance — registrar gating
+    // ---------------------------------------------------------------
+
+    function test_registerInstance_AllowsRegistrarWhenSet() external {
+        address registrar = address(0x5151);
+        SgxVerifier gated = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+        gated.setMrEnclave(MR_ENCLAVE, true);
+        gated.setMrSigner(MR_SIGNER, true);
+
+        address instance = address(0xC0FFEE);
+        bytes memory quote = _mockValidQuote(instance);
+
+        vm.prank(registrar);
+        uint256 id = gated.registerInstance(quote);
+        assertEq(id, 0);
+        assertTrue(gated.addressRegistered(instance));
+    }
+
+    function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
+        address registrar = address(0x5151);
+        SgxVerifier gated = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+
+        // The registrar gate reverts before any attestation work, so no entrypoint mock is needed.
+        bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xC0FFEE));
+        vm.expectRevert(SgxVerifier.SGX_NOT_REGISTRAR.selector);
+        vm.prank(address(0xBAD));
+        gated.registerInstance(quote);
     }
 
     // ---------------------------------------------------------------
@@ -296,7 +324,7 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_RevertWhen_NoAttestationEntrypoint() external {
         // A verifier deployed without an attestation entrypoint (e.g. a dummy deployment).
-        SgxVerifier dummy = new SgxVerifier(CHAIN_ID, address(this), address(0));
+        SgxVerifier dummy = new SgxVerifier(CHAIN_ID, address(this), address(0), address(0));
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         dummy.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
     }
