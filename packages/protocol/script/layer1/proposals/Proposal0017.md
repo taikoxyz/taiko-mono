@@ -39,7 +39,8 @@ The SignalService upgrade must execute before the Bridge action so old forged ch
 unreachable before retriable message cleanup. The new Bridge and ERC20Vault implementations are
 deployed with the existing QuotaManager proxy address, which this proposal upgrades first. The new
 `QUOTA_MANAGER_NEW_IMPL` must be UUPS-compatible because the live proxy upgrade path checks
-`proxiableUUID()`.
+`proxiableUUID()`. The upgrade preserves the live proxy storage layout and does not reset existing
+quota limits or the current quota period.
 
 ### Group Two: Restore the Proving System
 
