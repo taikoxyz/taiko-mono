@@ -32,7 +32,7 @@ contract TestBridge2Base is CommonTest {
         eBridge = deployBridge(
             address(
                 new Bridge(
-                    address(resolver), address(eSignalService), getQuotaManager(), address(0)
+                    address(resolver), address(eSignalService), getQuotaManager(), getPauser()
                 )
             )
         );
@@ -40,6 +40,10 @@ contract TestBridge2Base is CommonTest {
     }
 
     function getQuotaManager() internal virtual returns (address) {
+        return address(0);
+    }
+
+    function getPauser() internal virtual returns (address) {
         return address(0);
     }
 

@@ -30,8 +30,8 @@ contract MainnetBridge is Bridge {
     /// @param _resolver The address of the resolver contract.
     /// @param _signalService The address of the signal service contract.
     /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
-    /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
-    /// zero).
+    /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
+    /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
     constructor(
         address _resolver,
         address _signalService,
