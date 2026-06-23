@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/console2.sol";
 import "script/BaseScript.sol";
-import { BaseSgxVerifier } from "src/layer1/verifiers/BaseSgxVerifier.sol";
+import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 
 /// @title ConfigureSgxVerifier
 /// @notice Minimal script to configure the SGX verifier: the trusted MRENCLAVE/MRSIGNER allowlist,
@@ -11,14 +11,14 @@ import { BaseSgxVerifier } from "src/layer1/verifiers/BaseSgxVerifier.sol";
 /// @dev TCB info and QE identity are no longer configured on-chain by Taiko; they are sourced from
 /// Automata's on-chain PCCS through the DCAP attestation entrypoint. The MRENCLAVE/MRSIGNER
 /// allowlist now lives on the SGX verifier (previously on `AutomataDcapV3Attestation`). The config
-/// functions called here live on the abstract `BaseSgxVerifier`, so any concrete subclass
+/// functions called here live on the abstract `SgxVerifier`, so any concrete subclass
 /// (Mainnet/Testnet) can be configured through this base type.
 /// @custom:security-contact security@taiko.xyz
 contract ConfigureSgxVerifier is BaseScript {
     function run() external broadcast {
         address sgxVerifierAddr = vm.envAddress("SGX_VERIFIER_ADDRESS");
         require(sgxVerifierAddr != address(0), "SGX_VERIFIER_ADDRESS not set");
-        BaseSgxVerifier sgxVerifier = BaseSgxVerifier(sgxVerifierAddr);
+        SgxVerifier sgxVerifier = SgxVerifier(sgxVerifierAddr);
 
         console2.log("=== Configuring SGX Verifier ===");
         console2.log("SGX Verifier:", address(sgxVerifier));
