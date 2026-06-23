@@ -102,6 +102,11 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         _;
     }
 
+    /// @notice Initializes the bridge's immutable state.
+    /// @param _resolver The address of the resolver contract.
+    /// @param _signalService The address of the signal service contract.
+    /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
+    /// zero).
     constructor(
         address _resolver,
         address _signalService,
