@@ -126,6 +126,21 @@ contract TestQuotaManager is CommonTest {
         assertEq(qm.availableQuota(Ether, hugeLeap), type(uint104).max);
     }
 
+    function test_quota_manager_no_overflow_with_max_leap() public {
+        address Ether = address(0);
+
+        vm.prank(deployer);
+        qm.updateQuota(Ether, type(uint104).max);
+
+        // Set a non-zero `updatedAt` so the issuance branch (not the early return) is taken.
+        vm.prank(bridge);
+        qm.consumeQuota(Ether, 1);
+
+        // A `_leap` near uint256 max must not overflow the `block.timestamp + _leap` addition.
+        // The lookahead saturates at `quotaPeriod`, so the fully restored quota is reported.
+        assertEq(qm.availableQuota(Ether, type(uint256).max), type(uint104).max);
+    }
+
     function test_calc_quota() public pure {
         uint24 quotaPeriod = 24 hours;
         uint104 value = 4_000_000; // USD
