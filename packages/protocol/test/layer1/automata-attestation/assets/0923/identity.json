@@ -1,0 +1,78 @@
+{
+  "enclaveIdentity": {
+    "id": "QE",
+    "version": 2,
+    "issueDate": "2024-01-03T01:56:45Z",
+    "nextUpdate": "2024-02-02T01:56:45Z",
+    "tcbEvaluationDataNumber": 16,
+    "miscselect": "00000000",
+    "miscselectMask": "FFFFFFFF",
+    "attributes": "11000000000000000000000000000000",
+    "attributesMask": "FBFFFFFFFFFFFFFF0000000000000000",
+    "mrsigner": "8C4F5775D796503E96137F77C68A829A0056AC8DED70140B081B094490C57BFF",
+    "isvprodid": 1,
+    "tcbLevels": [
+      {
+        "tcb": {
+          "isvsvn": 8
+        },
+        "tcbDate": "2023-08-09T00:00:00Z",
+        "tcbStatus": "UpToDate"
+      },
+      {
+        "tcb": {
+          "isvsvn": 6
+        },
+        "tcbDate": "2021-11-10T00:00:00Z",
+        "tcbStatus": "OutOfDate",
+        "advisoryIDs": ["INTEL-SA-00615"]
+      },
+      {
+        "tcb": {
+          "isvsvn": 5
+        },
+        "tcbDate": "2020-11-11T00:00:00Z",
+        "tcbStatus": "OutOfDate",
+        "advisoryIDs": ["INTEL-SA-00477", "INTEL-SA-00615"]
+      },
+      {
+        "tcb": {
+          "isvsvn": 4
+        },
+        "tcbDate": "2019-11-13T00:00:00Z",
+        "tcbStatus": "OutOfDate",
+        "advisoryIDs": ["INTEL-SA-00334", "INTEL-SA-00477", "INTEL-SA-00615"]
+      },
+      {
+        "tcb": {
+          "isvsvn": 2
+        },
+        "tcbDate": "2019-05-15T00:00:00Z",
+        "tcbStatus": "OutOfDate",
+        "advisoryIDs": [
+          "INTEL-SA-00219",
+          "INTEL-SA-00293",
+          "INTEL-SA-00334",
+          "INTEL-SA-00477",
+          "INTEL-SA-00615"
+        ]
+      },
+      {
+        "tcb": {
+          "isvsvn": 1
+        },
+        "tcbDate": "2018-08-15T00: 00: 00Z",
+        "tcbStatus": "OutOfDate",
+        "advisoryIDs": [
+          "INTEL-SA-00202",
+          "INTEL-SA-00219",
+          "INTEL-SA-00293",
+          "INTEL-SA-00334",
+          "INTEL-SA-00477",
+          "INTEL-SA-00615"
+        ]
+      }
+    ]
+  },
+  "signature": "510deee07e2ca622264c87e8324351a3c3faf7679ee13efa2883d4cc30373c6f51e45f1fc95c983410bf66604f1ee218a3ee6c8e279367a1991f40cba53aff9b"
+}

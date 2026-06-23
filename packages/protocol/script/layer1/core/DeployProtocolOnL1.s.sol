@@ -15,7 +15,7 @@ import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import { MainnetSgxVerifier } from "src/layer1/verifiers/MainnetSgxVerifier.sol";
+import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol";
@@ -60,7 +60,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         bool useDummyVerifiers;
         bool pauseBridge;
         // When true, deploy the lenient TestnetSgxVerifier; otherwise deploy the strict
-        // MainnetSgxVerifier. The secure default (false) selects the strict mainnet policy.
+        // SgxVerifier. The secure default (false) selects the strict mainnet policy.
         bool useTestnetSgxPolicy;
     }
 
@@ -123,7 +123,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
         // Secure default: when TESTNET_SGX_VERIFIER is unset or false, deploy the strict
-        // MainnetSgxVerifier. Only an explicit true selects the lenient TestnetSgxVerifier.
+        // SgxVerifier. Only an explicit true selects the lenient TestnetSgxVerifier.
         config.useTestnetSgxPolicy = vm.envOr("TESTNET_SGX_VERIFIER", false);
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
@@ -149,7 +149,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy SGX verifiers. The registrar is set to address(0), leaving registerInstance
         // permissionless; set a non-zero registrar to restrict instance registration. The strict
-        // MainnetSgxVerifier is the secure default; only when `useTestnetSgxPolicy` is true is the
+        // SgxVerifier is the secure default; only when `useTestnetSgxPolicy` is true is the
         // lenient TestnetSgxVerifier deployed.
         verifiers.sgx = config.useTestnetSgxPolicy
             ? address(
@@ -158,7 +158,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
             : address(
-                new MainnetSgxVerifier(
+                new SgxVerifier(
                     config.l2ChainId, config.contractOwner, automataDcap, address(0)
                 )
             );
@@ -171,7 +171,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
             : address(
-                new MainnetSgxVerifier(
+                new SgxVerifier(
                     config.l2ChainId, config.contractOwner, automataDcap, address(0)
                 )
             );

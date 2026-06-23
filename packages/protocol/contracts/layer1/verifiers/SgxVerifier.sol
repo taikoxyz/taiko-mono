@@ -4,10 +4,10 @@ pragma solidity ^0.8.26;
 import { BaseSgxVerifier } from "./BaseSgxVerifier.sol";
 import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
 
-/// @title MainnetSgxVerifier
+/// @title SgxVerifier
 /// @notice SGX verifier with the strict TCB-status acceptance policy intended for mainnet.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetSgxVerifier is BaseSgxVerifier {
+contract SgxVerifier is BaseSgxVerifier {
     constructor(
         uint64 _taikoChainId,
         address _owner,

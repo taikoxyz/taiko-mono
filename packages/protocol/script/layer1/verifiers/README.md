@@ -226,6 +226,6 @@ The script interacts with these `SgxVerifier` functions:
 ## See Also
 
 - [BaseSgxVerifier.sol](../../../contracts/layer1/verifiers/BaseSgxVerifier.sol)
-- [MainnetSgxVerifier.sol](../../../contracts/layer1/verifiers/MainnetSgxVerifier.sol)
+- [SgxVerifier.sol](../../../contracts/layer1/verifiers/SgxVerifier.sol)
 - [TestnetSgxVerifier.sol](../../../contracts/layer1/verifiers/TestnetSgxVerifier.sol)
 - [IDcapAttestation.sol](../../../contracts/layer1/verifiers/IDcapAttestation.sol)

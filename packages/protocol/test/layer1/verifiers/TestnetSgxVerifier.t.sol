@@ -9,7 +9,7 @@ import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol"
 
 /// @title TestnetSgxVerifierTest
 /// @notice Unit tests for the lenient TCB-status acceptance policy of TestnetSgxVerifier. All shared
-/// logic is covered by SgxVerifierTest against the MainnetSgxVerifier; this file only asserts the
+/// logic is covered by SgxVerifierTest against the SgxVerifier; this file only asserts the
 /// policy delta: the testnet verifier additionally accepts out-of-date and config-and-sw-hardening
 /// platforms, while still rejecting the configuration-needed, revoked, and unrecognized statuses.
 /// @custom:security-contact security@taiko.xyz
