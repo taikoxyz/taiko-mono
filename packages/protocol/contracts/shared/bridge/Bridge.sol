@@ -8,7 +8,6 @@ import "../libs/LibNames.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
-import "./IEthMinter.sol";
 
 import "./Bridge_Layout.sol"; // DO NOT DELETE
 
@@ -17,7 +16,7 @@ import "./Bridge_Layout.sol"; // DO NOT DELETE
 /// @dev Labeled in address resolver as "bridge". Additionally, the code hash for the same address
 /// on L1 and L2 may be different.
 /// @custom:security-contact security@taiko.xyz
-contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
+contract Bridge is EssentialResolverContract, IBridge {
     using LibMath for uint256;
     using LibAddress for address;
 
@@ -30,11 +29,6 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     /// @dev A debug event for fine-tuning gas related constants in the future.
     event MessageProcessed(bytes32 indexed msgHash, Message message, ProcessingStats stats);
-
-    /// @notice Emitted when an ETH minter is enabled or disabled.
-    /// @param ethMinter The address of the ETH minter.
-    /// @param enabled The enabled status.
-    event EthMinterSet(address indexed ethMinter, bool enabled);
 
     /// @dev The amount of gas that will be deducted from message.gasLimit before calculating the
     /// invocation gas limit. This value should be fine-tuned with production data.
@@ -84,9 +78,7 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
     /// @dev Slot 6.
     uint256 private __reserved3;
 
-    /// @dev Slot 7.
-    mapping(address ethMinter => bool enabled) public isEthMinter;
-    uint256[43] private __gap;
+    uint256[44] private __gap;
 
     // ---------------------------------------------------------------
     // Modifiers
@@ -134,6 +126,18 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
         __reserved1 = 0;
         __reserved2 = 0;
         __reserved3 = 0;
+    }
+
+    /// @notice Invalidates stale bridge messages by marking them done.
+    /// @dev Intended for one-time recovery on already deployed contracts. Each listed message hash
+    /// is force-marked as `DONE`, preventing retries and later processing as a new message.
+    /// @param _msgHashes The hashes of the messages to invalidate.
+    function init3(bytes32[] calldata _msgHashes) external onlyOwner reinitializer(3) {
+        if (_msgHashes.length == 0) revert B_INVALID_VALUE();
+        for (uint256 i; i < _msgHashes.length; ++i) {
+            messageStatus[_msgHashes[i]] = Status.DONE;
+            emit MessageStatusChanged(_msgHashes[i], Status.DONE);
+        }
     }
 
     /// @inheritdoc IBridge
@@ -372,33 +376,6 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
         _updateMessageStatus(msgHash, Status.FAILED);
         signalService.sendSignal(signalForFailedMessage(msgHash));
-    }
-
-    /// @notice Sets the enabled status of an ETH minter.
-    /// @param _ethMinter The address of the ETH minter.
-    /// @param _enabled The enabled status.
-    function setEthMinter(address _ethMinter, bool _enabled) external onlyOwner {
-        if (_ethMinter == address(0)) revert ZERO_ADDRESS();
-        if (isEthMinter[_ethMinter] == _enabled) revert B_INVALID_STATUS();
-        isEthMinter[_ethMinter] = _enabled;
-        emit EthMinterSet(_ethMinter, _enabled);
-    }
-
-    /// @inheritdoc IEthMinter
-    function mintEth(
-        address _recipient,
-        uint256 _amount
-    )
-        external
-        whenNotPaused
-        nonReentrant
-    {
-        if (_recipient == address(0)) revert ZERO_ADDRESS();
-        if (_recipient == address(this)) revert B_INVALID_MINT_RECIPIENT();
-        if (_amount == 0) revert B_INVALID_VALUE();
-        if (!isEthMinter[msg.sender]) revert B_INVALID_ETH_MINTER();
-        _recipient.sendEtherAndVerify(_amount, _SEND_ETHER_GAS_LIMIT);
-        emit EthMinted(_recipient, _amount);
     }
 
     /// @notice Checks if a msgHash has failed on its destination chain.
@@ -724,10 +701,8 @@ contract Bridge is EssentialResolverContract, IBridge, IEthMinter {
 
     error B_INVALID_CHAINID();
     error B_INVALID_CONTEXT();
-    error B_INVALID_ETH_MINTER();
     error B_INVALID_FEE();
     error B_INVALID_GAS_LIMIT();
-    error B_INVALID_MINT_RECIPIENT();
     error B_INVALID_STATUS();
     error B_INVALID_VALUE();
     error B_MESSAGE_NOT_SENT();

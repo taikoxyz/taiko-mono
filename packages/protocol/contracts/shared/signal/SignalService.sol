@@ -43,6 +43,15 @@ contract SignalService is EssentialContract, ISignalService {
     address public immutable pauser;
 
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice Version of the received-signal cache and checkpoint mappings.
+    /// @dev Bumping this value in a future implementation invalidates old cached signals and
+    /// checkpoints without touching the old storage slots.
+    uint256 public constant VERSION = 1;
+
+    // ---------------------------------------------------------------
     // Storage variables
     // ---------------------------------------------------------------
 
@@ -51,14 +60,17 @@ contract SignalService is EssentialContract, ISignalService {
     // slot2: isAuthorized
     uint256[2] private _slotsUsedByPacaya;
 
-    /// @dev Cache for received signals.
+    /// @dev Cache for received signals, namespaced by VERSION so a version bump invalidates cache
+    /// entries together with the checkpoints they were derived from.
     /// @dev Once written, subsequent verifications can skip the merkle proof validation.
     /// Does NOT reuse the pacaya slot.
-    mapping(bytes32 signalSlot => bool received) internal _receivedSignals;
+    mapping(uint256 version => mapping(bytes32 signalSlot => bool received)) internal
+        _receivedSignals;
 
     /// @notice Storage for checkpoints persisted via the SignalService.
-    /// @dev Maps block number to checkpoint data
-    mapping(uint48 blockNumber => CheckpointRecord checkpoint) private _checkpoints;
+    /// @dev Maps checkpoint version => block number => checkpoint data.
+    mapping(uint256 version => mapping(uint48 blockNumber => CheckpointRecord checkpoint)) private
+        _checkpoints;
 
     uint256[46] private __gap;
 
@@ -110,7 +122,7 @@ contract SignalService is EssentialContract, ISignalService {
         returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
-        _receivedSignals[getSignalSlot(_chainId, _app, _signal)] = true;
+        _receivedSignals[VERSION][getSignalSlot(_chainId, _app, _signal)] = true;
         return 0;
     }
 
@@ -164,7 +176,7 @@ contract SignalService is EssentialContract, ISignalService {
         if (_checkpoint.stateRoot == bytes32(0)) revert SS_INVALID_CHECKPOINT();
         if (_checkpoint.blockHash == bytes32(0)) revert SS_INVALID_CHECKPOINT();
 
-        _checkpoints[_checkpoint.blockNumber] = CheckpointRecord({
+        _checkpoints[VERSION][_checkpoint.blockNumber] = CheckpointRecord({
             blockHash: _checkpoint.blockHash, stateRoot: _checkpoint.stateRoot
         });
 
@@ -196,7 +208,7 @@ contract SignalService is EssentialContract, ISignalService {
         view
         returns (Checkpoint memory checkpoint_)
     {
-        CheckpointRecord storage record = _checkpoints[_blockNumber];
+        CheckpointRecord storage record = _checkpoints[VERSION][_blockNumber];
         bytes32 blockHash = record.blockHash;
         if (blockHash == bytes32(0)) revert SS_CHECKPOINT_NOT_FOUND();
 
@@ -252,7 +264,7 @@ contract SignalService is EssentialContract, ISignalService {
 
         bytes32 slot = getSignalSlot(_chainId, _app, _signal);
         if (_proof.length == 0) {
-            require(_receivedSignals[slot], SS_SIGNAL_NOT_RECEIVED());
+            require(_receivedSignals[VERSION][slot], SS_SIGNAL_NOT_RECEIVED());
             return;
         }
 
