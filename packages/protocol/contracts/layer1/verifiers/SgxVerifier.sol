@@ -91,6 +91,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_FORBIDDEN_ATTRIBUTES();
     error SGX_INVALID_TCB_STATUS();
     error SGX_NOT_REGISTRAR();
+    error SGX_UNTRUSTED_ENCLAVE();
 
     constructor(
         uint64 _taikoChainId,
@@ -155,6 +156,17 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(
             _attestation.localEnclaveReport.attributes & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0),
             SGX_FORBIDDEN_ATTRIBUTES()
+        );
+
+        // Defense in depth: independently require the attested application enclave measurement
+        // (MRENCLAVE) to be on the attestation's trusted allowlist. `verifyParsedQuote` above
+        // authenticates `localEnclaveReport` against the Intel-rooted quote signature, so this binds
+        // the registered signer to an approved prover enclave even if the attestation contract were
+        // ever misconfigured to skip its own enclave-identity check.
+        require(
+            IAttestation(automataDcapAttestation)
+                .isMrEnclaveTrusted(_attestation.localEnclaveReport.mrEnclave),
+            SGX_UNTRUSTED_ENCLAVE()
         );
 
         address[] memory addresses = new address[](1);

@@ -13,6 +13,9 @@ import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 contract MockAttestation is IAttestation {
     bool private _shouldSucceed;
     uint8 private _tcbStatus;
+    // Default to trusting the enclave so the happy-path tests, which use zero-valued MRENCLAVE
+    // quotes, pass the verifier's defense-in-depth check.
+    bool private _enclaveTrusted = true;
 
     function setResult(bool _result) external {
         _shouldSucceed = _result;
@@ -20,6 +23,10 @@ contract MockAttestation is IAttestation {
 
     function setTcbStatus(uint8 _status) external {
         _tcbStatus = _status;
+    }
+
+    function setEnclaveTrusted(bool _trusted) external {
+        _enclaveTrusted = _trusted;
     }
 
     function verifyAttestation(bytes calldata) external view override returns (bool) {
@@ -35,6 +42,10 @@ contract MockAttestation is IAttestation {
         // Mirror AutomataDcapV3Attestation: on a successful verification the return data is
         // abi.encodePacked(sha256(quote), uint8 tcbStatus), so the TCB status is the 33rd byte.
         return (_shouldSucceed, abi.encodePacked(sha256(abi.encode(_quote)), _tcbStatus));
+    }
+
+    function isMrEnclaveTrusted(bytes32) external view override returns (bool) {
+        return _enclaveTrusted;
     }
 }
 
@@ -127,6 +138,16 @@ abstract contract SgxVerifierTestBase is Test {
 
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(_makeQuote(newInstance));
+    }
+
+    function test_registerInstance_RevertWhen_EnclaveUntrusted() external {
+        // Even with a fully valid attestation, an enclave whose MRENCLAVE is not on the trusted
+        // allowlist must not be registered as a proof signer.
+        attestation.setResult(true);
+        attestation.setEnclaveTrusted(false);
+
+        vm.expectRevert(SgxVerifier.SGX_UNTRUSTED_ENCLAVE.selector);
+        verifier.registerInstance(_makeQuote(address(0xC0FFEE)));
     }
 
     function test_registerInstance_RevertWhen_DebugModeEnabled() external {

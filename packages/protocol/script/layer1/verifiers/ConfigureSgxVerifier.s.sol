@@ -46,10 +46,6 @@ contract ConfigureSgxVerifier is BaseScript, AttestationBase {
             _registerInstance();
         }
 
-        if (vm.envOr("TOGGLE_CHECK", false)) {
-            _toggleCheck();
-        }
-
         console2.log("=== Configuration Complete ===");
     }
 
@@ -108,12 +104,6 @@ contract ConfigureSgxVerifier is BaseScript, AttestationBase {
 
         console2.log("Registering SGX instance");
         registerSgxInstanceWithQuoteBytes(pemCertLib, sgxVerifierAddr, quoteBytes);
-        console2.log("  Done");
-    }
-
-    function _toggleCheck() internal {
-        console2.log("Toggling local report check");
-        toggleCheckQuoteValidity(attestationAddr);
         console2.log("  Done");
     }
 

@@ -27,7 +27,6 @@ Options:
   --qeid PATH                   Configure QE Identity from JSON file
   --tcb PATH                    Configure TCB Info from JSON file (can repeat)
   --quote HEX                   Register instance with quote bytes (requires PEM_CERTCHAIN_ADDRESS)
-  --toggle-check                Toggle local enclave report check
 
 Available Environments:
   dev-ontake, dev-pacaya, dev-sgxgeth         - Development networks
@@ -137,7 +136,6 @@ SET_MRSIGNER=false
 CONFIG_QEID=false
 CONFIG_TCB=false
 REGISTER_INSTANCE=false
-TOGGLE_CHECK=false
 TCB_PATHS=""
 MRENCLAVE_ENABLE=true
 MRSIGNER_ENABLE=true
@@ -195,10 +193,6 @@ while [[ $# -gt 0 ]]; do
             REGISTER_INSTANCE=true
             shift 2
             ;;
-        --toggle-check)
-            TOGGLE_CHECK=true
-            shift
-            ;;
         *)
             echo "Unknown option: $1"
             usage
@@ -219,7 +213,6 @@ export SET_MRSIGNER=$SET_MRSIGNER
 export CONFIG_QEID=$CONFIG_QEID
 export CONFIG_TCB=$CONFIG_TCB
 export REGISTER_INSTANCE=$REGISTER_INSTANCE
-export TOGGLE_CHECK=$TOGGLE_CHECK
 export MRENCLAVE_ENABLE=$MRENCLAVE_ENABLE
 export MRSIGNER_ENABLE=$MRSIGNER_ENABLE
 export TCB_PATHS="$TCB_PATHS"

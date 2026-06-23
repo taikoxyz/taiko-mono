@@ -34,7 +34,9 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     ISigVerifyLib public sigVerifyLib; // slot 1
     IPEMCertChainLib public pemCertLib; // slot 2
 
-    bool public checkLocalEnclaveReport; // slot 3
+    /// @dev Deprecated. Application enclave identity (MRENCLAVE) is now ALWAYS enforced and can no
+    /// longer be toggled off; this slot is retained only to preserve the upgradeable storage layout.
+    bool private __deprecatedCheckLocalEnclaveReport; // slot 3
     mapping(bytes32 enclave => bool trusted) public trustedUserMrEnclave; // slot 4
     mapping(bytes32 signer => bool trusted) public trustedUserMrSigner; // slot 5
 
@@ -49,13 +51,18 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     mapping(string fmspc => TCBInfoStruct.TCBInfo tcbInfo) public tcbInfo; // slot 7
     EnclaveIdStruct.EnclaveId public qeIdentity; // takes 4 slots, slot 8,9,10,11
 
-    uint256[39] __gap;
+    /// @notice The number of distinct trusted MRSIGNER values currently configured.
+    /// @dev When zero, MRSIGNER enforcement is skipped (MRENCLAVE alone pins identity); once any
+    /// trusted MRSIGNER is configured, every quote must carry a trusted MRSIGNER. Maintained by
+    /// {setMrSigner}.
+    uint256 public trustedMrSignerCount;
+
+    uint256[38] __gap;
 
     event MrSignerUpdated(bytes32 indexed mrSigner, bool trusted);
     event MrEnclaveUpdated(bytes32 indexed mrEnclave, bool trusted);
     event TcbInfoJsonConfigured(string indexed fmspc, TCBInfoStruct.TCBInfo tcbInfoInput);
     event QeIdentityConfigured(EnclaveIdStruct.EnclaveId qeIdentityInput);
-    event LocalReportCheckToggled(bool checkLocalEnclaveReport);
     event RevokedCertSerialNumAdded(uint256 indexed index, bytes serialNum);
     event RevokedCertSerialNumRemoved(uint256 indexed index, bytes serialNum);
 
@@ -76,7 +83,15 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
     }
 
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
+        if (trustedUserMrSigner[_mrSigner] == _trusted) return;
         trustedUserMrSigner[_mrSigner] = _trusted;
+        // Keep the count in sync so MRSIGNER enforcement auto-activates once any signer is trusted
+        // and auto-deactivates when the last one is removed.
+        if (_trusted) {
+            ++trustedMrSignerCount;
+        } else {
+            --trustedMrSignerCount;
+        }
         emit MrSignerUpdated(_mrSigner, _trusted);
     }
 
@@ -140,11 +155,6 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         emit QeIdentityConfigured(qeIdentityInput);
     }
 
-    function toggleLocalReportCheck() external onlyOwner {
-        checkLocalEnclaveReport = !checkLocalEnclaveReport;
-        emit LocalReportCheckToggled(checkLocalEnclaveReport);
-    }
-
     function _attestationTcbIsValid(TCBInfoStruct.TCBStatus status)
         internal
         pure
@@ -160,6 +170,11 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
 
     function verifyAttestation(bytes calldata data) external view override returns (bool success) {
         (success,) = _verify(data);
+    }
+
+    /// @inheritdoc IAttestation
+    function isMrEnclaveTrusted(bytes32 _mrEnclave) external view override returns (bool) {
+        return trustedUserMrEnclave[_mrEnclave];
     }
 
     /// @dev Provide the raw quote binary as input
@@ -402,16 +417,21 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
             return (false, retData);
         }
 
-        // Step 2: Verify application enclave report MRENCLAVE and MRSIGNER
+        // Step 2: Verify application enclave report MRENCLAVE and MRSIGNER.
+        // MRENCLAVE pins the exact prover enclave binary and is ALWAYS enforced: a quote whose
+        // MRENCLAVE is not on the trusted allowlist is rejected. This fails closed when the
+        // allowlist is empty, so the attestation can never accept an arbitrary enclave. MRSIGNER is
+        // a supplementary signer identity, enforced only once at least one trusted MRSIGNER has been
+        // configured, so deployments that pin identity via MRENCLAVE alone are unaffected.
         {
-            if (checkLocalEnclaveReport) {
-                // 4k gas
-                bool mrEnclaveIsTrusted = trustedUserMrEnclave[v3quote.localEnclaveReport.mrEnclave];
-                bool mrSignerIsTrusted = trustedUserMrSigner[v3quote.localEnclaveReport.mrSigner];
-
-                if (!mrEnclaveIsTrusted || !mrSignerIsTrusted) {
-                    return (false, retData);
-                }
+            if (!trustedUserMrEnclave[v3quote.localEnclaveReport.mrEnclave]) {
+                return (false, retData);
+            }
+            if (
+                trustedMrSignerCount != 0
+                    && !trustedUserMrSigner[v3quote.localEnclaveReport.mrSigner]
+            ) {
+                return (false, retData);
             }
         }
 
