@@ -133,6 +133,13 @@ contract SgxVerifierTest is Test {
         return _mockQuote(false, MR_ENCLAVE, MR_SIGNER, instance, 3, 1, TCB_OK);
     }
 
+    /// @dev Trusts the standard MRENCLAVE/MRSIGNER so registrations pass the allowlist, which is
+    /// enforced by default (checkLocalEnclaveReport == true).
+    function _trustStandardEnclave() internal {
+        verifier.setMrEnclave(MR_ENCLAVE, true);
+        verifier.setMrSigner(MR_SIGNER, true);
+    }
+
     // ---------------------------------------------------------------
     // constructor
     // ---------------------------------------------------------------
@@ -142,11 +149,17 @@ contract SgxVerifierTest is Test {
         new SgxVerifier(0, address(this), ATTESTATION);
     }
 
+    function test_constructor_enablesLocalReportCheckByDefault() external {
+        SgxVerifier v = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION);
+        assertTrue(v.checkLocalEnclaveReport());
+    }
+
     // ---------------------------------------------------------------
     // registerInstance — happy path
     // ---------------------------------------------------------------
 
     function test_registerInstance_succeeds() external {
+        _trustStandardEnclave();
         address instance = address(0xBEEF);
         bytes memory quote = _mockValidQuote(instance);
 
@@ -163,6 +176,7 @@ contract SgxVerifierTest is Test {
     }
 
     function test_registerInstance_acceptsAllAllowedTcbStatuses() external {
+        _trustStandardEnclave();
         uint8[5] memory ok = [
             TCB_OK,
             TCB_SW_HARDENING,
@@ -193,6 +207,7 @@ contract SgxVerifierTest is Test {
     }
 
     function test_registerInstance_forwardsAttestationFee() external {
+        _trustStandardEnclave();
         address instance = address(0xBEEF);
         uint256 fee = 1 ether;
         vm.deal(address(this), fee);
@@ -287,6 +302,7 @@ contract SgxVerifierTest is Test {
     }
 
     function test_registerInstance_RevertWhen_DuplicateInstance() external {
+        _trustStandardEnclave();
         address instance = address(0xBEEF);
         bytes memory quote = _mockValidQuote(instance);
         verifier.registerInstance(quote);
@@ -296,6 +312,7 @@ contract SgxVerifierTest is Test {
     }
 
     function test_registerInstance_RevertWhen_InstanceZeroAddress() external {
+        _trustStandardEnclave();
         // reportData -> instance == address(0); _addInstances rejects it.
         bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0), 3, 1, TCB_OK);
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
@@ -307,24 +324,24 @@ contract SgxVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_registerInstance_RevertWhen_AllowlistOnAndMrEnclaveUntrusted() external {
-        verifier.toggleLocalReportCheck();
-        verifier.setMrSigner(MR_SIGNER, true); // signer trusted, enclave not
+        // Allowlist is enforced by default; trust only the signer, not the enclave.
+        verifier.setMrSigner(MR_SIGNER, true);
         bytes memory quote = _mockValidQuote(address(0xBEEF));
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_AllowlistOnAndMrSignerUntrusted() external {
-        verifier.toggleLocalReportCheck();
-        verifier.setMrEnclave(MR_ENCLAVE, true); // enclave trusted, signer not
+        // Allowlist is enforced by default; trust only the enclave, not the signer.
+        verifier.setMrEnclave(MR_ENCLAVE, true);
         bytes memory quote = _mockValidQuote(address(0xBEEF));
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_WithAllowlist_succeeds() external {
+        // Allowlist is enforced by default; registration succeeds once both MR values are trusted.
         address instance = address(0xBEEF);
-        verifier.toggleLocalReportCheck();
         verifier.setMrEnclave(MR_ENCLAVE, true);
         verifier.setMrSigner(MR_SIGNER, true);
         bytes memory quote = _mockValidQuote(instance);
@@ -363,13 +380,14 @@ contract SgxVerifierTest is Test {
     }
 
     function test_toggleLocalReportCheck_togglesAndEmits() external {
-        assertFalse(verifier.checkLocalEnclaveReport());
+        // Enforced by default; first toggle disables it.
+        assertTrue(verifier.checkLocalEnclaveReport());
         vm.expectEmit();
-        emit SgxVerifier.LocalReportCheckToggled(true);
+        emit SgxVerifier.LocalReportCheckToggled(false);
+        verifier.toggleLocalReportCheck();
+        assertFalse(verifier.checkLocalEnclaveReport());
         verifier.toggleLocalReportCheck();
         assertTrue(verifier.checkLocalEnclaveReport());
-        verifier.toggleLocalReportCheck();
-        assertFalse(verifier.checkLocalEnclaveReport());
     }
 
     function test_toggleLocalReportCheck_RevertWhen_NotOwner() external {
