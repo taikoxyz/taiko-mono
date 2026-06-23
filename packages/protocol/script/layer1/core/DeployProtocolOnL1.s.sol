@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@p256-verifier/contracts/P256Verifier.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
-import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
-import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
@@ -57,6 +53,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
+        address automataDcap;
         bool useDummyVerifiers;
         bool pauseBridge;
     }
@@ -111,6 +108,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
+        // Taiko-owned Automata DCAP attestation entrypoint for the SGX verifiers. Deploy it first
+        // with DeployAutomataDcapAttestation (under FOUNDRY_PROFILE=layer1o) and pass its address
+        // here. Optional for dummy-verifier deployments, which don't exercise real attestation.
+        config.automataDcap = vm.envOr("DCAP_ATTESTATION", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
 
@@ -126,17 +127,22 @@ contract DeployProtocolOnL1 is DeployCapability {
         verifiers.op = address(new OpVerifier());
         console2.log("OpVerifier deployed:", verifiers.op);
 
-        // Deploy automata attestation for SGX
-        (address automataProxy, address sgxGethAutomataProxy) =
-            _deployAutomataAttestation(config.contractOwner);
+        // Taiko-owned Automata DCAP attestation entrypoint (deployed separately by
+        // DeployAutomataDcapAttestation), shared by both SGX verifier instances; each SgxVerifier
+        // enforces its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment). Required for
+        // real deployments; dummy deployments don't exercise real attestation.
+        address automataDcap = config.automataDcap;
+        if (!config.useDummyVerifiers) {
+            require(automataDcap != address(0), "DCAP_ATTESTATION not set");
+        }
 
         // Deploy SGX verifier
         verifiers.sgx =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
+            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap));
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
         verifiers.sgxGeth =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
+            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap));
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
@@ -347,37 +353,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(
             sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(erc1155Vault)))
         );
-    }
-
-    function _deployAutomataAttestation(address owner)
-        private
-        returns (address automataProxy, address automataProxySgxGeth)
-    {
-        // Deploy library dependencies
-        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
-        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
-
-        console2.log("SigVerifyLib deployed:", address(sigVerifyLib));
-        console2.log("PEMCertChainLib deployed:", address(pemCertChainLib));
-
-        // Deploy automata attestation proxy
-        automataProxy = deployProxy({
-            name: "automata_dcap_attestation",
-            impl: address(new AutomataDcapV3Attestation()),
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
-            )
-        });
-        // Deploy sgx-geth automata attestation proxy
-        automataProxySgxGeth = deployProxy({
-            name: "sgx_geth_automata_dcap_attestation",
-            impl: address(new AutomataDcapV3Attestation()),
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
-            )
-        });
     }
 
     function _deployZKVerifiers(
