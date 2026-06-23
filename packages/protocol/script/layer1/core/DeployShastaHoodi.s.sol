@@ -35,7 +35,7 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.sp1PlonkVerifier = 0x2a5A70409Ee9F057503a50E0F4614A6d8CcBb462;
 
         // Hoodi is a testnet: use the lenient TCB-status policy for liveness on dev hardware.
-        config.useTestnetSgxPolicy = true;
+        config.useInsecureSgxPolicy = true;
 
         // Load deployment-specific values from environment
         config.activator = vm.envAddress("ACTIVATOR");

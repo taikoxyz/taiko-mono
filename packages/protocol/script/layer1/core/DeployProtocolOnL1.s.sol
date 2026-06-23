@@ -59,7 +59,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         bool pauseBridge;
         // When true, deploy the lenient InsecureSgxVerifier; otherwise deploy the strict
         // SgxVerifier. The secure default (false) selects the strict mainnet policy.
-        bool useTestnetSgxPolicy;
+        bool useInsecureSgxPolicy;
     }
 
     modifier broadcast() {
@@ -118,9 +118,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.automataDcap = vm.envOr("DCAP_ATTESTATION", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
-        // Secure default: when TESTNET_SGX_VERIFIER is unset or false, deploy the strict
+        // Secure default: when INSECURE_SGX_VERIFIER is unset or false, deploy the strict
         // SgxVerifier. Only an explicit true selects the lenient InsecureSgxVerifier.
-        config.useTestnetSgxPolicy = vm.envOr("TESTNET_SGX_VERIFIER", false);
+        config.useInsecureSgxPolicy = vm.envOr("INSECURE_SGX_VERIFIER", false);
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
@@ -145,9 +145,9 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // Deploy SGX verifiers. The registrar is set to address(0), leaving registerInstance
         // permissionless; set a non-zero registrar to restrict instance registration. The strict
-        // SgxVerifier is the secure default; only when `useTestnetSgxPolicy` is true is the
+        // SgxVerifier is the secure default; only when `useInsecureSgxPolicy` is true is the
         // lenient InsecureSgxVerifier deployed.
-        verifiers.sgx = config.useTestnetSgxPolicy
+        verifiers.sgx = config.useInsecureSgxPolicy
             ? address(
                 new InsecureSgxVerifier(
                     config.l2ChainId, config.contractOwner, automataDcap, address(0)
@@ -160,7 +160,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
-        verifiers.sgxGeth = config.useTestnetSgxPolicy
+        verifiers.sgxGeth = config.useInsecureSgxPolicy
             ? address(
                 new InsecureSgxVerifier(
                     config.l2ChainId, config.contractOwner, automataDcap, address(0)

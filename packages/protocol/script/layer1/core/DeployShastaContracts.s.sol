@@ -44,7 +44,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         address signalServicePauser;
         // When true, deploy the lenient InsecureSgxVerifier; otherwise deploy the strict
         // SgxVerifier. The secure default (false) selects the strict mainnet policy.
-        bool useTestnetSgxPolicy;
+        bool useInsecureSgxPolicy;
     }
 
     modifier broadcast() {
@@ -148,10 +148,10 @@ abstract contract DeployShastaContracts is DeployCapability {
     {
         // The registrar is set to address(0), leaving registerInstance permissionless; set a
         // non-zero registrar to restrict instance registration. The strict SecureSgxVerifier is the
-        // secure default; only when `useTestnetSgxPolicy` is true is the lenient InsecureSgxVerifier
+        // secure default; only when `useInsecureSgxPolicy` is true is the lenient InsecureSgxVerifier
         // deployed.
         verifiers.sgxReth = _deploySgxVerifier(
-            config.useTestnetSgxPolicy,
+            config.useInsecureSgxPolicy,
             config.l2ChainId,
             config.contractOwner,
             config.sgxRethAutomataProxy
@@ -159,7 +159,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
         verifiers.sgxGeth = _deploySgxVerifier(
-            config.useTestnetSgxPolicy,
+            config.useInsecureSgxPolicy,
             config.l2ChainId,
             config.contractOwner,
             config.sgxGethAutomataProxy
@@ -178,10 +178,10 @@ abstract contract DeployShastaContracts is DeployCapability {
     }
 
     /// @dev Deploys an SGX verifier, selecting the strict SecureSgxVerifier by default and the
-    /// lenient InsecureSgxVerifier only when `useTestnetSgxPolicy` is true. The registrar is set to
+    /// lenient InsecureSgxVerifier only when `useInsecureSgxPolicy` is true. The registrar is set to
     /// address(0), leaving registerInstance permissionless.
     function _deploySgxVerifier(
-        bool useTestnetSgxPolicy,
+        bool useInsecureSgxPolicy,
         uint64 l2ChainId,
         address contractOwner,
         address automataProxy
@@ -189,7 +189,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         private
         returns (address)
     {
-        if (useTestnetSgxPolicy) {
+        if (useInsecureSgxPolicy) {
             return
                 address(
                     new InsecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0))

@@ -37,6 +37,6 @@ contract DeployShastaMainnet is DeployShastaContracts {
 
         // Mainnet MUST use the strict TCB-status policy (SecureSgxVerifier). Set explicitly for
         // clarity even though false is the default.
-        config.useTestnetSgxPolicy = false;
+        config.useInsecureSgxPolicy = false;
     }
 }
