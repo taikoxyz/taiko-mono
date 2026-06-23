@@ -29,9 +29,12 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @notice The expiry time for the SGX instance.
     uint64 public constant INSTANCE_EXPIRY = 365 days;
 
-    /// @notice A security feature, a delay until an instance is enabled when using onchain RA
-    /// verification
-    uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
+    /// @notice A security delay between permissionless registration via `registerInstance` and the
+    /// instance becoming usable for proof verification. It gives off-chain monitoring a window to
+    /// evict a rogue self-registered instance (via `deleteInstances`) before it can prove. Owner
+    /// registrations via `addInstances` are NOT delayed. Set once at construction (mainnet/testnet
+    /// deployments use 24 hours); it must not exceed `INSTANCE_EXPIRY`.
+    uint64 public immutable INSTANCE_VALIDITY_DELAY;
 
     /// @dev SGX ATTRIBUTES.FLAGS bits that a production application enclave must never set. In DCAP
     /// quote bytes the 16-byte ATTRIBUTES field is FLAGS (low 8 bytes, little-endian) followed by
@@ -95,17 +98,22 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_FORBIDDEN_ATTRIBUTES();
     error SGX_INVALID_TCB_STATUS();
     error SGX_NOT_REGISTRAR();
+    error SGX_INVALID_VALIDITY_DELAY();
 
     constructor(
         uint64 _taikoChainId,
         address _owner,
         address _automataDcapAttestation,
-        address _registrar
+        address _registrar,
+        uint64 _instanceValidityDelay
     ) {
         require(_taikoChainId != 0, SGX_INVALID_CHAIN_ID());
+        // A registration delay longer than the validity window itself is a misconfiguration.
+        require(_instanceValidityDelay <= INSTANCE_EXPIRY, SGX_INVALID_VALIDITY_DELAY());
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
         registrar = _registrar;
+        INSTANCE_VALIDITY_DELAY = _instanceValidityDelay;
 
         _transferOwnership(_owner);
     }

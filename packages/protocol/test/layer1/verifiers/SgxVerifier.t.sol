@@ -55,7 +55,7 @@ abstract contract SgxVerifierTestBase is Test {
     function setUp() external {
         attestation = new MockAttestation();
         // registrar is address(0): registerInstance is permissionless.
-        verifier = _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0));
+        verifier = _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), 0);
     }
 
     // ---------------------------------------------------------------
@@ -202,7 +202,7 @@ abstract contract SgxVerifierTestBase is Test {
     function test_registerInstance_AllowsRegistrarWhenSet() external {
         address registrar = address(0x5151);
         SgxVerifier gatedVerifier =
-            _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar);
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar, 0);
 
         attestation.setResult(true);
         address newInstance = address(0xC0FFEE);
@@ -221,7 +221,7 @@ abstract contract SgxVerifierTestBase is Test {
     function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
         address registrar = address(0x5151);
         SgxVerifier gatedVerifier =
-            _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar);
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar, 0);
 
         attestation.setResult(true);
 
@@ -286,6 +286,60 @@ abstract contract SgxVerifierTestBase is Test {
     }
 
     // ---------------------------------------------------------------
+    // Instance-validity delay
+    // ---------------------------------------------------------------
+
+    function test_registerInstance_AppliesValidityDelay() external {
+        uint64 delay = 24 hours;
+        SgxVerifier delayed =
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
+        attestation.setResult(true);
+
+        uint256 id = delayed.registerInstance(_makeQuote(address(0xC0FFEE)));
+        (, uint64 validSince) = delayed.instances(id);
+        assertEq(validSince, uint64(block.timestamp) + delay);
+    }
+
+    function test_addInstances_IgnoresValidityDelay() external {
+        uint64 delay = 24 hours;
+        SgxVerifier delayed =
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
+
+        address[] memory instances = new address[](1);
+        instances[0] = address(0xA11CE);
+        delayed.addInstances(instances);
+
+        // Owner registrations are trusted and take effect immediately, ignoring the delay.
+        (, uint64 validSince) = delayed.instances(0);
+        assertEq(validSince, uint64(block.timestamp));
+    }
+
+    function test_verifyProof_RevertWhen_WithinValidityDelay() external {
+        uint64 delay = 24 hours;
+        SgxVerifier delayed =
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
+        attestation.setResult(true);
+
+        uint256 key = 0xA11CE;
+        address instance = vm.addr(key);
+        uint256 id = delayed.registerInstance(_makeQuote(instance));
+
+        bytes32 aggregatedHash = bytes32(uint256(0x1234));
+        bytes32 signatureHash =
+            LibPublicInput.hashPublicInputs(aggregatedHash, address(delayed), instance, CHAIN_ID);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, signatureHash);
+        bytes memory proof = abi.encodePacked(uint32(id), bytes20(instance), r, s, v);
+
+        // Still inside the validity delay: the self-registered instance cannot prove yet.
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        delayed.verifyProof(0, aggregatedHash, proof);
+
+        // After the delay elapses, the same proof is accepted.
+        vm.warp(block.timestamp + delay);
+        delayed.verifyProof(0, aggregatedHash, proof);
+    }
+
+    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
@@ -294,7 +348,8 @@ abstract contract SgxVerifierTestBase is Test {
         uint64 _chainId,
         address _owner,
         address _attestation,
-        address _registrar
+        address _registrar,
+        uint64 _validityDelay
     )
         internal
         virtual
@@ -338,19 +393,25 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
     // Pin all 8 FLAGS bytes (XFRM left unchecked); require INIT|MODE64BIT and clear every other bit.
     bytes16 private constant STRICT_MASK = bytes16(0xffffffffffffffff0000000000000000);
     bytes16 private constant STRICT_EXPECTED = bytes16(0x05000000000000000000000000000000);
+    // A designated policy-remover used by the dedicated role tests.
+    address private constant POLICY_REMOVER = address(0x9111A40);
 
     function _deployVerifier(
         uint64 _chainId,
         address _owner,
         address _attestation,
-        address _registrar
+        address _registrar,
+        uint64 _validityDelay
     )
         internal
         override
         returns (SgxVerifier)
     {
-        SecureSgxVerifier secureVerifier =
-            new SecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
+        // policyRemover is address(0) for the shared suite: pin removal is owner-only. The dedicated
+        // tests below construct a verifier with a designated remover to exercise that role.
+        SecureSgxVerifier secureVerifier = new SecureSgxVerifier(
+            _chainId, _owner, _attestation, _registrar, _validityDelay, address(0)
+        );
         // Permissive-but-configured pin for the shared suite's MRENCLAVE: check only the forbidden
         // floor, so the shared tests exercise the floor exactly. The dedicated tests below pin
         // tighter against STRICT_MR. `_owner` owns the verifier, so impersonate it to configure.
@@ -504,6 +565,61 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         vm.expectRevert(SecureSgxVerifier.SGX_ATTRIBUTE_POLICY_NOT_SET.selector);
         verifier.registerInstance(quote);
     }
+
+    // ---------------------------------------------------------------
+    // Policy-remover role
+    // ---------------------------------------------------------------
+
+    /// @dev Deploys a SecureSgxVerifier owned by this test with `POLICY_REMOVER` as the remover.
+    function _deployWithRemover() private returns (SecureSgxVerifier secure_) {
+        secure_ = new SecureSgxVerifier(
+            CHAIN_ID, address(this), address(attestation), address(0), 0, POLICY_REMOVER
+        );
+        assertEq(secure_.policyRemover(), POLICY_REMOVER);
+    }
+
+    function test_removeEnclaveAttributePolicy_ByPolicyRemover() external {
+        SecureSgxVerifier secure = _deployWithRemover();
+        secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+
+        // The policy-remover, not the owner, removes the pin.
+        vm.expectEmit(true, true, true, true);
+        emit SecureSgxVerifier.EnclaveAttributePolicyRemoved(STRICT_MR);
+        vm.prank(POLICY_REMOVER);
+        secure.removeEnclaveAttributePolicy(STRICT_MR);
+
+        (bytes16 mask,) = secure.enclaveAttributePolicy(STRICT_MR);
+        assertEq(bytes32(mask), bytes32(0));
+    }
+
+    function test_removeEnclaveAttributePolicy_RevertWhen_NotOwnerOrRemover() external {
+        SecureSgxVerifier secure = _deployWithRemover();
+        secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+
+        vm.prank(address(0xBAD));
+        vm.expectRevert(SecureSgxVerifier.SGX_NOT_AUTHORIZED.selector);
+        secure.removeEnclaveAttributePolicy(STRICT_MR);
+    }
+
+    /// @dev The shared `verifier` has policyRemover == address(0), so removal is owner-only and a
+    /// non-owner is rejected.
+    function test_removeEnclaveAttributePolicy_RevertWhen_NoRemoverConfigured() external {
+        SecureSgxVerifier secure = SecureSgxVerifier(address(verifier));
+        secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+
+        vm.prank(address(0xBAD));
+        vm.expectRevert(SecureSgxVerifier.SGX_NOT_AUTHORIZED.selector);
+        secure.removeEnclaveAttributePolicy(STRICT_MR);
+    }
+
+    /// @dev The policy-remover can only remove pins, never set them: setting stays owner-only.
+    function test_setEnclaveAttributePolicy_RevertWhen_CalledByPolicyRemover() external {
+        SecureSgxVerifier secure = _deployWithRemover();
+
+        vm.prank(POLICY_REMOVER);
+        vm.expectRevert(); // Ownable2Step: caller is not the owner.
+        secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+    }
 }
 
 contract InsecureSgxVerifierTest is SgxVerifierTestBase {
@@ -511,13 +627,14 @@ contract InsecureSgxVerifierTest is SgxVerifierTestBase {
         uint64 _chainId,
         address _owner,
         address _attestation,
-        address _registrar
+        address _registrar,
+        uint64 _validityDelay
     )
         internal
         override
         returns (SgxVerifier)
     {
-        return new InsecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
+        return new InsecureSgxVerifier(_chainId, _owner, _attestation, _registrar, _validityDelay);
     }
 
     function test_registerInstance_AcceptsOutOfDateTcb() external {

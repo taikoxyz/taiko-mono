@@ -147,17 +147,31 @@ abstract contract DeployShastaContracts is DeployCapability {
         // lagging dev hardware and MUST be used by local devnets ONLY — never by a public testnet
         // or mainnet.
         // The registrar is set to address(0), leaving `registerInstance` permissionless;
-        // set a non-zero registrar to restrict instance registration.
+        // set a non-zero registrar to restrict instance registration. The 24h instance-validity
+        // delay gives off-chain monitoring time to evict a rogue self-registered instance before it
+        // can prove (owner `addInstances` registrations are not delayed). The policy-remover is set
+        // to address(0) (owner-only pin removal); set a non-zero address to let a guardian
+        // fail-close a compromised enclave measurement.
         verifiers.sgxReth = address(
             new SecureSgxVerifier(
-                config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy, address(0)
+                config.l2ChainId,
+                config.contractOwner,
+                config.sgxRethAutomataProxy,
+                address(0),
+                24 hours,
+                address(0)
             )
         );
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
         verifiers.sgxGeth = address(
             new SecureSgxVerifier(
-                config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy, address(0)
+                config.l2ChainId,
+                config.contractOwner,
+                config.sgxGethAutomataProxy,
+                address(0),
+                24 hours,
+                address(0)
             )
         );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);

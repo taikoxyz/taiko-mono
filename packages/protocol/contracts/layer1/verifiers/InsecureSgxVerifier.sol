@@ -15,9 +15,12 @@ contract InsecureSgxVerifier is SgxVerifier {
         uint64 _taikoChainId,
         address _owner,
         address _automataDcapAttestation,
-        address _registrar
+        address _registrar,
+        uint64 _instanceValidityDelay
     )
-        SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
+        SgxVerifier(
+            _taikoChainId, _owner, _automataDcapAttestation, _registrar, _instanceValidityDelay
+        )
     { }
 
     /// @inheritdoc SgxVerifier

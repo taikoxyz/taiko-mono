@@ -27,6 +27,12 @@ contract SecureSgxVerifier is SgxVerifier {
     /// @notice The ATTRIBUTES pin for each allowlisted application-enclave measurement.
     mapping(bytes32 mrEnclave => AttributePolicy policy) public enclaveAttributePolicy;
 
+    /// @notice An optional address that, alongside the owner, may call
+    /// `removeEnclaveAttributePolicy` to fail-close a compromised enclave measurement without
+    /// waiting on the owner. It can only remove pins, never set them. Fixed at construction; a value
+    /// of `address(0)` means only the owner can remove a pin.
+    address public immutable policyRemover;
+
     /// @notice Emitted when an MRENCLAVE's ATTRIBUTES pin is set or updated.
     /// @param mrEnclave The application-enclave measurement.
     /// @param mask The checked ATTRIBUTES bits.
@@ -41,10 +47,16 @@ contract SecureSgxVerifier is SgxVerifier {
         uint64 _taikoChainId,
         address _owner,
         address _automataDcapAttestation,
-        address _registrar
+        address _registrar,
+        uint64 _instanceValidityDelay,
+        address _policyRemover
     )
-        SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
-    { }
+        SgxVerifier(
+            _taikoChainId, _owner, _automataDcapAttestation, _registrar, _instanceValidityDelay
+        )
+    {
+        policyRemover = _policyRemover;
+    }
 
     /// @notice Sets (or updates) the ATTRIBUTES pin for an allowlisted enclave measurement.
     /// @dev The mask must cover every universally-forbidden bit and the expected value must clear
@@ -81,8 +93,11 @@ contract SecureSgxVerifier is SgxVerifier {
 
     /// @notice Removes the ATTRIBUTES pin for an enclave measurement, after which registration for
     /// that MRENCLAVE fails closed until a new pin is set.
+    /// @dev Callable by the owner or the `policyRemover`; the latter can only remove pins, so it
+    /// can fail-close a compromised enclave but cannot relax or re-admit one.
     /// @param _mrEnclave The application-enclave measurement whose pin is removed.
-    function removeEnclaveAttributePolicy(bytes32 _mrEnclave) external onlyOwner {
+    function removeEnclaveAttributePolicy(bytes32 _mrEnclave) external {
+        require(msg.sender == owner() || msg.sender == policyRemover, SGX_NOT_AUTHORIZED());
         require(
             enclaveAttributePolicy[_mrEnclave].mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET()
         );
@@ -128,4 +143,5 @@ contract SecureSgxVerifier is SgxVerifier {
     error SGX_ATTRIBUTE_POLICY_NOT_SET();
     error SGX_ATTRIBUTE_MISMATCH();
     error SGX_INVALID_ATTRIBUTE_POLICY();
+    error SGX_NOT_AUTHORIZED();
 }
