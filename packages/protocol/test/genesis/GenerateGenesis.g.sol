@@ -193,6 +193,7 @@ contract TestGenerateGenesis is Test {
                 new Bridge(
                     getPredeployedContractAddress("SharedResolver"),
                     getPredeployedContractAddress("SignalService"),
+                    address(0),
                     address(0)
                 )
             )

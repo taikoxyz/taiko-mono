@@ -81,7 +81,7 @@ contract TestBridgePauser is CommonTest {
     }
 
     function _deployBridgeWithPauser(address pauser) private returns (Bridge) {
-        Bridge impl = new Bridge(address(resolver), address(eSignalService), pauser);
+        Bridge impl = new Bridge(address(resolver), address(eSignalService), address(0), pauser);
         return Bridge(
             payable(address(
                     new ERC1967Proxy(address(impl), abi.encodeCall(Bridge.init, (deployer)))
