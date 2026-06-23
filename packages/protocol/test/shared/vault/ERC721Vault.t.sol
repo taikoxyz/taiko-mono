@@ -18,7 +18,9 @@ contract TestERC721Vault is CommonTest {
 
     function setUpOnEthereum() internal override {
         SignalService ss = _deployMockSignalService("ETH");
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(ss), address(0))));
+        eBridge = deployBridge(
+            address(new Bridge(address(resolver), address(ss), address(0), address(0)))
+        );
         eVault = deployERC721Vault();
 
         register("bridged_erc721", address(new BridgedERC721(address(eVault))));
