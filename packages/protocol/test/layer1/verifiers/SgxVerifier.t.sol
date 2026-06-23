@@ -4,10 +4,10 @@ pragma solidity ^0.8.24;
 import "forge-std/src/Test.sol";
 import { IAttestation } from "src/layer1/automata-attestation/interfaces/IAttestation.sol";
 import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
-import { BaseSgxVerifier } from "src/layer1/verifiers/BaseSgxVerifier.sol";
+import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
+import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
 import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
-import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol";
 
 contract MockAttestation is IAttestation {
     bool private _shouldSucceed;
@@ -30,13 +30,13 @@ contract MockAttestation is IAttestation {
     }
 }
 
-/// @dev Shared test suite for every `BaseSgxVerifier` subclass. Concrete subclasses only supply the
+/// @dev Shared test suite for every `SgxVerifier` subclass. Concrete subclasses only supply the
 /// verifier under test via `_deployVerifier`, so each subclass is exercised against the full suite.
-abstract contract BaseSgxVerifierTest is Test {
+abstract contract SgxVerifierTestBase is Test {
     uint64 internal constant CHAIN_ID = 167;
 
     MockAttestation internal attestation;
-    BaseSgxVerifier internal verifier;
+    SgxVerifier internal verifier;
 
     function setUp() external {
         attestation = new MockAttestation();
@@ -56,9 +56,9 @@ abstract contract BaseSgxVerifierTest is Test {
         instances[1] = instance2;
 
         vm.expectEmit(true, true, true, true);
-        emit BaseSgxVerifier.InstanceAdded(0, instance1, address(0), block.timestamp);
+        emit SgxVerifier.InstanceAdded(0, instance1, address(0), block.timestamp);
         vm.expectEmit(true, true, true, true);
-        emit BaseSgxVerifier.InstanceAdded(1, instance2, address(0), block.timestamp);
+        emit SgxVerifier.InstanceAdded(1, instance2, address(0), block.timestamp);
 
         verifier.addInstances(instances);
 
@@ -76,7 +76,7 @@ abstract contract BaseSgxVerifierTest is Test {
         instances[0] = address(0xA11CE);
         verifier.addInstances(instances);
 
-        vm.expectRevert(BaseSgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
         verifier.addInstances(instances);
     }
 
@@ -90,7 +90,7 @@ abstract contract BaseSgxVerifierTest is Test {
         ids[0] = 0;
 
         vm.expectEmit(true, true, false, false);
-        emit BaseSgxVerifier.InstanceDeleted(0, instances[0]);
+        emit SgxVerifier.InstanceDeleted(0, instances[0]);
 
         verifier.deleteInstances(ids);
 
@@ -103,7 +103,7 @@ abstract contract BaseSgxVerifierTest is Test {
         address newInstance = address(0xC0FFEE);
 
         vm.expectEmit(true, true, true, true);
-        emit BaseSgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
+        emit SgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
 
         uint256 id = verifier.registerInstance(_makeQuote(newInstance));
         assertEq(id, 0);
@@ -117,7 +117,7 @@ abstract contract BaseSgxVerifierTest is Test {
         attestation.setResult(false);
         address newInstance = address(0xDEAD);
 
-        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(_makeQuote(newInstance));
     }
 
@@ -128,7 +128,7 @@ abstract contract BaseSgxVerifierTest is Test {
         V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
         quote.localEnclaveReport.attributes = bytes16(0x07000000000000000700000000000000);
 
-        vm.expectRevert(BaseSgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
+        vm.expectRevert(SgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
         verifier.registerInstance(quote);
     }
 
@@ -139,7 +139,7 @@ abstract contract BaseSgxVerifierTest is Test {
         V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
         quote.localEnclaveReport.attributes = bytes16(0x10000000000000000000000000000000);
 
-        vm.expectRevert(BaseSgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
+        vm.expectRevert(SgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
         verifier.registerInstance(quote);
     }
 
@@ -167,14 +167,14 @@ abstract contract BaseSgxVerifierTest is Test {
 
     function test_registerInstance_AllowsRegistrarWhenSet() external {
         address registrar = address(0x5151);
-        BaseSgxVerifier gatedVerifier =
+        SgxVerifier gatedVerifier =
             _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar);
 
         attestation.setResult(true);
         address newInstance = address(0xC0FFEE);
 
         vm.expectEmit(true, true, true, true);
-        emit BaseSgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
+        emit SgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
 
         vm.prank(registrar);
         uint256 id = gatedVerifier.registerInstance(_makeQuote(newInstance));
@@ -186,12 +186,12 @@ abstract contract BaseSgxVerifierTest is Test {
 
     function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
         address registrar = address(0x5151);
-        BaseSgxVerifier gatedVerifier =
+        SgxVerifier gatedVerifier =
             _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar);
 
         attestation.setResult(true);
 
-        vm.expectRevert(BaseSgxVerifier.SGX_NOT_REGISTRAR.selector);
+        vm.expectRevert(SgxVerifier.SGX_NOT_REGISTRAR.selector);
         vm.prank(address(0xBAD));
         gatedVerifier.registerInstance(_makeQuote(address(0xC0FFEE)));
     }
@@ -209,7 +209,7 @@ abstract contract BaseSgxVerifierTest is Test {
     }
 
     function test_verifyProof_RevertWhen_ProofLengthInvalid() external {
-        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_PROOF.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
         verifier.verifyProof(0, bytes32(uint256(1)), hex"1234");
     }
 
@@ -227,7 +227,7 @@ abstract contract BaseSgxVerifierTest is Test {
             badIdProof[i + 4] = proof[i + 4];
         }
 
-        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, bytes32(uint256(1)), badIdProof);
     }
 
@@ -247,7 +247,7 @@ abstract contract BaseSgxVerifierTest is Test {
 
         vm.warp(block.timestamp + uint256(verifier.INSTANCE_EXPIRY()) + 1);
 
-        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, aggregatedHash, proof);
     }
 
@@ -255,7 +255,7 @@ abstract contract BaseSgxVerifierTest is Test {
     // Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Deploys the concrete `BaseSgxVerifier` subclass under test.
+    /// @dev Deploys the concrete `SgxVerifier` subclass under test.
     function _deployVerifier(
         uint64 _chainId,
         address _owner,
@@ -264,7 +264,7 @@ abstract contract BaseSgxVerifierTest is Test {
     )
         internal
         virtual
-        returns (BaseSgxVerifier);
+        returns (SgxVerifier);
 
     function _makeQuote(address _instance)
         private
@@ -298,7 +298,7 @@ abstract contract BaseSgxVerifierTest is Test {
     }
 }
 
-contract SgxVerifierTest is BaseSgxVerifierTest {
+contract SecureSgxVerifierTest is SgxVerifierTestBase {
     function _deployVerifier(
         uint64 _chainId,
         address _owner,
@@ -307,13 +307,13 @@ contract SgxVerifierTest is BaseSgxVerifierTest {
     )
         internal
         override
-        returns (BaseSgxVerifier)
+        returns (SgxVerifier)
     {
-        return new SgxVerifier(_chainId, _owner, _attestation, _registrar);
+        return new SecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
     }
 }
 
-contract TestnetSgxVerifierTest is BaseSgxVerifierTest {
+contract InsecureSgxVerifierTest is SgxVerifierTestBase {
     function _deployVerifier(
         uint64 _chainId,
         address _owner,
@@ -322,8 +322,8 @@ contract TestnetSgxVerifierTest is BaseSgxVerifierTest {
     )
         internal
         override
-        returns (BaseSgxVerifier)
+        returns (SgxVerifier)
     {
-        return new TestnetSgxVerifier(_chainId, _owner, _attestation, _registrar);
+        return new InsecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
     }
 }

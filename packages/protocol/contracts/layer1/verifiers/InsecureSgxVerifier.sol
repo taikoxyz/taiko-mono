@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { BaseSgxVerifier } from "./BaseSgxVerifier.sol";
+import { SgxVerifier } from "./SgxVerifier.sol";
 
-/// @title TestnetSgxVerifier
+/// @title InsecureSgxVerifier
 /// @notice SGX verifier intended for testnet/devnet. It shares the same enclave-attribute policy as
-/// the mainnet `SgxVerifier`; the policy is kept as an overridable hook so testnet liveness needs
-/// can relax it independently of mainnet without touching shared logic.
+/// the mainnet `SecureSgxVerifier`; the policy is kept as an overridable hook so testnet liveness
+/// needs can relax it independently of mainnet without touching shared logic.
 /// @custom:security-contact security@taiko.xyz
-contract TestnetSgxVerifier is BaseSgxVerifier {
+contract InsecureSgxVerifier is SgxVerifier {
     constructor(
         uint64 _taikoChainId,
         address _owner,
         address _automataDcapAttestation,
         address _registrar
     )
-        BaseSgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
+        SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     { }
 
     /// @dev Reject application enclaves that set DEBUG(0x02) or PROVISION_KEY(0x10). A DEBUG
