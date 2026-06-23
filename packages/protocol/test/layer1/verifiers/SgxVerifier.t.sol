@@ -227,8 +227,7 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_AllowsRegistrarWhenSet() external {
         address registrar = address(0x5151);
-        BaseSgxVerifier gated =
-            new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+        BaseSgxVerifier gated = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
         gated.setMrEnclave(MR_ENCLAVE, true);
         gated.setMrSigner(MR_SIGNER, true);
 
@@ -243,8 +242,7 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
         address registrar = address(0x5151);
-        BaseSgxVerifier gated =
-            new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+        BaseSgxVerifier gated = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
 
         // The registrar gate reverts before any attestation work, so no entrypoint mock is needed.
         bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xC0FFEE));
@@ -347,8 +345,7 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_RevertWhen_NoAttestationEntrypoint() external {
         // A verifier deployed without an attestation entrypoint (e.g. a dummy deployment).
-        BaseSgxVerifier dummy =
-            new SgxVerifier(CHAIN_ID, address(this), address(0), address(0));
+        BaseSgxVerifier dummy = new SgxVerifier(CHAIN_ID, address(this), address(0), address(0));
         vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         dummy.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
     }
