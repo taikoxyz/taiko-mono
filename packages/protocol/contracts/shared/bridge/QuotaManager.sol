@@ -4,11 +4,12 @@ pragma solidity ^0.8.24;
 import "../libs/LibMath.sol";
 import "./IQuotaManager.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
+import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title QuotaManager
-/// @dev A non-upgradeable implementation of IQuotaManager for Ether and ERC20 tokens.
+/// @dev A UUPS-compatible implementation of IQuotaManager for Ether and ERC20 tokens.
 /// @custom:security-contact security@taiko.xyz
-contract QuotaManager is Ownable2Step, IQuotaManager {
+contract QuotaManager is UUPSUpgradeable, Ownable2Step, IQuotaManager {
     using LibMath for uint256;
 
     struct Quota {
@@ -98,9 +99,7 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
         // multiplication to `q.quota * quotaPeriod`, which can never overflow uint256, so
         // `consumeQuota` keeps working even though `block.timestamp - q.updatedAt` grows without
         // bound.
-        uint256 elapsed = _leap >= quotaPeriod
-            ? quotaPeriod
-            : (block.timestamp + _leap - q.updatedAt).min(quotaPeriod);
+        uint256 elapsed = _leap >= quotaPeriod ? quotaPeriod : (block.timestamp + _leap - q.updatedAt).min(quotaPeriod);
         uint256 issuance = q.quota * elapsed / quotaPeriod;
         return (issuance + q.available).min(q.quota);
     }
@@ -112,4 +111,7 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
         quotaPeriod = _quotaPeriod;
         emit QuotaPeriodUpdated(_quotaPeriod);
     }
+
+    /// @dev Authorizes quota-manager implementation upgrades.
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }
