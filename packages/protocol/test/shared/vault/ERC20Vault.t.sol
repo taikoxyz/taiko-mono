@@ -23,7 +23,9 @@ contract TestERC20Vault is CommonTest {
 
     function setUpOnEthereum() internal override {
         eSignalService = _deployMockSignalService("ETH");
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
+        eBridge = deployBridge(
+            address(new Bridge(address(resolver), address(eSignalService), address(0), address(0)))
+        );
         eVault = deployERC20Vault();
 
         eERC20Token1 = new FreeMintERC20Token("ERC20", "ERC20");

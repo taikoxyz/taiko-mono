@@ -19,6 +19,7 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address anchorProxy;
         address oldAnchorImpl;
         uint64 shastaForkTimestamp;
+        address signalServicePauser;
     }
 
     modifier broadcast() {
@@ -56,8 +57,11 @@ abstract contract DeployShastaL2Contracts is DeployCapability {
         address anchorForkRouter = address(new AnchorForkRouter(config.oldAnchorImpl, anchorImpl));
         console2.log("AnchorForkRouter deployed:", anchorForkRouter);
 
-        address signalServiceImpl =
-            address(new SignalService(config.anchorProxy, config.l1SignalService));
+        address signalServiceImpl = address(
+            new SignalService(
+                config.anchorProxy, config.l1SignalService, config.signalServicePauser
+            )
+        );
         console2.log("New signalServiceImpl deployed:", signalServiceImpl);
 
         address signalServiceForkRouter = address(

@@ -8,6 +8,7 @@ import "../libs/LibNames.sol";
 import "../libs/LibNetwork.sol";
 import "../signal/ISignalService.sol";
 import "./IBridge.sol";
+import "./IQuotaManager.sol";
 
 import "./Bridge_Layout.sol"; // DO NOT DELETE
 
@@ -56,6 +57,11 @@ contract Bridge is EssentialResolverContract, IBridge {
     uint256 private constant _PLACEHOLDER = type(uint256).max;
 
     ISignalService public immutable signalService;
+    IQuotaManager public immutable quotaManager;
+
+    /// @dev Address authorized to pause/unpause alongside the owner, and to fund the bridge with
+    /// plain Ether transfers via `receive`. Optional (may be zero, which disables direct funding).
+    address public immutable pauser;
 
     /// @notice The next message ID.
     /// @dev Slot 1.
@@ -91,18 +97,36 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
+    /// @notice Initializes the bridge's immutable state.
+    /// @param _resolver The address of the resolver contract.
+    /// @param _signalService The address of the signal service contract.
+    /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
+    /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
+    /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
     constructor(
         address _resolver,
-        address _signalService
+        address _signalService,
+        address _quotaManager,
+        address _pauser
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
+        quotaManager = IQuotaManager(_quotaManager);
+        pauser = _pauser;
     }
 
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
+
+    /// @notice Accepts plain Ether transfers from the pauser to fund the bridge.
+    /// @dev Reverts for any sender other than `pauser`, preventing arbitrary Ether deposits. The
+    /// bridge is deployed behind a proxy, so the pauser must use `call` (which forwards all gas);
+    /// the 2300-gas stipend of `transfer`/`send` is insufficient for the proxy's delegatecall.
+    receive() external payable {
+        require(msg.sender == pauser, B_PERMISSION_DENIED());
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -194,6 +218,8 @@ contract Bridge is EssentialResolverContract, IBridge {
         );
 
         _updateMessageStatus(msgHash, Status.RECALLED);
+        // A recall always releases `_message.value` back to the source owner, so debit its quota.
+        _consumeEtherQuota(_message.value);
 
         // Execute the recall logic based on the contract's support for the
         // IRecallableSender interface
@@ -273,6 +299,11 @@ contract Bridge is EssentialResolverContract, IBridge {
             }
         }
 
+        // Debit the Ether quota only for funds actually leaving the bridge: the fee is always
+        // released here, while the value is released only when the message reaches DONE. When the
+        // message stays RETRIABLE, its value remains in the bridge and is debited by retryMessage.
+        _consumeEtherQuota(status_ == Status.DONE ? _message.value + _message.fee : _message.fee);
+
         if (_message.fee != 0) {
             refundAmount += _message.fee;
 
@@ -339,6 +370,10 @@ contract Bridge is EssentialResolverContract, IBridge {
         }
 
         if (succeeded) {
+            // The value is released to the recipient only on a successful retry, so debit its
+            // quota here. A failed retry leaves the message RETRIABLE/FAILED with the value still
+            // in the bridge, consuming no quota.
+            _consumeEtherQuota(_message.value);
             _updateMessageStatus(msgHash, Status.DONE);
         } else if (_isLastAttempt) {
             _updateMessageStatus(msgHash, Status.FAILED);
@@ -456,6 +491,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
 
+    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
+    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
+
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.
     /// @param _msgHash The hash of the message.
@@ -539,6 +577,15 @@ contract Bridge is EssentialResolverContract, IBridge {
             numCacheOps_ = uint32(numCacheOps);
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
+        }
+    }
+
+    /// @dev Consumes a given amount of Ether from the quota manager; reverts if quota is
+    /// insufficient. Skips the external call when nothing is released (`_amount == 0`).
+    /// @param _amount The amount of Ether to consume.
+    function _consumeEtherQuota(uint256 _amount) private {
+        if (_amount != 0 && address(quotaManager) != address(0)) {
+            quotaManager.consumeQuota(address(0), _amount);
         }
     }
 
