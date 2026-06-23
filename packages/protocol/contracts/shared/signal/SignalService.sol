@@ -52,15 +52,6 @@ contract SignalService is EssentialContract, ISignalService {
     uint256 public constant VERSION = 1;
 
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    /// @notice Version of the received-signal cache and checkpoint mappings.
-    /// @dev Bumping this value in a future implementation invalidates old cached signals and
-    /// checkpoints without touching the old storage slots.
-    uint256 public constant VERSION = 1;
-
-    // ---------------------------------------------------------------
     // Storage variables
     // ---------------------------------------------------------------
 
