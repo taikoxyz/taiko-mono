@@ -24,7 +24,7 @@ contract TestERC20Vault is CommonTest {
     function setUpOnEthereum() internal override {
         eSignalService = _deployMockSignalService("ETH");
         eBridge = deployBridge(
-            address(new Bridge(address(resolver), address(eSignalService), address(0)))
+            address(new Bridge(address(resolver), address(eSignalService), address(0), address(0)))
         );
         eVault = deployERC20Vault();
 
@@ -115,9 +115,7 @@ contract TestERC20Vault is CommonTest {
         uint256 aliceBalanceBefore = eERC20Token1.balanceOf(Alice);
         uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
 
-        eVault.sendToken{
-            value: amount
-        }(
+        eVault.sendToken{ value: amount }(
             ERC20Vault.BridgeTransferOp(
                 taikoChainId,
                 address(0),
