@@ -17,19 +17,20 @@ contract SecureSgxVerifier is SgxVerifier {
         SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     { }
 
-    /// @dev Strict mainnet policy: accept only TCB statuses that indicate an up-to-date platform —
-    /// `OK` and `TCB_SW_HARDENING_NEEDED`. The latter's mitigation lives in the enclave software,
-    /// which is pinned by the MRENCLAVE allowlist, so it is safe to accept on the allowlisted
-    /// enclave. Every other status is rejected — notably `OUT_OF_DATE` /
-    /// `OUT_OF_DATE_CONFIGURATION_NEEDED`, where the platform is missing the microcode that patches
-    /// SGX key-extraction vulnerabilities (so the in-enclave signing key could be extractable), plus
-    /// the configuration-needed and revoked/unrecognized statuses. The policy is expressed against
-    /// Automata's `TCBStatus` enum (the same pinned on-chain-pccs package the attestation entrypoint
-    /// uses to produce `tcbStatus`), so a dependency bump that reorders the enum is caught at
-    /// compile time.
+    /// @dev Strict mainnet policy: accept the TCB statuses whose platform microcode is up to date —
+    /// `OK`, `TCB_SW_HARDENING_NEEDED` and `TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED`. The latter
+    /// two only require mitigations that live in configuration / enclave software, which is pinned by
+    /// the MRENCLAVE allowlist, so they are safe to accept on the allowlisted enclave. Every other
+    /// status is rejected — notably `OUT_OF_DATE` / `OUT_OF_DATE_CONFIGURATION_NEEDED`, where the
+    /// platform is missing the microcode that patches SGX key-extraction vulnerabilities (so the
+    /// in-enclave signing key could be extractable), plus the configuration-needed and
+    /// revoked/unrecognized statuses. The policy is expressed against Automata's `TCBStatus` enum
+    /// (the same pinned on-chain-pccs package the attestation entrypoint uses to produce
+    /// `tcbStatus`), so a dependency bump that reorders the enum is caught at compile time.
     /// @param _status The TCB status code from the attestation output.
     /// @return Whether the status is accepted.
     function _isTcbStatusAccepted(uint8 _status) internal pure override returns (bool) {
-        return _status == uint8(TCBStatus.OK) || _status == uint8(TCBStatus.TCB_SW_HARDENING_NEEDED);
+        return _status == uint8(TCBStatus.OK) || _status == uint8(TCBStatus.TCB_SW_HARDENING_NEEDED)
+            || _status == uint8(TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED);
     }
 }

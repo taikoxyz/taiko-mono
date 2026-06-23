@@ -182,7 +182,7 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_acceptsAllAllowedTcbStatuses() external {
         _trustStandardEnclave();
-        uint8[2] memory ok = [TCB_OK, TCB_SW_HARDENING];
+        uint8[3] memory ok = [TCB_OK, TCB_SW_HARDENING, TCB_CONFIG_AND_SW_HARDENING];
         for (uint256 i; i < ok.length; ++i) {
             address instance = address(uint160(0x1000 + i));
             bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, instance, 3, 1, ok[i]);
@@ -298,14 +298,6 @@ contract SgxVerifierTest is Test {
     function test_registerInstance_RevertWhen_TcbOutOfDateConfigNeeded() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_OUT_OF_DATE_CONFIG);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
-        verifier.registerInstance(quote);
-    }
-
-    function test_registerInstance_RevertWhen_TcbConfigAndSwHardeningNeeded() external {
-        bytes memory quote = _mockQuote(
-            false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_CONFIG_AND_SW_HARDENING
-        );
         vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
