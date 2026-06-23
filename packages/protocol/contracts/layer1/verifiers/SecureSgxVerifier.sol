@@ -31,8 +31,8 @@ contract SecureSgxVerifier is SgxVerifier {
     /// instance becoming usable for proof verification. It gives off-chain monitoring a window to
     /// evict a rogue self-registered instance (via `deleteInstances`) before it can prove. Owner
     /// registrations — `addInstances`, or `registerInstance` called by the owner — are NOT delayed.
-    /// Set once at construction (mainnet/testnet deployments use 24 hours); it must not exceed
-    /// `INSTANCE_EXPIRY`.
+    /// Set once at construction (mainnet/testnet deployments use 24 hours); it must be non-zero and
+    /// must not exceed `INSTANCE_EXPIRY`.
     uint64 public immutable instanceValidityDelay;
 
     /// @notice Emitted when an MRENCLAVE's ATTRIBUTES pin is set or updated.
@@ -54,8 +54,12 @@ contract SecureSgxVerifier is SgxVerifier {
     )
         SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     {
-        // A registration delay longer than the validity window itself is a misconfiguration.
-        require(_instanceValidityDelay > 0 && _instanceValidityDelay <= INSTANCE_EXPIRY, SGX_INVALID_VALIDITY_DELAY());
+        // The delay must be positive (a zero delay defeats the monitoring window) and no longer than
+        // the validity window itself.
+        require(
+            _instanceValidityDelay > 0 && _instanceValidityDelay <= INSTANCE_EXPIRY,
+            SGX_INVALID_VALIDITY_DELAY()
+        );
         instanceValidityDelay = _instanceValidityDelay;
     }
 

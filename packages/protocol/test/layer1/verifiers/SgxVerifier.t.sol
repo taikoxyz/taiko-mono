@@ -48,6 +48,9 @@ abstract contract SgxVerifierTestBase is Test {
     /// @dev The universal forbidden-attribute floor (DEBUG | PROVISION_KEY | EINITTOKEN_KEY),
     /// mirroring `SgxVerifier.SGX_FORBIDDEN_ATTRIBUTE_MASK`.
     bytes16 internal constant FORBIDDEN_FLOOR = bytes16(0x32000000000000000000000000000000);
+    /// @dev A nominal non-zero validity delay for the shared suite; SecureSgxVerifier requires a
+    /// positive delay. Owner registrations skip it, so it does not perturb the owner-driven tests.
+    uint64 internal constant VALIDITY_DELAY = 1 hours;
 
     MockAttestation internal attestation;
     SgxVerifier internal verifier;
@@ -55,7 +58,9 @@ abstract contract SgxVerifierTestBase is Test {
     function setUp() external {
         attestation = new MockAttestation();
         // registrar is address(0): registerInstance is permissionless.
-        verifier = _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), 0);
+        verifier = _deployVerifier(
+            CHAIN_ID, address(this), address(attestation), address(0), VALIDITY_DELAY
+        );
     }
 
     // ---------------------------------------------------------------
@@ -201,13 +206,16 @@ abstract contract SgxVerifierTestBase is Test {
 
     function test_registerInstance_AllowsRegistrarWhenSet() external {
         address registrar = address(0x5151);
-        SgxVerifier gatedVerifier =
-            _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar, 0);
+        SgxVerifier gatedVerifier = _deployVerifier(
+            CHAIN_ID, address(this), address(attestation), registrar, VALIDITY_DELAY
+        );
 
         attestation.setResult(true);
         address newInstance = address(0xC0FFEE);
 
-        vm.expectEmit(true, true, true, true);
+        // `validSince` (non-indexed) differs by subclass — a non-owner registration is delayed on
+        // SecureSgxVerifier but immediate on InsecureSgxVerifier — so only check the indexed topics.
+        vm.expectEmit(true, true, true, false);
         emit SgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
 
         vm.prank(registrar);
@@ -220,8 +228,9 @@ abstract contract SgxVerifierTestBase is Test {
 
     function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
         address registrar = address(0x5151);
-        SgxVerifier gatedVerifier =
-            _deployVerifier(CHAIN_ID, address(this), address(attestation), registrar, 0);
+        SgxVerifier gatedVerifier = _deployVerifier(
+            CHAIN_ID, address(this), address(attestation), registrar, VALIDITY_DELAY
+        );
 
         attestation.setResult(true);
 
@@ -518,7 +527,9 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
     /// @dev Deploys a SecureSgxVerifier owned by this test with `REGISTRAR` set, which besides the
     /// owner may remove pins.
     function _deployWithRegistrar() private returns (SecureSgxVerifier secure_) {
-        secure_ = new SecureSgxVerifier(CHAIN_ID, address(this), address(attestation), REGISTRAR, 0);
+        secure_ = new SecureSgxVerifier(
+            CHAIN_ID, address(this), address(attestation), REGISTRAR, VALIDITY_DELAY
+        );
         assertEq(secure_.registrar(), REGISTRAR);
     }
 
@@ -569,6 +580,11 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         uint64 tooLarge = uint64(verifier.INSTANCE_EXPIRY()) + 1;
         vm.expectRevert(SecureSgxVerifier.SGX_INVALID_VALIDITY_DELAY.selector);
         new SecureSgxVerifier(CHAIN_ID, address(this), address(attestation), address(0), tooLarge);
+    }
+
+    function test_constructor_RevertWhen_ValidityDelayZero() external {
+        vm.expectRevert(SecureSgxVerifier.SGX_INVALID_VALIDITY_DELAY.selector);
+        new SecureSgxVerifier(CHAIN_ID, address(this), address(attestation), address(0), 0);
     }
 
     // ---------------------------------------------------------------
