@@ -21,7 +21,7 @@ import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/SecureSgxVerifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/SignalService.sol";
@@ -137,12 +137,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         // Deploy SGX verifier. The registrar is set to address(0), leaving `registerInstance`
         // permissionless; set a non-zero registrar to restrict instance registration.
         verifiers.sgx = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy, address(0))
+            new SecureSgxVerifier(config.l2ChainId, config.contractOwner, automataProxy, address(0))
         );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
         verifiers.sgxGeth = address(
-            new SgxVerifier(
+            new SecureSgxVerifier(
                 config.l2ChainId, config.contractOwner, sgxGethAutomataProxy, address(0)
             )
         );
