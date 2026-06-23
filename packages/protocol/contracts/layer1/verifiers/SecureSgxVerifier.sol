@@ -27,6 +27,13 @@ contract SecureSgxVerifier is SgxVerifier {
     /// @notice The ATTRIBUTES pin for each allowlisted application-enclave measurement.
     mapping(bytes32 mrEnclave => AttributePolicy policy) public enclaveAttributePolicy;
 
+    /// @notice A security delay between permissionless registration via `registerInstance` and the
+    /// instance becoming usable for proof verification. It gives off-chain monitoring a window to
+    /// evict a rogue self-registered instance (via `deleteInstances`) before it can prove. Owner
+    /// registrations via `addInstances` are NOT delayed. Set once at construction (mainnet/testnet
+    /// deployments use 24 hours); it must not exceed `INSTANCE_EXPIRY`.
+    uint64 public immutable instanceValidityDelay;
+
     /// @notice Emitted when an MRENCLAVE's ATTRIBUTES pin is set or updated.
     /// @param mrEnclave The application-enclave measurement.
     /// @param mask The checked ATTRIBUTES bits.
@@ -44,10 +51,20 @@ contract SecureSgxVerifier is SgxVerifier {
         address _registrar,
         uint64 _instanceValidityDelay
     )
-        SgxVerifier(
-            _taikoChainId, _owner, _automataDcapAttestation, _registrar, _instanceValidityDelay
-        )
-    { }
+        SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
+    {
+        // A registration delay longer than the validity window itself is a misconfiguration.
+        require(_instanceValidityDelay <= INSTANCE_EXPIRY, SGX_INVALID_VALIDITY_DELAY());
+        instanceValidityDelay = _instanceValidityDelay;
+    }
+
+    /// @dev Restricts a call to the owner or `_addr` (used for `removeEnclaveAttributePolicy` with
+    /// the registrar).
+    /// @param _addr The additional address allowed alongside the owner.
+    modifier onlyOwnerOr(address _addr) {
+        require(msg.sender == owner() || msg.sender == _addr, SGX_NOT_AUTHORIZED());
+        _;
+    }
 
     /// @notice Sets (or updates) the ATTRIBUTES pin for an allowlisted enclave measurement.
     /// @dev The mask must cover every universally-forbidden bit and the expected value must clear
@@ -88,8 +105,7 @@ contract SecureSgxVerifier is SgxVerifier {
     /// construction); the registrar can only remove pins, so it can fail-close a compromised enclave
     /// but cannot relax or re-admit one. When `registrar` is `address(0)`, removal is owner-only.
     /// @param _mrEnclave The application-enclave measurement whose pin is removed.
-    function removeEnclaveAttributePolicy(bytes32 _mrEnclave) external {
-        require(msg.sender == owner() || msg.sender == registrar, SGX_NOT_AUTHORIZED());
+    function removeEnclaveAttributePolicy(bytes32 _mrEnclave) external onlyOwnerOr(registrar) {
         require(
             enclaveAttributePolicy[_mrEnclave].mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET()
         );
@@ -128,6 +144,11 @@ contract SecureSgxVerifier is SgxVerifier {
         require(_attributes & policy.mask == policy.expected, SGX_ATTRIBUTE_MISMATCH());
     }
 
+    /// @inheritdoc SgxVerifier
+    function _instanceValidityDelay() internal view override returns (uint64) {
+        return instanceValidityDelay;
+    }
+
     // ---------------------------------------------------------------
     // Custom Errors
     // ---------------------------------------------------------------
@@ -136,4 +157,5 @@ contract SecureSgxVerifier is SgxVerifier {
     error SGX_ATTRIBUTE_MISMATCH();
     error SGX_INVALID_ATTRIBUTE_POLICY();
     error SGX_NOT_AUTHORIZED();
+    error SGX_INVALID_VALIDITY_DELAY();
 }

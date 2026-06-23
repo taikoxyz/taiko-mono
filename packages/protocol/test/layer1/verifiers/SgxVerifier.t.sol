@@ -286,60 +286,6 @@ abstract contract SgxVerifierTestBase is Test {
     }
 
     // ---------------------------------------------------------------
-    // Instance-validity delay
-    // ---------------------------------------------------------------
-
-    function test_registerInstance_AppliesValidityDelay() external {
-        uint64 delay = 24 hours;
-        SgxVerifier delayed =
-            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
-        attestation.setResult(true);
-
-        uint256 id = delayed.registerInstance(_makeQuote(address(0xC0FFEE)));
-        (, uint64 validSince) = delayed.instances(id);
-        assertEq(validSince, uint64(block.timestamp) + delay);
-    }
-
-    function test_addInstances_IgnoresValidityDelay() external {
-        uint64 delay = 24 hours;
-        SgxVerifier delayed =
-            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
-
-        address[] memory instances = new address[](1);
-        instances[0] = address(0xA11CE);
-        delayed.addInstances(instances);
-
-        // Owner registrations are trusted and take effect immediately, ignoring the delay.
-        (, uint64 validSince) = delayed.instances(0);
-        assertEq(validSince, uint64(block.timestamp));
-    }
-
-    function test_verifyProof_RevertWhen_WithinValidityDelay() external {
-        uint64 delay = 24 hours;
-        SgxVerifier delayed =
-            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
-        attestation.setResult(true);
-
-        uint256 key = 0xA11CE;
-        address instance = vm.addr(key);
-        uint256 id = delayed.registerInstance(_makeQuote(instance));
-
-        bytes32 aggregatedHash = bytes32(uint256(0x1234));
-        bytes32 signatureHash =
-            LibPublicInput.hashPublicInputs(aggregatedHash, address(delayed), instance, CHAIN_ID);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, signatureHash);
-        bytes memory proof = abi.encodePacked(uint32(id), bytes20(instance), r, s, v);
-
-        // Still inside the validity delay: the self-registered instance cannot prove yet.
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
-        delayed.verifyProof(0, aggregatedHash, proof);
-
-        // After the delay elapses, the same proof is accepted.
-        vm.warp(block.timestamp + delay);
-        delayed.verifyProof(0, aggregatedHash, proof);
-    }
-
-    // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
 
@@ -619,30 +565,79 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
 
     function test_constructor_RevertWhen_ValidityDelayTooLarge() external {
         uint64 tooLarge = uint64(verifier.INSTANCE_EXPIRY()) + 1;
-        vm.expectRevert(SgxVerifier.SGX_INVALID_VALIDITY_DELAY.selector);
+        vm.expectRevert(SecureSgxVerifier.SGX_INVALID_VALIDITY_DELAY.selector);
         new SecureSgxVerifier(CHAIN_ID, address(this), address(attestation), address(0), tooLarge);
+    }
+
+    // ---------------------------------------------------------------
+    // Instance-validity delay
+    // ---------------------------------------------------------------
+
+    function test_registerInstance_AppliesValidityDelay() external {
+        uint64 delay = 24 hours;
+        SgxVerifier delayed =
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
+        attestation.setResult(true);
+
+        uint256 id = delayed.registerInstance(_makeQuote(address(0xC0FFEE)));
+        (, uint64 validSince) = delayed.instances(id);
+        assertEq(validSince, uint64(block.timestamp) + delay);
+    }
+
+    function test_addInstances_IgnoresValidityDelay() external {
+        uint64 delay = 24 hours;
+        SgxVerifier delayed =
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
+
+        address[] memory instances = new address[](1);
+        instances[0] = address(0xA11CE);
+        delayed.addInstances(instances);
+
+        // Owner registrations are trusted and take effect immediately, ignoring the delay.
+        (, uint64 validSince) = delayed.instances(0);
+        assertEq(validSince, uint64(block.timestamp));
+    }
+
+    function test_verifyProof_RevertWhen_WithinValidityDelay() external {
+        uint64 delay = 24 hours;
+        SgxVerifier delayed =
+            _deployVerifier(CHAIN_ID, address(this), address(attestation), address(0), delay);
+        attestation.setResult(true);
+
+        uint256 key = 0xA11CE;
+        address instance = vm.addr(key);
+        uint256 id = delayed.registerInstance(_makeQuote(instance));
+
+        bytes32 aggregatedHash = bytes32(uint256(0x1234));
+        bytes32 signatureHash =
+            LibPublicInput.hashPublicInputs(aggregatedHash, address(delayed), instance, CHAIN_ID);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, signatureHash);
+        bytes memory proof = abi.encodePacked(uint32(id), bytes20(instance), r, s, v);
+
+        // Still inside the validity delay: the self-registered instance cannot prove yet.
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        delayed.verifyProof(0, aggregatedHash, proof);
+
+        // After the delay elapses, the same proof is accepted.
+        vm.warp(block.timestamp + delay);
+        delayed.verifyProof(0, aggregatedHash, proof);
     }
 }
 
 contract InsecureSgxVerifierTest is SgxVerifierTestBase {
+    /// @dev InsecureSgxVerifier has no instance-validity delay, so the requested delay is ignored.
     function _deployVerifier(
         uint64 _chainId,
         address _owner,
         address _attestation,
         address _registrar,
-        uint64 _validityDelay
+        uint64
     )
         internal
         override
         returns (SgxVerifier)
     {
-        return new InsecureSgxVerifier(_chainId, _owner, _attestation, _registrar, _validityDelay);
-    }
-
-    function test_constructor_RevertWhen_ValidityDelayTooLarge() external {
-        uint64 tooLarge = uint64(verifier.INSTANCE_EXPIRY()) + 1;
-        vm.expectRevert(SgxVerifier.SGX_INVALID_VALIDITY_DELAY.selector);
-        new InsecureSgxVerifier(CHAIN_ID, address(this), address(attestation), address(0), tooLarge);
+        return new InsecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
     }
 
     function test_registerInstance_AcceptsOutOfDateTcb() external {
