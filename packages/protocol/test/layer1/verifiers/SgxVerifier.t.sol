@@ -344,6 +344,11 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         assertTrue(
             verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED))
         );
+        assertTrue(
+            verifier.isTcbStatusAccepted(
+                uint8(TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED)
+            )
+        );
         assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE)));
         assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_REVOKED)));
     }
