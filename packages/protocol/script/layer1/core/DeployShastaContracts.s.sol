@@ -8,7 +8,7 @@ import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/SecureSgxVerifier.sol";
 import "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import "test/shared/DeployCapability.sol";
@@ -142,13 +142,19 @@ abstract contract DeployShastaContracts is DeployCapability {
         private
         returns (VerifierAddresses memory verifiers)
     {
+        // The registrar is set to address(0), leaving `registerInstance` permissionless;
+        // set a non-zero registrar to restrict instance registration.
         verifiers.sgxReth = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy)
+            new SecureSgxVerifier(
+                config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy, address(0)
+            )
         );
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
         verifiers.sgxGeth = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy)
+            new SecureSgxVerifier(
+                config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy, address(0)
+            )
         );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
