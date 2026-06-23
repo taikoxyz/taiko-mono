@@ -15,9 +15,10 @@ import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { MainnetSgxVerifier } from "src/layer1/verifiers/MainnetSgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
+import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/SignalService.sol";
@@ -56,6 +57,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         address automataDcap;
         bool useDummyVerifiers;
         bool pauseBridge;
+        // When true, deploy the lenient TestnetSgxVerifier; otherwise deploy the strict
+        // MainnetSgxVerifier. The secure default (false) selects the strict mainnet policy.
+        bool useTestnetSgxPolicy;
     }
 
     modifier broadcast() {
@@ -114,6 +118,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.automataDcap = vm.envOr("DCAP_ATTESTATION", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
+        // Secure default: when TESTNET_SGX_VERIFIER is unset or false, deploy the strict
+        // MainnetSgxVerifier. Only an explicit true selects the lenient TestnetSgxVerifier.
+        config.useTestnetSgxPolicy = vm.envOr("TESTNET_SGX_VERIFIER", false);
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
@@ -137,15 +144,33 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
 
         // Deploy SGX verifiers. The registrar is set to address(0), leaving registerInstance
-        // permissionless; set a non-zero registrar to restrict instance registration.
-        verifiers.sgx = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap, address(0))
-        );
+        // permissionless; set a non-zero registrar to restrict instance registration. The strict
+        // MainnetSgxVerifier is the secure default; only when `useTestnetSgxPolicy` is true is the
+        // lenient TestnetSgxVerifier deployed.
+        verifiers.sgx = config.useTestnetSgxPolicy
+            ? address(
+                new TestnetSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                )
+            )
+            : address(
+                new MainnetSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                )
+            );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
-        verifiers.sgxGeth = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap, address(0))
-        );
+        verifiers.sgxGeth = config.useTestnetSgxPolicy
+            ? address(
+                new TestnetSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                )
+            )
+            : address(
+                new MainnetSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                )
+            );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)

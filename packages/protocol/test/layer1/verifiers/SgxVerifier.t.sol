@@ -3,21 +3,24 @@ pragma solidity ^0.8.24;
 
 import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
 import "forge-std/src/Test.sol";
+import { BaseSgxVerifier } from "src/layer1/verifiers/BaseSgxVerifier.sol";
 import { IDcapAttestation } from "src/layer1/verifiers/IDcapAttestation.sol";
 import { LibPublicInput } from "src/layer1/verifiers/LibPublicInput.sol";
-import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
+import { MainnetSgxVerifier } from "src/layer1/verifiers/MainnetSgxVerifier.sol";
 
 /// @title SgxVerifierTest
-/// @notice Unit tests for the migrated SgxVerifier: raw-quote registration via the Automata DCAP
-/// entrypoint, DEBUG-enclave rejection, TCB-status policy, MRENCLAVE/MRSIGNER allowlist, instance
-/// management, and proof verification.
+/// @notice Unit tests for the SGX verifier's shared logic plus the strict MAINNET TCB-status
+/// policy: raw-quote registration via the Automata DCAP entrypoint, DEBUG-enclave rejection,
+/// TCB-status policy, MRENCLAVE/MRSIGNER allowlist, instance management, and proof verification.
+/// The shared logic lives in the abstract `BaseSgxVerifier`, exercised here through a concrete
+/// `MainnetSgxVerifier`; see `TestnetSgxVerifierTest` for the lenient policy.
 /// @custom:security-contact security@taiko.xyz
 contract SgxVerifierTest is Test {
     uint64 internal constant CHAIN_ID = 167;
     address internal constant ATTESTATION = address(0xA11CE);
 
     // Bind the test's TCB codes to Automata's real FmspcTcbHelper.TCBStatus enum (pinned
-    // @automata-network/on-chain-pccs). Every TCB test below therefore exercises SgxVerifier's
+    // @automata-network/on-chain-pccs). Every TCB test below therefore exercises the verifier's
     // hardcoded accept/reject policy against the actual enum values, so a future dependency bump
     // that reorders the enum breaks these tests instead of silently misclassifying statuses
     // on-chain. See also test_tcbStatusEnum_matchesExpectedValues.
@@ -32,14 +35,16 @@ contract SgxVerifierTest is Test {
     uint8 internal constant TCB_REVOKED = uint8(TCBStatus.TCB_REVOKED); // rejected
     uint8 internal constant TCB_UNRECOGNIZED = uint8(TCBStatus.TCB_UNRECOGNIZED); // rejected
 
-    SgxVerifier internal verifier;
+    // Typed as the abstract base to validate shared logic, but instantiated as a concrete
+    // MainnetSgxVerifier so the TCB tests below also assert the strict mainnet policy.
+    BaseSgxVerifier internal verifier;
 
     bytes32 internal constant MR_ENCLAVE = bytes32(uint256(0x1111));
     bytes32 internal constant MR_SIGNER = bytes32(uint256(0x2222));
 
     function setUp() external {
         // owner == address(this) so this test can call the onlyOwner admin functions.
-        verifier = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
+        verifier = new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
     }
 
     // ---------------------------------------------------------------
@@ -145,12 +150,12 @@ contract SgxVerifierTest is Test {
     // ---------------------------------------------------------------
 
     function test_constructor_RevertWhen_ChainIdZero() external {
-        vm.expectRevert(SgxVerifier.SGX_INVALID_CHAIN_ID.selector);
-        new SgxVerifier(0, address(this), ATTESTATION, address(0));
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_CHAIN_ID.selector);
+        new MainnetSgxVerifier(0, address(this), ATTESTATION, address(0));
     }
 
     function test_constructor_enablesLocalReportCheckByDefault() external {
-        SgxVerifier v = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
+        BaseSgxVerifier v = new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
         assertTrue(v.checkLocalEnclaveReport());
     }
 
@@ -164,7 +169,7 @@ contract SgxVerifierTest is Test {
         bytes memory quote = _mockValidQuote(instance);
 
         vm.expectEmit();
-        emit SgxVerifier.InstanceAdded(0, instance, address(0), block.timestamp);
+        emit BaseSgxVerifier.InstanceAdded(0, instance, address(0), block.timestamp);
         uint256 id = verifier.registerInstance(quote);
 
         assertEq(id, 0);
@@ -187,7 +192,7 @@ contract SgxVerifierTest is Test {
     }
 
     /// @notice Guards against silent TCB-status drift: pins Automata's TCBStatus enum to the exact
-    /// numeric values SgxVerifier's accept/reject policy is built on. If a future dependency bump
+    /// numeric values the verifier's accept/reject policy is built on. If a future dependency bump
     /// reorders the enum, this fails loudly so the on-chain policy can be re-reviewed.
     function test_tcbStatusEnum_matchesExpectedValues() external pure {
         assertEq(uint256(uint8(TCBStatus.OK)), 0);
@@ -222,7 +227,8 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_AllowsRegistrarWhenSet() external {
         address registrar = address(0x5151);
-        SgxVerifier gated = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+        BaseSgxVerifier gated =
+            new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
         gated.setMrEnclave(MR_ENCLAVE, true);
         gated.setMrSigner(MR_SIGNER, true);
 
@@ -237,11 +243,12 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
         address registrar = address(0x5151);
-        SgxVerifier gated = new SgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
+        BaseSgxVerifier gated =
+            new MainnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, registrar);
 
         // The registrar gate reverts before any attestation work, so no entrypoint mock is needed.
         bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xC0FFEE));
-        vm.expectRevert(SgxVerifier.SGX_NOT_REGISTRAR.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_NOT_REGISTRAR.selector);
         vm.prank(address(0xBAD));
         gated.registerInstance(quote);
     }
@@ -252,48 +259,48 @@ contract SgxVerifierTest is Test {
 
     function test_registerInstance_RevertWhen_NotVerified() external {
         _mockAttest(false, bytes("some failure reason"));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
     }
 
     function test_registerInstance_RevertWhen_DebugEnclave() external {
         bytes memory quote = _mockQuote(true, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_OK);
-        vm.expectRevert(SgxVerifier.SGX_DEBUG_ENCLAVE.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_DEBUG_ENCLAVE.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbRevoked() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_REVOKED);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbConfigNeeded() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_CONFIG_NEEDED);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbUnrecognized() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_UNRECOGNIZED);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbOutOfDate() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_OUT_OF_DATE);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbOutOfDateConfigNeeded() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_OUT_OF_DATE_CONFIG);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
@@ -301,25 +308,25 @@ contract SgxVerifierTest is Test {
         bytes memory quote = _mockQuote(
             false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_CONFIG_AND_SW_HARDENING
         );
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_WrongQuoteVersion() external {
         bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 4, 1, TCB_OK);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_WrongBodyType() external {
         bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 2, TCB_OK);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_OutputTooShort() external {
         _mockAttest(true, new bytes(10));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
     }
 
@@ -328,20 +335,21 @@ contract SgxVerifierTest is Test {
         // not match the raw quote's enclave report — the verified-body binding must reject it.
         bytes memory quote = _rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF));
         _mockAttest(true, _output(3, 1, TCB_OK, new bytes(384))); // zero body != quote body
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_RawQuoteTooShort() external {
         _mockAttest(true, _output(3, 1, TCB_OK, new bytes(384)));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(new bytes(100)); // < 432
     }
 
     function test_registerInstance_RevertWhen_NoAttestationEntrypoint() external {
         // A verifier deployed without an attestation entrypoint (e.g. a dummy deployment).
-        SgxVerifier dummy = new SgxVerifier(CHAIN_ID, address(this), address(0), address(0));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        BaseSgxVerifier dummy =
+            new MainnetSgxVerifier(CHAIN_ID, address(this), address(0), address(0));
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         dummy.registerInstance(_rawQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF)));
     }
 
@@ -351,7 +359,7 @@ contract SgxVerifierTest is Test {
         bytes memory quote = _mockValidQuote(instance);
         verifier.registerInstance(quote);
 
-        vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_ALREADY_ATTESTED.selector);
         verifier.registerInstance(quote);
     }
 
@@ -359,7 +367,7 @@ contract SgxVerifierTest is Test {
         _trustStandardEnclave();
         // reportData -> instance == address(0); _addInstances rejects it.
         bytes memory quote = _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0), 3, 1, TCB_OK);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.registerInstance(quote);
     }
 
@@ -371,7 +379,7 @@ contract SgxVerifierTest is Test {
         // Allowlist is enforced by default; trust only the signer, not the enclave.
         verifier.setMrSigner(MR_SIGNER, true);
         bytes memory quote = _mockValidQuote(address(0xBEEF));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
@@ -379,7 +387,7 @@ contract SgxVerifierTest is Test {
         // Allowlist is enforced by default; trust only the enclave, not the signer.
         verifier.setMrEnclave(MR_ENCLAVE, true);
         bytes memory quote = _mockValidQuote(address(0xBEEF));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
@@ -399,7 +407,7 @@ contract SgxVerifierTest is Test {
 
     function test_setMrEnclave_setsAndEmits() external {
         vm.expectEmit();
-        emit SgxVerifier.MrEnclaveUpdated(MR_ENCLAVE, true);
+        emit BaseSgxVerifier.MrEnclaveUpdated(MR_ENCLAVE, true);
         verifier.setMrEnclave(MR_ENCLAVE, true);
         assertTrue(verifier.trustedUserMrEnclave(MR_ENCLAVE));
     }
@@ -412,7 +420,7 @@ contract SgxVerifierTest is Test {
 
     function test_setMrSigner_setsAndEmits() external {
         vm.expectEmit();
-        emit SgxVerifier.MrSignerUpdated(MR_SIGNER, true);
+        emit BaseSgxVerifier.MrSignerUpdated(MR_SIGNER, true);
         verifier.setMrSigner(MR_SIGNER, true);
         assertTrue(verifier.trustedUserMrSigner(MR_SIGNER));
     }
@@ -427,7 +435,7 @@ contract SgxVerifierTest is Test {
         // Enforced by default; first toggle disables it.
         assertTrue(verifier.checkLocalEnclaveReport());
         vm.expectEmit();
-        emit SgxVerifier.LocalReportCheckToggled(false);
+        emit BaseSgxVerifier.LocalReportCheckToggled(false);
         verifier.toggleLocalReportCheck();
         assertFalse(verifier.checkLocalEnclaveReport());
         verifier.toggleLocalReportCheck();
@@ -466,7 +474,7 @@ contract SgxVerifierTest is Test {
     function test_addInstances_RevertWhen_ZeroAddress() external {
         address[] memory addrs = new address[](1);
         addrs[0] = address(0);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.addInstances(addrs);
     }
 
@@ -478,7 +486,7 @@ contract SgxVerifierTest is Test {
         uint256[] memory ids = new uint256[](1);
         ids[0] = 0;
         vm.expectEmit();
-        emit SgxVerifier.InstanceDeleted(0, address(0xA1));
+        emit BaseSgxVerifier.InstanceDeleted(0, address(0xA1));
         verifier.deleteInstances(ids);
 
         (address addr,) = verifier.instances(0);
@@ -496,7 +504,7 @@ contract SgxVerifierTest is Test {
     function test_deleteInstances_RevertWhen_InvalidInstance() external {
         uint256[] memory ids = new uint256[](1);
         ids[0] = 42; // never added
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.deleteInstances(ids);
     }
 
@@ -542,7 +550,7 @@ contract SgxVerifierTest is Test {
     }
 
     function test_verifyProof_RevertWhen_WrongLength() external {
-        vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_PROOF.selector);
         verifier.verifyProof(0, bytes32(uint256(1)), new bytes(88));
     }
 
@@ -556,7 +564,7 @@ contract SgxVerifierTest is Test {
         bytes32 aggHash = bytes32(uint256(0xABCD));
         // id 0 holds `instance`, but the proof claims a different instance address.
         bytes memory proof = _proof(0, address(0xDEAD), _sign(pk, aggHash, address(0xDEAD)));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, aggHash, proof);
     }
 
@@ -570,7 +578,7 @@ contract SgxVerifierTest is Test {
         bytes32 aggHash = bytes32(uint256(0xABCD));
         // Sign with the wrong key.
         bytes memory proof = _proof(0, instance, _sign(0xBADBAD, aggHash, instance));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_PROOF.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_PROOF.selector);
         verifier.verifyProof(0, aggHash, proof);
     }
 
@@ -585,14 +593,14 @@ contract SgxVerifierTest is Test {
         bytes memory proof = _proof(0, instance, _sign(pk, aggHash, instance));
 
         vm.warp(block.timestamp + verifier.INSTANCE_EXPIRY() + 1);
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, aggHash, proof);
     }
 
     function test_verifyProof_RevertWhen_InstanceZero() external {
         bytes32 aggHash = bytes32(uint256(0xABCD));
         bytes memory proof = _proof(0, address(0), new bytes(65));
-        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, aggHash, proof);
     }
 }

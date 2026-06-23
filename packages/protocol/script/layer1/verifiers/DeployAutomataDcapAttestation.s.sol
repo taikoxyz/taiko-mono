@@ -44,8 +44,9 @@ contract DeployAutomataDcapAttestation is BaseScript {
         AutomataDcapAttestationFee attestation = new AutomataDcapAttestationFee(deployer);
         attestation.setQuoteVerifier(address(v3QuoteVerifier));
         // Force a zero verification fee while the deployer is still the owner, before handing
-        // ownership to `owner`. SgxVerifier.registerInstance forwards msg.value, so a non-zero fee
-        // is still payable, but Taiko keeps it at zero by default.
+        // ownership to `owner`. The SGX verifier's registerInstance is non-payable and forwards
+        // zero value to this entrypoint, so the verification fee MUST be zero for registration to
+        // succeed; Taiko keeps it at zero by default.
         attestation.setBp(0);
         attestation.transferOwnership(owner);
 

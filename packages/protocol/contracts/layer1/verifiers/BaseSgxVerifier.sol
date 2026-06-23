@@ -4,18 +4,19 @@ pragma solidity ^0.8.26;
 import { IDcapAttestation } from "./IDcapAttestation.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
-import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-/// @title SgxVerifier
-/// @notice This contract verifies SGX signature proofs onchain using attested SGX instances.
-/// Each instance is registered via remote attestation and can verify proofs until expiry.
+/// @title BaseSgxVerifier
+/// @notice Abstract base that verifies SGX signature proofs onchain using attested SGX instances.
+/// Each instance is registered via remote attestation and can verify proofs until expiry. The
+/// TCB-status acceptance policy is left abstract so that per-network subclasses define it (the
+/// strict mainnet policy must remain the secure default).
 /// @dev Side-channel protection is achieved through mandatory instance expiry (INSTANCE_EXPIRY),
 /// requiring periodic re-attestation with new keypairs.
 /// @custom:security-contact security@taiko.xyz
-contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
+abstract contract BaseSgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
@@ -354,19 +355,12 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
 
-    /// @dev Accepts only TCB statuses that indicate an up-to-date platform: `OK` and
-    /// `SW_HARDENING_NEEDED` (whose mitigation lives in the enclave software, which is pinned by the
-    /// MRENCLAVE allowlist). Every other status is rejected — notably `OUT_OF_DATE` /
-    /// `OUT_OF_DATE_CONFIGURATION_NEEDED`, where the platform is missing the microcode that patches
-    /// SGX key-extraction vulnerabilities (so the in-enclave signing key could be extractable), plus
-    /// the configuration-needed and revoked/unrecognized statuses. This is stricter than the replaced
-    /// AutomataDcapV3Attestation, which also trusted out-of-date and configuration platforms. The
-    /// policy is expressed against Automata's `TCBStatus` enum (the same pinned on-chain-pccs package
-    /// the attestation entrypoint uses to produce `tcbStatus`), so the two cannot diverge and a
-    /// dependency bump that reorders the enum is caught at compile time.
+    /// @dev The TCB-status acceptance policy is defined by per-network subclasses. Each subclass
+    /// expresses its policy against Automata's `TCBStatus` enum (the same pinned on-chain-pccs
+    /// package the attestation entrypoint uses to produce `tcbStatus`), so the on-chain policy and
+    /// the entrypoint cannot diverge and a dependency bump that reorders the enum is caught at
+    /// compile time. The strict mainnet policy must remain the secure default.
     /// @param _status The TCB status code from the attestation output.
     /// @return Whether the status is accepted.
-    function _isTcbStatusAccepted(uint8 _status) private pure returns (bool) {
-        return _status == uint8(TCBStatus.OK) || _status == uint8(TCBStatus.TCB_SW_HARDENING_NEEDED);
-    }
+    function _isTcbStatusAccepted(uint8 _status) internal pure virtual returns (bool);
 }
