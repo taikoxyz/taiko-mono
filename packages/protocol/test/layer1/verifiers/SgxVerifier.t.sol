@@ -116,6 +116,28 @@ contract SgxVerifierTest is Test {
         verifier.registerInstance(_makeQuote(newInstance));
     }
 
+    function test_registerInstance_RevertWhen_DebugEnclave() external {
+        attestation.setResult(true);
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        // Set the SGX DEBUG attribute bit (bit 1 of the little-endian flags = low byte of the
+        // 16-byte attributes field), as a genuine debug enclave's quote would carry.
+        quote.localEnclaveReport.attributes = bytes16(0x02000000000000000000000000000000);
+
+        vm.expectRevert(SgxVerifier.SGX_DEBUG_ENCLAVE.selector);
+        verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_AcceptsNonDebugEnclave() external {
+        attestation.setResult(true);
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        // INIT bit set (0x01) but not DEBUG (0x02) -> must be accepted.
+        quote.localEnclaveReport.attributes = bytes16(0x01000000000000000000000000000000);
+
+        verifier.registerInstance(quote);
+        (address stored,) = verifier.instances(0);
+        assertEq(stored, address(0xC0FFEE));
+    }
+
     // ---------------------------------------------------------------
     // Proof verification
     // ---------------------------------------------------------------

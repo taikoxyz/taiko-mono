@@ -31,6 +31,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
+    /// @dev DEBUG bit (bit 1) of the little-endian SGX ATTRIBUTES flags. The flags occupy the low
+    /// 8 bytes of the 16-byte `attributes` field, so the DEBUG bit lives in its first byte.
+    uint8 private constant SGX_FLAGS_DEBUG = 0x02;
+
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
 
@@ -68,6 +72,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
     error SGX_ALREADY_ATTESTED();
+    error SGX_DEBUG_ENCLAVE();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
@@ -116,6 +121,18 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     {
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
+
+        // Reject DEBUG-mode enclaves: a debug enclave's memory (including the in-enclave signing
+        // key recorded in reportData) is readable and writable by the host, so its quotes must
+        // never be trusted on-chain. DEBUG is bit 1 of the SGX ATTRIBUTES flags; the flags are
+        // little-endian, so the bit lives in the low byte of the 16-byte `attributes` field. The
+        // attributes are authenticated by verifyParsedQuote (covered by the attestation-key
+        // signature over the serialized enclave report), so a forged/cleared value would fail
+        // verification above — making this check on the parsed field sound.
+        require(
+            (uint8(_attestation.localEnclaveReport.attributes[0]) & SGX_FLAGS_DEBUG) == 0,
+            SGX_DEBUG_ENCLAVE()
+        );
 
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
