@@ -119,7 +119,7 @@ on those attesters. New image IDs are pending and must be added in a follow-up e
 `SGXGETH_ATTESTER.setMrSigner(mrSigner, trusted)` and
 `SGXRETH_ATTESTER.setMrSigner(mrSigner, trusted)`:
 
-- `0xe08aef23d4357d47e5ac5f278ba5492a5f5fb145c4fc026995367210f21a333c` -> `true`
+- `0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013` -> `true`
 - `0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5` -> `false`
 
 ### RISC0 Image IDs
