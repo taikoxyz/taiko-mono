@@ -308,6 +308,12 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@automata-network/automata-dcap-attestation':
+        specifier: 1.1.0
+        version: 1.1.0
+      '@automata-network/on-chain-pccs':
+        specifier: 1.1.1
+        version: 1.1.1(@openzeppelin/contracts@4.9.6)(solady@https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d)
       '@openzeppelin/contracts':
         specifier: 4.9.6
         version: 4.9.6
@@ -956,6 +962,16 @@ packages:
 
   '@astrojs/yaml2ts@0.2.2':
     resolution: {integrity: sha512-GOfvSr5Nqy2z5XiwqTouBBpy5FyI6DEe+/g/Mk5am9SjILN1S5fOEvYK0GuWHg98yS/dobP4m8qyqw/URW35fQ==}
+
+  '@automata-network/automata-dcap-attestation@1.1.0':
+    resolution: {integrity: sha512-E6WqpSKchKcGlh1E8F655rADzZn3bzH5wH8E1BwxA5gb7BpEXYQaHYuXHlVTeIvQH9oUQu/vrVajWCpeibQYdw==}
+
+  '@automata-network/on-chain-pccs@1.1.1':
+    resolution: {integrity: sha512-d/DCAQQm1pkiMfyGAvql4QonDFbvXIX892yrPPHp2WEZvr7/CMOX2wuLWQCLI9/ewwDBawEPRpdmETV0lToIGw==}
+    version: 1.1.1
+    peerDependencies:
+      '@openzeppelin/contracts': 5.0.2
+      solady: 0.0.160
 
   '@aws-crypto/crc32@5.2.0':
     resolution: {integrity: sha512-nLbCWqQNgUiwwtFsen1AdzAtvuLRsQS8rYgMuxCrdKf9kOssamGLuPwyTY9wyYblNr9+1XM8v6zoDTPPSIeANg==}
@@ -10594,6 +10610,13 @@ snapshots:
   '@astrojs/yaml2ts@0.2.2':
     dependencies:
       yaml: 2.8.1
+
+  '@automata-network/automata-dcap-attestation@1.1.0': {}
+
+  '@automata-network/on-chain-pccs@1.1.1(@openzeppelin/contracts@4.9.6)(solady@https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d)':
+    dependencies:
+      '@openzeppelin/contracts': 4.9.6
+      solady: https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
