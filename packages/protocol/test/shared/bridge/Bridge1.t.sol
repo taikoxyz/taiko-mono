@@ -58,6 +58,21 @@ contract TestBridge1 is CommonTest {
         vm.deal(address(tBridge), 100 ether);
     }
 
+    function test_bridge1_receive_ether_via_plain_transfer() public {
+        uint256 starterBalance = address(eBridge).balance;
+
+        // Low-level call with empty calldata triggers receive().
+        vm.prank(Alice);
+        (bool success,) = address(eBridge).call{ value: 1 ether }("");
+        assertTrue(success);
+        assertEq(address(eBridge).balance, starterBalance + 1 ether);
+
+        // transfer() forwards only 2300 gas; the empty receive() must still accept it.
+        vm.prank(Alice);
+        payable(address(eBridge)).transfer(1 ether);
+        assertEq(address(eBridge).balance, starterBalance + 2 ether);
+    }
+
     function test_bridge1_send_ether_to_to_with_value() public {
         IBridge.Message memory message = IBridge.Message({
             id: 0,

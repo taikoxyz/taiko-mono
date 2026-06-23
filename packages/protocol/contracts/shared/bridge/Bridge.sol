@@ -119,6 +119,12 @@ contract Bridge is EssentialResolverContract, IBridge {
     // External & Public Functions
     // ---------------------------------------------------------------
 
+    /// @notice Allows the contract to receive Ether via plain transfers.
+    /// @dev Enables funding the bridge directly (e.g. topping up its Ether buffer). Kept empty so
+    /// that even gas-limited transfers (`transfer`/`send`, 2300 gas) succeed. Ether bridged through
+    /// the protocol continues to arrive via the payable `sendMessage` function.
+    receive() external payable { }
+
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
     function init(address _owner) external initializer {
