@@ -136,13 +136,16 @@ contract DeployProtocolOnL1 is DeployCapability {
             require(automataDcap != address(0), "DCAP_ATTESTATION not set");
         }
 
-        // Deploy SGX verifier
-        verifiers.sgx =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap));
+        // Deploy SGX verifiers. The registrar is set to address(0), leaving registerInstance
+        // permissionless; set a non-zero registrar to restrict instance registration.
+        verifiers.sgx = address(
+            new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap, address(0))
+        );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
-        verifiers.sgxGeth =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap));
+        verifiers.sgxGeth = address(
+            new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap, address(0))
+        );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)

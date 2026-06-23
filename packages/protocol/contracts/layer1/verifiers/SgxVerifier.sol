@@ -61,6 +61,11 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
 
+    /// @notice The address authorized to register SGX instances via `registerInstance`.
+    /// @dev If set to a non-zero address, only this address may call `registerInstance`.
+    /// If set to `address(0)`, `registerInstance` is permissionless and callable by anyone.
+    address public immutable registrar;
+
     /// @dev For gas savings, we assign each SGX instance with an ID to minimize storage operations.
     uint256 public nextInstanceId;
 
@@ -118,11 +123,18 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
+    error SGX_NOT_REGISTRAR();
 
-    constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
+    constructor(
+        uint64 _taikoChainId,
+        address _owner,
+        address _automataDcapAttestation,
+        address _registrar
+    ) {
         require(_taikoChainId != 0, SGX_INVALID_CHAIN_ID());
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
+        registrar = _registrar;
 
         // Enforce the trusted MRENCLAVE/MRSIGNER allowlist by default (fail-closed): until the owner
         // trusts at least one MRENCLAVE and MRSIGNER, no instance can register. Disable with
@@ -187,12 +199,11 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// acceptance policy are enforced here (previously in AutomataDcapV3Attestation).
     /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
     /// @return The respective instanceId.
-    function registerInstance(bytes calldata _rawQuote)
-        external
-        payable
-        nonReentrant
-        returns (uint256)
-    {
+    function registerInstance(bytes calldata _rawQuote) external nonReentrant returns (uint256) {
+        // When a registrar is configured, only it may register instances; otherwise registration
+        // is permissionless.
+        require(registrar == address(0) || msg.sender == registrar, SGX_NOT_REGISTRAR());
+
         // Fail fast with a clear error if this verifier was deployed without an attestation
         // entrypoint (e.g. a dummy-verifier deployment).
         require(automataDcapAttestation != address(0), SGX_INVALID_ATTESTATION());
@@ -204,10 +215,10 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             _rawQuote.length >= HEADER_LENGTH + ENCLAVE_REPORT_LENGTH, SGX_INVALID_ATTESTATION()
         );
 
-        // Forward msg.value so a non-zero attestation fee (if the entrypoint owner ever sets one)
-        // can be paid; the fee is zero by default, so callers normally send nothing.
-        (bool verified, bytes memory output) = IDcapAttestation(automataDcapAttestation)
-        .verifyAndAttestOnChain{ value: msg.value }(_rawQuote);
+        // The Taiko-owned attestation entrypoint runs feeless, so forward zero value; this function
+        // is non-payable, so stray ETH can never be sent here or trapped in the verifier.
+        (bool verified, bytes memory output) =
+            IDcapAttestation(automataDcapAttestation).verifyAndAttestOnChain{ value: 0 }(_rawQuote);
         require(verified, SGX_INVALID_ATTESTATION());
 
         // `output` is the serialized Automata `Output`; require a full SGX enclave report body.
