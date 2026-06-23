@@ -40,6 +40,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         address oldSignalServiceImpl;
         uint64 shastaForkTimestamp;
         address preconfWhitelist;
+        address signalServicePauser;
     }
 
     modifier broadcast() {
@@ -126,7 +127,9 @@ abstract contract DeployShastaContracts is DeployCapability {
         });
         console2.log("ShastaInbox deployed:", shastaInbox);
 
-        address signalServiceImpl = address(new SignalService(shastaInbox, config.l2SignalService));
+        address signalServiceImpl = address(
+            new SignalService(shastaInbox, config.l2SignalService, config.signalServicePauser)
+        );
         address signalServiceForkRouter = address(
             new SignalServiceForkRouter(
                 config.oldSignalServiceImpl, signalServiceImpl, config.shastaForkTimestamp

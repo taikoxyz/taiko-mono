@@ -49,6 +49,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId;
         address sharedResolver;
         address remoteSigSvc;
+        address signalServicePauser;
+        address bridgePauser;
         address preconfWhitelist;
         address taikoToken;
         address taikoTokenPremintRecipient;
@@ -103,6 +105,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+        config.signalServicePauser = vm.envOr("SIGNAL_SERVICE_PAUSER", address(0));
+        config.bridgePauser = vm.envOr("BRIDGE_PAUSER", address(0));
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
@@ -207,7 +211,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
 
         if (signalService == address(0)) {
-            SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
+            SignalService signalServiceImpl =
+                new SignalService(msg.sender, config.remoteSigSvc, config.signalServicePauser);
             signalService = deployProxy({
                 name: "signal_service",
                 impl: address(signalServiceImpl),
@@ -237,7 +242,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("ShastaInbox deployed:", shastaInbox);
 
         SignalService(signalService)
-            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc)));
+            .upgradeTo(
+                address(
+                    new SignalService(shastaInbox, config.remoteSigSvc, config.signalServicePauser)
+                )
+            );
         console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
         if (config.contractOwner != msg.sender) {
@@ -310,7 +319,9 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
+            impl: address(
+                new MainnetBridge(address(sharedResolver), signalService, config.bridgePauser)
+            ),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });

@@ -29,7 +29,9 @@ contract TestBridge2Base is CommonTest {
 
     function setUpOnEthereum() internal override {
         eSignalService = _deployMockSignalService();
-        eBridge = deployBridge(address(new Bridge(address(resolver), address(eSignalService))));
+        eBridge = deployBridge(
+            address(new Bridge(address(resolver), address(eSignalService), address(0)))
+        );
         vm.deal(address(eBridge), 10_000 ether);
     }
 
