@@ -33,9 +33,15 @@ contract DeployAutomataDcapAttestation is BaseScript {
             new V3QuoteVerifier(address(new P256Verifier()), pccsRouter);
         console2.log("V3QuoteVerifier deployed:", address(v3QuoteVerifier));
 
+        // The entrypoint's initial owner must be the broadcast signer so the wiring calls below
+        // pass onlyOwner. Derive it from the broadcast key, not in-frame msg.sender: under
+        // vm.startBroadcast(pk) the script's own msg.sender stays the default sender, while the
+        // calls it makes are sent from vm.addr(pk).
+        address deployer = vm.addr(deployerPrivateKey);
+
         // Deploy the entrypoint owned by the deployer so we can wire the verifier, then hand
         // ownership to the contract owner. AutomataDcapAttestationFee is non-upgradeable (no proxy).
-        AutomataDcapAttestationFee attestation = new AutomataDcapAttestationFee(msg.sender);
+        AutomataDcapAttestationFee attestation = new AutomataDcapAttestationFee(deployer);
         attestation.setQuoteVerifier(address(v3QuoteVerifier));
         // Force a zero verification fee while the deployer is still the owner, before handing
         // ownership to `owner`. SgxVerifier.registerInstance forwards msg.value, so a non-zero fee
