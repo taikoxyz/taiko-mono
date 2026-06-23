@@ -10,7 +10,7 @@ It executes **58 L1 actions** and **no L2 actions**:
 2. Upgrade `Bridge`.
 3. Call `Bridge.init3(bytes32[])` to disable the three remaining attacker retriable messages.
 4. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`.
-5. Call `Inbox.init2(...)` with the last known-good Shasta core state from L1 block
+5. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
    `25,367,937`, one block before the first forged proof.
 6. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
 7. Disable all currently trusted RISC0 and SP1 image/program IDs.
@@ -37,7 +37,7 @@ unreachable before retriable message cleanup.
 ### Group Two: Restore the Proving System
 
 1. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
-2. Call `Inbox.init2(...)` with the last correct pre-forgery core state.
+2. Call `Inbox.init2(uint48,bytes32)` with the last correct pre-forgery finalized state.
 3. Rotate SGX attester MRSIGNER trust.
 4. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth.
 

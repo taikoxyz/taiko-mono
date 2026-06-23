@@ -25,8 +25,6 @@ contract Proposal0017Test is Test {
     bytes32 internal constant OLD_MR_SIGNER =
         0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
 
-    uint48 internal constant RECOVERY_NEXT_PROPOSAL_ID = 18_059;
-    uint48 internal constant RECOVERY_LAST_PROPOSAL_BLOCK_ID = 25_367_925;
     uint48 internal constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
     bytes32 internal constant RECOVERY_LAST_FINALIZED_BLOCK_HASH =
         0x64c2ada556b6862d2c8796e0f709c454fede9d03908711a9f04d9f9f9dcce470;
@@ -84,13 +82,7 @@ contract Proposal0017Test is Test {
         assertEq(
             actions[cursor++].data,
             abi.encodeCall(
-                IInboxRecovery.init2,
-                (
-                    RECOVERY_NEXT_PROPOSAL_ID,
-                    RECOVERY_LAST_PROPOSAL_BLOCK_ID,
-                    RECOVERY_LAST_FINALIZED_PROPOSAL_ID,
-                    RECOVERY_LAST_FINALIZED_BLOCK_HASH
-                )
+                IInboxRecovery.init2, (RECOVERY_LAST_FINALIZED_PROPOSAL_ID, RECOVERY_LAST_FINALIZED_BLOCK_HASH)
             )
         );
 
@@ -266,13 +258,7 @@ interface IBridgeRecovery {
 }
 
 interface IInboxRecovery {
-    function init2(
-        uint48 _nextProposalId,
-        uint48 _lastProposalBlockId,
-        uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedBlockHash
-    )
-        external;
+    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
 }
 
 interface IAutomataAttestationRecovery {
