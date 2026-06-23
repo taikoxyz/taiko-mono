@@ -142,13 +142,19 @@ abstract contract DeployShastaContracts is DeployCapability {
         private
         returns (VerifierAddresses memory verifiers)
     {
+        // The registrar is set to address(0), leaving `registerInstance` permissionless;
+        // set a non-zero registrar to restrict instance registration.
         verifiers.sgxReth = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy)
+            new SgxVerifier(
+                config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy, address(0)
+            )
         );
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
         verifiers.sgxGeth = address(
-            new SgxVerifier(config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy)
+            new SgxVerifier(
+                config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy, address(0)
+            )
         );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 

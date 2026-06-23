@@ -36,7 +36,8 @@ contract SgxVerifierTest is Test {
 
     function setUp() external {
         attestation = new MockAttestation();
-        verifier = new SgxVerifier(CHAIN_ID, address(this), address(attestation));
+        // registrar is address(0): registerInstance is permissionless.
+        verifier = new SgxVerifier(CHAIN_ID, address(this), address(attestation), address(0));
     }
 
     // ---------------------------------------------------------------
@@ -125,6 +126,37 @@ contract SgxVerifierTest is Test {
 
         vm.expectRevert(SgxVerifier.SGX_DEBUG_MODE_NOT_ALLOWED.selector);
         verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_AllowsRegistrarWhenSet() external {
+        address registrar = address(0x5151);
+        SgxVerifier gatedVerifier =
+            new SgxVerifier(CHAIN_ID, address(this), address(attestation), registrar);
+
+        attestation.setResult(true);
+        address newInstance = address(0xC0FFEE);
+
+        vm.expectEmit(true, true, true, true);
+        emit SgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
+
+        vm.prank(registrar);
+        uint256 id = gatedVerifier.registerInstance(_makeQuote(newInstance));
+        assertEq(id, 0);
+
+        (address stored,) = gatedVerifier.instances(id);
+        assertEq(stored, newInstance);
+    }
+
+    function test_registerInstance_RevertWhen_CallerNotRegistrar() external {
+        address registrar = address(0x5151);
+        SgxVerifier gatedVerifier =
+            new SgxVerifier(CHAIN_ID, address(this), address(attestation), registrar);
+
+        attestation.setResult(true);
+
+        vm.expectRevert(SgxVerifier.SGX_NOT_REGISTRAR.selector);
+        vm.prank(address(0xBAD));
+        gatedVerifier.registerInstance(_makeQuote(address(0xC0FFEE)));
     }
 
     // ---------------------------------------------------------------
