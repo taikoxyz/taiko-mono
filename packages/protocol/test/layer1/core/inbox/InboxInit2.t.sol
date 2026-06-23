@@ -9,23 +9,26 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 
 contract InboxInit2Test is InboxTestBase {
     function test_init2_ResetsCoreState() public {
-        uint48 nextProposalId = 1;
-        uint48 lastProposalBlockId = 0;
         uint48 lastFinalizedProposalId = 0;
         bytes32 lastFinalizedBlockHash = keccak256("trustedBlockHash");
 
         vm.warp(4567);
 
-        vm.expectEmit(false, false, false, true, address(inbox));
-        emit IInbox.StateRecovered(nextProposalId, lastFinalizedProposalId, lastFinalizedBlockHash);
+        // nextProposalId and lastProposalBlockId are preserved from the existing core state.
+        IInbox.CoreState memory beforeState = inbox.getCoreState();
 
-        inbox.init2(
-            nextProposalId, lastProposalBlockId, lastFinalizedProposalId, lastFinalizedBlockHash
+        vm.expectEmit(false, false, false, true, address(inbox));
+        emit IInbox.StateRecovered(
+            beforeState.nextProposalId, lastFinalizedProposalId, lastFinalizedBlockHash
         );
 
+        inbox.init2(lastFinalizedProposalId, lastFinalizedBlockHash);
+
         IInbox.CoreState memory state = inbox.getCoreState();
-        assertEq(state.nextProposalId, nextProposalId);
-        assertEq(state.lastProposalBlockId, lastProposalBlockId);
+        // Preserved fields.
+        assertEq(state.nextProposalId, beforeState.nextProposalId);
+        assertEq(state.lastProposalBlockId, beforeState.lastProposalBlockId);
+        // Reset fields.
         assertEq(state.lastFinalizedProposalId, lastFinalizedProposalId);
         assertEq(state.lastFinalizedTimestamp, uint48(block.timestamp));
         assertEq(state.lastCheckpointTimestamp, uint48(block.timestamp));
@@ -42,7 +45,7 @@ contract InboxInit2Test is InboxTestBase {
         bytes32 forgedBlockHash = inbox.getCoreState().lastFinalizedBlockHash;
         assertNotEq(forgedBlockHash, recoveredBlockHash);
 
-        inbox.init2(2, 0, 0, recoveredBlockHash);
+        inbox.init2(0, recoveredBlockHash);
 
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = _transitionFor(proposal, proposalTimestamp, keccak256("canonicalBlock"));
@@ -76,49 +79,56 @@ contract InboxInit2Test is InboxTestBase {
         vm.store(address(inbox), bytes32(0), bytes32(uint256(2)));
 
         vm.expectRevert();
-        inbox.init2(1, 0, 0, keccak256("trustedBlockHash"));
+        inbox.init2(0, keccak256("trustedBlockHash"));
     }
 
     function test_init2_RevertWhen_CallerNotOwner() public {
         vm.expectRevert();
         vm.prank(Alice);
-        inbox.init2(10, 1234, 8, keccak256("trustedBlockHash"));
+        inbox.init2(8, keccak256("trustedBlockHash"));
     }
 
-    function test_init2_RevertWhen_NextProposalIdIsZero() public {
+    function test_init2_RevertWhen_InboxNotActivated() public {
+        // A freshly deployed (but not activated) inbox has nextProposalId == 0, so recovery must
+        // revert on the "inbox must be activated" check.
+        Inbox freshInbox = _deployInbox();
+        assertEq(freshInbox.getCoreState().nextProposalId, 0);
+
         vm.expectRevert(Inbox.InvalidRecoveryState.selector);
-        inbox.init2(0, 1234, 0, keccak256("trustedBlockHash"));
+        freshInbox.init2(0, keccak256("trustedBlockHash"));
     }
 
     function test_init2_RevertWhen_LastFinalizedProposalIdTooHigh() public {
-        vm.expectRevert(Inbox.InvalidRecoveryState.selector);
-        inbox.init2(10, 1234, 10, keccak256("trustedBlockHash"));
-    }
+        // _lastFinalizedProposalId must be strictly less than nextProposalId.
+        uint48 npid = inbox.getCoreState().nextProposalId;
 
-    function test_init2_RevertWhen_NextProposalIdExceedsCurrentState() public {
         vm.expectRevert(Inbox.InvalidRecoveryState.selector);
-        inbox.init2(2, 0, 0, keccak256("trustedBlockHash"));
-    }
-
-    function test_init2_RevertWhen_LastProposalBlockIdInFuture() public {
-        vm.expectRevert(Inbox.InvalidRecoveryState.selector);
-        inbox.init2(1, uint48(block.number + 1), 0, keccak256("trustedBlockHash"));
+        inbox.init2(npid, keccak256("trustedBlockHash"));
     }
 
     function test_init2_RevertWhen_UnfinalizedRangeExceedsRingBuffer() public {
+        // After activation nextProposalId is only 1, so force it to ringBufferSize (100) via storage
+        // to exercise the unfinalized-range check. _coreState lives at slot 252 with nextProposalId
+        // packed in the lowest 48 bits, so storing 100 there sets nextProposalId=100 and zeroes the
+        // other packed fields (acceptable for this revert-only test).
+        vm.store(address(inbox), bytes32(uint256(252)), bytes32(uint256(100)));
+        assertEq(inbox.getCoreState().nextProposalId, 100);
+
+        // 100 - 0 == 100 is NOT < ringBufferSize (100), so recovery reverts.
         vm.expectRevert(Inbox.InvalidRecoveryState.selector);
-        inbox.init2(101, 1234, 1, keccak256("trustedBlockHash"));
+        inbox.init2(0, keccak256("trustedBlockHash"));
     }
 
     function test_init2_RevertWhen_LastFinalizedBlockHashZero() public {
+        // Passes checks #2 and #3 but fails the non-zero block hash check.
         vm.expectRevert(Inbox.InvalidRecoveryState.selector);
-        inbox.init2(10, 1234, 8, bytes32(0));
+        inbox.init2(0, bytes32(0));
     }
 
     function test_init2_RevertWhen_CalledTwice() public {
-        inbox.init2(1, 0, 0, keccak256("trustedBlockHash"));
+        inbox.init2(0, keccak256("trustedBlockHash"));
 
         vm.expectRevert();
-        inbox.init2(1, 0, 0, keccak256("anotherTrustedBlockHash"));
+        inbox.init2(0, keccak256("anotherTrustedBlockHash"));
     }
 }
