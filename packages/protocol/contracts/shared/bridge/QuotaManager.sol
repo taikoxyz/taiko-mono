@@ -88,7 +88,13 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
         if (q.quota == 0) return UNLIMITED_QUOTA;
         if (q.updatedAt == 0) return q.quota;
 
-        uint256 issuance = q.quota * (block.timestamp + _leap - q.updatedAt) / quotaPeriod;
+        // Cap the elapsed time at `quotaPeriod`. Once a full period has passed the quota is
+        // fully restored, so a larger elapsed value would not change the result (it is capped
+        // at `q.quota` below anyway). Capping it also bounds the multiplication to
+        // `q.quota * quotaPeriod`, which can never overflow uint256 and keeps `consumeQuota`
+        // working even though `block.timestamp - q.updatedAt` grows without bound.
+        uint256 elapsed = (block.timestamp + _leap - q.updatedAt).min(quotaPeriod);
+        uint256 issuance = q.quota * elapsed / quotaPeriod;
         return (issuance + q.available).min(q.quota);
     }
 

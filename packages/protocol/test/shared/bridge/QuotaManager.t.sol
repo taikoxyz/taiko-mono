@@ -85,6 +85,47 @@ contract TestQuotaManager is CommonTest {
         assertEq(qm.availableQuota(Ether, 0), 4 ether);
     }
 
+    function test_quota_manager_restores_fully_after_long_period() public {
+        address Ether = address(0);
+
+        vm.prank(deployer);
+        qm.updateQuota(Ether, 10 ether);
+
+        vm.prank(bridge);
+        qm.consumeQuota(Ether, 6 ether);
+        assertEq(qm.availableQuota(Ether, 0), 4 ether);
+
+        // Warp far beyond a single quota period (~100 years). The quota must be fully restored
+        // and capped at the configured quota, and consumeQuota must keep working.
+        vm.warp(block.timestamp + 36_500 days);
+        assertEq(qm.availableQuota(Ether, 0), 10 ether);
+
+        vm.prank(bridge);
+        qm.consumeQuota(Ether, 10 ether);
+        assertEq(qm.availableQuota(Ether, 0), 0);
+    }
+
+    function test_quota_manager_no_overflow_with_max_quota_and_large_elapsed() public {
+        address Ether = address(0);
+
+        // Configure the maximum possible quota to maximize the overflow risk in the issuance
+        // calculation `q.quota * elapsed`.
+        vm.prank(deployer);
+        qm.updateQuota(Ether, type(uint104).max);
+
+        // Consume a tiny amount so that `updatedAt` becomes non-zero and the issuance branch
+        // (rather than the early `q.updatedAt == 0` return) is exercised.
+        vm.prank(bridge);
+        qm.consumeQuota(Ether, 1);
+
+        // With an unbounded elapsed time, `q.quota * elapsed` would exceed uint256 and revert,
+        // bricking `consumeQuota`. Capping elapsed at `quotaPeriod` keeps it safe and simply
+        // returns the fully restored quota. `2 ** 160` is large enough to overflow the product
+        // while keeping `block.timestamp + _leap` itself within uint256.
+        uint256 hugeLeap = 1 << 160;
+        assertEq(qm.availableQuota(Ether, hugeLeap), type(uint104).max);
+    }
+
     function test_calc_quota() public pure {
         uint24 quotaPeriod = 24 hours;
         uint104 value = 4_000_000; // USD
