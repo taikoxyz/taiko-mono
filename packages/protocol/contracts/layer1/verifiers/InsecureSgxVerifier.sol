@@ -5,9 +5,10 @@ import { SgxVerifier } from "./SgxVerifier.sol";
 import { TCBInfoStruct } from "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
 
 /// @title InsecureSgxVerifier
-/// @notice SGX verifier with a lenient TCB-status acceptance policy for testnet/devnet ONLY. In
+/// @notice SGX verifier with a lenient TCB-status acceptance policy for local devnet ONLY. In
 /// addition to the up-to-date statuses it also accepts out-of-date platforms to preserve liveness on
-/// development hardware that lags on microcode/configuration. This MUST NOT be used on mainnet.
+/// development hardware that lags on microcode/configuration. Mainnet and all public testnets MUST
+/// use SecureSgxVerifier; this MUST NOT be deployed on a public testnet or mainnet.
 /// @custom:security-contact security@taiko.xyz
 contract InsecureSgxVerifier is SgxVerifier {
     constructor(
@@ -20,11 +21,12 @@ contract InsecureSgxVerifier is SgxVerifier {
     { }
 
     /// @inheritdoc SgxVerifier
-    /// @dev Lenient policy for testnet/devnet ONLY: in addition to the up-to-date statuses (`OK`,
+    /// @dev Lenient policy for local devnet ONLY: in addition to the up-to-date statuses (`OK`,
     /// `TCB_SW_HARDENING_NEEDED`) it also accepts `TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED`,
     /// `TCB_OUT_OF_DATE` and `TCB_OUT_OF_DATE_CONFIGURATION_NEEDED` so dev hardware lagging on
-    /// microcode/configuration stays usable. This MUST NOT be used on mainnet: out-of-date platforms
-    /// may be missing the microcode that patches SGX key-extraction vulnerabilities. It still rejects
+    /// microcode/configuration stays usable. This MUST NOT be used on a public testnet or mainnet:
+    /// out-of-date platforms may be missing the microcode that patches SGX key-extraction
+    /// vulnerabilities. It still rejects
     /// `TCB_CONFIGURATION_NEEDED`, `TCB_REVOKED` and `TCB_UNRECOGNIZED`. The policy is expressed
     /// against the attestation's `TCBInfoStruct.TCBStatus` enum so an enum reorder is caught at
     /// compile time.

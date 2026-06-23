@@ -33,14 +33,18 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
-    /// @dev SGX ATTRIBUTES.FLAGS bits that production application enclaves must not set. In DCAP
-    /// quote bytes, FLAGS is little-endian, so these bits are encoded in the first byte of the
-    /// 16-byte attributes field. This is enforced uniformly on every network (it is NOT part of the
-    /// per-network policy): a debug/provisioning enclave must never be trusted on-chain.
-    /// DEBUG(0x02): host can read/write enclave memory.
-    /// PROVISION_KEY(0x10): enclave can derive platform-identifying provisioning keys.
-    bytes16 private constant SGX_FORBIDDEN_ATTRIBUTE_MASK =
-        bytes16(0x12000000000000000000000000000000);
+    /// @dev SGX ATTRIBUTES.FLAGS bits that a production application enclave must never set. In DCAP
+    /// quote bytes the 16-byte ATTRIBUTES field is FLAGS (low 8 bytes, little-endian) followed by
+    /// XFRM, so these FLAGS bits live in the first byte. Enforced uniformly on every network (it is
+    /// NOT part of the per-network policy): such an enclave must never be trusted on-chain.
+    /// DEBUG(0x02): the host can read/write enclave memory, so the in-enclave signing key is
+    /// extractable.
+    /// PROVISION_KEY(0x10): the enclave can derive platform-identifying provisioning keys.
+    /// EINITTOKEN_KEY(0x20): the enclave can derive the launch-token key, a launch-enclave-only
+    /// privilege an application enclave must never hold.
+    /// Subclasses may pin the remaining bits per-MRENCLAVE via `_validateEnclaveAttributes`.
+    bytes16 internal constant SGX_FORBIDDEN_ATTRIBUTE_MASK =
+        bytes16(0x32000000000000000000000000000000);
 
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
@@ -157,6 +161,12 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
             SGX_FORBIDDEN_ATTRIBUTES()
         );
 
+        // Per-network enclave-identity policy on top of the universal floor above. The strict
+        // mainnet subclass pins the full ATTRIBUTES profile per allowlisted MRENCLAVE.
+        _validateEnclaveAttributes(
+            _attestation.localEnclaveReport.mrEnclave, _attestation.localEnclaveReport.attributes
+        );
+
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
 
@@ -195,6 +205,15 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @param _status The TCB status code from the attestation output.
     /// @return Whether the status is accepted.
     function isTcbStatusAccepted(uint8 _status) public pure virtual returns (bool);
+
+    /// @dev Hook for an additional, per-network enclave-identity policy enforced during
+    /// `registerInstance`, run after the universal forbidden-attribute floor. The base
+    /// implementation is a no-op (the floor is the only attribute check) and is intended only for
+    /// non-production (devnet) verifiers; production subclasses MUST override this to pin the full
+    /// ATTRIBUTES profile per allowlisted MRENCLAVE. An override MUST revert to reject a
+    /// registration. Parameters are the attested application-enclave measurement and its 16-byte
+    /// ATTRIBUTES (FLAGS || XFRM) field, both authenticated by the attestation.
+    function _validateEnclaveAttributes(bytes32, bytes16) internal view virtual { }
 
     function _addInstances(
         address[] memory _instances,

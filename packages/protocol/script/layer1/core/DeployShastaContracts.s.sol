@@ -142,6 +142,10 @@ abstract contract DeployShastaContracts is DeployCapability {
         private
         returns (VerifierAddresses memory verifiers)
     {
+        // Mainnet AND all (public) testnets MUST use SecureSgxVerifier (strict TCB-status policy +
+        // per-MRENCLAVE ATTRIBUTES pin). InsecureSgxVerifier relaxes the TCB-status policy for
+        // lagging dev hardware and MUST be used by local devnets ONLY — never by a public testnet
+        // or mainnet.
         // The registrar is set to address(0), leaving `registerInstance` permissionless;
         // set a non-zero registrar to restrict instance registration.
         verifiers.sgxReth = address(

@@ -43,6 +43,12 @@ contract MockAttestation is IAttestation {
 abstract contract SgxVerifierTestBase is Test {
     uint64 internal constant CHAIN_ID = 167;
 
+    /// @dev MRENCLAVE carried by every quote built with `_makeQuote`.
+    bytes32 internal constant MR_ENCLAVE = bytes32(uint256(0xE5C1A5E));
+    /// @dev The universal forbidden-attribute floor (DEBUG | PROVISION_KEY | EINITTOKEN_KEY),
+    /// mirroring `SgxVerifier.SGX_FORBIDDEN_ATTRIBUTE_MASK`.
+    bytes16 internal constant FORBIDDEN_FLOOR = bytes16(0x32000000000000000000000000000000);
+
     MockAttestation internal attestation;
     SgxVerifier internal verifier;
 
@@ -146,6 +152,17 @@ abstract contract SgxVerifierTestBase is Test {
 
         V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
         quote.localEnclaveReport.attributes = bytes16(0x10000000000000000000000000000000);
+
+        vm.expectRevert(SgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
+        verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_RevertWhen_LaunchKeyEnabled() external {
+        attestation.setResult(true);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        // EINITTOKEN_KEY (launch-token key) is bit 5 (0x20) of the FLAGS byte.
+        quote.localEnclaveReport.attributes = bytes16(0x20000000000000000000000000000000);
 
         vm.expectRevert(SgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
         verifier.registerInstance(quote);
@@ -291,6 +308,7 @@ abstract contract SgxVerifierTestBase is Test {
         bytes memory padding = new bytes(44);
         quote.localEnclaveReport.reportData =
             bytes.concat(abi.encodePacked(bytes20(_instance)), padding);
+        quote.localEnclaveReport.mrEnclave = MR_ENCLAVE;
     }
 
     function _prepareValidProof(uint256 instanceKey)
@@ -316,6 +334,11 @@ abstract contract SgxVerifierTestBase is Test {
 }
 
 contract SecureSgxVerifierTest is SgxVerifierTestBase {
+    bytes32 private constant STRICT_MR = bytes32(uint256(0x57217C7));
+    // Pin all 8 FLAGS bytes (XFRM left unchecked); require INIT|MODE64BIT and clear every other bit.
+    bytes16 private constant STRICT_MASK = bytes16(0xffffffffffffffff0000000000000000);
+    bytes16 private constant STRICT_EXPECTED = bytes16(0x05000000000000000000000000000000);
+
     function _deployVerifier(
         uint64 _chainId,
         address _owner,
@@ -326,7 +349,14 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         override
         returns (SgxVerifier)
     {
-        return new SecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
+        SecureSgxVerifier secureVerifier =
+            new SecureSgxVerifier(_chainId, _owner, _attestation, _registrar);
+        // Permissive-but-configured pin for the shared suite's MRENCLAVE: check only the forbidden
+        // floor, so the shared tests exercise the floor exactly. The dedicated tests below pin
+        // tighter against STRICT_MR. `_owner` owns the verifier, so impersonate it to configure.
+        vm.prank(_owner);
+        secureVerifier.setEnclaveAttributePolicy(MR_ENCLAVE, FORBIDDEN_FLOOR, bytes16(0));
+        return secureVerifier;
     }
 
     function test_registerInstance_RevertWhen_TcbOutOfDate() external {
@@ -365,6 +395,114 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
                 || s == uint8(TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED);
             assertEq(verifier.isTcbStatusAccepted(uint8(s)), expected);
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Per-MRENCLAVE ATTRIBUTES pin
+    // ---------------------------------------------------------------
+
+    function test_registerInstance_RevertWhen_EnclaveAttributesNotConfigured() external {
+        // Fail closed: an MRENCLAVE with no configured pin cannot register, even with otherwise
+        // valid production attributes.
+        attestation.setResult(true);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        quote.localEnclaveReport.mrEnclave = bytes32(uint256(0xDEADBEEF));
+        quote.localEnclaveReport.attributes = bytes16(0x05000000000000000000000000000000);
+
+        vm.expectRevert(SecureSgxVerifier.SGX_ATTRIBUTE_POLICY_NOT_SET.selector);
+        verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_RevertWhen_AttributesViolateStrictPolicy() external {
+        SecureSgxVerifier(address(verifier))
+            .setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+        attestation.setResult(true);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        quote.localEnclaveReport.mrEnclave = STRICT_MR;
+        // A bit set outside FLAGS byte 0 - allowed by the global deny-mask, but rejected by the pin
+        // (and it also fails to assert the required INIT|MODE64BIT).
+        quote.localEnclaveReport.attributes = bytes16(0x00020000000000000000000000000000);
+
+        vm.expectRevert(SecureSgxVerifier.SGX_ATTRIBUTE_MISMATCH.selector);
+        verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_SucceedsWhen_AttributesMatchStrictPolicy() external {
+        SecureSgxVerifier(address(verifier))
+            .setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+        attestation.setResult(true);
+        address newInstance = address(0xC0FFEE);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
+        quote.localEnclaveReport.mrEnclave = STRICT_MR;
+        // INIT|MODE64BIT in FLAGS; AVX bits in XFRM (XFRM is not checked by STRICT_MASK).
+        quote.localEnclaveReport.attributes = bytes16(0x05000000000000000700000000000000);
+
+        vm.expectEmit(true, true, true, true);
+        emit SgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
+        uint256 id = verifier.registerInstance(quote);
+        assertEq(id, 0);
+    }
+
+    function test_setEnclaveAttributePolicy_RevertWhen_NotOwner() external {
+        vm.prank(address(0xBAD));
+        vm.expectRevert(); // Ownable2Step: caller is not the owner.
+        SecureSgxVerifier(address(verifier))
+            .setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+    }
+
+    function test_setEnclaveAttributePolicy_RevertWhen_ExpectedOutsideMask() external {
+        bytes16 mask = bytes16(0xff000000000000000000000000000000); // checks byte 0 only
+        bytes16 expected = bytes16(0x00010000000000000000000000000000); // asserts a byte-1 bit
+        vm.expectRevert(SecureSgxVerifier.SGX_INVALID_ATTRIBUTE_POLICY.selector);
+        SecureSgxVerifier(address(verifier)).setEnclaveAttributePolicy(STRICT_MR, mask, expected);
+    }
+
+    function test_setEnclaveAttributePolicy_RevertWhen_MaskMissesForbiddenBit() external {
+        bytes16 mask = bytes16(0x01000000000000000000000000000000); // checks INIT, not the floor
+        vm.expectRevert(SecureSgxVerifier.SGX_INVALID_ATTRIBUTE_POLICY.selector);
+        SecureSgxVerifier(address(verifier)).setEnclaveAttributePolicy(STRICT_MR, mask, bytes16(0));
+    }
+
+    function test_setEnclaveAttributePolicy_RevertWhen_ExpectedHasForbiddenBit() external {
+        // A pin that would *expect* DEBUG to be set must be rejected.
+        bytes16 mask = bytes16(0xff000000000000000000000000000000);
+        bytes16 expected = bytes16(0x02000000000000000000000000000000); // DEBUG
+        vm.expectRevert(SecureSgxVerifier.SGX_INVALID_ATTRIBUTE_POLICY.selector);
+        SecureSgxVerifier(address(verifier)).setEnclaveAttributePolicy(STRICT_MR, mask, expected);
+    }
+
+    function test_setEnclaveAttributePolicy_SetsAndEmits() external {
+        vm.expectEmit(true, true, true, true);
+        emit SecureSgxVerifier.EnclaveAttributePolicySet(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+        SecureSgxVerifier(address(verifier))
+            .setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+
+        (bytes16 mask, bytes16 expected) =
+            SecureSgxVerifier(address(verifier)).enclaveAttributePolicy(STRICT_MR);
+        assertEq(bytes32(mask), bytes32(STRICT_MASK));
+        assertEq(bytes32(expected), bytes32(STRICT_EXPECTED));
+    }
+
+    function test_removeEnclaveAttributePolicy_FailsClosedAfterRemoval() external {
+        SecureSgxVerifier secure = SecureSgxVerifier(address(verifier));
+        secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+
+        vm.expectEmit(true, true, true, true);
+        emit SecureSgxVerifier.EnclaveAttributePolicyRemoved(STRICT_MR);
+        secure.removeEnclaveAttributePolicy(STRICT_MR);
+
+        (bytes16 mask,) = secure.enclaveAttributePolicy(STRICT_MR);
+        assertEq(bytes32(mask), bytes32(0));
+
+        attestation.setResult(true);
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        quote.localEnclaveReport.mrEnclave = STRICT_MR;
+        quote.localEnclaveReport.attributes = bytes16(0x05000000000000000000000000000000);
+        vm.expectRevert(SecureSgxVerifier.SGX_ATTRIBUTE_POLICY_NOT_SET.selector);
+        verifier.registerInstance(quote);
     }
 }
 

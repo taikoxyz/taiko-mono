@@ -134,8 +134,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         (address automataProxy, address sgxGethAutomataProxy) =
             _deployAutomataAttestation(config.contractOwner);
 
-        // Deploy SGX verifier. The registrar is set to address(0), leaving `registerInstance`
-        // permissionless; set a non-zero registrar to restrict instance registration.
+        // Deploy SGX verifier. Mainnet AND all (public) testnets MUST use SecureSgxVerifier (strict
+        // TCB-status policy + per-MRENCLAVE ATTRIBUTES pin). InsecureSgxVerifier relaxes the
+        // TCB-status policy for lagging dev hardware and MUST be used by local devnets ONLY — never
+        // by a public testnet or mainnet.
+        // The registrar is set to address(0), leaving `registerInstance` permissionless; set a
+        // non-zero registrar to restrict instance registration.
         verifiers.sgx = address(
             new SecureSgxVerifier(config.l2ChainId, config.contractOwner, automataProxy, address(0))
         );

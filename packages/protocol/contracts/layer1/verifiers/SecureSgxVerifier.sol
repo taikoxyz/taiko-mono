@@ -5,9 +5,38 @@ import { SgxVerifier } from "./SgxVerifier.sol";
 import { TCBInfoStruct } from "src/layer1/automata-attestation/lib/TCBInfoStruct.sol";
 
 /// @title SecureSgxVerifier
-/// @notice SGX verifier with the strict TCB-status acceptance policy intended for mainnet/production.
+/// @notice SGX verifier for mainnet/production: the strict TCB-status policy plus a per-MRENCLAVE
+/// ATTRIBUTES pin. On top of the universal forbidden-attribute floor enforced by `SgxVerifier`
+/// (DEBUG / PROVISION_KEY / EINITTOKEN_KEY), every allowlisted enclave measurement must declare the
+/// exact ATTRIBUTES profile it is allowed to register with. Registration of an enclave with no
+/// configured policy fails closed, so permissionless registration cannot admit an attribute
+/// combination (e.g. a reserved bit, or a missing INIT/MODE64BIT) that the global deny-mask alone
+/// would not catch.
 /// @custom:security-contact security@taiko.xyz
 contract SecureSgxVerifier is SgxVerifier {
+    /// @notice The ATTRIBUTES profile an allowlisted enclave measurement is pinned to. A
+    /// registering quote is accepted only when `quoteAttributes & mask == expected`. A zero `mask`
+    /// means no policy is configured and registration for that MRENCLAVE is rejected.
+    /// @param mask The ATTRIBUTES bits that are checked.
+    /// @param expected The required value of the checked bits (must have no bit set outside `mask`).
+    struct AttributePolicy {
+        bytes16 mask;
+        bytes16 expected;
+    }
+
+    /// @notice The ATTRIBUTES pin for each allowlisted application-enclave measurement.
+    mapping(bytes32 mrEnclave => AttributePolicy policy) public enclaveAttributePolicy;
+
+    /// @notice Emitted when an MRENCLAVE's ATTRIBUTES pin is set or updated.
+    /// @param mrEnclave The application-enclave measurement.
+    /// @param mask The checked ATTRIBUTES bits.
+    /// @param expected The required value of the checked bits.
+    event EnclaveAttributePolicySet(bytes32 indexed mrEnclave, bytes16 mask, bytes16 expected);
+
+    /// @notice Emitted when an MRENCLAVE's ATTRIBUTES pin is removed.
+    /// @param mrEnclave The application-enclave measurement.
+    event EnclaveAttributePolicyRemoved(bytes32 indexed mrEnclave);
+
     constructor(
         uint64 _taikoChainId,
         address _owner,
@@ -16,6 +45,50 @@ contract SecureSgxVerifier is SgxVerifier {
     )
         SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     { }
+
+    /// @notice Sets (or updates) the ATTRIBUTES pin for an allowlisted enclave measurement.
+    /// @dev The mask must cover every universally-forbidden bit and the expected value must clear
+    /// them, so a per-enclave pin can never re-admit a debug/provisioning/launch enclave; the
+    /// expected value must not assert any bit outside the mask.
+    /// @param _mrEnclave The application-enclave measurement to pin.
+    /// @param _mask The ATTRIBUTES bits to check (must be non-zero and cover the forbidden bits).
+    /// @param _expected The required value of the checked bits.
+    function setEnclaveAttributePolicy(
+        bytes32 _mrEnclave,
+        bytes16 _mask,
+        bytes16 _expected
+    )
+        external
+        onlyOwner
+    {
+        // A non-zero mask is what marks the policy as configured.
+        require(_mask != bytes16(0), SGX_INVALID_ATTRIBUTE_POLICY());
+        // The expected value must not assert any bit the mask does not check.
+        require(_expected & ~_mask == bytes16(0), SGX_INVALID_ATTRIBUTE_POLICY());
+        // The mask must check every universally-forbidden bit and the expected value must clear
+        // them: the per-enclave pin can never re-admit a debug/provisioning/launch enclave.
+        require(
+            _mask & SGX_FORBIDDEN_ATTRIBUTE_MASK == SGX_FORBIDDEN_ATTRIBUTE_MASK,
+            SGX_INVALID_ATTRIBUTE_POLICY()
+        );
+        require(
+            _expected & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0), SGX_INVALID_ATTRIBUTE_POLICY()
+        );
+
+        enclaveAttributePolicy[_mrEnclave] = AttributePolicy(_mask, _expected);
+        emit EnclaveAttributePolicySet(_mrEnclave, _mask, _expected);
+    }
+
+    /// @notice Removes the ATTRIBUTES pin for an enclave measurement, after which registration for
+    /// that MRENCLAVE fails closed until a new pin is set.
+    /// @param _mrEnclave The application-enclave measurement whose pin is removed.
+    function removeEnclaveAttributePolicy(bytes32 _mrEnclave) external onlyOwner {
+        require(
+            enclaveAttributePolicy[_mrEnclave].mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET()
+        );
+        delete enclaveAttributePolicy[_mrEnclave];
+        emit EnclaveAttributePolicyRemoved(_mrEnclave);
+    }
 
     /// @inheritdoc SgxVerifier
     /// @dev Strict policy: accept the TCB statuses whose platform microcode is up to date — `OK`,
@@ -31,4 +104,28 @@ contract SecureSgxVerifier is SgxVerifier {
             || _status == uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED)
             || _status == uint8(TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED);
     }
+
+    /// @inheritdoc SgxVerifier
+    /// @dev Fail-closed per-MRENCLAVE ATTRIBUTES pin: the enclave must have a configured policy and
+    /// its attested ATTRIBUTES must match the pinned profile over the checked bits.
+    function _validateEnclaveAttributes(
+        bytes32 _mrEnclave,
+        bytes16 _attributes
+    )
+        internal
+        view
+        override
+    {
+        AttributePolicy memory policy = enclaveAttributePolicy[_mrEnclave];
+        require(policy.mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET());
+        require(_attributes & policy.mask == policy.expected, SGX_ATTRIBUTE_MISMATCH());
+    }
+
+    // ---------------------------------------------------------------
+    // Custom Errors
+    // ---------------------------------------------------------------
+
+    error SGX_ATTRIBUTE_POLICY_NOT_SET();
+    error SGX_ATTRIBUTE_MISMATCH();
+    error SGX_INVALID_ATTRIBUTE_POLICY();
 }
