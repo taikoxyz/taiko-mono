@@ -17,6 +17,7 @@ contract SecureSgxVerifier is SgxVerifier {
         SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     { }
 
+    /// @inheritdoc SgxVerifier
     /// @dev Strict policy: accept only TCB statuses that indicate an up-to-date platform — `OK` and
     /// `TCB_SW_HARDENING_NEEDED`, whose mitigation lives in the enclave software (pinned by the
     /// MRENCLAVE allowlist), so it is safe to accept. Every other status is rejected, notably the
@@ -24,9 +25,7 @@ contract SecureSgxVerifier is SgxVerifier {
     /// key-extraction vulnerabilities (so the in-enclave signing key could be extractable). The
     /// policy is expressed against the attestation's `TCBInfoStruct.TCBStatus` enum so an enum
     /// reorder is caught at compile time.
-    /// @param _status The TCB status code from the attestation output.
-    /// @return Whether the status is accepted.
-    function _isTcbStatusAccepted(uint8 _status) internal pure override returns (bool) {
+    function isTcbStatusAccepted(uint8 _status) public pure override returns (bool) {
         return _status == uint8(TCBInfoStruct.TCBStatus.OK)
             || _status == uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED);
     }

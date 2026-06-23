@@ -19,6 +19,7 @@ contract InsecureSgxVerifier is SgxVerifier {
         SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     { }
 
+    /// @inheritdoc SgxVerifier
     /// @dev Lenient policy for testnet/devnet ONLY: in addition to the up-to-date statuses (`OK`,
     /// `TCB_SW_HARDENING_NEEDED`) it also accepts `TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED`,
     /// `TCB_OUT_OF_DATE` and `TCB_OUT_OF_DATE_CONFIGURATION_NEEDED` so dev hardware lagging on
@@ -27,9 +28,7 @@ contract InsecureSgxVerifier is SgxVerifier {
     /// `TCB_CONFIGURATION_NEEDED`, `TCB_REVOKED` and `TCB_UNRECOGNIZED`. The policy is expressed
     /// against the attestation's `TCBInfoStruct.TCBStatus` enum so an enum reorder is caught at
     /// compile time.
-    /// @param _status The TCB status code from the attestation output.
-    /// @return Whether the status is accepted.
-    function _isTcbStatusAccepted(uint8 _status) internal pure override returns (bool) {
+    function isTcbStatusAccepted(uint8 _status) public pure override returns (bool) {
         return _status == uint8(TCBInfoStruct.TCBStatus.OK)
             || _status == uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED)
             || _status == uint8(TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED)

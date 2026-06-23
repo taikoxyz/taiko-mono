@@ -150,7 +150,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
         // the 33rd byte (offset 32). Enforce the per-network TCB-status policy on top of the
         // attestation's own acceptance check.
         require(retData.length >= 33, SGX_INVALID_ATTESTATION());
-        require(_isTcbStatusAccepted(uint8(retData[32])), SGX_INVALID_TCB_STATUS());
+        require(isTcbStatusAccepted(uint8(retData[32])), SGX_INVALID_TCB_STATUS());
 
         require(
             _attestation.localEnclaveReport.attributes & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0),
@@ -187,14 +187,14 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
     }
 
-    /// @dev The TCB-status acceptance policy, defined by per-network subclasses. The platform TCB
-    /// status is read from the attestation output and expressed against the attestation's
-    /// `TCBInfoStruct.TCBStatus` enum, so the on-chain policy and the attestation cannot diverge and
-    /// an enum reorder is caught at compile time. The strict mainnet policy must remain the secure
-    /// default.
+    /// @notice Returns whether a platform TCB status is accepted by this verifier's network policy.
+    /// @dev Defined by per-network subclasses. The platform TCB status is read from the attestation
+    /// output and expressed against the attestation's `TCBInfoStruct.TCBStatus` enum, so the on-chain
+    /// policy and the attestation cannot diverge and an enum reorder is caught at compile time. The
+    /// strict mainnet policy must remain the secure default.
     /// @param _status The TCB status code from the attestation output.
     /// @return Whether the status is accepted.
-    function _isTcbStatusAccepted(uint8 _status) internal pure virtual returns (bool);
+    function isTcbStatusAccepted(uint8 _status) public pure virtual returns (bool);
 
     function _addInstances(
         address[] memory _instances,

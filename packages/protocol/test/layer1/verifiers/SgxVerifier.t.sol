@@ -338,6 +338,15 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         vm.expectRevert(SgxVerifier.SGX_INVALID_TCB_STATUS.selector);
         verifier.registerInstance(_makeQuote(address(0xC0FFEE)));
     }
+
+    function test_isTcbStatusAccepted_StrictPolicy() external view {
+        assertTrue(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.OK)));
+        assertTrue(
+            verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED))
+        );
+        assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE)));
+        assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_REVOKED)));
+    }
 }
 
 contract InsecureSgxVerifierTest is SgxVerifierTestBase {
@@ -361,5 +370,16 @@ contract InsecureSgxVerifierTest is SgxVerifierTestBase {
 
         uint256 id = verifier.registerInstance(_makeQuote(address(0xC0FFEE)));
         assertEq(id, 0);
+    }
+
+    function test_isTcbStatusAccepted_LenientPolicy() external view {
+        assertTrue(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.OK)));
+        assertTrue(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE)));
+        assertTrue(
+            verifier.isTcbStatusAccepted(
+                uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED)
+            )
+        );
+        assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_REVOKED)));
     }
 }
