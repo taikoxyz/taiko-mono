@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import { IDcapAttestation } from "./IDcapAttestation.sol";
 import { IProofVerifier } from "./IProofVerifier.sol";
 import { LibPublicInput } from "./LibPublicInput.sol";
+import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
 import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -56,17 +57,6 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     uint256 private constant ATTRIBUTES_OFFSET = HEADER_LENGTH + 48;
     /// @dev DEBUG bit (bit 1) of the little-endian SGX ATTRIBUTES flags.
     uint8 private constant SGX_FLAGS_DEBUG = 0x02;
-    /// @dev Accepted TCB status codes, verified against the automata-network/on-chain-pccs
-    /// FmspcTcbHelper.TCBStatus enum (v1.1.x): 0=OK, 1=SW_HARDENING_NEEDED,
-    /// 2=CONFIG_AND_SW_HARDENING_NEEDED, 3=CONFIG_NEEDED, 4=OUT_OF_DATE,
-    /// 5=OUT_OF_DATE_CONFIG_NEEDED, 6=REVOKED, 7=UNRECOGNIZED. We intentionally keep these as local
-    /// constants rather than importing the enum, to avoid coupling this core verifier to the
-    /// version-drift-prone PCCS helper libraries.
-    uint8 private constant TCB_STATUS_OK = 0;
-    uint8 private constant TCB_STATUS_SW_HARDENING_NEEDED = 1;
-    uint8 private constant TCB_STATUS_CONFIG_AND_SW_HARDENING_NEEDED = 2;
-    uint8 private constant TCB_STATUS_OUT_OF_DATE = 4;
-    uint8 private constant TCB_STATUS_OUT_OF_DATE_CONFIG_NEEDED = 5;
 
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
@@ -348,12 +338,15 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @dev Preserves the TCB-status acceptance policy of the replaced AutomataDcapV3Attestation
     /// (`_attestationTcbIsValid`): accept OK, SW-hardening-needed, configuration-and-SW-hardening-
     /// needed, out-of-date, and out-of-date-configuration-needed; reject configuration-needed,
-    /// revoked, and unrecognized. Codes follow Automata's TCBStatus enumeration.
+    /// revoked, and unrecognized. The policy is expressed against Automata's `TCBStatus` enum (the
+    /// same pinned on-chain-pccs package the attestation entrypoint uses to produce `tcbStatus`), so
+    /// the two cannot diverge and a dependency bump that reorders the enum is caught at compile time.
     /// @param _status The TCB status code from the attestation output.
     /// @return Whether the status is accepted.
     function _isTcbStatusAccepted(uint8 _status) private pure returns (bool) {
-        return _status == TCB_STATUS_OK || _status == TCB_STATUS_SW_HARDENING_NEEDED
-            || _status == TCB_STATUS_CONFIG_AND_SW_HARDENING_NEEDED
-            || _status == TCB_STATUS_OUT_OF_DATE || _status == TCB_STATUS_OUT_OF_DATE_CONFIG_NEEDED;
+        return _status == uint8(TCBStatus.OK) || _status == uint8(TCBStatus.TCB_SW_HARDENING_NEEDED)
+            || _status == uint8(TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED)
+            || _status == uint8(TCBStatus.TCB_OUT_OF_DATE)
+            || _status == uint8(TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED);
     }
 }
