@@ -6,10 +6,10 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
+import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol";
+import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
 import "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import "test/shared/DeployCapability.sol";
@@ -42,9 +42,9 @@ abstract contract DeployShastaContracts is DeployCapability {
         uint64 shastaForkTimestamp;
         address preconfWhitelist;
         address signalServicePauser;
-        // When true, deploy the lenient TestnetSgxVerifier; otherwise deploy the strict
+        // When true, deploy the lenient InsecureSgxVerifier; otherwise deploy the strict
         // SgxVerifier. The secure default (false) selects the strict mainnet policy.
-        bool useTestnetSgxPolicy;
+        bool useInsecureSgxPolicy;
     }
 
     modifier broadcast() {
@@ -147,11 +147,11 @@ abstract contract DeployShastaContracts is DeployCapability {
         returns (VerifierAddresses memory verifiers)
     {
         // The registrar is set to address(0), leaving registerInstance permissionless; set a
-        // non-zero registrar to restrict instance registration. The strict SgxVerifier is the
-        // secure default; only when `useTestnetSgxPolicy` is true is the lenient TestnetSgxVerifier
+        // non-zero registrar to restrict instance registration. The strict SecureSgxVerifier is the
+        // secure default; only when `useInsecureSgxPolicy` is true is the lenient InsecureSgxVerifier
         // deployed.
         verifiers.sgxReth = _deploySgxVerifier(
-            config.useTestnetSgxPolicy,
+            config.useInsecureSgxPolicy,
             config.l2ChainId,
             config.contractOwner,
             config.sgxRethAutomataProxy
@@ -159,7 +159,7 @@ abstract contract DeployShastaContracts is DeployCapability {
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
         verifiers.sgxGeth = _deploySgxVerifier(
-            config.useTestnetSgxPolicy,
+            config.useInsecureSgxPolicy,
             config.l2ChainId,
             config.contractOwner,
             config.sgxGethAutomataProxy
@@ -177,11 +177,11 @@ abstract contract DeployShastaContracts is DeployCapability {
         console2.log("SP1Verifier deployed:", verifiers.sp1);
     }
 
-    /// @dev Deploys an SGX verifier, selecting the strict SgxVerifier by default and the
-    /// lenient TestnetSgxVerifier only when `useTestnetSgxPolicy` is true. The registrar is set to
+    /// @dev Deploys an SGX verifier, selecting the strict SecureSgxVerifier by default and the
+    /// lenient InsecureSgxVerifier only when `useInsecureSgxPolicy` is true. The registrar is set to
     /// address(0), leaving registerInstance permissionless.
     function _deploySgxVerifier(
-        bool useTestnetSgxPolicy,
+        bool useInsecureSgxPolicy,
         uint64 l2ChainId,
         address contractOwner,
         address automataProxy
@@ -189,10 +189,12 @@ abstract contract DeployShastaContracts is DeployCapability {
         private
         returns (address)
     {
-        if (useTestnetSgxPolicy) {
+        if (useInsecureSgxPolicy) {
             return
-                address(new TestnetSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0)));
+                address(
+                    new InsecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0))
+                );
         }
-        return address(new SgxVerifier(l2ChainId, contractOwner, automataProxy, address(0)));
+        return address(new SecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0)));
     }
 }

@@ -225,7 +225,7 @@ The script interacts with these `SgxVerifier` functions:
 
 ## See Also
 
-- [BaseSgxVerifier.sol](../../../contracts/layer1/verifiers/BaseSgxVerifier.sol)
 - [SgxVerifier.sol](../../../contracts/layer1/verifiers/SgxVerifier.sol)
-- [TestnetSgxVerifier.sol](../../../contracts/layer1/verifiers/TestnetSgxVerifier.sol)
+- [SecureSgxVerifier.sol](../../../contracts/layer1/verifiers/SecureSgxVerifier.sol)
+- [InsecureSgxVerifier.sol](../../../contracts/layer1/verifiers/InsecureSgxVerifier.sol)
 - [IDcapAttestation.sol](../../../contracts/layer1/verifiers/IDcapAttestation.sol)
