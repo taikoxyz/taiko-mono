@@ -15,9 +15,9 @@ import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
+import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
@@ -158,9 +158,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
             : address(
-                new SgxVerifier(
-                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
-                )
+                new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap, address(0))
             );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
@@ -171,9 +169,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             )
             : address(
-                new SgxVerifier(
-                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
-                )
+                new SgxVerifier(config.l2ChainId, config.contractOwner, automataDcap, address(0))
             );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
