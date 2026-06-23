@@ -55,7 +55,7 @@ contract SecureSgxVerifier is SgxVerifier {
         SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     {
         // A registration delay longer than the validity window itself is a misconfiguration.
-        require(_instanceValidityDelay <= INSTANCE_EXPIRY, SGX_INVALID_VALIDITY_DELAY());
+        require(_instanceValidityDelay > 0 && _instanceValidityDelay <= INSTANCE_EXPIRY, SGX_INVALID_VALIDITY_DELAY());
         instanceValidityDelay = _instanceValidityDelay;
     }
 
