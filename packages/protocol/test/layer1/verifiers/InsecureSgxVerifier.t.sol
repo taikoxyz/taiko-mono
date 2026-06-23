@@ -3,17 +3,17 @@ pragma solidity ^0.8.24;
 
 import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
 import "forge-std/src/Test.sol";
-import { BaseSgxVerifier } from "src/layer1/verifiers/BaseSgxVerifier.sol";
 import { IDcapAttestation } from "src/layer1/verifiers/IDcapAttestation.sol";
-import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol";
+import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
+import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 
-/// @title TestnetSgxVerifierTest
-/// @notice Unit tests for the lenient TCB-status acceptance policy of TestnetSgxVerifier. All shared
+/// @title InsecureSgxVerifierTest
+/// @notice Unit tests for the lenient TCB-status acceptance policy of InsecureSgxVerifier. All shared
 /// logic is covered by SgxVerifierTest against the SgxVerifier; this file only asserts the
 /// policy delta: the testnet verifier additionally accepts out-of-date and config-and-sw-hardening
 /// platforms, while still rejecting the configuration-needed, revoked, and unrecognized statuses.
 /// @custom:security-contact security@taiko.xyz
-contract TestnetSgxVerifierTest is Test {
+contract InsecureSgxVerifierTest is Test {
     uint64 internal constant CHAIN_ID = 167;
     address internal constant ATTESTATION = address(0xA11CE);
 
@@ -30,14 +30,14 @@ contract TestnetSgxVerifierTest is Test {
     uint8 internal constant TCB_REVOKED = uint8(TCBStatus.TCB_REVOKED); // rejected
     uint8 internal constant TCB_UNRECOGNIZED = uint8(TCBStatus.TCB_UNRECOGNIZED); // rejected
 
-    TestnetSgxVerifier internal verifier;
+    InsecureSgxVerifier internal verifier;
 
     bytes32 internal constant MR_ENCLAVE = bytes32(uint256(0x1111));
     bytes32 internal constant MR_SIGNER = bytes32(uint256(0x2222));
 
     function setUp() external {
         // owner == address(this) so this test can call the onlyOwner admin functions.
-        verifier = new TestnetSgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
+        verifier = new InsecureSgxVerifier(CHAIN_ID, address(this), ATTESTATION, address(0));
         // The MRENCLAVE/MRSIGNER allowlist is enforced by default; trust the standard enclave so
         // registrations turn on the TCB-status check rather than failing on the allowlist.
         verifier.setMrEnclave(MR_ENCLAVE, true);
@@ -163,21 +163,21 @@ contract TestnetSgxVerifierTest is Test {
     function test_registerInstance_RevertWhen_TcbConfigNeeded() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_CONFIG_NEEDED);
-        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbRevoked() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_REVOKED);
-        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 
     function test_registerInstance_RevertWhen_TcbUnrecognized() external {
         bytes memory quote =
             _mockQuote(false, MR_ENCLAVE, MR_SIGNER, address(0xBEEF), 3, 1, TCB_UNRECOGNIZED);
-        vm.expectRevert(BaseSgxVerifier.SGX_INVALID_ATTESTATION.selector);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_ATTESTATION.selector);
         verifier.registerInstance(quote);
     }
 }

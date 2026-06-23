@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import { BaseSgxVerifier } from "./BaseSgxVerifier.sol";
+import { SgxVerifier } from "./SgxVerifier.sol";
 import { TCBStatus } from "@automata-network/on-chain-pccs/helpers/FmspcTcbHelper.sol";
 
-/// @title TestnetSgxVerifier
+/// @title InsecureSgxVerifier
 /// @notice SGX verifier with a lenient TCB-status acceptance policy for testnet/devnet only.
 /// @custom:security-contact security@taiko.xyz
-contract TestnetSgxVerifier is BaseSgxVerifier {
+contract InsecureSgxVerifier is SgxVerifier {
     constructor(
         uint64 _taikoChainId,
         address _owner,
         address _automataDcapAttestation,
         address _registrar
     )
-        BaseSgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
+        SgxVerifier(_taikoChainId, _owner, _automataDcapAttestation, _registrar)
     { }
 
     /// @dev Lenient policy for testnet/devnet ONLY: in addition to the up-to-date statuses, it also
