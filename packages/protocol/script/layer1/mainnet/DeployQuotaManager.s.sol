@@ -26,7 +26,7 @@ contract DeployQuotaManager is BaseScript {
 
         // Config L2-to-L1 quota
         uint104 value = 200_000; // USD
-        uint104 priceETH = 3100; // USD
+        uint104 priceETH = 1750; // USD
         uint104 priceTKO = 5; // USD
 
         // ETH
