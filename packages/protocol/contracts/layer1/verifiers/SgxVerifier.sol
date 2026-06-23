@@ -237,7 +237,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
                 && uint8(output[OUTPUT_BODY_TYPE_OFFSET + 1]) == SGX_QUOTE_BODY_TYPE,
             SGX_INVALID_ATTESTATION()
         );
-        // Preserve the pre-migration TCB-status acceptance policy.
+        // Reject quotes whose platform TCB is not up to date (see _isTcbStatusAccepted).
         require(
             _isTcbStatusAccepted(uint8(output[OUTPUT_TCB_STATUS_OFFSET])), SGX_INVALID_ATTESTATION()
         );
@@ -265,9 +265,11 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
 
         // Reject DEBUG-mode enclaves: a debug enclave's memory (including the in-enclave signing
         // key recorded in reportData) is readable and writable by the host, so its quotes must
-        // never be trusted on-chain. DEBUG is bit 1 of the SGX ATTRIBUTES flags; the flags are
-        // little-endian, so the bit lives in the low byte of the 16-byte `attributes` field at
-        // enclave-report offset 48 (raw-quote offset HEADER_LENGTH + 48).
+        // never be trusted on-chain. SECURITY-CRITICAL: omitting this DEBUG-attribute check lets a
+        // host-controlled debug enclave forge SGX proofs (a gap previously exploited in production);
+        // this guard must never be removed or weakened. DEBUG is bit 1 of the SGX ATTRIBUTES flags;
+        // the flags are little-endian, so the bit lives in the low byte of the 16-byte `attributes`
+        // field at enclave-report offset 48 (raw-quote offset HEADER_LENGTH + 48).
         require((uint8(_rawQuote[ATTRIBUTES_OFFSET]) & SGX_FLAGS_DEBUG) == 0, SGX_DEBUG_ENCLAVE());
 
         if (checkLocalEnclaveReport) {
@@ -352,18 +354,19 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
 
-    /// @dev Preserves the TCB-status acceptance policy of the replaced AutomataDcapV3Attestation
-    /// (`_attestationTcbIsValid`): accept OK, SW-hardening-needed, configuration-and-SW-hardening-
-    /// needed, out-of-date, and out-of-date-configuration-needed; reject configuration-needed,
-    /// revoked, and unrecognized. The policy is expressed against Automata's `TCBStatus` enum (the
-    /// same pinned on-chain-pccs package the attestation entrypoint uses to produce `tcbStatus`), so
-    /// the two cannot diverge and a dependency bump that reorders the enum is caught at compile time.
+    /// @dev Accepts only TCB statuses that indicate an up-to-date platform: `OK` and
+    /// `SW_HARDENING_NEEDED` (whose mitigation lives in the enclave software, which is pinned by the
+    /// MRENCLAVE allowlist). Every other status is rejected — notably `OUT_OF_DATE` /
+    /// `OUT_OF_DATE_CONFIGURATION_NEEDED`, where the platform is missing the microcode that patches
+    /// SGX key-extraction vulnerabilities (so the in-enclave signing key could be extractable), plus
+    /// the configuration-needed and revoked/unrecognized statuses. This is stricter than the replaced
+    /// AutomataDcapV3Attestation, which also trusted out-of-date and configuration platforms. The
+    /// policy is expressed against Automata's `TCBStatus` enum (the same pinned on-chain-pccs package
+    /// the attestation entrypoint uses to produce `tcbStatus`), so the two cannot diverge and a
+    /// dependency bump that reorders the enum is caught at compile time.
     /// @param _status The TCB status code from the attestation output.
     /// @return Whether the status is accepted.
     function _isTcbStatusAccepted(uint8 _status) private pure returns (bool) {
-        return _status == uint8(TCBStatus.OK) || _status == uint8(TCBStatus.TCB_SW_HARDENING_NEEDED)
-            || _status == uint8(TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED)
-            || _status == uint8(TCBStatus.TCB_OUT_OF_DATE)
-            || _status == uint8(TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED);
+        return _status == uint8(TCBStatus.OK) || _status == uint8(TCBStatus.TCB_SW_HARDENING_NEEDED);
     }
 }
