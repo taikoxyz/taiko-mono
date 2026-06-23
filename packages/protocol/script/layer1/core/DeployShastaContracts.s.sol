@@ -6,9 +6,10 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { MainnetSgxVerifier } from "src/layer1/verifiers/MainnetSgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
+import { TestnetSgxVerifier } from "src/layer1/verifiers/TestnetSgxVerifier.sol";
 import "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import "test/shared/DeployCapability.sol";
@@ -41,6 +42,9 @@ abstract contract DeployShastaContracts is DeployCapability {
         uint64 shastaForkTimestamp;
         address preconfWhitelist;
         address signalServicePauser;
+        // When true, deploy the lenient TestnetSgxVerifier; otherwise deploy the strict
+        // MainnetSgxVerifier. The secure default (false) selects the strict mainnet policy.
+        bool useTestnetSgxPolicy;
     }
 
     modifier broadcast() {
@@ -143,18 +147,22 @@ abstract contract DeployShastaContracts is DeployCapability {
         returns (VerifierAddresses memory verifiers)
     {
         // The registrar is set to address(0), leaving registerInstance permissionless; set a
-        // non-zero registrar to restrict instance registration.
-        verifiers.sgxReth = address(
-            new SgxVerifier(
-                config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy, address(0)
-            )
+        // non-zero registrar to restrict instance registration. The strict MainnetSgxVerifier is the
+        // secure default; only when `useTestnetSgxPolicy` is true is the lenient TestnetSgxVerifier
+        // deployed.
+        verifiers.sgxReth = _deploySgxVerifier(
+            config.useTestnetSgxPolicy,
+            config.l2ChainId,
+            config.contractOwner,
+            config.sgxRethAutomataProxy
         );
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
-        verifiers.sgxGeth = address(
-            new SgxVerifier(
-                config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy, address(0)
-            )
+        verifiers.sgxGeth = _deploySgxVerifier(
+            config.useTestnetSgxPolicy,
+            config.l2ChainId,
+            config.contractOwner,
+            config.sgxGethAutomataProxy
         );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
@@ -167,5 +175,24 @@ abstract contract DeployShastaContracts is DeployCapability {
             new SP1Verifier(config.l2ChainId, config.sp1PlonkVerifier, config.contractOwner)
         );
         console2.log("SP1Verifier deployed:", verifiers.sp1);
+    }
+
+    /// @dev Deploys an SGX verifier, selecting the strict MainnetSgxVerifier by default and the
+    /// lenient TestnetSgxVerifier only when `useTestnetSgxPolicy` is true. The registrar is set to
+    /// address(0), leaving registerInstance permissionless.
+    function _deploySgxVerifier(
+        bool useTestnetSgxPolicy,
+        uint64 l2ChainId,
+        address contractOwner,
+        address automataProxy
+    )
+        private
+        returns (address)
+    {
+        if (useTestnetSgxPolicy) {
+            return
+                address(new TestnetSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0)));
+        }
+        return address(new MainnetSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0)));
     }
 }
