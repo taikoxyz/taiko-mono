@@ -35,7 +35,7 @@ contract DeployHackRecoveryContracts is Script {
     address public constant PROVER_WHITELIST = 0xEa798547d97e345395dA071a0D7ED8144CD612Ae;
     address public constant SHARED_RESOLVER = 0x8Efa01564425692d0a0838DC10E300BD310Cb43e;
     address public constant QUOTA_MANAGER = 0x91f67118DD47d502B1f0C354D0611997B022f29E;
-    uint24 public constant QUOTA_PERIOD = 15 minutes;
+    uint24 public constant QUOTA_PERIOD = 24 hours;
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
     address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;

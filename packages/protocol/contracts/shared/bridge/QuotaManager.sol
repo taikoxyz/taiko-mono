@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../common/EssentialContract.sol";
 import "../libs/LibMath.sol";
 import "./IQuotaManager.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title QuotaManager
 /// @dev A UUPS-compatible implementation of IQuotaManager for Ether and ERC20 tokens.
 /// @custom:security-contact security@taiko.xyz
-contract QuotaManager is UUPSUpgradeable, Ownable2Step, IQuotaManager {
+contract QuotaManager is EssentialContract, IQuotaManager {
     using LibMath for uint256;
 
     struct Quota {
@@ -30,6 +29,8 @@ contract QuotaManager is UUPSUpgradeable, Ownable2Step, IQuotaManager {
     mapping(address token => Quota tokenLimit) public tokenQuota;
     uint24 public quotaPeriod;
 
+    uint256[48] private __gap;
+
     event QuotaUpdated(address indexed token, uint256 oldQuota, uint256 newQuota);
     event QuotaPeriodUpdated(uint256 quotaPeriod);
     event QuotaConsumed(address indexed token, uint256 amount, uint256 available);
@@ -43,29 +44,29 @@ contract QuotaManager is UUPSUpgradeable, Ownable2Step, IQuotaManager {
     /// @param _bridge The bridge address allowed to consume quota.
     /// @param _erc20Vault The ERC20 vault address allowed to consume quota.
     /// @param _quotaPeriod The time required to restore all quota.
-    constructor(address _owner, address _bridge, address _erc20Vault, uint24 _quotaPeriod) {
+    constructor(address _owner, address _bridge, address _erc20Vault, uint24 _quotaPeriod) EssentialContract() {
         bridge = _bridge;
         erc20Vault = _erc20Vault;
-        if (_owner != address(0)) _transferOwnership(_owner);
+        _transferOwnership(_owner == address(0) ? msg.sender : _owner);
         _setQuotaPeriod(_quotaPeriod);
     }
 
     /// @notice Updates the quota for a given token.
     /// @param _token The token address with Ether represented by address(0).
     /// @param _quota The new quota for the defined period.
-    function updateQuota(address _token, uint104 _quota) external onlyOwner {
+    function updateQuota(address _token, uint104 _quota) external onlyOwner whenNotPaused {
         emit QuotaUpdated(_token, tokenQuota[_token].quota, _quota);
         tokenQuota[_token] = Quota(0, _quota, _quota);
     }
 
     /// @notice Updates the period required to fully restore quota.
     /// @param _quotaPeriod The new quota period.
-    function setQuotaPeriod(uint24 _quotaPeriod) external onlyOwner {
+    function setQuotaPeriod(uint24 _quotaPeriod) external onlyOwner whenNotPaused {
         _setQuotaPeriod(_quotaPeriod);
     }
 
     /// @inheritdoc IQuotaManager
-    function consumeQuota(address _token, uint256 _amount) external {
+    function consumeQuota(address _token, uint256 _amount) external whenNotPaused {
         if (msg.sender != bridge && msg.sender != erc20Vault) revert QM_PERMISSION_DENIED();
 
         uint256 available = availableQuota(_token, 0);
@@ -111,7 +112,4 @@ contract QuotaManager is UUPSUpgradeable, Ownable2Step, IQuotaManager {
         quotaPeriod = _quotaPeriod;
         emit QuotaPeriodUpdated(_quotaPeriod);
     }
-
-    /// @dev Authorizes quota-manager implementation upgrades.
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 }
