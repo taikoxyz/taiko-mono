@@ -21,7 +21,7 @@ import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SgxVerifier.sol";
+import "src/layer1/verifiers/SecureSgxVerifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/SignalService.sol";
@@ -53,6 +53,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId;
         address sharedResolver;
         address remoteSigSvc;
+        address signalServicePauser;
+        address bridgePauser;
         address preconfWhitelist;
         address taikoToken;
         address taikoTokenPremintRecipient;
@@ -106,6 +108,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+        config.signalServicePauser = vm.envOr("SIGNAL_SERVICE_PAUSER", address(0));
+        config.bridgePauser = vm.envOr("BRIDGE_PAUSER", address(0));
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
@@ -130,13 +134,18 @@ contract DeployProtocolOnL1 is DeployCapability {
         (address automataProxy, address sgxGethAutomataProxy) =
             _deployAutomataAttestation(config.contractOwner);
 
-        // Deploy SGX verifier
-        verifiers.sgx =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
+        // Deploy SGX verifier. The registrar is set to address(0), leaving `registerInstance`
+        // permissionless; set a non-zero registrar to restrict instance registration.
+        verifiers.sgx = address(
+            new SecureSgxVerifier(config.l2ChainId, config.contractOwner, automataProxy, address(0))
+        );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
-        verifiers.sgxGeth =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
+        verifiers.sgxGeth = address(
+            new SecureSgxVerifier(
+                config.l2ChainId, config.contractOwner, sgxGethAutomataProxy, address(0)
+            )
+        );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
@@ -201,7 +210,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
 
         if (signalService == address(0)) {
-            SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
+            SignalService signalServiceImpl =
+                new SignalService(msg.sender, config.remoteSigSvc, config.signalServicePauser);
             signalService = deployProxy({
                 name: "signal_service",
                 impl: address(signalServiceImpl),
@@ -231,7 +241,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("ShastaInbox deployed:", shastaInbox);
 
         SignalService(signalService)
-            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc)));
+            .upgradeTo(
+                address(
+                    new SignalService(shastaInbox, config.remoteSigSvc, config.signalServicePauser)
+                )
+            );
         console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
         if (config.contractOwner != msg.sender) {
@@ -308,7 +322,11 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService, quotaManager)),
+            impl: address(
+                new MainnetBridge(
+                    address(sharedResolver), signalService, quotaManager, config.bridgePauser
+                )
+            ),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });
@@ -321,10 +339,14 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function _deployVaults(address sharedResolver, address owner) private {
+        // The quota manager is wired in via a later upgrade once it is deployed; the vault is
+        // bootstrapped with address(0), which disables the token quota check.
+        address quotaManager = address(0);
+
         // Deploy ERC20 Vault
         address erc20Vault = deployProxy({
             name: "erc20_vault",
-            impl: address(new MainnetERC20Vault(address(sharedResolver))),
+            impl: address(new MainnetERC20Vault(address(sharedResolver), quotaManager)),
             data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });

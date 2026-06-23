@@ -81,14 +81,27 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
 
     /// @notice Returns the available quota for a given token.
     /// @param _token The token address with Ether represented by address(0).
-    /// @param _leap Amount of seconds in the future.
+    /// @param _leap Number of seconds in the future to look ahead. Values greater than or equal
+    /// to `quotaPeriod` are treated as a full period (the quota is fully restored), so arbitrarily
+    /// large values are safe and never overflow.
     /// @return The available quota.
     function availableQuota(address _token, uint256 _leap) public view returns (uint256) {
         Quota memory q = tokenQuota[_token];
         if (q.quota == 0) return UNLIMITED_QUOTA;
         if (q.updatedAt == 0) return q.quota;
 
-        uint256 issuance = q.quota * (block.timestamp + _leap - q.updatedAt) / quotaPeriod;
+        // Cap the elapsed time at `quotaPeriod`: once a full period has passed the quota is
+        // fully restored, so a larger elapsed value would not change the result (it is capped
+        // at `q.quota` below anyway). A `_leap` of at least `quotaPeriod` already implies full
+        // restoration, so it is short-circuited; this also avoids overflowing `block.timestamp +
+        // _leap` for extreme caller-supplied lookahead values. Capping `elapsed` bounds the
+        // multiplication to `q.quota * quotaPeriod`, which can never overflow uint256, so
+        // `consumeQuota` keeps working even though `block.timestamp - q.updatedAt` grows without
+        // bound.
+        uint256 elapsed = _leap >= quotaPeriod
+            ? quotaPeriod
+            : (block.timestamp + _leap - q.updatedAt).min(quotaPeriod);
+        uint256 issuance = q.quota * elapsed / quotaPeriod;
         return (issuance + q.available).min(q.quota);
     }
 

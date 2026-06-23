@@ -59,6 +59,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     ISignalService public immutable signalService;
     IQuotaManager public immutable quotaManager;
 
+    /// @dev Address authorized to pause/unpause alongside the owner, and to fund the bridge with
+    /// plain Ether transfers via `receive`. Optional (may be zero, which disables direct funding).
+    address public immutable pauser;
+
     /// @notice The next message ID.
     /// @dev Slot 1.
     uint64 private __reserved1;
@@ -93,20 +97,36 @@ contract Bridge is EssentialResolverContract, IBridge {
         _;
     }
 
+    /// @notice Initializes the bridge's immutable state.
+    /// @param _resolver The address of the resolver contract.
+    /// @param _signalService The address of the signal service contract.
+    /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
+    /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
+    /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
     constructor(
         address _resolver,
         address _signalService,
-        address _quotaManager
+        address _quotaManager,
+        address _pauser
     )
         EssentialResolverContract(_resolver)
     {
         signalService = ISignalService(_signalService);
         quotaManager = IQuotaManager(_quotaManager);
+        pauser = _pauser;
     }
 
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
+
+    /// @notice Accepts plain Ether transfers from the pauser to fund the bridge.
+    /// @dev Reverts for any sender other than `pauser`, preventing arbitrary Ether deposits. The
+    /// bridge is deployed behind a proxy, so the pauser must use `call` (which forwards all gas);
+    /// the 2300-gas stipend of `transfer`/`send` is insufficient for the proxy's delegatecall.
+    receive() external payable {
+        require(msg.sender == pauser, B_PERMISSION_DENIED());
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -470,6 +490,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     function getMessageMinGasLimit(uint256 dataLength) public pure returns (uint32) {
         return _messageCalldataCost(dataLength) + GAS_RESERVE;
     }
+
+    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
+    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
     /// @notice Invokes a call message on the Bridge.
     /// @param _message The call message to be invoked.

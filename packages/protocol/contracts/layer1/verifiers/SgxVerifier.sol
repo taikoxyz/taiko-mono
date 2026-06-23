@@ -9,12 +9,14 @@ import { IAttestation } from "src/layer1/automata-attestation/interfaces/IAttest
 import { V3Struct } from "src/layer1/automata-attestation/lib/QuoteV3Auth/V3Struct.sol";
 
 /// @title SgxVerifier
-/// @notice This contract verifies SGX signature proofs onchain using attested SGX instances.
-/// Each instance is registered via remote attestation and can verify proofs until expiry.
+/// @notice Abstract base that verifies SGX signature proofs onchain using attested SGX instances.
+/// Each instance is registered via remote attestation and can verify proofs until expiry. The
+/// TCB-status acceptance policy is left abstract so that per-network subclasses define it (the
+/// strict mainnet policy must remain the secure default).
 /// @dev Side-channel protection is achieved through mandatory instance expiry (INSTANCE_EXPIRY),
 /// requiring periodic re-attestation with new keypairs.
 /// @custom:security-contact security@taiko.xyz
-contract SgxVerifier is IProofVerifier, Ownable2Step {
+abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// @dev Each public-private key pair (Ethereum address) is generated within
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
@@ -31,8 +33,22 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
+    /// @dev SGX ATTRIBUTES.FLAGS bits that production application enclaves must not set. In DCAP
+    /// quote bytes, FLAGS is little-endian, so these bits are encoded in the first byte of the
+    /// 16-byte attributes field. This is enforced uniformly on every network (it is NOT part of the
+    /// per-network policy): a debug/provisioning enclave must never be trusted on-chain.
+    /// DEBUG(0x02): host can read/write enclave memory.
+    /// PROVISION_KEY(0x10): enclave can derive platform-identifying provisioning keys.
+    bytes16 private constant SGX_FORBIDDEN_ATTRIBUTE_MASK =
+        bytes16(0x12000000000000000000000000000000);
+
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
+
+    /// @notice The address authorized to register SGX instances via `registerInstance`.
+    /// @dev If set to a non-zero address, only this address may call `registerInstance`.
+    /// If set to `address(0)`, `registerInstance` is permissionless and callable by anyone.
+    address public immutable registrar;
 
     /// @dev For gas savings, we assign each SGX instance with an ID to minimize storage operations.
     /// Slot 1.
@@ -72,11 +88,20 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
+    error SGX_FORBIDDEN_ATTRIBUTES();
+    error SGX_INVALID_TCB_STATUS();
+    error SGX_NOT_REGISTRAR();
 
-    constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
+    constructor(
+        uint64 _taikoChainId,
+        address _owner,
+        address _automataDcapAttestation,
+        address _registrar
+    ) {
         require(_taikoChainId != 0, SGX_INVALID_CHAIN_ID());
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
+        registrar = _registrar;
 
         _transferOwnership(_owner);
     }
@@ -114,8 +139,23 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         external
         returns (uint256)
     {
-        (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
+        require(registrar == address(0) || msg.sender == registrar, SGX_NOT_REGISTRAR());
+
+        (bool verified, bytes memory retData) =
+            IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
+
+        // On a successful verification the attestation returns
+        // retData = abi.encodePacked(sha256(quote), uint8 tcbStatus), so the platform TCB status is
+        // the 33rd byte (offset 32). Enforce the per-network TCB-status policy on top of the
+        // attestation's own acceptance check.
+        require(retData.length >= 33, SGX_INVALID_ATTESTATION());
+        require(isTcbStatusAccepted(uint8(retData[32])), SGX_INVALID_TCB_STATUS());
+
+        require(
+            _attestation.localEnclaveReport.attributes & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0),
+            SGX_FORBIDDEN_ATTRIBUTES()
+        );
 
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_attestation.localEnclaveReport.reportData));
@@ -146,6 +186,15 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         bytes memory signature = _proof[24:];
         require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
     }
+
+    /// @notice Returns whether a platform TCB status is accepted by this verifier's network policy.
+    /// @dev Defined by per-network subclasses. The platform TCB status is read from the attestation
+    /// output and expressed against the attestation's `TCBInfoStruct.TCBStatus` enum, so the on-chain
+    /// policy and the attestation cannot diverge and an enum reorder is caught at compile time. The
+    /// strict mainnet policy must remain the secure default.
+    /// @param _status The TCB status code from the attestation output.
+    /// @return Whether the status is accepted.
+    function isTcbStatusAccepted(uint8 _status) public pure virtual returns (bool);
 
     function _addInstances(
         address[] memory _instances,

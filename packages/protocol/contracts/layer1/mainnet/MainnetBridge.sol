@@ -26,12 +26,19 @@ contract MainnetBridge is Bridge {
     bytes32 private constant _CTX_SLOT =
         0xe4ece82196de19aabe639620d7f716c433d1348f96ce727c9989a982dbadc2b9;
 
+    /// @notice Initializes the mainnet bridge's immutable state.
+    /// @param _resolver The address of the resolver contract.
+    /// @param _signalService The address of the signal service contract.
+    /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
+    /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
+    /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
     constructor(
         address _resolver,
         address _signalService,
-        address _quotaManager
+        address _quotaManager,
+        address _pauser
     )
-        Bridge(_resolver, _signalService, _quotaManager)
+        Bridge(_resolver, _signalService, _quotaManager, _pauser)
     { }
 
     function _storeReentryLock(uint8 _reentry) internal override {

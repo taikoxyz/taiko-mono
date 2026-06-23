@@ -39,6 +39,18 @@ contract SignalService is EssentialContract, ISignalService {
     /// @dev Address of the remote signal service.
     address internal immutable _remoteSignalService;
 
+    /// @notice Address authorized to pause/unpause alongside the owner. Optional (may be zero).
+    address public immutable pauser;
+
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @notice Version of the received-signal cache and checkpoint mappings.
+    /// @dev Bumping this value in a future implementation invalidates old cached signals and
+    /// checkpoints without touching the old storage slots.
+    uint256 public constant VERSION = 1;
+
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -75,12 +87,18 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
-    constructor(address authorizedSyncer, address remoteSignalService) {
+    /// @notice Initializes the signal service's immutable state.
+    /// @param authorizedSyncer Address that can save checkpoints to this contract.
+    /// @param remoteSignalService Address of the remote signal service.
+    /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
+    /// zero).
+    constructor(address authorizedSyncer, address remoteSignalService, address _pauser) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());
 
         _authorizedSyncer = authorizedSyncer;
         _remoteSignalService = remoteSignalService;
+        pauser = _pauser;
     }
 
     /// @notice Initializes the SignalService contract for upgradeable deployments.
@@ -187,6 +205,9 @@ contract SignalService is EssentialContract, ISignalService {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Authorizes the owner or the designated immutable pauser to pause/unpause.
+    function _authorizePause(address, bool) internal view override onlyFromOwnerOr(pauser) { }
 
     /// @dev Gets a checkpoint by block number
     /// @param _blockNumber The block number of the checkpoint
