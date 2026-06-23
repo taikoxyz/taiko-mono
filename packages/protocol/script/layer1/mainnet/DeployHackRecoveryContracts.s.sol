@@ -46,7 +46,6 @@ contract DeployHackRecoveryContracts is Script {
         vm.stopBroadcast();
 
         _logDeployment(deployment);
-        _writeDeployment(deployment);
     }
 
     function _deployImplementations() private returns (Deployment memory deployment_) {
@@ -91,18 +90,5 @@ contract DeployHackRecoveryContracts is Script {
         console2.log("MAINNET_INBOX_NEW_IMPL:", _deployment.mainnetInboxImpl);
         console2.log("PAUSER:", SECURITY_COUNCIL_SEAT_MULTISIG);
         console2.log("EXISTING_QUOTA_MANAGER:", QUOTA_MANAGER);
-    }
-
-    function _writeDeployment(Deployment memory _deployment) private {
-        string memory path = string.concat(vm.projectRoot(), "/deployments/hack_recovery_mainnet.json");
-
-        vm.writeJson(vm.serializeAddress("deployment", "signalServiceImpl", _deployment.signalServiceImpl), path);
-        vm.writeJson(vm.serializeAddress("deployment", "mainnetBridgeImpl", _deployment.mainnetBridgeImpl), path);
-        vm.writeJson(vm.serializeAddress("deployment", "sgxGethVerifier", _deployment.sgxGethVerifier), path);
-        vm.writeJson(vm.serializeAddress("deployment", "sgxRethVerifier", _deployment.sgxRethVerifier), path);
-        vm.writeJson(vm.serializeAddress("deployment", "mainnetVerifier", _deployment.mainnetVerifier), path);
-        vm.writeJson(vm.serializeAddress("deployment", "mainnetInboxImpl", _deployment.mainnetInboxImpl), path);
-        vm.writeJson(vm.serializeAddress("deployment", "pauser", SECURITY_COUNCIL_SEAT_MULTISIG), path);
-        vm.writeJson(vm.serializeAddress("deployment", "quotaManager", QUOTA_MANAGER), path);
     }
 }
