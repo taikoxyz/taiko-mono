@@ -78,7 +78,8 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @dev Relocated from the replaced AutomataDcapV3Attestation contract. The new Automata DCAP
     /// entrypoint verifies quote authenticity and TCB status but does NOT allowlist the application
     /// enclave's identity, so the trusted MRENCLAVE/MRSIGNER policy is enforced here to preserve the
-    /// pre-migration security model.
+    /// pre-migration security model. Enabled by default (set in the constructor); toggle off with
+    /// toggleLocalReportCheck().
     bool public checkLocalEnclaveReport;
     mapping(bytes32 mrEnclave => bool trusted) public trustedUserMrEnclave;
     mapping(bytes32 mrSigner => bool trusted) public trustedUserMrSigner;
@@ -122,6 +123,11 @@ contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         require(_taikoChainId != 0, SGX_INVALID_CHAIN_ID());
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
+
+        // Enforce the trusted MRENCLAVE/MRSIGNER allowlist by default (fail-closed): until the owner
+        // trusts at least one MRENCLAVE and MRSIGNER, no instance can register. Disable with
+        // toggleLocalReportCheck() if the Automata entrypoint alone is considered sufficient.
+        checkLocalEnclaveReport = true;
 
         _transferOwnership(_owner);
     }

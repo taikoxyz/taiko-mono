@@ -86,7 +86,8 @@ attestation entrypoint, which reads Intel collateral from on-chain PCCS):
 
 ### Toggle Local Report Check
 
-Toggle enforcement of the MRENCLAVE/MRSIGNER allowlist:
+Enforcement of the MRENCLAVE/MRSIGNER allowlist is **on by default** (fail-closed): until at least
+one MRENCLAVE and one MRSIGNER are trusted, no instance can register. Toggle it:
 
 ```bash
 --toggle-check
