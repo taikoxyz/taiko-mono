@@ -31,9 +31,13 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     /// verification
     uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
 
-    /// @dev SGX ATTRIBUTES.FLAGS debug bit. In DCAP quote bytes, FLAGS is little-endian, so bit 1
-    /// is encoded in the first byte of the 16-byte attributes field.
-    bytes16 private constant SGX_DEBUG_ATTRIBUTE_MASK = bytes16(0x02000000000000000000000000000000);
+    /// @dev SGX ATTRIBUTES.FLAGS bits that production application enclaves must not set. In DCAP
+    /// quote bytes, FLAGS is little-endian, so these bits are encoded in the first byte of the
+    /// 16-byte attributes field.
+    /// DEBUG(0x02): host can read/write enclave memory.
+    /// PROVISION_KEY(0x10): enclave can derive platform-identifying provisioning keys.
+    bytes16 private constant SGX_FORBIDDEN_ATTRIBUTE_MASK =
+        bytes16(0x12000000000000000000000000000000);
 
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
@@ -81,7 +85,7 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
-    error SGX_DEBUG_MODE_NOT_ALLOWED();
+    error SGX_FORBIDDEN_ATTRIBUTES();
     error SGX_NOT_REGISTRAR();
 
     constructor(
@@ -136,8 +140,8 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
         require(
-            _attestation.localEnclaveReport.attributes & SGX_DEBUG_ATTRIBUTE_MASK == bytes16(0),
-            SGX_DEBUG_MODE_NOT_ALLOWED()
+            _attestation.localEnclaveReport.attributes & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0),
+            SGX_FORBIDDEN_ATTRIBUTES()
         );
 
         address[] memory addresses = new address[](1);

@@ -124,8 +124,41 @@ contract SgxVerifierTest is Test {
         V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
         quote.localEnclaveReport.attributes = bytes16(0x07000000000000000700000000000000);
 
-        vm.expectRevert(SgxVerifier.SGX_DEBUG_MODE_NOT_ALLOWED.selector);
+        vm.expectRevert(SgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
         verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_RevertWhen_ProvisionKeyEnabled() external {
+        attestation.setResult(true);
+        address newInstance = address(0xC0FFEE);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
+        quote.localEnclaveReport.attributes = bytes16(0x10000000000000000000000000000000);
+
+        vm.expectRevert(SgxVerifier.SGX_FORBIDDEN_ATTRIBUTES.selector);
+        verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_AllowsDebugBitOutsideFlagsByte() external {
+        attestation.setResult(true);
+        address newInstance = address(0xC0FFEE);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
+        quote.localEnclaveReport.attributes = bytes16(0x00020000000000000000000000000000);
+
+        uint256 id = verifier.registerInstance(quote);
+        assertEq(id, 0);
+    }
+
+    function test_registerInstance_AllowsProductionAttributes() external {
+        attestation.setResult(true);
+        address newInstance = address(0xC0FFEE);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
+        quote.localEnclaveReport.attributes = bytes16(0x0500000000000000e700000000000000);
+
+        uint256 id = verifier.registerInstance(quote);
+        assertEq(id, 0);
     }
 
     function test_registerInstance_AllowsRegistrarWhenSet() external {
