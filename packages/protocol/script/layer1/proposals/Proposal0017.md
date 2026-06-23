@@ -98,12 +98,10 @@ The first forged proof transaction is
 `Inbox.getCoreState()` was queried at block `25,367,937`, exactly one block before that forged
 proof. The proposal restores:
 
-| Field                         | Value                                                                |
-| ----------------------------- | -------------------------------------------------------------------- |
-| `nextProposalId`              | `18,059`                                                             |
-| `lastProposalBlockId`         | `25,367,925`                                                         |
-| `lastFinalizedProposalId`     | `18,051`                                                             |
-| `lastFinalizedTransitionHash` | `0x64c2ada556b6862d2c8796e0f709c454fede9d03908711a9f04d9f9f9dcce470` |
+| Field                     | Value                                                                |
+| ------------------------- | -------------------------------------------------------------------- |
+| `lastFinalizedProposalId` | `18,051`                                                             |
+| `lastFinalizedBlockHash`  | `0x64c2ada556b6862d2c8796e0f709c454fede9d03908711a9f04d9f9f9dcce470` |
 
 For comparison, the forged proof finalized proposal `18,056` in block `25,367,938`, so proposal
 `18,051` is the last correct finalized proposal before the incident.
