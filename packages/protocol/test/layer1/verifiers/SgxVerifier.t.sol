@@ -393,8 +393,8 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
     // Pin all 8 FLAGS bytes (XFRM left unchecked); require INIT|MODE64BIT and clear every other bit.
     bytes16 private constant STRICT_MASK = bytes16(0xffffffffffffffff0000000000000000);
     bytes16 private constant STRICT_EXPECTED = bytes16(0x05000000000000000000000000000000);
-    // A designated policy-remover used by the dedicated role tests.
-    address private constant POLICY_REMOVER = address(0x9111A40);
+    // A non-zero registrar used by the dedicated role tests: besides the owner it may remove pins.
+    address private constant REGISTRAR = address(0x9111A40);
 
     function _deployVerifier(
         uint64 _chainId,
@@ -407,11 +407,8 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         override
         returns (SgxVerifier)
     {
-        // policyRemover is address(0) for the shared suite: pin removal is owner-only. The dedicated
-        // tests below construct a verifier with a designated remover to exercise that role.
-        SecureSgxVerifier secureVerifier = new SecureSgxVerifier(
-            _chainId, _owner, _attestation, _registrar, _validityDelay, address(0)
-        );
+        SecureSgxVerifier secureVerifier =
+            new SecureSgxVerifier(_chainId, _owner, _attestation, _registrar, _validityDelay);
         // Permissive-but-configured pin for the shared suite's MRENCLAVE: check only the forbidden
         // floor, so the shared tests exercise the floor exactly. The dedicated tests below pin
         // tighter against STRICT_MR. `_owner` owns the verifier, so impersonate it to configure.
@@ -567,33 +564,32 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
     }
 
     // ---------------------------------------------------------------
-    // Policy-remover role
+    // Registrar pin-removal role
     // ---------------------------------------------------------------
 
-    /// @dev Deploys a SecureSgxVerifier owned by this test with `POLICY_REMOVER` as the remover.
-    function _deployWithRemover() private returns (SecureSgxVerifier secure_) {
-        secure_ = new SecureSgxVerifier(
-            CHAIN_ID, address(this), address(attestation), address(0), 0, POLICY_REMOVER
-        );
-        assertEq(secure_.policyRemover(), POLICY_REMOVER);
+    /// @dev Deploys a SecureSgxVerifier owned by this test with `REGISTRAR` set, which besides the
+    /// owner may remove pins.
+    function _deployWithRegistrar() private returns (SecureSgxVerifier secure_) {
+        secure_ = new SecureSgxVerifier(CHAIN_ID, address(this), address(attestation), REGISTRAR, 0);
+        assertEq(secure_.registrar(), REGISTRAR);
     }
 
-    function test_removeEnclaveAttributePolicy_ByPolicyRemover() external {
-        SecureSgxVerifier secure = _deployWithRemover();
+    function test_removeEnclaveAttributePolicy_ByRegistrar() external {
+        SecureSgxVerifier secure = _deployWithRegistrar();
         secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
 
-        // The policy-remover, not the owner, removes the pin.
+        // The registrar, not the owner, removes the pin.
         vm.expectEmit(true, true, true, true);
         emit SecureSgxVerifier.EnclaveAttributePolicyRemoved(STRICT_MR);
-        vm.prank(POLICY_REMOVER);
+        vm.prank(REGISTRAR);
         secure.removeEnclaveAttributePolicy(STRICT_MR);
 
         (bytes16 mask,) = secure.enclaveAttributePolicy(STRICT_MR);
         assertEq(bytes32(mask), bytes32(0));
     }
 
-    function test_removeEnclaveAttributePolicy_RevertWhen_NotOwnerOrRemover() external {
-        SecureSgxVerifier secure = _deployWithRemover();
+    function test_removeEnclaveAttributePolicy_RevertWhen_NotOwnerOrRegistrar() external {
+        SecureSgxVerifier secure = _deployWithRegistrar();
         secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
 
         vm.prank(address(0xBAD));
@@ -601,9 +597,9 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         secure.removeEnclaveAttributePolicy(STRICT_MR);
     }
 
-    /// @dev The shared `verifier` has policyRemover == address(0), so removal is owner-only and a
+    /// @dev The shared `verifier` has registrar == address(0), so removal is owner-only and a
     /// non-owner is rejected.
-    function test_removeEnclaveAttributePolicy_RevertWhen_NoRemoverConfigured() external {
+    function test_removeEnclaveAttributePolicy_RevertWhen_NoRegistrarConfigured() external {
         SecureSgxVerifier secure = SecureSgxVerifier(address(verifier));
         secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
 
@@ -612,13 +608,19 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         secure.removeEnclaveAttributePolicy(STRICT_MR);
     }
 
-    /// @dev The policy-remover can only remove pins, never set them: setting stays owner-only.
-    function test_setEnclaveAttributePolicy_RevertWhen_CalledByPolicyRemover() external {
-        SecureSgxVerifier secure = _deployWithRemover();
+    /// @dev The registrar can only remove pins, never set them: setting stays owner-only.
+    function test_setEnclaveAttributePolicy_RevertWhen_CalledByRegistrar() external {
+        SecureSgxVerifier secure = _deployWithRegistrar();
 
-        vm.prank(POLICY_REMOVER);
+        vm.prank(REGISTRAR);
         vm.expectRevert(); // Ownable2Step: caller is not the owner.
         secure.setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
+    }
+
+    function test_constructor_RevertWhen_ValidityDelayTooLarge() external {
+        uint64 tooLarge = uint64(verifier.INSTANCE_EXPIRY()) + 1;
+        vm.expectRevert(SgxVerifier.SGX_INVALID_VALIDITY_DELAY.selector);
+        new SecureSgxVerifier(CHAIN_ID, address(this), address(attestation), address(0), tooLarge);
     }
 }
 
@@ -635,6 +637,12 @@ contract InsecureSgxVerifierTest is SgxVerifierTestBase {
         returns (SgxVerifier)
     {
         return new InsecureSgxVerifier(_chainId, _owner, _attestation, _registrar, _validityDelay);
+    }
+
+    function test_constructor_RevertWhen_ValidityDelayTooLarge() external {
+        uint64 tooLarge = uint64(verifier.INSTANCE_EXPIRY()) + 1;
+        vm.expectRevert(SgxVerifier.SGX_INVALID_VALIDITY_DELAY.selector);
+        new InsecureSgxVerifier(CHAIN_ID, address(this), address(attestation), address(0), tooLarge);
     }
 
     function test_registerInstance_AcceptsOutOfDateTcb() external {
