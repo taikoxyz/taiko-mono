@@ -59,7 +59,8 @@ contract Bridge is EssentialResolverContract, IBridge {
     ISignalService public immutable signalService;
     IQuotaManager public immutable quotaManager;
 
-    /// @dev Address authorized to pause/unpause alongside the owner. Optional (may be zero).
+    /// @dev Address authorized to pause/unpause alongside the owner, and to fund the bridge with
+    /// plain Ether transfers via `receive`. Optional (may be zero, which disables direct funding).
     address public immutable pauser;
 
     /// @notice The next message ID.
@@ -100,8 +101,8 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _resolver The address of the resolver contract.
     /// @param _signalService The address of the signal service contract.
     /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
-    /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
-    /// zero).
+    /// @param _pauser Address authorized to pause/unpause alongside the owner, and to fund the
+    /// bridge via plain Ether transfers. Optional (may be zero, which disables direct funding).
     constructor(
         address _resolver,
         address _signalService,
@@ -118,6 +119,14 @@ contract Bridge is EssentialResolverContract, IBridge {
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
+
+    /// @notice Accepts plain Ether transfers from the pauser to fund the bridge.
+    /// @dev Reverts for any sender other than `pauser`, preventing arbitrary Ether deposits. The
+    /// bridge is deployed behind a proxy, so the pauser must use `call` (which forwards all gas);
+    /// the 2300-gas stipend of `transfer`/`send` is insufficient for the proxy's delegatecall.
+    receive() external payable {
+        require(msg.sender == pauser, B_PERMISSION_DENIED());
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.

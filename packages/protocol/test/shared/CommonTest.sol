@@ -228,9 +228,11 @@ abstract contract CommonTest is Test, Script {
 
     function deployBridge(address bridgeImpl) internal returns (Bridge) {
         return Bridge(
-            deploy({
-                name: "bridge", impl: bridgeImpl, data: abi.encodeCall(Bridge.init, (address(0)))
-            })
+            payable(deploy({
+                    name: "bridge",
+                    impl: bridgeImpl,
+                    data: abi.encodeCall(Bridge.init, (address(0)))
+                }))
         );
     }
 
