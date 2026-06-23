@@ -192,7 +192,8 @@ contract TestGenerateGenesis is Test {
             address(
                 new Bridge(
                     getPredeployedContractAddress("SharedResolver"),
-                    getPredeployedContractAddress("SignalService")
+                    getPredeployedContractAddress("SignalService"),
+                    address(0)
                 )
             )
         );
@@ -240,7 +241,7 @@ contract TestGenerateGenesis is Test {
         vm.startPrank(erc20VaultProxy.owner());
 
         erc20VaultProxy.upgradeTo(
-            address(new ERC20Vault(getPredeployedContractAddress("SharedResolver")))
+            address(new ERC20Vault(getPredeployedContractAddress("SharedResolver"), address(0)))
         );
 
         vm.stopPrank();

@@ -302,9 +302,13 @@ contract DeployProtocolOnL1 is DeployCapability {
         address signalService = IResolver(sharedResolver)
             .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
 
+        // The quota manager is wired in via a later upgrade once it is deployed; the bridge is
+        // bootstrapped with address(0), which disables the Ether quota check.
+        address quotaManager = address(0);
+
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
+            impl: address(new MainnetBridge(address(sharedResolver), signalService, quotaManager)),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });
@@ -317,10 +321,14 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function _deployVaults(address sharedResolver, address owner) private {
+        // The quota manager is wired in via a later upgrade once it is deployed; the vault is
+        // bootstrapped with address(0), which disables the token quota check.
+        address quotaManager = address(0);
+
         // Deploy ERC20 Vault
         address erc20Vault = deployProxy({
             name: "erc20_vault",
-            impl: address(new MainnetERC20Vault(address(sharedResolver))),
+            impl: address(new MainnetERC20Vault(address(sharedResolver), quotaManager)),
             data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });

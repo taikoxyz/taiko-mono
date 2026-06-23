@@ -13,7 +13,7 @@ import "./MainnetERC20Vault_Layout.sol"; // DO NOT DELETE
 /// @notice See the documentation in {ER20Vault}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetERC20Vault is ERC20Vault {
-    constructor(address _resolver) ERC20Vault(_resolver) { }
+    constructor(address _resolver, address _quotaManager) ERC20Vault(_resolver, _quotaManager) { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
         LibFasterReentryLock.storeReentryLock(_reentry);
