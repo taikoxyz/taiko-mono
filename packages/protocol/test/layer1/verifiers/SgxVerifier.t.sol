@@ -352,6 +352,20 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE)));
         assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_REVOKED)));
     }
+
+    /// @dev `OK` is enum index 0 and the policy uses exact equality, so it is matched only by the
+    /// byte 0 - never over-scoped onto another status. Exhaustively check all 256 possible status
+    /// bytes: exactly {OK, TCB_SW_HARDENING_NEEDED, TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED} are
+    /// accepted; every other value (the out-of-date statuses and any out-of-enum byte) is rejected.
+    function test_isTcbStatusAccepted_StrictPolicyIsExact() external view {
+        assertEq(uint8(TCBInfoStruct.TCBStatus.OK), 0);
+        for (uint256 s; s <= type(uint8).max; ++s) {
+            bool expected = s == uint8(TCBInfoStruct.TCBStatus.OK)
+                || s == uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED)
+                || s == uint8(TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED);
+            assertEq(verifier.isTcbStatusAccepted(uint8(s)), expected);
+        }
+    }
 }
 
 contract InsecureSgxVerifierTest is SgxVerifierTestBase {
@@ -386,5 +400,19 @@ contract InsecureSgxVerifierTest is SgxVerifierTestBase {
             )
         );
         assertFalse(verifier.isTcbStatusAccepted(uint8(TCBInfoStruct.TCBStatus.TCB_REVOKED)));
+    }
+
+    /// @dev Exhaustively check all 256 possible status bytes: the lenient policy accepts exactly the
+    /// up-to-date statuses plus the out-of-date statuses, and rejects everything else
+    /// (config-needed, revoked, unrecognized, and any out-of-enum byte) - exact, not over-scoped.
+    function test_isTcbStatusAccepted_LenientPolicyIsExact() external view {
+        for (uint256 s; s <= type(uint8).max; ++s) {
+            bool expected = s == uint8(TCBInfoStruct.TCBStatus.OK)
+                || s == uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED)
+                || s == uint8(TCBInfoStruct.TCBStatus.TCB_CONFIGURATION_AND_SW_HARDENING_NEEDED)
+                || s == uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE)
+                || s == uint8(TCBInfoStruct.TCBStatus.TCB_OUT_OF_DATE_CONFIGURATION_NEEDED);
+            assertEq(verifier.isTcbStatusAccepted(uint8(s)), expected);
+        }
     }
 }
