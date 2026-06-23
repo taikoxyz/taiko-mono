@@ -1,30 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {Test} from "forge-std/src/Test.sol";
-import {Proposal0017} from "script/layer1/proposals/Proposal0017.s.sol";
-import {LibL1Addrs as L1} from "src/layer1/mainnet/LibL1Addrs.sol";
-import {Risc0Verifier} from "src/layer1/verifiers/Risc0Verifier.sol";
-import {SP1Verifier} from "src/layer1/verifiers/SP1Verifier.sol";
-import {Controller} from "src/shared/governance/Controller.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { Test } from "forge-std/src/Test.sol";
+import { Proposal0017 } from "script/layer1/proposals/Proposal0017.s.sol";
+import { LibL1Addrs as L1 } from "src/layer1/mainnet/LibL1Addrs.sol";
+import { Risc0Verifier } from "src/layer1/verifiers/Risc0Verifier.sol";
+import { SP1Verifier } from "src/layer1/verifiers/SP1Verifier.sol";
+import { Controller } from "src/shared/governance/Controller.sol";
 
 /// @custom:security-contact security@taiko.xyz
 contract Proposal0017Test is Test {
     address internal constant MAINNET_INBOX_NEW_IMPL = 0x1010101010101010101010101010101010101010;
     address internal constant SIGNAL_SERVICE_NEW_IMPL = 0x2020202020202020202020202020202020202020;
     address internal constant MAINNET_BRIDGE_NEW_IMPL = 0x3030303030303030303030303030303030303030;
-    address internal constant MAINNET_ERC20_VAULT_NEW_IMPL = 0x4040404040404040404040404040404040404040;
-    address internal constant QUOTA_MANAGER_NEW_IMPL = 0x5050505050505050505050505050505050505050;
+    address internal constant MAINNET_ERC20_VAULT_NEW_IMPL =
+        0x4040404040404040404040404040404040404040;
 
     address internal constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
     address internal constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
     address internal constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address internal constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
     address internal constant QUOTA_MANAGER = 0x91f67118DD47d502B1f0C354D0611997B022f29E;
+    address internal constant WETH_TOKEN = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address internal constant USDT_TOKEN = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
 
-    bytes32 internal constant NEW_MR_SIGNER = 0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
-    bytes32 internal constant OLD_MR_SIGNER = 0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
+    uint104 internal constant ETH_QUOTA = 250 ether;
+    uint104 internal constant WETH_QUOTA = 250 ether;
+    uint104 internal constant TKO_QUOTA = 10_000_000 ether;
+    uint104 internal constant USDT_QUOTA = 150_000_000_000;
+    uint104 internal constant USDC_QUOTA = 150_000_000_000;
+
+    bytes32 internal constant NEW_MR_SIGNER =
+        0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
+    bytes32 internal constant OLD_MR_SIGNER =
+        0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
 
     uint48 internal constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
     bytes32 internal constant RECOVERY_LAST_FINALIZED_BLOCK_HASH =
@@ -44,83 +54,139 @@ contract Proposal0017Test is Test {
             _mainnetInboxNewImpl: MAINNET_INBOX_NEW_IMPL,
             _signalServiceNewImpl: SIGNAL_SERVICE_NEW_IMPL,
             _mainnetBridgeNewImpl: MAINNET_BRIDGE_NEW_IMPL,
-            _mainnetErc20VaultNewImpl: MAINNET_ERC20_VAULT_NEW_IMPL,
-            _quotaManagerNewImpl: QUOTA_MANAGER_NEW_IMPL
+            _mainnetErc20VaultNewImpl: MAINNET_ERC20_VAULT_NEW_IMPL
         });
 
         uint256 cursor;
 
-        assertEq(actions.length, 60);
+        assertEq(actions.length, 64);
 
         assertEq(actions[cursor].target, L1.SIGNAL_SERVICE);
         assertEq(actions[cursor].value, 0);
-        assertEq(actions[cursor++].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (SIGNAL_SERVICE_NEW_IMPL)));
-
-        assertEq(actions[cursor].target, QUOTA_MANAGER);
-        assertEq(actions[cursor].value, 0);
-        assertEq(actions[cursor++].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (QUOTA_MANAGER_NEW_IMPL)));
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (SIGNAL_SERVICE_NEW_IMPL))
+        );
 
         assertEq(actions[cursor].target, L1.BRIDGE);
         assertEq(actions[cursor].value, 0);
-        assertEq(actions[cursor++].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (MAINNET_BRIDGE_NEW_IMPL)));
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (MAINNET_BRIDGE_NEW_IMPL))
+        );
 
         assertEq(actions[cursor].target, L1.ERC20_VAULT);
         assertEq(actions[cursor].value, 0);
-        assertEq(actions[cursor++].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (MAINNET_ERC20_VAULT_NEW_IMPL)));
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (MAINNET_ERC20_VAULT_NEW_IMPL))
+        );
 
         assertEq(actions[cursor].target, L1.BRIDGE);
         assertEq(actions[cursor].value, 0);
-        assertEq(actions[cursor++].data, abi.encodeCall(IBridgeRecovery.init3, (_retriableMessageHashes())));
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IBridgeRecovery.init3, (_retriableMessageHashes()))
+        );
+
+        assertEq(actions[cursor].target, QUOTA_MANAGER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (address(0), ETH_QUOTA))
+        );
+
+        assertEq(actions[cursor].target, QUOTA_MANAGER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (WETH_TOKEN, WETH_QUOTA))
+        );
+
+        assertEq(actions[cursor].target, QUOTA_MANAGER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (L1.TAIKO_TOKEN, TKO_QUOTA))
+        );
+
+        assertEq(actions[cursor].target, QUOTA_MANAGER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (USDT_TOKEN, USDT_QUOTA))
+        );
+
+        assertEq(actions[cursor].target, QUOTA_MANAGER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (L1.USDC_TOKEN, USDC_QUOTA))
+        );
 
         assertEq(actions[cursor].target, L1.INBOX);
         assertEq(actions[cursor].value, 0);
-        assertEq(actions[cursor++].data, abi.encodeCall(UUPSUpgradeable.upgradeTo, (MAINNET_INBOX_NEW_IMPL)));
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (MAINNET_INBOX_NEW_IMPL))
+        );
 
         assertEq(actions[cursor].target, L1.INBOX);
         assertEq(actions[cursor].value, 0);
         assertEq(
             actions[cursor++].data,
             abi.encodeCall(
-                IInboxRecovery.init2, (RECOVERY_LAST_FINALIZED_PROPOSAL_ID, RECOVERY_LAST_FINALIZED_BLOCK_HASH)
+                IInboxRecovery.init2,
+                (RECOVERY_LAST_FINALIZED_PROPOSAL_ID, RECOVERY_LAST_FINALIZED_BLOCK_HASH)
             )
         );
 
         assertEq(actions[cursor].target, SGXGETH_ATTESTER);
         assertEq(actions[cursor].value, 0);
         assertEq(
-            actions[cursor++].data, abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (NEW_MR_SIGNER, true))
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (NEW_MR_SIGNER, true))
         );
 
         assertEq(actions[cursor].target, SGXRETH_ATTESTER);
         assertEq(actions[cursor].value, 0);
         assertEq(
-            actions[cursor++].data, abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (NEW_MR_SIGNER, true))
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (NEW_MR_SIGNER, true))
         );
 
         assertEq(actions[cursor].target, SGXGETH_ATTESTER);
         assertEq(actions[cursor].value, 0);
         assertEq(
-            actions[cursor++].data, abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (OLD_MR_SIGNER, false))
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (OLD_MR_SIGNER, false))
         );
 
         assertEq(actions[cursor].target, SGXRETH_ATTESTER);
         assertEq(actions[cursor].value, 0);
         assertEq(
-            actions[cursor++].data, abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (OLD_MR_SIGNER, false))
+            actions[cursor++].data,
+            abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (OLD_MR_SIGNER, false))
         );
 
         bytes32[] memory risc0ImageIds = _risc0ImageIdsToDisable();
         for (uint256 i; i < risc0ImageIds.length; ++i) {
             assertEq(actions[cursor].target, RISC0_RETH_VERIFIER);
             assertEq(actions[cursor].value, 0);
-            assertEq(actions[cursor++].data, abi.encodeCall(Risc0Verifier.setImageIdTrusted, (risc0ImageIds[i], false)));
+            assertEq(
+                actions[cursor++].data,
+                abi.encodeCall(Risc0Verifier.setImageIdTrusted, (risc0ImageIds[i], false))
+            );
         }
 
         bytes32[] memory sp1ProgramIds = _sp1ProgramIdsToDisable();
         for (uint256 i; i < sp1ProgramIds.length; ++i) {
             assertEq(actions[cursor].target, SP1_RETH_VERIFIER);
             assertEq(actions[cursor].value, 0);
-            assertEq(actions[cursor++].data, abi.encodeCall(SP1Verifier.setProgramTrusted, (sp1ProgramIds[i], false)));
+            assertEq(
+                actions[cursor++].data,
+                abi.encodeCall(SP1Verifier.setProgramTrusted, (sp1ProgramIds[i], false))
+            );
         }
 
         bytes32[] memory sgxGethMrEnclaves = _sgxGethMrEnclavesToDisable();
@@ -129,7 +195,9 @@ contract Proposal0017Test is Test {
             assertEq(actions[cursor].value, 0);
             assertEq(
                 actions[cursor++].data,
-                abi.encodeCall(IAutomataAttestationRecovery.setMrEnclave, (sgxGethMrEnclaves[i], false))
+                abi.encodeCall(
+                    IAutomataAttestationRecovery.setMrEnclave, (sgxGethMrEnclaves[i], false)
+                )
             );
         }
 
@@ -139,7 +207,9 @@ contract Proposal0017Test is Test {
             assertEq(actions[cursor].value, 0);
             assertEq(
                 actions[cursor++].data,
-                abi.encodeCall(IAutomataAttestationRecovery.setMrEnclave, (sgxRethMrEnclaves[i], false))
+                abi.encodeCall(
+                    IAutomataAttestationRecovery.setMrEnclave, (sgxRethMrEnclaves[i], false)
+                )
             );
         }
 
@@ -228,15 +298,17 @@ contract Proposal0017Harness is Proposal0017 {
         address _mainnetInboxNewImpl,
         address _signalServiceNewImpl,
         address _mainnetBridgeNewImpl,
-        address _mainnetErc20VaultNewImpl,
-        address _quotaManagerNewImpl
-    ) external pure returns (Controller.Action[] memory actions_) {
+        address _mainnetErc20VaultNewImpl
+    )
+        external
+        pure
+        returns (Controller.Action[] memory actions_)
+    {
         actions_ = buildL1Actions(
             _mainnetInboxNewImpl,
             _signalServiceNewImpl,
             _mainnetBridgeNewImpl,
-            _mainnetErc20VaultNewImpl,
-            _quotaManagerNewImpl
+            _mainnetErc20VaultNewImpl
         );
     }
 }
@@ -246,7 +318,15 @@ interface IBridgeRecovery {
 }
 
 interface IInboxRecovery {
-    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
+    function init2(
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedBlockHash
+    )
+        external;
+}
+
+interface IQuotaManagerRecovery {
+    function updateQuota(address _token, uint104 _quota) external;
 }
 
 interface IAutomataAttestationRecovery {
