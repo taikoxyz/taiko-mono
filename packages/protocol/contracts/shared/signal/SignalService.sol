@@ -66,6 +66,11 @@ contract SignalService is EssentialContract, ISignalService {
     // Constructor and Initialization
     // ---------------------------------------------------------------
 
+    /// @notice Initializes the signal service's immutable state.
+    /// @param authorizedSyncer Address that can save checkpoints to this contract.
+    /// @param remoteSignalService Address of the remote signal service.
+    /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
+    /// zero).
     constructor(address authorizedSyncer, address remoteSignalService, address _pauser) {
         require(authorizedSyncer != address(0), ZERO_ADDRESS());
         require(remoteSignalService != address(0), ZERO_ADDRESS());

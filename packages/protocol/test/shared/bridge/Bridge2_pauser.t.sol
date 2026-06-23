@@ -53,6 +53,33 @@ contract TestBridgePauser is CommonTest {
         bridge.pause();
     }
 
+    function test_bridge_pause_blocksMessageProcessing() public {
+        Bridge bridge = _deployBridgeWithPauser(Alice);
+
+        // A message whose fields satisfy the modifiers guarding each entry point, so that
+        // execution reaches the `whenNotPaused` check instead of reverting earlier.
+        IBridge.Message memory message;
+        message.srcOwner = Alice;
+        message.destOwner = Bob;
+        message.to = Carol;
+        message.srcChainId = ethereumChainId;
+        message.destChainId = taikoChainId;
+
+        vm.prank(Alice);
+        bridge.pause();
+        assertTrue(bridge.paused());
+
+        // While paused, the Bridge must reject sending, processing and recalling messages.
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        bridge.sendMessage(message);
+
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        bridge.processMessage(message, "");
+
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        bridge.recallMessage(message, "");
+    }
+
     function _deployBridgeWithPauser(address pauser) private returns (Bridge) {
         Bridge impl = new Bridge(address(resolver), address(eSignalService), pauser);
         return Bridge(
