@@ -35,7 +35,13 @@ jobs:
     # overhead, so a slow first attempt + retry is never killed mid-run.
     timeout-minutes: 8
     permissions:
-      pull-requests: read
+      # `pull-requests: write` is required to post the review: the job comments
+      # via issues.createComment against the PR number, and on a pull request
+      # that write is governed by the pull-requests scope (not issues). With
+      # only read access the post fails with "Resource not accessible by
+      # integration" even though the diff fetch (a read) and the model call
+      # both succeed.
+      pull-requests: write
       issues: write
     steps:
       # No checkout / setup-node: github-script runs on the runner's Node and
