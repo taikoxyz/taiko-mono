@@ -14,7 +14,9 @@ import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 /// @custom:security-contact security@taiko.xyz
 contract ConfigureSgxVerifier is BaseScript {
     function run() external broadcast {
-        SgxVerifier sgxVerifier = SgxVerifier(vm.envAddress("SGX_VERIFIER_ADDRESS"));
+        address sgxVerifierAddr = vm.envAddress("SGX_VERIFIER_ADDRESS");
+        require(sgxVerifierAddr != address(0), "SGX_VERIFIER_ADDRESS not set");
+        SgxVerifier sgxVerifier = SgxVerifier(sgxVerifierAddr);
 
         console2.log("=== Configuring SGX Verifier ===");
         console2.log("SGX Verifier:", address(sgxVerifier));

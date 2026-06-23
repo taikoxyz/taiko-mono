@@ -187,6 +187,11 @@ done
     exit 1
 }
 
+# Warn about removed variables that may linger in the environment from older workflows.
+if [[ -n "${ATTESTATION_ADDRESS:-}" || -n "${PEM_CERTCHAIN_ADDRESS:-}" ]]; then
+    echo "WARNING: ATTESTATION_ADDRESS/PEM_CERTCHAIN_ADDRESS are no longer used and will be ignored."
+fi
+
 # Export configuration flags consumed by ConfigureSgxVerifier.s.sol
 export SET_MRENCLAVE=$SET_MRENCLAVE
 export SET_MRSIGNER=$SET_MRSIGNER
