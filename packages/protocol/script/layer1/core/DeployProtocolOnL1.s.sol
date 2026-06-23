@@ -147,10 +147,17 @@ contract DeployProtocolOnL1 is DeployCapability {
             require(automataDcap != address(0), "DCAP_ATTESTATION not set");
         }
 
-        // Deploy SGX verifiers. The registrar is set to address(0), leaving registerInstance
-        // permissionless; set a non-zero registrar to restrict instance registration. The strict
-        // SgxVerifier is the secure default; only when `useInsecureSgxPolicy` is true is the
-        // lenient InsecureSgxVerifier deployed.
+        // Deploy SGX verifiers. Mainnet AND all (public) testnets MUST use SecureSgxVerifier (strict
+        // TCB-status policy + per-MRENCLAVE ATTRIBUTES pin); the strict SecureSgxVerifier is the
+        // secure default, and only an explicit `useInsecureSgxPolicy` selects the lenient
+        // InsecureSgxVerifier, which relaxes the TCB-status policy for lagging dev hardware and MUST
+        // be used by local devnets ONLY — never by a public testnet or mainnet.
+        // The registrar is set to address(0), leaving `registerInstance` permissionless; set a
+        // non-zero registrar to restrict instance registration (a non-zero registrar may also
+        // fail-close a compromised enclave via `removeEnclaveAttributePolicy`). The 24h
+        // instance-validity delay gives off-chain monitoring time to evict a rogue self-registered
+        // instance before it can prove (owner `addInstances` registrations are not delayed); it
+        // applies to SecureSgxVerifier only.
         verifiers.sgx = config.useInsecureSgxPolicy
             ? address(
                 new InsecureSgxVerifier(
@@ -159,7 +166,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
             : address(
                 new SecureSgxVerifier(
-                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0), 24 hours
                 )
             );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
@@ -172,7 +179,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             )
             : address(
                 new SecureSgxVerifier(
-                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0), 24 hours
                 )
             );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);

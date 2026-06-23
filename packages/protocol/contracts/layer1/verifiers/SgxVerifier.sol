@@ -26,12 +26,25 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         uint64 validSince;
     }
 
-    /// @notice The expiry time for the SGX instance.
-    uint64 public constant INSTANCE_EXPIRY = 365 days;
+    /// @notice The expiry time for the SGX instance (3 months).
+    uint64 public constant INSTANCE_EXPIRY = 90 days;
 
-    /// @notice A security feature, a delay until an instance is enabled when using onchain RA
-    /// verification
-    uint64 public constant INSTANCE_VALIDITY_DELAY = 0;
+    /// @dev SGX ATTRIBUTES.FLAGS bits that a production application enclave must never set. In DCAP
+    /// quote bytes the 16-byte ATTRIBUTES field is FLAGS (low 8 bytes, little-endian) followed by
+    /// XFRM, so these FLAGS bits live in the first byte. Enforced uniformly on every network (it is
+    /// NOT part of the per-network policy): such an enclave must never be trusted on-chain.
+    /// DEBUG(0x02): the host can read/write enclave memory, so the in-enclave signing key is
+    /// extractable.
+    /// PROVISION_KEY(0x10): the enclave can derive platform-identifying provisioning keys.
+    /// EINITTOKEN_KEY(0x20): the enclave can derive the launch-token key, a launch-enclave-only
+    /// privilege an application enclave must never hold.
+    /// Subclasses may pin the remaining bits per-MRENCLAVE via `_validateEnclaveAttributes`.
+    bytes16 internal constant SGX_FORBIDDEN_ATTRIBUTE_MASK =
+        bytes16(0x32000000000000000000000000000000);
+    /// @dev DEBUG bit (bit 1) of the little-endian SGX ATTRIBUTES flags. A subset of
+    /// `SGX_FORBIDDEN_ATTRIBUTE_MASK`, checked separately so a debug enclave reverts with the
+    /// dedicated `SGX_DEBUG_ENCLAVE` error (the migration's headline security guard).
+    uint8 private constant SGX_FLAGS_DEBUG = 0x02;
 
     /// @dev Field offsets within the Automata DCAP `Output` header: quoteVersion (BE uint16) at 0,
     /// quoteBodyType (BE uint16) at 2, tcbStatus (1 byte) at 4, fmspc (6 bytes) at 5; the quote
@@ -56,8 +69,6 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     uint256 private constant REPORT_DATA_OFFSET = HEADER_LENGTH + 320;
     /// @dev `attributes` offset within the raw quote (header + enclave-report offset 48).
     uint256 private constant ATTRIBUTES_OFFSET = HEADER_LENGTH + 48;
-    /// @dev DEBUG bit (bit 1) of the little-endian SGX ATTRIBUTES flags.
-    uint8 private constant SGX_FLAGS_DEBUG = 0x02;
 
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
@@ -72,7 +83,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
 
     /// @dev One SGX instance is uniquely identified (on-chain) by its ECDSA public key
     /// (or rather ethereum address). The instance address remains valid for INSTANCE_EXPIRY
-    /// duration (365 days) to protect against side-channel attacks through forced key expiry.
+    /// duration (90 days) to protect against side-channel attacks through forced key expiry.
     /// After expiry, the instance must be re-attested and registered with a new address.
     mapping(uint256 instanceId => Instance instance) public instances;
 
@@ -120,6 +131,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
 
     error SGX_ALREADY_ATTESTED();
     error SGX_DEBUG_ENCLAVE();
+    error SGX_FORBIDDEN_ATTRIBUTES();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
     error SGX_INVALID_PROOF();
@@ -198,6 +210,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// (`IDcapAttestation.verifyAndAttestOnChain`), which consumes a raw quote and reads Intel
     /// collateral from on-chain PCCS. The trusted MRENCLAVE/MRSIGNER allowlist and the TCB-status
     /// acceptance policy are enforced here (previously in AutomataDcapV3Attestation).
+    /// @dev A non-owner (permissionless or registrar) registration is subject to the validity
+    /// delay; an owner-submitted registration is as trusted as `addInstances` and takes effect
+    /// immediately.
     /// @param _rawQuote The raw Intel DCAP v3 (SGX) attestation quote.
     /// @return The respective instanceId.
     function registerInstance(bytes calldata _rawQuote) external nonReentrant returns (uint256) {
@@ -238,9 +253,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
                 && uint8(output[OUTPUT_BODY_TYPE_OFFSET + 1]) == SGX_QUOTE_BODY_TYPE,
             SGX_INVALID_ATTESTATION()
         );
-        // Reject quotes whose platform TCB is not up to date (see _isTcbStatusAccepted).
+        // Reject quotes whose platform TCB is not up to date (see isTcbStatusAccepted).
         require(
-            _isTcbStatusAccepted(uint8(output[OUTPUT_TCB_STATUS_OFFSET])), SGX_INVALID_ATTESTATION()
+            isTcbStatusAccepted(uint8(output[OUTPUT_TCB_STATUS_OFFSET])), SGX_INVALID_ATTESTATION()
         );
 
         // Bind the fields read from the raw quote below (DEBUG attributes, MRENCLAVE/MRSIGNER,
@@ -273,8 +288,24 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         // field at enclave-report offset 48 (raw-quote offset HEADER_LENGTH + 48).
         require((uint8(_rawQuote[ATTRIBUTES_OFFSET]) & SGX_FLAGS_DEBUG) == 0, SGX_DEBUG_ENCLAVE());
 
+        // Read the authenticated MRENCLAVE and full 16-byte ATTRIBUTES (FLAGS || XFRM) from the
+        // verified enclave report for the attribute policies below; both are bound to the report by
+        // the body-hash check above.
+        bytes32 mrEnclave = bytes32(_rawQuote[MRENCLAVE_OFFSET:MRENCLAVE_OFFSET + 32]);
+        bytes16 attributes = bytes16(_rawQuote[ATTRIBUTES_OFFSET:ATTRIBUTES_OFFSET + 16]);
+
+        // Universal forbidden-attribute floor, enforced on every network (DEBUG / PROVISION_KEY /
+        // EINITTOKEN_KEY). DEBUG is also rejected above with a dedicated error; the remaining bits
+        // are caught here so even the lenient devnet verifier can never admit a provisioning or
+        // launch enclave.
+        require(attributes & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0), SGX_FORBIDDEN_ATTRIBUTES());
+
+        // Per-network enclave-identity policy on top of the universal floor. The strict mainnet
+        // subclass pins the full ATTRIBUTES profile per allowlisted MRENCLAVE; the base/devnet
+        // implementation is a no-op.
+        _validateEnclaveAttributes(mrEnclave, attributes);
+
         if (checkLocalEnclaveReport) {
-            bytes32 mrEnclave = bytes32(_rawQuote[MRENCLAVE_OFFSET:MRENCLAVE_OFFSET + 32]);
             bytes32 mrSigner = bytes32(_rawQuote[MRSIGNER_OFFSET:MRSIGNER_OFFSET + 32]);
             require(
                 trustedUserMrEnclave[mrEnclave] && trustedUserMrSigner[mrSigner],
@@ -289,7 +320,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_rawQuote[REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 20]));
 
-        return _addInstances(addresses, false)[0];
+        // An owner-submitted registration is as trusted as `addInstances`, so it skips the validity
+        // delay; permissionless (and registrar) registrations remain delayed.
+        return _addInstances(addresses, msg.sender == owner())[0];
     }
 
     /// @inheritdoc IProofVerifier
@@ -316,6 +349,36 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         require(instance == ECDSA.recover(signatureHash, signature), SGX_INVALID_PROOF());
     }
 
+    /// @notice Returns whether a platform TCB status is accepted by this verifier's network policy.
+    /// @dev The TCB-status acceptance policy is defined by per-network subclasses. Each subclass
+    /// expresses its policy against Automata's `TCBStatus` enum (the same pinned on-chain-pccs
+    /// package the attestation entrypoint uses to produce `tcbStatus`), so the on-chain policy and
+    /// the entrypoint cannot diverge and a dependency bump that reorders the enum is caught at
+    /// compile time. The strict mainnet policy must remain the secure default.
+    /// @param _status The TCB status code from the attestation output.
+    /// @return Whether the status is accepted.
+    function isTcbStatusAccepted(uint8 _status) public pure virtual returns (bool);
+
+    /// @dev Hook for an additional, per-network enclave-identity policy enforced during
+    /// `registerInstance`, run after the universal forbidden-attribute floor. The base
+    /// implementation is a no-op (the floor is the only attribute check) and is intended only for
+    /// non-production (devnet) verifiers; production subclasses MUST override this to pin the full
+    /// ATTRIBUTES profile per allowlisted MRENCLAVE. An override MUST revert to reject a
+    /// registration. Parameters are the attested application-enclave measurement and its 16-byte
+    /// ATTRIBUTES (FLAGS || XFRM) field, both authenticated by the attestation.
+    function _validateEnclaveAttributes(bytes32, bytes16) internal view virtual { }
+
+    /// @dev The delay applied to a non-owner `registerInstance` registration before the instance
+    /// becomes usable, giving off-chain monitoring a window to evict a rogue self-registered instance
+    /// (via `deleteInstances`) before it can prove. Owner registrations — `addInstances`, or
+    /// `registerInstance` called by the owner — are never delayed. The base applies no delay;
+    /// production subclasses override this to return their configured delay (which must not exceed
+    /// `INSTANCE_EXPIRY`).
+    /// @return The registration validity delay, in seconds.
+    function _validityDelay() internal view virtual returns (uint64) {
+        return 0;
+    }
+
     function _addInstances(
         address[] memory _instances,
         bool instantValid
@@ -329,7 +392,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         uint64 validSince = uint64(block.timestamp);
 
         if (!instantValid) {
-            validSince += INSTANCE_VALIDITY_DELAY;
+            validSince += _validityDelay();
         }
 
         for (uint256 i; i < size; ++i) {
@@ -354,13 +417,4 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         return instances[id].validSince <= block.timestamp
             && block.timestamp <= instances[id].validSince + INSTANCE_EXPIRY;
     }
-
-    /// @dev The TCB-status acceptance policy is defined by per-network subclasses. Each subclass
-    /// expresses its policy against Automata's `TCBStatus` enum (the same pinned on-chain-pccs
-    /// package the attestation entrypoint uses to produce `tcbStatus`), so the on-chain policy and
-    /// the entrypoint cannot diverge and a dependency bump that reorders the enum is caught at
-    /// compile time. The strict mainnet policy must remain the secure default.
-    /// @param _status The TCB status code from the attestation output.
-    /// @return Whether the status is accepted.
-    function _isTcbStatusAccepted(uint8 _status) internal pure virtual returns (bool);
 }

@@ -146,10 +146,17 @@ abstract contract DeployShastaContracts is DeployCapability {
         private
         returns (VerifierAddresses memory verifiers)
     {
-        // The registrar is set to address(0), leaving registerInstance permissionless; set a
-        // non-zero registrar to restrict instance registration. The strict SecureSgxVerifier is the
-        // secure default; only when `useInsecureSgxPolicy` is true is the lenient InsecureSgxVerifier
-        // deployed.
+        // Mainnet AND all (public) testnets MUST use SecureSgxVerifier (strict TCB-status policy +
+        // per-MRENCLAVE ATTRIBUTES pin); the strict SecureSgxVerifier is the secure default, and only
+        // an explicit `useInsecureSgxPolicy` selects the lenient InsecureSgxVerifier, which relaxes
+        // the TCB-status policy for lagging dev hardware and MUST be used by local devnets ONLY —
+        // never by a public testnet or mainnet.
+        // The registrar is set to address(0), leaving `registerInstance` permissionless; set a
+        // non-zero registrar to restrict instance registration (a non-zero registrar may also
+        // fail-close a compromised enclave via `removeEnclaveAttributePolicy`). The 24h
+        // instance-validity delay gives off-chain monitoring time to evict a rogue self-registered
+        // instance before it can prove (owner `addInstances` registrations are not delayed); it
+        // applies to SecureSgxVerifier only.
         verifiers.sgxReth = _deploySgxVerifier(
             config.useInsecureSgxPolicy,
             config.l2ChainId,
@@ -179,7 +186,9 @@ abstract contract DeployShastaContracts is DeployCapability {
 
     /// @dev Deploys an SGX verifier, selecting the strict SecureSgxVerifier by default and the
     /// lenient InsecureSgxVerifier only when `useInsecureSgxPolicy` is true. The registrar is set to
-    /// address(0), leaving registerInstance permissionless.
+    /// address(0), leaving registerInstance permissionless. SecureSgxVerifier is given a 24h
+    /// instance-validity delay so off-chain monitoring can evict a rogue self-registered instance
+    /// before it can prove (owner `addInstances` registrations are not delayed).
     function _deploySgxVerifier(
         bool useInsecureSgxPolicy,
         uint64 l2ChainId,
@@ -195,6 +204,8 @@ abstract contract DeployShastaContracts is DeployCapability {
                     new InsecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0))
                 );
         }
-        return address(new SecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0)));
+        return address(
+            new SecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0), 24 hours)
+        );
     }
 }
