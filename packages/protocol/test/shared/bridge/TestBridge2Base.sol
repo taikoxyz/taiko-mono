@@ -30,9 +30,17 @@ contract TestBridge2Base is CommonTest {
     function setUpOnEthereum() internal override {
         eSignalService = _deployMockSignalService();
         eBridge = deployBridge(
-            address(new Bridge(address(resolver), address(eSignalService), address(0)))
+            address(
+                new Bridge(
+                    address(resolver), address(eSignalService), getQuotaManager(), address(0)
+                )
+            )
         );
         vm.deal(address(eBridge), 10_000 ether);
+    }
+
+    function getQuotaManager() internal virtual returns (address) {
+        return address(0);
     }
 
     function setUpOnTaiko() internal override {

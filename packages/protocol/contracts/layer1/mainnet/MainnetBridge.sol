@@ -29,14 +29,16 @@ contract MainnetBridge is Bridge {
     /// @notice Initializes the mainnet bridge's immutable state.
     /// @param _resolver The address of the resolver contract.
     /// @param _signalService The address of the signal service contract.
+    /// @param _quotaManager The address of the quota manager contract. Optional (may be zero).
     /// @param _pauser Address authorized to pause/unpause alongside the owner. Optional (may be
     /// zero).
     constructor(
         address _resolver,
         address _signalService,
+        address _quotaManager,
         address _pauser
     )
-        Bridge(_resolver, _signalService, _pauser)
+        Bridge(_resolver, _signalService, _quotaManager, _pauser)
     { }
 
     function _storeReentryLock(uint8 _reentry) internal override {
