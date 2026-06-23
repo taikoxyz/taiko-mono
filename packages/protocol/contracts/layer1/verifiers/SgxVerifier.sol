@@ -38,6 +38,11 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     uint64 public immutable taikoChainId;
     address public immutable automataDcapAttestation;
 
+    /// @notice The address authorized to register SGX instances via `registerInstance`.
+    /// @dev If set to a non-zero address, only this address may call `registerInstance`.
+    /// If set to `address(0)`, `registerInstance` is permissionless and callable by anyone.
+    address public immutable registrar;
+
     /// @dev For gas savings, we assign each SGX instance with an ID to minimize storage operations.
     /// Slot 1.
     uint256 public nextInstanceId;
@@ -77,11 +82,18 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
     error SGX_DEBUG_MODE_NOT_ALLOWED();
+    error SGX_NOT_REGISTRAR();
 
-    constructor(uint64 _taikoChainId, address _owner, address _automataDcapAttestation) {
+    constructor(
+        uint64 _taikoChainId,
+        address _owner,
+        address _automataDcapAttestation,
+        address _registrar
+    ) {
         require(_taikoChainId != 0, SGX_INVALID_CHAIN_ID());
         taikoChainId = _taikoChainId;
         automataDcapAttestation = _automataDcapAttestation;
+        registrar = _registrar;
 
         _transferOwnership(_owner);
     }
@@ -119,6 +131,8 @@ contract SgxVerifier is IProofVerifier, Ownable2Step {
         external
         returns (uint256)
     {
+        require(registrar == address(0) || msg.sender == registrar, SGX_NOT_REGISTRAR());
+
         (bool verified,) = IAttestation(automataDcapAttestation).verifyParsedQuote(_attestation);
         require(verified, SGX_INVALID_ATTESTATION());
         require(

@@ -134,13 +134,18 @@ contract DeployProtocolOnL1 is DeployCapability {
         (address automataProxy, address sgxGethAutomataProxy) =
             _deployAutomataAttestation(config.contractOwner);
 
-        // Deploy SGX verifier
-        verifiers.sgx =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy));
+        // Deploy SGX verifier. The registrar is set to address(0), leaving `registerInstance`
+        // permissionless; set a non-zero registrar to restrict instance registration.
+        verifiers.sgx = address(
+            new SgxVerifier(config.l2ChainId, config.contractOwner, automataProxy, address(0))
+        );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
-        verifiers.sgxGeth =
-            address(new SgxVerifier(config.l2ChainId, config.contractOwner, sgxGethAutomataProxy));
+        verifiers.sgxGeth = address(
+            new SgxVerifier(
+                config.l2ChainId, config.contractOwner, sgxGethAutomataProxy, address(0)
+            )
+        );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
