@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "../bridge/IQuotaManager.sol";
 import "../libs/LibAddress.sol";
 import "../libs/LibNames.sol";
 import "./BaseVault.sol";
@@ -25,6 +26,8 @@ contract ERC20Vault is BaseVault {
     using SafeERC20 for IERC20;
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
+
+    IQuotaManager public immutable quotaManager;
 
     /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
@@ -160,7 +163,9 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
 
-    constructor(address _resolver) BaseVault(_resolver) { }
+    constructor(address _resolver, address _quotaManager) BaseVault(_resolver) {
+        quotaManager = IQuotaManager(_quotaManager);
+    }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -365,6 +370,23 @@ contract ERC20Vault is BaseVault {
             //For native bridged tokens (like USDC), the mint() signature is the same, so no need to
             // check.
             IBridgedERC20(token_).mint(_to, _amount);
+        }
+        _consumeTokenQuota(token_, _amount);
+    }
+
+    /// @dev Consumes a given amount of token quota from the quota manager; reverts if quota is
+    /// insufficient. This is the final step of `_transferTokens`, so it runs only after the tokens
+    /// have been transferred/minted — quota is debited exactly when tokens are actually released.
+    /// Because it is the last step, a `QM_OUT_OF_QUOTA` revert rolls back the whole transaction
+    /// atomically: the token transfer/mint is undone and no partial state remains. Integrators
+    /// driving this flow externally (or via a custom vault) must expect the entire release to
+    /// revert when quota is exhausted, never a partial release. Skips the external call when nothing
+    /// is released (`_amount == 0`).
+    /// @param _token The token address.
+    /// @param _amount The amount of token quota to consume.
+    function _consumeTokenQuota(address _token, uint256 _amount) private {
+        if (_amount != 0 && address(quotaManager) != address(0)) {
+            quotaManager.consumeQuota(_token, _amount);
         }
     }
 
