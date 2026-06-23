@@ -218,9 +218,8 @@ contract Bridge is EssentialResolverContract, IBridge {
             _storeContext(msgHash, address(this), _message.srcChainId);
 
             // Perform recall
-            IRecallableSender(_message.from).onMessageRecalled{ value: _message.value }(
-                _message, msgHash
-            );
+            IRecallableSender(_message.from)
+            .onMessageRecalled{ value: _message.value }(_message, msgHash);
 
             // Must reset the context after the message call
             _storeContext(

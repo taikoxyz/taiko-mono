@@ -115,7 +115,9 @@ contract TestERC20Vault is CommonTest {
         uint256 aliceBalanceBefore = eERC20Token1.balanceOf(Alice);
         uint256 eVaultBalanceBefore = eERC20Token1.balanceOf(address(eVault));
 
-        eVault.sendToken{ value: amount }(
+        eVault.sendToken{
+            value: amount
+        }(
             ERC20Vault.BridgeTransferOp(
                 taikoChainId,
                 address(0),
