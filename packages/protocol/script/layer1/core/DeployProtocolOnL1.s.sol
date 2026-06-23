@@ -50,6 +50,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         uint64 l2ChainId;
         address sharedResolver;
         address remoteSigSvc;
+        address signalServicePauser;
+        address bridgePauser;
         address preconfWhitelist;
         address taikoToken;
         address taikoTokenPremintRecipient;
@@ -107,6 +109,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.l2ChainId = uint64(vm.envUint("L2_CHAIN_ID"));
         config.sharedResolver = vm.envAddress("SHARED_RESOLVER");
         config.remoteSigSvc = vm.envOr("REMOTE_SIGNAL_SERVICE", msg.sender);
+        config.signalServicePauser = vm.envOr("SIGNAL_SERVICE_PAUSER", address(0));
+        config.bridgePauser = vm.envOr("BRIDGE_PAUSER", address(0));
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
         config.taikoToken = vm.envAddress("TAIKO_TOKEN");
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
@@ -235,7 +239,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             IResolver(sharedResolver).resolve(uint64(block.chainid), "signal_service", true);
 
         if (signalService == address(0)) {
-            SignalService signalServiceImpl = new SignalService(msg.sender, config.remoteSigSvc);
+            SignalService signalServiceImpl =
+                new SignalService(msg.sender, config.remoteSigSvc, config.signalServicePauser);
             signalService = deployProxy({
                 name: "signal_service",
                 impl: address(signalServiceImpl),
@@ -265,7 +270,11 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("ShastaInbox deployed:", shastaInbox);
 
         SignalService(signalService)
-            .upgradeTo(address(new SignalService(shastaInbox, config.remoteSigSvc)));
+            .upgradeTo(
+                address(
+                    new SignalService(shastaInbox, config.remoteSigSvc, config.signalServicePauser)
+                )
+            );
         console2.log("SignalService upgraded with Shasta inbox authorized syncer");
 
         if (config.contractOwner != msg.sender) {
@@ -336,9 +345,17 @@ contract DeployProtocolOnL1 is DeployCapability {
         address signalService = IResolver(sharedResolver)
             .resolve(uint64(block.chainid), LibNames.B_SIGNAL_SERVICE, false);
 
+        // The quota manager is wired in via a later upgrade once it is deployed; the bridge is
+        // bootstrapped with address(0), which disables the Ether quota check.
+        address quotaManager = address(0);
+
         address bridge = deployProxy({
             name: "bridge",
-            impl: address(new MainnetBridge(address(sharedResolver), signalService)),
+            impl: address(
+                new MainnetBridge(
+                    address(sharedResolver), signalService, quotaManager, config.bridgePauser
+                )
+            ),
             data: abi.encodeCall(Bridge.init, (address(0))),
             registerTo: sharedResolver
         });
@@ -351,10 +368,14 @@ contract DeployProtocolOnL1 is DeployCapability {
     }
 
     function _deployVaults(address sharedResolver, address owner) private {
+        // The quota manager is wired in via a later upgrade once it is deployed; the vault is
+        // bootstrapped with address(0), which disables the token quota check.
+        address quotaManager = address(0);
+
         // Deploy ERC20 Vault
         address erc20Vault = deployProxy({
             name: "erc20_vault",
-            impl: address(new MainnetERC20Vault(address(sharedResolver))),
+            impl: address(new MainnetERC20Vault(address(sharedResolver), quotaManager)),
             data: abi.encodeCall(ERC20Vault.init, (owner)),
             registerTo: sharedResolver
         });
