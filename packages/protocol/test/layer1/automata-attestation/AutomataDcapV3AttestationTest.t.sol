@@ -267,6 +267,31 @@ contract TestAutomataDcapV3Attestation is Test, AttestationBase {
         vm.stopPrank();
     }
 
+    /// @dev A signer trusted by a pre-upgrade implementation (mapping is true but the counter never
+    /// saw it) must not underflow the count when removed, and can be folded into the count by
+    /// toggling it off then on. The `trustedUserMrSigner` mapping lives at storage slot 254.
+    function testTrustedMrSignerCount_SaturatingForLegacyEntries() public {
+        bytes32 legacySigner = bytes32(uint256(0xBEEF));
+        bytes32 slot = keccak256(abi.encode(legacySigner, uint256(254)));
+        vm.store(address(attestation), slot, bytes32(uint256(1)));
+        assertTrue(attestation.trustedUserMrSigner(legacySigner));
+        assertEq(attestation.trustedMrSignerCount(), 0);
+
+        // Removing the legacy entry must not underflow.
+        vm.prank(admin);
+        attestation.setMrSigner(legacySigner, false);
+        assertEq(attestation.trustedMrSignerCount(), 0);
+        assertFalse(attestation.trustedUserMrSigner(legacySigner));
+
+        // Re-create the legacy state, then fold it into the count by toggling off then on.
+        vm.store(address(attestation), slot, bytes32(uint256(1)));
+        vm.startPrank(admin);
+        attestation.setMrSigner(legacySigner, false); // count stays 0 (saturating)
+        attestation.setMrSigner(legacySigner, true); // now counted
+        vm.stopPrank();
+        assertEq(attestation.trustedMrSignerCount(), 1);
+    }
+
     /// @dev Deployment invariant: a real SGX verifier over the real attestation cannot register an
     /// instance until the quote's MRENCLAVE is trusted, after which the reportData signer is bound.
     function testSgxRegistration_RequiresTrustedMrEnclave() public {

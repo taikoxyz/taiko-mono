@@ -86,10 +86,13 @@ contract AutomataDcapV3Attestation is IAttestation, EssentialContract {
         if (trustedUserMrSigner[_mrSigner] == _trusted) return;
         trustedUserMrSigner[_mrSigner] = _trusted;
         // Keep the count in sync so MRSIGNER enforcement auto-activates once any signer is trusted
-        // and auto-deactivates when the last one is removed.
+        // and auto-deactivates when the last one is removed. The decrement is saturating: a signer
+        // trusted by a pre-upgrade implementation (before this counter existed) is not reflected in
+        // the count, so removing it must not underflow. Such legacy entries can be folded into the
+        // count by toggling them off and then on again.
         if (_trusted) {
             ++trustedMrSignerCount;
-        } else {
+        } else if (trustedMrSignerCount != 0) {
             --trustedMrSignerCount;
         }
         emit MrSignerUpdated(_mrSigner, _trusted);
