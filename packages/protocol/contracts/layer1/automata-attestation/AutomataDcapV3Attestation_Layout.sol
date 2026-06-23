@@ -20,10 +20,11 @@ pragma solidity ^0.8.26;
 //   __gap                          | uint256[49]                                        | Slot: 202  | Offset: 0    | Bytes: 1568
 //   sigVerifyLib                   | contract ISigVerifyLib                             | Slot: 251  | Offset: 0    | Bytes: 20  
 //   pemCertLib                     | contract IPEMCertChainLib                          | Slot: 252  | Offset: 0    | Bytes: 20  
-//   checkLocalEnclaveReport        | bool                                               | Slot: 252  | Offset: 20   | Bytes: 1   
+//   __deprecatedCheckLocalEnclaveReport | bool                                               | Slot: 252  | Offset: 20   | Bytes: 1   
 //   trustedUserMrEnclave           | mapping(bytes32 => bool)                           | Slot: 253  | Offset: 0    | Bytes: 32  
 //   trustedUserMrSigner            | mapping(bytes32 => bool)                           | Slot: 254  | Offset: 0    | Bytes: 32  
 //   serialNumIsRevoked             | mapping(uint256 => mapping(bytes => bool))         | Slot: 255  | Offset: 0    | Bytes: 32  
 //   tcbInfo                        | mapping(string => struct TCBInfoStruct.TCBInfo)    | Slot: 256  | Offset: 0    | Bytes: 32  
 //   qeIdentity                     | struct EnclaveIdStruct.EnclaveId                   | Slot: 257  | Offset: 0    | Bytes: 128 
-//   __gap                          | uint256[39]                                        | Slot: 261  | Offset: 0    | Bytes: 1248
+//   trustedMrSignerCount           | uint256                                            | Slot: 261  | Offset: 0    | Bytes: 32  
+//   __gap                          | uint256[38]                                        | Slot: 262  | Offset: 0    | Bytes: 1216
