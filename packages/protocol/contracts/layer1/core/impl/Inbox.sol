@@ -205,16 +205,16 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     ///      `(_lastFinalizedProposalId, _lastFinalizedBlockHash)` pair: `_lastFinalizedBlockHash`
     ///      must be the true L2 end-block hash of `_lastFinalizedProposalId`, otherwise `prove`
     ///      cannot resume.
-    /// @param _nextProposalId The next proposal ID to assign. Must be greater than zero.
-    /// @param _lastProposalBlockId The L1 block number of the most recent proposal.
-    /// @param _lastFinalizedProposalId The ID to record as last finalized. Must be less than
-    ///        `_nextProposalId`, and the unfinalized range `_nextProposalId - _lastFinalizedProposalId`
-    ///        must be smaller than the ring buffer size so proposing can resume. The chosen
-    ///        finalized proposal must still be anchored in the current ring buffer.
+    /// @dev `nextProposalId` and `lastProposalBlockId` are intentionally preserved from the current
+    ///      core state instead of being reset. Proposals submitted after the incident keep their
+    ///      unique IDs, so resuming proposing cannot collide with existing on-chain proposal IDs.
+    /// @param _lastFinalizedProposalId The ID to record as last finalized. Must be less than the
+    ///        current `nextProposalId`, and the unfinalized range
+    ///        `nextProposalId - _lastFinalizedProposalId` must be smaller than the ring buffer size
+    ///        so proposing can resume. The chosen finalized proposal must still be anchored in the
+    ///        current ring buffer.
     /// @param _lastFinalizedBlockHash The true L2 block hash at the end of `_lastFinalizedProposalId`.
     function init2(
-        uint48 _nextProposalId,
-        uint48 _lastProposalBlockId,
         uint48 _lastFinalizedProposalId,
         bytes32 _lastFinalizedBlockHash
     )
@@ -225,32 +225,22 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
         CoreState memory currentState = _coreState;
 
         require(currentState.nextProposalId > 0, InvalidRecoveryState());
-        require(_nextProposalId > 0, InvalidRecoveryState());
-        require(_nextProposalId <= currentState.nextProposalId, InvalidRecoveryState());
-        require(_lastFinalizedProposalId < _nextProposalId, InvalidRecoveryState());
+        require(_lastFinalizedProposalId < currentState.nextProposalId, InvalidRecoveryState());
         require(
             currentState.nextProposalId - _lastFinalizedProposalId < _ringBufferSize,
             InvalidRecoveryState()
         );
-        require(
-            _nextProposalId - _lastFinalizedProposalId < _ringBufferSize, InvalidRecoveryState()
-        );
-        require(
-            uint256(_nextProposalId) + _ringBufferSize <= type(uint48).max, InvalidRecoveryState()
-        );
-        require(_lastProposalBlockId <= block.number, InvalidRecoveryState());
         require(_lastFinalizedBlockHash != 0, InvalidRecoveryState());
 
-        _coreState = CoreState({
-            nextProposalId: _nextProposalId,
-            lastProposalBlockId: _lastProposalBlockId,
-            lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedTimestamp: uint48(block.timestamp),
-            lastCheckpointTimestamp: uint48(block.timestamp),
-            lastFinalizedBlockHash: _lastFinalizedBlockHash
-        });
+        currentState.lastFinalizedProposalId = _lastFinalizedProposalId;
+        currentState.lastFinalizedTimestamp = uint48(block.timestamp);
+        currentState.lastCheckpointTimestamp = uint48(block.timestamp);
+        currentState.lastFinalizedBlockHash = _lastFinalizedBlockHash;
+        _coreState = currentState;
 
-        emit StateRecovered(_nextProposalId, _lastFinalizedProposalId, _lastFinalizedBlockHash);
+        emit StateRecovered(
+            currentState.nextProposalId, _lastFinalizedProposalId, _lastFinalizedBlockHash
+        );
     }
 
     /// @inheritdoc IInbox
