@@ -225,6 +225,8 @@ The script interacts with these `SgxVerifier` functions:
 
 ## See Also
 
+- [enclave-attribute-policies.md](./enclave-attribute-policies.md) - Canonical `_mask` / `_expected`
+  profiles for `SecureSgxVerifier.setEnclaveAttributePolicy`, with the rationale behind each value.
 - [SgxVerifier.sol](../../../contracts/layer1/verifiers/SgxVerifier.sol)
 - [SecureSgxVerifier.sol](../../../contracts/layer1/verifiers/SecureSgxVerifier.sol)
 - [InsecureSgxVerifier.sol](../../../contracts/layer1/verifiers/InsecureSgxVerifier.sol)
