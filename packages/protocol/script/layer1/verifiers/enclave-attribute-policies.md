@@ -60,21 +60,29 @@ significance: LSB ............ MSB  | LSB ............ MSB
 Because each half is little-endian, **byte 0 (the left-most hex pair) is the least-significant FLAGS
 byte**, which holds every bit that matters for trust. **Byte 8 is the least-significant XFRM byte.**
 
-### FLAGS, low byte (byte 0) — Intel `sgx_attributes.h`
+### FLAGS — Intel `sgx_attributes.h`
 
-| Bit | Value | Name | Notes |
-| --- | --- | --- | --- |
-| 0 | `0x01` | `INIT` | Enclave has been `EINIT`-ed. A real running enclave **always** has this set. |
-| 1 | `0x02` | `DEBUG` | **FORBIDDEN.** Host can read/write enclave memory → signing key is extractable. |
-| 2 | `0x04` | `MODE64BIT` | 64-bit enclave. Production Raiko/SGX‑geth enclaves are 64-bit. |
-| 3 | `0x08` | reserved | Must be 0. |
-| 4 | `0x10` | `PROVISION_KEY` | **FORBIDDEN.** Can derive platform-identifying provisioning keys. |
-| 5 | `0x20` | `EINITTOKEN_KEY` | **FORBIDDEN.** Launch-enclave-only privilege; an app enclave must never hold it. |
-| 6 | `0x40` | `CET` | Control-flow Enforcement (shadow stack / IBT). Set only if the build enables CET. |
-| 7 | `0x80` | `KSS` | Key Separation & Sharing. Set only if the build enables KSS (config-id identity). |
+The trust-relevant bits live in byte 0 (FLAGS bits 0–7). One further production-relevant bit,
+`AEX_NOTIFY`, lives in **byte 1** (bit 10) — easy to overlook because it is outside byte 0.
+
+| Bit | Byte | Value in byte | Name | Notes |
+| --- | --- | --- | --- | --- |
+| 0 | 0 | `0x01` | `INIT` | Enclave has been `EINIT`-ed. A real running enclave **always** has this set. |
+| 1 | 0 | `0x02` | `DEBUG` | **FORBIDDEN.** Host can read/write enclave memory → signing key is extractable. |
+| 2 | 0 | `0x04` | `MODE64BIT` | 64-bit enclave. Production Raiko/SGX‑geth enclaves are 64-bit. |
+| 3 | 0 | `0x08` | reserved | Must be 0. |
+| 4 | 0 | `0x10` | `PROVISION_KEY` | **FORBIDDEN.** Can derive platform-identifying provisioning keys. |
+| 5 | 0 | `0x20` | `EINITTOKEN_KEY` | **FORBIDDEN.** Launch-enclave-only privilege; an app enclave must never hold it. |
+| 6 | 0 | `0x40` | `CET` | Control-flow Enforcement (shadow stack / IBT). Set only if the build enables CET. Defined by the Intel SDM; the linux-sgx SDK header exposes no macro for it. |
+| 7 | 0 | `0x80` | `KSS` | Key Separation & Sharing. Set only if the build enables KSS (config-id identity). |
+| 10 | 1 | `0x04` | `AEX_NOTIFY` | Asynchronous-Enclave-eXit Notify (anti single-stepping mitigation). `SGX_FLAGS_AEX_NOTIFY = 0x400` → byte 1, value `0x04`. Set only if the build enables AEX-Notify. **Outside byte 0**, so it is not covered by the forbidden floor. |
 
 `FORBIDDEN` low byte = `DEBUG | PROVISION_KEY | EINITTOKEN_KEY` = `0x02 | 0x10 | 0x20` = **`0x32`** —
-exactly the contract's `SGX_FORBIDDEN_ATTRIBUTE_MASK`. FLAGS bytes 1–7 are reserved and must be 0.
+exactly the contract's `SGX_FORBIDDEN_ATTRIBUTE_MASK`. The remaining FLAGS bits are reserved and `0`
+in practice, **with two exceptions a strict pin must account for**: `AEX_NOTIFY` (bit 10, byte 1) and
+the `NON_CHECK_BITS` (`SGX_FLAGS_NON_CHECK_BITS = 0x00FF000000000000`, bits 48–55, byte 6) that Intel
+marks as unverifiable. If a build sets `AEX_NOTIFY`, an all-FLAGS mask that expects byte 1 to be `0`
+will **reject** it — use Profile F (or clear that bit in the mask) below.
 
 ### XFRM, low byte (byte 8) — same layout as `XCR0`
 
@@ -101,8 +109,14 @@ exact pin exercised by `SecureSgxVerifierTest` (`STRICT_MASK` / `STRICT_EXPECTED
 | **A** | **Strict FLAGS pin (default)** | `0xffffffffffffffff0000000000000000` | `0x05000000000000000000000000000000` |
 | B | Strict FLAGS pin, **KSS** build | `0xffffffffffffffff0000000000000000` | `0x85000000000000000000000000000000` |
 | C | Strict FLAGS pin, **CET** build | `0xffffffffffffffff0000000000000000` | `0x45000000000000000000000000000000` |
+| **F** | Strict FLAGS pin, **AEX-Notify** build | `0xffffffffffffffff0000000000000000` | `0x05040000000000000000000000000000` |
 | D | Forbidden-floor only (bootstrap) | `0x32000000000000000000000000000000` | `0x00000000000000000000000000000000` |
 | E | Strict FLAGS **+ exact XFRM** | `0xffffffffffffffffff00000000000000` | `0x05000000000000000700000000000000` |
+
+> The optional set-bits are OR-ed into `_expected` per what the build enables: `KSS` (`0x80`, byte 0),
+> `CET` (`0x40`, byte 0), `AEX_NOTIFY` (`0x04`, byte 1). Combine as needed — e.g. a KSS **and**
+> AEX-Notify build → `_expected = 0x85040000000000000000000000000000`. To *allow but not require* an
+> optional bit, clear it in the `_mask` instead of asserting it in `_expected`.
 
 ### Profile A — Strict FLAGS pin *(recommended default)*
 
@@ -113,15 +127,17 @@ _expected = 0x05000000000000000000000000000000   // INIT(0x01) | MODE64BIT(0x04)
 
 - **Mask:** checks all 8 FLAGS bytes (`0xffffffffffffffff…`), leaves XFRM unchecked (`…0000000000000000`).
 - **Expected:** requires `INIT | MODE64BIT` (`0x05`) and requires **every other FLAGS bit to be 0** —
-  including the forbidden floor (`DEBUG/PROVISION_KEY/EINITTOKEN_KEY`), `CET`, `KSS`, and all reserved
-  bits 3 and 8–63.
+  including the forbidden floor (`DEBUG/PROVISION_KEY/EINITTOKEN_KEY`), `CET`, `KSS`, `AEX_NOTIFY`, and
+  all reserved bits.
 - **Why these values:** an attested production enclave is initialized (`INIT`) and 64-bit
   (`MODE64BIT`); nothing else should be set. Pinning *all* FLAGS bytes (not just the floor) means an
   unexpected or reserved FLAGS bit — anything outside `0x05` — is rejected, which is the defense-in-depth
   the per-enclave pin exists to add on top of the global deny-mask. XFRM is left unchecked so provers on
   CPUs with different XSAVE/AVX feature sets all register against one policy.
 - **Use for:** any standard Gramine-based Raiko SGX‑reth / SGX‑geth production build that does **not**
-  enable KSS or CET. This is the right default for almost every `MRENCLAVE`.
+  enable KSS, CET, or AEX-Notify. This is the right default for almost every `MRENCLAVE`.
+- ⚠️ **If the build enables `KSS`, `CET`, or `AEX-Notify`, Profile A rejects it** (the corresponding
+  set-bit fails `_expected`'s all-zero requirement). Use Profile B / C / F instead.
 
 ### Profile B — Strict FLAGS pin, KSS-enabled build
 
@@ -145,6 +161,22 @@ _expected = 0x45000000000000000000000000000000   // INIT | MODE64BIT | CET(0x40)
 
 - Identical to A, but **also requires `CET` (`0x40`)**. Use only for builds compiled with Control-flow
   Enforcement (shadow stack / IBT). `0x45 & 0x32 == 0`, so the floor is still cleared.
+
+### Profile F — Strict FLAGS pin, AEX-Notify-enabled build
+
+```
+_mask     = 0xffffffffffffffff0000000000000000
+_expected = 0x05040000000000000000000000000000   // byte 0 = INIT|MODE64BIT (0x05); byte 1 = AEX_NOTIFY (0x04)
+```
+
+- Identical to A, but **also requires `AEX_NOTIFY`**. Because `AEX_NOTIFY` is bit 10 it sits in **byte
+  1** of the field, so `_expected` carries `0x04` in byte 1 (not in byte 0).
+- Use when the prover build enables AEX-Notify (the SGX single-stepping / `SGX-Step` mitigation);
+  Gramine can build with it, in which case quotes always carry the bit and the all-FLAGS mask in
+  Profile A would reject them with `SGX_ATTRIBUTE_MISMATCH`.
+- The floor is still cleared (`0x0504… & 0x3200… == 0`) and `_expected ⊆ _mask`, so the policy is valid.
+- To *allow but not require* AEX-Notify, clear bit 10 in the mask instead
+  (`_mask = 0xfffbffffffffffff0000000000000000`, `_expected = 0x05…`).
 
 ### Profile D — Forbidden-floor only *(permissive bootstrap; not for production)*
 
@@ -233,13 +265,17 @@ come from the profile you pick:
 
 | Profile | `_mask` | `_expected` | When to use / why |
 | --- | --- | --- | --- |
-| **A — Strict FLAGS (default)** | `0xffffffffffffffff0000000000000000` | `0x05000000000000000000000000000000` | Standard production prover build. Requires `INIT(0x01) \| MODE64BIT(0x04)`; forces all other FLAGS bits (forbidden floor, CET, KSS, reserved) to 0; XFRM unchecked. Matches the repo's tested pin. |
+| **A — Strict FLAGS (default)** | `0xffffffffffffffff0000000000000000` | `0x05000000000000000000000000000000` | Standard production prover build. Requires `INIT(0x01) \| MODE64BIT(0x04)`; forces all other FLAGS bits (forbidden floor, CET, KSS, AEX_NOTIFY, reserved) to 0; XFRM unchecked. Matches the repo's tested pin. |
 | **B — Strict FLAGS + KSS** | `0xffffffffffffffff0000000000000000` | `0x85000000000000000000000000000000` | Same as A, but the build enables KSS → also requires `KSS(0x80)`. |
 | **C — Strict FLAGS + CET** | `0xffffffffffffffff0000000000000000` | `0x45000000000000000000000000000000` | Same as A, but the build enables CET → also requires `CET(0x40)`. |
+| **F — Strict FLAGS + AEX-Notify** | `0xffffffffffffffff0000000000000000` | `0x05040000000000000000000000000000` | Same as A, but the build enables AEX-Notify → also requires `AEX_NOTIFY(0x04` in byte 1`)`. Profile A would reject such a quote. |
 | **D — Forbidden-floor only** | `0x32000000000000000000000000000000` | `0x00000000000000000000000000000000` | Permissive bootstrap only. Re-states the floor (DEBUG/PROVISION/EINITTOKEN clear); checks nothing else. Not for production. |
 | **E — Strict FLAGS + exact XFRM** | `0xffffffffffffffffff00000000000000` | `0x05000000000000000700000000000000` | A + pins XFRM low byte to `x87 \| SSE \| AVX (0x07)`. Homogeneous hardware only (brittle across CPUs). |
 
-Per-enclave rows to fill in (use Profile A unless the build enables KSS/CET):
+Optional set-bits combine by OR-ing into `_expected`: `KSS(0x80)` / `CET(0x40)` in byte 0,
+`AEX_NOTIFY(0x04)` in byte 1 (e.g. KSS + AEX-Notify → `0x85040000000000000000000000000000`).
+
+Per-enclave rows to fill in (use Profile A unless the build enables KSS / CET / AEX-Notify):
 
 | `_mrEnclave` | Enclave | `_mask` | `_expected` |
 | --- | --- | --- | --- |
