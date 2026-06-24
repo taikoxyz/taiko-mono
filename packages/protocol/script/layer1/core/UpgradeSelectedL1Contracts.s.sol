@@ -4,20 +4,26 @@ pragma solidity ^0.8.26;
 import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Script} from "forge-std/src/Script.sol";
 import {console2} from "forge-std/src/console2.sol";
+import {IInbox} from "src/layer1/core/iface/IInbox.sol";
+import {Inbox} from "src/layer1/core/impl/Inbox.sol";
+import {MainnetBridge} from "src/layer1/mainnet/MainnetBridge.sol";
+import {MainnetERC20Vault} from "src/layer1/mainnet/MainnetERC20Vault.sol";
+import {SignalService} from "src/shared/signal/SignalService.sol";
 
 /// @title UpgradeSelectedL1Contracts
-/// @notice Upgrades only SignalService, Bridge, ERC20Vault, and Inbox.
+/// @notice Deploys implementations and upgrades only SignalService, Bridge, ERC20Vault, and Inbox.
 /// @custom:security-contact security@taiko.xyz
 contract UpgradeSelectedL1Contracts is Script {
     struct UpgradeConfig {
         address signalServiceProxy;
-        address signalServiceImpl;
+        address l2SignalService;
+        address signalServicePauser;
         address bridgeProxy;
-        address bridgeImpl;
+        address sharedResolver;
+        address quotaManager;
+        address bridgePauser;
         address erc20VaultProxy;
-        address erc20VaultImpl;
         address inboxProxy;
-        address inboxImpl;
     }
 
     modifier broadcast() {
@@ -44,31 +50,44 @@ contract UpgradeSelectedL1Contracts is Script {
 
     function _loadConfig() private view returns (UpgradeConfig memory config_) {
         config_.signalServiceProxy = vm.envAddress("SIGNAL_SERVICE_PROXY");
-        config_.signalServiceImpl = vm.envAddress("SIGNAL_SERVICE_IMPL");
+        config_.l2SignalService = vm.envAddress("L2_SIGNAL_SERVICE_PROXY");
+        config_.signalServicePauser = vm.envOr("SIGNAL_SERVICE_PAUSER", address(0));
         config_.bridgeProxy = vm.envAddress("BRIDGE_PROXY");
-        config_.bridgeImpl = vm.envAddress("BRIDGE_IMPL");
+        config_.sharedResolver = vm.envAddress("SHARED_RESOLVER");
+        config_.quotaManager = vm.envOr("QUOTA_MANAGER", address(0));
+        config_.bridgePauser = vm.envOr("BRIDGE_PAUSER", address(0));
         config_.erc20VaultProxy = vm.envAddress("ERC20_VAULT_PROXY");
-        config_.erc20VaultImpl = vm.envAddress("ERC20_VAULT_IMPL");
         config_.inboxProxy = vm.envAddress("INBOX_PROXY");
-        config_.inboxImpl = vm.envAddress("INBOX_IMPL");
     }
 
     function _validateConfig(UpgradeConfig memory _config) private view {
-        _validateAddress("SIGNAL_SERVICE_PROXY", _config.signalServiceProxy);
-        _validateImplementation("SIGNAL_SERVICE_IMPL", _config.signalServiceImpl);
-        _validateAddress("BRIDGE_PROXY", _config.bridgeProxy);
-        _validateImplementation("BRIDGE_IMPL", _config.bridgeImpl);
-        _validateAddress("ERC20_VAULT_PROXY", _config.erc20VaultProxy);
-        _validateImplementation("ERC20_VAULT_IMPL", _config.erc20VaultImpl);
-        _validateAddress("INBOX_PROXY", _config.inboxProxy);
-        _validateImplementation("INBOX_IMPL", _config.inboxImpl);
+        _validateContract("SIGNAL_SERVICE_PROXY", _config.signalServiceProxy);
+        _validateAddress("L2_SIGNAL_SERVICE_PROXY", _config.l2SignalService);
+        _validateContract("BRIDGE_PROXY", _config.bridgeProxy);
+        _validateContract("SHARED_RESOLVER", _config.sharedResolver);
+        _validateOptionalContract("QUOTA_MANAGER", _config.quotaManager);
+        _validateContract("ERC20_VAULT_PROXY", _config.erc20VaultProxy);
+        _validateContract("INBOX_PROXY", _config.inboxProxy);
     }
 
     function _upgrade(UpgradeConfig memory _config) private {
-        _upgradeTo("SignalService", _config.signalServiceProxy, _config.signalServiceImpl);
-        _upgradeTo("Bridge", _config.bridgeProxy, _config.bridgeImpl);
-        _upgradeTo("ERC20Vault", _config.erc20VaultProxy, _config.erc20VaultImpl);
-        _upgradeTo("Inbox", _config.inboxProxy, _config.inboxImpl);
+        address signalServiceImpl =
+            address(new SignalService(_config.inboxProxy, _config.l2SignalService, _config.signalServicePauser));
+        _upgradeTo("SignalService", _config.signalServiceProxy, signalServiceImpl);
+
+        address bridgeImpl = address(
+            new MainnetBridge(
+                _config.sharedResolver, _config.signalServiceProxy, _config.quotaManager, _config.bridgePauser
+            )
+        );
+        _upgradeTo("Bridge", _config.bridgeProxy, bridgeImpl);
+
+        address erc20VaultImpl = address(new MainnetERC20Vault(_config.sharedResolver, _config.quotaManager));
+        _upgradeTo("ERC20Vault", _config.erc20VaultProxy, erc20VaultImpl);
+
+        IInbox.Config memory inboxConfig = IInbox(_config.inboxProxy).getConfig();
+        address inboxImpl = address(new Inbox(inboxConfig));
+        _upgradeTo("Inbox", _config.inboxProxy, inboxImpl);
     }
 
     function _upgradeTo(string memory _name, address _proxy, address _impl) private {
@@ -82,9 +101,13 @@ contract UpgradeSelectedL1Contracts is Script {
         if (_addr == address(0)) revert AddressIsZero(_name);
     }
 
-    function _validateImplementation(string memory _name, address _impl) private view {
-        _validateAddress(_name, _impl);
-        if (_impl.code.length == 0) revert ImplementationHasNoCode(_name, _impl);
+    function _validateContract(string memory _name, address _addr) private view {
+        _validateAddress(_name, _addr);
+        if (_addr.code.length == 0) revert ContractHasNoCode(_name, _addr);
+    }
+
+    function _validateOptionalContract(string memory _name, address _addr) private view {
+        if (_addr != address(0) && _addr.code.length == 0) revert ContractHasNoCode(_name, _addr);
     }
 
     // ---------------------------------------------------------------
@@ -93,5 +116,5 @@ contract UpgradeSelectedL1Contracts is Script {
 
     error InvalidPrivateKey();
     error AddressIsZero(string name);
-    error ImplementationHasNoCode(string name, address impl);
+    error ContractHasNoCode(string name, address addr);
 }
