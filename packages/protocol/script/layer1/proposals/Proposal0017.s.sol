@@ -32,7 +32,8 @@ contract Proposal0017 is BuildProposal {
     address public constant MAINNET_ERC20_VAULT_NEW_IMPL =
         _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER;
     // PLACEHOLDER: the new Bridge and ERC20Vault implementations must be deployed with this
-    // immutable QuotaManager address.
+    // immutable QuotaManager address. The QuotaManager must be constructor-initialized with the
+    // recovery quotas documented in Proposal0017.md before this proposal executes.
     address public constant QUOTA_MANAGER = _QUOTA_MANAGER_PLACEHOLDER;
 
     // PLACEHOLDER: the new MainnetInbox implementation must be deployed with this verifier.

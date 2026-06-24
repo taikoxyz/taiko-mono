@@ -36,8 +36,8 @@ New RISC0, SP1, SGX-geth, and SGX-reth IDs remain pending and are intentionally 
 The SignalService upgrade must execute before the Bridge action so old forged checkpoints become
 unreachable before retriable message cleanup. The new Bridge and ERC20Vault implementations are
 deployed with the new immutable `QUOTA_MANAGER` address. This proposal does not upgrade
-`QuotaManager` and does not call `updateQuota`; any quota changes are performed by the temporary
-Taiko admin owner on the newly deployed QuotaManager contract.
+`QuotaManager` and does not call `updateQuota`; the intended recovery quotas must already be set by
+the new QuotaManager constructor.
 
 ### Group Two: Restore the Proving System
 
@@ -94,6 +94,16 @@ The new QuotaManager is temporarily owned by `admin.taiko.eth`
 emergency. The constructor must also set the existing L1 Bridge proxy
 (`0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`) and ERC20Vault proxy
 (`0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`) as the only quota consumers.
+
+The QuotaManager constructor must initialize the following token quotas:
+
+| Token | Address                                      | Constructor Quota |
+| ----- | -------------------------------------------- | ----------------- |
+| ETH   | `address(0)`                                 | `250 ether`       |
+| WETH  | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | `250 ether`       |
+| TKO   | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | `10,000,000 ether` |
+| USDT  | `0xdAC17F958D2ee523a2206206994597C13D831ec7` | `150,000,000,000` |
+| USDC  | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `150,000,000,000` |
 
 ## Retriable Messages
 
@@ -233,7 +243,13 @@ Before submission:
 
    Expected: `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`.
 
-7. Confirm the new QuotaManager is owned by `admin.taiko.eth` and has a `86400` second quota period.
+7. Confirm the new QuotaManager is owned by `admin.taiko.eth`, has a `86400` second quota period,
+   and has the constructor quota values listed above:
+
+   ```bash
+   cast call <QUOTA_MANAGER> "tokenQuota(address)(uint48,uint104,uint104)" <TOKEN> --rpc-url <RPC_URL>
+   ```
+
 8. Confirm the three message hashes still return `RETRIABLE` before execution:
 
    ```bash
@@ -272,7 +288,8 @@ After execution:
 
 1. Confirm proxy implementations match the four replacement constants.
 2. Confirm the three message hashes return `2` (`DONE`).
-3. Confirm `Bridge` and `ERC20Vault` behavior uses the new immutable `QUOTA_MANAGER`.
+3. Confirm `Bridge` and `ERC20Vault` behavior uses the new immutable `QUOTA_MANAGER`, and that
+   `tokenQuota(token).quota` still matches the constructor quota table above.
 4. Confirm `Inbox.getCoreState()` matches the restored state.
 5. Confirm the new MRSIGNER returns true and the old MRSIGNER returns false on both SGX attesters.
 6. Confirm every removed RISC0, SP1, and SGX trust entry returns false.
