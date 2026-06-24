@@ -91,7 +91,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
     /// @inheritdoc IPreconfWhitelist
     /// @dev The operator only becomes active after `OPERATOR_CHANGE_DELAY` epochs.
-    function addOperator(address _proposer, address _sequencer) external onlyOwnerOrEjecter {
+    function addOperator(address _proposer, address _sequencer) external onlyOwner {
         _addOperator(_proposer, _sequencer);
     }
 

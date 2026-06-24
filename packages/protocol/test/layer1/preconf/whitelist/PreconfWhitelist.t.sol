@@ -239,6 +239,15 @@ contract TestPreconfWhitelist is CommonTest {
         assertEq(index, 0);
     }
 
+    function test_addOperator_RevertWhen_CallerIsEjecter() external {
+        vm.prank(whitelistOwner);
+        whitelist.setEjecter(ejecter, true);
+
+        vm.expectRevert();
+        vm.prank(ejecter);
+        whitelist.addOperator(Bob, _sequencer(Bob));
+    }
+
     function test_removeOperator_RevertWhen_LastOperator() external {
         _addOperator(Bob);
         vm.prank(whitelistOwner);
