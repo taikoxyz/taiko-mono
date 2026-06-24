@@ -12,6 +12,62 @@
 
 set -e
 
+SKIP_SIMULATION="${SKIP_SIMULATION:-false}"
+REGISTER_INSTANCE_GAS_LIMIT="${REGISTER_INSTANCE_GAS_LIMIT:-8000000}"
+
+redact_rpc() {
+    echo "$1" | sed -E 's#(https?://[^/?]+).*#\1/<redacted>#'
+}
+
+send_cast() {
+    local desc="$1"
+    shift
+
+    echo "$desc"
+    cast send "$SGX_VERIFIER_ADDRESS" "$@" \
+        --rpc-url "$FORK_URL" \
+        --private-key "$PRIVATE_KEY" \
+        --legacy
+}
+
+run_with_cast() {
+    echo "=== Configuring SGX Verifier (direct cast mode) ==="
+
+    if [[ "$SET_ATTRIBUTE_POLICY" == "true" ]]; then
+        send_cast "Setting SecureSgxVerifier attribute policy" \
+            "setEnclaveAttributePolicy(bytes32,bytes16,bytes16)" \
+            "$ATTRIBUTE_POLICY_MRENCLAVE" \
+            "$ATTRIBUTE_POLICY_MASK" \
+            "$ATTRIBUTE_POLICY_EXPECTED"
+    fi
+
+    if [[ "$SET_MRENCLAVE" == "true" ]]; then
+        send_cast "Setting MRENCLAVE (enable=$MRENCLAVE_ENABLE)" \
+            "setMrEnclave(bytes32,bool)" "$MRENCLAVE" "$MRENCLAVE_ENABLE"
+    fi
+
+    if [[ "$SET_MRSIGNER" == "true" ]]; then
+        send_cast "Setting MRSIGNER (enable=$MRSIGNER_ENABLE)" \
+            "setMrSigner(bytes32,bool)" "$MRSIGNER" "$MRSIGNER_ENABLE"
+    fi
+
+    if [[ "$REGISTER_INSTANCE" == "true" ]]; then
+        echo "Registering SGX instance from a raw Intel DCAP quote"
+        cast send "$SGX_VERIFIER_ADDRESS" "registerInstance(bytes)" "$QUOTE_BYTES" \
+            --rpc-url "$FORK_URL" \
+            --private-key "$PRIVATE_KEY" \
+            --legacy \
+            --gas-limit "$REGISTER_INSTANCE_GAS_LIMIT"
+    fi
+
+    if [[ "$TOGGLE_CHECK" == "true" ]]; then
+        send_cast "Toggling MRENCLAVE/MRSIGNER allowlist enforcement" \
+            "toggleLocalReportCheck()"
+    fi
+
+    echo "✓ Configuration complete"
+}
+
 usage() {
     cat << 'EOF'
 Configure SGX Verifier
@@ -24,6 +80,9 @@ Required Environment Variables:
   FORK_URL              - RPC URL (e.g., https://ethereum-hoodi-rpc.publicnode.com)
   SGX_VERIFIER_ADDRESS  - SgxVerifier contract address
                           (or supply it via --env NAME)
+  SKIP_SIMULATION=true  - Optional. Use direct cast sends instead of forge script
+                          simulation, useful on chains whose P256 precompile is
+                          not modeled by the local fork EVM.
 
 Options:
   --env NAME                    Load a predefined SGX_VERIFIER_ADDRESS (see list below)
@@ -197,7 +256,7 @@ export MRENCLAVE_ENABLE=$MRENCLAVE_ENABLE
 export MRSIGNER_ENABLE=$MRSIGNER_ENABLE
 
 echo "=== Configuration ==="
-echo "RPC: $FORK_URL"
+echo "RPC: $(redact_rpc "$FORK_URL")"
 echo "SGX Verifier: $SGX_VERIFIER_ADDRESS"
 if [[ "$SET_ATTRIBUTE_POLICY" == "true" ]]; then
     echo "Attribute policy MRENCLAVE: $ATTRIBUTE_POLICY_MRENCLAVE"
@@ -208,7 +267,13 @@ fi
 [[ "$SET_MRSIGNER" == "true" ]] && echo "MRSIGNER: $MRSIGNER (enable=$MRSIGNER_ENABLE)"
 [[ "$REGISTER_INSTANCE" == "true" ]] && echo "Register instance: yes (from raw DCAP quote)"
 [[ "$TOGGLE_CHECK" == "true" ]] && echo "Toggle local report check: yes"
+[[ "$SKIP_SIMULATION" == "true" ]] && echo "Skip forge simulation: yes (direct cast mode)"
 echo "===================="
+
+if [[ "$SKIP_SIMULATION" == "true" ]]; then
+    run_with_cast
+    exit 0
+fi
 
 # Run forge script
 forge script script/layer1/verifiers/ConfigureSgxVerifier.s.sol:ConfigureSgxVerifier \

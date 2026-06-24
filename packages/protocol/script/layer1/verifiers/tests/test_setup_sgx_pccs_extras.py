@@ -38,6 +38,31 @@ def test_deploy_script_deploys_helpers_individually_and_verifies_code():
         assert f'deploy_helper_if_missing "{label}" "{sig}"' in text
 
 
+def test_deploy_script_skips_daimo_p256_when_rip7212_is_available():
+    protocol_root = Path(__file__).resolve().parents[4]
+    script = protocol_root / "script/layer1/verifiers/deploy_automata_dcap.sh"
+    text = script.read_text()
+
+    assert 'DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}"' in text
+    assert "P256_RIP7212_TEST_INPUT" in text
+    assert "supports_rip7212_p256" in text
+    assert "RIP-7212 P256 precompile verified" in text
+    assert "Skipping Daimo P256 deployment" in text
+    assert 'wait_for_code "Daimo P256Verifier"' in text
+
+
+def test_deploy_script_fallback_registers_quote_verifiers():
+    protocol_root = Path(__file__).resolve().parents[4]
+    script = protocol_root / "script/layer1/verifiers/deploy_automata_dcap.sh"
+    text = script.read_text()
+
+    assert "new V${VER}QuoteVerifier@0x" in text
+    assert "ensure_quote_verifier_registered" in text
+    assert 'quoteVerifiers(uint16)(address)' in text
+    assert 'setAuthorized(address,bool)' in text
+    assert 'setQuoteVerifier(address)' in text
+
+
 def test_setup_script_fails_hard_for_required_writes():
     protocol_root = Path(__file__).resolve().parents[4]
     script = protocol_root / "script/layer1/verifiers/setup_sgx_pccs_extras.sh"
@@ -110,3 +135,44 @@ def test_configure_sgx_verifier_supports_secure_attribute_policy():
     assert 'vm.envOr("SET_ATTRIBUTE_POLICY", false)' in script_text
     assert "function _envBytes16" in script_text
     assert "setEnclaveAttributePolicy(mrEnclave, mask, expected)" in script_text
+
+
+def test_configure_sgx_verifier_redacts_rpc_in_logs():
+    protocol_root = Path(__file__).resolve().parents[4]
+    wrapper = protocol_root / "script/layer1/verifiers/configure_sgx_verifier.sh"
+    text = wrapper.read_text()
+
+    assert "redact_rpc()" in text
+    assert 'echo "RPC: $(redact_rpc "$FORK_URL")"' in text
+    assert 'echo "RPC: $FORK_URL"' not in text
+
+
+def test_configure_sgx_verifier_can_skip_local_simulation_for_rip7212_chains():
+    protocol_root = Path(__file__).resolve().parents[4]
+    wrapper = protocol_root / "script/layer1/verifiers/configure_sgx_verifier.sh"
+    text = wrapper.read_text()
+
+    assert 'SKIP_SIMULATION="${SKIP_SIMULATION:-false}"' in text
+    assert "run_with_cast()" in text
+    assert 'cast send "$SGX_VERIFIER_ADDRESS"' in text
+    assert '"registerInstance(bytes)"' in text
+    assert 'REGISTER_INSTANCE_GAS_LIMIT="${REGISTER_INSTANCE_GAS_LIMIT:-8000000}"' in text
+
+
+def test_devnet_wrapper_runs_full_own_pccs_secure_sgx_flow():
+    protocol_root = Path(__file__).resolve().parents[4]
+    wrapper = protocol_root / "script/layer1/verifiers/deploy_devnet_sgx_own_pccs.sh"
+    text = wrapper.read_text()
+
+    assert 'DEVNET_ENV="${DEVNET_ENV:-/home/yue/works/taiko/raiko2-k8s/devnet.env}"' in text
+    assert 'INTEL_API_SGX="${INTEL_API_SGX:-https://127.0.0.1:8081/sgx/certification/v4}"' in text
+    assert 'PCS_CURL_INSECURE="${PCS_CURL_INSECURE:-true}"' in text
+    assert 'DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}"' in text
+    assert "deploy_automata_dcap.sh" in text
+    assert "setup_sgx_pccs_extras.sh" in text
+    assert 'REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-true}"' in text
+    assert 'SKIP_SIMULATION=true' in text
+    assert "SecureSgxVerifier.sol:SecureSgxVerifier" in text
+    assert "configure_sgx_verifier.sh" in text
+    assert "--attribute-policy" in text
+    assert "--quote" in text
