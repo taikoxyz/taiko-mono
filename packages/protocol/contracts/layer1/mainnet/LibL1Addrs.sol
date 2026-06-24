@@ -11,11 +11,16 @@ library LibL1Addrs {
     address public constant DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a;
     address public constant DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN =
         0x989E348275b659d36f8751ea1c10D146211650BE;
+    address public constant SECURITY_COUNCIL_SEAT_MULTISIG =
+        0xb47fE76aC588101BFBdA9E68F66433bA51E8029a;
 
     address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
     address public constant TAIKO_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
     address public constant INBOX = 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f;
     address public constant PRECONF_WHITELIST = 0xFD019460881e6EeC632258222393d5821029b2ac;
+    address public constant PROVER_WHITELIST = 0xEa798547d97e345395dA071a0D7ED8144CD612Ae;
+    address public constant SHARED_RESOLVER = 0x8Efa01564425692d0a0838DC10E300BD310Cb43e;
+    address public constant QUOTA_MANAGER = 0x91f67118DD47d502B1f0C354D0611997B022f29E;
 
     address public constant BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
@@ -27,8 +32,11 @@ library LibL1Addrs {
     address public constant BRIDGED_ERC721 = 0xC3310905E2BC9Cfb198695B75EF3e5B69C6A1Bf7;
     address public constant BRIDGED_ERC1155 = 0x3c90963cFBa436400B0F9C46Aa9224cB379c2c40;
 
-    // admin.taiko.eth multisig
-    address public constant MULTISIG_ADMIN_TAIKO_ETH = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
+    // Proof system verifiers and attesters
+    address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
+    address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
+    address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
+    address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
     // Third-party addresses
     address public constant ENS_REVERSE_REGISTRAR = 0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb;
