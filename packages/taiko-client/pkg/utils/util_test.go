@@ -24,6 +24,22 @@ func TestEncodeDecodeBytes(t *testing.T) {
 	require.Equal(t, b, decompressed)
 }
 
+func TestDecompressWithLimitRejectsOversizedOutput(t *testing.T) {
+	b := testutils.RandomBytes(1024)
+
+	compressed, err := utils.Compress(b)
+	require.Nil(t, err)
+	require.NotEmpty(t, compressed)
+
+	decompressed, err := utils.DecompressWithLimit(compressed, int64(len(b)))
+	require.Nil(t, err)
+	require.Equal(t, b, decompressed)
+
+	_, err = utils.DecompressWithLimit(compressed, int64(len(b)-1))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "decompressed tx list exceeds limit")
+}
+
 func TestGWeiToWei(t *testing.T) {
 	wei, err := utils.GWeiToWei(1.0)
 	require.Nil(t, err)

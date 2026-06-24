@@ -89,17 +89,32 @@ func Compress(txList []byte) ([]byte, error) {
 
 // Decompress decompresses the given txList bytes using zlib, it checks the ErrUnexpectedEOF error.
 func Decompress(compressedTxList []byte) ([]byte, error) {
+	return DecompressWithLimit(compressedTxList, 0)
+}
+
+// DecompressWithLimit decompresses the given txList bytes using zlib and rejects outputs
+// that exceed maxDecompressedBytes. A non-positive limit preserves the legacy unbounded behavior.
+func DecompressWithLimit(compressedTxList []byte, maxDecompressedBytes int64) ([]byte, error) {
 	r, err := zlib.NewReader(bytes.NewBuffer(compressedTxList))
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
 
-	b, err := io.ReadAll(r)
+	reader := io.Reader(r)
+	if maxDecompressedBytes > 0 {
+		reader = io.LimitReader(r, maxDecompressedBytes+1)
+	}
+
+	b, err := io.ReadAll(reader)
 	if err != nil {
 		if !errors.Is(err, io.EOF) {
 			return nil, err
 		}
+	}
+
+	if maxDecompressedBytes > 0 && int64(len(b)) > maxDecompressedBytes {
+		return nil, fmt.Errorf("decompressed tx list exceeds limit: %d > %d", len(b), maxDecompressedBytes)
 	}
 
 	return b, nil

@@ -46,6 +46,8 @@ var (
 )
 
 const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
+const maxCompressedPreconfTxListBytes = eth.MaxBlobDataSize * eth.MaxBlobsPerBlobTx
+
 // monitorLatestProposalOnChainInterval defines how often we reconcile the cached proposal with on-chain state.
 const monitorLatestProposalOnChainInterval = 10 * time.Second
 
@@ -930,12 +932,12 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if len(payload.Transactions) != 1 {
 		return fmt.Errorf("only one transaction list is allowed")
 	}
-	if len(payload.Transactions[0]) > (eth.MaxBlobDataSize * eth.MaxBlobsPerBlobTx) {
+	if len(payload.Transactions[0]) > maxCompressedPreconfTxListBytes {
 		return errors.New("compressed transactions size exceeds max blob data size")
 	}
 
 	var txs types.Transactions
-	b, err := utils.Decompress(payload.Transactions[0])
+	b, err := utils.DecompressWithLimit(payload.Transactions[0], int64(maxCompressedPreconfTxListBytes))
 	if err != nil {
 		return fmt.Errorf("invalid zlib bytes for transactions: %w", err)
 	}
@@ -1306,7 +1308,10 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			if len(cachedParent.Payload.Transactions) == 0 {
 				return false, fmt.Errorf("cached parent envelope has empty transactions: %s", msg.ExecutionPayload.ParentHash.Hex())
 			}
-			decompressedTxs, err := utils.Decompress(cachedParent.Payload.Transactions[0])
+			decompressedTxs, err := utils.DecompressWithLimit(
+				cachedParent.Payload.Transactions[0],
+				int64(maxCompressedPreconfTxListBytes),
+			)
 			if err != nil {
 				return false, fmt.Errorf("failed to decompress cached parent tx list: %w", err)
 			}
