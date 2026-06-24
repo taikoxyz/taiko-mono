@@ -225,49 +225,29 @@ policy **fails closed**.
 
 ---
 
-## 6. Calling `setEnclaveAttributePolicy`
+## 6. Summary table (for building transactions)
 
-`setEnclaveAttributePolicy` is `onlyOwner` on `SecureSgxVerifier`. Two equivalent ways:
+`setEnclaveAttributePolicy(bytes32 _mrEnclave, bytes16 _mask, bytes16 _expected)` — `onlyOwner` on
+`SecureSgxVerifier`. `_mrEnclave` is build-specific (fetch per release, §5); `_mask` / `_expected`
+come from the profile you pick:
 
-### `cast` (one policy)
+| Profile | `_mask` | `_expected` | When to use / why |
+| --- | --- | --- | --- |
+| **A — Strict FLAGS (default)** | `0xffffffffffffffff0000000000000000` | `0x05000000000000000000000000000000` | Standard production prover build. Requires `INIT(0x01) \| MODE64BIT(0x04)`; forces all other FLAGS bits (forbidden floor, CET, KSS, reserved) to 0; XFRM unchecked. Matches the repo's tested pin. |
+| **B — Strict FLAGS + KSS** | `0xffffffffffffffff0000000000000000` | `0x85000000000000000000000000000000` | Same as A, but the build enables KSS → also requires `KSS(0x80)`. |
+| **C — Strict FLAGS + CET** | `0xffffffffffffffff0000000000000000` | `0x45000000000000000000000000000000` | Same as A, but the build enables CET → also requires `CET(0x40)`. |
+| **D — Forbidden-floor only** | `0x32000000000000000000000000000000` | `0x00000000000000000000000000000000` | Permissive bootstrap only. Re-states the floor (DEBUG/PROVISION/EINITTOKEN clear); checks nothing else. Not for production. |
+| **E — Strict FLAGS + exact XFRM** | `0xffffffffffffffffff00000000000000` | `0x05000000000000000700000000000000` | A + pins XFRM low byte to `x87 \| SSE \| AVX (0x07)`. Homogeneous hardware only (brittle across CPUs). |
 
-```bash
-cast send "$SGX_VERIFIER_ADDRESS" \
-  "setEnclaveAttributePolicy(bytes32,bytes16,bytes16)" \
-  0x<RAIKO_SGXRETH_MRENCLAVE> \
-  0xffffffffffffffff0000000000000000 \
-  0x05000000000000000000000000000000 \
-  --rpc-url "$FORK_URL" --private-key "$PRIVATE_KEY" --legacy
-```
+Per-enclave rows to fill in (use Profile A unless the build enables KSS/CET):
 
-### `forge script`
+| `_mrEnclave` | Enclave | `_mask` | `_expected` |
+| --- | --- | --- | --- |
+| `0x<RAIKO_SGXRETH_MRENCLAVE>` | Raiko SGX‑reth prover | `0xffffffffffffffff0000000000000000` | `0x05000000000000000000000000000000` |
+| `0x<SGXGETH_MRENCLAVE>` | SGX‑geth prover | `0xffffffffffffffff0000000000000000` | `0x05000000000000000000000000000000` |
 
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
-
-import "script/BaseScript.sol";
-import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
-
-contract SetEnclaveAttributePolicies is BaseScript {
-    // Profile A — strict FLAGS pin (INIT | MODE64BIT), XFRM unchecked.
-    bytes16 constant MASK_STRICT_FLAGS = 0xffffffffffffffff0000000000000000;
-    bytes16 constant EXPECTED_PROD     = 0x05000000000000000000000000000000;
-
-    function run() external broadcast {
-        SecureSgxVerifier v = SecureSgxVerifier(vm.envAddress("SGX_VERIFIER_ADDRESS"));
-
-        // Raiko SGX-reth prover build — replace with the real release MRENCLAVE.
-        v.setEnclaveAttributePolicy(
-            vm.envBytes32("RAIKO_SGXRETH_MRENCLAVE"), MASK_STRICT_FLAGS, EXPECTED_PROD
-        );
-        // SGX-geth prover build — replace with the real release MRENCLAVE.
-        v.setEnclaveAttributePolicy(
-            vm.envBytes32("SGXGETH_MRENCLAVE"), MASK_STRICT_FLAGS, EXPECTED_PROD
-        );
-    }
-}
-```
+Pin the **same** `MRENCLAVE` on the allowlist too (`setMrEnclave`) — an `MRENCLAVE` with no attribute
+policy **fails closed**.
 
 To retire a build's pin (registration for it then fails closed) use
 `removeEnclaveAttributePolicy(bytes32)`, callable by the owner or the `registrar`.
