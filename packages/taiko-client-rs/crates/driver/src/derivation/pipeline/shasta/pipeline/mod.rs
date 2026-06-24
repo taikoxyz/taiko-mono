@@ -25,7 +25,7 @@ use rpc::{blob::BlobDataSource, client::Client};
 use tracing::{debug, info, instrument, warn};
 
 use crate::{
-    derivation::manifest::fetcher::shasta::ShastaSourceManifestFetcher,
+    derivation::manifest::{ManifestFetcherError, fetcher::shasta::ShastaSourceManifestFetcher},
     metrics::DriverMetrics,
     sync::engine::{EngineBlockOutcome, PayloadApplier},
 };
@@ -182,6 +182,49 @@ fn validate_forced_inclusion_manifest(
         DerivationSourceManifest::default()
     } else {
         manifest
+    }
+}
+
+/// Returns whether a manifest fetch error reflects undecodable blob/manifest *content* rather
+/// than a transient fetch/RPC failure.
+///
+/// Any party can post an arbitrarily encoded (or empty) blob for a derivation source — most
+/// commonly a forced inclusion, where the blob bytes are attacker-controlled. Such a blob is not
+/// a fatal condition: it must degrade to the default payload, matching the Go reference's
+/// `ErrInvalidBlobBytes` handling in `DerivationSourceFetcher.Fetch`. Transient errors (beacon or
+/// RPC unavailability, blob-count mismatch) must instead propagate so derivation retries them.
+fn is_undecodable_manifest_error(err: &DerivationError) -> bool {
+    matches!(
+        err,
+        DerivationError::Manifest(
+            ManifestFetcherError::Invalid(_) | ManifestFetcherError::EmptyBlobSidecars
+        )
+    )
+}
+
+/// Resolve a derivation source's manifest from its fetch/decode result.
+///
+/// A successfully decoded manifest is passed through forced-inclusion validation. A failure caused
+/// by undecodable blob/manifest content degrades to the default payload instead of stalling
+/// derivation (see [`is_undecodable_manifest_error`]). Transient failures are returned unchanged so
+/// the caller retries them.
+fn resolve_source_manifest(
+    proposal_id: u64,
+    source: &DerivationSource,
+    result: Result<DerivationSourceManifest, DerivationError>,
+) -> Result<DerivationSourceManifest, DerivationError> {
+    match result {
+        Ok(manifest) => Ok(validate_forced_inclusion_manifest(proposal_id, source, manifest)),
+        Err(err) if is_undecodable_manifest_error(&err) => {
+            warn!(
+                proposal_id,
+                is_forced_inclusion = source.isForcedInclusion,
+                %err,
+                "undecodable blob/manifest for derivation source, using default payload instead"
+            );
+            Ok(DerivationSourceManifest::default())
+        }
+        Err(err) => Err(err),
     }
 }
 
@@ -396,8 +439,10 @@ where
             let manifest = if !is_source_offset_valid(source) {
                 DerivationSourceManifest::default()
             } else {
-                let manifest = self.fetch_and_decode_manifest(source, event.l1_timestamp).await?;
-                validate_forced_inclusion_manifest(proposal_id, source, manifest)
+                // An undecodable blob/manifest degrades to the default payload rather than
+                // stalling derivation; only transient errors propagate to be retried.
+                let result = self.fetch_and_decode_manifest(source, event.l1_timestamp).await;
+                resolve_source_manifest(proposal_id, source, result)?
             };
             manifest_segments.push(SourceManifestSegment {
                 manifest,
@@ -734,6 +779,81 @@ mod tests {
         let validated = validate_forced_inclusion_manifest(1, &source, manifest);
 
         assert_eq!(validated.blocks.len(), 1);
+    }
+
+    #[test]
+    fn resolve_source_manifest_defaults_on_undecodable_blob() {
+        // Regression: a forced-inclusion source whose blob fails to decode (the on-chain
+        // proposal 1812 / L1 block 5167 case) must degrade to the default payload, not propagate
+        // a fatal error that stalls derivation and retries forever.
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], true);
+        let result = Err(DerivationError::Manifest(ManifestFetcherError::Invalid(
+            "invalid blob encoding".to_string(),
+        )));
+
+        let resolved = resolve_source_manifest(1812, &source, result)
+            .expect("an undecodable blob must resolve to the default payload, not an error");
+
+        assert_eq!(resolved.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn resolve_source_manifest_defaults_on_empty_blob_sidecars() {
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], false);
+        let result = Err(DerivationError::Manifest(ManifestFetcherError::EmptyBlobSidecars));
+
+        let resolved = resolve_source_manifest(1, &source, result)
+            .expect("empty blob sidecars must resolve to the default payload");
+
+        assert_eq!(resolved.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn resolve_source_manifest_propagates_transient_error() {
+        // Transient fetch failures (e.g. the beacon returned the wrong sidecar count) must still
+        // propagate so derivation retries them instead of silently defaulting forever.
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], true);
+        let result = Err(DerivationError::Manifest(ManifestFetcherError::BlobCountMismatch {
+            expected: 1,
+            actual: 0,
+        }));
+
+        let resolved = resolve_source_manifest(1, &source, result);
+
+        assert!(
+            matches!(
+                resolved,
+                Err(DerivationError::Manifest(ManifestFetcherError::BlobCountMismatch { .. }))
+            ),
+            "transient errors must propagate, got {resolved:?}"
+        );
+    }
+
+    #[test]
+    fn resolve_source_manifest_passes_through_valid_manifest() {
+        let source = sample_derivation_source(vec![FixedBytes::from([1u8; 32])], true);
+        let manifest = DerivationSourceManifest { blocks: vec![BlockManifest::default()] };
+
+        let resolved = resolve_source_manifest(1, &source, Ok(manifest))
+            .expect("a valid manifest must pass through unchanged");
+
+        assert_eq!(resolved.blocks.len(), 1);
+    }
+
+    #[test]
+    fn is_undecodable_manifest_error_distinguishes_content_from_transient() {
+        assert!(is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::Invalid("invalid blob encoding".to_string())
+        )));
+        assert!(is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::EmptyBlobSidecars
+        )));
+        assert!(!is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::BlobCountMismatch { expected: 1, actual: 0 }
+        )));
+        assert!(!is_undecodable_manifest_error(&DerivationError::Manifest(
+            ManifestFetcherError::EmptyBlobHashes
+        )));
     }
 
     #[test]
