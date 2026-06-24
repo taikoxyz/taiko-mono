@@ -243,7 +243,9 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (QuotaManager)
     {
-        return new QuotaManager(deployer, bridge, erc20Vault, 24 hours);
+        return new QuotaManager(
+            deployer, bridge, erc20Vault, 24 hours, new address[](0), new uint104[](0)
+        );
     }
 
     function deployERC20Vault() internal returns (ERC20Vault) {

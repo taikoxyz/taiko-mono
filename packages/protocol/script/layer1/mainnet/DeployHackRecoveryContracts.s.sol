@@ -20,6 +20,15 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// logged implementation addresses.
 /// @custom:security-contact security@taiko.xyz
 contract DeployHackRecoveryContracts is Script {
+    address private constant _WETH_TOKEN = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address private constant _USDT_TOKEN = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+
+    uint104 private constant _ETH_QUOTA = 250 ether;
+    uint104 private constant _WETH_QUOTA = 250 ether;
+    uint104 private constant _TKO_QUOTA = 10_000_000 ether;
+    uint104 private constant _USDT_QUOTA = 150_000_000_000;
+    uint104 private constant _USDC_QUOTA = 150_000_000_000;
+
     struct Deployment {
         address signalServiceImpl;
         address quotaManager;
@@ -55,7 +64,9 @@ contract DeployHackRecoveryContracts is Script {
                 LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
                 LibL1Addrs.BRIDGE,
                 LibL1Addrs.ERC20_VAULT,
-                24 hours
+                24 hours,
+                _quotaTokens(),
+                _quotas()
             )
         );
 
@@ -120,5 +131,28 @@ contract DeployHackRecoveryContracts is Script {
         console2.log("MAINNET_INBOX_NEW_IMPL:", _deployment.mainnetInboxImpl);
         console2.log("PAUSER:", LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH);
         console2.log("QUOTA_MANAGER_OWNER:", LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH);
+        console2.log("ETH_QUOTA:", _ETH_QUOTA);
+        console2.log("WETH_QUOTA:", _WETH_QUOTA);
+        console2.log("TKO_QUOTA:", _TKO_QUOTA);
+        console2.log("USDT_QUOTA:", _USDT_QUOTA);
+        console2.log("USDC_QUOTA:", _USDC_QUOTA);
+    }
+
+    function _quotaTokens() private pure returns (address[] memory tokens_) {
+        tokens_ = new address[](5);
+        tokens_[0] = address(0);
+        tokens_[1] = _WETH_TOKEN;
+        tokens_[2] = LibL1Addrs.TAIKO_TOKEN;
+        tokens_[3] = _USDT_TOKEN;
+        tokens_[4] = LibL1Addrs.USDC_TOKEN;
+    }
+
+    function _quotas() private pure returns (uint104[] memory quotas_) {
+        quotas_ = new uint104[](5);
+        quotas_[0] = _ETH_QUOTA;
+        quotas_[1] = _WETH_QUOTA;
+        quotas_[2] = _TKO_QUOTA;
+        quotas_[3] = _USDT_QUOTA;
+        quotas_[4] = _USDC_QUOTA;
     }
 }

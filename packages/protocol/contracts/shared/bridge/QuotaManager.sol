@@ -42,17 +42,36 @@ contract QuotaManager is Ownable2Step, IQuotaManager {
     /// @param _bridge The bridge address allowed to consume quota.
     /// @param _erc20Vault The ERC20 vault address allowed to consume quota.
     /// @param _quotaPeriod The time required to restore all quota.
-    constructor(address _owner, address _bridge, address _erc20Vault, uint24 _quotaPeriod) {
+    /// @param _tokens The token addresses whose quotas should be initialized.
+    /// @param _quotas The initial quotas for each token.
+    constructor(
+        address _owner,
+        address _bridge,
+        address _erc20Vault,
+        uint24 _quotaPeriod,
+        address[] memory _tokens,
+        uint104[] memory _quotas
+    ) {
+        if (_tokens.length != _quotas.length) revert QM_INVALID_PARAM();
+
         bridge = _bridge;
         erc20Vault = _erc20Vault;
         if (_owner != address(0)) _transferOwnership(_owner);
         _setQuotaPeriod(_quotaPeriod);
+
+        for (uint256 i; i < _tokens.length; ++i) {
+            _updateQuota(_tokens[i], _quotas[i]);
+        }
     }
 
     /// @notice Updates the quota for a given token.
     /// @param _token The token address with Ether represented by address(0).
     /// @param _quota The new quota for the defined period.
     function updateQuota(address _token, uint104 _quota) external onlyOwner {
+        _updateQuota(_token, _quota);
+    }
+
+    function _updateQuota(address _token, uint104 _quota) private {
         emit QuotaUpdated(_token, tokenQuota[_token].quota, _quota);
         tokenQuota[_token] = Quota(0, _quota, _quota);
     }
