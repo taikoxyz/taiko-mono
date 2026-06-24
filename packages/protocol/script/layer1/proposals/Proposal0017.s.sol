@@ -16,6 +16,8 @@ contract Proposal0017 is BuildProposal {
         0x3333333333333333333333333333333333333333;
     address private constant _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER =
         0x4444444444444444444444444444444444444444;
+    address private constant _QUOTA_MANAGER_PLACEHOLDER =
+        0x5555555555555555555555555555555555555555;
     address private constant _MAINNET_VERIFIER_PLACEHOLDER =
         0x6666666666666666666666666666666666666666;
     address private constant _NEW_SGXGETH_VERIFIER_PLACEHOLDER =
@@ -29,6 +31,9 @@ contract Proposal0017 is BuildProposal {
     address public constant MAINNET_BRIDGE_NEW_IMPL = _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER;
     address public constant MAINNET_ERC20_VAULT_NEW_IMPL =
         _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER;
+    // PLACEHOLDER: the new Bridge and ERC20Vault implementations must be deployed with this
+    // immutable QuotaManager address.
+    address public constant QUOTA_MANAGER = _QUOTA_MANAGER_PLACEHOLDER;
 
     // PLACEHOLDER: the new MainnetInbox implementation must be deployed with this verifier.
     // This address is not calldata because Inbox stores the proof verifier as an immutable.
@@ -41,15 +46,6 @@ contract Proposal0017 is BuildProposal {
     address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
-    address public constant QUOTA_MANAGER = 0x91f67118DD47d502B1f0C354D0611997B022f29E;
-    address public constant WETH_TOKEN = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address public constant USDT_TOKEN = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-
-    uint104 public constant ETH_QUOTA = 250 ether;
-    uint104 public constant WETH_QUOTA = 250 ether;
-    uint104 public constant TKO_QUOTA = 10_000_000 ether;
-    uint104 public constant USDT_QUOTA = 150_000_000_000;
-    uint104 public constant USDC_QUOTA = 150_000_000_000;
 
     bytes32 public constant NEW_MR_SIGNER =
         0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
@@ -74,6 +70,7 @@ contract Proposal0017 is BuildProposal {
                 || SIGNAL_SERVICE_NEW_IMPL == _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER
                 || MAINNET_BRIDGE_NEW_IMPL == _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER
                 || MAINNET_ERC20_VAULT_NEW_IMPL == _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER
+                || QUOTA_MANAGER == _QUOTA_MANAGER_PLACEHOLDER
                 || MAINNET_VERIFIER == _MAINNET_VERIFIER_PLACEHOLDER
                 || NEW_SGXGETH_VERIFIER == _NEW_SGXGETH_VERIFIER_PLACEHOLDER
                 || NEW_SGXRETH_VERIFIER == _NEW_SGXRETH_VERIFIER_PLACEHOLDER
@@ -106,7 +103,7 @@ contract Proposal0017 is BuildProposal {
 
         actions = new Controller
             .Action[](
-            15 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
+            10 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
                 + sgxRethMrEnclaves.length
         );
 
@@ -120,31 +117,6 @@ contract Proposal0017 is BuildProposal {
             target: L1.BRIDGE,
             value: 0,
             data: abi.encodeCall(IProposal0017BridgeRecovery.init3, (_retriableMessageHashes()))
-        });
-        actions[cursor++] = Controller.Action({
-            target: QUOTA_MANAGER,
-            value: 0,
-            data: abi.encodeCall(IProposal0017QuotaManager.updateQuota, (address(0), ETH_QUOTA))
-        });
-        actions[cursor++] = Controller.Action({
-            target: QUOTA_MANAGER,
-            value: 0,
-            data: abi.encodeCall(IProposal0017QuotaManager.updateQuota, (WETH_TOKEN, WETH_QUOTA))
-        });
-        actions[cursor++] = Controller.Action({
-            target: QUOTA_MANAGER,
-            value: 0,
-            data: abi.encodeCall(IProposal0017QuotaManager.updateQuota, (L1.TAIKO_TOKEN, TKO_QUOTA))
-        });
-        actions[cursor++] = Controller.Action({
-            target: QUOTA_MANAGER,
-            value: 0,
-            data: abi.encodeCall(IProposal0017QuotaManager.updateQuota, (USDT_TOKEN, USDT_QUOTA))
-        });
-        actions[cursor++] = Controller.Action({
-            target: QUOTA_MANAGER,
-            value: 0,
-            data: abi.encodeCall(IProposal0017QuotaManager.updateQuota, (L1.USDC_TOKEN, USDC_QUOTA))
         });
 
         // Group Two: restore the proving system to the last known-good pre-forgery state.
@@ -311,10 +283,6 @@ contract Proposal0017 is BuildProposal {
 
 interface IProposal0017BridgeRecovery {
     function init3(bytes32[] calldata _msgHashes) external;
-}
-
-interface IProposal0017QuotaManager {
-    function updateQuota(address _token, uint104 _quota) external;
 }
 
 interface IProposal0017InboxRecovery {

@@ -4,21 +4,20 @@
 
 This proposal restores the L1 recovery surface after the Shasta forged-proof incident.
 
-It executes **64 L1 actions** and **no L2 actions**:
+It executes **59 L1 actions** and **no L2 actions**:
 
 1. Upgrade `SignalService`.
 2. Upgrade `Bridge`.
 3. Upgrade `ERC20Vault`.
 4. Call `Bridge.init3(bytes32[])` to disable the three remaining attacker retriable messages.
-5. Update `QuotaManager` limits directly for ETH, WETH, TKO, USDT, and USDC.
-6. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`.
-7. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
+5. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`.
+6. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
    `25,367,937`, one block before the first forged proof.
-8. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
-9. Disable all currently trusted RISC0 and SP1 image/program IDs.
-10. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
+7. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
+8. Disable all currently trusted RISC0 and SP1 image/program IDs.
+9. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
 
-The implementation and new verifier addresses are placeholders in
+The implementation, new QuotaManager, and new verifier addresses are placeholders in
 [`Proposal0017.s.sol`](./Proposal0017.s.sol). Replace them with the deployment outputs before
 generating calldata or running a dryrun. While any placeholder remains, `buildL1Actions()` reverts
 with `PlaceholderImplementationAddress()`.
@@ -33,12 +32,12 @@ New RISC0, SP1, SGX-geth, and SGX-reth IDs remain pending and are intentionally 
 2. Upgrade `L1.BRIDGE` to `MAINNET_BRIDGE_NEW_IMPL`.
 3. Upgrade `L1.ERC20_VAULT` to `MAINNET_ERC20_VAULT_NEW_IMPL`.
 4. Call `Bridge.init3(...)` with the three remaining retriable message hashes.
-5. Call `QuotaManager.updateQuota(...)` for ETH, WETH, TKO, USDT, and USDC.
 
 The SignalService upgrade must execute before the Bridge action so old forged checkpoints become
 unreachable before retriable message cleanup. The new Bridge and ERC20Vault implementations are
-deployed with the existing QuotaManager proxy address. This proposal does not upgrade
-`QuotaManager`; it updates the existing proxy's configured token quotas directly.
+deployed with the new immutable `QUOTA_MANAGER` address. This proposal does not upgrade
+`QuotaManager` and does not call `updateQuota`; any quota changes are performed by the temporary
+Taiko admin owner on the newly deployed QuotaManager contract.
 
 ### Group Two: Restore the Proving System
 
@@ -63,7 +62,6 @@ longer be part of the verification chain.
 | `L1.BRIDGE`           | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | Mainnet Bridge proxy |
 | `L1.ERC20_VAULT`      | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | ERC20Vault proxy     |
 | `L1.INBOX`            | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | Shasta Inbox proxy   |
-| `QUOTA_MANAGER`       | `0x91f67118DD47d502B1f0C354D0611997B022f29E` | QuotaManager proxy   |
 | `RISC0_RETH_VERIFIER` | `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | RISC0 verifier       |
 | `SP1_RETH_VERIFIER`   | `0x96337327648dcFA22b014009cf10A2D5E2F305f6` | SP1 verifier         |
 | `SGXGETH_ATTESTER`    | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | SGX-geth attester    |
@@ -80,21 +78,22 @@ documentation and live L1 calls.
 | `SIGNAL_SERVICE_NEW_IMPL`      | `0x2222222222222222222222222222222222222222` | `SignalService` implementation deployment output     |
 | `MAINNET_BRIDGE_NEW_IMPL`      | `0x3333333333333333333333333333333333333333` | `MainnetBridge` implementation deployment output     |
 | `MAINNET_ERC20_VAULT_NEW_IMPL` | `0x4444444444444444444444444444444444444444` | `MainnetERC20Vault` implementation deployment output |
+| `QUOTA_MANAGER`                | `0x5555555555555555555555555555555555555555` | New immutable `QuotaManager` deployment output       |
 | `MAINNET_VERIFIER`             | `0x6666666666666666666666666666666666666666` | New `MainnetVerifier` used by `MainnetInbox` impl    |
 | `NEW_SGXGETH_VERIFIER`         | `0x7777777777777777777777777777777777777777` | New SGX-geth verifier used by `MainnetVerifier`      |
 | `NEW_SGXRETH_VERIFIER`         | `0x8888888888888888888888888888888888888888` | New SGX-reth verifier used by `MainnetVerifier`      |
 
-## Quota Updates
+## New QuotaManager
 
-`QuotaManager.updateQuota(address,uint104)` is called on the existing L1 QuotaManager proxy:
+The new `QUOTA_MANAGER` is an immutable, non-UUPS contract deployed before this proposal. The new
+`MAINNET_BRIDGE_NEW_IMPL` and `MAINNET_ERC20_VAULT_NEW_IMPL` must both be deployed with this exact
+address in their constructors.
 
-| Token | Address                                      | New Quota        |
-| ----- | -------------------------------------------- | ---------------- |
-| ETH   | `address(0)`                                 | `250 ETH`        |
-| WETH  | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | `250 WETH`       |
-| TKO   | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | `10,000,000 TKO` |
-| USDT  | `0xdAC17F958D2ee523a2206206994597C13D831ec7` | `150,000 USDT`   |
-| USDC  | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `150,000 USDC`   |
+The new QuotaManager is temporarily owned by `admin.taiko.eth`
+(`0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F`) so the Taiko admin can adjust quotas in an
+emergency. The constructor must also set the existing L1 Bridge proxy
+(`0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`) and ERC20Vault proxy
+(`0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab`) as the only quota consumers.
 
 ## Retriable Messages
 
@@ -214,17 +213,19 @@ on those attesters. New image IDs are pending and must be added in a follow-up e
 
 Before submission:
 
-1. Replace all seven placeholders in `Proposal0017.s.sol`.
+1. Replace all eight placeholders in `Proposal0017.s.sol`.
 2. Confirm the new `MainnetVerifier` was deployed with the new SGX-geth and SGX-reth verifier
    contracts.
 3. Confirm the new `MainnetInbox` implementation was deployed with the new `MAINNET_VERIFIER`.
-4. Confirm bytecode exists at each implementation and new verifier address:
+4. Confirm the new Bridge and ERC20Vault implementations were deployed with the new immutable
+   `QUOTA_MANAGER`.
+5. Confirm bytecode exists at each implementation, new QuotaManager, and new verifier address:
 
    ```bash
    cast code <IMPLEMENTATION_ADDRESS> --rpc-url <RPC_URL>
    ```
 
-5. Confirm each production target is owned by the DAO Controller:
+6. Confirm each production target is owned by the DAO Controller:
 
    ```bash
    cast call <TARGET> "owner()(address)" --rpc-url <RPC_URL>
@@ -232,7 +233,8 @@ Before submission:
 
    Expected: `0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a`.
 
-6. Confirm the three message hashes still return `RETRIABLE` before execution:
+7. Confirm the new QuotaManager is owned by `admin.taiko.eth` and has a `86400` second quota period.
+8. Confirm the three message hashes still return `RETRIABLE` before execution:
 
    ```bash
    cast call 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC \
@@ -243,7 +245,7 @@ Before submission:
 
    Expected: `1`.
 
-7. Confirm the pre-forgery recovery state:
+9. Confirm the pre-forgery recovery state:
 
    ```bash
    cast call 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f \
@@ -252,17 +254,15 @@ Before submission:
      --rpc-url <ARCHIVE_RPC_URL>
    ```
 
-8. Confirm the current QuotaManager owner is the DAO Controller and that the current quota period is
-   still `86400` seconds.
-9. Confirm every verifier cleanup target is still trusted before execution, and confirm the new
+10. Confirm every verifier cleanup target is still trusted before execution, and confirm the new
    MRSIGNER is not yet trusted while the old MRSIGNER is still trusted.
-10. Generate calldata:
+11. Generate calldata:
 
 ```bash
 P=0017 pnpm proposal
 ```
 
-11. Dryrun on L1:
+12. Dryrun on L1:
 
 ```bash
 P=0017 pnpm proposal:dryrun:l1
@@ -272,7 +272,7 @@ After execution:
 
 1. Confirm proxy implementations match the four replacement constants.
 2. Confirm the three message hashes return `2` (`DONE`).
-3. Confirm `QuotaManager.tokenQuota(token).quota` matches the five new quotas above.
+3. Confirm `Bridge` and `ERC20Vault` behavior uses the new immutable `QUOTA_MANAGER`.
 4. Confirm `Inbox.getCoreState()` matches the restored state.
 5. Confirm the new MRSIGNER returns true and the old MRSIGNER returns false on both SGX attesters.
 6. Confirm every removed RISC0, SP1, and SGX trust entry returns false.

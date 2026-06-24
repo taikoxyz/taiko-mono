@@ -21,15 +21,6 @@ contract Proposal0017Test is Test {
     address internal constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
     address internal constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address internal constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
-    address internal constant QUOTA_MANAGER = 0x91f67118DD47d502B1f0C354D0611997B022f29E;
-    address internal constant WETH_TOKEN = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address internal constant USDT_TOKEN = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-
-    uint104 internal constant ETH_QUOTA = 250 ether;
-    uint104 internal constant WETH_QUOTA = 250 ether;
-    uint104 internal constant TKO_QUOTA = 10_000_000 ether;
-    uint104 internal constant USDT_QUOTA = 150_000_000_000;
-    uint104 internal constant USDC_QUOTA = 150_000_000_000;
 
     bytes32 internal constant NEW_MR_SIGNER =
         0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
@@ -59,7 +50,7 @@ contract Proposal0017Test is Test {
 
         uint256 cursor;
 
-        assertEq(actions.length, 64);
+        assertEq(actions.length, 59);
 
         assertEq(actions[cursor].target, L1.SIGNAL_SERVICE);
         assertEq(actions[cursor].value, 0);
@@ -87,41 +78,6 @@ contract Proposal0017Test is Test {
         assertEq(
             actions[cursor++].data,
             abi.encodeCall(IBridgeRecovery.init3, (_retriableMessageHashes()))
-        );
-
-        assertEq(actions[cursor].target, QUOTA_MANAGER);
-        assertEq(actions[cursor].value, 0);
-        assertEq(
-            actions[cursor++].data,
-            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (address(0), ETH_QUOTA))
-        );
-
-        assertEq(actions[cursor].target, QUOTA_MANAGER);
-        assertEq(actions[cursor].value, 0);
-        assertEq(
-            actions[cursor++].data,
-            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (WETH_TOKEN, WETH_QUOTA))
-        );
-
-        assertEq(actions[cursor].target, QUOTA_MANAGER);
-        assertEq(actions[cursor].value, 0);
-        assertEq(
-            actions[cursor++].data,
-            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (L1.TAIKO_TOKEN, TKO_QUOTA))
-        );
-
-        assertEq(actions[cursor].target, QUOTA_MANAGER);
-        assertEq(actions[cursor].value, 0);
-        assertEq(
-            actions[cursor++].data,
-            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (USDT_TOKEN, USDT_QUOTA))
-        );
-
-        assertEq(actions[cursor].target, QUOTA_MANAGER);
-        assertEq(actions[cursor].value, 0);
-        assertEq(
-            actions[cursor++].data,
-            abi.encodeCall(IQuotaManagerRecovery.updateQuota, (L1.USDC_TOKEN, USDC_QUOTA))
         );
 
         assertEq(actions[cursor].target, L1.INBOX);
@@ -323,10 +279,6 @@ interface IInboxRecovery {
         bytes32 _lastFinalizedBlockHash
     )
         external;
-}
-
-interface IQuotaManagerRecovery {
-    function updateQuota(address _token, uint104 _quota) external;
 }
 
 interface IAutomataAttestationRecovery {
