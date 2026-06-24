@@ -201,7 +201,7 @@ abstract contract SgxVerifierTestBase is Test {
         uint256 id = verifier.registerInstance(quote);
 
         assertEq(id, 0);
-        (address addr, uint64 validSince,,) = verifier.instances(0);
+        (address addr, uint64 validSince,,,) = verifier.instances(0);
         assertEq(addr, instance);
         assertEq(validSince, uint64(block.timestamp));
         assertTrue(verifier.addressRegistered(instance));
@@ -538,7 +538,7 @@ abstract contract SgxVerifierTestBase is Test {
         emit SgxVerifier.InstanceDeleted(0, address(0xA1));
         verifier.deleteInstances(ids);
 
-        (address addr,,,) = verifier.instances(0);
+        (address addr,,,,) = verifier.instances(0);
         assertEq(addr, address(0));
     }
 
@@ -693,8 +693,9 @@ abstract contract SgxVerifierTestBase is Test {
         bytes memory quote = _mockValidQuote(instance);
 
         uint256 id = verifier.registerInstance(quote);
-        (,,, bytes32 mrEnclave) = verifier.instances(id);
+        (,,, bytes32 mrEnclave, bytes32 mrSigner) = verifier.instances(id);
         assertEq(mrEnclave, MR_ENCLAVE);
+        assertEq(mrSigner, MR_SIGNER);
     }
 
     /// @dev Owner-added instances (`addInstances`) carry no attested MRENCLAVE, so they record the
@@ -704,7 +705,7 @@ abstract contract SgxVerifierTestBase is Test {
         addrs[0] = address(0xA1);
         verifier.addInstances(addrs);
 
-        (,, uint32 policyVersion, bytes32 mrEnclave) = verifier.instances(0);
+        (,, uint32 policyVersion, bytes32 mrEnclave,) = verifier.instances(0);
         assertEq(mrEnclave, bytes32(0));
         assertEq(policyVersion, 0);
     }
@@ -729,6 +730,45 @@ abstract contract SgxVerifierTestBase is Test {
         verifier.setMrEnclave(MR_ENCLAVE, false);
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, aggHash, proof);
+    }
+
+    /// @dev Untrusting an instance's MRSIGNER in the allowlist also revokes it at proof time (the
+    /// allowlist re-check is symmetric: registration requires both MRENCLAVE and MRSIGNER trust).
+    function test_verifyProof_RevertWhen_MrSignerUntrustedAfterRegistration() external {
+        _trustStandardEnclave();
+        uint256 key = 0xA11CE;
+        address instance = vm.addr(key);
+        bytes memory quote = _mockValidQuote(instance);
+
+        uint256 id = verifier.registerInstance(quote);
+        bytes32 aggHash = bytes32(uint256(0x1234));
+        bytes memory proof = _proof(uint32(id), instance, _sign(key, aggHash, instance));
+
+        // Valid now.
+        verifier.verifyProof(0, aggHash, proof);
+
+        // Revoking trust in the MRSIGNER stops the already-registered instance from verifying.
+        verifier.setMrSigner(MR_SIGNER, false);
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        verifier.verifyProof(0, aggHash, proof);
+    }
+
+    /// @dev With the allowlist disabled, neither MRENCLAVE nor MRSIGNER trust is re-checked, so an
+    /// instance keeps verifying even after its measurement/signer is untrusted (matches registration,
+    /// which skips the allowlist when `checkLocalEnclaveReport` is off).
+    function test_verifyProof_AllowlistDisabledSkipsReCheck() external {
+        _trustStandardEnclave();
+        uint256 key = 0xA11CE;
+        address instance = vm.addr(key);
+        uint256 id = verifier.registerInstance(_mockValidQuote(instance));
+        bytes32 aggHash = bytes32(uint256(0x1234));
+        bytes memory proof = _proof(uint32(id), instance, _sign(key, aggHash, instance));
+
+        // Disable the allowlist, then untrust both MR values: the instance is unaffected.
+        verifier.toggleLocalReportCheck();
+        verifier.setMrEnclave(MR_ENCLAVE, false);
+        verifier.setMrSigner(MR_SIGNER, false);
+        verifier.verifyProof(0, aggHash, proof); // still valid
     }
 
     /// @dev Owner-added instances are not subject to the MRENCLAVE allowlist re-check: they remain
@@ -928,12 +968,13 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         _secure().setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
         assertEq(_secure().enclaveAttributePolicyVersion(STRICT_MR), 2);
 
-        // Removing the pin does NOT reset the counter; a re-add gets a brand-new version.
+        // Removal also advances the counter (so a single version compare in verifyProof rejects
+        // revoked instances) and never resets it; a re-add then gets yet another fresh version.
         _secure().removeEnclaveAttributePolicy(STRICT_MR);
-        assertEq(_secure().enclaveAttributePolicyVersion(STRICT_MR), 2);
+        assertEq(_secure().enclaveAttributePolicyVersion(STRICT_MR), 3);
 
         _secure().setEnclaveAttributePolicy(STRICT_MR, STRICT_MASK, STRICT_EXPECTED);
-        assertEq(_secure().enclaveAttributePolicyVersion(STRICT_MR), 3);
+        assertEq(_secure().enclaveAttributePolicyVersion(STRICT_MR), 4);
     }
 
     function test_removeEnclaveAttributePolicy_FailsClosedAfterRemoval() external {
@@ -1030,7 +1071,7 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         // A non-owner self-registration is delayed.
         vm.prank(NON_OWNER);
         uint256 id = verifier.registerInstance(quote);
-        (, uint64 validSince,,) = verifier.instances(id);
+        (, uint64 validSince,,,) = verifier.instances(id);
         assertEq(validSince, uint64(block.timestamp) + VALIDITY_DELAY);
     }
 
@@ -1041,7 +1082,7 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
 
         // The owner (this test) is as trusted as addInstances, so registerInstance skips the delay.
         uint256 id = verifier.registerInstance(quote);
-        (, uint64 validSince,,) = verifier.instances(id);
+        (, uint64 validSince,,,) = verifier.instances(id);
         assertEq(validSince, uint64(block.timestamp));
     }
 
@@ -1051,7 +1092,7 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         verifier.addInstances(instances);
 
         // Owner registrations are trusted and take effect immediately, ignoring the delay.
-        (, uint64 validSince,,) = verifier.instances(0);
+        (, uint64 validSince,,,) = verifier.instances(0);
         assertEq(validSince, uint64(block.timestamp));
     }
 
@@ -1089,7 +1130,7 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         address instance = address(0xBEEF);
         uint256 id = verifier.registerInstance(_mockValidQuote(instance));
 
-        (,, uint32 policyVersion, bytes32 mrEnclave) = verifier.instances(id);
+        (,, uint32 policyVersion, bytes32 mrEnclave,) = verifier.instances(id);
         assertEq(policyVersion, 1);
         assertEq(mrEnclave, MR_ENCLAVE);
     }
@@ -1138,12 +1179,12 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         verifier.verifyProof(0, aggHash, proof);
 
         // The instance record itself is untouched (invalidated, not deleted).
-        (address addr,,,) = verifier.instances(id);
+        (address addr,,,,) = verifier.instances(id);
         assertEq(addr, instance);
     }
 
     /// @dev Version requirement: removing then re-adding the SAME pin must NOT re-enable instances
-    /// registered under the previous version — the monotonic version advances (1 -> 2).
+    /// registered under the previous version — the monotonic version advances (1 -> remove 2 -> 3).
     function test_verifyProof_RevertWhen_PolicyRemovedThenReAdded() external {
         _trustStandardEnclave();
         uint256 key = 0xA11CE;
@@ -1155,11 +1196,11 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         bytes memory proof = _proof(uint32(id), instance, _sign(key, aggHash, instance));
         verifier.verifyProof(0, aggHash, proof);
 
-        _secure().removeEnclaveAttributePolicy(MR_ENCLAVE);
-        _secure().setEnclaveAttributePolicy(MR_ENCLAVE, FORBIDDEN_FLOOR, bytes16(0));
-        assertEq(_secure().enclaveAttributePolicyVersion(MR_ENCLAVE), 2);
+        _secure().removeEnclaveAttributePolicy(MR_ENCLAVE); // version 1 -> 2
+        _secure().setEnclaveAttributePolicy(MR_ENCLAVE, FORBIDDEN_FLOOR, bytes16(0)); // 2 -> 3
+        assertEq(_secure().enclaveAttributePolicyVersion(MR_ENCLAVE), 3);
 
-        // The old instance is pinned to version 1 and stays revoked under version 2.
+        // The old instance is pinned to version 1 and stays revoked under version 3.
         vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
         verifier.verifyProof(0, aggHash, proof);
     }
@@ -1220,16 +1261,16 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         address instance1 = vm.addr(key1);
         verifier.registerInstance(_mockValidQuote(instance1)); // id 0
 
-        // Remove and re-add the pin (version 1 -> 2).
+        // Remove and re-add the pin (version 1 -> remove 2 -> re-add 3).
         _secure().removeEnclaveAttributePolicy(MR_ENCLAVE);
         _secure().setEnclaveAttributePolicy(MR_ENCLAVE, FORBIDDEN_FLOOR, bytes16(0));
 
-        // instance2 registers under version 2.
+        // instance2 registers under the fresh version 3.
         uint256 key2 = 0xB0B;
         address instance2 = vm.addr(key2);
         uint256 id2 = verifier.registerInstance(_mockValidQuote(instance2)); // id 1
-        (,, uint32 policyVersion,) = verifier.instances(id2);
-        assertEq(policyVersion, 2);
+        (,, uint32 policyVersion,,) = verifier.instances(id2);
+        assertEq(policyVersion, 3);
 
         bytes32 aggHash = bytes32(uint256(0x1234));
 

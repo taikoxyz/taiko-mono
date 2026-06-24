@@ -27,14 +27,6 @@ contract SecureSgxVerifier is SgxVerifier {
     /// @notice The ATTRIBUTES pin for each allowlisted application-enclave measurement.
     mapping(bytes32 mrEnclave => AttributePolicy policy) public enclaveAttributePolicy;
 
-    /// @notice Monotonically increasing policy version per allowlisted measurement, bumped on every
-    /// `setEnclaveAttributePolicy`. Each instance records the version in force when it registered;
-    /// `verifyProof` rejects an instance whose recorded version no longer matches the current one, so
-    /// editing — or removing and re-adding — a pin revokes every instance registered under the old
-    /// pin. The counter is never reset (it survives `removeEnclaveAttributePolicy`), so a re-added pin
-    /// gets a fresh version and cannot silently re-enable previously registered instances.
-    mapping(bytes32 mrEnclave => uint32 version) public enclaveAttributePolicyVersion;
-
     /// @notice A security delay between a non-owner registration via `registerInstance` and the
     /// instance becoming usable for proof verification. It gives off-chain monitoring a window to
     /// evict a rogue self-registered instance (via `deleteInstances`) before it can prove. Owner
@@ -114,12 +106,22 @@ contract SecureSgxVerifier is SgxVerifier {
 
         // Bump the version on every set (including an in-place edit) so any change revokes instances
         // registered under the previous pin. The counter is never reset, so a removed-then-re-added
-        // pin gets a brand-new version and cannot re-enable previously registered instances.
-        uint32 version = enclaveAttributePolicyVersion[_mrEnclave] + 1;
-        enclaveAttributePolicyVersion[_mrEnclave] = version;
+        // pin gets a brand-new version and cannot re-enable previously registered instances. The
+        // version shares the per-MRENCLAVE slot with the allowlist flag, so `verifyProof` reads both
+        // in one SLOAD.
+        uint32 version = mrEnclaveState[_mrEnclave].policyVersion + 1;
+        mrEnclaveState[_mrEnclave].policyVersion = version;
 
         enclaveAttributePolicy[_mrEnclave] = AttributePolicy(_mask, _expected);
         emit EnclaveAttributePolicySet(_mrEnclave, _mask, _expected, version);
+    }
+
+    /// @notice Returns the current per-MRENCLAVE policy version (the generation an instance must still
+    /// match to verify proofs). Zero means the pin was never set.
+    /// @param _mrEnclave The application-enclave measurement.
+    /// @return The current policy version.
+    function enclaveAttributePolicyVersion(bytes32 _mrEnclave) external view returns (uint32) {
+        return mrEnclaveState[_mrEnclave].policyVersion;
     }
 
     /// @notice Removes the ATTRIBUTES pin for an enclave measurement. Registration for that MRENCLAVE
@@ -128,14 +130,19 @@ contract SecureSgxVerifier is SgxVerifier {
     /// longer verify proofs.
     /// @dev Callable by the owner or the `registrar` (the SGX-instance registrar set at
     /// construction); the registrar can only remove pins, so it can fail-close a compromised enclave
-    /// but cannot relax or re-admit one. When `registrar` is `address(0)`, removal is owner-only. The
-    /// monotonic `enclaveAttributePolicyVersion` counter is intentionally NOT cleared, so a later
-    /// re-add gets a fresh version and cannot re-enable the revoked instances.
+    /// but cannot relax or re-admit one. When `registrar` is `address(0)`, removal is owner-only.
+    /// Removal bumps the monotonic policy version (so `verifyProof` needs only a single version
+    /// comparison to reject revoked instances) and the counter is never reset, so a later re-add gets
+    /// a fresh version and cannot re-enable the revoked instances.
     /// @param _mrEnclave The application-enclave measurement whose pin is removed.
     function removeEnclaveAttributePolicy(bytes32 _mrEnclave) external onlyOwnerOr(registrar) {
         require(
             enclaveAttributePolicy[_mrEnclave].mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET()
         );
+        // Bump the version so every instance registered under this pin is revoked at proof time by a
+        // single version mismatch; no live instance can hold the bumped version because registration
+        // for this MRENCLAVE is now fail-closed until a new pin is set (which bumps again).
+        mrEnclaveState[_mrEnclave].policyVersion += 1;
         delete enclaveAttributePolicy[_mrEnclave];
         emit EnclaveAttributePolicyRemoved(_mrEnclave);
     }
@@ -170,27 +177,26 @@ contract SecureSgxVerifier is SgxVerifier {
         AttributePolicy memory policy = enclaveAttributePolicy[_mrEnclave];
         require(policy.mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET());
         require(_attributes & policy.mask == policy.expected, SGX_ATTRIBUTE_MISMATCH());
-        return enclaveAttributePolicyVersion[_mrEnclave];
+        return mrEnclaveState[_mrEnclave].policyVersion;
     }
 
     /// @inheritdoc SgxVerifier
-    /// @dev Additionally requires the per-MRENCLAVE pin that gated registration to still be configured
-    /// and unchanged: a removed pin (`mask == 0`) or a bumped version (the pin was edited, or removed
-    /// and re-added) revokes the instance. Owner-added instances (`_mrEnclave == 0`) are exempt, and
-    /// the base trusted-MRENCLAVE allowlist re-check still applies on top.
-    function _isEnclaveStillTrusted(
-        bytes32 _mrEnclave,
-        uint32 _policyVersion
-    )
+    /// @dev Additionally requires the per-MRENCLAVE pin that gated registration to still be in force:
+    /// any edit, or a removal (which bumps the version too), changes the version so the recorded
+    /// version no longer matches and the instance is revoked. Owner-added instances (`mrEnclave == 0`)
+    /// are exempt, and the base trusted-MRENCLAVE/MRSIGNER allowlist re-check still applies on top.
+    /// Reads the per-MRENCLAVE slot once: it carries both the current version and the allowlist flag.
+    function _isEnclaveStillTrusted(Instance memory _instance)
         internal
         view
         override
         returns (bool)
     {
-        if (_mrEnclave == bytes32(0)) return true;
-        if (enclaveAttributePolicy[_mrEnclave].mask == bytes16(0)) return false;
-        if (enclaveAttributePolicyVersion[_mrEnclave] != _policyVersion) return false;
-        return super._isEnclaveStillTrusted(_mrEnclave, _policyVersion);
+        if (_instance.mrEnclave == bytes32(0)) return true;
+        MrEnclaveState memory state = mrEnclaveState[_instance.mrEnclave];
+        if (state.policyVersion != _instance.policyVersion) return false;
+        if (!checkLocalEnclaveReport) return true;
+        return state.trusted && trustedUserMrSigner[_instance.mrSigner];
     }
 
     /// @inheritdoc SgxVerifier

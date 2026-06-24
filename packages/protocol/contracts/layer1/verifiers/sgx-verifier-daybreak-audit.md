@@ -350,27 +350,37 @@ enumerate and delete instance ids.
 Changes:
 
 - **Record enclave identity and policy version on each instance.** `SgxVerifier.Instance` now carries
-  the attested `mrEnclave` (`bytes32`) and the `policyVersion` (`uint32`, packed into the existing
-  `addr`/`validSince` slot) that was in force at registration. Owner-added instances (`addInstances`)
-  carry the zero measurement and are exempt from the proof-time re-check (the owner revokes them with
-  `deleteInstances`). `_validateEnclaveAttributes` now returns the policy version so `registerInstance`
-  can bind it to the instance.
+  the attested `mrEnclave` and `mrSigner` (`bytes32`) and the `policyVersion` (`uint32`, packed into the
+  existing `addr`/`validSince` slot) that was in force at registration. Owner-added instances
+  (`addInstances`) carry the zero measurement and are exempt from the proof-time re-check (the owner
+  revokes them with `deleteInstances`). `_validateEnclaveAttributes` now returns the policy version so
+  `registerInstance` can bind it to the instance.
   `packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol`
 
-- **Re-check the current enclave policy at proof time.** `_isInstanceValid` (reached by `verifyProof`)
-  now calls a new `_isEnclaveStillTrusted(mrEnclave, policyVersion)` hook before the expiry check. The
-  base re-checks the trusted-MRENCLAVE allowlist exactly as registration does (and only while it is
-  enforced); `SecureSgxVerifier` additionally requires the per-MRENCLAVE pin to still be configured
-  (`mask != 0`) and its version to still match. A removed, edited, or removed-and-re-added pin therefore
-  revokes every instance registered under the old pin.
+- **Re-check the current enclave policy/allowlist at proof time.** `_isInstanceValid` (reached by
+  `verifyProof`) now calls a new `_isEnclaveStillTrusted(Instance)` hook before the expiry check. The
+  base re-checks the trusted-MRENCLAVE **and** trusted-MRSIGNER allowlist exactly as registration does
+  (and only while it is enforced); `SecureSgxVerifier` additionally requires the per-MRENCLAVE pin's
+  version to still match. A removed, edited, or removed-and-re-added pin — or untrusting the MRENCLAVE
+  or MRSIGNER — therefore revokes every instance registered under the old policy.
   `packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol`,
   `packages/protocol/contracts/layer1/verifiers/SecureSgxVerifier.sol`
 
-- **Monotonic policy version.** `SecureSgxVerifier.enclaveAttributePolicyVersion` is bumped on every
-  `setEnclaveAttributePolicy` and is **never reset** (it survives `removeEnclaveAttributePolicy`), so a
-  removed-then-re-added pin gets a brand-new version and cannot silently re-enable instances that were
-  registered under the previous version. `removeEnclaveAttributePolicy` and `EnclaveAttributePolicySet`
-  were documented/extended accordingly (the event now carries the new version for off-chain audit).
+- **Monotonic policy version.** The per-MRENCLAVE policy version is bumped on every
+  `setEnclaveAttributePolicy` **and** every `removeEnclaveAttributePolicy`, and is **never reset**, so a
+  removed-then-re-added pin gets a brand-new version and cannot silently re-enable instances registered
+  under the previous version. Bumping on removal also lets `verifyProof` decide via a single version
+  comparison (no separate "is the pin configured" read). `EnclaveAttributePolicySet` now carries the new
+  version for off-chain audit.
+  `packages/protocol/contracts/layer1/verifiers/SecureSgxVerifier.sol`
+
+- **Storage layout tuned for cheap proof verification.** The proof-time re-check costs a fixed **~6
+  cold SLOADs** and `verifyProof` measures **constant ~7,696 gas regardless of instance count** (O(1)).
+  Two storage optimizations keep it flat even with the added MRSIGNER re-check: (1) the per-MRENCLAVE
+  `trusted` flag and `policyVersion` are co-located in one slot (`MrEnclaveState`), so one SLOAD yields
+  both; (2) bumping the version on removal removes the policy-struct read from the proof path. The
+  `policyVersion` packs into the instance's existing `addr`/`validSince` slot (no extra slot).
+  `packages/protocol/contracts/layer1/verifiers/SgxVerifier.sol`,
   `packages/protocol/contracts/layer1/verifiers/SecureSgxVerifier.sol`
 
 Tests added (`packages/protocol/test/layer1/verifiers/SgxVerifier.t.sol`):
@@ -387,13 +397,18 @@ Tests added (`packages/protocol/test/layer1/verifiers/SgxVerifier.t.sol`):
   bumps the version and keeps previously registered instances revoked.
 - `test_verifyProof_SucceedsForNewInstanceAfterReauthorization` — after re-authorization a fresh
   instance bound to the new version verifies while the old-version instance stays revoked.
-- `test_verifyProof_RevertWhen_MrEnclaveUntrustedAfterRegistration`,
-  `test_verifyProof_OwnerAddedInstanceIgnoresAllowlistChanges`, `test_registerInstance_RecordsMrEnclave`,
-  `test_addInstances_RecordsNoMrEnclave`, `test_registerInstance_RecordsPolicyVersion`,
-  `test_setEnclaveAttributePolicy_BumpsVersionOnEverySet` — base allowlist re-check, owner-added
-  exemption, and the recorded-measurement/version bookkeeping.
+- `test_verifyProof_RevertWhen_MrEnclaveUntrustedAfterRegistration` and
+  `test_verifyProof_RevertWhen_MrSignerUntrustedAfterRegistration` — untrusting either the MRENCLAVE or
+  the MRSIGNER allowlist entry revokes already-registered instances at proof time.
+- `test_verifyProof_AllowlistDisabledSkipsReCheck` — with the local report check off, the allowlist is
+  not re-checked (matching registration semantics).
+- `test_verifyProof_OwnerAddedInstanceIgnoresAllowlistChanges`, `test_registerInstance_RecordsMrEnclave`
+  (now also asserts MRSIGNER), `test_addInstances_RecordsNoMrEnclave`,
+  `test_registerInstance_RecordsPolicyVersion`, `test_setEnclaveAttributePolicy_BumpsVersionOnEverySet`
+  — base allowlist re-check, owner-added exemption, and the recorded-measurement/version bookkeeping.
 
-All 170 layer1 verifier tests pass (`forge test --match-path "test/layer1/verifiers/*"`).
+All 174 layer1 verifier tests pass (`forge test --match-path "test/layer1/verifiers/*"`). A throwaway
+gas harness confirmed `verifyProof` is constant at ~7,696 gas for 1 / 50 / 200 registered instances.
 
 ## Reviewed Surfaces
 

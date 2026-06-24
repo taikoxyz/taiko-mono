@@ -21,9 +21,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// the SGX program when it boots up. The off-chain remote attestation
     /// ensures the validity of the program hash and has the capability of
     /// bootstrapping the network with trustworthy instances.
-    /// @dev `mrEnclave` and `policyVersion` let `verifyProof` re-check the *current* enclave policy
-    /// at proof time, so revoking trust in a measurement (or changing/removing its policy) also stops
-    /// its already-registered instances — a registration-time-only check cannot.
+    /// @dev `mrEnclave`, `mrSigner` and `policyVersion` let `verifyProof` re-check the *current*
+    /// enclave policy at proof time, so revoking trust in a measurement/signer (or changing/removing
+    /// its policy) also stops its already-registered instances — a registration-time-only check
+    /// cannot.
     struct Instance {
         // The instance's ECDSA address (SGX signing key); the unit of identity for proof signatures.
         address addr;
@@ -39,6 +40,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         // `bytes32(0)` for an owner-added instance (`addInstances`) that carries no attestation and is
         // therefore exempt from the proof-time policy re-check.
         bytes32 mrEnclave;
+        // The attested enclave signer (MRSIGNER) this instance registered with (`bytes32(0)` for
+        // owner-added instances). Re-checked against the trusted-MRSIGNER allowlist at proof time
+        // while the local report check is enforced, so untrusting a signer revokes its instances.
+        bytes32 mrSigner;
     }
 
     /// @notice The expiry time for the SGX instance (3 months).
@@ -107,13 +112,28 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// getting multiple valid instanceIds.
     mapping(address instanceAddress => bool alreadyAttested) public addressRegistered;
 
+    /// @dev Per-MRENCLAVE state, packed into a single slot so `verifyProof` reads the allowlist flag
+    /// and the policy version in one SLOAD.
+    struct MrEnclaveState {
+        // Whether this MRENCLAVE is on the trusted allowlist (set via `setMrEnclave`, enforced at
+        // registration and proof time while `checkLocalEnclaveReport` is on).
+        bool trusted;
+        // The current per-MRENCLAVE policy generation, maintained by versioned subclasses
+        // (`SecureSgxVerifier`); always 0 in the base / non-versioned subclasses. `verifyProof`
+        // rejects an instance whose recorded `policyVersion` no longer equals this value.
+        uint32 policyVersion;
+    }
+
     /// @dev Relocated from the replaced AutomataDcapV3Attestation contract. The new Automata DCAP
     /// entrypoint verifies quote authenticity and TCB status but does NOT allowlist the application
     /// enclave's identity, so the trusted MRENCLAVE/MRSIGNER policy is enforced here to preserve the
     /// pre-migration security model. Enabled by default (set in the constructor); toggle off with
     /// toggleLocalReportCheck().
     bool public checkLocalEnclaveReport;
-    mapping(bytes32 mrEnclave => bool trusted) public trustedUserMrEnclave;
+    /// @dev Trusted-MRENCLAVE allowlist + policy version, co-located per measurement. Exposed via the
+    /// `trustedUserMrEnclave` view (allowlist flag) and, in versioned subclasses, a policy-version
+    /// view; `internal` so those subclasses can maintain the version in the same slot.
+    mapping(bytes32 mrEnclave => MrEnclaveState state) internal mrEnclaveState;
     mapping(bytes32 mrSigner => bool trusted) public trustedUserMrSigner;
 
     /// @notice Emitted when a new SGX instance is added to the registry.
@@ -180,9 +200,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         onlyOwner
         returns (uint256[] memory)
     {
-        // Owner-added instances carry no attested measurement, so they record no MRENCLAVE/policy
-        // version and are exempt from the proof-time enclave-policy re-check.
-        return _addInstances(_instances, true, bytes32(0), 0);
+        // Owner-added instances carry no attested measurement, so they record no MRENCLAVE/MRSIGNER/
+        // policy version and are exempt from the proof-time enclave-policy re-check.
+        return _addInstances(_instances, true, bytes32(0), bytes32(0), 0);
     }
 
     /// @notice Deletes SGX instances from the registry.
@@ -204,8 +224,15 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @param _mrEnclave The MRENCLAVE value.
     /// @param _trusted Whether the value is trusted.
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
-        trustedUserMrEnclave[_mrEnclave] = _trusted;
+        mrEnclaveState[_mrEnclave].trusted = _trusted;
         emit MrEnclaveUpdated(_mrEnclave, _trusted);
+    }
+
+    /// @notice Returns whether a given MRENCLAVE is on the trusted allowlist.
+    /// @param _mrEnclave The MRENCLAVE value.
+    /// @return Whether the MRENCLAVE is trusted.
+    function trustedUserMrEnclave(bytes32 _mrEnclave) external view returns (bool) {
+        return mrEnclaveState[_mrEnclave].trusted;
     }
 
     /// @notice Sets whether a given MRSIGNER is trusted for instance registration.
@@ -305,10 +332,12 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         // field at enclave-report offset 48 (raw-quote offset HEADER_LENGTH + 48).
         require((uint8(_rawQuote[ATTRIBUTES_OFFSET]) & SGX_FLAGS_DEBUG) == 0, SGX_DEBUG_ENCLAVE());
 
-        // Read the authenticated MRENCLAVE and full 16-byte ATTRIBUTES (FLAGS || XFRM) from the
-        // verified enclave report for the attribute policies below; both are bound to the report by
-        // the body-hash check above.
+        // Read the authenticated MRENCLAVE, MRSIGNER and full 16-byte ATTRIBUTES (FLAGS || XFRM) from
+        // the verified enclave report for the attribute policies below; all are bound to the report by
+        // the body-hash check above. MRENCLAVE and MRSIGNER are recorded on the instance so
+        // `verifyProof` can re-check the current allowlist/policy at proof time.
         bytes32 mrEnclave = bytes32(_rawQuote[MRENCLAVE_OFFSET:MRENCLAVE_OFFSET + 32]);
+        bytes32 mrSigner = bytes32(_rawQuote[MRSIGNER_OFFSET:MRSIGNER_OFFSET + 32]);
         bytes16 attributes = bytes16(_rawQuote[ATTRIBUTES_OFFSET:ATTRIBUTES_OFFSET + 16]);
 
         // Universal forbidden-attribute floor, enforced on every network (DEBUG / PROVISION_KEY /
@@ -325,9 +354,8 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         uint32 policyVersion = _validateEnclaveAttributes(mrEnclave, attributes);
 
         if (checkLocalEnclaveReport) {
-            bytes32 mrSigner = bytes32(_rawQuote[MRSIGNER_OFFSET:MRSIGNER_OFFSET + 32]);
             require(
-                trustedUserMrEnclave[mrEnclave] && trustedUserMrSigner[mrSigner],
+                mrEnclaveState[mrEnclave].trusted && trustedUserMrSigner[mrSigner],
                 SGX_INVALID_ATTESTATION()
             );
         }
@@ -340,9 +368,11 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         addresses[0] = address(bytes20(_rawQuote[REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 20]));
 
         // An owner-submitted registration is as trusted as `addInstances`, so it skips the validity
-        // delay; permissionless (and registrar) registrations remain delayed. The attested MRENCLAVE
-        // and its policy version are recorded so `verifyProof` can re-check the current enclave policy.
-        return _addInstances(addresses, msg.sender == owner(), mrEnclave, policyVersion)[0];
+        // delay; permissionless (and registrar) registrations remain delayed. The attested MRENCLAVE,
+        // MRSIGNER and policy version are recorded so `verifyProof` can re-check the current enclave
+        // policy and allowlist.
+        return
+            _addInstances(addresses, msg.sender == owner(), mrEnclave, mrSigner, policyVersion)[0];
     }
 
     /// @inheritdoc IProofVerifier
@@ -403,26 +433,26 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     }
 
     /// @dev Re-evaluates at proof time whether a stored instance's attested enclave is still trusted
-    /// under the verifier's *current* policy, so revoking trust in a measurement also stops its
+    /// under the verifier's *current* policy, so revoking trust in a measurement/signer also stops its
     /// already-registered instances (a registration-time-only check cannot). Owner-added instances
-    /// (`addInstances`) carry no attested measurement (`_mrEnclave == 0`) and are always trusted; the
-    /// owner revokes them with `deleteInstances`. The base re-checks the trusted-MRENCLAVE allowlist
-    /// exactly as `registerInstance` did, and only while it is enforced. Production subclasses
-    /// override this to additionally require the per-MRENCLAVE policy that gated registration to still
-    /// be configured and unchanged (matched by version).
-    /// @param _mrEnclave The instance's attested MRENCLAVE (`bytes32(0)` for owner-added instances).
+    /// (`addInstances`) carry no attested measurement (`mrEnclave == 0`) and are always trusted; the
+    /// owner revokes them with `deleteInstances`. The base re-checks the trusted-MRENCLAVE and
+    /// trusted-MRSIGNER allowlist exactly as `registerInstance` did, and only while it is enforced.
+    /// Production subclasses override this to additionally require the per-MRENCLAVE policy that gated
+    /// registration to still be configured and unchanged (matched by version). Takes the whole stored
+    /// `Instance` so subclasses can consult any recorded field without a signature change.
+    /// @param _instance The stored instance record being verified.
     /// @return Whether the instance may still verify proofs.
-    function _isEnclaveStillTrusted(
-        bytes32 _mrEnclave,
-        uint32 /*_policyVersion*/
-    )
+    function _isEnclaveStillTrusted(Instance memory _instance)
         internal
         view
         virtual
         returns (bool)
     {
-        if (_mrEnclave == bytes32(0)) return true;
-        return !checkLocalEnclaveReport || trustedUserMrEnclave[_mrEnclave];
+        if (_instance.mrEnclave == bytes32(0)) return true;
+        if (!checkLocalEnclaveReport) return true;
+        return
+            mrEnclaveState[_instance.mrEnclave].trusted && trustedUserMrSigner[_instance.mrSigner];
     }
 
     /// @dev The delay applied to a non-owner `registerInstance` registration before the instance
@@ -440,6 +470,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         address[] memory _instances,
         bool instantValid,
         bytes32 _mrEnclave,
+        bytes32 _mrSigner,
         uint32 _policyVersion
     )
         private
@@ -462,7 +493,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             require(_instances[i] != address(0), SGX_INVALID_INSTANCE());
 
             instances[nextInstanceId] =
-                Instance(_instances[i], validSince, _policyVersion, _mrEnclave);
+                Instance(_instances[i], validSince, _policyVersion, _mrEnclave, _mrSigner);
             ids[i] = nextInstanceId;
 
             emit InstanceAdded(nextInstanceId, _instances[i], address(0), validSince);
@@ -477,9 +508,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         Instance memory inst = instances[id];
         require(instance == inst.addr, SGX_INVALID_INSTANCE());
 
-        // Re-check the current enclave policy: an instance whose MRENCLAVE policy has since been
-        // changed or removed is rejected even before expiry (revocation, not just deletion).
-        if (!_isEnclaveStillTrusted(inst.mrEnclave, inst.policyVersion)) return false;
+        // Re-check the current enclave policy: an instance whose MRENCLAVE/MRSIGNER trust or policy
+        // has since been revoked or changed is rejected even before expiry (revocation, not deletion).
+        if (!_isEnclaveStillTrusted(inst)) return false;
 
         return
             inst.validSince <= block.timestamp
