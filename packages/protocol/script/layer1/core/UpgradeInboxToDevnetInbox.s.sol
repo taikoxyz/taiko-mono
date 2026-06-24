@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {Script} from "forge-std/src/Script.sol";
-import {console2} from "forge-std/src/console2.sol";
-import {IInbox} from "src/layer1/core/iface/IInbox.sol";
-import {DevnetInbox} from "src/layer1/devnet/DevnetInbox.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+import { Script } from "forge-std/src/Script.sol";
+import { console2 } from "forge-std/src/console2.sol";
+import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { DevnetInbox } from "src/layer1/devnet/DevnetInbox.sol";
 
 /// @title UpgradeInboxToDevnetInbox
 /// @notice Deploys a DevnetInbox implementation and upgrades the configured Inbox proxy to it.
@@ -28,9 +28,12 @@ contract UpgradeInboxToDevnetInbox is Script {
         _validateContract("INBOX_PROXY", inboxProxy);
 
         IInbox.Config memory config = IInbox(inboxProxy).getConfig();
+        address proofVerifier = vm.envOr("PROOF_VERIFIER", config.proofVerifier);
+        _validateContract("PROOF_VERIFIER", proofVerifier);
+
         address inboxImpl = address(
             new DevnetInbox(
-                config.proofVerifier,
+                proofVerifier,
                 config.proposerChecker,
                 config.proverWhitelist,
                 config.signalService,
@@ -40,7 +43,7 @@ contract UpgradeInboxToDevnetInbox is Script {
 
         console2.log("INBOX_PROXY=", inboxProxy);
         console2.log("DEVNET_INBOX_IMPL=", inboxImpl);
-        console2.log("PROOF_VERIFIER=", config.proofVerifier);
+        console2.log("PROOF_VERIFIER=", proofVerifier);
         console2.log("PROPOSER_CHECKER=", config.proposerChecker);
         console2.log("PROVER_WHITELIST=", config.proverWhitelist);
         console2.log("SIGNAL_SERVICE=", config.signalService);

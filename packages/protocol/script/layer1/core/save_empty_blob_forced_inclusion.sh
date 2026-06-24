@@ -97,4 +97,4 @@ echo "VALUE_WEI=$VALUE_WEI"
     --value "$VALUE_WEI" \
     --blob \
     --path "$BLOB_PATH" \
-    "${tx_args[@]}"
+    ${tx_args+"${tx_args[@]}"}
