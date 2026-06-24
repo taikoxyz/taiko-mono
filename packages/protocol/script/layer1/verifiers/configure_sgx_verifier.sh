@@ -2,8 +2,9 @@
 
 # Simple wrapper for ConfigureSgxVerifier.s.sol
 #
-# Configures the SGX verifier's trusted MRENCLAVE/MRSIGNER allowlist, registers
-# SGX instances from raw Intel DCAP quotes, and toggles local-report enforcement.
+# Configures the SGX verifier's trusted MRENCLAVE/MRSIGNER allowlist, SecureSgxVerifier
+# attribute policy, registers SGX instances from raw Intel DCAP quotes, and toggles
+# local-report enforcement.
 #
 # NOTE: TCB info and QE identity are NO LONGER configured here. They are sourced
 # from Automata's on-chain PCCS through the DCAP attestation entrypoint, so the
@@ -28,6 +29,8 @@ Options:
   --env NAME                    Load a predefined SGX_VERIFIER_ADDRESS (see list below)
   --mrenclave HASH              Trust MRENCLAVE (0x... format)
   --mrsigner HASH               Trust MRSIGNER (0x... format)
+  --attribute-policy HASH MASK EXPECTED
+                                Set SecureSgxVerifier ATTRIBUTES policy for MRENCLAVE
   --unset-mrenclave HASH        Untrust MRENCLAVE
   --unset-mrsigner HASH         Untrust MRSIGNER
   --quote HEX                   Register an SGX instance from a raw Intel DCAP quote
@@ -109,6 +112,7 @@ load_env() {
 # Parse arguments
 SET_MRENCLAVE=false
 SET_MRSIGNER=false
+SET_ATTRIBUTE_POLICY=false
 REGISTER_INSTANCE=false
 TOGGLE_CHECK=false
 MRENCLAVE_ENABLE=true
@@ -135,6 +139,14 @@ while [[ $# -gt 0 ]]; do
             SET_MRSIGNER=true
             MRSIGNER_ENABLE=true
             shift 2
+            ;;
+        --attribute-policy)
+            [[ $# -lt 4 ]] && { echo "Error: --attribute-policy requires HASH MASK EXPECTED"; exit 1; }
+            export ATTRIBUTE_POLICY_MRENCLAVE="$2"
+            export ATTRIBUTE_POLICY_MASK="$3"
+            export ATTRIBUTE_POLICY_EXPECTED="$4"
+            SET_ATTRIBUTE_POLICY=true
+            shift 4
             ;;
         --unset-mrenclave)
             export MRENCLAVE="$2"
@@ -178,6 +190,7 @@ fi
 # Export configuration flags consumed by ConfigureSgxVerifier.s.sol
 export SET_MRENCLAVE=$SET_MRENCLAVE
 export SET_MRSIGNER=$SET_MRSIGNER
+export SET_ATTRIBUTE_POLICY=$SET_ATTRIBUTE_POLICY
 export REGISTER_INSTANCE=$REGISTER_INSTANCE
 export TOGGLE_CHECK=$TOGGLE_CHECK
 export MRENCLAVE_ENABLE=$MRENCLAVE_ENABLE
@@ -186,6 +199,11 @@ export MRSIGNER_ENABLE=$MRSIGNER_ENABLE
 echo "=== Configuration ==="
 echo "RPC: $FORK_URL"
 echo "SGX Verifier: $SGX_VERIFIER_ADDRESS"
+if [[ "$SET_ATTRIBUTE_POLICY" == "true" ]]; then
+    echo "Attribute policy MRENCLAVE: $ATTRIBUTE_POLICY_MRENCLAVE"
+    echo "Attribute policy mask: $ATTRIBUTE_POLICY_MASK"
+    echo "Attribute policy expected: $ATTRIBUTE_POLICY_EXPECTED"
+fi
 [[ "$SET_MRENCLAVE" == "true" ]] && echo "MRENCLAVE: $MRENCLAVE (enable=$MRENCLAVE_ENABLE)"
 [[ "$SET_MRSIGNER" == "true" ]] && echo "MRSIGNER: $MRSIGNER (enable=$MRSIGNER_ENABLE)"
 [[ "$REGISTER_INSTANCE" == "true" ]] && echo "Register instance: yes (from raw DCAP quote)"

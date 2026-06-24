@@ -5,8 +5,8 @@ This directory contains scripts to configure the SGX Verifier after deployment.
 ## Files
 
 - **[ConfigureSgxVerifier.s.sol](./ConfigureSgxVerifier.s.sol)** - Solidity script that configures the
-  SGX verifier's trusted MRENCLAVE/MRSIGNER allowlist, registers instances, and toggles
-  local-report enforcement.
+  SGX verifier's trusted MRENCLAVE/MRSIGNER allowlist, SecureSgxVerifier attribute policy,
+  registers instances, and toggles local-report enforcement.
 - **[configure_sgx_verifier.sh](./configure_sgx_verifier.sh)** - Bash wrapper for easier usage.
 
 > **What changed:** TCB info and QE identity are **no longer configured on-chain by Taiko**. They
@@ -73,6 +73,16 @@ Untrust an MR_SIGNER value:
 
 ```bash
 --unset-mrsigner 0xYOUR_MRSIGNER_HASH
+```
+
+### Set SecureSgxVerifier Attribute Policy
+
+`SecureSgxVerifier` fails closed until an ATTRIBUTES policy is configured for the quoted MRENCLAVE.
+The strict production policy normally pins the FLAGS bytes to `INIT | MODE64BIT` and leaves XFRM
+unchecked:
+
+```bash
+--attribute-policy 0xYOUR_MRENCLAVE_HASH 0xffffffffffffffff0000000000000000 0x05000000000000000000000000000000
 ```
 
 ### Register SGX Instance
@@ -143,6 +153,8 @@ This automatically sets `SGX_VERIFIER_ADDRESS`.
 
 - `MRENCLAVE_ENABLE` - Set to `false` to untrust instead of trust (default: `true`)
 - `MRSIGNER_ENABLE` - Set to `false` to untrust instead of trust (default: `true`)
+- `ATTRIBUTE_POLICY_MRENCLAVE`, `ATTRIBUTE_POLICY_MASK`, `ATTRIBUTE_POLICY_EXPECTED` - Values used
+  by `SET_ATTRIBUTE_POLICY=true` when configuring `SecureSgxVerifier` directly through Forge.
 
 ## Examples
 
@@ -174,6 +186,9 @@ PRIVATE_KEY=$PRIVATE_KEY \
 FORK_URL=https://ethereum-hoodi-rpc.publicnode.com \
 SGX_VERIFIER_ADDRESS=0x... \
 ./script/layer1/verifiers/configure_sgx_verifier.sh \
+  --attribute-policy 0x<mrEnclave> 0xffffffffffffffff0000000000000000 0x05000000000000000000000000000000 \
+  --mrenclave 0x<mrEnclave> \
+  --mrsigner 0x<mrSigner> \
   --quote 0x<rawQuoteHex>
 ```
 
@@ -184,8 +199,12 @@ PRIVATE_KEY=$PRIVATE_KEY \
 SGX_VERIFIER_ADDRESS=0x... \
 SET_MRENCLAVE=true \
 SET_MRSIGNER=true \
+SET_ATTRIBUTE_POLICY=true \
 MRENCLAVE=0x... \
 MRSIGNER=0x... \
+ATTRIBUTE_POLICY_MRENCLAVE=0x... \
+ATTRIBUTE_POLICY_MASK=0xffffffffffffffff0000000000000000 \
+ATTRIBUTE_POLICY_EXPECTED=0x05000000000000000000000000000000 \
 forge script script/layer1/verifiers/ConfigureSgxVerifier.s.sol:ConfigureSgxVerifier \
   --fork-url https://ethereum-hoodi-rpc.publicnode.com \
   --broadcast \
@@ -216,6 +235,8 @@ The script interacts with these `SgxVerifier` functions:
 
 - `setMrEnclave(bytes32 _mrEnclave, bool _trusted)` - Configure trusted MRENCLAVE
 - `setMrSigner(bytes32 _mrSigner, bool _trusted)` - Configure trusted MRSIGNER
+- `setEnclaveAttributePolicy(bytes32 _mrEnclave, bytes16 _mask, bytes16 _expected)` - Configure the
+  `SecureSgxVerifier` ATTRIBUTES pin for a trusted MRENCLAVE
 - `toggleLocalReportCheck()` - Toggle MRENCLAVE/MRSIGNER allowlist enforcement
 - `registerInstance(bytes _rawQuote)` - Register an SGX instance from a raw Intel DCAP quote
 
