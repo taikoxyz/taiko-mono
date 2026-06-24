@@ -11,8 +11,6 @@ library LibL1Addrs {
     address public constant DAO_CONTROLLER = 0x75Ba76403b13b26AD1beC70D6eE937314eeaCD0a;
     address public constant DAO_OPTIMISTIC_TOKEN_VOTING_PLUGIN =
         0x989E348275b659d36f8751ea1c10D146211650BE;
-    address public constant SECURITY_COUNCIL_SEAT_MULTISIG =
-        0xb47fE76aC588101BFBdA9E68F66433bA51E8029a;
 
     address public constant FORCED_INCLUSION_STORE = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
     address public constant TAIKO_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
@@ -37,6 +35,9 @@ library LibL1Addrs {
     address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
+
+    // admin.taiko.eth multisig
+    address public constant MULTISIG_ADMIN_TAIKO_ETH = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
 
     // Third-party addresses
     address public constant ENS_REVERSE_REGISTRAR = 0xa58E81fe9b61B5c3fE2AFD33CF304c454AbFc7Cb;

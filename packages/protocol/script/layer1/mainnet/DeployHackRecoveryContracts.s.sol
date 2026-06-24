@@ -44,9 +44,7 @@ contract DeployHackRecoveryContracts is Script {
     function _deployImplementations() private returns (Deployment memory deployment_) {
         deployment_.signalServiceImpl = address(
             new SignalService(
-                LibL1Addrs.INBOX,
-                LibL2Addrs.SIGNAL_SERVICE,
-                LibL1Addrs.SECURITY_COUNCIL_SEAT_MULTISIG
+                LibL1Addrs.INBOX, LibL2Addrs.SIGNAL_SERVICE, LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
             )
         );
 
@@ -55,7 +53,7 @@ contract DeployHackRecoveryContracts is Script {
                 LibL1Addrs.SHARED_RESOLVER,
                 LibL1Addrs.SIGNAL_SERVICE,
                 LibL1Addrs.QUOTA_MANAGER,
-                LibL1Addrs.SECURITY_COUNCIL_SEAT_MULTISIG
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
             )
         );
 
@@ -108,7 +106,7 @@ contract DeployHackRecoveryContracts is Script {
         console2.log("NEW_SGXRETH_VERIFIER:", _deployment.sgxRethVerifier);
         console2.log("MAINNET_VERIFIER:", _deployment.mainnetVerifier);
         console2.log("MAINNET_INBOX_NEW_IMPL:", _deployment.mainnetInboxImpl);
-        console2.log("PAUSER:", LibL1Addrs.SECURITY_COUNCIL_SEAT_MULTISIG);
+        console2.log("PAUSER:", LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH);
         console2.log("QUOTA_MANAGER_PROXY:", LibL1Addrs.QUOTA_MANAGER);
     }
 }
