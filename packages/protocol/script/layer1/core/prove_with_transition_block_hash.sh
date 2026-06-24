@@ -170,7 +170,13 @@ echo "LAST_PROPOSAL_HASH=0x$LAST_PROPOSAL_HASH_HEX"
 echo "LAST_BLOCK_HASH=0x$LAST_BLOCK_HASH_HEX"
 echo "PROVE_DATA=$PROVE_DATA"
 
-"$CAST_BIN" send "$INBOX" "prove(bytes,bytes)" "$PROVE_DATA" "$PROOF" \
-    --rpc-url "$RPC_URL" \
-    --private-key "$PRIVATE_KEY" \
-    "${tx_args[@]}"
+if ((${#tx_args[@]} == 0)); then
+    "$CAST_BIN" send "$INBOX" "prove(bytes,bytes)" "$PROVE_DATA" "$PROOF" \
+        --rpc-url "$RPC_URL" \
+        --private-key "$PRIVATE_KEY"
+else
+    "$CAST_BIN" send "$INBOX" "prove(bytes,bytes)" "$PROVE_DATA" "$PROOF" \
+        --rpc-url "$RPC_URL" \
+        --private-key "$PRIVATE_KEY" \
+        "${tx_args[@]}"
+fi
