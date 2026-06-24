@@ -5,7 +5,7 @@ import {UUPSUpgradeable} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeab
 import {Script} from "forge-std/src/Script.sol";
 import {console2} from "forge-std/src/console2.sol";
 import {IInbox} from "src/layer1/core/iface/IInbox.sol";
-import {Inbox} from "src/layer1/core/impl/Inbox.sol";
+import {DevnetInbox} from "src/layer1/devnet/DevnetInbox.sol";
 import {MainnetBridge} from "src/layer1/mainnet/MainnetBridge.sol";
 import {MainnetERC20Vault} from "src/layer1/mainnet/MainnetERC20Vault.sol";
 import {SignalService} from "src/shared/signal/SignalService.sol";
@@ -86,7 +86,15 @@ contract UpgradeSelectedL1Contracts is Script {
         _upgradeTo("ERC20Vault", _config.erc20VaultProxy, erc20VaultImpl);
 
         IInbox.Config memory inboxConfig = IInbox(_config.inboxProxy).getConfig();
-        address inboxImpl = address(new Inbox(inboxConfig));
+        address inboxImpl = address(
+            new DevnetInbox(
+                inboxConfig.proofVerifier,
+                inboxConfig.proposerChecker,
+                inboxConfig.proverWhitelist,
+                inboxConfig.signalService,
+                inboxConfig.bondToken
+            )
+        );
         _upgradeTo("Inbox", _config.inboxProxy, inboxImpl);
     }
 
