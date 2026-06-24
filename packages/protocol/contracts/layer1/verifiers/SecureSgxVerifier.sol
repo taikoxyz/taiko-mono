@@ -39,7 +39,11 @@ contract SecureSgxVerifier is SgxVerifier {
     /// @param mrEnclave The application-enclave measurement.
     /// @param mask The checked ATTRIBUTES bits.
     /// @param expected The required value of the checked bits.
-    event EnclaveAttributePolicySet(bytes32 indexed mrEnclave, bytes16 mask, bytes16 expected);
+    /// @param version The new policy version; instances registered under this pin record it and are
+    /// revoked once it no longer matches.
+    event EnclaveAttributePolicySet(
+        bytes32 indexed mrEnclave, bytes16 mask, bytes16 expected, uint32 version
+    );
 
     /// @notice Emitted when an MRENCLAVE's ATTRIBUTES pin is removed.
     /// @param mrEnclave The application-enclave measurement.
@@ -100,20 +104,45 @@ contract SecureSgxVerifier is SgxVerifier {
             _expected & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0), SGX_INVALID_ATTRIBUTE_POLICY()
         );
 
+        // Bump the version on every set (including an in-place edit) so any change revokes instances
+        // registered under the previous pin. The counter is never reset, so a removed-then-re-added
+        // pin gets a brand-new version and cannot re-enable previously registered instances. The
+        // version shares the per-MRENCLAVE slot with the allowlist flag, so `verifyProof` reads both
+        // in one SLOAD.
+        uint32 version = mrEnclaveState[_mrEnclave].policyVersion + 1;
+        mrEnclaveState[_mrEnclave].policyVersion = version;
+
         enclaveAttributePolicy[_mrEnclave] = AttributePolicy(_mask, _expected);
-        emit EnclaveAttributePolicySet(_mrEnclave, _mask, _expected);
+        emit EnclaveAttributePolicySet(_mrEnclave, _mask, _expected, version);
     }
 
-    /// @notice Removes the ATTRIBUTES pin for an enclave measurement, after which registration for
-    /// that MRENCLAVE fails closed until a new pin is set.
+    /// @notice Returns the current per-MRENCLAVE policy version (the generation an instance must still
+    /// match to verify proofs). Zero means the pin was never set.
+    /// @param _mrEnclave The application-enclave measurement.
+    /// @return The current policy version.
+    function enclaveAttributePolicyVersion(bytes32 _mrEnclave) external view returns (uint32) {
+        return mrEnclaveState[_mrEnclave].policyVersion;
+    }
+
+    /// @notice Removes the ATTRIBUTES pin for an enclave measurement. Registration for that MRENCLAVE
+    /// then fails closed until a new pin is set, and — because `verifyProof` re-checks the current pin
+    /// — every instance already registered under it is revoked (invalidated, not deleted) and can no
+    /// longer verify proofs.
     /// @dev Callable by the owner or the `registrar` (the SGX-instance registrar set at
     /// construction); the registrar can only remove pins, so it can fail-close a compromised enclave
     /// but cannot relax or re-admit one. When `registrar` is `address(0)`, removal is owner-only.
+    /// Removal bumps the monotonic policy version (so `verifyProof` needs only a single version
+    /// comparison to reject revoked instances) and the counter is never reset, so a later re-add gets
+    /// a fresh version and cannot re-enable the revoked instances.
     /// @param _mrEnclave The application-enclave measurement whose pin is removed.
     function removeEnclaveAttributePolicy(bytes32 _mrEnclave) external onlyOwnerOr(registrar) {
         require(
             enclaveAttributePolicy[_mrEnclave].mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET()
         );
+        // Bump the version so every instance registered under this pin is revoked at proof time by a
+        // single version mismatch; no live instance can hold the bumped version because registration
+        // for this MRENCLAVE is now fail-closed until a new pin is set (which bumps again).
+        mrEnclaveState[_mrEnclave].policyVersion += 1;
         delete enclaveAttributePolicy[_mrEnclave];
         emit EnclaveAttributePolicyRemoved(_mrEnclave);
     }
@@ -134,7 +163,8 @@ contract SecureSgxVerifier is SgxVerifier {
 
     /// @inheritdoc SgxVerifier
     /// @dev Fail-closed per-MRENCLAVE ATTRIBUTES pin: the enclave must have a configured policy and
-    /// its attested ATTRIBUTES must match the pinned profile over the checked bits.
+    /// its attested ATTRIBUTES must match the pinned profile over the checked bits. Returns the
+    /// current policy version so it is recorded on the instance for the `verifyProof` re-check.
     function _validateEnclaveAttributes(
         bytes32 _mrEnclave,
         bytes16 _attributes
@@ -142,10 +172,31 @@ contract SecureSgxVerifier is SgxVerifier {
         internal
         view
         override
+        returns (uint32 policyVersion_)
     {
         AttributePolicy memory policy = enclaveAttributePolicy[_mrEnclave];
         require(policy.mask != bytes16(0), SGX_ATTRIBUTE_POLICY_NOT_SET());
         require(_attributes & policy.mask == policy.expected, SGX_ATTRIBUTE_MISMATCH());
+        return mrEnclaveState[_mrEnclave].policyVersion;
+    }
+
+    /// @inheritdoc SgxVerifier
+    /// @dev Additionally requires the per-MRENCLAVE pin that gated registration to still be in force:
+    /// any edit, or a removal (which bumps the version too), changes the version so the recorded
+    /// version no longer matches and the instance is revoked. Owner-added instances (`mrEnclave == 0`)
+    /// are exempt, and the base trusted-MRENCLAVE/MRSIGNER allowlist re-check still applies on top.
+    /// Reads the per-MRENCLAVE slot once: it carries both the current version and the allowlist flag.
+    function _isEnclaveStillTrusted(Instance memory _instance)
+        internal
+        view
+        override
+        returns (bool)
+    {
+        if (_instance.mrEnclave == bytes32(0)) return true;
+        MrEnclaveState memory state = mrEnclaveState[_instance.mrEnclave];
+        if (state.policyVersion != _instance.policyVersion) return false;
+        if (!checkLocalEnclaveReport) return true;
+        return state.trusted && trustedUserMrSigner[_instance.mrSigner];
     }
 
     /// @inheritdoc SgxVerifier
