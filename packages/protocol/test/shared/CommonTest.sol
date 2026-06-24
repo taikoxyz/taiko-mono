@@ -14,6 +14,7 @@ import "@optimism/packages/contracts-bedrock/src/EAS/Common.sol";
 
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/shared/bridge/Bridge.sol";
+import "src/shared/bridge/QuotaManager.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/shared/vault/BridgedERC1155.sol";
@@ -164,7 +165,7 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (SignalService)
     {
-        SignalService impl = new SignalService(authorizedSyncer, remoteSignalService);
+        SignalService impl = new SignalService(authorizedSyncer, remoteSignalService, address(0));
         SignalService proxy = SignalService(
             deploy({
                 name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))
@@ -181,8 +182,9 @@ abstract contract CommonTest is Test, Script {
         internal
         returns (SignalService)
     {
-        SignalService_WithoutProofVerification impl =
-            new SignalService_WithoutProofVerification(authorizedSyncer, remoteSignalService);
+        SignalService_WithoutProofVerification impl = new SignalService_WithoutProofVerification(
+            authorizedSyncer, remoteSignalService, address(0)
+        );
         SignalService proxy = SignalService(
             deploy({
                 name: "", impl: address(impl), data: abi.encodeCall(SignalService.init, (owner))
@@ -226,17 +228,29 @@ abstract contract CommonTest is Test, Script {
 
     function deployBridge(address bridgeImpl) internal returns (Bridge) {
         return Bridge(
-            deploy({
-                name: "bridge", impl: bridgeImpl, data: abi.encodeCall(Bridge.init, (address(0)))
-            })
+            payable(deploy({
+                    name: "bridge",
+                    impl: bridgeImpl,
+                    data: abi.encodeCall(Bridge.init, (address(0)))
+                }))
         );
+    }
+
+    function deployQuotaManager(
+        address bridge,
+        address erc20Vault
+    )
+        internal
+        returns (QuotaManager)
+    {
+        return new QuotaManager(deployer, bridge, erc20Vault, 24 hours);
     }
 
     function deployERC20Vault() internal returns (ERC20Vault) {
         return ERC20Vault(
             deploy({
                 name: "erc20_vault",
-                impl: address(new ERC20Vault(address(resolver))),
+                impl: address(new ERC20Vault(address(resolver), address(0))),
                 data: abi.encodeCall(ERC20Vault.init, (address(0)))
             })
         );

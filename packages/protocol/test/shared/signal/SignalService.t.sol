@@ -88,9 +88,48 @@ contract TestSignalService is CommonTest {
         signalService.getCheckpoint(42);
     }
 
+    function test_getCheckpoint_RevertWhen_OnlyDeprecatedCheckpointExists() public {
+        uint48 blockNumber = 42;
+        _storeDeprecatedCheckpoint(blockNumber, bytes32(uint256(1)), bytes32(uint256(2)));
+
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        signalService.getCheckpoint(blockNumber);
+    }
+
+    function test_proveSignalReceived_RevertWhen_OnlyDeprecatedCheckpointExists() public {
+        _storeDeprecatedCheckpoint(
+            uint48(VALID_PROOF_BLOCK_ID), VALID_BLOCK_HASH, VALID_PROOF_STATE_ROOT
+        );
+
+        vm.expectRevert(SignalService.SS_CHECKPOINT_NOT_FOUND.selector);
+        signalService.proveSignalReceived(
+            SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, VALID_SIGNAL_PROOF
+        );
+    }
+
     function test_verifySignalReceived_RevertWhen_SignalNotCached() public {
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
         signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_verifySignalReceived_RevertWhen_OnlyDeprecatedCacheExists() public {
+        bytes32 slot = signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 deprecatedCacheSlot = keccak256(abi.encode(slot, uint256(253)));
+
+        vm.store(address(signalService), deprecatedCacheSlot, bytes32(uint256(1)));
+
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_proveSignalReceived_RevertWhen_OnlyDeprecatedCacheExists() public {
+        bytes32 slot = signalService.getSignalSlot(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL);
+        bytes32 deprecatedCacheSlot = keccak256(abi.encode(slot, uint256(253)));
+
+        vm.store(address(signalService), deprecatedCacheSlot, bytes32(uint256(1)));
+
+        vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
+        signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
     }
 
     function test_proveSignalReceived_RevertWhen_ProofBytesEmpty() public {
@@ -192,6 +231,76 @@ contract TestSignalService is CommonTest {
         vm.chainId(originalChainId);
     }
 
+    // ---------------------------------------------------------------
+    // Pause authorization (owner or designated immutable pauser)
+    // ---------------------------------------------------------------
+
+    function test_pause_byDesignatedPauser() public {
+        SignalService svc = _deployWithPauser(Alice);
+
+        vm.prank(Alice);
+        svc.pause();
+        assertTrue(svc.paused());
+
+        vm.prank(Alice);
+        svc.unpause();
+        assertFalse(svc.paused());
+    }
+
+    function test_pause_byOwner_stillWorks() public {
+        SignalService svc = _deployWithPauser(Alice);
+
+        vm.prank(deployer);
+        svc.pause();
+        assertTrue(svc.paused());
+
+        vm.prank(deployer);
+        svc.unpause();
+        assertFalse(svc.paused());
+    }
+
+    function test_pause_RevertWhen_notOwnerOrPauser() public {
+        SignalService svc = _deployWithPauser(Alice);
+
+        vm.prank(Bob);
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        svc.pause();
+    }
+
+    function test_pause_RevertWhen_zeroPauser_nonOwner() public {
+        // `signalService` from setUp was deployed with a zero pauser -> owner-only.
+        vm.prank(Alice);
+        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
+        signalService.pause();
+    }
+
+    // ---------------------------------------------------------------
+    // Paused state blocks signal proving and verification
+    // ---------------------------------------------------------------
+
+    function test_proveSignalReceived_RevertWhen_Paused() public {
+        vm.prank(deployer);
+        signalService.pause();
+
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        signalService.proveSignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function test_verifySignalReceived_RevertWhen_Paused() public {
+        vm.prank(deployer);
+        signalService.pause();
+
+        vm.expectRevert(EssentialContract.INVALID_PAUSE_STATUS.selector);
+        signalService.verifySignalReceived(SOURCE_CHAIN_ID, REMOTE_APP, VALID_SIGNAL, hex"");
+    }
+
+    function _deployWithPauser(address pauser) private returns (SignalService) {
+        SignalService impl = new SignalService(AUTHORIZED_SYNCER, REMOTE_SIGNAL_SERVICE, pauser);
+        return SignalService(
+            address(new ERC1967Proxy(address(impl), abi.encodeCall(SignalService.init, (deployer))))
+        );
+    }
+
     function _saveCheckpoint(uint64 blockNumber, bytes32 stateRoot) private {
         vm.prank(AUTHORIZED_SYNCER);
         signalService.saveCheckpoint(
@@ -199,5 +308,18 @@ contract TestSignalService is CommonTest {
                 blockNumber: uint48(blockNumber), blockHash: VALID_BLOCK_HASH, stateRoot: stateRoot
             })
         );
+    }
+
+    function _storeDeprecatedCheckpoint(
+        uint48 blockNumber,
+        bytes32 blockHash,
+        bytes32 stateRoot
+    )
+        private
+    {
+        bytes32 deprecatedRecordSlot = keccak256(abi.encode(uint256(blockNumber), uint256(254)));
+
+        vm.store(address(signalService), deprecatedRecordSlot, blockHash);
+        vm.store(address(signalService), bytes32(uint256(deprecatedRecordSlot) + 1), stateRoot);
     }
 }
