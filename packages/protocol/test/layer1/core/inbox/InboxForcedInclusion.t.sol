@@ -6,6 +6,7 @@ pragma solidity ^0.8.24;
 import { InboxTestBase } from "./InboxTestBase.sol";
 import { IForcedInclusionStore } from "src/layer1/core/iface/IForcedInclusionStore.sol";
 import { IInbox } from "src/layer1/core/iface/IInbox.sol";
+import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/core/libs/LibBlobs.sol";
 import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol";
 
@@ -13,7 +14,16 @@ import { LibForcedInclusion } from "src/layer1/core/libs/LibForcedInclusion.sol"
 contract InboxForcedInclusionTest is InboxTestBase {
     LibForcedInclusion.Storage private feeStore;
 
-    function test_saveForcedInclusion_refundsExcessPayment() public {
+    function test_saveForcedInclusion_RevertWhen_Disabled() public {
+        LibBlobs.BlobReference memory forcedRef =
+            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
+
+        vm.expectRevert(Inbox.ForcedInclusionsDisabled.selector);
+        vm.prank(proposer);
+        inbox.saveForcedInclusion(forcedRef);
+    }
+
+    function disabled_test_saveForcedInclusion_refundsExcessPayment() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -39,7 +49,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(balanceBefore - balanceAfter, requiredFee, "only required fee deducted");
     }
 
-    function test_saveForcedInclusion_RevertWhen_InsufficientFee() public {
+    function disabled_test_saveForcedInclusion_RevertWhen_InsufficientFee() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -58,7 +68,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         inbox.saveForcedInclusion{ value: insufficientFee }(forcedRef);
     }
 
-    function test_saveForcedInclusion_RevertWhen_MultipleBlobsProvided() public {
+    function disabled_test_saveForcedInclusion_RevertWhen_MultipleBlobsProvided() public {
         // First propose to enable forced inclusions
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
@@ -107,7 +117,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
     //     assertEq(inclusions.length, 0, "should return empty array");
     // }
 
-    function test_getForcedInclusions_returnsEmptyWhen_StartAtOrAboveTail() public {
+    function disabled_test_getForcedInclusions_returnsEmptyWhen_StartAtOrAboveTail() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -131,7 +141,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(inclusions.length, 0, "should return empty array for start > tail");
     }
 
-    function test_getForcedInclusions_returnsEmptyWhen_MaxCountZero() public {
+    function disabled_test_getForcedInclusions_returnsEmptyWhen_MaxCountZero() public {
         // First propose to enable forced inclusions
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
@@ -151,7 +161,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(inclusions.length, 0, "should return empty array");
     }
 
-    function test_getForcedInclusions_returnsCorrectSubset() public {
+    function disabled_test_getForcedInclusions_returnsCorrectSubset() public {
         // First propose to enable forced inclusions
         _setBlobHashes(4);
         _proposeAndDecode(_defaultProposeInput());
@@ -189,7 +199,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         );
     }
 
-    function test_getCurrentForcedInclusionFee_scalesWithQueueDepth() public {
+    function disabled_test_getCurrentForcedInclusionFee_scalesWithQueueDepth() public {
         // First propose to enable forced inclusions
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
@@ -215,7 +225,7 @@ contract InboxForcedInclusionTest is InboxTestBase {
         assertEq(inbox.getCurrentForcedInclusionFee(), expectedFee, "fee scales linearly");
     }
 
-    function test_getCurrentForcedInclusionFee_matchesFormulaAndIsMonotonic() public {
+    function disabled_test_getCurrentForcedInclusionFee_matchesFormulaAndIsMonotonic() public {
         // First propose to enable forced inclusions
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());

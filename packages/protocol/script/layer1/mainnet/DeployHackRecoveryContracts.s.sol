@@ -9,6 +9,7 @@ import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import { MainnetVerifier } from "src/layer1/mainnet/MainnetVerifier.sol";
 import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
 import { LibL2Addrs } from "src/layer2/mainnet/LibL2Addrs.sol";
+import { QuotaManager } from "src/shared/bridge/QuotaManager.sol";
 import { LibNetwork } from "src/shared/libs/LibNetwork.sol";
 import { SignalService } from "src/shared/signal/SignalService.sol";
 
@@ -21,6 +22,7 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 contract DeployHackRecoveryContracts is Script {
     struct Deployment {
         address signalServiceImpl;
+        address quotaManager;
         address mainnetBridgeImpl;
         address mainnetErc20VaultImpl;
         address sgxGethVerifier;
@@ -48,17 +50,26 @@ contract DeployHackRecoveryContracts is Script {
             )
         );
 
+        deployment_.quotaManager = address(
+            new QuotaManager(
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                LibL1Addrs.BRIDGE,
+                LibL1Addrs.ERC20_VAULT,
+                24 hours
+            )
+        );
+
         deployment_.mainnetBridgeImpl = address(
             new MainnetBridge(
                 LibL1Addrs.SHARED_RESOLVER,
                 LibL1Addrs.SIGNAL_SERVICE,
-                LibL1Addrs.QUOTA_MANAGER,
+                deployment_.quotaManager,
                 LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
             )
         );
 
         deployment_.mainnetErc20VaultImpl =
-            address(new MainnetERC20Vault(LibL1Addrs.SHARED_RESOLVER, LibL1Addrs.QUOTA_MANAGER));
+            address(new MainnetERC20Vault(LibL1Addrs.SHARED_RESOLVER, deployment_.quotaManager));
 
         deployment_.sgxGethVerifier = address(
             new SecureSgxVerifier(
@@ -100,6 +111,7 @@ contract DeployHackRecoveryContracts is Script {
 
     function _logDeployment(Deployment memory _deployment) private pure {
         console2.log("SIGNAL_SERVICE_NEW_IMPL:", _deployment.signalServiceImpl);
+        console2.log("QUOTA_MANAGER:", _deployment.quotaManager);
         console2.log("MAINNET_BRIDGE_NEW_IMPL:", _deployment.mainnetBridgeImpl);
         console2.log("MAINNET_ERC20_VAULT_NEW_IMPL:", _deployment.mainnetErc20VaultImpl);
         console2.log("NEW_SGXGETH_VERIFIER:", _deployment.sgxGethVerifier);
@@ -107,6 +119,6 @@ contract DeployHackRecoveryContracts is Script {
         console2.log("MAINNET_VERIFIER:", _deployment.mainnetVerifier);
         console2.log("MAINNET_INBOX_NEW_IMPL:", _deployment.mainnetInboxImpl);
         console2.log("PAUSER:", LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH);
-        console2.log("QUOTA_MANAGER_PROXY:", LibL1Addrs.QUOTA_MANAGER);
+        console2.log("QUOTA_MANAGER_OWNER:", LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH);
     }
 }

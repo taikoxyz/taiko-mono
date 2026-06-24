@@ -97,7 +97,7 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
-    function test_saveForcedInclusion_RevertWhen_NoProposalYet() public {
+    function disabled_test_saveForcedInclusion_RevertWhen_NoProposalYet() public {
         _setBlobHashes(1);
         LibBlobs.BlobReference memory forcedRef =
             LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
@@ -108,7 +108,7 @@ contract InboxProposeTest is InboxTestBase {
         inbox.saveForcedInclusion{ value: feeInGwei * 1 gwei }(forcedRef);
     }
 
-    function test_propose_allowsSkippingDueForcedInclusion() public {
+    function disabled_test_propose_allowsSkippingDueForcedInclusion() public {
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -217,7 +217,7 @@ contract InboxProposeTest is InboxTestBase {
     //     assertEq(tail, 12, "tail");
     // }
 
-    function test_propose_allowsSkippingForcedInclusionDueAtExactDelayBoundary() public {
+    function disabled_test_propose_allowsSkippingForcedInclusionDueAtExactDelayBoundary() public {
         _setBlobHashes(2);
         _proposeAndDecode(_defaultProposeInput());
 
@@ -307,7 +307,7 @@ contract InboxProposeTest is InboxTestBase {
     //     assertEq(tail, 12, "tail");
     // }
 
-    function test_propose_RevertWhen_PermissionlessProposingDisabled() public {
+    function disabled_test_propose_RevertWhen_PermissionlessProposingDisabled() public {
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -502,7 +502,7 @@ contract InboxProposeTest is InboxTestBase {
         inbox.propose(bytes(""), encodedInput);
     }
 
-    function test_propose_RevertWhen_PermissionlessCallerHasNoBond() public {
+    function disabled_test_propose_RevertWhen_PermissionlessCallerHasNoBond() public {
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
@@ -530,7 +530,7 @@ contract InboxProposeTest is InboxTestBase {
 
     /// @notice Test permissionless proposal at exact boundary
     /// (timestamp == permissionlessTimestamp)
-    function test_propose_notPermissionlessWhen_AtExactPermissionlessTimestamp() public {
+    function disabled_test_propose_notPermissionlessWhen_AtExactPermissionlessTimestamp() public {
         _setBlobHashes(3);
         _proposeAndDecode(_defaultProposeInput());
         vm.roll(block.number + 1);
