@@ -31,11 +31,39 @@ contract Proposal0017Test is Test {
     bytes32 internal constant RECOVERY_LAST_FINALIZED_BLOCK_HASH =
         0x64c2ada556b6862d2c8796e0f709c454fede9d03908711a9f04d9f9f9dcce470;
 
-    function test_buildL1Actions_RevertsWhenPlaceholdersRemain() external {
+    function test_buildL1Actions_UsesDeployedImplementations() external {
         Proposal0017Harness proposal = new Proposal0017Harness();
 
-        vm.expectRevert(Proposal0017.PlaceholderImplementationAddress.selector);
-        proposal.exposedBuildL1Actions();
+        // All eight implementation addresses are now real, so the placeholder guard passes and the
+        // no-arg path builds actions from the deployed implementation constants.
+        Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
+
+        assertEq(actions.length, 59);
+
+        // The proxy-upgrade actions carry the deployed implementation addresses.
+        assertEq(actions[0].target, L1.SIGNAL_SERVICE);
+        assertEq(
+            actions[0].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (0x1A06832992785766a105838C95c1E13a0045AC85))
+        );
+
+        assertEq(actions[1].target, L1.BRIDGE);
+        assertEq(
+            actions[1].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (0x1c94D798CFA08F396E5BA9F81697289c53273381))
+        );
+
+        assertEq(actions[2].target, L1.ERC20_VAULT);
+        assertEq(
+            actions[2].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (0x024253C6FDC27d3161aFd43fb0241411A28dDc3c))
+        );
+
+        assertEq(actions[4].target, L1.INBOX);
+        assertEq(
+            actions[4].data,
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (0x724012AECFdF963ea962f90a2743E66f870564C2))
+        );
     }
 
     function test_buildL1Actions_EncodesRecoverySequenceAndVerifierCleanup() external {

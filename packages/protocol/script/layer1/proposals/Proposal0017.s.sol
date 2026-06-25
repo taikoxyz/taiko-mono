@@ -5,43 +5,26 @@ import "../governance/BuildProposal.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
 
-// To print the proposal action data after replacing placeholders: `P=0017 pnpm proposal`
-// To dryrun the proposal on L1 after replacing placeholders: `P=0017 pnpm proposal:dryrun:l1`
+// To print the proposal action data: `P=0017 pnpm proposal`
+// To dryrun the proposal on L1: `P=0017 pnpm proposal:dryrun:l1`
 contract Proposal0017 is BuildProposal {
-    address private constant _MAINNET_INBOX_NEW_IMPL_PLACEHOLDER =
-        0x1111111111111111111111111111111111111111;
-    address private constant _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER =
-        0x2222222222222222222222222222222222222222;
-    address private constant _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER =
-        0x3333333333333333333333333333333333333333;
-    address private constant _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER =
-        0x4444444444444444444444444444444444444444;
-    address private constant _QUOTA_MANAGER_PLACEHOLDER =
-        0x5555555555555555555555555555555555555555;
-    address private constant _MAINNET_VERIFIER_PLACEHOLDER =
-        0x6666666666666666666666666666666666666666;
-    address private constant _NEW_SGXGETH_VERIFIER_PLACEHOLDER =
-        0x7777777777777777777777777777777777777777;
-    address private constant _NEW_SGXRETH_VERIFIER_PLACEHOLDER =
-        0x8888888888888888888888888888888888888888;
-
-    // PLACEHOLDER: replace these with the deployment outputs before generating calldata.
-    address public constant MAINNET_INBOX_NEW_IMPL = _MAINNET_INBOX_NEW_IMPL_PLACEHOLDER;
-    address public constant SIGNAL_SERVICE_NEW_IMPL = _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER;
-    address public constant MAINNET_BRIDGE_NEW_IMPL = _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER;
+    // Deployed mainnet implementation addresses (DeployHackRecoveryContracts on chain 1).
+    // Codediff links are in the PR description.
+    address public constant MAINNET_INBOX_NEW_IMPL = 0x724012AECFdF963ea962f90a2743E66f870564C2;
+    address public constant SIGNAL_SERVICE_NEW_IMPL = 0x1A06832992785766a105838C95c1E13a0045AC85;
+    address public constant MAINNET_BRIDGE_NEW_IMPL = 0x1c94D798CFA08F396E5BA9F81697289c53273381;
     address public constant MAINNET_ERC20_VAULT_NEW_IMPL =
-        _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER;
-    // PLACEHOLDER: the new Bridge and ERC20Vault implementations must be deployed with this
-    // immutable QuotaManager address. The QuotaManager must be constructor-initialized with the
-    // recovery quotas documented in Proposal0017.md before this proposal executes.
-    address public constant QUOTA_MANAGER = _QUOTA_MANAGER_PLACEHOLDER;
+        0x024253C6FDC27d3161aFd43fb0241411A28dDc3c;
+    // The new Bridge and ERC20Vault implementations were deployed with this immutable QuotaManager,
+    // which is constructor-initialized with the recovery quotas documented in Proposal0017.md.
+    address public constant QUOTA_MANAGER = 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC;
 
-    // PLACEHOLDER: the new MainnetInbox implementation must be deployed with this verifier.
+    // The new MainnetInbox implementation was deployed with this verifier.
     // This address is not calldata because Inbox stores the proof verifier as an immutable.
-    address public constant MAINNET_VERIFIER = _MAINNET_VERIFIER_PLACEHOLDER;
-    // PLACEHOLDER: the new MainnetVerifier must be deployed with these SGX verifier contracts.
-    address public constant NEW_SGXGETH_VERIFIER = _NEW_SGXGETH_VERIFIER_PLACEHOLDER;
-    address public constant NEW_SGXRETH_VERIFIER = _NEW_SGXRETH_VERIFIER_PLACEHOLDER;
+    address public constant MAINNET_VERIFIER = 0x0834aCfE76C46054d12478511b79Bf473a154A86;
+    // The new MainnetVerifier was deployed with these SGX verifier contracts.
+    address public constant NEW_SGXGETH_VERIFIER = 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee;
+    address public constant NEW_SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
 
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
     address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
@@ -66,19 +49,6 @@ contract Proposal0017 is BuildProposal {
         0xea26be1009e743aec78e1f566e91db0b9fda29e16fec1e72e2d74c6983a68e70;
 
     function buildL1Actions() internal pure override returns (Controller.Action[] memory actions) {
-        if (
-            MAINNET_INBOX_NEW_IMPL == _MAINNET_INBOX_NEW_IMPL_PLACEHOLDER
-                || SIGNAL_SERVICE_NEW_IMPL == _SIGNAL_SERVICE_NEW_IMPL_PLACEHOLDER
-                || MAINNET_BRIDGE_NEW_IMPL == _MAINNET_BRIDGE_NEW_IMPL_PLACEHOLDER
-                || MAINNET_ERC20_VAULT_NEW_IMPL == _MAINNET_ERC20_VAULT_NEW_IMPL_PLACEHOLDER
-                || QUOTA_MANAGER == _QUOTA_MANAGER_PLACEHOLDER
-                || MAINNET_VERIFIER == _MAINNET_VERIFIER_PLACEHOLDER
-                || NEW_SGXGETH_VERIFIER == _NEW_SGXGETH_VERIFIER_PLACEHOLDER
-                || NEW_SGXRETH_VERIFIER == _NEW_SGXRETH_VERIFIER_PLACEHOLDER
-        ) {
-            revert PlaceholderImplementationAddress();
-        }
-
         actions = buildL1Actions(
             MAINNET_INBOX_NEW_IMPL,
             SIGNAL_SERVICE_NEW_IMPL,
@@ -278,8 +248,6 @@ contract Proposal0017 is BuildProposal {
         ids_[24] = 0xe5774b71990b0d5f3eca8d4d22546764dd9549c743a1a6d4d4863d97f6b8c67a;
         ids_[25] = 0xf285b7cbd78d2b96cdc54cfea3e47d8f510a4b4f91b719c97f8bbb90974f805b;
     }
-
-    error PlaceholderImplementationAddress();
 }
 
 interface IProposal0017BridgeRecovery {
