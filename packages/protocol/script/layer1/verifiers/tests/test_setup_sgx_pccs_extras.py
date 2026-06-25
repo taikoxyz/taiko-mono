@@ -159,7 +159,7 @@ def test_configure_sgx_verifier_can_skip_local_simulation_for_rip7212_chains():
     assert 'REGISTER_INSTANCE_GAS_LIMIT="${REGISTER_INSTANCE_GAS_LIMIT:-8000000}"' in text
 
 
-def test_devnet_wrapper_runs_full_own_pccs_secure_sgx_flow():
+def test_devnet_wrapper_runs_full_own_pccs_two_secure_sgx_flow():
     protocol_root = Path(__file__).resolve().parents[4]
     wrapper = protocol_root / "script/layer1/verifiers/deploy_devnet_sgx_own_pccs.sh"
     text = wrapper.read_text()
@@ -170,13 +170,23 @@ def test_devnet_wrapper_runs_full_own_pccs_secure_sgx_flow():
     assert 'DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}"' in text
     assert "deploy_automata_dcap.sh" in text
     assert "setup_sgx_pccs_extras.sh" in text
-    assert 'DEPLOY_SECURE_SGX_VERIFIER="${DEPLOY_SECURE_SGX_VERIFIER:-true}"' in text
+    assert 'DEPLOY_SECURE_SGX_VERIFIERS="${DEPLOY_SECURE_SGX_VERIFIERS:-true}"' in text
+    assert 'SECURE_SGX_GETH_VERIFIER="${SECURE_SGX_GETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"' in text
+    assert 'SECURE_SGX_RETH_VERIFIER="${SECURE_SGX_RETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"' in text
     assert 'REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-false}"' in text
+    assert 'REGISTER_SECURE_SGX_TARGET="${REGISTER_SECURE_SGX_TARGET:-reth}"' in text
     assert 'FAKE_QUOTE_SMOKE="${FAKE_QUOTE_SMOKE:-true}"' in text
-    assert "fake SGX quote rejected as expected" in text
-    assert 'cast call "$SECURE_SGX_VERIFIER" "registerInstance(bytes)" "$FAKE_SGX_QUOTE"' in text
+    assert 'deploy_secure_sgx_verifier "geth"' in text
+    assert 'deploy_secure_sgx_verifier "reth"' in text
+    assert 'run_fake_quote_smoke "geth" "$SECURE_SGX_GETH_VERIFIER"' in text
+    assert 'run_fake_quote_smoke "reth" "$SECURE_SGX_RETH_VERIFIER"' in text
+    assert "fake SGX quote rejected as expected for geth" in text
+    assert "fake SGX quote rejected as expected for reth" in text
+    assert 'cast call "$verifier" "registerInstance(bytes)" "$FAKE_SGX_QUOTE"' in text
     assert 'SKIP_SIMULATION=true' in text
     assert "SecureSgxVerifier.sol:SecureSgxVerifier" in text
     assert "configure_sgx_verifier.sh" in text
     assert "--attribute-policy" in text
     assert "--quote" in text
+    assert "SecureSgxGethVerifier" in text
+    assert "SecureSgxRethVerifier" in text

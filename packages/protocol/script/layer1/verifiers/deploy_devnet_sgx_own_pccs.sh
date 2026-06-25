@@ -1,15 +1,16 @@
 #!/bin/bash
 #
 # One-shot devnet smoke for a fully self-deployed Automata DCAP/on-chain PCCS
-# stack plus SGX collateral, a SecureSgxVerifier deployment, and optional
-# SecureSgxVerifier registration.
+# stack plus SGX collateral, two SecureSgxVerifier deployments for
+# sgx-geth/sgx-reth, and optional SecureSgxVerifier registration.
 #
 # Defaults match the local Taiko devnet workflow:
 #   DEVNET_ENV=/home/yue/works/taiko/raiko2-k8s/devnet.env
 #   SGX_BOOTSTRAP_JSON=/tmp/provider-log-check-20260519/raiko2-sgx/config/bootstrap.json
 #   INTEL_API_SGX=https://127.0.0.1:8081/sgx/certification/v4
-#   DEPLOY_SECURE_SGX_VERIFIER=true
+#   DEPLOY_SECURE_SGX_VERIFIERS=true
 #   REGISTER_SECURE_SGX=false
+#   REGISTER_SECURE_SGX_TARGET=reth
 #   FAKE_QUOTE_SMOKE=true
 #
 # The local PCCS endpoint usually uses a self-signed cert, so PCS_CURL_INSECURE
@@ -33,8 +34,11 @@ DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}"
 KEEP_REPOS="${KEEP_REPOS:-true}"
 RESET_WORK_DIR="${RESET_WORK_DIR:-false}"
 SECURE_SGX_VERIFIER="${SECURE_SGX_VERIFIER:-}"
-DEPLOY_SECURE_SGX_VERIFIER="${DEPLOY_SECURE_SGX_VERIFIER:-true}"
+SECURE_SGX_GETH_VERIFIER="${SECURE_SGX_GETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"
+SECURE_SGX_RETH_VERIFIER="${SECURE_SGX_RETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"
+DEPLOY_SECURE_SGX_VERIFIERS="${DEPLOY_SECURE_SGX_VERIFIERS:-true}"
 REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-false}"
+REGISTER_SECURE_SGX_TARGET="${REGISTER_SECURE_SGX_TARGET:-reth}" # geth | reth | both
 FAKE_QUOTE_SMOKE="${FAKE_QUOTE_SMOKE:-true}"
 FAKE_SGX_QUOTE="${FAKE_SGX_QUOTE:-0x0300020000000000}"
 INSTANCE_VALIDITY_DELAY="${INSTANCE_VALIDITY_DELAY:-86400}"
@@ -178,11 +182,20 @@ PCCS_REPO="$WORK_DIR/pccs"
 
 NEXT_INSTANCE_ID=""
 LAST_INSTANCE=""
+NEXT_INSTANCE_ID_GETH=""
+LAST_INSTANCE_GETH=""
+NEXT_INSTANCE_ID_RETH=""
+LAST_INSTANCE_RETH=""
 QUOTE_INFO_JSON=""
-FAKE_QUOTE_SMOKE_RESULT="skipped"
+FAKE_QUOTE_SMOKE_GETH_RESULT="skipped"
+FAKE_QUOTE_SMOKE_RETH_RESULT="skipped"
 
 deploy_secure_sgx_verifier() {
-    log "deploying SecureSgxVerifier"
+    local label="$1"
+    local log_file="$OUT_DIR/secure_sgx_${label}_verifier_deploy.log"
+    local addr
+
+    log "deploying SecureSgxVerifier for $label"
     DEPLOY_OUT=$(
         cd "$PROTOCOL_DIR"
         forge create --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast --legacy \
@@ -194,39 +207,109 @@ deploy_secure_sgx_verifier() {
             "$REGISTRAR" \
             "$INSTANCE_VALIDITY_DELAY" 2>&1
     )
-    echo "$DEPLOY_OUT" | tee "$OUT_DIR/secure_sgx_verifier_deploy.log"
-    SECURE_SGX_VERIFIER=$(echo "$DEPLOY_OUT" | grep -oE 'Deployed to: 0x[0-9a-fA-F]{40}' | awk '{print $3}' | tail -1)
-    [[ -n "$SECURE_SGX_VERIFIER" ]] || die "could not parse SecureSgxVerifier deployment address"
+    echo "$DEPLOY_OUT" | tee "$log_file"
+    addr=$(echo "$DEPLOY_OUT" | grep -oE 'Deployed to: 0x[0-9a-fA-F]{40}' | awk '{print $3}' | tail -1)
+    [[ -n "$addr" ]] || die "could not parse SecureSgxVerifier deployment address for $label"
+
+    case "$label" in
+        geth) SECURE_SGX_GETH_VERIFIER="$addr" ;;
+        reth) SECURE_SGX_RETH_VERIFIER="$addr" ;;
+        *) die "unknown SecureSgxVerifier label: $label" ;;
+    esac
 }
 
 run_fake_quote_smoke() {
+    local label="$1"
+    local verifier="$2"
     local out
 
-    log "running fake SGX quote rejection smoke"
-    if out=$(cast call "$SECURE_SGX_VERIFIER" "registerInstance(bytes)" "$FAKE_SGX_QUOTE" \
+    log "running fake SGX quote rejection smoke for $label"
+    if out=$(cast call "$verifier" "registerInstance(bytes)" "$FAKE_SGX_QUOTE" \
         --rpc-url "$RPC_URL" 2>&1); then
-        echo "$out" | tee "$OUT_DIR/secure_sgx_verifier_fake_quote.log"
-        die "fake SGX quote unexpectedly passed registerInstance eth_call"
+        echo "$out" | tee "$OUT_DIR/secure_sgx_${label}_verifier_fake_quote.log"
+        die "fake SGX quote unexpectedly passed registerInstance eth_call for $label"
     fi
 
-    echo "$out" | tee "$OUT_DIR/secure_sgx_verifier_fake_quote.log"
-    FAKE_QUOTE_SMOKE_RESULT="rejected"
-    log "fake SGX quote rejected as expected"
+    echo "$out" | tee "$OUT_DIR/secure_sgx_${label}_verifier_fake_quote.log"
+    case "$label" in
+        geth)
+            FAKE_QUOTE_SMOKE_GETH_RESULT="rejected"
+            log "fake SGX quote rejected as expected for geth"
+            ;;
+        reth)
+            FAKE_QUOTE_SMOKE_RETH_RESULT="rejected"
+            log "fake SGX quote rejected as expected for reth"
+            ;;
+        *) die "unknown fake quote smoke label: $label" ;;
+    esac
 }
 
-if [[ "$DEPLOY_SECURE_SGX_VERIFIER" == "true" && -z "$SECURE_SGX_VERIFIER" ]]; then
-    deploy_secure_sgx_verifier
-elif [[ -n "$SECURE_SGX_VERIFIER" ]]; then
-    log "using existing SecureSgxVerifier: $SECURE_SGX_VERIFIER"
+register_real_sgx_quote() {
+    local label="$1"
+    local verifier="$2"
+    local next_id
+    local last_id
+    local last_instance
+
+    log "registering real SGX quote on $label SecureSgxVerifier"
+    (
+        cd "$PROTOCOL_DIR"
+        PRIVATE_KEY="$PRIVATE_KEY" \
+        FORK_URL="$RPC_URL" \
+        SGX_VERIFIER_ADDRESS="$verifier" \
+        SKIP_SIMULATION=true \
+            "$SCRIPT_DIR/configure_sgx_verifier.sh" \
+                --attribute-policy "$MRENCLAVE" "$ATTRIBUTE_POLICY_MASK" "$ATTRIBUTE_POLICY_EXPECTED" \
+                --mrenclave "$MRENCLAVE" \
+                --mrsigner "$MRSIGNER" \
+                --quote "$RAW_QUOTE"
+    ) 2>&1 | tee "$OUT_DIR/secure_sgx_${label}_verifier_register.log"
+
+    next_id=$(cast call "$verifier" "nextInstanceId()(uint256)" --rpc-url "$RPC_URL")
+    if [[ "$next_id" =~ ^[0-9]+$ && "$next_id" -gt 0 ]]; then
+        last_id=$((next_id - 1))
+        last_instance=$(cast call "$verifier" "instances(uint256)((address,uint64))" "$last_id" --rpc-url "$RPC_URL")
+        log "registered SGX instance on $label id=$last_id value=$last_instance"
+    else
+        last_instance=""
+        log "$label nextInstanceId=$next_id"
+    fi
+
+    case "$label" in
+        geth)
+            NEXT_INSTANCE_ID_GETH="$next_id"
+            LAST_INSTANCE_GETH="$last_instance"
+            ;;
+        reth)
+            NEXT_INSTANCE_ID_RETH="$next_id"
+            LAST_INSTANCE_RETH="$last_instance"
+            ;;
+        *) die "unknown SGX registration label: $label" ;;
+    esac
+}
+
+if [[ "$DEPLOY_SECURE_SGX_VERIFIERS" == "true" && -z "$SECURE_SGX_GETH_VERIFIER" ]]; then
+    deploy_secure_sgx_verifier "geth"
+elif [[ -n "$SECURE_SGX_GETH_VERIFIER" ]]; then
+    log "using existing SecureSgxGethVerifier: $SECURE_SGX_GETH_VERIFIER"
+fi
+
+if [[ "$DEPLOY_SECURE_SGX_VERIFIERS" == "true" && -z "$SECURE_SGX_RETH_VERIFIER" ]]; then
+    deploy_secure_sgx_verifier "reth"
+elif [[ -n "$SECURE_SGX_RETH_VERIFIER" ]]; then
+    log "using existing SecureSgxRethVerifier: $SECURE_SGX_RETH_VERIFIER"
 fi
 
 if [[ "$FAKE_QUOTE_SMOKE" == "true" ]]; then
-    [[ -n "$SECURE_SGX_VERIFIER" ]] || die "FAKE_QUOTE_SMOKE=true requires DEPLOY_SECURE_SGX_VERIFIER=true or SECURE_SGX_VERIFIER=0x..."
-    run_fake_quote_smoke
+    [[ -n "$SECURE_SGX_GETH_VERIFIER" ]] || die "FAKE_QUOTE_SMOKE=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_GETH_VERIFIER=0x..."
+    [[ -n "$SECURE_SGX_RETH_VERIFIER" ]] || die "FAKE_QUOTE_SMOKE=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_RETH_VERIFIER=0x..."
+    run_fake_quote_smoke "geth" "$SECURE_SGX_GETH_VERIFIER"
+    run_fake_quote_smoke "reth" "$SECURE_SGX_RETH_VERIFIER"
 fi
 
 if [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
-    [[ -n "$SECURE_SGX_VERIFIER" ]] || die "REGISTER_SECURE_SGX=true requires DEPLOY_SECURE_SGX_VERIFIER=true or SECURE_SGX_VERIFIER=0x..."
+    [[ -n "$SECURE_SGX_GETH_VERIFIER" ]] || die "REGISTER_SECURE_SGX=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_GETH_VERIFIER=0x..."
+    [[ -n "$SECURE_SGX_RETH_VERIFIER" ]] || die "REGISTER_SECURE_SGX=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_RETH_VERIFIER=0x..."
     QUOTE_INFO_JSON="$OUT_DIR/sgx_quote_info.json"
     extract_quote_info "$SGX_BOOTSTRAP_JSON" "$QUOTE_INFO_JSON"
     RAW_QUOTE=$(jq -r '.raw_quote' "$QUOTE_INFO_JSON")
@@ -235,27 +318,27 @@ if [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
     ATTRIBUTES=$(jq -r '.attributes' "$QUOTE_INFO_JSON")
     ATTRIBUTE_POLICY_EXPECTED="${ATTRIBUTE_POLICY_EXPECTED:-$(policy_expected "$ATTRIBUTES" "$ATTRIBUTE_POLICY_MASK")}"
 
-    (
-        cd "$PROTOCOL_DIR"
-        PRIVATE_KEY="$PRIVATE_KEY" \
-        FORK_URL="$RPC_URL" \
-        SGX_VERIFIER_ADDRESS="$SECURE_SGX_VERIFIER" \
-        SKIP_SIMULATION=true \
-            "$SCRIPT_DIR/configure_sgx_verifier.sh" \
-                --attribute-policy "$MRENCLAVE" "$ATTRIBUTE_POLICY_MASK" "$ATTRIBUTE_POLICY_EXPECTED" \
-                --mrenclave "$MRENCLAVE" \
-                --mrsigner "$MRSIGNER" \
-                --quote "$RAW_QUOTE"
-    ) 2>&1 | tee "$OUT_DIR/secure_sgx_verifier_register.log"
-
-    NEXT_INSTANCE_ID=$(cast call "$SECURE_SGX_VERIFIER" "nextInstanceId()(uint256)" --rpc-url "$RPC_URL")
-    if [[ "$NEXT_INSTANCE_ID" =~ ^[0-9]+$ && "$NEXT_INSTANCE_ID" -gt 0 ]]; then
-        LAST_ID=$((NEXT_INSTANCE_ID - 1))
-        LAST_INSTANCE=$(cast call "$SECURE_SGX_VERIFIER" "instances(uint256)((address,uint64))" "$LAST_ID" --rpc-url "$RPC_URL")
-        log "registered SGX instance id=$LAST_ID value=$LAST_INSTANCE"
-    else
-        log "nextInstanceId=$NEXT_INSTANCE_ID"
-    fi
+    case "$REGISTER_SECURE_SGX_TARGET" in
+        geth)
+            register_real_sgx_quote "geth" "$SECURE_SGX_GETH_VERIFIER"
+            NEXT_INSTANCE_ID="$NEXT_INSTANCE_ID_GETH"
+            LAST_INSTANCE="$LAST_INSTANCE_GETH"
+            ;;
+        reth)
+            register_real_sgx_quote "reth" "$SECURE_SGX_RETH_VERIFIER"
+            NEXT_INSTANCE_ID="$NEXT_INSTANCE_ID_RETH"
+            LAST_INSTANCE="$LAST_INSTANCE_RETH"
+            ;;
+        both)
+            register_real_sgx_quote "geth" "$SECURE_SGX_GETH_VERIFIER"
+            register_real_sgx_quote "reth" "$SECURE_SGX_RETH_VERIFIER"
+            NEXT_INSTANCE_ID="$NEXT_INSTANCE_ID_RETH"
+            LAST_INSTANCE="$LAST_INSTANCE_RETH"
+            ;;
+        *)
+            die "REGISTER_SECURE_SGX_TARGET must be geth, reth, or both (got: $REGISTER_SECURE_SGX_TARGET)"
+            ;;
+    esac
 fi
 
 jq -n \
@@ -265,12 +348,19 @@ jq -n \
     --arg dcap "$AUTOMATA_DCAP_ATTESTATION" \
     --arg pccs "$PCCS_JSON" \
     --arg quoteInfo "$QUOTE_INFO_JSON" \
-    --arg secure "$SECURE_SGX_VERIFIER" \
+    --arg sgxGeth "$SECURE_SGX_GETH_VERIFIER" \
+    --arg sgxReth "$SECURE_SGX_RETH_VERIFIER" \
     --arg registerSecureSgx "$REGISTER_SECURE_SGX" \
+    --arg registerSecureSgxTarget "$REGISTER_SECURE_SGX_TARGET" \
     --arg fakeQuoteSmoke "$FAKE_QUOTE_SMOKE" \
-    --arg fakeQuoteSmokeResult "$FAKE_QUOTE_SMOKE_RESULT" \
+    --arg fakeQuoteSmokeGethResult "$FAKE_QUOTE_SMOKE_GETH_RESULT" \
+    --arg fakeQuoteSmokeRethResult "$FAKE_QUOTE_SMOKE_RETH_RESULT" \
     --arg nextId "$NEXT_INSTANCE_ID" \
     --arg lastInstance "$LAST_INSTANCE" \
+    --arg nextIdGeth "$NEXT_INSTANCE_ID_GETH" \
+    --arg lastInstanceGeth "$LAST_INSTANCE_GETH" \
+    --arg nextIdReth "$NEXT_INSTANCE_ID_RETH" \
+    --arg lastInstanceReth "$LAST_INSTANCE_RETH" \
     '{
         chain_id: $chain,
         rpc: $rpc,
@@ -278,12 +368,19 @@ jq -n \
         AutomataDcapAttestationFee: $dcap,
         pccs_json: $pccs,
         sgx_quote_info_json: $quoteInfo,
-        SecureSgxVerifier: $secure,
+        SecureSgxGethVerifier: $sgxGeth,
+        SecureSgxRethVerifier: $sgxReth,
         registerSecureSgx: $registerSecureSgx,
+        registerSecureSgxTarget: $registerSecureSgxTarget,
         fakeQuoteSmoke: $fakeQuoteSmoke,
-        fakeQuoteSmokeResult: $fakeQuoteSmokeResult,
+        fakeQuoteSmokeGethResult: $fakeQuoteSmokeGethResult,
+        fakeQuoteSmokeRethResult: $fakeQuoteSmokeRethResult,
         nextInstanceId: $nextId,
-        lastInstance: $lastInstance
+        lastInstance: $lastInstance,
+        nextInstanceIdGeth: $nextIdGeth,
+        lastInstanceGeth: $lastInstanceGeth,
+        nextInstanceIdReth: $nextIdReth,
+        lastInstanceReth: $lastInstanceReth
     }' > "$SUMMARY_JSON"
 
 log "summary written to $SUMMARY_JSON"
