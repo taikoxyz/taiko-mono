@@ -170,7 +170,11 @@ def test_devnet_wrapper_runs_full_own_pccs_secure_sgx_flow():
     assert 'DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}"' in text
     assert "deploy_automata_dcap.sh" in text
     assert "setup_sgx_pccs_extras.sh" in text
-    assert 'REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-true}"' in text
+    assert 'DEPLOY_SECURE_SGX_VERIFIER="${DEPLOY_SECURE_SGX_VERIFIER:-true}"' in text
+    assert 'REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-false}"' in text
+    assert 'FAKE_QUOTE_SMOKE="${FAKE_QUOTE_SMOKE:-true}"' in text
+    assert "fake SGX quote rejected as expected" in text
+    assert 'cast call "$SECURE_SGX_VERIFIER" "registerInstance(bytes)" "$FAKE_SGX_QUOTE"' in text
     assert 'SKIP_SIMULATION=true' in text
     assert "SecureSgxVerifier.sol:SecureSgxVerifier" in text
     assert "configure_sgx_verifier.sh" in text

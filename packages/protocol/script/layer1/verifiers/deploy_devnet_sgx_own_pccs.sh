@@ -1,12 +1,16 @@
 #!/bin/bash
 #
 # One-shot devnet smoke for a fully self-deployed Automata DCAP/on-chain PCCS
-# stack plus SGX collateral and SecureSgxVerifier registration.
+# stack plus SGX collateral, a SecureSgxVerifier deployment, and optional
+# SecureSgxVerifier registration.
 #
 # Defaults match the local Taiko devnet workflow:
 #   DEVNET_ENV=/home/yue/works/taiko/raiko2-k8s/devnet.env
 #   SGX_BOOTSTRAP_JSON=/tmp/provider-log-check-20260519/raiko2-sgx/config/bootstrap.json
 #   INTEL_API_SGX=https://127.0.0.1:8081/sgx/certification/v4
+#   DEPLOY_SECURE_SGX_VERIFIER=true
+#   REGISTER_SECURE_SGX=false
+#   FAKE_QUOTE_SMOKE=true
 #
 # The local PCCS endpoint usually uses a self-signed cert, so PCS_CURL_INSECURE
 # defaults to true for this devnet wrapper only.
@@ -28,7 +32,11 @@ PCS_CURL_INSECURE="${PCS_CURL_INSECURE:-true}"
 DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}"
 KEEP_REPOS="${KEEP_REPOS:-true}"
 RESET_WORK_DIR="${RESET_WORK_DIR:-false}"
-REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-true}"
+SECURE_SGX_VERIFIER="${SECURE_SGX_VERIFIER:-}"
+DEPLOY_SECURE_SGX_VERIFIER="${DEPLOY_SECURE_SGX_VERIFIER:-true}"
+REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-false}"
+FAKE_QUOTE_SMOKE="${FAKE_QUOTE_SMOKE:-true}"
+FAKE_SGX_QUOTE="${FAKE_SGX_QUOTE:-0x0300020000000000}"
 INSTANCE_VALIDITY_DELAY="${INSTANCE_VALIDITY_DELAY:-86400}"
 REGISTRAR="${REGISTRAR:-0x0000000000000000000000000000000000000000}"
 ATTRIBUTE_POLICY_MASK="${ATTRIBUTE_POLICY_MASK:-0xffffffffffffffff0000000000000000}"
@@ -104,7 +112,16 @@ PY
 
 for cmd in cast forge jq python3; do command -v "$cmd" >/dev/null || die "missing dep: $cmd"; done
 [[ -f "$DEVNET_ENV" ]] || die "DEVNET_ENV not found: $DEVNET_ENV"
-[[ -f "$SGX_BOOTSTRAP_JSON" ]] || die "SGX_BOOTSTRAP_JSON not found: $SGX_BOOTSTRAP_JSON"
+SETUP_SGX_BOOTSTRAP_JSON=""
+if [[ -f "$SGX_BOOTSTRAP_JSON" ]]; then
+    SETUP_SGX_BOOTSTRAP_JSON="$SGX_BOOTSTRAP_JSON"
+elif [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
+    die "REGISTER_SECURE_SGX=true requires SGX_BOOTSTRAP_JSON: $SGX_BOOTSTRAP_JSON"
+elif [[ -z "${FMSPC:-}" && -z "${SGX_BOOTSTRAP_URL:-}" ]]; then
+    die "SGX_BOOTSTRAP_JSON not found: $SGX_BOOTSTRAP_JSON; set SGX_BOOTSTRAP_JSON, SGX_BOOTSTRAP_URL, or FMSPC for PCCS collateral setup"
+else
+    log "SGX_BOOTSTRAP_JSON not found; continuing with FMSPC/SGX_BOOTSTRAP_URL overrides"
+fi
 
 set -a
 source "$DEVNET_ENV"
@@ -153,26 +170,19 @@ PCCS_REPO="$WORK_DIR/pccs"
     AUTOMATA_DCAP_ATTESTATION="$AUTOMATA_DCAP_ATTESTATION" \
     PCCS_JSON="$PCCS_JSON" \
     PCCS_REPO="$PCCS_REPO" \
-    SGX_BOOTSTRAP_JSON="$SGX_BOOTSTRAP_JSON" \
+    SGX_BOOTSTRAP_JSON="$SETUP_SGX_BOOTSTRAP_JSON" \
     INTEL_API_SGX="$INTEL_API_SGX" \
     PCS_CURL_INSECURE="$PCS_CURL_INSECURE" \
         "$SCRIPT_DIR/setup_sgx_pccs_extras.sh"
 ) 2>&1 | tee "$OUT_DIR/setup_sgx_pccs_extras.log"
 
-SECURE_SGX_VERIFIER=""
 NEXT_INSTANCE_ID=""
 LAST_INSTANCE=""
-QUOTE_INFO_JSON="$OUT_DIR/sgx_quote_info.json"
+QUOTE_INFO_JSON=""
+FAKE_QUOTE_SMOKE_RESULT="skipped"
 
-if [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
-    extract_quote_info "$SGX_BOOTSTRAP_JSON" "$QUOTE_INFO_JSON"
-    RAW_QUOTE=$(jq -r '.raw_quote' "$QUOTE_INFO_JSON")
-    MRENCLAVE=$(jq -r '.mrenclave' "$QUOTE_INFO_JSON")
-    MRSIGNER=$(jq -r '.mrsigner' "$QUOTE_INFO_JSON")
-    ATTRIBUTES=$(jq -r '.attributes' "$QUOTE_INFO_JSON")
-    ATTRIBUTE_POLICY_EXPECTED="${ATTRIBUTE_POLICY_EXPECTED:-$(policy_expected "$ATTRIBUTES" "$ATTRIBUTE_POLICY_MASK")}"
-
-    log "deploying SecureSgxVerifier for registration smoke"
+deploy_secure_sgx_verifier() {
+    log "deploying SecureSgxVerifier"
     DEPLOY_OUT=$(
         cd "$PROTOCOL_DIR"
         forge create --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast --legacy \
@@ -187,6 +197,43 @@ if [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
     echo "$DEPLOY_OUT" | tee "$OUT_DIR/secure_sgx_verifier_deploy.log"
     SECURE_SGX_VERIFIER=$(echo "$DEPLOY_OUT" | grep -oE 'Deployed to: 0x[0-9a-fA-F]{40}' | awk '{print $3}' | tail -1)
     [[ -n "$SECURE_SGX_VERIFIER" ]] || die "could not parse SecureSgxVerifier deployment address"
+}
+
+run_fake_quote_smoke() {
+    local out
+
+    log "running fake SGX quote rejection smoke"
+    if out=$(cast call "$SECURE_SGX_VERIFIER" "registerInstance(bytes)" "$FAKE_SGX_QUOTE" \
+        --rpc-url "$RPC_URL" 2>&1); then
+        echo "$out" | tee "$OUT_DIR/secure_sgx_verifier_fake_quote.log"
+        die "fake SGX quote unexpectedly passed registerInstance eth_call"
+    fi
+
+    echo "$out" | tee "$OUT_DIR/secure_sgx_verifier_fake_quote.log"
+    FAKE_QUOTE_SMOKE_RESULT="rejected"
+    log "fake SGX quote rejected as expected"
+}
+
+if [[ "$DEPLOY_SECURE_SGX_VERIFIER" == "true" && -z "$SECURE_SGX_VERIFIER" ]]; then
+    deploy_secure_sgx_verifier
+elif [[ -n "$SECURE_SGX_VERIFIER" ]]; then
+    log "using existing SecureSgxVerifier: $SECURE_SGX_VERIFIER"
+fi
+
+if [[ "$FAKE_QUOTE_SMOKE" == "true" ]]; then
+    [[ -n "$SECURE_SGX_VERIFIER" ]] || die "FAKE_QUOTE_SMOKE=true requires DEPLOY_SECURE_SGX_VERIFIER=true or SECURE_SGX_VERIFIER=0x..."
+    run_fake_quote_smoke
+fi
+
+if [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
+    [[ -n "$SECURE_SGX_VERIFIER" ]] || die "REGISTER_SECURE_SGX=true requires DEPLOY_SECURE_SGX_VERIFIER=true or SECURE_SGX_VERIFIER=0x..."
+    QUOTE_INFO_JSON="$OUT_DIR/sgx_quote_info.json"
+    extract_quote_info "$SGX_BOOTSTRAP_JSON" "$QUOTE_INFO_JSON"
+    RAW_QUOTE=$(jq -r '.raw_quote' "$QUOTE_INFO_JSON")
+    MRENCLAVE=$(jq -r '.mrenclave' "$QUOTE_INFO_JSON")
+    MRSIGNER=$(jq -r '.mrsigner' "$QUOTE_INFO_JSON")
+    ATTRIBUTES=$(jq -r '.attributes' "$QUOTE_INFO_JSON")
+    ATTRIBUTE_POLICY_EXPECTED="${ATTRIBUTE_POLICY_EXPECTED:-$(policy_expected "$ATTRIBUTES" "$ATTRIBUTE_POLICY_MASK")}"
 
     (
         cd "$PROTOCOL_DIR"
@@ -219,6 +266,9 @@ jq -n \
     --arg pccs "$PCCS_JSON" \
     --arg quoteInfo "$QUOTE_INFO_JSON" \
     --arg secure "$SECURE_SGX_VERIFIER" \
+    --arg registerSecureSgx "$REGISTER_SECURE_SGX" \
+    --arg fakeQuoteSmoke "$FAKE_QUOTE_SMOKE" \
+    --arg fakeQuoteSmokeResult "$FAKE_QUOTE_SMOKE_RESULT" \
     --arg nextId "$NEXT_INSTANCE_ID" \
     --arg lastInstance "$LAST_INSTANCE" \
     '{
@@ -229,6 +279,9 @@ jq -n \
         pccs_json: $pccs,
         sgx_quote_info_json: $quoteInfo,
         SecureSgxVerifier: $secure,
+        registerSecureSgx: $registerSecureSgx,
+        fakeQuoteSmoke: $fakeQuoteSmoke,
+        fakeQuoteSmokeResult: $fakeQuoteSmokeResult,
         nextInstanceId: $nextId,
         lastInstance: $lastInstance
     }' > "$SUMMARY_JSON"
