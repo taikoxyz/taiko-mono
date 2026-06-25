@@ -21,7 +21,9 @@ contract DeployQuotaManager is BaseScript {
         address erc20Vault =
             IResolver(resolver).resolve(block.chainid, LibNames.B_ERC20_VAULT, false);
 
-        QuotaManager qm = new QuotaManager(msg.sender, bridge, erc20Vault, 15 minutes);
+        QuotaManager qm = new QuotaManager(
+            msg.sender, bridge, erc20Vault, 15 minutes, new address[](0), new uint104[](0)
+        );
         console2.log("QuotaManager deployed:", address(qm));
 
         // Config L2-to-L1 quota
