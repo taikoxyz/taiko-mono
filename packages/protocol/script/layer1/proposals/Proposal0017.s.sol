@@ -40,6 +40,20 @@ contract Proposal0017 is BuildProposal {
     bytes32 public constant NEW_SGXRETH_MR_ENCLAVE =
         0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed;
 
+    // raiko2 v0.5.0 ZK IDs.
+    bytes32 public constant RISC0_PROPOSAL_IMAGE_ID =
+        0x3e8fc45f0c3a8e48fe17db7877a60a0f9e7cb9fd185a441cb1a280440db16cd6;
+    bytes32 public constant RISC0_AGGREGATION_IMAGE_ID =
+        0xbb06e6ffbcc87071c446b30e6b1f95f4e5c7c2f71418f2cf41c25ca595fab417;
+    bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
+        0x000df9f5e255e41035bd0f2c4997d967a22810ae61e68922dbbe64603ed5476d;
+    bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
+        0x06fcfaf11579040d37a1e589197d967a11408573079a248b377cc8c03ed5476d;
+    bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
+        0x00084a803a24363f4b80ccd44b440195151b451d05a0dc35a24ced112ed41bbb;
+    bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
+        0x0425401d090d8fd270199a893440195128da28e8168370d64499da222ed41bbb;
+
     // Last finalized state at L1 block 25,367,937, one block before the first forged proof tx.
     uint48 public constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
     bytes32 public constant RECOVERY_LAST_FINALIZED_BLOCK_HASH =
@@ -78,7 +92,7 @@ contract Proposal0017 is BuildProposal {
 
         actions = new Controller
             .Action[](
-            12 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
+            18 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
                 + sgxRethMrEnclaves.length
         );
 
@@ -162,7 +176,45 @@ contract Proposal0017 is BuildProposal {
             });
         }
 
-        // TODO: New RISC0, SP1, SGX-geth, and SGX-reth IDs are intentionally pending.
+        // Trust raiko2 v0.5.0 RISC0 image IDs.
+        actions[cursor++] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(Risc0Verifier.setImageIdTrusted, (RISC0_PROPOSAL_IMAGE_ID, true))
+        });
+        actions[cursor++] = Controller.Action({
+            target: RISC0_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(Risc0Verifier.setImageIdTrusted, (RISC0_AGGREGATION_IMAGE_ID, true))
+        });
+
+        // Trust raiko2 v0.5.0 SP1 program verification keys.
+        actions[cursor++] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_BN256, true))
+        });
+        actions[cursor++] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
+        actions[cursor++] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_AGGREGATION_PROGRAM_VKEY_BN256, true)
+            )
+        });
+        actions[cursor++] = Controller.Action({
+            target: SP1_RETH_VERIFIER,
+            value: 0,
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
+            )
+        });
 
         // Disable all currently trusted SGX MRENCLAVE values on the existing attesters.
         for (uint256 i; i < sgxGethMrEnclaves.length; ++i) {
