@@ -20,9 +20,6 @@ import { SignalService } from "src/shared/signal/SignalService.sol";
 /// logged implementation addresses.
 /// @custom:security-contact security@taiko.xyz
 contract DeployHackRecoveryContracts is Script {
-    address private constant _WETH_TOKEN = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address private constant _USDT_TOKEN = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-
     uint104 private constant _ETH_QUOTA = 250 ether;
     uint104 private constant _WETH_QUOTA = 250 ether;
     uint104 private constant _TKO_QUOTA = 10_000_000 ether;
@@ -141,9 +138,9 @@ contract DeployHackRecoveryContracts is Script {
     function _quotaTokens() private pure returns (address[] memory tokens_) {
         tokens_ = new address[](5);
         tokens_[0] = address(0);
-        tokens_[1] = _WETH_TOKEN;
+        tokens_[1] = LibL1Addrs.WETH_TOKEN;
         tokens_[2] = LibL1Addrs.TAIKO_TOKEN;
-        tokens_[3] = _USDT_TOKEN;
+        tokens_[3] = LibL1Addrs.USDT_TOKEN;
         tokens_[4] = LibL1Addrs.USDC_TOKEN;
     }
 
