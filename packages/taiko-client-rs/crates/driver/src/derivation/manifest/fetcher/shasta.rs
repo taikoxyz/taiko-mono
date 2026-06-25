@@ -92,3 +92,41 @@ impl ShastaSourceManifestFetcher {
         Ok(manifest)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use alloy_consensus::BlobTransactionSidecar;
+    use alloy_eips::eip4844::{BYTES_PER_BLOB, Blob};
+
+    use super::{ManifestFetcherError, decode_manifest_from_sidecars};
+
+    /// Build a single-blob sidecar whose Kona encoding is invalid: it declares a payload length of
+    /// zero yet carries a stray non-zero byte past that length. This mirrors the forced-inclusion
+    /// blob observed on-chain (proposal 1812 / L1 block 5167) that wedged derivation: the first
+    /// field element is all zeros (version 0, length 0), so the decoder's trailing-zero check
+    /// rejects the stray byte.
+    fn sidecar_with_undecodable_blob() -> BlobTransactionSidecar {
+        let mut raw = [0u8; BYTES_PER_BLOB];
+        // byte[0] header, byte[1] version, byte[2..5] 24-bit length (all zero => length 0);
+        // byte[6] sits past the declared length, so a non-zero value is "extraneous data".
+        raw[6] = 0x02;
+        BlobTransactionSidecar {
+            blobs: vec![Blob::from(raw)],
+            commitments: Vec::new(),
+            proofs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn decode_manifest_rejects_undecodable_blob_with_invalid_error() {
+        let sidecar = sidecar_with_undecodable_blob();
+
+        let err = decode_manifest_from_sidecars(&[sidecar], 0, 100)
+            .expect_err("an undecodable blob must not decode into a manifest");
+
+        assert!(
+            matches!(&err, ManifestFetcherError::Invalid(msg) if msg == "invalid blob encoding"),
+            "expected invalid-blob-encoding error, got {err:?}"
+        );
+    }
+}

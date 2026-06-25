@@ -108,7 +108,7 @@ func (ds *BlobDataSource) GetBlobBytes(
 		b = append(b, bytes...)
 	}
 	if len(b) == 0 {
-		return nil, pkg.ErrSidecarNotFound
+		return nil, ErrInvalidBlobBytes
 	}
 	return b, nil
 }
