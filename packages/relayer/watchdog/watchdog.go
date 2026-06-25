@@ -413,6 +413,21 @@ func (w *Watchdog) pauseBridge(
 		return nil, nil
 	}
 
+	pauser, err := bridge.Pauser(&bind.CallOpts{
+		Context: ctx,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if pauser != mgr.From() {
+		return nil, fmt.Errorf(
+			"tx sender %s does not match bridge pauser %s",
+			mgr.From().Hex(),
+			pauser.Hex(),
+		)
+	}
+
 	data, err := encoding.BridgeABI.Pack("pause")
 	if err != nil {
 		return nil, errors.Wrap(err, "encoding.BridgeABI.Pack")

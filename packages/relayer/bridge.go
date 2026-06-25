@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
 )
@@ -20,4 +21,5 @@ type Bridge interface {
 	IsMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeMessage, _proof []byte) (bool, error)
 	SendMessage(opts *bind.TransactOpts, _message bridge.IBridgeMessage) (*types.Transaction, error)
 	Paused(opts *bind.CallOpts) (bool, error)
+	Pauser(opts *bind.CallOpts) (common.Address, error)
 }

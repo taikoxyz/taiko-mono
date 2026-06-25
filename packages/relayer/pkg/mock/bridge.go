@@ -28,6 +28,8 @@ var ProcessMessageTx = types.NewTransaction(
 )
 
 type Bridge struct {
+	PauserAddress common.Address
+	PausedFlag    bool
 }
 
 func (b *Bridge) SuspendMessages(
@@ -96,5 +98,9 @@ func (b *Bridge) IsMessageReceived(opts *bind.CallOpts, _message bridge.IBridgeM
 }
 
 func (b *Bridge) Paused(opts *bind.CallOpts) (bool, error) {
-	return false, nil
+	return b.PausedFlag, nil
+}
+
+func (b *Bridge) Pauser(opts *bind.CallOpts) (common.Address, error) {
+	return b.PauserAddress, nil
 }
