@@ -207,7 +207,10 @@ image/program IDs are pending and must be added in a follow-up edit once availab
 ### New SGX MRENCLAVE Values
 
 These measurements come from the Raiko
-[`hotfix-1.16.1-2`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-2) release image.
+[`hotfix-1.16.1-2`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-2)
+release image; see its
+[`Reproduce MRENCLAVE`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-2#reproduce-mrenclave)
+notes for the reproduction steps.
 
 `SGXGETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
 
