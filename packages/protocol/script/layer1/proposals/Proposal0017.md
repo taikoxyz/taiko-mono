@@ -4,7 +4,7 @@
 
 This proposal restores the L1 recovery surface after the Shasta forged-proof incident.
 
-It executes **59 L1 actions** and **no L2 actions**:
+It executes **61 L1 actions** and **no L2 actions**:
 
 1. Upgrade `SignalService`.
 2. Upgrade `Bridge`.
@@ -14,15 +14,18 @@ It executes **59 L1 actions** and **no L2 actions**:
 6. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
    `25,367,937`, one block before the first forged proof.
 7. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
-8. Disable all currently trusted RISC0 and SP1 image/program IDs.
-9. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
+8. Trust the new SGX-geth and SGX-reth MRENCLAVE values on the existing attesters.
+9. Disable all currently trusted RISC0 and SP1 image/program IDs.
+10. Disable all stale SGX-geth and SGX-reth MRENCLAVE values.
 
-The implementation, new QuotaManager, and new verifier addresses are placeholders in
-[`Proposal0017.s.sol`](./Proposal0017.s.sol). Replace them with the deployment outputs before
-generating calldata or running a dryrun. While any placeholder remains, `buildL1Actions()` reverts
-with `PlaceholderImplementationAddress()`.
+The implementation, new QuotaManager, and new verifier addresses in
+[`Proposal0017.s.sol`](./Proposal0017.s.sol) are the mainnet contracts deployed by
+`DeployHackRecoveryContracts` (chain 1, commit `b73608696`, the `taiko-alethia-protocol-v3.0.0`
+branch tip). See [Deployed Addresses](#deployed-addresses).
 
-New RISC0, SP1, SGX-geth, and SGX-reth IDs remain pending and are intentionally not encoded yet.
+New RISC0 and SP1 IDs remain pending and are intentionally not encoded yet. New SGX-geth and
+SGX-reth MRENCLAVE values are encoded below; instance registration remains a separate follow-up
+transaction through the new SGX verifiers' registrar.
 
 ## Action Order
 
@@ -44,7 +47,8 @@ the new QuotaManager constructor.
 1. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
 2. Call `Inbox.init2(uint48,bytes32)` with the last correct pre-forgery finalized state.
 3. Rotate SGX attester MRSIGNER trust.
-4. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth.
+4. Trust the new SGX-geth and SGX-reth MRENCLAVE values.
+5. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth.
 
 `MainnetInbox` stores its proof verifier as an immutable. The proposal therefore cannot set the new
 `MainnetVerifier` by calldata; the new `MAINNET_INBOX_NEW_IMPL` must be deployed with the new
@@ -70,18 +74,67 @@ longer be part of the verification chain.
 The proxy and verifier addresses were cross-checked against the Taiko mainnet contract-address
 documentation and live L1 calls.
 
-## Placeholders
+## Deployed Addresses
 
-| Constant                       | Placeholder                                  | Replace With                                         |
-| ------------------------------ | -------------------------------------------- | ---------------------------------------------------- |
-| `MAINNET_INBOX_NEW_IMPL`       | `0x1111111111111111111111111111111111111111` | `MainnetInbox` implementation deployment output      |
-| `SIGNAL_SERVICE_NEW_IMPL`      | `0x2222222222222222222222222222222222222222` | `SignalService` implementation deployment output     |
-| `MAINNET_BRIDGE_NEW_IMPL`      | `0x3333333333333333333333333333333333333333` | `MainnetBridge` implementation deployment output     |
-| `MAINNET_ERC20_VAULT_NEW_IMPL` | `0x4444444444444444444444444444444444444444` | `MainnetERC20Vault` implementation deployment output |
-| `QUOTA_MANAGER`                | `0x5555555555555555555555555555555555555555` | New immutable `QuotaManager` deployment output       |
-| `MAINNET_VERIFIER`             | `0x6666666666666666666666666666666666666666` | New `MainnetVerifier` used by `MainnetInbox` impl    |
-| `NEW_SGXGETH_VERIFIER`         | `0x7777777777777777777777777777777777777777` | New SGX-geth verifier used by `MainnetVerifier`      |
-| `NEW_SGXRETH_VERIFIER`         | `0x8888888888888888888888888888888888888888` | New SGX-reth verifier used by `MainnetVerifier`      |
+These are the mainnet contracts deployed by `DeployHackRecoveryContracts` (chain 1) at commit
+`b73608696`, the `taiko-alethia-protocol-v3.0.0` branch tip. Codediff and Etherscan links are
+listed below.
+
+| Constant                       | Address                                      | Contract                                          |
+| ------------------------------ | -------------------------------------------- | ------------------------------------------------- |
+| `MAINNET_INBOX_NEW_IMPL`       | `0x724012AECFdF963ea962f90a2743E66f870564C2` | `MainnetInbox` implementation                     |
+| `SIGNAL_SERVICE_NEW_IMPL`      | `0x1A06832992785766a105838C95c1E13a0045AC85` | `SignalService` implementation                    |
+| `MAINNET_BRIDGE_NEW_IMPL`      | `0x1c94D798CFA08F396E5BA9F81697289c53273381` | `MainnetBridge` implementation                    |
+| `MAINNET_ERC20_VAULT_NEW_IMPL` | `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` | `MainnetERC20Vault` implementation                |
+| `QUOTA_MANAGER`                | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | New immutable `QuotaManager`                      |
+| `MAINNET_VERIFIER`             | `0x0834aCfE76C46054d12478511b79Bf473a154A86` | New `MainnetVerifier` (`MainnetInbox` immutable)  |
+| `NEW_SGXGETH_VERIFIER`         | `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` | New SGX-geth verifier (used by `MainnetVerifier`) |
+| `NEW_SGXRETH_VERIFIER`         | `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` | New SGX-reth verifier (used by `MainnetVerifier`) |
+
+The `MainnetInbox` implementation links two libraries deployed via the canonical CREATE2 deployer:
+`LibForcedInclusion` (`0x02747F462Ce82fdC5F8Fb01Fb98dfb71C8eb65b5`) and `LibInboxSetup`
+(`0xB71afBDa15ad72A6e69Eba27A8C14EC46f31Fbe8`).
+
+### Proxy upgrades — current impl → new impl
+
+| Contract      | codediff                                                                                                                                 | Proxy                                        | Current implementation                       | New implementation                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
+| Inbox         | https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0x724012AECFdF963ea962f90a2743E66f870564C2&chainid=1 | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | `0x349Ae3578f48F758d79451EeAB61Cdd5fedD0098` | `0x724012AECFdF963ea962f90a2743E66f870564C2` |
+| SignalService | https://codediff.taiko.xyz/?addr=0x9e0a24964e5397B566c1ed39258e21aB5E35C77C&newimpl=0x1A06832992785766a105838C95c1E13a0045AC85&chainid=1 | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752` | `0x1A06832992785766a105838C95c1E13a0045AC85` |
+| Bridge        | https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0x1c94D798CFA08F396E5BA9F81697289c53273381&chainid=1 | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F` | `0x1c94D798CFA08F396E5BA9F81697289c53273381` |
+| ERC20Vault    | https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x024253C6FDC27d3161aFd43fb0241411A28dDc3c&chainid=1 | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63` | `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` |
+
+### Replaced verifiers — old impl → new impl
+
+The new MainnetVerifier reuses the existing RISC0/SP1 verifiers and swaps in the two new SGX
+verifiers. Old addresses read on-chain: live Inbox `getConfig().proofVerifier` → its
+`sgxGethVerifier()` / `sgxRethVerifier()`.
+
+| Contract          | codediff                                                                                                                                 | Old impl                                     | New impl                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
+| MainnetVerifier   | https://codediff.taiko.xyz/?addr=0x9cAa4948381590900FCdd8a4F06EB24138eD665d&newimpl=0x0834aCfE76C46054d12478511b79Bf473a154A86&chainid=1 | `0x9cAa4948381590900FCdd8a4F06EB24138eD665d` | `0x0834aCfE76C46054d12478511b79Bf473a154A86` |
+| SGX-geth verifier | https://codediff.taiko.xyz/?addr=0x08568Df252ecf37D6C3eFD24f6ca3688118697F1&newimpl=0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee&chainid=1 | `0x08568Df252ecf37D6C3eFD24f6ca3688118697F1` | `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` |
+| SGX-reth verifier | https://codediff.taiko.xyz/?addr=0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6&newimpl=0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8&chainid=1 | `0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6` | `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` |
+
+### New contract — no predecessor
+
+QuotaManager is introduced by this bundle (the live Bridge and ERC20Vault have no quota manager —
+`quotaManager()` reverts), so there is no old impl to diff against; the link views its deployed
+contract on Etherscan.
+
+| Contract     | Etherscan                                                               | Address                                      |
+| ------------ | ----------------------------------------------------------------------- | -------------------------------------------- |
+| QuotaManager | https://etherscan.io/address/0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` |
+
+### Linked libraries — Etherscan
+
+Deployed via the canonical CREATE2 deployer and linked into the MainnetInbox implementation
+(`0x7240…`).
+
+| Library            | Etherscan                                                               | Address                                      |
+| ------------------ | ----------------------------------------------------------------------- | -------------------------------------------- |
+| LibForcedInclusion | https://etherscan.io/address/0x02747F462Ce82fdC5F8Fb01Fb98dfb71C8eb65b5 | `0x02747F462Ce82fdC5F8Fb01Fb98dfb71C8eb65b5` |
+| LibInboxSetup      | https://etherscan.io/address/0xB71afBDa15ad72A6e69Eba27A8C14EC46f31Fbe8 | `0xB71afBDa15ad72A6e69Eba27A8C14EC46f31Fbe8` |
 
 ## New QuotaManager
 
@@ -97,13 +150,13 @@ emergency. The constructor must also set the existing L1 Bridge proxy
 
 The QuotaManager constructor must initialize the following token quotas:
 
-| Token | Address                                      | Constructor Quota |
-| ----- | -------------------------------------------- | ----------------- |
-| ETH   | `address(0)`                                 | `250 ether`       |
-| WETH  | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | `250 ether`       |
+| Token | Address                                      | Constructor Quota  |
+| ----- | -------------------------------------------- | ------------------ |
+| ETH   | `address(0)`                                 | `250 ether`        |
+| WETH  | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | `250 ether`        |
 | TKO   | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | `10,000,000 ether` |
-| USDT  | `0xdAC17F958D2ee523a2206206994597C13D831ec7` | `150,000,000,000` |
-| USDC  | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `150,000,000,000` |
+| USDT  | `0xdAC17F958D2ee523a2206206994597C13D831ec7` | `150,000,000,000`  |
+| USDC  | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `150,000,000,000`  |
 
 ## Retriable Messages
 
@@ -140,7 +193,8 @@ For comparison, the forged proof finalized proposal `18,056` in block `25,367,93
 
 The proposal removes all trust entries currently enabled on the existing mainnet verifiers. Because
 the new SGX verifier contracts keep using the existing SGX attesters, it also rotates MRSIGNER trust
-on those attesters. New image IDs are pending and must be added in a follow-up edit once available.
+on those attesters and trusts the new SGX-geth and SGX-reth MRENCLAVE values. New RISC0 and SP1
+image/program IDs are pending and must be added in a follow-up edit once available.
 
 ### SGX MRSIGNER Values
 
@@ -149,6 +203,22 @@ on those attesters. New image IDs are pending and must be added in a follow-up e
 
 - `0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013` -> `true`
 - `0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5` -> `false`
+
+### New SGX MRENCLAVE Values
+
+These measurements come from the Raiko
+[`hotfix-1.16.1-2`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-2)
+release image; see its
+[`Reproduce MRENCLAVE`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-2#reproduce-mrenclave)
+notes for the reproduction steps.
+
+`SGXGETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
+
+- `0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9` -> `true`
+
+`SGXRETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
+
+- `0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed` -> `true`
 
 ### RISC0 Image IDs
 
@@ -223,7 +293,8 @@ on those attesters. New image IDs are pending and must be added in a follow-up e
 
 Before submission:
 
-1. Replace all eight placeholders in `Proposal0017.s.sol`.
+1. Confirm the eight deployed addresses in `Proposal0017.s.sol` match the deployment broadcast
+   (`broadcast/DeployHackRecoveryContracts.s.sol/1`, commit `b73608696`).
 2. Confirm the new `MainnetVerifier` was deployed with the new SGX-geth and SGX-reth verifier
    contracts.
 3. Confirm the new `MainnetInbox` implementation was deployed with the new `MAINNET_VERIFIER`.
@@ -270,8 +341,9 @@ Before submission:
      --rpc-url <ARCHIVE_RPC_URL>
    ```
 
-10. Confirm every verifier cleanup target is still trusted before execution, and confirm the new
-   MRSIGNER is not yet trusted while the old MRSIGNER is still trusted.
+10. Confirm every verifier cleanup target is still trusted before execution, confirm the new
+    MRSIGNER and new MRENCLAVE values are not yet trusted, and confirm the old MRSIGNER is still
+    trusted.
 11. Generate calldata:
 
 ```bash
@@ -291,8 +363,9 @@ After execution:
 3. Confirm `Bridge` and `ERC20Vault` behavior uses the new immutable `QUOTA_MANAGER`, and that
    `tokenQuota(token).quota` still matches the constructor quota table above.
 4. Confirm `Inbox.getCoreState()` matches the restored state.
-5. Confirm the new MRSIGNER returns true and the old MRSIGNER returns false on both SGX attesters.
-6. Confirm every removed RISC0, SP1, and SGX trust entry returns false.
+5. Confirm the new MRSIGNER and new SGX MRENCLAVE values return true on the SGX attesters.
+6. Confirm the old MRSIGNER and every removed RISC0, SP1, and stale SGX MRENCLAVE entry returns
+   false.
 
 ## Security Contacts
 
