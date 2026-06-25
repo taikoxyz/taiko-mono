@@ -17,10 +17,10 @@ It executes **59 L1 actions** and **no L2 actions**:
 8. Disable all currently trusted RISC0 and SP1 image/program IDs.
 9. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
 
-The implementation, new QuotaManager, and new verifier addresses are placeholders in
-[`Proposal0017.s.sol`](./Proposal0017.s.sol). Replace them with the deployment outputs before
-generating calldata or running a dryrun. While any placeholder remains, `buildL1Actions()` reverts
-with `PlaceholderImplementationAddress()`.
+The implementation, new QuotaManager, and new verifier addresses in
+[`Proposal0017.s.sol`](./Proposal0017.s.sol) are the mainnet contracts deployed by
+`DeployHackRecoveryContracts` (chain 1, commit `b73608696`, the `taiko-alethia-protocol-v3.0.0`
+branch tip). See [Deployed Addresses](#deployed-addresses).
 
 New RISC0, SP1, SGX-geth, and SGX-reth IDs remain pending and are intentionally not encoded yet.
 
@@ -70,18 +70,26 @@ longer be part of the verification chain.
 The proxy and verifier addresses were cross-checked against the Taiko mainnet contract-address
 documentation and live L1 calls.
 
-## Placeholders
+## Deployed Addresses
 
-| Constant                       | Placeholder                                  | Replace With                                         |
-| ------------------------------ | -------------------------------------------- | ---------------------------------------------------- |
-| `MAINNET_INBOX_NEW_IMPL`       | `0x1111111111111111111111111111111111111111` | `MainnetInbox` implementation deployment output      |
-| `SIGNAL_SERVICE_NEW_IMPL`      | `0x2222222222222222222222222222222222222222` | `SignalService` implementation deployment output     |
-| `MAINNET_BRIDGE_NEW_IMPL`      | `0x3333333333333333333333333333333333333333` | `MainnetBridge` implementation deployment output     |
-| `MAINNET_ERC20_VAULT_NEW_IMPL` | `0x4444444444444444444444444444444444444444` | `MainnetERC20Vault` implementation deployment output |
-| `QUOTA_MANAGER`                | `0x5555555555555555555555555555555555555555` | New immutable `QuotaManager` deployment output       |
-| `MAINNET_VERIFIER`             | `0x6666666666666666666666666666666666666666` | New `MainnetVerifier` used by `MainnetInbox` impl    |
-| `NEW_SGXGETH_VERIFIER`         | `0x7777777777777777777777777777777777777777` | New SGX-geth verifier used by `MainnetVerifier`      |
-| `NEW_SGXRETH_VERIFIER`         | `0x8888888888888888888888888888888888888888` | New SGX-reth verifier used by `MainnetVerifier`      |
+These are the mainnet contracts deployed by `DeployHackRecoveryContracts` (chain 1) at commit
+`b73608696`, the `taiko-alethia-protocol-v3.0.0` branch tip. Codediff links are in the PR
+description.
+
+| Constant                       | Address                                      | Contract                                          |
+| ------------------------------ | -------------------------------------------- | ------------------------------------------------- |
+| `MAINNET_INBOX_NEW_IMPL`       | `0x724012AECFdF963ea962f90a2743E66f870564C2` | `MainnetInbox` implementation                     |
+| `SIGNAL_SERVICE_NEW_IMPL`      | `0x1A06832992785766a105838C95c1E13a0045AC85` | `SignalService` implementation                    |
+| `MAINNET_BRIDGE_NEW_IMPL`      | `0x1c94D798CFA08F396E5BA9F81697289c53273381` | `MainnetBridge` implementation                    |
+| `MAINNET_ERC20_VAULT_NEW_IMPL` | `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` | `MainnetERC20Vault` implementation                |
+| `QUOTA_MANAGER`                | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` | New immutable `QuotaManager`                      |
+| `MAINNET_VERIFIER`             | `0x0834aCfE76C46054d12478511b79Bf473a154A86` | New `MainnetVerifier` (`MainnetInbox` immutable)  |
+| `NEW_SGXGETH_VERIFIER`         | `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` | New SGX-geth verifier (used by `MainnetVerifier`) |
+| `NEW_SGXRETH_VERIFIER`         | `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` | New SGX-reth verifier (used by `MainnetVerifier`) |
+
+The `MainnetInbox` implementation links two libraries deployed via the canonical CREATE2 deployer:
+`LibForcedInclusion` (`0x02747F462Ce82fdC5F8Fb01Fb98dfb71C8eb65b5`) and `LibInboxSetup`
+(`0xB71afBDa15ad72A6e69Eba27A8C14EC46f31Fbe8`).
 
 ## New QuotaManager
 
@@ -97,13 +105,13 @@ emergency. The constructor must also set the existing L1 Bridge proxy
 
 The QuotaManager constructor must initialize the following token quotas:
 
-| Token | Address                                      | Constructor Quota |
-| ----- | -------------------------------------------- | ----------------- |
-| ETH   | `address(0)`                                 | `250 ether`       |
-| WETH  | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | `250 ether`       |
+| Token | Address                                      | Constructor Quota  |
+| ----- | -------------------------------------------- | ------------------ |
+| ETH   | `address(0)`                                 | `250 ether`        |
+| WETH  | `0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2` | `250 ether`        |
 | TKO   | `0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800` | `10,000,000 ether` |
-| USDT  | `0xdAC17F958D2ee523a2206206994597C13D831ec7` | `150,000,000,000` |
-| USDC  | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `150,000,000,000` |
+| USDT  | `0xdAC17F958D2ee523a2206206994597C13D831ec7` | `150,000,000,000`  |
+| USDC  | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `150,000,000,000`  |
 
 ## Retriable Messages
 
@@ -223,7 +231,8 @@ on those attesters. New image IDs are pending and must be added in a follow-up e
 
 Before submission:
 
-1. Replace all eight placeholders in `Proposal0017.s.sol`.
+1. Confirm the eight deployed addresses in `Proposal0017.s.sol` match the deployment broadcast
+   (`broadcast/DeployHackRecoveryContracts.s.sol/1`, commit `b73608696`).
 2. Confirm the new `MainnetVerifier` was deployed with the new SGX-geth and SGX-reth verifier
    contracts.
 3. Confirm the new `MainnetInbox` implementation was deployed with the new `MAINNET_VERIFIER`.
@@ -271,7 +280,7 @@ Before submission:
    ```
 
 10. Confirm every verifier cleanup target is still trusted before execution, and confirm the new
-   MRSIGNER is not yet trusted while the old MRSIGNER is still trusted.
+    MRSIGNER is not yet trusted while the old MRSIGNER is still trusted.
 11. Generate calldata:
 
 ```bash
