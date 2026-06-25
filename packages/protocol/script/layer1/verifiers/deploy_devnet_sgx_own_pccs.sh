@@ -7,6 +7,8 @@
 # Defaults match the local Taiko devnet workflow:
 #   DEVNET_ENV=/home/yue/works/taiko/raiko2-k8s/devnet.env
 #   SGX_BOOTSTRAP_JSON=/tmp/provider-log-check-20260519/raiko2-sgx/config/bootstrap.json
+#   SGX_GETH_BOOTSTRAP_JSON=  # required only for REGISTER_SECURE_SGX_TARGET=geth|both
+#   SGX_RETH_BOOTSTRAP_JSON=  # required only for REGISTER_SECURE_SGX_TARGET=reth|both
 #   INTEL_API_SGX=https://127.0.0.1:8081/sgx/certification/v4
 #   DEPLOY_SECURE_SGX_VERIFIERS=true
 #   REGISTER_SECURE_SGX=false
@@ -28,14 +30,15 @@ WORK_DIR="${WORK_DIR:-$OUT_DIR/work}"
 OUTPUT_JSON="${OUTPUT_JSON:-$OUT_DIR/automata_dcap.json}"
 SUMMARY_JSON="${SUMMARY_JSON:-$OUT_DIR/devnet_sgx_own_pccs_summary.json}"
 SGX_BOOTSTRAP_JSON="${SGX_BOOTSTRAP_JSON:-/tmp/provider-log-check-20260519/raiko2-sgx/config/bootstrap.json}"
+SGX_GETH_BOOTSTRAP_JSON="${SGX_GETH_BOOTSTRAP_JSON:-}"
+SGX_RETH_BOOTSTRAP_JSON="${SGX_RETH_BOOTSTRAP_JSON:-}"
 INTEL_API_SGX="${INTEL_API_SGX:-https://127.0.0.1:8081/sgx/certification/v4}"
 PCS_CURL_INSECURE="${PCS_CURL_INSECURE:-true}"
 DEPLOY_DAIMO_P256="${DEPLOY_DAIMO_P256:-auto}"
 KEEP_REPOS="${KEEP_REPOS:-true}"
 RESET_WORK_DIR="${RESET_WORK_DIR:-false}"
-SECURE_SGX_VERIFIER="${SECURE_SGX_VERIFIER:-}"
-SECURE_SGX_GETH_VERIFIER="${SECURE_SGX_GETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"
-SECURE_SGX_RETH_VERIFIER="${SECURE_SGX_RETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"
+SECURE_SGX_GETH_VERIFIER="${SECURE_SGX_GETH_VERIFIER:-}"
+SECURE_SGX_RETH_VERIFIER="${SECURE_SGX_RETH_VERIFIER:-}"
 DEPLOY_SECURE_SGX_VERIFIERS="${DEPLOY_SECURE_SGX_VERIFIERS:-true}"
 REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-false}"
 REGISTER_SECURE_SGX_TARGET="${REGISTER_SECURE_SGX_TARGET:-reth}" # geth | reth | both
@@ -119,8 +122,10 @@ for cmd in cast forge jq python3; do command -v "$cmd" >/dev/null || die "missin
 SETUP_SGX_BOOTSTRAP_JSON=""
 if [[ -f "$SGX_BOOTSTRAP_JSON" ]]; then
     SETUP_SGX_BOOTSTRAP_JSON="$SGX_BOOTSTRAP_JSON"
-elif [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
-    die "REGISTER_SECURE_SGX=true requires SGX_BOOTSTRAP_JSON: $SGX_BOOTSTRAP_JSON"
+elif [[ -f "$SGX_RETH_BOOTSTRAP_JSON" ]]; then
+    SETUP_SGX_BOOTSTRAP_JSON="$SGX_RETH_BOOTSTRAP_JSON"
+elif [[ -f "$SGX_GETH_BOOTSTRAP_JSON" ]]; then
+    SETUP_SGX_BOOTSTRAP_JSON="$SGX_GETH_BOOTSTRAP_JSON"
 elif [[ -z "${FMSPC:-}" && -z "${SGX_BOOTSTRAP_URL:-}" ]]; then
     die "SGX_BOOTSTRAP_JSON not found: $SGX_BOOTSTRAP_JSON; set SGX_BOOTSTRAP_JSON, SGX_BOOTSTRAP_URL, or FMSPC for PCCS collateral setup"
 else
@@ -187,6 +192,8 @@ LAST_INSTANCE_GETH=""
 NEXT_INSTANCE_ID_RETH=""
 LAST_INSTANCE_RETH=""
 QUOTE_INFO_JSON=""
+SGX_GETH_QUOTE_INFO_JSON=""
+SGX_RETH_QUOTE_INFO_JSON=""
 FAKE_QUOTE_SMOKE_GETH_RESULT="skipped"
 FAKE_QUOTE_SMOKE_RETH_RESULT="skipped"
 
@@ -244,12 +251,34 @@ run_fake_quote_smoke() {
     esac
 }
 
+require_bootstrap_json() {
+    local label="$1"
+    local path="$2"
+
+    [[ -n "$path" ]] || die "REGISTER_SECURE_SGX_TARGET=$REGISTER_SECURE_SGX_TARGET requires SGX_${label^^}_BOOTSTRAP_JSON"
+    [[ -f "$path" ]] || die "SGX_${label^^}_BOOTSTRAP_JSON not found: $path"
+}
+
 register_real_sgx_quote() {
     local label="$1"
     local verifier="$2"
+    local bootstrap_json="$3"
+    local quote_info_json="$OUT_DIR/sgx_${label}_quote_info.json"
+    local raw_quote
+    local mrenclave
+    local mrsigner
+    local attributes
+    local attribute_policy_expected
     local next_id
     local last_id
     local last_instance
+
+    extract_quote_info "$bootstrap_json" "$quote_info_json"
+    raw_quote=$(jq -r '.raw_quote' "$quote_info_json")
+    mrenclave=$(jq -r '.mrenclave' "$quote_info_json")
+    mrsigner=$(jq -r '.mrsigner' "$quote_info_json")
+    attributes=$(jq -r '.attributes' "$quote_info_json")
+    attribute_policy_expected="${ATTRIBUTE_POLICY_EXPECTED:-$(policy_expected "$attributes" "$ATTRIBUTE_POLICY_MASK")}"
 
     log "registering real SGX quote on $label SecureSgxVerifier"
     (
@@ -259,10 +288,10 @@ register_real_sgx_quote() {
         SGX_VERIFIER_ADDRESS="$verifier" \
         SKIP_SIMULATION=true \
             "$SCRIPT_DIR/configure_sgx_verifier.sh" \
-                --attribute-policy "$MRENCLAVE" "$ATTRIBUTE_POLICY_MASK" "$ATTRIBUTE_POLICY_EXPECTED" \
-                --mrenclave "$MRENCLAVE" \
-                --mrsigner "$MRSIGNER" \
-                --quote "$RAW_QUOTE"
+                --attribute-policy "$mrenclave" "$ATTRIBUTE_POLICY_MASK" "$attribute_policy_expected" \
+                --mrenclave "$mrenclave" \
+                --mrsigner "$mrsigner" \
+                --quote "$raw_quote"
     ) 2>&1 | tee "$OUT_DIR/secure_sgx_${label}_verifier_register.log"
 
     next_id=$(cast call "$verifier" "nextInstanceId()(uint256)" --rpc-url "$RPC_URL")
@@ -279,10 +308,12 @@ register_real_sgx_quote() {
         geth)
             NEXT_INSTANCE_ID_GETH="$next_id"
             LAST_INSTANCE_GETH="$last_instance"
+            SGX_GETH_QUOTE_INFO_JSON="$quote_info_json"
             ;;
         reth)
             NEXT_INSTANCE_ID_RETH="$next_id"
             LAST_INSTANCE_RETH="$last_instance"
+            SGX_RETH_QUOTE_INFO_JSON="$quote_info_json"
             ;;
         *) die "unknown SGX registration label: $label" ;;
     esac
@@ -300,6 +331,11 @@ elif [[ -n "$SECURE_SGX_RETH_VERIFIER" ]]; then
     log "using existing SecureSgxRethVerifier: $SECURE_SGX_RETH_VERIFIER"
 fi
 
+if [[ -n "$SECURE_SGX_GETH_VERIFIER" && -n "$SECURE_SGX_RETH_VERIFIER" \
+    && "${SECURE_SGX_GETH_VERIFIER,,}" == "${SECURE_SGX_RETH_VERIFIER,,}" ]]; then
+    die "SECURE_SGX_GETH_VERIFIER and SECURE_SGX_RETH_VERIFIER must be different; MRENCLAVE policies are configured per verifier"
+fi
+
 if [[ "$FAKE_QUOTE_SMOKE" == "true" ]]; then
     [[ -n "$SECURE_SGX_GETH_VERIFIER" ]] || die "FAKE_QUOTE_SMOKE=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_GETH_VERIFIER=0x..."
     [[ -n "$SECURE_SGX_RETH_VERIFIER" ]] || die "FAKE_QUOTE_SMOKE=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_RETH_VERIFIER=0x..."
@@ -310,28 +346,28 @@ fi
 if [[ "$REGISTER_SECURE_SGX" == "true" ]]; then
     [[ -n "$SECURE_SGX_GETH_VERIFIER" ]] || die "REGISTER_SECURE_SGX=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_GETH_VERIFIER=0x..."
     [[ -n "$SECURE_SGX_RETH_VERIFIER" ]] || die "REGISTER_SECURE_SGX=true requires DEPLOY_SECURE_SGX_VERIFIERS=true or SECURE_SGX_RETH_VERIFIER=0x..."
-    QUOTE_INFO_JSON="$OUT_DIR/sgx_quote_info.json"
-    extract_quote_info "$SGX_BOOTSTRAP_JSON" "$QUOTE_INFO_JSON"
-    RAW_QUOTE=$(jq -r '.raw_quote' "$QUOTE_INFO_JSON")
-    MRENCLAVE=$(jq -r '.mrenclave' "$QUOTE_INFO_JSON")
-    MRSIGNER=$(jq -r '.mrsigner' "$QUOTE_INFO_JSON")
-    ATTRIBUTES=$(jq -r '.attributes' "$QUOTE_INFO_JSON")
-    ATTRIBUTE_POLICY_EXPECTED="${ATTRIBUTE_POLICY_EXPECTED:-$(policy_expected "$ATTRIBUTES" "$ATTRIBUTE_POLICY_MASK")}"
 
     case "$REGISTER_SECURE_SGX_TARGET" in
         geth)
-            register_real_sgx_quote "geth" "$SECURE_SGX_GETH_VERIFIER"
+            require_bootstrap_json "geth" "$SGX_GETH_BOOTSTRAP_JSON"
+            register_real_sgx_quote "geth" "$SECURE_SGX_GETH_VERIFIER" "$SGX_GETH_BOOTSTRAP_JSON"
+            QUOTE_INFO_JSON="$SGX_GETH_QUOTE_INFO_JSON"
             NEXT_INSTANCE_ID="$NEXT_INSTANCE_ID_GETH"
             LAST_INSTANCE="$LAST_INSTANCE_GETH"
             ;;
         reth)
-            register_real_sgx_quote "reth" "$SECURE_SGX_RETH_VERIFIER"
+            require_bootstrap_json "reth" "$SGX_RETH_BOOTSTRAP_JSON"
+            register_real_sgx_quote "reth" "$SECURE_SGX_RETH_VERIFIER" "$SGX_RETH_BOOTSTRAP_JSON"
+            QUOTE_INFO_JSON="$SGX_RETH_QUOTE_INFO_JSON"
             NEXT_INSTANCE_ID="$NEXT_INSTANCE_ID_RETH"
             LAST_INSTANCE="$LAST_INSTANCE_RETH"
             ;;
         both)
-            register_real_sgx_quote "geth" "$SECURE_SGX_GETH_VERIFIER"
-            register_real_sgx_quote "reth" "$SECURE_SGX_RETH_VERIFIER"
+            require_bootstrap_json "geth" "$SGX_GETH_BOOTSTRAP_JSON"
+            require_bootstrap_json "reth" "$SGX_RETH_BOOTSTRAP_JSON"
+            register_real_sgx_quote "geth" "$SECURE_SGX_GETH_VERIFIER" "$SGX_GETH_BOOTSTRAP_JSON"
+            register_real_sgx_quote "reth" "$SECURE_SGX_RETH_VERIFIER" "$SGX_RETH_BOOTSTRAP_JSON"
+            QUOTE_INFO_JSON="$SGX_RETH_QUOTE_INFO_JSON"
             NEXT_INSTANCE_ID="$NEXT_INSTANCE_ID_RETH"
             LAST_INSTANCE="$LAST_INSTANCE_RETH"
             ;;
@@ -348,6 +384,8 @@ jq -n \
     --arg dcap "$AUTOMATA_DCAP_ATTESTATION" \
     --arg pccs "$PCCS_JSON" \
     --arg quoteInfo "$QUOTE_INFO_JSON" \
+    --arg sgxGethQuoteInfo "$SGX_GETH_QUOTE_INFO_JSON" \
+    --arg sgxRethQuoteInfo "$SGX_RETH_QUOTE_INFO_JSON" \
     --arg sgxGeth "$SECURE_SGX_GETH_VERIFIER" \
     --arg sgxReth "$SECURE_SGX_RETH_VERIFIER" \
     --arg registerSecureSgx "$REGISTER_SECURE_SGX" \
@@ -368,6 +406,8 @@ jq -n \
         AutomataDcapAttestationFee: $dcap,
         pccs_json: $pccs,
         sgx_quote_info_json: $quoteInfo,
+        sgx_geth_quote_info_json: $sgxGethQuoteInfo,
+        sgx_reth_quote_info_json: $sgxRethQuoteInfo,
         SecureSgxGethVerifier: $sgxGeth,
         SecureSgxRethVerifier: $sgxReth,
         registerSecureSgx: $registerSecureSgx,

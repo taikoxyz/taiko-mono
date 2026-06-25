@@ -171,8 +171,14 @@ def test_devnet_wrapper_runs_full_own_pccs_two_secure_sgx_flow():
     assert "deploy_automata_dcap.sh" in text
     assert "setup_sgx_pccs_extras.sh" in text
     assert 'DEPLOY_SECURE_SGX_VERIFIERS="${DEPLOY_SECURE_SGX_VERIFIERS:-true}"' in text
-    assert 'SECURE_SGX_GETH_VERIFIER="${SECURE_SGX_GETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"' in text
-    assert 'SECURE_SGX_RETH_VERIFIER="${SECURE_SGX_RETH_VERIFIER:-${SECURE_SGX_VERIFIER:-}}"' in text
+    assert 'SECURE_SGX_GETH_VERIFIER="${SECURE_SGX_GETH_VERIFIER:-}"' in text
+    assert 'SECURE_SGX_RETH_VERIFIER="${SECURE_SGX_RETH_VERIFIER:-}"' in text
+    assert '${SECURE_SGX_VERIFIER:-}' not in text
+    assert 'SGX_GETH_BOOTSTRAP_JSON="${SGX_GETH_BOOTSTRAP_JSON:-}"' in text
+    assert 'SGX_RETH_BOOTSTRAP_JSON="${SGX_RETH_BOOTSTRAP_JSON:-}"' in text
+    assert 'elif [[ -f "$SGX_RETH_BOOTSTRAP_JSON" ]]; then' in text
+    assert 'elif [[ -f "$SGX_GETH_BOOTSTRAP_JSON" ]]; then' in text
+    assert "REGISTER_SECURE_SGX=true requires SGX_BOOTSTRAP_JSON" not in text
     assert 'REGISTER_SECURE_SGX="${REGISTER_SECURE_SGX:-false}"' in text
     assert 'REGISTER_SECURE_SGX_TARGET="${REGISTER_SECURE_SGX_TARGET:-reth}"' in text
     assert 'FAKE_QUOTE_SMOKE="${FAKE_QUOTE_SMOKE:-true}"' in text
@@ -183,6 +189,11 @@ def test_devnet_wrapper_runs_full_own_pccs_two_secure_sgx_flow():
     assert "fake SGX quote rejected as expected for geth" in text
     assert "fake SGX quote rejected as expected for reth" in text
     assert 'cast call "$verifier" "registerInstance(bytes)" "$FAKE_SGX_QUOTE"' in text
+    assert 'require_bootstrap_json "geth" "$SGX_GETH_BOOTSTRAP_JSON"' in text
+    assert 'require_bootstrap_json "reth" "$SGX_RETH_BOOTSTRAP_JSON"' in text
+    assert 'register_real_sgx_quote "geth" "$SECURE_SGX_GETH_VERIFIER" "$SGX_GETH_BOOTSTRAP_JSON"' in text
+    assert 'register_real_sgx_quote "reth" "$SECURE_SGX_RETH_VERIFIER" "$SGX_RETH_BOOTSTRAP_JSON"' in text
+    assert "must be different" in text
     assert 'SKIP_SIMULATION=true' in text
     assert "SecureSgxVerifier.sol:SecureSgxVerifier" in text
     assert "configure_sgx_verifier.sh" in text
@@ -190,3 +201,5 @@ def test_devnet_wrapper_runs_full_own_pccs_two_secure_sgx_flow():
     assert "--quote" in text
     assert "SecureSgxGethVerifier" in text
     assert "SecureSgxRethVerifier" in text
+    assert "sgx_geth_quote_info_json" in text
+    assert "sgx_reth_quote_info_json" in text
