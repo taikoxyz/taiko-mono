@@ -17,8 +17,7 @@ library LibL1Addrs {
     address public constant PRECONF_WHITELIST = 0xFD019460881e6EeC632258222393d5821029b2ac;
     address public constant PROVER_WHITELIST = 0xEa798547d97e345395dA071a0D7ED8144CD612Ae;
     address public constant SHARED_RESOLVER = 0x8Efa01564425692d0a0838DC10E300BD310Cb43e;
-    // Need redeployment
-    // address public constant QUOTA_MANAGER = 0x91f67118DD47d502B1f0C354D0611997B022f29E;
+    // address public constant QUOTA_MANAGER = 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC;
 
     address public constant BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
 
