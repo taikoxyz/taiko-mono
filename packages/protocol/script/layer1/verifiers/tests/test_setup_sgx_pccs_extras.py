@@ -203,3 +203,39 @@ def test_devnet_wrapper_runs_full_own_pccs_two_secure_sgx_flow():
     assert "SecureSgxRethVerifier" in text
     assert "sgx_geth_quote_info_json" in text
     assert "sgx_reth_quote_info_json" in text
+
+
+def test_existing_automata_wrapper_deploys_two_secure_sgx_verifiers_without_collateral_or_policy_setup():
+    protocol_root = Path(__file__).resolve().parents[4]
+    wrapper = protocol_root / "script/layer1/verifiers/deploy_sgx_verifiers_with_existing_automata.sh"
+    text = wrapper.read_text()
+
+    assert 'NETWORK="${NETWORK:-}"' in text
+    assert 'RPC_URL="${RPC_URL:-${FORK_URL:-}}"' in text
+    assert "HOODI_TAIKO_CHAIN_ID=167013" in text
+    assert "MAINNET_TAIKO_CHAIN_ID=167000" in text
+    assert "0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5" in text
+    assert "0xebA89cA02449070b902A5DDc406eE709940e280E" in text
+    assert "0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261" in text
+    assert "0x8d7C954960a36a7596d7eA4945dDf891967ca8A3" in text
+    assert 'AUTOMATA_DCAP_ATTESTATION="${AUTOMATA_DCAP_ATTESTATION:-}"' in text
+    assert 'SGX_GETH_AUTOMATA_DCAP_ATTESTATION="${SGX_GETH_AUTOMATA_DCAP_ATTESTATION:-${AUTOMATA_DCAP_ATTESTATION:-}}"' in text
+    assert 'SGX_RETH_AUTOMATA_DCAP_ATTESTATION="${SGX_RETH_AUTOMATA_DCAP_ATTESTATION:-${AUTOMATA_DCAP_ATTESTATION:-}}"' in text
+    assert 'deploy_secure_sgx_verifier "geth" "$SGX_GETH_AUTOMATA_DCAP_ATTESTATION"' in text
+    assert 'deploy_secure_sgx_verifier "reth" "$SGX_RETH_AUTOMATA_DCAP_ATTESTATION"' in text
+    assert "contracts/layer1/verifiers/SecureSgxVerifier.sol:SecureSgxVerifier" in text
+    assert "SecureSgxGethVerifier" in text
+    assert "SecureSgxRethVerifier" in text
+    assert 'require_code "SGX geth Automata attester"' in text
+    assert 'require_code "SGX reth Automata attester"' in text
+    assert "must be different" in text
+    assert 'FAKE_QUOTE_SMOKE="${FAKE_QUOTE_SMOKE:-true}"' in text
+    assert 'cast call "$verifier" "registerInstance(bytes)" "$FAKE_SGX_QUOTE"' in text
+
+    assert "SGX_BOOTSTRAP_JSON" not in text
+    assert "setup_sgx_pccs_extras.sh" not in text
+    assert "deploy_automata_dcap.sh" not in text
+    assert "configure_sgx_verifier.sh" not in text
+    assert "--mrenclave" not in text
+    assert "--mrsigner" not in text
+    assert "--quote" not in text

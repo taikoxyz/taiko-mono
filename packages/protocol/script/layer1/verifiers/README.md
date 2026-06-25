@@ -45,6 +45,27 @@ forge script script/layer1/verifiers/ConfigureSgxVerifier.s.sol:ConfigureSgxVeri
   --legacy
 ```
 
+## Deploy SecureSgxVerifier With Existing Automata
+
+For Hoodi/mainnet-style deployments where Automata DCAP attestation infrastructure already exists,
+deploy only the two Taiko-owned `SecureSgxVerifier` contracts:
+
+```bash
+PRIVATE_KEY=$PRIVATE_KEY \
+RPC_URL=https://ethereum-hoodi-rpc.publicnode.com \
+NETWORK=hoodi \
+./script/layer1/verifiers/deploy_sgx_verifiers_with_existing_automata.sh
+```
+
+`NETWORK=hoodi` and `NETWORK=mainnet` load the known geth/reth Automata proxy addresses and the
+Taiko chain ID. For a custom shared Automata entrypoint, set `TAIKO_CHAIN_ID` and
+`AUTOMATA_DCAP_ATTESTATION`; for separate entrypoints, set
+`SGX_GETH_AUTOMATA_DCAP_ATTESTATION` and `SGX_RETH_AUTOMATA_DCAP_ATTESTATION`.
+
+This script is deploy-only. It does not upload collateral, set MRENCLAVE/MRSIGNER, set
+`SecureSgxVerifier` attribute policies, or register an instance. Run `configure_sgx_verifier.sh`
+against each deployed verifier after the real geth/reth quotes are available.
+
 ## Configuration Options
 
 ### Set MR_ENCLAVE
