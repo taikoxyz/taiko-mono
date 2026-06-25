@@ -4,7 +4,7 @@
 
 This proposal restores the L1 recovery surface after the Shasta forged-proof incident.
 
-It executes **59 L1 actions** and **no L2 actions**:
+It executes **61 L1 actions** and **no L2 actions**:
 
 1. Upgrade `SignalService`.
 2. Upgrade `Bridge`.
@@ -14,15 +14,18 @@ It executes **59 L1 actions** and **no L2 actions**:
 6. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
    `25,367,937`, one block before the first forged proof.
 7. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
-8. Disable all currently trusted RISC0 and SP1 image/program IDs.
-9. Disable all currently trusted SGX-geth and SGX-reth MRENCLAVE values.
+8. Trust the new SGX-geth and SGX-reth MRENCLAVE values on the existing attesters.
+9. Disable all currently trusted RISC0 and SP1 image/program IDs.
+10. Disable all stale SGX-geth and SGX-reth MRENCLAVE values.
 
 The implementation, new QuotaManager, and new verifier addresses in
 [`Proposal0017.s.sol`](./Proposal0017.s.sol) are the mainnet contracts deployed by
 `DeployHackRecoveryContracts` (chain 1, commit `b73608696`, the `taiko-alethia-protocol-v3.0.0`
 branch tip). See [Deployed Addresses](#deployed-addresses).
 
-New RISC0, SP1, SGX-geth, and SGX-reth IDs remain pending and are intentionally not encoded yet.
+New RISC0 and SP1 IDs remain pending and are intentionally not encoded yet. New SGX-geth and
+SGX-reth MRENCLAVE values are encoded below; instance registration remains a separate follow-up
+transaction through the new SGX verifiers' registrar.
 
 ## Action Order
 
@@ -44,7 +47,8 @@ the new QuotaManager constructor.
 1. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
 2. Call `Inbox.init2(uint48,bytes32)` with the last correct pre-forgery finalized state.
 3. Rotate SGX attester MRSIGNER trust.
-4. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth.
+4. Trust the new SGX-geth and SGX-reth MRENCLAVE values.
+5. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth.
 
 `MainnetInbox` stores its proof verifier as an immutable. The proposal therefore cannot set the new
 `MainnetVerifier` by calldata; the new `MAINNET_INBOX_NEW_IMPL` must be deployed with the new
@@ -148,7 +152,8 @@ For comparison, the forged proof finalized proposal `18,056` in block `25,367,93
 
 The proposal removes all trust entries currently enabled on the existing mainnet verifiers. Because
 the new SGX verifier contracts keep using the existing SGX attesters, it also rotates MRSIGNER trust
-on those attesters. New image IDs are pending and must be added in a follow-up edit once available.
+on those attesters and trusts the new SGX-geth and SGX-reth MRENCLAVE values. New RISC0 and SP1
+image/program IDs are pending and must be added in a follow-up edit once available.
 
 ### SGX MRSIGNER Values
 
@@ -157,6 +162,16 @@ on those attesters. New image IDs are pending and must be added in a follow-up e
 
 - `0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013` -> `true`
 - `0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5` -> `false`
+
+### New SGX MRENCLAVE Values
+
+`SGXGETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
+
+- `0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9` -> `true`
+
+`SGXRETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
+
+- `0x90ded99966089a3cba3993109f270b6a6e19f4409d5b78191fbe352ba107c397` -> `true`
 
 ### RISC0 Image IDs
 
@@ -279,8 +294,9 @@ Before submission:
      --rpc-url <ARCHIVE_RPC_URL>
    ```
 
-10. Confirm every verifier cleanup target is still trusted before execution, and confirm the new
-    MRSIGNER is not yet trusted while the old MRSIGNER is still trusted.
+10. Confirm every verifier cleanup target is still trusted before execution, confirm the new
+    MRSIGNER and new MRENCLAVE values are not yet trusted, and confirm the old MRSIGNER is still
+    trusted.
 11. Generate calldata:
 
 ```bash
@@ -300,8 +316,9 @@ After execution:
 3. Confirm `Bridge` and `ERC20Vault` behavior uses the new immutable `QUOTA_MANAGER`, and that
    `tokenQuota(token).quota` still matches the constructor quota table above.
 4. Confirm `Inbox.getCoreState()` matches the restored state.
-5. Confirm the new MRSIGNER returns true and the old MRSIGNER returns false on both SGX attesters.
-6. Confirm every removed RISC0, SP1, and SGX trust entry returns false.
+5. Confirm the new MRSIGNER and new SGX MRENCLAVE values return true on the SGX attesters.
+6. Confirm the old MRSIGNER and every removed RISC0, SP1, and stale SGX MRENCLAVE entry returns
+   false.
 
 ## Security Contacts
 

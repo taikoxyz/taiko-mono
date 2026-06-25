@@ -35,6 +35,10 @@ contract Proposal0017 is BuildProposal {
         0x48fa5bbad91d274735d238715913c8712a7505bb6d0dd832764bedb46d587013;
     bytes32 public constant OLD_MR_SIGNER =
         0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
+    bytes32 public constant NEW_SGXGETH_MR_ENCLAVE =
+        0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9;
+    bytes32 public constant NEW_SGXRETH_MR_ENCLAVE =
+        0x90ded99966089a3cba3993109f270b6a6e19f4409d5b78191fbe352ba107c397;
 
     // Last finalized state at L1 block 25,367,937, one block before the first forged proof tx.
     uint48 public constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
@@ -74,7 +78,7 @@ contract Proposal0017 is BuildProposal {
 
         actions = new Controller
             .Action[](
-            10 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
+            12 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
                 + sgxRethMrEnclaves.length
         );
 
@@ -114,6 +118,20 @@ contract Proposal0017 is BuildProposal {
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(IProposal0017Attestation.setMrSigner, (NEW_MR_SIGNER, true))
+        });
+        actions[cursor++] = Controller.Action({
+            target: SGXGETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0017Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true)
+            )
+        });
+        actions[cursor++] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0017Attestation.setMrEnclave, (NEW_SGXRETH_MR_ENCLAVE, true)
+            )
         });
         actions[cursor++] = Controller.Action({
             target: SGXGETH_ATTESTER,
