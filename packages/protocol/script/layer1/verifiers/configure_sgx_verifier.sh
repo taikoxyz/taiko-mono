@@ -14,6 +14,9 @@ set -e
 
 SKIP_SIMULATION="${SKIP_SIMULATION:-false}"
 REGISTER_INSTANCE_GAS_LIMIT="${REGISTER_INSTANCE_GAS_LIMIT:-8000000}"
+AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE="${AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE:-true}"
+DEFAULT_ATTRIBUTE_POLICY_MASK="${DEFAULT_ATTRIBUTE_POLICY_MASK:-0xffffffffffffffff0000000000000000}"
+DEFAULT_ATTRIBUTE_POLICY_EXPECTED="${DEFAULT_ATTRIBUTE_POLICY_EXPECTED:-0x05000000000000000000000000000000}"
 
 redact_rpc() {
     echo "$1" | sed -E 's#(https?://[^/?]+).*#\1/<redacted>#'
@@ -68,6 +71,38 @@ run_with_cast() {
     echo "✓ Configuration complete"
 }
 
+maybe_default_attribute_policy_for_mrenclave() {
+    if [[ "$AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE" != "true" ]]; then
+        return
+    fi
+    if [[ "$SET_MRENCLAVE" != "true" || "$MRENCLAVE_ENABLE" != "true" ]]; then
+        return
+    fi
+    if [[ "$SET_ATTRIBUTE_POLICY" == "true" ]]; then
+        return
+    fi
+
+    local policy_version
+    if ! policy_version=$(cast call "$SGX_VERIFIER_ADDRESS" \
+        "enclaveAttributePolicyVersion(bytes32)(uint32)" "$MRENCLAVE" \
+        --rpc-url "$FORK_URL" 2>/dev/null); then
+        echo "Default attribute policy skipped: verifier does not expose enclaveAttributePolicyVersion(bytes32)."
+        return
+    fi
+
+    policy_version=$(echo "$policy_version" | awk '{print $1}')
+    if [[ "$policy_version" != "0" ]]; then
+        echo "Default attribute policy skipped: MRENCLAVE already has policyVersion=$policy_version."
+        return
+    fi
+
+    export ATTRIBUTE_POLICY_MRENCLAVE="$MRENCLAVE"
+    export ATTRIBUTE_POLICY_MASK="$DEFAULT_ATTRIBUTE_POLICY_MASK"
+    export ATTRIBUTE_POLICY_EXPECTED="$DEFAULT_ATTRIBUTE_POLICY_EXPECTED"
+    SET_ATTRIBUTE_POLICY=true
+    echo "Default attribute policy enabled for MRENCLAVE $MRENCLAVE"
+}
+
 usage() {
     cat << 'EOF'
 Configure SGX Verifier
@@ -83,6 +118,12 @@ Required Environment Variables:
   SKIP_SIMULATION=true  - Optional. Use direct cast sends instead of forge script
                           simulation, useful on chains whose P256 precompile is
                           not modeled by the local fork EVM.
+  AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE=true
+                        - Optional. When --mrenclave trusts a SecureSgxVerifier
+                          MRENCLAVE with no existing policy, also set the default
+                          ATTRIBUTES policy. Set false to disable.
+  DEFAULT_ATTRIBUTE_POLICY_MASK / DEFAULT_ATTRIBUTE_POLICY_EXPECTED
+                        - Optional defaults for the automatic ATTRIBUTES policy.
 
 Options:
   --env NAME                    Load a predefined SGX_VERIFIER_ADDRESS (see list below)
@@ -245,6 +286,8 @@ done
 if [[ -n "${ATTESTATION_ADDRESS:-}" || -n "${PEM_CERTCHAIN_ADDRESS:-}" ]]; then
     echo "WARNING: ATTESTATION_ADDRESS/PEM_CERTCHAIN_ADDRESS are no longer used and will be ignored."
 fi
+
+maybe_default_attribute_policy_for_mrenclave
 
 # Export configuration flags consumed by ConfigureSgxVerifier.s.sol
 export SET_MRENCLAVE=$SET_MRENCLAVE

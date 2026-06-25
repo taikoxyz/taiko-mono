@@ -11,6 +11,7 @@
 #   SGX_RETH_BOOTSTRAP_JSON=  # required only for REGISTER_SECURE_SGX_TARGET=reth|both
 #   INTEL_API_SGX=https://127.0.0.1:8081/sgx/certification/v4
 #   DEPLOY_SECURE_SGX_VERIFIERS=true
+#   TAIKO_CHAIN_ID=167001
 #   REGISTER_SECURE_SGX=false
 #   REGISTER_SECURE_SGX_TARGET=reth
 #   FAKE_QUOTE_SMOKE=true
@@ -47,6 +48,8 @@ FAKE_SGX_QUOTE="${FAKE_SGX_QUOTE:-0x0300020000000000}"
 INSTANCE_VALIDITY_DELAY="${INSTANCE_VALIDITY_DELAY:-86400}"
 REGISTRAR="${REGISTRAR:-0x0000000000000000000000000000000000000000}"
 ATTRIBUTE_POLICY_MASK="${ATTRIBUTE_POLICY_MASK:-0xffffffffffffffff0000000000000000}"
+TAIKO_CHAIN_ID="${TAIKO_CHAIN_ID:-}"
+ALLOW_RPC_CHAIN_ID_AS_TAIKO_CHAIN_ID="${ALLOW_RPC_CHAIN_ID_AS_TAIKO_CHAIN_ID:-false}"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 log() { echo "[devnet_sgx_own_pccs] $*"; }
@@ -148,9 +151,15 @@ fi
 
 DEPLOYER=$(cast wallet address --private-key "$PRIVATE_KEY")
 CHAIN_ID=$(cast chain-id --rpc-url "$RPC_URL")
-TAIKO_CHAIN_ID="${TAIKO_CHAIN_ID:-$CHAIN_ID}"
+if [[ -z "$TAIKO_CHAIN_ID" ]]; then
+    if [[ "$ALLOW_RPC_CHAIN_ID_AS_TAIKO_CHAIN_ID" == "true" ]]; then
+        TAIKO_CHAIN_ID="$CHAIN_ID"
+    else
+        die "TAIKO_CHAIN_ID must be set to the Taiko L2 chain ID; set ALLOW_RPC_CHAIN_ID_AS_TAIKO_CHAIN_ID=true only if the RPC chain ID is intentionally the Taiko chain ID"
+    fi
+fi
 
-log "chain=$CHAIN_ID rpc=$(redact_rpc "$RPC_URL") deployer=$DEPLOYER"
+log "chain=$CHAIN_ID taikoChainId=$TAIKO_CHAIN_ID rpc=$(redact_rpc "$RPC_URL") deployer=$DEPLOYER"
 log "out=$OUT_DIR work=$WORK_DIR"
 
 (
@@ -379,6 +388,7 @@ fi
 
 jq -n \
     --arg chain "$CHAIN_ID" \
+    --arg taikoChainId "$TAIKO_CHAIN_ID" \
     --arg rpc "$(redact_rpc "$RPC_URL")" \
     --arg deployer "$DEPLOYER" \
     --arg dcap "$AUTOMATA_DCAP_ATTESTATION" \
@@ -401,6 +411,7 @@ jq -n \
     --arg lastInstanceReth "$LAST_INSTANCE_RETH" \
     '{
         chain_id: $chain,
+        taiko_chain_id: $taikoChainId,
         rpc: $rpc,
         deployer: $deployer,
         AutomataDcapAttestationFee: $dcap,

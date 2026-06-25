@@ -130,11 +130,65 @@ def test_configure_sgx_verifier_supports_secure_attribute_policy():
     assert "ATTRIBUTE_POLICY_MRENCLAVE" in wrapper_text
     assert "ATTRIBUTE_POLICY_MASK" in wrapper_text
     assert "ATTRIBUTE_POLICY_EXPECTED" in wrapper_text
+    assert 'AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE="${AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE:-true}"' in wrapper_text
+    assert 'DEFAULT_ATTRIBUTE_POLICY_MASK="${DEFAULT_ATTRIBUTE_POLICY_MASK:-0xffffffffffffffff0000000000000000}"' in wrapper_text
+    assert 'DEFAULT_ATTRIBUTE_POLICY_EXPECTED="${DEFAULT_ATTRIBUTE_POLICY_EXPECTED:-0x05000000000000000000000000000000}"' in wrapper_text
+    assert "maybe_default_attribute_policy_for_mrenclave" in wrapper_text
+    assert "enclaveAttributePolicyVersion(bytes32)(uint32)" in wrapper_text
 
     assert "import { SecureSgxVerifier }" in script_text
     assert 'vm.envOr("SET_ATTRIBUTE_POLICY", false)' in script_text
     assert "function _envBytes16" in script_text
     assert "setEnclaveAttributePolicy(mrEnclave, mask, expected)" in script_text
+
+
+def test_configure_sgx_verifier_defaults_attribute_policy_when_trusting_mrenclave(tmp_path):
+    protocol_root = Path(__file__).resolve().parents[4]
+    wrapper = protocol_root / "script/layer1/verifiers/configure_sgx_verifier.sh"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "cast.log"
+    fake_cast = bin_dir / "cast"
+    fake_cast.write_text(
+        f"""#!/bin/bash
+set -e
+if [[ "$1" == "call" ]]; then
+    echo 0
+    exit 0
+fi
+if [[ "$1" == "send" ]]; then
+    printf '%s\\n' "$*" >> "{log}"
+    exit 0
+fi
+echo "unexpected cast invocation: $*" >&2
+exit 1
+"""
+    )
+    fake_cast.chmod(0o755)
+
+    mrenclave = "0x" + "11" * 32
+    result = subprocess.run(
+        ["bash", str(wrapper), "--mrenclave", mrenclave],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={
+            "PATH": f"{bin_dir}:/usr/bin:/bin",
+            "PRIVATE_KEY": "0xabc",
+            "FORK_URL": "https://example.invalid/rpc",
+            "SGX_VERIFIER_ADDRESS": "0x" + "22" * 20,
+            "SKIP_SIMULATION": "true",
+        },
+    )
+
+    calls = log.read_text()
+    assert "Default attribute policy enabled for MRENCLAVE" in result.stdout
+    assert "setEnclaveAttributePolicy(bytes32,bytes16,bytes16)" in calls
+    assert mrenclave in calls
+    assert "0xffffffffffffffff0000000000000000" in calls
+    assert "0x05000000000000000000000000000000" in calls
+    assert "setMrEnclave(bytes32,bool)" in calls
 
 
 def test_configure_sgx_verifier_redacts_rpc_in_logs():
@@ -171,6 +225,10 @@ def test_devnet_wrapper_runs_full_own_pccs_two_secure_sgx_flow():
     assert "deploy_automata_dcap.sh" in text
     assert "setup_sgx_pccs_extras.sh" in text
     assert 'DEPLOY_SECURE_SGX_VERIFIERS="${DEPLOY_SECURE_SGX_VERIFIERS:-true}"' in text
+    assert 'TAIKO_CHAIN_ID="${TAIKO_CHAIN_ID:-}"' in text
+    assert 'ALLOW_RPC_CHAIN_ID_AS_TAIKO_CHAIN_ID="${ALLOW_RPC_CHAIN_ID_AS_TAIKO_CHAIN_ID:-false}"' in text
+    assert "TAIKO_CHAIN_ID must be set to the Taiko L2 chain ID" in text
+    assert "taikoChainId=$TAIKO_CHAIN_ID" in text
     assert 'SECURE_SGX_GETH_VERIFIER="${SECURE_SGX_GETH_VERIFIER:-}"' in text
     assert 'SECURE_SGX_RETH_VERIFIER="${SECURE_SGX_RETH_VERIFIER:-}"' in text
     assert '${SECURE_SGX_VERIFIER:-}' not in text
@@ -201,6 +259,7 @@ def test_devnet_wrapper_runs_full_own_pccs_two_secure_sgx_flow():
     assert "--quote" in text
     assert "SecureSgxGethVerifier" in text
     assert "SecureSgxRethVerifier" in text
+    assert "taiko_chain_id" in text
     assert "sgx_geth_quote_info_json" in text
     assert "sgx_reth_quote_info_json" in text
 

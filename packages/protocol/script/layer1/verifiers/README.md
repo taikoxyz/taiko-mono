@@ -8,6 +8,11 @@ This directory contains scripts to configure the SGX Verifier after deployment.
   SGX verifier's trusted MRENCLAVE/MRSIGNER allowlist, SecureSgxVerifier attribute policy,
   registers instances, and toggles local-report enforcement.
 - **[configure_sgx_verifier.sh](./configure_sgx_verifier.sh)** - Bash wrapper for easier usage.
+- **[deploy_sgx_verifiers_with_existing_automata.sh](./deploy_sgx_verifiers_with_existing_automata.sh)** -
+  Deploys geth/reth `SecureSgxVerifier` contracts when the network already has Automata DCAP
+  attestation infrastructure.
+- **[deploy_devnet_sgx_own_pccs.sh](./deploy_devnet_sgx_own_pccs.sh)** - Devnet wrapper that deploys a
+  self-hosted Automata DCAP/PCCS stack, then deploys the geth/reth `SecureSgxVerifier` contracts.
 
 > **What changed:** TCB info and QE identity are **no longer configured on-chain by Taiko**. They
 > are sourced from Automata's on-chain PCCS through the DCAP attestation entrypoint. SGX
@@ -16,6 +21,23 @@ This directory contains scripts to configure the SGX Verifier after deployment.
 > `ATTESTATION_ADDRESS` / `PEM_CERTCHAIN_ADDRESS` variables have been removed. The
 > MRENCLAVE/MRSIGNER allowlist now lives directly on `SgxVerifier` (previously on
 > `AutomataDcapV3Attestation`).
+
+## Workflow Overview
+
+There are two deployment paths and one post-deployment configuration path:
+
+- Use `deploy_sgx_verifiers_with_existing_automata.sh` for Hoodi/mainnet-style networks where
+  Automata already provides the DCAP attestation contracts. This deploys only Taiko-owned geth/reth
+  `SecureSgxVerifier` contracts.
+- Use `deploy_devnet_sgx_own_pccs.sh` for devnets that need their own Automata DCAP/PCCS stack. This
+  deploys the Automata stack, loads SGX collateral, then deploys Taiko-owned geth/reth
+  `SecureSgxVerifier` contracts.
+- Use `configure_sgx_verifier.sh` after either deployment path to trust MRENCLAVE/MRSIGNER values,
+  configure `SecureSgxVerifier` ATTRIBUTES policies, and register raw SGX quotes.
+
+The default configuration path is fail-closed: local MRENCLAVE/MRSIGNER checks are on, `--mrenclave`
+also sets the default `SecureSgxVerifier` ATTRIBUTES policy when no policy exists yet, and quote
+registration still verifies DCAP collateral through Automata's attestation entrypoint.
 
 ## Quick Start
 
@@ -66,6 +88,21 @@ This script is deploy-only. It does not upload collateral, set MRENCLAVE/MRSIGNE
 `SecureSgxVerifier` attribute policies, or register an instance. Run `configure_sgx_verifier.sh`
 against each deployed verifier after the real geth/reth quotes are available.
 
+## Deploy Devnet With Self-Hosted PCCS
+
+For a devnet that needs its own Automata DCAP/PCCS stack, use the devnet wrapper and set
+`TAIKO_CHAIN_ID` to the Taiko L2 chain ID, not the L1 RPC chain ID:
+
+```bash
+DEVNET_ENV=/home/yue/works/taiko/raiko2-k8s/devnet.env \
+TAIKO_CHAIN_ID=167001 \
+./script/layer1/verifiers/deploy_devnet_sgx_own_pccs.sh
+```
+
+The wrapper fails closed when `TAIKO_CHAIN_ID` is omitted. Only set
+`ALLOW_RPC_CHAIN_ID_AS_TAIKO_CHAIN_ID=true` for environments where the RPC chain ID is intentionally
+the Taiko chain ID being proven.
+
 ## Configuration Options
 
 ### Set MR_ENCLAVE
@@ -75,6 +112,19 @@ Trust a new MR_ENCLAVE value:
 ```bash
 --mrenclave 0xYOUR_MRENCLAVE_HASH
 ```
+
+For `SecureSgxVerifier`, `configure_sgx_verifier.sh` also sets the default ATTRIBUTES policy for
+this MRENCLAVE when no policy exists yet:
+
+```text
+mask     = 0xffffffffffffffff0000000000000000
+expected = 0x05000000000000000000000000000000
+```
+
+Set `AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE=false` to disable this behavior, or pass
+`--attribute-policy` explicitly to use a different policy. The wrapper skips the default when the
+MRENCLAVE already has a non-zero policy version, so a repeated `--mrenclave` does not bump the policy
+version and revoke existing instances.
 
 Untrust an MR_ENCLAVE value:
 
