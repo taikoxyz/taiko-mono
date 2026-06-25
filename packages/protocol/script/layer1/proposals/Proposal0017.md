@@ -77,8 +77,8 @@ documentation and live L1 calls.
 ## Deployed Addresses
 
 These are the mainnet contracts deployed by `DeployHackRecoveryContracts` (chain 1) at commit
-`b73608696`, the `taiko-alethia-protocol-v3.0.0` branch tip. Codediff links are in the PR
-description.
+`b73608696`, the `taiko-alethia-protocol-v3.0.0` branch tip. Codediff and Etherscan links are
+listed below.
 
 | Constant                       | Address                                      | Contract                                          |
 | ------------------------------ | -------------------------------------------- | ------------------------------------------------- |
@@ -94,6 +94,47 @@ description.
 The `MainnetInbox` implementation links two libraries deployed via the canonical CREATE2 deployer:
 `LibForcedInclusion` (`0x02747F462Ce82fdC5F8Fb01Fb98dfb71C8eb65b5`) and `LibInboxSetup`
 (`0xB71afBDa15ad72A6e69Eba27A8C14EC46f31Fbe8`).
+
+### Proxy upgrades — current impl → new impl
+
+| Contract      | codediff                                                                                                                                 | Proxy                                        | Current implementation                       | New implementation                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
+| Inbox         | https://codediff.taiko.xyz/?addr=0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f&newimpl=0x724012AECFdF963ea962f90a2743E66f870564C2&chainid=1 | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | `0x349Ae3578f48F758d79451EeAB61Cdd5fedD0098` | `0x724012AECFdF963ea962f90a2743E66f870564C2` |
+| SignalService | https://codediff.taiko.xyz/?addr=0x9e0a24964e5397B566c1ed39258e21aB5E35C77C&newimpl=0x1A06832992785766a105838C95c1E13a0045AC85&chainid=1 | `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C` | `0xBC442F342FE247Dc7981AC7Fbe8293c8891F8752` | `0x1A06832992785766a105838C95c1E13a0045AC85` |
+| Bridge        | https://codediff.taiko.xyz/?addr=0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC&newimpl=0x1c94D798CFA08F396E5BA9F81697289c53273381&chainid=1 | `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC` | `0x2705B12a971dA766A3f9321a743d61ceAD67dA2F` | `0x1c94D798CFA08F396E5BA9F81697289c53273381` |
+| ERC20Vault    | https://codediff.taiko.xyz/?addr=0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab&newimpl=0x024253C6FDC27d3161aFd43fb0241411A28dDc3c&chainid=1 | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | `0xb20C8Ffc2dD49596508d262b6E8B6817e9790E63` | `0x024253C6FDC27d3161aFd43fb0241411A28dDc3c` |
+
+### Replaced verifiers — old impl → new impl
+
+The new MainnetVerifier reuses the existing RISC0/SP1 verifiers and swaps in the two new SGX
+verifiers. Old addresses read on-chain: live Inbox `getConfig().proofVerifier` → its
+`sgxGethVerifier()` / `sgxRethVerifier()`.
+
+| Contract          | codediff                                                                                                                                 | Old impl                                     | New impl                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------- |
+| MainnetVerifier   | https://codediff.taiko.xyz/?addr=0x9cAa4948381590900FCdd8a4F06EB24138eD665d&newimpl=0x0834aCfE76C46054d12478511b79Bf473a154A86&chainid=1 | `0x9cAa4948381590900FCdd8a4F06EB24138eD665d` | `0x0834aCfE76C46054d12478511b79Bf473a154A86` |
+| SGX-geth verifier | https://codediff.taiko.xyz/?addr=0x08568Df252ecf37D6C3eFD24f6ca3688118697F1&newimpl=0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee&chainid=1 | `0x08568Df252ecf37D6C3eFD24f6ca3688118697F1` | `0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee` |
+| SGX-reth verifier | https://codediff.taiko.xyz/?addr=0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6&newimpl=0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8&chainid=1 | `0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6` | `0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8` |
+
+### New contract — no predecessor
+
+QuotaManager is introduced by this bundle (the live Bridge and ERC20Vault have no quota manager —
+`quotaManager()` reverts), so there is no old impl to diff against; the link views its deployed
+contract on Etherscan.
+
+| Contract     | Etherscan                                                               | Address                                      |
+| ------------ | ----------------------------------------------------------------------- | -------------------------------------------- |
+| QuotaManager | https://etherscan.io/address/0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC | `0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC` |
+
+### Linked libraries — Etherscan
+
+Deployed via the canonical CREATE2 deployer and linked into the MainnetInbox implementation
+(`0x7240…`).
+
+| Library            | Etherscan                                                               | Address                                      |
+| ------------------ | ----------------------------------------------------------------------- | -------------------------------------------- |
+| LibForcedInclusion | https://etherscan.io/address/0x02747F462Ce82fdC5F8Fb01Fb98dfb71C8eb65b5 | `0x02747F462Ce82fdC5F8Fb01Fb98dfb71C8eb65b5` |
+| LibInboxSetup      | https://etherscan.io/address/0xB71afBDa15ad72A6e69Eba27A8C14EC46f31Fbe8 | `0xB71afBDa15ad72A6e69Eba27A8C14EC46f31Fbe8` |
 
 ## New QuotaManager
 
