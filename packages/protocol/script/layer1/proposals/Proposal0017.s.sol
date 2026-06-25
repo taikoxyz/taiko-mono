@@ -38,7 +38,7 @@ contract Proposal0017 is BuildProposal {
     bytes32 public constant NEW_SGXGETH_MR_ENCLAVE =
         0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9;
     bytes32 public constant NEW_SGXRETH_MR_ENCLAVE =
-        0x90ded99966089a3cba3993109f270b6a6e19f4409d5b78191fbe352ba107c397;
+        0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed;
 
     // Last finalized state at L1 block 25,367,937, one block before the first forged proof tx.
     uint48 public constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
