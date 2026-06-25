@@ -185,14 +185,18 @@ contract Proposal0017 is BuildProposal {
         actions[cursor++] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(Risc0Verifier.setImageIdTrusted, (RISC0_AGGREGATION_IMAGE_ID, true))
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (RISC0_AGGREGATION_IMAGE_ID, true)
+            )
         });
 
         // Trust raiko2 v0.5.0 SP1 program verification keys.
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_BN256, true))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_BN256, true)
+            )
         });
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
