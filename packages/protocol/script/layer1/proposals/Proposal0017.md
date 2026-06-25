@@ -262,6 +262,32 @@ notes for the reproduction steps.
 - `0x00084a803a24363f4b80ccd44b440195151b451d05a0dc35a24ced112ed41bbb`
 - `0x0425401d090d8fd270199a893440195128da28e8168370d64499da222ed41bbb`
 
+### Reproduce raiko2 v0.5.0 ZK IDs
+
+These values come from the raiko2
+[`v0.5.0`](https://github.com/taikoxyz/raiko2/releases/tag/v0.5.0) release artifacts at commit
+`9357c902007c893022c96eecee11f6ae2987b34b`.
+
+```bash
+git clone https://github.com/taikoxyz/raiko2.git
+cd raiko2
+git checkout 9357c902007c893022c96eecee11f6ae2987b34b
+gh release download v0.5.0 -R taikoxyz/raiko2 \
+  --clobber \
+  --dir crates/guests/elf \
+  --pattern 'risc0_shasta_*.elf' \
+  --pattern 'sp1_shasta_*.elf' \
+  --pattern 'sp1_shasta_*.vk.bin'
+cargo run -q -p xtask -- guest-digests
+jq -r '.digests[] | [.proof_system, .stage, .digest_source, .digest] | @tsv' \
+  target/guest-digests/summary.json | sort
+```
+
+The `risc0` rows are `risc0_zkvm::compute_image_id` over
+`risc0_shasta_{proposal,aggregation}.elf`. The `sp1` `vk_bn254` and `vk_hash_bytes` rows are
+derived from `SP1VerifyingKey::bytes32()` and `SP1VerifyingKey::hash_bytes()` over
+`sp1_shasta_{proposal,aggregation}.vk.bin`.
+
 ### SGX-geth MRENCLAVE Values
 
 `SGXGETH_ATTESTER.setMrEnclave(mrEnclave, false)`:
