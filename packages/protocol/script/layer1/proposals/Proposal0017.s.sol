@@ -40,20 +40,20 @@ contract Proposal0017 is BuildProposal {
     bytes32 public constant NEW_SGXRETH_MR_ENCLAVE =
         0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed;
 
-    // raiko2 v0.5.1 RISC0 hotfix IDs.
+    // raiko2 v0.5.1 RISC0 IDs.
     bytes32 public constant RISC0_PROPOSAL_IMAGE_ID =
-        0x392df240ac93306b8839ff7aa14a22a396f2c8010ecbd9dcf2618937dea6c31f;
+        0xc886ec74ab5c3935cf2c3b53e466942c6e2570e9420557100b19b66a9411552c;
     bytes32 public constant RISC0_AGGREGATION_IMAGE_ID =
-        0x1330e63df5743fedf66c35a63d72825f13c9f17f4ffb066546505cae45aa7e55;
-    // raiko2 v0.5.0 SP1 IDs.
+        0xa4b7a2e326d1c959787731ef2c301f3248cfa4b33862b1298feb6cf03496824f;
+    // raiko2 v0.5.1 SP1 IDs.
     bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
-        0x000df9f5e255e41035bd0f2c4997d967a22810ae61e68922dbbe64603ed5476d;
+        0x0097d8b99508ff853d726dcdc7b5ac4f9176de6fd98173b51aa8469eb3013c87;
     bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
-        0x06fcfaf11579040d37a1e589197d967a11408573079a248b377cc8c03ed5476d;
+        0x4bec5cca423fe14f2e4db9b87b5ac4f90bb6f37e6605ced435508d3d33013c87;
     bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
-        0x00084a803a24363f4b80ccd44b440195151b451d05a0dc35a24ced112ed41bbb;
+        0x00774952d5dee21e952e8ae3a55e4e2059be8a9209108c6326569e5318feb269;
     bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
-        0x0425401d090d8fd270199a893440195128da28e8168370d64499da222ed41bbb;
+        0x3ba4a96a77b887a525d15c7455e4e2054df454902442318c4cad3ca618feb269;
 
     // Last finalized state at L1 block 25,367,937, one block before the first forged proof tx.
     uint48 public constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
@@ -191,7 +191,7 @@ contract Proposal0017 is BuildProposal {
             )
         });
 
-        // Trust raiko2 v0.5.0 SP1 program verification keys.
+        // Trust raiko2 v0.5.1 SP1 program verification keys.
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,

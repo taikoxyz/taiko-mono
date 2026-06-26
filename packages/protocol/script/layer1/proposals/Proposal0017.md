@@ -16,7 +16,7 @@ It executes **67 L1 actions** and **no L2 actions**:
 7. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
 8. Trust the new SGX-geth and SGX-reth MRENCLAVE values on the existing attesters.
 9. Disable all currently trusted RISC0 and SP1 image/program IDs.
-10. Trust raiko2 v0.5.1 RISC0 and raiko2 v0.5.0 SP1 image/program IDs.
+10. Trust raiko2 v0.5.1 RISC0 and SP1 image/program IDs.
 11. Disable all stale SGX-geth and SGX-reth MRENCLAVE values.
 
 The implementation, new QuotaManager, and new verifier addresses in
@@ -24,7 +24,7 @@ The implementation, new QuotaManager, and new verifier addresses in
 `DeployHackRecoveryContracts` (chain 1, commit `b73608696`, the `taiko-alethia-protocol-v3.0.0`
 branch tip). See [Deployed Addresses](#deployed-addresses).
 
-raiko2 v0.5.1 RISC0 and raiko2 v0.5.0 SP1 IDs are encoded below. New SGX-geth and SGX-reth
+raiko2 v0.5.1 RISC0 and SP1 IDs are encoded below. New SGX-geth and SGX-reth
 MRENCLAVE values are encoded below; instance registration remains a separate follow-up transaction
 through the new SGX verifiers' registrar.
 
@@ -50,7 +50,7 @@ the new QuotaManager constructor.
 3. Rotate SGX attester MRSIGNER trust.
 4. Trust the new SGX-geth and SGX-reth MRENCLAVE values.
 5. Revoke stale verifier trust from RISC0, SP1, SGX-geth, and SGX-reth, and trust raiko2 v0.5.1
-   RISC0 and raiko2 v0.5.0 SP1 IDs.
+   RISC0 and SP1 IDs.
 
 `MainnetInbox` stores its proof verifier as an immutable. The proposal therefore cannot set the new
 `MainnetVerifier` by calldata; the new `MAINNET_INBOX_NEW_IMPL` must be deployed with the new
@@ -196,7 +196,7 @@ For comparison, the forged proof finalized proposal `18,056` in block `25,367,93
 The proposal removes all trust entries currently enabled on the existing mainnet verifiers. Because
 the new SGX verifier contracts keep using the existing SGX attesters, it also rotates MRSIGNER trust
 on those attesters and trusts the new SGX-geth and SGX-reth MRENCLAVE values. It also trusts raiko2
-v0.5.1 RISC0 and v0.5.0 SP1 image/program IDs.
+v0.5.1 RISC0 and SP1 image/program IDs.
 
 ### SGX MRSIGNER Values
 
@@ -235,8 +235,8 @@ notes for the reproduction steps.
 
 `RISC0_RETH_VERIFIER.setImageIdTrusted(id, true)`:
 
-- `0x392df240ac93306b8839ff7aa14a22a396f2c8010ecbd9dcf2618937dea6c31f`
-- `0x1330e63df5743fedf66c35a63d72825f13c9f17f4ffb066546505cae45aa7e55`
+- `0xc886ec74ab5c3935cf2c3b53e466942c6e2570e9420557100b19b66a9411552c`
+- `0xa4b7a2e326d1c959787731ef2c301f3248cfa4b33862b1298feb6cf03496824f`
 
 ### SP1 Program IDs
 
@@ -257,10 +257,10 @@ notes for the reproduction steps.
 
 `SP1_RETH_VERIFIER.setProgramTrusted(id, true)`:
 
-- `0x000df9f5e255e41035bd0f2c4997d967a22810ae61e68922dbbe64603ed5476d`
-- `0x06fcfaf11579040d37a1e589197d967a11408573079a248b377cc8c03ed5476d`
-- `0x00084a803a24363f4b80ccd44b440195151b451d05a0dc35a24ced112ed41bbb`
-- `0x0425401d090d8fd270199a893440195128da28e8168370d64499da222ed41bbb`
+- `0x0097d8b99508ff853d726dcdc7b5ac4f9176de6fd98173b51aa8469eb3013c87`
+- `0x4bec5cca423fe14f2e4db9b87b5ac4f90bb6f37e6605ced435508d3d33013c87`
+- `0x00774952d5dee21e952e8ae3a55e4e2059be8a9209108c6326569e5318feb269`
+- `0x3ba4a96a77b887a525d15c7455e4e2054df454902442318c4cad3ca618feb269`
 
 ### Reproduce raiko2 v0.5.1 ZK IDs
 
