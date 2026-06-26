@@ -4,7 +4,7 @@
 
 This proposal restores the L1 recovery surface after the Shasta forged-proof incident.
 
-It executes **67 L1 actions** and **no L2 actions**:
+It executes **68 L1 actions** and **no L2 actions**:
 
 1. Upgrade `SignalService`.
 2. Upgrade `Bridge`.
