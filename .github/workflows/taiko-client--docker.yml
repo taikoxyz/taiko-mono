@@ -76,6 +76,11 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
+          access_token_lifetime: 3600s
+          # Only the access_token output is consumed (for docker login), so skip
+          # writing a gha-creds-*.json ADC file. Otherwise it lands in the Docker
+          # build context (context: .) and could leak the credential.
+          create_credentials_file: false
       - name: Login to GAR
         uses: docker/login-action@v4
         with:
@@ -145,6 +150,11 @@ jobs:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
+          access_token_lifetime: 3600s
+          # Only the access_token output is consumed (for docker login), so skip
+          # writing a gha-creds-*.json ADC file. Otherwise it lands in the Docker
+          # build context (context: .) and could leak the credential.
+          create_credentials_file: false
       - name: Login to GAR
         uses: docker/login-action@v4
         with:
