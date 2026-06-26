@@ -235,8 +235,8 @@ notes for the reproduction steps.
 
 `RISC0_RETH_VERIFIER.setImageIdTrusted(id, true)`:
 
-- `0xc886ec74ab5c3935cf2c3b53e466942c6e2570e9420557100b19b66a9411552c`
-- `0xa4b7a2e326d1c959787731ef2c301f3248cfa4b33862b1298feb6cf03496824f`
+- `0x53b2f58b93ffe2cc7d7bf7c706e475fb7c328e2da5112380c198dcaa0dbf5fba`
+- `0x0c5238624f598d64cde912c66a1f3556f5241508721d3135e6601d7e6e2bc56f`
 
 ### SP1 Program IDs
 
@@ -257,21 +257,21 @@ notes for the reproduction steps.
 
 `SP1_RETH_VERIFIER.setProgramTrusted(id, true)`:
 
-- `0x0097d8b99508ff853d726dcdc7b5ac4f9176de6fd98173b51aa8469eb3013c87`
-- `0x4bec5cca423fe14f2e4db9b87b5ac4f90bb6f37e6605ced435508d3d33013c87`
-- `0x00774952d5dee21e952e8ae3a55e4e2059be8a9209108c6326569e5318feb269`
-- `0x3ba4a96a77b887a525d15c7455e4e2054df454902442318c4cad3ca618feb269`
+- `0x008b67aefb7fd6212120e4b313fd2b0830cf654f598cb2ba69f44dc02c1d91ab`
+- `0x45b3d77d5ff58848241c96623fd2b083067b2a7a6632cae953e89b802c1d91ab`
+- `0x00cfd2a697b001a7e4d550bd46e14e49a760a865bb5fd099eba1f4eb0bb3b9b8`
+- `0x67e9534b6c0069f91aaa17a86e14e49a3b05432d6d7f42675743e9d60bb3b9b8`
 
 ### Reproduce raiko2 v0.5.1 ZK IDs
 
 These values come from the raiko2
 [`v0.5.1`](https://github.com/taikoxyz/raiko2/releases/tag/v0.5.1) release artifacts at commit
-`0d5034b5b9e7d7b26862d2c6d4dfddd014008e69`.
+`383ea74b9b479e77c40bfa32c8b7fcdd652e0fae`.
 
 ```bash
 git clone https://github.com/taikoxyz/raiko2.git
 cd raiko2
-git checkout 0d5034b5b9e7d7b26862d2c6d4dfddd014008e69
+git checkout 383ea74b9b479e77c40bfa32c8b7fcdd652e0fae
 gh release download v0.5.1 -R taikoxyz/raiko2 \
   --clobber \
   --dir crates/guests/elf \
