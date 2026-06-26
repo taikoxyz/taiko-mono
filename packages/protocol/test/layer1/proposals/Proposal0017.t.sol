@@ -31,9 +31,9 @@ contract Proposal0017Test is Test {
     bytes32 internal constant NEW_SGXRETH_MR_ENCLAVE =
         0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed;
     bytes32 internal constant RISC0_PROPOSAL_IMAGE_ID =
-        0x3e8fc45f0c3a8e48fe17db7877a60a0f9e7cb9fd185a441cb1a280440db16cd6;
+        0x392df240ac93306b8839ff7aa14a22a396f2c8010ecbd9dcf2618937dea6c31f;
     bytes32 internal constant RISC0_AGGREGATION_IMAGE_ID =
-        0xbb06e6ffbcc87071c446b30e6b1f95f4e5c7c2f71418f2cf41c25ca595fab417;
+        0x1330e63df5743fedf66c35a63d72825f13c9f17f4ffb066546505cae45aa7e55;
     bytes32 internal constant SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
         0x000df9f5e255e41035bd0f2c4997d967a22810ae61e68922dbbe64603ed5476d;
     bytes32 internal constant SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
@@ -380,11 +380,7 @@ interface IBridgeRecovery {
 }
 
 interface IInboxRecovery {
-    function init2(
-        uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedBlockHash
-    )
-        external;
+    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
 }
 
 interface IAutomataAttestationRecovery {
