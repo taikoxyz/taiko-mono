@@ -28,8 +28,10 @@ contract Proposal0017Test is Test {
         0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
     bytes32 internal constant NEW_SGXGETH_MR_ENCLAVE =
         0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9;
-    bytes32 internal constant NEW_SGXRETH_MR_ENCLAVE =
-        0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed;
+    bytes32 internal constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0x1fb7a9cadde2c5b36f38cfabff8552eb56e781946b1ab169aafbf2524aae0063;
+    bytes32 internal constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
+        0x0f7a2474af340a463ce58e4ad07000e866efe5555c1ad70e58d17a3022f827de;
     bytes32 internal constant RISC0_PROPOSAL_IMAGE_ID =
         0x3e8fc45f0c3a8e48fe17db7877a60a0f9e7cb9fd185a441cb1a280440db16cd6;
     bytes32 internal constant RISC0_AGGREGATION_IMAGE_ID =
@@ -54,7 +56,7 @@ contract Proposal0017Test is Test {
         // no-arg path builds actions from the deployed implementation constants.
         Controller.Action[] memory actions = proposal.exposedBuildL1Actions();
 
-        assertEq(actions.length, 67);
+        assertEq(actions.length, 68);
 
         // The proxy-upgrade actions carry the deployed implementation addresses.
         assertEq(actions[0].target, L1.SIGNAL_SERVICE);
@@ -94,7 +96,7 @@ contract Proposal0017Test is Test {
 
         uint256 cursor;
 
-        assertEq(actions.length, 67);
+        assertEq(actions.length, 68);
 
         assertEq(actions[cursor].target, L1.SIGNAL_SERVICE);
         assertEq(actions[cursor].value, 0);
@@ -169,7 +171,16 @@ contract Proposal0017Test is Test {
         assertEq(
             actions[cursor++].data,
             abi.encodeCall(
-                IAutomataAttestationRecovery.setMrEnclave, (NEW_SGXRETH_MR_ENCLAVE, true)
+                IAutomataAttestationRecovery.setMrEnclave, (NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
+            )
+        );
+
+        assertEq(actions[cursor].target, SGXRETH_ATTESTER);
+        assertEq(actions[cursor].value, 0);
+        assertEq(
+            actions[cursor++].data,
+            abi.encodeCall(
+                IAutomataAttestationRecovery.setMrEnclave, (NEW_SGXRETH_EDMM_MR_ENCLAVE, true)
             )
         );
 

@@ -209,9 +209,9 @@ v0.5.0 RISC0 and SP1 image/program IDs.
 ### New SGX MRENCLAVE Values
 
 These measurements come from the Raiko
-[`hotfix-1.16.1-2`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-2)
+[`hotfix-1.16.1-3`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-3)
 release image; see its
-[`Reproduce MRENCLAVE`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-2#reproduce-mrenclave)
+[`Reproduce MRENCLAVE`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-3#reproduce-mrenclave)
 notes for the reproduction steps.
 
 `SGXGETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
@@ -220,7 +220,8 @@ notes for the reproduction steps.
 
 `SGXRETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
 
-- `0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed` -> `true`
+- Non-EDMM: `0x1fb7a9cadde2c5b36f38cfabff8552eb56e781946b1ab169aafbf2524aae0063` -> `true`
+- EDMM: `0x0f7a2474af340a463ce58e4ad07000e866efe5555c1ad70e58d17a3022f827de` -> `true`
 
 ### RISC0 Image IDs
 
