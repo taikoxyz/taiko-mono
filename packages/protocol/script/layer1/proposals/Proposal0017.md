@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This proposal restores the L1 recovery surface after the Shasta forged-proof incident.
+This proposal restores the L1 recovery surface after the security incident on 21-06.
 
 It executes **67 L1 actions** and **no L2 actions**:
 
@@ -21,8 +21,8 @@ It executes **67 L1 actions** and **no L2 actions**:
 
 The implementation, new QuotaManager, and new verifier addresses in
 [`Proposal0017.s.sol`](./Proposal0017.s.sol) are the mainnet contracts deployed by
-`DeployHackRecoveryContracts` (chain 1, commit `b73608696`, the `taiko-alethia-protocol-v3.0.0`
-branch tip). See [Deployed Addresses](#deployed-addresses).
+`DeployHackRecoveryContracts` (chain 1, commit `b73608696` on the `taiko-alethia-protocol-v3.0.0`
+branch). See [Deployed Addresses](#deployed-addresses).
 
 raiko2 v0.5.0 RISC0 and SP1 IDs are encoded below. New SGX-geth and SGX-reth
 MRENCLAVE values are encoded below; instance registration remains a separate follow-up transaction
@@ -79,7 +79,7 @@ documentation and live L1 calls.
 ## Deployed Addresses
 
 These are the mainnet contracts deployed by `DeployHackRecoveryContracts` (chain 1) at commit
-`b73608696`, the `taiko-alethia-protocol-v3.0.0` branch tip. Codediff and Etherscan links are
+`b73608696` on the `taiko-alethia-protocol-v3.0.0` branch. Codediff and Etherscan links are
 listed below.
 
 | Constant                       | Address                                      | Contract                                          |
@@ -376,10 +376,13 @@ Before submission:
 
    ```bash
    cast call 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f \
-     "getCoreState()(uint48,uint48,uint48,uint64,uint64,bytes32)" \
+     "getCoreState()(uint48,uint48,uint48,uint48,uint48,bytes32)" \
      --block 25367937 \
      --rpc-url <ARCHIVE_RPC_URL>
    ```
+
+   Expected `lastFinalizedProposalId` (3rd field) `18051` and `lastFinalizedBlockHash` (6th field)
+   `0x64c2ada556b6862d2c8796e0f709c454fede9d03908711a9f04d9f9f9dcce470`.
 
 10. Confirm every verifier cleanup target is still trusted before execution, confirm the new
     MRSIGNER and new MRENCLAVE values are not yet trusted, and confirm the old MRSIGNER is still
