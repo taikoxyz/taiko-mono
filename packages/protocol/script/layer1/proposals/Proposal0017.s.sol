@@ -42,19 +42,19 @@ contract Proposal0017 is BuildProposal {
     bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
         0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
 
-    // raiko2 v0.5.0 ZK IDs.
+    // raiko2 v0.5.1 ZK IDs.
     bytes32 public constant RISC0_PROPOSAL_IMAGE_ID =
-        0x3e8fc45f0c3a8e48fe17db7877a60a0f9e7cb9fd185a441cb1a280440db16cd6;
+        0x53b2f58b93ffe2cc7d7bf7c706e475fb7c328e2da5112380c198dcaa0dbf5fba;
     bytes32 public constant RISC0_AGGREGATION_IMAGE_ID =
-        0xbb06e6ffbcc87071c446b30e6b1f95f4e5c7c2f71418f2cf41c25ca595fab417;
+        0x0c5238624f598d64cde912c66a1f3556f5241508721d3135e6601d7e6e2bc56f;
     bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
-        0x000df9f5e255e41035bd0f2c4997d967a22810ae61e68922dbbe64603ed5476d;
+        0x008b67aefb7fd6212120e4b313fd2b0830cf654f598cb2ba69f44dc02c1d91ab;
     bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
-        0x06fcfaf11579040d37a1e589197d967a11408573079a248b377cc8c03ed5476d;
+        0x45b3d77d5ff58848241c96623fd2b083067b2a7a6632cae953e89b802c1d91ab;
     bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
-        0x00084a803a24363f4b80ccd44b440195151b451d05a0dc35a24ced112ed41bbb;
+        0x00cfd2a697b001a7e4d550bd46e14e49a760a865bb5fd099eba1f4eb0bb3b9b8;
     bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
-        0x0425401d090d8fd270199a893440195128da28e8168370d64499da222ed41bbb;
+        0x67e9534b6c0069f91aaa17a86e14e49a3b05432d6d7f42675743e9d60bb3b9b8;
 
     // Last finalized state at L1 block 25,367,937, one block before the first forged proof tx.
     uint48 public constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
@@ -185,7 +185,7 @@ contract Proposal0017 is BuildProposal {
             });
         }
 
-        // Trust raiko2 v0.5.0 RISC0 image IDs.
+        // Trust raiko2 v0.5.1 RISC0 image IDs.
         actions[cursor++] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
@@ -199,7 +199,7 @@ contract Proposal0017 is BuildProposal {
             )
         });
 
-        // Trust raiko2 v0.5.0 SP1 program verification keys.
+        // Trust raiko2 v0.5.1 SP1 program verification keys.
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
