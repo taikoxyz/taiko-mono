@@ -21,6 +21,8 @@ permissions:
 
 env:
   REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/taiko-client
+  WIF_PROVIDER: projects/790288402401/locations/global/workloadIdentityPools/terraform-pool/providers/github-provider
+  WIF_SERVICE_ACCOUNT: gar-github-action@evmchain.iam.gserviceaccount.com
 
 jobs:
   build:
@@ -44,20 +46,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Authenticate to Google Cloud (Workload Identity)
-        id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: projects/790288402401/locations/global/workloadIdentityPools/terraform-pool/providers/github-provider
-          service_account: gar-github-action@evmchain.iam.gserviceaccount.com
-          token_format: access_token
-      - name: Login to GAR
-        uses: docker/login-action@v4
-        with:
-          registry: us-docker.pkg.dev
-          username: oauth2accesstoken
-          password: ${{ steps.auth.outputs.access_token }}
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
@@ -77,6 +65,23 @@ jobs:
             type=ref,event=pr
             type=ref,event=tag
             type=sha
+
+      # Auth + login run immediately before the build/push step: the WIF access
+      # token is short lived (~1h), so we mint it as late as possible to leave
+      # the most headroom for long multi-arch builds before the push.
+      - name: Authenticate to Google Cloud (Workload Identity)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+      - name: Login to GAR
+        uses: docker/login-action@v4
+        with:
+          registry: us-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       - name: Build and push by digest
         id: build
@@ -137,8 +142,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/790288402401/locations/global/workloadIdentityPools/terraform-pool/providers/github-provider
-          service_account: gar-github-action@evmchain.iam.gserviceaccount.com
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
           token_format: access_token
       - name: Login to GAR
         uses: docker/login-action@v4
