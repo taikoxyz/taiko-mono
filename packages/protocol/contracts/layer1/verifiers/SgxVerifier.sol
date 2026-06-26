@@ -91,6 +91,8 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
     error SGX_FORBIDDEN_ATTRIBUTES();
     error SGX_INVALID_TCB_STATUS();
     error SGX_NOT_REGISTRAR();
+    error SGX_UNTRUSTED_MRENCLAVE();
+    error SGX_UNTRUSTED_MRSIGNER();
 
     constructor(
         uint64 _taikoChainId,
@@ -155,6 +157,25 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step {
         require(
             _attestation.localEnclaveReport.attributes & SGX_FORBIDDEN_ATTRIBUTE_MASK == bytes16(0),
             SGX_FORBIDDEN_ATTRIBUTES()
+        );
+
+        // Pin the application-enclave code identity (MRENCLAVE) and signer (MRSIGNER) here, in the
+        // verifier, so that registration ALWAYS requires a trusted enclave measurement. The
+        // attestation contract only checks these when its `checkLocalEnclaveReport` flag is enabled,
+        // and that flag defaults to false and can be flipped off by the attestation owner — without
+        // this check a verifier could silently accept a genuinely-attested enclave running ARBITRARY
+        // code and let it sign forged proofs. mrEnclave/mrSigner are read from the parsed quote, which
+        // is sound because they are covered by the attestation signature verified above (the same
+        // basis as the forbidden-attributes check): a forged value fails verifyParsedQuote.
+        require(
+            IAttestation(automataDcapAttestation)
+                .trustedUserMrEnclave(_attestation.localEnclaveReport.mrEnclave),
+            SGX_UNTRUSTED_MRENCLAVE()
+        );
+        require(
+            IAttestation(automataDcapAttestation)
+                .trustedUserMrSigner(_attestation.localEnclaveReport.mrSigner),
+            SGX_UNTRUSTED_MRSIGNER()
         );
 
         address[] memory addresses = new address[](1);
