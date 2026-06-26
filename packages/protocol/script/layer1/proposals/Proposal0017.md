@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This proposal restores the L1 recovery surface after the security incident on 21-06.
+This proposal restores the L1 recovery surface after the security incident on 2026-06-21.
 
 It executes **67 L1 actions** and **no L2 actions**:
 
