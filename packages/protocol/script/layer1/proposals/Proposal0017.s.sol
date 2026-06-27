@@ -10,7 +10,7 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 contract Proposal0017 is BuildProposal {
     // Deployed mainnet implementation addresses (DeployHackRecoveryContracts on chain 1).
     // Codediff links are in the PR description.
-    address public constant MAINNET_INBOX_NEW_IMPL = 0x724012AECFdF963ea962f90a2743E66f870564C2;
+    address public constant MAINNET_INBOX_NEW_IMPL = 0x64523f2580f4E7038a121D55b220a9C12C1E8f01;
     address public constant SIGNAL_SERVICE_NEW_IMPL = 0x1A06832992785766a105838C95c1E13a0045AC85;
     address public constant MAINNET_BRIDGE_NEW_IMPL = 0x1c94D798CFA08F396E5BA9F81697289c53273381;
     address public constant MAINNET_ERC20_VAULT_NEW_IMPL =
@@ -21,13 +21,13 @@ contract Proposal0017 is BuildProposal {
 
     // The new MainnetInbox implementation was deployed with this verifier.
     // This address is not calldata because Inbox stores the proof verifier as an immutable.
-    address public constant MAINNET_VERIFIER = 0x0834aCfE76C46054d12478511b79Bf473a154A86;
+    address public constant MAINNET_VERIFIER = 0x71808449A6217898d602c1a392D95b931Ac5d878;
     // The new MainnetVerifier was deployed with these SGX verifier contracts.
     address public constant NEW_SGXGETH_VERIFIER = 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee;
     address public constant NEW_SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
 
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
-    address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
+    address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
@@ -88,14 +88,12 @@ contract Proposal0017 is BuildProposal {
         returns (Controller.Action[] memory actions)
     {
         bytes32[] memory risc0ImageIds = _risc0ImageIdsToDisable();
-        bytes32[] memory sp1ProgramIds = _sp1ProgramIdsToDisable();
         bytes32[] memory sgxGethMrEnclaves = _sgxGethMrEnclavesToDisable();
         bytes32[] memory sgxRethMrEnclaves = _sgxRethMrEnclavesToDisable();
 
         actions = new Controller
             .Action[](
-            19 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
-                + sgxRethMrEnclaves.length
+            19 + risc0ImageIds.length + sgxGethMrEnclaves.length + sgxRethMrEnclaves.length
         );
 
         uint256 cursor;
@@ -173,15 +171,6 @@ contract Proposal0017 is BuildProposal {
                 target: RISC0_RETH_VERIFIER,
                 value: 0,
                 data: abi.encodeCall(Risc0Verifier.setImageIdTrusted, (risc0ImageIds[i], false))
-            });
-        }
-
-        // Remove all currently trusted SP1 program IDs.
-        for (uint256 i; i < sp1ProgramIds.length; ++i) {
-            actions[cursor++] = Controller.Action({
-                target: SP1_RETH_VERIFIER,
-                value: 0,
-                data: abi.encodeCall(SP1Verifier.setProgramTrusted, (sp1ProgramIds[i], false))
             });
         }
 
@@ -275,22 +264,6 @@ contract Proposal0017 is BuildProposal {
         ids_[3] = 0xbee1be4cbe2bdf9b0034a1ab6572061a76019e73189ff96322e58ab229b75f92;
         ids_[4] = 0xcecc85819e15d173c2991577727525b136e820728f7aaaede612f1281cac2249;
         ids_[5] = 0xdfbce2039ad8b78b236b5a9dceba5d8cee0d9e4638fc8f1fe11a0b2d8bfa039e;
-    }
-
-    function _sp1ProgramIdsToDisable() private pure returns (bytes32[] memory ids_) {
-        ids_ = new bytes32[](12);
-        ids_[0] = 0x0002ac747570512099ca19c17f5a3b9f39697e5617a19ff2f2b2464229a50c7c;
-        ids_[1] = 0x0026ff63d649779a5dbc88c3359ab83399a21fb6ef9b7ec082f77a8a465806e7;
-        ids_[2] = 0x0033e2cccc3296e7def7b381a4fb96fafec64f45420b6d24686779ef6236dff1;
-        ids_[3] = 0x0079682c7b5af614273de79761aaad20d1c8e1a65091388b81be836632d382f8;
-        ids_[4] = 0x008e24716118be9594358d8882d93d5425f0827cf0a7a4fd0ea2fc4414debfe7;
-        ids_[5] = 0x009d26a03d10b4e70eef6a339187c258a7701d6a0150524684cb46b56cf9e540;
-        ids_[6] = 0x01563a3a5c1448263943382f75a3b9f34b4bf2b05e867fcb65648c8429a50c7c;
-        ids_[7] = 0x137fb1eb125de6973791186659ab83394d10fdb73e6dfb0205eef514465806e7;
-        ids_[8] = 0x19f166660ca5b9f75ef670344fb96faf76327a2a082db49150cef3de6236dff1;
-        ids_[9] = 0x3cb4163d56bd850967bcf2ec1aaad20d0e470d324244e22e037d06cc32d382f8;
-        ids_[10] = 0x471238b0462fa56506b1b1102d93d5422f8413e7429e93f41d45f88814debfe7;
-        ids_[11] = 0x4e93501e442d39c35ded4672187c258a3b80eb500541491a09968d6a6cf9e540;
     }
 
     function _sgxGethMrEnclavesToDisable() private pure returns (bytes32[] memory ids_) {
