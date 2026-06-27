@@ -249,7 +249,7 @@ notes for the reproduction steps.
 ### SP1 Program IDs
 
 `SP1_RETH_VERIFIER` (`0x73A0…`) is a freshly-deployed clean-slate SP1 verifier with no pre-existing
-trusted programs, so the proposal only trusts the raiko2 v0.5.0 vkeys (no disable step).
+trusted programs, so the proposal only trusts the raiko2 v0.5.1 vkeys (no disable step).
 
 `SP1_RETH_VERIFIER.setProgramTrusted(id, true)`:
 
