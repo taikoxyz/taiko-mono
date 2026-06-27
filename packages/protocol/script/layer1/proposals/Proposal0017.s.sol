@@ -36,9 +36,11 @@ contract Proposal0017 is BuildProposal {
     bytes32 public constant OLD_MR_SIGNER =
         0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
     bytes32 public constant NEW_SGXGETH_MR_ENCLAVE =
-        0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9;
-    bytes32 public constant NEW_SGXRETH_MR_ENCLAVE =
-        0xe30515ee34e76054335e96d66820ff835e8e16e3b63c048dbbc9ef3a794567ed;
+        0xbefb2c7ec44cefe57f4ff0ca815a8b8f15e05631bf3abe36cbc12d28f778fa36;
+    bytes32 public constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
+        0xdccd8f30ea4a137ddfa63d743e3aa7c7a8e80585912d19c4b66f7d8d6098bec4;
+    bytes32 public constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
+        0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
 
     // raiko2 v0.5.0 ZK IDs.
     bytes32 public constant RISC0_PROPOSAL_IMAGE_ID =
@@ -92,7 +94,7 @@ contract Proposal0017 is BuildProposal {
 
         actions = new Controller
             .Action[](
-            18 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
+            19 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
                 + sgxRethMrEnclaves.length
         );
 
@@ -144,7 +146,14 @@ contract Proposal0017 is BuildProposal {
             target: SGXRETH_ATTESTER,
             value: 0,
             data: abi.encodeCall(
-                IProposal0017Attestation.setMrEnclave, (NEW_SGXRETH_MR_ENCLAVE, true)
+                IProposal0017Attestation.setMrEnclave, (NEW_SGXRETH_NON_EDMM_MR_ENCLAVE, true)
+            )
+        });
+        actions[cursor++] = Controller.Action({
+            target: SGXRETH_ATTESTER,
+            value: 0,
+            data: abi.encodeCall(
+                IProposal0017Attestation.setMrEnclave, (NEW_SGXRETH_EDMM_MR_ENCLAVE, true)
             )
         });
         actions[cursor++] = Controller.Action({
