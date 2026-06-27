@@ -27,11 +27,11 @@ contract Proposal0017Test is Test {
     bytes32 internal constant OLD_MR_SIGNER =
         0xca0583a715534a8c981b914589a7f0dc5d60959d9ae79fb5353299a4231673d5;
     bytes32 internal constant NEW_SGXGETH_MR_ENCLAVE =
-        0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9;
+        0xbefb2c7ec44cefe57f4ff0ca815a8b8f15e05631bf3abe36cbc12d28f778fa36;
     bytes32 internal constant NEW_SGXRETH_NON_EDMM_MR_ENCLAVE =
-        0x1fb7a9cadde2c5b36f38cfabff8552eb56e781946b1ab169aafbf2524aae0063;
+        0xdccd8f30ea4a137ddfa63d743e3aa7c7a8e80585912d19c4b66f7d8d6098bec4;
     bytes32 internal constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
-        0x0f7a2474af340a463ce58e4ad07000e866efe5555c1ad70e58d17a3022f827de;
+        0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
     bytes32 internal constant RISC0_PROPOSAL_IMAGE_ID =
         0x3e8fc45f0c3a8e48fe17db7877a60a0f9e7cb9fd185a441cb1a280440db16cd6;
     bytes32 internal constant RISC0_AGGREGATION_IMAGE_ID =

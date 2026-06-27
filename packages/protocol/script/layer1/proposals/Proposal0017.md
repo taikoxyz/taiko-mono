@@ -209,19 +209,19 @@ v0.5.0 RISC0 and SP1 image/program IDs.
 ### New SGX MRENCLAVE Values
 
 These measurements come from the Raiko
-[`hotfix-1.16.1-3`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-3)
-release image; see its
-[`Reproduce MRENCLAVE`](https://github.com/taikoxyz/raiko/releases/tag/hotfix-1.16.1-3#reproduce-mrenclave)
+[`1.16.1-hotfix-5`](https://github.com/taikoxyz/raiko/releases/tag/1.16.1-hotfix-5)
+Non-EDMM and EDMM release images; see the
+[`Reproduce MRENCLAVE Without The Release Signing Key`](https://github.com/taikoxyz/raiko/releases/tag/1.16.1-hotfix-5#reproduce-mrenclave-without-the-release-signing-key)
 notes for the reproduction steps.
 
 `SGXGETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
 
-- `0xf1e2450016a361e082355526627229adb339cc85f04ec15d1cabd123c984aca9` -> `true`
+- `0xbefb2c7ec44cefe57f4ff0ca815a8b8f15e05631bf3abe36cbc12d28f778fa36` -> `true`
 
 `SGXRETH_ATTESTER.setMrEnclave(mrEnclave, trusted)`:
 
-- Non-EDMM: `0x1fb7a9cadde2c5b36f38cfabff8552eb56e781946b1ab169aafbf2524aae0063` -> `true`
-- EDMM: `0x0f7a2474af340a463ce58e4ad07000e866efe5555c1ad70e58d17a3022f827de` -> `true`
+- Non-EDMM: `0xdccd8f30ea4a137ddfa63d743e3aa7c7a8e80585912d19c4b66f7d8d6098bec4` -> `true`
+- EDMM: `0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740` -> `true`
 
 ### RISC0 Image IDs
 
