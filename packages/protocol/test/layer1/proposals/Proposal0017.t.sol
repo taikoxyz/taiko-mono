@@ -18,7 +18,7 @@ contract Proposal0017Test is Test {
         0x4040404040404040404040404040404040404040;
 
     address internal constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
-    address internal constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
+    address internal constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
     address internal constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address internal constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
@@ -80,7 +80,7 @@ contract Proposal0017Test is Test {
         assertEq(actions[4].target, L1.INBOX);
         assertEq(
             actions[4].data,
-            abi.encodeCall(UUPSUpgradeable.upgradeTo, (0x724012AECFdF963ea962f90a2743E66f870564C2))
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (0x64523f2580f4E7038a121D55b220a9C12C1E8f01))
         );
     }
 
@@ -391,11 +391,7 @@ interface IBridgeRecovery {
 }
 
 interface IInboxRecovery {
-    function init2(
-        uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedBlockHash
-    )
-        external;
+    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
 }
 
 interface IAutomataAttestationRecovery {

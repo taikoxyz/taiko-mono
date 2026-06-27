@@ -10,7 +10,7 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 contract Proposal0017 is BuildProposal {
     // Deployed mainnet implementation addresses (DeployHackRecoveryContracts on chain 1).
     // Codediff links are in the PR description.
-    address public constant MAINNET_INBOX_NEW_IMPL = 0x724012AECFdF963ea962f90a2743E66f870564C2;
+    address public constant MAINNET_INBOX_NEW_IMPL = 0x64523f2580f4E7038a121D55b220a9C12C1E8f01;
     address public constant SIGNAL_SERVICE_NEW_IMPL = 0x1A06832992785766a105838C95c1E13a0045AC85;
     address public constant MAINNET_BRIDGE_NEW_IMPL = 0x1c94D798CFA08F396E5BA9F81697289c53273381;
     address public constant MAINNET_ERC20_VAULT_NEW_IMPL =
@@ -21,13 +21,13 @@ contract Proposal0017 is BuildProposal {
 
     // The new MainnetInbox implementation was deployed with this verifier.
     // This address is not calldata because Inbox stores the proof verifier as an immutable.
-    address public constant MAINNET_VERIFIER = 0x0834aCfE76C46054d12478511b79Bf473a154A86;
+    address public constant MAINNET_VERIFIER = 0x71808449A6217898d602c1a392D95b931Ac5d878;
     // The new MainnetVerifier was deployed with these SGX verifier contracts.
     address public constant NEW_SGXGETH_VERIFIER = 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee;
     address public constant NEW_SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
 
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
-    address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
+    address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
@@ -338,11 +338,7 @@ interface IProposal0017BridgeRecovery {
 }
 
 interface IProposal0017InboxRecovery {
-    function init2(
-        uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedBlockHash
-    )
-        external;
+    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
 }
 
 interface IProposal0017Attestation {
