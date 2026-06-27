@@ -198,6 +198,30 @@ contract Proposal0017Test is Test {
             abi.encodeCall(IAutomataAttestationRecovery.setMrSigner, (OLD_MR_SIGNER, false))
         );
 
+        bytes32[] memory sgxGethMrEnclaves = _sgxGethMrEnclavesToDisable();
+        for (uint256 i; i < sgxGethMrEnclaves.length; ++i) {
+            assertEq(actions[cursor].target, SGXGETH_ATTESTER);
+            assertEq(actions[cursor].value, 0);
+            assertEq(
+                actions[cursor++].data,
+                abi.encodeCall(
+                    IAutomataAttestationRecovery.setMrEnclave, (sgxGethMrEnclaves[i], false)
+                )
+            );
+        }
+
+        bytes32[] memory sgxRethMrEnclaves = _sgxRethMrEnclavesToDisable();
+        for (uint256 i; i < sgxRethMrEnclaves.length; ++i) {
+            assertEq(actions[cursor].target, SGXRETH_ATTESTER);
+            assertEq(actions[cursor].value, 0);
+            assertEq(
+                actions[cursor++].data,
+                abi.encodeCall(
+                    IAutomataAttestationRecovery.setMrEnclave, (sgxRethMrEnclaves[i], false)
+                )
+            );
+        }
+
         bytes32[] memory risc0ImageIds = _risc0ImageIdsToDisable();
         for (uint256 i; i < risc0ImageIds.length; ++i) {
             assertEq(actions[cursor].target, RISC0_RETH_VERIFIER);
@@ -251,30 +275,6 @@ contract Proposal0017Test is Test {
                 SP1Verifier.setProgramTrusted, (SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
             )
         );
-
-        bytes32[] memory sgxGethMrEnclaves = _sgxGethMrEnclavesToDisable();
-        for (uint256 i; i < sgxGethMrEnclaves.length; ++i) {
-            assertEq(actions[cursor].target, SGXGETH_ATTESTER);
-            assertEq(actions[cursor].value, 0);
-            assertEq(
-                actions[cursor++].data,
-                abi.encodeCall(
-                    IAutomataAttestationRecovery.setMrEnclave, (sgxGethMrEnclaves[i], false)
-                )
-            );
-        }
-
-        bytes32[] memory sgxRethMrEnclaves = _sgxRethMrEnclavesToDisable();
-        for (uint256 i; i < sgxRethMrEnclaves.length; ++i) {
-            assertEq(actions[cursor].target, SGXRETH_ATTESTER);
-            assertEq(actions[cursor].value, 0);
-            assertEq(
-                actions[cursor++].data,
-                abi.encodeCall(
-                    IAutomataAttestationRecovery.setMrEnclave, (sgxRethMrEnclaves[i], false)
-                )
-            );
-        }
 
         assertEq(cursor, actions.length);
     }

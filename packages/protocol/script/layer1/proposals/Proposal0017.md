@@ -18,16 +18,17 @@ wired to new `SGXGETH`, `SGXRETH` and `SP1` verifiers and reuses the existing `R
    `25,367,937`, one block before the first forged proof.
 7. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
 8. Trust the new SGX-geth and SGX-reth MRENCLAVE values on the existing attesters.
-9. Disable all currently trusted RISC0 image IDs.
-10. Trust raiko2 v0.5.1 RISC0 and SP1 image/program IDs (SP1 on the freshly-deployed verifier).
-11. Disable all stale SGX-geth and SGX-reth MRENCLAVE values.
+9. Disable all stale SGX-geth and SGX-reth MRENCLAVE values.
+10. Disable all currently trusted RISC0 image IDs.
+11. Trust raiko2 v0.5.1 RISC0 and SP1 image/program IDs (SP1 on the freshly-deployed verifier).
 
 The SignalService, Bridge, ERC20Vault, and QuotaManager addresses in
 [`Proposal0017.s.sol`](./Proposal0017.s.sol) are the mainnet contracts deployed by
 `DeployHackRecoveryContracts` (chain 1, commit `b73608696` on the `taiko-alethia-protocol-v3.0.0`
 branch). The new `MainnetInbox` implementation, `MainnetVerifier`, and freshly-deployed SP1 verifier
-were deployed by `DeployMainnetInboxWithNewSP1Verifier.s.sol` (chain 1, commit `462920aae`) and reuse
-the same SGX-geth, SGX-reth, and RISC0 verifiers. See [Deployed Addresses](#deployed-addresses).
+were deployed by `DeployMainnetInboxWithNewSP1Verifier.s.sol` (chain 1, commit `462920aae`). The new
+`MainnetVerifier` wires in the new SGX-geth and SGX-reth verifiers plus the freshly-deployed SP1
+verifier, and reuses the existing RISC0 verifier. See [Deployed Addresses](#deployed-addresses).
 
 raiko2 v0.5.1 RISC0 and SP1 IDs are encoded below. New SGX-geth and SGX-reth
 MRENCLAVE values are encoded below; instance registration remains a separate follow-up transaction
@@ -49,10 +50,11 @@ the new QuotaManager constructor.
 
 1. Upgrade `L1.INBOX` to `MAINNET_INBOX_NEW_IMPL`.
 2. Call `Inbox.init2(uint48,bytes32)` with the last correct pre-forgery finalized state.
-3. Rotate SGX attester MRSIGNER trust.
-4. Trust the new SGX-geth and SGX-reth MRENCLAVE values.
-5. Revoke stale verifier trust from RISC0, SGX-geth, and SGX-reth, and trust raiko2 v0.5.1 RISC0 IDs
-   on the existing RISC0 verifier and raiko2 v0.5.1 SP1 vkeys on the freshly-deployed SP1 verifier.
+3. On both attesters, trust the new MRSIGNER, trust the new SGX-geth and SGX-reth MRENCLAVE values,
+   then untrust the old MRSIGNER.
+4. Disable all stale SGX-geth and SGX-reth MRENCLAVE values on the attesters.
+5. Disable all currently trusted RISC0 image IDs, then trust raiko2 v0.5.1 RISC0 IDs on the existing
+   RISC0 verifier and raiko2 v0.5.1 SP1 vkeys on the freshly-deployed SP1 verifier.
 
 `MainnetInbox` stores its proof verifier as an immutable. The proposal therefore cannot set the new
 `MainnetVerifier` by calldata; the new `MAINNET_INBOX_NEW_IMPL` must be deployed with the new
@@ -329,8 +331,13 @@ derived from `SP1VerifyingKey::bytes32()` and `SP1VerifyingKey::hash_bytes()` ov
 
 Before submission:
 
-1. Confirm the eight deployed addresses in `Proposal0017.s.sol` match the deployment broadcast
-   (`broadcast/DeployHackRecoveryContracts.s.sol/1`, commit `b73608696`).
+1. Confirm the deployed addresses in `Proposal0017.s.sol` match their deployment broadcasts:
+   `SignalService`, `Bridge`, `ERC20Vault`, and `QuotaManager` in
+   `broadcast/DeployHackRecoveryContracts.s.sol/1` (commit `b73608696`); the `MainnetInbox`
+   implementation, `MainnetVerifier`, and freshly-deployed SP1 verifier in
+   `broadcast/DeployMainnetInboxWithNewSP1Verifier.s.sol/1` (commit `462920aae`). Confirm
+   `NEW_SGXGETH_VERIFIER` and `NEW_SGXRETH_VERIFIER` match `sgxGethVerifier()`/`sgxRethVerifier()`
+   read from the new `MainnetVerifier`.
 2. Confirm the new `MainnetVerifier` was deployed with the new SGX-geth and SGX-reth verifier
    contracts.
 3. Confirm the new `MainnetInbox` implementation was deployed with the new `MAINNET_VERIFIER`.
