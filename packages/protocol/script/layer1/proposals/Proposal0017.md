@@ -267,12 +267,12 @@ notes for the reproduction steps.
 
 These values come from the raiko2
 [`v0.5.1`](https://github.com/taikoxyz/raiko2/releases/tag/v0.5.1) release artifacts at commit
-`82bd21d47054fb21da4ca5519b5ed37b65eff7d0`.
+`ba6de16aea4b7357e3795d3076c105f5ab691edf`.
 
 ```bash
 git clone https://github.com/taikoxyz/raiko2.git
 cd raiko2
-git checkout 82bd21d47054fb21da4ca5519b5ed37b65eff7d0
+git checkout ba6de16aea4b7357e3795d3076c105f5ab691edf
 gh release download v0.5.1 -R taikoxyz/raiko2 \
   --clobber \
   --dir crates/guests/elf \
