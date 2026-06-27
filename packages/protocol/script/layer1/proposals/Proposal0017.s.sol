@@ -311,7 +311,11 @@ interface IProposal0017BridgeRecovery {
 }
 
 interface IProposal0017InboxRecovery {
-    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
+    function init2(
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedBlockHash
+    )
+        external;
 }
 
 interface IProposal0017Attestation {
