@@ -69,7 +69,7 @@ longer be part of the verification chain.
 | `L1.ERC20_VAULT`      | `0x996282cA11E5DEb6B5D122CC3B9A1FcAAD4415Ab` | ERC20Vault proxy     |
 | `L1.INBOX`            | `0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f` | Shasta Inbox proxy   |
 | `RISC0_RETH_VERIFIER` | `0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b` | RISC0 verifier       |
-| `SP1_RETH_VERIFIER`   | `0x96337327648dcFA22b014009cf10A2D5E2F305f6` | SP1 verifier         |
+| `SP1_RETH_VERIFIER`   | `0x73A0Db393ef87ce781ac7957bE10D6628432100F` | SP1 verifier         |
 | `SGXGETH_ATTESTER`    | `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261` | SGX-geth attester    |
 | `SGXRETH_ATTESTER`    | `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3` | SGX-reth attester    |
 
@@ -236,7 +236,7 @@ notes for the reproduction steps.
 
 `RISC0_RETH_VERIFIER.setImageIdTrusted(id, true)`:
 
-- `0x0eeed8adb876b8e77d171098e0fbcf62d5bd0dd511b6741caf052a619adec2c7`
+- `0xa38d1fac63aa6a553fdb6fea01fdc96534564c31de916aaafe5f5a1dd3bb908b`
 - `0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef`
 
 ### SP1 Program IDs
@@ -258,8 +258,8 @@ notes for the reproduction steps.
 
 `SP1_RETH_VERIFIER.setProgramTrusted(id, true)`:
 
-- `0x0014ac289d9e626695d1aa3f8b5db495d105c8b4c85069d9c8c9d76dd4d6a935`
-- `0x0a56144e679899a53a3547f135db495d082e45a62141a7671193aedb54d6a935`
+- `0x007594632ec31fae9d44799b97316fcbcaa3ff6b5db268c7a5d8025b3bbb487e`
+- `0x3aca319730c7eba7288f33727316fcbc551ffb5a76c9a31e4bb004b63bbb487e`
 - `0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc`
 - `0x748e59c8708b5bf402bc98c041dbbe6e7d96c5f335011bbb051e25593a5a17bc`
 
@@ -267,12 +267,12 @@ notes for the reproduction steps.
 
 These values come from the raiko2
 [`v0.5.1`](https://github.com/taikoxyz/raiko2/releases/tag/v0.5.1) release artifacts at commit
-`ba6de16aea4b7357e3795d3076c105f5ab691edf`.
+`b08f4c57cd69a0f8dc1316a21f4ce4b08eddbebe`.
 
 ```bash
 git clone https://github.com/taikoxyz/raiko2.git
 cd raiko2
-git checkout ba6de16aea4b7357e3795d3076c105f5ab691edf
+git checkout b08f4c57cd69a0f8dc1316a21f4ce4b08eddbebe
 gh release download v0.5.1 -R taikoxyz/raiko2 \
   --clobber \
   --dir crates/guests/elf \

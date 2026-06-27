@@ -27,7 +27,7 @@ contract Proposal0017 is BuildProposal {
     address public constant NEW_SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
 
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
-    address public constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
+    address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
@@ -44,13 +44,13 @@ contract Proposal0017 is BuildProposal {
 
     // raiko2 v0.5.1 ZK IDs.
     bytes32 public constant RISC0_PROPOSAL_IMAGE_ID =
-        0x0eeed8adb876b8e77d171098e0fbcf62d5bd0dd511b6741caf052a619adec2c7;
+        0xa38d1fac63aa6a553fdb6fea01fdc96534564c31de916aaafe5f5a1dd3bb908b;
     bytes32 public constant RISC0_AGGREGATION_IMAGE_ID =
         0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef;
     bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
-        0x0014ac289d9e626695d1aa3f8b5db495d105c8b4c85069d9c8c9d76dd4d6a935;
+        0x007594632ec31fae9d44799b97316fcbcaa3ff6b5db268c7a5d8025b3bbb487e;
     bytes32 public constant SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
-        0x0a56144e679899a53a3547f135db495d082e45a62141a7671193aedb54d6a935;
+        0x3aca319730c7eba7288f33727316fcbc551ffb5a76c9a31e4bb004b63bbb487e;
     bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
         0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc;
     bytes32 public constant SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
@@ -92,8 +92,7 @@ contract Proposal0017 is BuildProposal {
         bytes32[] memory sgxGethMrEnclaves = _sgxGethMrEnclavesToDisable();
         bytes32[] memory sgxRethMrEnclaves = _sgxRethMrEnclavesToDisable();
 
-        actions = new Controller
-            .Action[](
+        actions = new Controller.Action[](
             19 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
                 + sgxRethMrEnclaves.length
         );
@@ -138,9 +137,7 @@ contract Proposal0017 is BuildProposal {
         actions[cursor++] = Controller.Action({
             target: SGXGETH_ATTESTER,
             value: 0,
-            data: abi.encodeCall(
-                IProposal0017Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true)
-            )
+            data: abi.encodeCall(IProposal0017Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true))
         });
         actions[cursor++] = Controller.Action({
             target: SGXRETH_ATTESTER,
@@ -194,18 +191,14 @@ contract Proposal0017 is BuildProposal {
         actions[cursor++] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(
-                Risc0Verifier.setImageIdTrusted, (RISC0_AGGREGATION_IMAGE_ID, true)
-            )
+            data: abi.encodeCall(Risc0Verifier.setImageIdTrusted, (RISC0_AGGREGATION_IMAGE_ID, true))
         });
 
         // Trust raiko2 v0.5.1 SP1 program verification keys.
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(
-                SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_BN256, true)
-            )
+            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_BN256, true))
         });
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
@@ -338,11 +331,7 @@ interface IProposal0017BridgeRecovery {
 }
 
 interface IProposal0017InboxRecovery {
-    function init2(
-        uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedBlockHash
-    )
-        external;
+    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
 }
 
 interface IProposal0017Attestation {

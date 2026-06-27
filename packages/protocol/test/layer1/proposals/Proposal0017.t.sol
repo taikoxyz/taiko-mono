@@ -18,7 +18,7 @@ contract Proposal0017Test is Test {
         0x4040404040404040404040404040404040404040;
 
     address internal constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
-    address internal constant SP1_RETH_VERIFIER = 0x96337327648dcFA22b014009cf10A2D5E2F305f6;
+    address internal constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
     address internal constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address internal constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
@@ -33,13 +33,13 @@ contract Proposal0017Test is Test {
     bytes32 internal constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
         0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
     bytes32 internal constant RISC0_PROPOSAL_IMAGE_ID =
-        0x0eeed8adb876b8e77d171098e0fbcf62d5bd0dd511b6741caf052a619adec2c7;
+        0xa38d1fac63aa6a553fdb6fea01fdc96534564c31de916aaafe5f5a1dd3bb908b;
     bytes32 internal constant RISC0_AGGREGATION_IMAGE_ID =
         0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef;
     bytes32 internal constant SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
-        0x0014ac289d9e626695d1aa3f8b5db495d105c8b4c85069d9c8c9d76dd4d6a935;
+        0x007594632ec31fae9d44799b97316fcbcaa3ff6b5db268c7a5d8025b3bbb487e;
     bytes32 internal constant SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
-        0x0a56144e679899a53a3547f135db495d082e45a62141a7671193aedb54d6a935;
+        0x3aca319730c7eba7288f33727316fcbc551ffb5a76c9a31e4bb004b63bbb487e;
     bytes32 internal constant SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
         0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc;
     bytes32 internal constant SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
@@ -391,11 +391,7 @@ interface IBridgeRecovery {
 }
 
 interface IInboxRecovery {
-    function init2(
-        uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedBlockHash
-    )
-        external;
+    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
 }
 
 interface IAutomataAttestationRecovery {
