@@ -51,8 +51,9 @@ the new QuotaManager constructor.
 2. Call `Inbox.init2(uint48,bytes32)` with the last correct pre-forgery finalized state.
 3. Rotate SGX attester MRSIGNER trust.
 4. Trust the new SGX-geth and SGX-reth MRENCLAVE values.
-5. Revoke stale verifier trust from RISC0, SGX-geth, and SGX-reth, and trust raiko2 v0.5.0 RISC0 IDs
-   on the existing RISC0 verifier and raiko2 v0.5.0 SP1 vkeys on the freshly-deployed SP1 verifier.
+5. Revoke stale trust from the reused RISC0 verifier and shared SGX attesters, trust raiko2 v0.5.0
+   RISC0 IDs on the existing RISC0 verifier, and trust raiko2 v0.5.0 SP1 vkeys on the
+   freshly-deployed SP1 verifier.
 
 `MainnetInbox` stores its proof verifier as an immutable. The proposal therefore cannot set the new
 `MainnetVerifier` by calldata; the new `MAINNET_INBOX_NEW_IMPL` must be deployed with the new
@@ -61,6 +62,11 @@ newly deployed SGX-geth and SGX-reth verifier contracts. The old SGX verifier co
 `0x08568Df252ecf37D6C3eFD24f6ca3688118697F1` and
 `0xa1018Ba2e22139076f91dA2A856B2CAB22d968F6` are intentionally not touched because they will no
 longer be part of the verification chain.
+
+Because the old SGX verifier contracts are removed from the new `MainnetVerifier` wiring, this
+proposal does not delete old `SgxVerifier` instances or otherwise mutate the old SGX verifier
+registries. It still updates the shared SGX attesters because the new SGX verifier contracts use
+those same attesters for DCAP quote validation, so MRSIGNER and MRENCLAVE trust remains in scope.
 
 ## Production Addresses
 
@@ -198,12 +204,15 @@ For comparison, the forged proof finalized proposal `18,056` in block `25,367,93
 
 ## Verifier Cleanup
 
-The proposal removes all trust entries currently enabled on the existing RISC0 verifier and the SGX
-attesters. The SP1 verifier is freshly deployed and starts with no trusted programs, so it needs no
-disable step. Because the new SGX verifier contracts keep using the existing SGX attesters, the
-proposal also rotates MRSIGNER trust on those attesters and trusts the new SGX-geth and SGX-reth
-MRENCLAVE values. It trusts raiko2 v0.5.0 RISC0 image IDs on the existing RISC0 verifier and the SP1
-vkeys on the new SP1 verifier.
+The proposal removes stale trust only from verifier or attester surfaces that remain on the new proof
+path. RISC0 trust is pruned because the RISC0 verifier contract is reused by this proposal. The SP1
+verifier is freshly deployed and starts with no trusted programs, so it needs no disable step. The old
+SGX verifier contracts are not pruned because they are replaced by newly deployed SGX verifier
+contracts and will no longer be referenced by `MainnetVerifier`.
+
+The new SGX verifier contracts still use the existing SGX attesters, so this proposal keeps the
+MRSIGNER rotation and MRENCLAVE trust updates on those attesters. It also trusts raiko2 v0.5.0 RISC0
+image IDs on the existing RISC0 verifier and SP1 vkeys on the new SP1 verifier.
 
 ### SGX MRSIGNER Values
 
@@ -380,9 +389,11 @@ Before submission:
    Expected `lastFinalizedProposalId` (3rd field) `18051` and `lastFinalizedBlockHash` (6th field)
    `0x64c2ada556b6862d2c8796e0f709c454fede9d03908711a9f04d9f9f9dcce470`.
 
-10. Confirm every verifier cleanup target is still trusted before execution, confirm the new
-    MRSIGNER and new MRENCLAVE values are not yet trusted, and confirm the old MRSIGNER is still
-    trusted.
+10. Confirm every reused verifier and shared attester cleanup target is still trusted before
+    execution, confirm the new MRSIGNER and new MRENCLAVE values are not yet trusted, and confirm the
+    old MRSIGNER is still trusted. The proposal should not include `SgxVerifier.deleteInstances`
+    calls against the old SGX verifier contracts because the new `MainnetVerifier` uses newly
+    deployed SGX verifier contracts.
 11. Generate calldata:
 
 ```bash
@@ -405,7 +416,7 @@ After execution:
 5. Confirm the new MRSIGNER and new SGX MRENCLAVE values return true on the SGX attesters.
 6. Confirm raiko2 v0.5.0 RISC0 and SP1 IDs return true.
 7. Confirm the old MRSIGNER and every removed RISC0, SP1, and stale SGX MRENCLAVE entry returns
-   false.
+   false. No old SGX verifier instance registry state is expected to change.
 
 ## Security Contacts
 
