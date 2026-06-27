@@ -10,7 +10,10 @@ It executes **56 L1 actions** and **no L2 actions**:
 2. Upgrade `Bridge`.
 3. Upgrade `ERC20Vault`.
 4. Call `Bridge.init3(bytes32[])` to disable the three remaining attacker retriable messages.
-5. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`.
+5. Upgrade `Inbox` to a new implementation deployed with the new `MainnetVerifier`. The new `MainnetVerifier` is
+wired to new `SGXGETH`, `SGXRETH` and `SP1` verifiers and reuses the existing `RISC0` verifier.
+`SGXGETH` and `SGXRETH` verifiers were updated to fix the bug that allowed DEBUG mode instances to be registered and further harden the contract.
+`SP1` verifier was re-deployed without code changes to make proposal 31(https://dao.taiko.xyz/plugins/community-proposals/#/proposals/31) a No-op when it becomes finally executable, and avoid having now stale image ids enabled.
 6. Call `Inbox.init2(uint48,bytes32)` with the last known-good finalized Shasta state from L1 block
    `25,367,937`, one block before the first forged proof.
 7. Rotate SGX-geth and SGX-reth MRSIGNER trust on the existing attesters.
@@ -39,10 +42,7 @@ through the new SGX verifiers' registrar.
 3. Upgrade `L1.ERC20_VAULT` to `MAINNET_ERC20_VAULT_NEW_IMPL`.
 4. Call `Bridge.init3(...)` with the three remaining retriable message hashes.
 
-The SignalService upgrade must execute before the Bridge action so old forged checkpoints become
-unreachable before retriable message cleanup. The new Bridge and ERC20Vault implementations are
-deployed with the new immutable `QUOTA_MANAGER` address. This proposal does not upgrade
-`QuotaManager` and does not call `updateQuota`; the intended recovery quotas must already be set by
+The new Bridge and ERC20Vault implementations are deployed with the new immutable `QUOTA_MANAGER` address. This proposal does not upgrade `QuotaManager` and does not call `updateQuota`; the intended recovery quotas are already set by
 the new QuotaManager constructor.
 
 ### Group Two: Restore the Proving System

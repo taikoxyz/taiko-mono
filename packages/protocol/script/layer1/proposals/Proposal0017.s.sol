@@ -19,15 +19,17 @@ contract Proposal0017 is BuildProposal {
     // which is constructor-initialized with the recovery quotas documented in Proposal0017.md.
     address public constant QUOTA_MANAGER = 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC;
 
-    // The new MainnetInbox implementation was deployed with this verifier.
-    // This address is not calldata because Inbox stores the proof verifier as an immutable.
+    // The new MainnetVerifier uses the newly deployed SGXGETH, SGXRETH and SP1 verifiers
+    // and reuses the existing Risc0 verifier
     address public constant MAINNET_VERIFIER = 0x71808449A6217898d602c1a392D95b931Ac5d878;
-    // The new MainnetVerifier was deployed with these SGX verifier contracts.
     address public constant NEW_SGXGETH_VERIFIER = 0x41e79EB4F03aBB5DF8716B759528dc5d8f6a84Ee;
     address public constant NEW_SGXRETH_VERIFIER = 0x9D3C595BFf6Ff7D2b2CbdEcF94aD917eB2fCFFd8;
-
     address public constant RISC0_RETH_VERIFIER = 0x059dAF31F571da48Ab4e74Ae12F64f907681Cd8b;
+    // The SP1 verifier had no code changes, but was redeployed to make proposal 31(https://dao.taiko.xyz/plugins/community-proposals/#/proposals/31)
+    // a No-op, and avoid trusting a now stale image id
     address public constant SP1_RETH_VERIFIER = 0x73A0Db393ef87ce781ac7957bE10D6628432100F;
+
+    // Existing SGX Attesters(code unchangend)
     address public constant SGXGETH_ATTESTER = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
     address public constant SGXRETH_ATTESTER = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
 
@@ -61,6 +63,7 @@ contract Proposal0017 is BuildProposal {
     bytes32 public constant RECOVERY_LAST_FINALIZED_BLOCK_HASH =
         0x64c2ada556b6862d2c8796e0f709c454fede9d03908711a9f04d9f9f9dcce470;
 
+    // Attacker's retriable messages to clear
     bytes32 public constant RETRIABLE_ETH_MESSAGE_HASH =
         0x997216448ef88e6398e82b0f003abb8637d25441ca6d22b09a65f63ef077480a;
     bytes32 public constant RETRIABLE_TAIKO_MESSAGE_HASH =
@@ -98,7 +101,7 @@ contract Proposal0017 is BuildProposal {
 
         uint256 cursor;
 
-        // Group One: eliminate forged checkpoints, wire quota accounting, and retriable messages.
+        // Group One: eliminate forged checkpoints and retriable messages.
         actions[cursor++] = buildUpgradeAction(L1.SIGNAL_SERVICE, _signalServiceNewImpl);
         actions[cursor++] = buildUpgradeAction(L1.BRIDGE, _mainnetBridgeNewImpl);
         actions[cursor++] = buildUpgradeAction(L1.ERC20_VAULT, _mainnetErc20VaultNewImpl);
@@ -111,7 +114,6 @@ contract Proposal0017 is BuildProposal {
         // Group Two: restore the proving system to the last known-good pre-forgery state.
         actions[cursor++] = buildUpgradeAction(L1.INBOX, _mainnetInboxNewImpl);
 
-        // The new Inbox implementation must already point to the new MainnetVerifier.
         // The first forged proof tx is in block 25,367,938; these values are from block 25,367,937.
         actions[cursor++] = Controller.Action({
             target: L1.INBOX,
@@ -165,6 +167,27 @@ contract Proposal0017 is BuildProposal {
             data: abi.encodeCall(IProposal0017Attestation.setMrSigner, (OLD_MR_SIGNER, false))
         });
 
+        // Disable all currently trusted SGX MRENCLAVE values on the existing attesters.
+        for (uint256 i; i < sgxGethMrEnclaves.length; ++i) {
+            actions[cursor++] = Controller.Action({
+                target: SGXGETH_ATTESTER,
+                value: 0,
+                data: abi.encodeCall(
+                    IProposal0017Attestation.setMrEnclave, (sgxGethMrEnclaves[i], false)
+                )
+            });
+        }
+
+        for (uint256 i; i < sgxRethMrEnclaves.length; ++i) {
+            actions[cursor++] = Controller.Action({
+                target: SGXRETH_ATTESTER,
+                value: 0,
+                data: abi.encodeCall(
+                    IProposal0017Attestation.setMrEnclave, (sgxRethMrEnclaves[i], false)
+                )
+            });
+        }
+
         // Remove all currently trusted RISC0 image IDs.
         for (uint256 i; i < risc0ImageIds.length; ++i) {
             actions[cursor++] = Controller.Action({
@@ -217,27 +240,6 @@ contract Proposal0017 is BuildProposal {
                 SP1Verifier.setProgramTrusted, (SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES, true)
             )
         });
-
-        // Disable all currently trusted SGX MRENCLAVE values on the existing attesters.
-        for (uint256 i; i < sgxGethMrEnclaves.length; ++i) {
-            actions[cursor++] = Controller.Action({
-                target: SGXGETH_ATTESTER,
-                value: 0,
-                data: abi.encodeCall(
-                    IProposal0017Attestation.setMrEnclave, (sgxGethMrEnclaves[i], false)
-                )
-            });
-        }
-
-        for (uint256 i; i < sgxRethMrEnclaves.length; ++i) {
-            actions[cursor++] = Controller.Action({
-                target: SGXRETH_ATTESTER,
-                value: 0,
-                data: abi.encodeCall(
-                    IProposal0017Attestation.setMrEnclave, (sgxRethMrEnclaves[i], false)
-                )
-            });
-        }
     }
 
     function _retriableMessageHashes() private pure returns (bytes32[] memory hashes_) {
