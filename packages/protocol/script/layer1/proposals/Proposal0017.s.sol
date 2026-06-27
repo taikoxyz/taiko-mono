@@ -92,7 +92,8 @@ contract Proposal0017 is BuildProposal {
         bytes32[] memory sgxGethMrEnclaves = _sgxGethMrEnclavesToDisable();
         bytes32[] memory sgxRethMrEnclaves = _sgxRethMrEnclavesToDisable();
 
-        actions = new Controller.Action[](
+        actions = new Controller
+            .Action[](
             19 + risc0ImageIds.length + sp1ProgramIds.length + sgxGethMrEnclaves.length
                 + sgxRethMrEnclaves.length
         );
@@ -137,7 +138,9 @@ contract Proposal0017 is BuildProposal {
         actions[cursor++] = Controller.Action({
             target: SGXGETH_ATTESTER,
             value: 0,
-            data: abi.encodeCall(IProposal0017Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true))
+            data: abi.encodeCall(
+                IProposal0017Attestation.setMrEnclave, (NEW_SGXGETH_MR_ENCLAVE, true)
+            )
         });
         actions[cursor++] = Controller.Action({
             target: SGXRETH_ATTESTER,
@@ -191,14 +194,18 @@ contract Proposal0017 is BuildProposal {
         actions[cursor++] = Controller.Action({
             target: RISC0_RETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(Risc0Verifier.setImageIdTrusted, (RISC0_AGGREGATION_IMAGE_ID, true))
+            data: abi.encodeCall(
+                Risc0Verifier.setImageIdTrusted, (RISC0_AGGREGATION_IMAGE_ID, true)
+            )
         });
 
         // Trust raiko2 v0.5.1 SP1 program verification keys.
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
             value: 0,
-            data: abi.encodeCall(SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_BN256, true))
+            data: abi.encodeCall(
+                SP1Verifier.setProgramTrusted, (SP1_PROPOSAL_PROGRAM_VKEY_BN256, true)
+            )
         });
         actions[cursor++] = Controller.Action({
             target: SP1_RETH_VERIFIER,
@@ -331,7 +338,11 @@ interface IProposal0017BridgeRecovery {
 }
 
 interface IProposal0017InboxRecovery {
-    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
+    function init2(
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedBlockHash
+    )
+        external;
 }
 
 interface IProposal0017Attestation {

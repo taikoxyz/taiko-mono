@@ -391,7 +391,11 @@ interface IBridgeRecovery {
 }
 
 interface IInboxRecovery {
-    function init2(uint48 _lastFinalizedProposalId, bytes32 _lastFinalizedBlockHash) external;
+    function init2(
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedBlockHash
+    )
+        external;
 }
 
 interface IAutomataAttestationRecovery {
