@@ -33,17 +33,17 @@ contract Proposal0017Test is Test {
     bytes32 internal constant NEW_SGXRETH_EDMM_MR_ENCLAVE =
         0x92dd96a170d1ffb998afa210b3ef8af8c408ab76c4717e0eb8076d4a5da4e740;
     bytes32 internal constant RISC0_PROPOSAL_IMAGE_ID =
-        0x53b2f58b93ffe2cc7d7bf7c706e475fb7c328e2da5112380c198dcaa0dbf5fba;
+        0x0eeed8adb876b8e77d171098e0fbcf62d5bd0dd511b6741caf052a619adec2c7;
     bytes32 internal constant RISC0_AGGREGATION_IMAGE_ID =
-        0x0c5238624f598d64cde912c66a1f3556f5241508721d3135e6601d7e6e2bc56f;
+        0x868b5154ae01a9a045051da2d7ba2e21d4132c7ec096da343fa24149407fefef;
     bytes32 internal constant SP1_PROPOSAL_PROGRAM_VKEY_BN256 =
-        0x008b67aefb7fd6212120e4b313fd2b0830cf654f598cb2ba69f44dc02c1d91ab;
+        0x0014ac289d9e626695d1aa3f8b5db495d105c8b4c85069d9c8c9d76dd4d6a935;
     bytes32 internal constant SP1_PROPOSAL_PROGRAM_VKEY_HASH_BYTES =
-        0x45b3d77d5ff58848241c96623fd2b083067b2a7a6632cae953e89b802c1d91ab;
+        0x0a56144e679899a53a3547f135db495d082e45a62141a7671193aedb54d6a935;
     bytes32 internal constant SP1_AGGREGATION_PROGRAM_VKEY_BN256 =
-        0x00cfd2a697b001a7e4d550bd46e14e49a760a865bb5fd099eba1f4eb0bb3b9b8;
+        0x00e91cb391c22d6fd015e4c6041dbbe6efb2d8be6d4046eec28f12acba5a17bc;
     bytes32 internal constant SP1_AGGREGATION_PROGRAM_VKEY_HASH_BYTES =
-        0x67e9534b6c0069f91aaa17a86e14e49a3b05432d6d7f42675743e9d60bb3b9b8;
+        0x748e59c8708b5bf402bc98c041dbbe6e7d96c5f335011bbb051e25593a5a17bc;
 
     uint48 internal constant RECOVERY_LAST_FINALIZED_PROPOSAL_ID = 18_051;
     bytes32 internal constant RECOVERY_LAST_FINALIZED_BLOCK_HASH =
