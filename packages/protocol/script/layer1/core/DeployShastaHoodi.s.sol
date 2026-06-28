@@ -29,13 +29,19 @@ contract DeployShastaHoodi is DeployShastaContracts {
 
         config.oldSignalServiceImpl = 0x5776315840041c2bc2C9D16a33E52AD0DD359600;
         config.r0Groth16Verifier = 0x32Db7dc407AC886807277636a1633A1381748DD8;
-        config.sgxGethAutomataProxy = 0x488797321FA4272AF9d0eD4cDAe5Ec7a0210cBD5;
-        // Reth
-        config.sgxRethAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E;
+        // Automata runs a feeless public DCAP entrypoint on Hoodi
+        // (0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F, V3 verifier wired) — set DCAP_ATTESTATION to it
+        // directly, or to a Taiko-owned entrypoint deployed via DeployAutomataDcapAttestation
+        // (FOUNDRY_PROFILE=layer1o) over the Hoodi PCCS router
+        // 0x8e480c9879F1Db31dC209e5f4d239d5126e6e07B.
+        config.automataDcapAttestation = vm.envOr("DCAP_ATTESTATION", address(0));
         config.sp1PlonkVerifier = 0x2a5A70409Ee9F057503a50E0F4614A6d8CcBb462;
 
-        // Hoodi is a testnet: use the lenient TCB-status policy for liveness on dev hardware.
-        config.useInsecureSgxPolicy = true;
+        // Hoodi is a public testnet, so it MUST use the strict SecureSgxVerifier (secure default),
+        // matching mainnet and every other public network. The lenient InsecureSgxVerifier is for
+        // local devnets only. A prover whose platform reports an out-of-date TCB must update its
+        // microcode rather than rely on a weakened public-testnet policy.
+        config.useInsecureSgxPolicy = false;
 
         // Load deployment-specific values from environment
         config.activator = vm.envAddress("ACTIVATOR");
