@@ -60,6 +60,26 @@ contract TestQuotaManager is CommonTest {
         assertEq(qm.availableQuota(Ether, 6 hours), 5 ether + 10 ether * 6 / 12);
     }
 
+    function test_quota_manager_constructor_initializes_quotas() public {
+        address[] memory tokens = new address[](3);
+        tokens[0] = address(0);
+        tokens[1] = address(1);
+        tokens[2] = address(2);
+
+        uint104[] memory quotas = new uint104[](3);
+        quotas[0] = 250 ether;
+        quotas[1] = 10_000_000 ether;
+        quotas[2] = 150_000_000_000;
+
+        QuotaManager manager =
+            new QuotaManager(deployer, bridge, erc20Vault, 24 hours, tokens, quotas);
+
+        assertEq(manager.availableQuota(tokens[0], 0), quotas[0]);
+        assertEq(manager.availableQuota(tokens[1], 0), quotas[1]);
+        assertEq(manager.availableQuota(tokens[2], 0), quotas[2]);
+        assertEq(manager.availableQuota(address(3), 0), manager.UNLIMITED_QUOTA());
+    }
+
     function test_quota_manager_consume_unconfigged() public {
         address token = address(999);
         assertEq(qm.UNLIMITED_QUOTA(), type(uint256).max);

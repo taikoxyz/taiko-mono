@@ -415,6 +415,8 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     /// submitted to make sure blocks have been produced already and the derivation can use the
     /// parent's block timestamp.
     function saveForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
+        revert ForcedInclusionsDisabled();
+
         bytes32 proposalHash = _proposalHashes[1];
         require(proposalHash != bytes32(0), IncorrectProposalCount());
 
@@ -794,6 +796,7 @@ contract Inbox is IInbox, ICodec, IForcedInclusionStore, IBondManager, Essential
     error DeadlineExceeded();
     error EmptyBatch();
     error FirstProposalIdTooLarge();
+    error ForcedInclusionsDisabled();
     error IncorrectProposalCount();
     error InsufficientBond();
     error InvalidRecoveryState();
