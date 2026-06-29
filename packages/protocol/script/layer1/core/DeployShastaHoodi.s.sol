@@ -29,12 +29,8 @@ contract DeployShastaHoodi is DeployShastaContracts {
 
         config.oldSignalServiceImpl = 0x5776315840041c2bc2C9D16a33E52AD0DD359600;
         config.r0Groth16Verifier = 0x32Db7dc407AC886807277636a1633A1381748DD8;
-        // Automata runs a feeless public DCAP entrypoint on Hoodi
-        // (0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F, V3 verifier wired) — set DCAP_ATTESTATION to it
-        // directly, or to a Taiko-owned entrypoint deployed via DeployAutomataDcapAttestation
-        // (FOUNDRY_PROFILE=layer1o) over the Hoodi PCCS router
-        // 0x8e480c9879F1Db31dC209e5f4d239d5126e6e07B.
-        config.automataDcapAttestation = vm.envOr("DCAP_ATTESTATION", address(0));
+        config.automataDcapAttestation =
+            vm.envOr("DCAP_ATTESTATION", 0xaDdeC7e85c2182202b66E331f2a4A0bBB2cEEa1F);
         config.sp1PlonkVerifier = 0x2a5A70409Ee9F057503a50E0F4614A6d8CcBb462;
 
         // Hoodi is a public testnet, so it MUST use the strict SecureSgxVerifier (secure default),

@@ -24,11 +24,6 @@ contract DeployShastaMainnet is DeployShastaContracts {
 
         config.oldSignalServiceImpl = 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c;
         config.r0Groth16Verifier = 0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319;
-        // Automata runs no public DCAP entrypoint on Ethereum mainnet, so deploy a Taiko-owned one
-        // via DeployAutomataDcapAttestation (FOUNDRY_PROFILE=layer1o) over Automata's upstream mainnet
-        // PCCS router 0xe20C4d54afBbea5123728d5b7dAcD9CB3c65C39a, then pass it via DCAP_ATTESTATION.
-        // Self-owning lets Taiko keep the verification fee at 0 and control setQuoteVerifier; mainnet
-        // does NOT fall back to the legacy owner-controlled proxies.
         config.automataDcapAttestation = vm.envOr("DCAP_ATTESTATION", address(0));
         config.sp1PlonkVerifier = 0x3B6041173B80E77f038f3F2C0f9744f04837185e;
 

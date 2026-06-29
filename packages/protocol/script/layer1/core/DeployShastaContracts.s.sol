@@ -33,13 +33,6 @@ abstract contract DeployShastaContracts is DeployCapability {
         address l1SignalService;
         address l2SignalService;
         address taikoToken;
-        // The Automata DCAP attestation entrypoint (the contract exposing verifyAndAttestOnChain),
-        // shared by both SGX verifier instances (SGX-reth and SGX-geth) as DeployProtocolOnL1 does.
-        // Provided per network via the DCAP_ATTESTATION env var: either a Taiko-owned entrypoint
-        // deployed over Automata's upstream PCCS (DeployAutomataDcapAttestation, profile layer1o) —
-        // required where Automata runs no public entrypoint, e.g. Ethereum mainnet — or, where Automata
-        // operates a feeless public entrypoint (e.g. Hoodi), that address directly. See the per-network
-        // subclasses (DeployShastaMainnet / DeployShastaHoodi).
         address automataDcapAttestation;
         address r0Groth16Verifier;
         address sp1PlonkVerifier;
