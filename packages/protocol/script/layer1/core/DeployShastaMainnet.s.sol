@@ -24,7 +24,8 @@ contract DeployShastaMainnet is DeployShastaContracts {
 
         config.oldSignalServiceImpl = 0x42Ec977eb6B09a8D78c6D486c3b0e63569bA851c;
         config.r0Groth16Verifier = 0x8EaB2D97Dfce405A1692a21b3ff3A172d593D319;
-        config.automataDcapAttestation = vm.envOr("DCAP_ATTESTATION", address(0));
+        config.sgxGethAutomataProxy = 0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261;
+        config.sgxRethAutomataProxy = 0x8d7C954960a36a7596d7eA4945dDf891967ca8A3;
         config.sp1PlonkVerifier = 0x3B6041173B80E77f038f3F2C0f9744f04837185e;
 
         config.activator = 0xF14Dc4EdDb43e9a6A440e6beC97ea2ea64f39Ef7;

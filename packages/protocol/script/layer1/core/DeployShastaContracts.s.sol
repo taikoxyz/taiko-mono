@@ -33,7 +33,8 @@ abstract contract DeployShastaContracts is DeployCapability {
         address l1SignalService;
         address l2SignalService;
         address taikoToken;
-        address automataDcapAttestation;
+        address sgxRethAutomataProxy;
+        address sgxGethAutomataProxy;
         address r0Groth16Verifier;
         address sp1PlonkVerifier;
         address[] provers;
@@ -70,7 +71,8 @@ abstract contract DeployShastaContracts is DeployCapability {
         require(config.l1SignalService != address(0), "L1_SIGNAL_SERVICE not set");
         require(config.l2SignalService != address(0), "L2_SIGNAL_SERVICE not set");
         require(config.taikoToken != address(0), "TAIKO_TOKEN not set");
-        require(config.automataDcapAttestation != address(0), "DCAP_ATTESTATION not set");
+        require(config.sgxRethAutomataProxy != address(0), "SGX_AUTOMATA_PROXY not set");
+        require(config.sgxGethAutomataProxy != address(0), "SGX_GETH_AUTOMATA_PROXY not set");
         require(config.r0Groth16Verifier != address(0), "R0_GROTH16_VERIFIER not set");
         require(config.sp1PlonkVerifier != address(0), "SP1_PLONK_VERIFIER not set");
         require(config.provers.length != 0, "PROVERS not set");
@@ -155,13 +157,11 @@ abstract contract DeployShastaContracts is DeployCapability {
         // instance-validity delay gives off-chain monitoring time to evict a rogue self-registered
         // instance before it can prove (owner `addInstances` registrations are not delayed); it
         // applies to SecureSgxVerifier only.
-        // Both SGX verifier instances share the single attestation entrypoint (it verifies DCAP
-        // quotes and is not proof-tier specific), as DeployProtocolOnL1 does.
         verifiers.sgxReth = _deploySgxVerifier(
             config.useInsecureSgxPolicy,
             config.l2ChainId,
             config.contractOwner,
-            config.automataDcapAttestation
+            config.sgxRethAutomataProxy
         );
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
@@ -169,7 +169,7 @@ abstract contract DeployShastaContracts is DeployCapability {
             config.useInsecureSgxPolicy,
             config.l2ChainId,
             config.contractOwner,
-            config.automataDcapAttestation
+            config.sgxGethAutomataProxy
         );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
@@ -193,22 +193,19 @@ abstract contract DeployShastaContracts is DeployCapability {
         bool useInsecureSgxPolicy,
         uint64 l2ChainId,
         address contractOwner,
-        address automataDcapAttestation
+        address automataProxy
     )
         private
         returns (address)
     {
         if (useInsecureSgxPolicy) {
-            return address(
-                new InsecureSgxVerifier(
-                    l2ChainId, contractOwner, automataDcapAttestation, address(0)
-                )
-            );
+            return
+                address(
+                    new InsecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0))
+                );
         }
         return address(
-            new SecureSgxVerifier(
-                l2ChainId, contractOwner, automataDcapAttestation, address(0), 24 hours
-            )
+            new SecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0), 24 hours)
         );
     }
 }
