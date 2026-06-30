@@ -1,6 +1,6 @@
 //! Error types for RPC operations.
 
-use alloy::transports::{RpcError, TransportError, TransportErrorKind};
+use alloy::transports::TransportError;
 use anyhow::anyhow;
 use protocol::subscription_source::SubscriptionSourceError;
 use std::result::Result as StdResult;
@@ -16,10 +16,6 @@ pub enum RpcClientError {
     #[error("failed to read JWT secret from {0}")]
     JwtSecretReadFailed(String),
 
-    /// Invalid JWT secret format
-    #[error("invalid JWT secret format")]
-    InvalidJwtSecret,
-
     /// Connection error
     #[error("connection error: {0}")]
     Connection(String),
@@ -28,9 +24,13 @@ pub enum RpcClientError {
     #[error("provider error: {0}")]
     Provider(String),
 
-    /// RPC error
+    /// Typed RPC error from the transport stack.
     #[error("RPC error: {0}")]
-    Rpc(String),
+    Rpc(#[from] TransportError),
+
+    /// RPC error already enriched with local context.
+    #[error("RPC error: {0}")]
+    RpcMessage(String),
 
     /// Contract error
     #[error("contract error: {0}")]
@@ -39,21 +39,6 @@ pub enum RpcClientError {
     /// Generic error
     #[error(transparent)]
     Other(#[from] anyhow::Error),
-}
-
-// Manual From implementation for RpcError
-impl From<RpcError<TransportErrorKind>> for RpcClientError {
-    /// Convert transport-backed RPC errors into the generic RPC client error.
-    fn from(err: RpcError<TransportErrorKind>) -> Self {
-        RpcClientError::Rpc(err.to_string())
-    }
-}
-
-impl From<TransportError<TransportErrorKind>> for RpcClientError {
-    /// Convert low-level transport errors into the generic RPC client error.
-    fn from(err: TransportError<TransportErrorKind>) -> Self {
-        RpcClientError::Rpc(err.to_string())
-    }
 }
 
 // Manual From implementation for alloy contract Error
@@ -83,8 +68,5 @@ mod tests {
     fn test_error_display() {
         let err = RpcClientError::JwtSecretReadFailed("/path/to/jwt.hex".to_string());
         assert_eq!(err.to_string(), "failed to read JWT secret from /path/to/jwt.hex");
-
-        let err = RpcClientError::InvalidJwtSecret;
-        assert_eq!(err.to_string(), "invalid JWT secret format");
     }
 }

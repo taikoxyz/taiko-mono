@@ -1,4 +1,4 @@
-use std::{env, fmt, path::PathBuf, str::FromStr, time::Instant};
+use std::{env, path::PathBuf, str::FromStr, time::Instant};
 
 use crate::init_tracing;
 use alloy::transports::http::reqwest::Url as RpcUrl;
@@ -39,26 +39,6 @@ pub struct ShastaEnv {
     pub l2_ws_1: RpcUrl,
     /// Secondary L2 Auth endpoint for dual-driver E2E tests.
     pub l2_auth_1: RpcUrl,
-}
-
-impl fmt::Debug for ShastaEnv {
-    /// Formats the `ShastaEnv` for debugging, omitting sensitive fields.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ShastaEnv")
-            .field("l1_source", &self.l1_source)
-            .field("l2_ws_0", &self.l2_ws_0)
-            .field("l2_auth_0", &self.l2_auth_0)
-            .field("jwt_secret", &self.jwt_secret)
-            .field("inbox_address", &self.inbox_address)
-            .field("l2_suggested_fee_recipient", &self.l2_suggested_fee_recipient)
-            .field("l1_proposer_private_key", &self.l1_proposer_private_key)
-            .field("taiko_anchor_address", &self.taiko_anchor_address)
-            .field("client_config", &self.client_config)
-            .field("client", &self.client)
-            .field("l2_ws_1", &self.l2_ws_1)
-            .field("l2_auth_1", &self.l2_auth_1)
-            .finish()
-    }
 }
 
 impl ShastaEnv {

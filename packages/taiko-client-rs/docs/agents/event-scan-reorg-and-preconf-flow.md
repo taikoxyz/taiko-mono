@@ -81,6 +81,9 @@ Required interpretation:
 - `block_number <= head_l1_origin` means the preconf item is stale.
 - Stale preconf items must be dropped/ignored.
 - Stale preconf items cannot be used to reorg confirmed history.
+- A missing `head_l1_origin` is treated as the genesis boundary `0` in the whitelist importer
+  (`crates/whitelist-preconfirmation-driver/src/importer/cache_import.rs`), mirroring the
+  event-sync convention in `crates/driver/src/sync/event.rs`.
 
 ## Event Path Reorg Handling (Sequence)
 

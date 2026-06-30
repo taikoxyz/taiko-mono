@@ -11,32 +11,22 @@ use anyhow::{Context, Result, anyhow, ensure};
 use bindings::inbox::Inbox::Proposed;
 use driver::{
     DriverConfig,
-    derivation::{DerivationPipeline, ShastaDerivationPipeline},
+    derivation::ShastaDerivationPipeline,
     sync::{SyncStage, engine::PayloadApplier, event::EventSyncer},
 };
 use proposer::transaction_builder::{BuiltProposalTx, ShastaProposalTransactionBuilder};
 use rpc::{
     blob::BlobDataSource,
-    client::{Client, ClientConfig, ClientWithWallet},
+    client::{Client, ClientWithWallet},
 };
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 use tokio::spawn;
-use tracing::warn;
-
-fn client_config(env: &ShastaEnv) -> ClientConfig {
-    ClientConfig {
-        l1_provider_source: env.l1_source.clone(),
-        l2_provider_url: env.l2_ws_0.clone(),
-        l2_auth_provider_url: env.l2_auth_0.clone(),
-        jwt_secret: env.jwt_secret.clone(),
-        inbox_address: env.inbox_address,
-    }
-}
+use tracing::{info, warn};
 
 async fn proposer_client(env: &ShastaEnv) -> Result<ClientWithWallet> {
-    Client::new_with_wallet(client_config(env), env.l1_proposer_private_key)
+    Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key)
         .await
         .map_err(Into::into)
 }
@@ -82,23 +72,24 @@ where
 
     loop {
         let target_block = driver_client
-            .last_block_id_by_batch_id(U256::from(expected_proposal_id))
+            .last_certain_block_id_by_batch_id(U256::from(expected_proposal_id))
             .await?
             .map(|block_number| block_number.to::<u64>());
         let confirmed_head = event_syncer.confirmed_sync_snapshot().await?.event_sync_tip();
-        if matches!(
-            (target_block, confirmed_head),
-            (Some(target_block), Some(head_block)) if head_block >= target_block
-        ) {
-            let l2_head = driver_client.l2_provider.get_block_number().await?;
-            if l2_head < l2_head_before {
-                warn!(
-                    l2_head_before,
-                    l2_head, "L2 head moved backward while waiting for proposal processing"
-                );
+        if let (Some(target_block), Some(head_block)) = (target_block, confirmed_head) {
+            if head_block >= target_block {
+                let l2_head = driver_client.l2_provider.get_block_number().await?;
+                if l2_head < l2_head_before {
+                    warn!(
+                        l2_head_before,
+                        l2_head, "L2 head moved backward while waiting for proposal processing"
+                    );
+                }
+                if l2_head >= target_block {
+                    return Ok(l2_head);
+                }
             }
-            return Ok(l2_head);
-        }
+        };
 
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         if remaining.is_zero() {
@@ -124,13 +115,14 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
     // Start event syncer before submitting the proposal.
-    let driver_config = DriverConfig::new(
-        client_config(env),
+    let mut driver_config = DriverConfig::new(
+        env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
         None,
     );
+    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -141,6 +133,7 @@ async fn proposer_to_driver_event_sync(env: &mut ShastaEnv) -> Result<()> {
             }
         })
     };
+    event_syncer.wait_preconf_ingress_ready().await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 
@@ -183,13 +176,14 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
     let request = builder.build(vec![Vec::new()], None).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
-    let driver_config = DriverConfig::new(
-        client_config(env),
+    let mut driver_config = DriverConfig::new(
+        env.client_config.clone(),
         Duration::from_millis(50),
         beacon_endpoint.clone(),
         None,
         None,
     );
+    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -200,12 +194,13 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
             }
         })
     };
+    event_syncer.wait_preconf_ingress_ready().await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
     let (proposal_id, proposal_log) =
         submit_proposal(&proposer, request, env.inbox_address).await?;
 
-    let _l2_head_after = wait_for_proposal_processed(
+    let l2_head_after = wait_for_proposal_processed(
         &event_syncer,
         &driver_client,
         proposal_id,
@@ -220,6 +215,7 @@ async fn known_canonical_fast_path(env: &mut ShastaEnv) -> Result<()> {
         .await?
         .ok_or_else(|| anyhow!("missing canonical block after proposal processing"))?;
     let canonical_number = canonical_block.number();
+    info!(canonical_number, l2_head_after, "captured canonical block after first processing");
     let canonical_hash = canonical_block.hash();
 
     // Re-process the same proposal via the derivation pipeline.
@@ -267,13 +263,14 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
     let request = builder.build(vec![Vec::new()], None).await?;
     beacon_stub.set_default_blob_sidecar(built_proposal_sidecar(&request));
 
-    let driver_config = DriverConfig::new(
-        client_config(env),
+    let mut driver_config = DriverConfig::new(
+        env.client_config.clone(),
         Duration::from_millis(50),
         beacon_stub.endpoint().clone(),
         None,
         None,
     );
+    driver_config.preconfirmation_enabled = true;
     let driver_client = Client::new(driver_config.client.clone()).await?;
     let event_syncer = Arc::new(EventSyncer::new(&driver_config, driver_client.clone()).await?);
     let syncer_handle = {
@@ -284,6 +281,7 @@ async fn multiple_proposals_event_sync(env: &mut ShastaEnv) -> Result<()> {
             }
         })
     };
+    event_syncer.wait_preconf_ingress_ready().await?;
 
     let l2_head_before = driver_client.l2_provider.get_block_number().await?;
 

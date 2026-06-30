@@ -13,12 +13,9 @@ export type StorageEntry = {
   proof: Hex[];
 };
 
-// CacheOption enum - deprecated but still required for struct encoding
+// CacheOption - always CACHE_NOTHING (0) for Shasta; field retained for ABI struct compatibility
 export enum CacheOption {
   CACHE_NOTHING = 0,
-  CACHE_SIGNAL_ROOT = 1,
-  CACHE_STATE_ROOT = 2,
-  CACHE_BOTH = 3,
 }
 
 export type HopProof = {

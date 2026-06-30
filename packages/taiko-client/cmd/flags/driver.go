@@ -25,13 +25,6 @@ var (
 		Category: driverCategory,
 		EnvVars:  []string{"P2P_SYNC_TIMEOUT"},
 	}
-	P2PAllowAllSequencers = &cli.BoolFlag{
-		Name:     "p2p.allow-all-sequencers",
-		Usage:    "Allow all currently active preconfirmation sequencer addresses in P2P signer validation",
-		Value:    false,
-		Category: driverCategory,
-		EnvVars:  []string{"P2P_ALLOW_ALL_SEQUENCERS"},
-	}
 	CheckPointSyncURL = &cli.StringFlag{
 		Name:     "p2p.checkPointSyncUrl",
 		Usage:    "HTTP RPC endpoint of another synced L2 execution engine node",
@@ -65,19 +58,12 @@ var (
 		Value:    "*",
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_CORS_ORIGINS"},
 	}
-	PreconfWhitelistAddress = &cli.StringFlag{
-		Name:     "preconfirmation.whitelist",
-		Usage:    "PreconfWhitelist contract L1 `address`",
-		Required: false,
+	PreconfHandoverSkipSlots = &cli.Uint64Flag{
+		Name:     "preconfirmation.handoverSkipSlots",
+		Usage:    "Number of slots to reserve for handover at the end of each epoch",
+		Value:    8,
 		Category: driverCategory,
-		EnvVars:  []string{"PRECONFIRMATION_WHITELIST"},
-	}
-	DriverTaikoWrapperAddress = &cli.StringFlag{
-		Name:     "taikoWrapper",
-		Usage:    "TaikoWrapper contract `address`",
-		Required: false,
-		Category: driverCategory,
-		EnvVars:  []string{"TAIKO_WRAPPER"},
+		EnvVars:  []string{"PRECONFIRMATION_HANDOVER_SKIP_SLOTS"},
 	}
 )
 
@@ -85,16 +71,15 @@ var (
 var DriverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L1BeaconEndpoint,
 	L2WSEndpoint,
+	L2HTTPEndpoint,
 	L2AuthEndpoint,
 	JWTSecret,
 	P2PSync,
 	P2PSyncTimeout,
-	P2PAllowAllSequencers,
 	CheckPointSyncURL,
 	BlobServerEndpoint,
 	PreconfBlockServerPort,
 	PreconfBlockServerJWTSecret,
 	PreconfBlockServerCORSOrigins,
-	PreconfWhitelistAddress,
-	DriverTaikoWrapperAddress,
+	PreconfHandoverSkipSlots,
 }, p2pFlags.P2PFlags("PRECONFIRMATION"))

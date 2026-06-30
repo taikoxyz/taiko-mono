@@ -12,7 +12,7 @@ use anyhow::{Result, ensure};
 use super::{TransferPayload, build_signed_transfer};
 
 /// Default funding amount: 1 ETH in wei.
-pub const DEFAULT_FUND_AMOUNT: u128 = 1_000_000_000_000_000_000;
+pub(crate) const DEFAULT_FUND_AMOUNT: u128 = 1_000_000_000_000_000_000;
 
 /// Ensures the test account has funds, funding it from the funder account if needed.
 ///
@@ -38,7 +38,7 @@ pub const DEFAULT_FUND_AMOUNT: u128 = 1_000_000_000_000_000_000;
 ///     U256::from(DEFAULT_FUND_AMOUNT),
 /// ).await?;
 /// ```
-pub async fn ensure_test_account_funded<P>(
+pub(crate) async fn ensure_test_account_funded<P>(
     provider: &P,
     block_number: u64,
     fund_amount: U256,
@@ -87,7 +87,7 @@ where
 /// let transfers = build_test_transfers(&provider, 100).await?;
 /// // transfers contains 1-2 transactions depending on whether funding was needed
 /// ```
-pub async fn build_test_transfers<P>(
+pub(crate) async fn build_test_transfers<P>(
     provider: &P,
     block_number: u64,
 ) -> Result<Vec<TransferPayload>>

@@ -18,7 +18,7 @@ preconfirmation = [
 
 [dependencies]
 alethia-reth-consensus = { workspace = true }
-alethia-reth-primitives = { workspace = true }
+alethia-reth-primitives = { workspace = true, features = ["net"] }
 alloy = { workspace = true }
 alloy-consensus = { workspace = true }
 alloy-eips = { workspace = true }
@@ -27,9 +27,9 @@ alloy-provider = { workspace = true }
 alloy-rlp = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-rpc-types-engine-2 = { workspace = true }
 alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
-alloy-sol-types = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true, optional = true }
 bindings = { path = "../bindings" }

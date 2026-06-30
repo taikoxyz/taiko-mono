@@ -16,7 +16,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -41,6 +41,9 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: "ejector"
+          # Only the Test job saves this shared key; lint just consumes it.
+          save-if: "false"
           workspaces: |
             packages/ejector
 
@@ -73,6 +76,8 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: "ejector"
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: |
             packages/ejector
 
@@ -104,6 +109,9 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
+          shared-key: "ejector"
+          # Only the Test job saves this shared key; coverage just consumes it.
+          save-if: "false"
           workspaces: |
             packages/ejector
 
@@ -118,7 +126,7 @@ jobs:
           path: packages/ejector/lcov.info
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: packages/ejector/lcov.info
           flags: ejector

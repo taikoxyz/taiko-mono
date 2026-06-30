@@ -5,15 +5,10 @@ use alloy_provider::Provider;
 use alloy_rpc_types::Log;
 use anyhow::{Context, Result, ensure};
 use driver::{
-    Driver, DriverConfig,
-    derivation::{DerivationPipeline, ShastaDerivationPipeline},
-    sync::engine::PayloadApplier,
+    Driver, DriverConfig, derivation::ShastaDerivationPipeline, sync::engine::PayloadApplier,
 };
 use proposer::transaction_builder::ShastaProposalTransactionBuilder;
-use rpc::{
-    blob::BlobDataSource,
-    client::{Client, ClientConfig},
-};
+use rpc::{blob::BlobDataSource, client::Client};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
@@ -22,17 +17,8 @@ use test_harness::{BeaconStubServer, ShastaEnv, verify_anchor_block};
 #[serial]
 #[test_log::test(tokio::test)]
 async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
-    let proposer_client = Client::new_with_wallet(
-        ClientConfig {
-            l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_ws_0.clone(),
-            l2_auth_provider_url: env.l2_auth_0.clone(),
-            jwt_secret: env.jwt_secret.clone(),
-            inbox_address: env.inbox_address,
-        },
-        env.l1_proposer_private_key,
-    )
-    .await?;
+    let proposer_client =
+        Client::new_with_wallet(env.client_config.clone(), env.l1_proposer_private_key).await?;
 
     let builder = ShastaProposalTransactionBuilder::new(
         proposer_client.clone(),
@@ -70,13 +56,7 @@ async fn syncs_shasta_proposal_into_l2(env: &mut ShastaEnv) -> Result<()> {
         .context("missing Proposed log in receipt")?;
 
     let driver_config = DriverConfig::new(
-        ClientConfig {
-            l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_ws_0.clone(),
-            l2_auth_provider_url: env.l2_auth_0.clone(),
-            jwt_secret: env.jwt_secret.clone(),
-            inbox_address: env.inbox_address,
-        },
+        env.client_config.clone(),
         Duration::from_millis(50),
         beacon_endpoint.clone(),
         None,

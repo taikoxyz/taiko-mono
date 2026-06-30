@@ -3,10 +3,9 @@ use super::{
     bundle::BundleMeta,
 };
 use crate::derivation::DerivationError;
-use alethia_reth_consensus::eip4396::{
-    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
-};
+use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
 use alloy_consensus::Header;
+use protocol::shasta::constants::calculate_next_block_eip4396_base_fee_from_parent_values;
 
 /// Rolling view of the parent block used when deriving successive payloads.
 #[derive(Debug, Clone)]
@@ -77,8 +76,10 @@ impl ParentState {
                 parent_block_number: self.header.number,
             })?;
         // Use cached parent/grandparent delta with chain-specific clamp to mirror proposer logic.
-        Ok(calculate_next_block_eip4396_base_fee(
-            &self.header,
+        Ok(calculate_next_block_eip4396_base_fee_from_parent_values(
+            self.header.number,
+            self.header.gas_limit,
+            self.header.gas_used,
             self.parent_block_time_delta_secs,
             parent_base_fee_per_gas,
             self.min_base_fee_to_clamp,

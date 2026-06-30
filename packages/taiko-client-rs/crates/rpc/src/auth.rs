@@ -7,8 +7,9 @@ use alethia_reth_primitives::{
     payload::attributes::{RpcL1Origin, TaikoPayloadAttributes},
 };
 use alethia_reth_rpc_types::PreBuiltTxList as TaikoPreBuiltTxList;
-use alloy_primitives::{Address, FixedBytes, U256};
-use alloy_provider::Provider;
+use alloy::rpc::json_rpc::RpcSend;
+use alloy_primitives::{Address, B256, FixedBytes, U256};
+use alloy_provider::{Provider, RootProvider};
 use alloy_rpc_types_engine::{
     ExecutionPayloadEnvelopeV2, ExecutionPayloadInputV2, ForkchoiceState, ForkchoiceUpdated,
     PayloadId, PayloadStatus,
@@ -24,62 +25,6 @@ use crate::{
 
 /// Re-export of Taiko's pre-built transaction list type using untyped transactions.
 pub type PreBuiltTxList = TaikoPreBuiltTxList<Value>;
-
-/// Taiko authenticated RPC method names.
-#[derive(Debug, Clone, Copy)]
-pub enum TaikoAuthMethod {
-    /// Fetch pre-built transaction lists with minimum tip.
-    TxPoolContentWithMinTip,
-    /// Update L1 origin metadata.
-    UpdateL1Origin,
-    /// Set L1 origin signature.
-    SetL1OriginSignature,
-    /// Set head L1 origin pointer.
-    SetHeadL1Origin,
-    /// Set batch to last block mapping.
-    SetBatchToLastBlock,
-    /// Fetch the last L1 origin for a batch id.
-    LastL1OriginByBatchId,
-    /// Fetch the last block id for a batch id.
-    LastBlockIdByBatchId,
-}
-
-impl TaikoAuthMethod {
-    /// Get the RPC method name as a string.
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::TxPoolContentWithMinTip => "taikoAuth_txPoolContentWithMinTip",
-            Self::UpdateL1Origin => "taikoAuth_updateL1Origin",
-            Self::SetL1OriginSignature => "taikoAuth_setL1OriginSignature",
-            Self::SetHeadL1Origin => "taikoAuth_setHeadL1Origin",
-            Self::SetBatchToLastBlock => "taikoAuth_setBatchToLastBlock",
-            Self::LastL1OriginByBatchId => "taikoAuth_lastL1OriginByBatchID",
-            Self::LastBlockIdByBatchId => "taikoAuth_lastBlockIDByBatchID",
-        }
-    }
-}
-
-/// Taiko engine API method names.
-#[derive(Debug, Clone, Copy)]
-pub enum TaikoEngineMethod {
-    /// Submit a new execution payload.
-    NewPayloadV2,
-    /// Update forkchoice state and optionally request payload building.
-    ForkchoiceUpdatedV2,
-    /// Retrieve a built payload by id.
-    GetPayloadV2,
-}
-
-impl TaikoEngineMethod {
-    /// Get the RPC method name as a string.
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::NewPayloadV2 => "engine_newPayloadV2",
-            Self::ForkchoiceUpdatedV2 => "engine_forkchoiceUpdatedV2",
-            Self::GetPayloadV2 => "engine_getPayloadV2",
-        }
-    }
-}
 
 /// Parameters for fetching pre-built transaction lists with minimum tip.
 pub struct TxPoolContentParams {
@@ -99,7 +44,55 @@ pub struct TxPoolContentParams {
     pub min_tip: u64,
 }
 
+/// JSON payload submitted to Taiko's `engine_newPayloadV2` endpoint.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EngineNewPayloadV2Request<'a> {
+    /// Standard execution payload fields, including optional withdrawals.
+    #[serde(flatten)]
+    payload: &'a ExecutionPayloadInputV2,
+    /// Transactions root hash tracked by the Taiko sidecar.
+    tx_hash: B256,
+    /// Withdrawals root hash tracked by the Taiko sidecar.
+    withdrawals_hash: B256,
+    /// Optional hash-relevant header difficulty restored for Unzen blocks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    header_difficulty: Option<U256>,
+    /// Optional marker flag indicating that the payload is Taiko-specific.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    taiko_block: Option<bool>,
+}
+
+/// Serialize a Taiko execution payload and sidecar into the `engine_newPayloadV2` JSON shape.
+fn engine_new_payload_v2_value(
+    payload: &ExecutionPayloadInputV2,
+    sidecar: &TaikoExecutionDataSidecar,
+) -> Result<Value> {
+    serde_json::to_value(EngineNewPayloadV2Request {
+        payload,
+        tx_hash: sidecar.tx_hash,
+        withdrawals_hash: sidecar.withdrawals_hash.unwrap_or_default(),
+        header_difficulty: sidecar.header_difficulty,
+        taiko_block: sidecar.taiko_block,
+    })
+    .map_err(|err| RpcClientError::Other(anyhow!(err)))
+}
+
 impl<P: Provider + Clone> Client<P> {
+    /// Issue an L1-origin lookup against the given provider, mapping ignorable engine errors to
+    /// `Ok(None)` and converting the transport wrapper into the public [`RpcL1Origin`] type.
+    pub(crate) async fn request_l1_origin<Params: RpcSend>(
+        provider: &RootProvider,
+        method: &'static str,
+        params: Params,
+    ) -> Result<Option<RpcL1Origin>> {
+        provider
+            .raw_request::<_, Option<EngineRpcL1Origin>>(Cow::Borrowed(method), params)
+            .await
+            .or_else(handle_ignorable_origin_error)
+            .map(|origin| origin.map(Into::into))
+    }
+
     /// Fetch pre-built transaction lists from the authenticated L2 execution engine.
     pub async fn tx_pool_content_with_min_tip(
         &self,
@@ -107,7 +100,7 @@ impl<P: Provider + Clone> Client<P> {
     ) -> Result<Vec<PreBuiltTxList>> {
         self.l2_auth_provider
             .raw_request(
-                Cow::Borrowed(TaikoAuthMethod::TxPoolContentWithMinTip.as_str()),
+                Cow::Borrowed("taikoAuth_txPoolContentWithMinTip"),
                 (
                     params.beneficiary,
                     params.base_fee,
@@ -127,7 +120,7 @@ impl<P: Provider + Clone> Client<P> {
         let origin = EngineRpcL1Origin::from(origin.clone());
         self.l2_auth_provider
             .raw_request::<_, Option<EngineRpcL1Origin>>(
-                Cow::Borrowed(TaikoAuthMethod::UpdateL1Origin.as_str()),
+                Cow::Borrowed("taikoAuth_updateL1Origin"),
                 (origin,),
             )
             .await
@@ -143,7 +136,7 @@ impl<P: Provider + Clone> Client<P> {
     ) -> Result<Option<RpcL1Origin>> {
         self.l2_auth_provider
             .raw_request::<_, Option<EngineRpcL1Origin>>(
-                Cow::Borrowed(TaikoAuthMethod::SetL1OriginSignature.as_str()),
+                Cow::Borrowed("taikoAuth_setL1OriginSignature"),
                 (block_id, signature),
             )
             .await
@@ -154,7 +147,7 @@ impl<P: Provider + Clone> Client<P> {
     /// Update the head L1 origin pointer in the execution engine.
     pub async fn set_head_l1_origin(&self, block_id: U256) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed(TaikoAuthMethod::SetHeadL1Origin.as_str()), (block_id,))
+            .raw_request(Cow::Borrowed("taikoAuth_setHeadL1Origin"), (block_id,))
             .await
             .map_err(Into::into)
     }
@@ -166,10 +159,7 @@ impl<P: Provider + Clone> Client<P> {
         block_id: U256,
     ) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed(TaikoAuthMethod::SetBatchToLastBlock.as_str()),
-                (batch_id, block_id),
-            )
+            .raw_request(Cow::Borrowed("taikoAuth_setBatchToLastBlock"), (batch_id, block_id))
             .await
             .map_err(Into::into)
     }
@@ -180,24 +170,31 @@ impl<P: Provider + Clone> Client<P> {
         &self,
         proposal_id: U256,
     ) -> Result<Option<RpcL1Origin>> {
-        self.l2_auth_provider
-            .raw_request::<_, Option<EngineRpcL1Origin>>(
-                Cow::Borrowed(TaikoAuthMethod::LastL1OriginByBatchId.as_str()),
-                (proposal_id,),
-            )
-            .await
-            .or_else(handle_ignorable_origin_error)
-            .map(|origin| origin.map(Into::into))
+        Self::request_l1_origin(
+            &self.l2_auth_provider,
+            "taikoAuth_lastL1OriginByBatchID",
+            (proposal_id,),
+        )
+        .await
     }
 
     /// Fetch the last block id that corresponds to the provided batch id via the authenticated
     /// engine API.
     pub async fn last_block_id_by_batch_id(&self, proposal_id: U256) -> Result<Option<U256>> {
         self.l2_auth_provider
-            .raw_request(
-                Cow::Borrowed(TaikoAuthMethod::LastBlockIdByBatchId.as_str()),
-                (proposal_id,),
-            )
+            .raw_request(Cow::Borrowed("taikoAuth_lastBlockIDByBatchID"), (proposal_id,))
+            .await
+            .or_else(handle_ignorable_origin_error)
+    }
+
+    /// Fetch the cached last block id that corresponds to the provided batch id via the
+    /// authenticated engine API, without allowing the engine to scan the chain as a fallback.
+    pub async fn last_certain_block_id_by_batch_id(
+        &self,
+        proposal_id: U256,
+    ) -> Result<Option<U256>> {
+        self.l2_auth_provider
+            .raw_request(Cow::Borrowed("taikoAuth_lastCertainBlockIDByBatchID"), (proposal_id,))
             .await
             .or_else(handle_ignorable_origin_error)
     }
@@ -208,31 +205,10 @@ impl<P: Provider + Clone> Client<P> {
         payload: &ExecutionPayloadInputV2,
         sidecar: &TaikoExecutionDataSidecar,
     ) -> Result<PayloadStatus> {
-        let mut payload_value = serde_json::to_value(&payload.execution_payload)
-            .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
-        if let serde_json::Value::Object(ref mut obj) = payload_value {
-            // Include the withdrawals list so taiko-geth can reconstruct the full block.
-            // The Go driver sends the full ExecutableData (with withdrawals); omitting
-            // this field causes a blockhash mismatch because geth cannot recompute the
-            // withdrawals root from the hash alone.
-            if let Some(ref withdrawals) = payload.withdrawals {
-                let withdrawals_value = serde_json::to_value(withdrawals)
-                    .map_err(|err| RpcClientError::Other(anyhow!(err)))?;
-                obj.insert("withdrawals".to_string(), withdrawals_value);
-            }
-            obj.insert(
-                "txHash".to_string(),
-                serde_json::Value::String(format!("{:#066x}", sidecar.tx_hash)),
-            );
-            let withdrawals_hex = format!("{:#066x}", sidecar.withdrawals_hash.unwrap_or_default());
-            obj.insert("withdrawalsHash".to_string(), serde_json::Value::String(withdrawals_hex));
-            if let Some(flag) = sidecar.taiko_block {
-                obj.insert("taikoBlock".to_string(), serde_json::Value::Bool(flag));
-            }
-        }
+        let payload_value = engine_new_payload_v2_value(payload, sidecar)?;
 
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed(TaikoEngineMethod::NewPayloadV2.as_str()), (payload_value,))
+            .raw_request(Cow::Borrowed("engine_newPayloadV2"), (payload_value,))
             .await
             .map_err(Into::into)
     }
@@ -256,7 +232,7 @@ impl<P: Provider + Clone> Client<P> {
 
         self.l2_auth_provider
             .raw_request(
-                Cow::Borrowed(TaikoEngineMethod::ForkchoiceUpdatedV2.as_str()),
+                Cow::Borrowed("engine_forkchoiceUpdatedV2"),
                 (forkchoice_state, payload_attributes),
             )
             .await
@@ -264,12 +240,16 @@ impl<P: Provider + Clone> Client<P> {
     }
 
     /// Retrieve a built payload from the execution engine.
+    ///
+    /// The wire shape stays the standard `ExecutionPayloadEnvelopeV2`, but Taiko Unzen and later
+    /// reuse `blockValue` to carry the original `header.difficulty` back to the client so
+    /// `getPayloadV2`/`newPayloadV2` round trips remain hash-stable.
     pub async fn engine_get_payload_v2(
         &self,
         payload_id: PayloadId,
     ) -> Result<ExecutionPayloadEnvelopeV2> {
         self.l2_auth_provider
-            .raw_request(Cow::Borrowed(TaikoEngineMethod::GetPayloadV2.as_str()), (payload_id,))
+            .raw_request(Cow::Borrowed("engine_getPayloadV2"), (payload_id,))
             .await
             .map_err(Into::into)
     }
@@ -287,4 +267,127 @@ where
 {
     let message = err.to_string();
     if is_ignorable_origin_error(&message) { Ok(None) } else { Err(err.into()) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
+    use alloy_primitives::{Address, B256, Bytes, U256};
+    use alloy_rpc_types_engine::ExecutionPayloadV1;
+
+    #[test]
+    fn engine_new_payload_v2_value_preserves_header_difficulty() {
+        let payload = ExecutionPayloadInputV2 {
+            execution_payload: ExecutionPayloadV1 {
+                parent_hash: B256::from(U256::from(10u64)),
+                fee_recipient: Address::from([1u8; 20]),
+                state_root: B256::from(U256::from(2u64)),
+                receipts_root: B256::from(U256::from(3u64)),
+                logs_bloom: Default::default(),
+                prev_randao: B256::from(U256::from(4u64)),
+                block_number: 7,
+                gas_limit: 30_000_000,
+                gas_used: 0,
+                timestamp: 123,
+                extra_data: Bytes::new(),
+                base_fee_per_gas: U256::from(1u64),
+                block_hash: B256::from(U256::from(42u64)),
+                transactions: vec![],
+            },
+            withdrawals: None,
+        };
+
+        let sidecar = TaikoExecutionDataSidecar {
+            tx_hash: B256::from([0x11; 32]),
+            withdrawals_hash: Some(B256::from([0x22; 32])),
+            header_difficulty: Some(U256::from(7u64)),
+            taiko_block: Some(true),
+        };
+
+        let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
+        let obj = value.as_object().expect("payload should serialize to a JSON object");
+
+        assert_eq!(obj.get("headerDifficulty"), Some(&serde_json::json!("0x7")));
+        assert_eq!(
+            obj.get("txHash"),
+            Some(&serde_json::json!(format!("{:#066x}", sidecar.tx_hash)))
+        );
+        assert_eq!(
+            obj.get("withdrawalsHash"),
+            Some(&serde_json::json!(format!("{:#066x}", sidecar.withdrawals_hash.unwrap())))
+        );
+        assert_eq!(obj.get("taikoBlock"), Some(&serde_json::json!(true)));
+        assert!(!obj.contains_key("withdrawals"));
+    }
+
+    #[test]
+    fn engine_new_payload_v2_value_omits_header_difficulty_when_absent() {
+        let payload = ExecutionPayloadInputV2 {
+            execution_payload: ExecutionPayloadV1 {
+                parent_hash: B256::from(U256::from(10u64)),
+                fee_recipient: Address::from([1u8; 20]),
+                state_root: B256::from(U256::from(2u64)),
+                receipts_root: B256::from(U256::from(3u64)),
+                logs_bloom: Default::default(),
+                prev_randao: B256::from(U256::from(4u64)),
+                block_number: 7,
+                gas_limit: 30_000_000,
+                gas_used: 0,
+                timestamp: 123,
+                extra_data: Bytes::new(),
+                base_fee_per_gas: U256::from(1u64),
+                block_hash: B256::from(U256::from(42u64)),
+                transactions: vec![],
+            },
+            withdrawals: None,
+        };
+
+        let sidecar = TaikoExecutionDataSidecar {
+            tx_hash: B256::ZERO,
+            withdrawals_hash: None,
+            header_difficulty: None,
+            taiko_block: Some(true),
+        };
+
+        let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
+        let obj = value.as_object().expect("payload should serialize to a JSON object");
+
+        assert!(!obj.contains_key("headerDifficulty"));
+    }
+
+    #[test]
+    fn engine_new_payload_v2_value_preserves_withdrawals_when_present() {
+        let payload = ExecutionPayloadInputV2 {
+            execution_payload: ExecutionPayloadV1 {
+                parent_hash: B256::from(U256::from(10u64)),
+                fee_recipient: Address::from([1u8; 20]),
+                state_root: B256::from(U256::from(2u64)),
+                receipts_root: B256::from(U256::from(3u64)),
+                logs_bloom: Default::default(),
+                prev_randao: B256::from(U256::from(4u64)),
+                block_number: 7,
+                gas_limit: 30_000_000,
+                gas_used: 0,
+                timestamp: 123,
+                extra_data: Bytes::new(),
+                base_fee_per_gas: U256::from(1u64),
+                block_hash: B256::from(U256::from(42u64)),
+                transactions: vec![],
+            },
+            withdrawals: Some(vec![]),
+        };
+
+        let sidecar = TaikoExecutionDataSidecar {
+            tx_hash: B256::ZERO,
+            withdrawals_hash: None,
+            header_difficulty: None,
+            taiko_block: Some(true),
+        };
+
+        let value = engine_new_payload_v2_value(&payload, &sidecar).unwrap();
+        let obj = value.as_object().expect("payload should serialize to a JSON object");
+
+        assert_eq!(obj.get("withdrawals"), Some(&serde_json::json!([])));
+    }
 }

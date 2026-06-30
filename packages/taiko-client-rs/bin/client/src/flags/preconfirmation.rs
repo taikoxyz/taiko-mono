@@ -2,7 +2,6 @@
 
 use std::net::SocketAddr;
 
-use alloy_primitives::Address;
 use clap::Parser;
 
 /// Preconfirmation-specific CLI arguments.
@@ -28,29 +27,39 @@ pub struct PreconfirmationArgs {
     #[clap(long = "p2p.static-peers", env = "P2P_STATIC_PEERS", value_delimiter = ',')]
     pub p2p_static_peers: Vec<String>,
 
-    /// Comma-separated list of allowed sequencer addresses for whitelist preconfirmation
-    /// gossipsub.
-    #[clap(
-        long = "p2p.sequencer-addresses",
-        env = "P2P_SEQUENCER_ADDRESSES",
-        value_delimiter = ','
-    )]
-    pub p2p_sequencer_addresses: Vec<Address>,
-    /// Accept whitelist preconfirmation messages from all sequencers.
-    /// This bypasses sequencer allowlist checks and should only be used for
-    /// debugging or trusted deployments.
-    #[clap(
-        long = "p2p.allow-all-sequencers",
-        env = "P2P_ALLOW_ALL_SEQUENCERS",
-        default_value = "false"
-    )]
-    pub p2p_allow_all_sequencers: bool,
-
     /// Disable discv5 peer discovery.
     #[clap(long = "p2p.disable-discovery", env = "P2P_DISABLE_DISCOVERY", default_value = "false")]
     pub p2p_disable_discovery: bool,
 
+    /// Externally dialable TCP address advertised in the local P2P node record.
+    #[clap(long = "p2p.advertise.addr", env = "P2P_ADVERTISE_ADDR")]
+    pub p2p_advertise_addr: Option<SocketAddr>,
+
     /// Optional address for user-facing preconfirmation RPC server.
     #[clap(long = "preconf.rpc.addr", env = "PRECONF_RPC_ADDR")]
     pub preconf_rpc_addr: Option<SocketAddr>,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::SocketAddr;
+
+    use clap::Parser;
+
+    use super::PreconfirmationArgs;
+
+    #[test]
+    fn parses_p2p_advertise_addr() {
+        let args = PreconfirmationArgs::try_parse_from([
+            "test",
+            "--p2p.advertise.addr",
+            "127.0.0.1:30303",
+        ])
+        .expect("p2p advertise addr should parse");
+
+        assert_eq!(
+            args.p2p_advertise_addr,
+            Some("127.0.0.1:30303".parse::<SocketAddr>().expect("socket addr"))
+        );
+    }
 }

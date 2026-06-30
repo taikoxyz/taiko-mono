@@ -1,12 +1,12 @@
 //! Base fee calculation for E2E tests.
 
-use alethia_reth_consensus::eip4396::{
-    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
-};
+use alethia_reth_consensus::eip4396::SHASTA_INITIAL_BASE_FEE;
 use alloy_eips::BlockNumberOrTag;
 use alloy_provider::Provider;
 use anyhow::{Result, anyhow};
-use protocol::shasta::constants::min_base_fee_for_chain;
+use protocol::shasta::constants::{
+    calculate_next_block_eip4396_base_fee_for_parent, min_base_fee_for_chain,
+};
 
 /// Computes the expected base fee for the next block using EIP-4396 rules.
 ///
@@ -49,16 +49,16 @@ where
         .get_block_by_number(BlockNumberOrTag::Number(grandparent_block_number))
         .await?
         .ok_or_else(|| anyhow!("missing block {grandparent_block_number}"))?;
-    let time_delta = parent_header.timestamp.saturating_sub(grandparent.header.inner.timestamp);
-    let parent_base_fee_per_gas = parent_header
-        .base_fee_per_gas
-        .ok_or_else(|| anyhow!("parent block {parent_block_number} missing base fee"))?;
     let chain_id = provider.get_chain_id().await?;
-    let min_base_fee = min_base_fee_for_chain(chain_id);
-    Ok(calculate_next_block_eip4396_base_fee(
-        &parent_header,
-        time_delta,
-        parent_base_fee_per_gas,
-        min_base_fee,
-    ))
+
+    calculate_next_block_eip4396_base_fee_for_parent(
+        parent_header.number,
+        parent_header.gas_limit,
+        parent_header.gas_used,
+        parent_header.timestamp,
+        parent_header.base_fee_per_gas,
+        grandparent.header.inner.timestamp,
+        min_base_fee_for_chain(chain_id),
+    )
+    .ok_or_else(|| anyhow!("parent block {parent_block_number} missing base fee"))
 }

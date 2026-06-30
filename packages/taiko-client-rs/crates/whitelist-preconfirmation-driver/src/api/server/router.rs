@@ -12,40 +12,39 @@ use axum::{
 use tower_http::cors::{Any, CorsLayer};
 
 use super::{
+    AppState,
     auth::auth_middleware,
     handlers::{
         handle_not_found, handle_preconf_blocks, handle_root, handle_status,
         handle_websocket_upgrade,
     },
-    state::AppState,
 };
 
-/// Construct the server router with optional HTTP and WebSocket route groups.
-pub(super) fn build_router(
-    state: AppState,
-    cors_origins: &[String],
-    enable_http: bool,
-    enable_ws: bool,
-) -> Router {
+/// Construct the server router with public probe routes and protected REST/WS routes.
+///
+/// `/`, `/healthz`, and `/status` are served without JWT authentication so
+/// that lightweight Kubernetes liveness/readiness probes (which cannot
+/// generate HMAC-SHA256 bearer tokens) can reach them. `/preconfBlocks` and
+/// `/ws` remain JWT-protected when `jwt_secret` is configured.
+pub(super) fn build_router(state: AppState, cors_origins: &[String]) -> Router {
     let cors_layer = build_cors_layer(cors_origins);
-    let mut router = Router::new();
 
-    if enable_http {
-        router = router
-            .route("/", get(handle_root))
-            .route("/healthz", get(handle_root))
-            .route("/status", get(handle_status))
-            .route("/preconfBlocks", post(handle_preconf_blocks));
-    }
+    let public_router = Router::new()
+        .route("/", get(handle_root))
+        .route("/healthz", get(handle_root))
+        .route("/status", get(handle_status));
 
-    if enable_ws {
-        router = router.route("/ws", get(handle_websocket_upgrade));
-    }
-
-    router = router
+    // Place the not-found fallback inside the protected router so the auth
+    // middleware wraps it: when a JWT secret is configured, unknown paths
+    // must still return 401 rather than leaking their non-existence as 404
+    // to unauthenticated probers.
+    let protected_router = Router::new()
+        .route("/preconfBlocks", post(handle_preconf_blocks))
+        .route("/ws", get(handle_websocket_upgrade))
         .fallback(handle_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
-    router.layer(cors_layer).with_state(state)
+
+    public_router.merge(protected_router).layer(cors_layer).with_state(state)
 }
 
 /// Build CORS middleware from configured allowed origins.

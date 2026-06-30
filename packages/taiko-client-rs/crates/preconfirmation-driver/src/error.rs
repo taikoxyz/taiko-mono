@@ -2,7 +2,7 @@
 
 use alloy_contract::Error as ContractError;
 use alloy_transport::TransportError;
-use driver::DriverError as EmbeddedDriverError;
+use driver::DriverError;
 use rpc::RpcClientError;
 use thiserror::Error;
 
@@ -26,9 +26,6 @@ pub enum PreconfirmationClientError {
         /// Human-readable details for logs.
         details: String,
     },
-    /// Storage layer failure (in-memory or persistent).
-    #[error("storage error: {0}")]
-    Storage(String),
     /// Error during driver interface operations (RPC, contract, or payload setup).
     #[error(transparent)]
     DriverInterface(#[from] DriverApiError),
@@ -58,9 +55,9 @@ pub enum DriverApiError {
     /// RPC client error returned by taiko-client-rs RPC wrappers.
     #[error("rpc client error: {0}")]
     RpcClient(#[from] RpcClientError),
-    /// Embedded driver reported an error while evaluating sync state or tip.
+    /// Driver crate reported an error while evaluating sync state or tip.
     #[error("driver error: {0}")]
-    Driver(#[from] EmbeddedDriverError),
+    Driver(#[from] DriverError),
     /// Requested block was not found.
     #[error("missing block {block_number}")]
     MissingBlock {
@@ -86,9 +83,6 @@ pub enum DriverApiError {
     /// Proposal id exceeds the uint48 limit.
     #[error("proposal_id does not fit into uint48")]
     ProposalIdOverflow,
-    /// Channel closed unexpectedly (used by embedded driver client).
-    #[error("channel closed: {0}")]
-    ChannelClosed(String),
 }
 
 /// Structured validation failure classifications.
@@ -100,8 +94,6 @@ pub enum ValidationErrorCode {
     SignerMismatch,
     /// Submission window end does not match the expected slot.
     SubmissionWindowExpired,
-    /// Validation failure that does not have a specific mapping.
-    Other,
 }
 
 impl PreconfirmationClientError {

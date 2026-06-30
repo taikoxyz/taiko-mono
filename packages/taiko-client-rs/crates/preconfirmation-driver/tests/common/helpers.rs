@@ -1,78 +1,69 @@
-#![allow(dead_code)]
+// Each integration test file `#[path]`-includes this module as a private `mod
+// helpers`, so a given test binary only uses a subset of the re-exports below;
+// the union across all includers covers every symbol. Allow unused imports so
+// each binary compiles without warnings.
 #![allow(unused_imports)]
 //! Test-only helpers for preconfirmation-driver integration tests.
 //!
-//! This module re-exports shared helpers from test-harness and provides
-//! any test-local utilities specific to preconfirmation-driver tests.
+//! This module re-exports shared helpers from test-harness used by the
+//! integration tests that `#[path]`-include it.
 
-// Re-export all shared P2P helpers from test-harness.
+// Re-export the shared P2P helpers from test-harness used by the integration tests.
 pub use test_harness::preconfirmation::{
-    ExternalP2pNode, PreparedBlock, build_commitment_chain, build_empty_txlist,
-    build_publish_payloads, build_txlist_bytes, compute_starting_block, compute_txlist_hash,
-    derive_signer, test_p2p_config, wait_for_commitment_and_txlist,
-    wait_for_commitments_and_txlists, wait_for_peer_connected, wait_for_synced,
+    ExternalP2pNode, PreparedBlock, build_commitment_chain, build_publish_payloads, derive_signer,
+    test_p2p_config, wait_for_commitment_and_txlist, wait_for_commitments_and_txlists,
+    wait_for_peer_connected, wait_for_synced,
 };
 
-// Re-export DualDriverSetup which is specific to multi-client P2P tests.
-// This struct remains here as it's only used by preconfirmation-driver tests.
 use std::sync::Arc;
 
-use anyhow::Result;
-use preconfirmation_net::{
-    InMemoryStorage, LocalValidationAdapter, P2pHandle, P2pNode, PreconfStorage, ValidationAdapter,
+use alloy_primitives::{Address, U256};
+use preconfirmation_driver::{
+    PreconfirmationClient, PreconfirmationClientConfig, subscription::PreconfirmationEvent,
 };
-use tokio::task::JoinHandle;
+use preconfirmation_net::Multiaddr;
+use test_harness::preconfirmation::{LoggingDriverClient, StaticLookaheadResolver};
+use tokio::{
+    sync::{broadcast, oneshot},
+    task::JoinHandle,
+};
 
-/// Dual-driver test setup for spawning two interconnected P2P nodes.
+/// Boots a preconfirmation client against a running driver and waits for the first peer
+/// connection.
 ///
-/// This helper creates two P2P nodes with distinct ports and connects them
-/// via manual dial, forming a P2P mesh suitable for dual-driver testing scenarios.
-pub struct DualDriverSetup {
-    /// P2P handle for node A.
-    pub handle_a: P2pHandle,
-    /// P2P handle for node B.
-    pub handle_b: P2pHandle,
-    /// Storage for node A.
-    pub storage_a: Arc<dyn PreconfStorage>,
-    /// Storage for node B.
-    pub storage_b: Arc<dyn PreconfStorage>,
-    /// Background task for node A.
-    task_a: JoinHandle<anyhow::Result<()>>,
-    /// Background task for node B.
-    task_b: JoinHandle<anyhow::Result<()>>,
-}
+/// The client is configured with a [`StaticLookaheadResolver`] for the given signer and
+/// submission window end, pre-dials the given peers, performs sync + catch-up, and spawns
+/// the event loop.
+///
+/// Returns the event receiver, the spawned event-loop task handle, and a oneshot receiver
+/// that yields the event-loop result when it exits. Call sites that do not monitor the
+/// event loop can discard the receiver with `_`.
+pub async fn start_preconf_client(
+    signer: Address,
+    submission_window_end: U256,
+    pre_dial_peers: Vec<Multiaddr>,
+    driver_client: LoggingDriverClient,
+) -> anyhow::Result<(
+    broadcast::Receiver<PreconfirmationEvent>,
+    JoinHandle<()>,
+    oneshot::Receiver<anyhow::Result<()>>,
+)> {
+    let mut cfg = PreconfirmationClientConfig::new_with_resolver(
+        test_p2p_config(),
+        Arc::new(StaticLookaheadResolver::new(signer, submission_window_end)),
+    );
+    cfg.p2p.pre_dial_peers = pre_dial_peers;
 
-impl DualDriverSetup {
-    /// Spawn two P2P nodes with distinct ports and connect them.
-    pub async fn spawn() -> Result<Self> {
-        let validator_a: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
-        let storage_a: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
-        let (mut handle_a, node_a) = P2pNode::new_with_validator_and_storage(
-            test_p2p_config(),
-            validator_a,
-            storage_a.clone(),
-        )?;
-        let task_a = tokio::spawn(async move { node_a.run().await });
+    let client = PreconfirmationClient::new(cfg, driver_client)?;
+    let mut events = client.subscribe();
 
-        let addr_a = handle_a.dialable_addr().await?;
+    let mut event_loop = client.sync_and_catchup().await?;
+    let (event_loop_tx, event_loop_rx) = oneshot::channel::<anyhow::Result<()>>();
+    let event_loop_handle = tokio::spawn(async move {
+        let _ = event_loop_tx.send(event_loop.run().await.map_err(Into::into));
+    });
 
-        let validator_b: Box<dyn ValidationAdapter> = Box::new(LocalValidationAdapter::new(None));
-        let storage_b: Arc<dyn PreconfStorage> = Arc::new(InMemoryStorage::default());
-        let (handle_b, node_b) = P2pNode::new_with_validator_and_storage(
-            test_p2p_config(),
-            validator_b,
-            storage_b.clone(),
-        )?;
-        let task_b = tokio::spawn(async move { node_b.run().await });
+    wait_for_peer_connected(&mut events).await;
 
-        handle_b.dial(addr_a).await?;
-
-        Ok(Self { handle_a, handle_b, storage_a, storage_b, task_a, task_b })
-    }
-
-    /// Abort both P2P node background tasks.
-    pub fn abort(&self) {
-        self.task_a.abort();
-        self.task_b.abort();
-    }
+    Ok((events, event_loop_handle, event_loop_rx))
 }

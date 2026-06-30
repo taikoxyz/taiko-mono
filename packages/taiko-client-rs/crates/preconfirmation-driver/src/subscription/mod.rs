@@ -20,11 +20,8 @@ mod tests {
 
     use alloy_primitives::{Address, B256, U256};
     use async_trait::async_trait;
-    use preconfirmation_net::PreconfStorage;
-    use protocol::{
-        codec::ZlibTxListCodec,
-        preconfirmation::{PreconfSignerResolver, PreconfSlotInfo},
-    };
+    use preconfirmation_net::{NetworkEvent, PeerId, PreconfStorage};
+    use protocol::codec::ZlibTxListCodec;
     use secp256k1::{PublicKey, Secp256k1, SecretKey};
     use tokio::sync::{broadcast, mpsc};
 
@@ -33,6 +30,7 @@ mod tests {
         driver_interface::{DriverClient, PreconfirmationInput},
         error::{DriverApiError, PreconfirmationClientError, Result},
         storage::{CommitmentStore, InMemoryCommitmentStore},
+        test_support::MockLookaheadResolver,
     };
     use preconfirmation_types::{
         Bytes32, MAX_TXLIST_BYTES, PreconfCommitment, PreconfHead, Preconfirmation,
@@ -119,7 +117,7 @@ mod tests {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(ErrorDriver);
-        let lookahead_resolver = Arc::new(MockResolver);
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO));
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
@@ -165,50 +163,6 @@ mod tests {
         SignedCommitment { commitment, signature }
     }
 
-    struct MockResolver;
-
-    #[async_trait]
-    impl PreconfSignerResolver for MockResolver {
-        async fn signer_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<Address> {
-            Ok(Address::ZERO)
-        }
-
-        async fn slot_info_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
-            Ok(PreconfSlotInfo { signer: Address::ZERO, submission_window_end: U256::ZERO })
-        }
-    }
-
-    struct MatchingResolver {
-        signer: Address,
-        submission_window_end: U256,
-    }
-
-    #[async_trait]
-    impl PreconfSignerResolver for MatchingResolver {
-        async fn signer_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<Address> {
-            Ok(self.signer)
-        }
-
-        async fn slot_info_for_timestamp(
-            &self,
-            _l2_block_timestamp: U256,
-        ) -> protocol::preconfirmation::Result<PreconfSlotInfo> {
-            Ok(PreconfSlotInfo {
-                signer: self.signer,
-                submission_window_end: self.submission_window_end,
-            })
-        }
-    }
-
     #[tokio::test]
     async fn genesis_commitment_is_processed() {
         let store = Arc::new(InMemoryCommitmentStore::new());
@@ -219,8 +173,7 @@ mod tests {
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
-        let lookahead_resolver =
-            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(signer, U256::from(200u64)));
 
         let handler = EventHandler::new(EventHandlerParams {
             store: store.clone(),
@@ -241,11 +194,94 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn self_gossiped_commitment_is_ignored() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_tx, _command_rx) = mpsc::channel(8);
+
+        let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
+        let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(signer, U256::from(200u64)));
+        let local_peer_id = PeerId::random();
+
+        let handler = EventHandler::new_with_local_peer_id(
+            EventHandlerParams {
+                store: store.clone(),
+                codec,
+                driver: driver.clone(),
+                expected_slasher: None,
+                event_tx,
+                command_tx,
+                lookahead_resolver,
+            },
+            local_peer_id,
+        );
+
+        let parent_hash = Bytes32::try_from(vec![0u8; 32]).expect("parent hash");
+        let commitment = build_signed_commitment(&sk, 1, parent_hash, 100, 200);
+
+        handler
+            .handle_event(NetworkEvent::GossipSignedCommitment {
+                from: local_peer_id,
+                msg: Box::new(commitment),
+            })
+            .await
+            .expect("self gossip ignored");
+
+        assert!(store.latest_commitment().is_none());
+        assert_eq!(driver.submissions(), 0);
+    }
+
+    #[tokio::test]
+    async fn self_gossiped_txlist_is_ignored() {
+        let store = Arc::new(InMemoryCommitmentStore::new());
+        let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
+        let driver = Arc::new(TestDriver::new());
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO));
+        let (event_tx, _event_rx) = broadcast::channel(16);
+        let (command_tx, _command_rx) = mpsc::channel(8);
+        let local_peer_id = PeerId::random();
+
+        let handler = EventHandler::new_with_local_peer_id(
+            EventHandlerParams {
+                store: store.clone(),
+                codec,
+                driver,
+                expected_slasher: None,
+                event_tx,
+                command_tx,
+                lookahead_resolver,
+            },
+            local_peer_id,
+        );
+
+        let txlist_bytes = TxListBytes::try_from(vec![0xAB; 3]).expect("txlist bytes");
+        let txlist_hash = keccak256_bytes(txlist_bytes.as_ref());
+        let raw_tx_list_hash =
+            Bytes32::try_from(txlist_hash.as_slice().to_vec()).expect("txlist hash");
+        let gossip =
+            RawTxListGossip { raw_tx_list_hash: raw_tx_list_hash.clone(), txlist: txlist_bytes };
+        let hash = B256::from_slice(gossip.raw_tx_list_hash.as_ref());
+
+        handler
+            .handle_event(NetworkEvent::GossipRawTxList {
+                from: local_peer_id,
+                msg: Box::new(gossip),
+            })
+            .await
+            .expect("self txlist gossip ignored");
+
+        assert!(CommitmentStore::get_txlist(store.as_ref(), &hash).is_none());
+    }
+
+    #[tokio::test]
     async fn invalid_lookahead_does_not_abort() {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MockResolver);
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO));
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
@@ -272,7 +308,7 @@ mod tests {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MockResolver);
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO));
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
@@ -303,7 +339,7 @@ mod tests {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MockResolver);
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO));
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
@@ -339,8 +375,7 @@ mod tests {
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
-        let lookahead_resolver =
-            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(signer, U256::from(200u64)));
 
         let handler = EventHandler::new(EventHandlerParams {
             store: store.clone(),
@@ -371,8 +406,7 @@ mod tests {
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
-        let lookahead_resolver =
-            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(signer, U256::from(200u64)));
 
         let handler = EventHandler::new(EventHandlerParams {
             store: store.clone(),
@@ -404,8 +438,7 @@ mod tests {
 
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("secret key");
         let signer = public_key_to_address(&PublicKey::from_secret_key(&Secp256k1::new(), &sk));
-        let lookahead_resolver =
-            Arc::new(MatchingResolver { signer, submission_window_end: U256::from(200u64) });
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(signer, U256::from(200u64)));
 
         let handler = EventHandler::new(EventHandlerParams {
             store: store.clone(),
@@ -450,7 +483,7 @@ mod tests {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MockResolver);
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO));
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, _command_rx) = mpsc::channel(8);
 
@@ -481,7 +514,7 @@ mod tests {
         let store = Arc::new(InMemoryCommitmentStore::new());
         let codec = Arc::new(ZlibTxListCodec::new(MAX_TXLIST_BYTES));
         let driver = Arc::new(TestDriver::new());
-        let lookahead_resolver = Arc::new(MockResolver);
+        let lookahead_resolver = Arc::new(MockLookaheadResolver::new(Address::ZERO, U256::ZERO));
         let (event_tx, _event_rx) = broadcast::channel(16);
         let (command_tx, command_rx) = mpsc::channel(1);
 

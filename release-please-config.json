@@ -75,7 +75,7 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name == \"ejector\" && !@.source)].version"
+          "jsonpath": "$.package[?(@.name == \"ejector\")].version"
         }
       ]
     },
@@ -111,7 +111,47 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?((@.name == \"taiko-client\" || @.name == \"bindings\" || @.name == \"driver\" || @.name == \"preconfirmation-driver\" || @.name == \"whitelist-preconfirmation-driver\" || @.name == \"proposer\" || @.name == \"protocol\" || @.name == \"rpc\" || @.name == \"test-harness\") && !@.source)].version"
+          "jsonpath": "$.package[?(@.name == \"taiko-client\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"bindings\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"driver\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"preconfirmation-driver\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"whitelist-preconfirmation-driver\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"proposer\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"protocol\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"rpc\")].version"
+        },
+        {
+          "type": "toml",
+          "path": "Cargo.lock",
+          "jsonpath": "$.package[?(@.name == \"test-harness\")].version"
         }
       ]
     },
@@ -128,7 +168,7 @@
         {
           "type": "toml",
           "path": "Cargo.lock",
-          "jsonpath": "$.package[?(@.name == \"urcindexer-rs\" && !@.source)].version"
+          "jsonpath": "$.package[?(@.name == \"urcindexer-rs\")].version"
         }
       ]
     },

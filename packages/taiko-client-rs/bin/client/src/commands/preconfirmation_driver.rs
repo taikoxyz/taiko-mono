@@ -8,11 +8,11 @@ use preconfirmation_driver::{
     rpc::PreconfRpcServerConfig,
 };
 use preconfirmation_net::P2pConfig;
-use rpc::client::ClientConfig;
+use protocol::shasta::set_devnet_unzen_override;
 use tracing::warn;
 
 use crate::{
-    commands::Subcommand,
+    commands::{Subcommand, build_driver_config},
     error::Result,
     flags::{common::CommonArgs, driver::DriverArgs, preconfirmation::PreconfirmationArgs},
 };
@@ -35,32 +35,9 @@ pub struct PreconfirmationDriverSubCommand {
 impl PreconfirmationDriverSubCommand {
     /// Build driver configuration from command-line arguments.
     fn build_driver_config(&self) -> Result<DriverConfig> {
-        let l1_source = self.common_flags.l1_provider_source()?;
-        let l2_http = self.common_flags.l2_http_endpoint.clone();
-        let l2_auth = self.common_flags.l2_auth_endpoint.clone();
-        let l1_beacon = self.driver_flags.l1_beacon_endpoint.clone();
-        let l2_checkpoint = self.driver_flags.l2_checkpoint_endpoint.clone();
-        let blob_server = self.driver_flags.blob_server_endpoint.clone();
-
-        let client_cfg = ClientConfig {
-            l1_provider_source: l1_source,
-            l2_provider_url: l2_http,
-            l2_auth_provider_url: l2_auth,
-            jwt_secret: self.common_flags.l2_auth_jwt_secret.clone(),
-            inbox_address: self.common_flags.shasta_inbox_address,
-        };
-
-        let mut cfg = DriverConfig::new(
-            client_cfg,
-            self.driver_flags.retry_interval(),
-            l1_beacon,
-            l2_checkpoint,
-            blob_server,
-        );
-
+        let mut cfg = build_driver_config(&self.common_flags, &self.driver_flags)?;
         // Enable preconfirmation since we're running P2P client.
         cfg.preconfirmation_enabled = true;
-
         Ok(cfg)
     }
 
@@ -108,6 +85,7 @@ impl Subcommand for PreconfirmationDriverSubCommand {
     /// Runs the preconfirmation driver with embedded P2P client.
     async fn run(&self) -> Result<()> {
         self.init_logs()?;
+        set_devnet_unzen_override(self.common_flags.devnet_unzen_timestamp);
         self.init_metrics()?;
 
         let driver_config = self.build_driver_config()?;

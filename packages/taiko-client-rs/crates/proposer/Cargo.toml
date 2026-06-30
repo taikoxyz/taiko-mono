@@ -10,19 +10,19 @@ license.workspace = true
 tokio = { workspace = true }
 
 # observability
-metrics = { workspace = true }
+once_cell = { workspace = true }
+prometheus = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 # ethereum
 alloy = { workspace = true }
-alloy-consensus = { workspace = true }
+alloy-consensus = { workspace = true, features = ["k256"] }
 alloy-eips = { workspace = true }
-alloy-hardforks = { workspace = true }
 alloy-network = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-rpc-types = { workspace = true }
 alloy-rpc-types-engine = { workspace = true }
+alloy-rpc-types-engine-2 = { workspace = true }
 base-tx-manager = { workspace = true }
 
 # taiko
@@ -41,10 +41,9 @@ url = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-metrics-util = { workspace = true }
+alloy-json-rpc = { workspace = true }
 serial_test = { workspace = true }
 test-context = { workspace = true }
 test-harness = { path = "../test-harness" }
 test-log = { workspace = true }
 tower = { workspace = true }
-tracing-subscriber = { workspace = true }

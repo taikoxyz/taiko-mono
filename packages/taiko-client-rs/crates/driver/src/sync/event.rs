@@ -23,7 +23,6 @@ use alloy_sol_types::SolCall;
 use anyhow::anyhow;
 use bindings::{anchor::Anchor::anchorV4Call, inbox::Inbox::Proposed};
 use event_scanner::{EventFilter, Notification, ScannerMessage};
-use metrics::{counter, gauge, histogram};
 use tokio::{
     spawn,
     sync::{Mutex as AsyncMutex, Notify, mpsc, oneshot},
@@ -64,6 +63,8 @@ enum ProposalLogResult {
 ///
 /// Covers both the enqueue operation and awaiting the processing response.
 const PRECONFIRMATION_PAYLOAD_SUBMIT_TIMEOUT: Duration = Duration::from_secs(12);
+/// Timeout for best-effort `head_l1_origin` reset after an event-scanner reorg.
+const REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT: Duration = Duration::from_secs(12);
 /// Finalized L1 snapshot used to derive a fail-closed, non-reorgable resume target.
 #[derive(Debug, Clone, Copy)]
 struct FinalizedL1Snapshot {
@@ -96,11 +97,6 @@ fn should_probe_confirmed_sync(
     preconfirmation_enabled && scanner_live && (!preconf_ingress_spawned || !preconf_ingress_ready)
 }
 
-/// Resolve whether confirmed-sync readiness should open ingress.
-fn resolve_confirmed_sync_ready(confirmed_sync_snapshot: ConfirmedSyncSnapshot) -> bool {
-    confirmed_sync_snapshot.is_ready()
-}
-
 /// Resolve confirmed-sync probe readiness from a probe result.
 ///
 /// Any probe error keeps ingress closed (fail-closed) until a later successful probe.
@@ -108,16 +104,12 @@ fn resolve_confirmed_sync_probe(
     confirmed_sync_probe: Result<ConfirmedSyncSnapshot, SyncError>,
 ) -> bool {
     match confirmed_sync_probe {
-        Ok(confirmed_sync_snapshot) => resolve_confirmed_sync_ready(confirmed_sync_snapshot),
+        Ok(snap) => snap.is_ready(),
         Err(_) => false,
     }
 }
 
 /// Resolve the L2 block number that event sync should use as its resume source.
-///
-/// - Checkpoint mode: must use the checkpoint head that beacon sync actually caught up to.
-/// - Non-checkpoint mode: prefer local `head_l1_origin`, otherwise allow genesis fallback (block 0)
-///   for brand-new chains bootstrapped from genesis.
 ///
 /// Any missing source is treated as a hard error to avoid silently falling back to an unsafe
 /// resume point such as `Latest`, which can include local preconfirmation-only blocks.
@@ -125,17 +117,25 @@ fn resolve_resume_head_block_number(
     checkpoint_configured: bool,
     checkpoint_synced_head: Option<u64>,
     head_l1_origin_block_id: Option<u64>,
-    local_head_is_genesis: bool,
+    rpc_l2_block_number: Option<u64>,
 ) -> Result<u64, SyncError> {
     if checkpoint_configured {
-        checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead)
-    } else {
-        match head_l1_origin_block_id {
-            Some(block_id) => Ok(block_id),
-            None if local_head_is_genesis => Ok(0),
-            None => Err(SyncError::MissingHeadL1OriginResume),
-        }
+        return checkpoint_synced_head.ok_or(SyncError::MissingCheckpointResumeHead);
     }
+    match (head_l1_origin_block_id, rpc_l2_block_number) {
+        (Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => Ok(rpc),
+        (Some(origin), _) => Ok(origin),
+        // Genesis fallback: no local origin yet and the RPC reports block 0, i.e. a brand-new
+        // chain bootstrapped from genesis.
+        (None, Some(0)) => Ok(0),
+        (None, _) => Err(SyncError::MissingHeadL1OriginResume),
+    }
+}
+
+/// A non-zero RPC head strictly behind the local origin pointer is a safer resume point (zero is
+/// reserved for the genesis fallback path, and an equal/higher head offers no extra safety).
+fn rpc_head_is_safer_than_origin(rpc_l2_block_number: u64, head_l1_origin_block_id: u64) -> bool {
+    rpc_l2_block_number != 0 && rpc_l2_block_number < head_l1_origin_block_id
 }
 
 /// Select scanner start block when the resolved target proposal id is zero.
@@ -322,22 +322,17 @@ where
         &self,
         derivation: Arc<ShastaDerivationPipeline<P>>,
     ) -> Arc<AsyncMutex<ProductionRouter>> {
-        let mut paths: Vec<Arc<dyn BlockProductionPath + Send + Sync>> = Vec::new();
-
-        // Add canonical L1 proposal path.
         let canonical_path: Arc<dyn BlockProductionPath + Send + Sync> = Arc::new(
             CanonicalL1ProductionPath::new(derivation.clone(), Arc::new(self.rpc.clone())),
         );
-        paths.push(canonical_path);
 
-        // Add preconfirmation path if enabled.
-        if self.cfg.preconfirmation_enabled {
-            let preconf_path: Arc<dyn BlockProductionPath + Send + Sync> =
-                Arc::new(PreconfirmationPath::new(self.rpc.clone()));
-            paths.push(preconf_path);
-        }
+        // The preconfirmation path is only registered when preconfirmation is enabled.
+        let preconf_path = self.cfg.preconfirmation_enabled.then(|| {
+            Arc::new(PreconfirmationPath::new(self.rpc.clone()))
+                as Arc<dyn BlockProductionPath + Send + Sync>
+        });
 
-        Arc::new(AsyncMutex::new(ProductionRouter::new(paths)))
+        Arc::new(AsyncMutex::new(ProductionRouter::new(canonical_path, preconf_path)))
     }
 
     /// Spawn the preconfirmation ingress processing loop.
@@ -361,7 +356,7 @@ where
             ready_notify.notify_waiters();
             while let Some(job) = rx.recv().await {
                 // Track current backlog before processing this job.
-                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                 let start = Instant::now();
                 let block_number = job.payload.block_number();
                 match preconfirmation_payload_is_materialized(&rpc, job.payload.as_ref()).await {
@@ -372,7 +367,7 @@ where
                             "acknowledging already materialized preconfirmation payload"
                         );
                         let _ = job.respond_to.send(Ok(()));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
                     Ok(false) => {}
@@ -382,7 +377,7 @@ where
                             block_number, "failed to check preconfirmation materialization state"
                         );
                         let _ = job.respond_to.send(Err(err));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
                 }
@@ -399,20 +394,20 @@ where
                     Err(err) => {
                         error!(?err, block_number, "failed to read head_l1_origin in ingress loop");
                         let _ = job.respond_to.send(Err(DriverError::Rpc(err)));
-                        gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                        DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                         continue;
                     }
                 };
                 if is_stale_preconf(block_number, head_l1_origin_block_id) {
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-                    counter!(DriverMetrics::PRECONF_STALE_DROPPED_INGRESS_TOTAL).increment(1);
+                    DriverMetrics::preconf_stale_dropped_total().inc();
+                    DriverMetrics::preconf_stale_dropped_ingress_total().inc();
                     warn!(
                         block_number,
                         head_l1_origin_block_id,
                         "dropping stale preconfirmation payload in ingress loop"
                     );
                     let _ = job.respond_to.send(Ok(()));
-                    gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                    DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
                     continue;
                 }
 
@@ -422,11 +417,11 @@ where
                     .await;
 
                 let duration_secs = start.elapsed().as_secs_f64();
-                histogram!(DriverMetrics::PRECONF_INJECTION_DURATION_SECONDS).record(duration_secs);
+                DriverMetrics::preconf_injection_duration_seconds().observe(duration_secs);
 
                 match router_call {
                     Ok(_) => {
-                        counter!(DriverMetrics::PRECONF_INJECTION_SUCCESS_TOTAL).increment(1);
+                        DriverMetrics::preconf_injection_success_total().inc();
                         info!(
                             block_number,
                             build_payload_args_id = %PayloadId::new(job.payload.payload().l1_origin.build_payload_args_id),
@@ -437,7 +432,7 @@ where
                         let _ = job.respond_to.send(Ok(()));
                     }
                     Err(err) => {
-                        counter!(DriverMetrics::PRECONF_INJECTION_FAILURES_TOTAL).increment(1);
+                        DriverMetrics::preconf_injection_failures_total().inc();
                         error!(
                             ?err,
                             block_number,
@@ -449,7 +444,7 @@ where
                         let _ = job.respond_to.send(Err(err));
                     }
                 }
-                gauge!(DriverMetrics::PRECONF_QUEUE_DEPTH).set(rx.len() as f64);
+                DriverMetrics::preconf_queue_depth().set(rx.len() as f64);
             }
         });
     }
@@ -494,6 +489,76 @@ where
         Ok(chain_head >= log_block_number)
     }
 
+    /// Best-effort reset of `head_l1_origin` to the latest canonical proposal's last L2 block at
+    /// the stable post-reorg boundary. If the L2 EE's confirmed boundary is left ahead of the
+    /// post-reorg canonical chain, preconf and chain-syncer guards reject incoming blocks until
+    /// the chain syncer rewinds. Lowering it here unblocks them immediately. All failures are
+    /// non-fatal: log and return.
+    async fn reset_head_l1_origin_after_reorg(&self, common_ancestor: u64) {
+        let core_state = match self
+            .rpc
+            .shasta
+            .inbox
+            .getCoreState()
+            .block(BlockId::Number(BlockNumberOrTag::Number(common_ancestor)))
+            .call()
+            .await
+        {
+            Ok(core_state) => core_state,
+            Err(err) => {
+                warn!(common_ancestor, %err, "failed to read core state for head_l1_origin reset");
+                return;
+            }
+        };
+
+        let next_proposal_id = core_state.nextProposalId.to::<u64>();
+        if next_proposal_id <= 1 {
+            info!(
+                common_ancestor,
+                next_proposal_id, "skipping head_l1_origin reset at genesis boundary"
+            );
+            return;
+        }
+        let proposal_id = next_proposal_id - 1;
+
+        let block_id =
+            match self.rpc.last_certain_block_id_by_batch_id(U256::from(proposal_id)).await {
+                Ok(Some(block_id)) => block_id,
+                Ok(None) => {
+                    warn!(
+                        common_ancestor,
+                        proposal_id, "missing batch mapping; skipping head_l1_origin reset"
+                    );
+                    return;
+                }
+                Err(err) => {
+                    warn!(
+                        common_ancestor,
+                        proposal_id,
+                        ?err,
+                        "failed to read batch mapping; skipping head_l1_origin reset"
+                    );
+                    return;
+                }
+            };
+
+        match self.rpc.set_head_l1_origin(block_id).await {
+            Ok(_) => info!(
+                common_ancestor,
+                proposal_id,
+                %block_id,
+                "reset head_l1_origin after reorg"
+            ),
+            Err(err) => warn!(
+                common_ancestor,
+                proposal_id,
+                %block_id,
+                ?err,
+                "failed to reset head_l1_origin after reorg"
+            ),
+        }
+    }
+
     /// Process a batch of proposal logs from the event scanner.
     async fn process_log_batch(
         &self,
@@ -501,6 +566,7 @@ where
         logs: Vec<Log>,
     ) -> Result<(), SyncError> {
         debug!(log_batch_size = logs.len(), "processing proposal log batch");
+
         for log in logs {
             let proposal_id = Proposed::decode_raw_log(log.topics(), log.data().data.as_ref())
                 .map(|event| event.id.to::<u64>())
@@ -552,8 +618,7 @@ where
                             .await
                         {
                             Ok(true) => {
-                                counter!(DriverMetrics::EVENT_ORPHANED_PROPOSAL_LOGS_TOTAL)
-                                    .increment(1);
+                                DriverMetrics::event_orphaned_proposal_logs_total().inc();
                                 warn!(
                                     ?err,
                                     block_number = log.block_number,
@@ -598,7 +663,7 @@ where
             };
 
             if let Some(last_outcome) = outcomes.last() {
-                gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+                DriverMetrics::event_last_canonical_block_number()
                     .set(last_outcome.block_number() as f64);
             }
 
@@ -609,8 +674,8 @@ where
                 "successfully processed proposal into L2 blocks",
             );
 
-            gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(proposal_id as f64);
-            counter!(DriverMetrics::EVENT_DERIVED_BLOCKS_TOTAL).increment(outcomes.len() as u64);
+            DriverMetrics::event_last_canonical_proposal_id().set(proposal_id as f64);
+            DriverMetrics::event_derived_blocks_total().inc_by(outcomes.len() as u64);
         }
         Ok(())
     }
@@ -644,7 +709,7 @@ where
         } else {
             (None, None)
         };
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER).set(0.0);
+        DriverMetrics::event_last_canonical_block_number().set(0.0);
         Ok(Self {
             rpc,
             cfg: cfg.clone(),
@@ -655,11 +720,6 @@ where
             preconf_ingress_ready: Arc::new(AtomicBool::new(false)),
             preconf_ingress_notify: Arc::new(Notify::new()),
         })
-    }
-
-    /// Sender handle for feeding preconfirmation payloads into the router (if enabled).
-    pub fn preconfirmation_sender(&self) -> Option<PreconfSender> {
-        self.preconf_tx.clone()
     }
 
     /// Return strict confirmed-sync state from on-chain core state and custom execution tables.
@@ -763,8 +823,8 @@ where
             None => 0,
         };
         if is_stale_preconf(block_number, head_l1_origin_block_id) {
-            counter!(DriverMetrics::PRECONF_STALE_DROPPED_TOTAL).increment(1);
-            counter!(DriverMetrics::PRECONF_STALE_DROPPED_BEFORE_ENQUEUE_TOTAL).increment(1);
+            DriverMetrics::preconf_stale_dropped_total().inc();
+            DriverMetrics::preconf_stale_dropped_before_enqueue_total().inc();
             warn!(
                 block_number,
                 head_l1_origin_block_id, "dropping stale preconfirmation payload before enqueue"
@@ -785,7 +845,7 @@ where
 
         match enqueue_result {
             Err(_) => {
-                counter!(DriverMetrics::PRECONF_ENQUEUE_TIMEOUTS_TOTAL).increment(1);
+                DriverMetrics::preconf_enqueue_timeouts_total().inc();
                 error!(
                     block_number,
                     timeout_ms = timeout_duration.as_millis() as u64,
@@ -794,7 +854,7 @@ where
                 return Err(DriverError::PreconfEnqueueTimeout { waited: timeout_duration });
             }
             Ok(Err(err)) => {
-                counter!(DriverMetrics::PRECONF_ENQUEUE_FAILURES_TOTAL).increment(1);
+                DriverMetrics::preconf_enqueue_failures_total().inc();
                 error!(block_number, ?err, "preconfirmation enqueue failed");
                 return Err(DriverError::PreconfEnqueueFailed(err.to_string()));
             }
@@ -808,7 +868,7 @@ where
 
         match response_result {
             Err(_) => {
-                counter!(DriverMetrics::PRECONF_RESPONSE_TIMEOUTS_TOTAL).increment(1);
+                DriverMetrics::preconf_response_timeouts_total().inc();
                 error!(
                     block_number,
                     timeout_ms = timeout_duration.as_millis() as u64,
@@ -817,7 +877,7 @@ where
                 return Err(DriverError::PreconfResponseTimeout { waited: timeout_duration });
             }
             Ok(Err(err)) => {
-                counter!(DriverMetrics::PRECONF_RESPONSE_DROPPED_TOTAL).increment(1);
+                DriverMetrics::preconf_response_dropped_total().inc();
                 error!(block_number, ?err, "preconfirmation response channel closed");
                 return Err(DriverError::PreconfResponseDropped { recv_error: err });
             }
@@ -845,40 +905,48 @@ where
     #[instrument(skip(self), level = "debug")]
     async fn resume_head_block_number(&self) -> Result<u64, SyncError> {
         let checkpoint_configured = self.cfg.l2_checkpoint_url.is_some();
-
-        let head_l1_origin_block_id = if checkpoint_configured {
-            None
+        let (head_l1_origin_block_id, rpc_l2_block_number) = if checkpoint_configured {
+            (None, None)
         } else {
-            self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>())
-        };
-        let local_head_is_genesis = if checkpoint_configured || head_l1_origin_block_id.is_some() {
-            false
-        } else {
-            self.rpc
-                .l2_provider
-                .get_block_number()
-                .await
-                .map_err(|err| SyncError::Rpc(RpcClientError::Provider(err.to_string())))? ==
-                0
+            let head_l1_origin_block_id =
+                self.rpc.head_l1_origin().await?.map(|origin| origin.block_id.to::<u64>());
+            // Tolerate transient eth_blockNumber failures when we already have a safe
+            // head_l1_origin to resume from; otherwise the error must propagate because we need
+            // the RPC head to distinguish genesis fallback from a missing resume source.
+            let rpc_l2_block_number = match self.rpc.l2_provider.get_block_number().await {
+                Ok(block_number) => Some(block_number),
+                Err(err) if head_l1_origin_block_id.is_some() => {
+                    warn!(
+                        head_l1_origin_block_id,
+                        %err,
+                        "failed to fetch rpc L2 block number; falling back to local head_l1_origin",
+                    );
+                    None
+                }
+                Err(err) => return Err(SyncError::Rpc(RpcClientError::Provider(err.to_string()))),
+            };
+            (head_l1_origin_block_id, rpc_l2_block_number)
         };
 
         let resume_head_block_number = resolve_resume_head_block_number(
             checkpoint_configured,
             self.checkpoint_resume_head.get(),
             head_l1_origin_block_id,
-            local_head_is_genesis,
+            rpc_l2_block_number,
         )?;
 
-        if checkpoint_configured {
-            info!(resume_head_block_number, "using checkpoint-synced head as event resume source");
-        } else if head_l1_origin_block_id.is_some() {
-            info!(resume_head_block_number, "using local head_l1_origin as event resume source");
-        } else {
-            info!(
-                resume_head_block_number,
-                "using genesis fallback as event resume source (head_l1_origin unavailable)"
-            );
-        }
+        let source = match (checkpoint_configured, head_l1_origin_block_id, rpc_l2_block_number) {
+            (true, _, _) => "checkpoint-synced head",
+            (false, Some(origin), Some(rpc)) if rpc_head_is_safer_than_origin(rpc, origin) => {
+                "lower rpc block number (instead of local head_l1_origin)"
+            }
+            (false, Some(_), _) => "local head_l1_origin",
+            (false, None, _) => "genesis fallback (head_l1_origin unavailable)",
+        };
+        info!(
+            resume_head_block_number,
+            head_l1_origin_block_id, rpc_l2_block_number, source, "resolved event resume source",
+        );
 
         Ok(resume_head_block_number)
     }
@@ -1125,8 +1193,8 @@ where
         let initial_proposal_id = start_point.initial_proposal_id;
         let start_tag = BlockNumberOrTag::Number(anchor_block_number);
 
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_PROPOSAL_ID).set(initial_proposal_id as f64);
-        gauge!(DriverMetrics::EVENT_LAST_CANONICAL_BLOCK_NUMBER)
+        DriverMetrics::event_last_canonical_proposal_id().set(initial_proposal_id as f64);
+        DriverMetrics::event_last_canonical_block_number()
             .set(start_point.bootstrap_confirmed_tip as f64);
         info!(
             initial_proposal_id,
@@ -1218,21 +1286,40 @@ where
                         if let Some(block_number) = logs.last().and_then(|log| log.block_number) {
                             last_seen_l1_block_number = Some(block_number);
                         }
-                        counter!(DriverMetrics::EVENT_SCANNER_BATCHES_TOTAL).increment(1);
-                        counter!(DriverMetrics::EVENT_PROPOSALS_TOTAL).increment(logs.len() as u64);
+                        DriverMetrics::event_scanner_batches_total().inc();
+                        DriverMetrics::event_proposals_total().inc_by(logs.len() as u64);
                         self.process_log_batch(router.clone(), logs).await?;
                     }
                     Ok(ScannerMessage::Notification(notification)) => {
                         info!(?notification, "event scanner notification");
-                        if matches!(notification, Notification::SwitchingToLive) {
-                            // Scanner live is necessary but not sufficient: confirmed-sync
-                            // readiness must also pass before ingress
-                            // opens.
-                            scanner_live = true;
+                        match notification {
+                            Notification::SwitchingToLive => {
+                                // Scanner live is necessary but not sufficient: confirmed-sync
+                                // readiness must also pass before ingress
+                                // opens.
+                                scanner_live = true;
+                            }
+                            Notification::ReorgDetected { common_ancestor } => {
+                                if timeout(
+                                    REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT,
+                                    self.reset_head_l1_origin_after_reorg(common_ancestor),
+                                )
+                                .await
+                                .is_err()
+                                {
+                                    warn!(
+                                        common_ancestor,
+                                        timeout_ms =
+                                            REORG_HEAD_L1_ORIGIN_RESET_TIMEOUT.as_millis() as u64,
+                                        "timed out resetting head_l1_origin after reorg"
+                                    );
+                                }
+                            }
+                            Notification::NoPastLogsFound => {}
                         }
                     }
                     Err(err) => {
-                        counter!(DriverMetrics::EVENT_SCANNER_ERRORS_TOTAL).increment(1);
+                        DriverMetrics::event_scanner_errors_total().inc();
                         error!(?err, "error receiving proposal logs from event scanner");
                         continue;
                     }
@@ -1246,8 +1333,7 @@ where
                 ) {
                     let confirmed_sync_probe = self.confirmed_sync_snapshot().await;
                     if let Err(err) = &confirmed_sync_probe {
-                        counter!(DriverMetrics::EVENT_CONFIRMED_SYNC_PROBE_ERRORS_TOTAL)
-                            .increment(1);
+                        DriverMetrics::event_confirmed_sync_probe_errors_total().inc();
                         warn!(
                             ?err,
                             "confirmed-sync probe failed; keeping preconfirmation ingress closed"
@@ -1334,12 +1420,17 @@ mod tests {
         transports::http::reqwest::Url,
     };
     use alloy_provider::{ProviderBuilder, RootProvider};
-    use alloy_rpc_types_engine::{PayloadAttributes as EthPayloadAttributes, PayloadId};
+    use alloy_rpc_types_engine::PayloadId;
+    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use alloy_transport::mock::Asserter;
     use async_trait::async_trait;
     use bindings::{
         anchor::Anchor::AnchorInstance,
-        inbox::{IInbox::DerivationSource, Inbox::InboxInstance, LibBlobs::BlobSlice},
+        inbox::{
+            IInbox::{CoreState, DerivationSource},
+            Inbox::{InboxInstance, getCoreStateCall},
+            LibBlobs::BlobSlice,
+        },
     };
     use rpc::{
         SubscriptionSource,
@@ -1348,7 +1439,7 @@ mod tests {
     };
 
     use crate::{
-        production::{BlockProductionPath, ProductionInput, ProductionPathKind, ProductionRouter},
+        production::{BlockProductionPath, ProductionInput, ProductionRouter},
         sync::engine::EngineBlockOutcome,
     };
 
@@ -1359,6 +1450,7 @@ mod tests {
             suggested_fee_recipient: Address::ZERO,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
         let block_metadata = TaikoBlockMetadata {
             beneficiary: Address::ZERO,
@@ -1479,6 +1571,17 @@ mod tests {
         EngineBlockOutcome { block, payload_id: PayloadId::new([block_number as u8; 8]) }
     }
 
+    fn sample_core_state(next_proposal_id: u64) -> CoreState {
+        CoreState {
+            nextProposalId: U48::from(next_proposal_id),
+            lastProposalBlockId: U48::ZERO,
+            lastFinalizedProposalId: U48::ZERO,
+            lastFinalizedTimestamp: U48::ZERO,
+            lastCheckpointTimestamp: U48::ZERO,
+            lastFinalizedBlockHash: FixedBytes::ZERO,
+        }
+    }
+
     #[derive(Clone)]
     struct MockBatchPath {
         orphaned_tx_hashes: StdArc<HashSet<B256>>,
@@ -1500,10 +1603,6 @@ mod tests {
 
     #[async_trait]
     impl BlockProductionPath for MockBatchPath {
-        fn kind(&self) -> ProductionPathKind {
-            ProductionPathKind::L1Events
-        }
-
         async fn produce(
             &self,
             input: ProductionInput,
@@ -1552,10 +1651,6 @@ mod tests {
 
     #[async_trait]
     impl BlockProductionPath for MockRetryBatchPath {
-        fn kind(&self) -> ProductionPathKind {
-            ProductionPathKind::L1Events
-        }
-
         async fn produce(
             &self,
             input: ProductionInput,
@@ -1587,6 +1682,13 @@ mod tests {
     }
 
     fn mock_client_with_l1_asserter(l1_asserter: Asserter) -> Client<RootProvider> {
+        mock_client_with_asserters(l1_asserter, Asserter::new())
+    }
+
+    fn mock_client_with_asserters(
+        l1_asserter: Asserter,
+        l2_auth_asserter: Asserter,
+    ) -> Client<RootProvider> {
         let l1_provider =
             ProviderBuilder::new().disable_recommended_fillers().connect_mocked_client(l1_asserter);
         let l2_provider = ProviderBuilder::new()
@@ -1594,12 +1696,12 @@ mod tests {
             .connect_mocked_client(Asserter::new());
         let l2_auth_provider = ProviderBuilder::new()
             .disable_recommended_fillers()
-            .connect_mocked_client(Asserter::new());
+            .connect_mocked_client(l2_auth_asserter);
         let inbox = InboxInstance::new(Address::ZERO, l1_provider.clone());
         let anchor = AnchorInstance::new(Address::ZERO, l2_auth_provider.clone());
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
-        Client { l1_provider, l2_provider, l2_auth_provider, shasta }
+        Client { chain_id: 0, l1_provider, l2_provider, l2_auth_provider, shasta }
     }
 
     #[tokio::test]
@@ -1700,7 +1802,7 @@ mod tests {
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
         let path = MockBatchPath::new([orphaned_tx_hash]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
             Duration::from_millis(250),
@@ -1728,7 +1830,7 @@ mod tests {
             ..build_syncer().await
         };
         let path = MockBatchPath::new([]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
         let mut log = sample_proposed_log(1, B256::from([0x31; 32]), B256::from([0x41; 32]));
         log.block_hash = None;
 
@@ -1754,7 +1856,7 @@ mod tests {
         let syncer =
             EventSyncer { rpc: mock_client_with_l1_asserter(asserter), ..build_syncer().await };
         let path = MockRetryBatchPath::new([retry_tx_hash]);
-        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(vec![Arc::new(path.clone())])));
+        let router = Arc::new(AsyncMutex::new(ProductionRouter::new(Arc::new(path.clone()), None)));
 
         let result = timeout(
             Duration::from_millis(250),
@@ -1811,12 +1913,6 @@ mod tests {
     }
 
     #[test]
-    fn confirmed_sync_ready_reflects_snapshot_readiness() {
-        let ready = resolve_confirmed_sync_ready(ConfirmedSyncSnapshot::new(0, None, None));
-        assert!(ready, "resolved readiness should mirror snapshot readiness");
-    }
-
-    #[test]
     fn confirmed_sync_probe_rearms_when_ingress_gate_closes_after_spawn() {
         assert!(should_probe_confirmed_sync(true, true, false, true));
         assert!(!should_probe_confirmed_sync(true, true, true, true));
@@ -1837,30 +1933,90 @@ mod tests {
         assert!(!ready, "probe errors must keep ingress closed until a later successful probe",);
     }
 
+    #[tokio::test]
+    async fn reset_head_l1_origin_after_reorg_lowers_head_to_latest_canonical_batch_tip() {
+        let l1_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // last_certain_block_id_by_batch_id
+        l2_auth_asserter.push_success(&Some(U256::from(7_777u64))); // set_head_l1_origin
+
+        syncer.reset_head_l1_origin_after_reorg(1_234).await;
+
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
+    #[tokio::test]
+    async fn reset_head_l1_origin_after_reorg_skips_when_batch_mapping_missing() {
+        let l1_asserter = Asserter::new();
+        let l2_auth_asserter = Asserter::new();
+        let syncer = EventSyncer {
+            rpc: mock_client_with_asserters(l1_asserter.clone(), l2_auth_asserter.clone()),
+            ..build_syncer().await
+        };
+
+        let core_state = sample_core_state(100);
+        let encoded_core_state = Bytes::from(getCoreStateCall::abi_encode_returns(&core_state));
+        l1_asserter.push_success(&encoded_core_state);
+        l2_auth_asserter.push_success(&Option::<U256>::None);
+
+        syncer.reset_head_l1_origin_after_reorg(1_234).await;
+
+        // No set_head_l1_origin call should be queued: missing mapping is a best-effort skip.
+        assert!(l1_asserter.read_q().is_empty());
+        assert!(l2_auth_asserter.read_q().is_empty());
+    }
+
     #[test]
     fn resume_head_resolution_requires_checkpoint_state_in_checkpoint_mode() {
-        let err = resolve_resume_head_block_number(true, None, Some(100), false)
+        let err = resolve_resume_head_block_number(true, None, Some(100), Some(99))
             .expect_err("checkpoint mode should require checkpoint resume state");
         assert!(matches!(err, SyncError::MissingCheckpointResumeHead));
 
-        let resolved = resolve_resume_head_block_number(true, Some(420), None, false)
+        let resolved = resolve_resume_head_block_number(true, Some(420), None, None)
             .expect("checkpoint resume head should be used when present");
         assert_eq!(resolved, 420);
     }
 
     #[test]
     fn resume_head_resolution_requires_head_l1_origin_without_checkpoint() {
-        let err = resolve_resume_head_block_number(false, Some(999), None, false)
+        let err = resolve_resume_head_block_number(false, Some(999), None, None)
             .expect_err("non-checkpoint mode should require head_l1_origin");
         assert!(matches!(err, SyncError::MissingHeadL1OriginResume));
 
-        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), false)
-            .expect("head_l1_origin should drive resume without checkpoint");
+        let resolved = resolve_resume_head_block_number(false, Some(999), Some(64), Some(80))
+            .expect("head_l1_origin should drive resume when rpc head is not lower");
         assert_eq!(resolved, 64);
 
-        let resolved =
-            resolve_resume_head_block_number(false, None, None, true).expect("genesis fallback");
+        let resolved = resolve_resume_head_block_number(false, None, None, Some(0))
+            .expect("genesis fallback when rpc reports block 0 and origin is missing");
         assert_eq!(resolved, 0);
+    }
+
+    #[test]
+    fn resume_head_resolution_prefers_lower_non_zero_rpc_over_origin() {
+        let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(32))
+            .expect("lower non-zero rpc block number should win");
+        assert_eq!(resolved, 32);
+
+        let resolved = resolve_resume_head_block_number(false, None, Some(64), Some(0))
+            .expect("zero rpc block number must not override origin");
+        assert_eq!(resolved, 64);
+    }
+
+    #[test]
+    fn resume_head_resolution_falls_back_to_origin_when_rpc_missing() {
+        let resolved = resolve_resume_head_block_number(false, None, Some(64), None)
+            .expect("missing rpc block number should fall back to local origin");
+        assert_eq!(resolved, 64);
     }
 
     #[test]

@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"log/slog"
 	"math/big"
+	"os"
 	"sync"
 	"time"
 
@@ -238,7 +240,8 @@ func (w *Watchdog) Start() error {
 
 			return nil
 		}, bo); err != nil {
-			slog.Error("rabbitmq subscribe backoff retry error", "err", err.Error())
+			slog.Error("rabbitmq subscribe backoff retry error, exiting so container restarts", "err", err.Error())
+			os.Exit(1)
 		}
 	}()
 
@@ -277,7 +280,7 @@ func (w *Watchdog) eventLoop(ctx context.Context) {
 				if err != nil {
 					slog.Error("err checking message", "err", err.Error())
 
-					if err := w.queue.Nack(ctx, msg, true); err != nil {
+					if err := w.queue.Nack(ctx, msg, shouldRequeueCheckMessageError(err)); err != nil {
 						slog.Error("Err nacking message", "err", err.Error())
 					}
 				} else {
@@ -377,6 +380,18 @@ func (w *Watchdog) checkMessage(ctx context.Context, msg queue.Message) error {
 	relayer.BridgePaused.Inc()
 
 	return nil
+}
+
+func shouldRequeueCheckMessageError(err error) bool {
+	var syntaxErr *json.SyntaxError
+
+	var typeErr *json.UnmarshalTypeError
+
+	if stderrors.As(err, &syntaxErr) || stderrors.As(err, &typeErr) {
+		return false
+	}
+
+	return true
 }
 
 func (w *Watchdog) pauseBridge(

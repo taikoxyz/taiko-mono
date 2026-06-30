@@ -43,7 +43,6 @@ type Driver struct {
 	l2ChainSyncer      *chainSyncer.L2ChainSyncer
 	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
 	state              *state.State
-	chainConfig        *config.ChainConfig
 	protocolConfig     config.ProtocolConfigs
 
 	l1HeadCh  chan *types.Header
@@ -54,10 +53,8 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
-	// Handover config read from the preconf router
+	// Handover config for sequencing-window split.
 	handoverSkipSlots uint64
-	// Last epoch when the handover config was reloaded
-	lastConfigReloadEpoch uint64
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -81,8 +78,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.Config = cfg
 
 	// Initialize handover config caching
-	d.handoverSkipSlots = defaultHandoverSkipSlots
-	d.lastConfigReloadEpoch = 0
+	d.handoverSkipSlots = cfg.HandoverSkipSlots
+	if d.handoverSkipSlots == 0 {
+		d.handoverSkipSlots = defaultHandoverSkipSlots
+	}
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
 		return fmt.Errorf("failed to create RPC client: %w", err)
@@ -115,13 +114,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	}
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
-	d.chainConfig = config.NewChainConfig(
-		d.rpc.L2.ChainID,
-		d.rpc.PacayaClients.ForkHeights.Ontake,
-		d.rpc.PacayaClients.ForkHeights.Pacaya,
-		d.rpc.ShastaClients.ForkTime,
-	)
-
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
 		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
@@ -135,21 +127,11 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.PreconfBlockServerJWTSecret,
 			d.PreconfOperatorAddress,
 			d.TaikoAnchorAddress,
-			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
-			d.l2ChainSyncer.EventSyncer().BlocksInserterShasta(),
+			d.l2ChainSyncer.EventSyncer().BlocksInserter(),
 			d.rpc,
 			latestSeenProposalCh,
 		); err != nil {
 			return fmt.Errorf("failed to create preconf block server: %w", err)
-		}
-		d.preconfBlockServer.SetAllowAllSequencers(cfg.P2PAllowAllSequencers)
-		if cfg.P2PAllowAllSequencers {
-			activeSequencers, err := d.rpc.GetAllActiveOperators(nil)
-			if err != nil {
-				return fmt.Errorf("failed to fetch active preconfirmation sequencers: %w", err)
-			}
-
-			d.preconfBlockServer.UpdateActiveSequencerAddresses(activeSequencers)
 		}
 		log.Info("Preconf Operator Address", "PreconfOperatorAddress", d.PreconfOperatorAddress)
 
@@ -194,7 +176,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 // Start starts the driver instance.
 func (d *Driver) Start() error {
 	go d.eventLoop()
-	go d.reportProtocolStatus()
+	go d.reportProtocolStatusLoop()
 	go d.exchangeTransitionConfigLoop()
 
 	// Start the preconfirmation block server if it is enabled.
@@ -207,7 +189,6 @@ func (d *Driver) Start() error {
 
 		go d.preconfBlockServer.LatestSeenProposalEventLoop(d.ctx)
 	}
-
 	if d.p2pNode != nil && d.p2pNode.Dv5Udp() != nil {
 		log.Info("Start P2P discovery process")
 
@@ -287,7 +268,7 @@ func (d *Driver) eventLoop() {
 	}
 }
 
-// doSync fetches all `BatchProposed` events emitted from local
+// doSync fetches all `Proposed` events emitted from local
 // L1 sync cursor to the L1 head, and then applies all corresponding
 // L2 blocks into node's local blockchain.
 func (d *Driver) doSync() error {
@@ -311,12 +292,9 @@ func (d *Driver) ChainSyncer() *chainSyncer.L2ChainSyncer {
 	return d.l2ChainSyncer
 }
 
-// reportProtocolStatus reports some protocol status intervally.
-func (d *Driver) reportProtocolStatus() {
-	var (
-		ticker          = time.NewTicker(protocolStatusReportInterval)
-		maxNumProposals = d.protocolConfig.MaxProposals()
-	)
+// reportProtocolStatusLoop reports protocol status at a fixed interval.
+func (d *Driver) reportProtocolStatusLoop() {
+	ticker := time.NewTicker(protocolStatusReportInterval)
 	d.wg.Add(1)
 
 	defer func() {
@@ -329,46 +307,21 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			d.reportStatus(maxNumProposals)
+			d.reportProtocolStatus()
 		}
 	}
 }
 
-// reportStatus reports some status for Pacaya or Shasta protocol.
-func (d *Driver) reportStatus(maxNumProposals uint64) {
-	proposal, err := d.rpc.GetShastaProposalHash(&bind.CallOpts{Context: d.ctx}, common.Big1)
+// reportProtocolStatus reports the latest protocol status snapshot.
+func (d *Driver) reportProtocolStatus() {
+	coreState, err := d.rpc.GetCoreState(&bind.CallOpts{Context: d.ctx})
 	if err != nil {
-		log.Debug("Failed to get Shasta proposal hash", "error", err)
-	}
-	// If chain has forked into Shasta fork, report Shasta status instead.
-	if proposal != (common.Hash{}) {
-		d.reportProtocolStatusShasta()
-		return
-	}
-	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
-	if err != nil {
-		log.Error("Failed to get protocol state variables", "error", err)
+		log.Debug("Failed to get inbox core state", "error", err)
 		return
 	}
 
 	log.Info(
-		"📖 Pacaya protocol status",
-		"lastVerifiedBatchID", vars.Stats2.LastVerifiedBatchId,
-		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
-		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
-	)
-}
-
-// reportProtocolStatusShasta reports some status for Shasta protocol.
-func (d *Driver) reportProtocolStatusShasta() {
-	coreState, err := d.rpc.GetCoreStateShasta(&bind.CallOpts{Context: d.ctx})
-	if err != nil {
-		log.Debug("Failed to get Shasta Inbox core state", "error", err)
-		return
-	}
-
-	log.Info(
-		"📖 Shasta protocol status",
+		"📖 Protocol status",
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
 		"lastFinalizedTimestamp", coreState.LastFinalizedTimestamp,
 		"nextProposalID", coreState.NextProposalId,
@@ -396,7 +349,7 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 				TerminalBlockNumber:     0,
 			})
 			if err != nil {
-				log.Error("Failed to exchange Transition Configuration", "error", err)
+				log.Debug("Failed to exchange Transition Configuration", "error", err)
 			} else {
 				log.Debug("Exchanged transition config", "transitionConfig", tc)
 			}
@@ -436,7 +389,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			return
 		}
 
-		isSequencer := d.preconfBlockServer.CheckLookaheadHandover(d.PreconfOperatorAddress, slot) == nil
+		isSequencer := d.preconfBlockServer.CheckLookaheadHandover(slot) == nil
 
 		if isSequencer && !wasSequencer {
 			log.Info("Lookahead transitioning to sequencing for operator", "epoch", epoch, "slot", slot)
@@ -474,40 +427,6 @@ func (d *Driver) cacheLookaheadLoop() {
 			slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
 			slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
 		)
-
-		// Only read and update handover config at epoch transitions to avoid race conditions
-		// where different nodes might read different configs during mid-epoch upgrades
-		if currentEpoch > d.lastConfigReloadEpoch {
-			log.Info(
-				"Epoch transition detected, reloading handover config",
-				"epoch", currentEpoch,
-				"lastConfigReloadEpoch", d.lastConfigReloadEpoch,
-			)
-
-			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
-			if err != nil {
-				log.Warn(
-					"Failed to fetch preconf router config, keeping current handoverSkipSlots",
-					"error", err,
-					"currentHandoverSkipSlots", d.handoverSkipSlots,
-				)
-			} else {
-				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
-				if newHandoverSkipSlots != d.handoverSkipSlots {
-					log.Info(
-						"Updated handover config for new epoch",
-						"epoch", currentEpoch,
-						"oldHandoverSkipSlots", d.handoverSkipSlots,
-						"newHandoverSkipSlots", newHandoverSkipSlots,
-					)
-					d.handoverSkipSlots = newHandoverSkipSlots
-				}
-			}
-
-			d.lastConfigReloadEpoch = currentEpoch
-
-			log.Info("Handover config reload complete", "lastConfigReloadEpoch", d.lastConfigReloadEpoch)
-		}
 
 		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 		if err != nil {
@@ -547,15 +466,6 @@ func (d *Driver) cacheLookaheadLoop() {
 			log.Warn("Could not fetch next operator", "err", err)
 
 			return fmt.Errorf("failed to fetch next operator: %w", err)
-		}
-
-		if d.P2PAllowAllSequencers {
-			activeSequencers, err := d.rpc.GetAllActiveOperators(nil)
-			if err != nil {
-				log.Warn("Could not fetch active preconfirmation sequencers", "err", err)
-			} else {
-				d.preconfBlockServer.UpdateActiveSequencerAddresses(activeSequencers)
-			}
 		}
 
 		lookahead := d.preconfBlockServer.GetLookahead()

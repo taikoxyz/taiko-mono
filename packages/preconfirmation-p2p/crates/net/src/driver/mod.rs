@@ -23,6 +23,7 @@ use crate::{
     config::NetworkConfig,
     discovery::spawn_discovery,
     event::{NetworkError, NetworkErrorKind, NetworkEvent},
+    metrics,
     reputation::{
         PeerAction, PeerReputationStore, ReputationConfig, ReqRespKind, RequestRateLimiter,
     },
@@ -78,6 +79,13 @@ pub struct NetworkDriver {
     /// Storage backend for commitments/txlists (in-memory by default).
     storage: Arc<dyn PreconfStorage>,
 }
+
+/// Lower bound of the gossipsub app-specific score mirrored from the local reputation
+/// store (spec §7.1 appScore clamp).
+const APP_SCORE_MIN: f64 = -10.0;
+/// Upper bound of the gossipsub app-specific score mirrored from the local reputation
+/// store (spec §7.1 appScore clamp).
+const APP_SCORE_MAX: f64 = 10.0;
 
 /// Builds a `ConnectionGater` instance based on the provided `NetworkConfig`.
 fn build_kona_gater(cfg: &NetworkConfig) -> ConnectionGater {
@@ -196,10 +204,10 @@ impl NetworkDriver {
         match self.events_tx.try_send(NetworkEvent::Error(err.clone())) {
             Ok(()) => {}
             Err(TrySendError::Full(_)) => {
-                metrics::counter!("p2p_event_dropped", "surface" => "event_tx", "reason" => "full", "kind" => err.kind.as_str()).increment(1);
+                metrics::inc_vec("p2p_event_dropped", &["event_tx", "full", err.kind.as_str()]);
             }
             Err(TrySendError::Closed(_)) => {
-                metrics::counter!("p2p_event_dropped", "surface" => "event_tx", "reason" => "closed", "kind" => err.kind.as_str()).increment(1);
+                metrics::inc_vec("p2p_event_dropped", &["event_tx", "closed", err.kind.as_str()]);
             }
         }
     }
@@ -222,14 +230,20 @@ impl NetworkDriver {
     /// Applies a reputation action to a given peer and enforces bans/greylists.
     fn apply_reputation(&mut self, peer: PeerId, action: PeerAction) {
         let ev = self.reputation.apply(peer, action);
+        // Mirror the local reputation into gossipsub's app-specific score (spec §7.1) so
+        // application feedback influences mesh membership and propagation decisions.
+        // `set_application_score` returns false for peers gossipsub no longer tracks;
+        // that is fine for a best-effort mirror.
+        let app_score = ev.new_score.clamp(APP_SCORE_MIN, APP_SCORE_MAX);
+        let _ = self.swarm.behaviour_mut().gossipsub.set_application_score(&ev.peer, app_score);
         if ev.is_banned && !ev.was_banned {
-            metrics::counter!("p2p_reputation_ban").increment(1);
+            metrics::inc("p2p_reputation_ban");
             self.swarm.behaviour_mut().block_list.block_peer(ev.peer);
             self.kona_gater.block_peer(&ev.peer);
             let _ = self.swarm.disconnect_peer_id(ev.peer);
         }
         if ev.is_greylisted && !ev.was_greylisted {
-            metrics::counter!("p2p_reputation_greylist").increment(1);
+            metrics::inc("p2p_reputation_greylist");
         }
     }
 }

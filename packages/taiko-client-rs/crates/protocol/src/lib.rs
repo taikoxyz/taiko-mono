@@ -4,15 +4,19 @@
 
 /// Byte-level encoding and decoding helpers shared across protocol crates.
 pub mod codec;
+/// Shared Prometheus registration helpers.
+pub mod metrics;
 /// Lookahead resolver and preconfirmation helpers.
 #[cfg(feature = "net")]
 pub mod preconfirmation;
 /// Shasta-specific protocol types, constants, and builders.
 pub mod shasta;
-/// Deterministic signer used by protocol flows.
+/// Deterministic signer used by network protocol flows.
+#[cfg(feature = "net")]
 pub mod signer;
 /// Provider/event-scanner subscription source abstraction.
 #[cfg(feature = "net")]
 pub mod subscription_source;
 
+#[cfg(feature = "net")]
 pub use signer::{FixedKSigner, FixedKSignerError};

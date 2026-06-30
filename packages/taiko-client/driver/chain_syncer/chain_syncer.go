@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -114,10 +115,10 @@ func (s *L2ChainSyncer) Sync() error {
 	s.progressTracker.MarkFinished()
 
 	// We have triggered at least a beacon sync in L2 execution engine, we should reset the L1Current
-	// cursor before we start inserting pending L2 batches one by one.
+	// cursor before we start inserting pending L2 proposals one by one.
 	if s.progressTracker.Triggered() {
 		log.Info(
-			"Switch to insert pending batches one by one",
+			"Switch to insert pending proposals one by one",
 			"p2pEnabled", s.p2pSync,
 			"p2pOutOfSync", s.progressTracker.OutOfSync(),
 		)
@@ -134,20 +135,31 @@ func (s *L2ChainSyncer) Sync() error {
 		s.preconfBlockServer.SetSyncReady(true)
 	}
 
-	// Insert the proposed batches one by one.
+	// Insert the proposed proposals one by one.
 	if err := s.eventSyncer.ProcessL1Blocks(s.ctx); err != nil {
 		return err
 	}
 
-	// After beacon sync, only enable preconf imports once head L1 origin has been written by the first
-	// successful event sync. This avoids importing cached forks before the L1 origin base exists.
+	// After beacon sync, enable preconf imports once event sync has established a safe base:
+	// either head L1 origin has been written, or no proposal has been created yet.
+	// This avoids importing cached forks before the L1 origin base exists for non-genesis chains.
 	if s.preconfBlockServer != nil && s.postBeaconSyncPending {
 		headL1Origin, err := s.rpc.L2.HeadL1Origin(s.ctx)
 		if err != nil && err.Error() != ethereum.NotFound.Error() {
 			return fmt.Errorf("failed to fetch head L1 origin after event sync: %w", err)
 		}
-		if headL1Origin != nil {
-			log.Info("Head L1 origin written after event sync, enable preconf imports")
+		headL1OriginWritten := headL1Origin != nil
+		var nextProposalID *big.Int
+		if !headL1OriginWritten {
+			coreState, err := s.rpc.GetCoreState(&bind.CallOpts{Context: s.ctx})
+			if err != nil {
+				return fmt.Errorf("failed to fetch core state after event sync: %w", err)
+			}
+			nextProposalID = coreState.NextProposalId
+		}
+
+		if shouldEnablePreconfImports(headL1OriginWritten, nextProposalID) {
+			log.Info("Event sync ready, enable preconf imports")
 			s.preconfBlockServer.SetSyncReady(true)
 			if err := s.preconfBlockServer.ImportPendingBlocksFromCache(s.ctx); err != nil {
 				log.Warn("Failed to import pending preconfirmation blocks from cache, skip the import", "error", err)
@@ -157,15 +169,22 @@ func (s *L2ChainSyncer) Sync() error {
 			log.Info("Head L1 origin not set after event sync, keep preconf imports disabled")
 		}
 	}
-
 	return nil
+}
+
+// shouldEnablePreconfImports reports whether preconf imports can open after beacon sync.
+func shouldEnablePreconfImports(headL1OriginWritten bool, nextProposalID *big.Int) bool {
+	return headL1OriginWritten || (nextProposalID != nil && nextProposalID.Cmp(common.Big1) <= 0)
 }
 
 // SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head.
 // This method should only be called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync(blockIDToSync uint64) error {
 	var headNumber = new(big.Int).SetUint64(blockIDToSync)
-	if s.progressTracker.OutOfSync() {
+	// Fall back to the live EE head when the tracker is OutOfSync, or when
+	// blockIDToSync is 0 (the Finished() short-circuit path) — otherwise
+	// HeaderByNumber(0) resolves to genesis and resets L1Current there.
+	if s.progressTracker.OutOfSync() || blockIDToSync == 0 {
 		headNumber = nil
 	}
 	log.Info(
@@ -249,6 +268,18 @@ func (s *L2ChainSyncer) needNewBeaconSyncTriggered() (uint64, bool, error) {
 	// If the flag is not set or there was a finished beacon sync, we simply return false.
 	if !s.p2pSync || s.progressTracker.Finished() {
 		return 0, false, nil
+	}
+
+	// Refresh the cached L2 head directly from the execution engine before
+	// making the beacon-sync decision. The `newHeads` subscription (see
+	// driver/state/state.go eventLoop) does not fire for blocks acquired
+	// through engine-API-driven beacon-sync backfill, so the cached head can
+	// lag the engine's actual head and cause us to repeatedly retrigger
+	// beacon sync against a block the engine already has.
+	if header, err := s.rpc.L2.HeaderByNumber(s.ctx, nil); err != nil {
+		log.Warn("Failed to refresh L2 head for beacon-sync decision", "error", err)
+	} else if header != nil {
+		s.state.SetL2Head(header)
 	}
 
 	head, err := s.rpc.L2CheckPoint.HeadL1Origin(s.ctx)

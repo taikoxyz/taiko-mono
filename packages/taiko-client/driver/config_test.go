@@ -4,6 +4,8 @@ import (
 	"context"
 	"net"
 	"os"
+	"strings"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -16,14 +18,50 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 )
 
+func TestResolveEndpointsPrefersWSOverHTTP(t *testing.T) {
+	got, err := resolveEndpoints("ws://x", "http://x")
+	if err != nil {
+		t.Fatalf("resolveEndpoints returned error: %v", err)
+	}
+	if got != "ws://x" {
+		t.Fatalf("resolveEndpoints returned %q, want ws://x", got)
+	}
+}
+
+func (s *DriverTestSuite) TestResolveEndpoints() {
+	cases := []struct {
+		name      string
+		ws, http  string
+		want      string
+		wantError bool
+	}{
+		{name: "ws only", ws: "ws://x", http: "", want: "ws://x"},
+		{name: "wss only", ws: "wss://x", http: "", want: "wss://x"},
+		{name: "http only", ws: "", http: "http://x", want: "http://x"},
+		{name: "https only", ws: "", http: "https://x", want: "https://x"},
+		{name: "neither", ws: "", http: "", wantError: true},
+		{name: "both prefers ws", ws: "ws://x", http: "http://x", want: "ws://x"},
+	}
+	for _, tc := range cases {
+		s.Run(tc.name, func() {
+			got, err := resolveEndpoints(tc.ws, tc.http)
+			if tc.wantError {
+				s.Error(err)
+				return
+			}
+			s.NoError(err)
+			s.Equal(tc.want, got)
+		})
+	}
+}
+
 var (
 	l1Endpoint       = os.Getenv("L1_WS")
 	l1BeaconEndpoint = os.Getenv("L1_HTTP")
 	l2Endpoint       = os.Getenv("L2_WS")
 	l2CheckPoint     = os.Getenv("L2_HTTP")
 	l2EngineEndpoint = os.Getenv("L2_AUTH")
-	pacayaInbox      = os.Getenv("PACAYA_INBOX")
-	shastaInbox      = os.Getenv("SHASTA_INBOX")
+	inbox            = os.Getenv("INBOX")
 	taikoAnchor      = os.Getenv("TAIKO_ANCHOR")
 )
 
@@ -37,9 +75,10 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		s.Equal(l1BeaconEndpoint, c.L1BeaconEndpoint)
 		s.Equal(l2Endpoint, c.L2Endpoint)
 		s.Equal(l2EngineEndpoint, c.L2EngineEndpoint)
-		s.Equal(pacayaInbox, c.PacayaInboxAddress.String())
+		s.Equal(inbox, c.InboxAddress.String())
 		s.Equal(taikoAnchor, c.TaikoAnchorAddress.String())
 		s.Equal(120*time.Second, c.P2PSyncTimeout)
+		s.Equal(uint64(8), c.HandoverSkipSlots)
 		s.NotEmpty(c.JwtSecret)
 		s.True(c.P2PSync)
 		s.Equal(l2CheckPoint, c.L2CheckPoint)
@@ -54,8 +93,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContext() {
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
-		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
+		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",
@@ -87,45 +125,18 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {
 	}), "empty L2 check point URL")
 }
 
-func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencersRequiresWhitelist() {
+func (s *DriverTestSuite) TestNewConfigFromCliContextPreconfServerRequiresJWTSecret() {
+	jwtFile := s.T().TempDir() + "/jwt.hex"
+	s.Require().NoError(os.WriteFile(jwtFile, []byte(strings.Repeat("11", 32)), 0o600))
+
 	app := s.SetupApp()
+
 	s.ErrorContains(app.Run([]string{
-		"TestNewConfigFromCliContext",
-		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
-		"--" + flags.P2PAllowAllSequencers.Name,
-	}), "--p2p.allow-all-sequencers requires --preconfirmation.whitelist to be set")
-}
-
-func (s *DriverTestSuite) TestNewConfigFromCliContextAllowAllSequencers() {
-	app := s.SetupApp()
-
-	app.Action = func(ctx *cli.Context) error {
-		c, err := NewConfigFromCliContext(ctx)
-		s.Nil(err)
-		s.True(c.P2PAllowAllSequencers)
-
-		return err
-	}
-
-	s.Nil(app.Run([]string{
-		"TestNewConfigFromCliContextAllowAllSequencers",
-		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
-		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
-		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
-		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
-		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
-		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
-		"--" + flags.PreconfWhitelistAddress.Name, taikoAnchor,
-		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
-		"--" + flags.P2PSyncTimeout.Name, "120s",
-		"--" + flags.RPCTimeout.Name, "5s",
-		"--" + flags.P2PAllowAllSequencers.Name,
-		"--" + p2pFlags.P2PPrivPathName, os.Getenv("JWT_SECRET"),
-		"--" + p2pFlags.DiscoveryPathName, "memory",
-		"--" + p2pFlags.PeerstorePathName, "memory",
-		"--" + p2pFlags.SequencerP2PKeyName, os.Getenv("L1_PROPOSER_PRIVATE_KEY"),
-	}))
+		"TestNewConfigFromCliContextPreconfServerRequiresJWTSecret",
+		"--" + flags.JWTSecret.Name, jwtFile,
+		"--" + flags.L1BeaconEndpoint.Name, "http://localhost:5052",
+		"--" + flags.PreconfBlockServerPort.Name, "9871",
+	}), "preconfirmation.jwtSecret is required when preconfirmation.serverPort is enabled")
 }
 
 func (s *DriverTestSuite) SetupApp() *cli.App {
@@ -135,13 +146,13 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.L2AuthEndpoint.Name},
-		&cli.StringFlag{Name: flags.PacayaInboxAddress.Name},
-		&cli.StringFlag{Name: flags.ShastaInboxAddress.Name},
+		&cli.StringFlag{Name: flags.InboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
-		&cli.StringFlag{Name: flags.PreconfWhitelistAddress.Name},
+		&cli.Uint64Flag{Name: flags.PreconfHandoverSkipSlots.Name, Value: 8},
+		&cli.Uint64Flag{Name: flags.PreconfBlockServerPort.Name},
+		&cli.StringFlag{Name: flags.PreconfBlockServerJWTSecret.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
-		&cli.BoolFlag{Name: flags.P2PAllowAllSequencers.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
 		&cli.DurationFlag{Name: flags.RPCTimeout.Name},
 		&cli.StringFlag{Name: flags.CheckPointSyncURL.Name},
@@ -184,8 +195,7 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 		"--" + flags.L1BeaconEndpoint.Name, l1BeaconEndpoint,
 		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.L2AuthEndpoint.Name, l2EngineEndpoint,
-		"--" + flags.PacayaInboxAddress.Name, pacayaInbox,
-		"--" + flags.ShastaInboxAddress.Name, shastaInbox,
+		"--" + flags.InboxAddress.Name, inbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.JWTSecret.Name, os.Getenv("JWT_SECRET"),
 		"--" + flags.P2PSyncTimeout.Name, "120s",

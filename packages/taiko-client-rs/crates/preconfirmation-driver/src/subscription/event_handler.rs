@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use alloy_primitives::{B256, U256};
-use preconfirmation_net::{NetworkCommand, NetworkEvent};
+use preconfirmation_net::{NetworkCommand, NetworkEvent, PeerId};
 use preconfirmation_types::{
     Bytes20, RawTxListGossip, SignedCommitment, uint256_to_u256, validate_raw_txlist_gossip,
 };
 use protocol::{codec::ZlibTxListCodec, preconfirmation::PreconfSignerResolver};
 use tokio::sync::{broadcast, mpsc::Sender};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::{
     driver_interface::DriverClient,
@@ -55,6 +55,8 @@ where
     pub(super) command_tx: Sender<NetworkCommand>,
     /// Lookahead resolver for signer and window validation.
     pub(super) lookahead_resolver: Arc<dyn PreconfSignerResolver + Send + Sync>,
+    /// Local libp2p peer ID used to ignore looped-back gossip messages.
+    pub(super) local_peer_id: Option<PeerId>,
 }
 
 /// Construction parameters for an [`EventHandler`].
@@ -93,12 +95,23 @@ where
             command_tx,
             lookahead_resolver,
         } = params;
-        Self { store, codec, driver, expected_slasher, event_tx, command_tx, lookahead_resolver }
+        Self {
+            store,
+            codec,
+            driver,
+            expected_slasher,
+            event_tx,
+            command_tx,
+            lookahead_resolver,
+            local_peer_id: None,
+        }
     }
 
-    /// Update the command tx used to notify the P2P node.
-    pub(crate) fn set_command_tx(&mut self, command_tx: Sender<NetworkCommand>) {
-        self.command_tx = command_tx;
+    /// Create a new event handler that ignores gossip propagated by the local peer.
+    pub fn new_with_local_peer_id(params: EventHandlerParams<D>, local_peer_id: PeerId) -> Self {
+        let mut handler = Self::new(params);
+        handler.local_peer_id = Some(local_peer_id);
+        handler
     }
 
     /// Handle a network event.
@@ -110,10 +123,18 @@ where
             NetworkEvent::PeerDisconnected(peer_id) => {
                 self.handle_peer_disconnected(peer_id.to_string());
             }
-            NetworkEvent::GossipSignedCommitment { from: _, msg } => {
+            NetworkEvent::GossipSignedCommitment { from, msg } => {
+                if self.is_local_peer(from) {
+                    debug!(peer = %from, "ignoring self-propagated commitment gossip");
+                    return Ok(());
+                }
                 self.handle_commitment(*msg).await?;
             }
-            NetworkEvent::GossipRawTxList { from: _, msg } => {
+            NetworkEvent::GossipRawTxList { from, msg } => {
+                if self.is_local_peer(from) {
+                    debug!(peer = %from, "ignoring self-propagated raw txlist gossip");
+                    return Ok(());
+                }
                 self.handle_txlist(*msg).await?;
             }
             NetworkEvent::InboundCommitmentsRequest { from } => {
@@ -139,6 +160,11 @@ where
         Ok(())
     }
 
+    /// Return whether a network event came from the local libp2p peer.
+    fn is_local_peer(&self, peer_id: PeerId) -> bool {
+        self.local_peer_id.is_some_and(|local_peer_id| local_peer_id == peer_id)
+    }
+
     /// Emit a peer-connected event to subscribers.
     fn handle_peer_connected(&self, peer_id: String) {
         if let Err(err) = self.event_tx.send(PreconfirmationEvent::PeerConnected(peer_id)) {
@@ -155,9 +181,18 @@ where
 
     /// Handle an incoming commitment.
     pub async fn handle_commitment(&self, commitment: SignedCommitment) -> Result<()> {
-        metrics::counter!(PreconfirmationClientMetrics::COMMITMENTS_RECEIVED_TOTAL).increment(1);
+        PreconfirmationClientMetrics::commitments_received_total().inc();
 
         let current_block = uint256_to_u256(&commitment.commitment.preconf.block_number);
+        let preconf = &commitment.commitment.preconf;
+        info!(
+            block_id = %current_block,
+            timestamp = %uint256_to_u256(&preconf.timestamp),
+            submission_window_end = %uint256_to_u256(&preconf.submission_window_end),
+            raw_tx_list_hash = %B256::from_slice(preconf.raw_tx_list_hash.as_ref()),
+            eop = preconf.eop,
+            "📥 New preconfirmation commitment gossip"
+        );
 
         // If we're behind the event sync tip, drop the commitment.
         if current_block <= self.driver.event_sync_tip().await? {
@@ -206,8 +241,7 @@ where
             Ok(signer) => Some(signer),
             Err(err) => {
                 warn!(error = %err, "dropping invalid commitment");
-                metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                    .increment(1);
+                PreconfirmationClientMetrics::validation_failures_total().inc();
                 self.store.drop_pending_commitment(&current_block);
                 None
             }
@@ -228,8 +262,7 @@ where
                 Ok(info) => info,
                 Err(err) => {
                     warn!(timestamp = %timestamp, error = %err, "lookahead resolver failed");
-                    metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL)
-                        .increment(1);
+                    PreconfirmationClientMetrics::validation_failures_total().inc();
                     self.store.drop_pending_commitment(&current_block);
                     return false;
                 }
@@ -237,7 +270,7 @@ where
 
         if let Err(err) = validate_lookahead(commitment, recovered_signer, &expected_slot_info) {
             warn!(error = %err, "dropping commitment with invalid lookahead");
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            PreconfirmationClientMetrics::validation_failures_total().inc();
             self.store.drop_pending_commitment(&current_block);
             return false;
         }
@@ -247,14 +280,19 @@ where
 
     /// Handle an inbound txlist gossip payload.
     pub async fn handle_txlist(&self, txlist: RawTxListGossip) -> Result<()> {
-        metrics::counter!(PreconfirmationClientMetrics::TXLISTS_RECEIVED_TOTAL).increment(1);
+        PreconfirmationClientMetrics::txlists_received_total().inc();
 
         let hash = B256::from_slice(txlist.raw_tx_list_hash.as_ref());
+        info!(
+            raw_tx_list_hash = %hash,
+            txlist_bytes = txlist.txlist.as_ref().len(),
+            "📥 New preconfirmation txlist gossip"
+        );
         if let Err(err) = validate_raw_txlist_gossip(&txlist)
             .map_err(|err| PreconfirmationClientError::Validation(err.to_string()))
         {
             warn!(error = %err, "dropping invalid txlist gossip");
-            metrics::counter!(PreconfirmationClientMetrics::VALIDATION_FAILURES_TOTAL).increment(1);
+            PreconfirmationClientMetrics::validation_failures_total().inc();
             self.store.drop_pending_txlist(&hash);
             return Ok(());
         }

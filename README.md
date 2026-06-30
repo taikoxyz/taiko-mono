@@ -16,13 +16,12 @@
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/aGZYtKqMjj)
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
-[![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
 
 </div>
 
 > [!WARNING]
-> The `main` branch is under active development for the next Shasta fork. For the latest version of the Taiko Alethia protocol contracts (Pacaya fork), please use the [`taiko-alethia-protocol-v2.3.1`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v2.3.1) branch. The release process involves security measures that the `main` branch does not guarantee.
+> The `main` branch is under active development. For the latest version of the Taiko Alethia protocol contracts (Shasta fork), please use the [`taiko-alethia-protocol-v3.0.0`](https://github.com/taikoxyz/taiko-mono/tree/taiko-alethia-protocol-v3.0.0) branch. The release process involves security measures that the `main` branch does not guarantee.
 
 ## Documentation
 
@@ -35,7 +34,7 @@ Get started with Taiko Alethia:
 ## Packages
 
 > [!TIP]
-> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network-reference/software-releases-and-deployments) for the latest versions.
+> Make sure your node is using the latest version tags for taiko-client and taiko-geth. Check out the [node releases page](https://docs.taiko.xyz/network/software-releases) for the latest versions.
 
 | Package                                                       | Description                                                        |
 | :------------------------------------------------------------ | :----------------------------------------------------------------- |
@@ -45,6 +44,7 @@ Get started with Taiko Alethia:
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
+| [preconfirmation-p2p](./packages/preconfirmation-p2p)         | Permissionless preconfirmation P2P networking libraries.           |
 | [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
 | [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |
 | [snaefell-ui](./packages/snaefell-ui)                         | Snaefell UI.                                                       |
@@ -53,6 +53,7 @@ Get started with Taiko Alethia:
 | [taiko-client-rs](./packages/taiko-client-rs)                 | Taiko Alethia client implementation in Rust.                       |
 | [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
 | [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
+| [urcindexer-rs](./packages/urcindexer-rs)                     | URC registry indexer service backed by MySQL.                      |
 
 ## Issues
 

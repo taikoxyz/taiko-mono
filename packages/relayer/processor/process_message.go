@@ -344,8 +344,6 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	gasLimit := uint64(float64(event.Message.GasLimit))
-
 	// if destination address is a contract, add padding. check message.to
 	// to see if it is a contract address.
 	code, err := p.destEthClient.CodeAt(ctx, event.Message.To, nil)
@@ -353,11 +351,7 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, err
 	}
 
-	if len(code) != 0 {
-		gasLimit = uint64(float64(gasLimit) * 1.1)
-	} else {
-		gasLimit = uint64(float64(gasLimit) * 1.05)
-	}
+	gasLimit := relayer.PaddedMessageGasLimit(uint64(event.Message.GasLimit), len(code) != 0)
 
 	var estimatedMaxCost uint64
 
@@ -519,6 +513,10 @@ func (p *Processor) saveMessageStatusChangedEvent(
 	m := make(map[string]interface{})
 
 	for _, log := range receipt.Logs {
+		if len(log.Topics) == 0 {
+			continue
+		}
+
 		topic := log.Topics[0]
 		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
 			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
@@ -555,7 +553,7 @@ func (p *Processor) saveMessageStatusChangedEvent(
 
 // getBaseFee determines the baseFee on the dest chain
 func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
-	blk, err := p.destEthClient.BlockByNumber(ctx, nil)
+	destBlock, err := p.destEthClient.BlockByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -563,15 +561,14 @@ func (p *Processor) getBaseFee(ctx context.Context) (*big.Int, error) {
 	var baseFee *big.Int
 
 	if p.taikoL2 != nil {
-		bf, err := p.taikoL2.GetBasefee(&bind.CallOpts{Context: ctx}, blk.NumberU64(), uint32(blk.GasUsed()))
-		if err != nil {
-			return nil, err
+		if destBlock.BaseFee() != nil {
+			return destBlock.BaseFee(), nil
 		}
 
-		baseFee = bf.Basefee
+		return nil, relayer.ErrMissingDestBaseFee
 	} else {
 		cfg := params.NetworkIDToChainConfigOrDefault(p.destChainId)
-		baseFee = eip1559.CalcBaseFee(cfg, blk.Header())
+		baseFee = eip1559.CalcBaseFee(cfg, destBlock.Header())
 	}
 
 	return baseFee, nil

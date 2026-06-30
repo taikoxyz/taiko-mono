@@ -12,7 +12,7 @@ use alloy_provider::{
     fillers::{FillProvider, JoinFill, WalletFiller},
     utils::JoinedRecommendedFillers,
 };
-use event_scanner::{EventScanner, EventScannerBuilder, SyncFromBlock, SyncFromLatestEvents};
+use event_scanner::{EventScanner, EventScannerBuilder, SyncFromBlock};
 use robust_provider::RobustProviderBuilder;
 use thiserror::Error;
 
@@ -120,19 +120,6 @@ impl SubscriptionSource {
     ) -> Result<EventScanner<SyncFromBlock, Ethereum>, SubscriptionSourceError> {
         EventScannerBuilder::sync()
             .from_block(start_tag)
-            .connect(self.to_scanner_provider().await?)
-            .await
-            .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))
-    }
-
-    /// Convert the source into an `EventScanner` configured to synchronize from the latest X events
-    /// and then follow new events.
-    pub async fn to_event_scanner_sync_from_latest_scanning(
-        &self,
-        count: usize,
-    ) -> Result<EventScanner<SyncFromLatestEvents, Ethereum>, SubscriptionSourceError> {
-        EventScannerBuilder::sync()
-            .from_latest(count)
             .connect(self.to_scanner_provider().await?)
             .await
             .map_err(|e| SubscriptionSourceError::Connection(e.to_string()))

@@ -1,0 +1,248 @@
+name: DeepSeek PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  deepseek-review:
+    # Run automatically on non-draft PRs from the base repo, or when a trusted
+    # author comments @deepseek (which also covers fork PRs after maintainer review).
+    # SECURITY: both paths are gated so anonymous fork PRs cannot burn
+    # DEEPSEEK_API_KEY budget by opening/synchronizing PRs or spamming comments.
+    if: >-
+      (
+        github.event_name == 'pull_request'
+        && github.event.pull_request.draft == false
+        && github.event.pull_request.head.repo.fork == false
+        && !startsWith(github.head_ref, 'release-please')
+        && !startsWith(github.head_ref, 'dependabot')
+      )
+      || (
+        github.event_name == 'issue_comment'
+        && contains(github.event.comment.body, '@deepseek')
+        && github.event.issue.pull_request != null
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+
+      # For issue_comment events on a PR, github.event.issue.number IS the PR
+      # number (GitHub shares one numbering space for issues and PRs), so no
+      # extra `gh pr view` lookup is needed.
+      - name: Resolve PR number
+        id: pr
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run DeepSeek Code Review
+        id: review
+        uses: actions/github-script@v8
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
+          DEEPSEEK_MAX_TOKENS: ${{ vars.DEEPSEEK_MAX_TOKENS }}
+          DEEPSEEK_MAX_DIFF: ${{ vars.DEEPSEEK_MAX_DIFF }}
+        with:
+          script: |
+            const prNumber = parseInt('${{ steps.pr.outputs.number }}', 10);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // Parse a positive integer from a repo variable, falling back to a
+            // default when unset or non-numeric (e.g. "64k") so a misconfigured
+            // variable can't serialize to null and break every review run.
+            const intFromEnv = (name, fallback) => {
+              const n = parseInt(process.env[name] || '', 10);
+              return Number.isFinite(n) && n > 0 ? n : fallback;
+            };
+
+            // Fetch PR details
+            const pr = await github.rest.pulls.get({
+              owner, repo, pull_number: prNumber
+            });
+
+            const title = pr.data.title;
+            const body = pr.data.body || '';
+
+            // Get the diff as raw text
+            const diffResponse = await github.request({
+              method: 'GET',
+              url: `/repos/${owner}/${repo}/pulls/${prNumber}`,
+              headers: { Accept: 'application/vnd.github.v3.diff' }
+            });
+
+            const diffText = typeof diffResponse.data === 'string'
+              ? diffResponse.data
+              : JSON.stringify(diffResponse.data);
+
+            if (!diffText || diffText.length === 0) {
+              console.log('No diff found - skipping review');
+              return 'No diff to review.';
+            }
+
+            // Truncate diff if too large. deepseek-v4-pro has a large context
+            // window, so default high and allow overriding via repo variable.
+            const MAX_DIFF = intFromEnv('DEEPSEEK_MAX_DIFF', 2000000);
+            const truncatedDiff = diffText.length > MAX_DIFF
+              ? diffText.substring(0, MAX_DIFF) + '\n\n... (diff truncated)'
+              : diffText;
+
+            // Build the prompt
+            const systemPrompt = `You are a senior software engineer performing a code review on the Taiko monorepo.
+
+            Taiko is a based rollup on Ethereum (type-1 ZK-EVM). The repo contains:
+            - Smart contracts (Solidity/Foundry) in packages/protocol
+            - Go services (taiko-client, relayer, eventindexer)
+            - Rust services (taiko-client-rs, urcindexer-rs)
+            - Frontend apps (SvelteKit, TypeScript)
+
+            Provide a CONCISE code review in the following format. Skip sections that don't apply:
+
+            ### 🔴 Critical Issues
+            Issues that could lead to security vulnerabilities, fund loss, or chain halts.
+
+            ### 🟡 Warnings
+            Logic errors, edge cases, or potential bugs that should be addressed.
+
+            ### 🔵 Suggestions
+            Performance improvements, style/convention fixes, better error handling.
+
+            ### 🟢 What Looks Good
+            No need to comment on things that are already clear or don't need review.
+
+            ### Review Guidelines
+            - **Solidity**: Check access control, reentrancy, overflow, storage layout, gas optimization, NatSpec docs
+            - **Go/Rust**: Check error handling, race conditions, resource leaks, proper use of contexts
+            - **TypeScript**: Check type safety, XSS, unsafe API calls
+            - Be direct and constructive. Don't be overly polite.
+            - If there are no issues in a category, skip it entirely.`;
+
+            const userPrompt = `## PR #${prNumber}: ${title}
+
+            **Description:**
+            ${body || 'No description provided.'}
+
+            **Diff:**
+            \`\`\`diff
+            ${truncatedDiff}
+            \`\`\`
+
+            Review this PR thoroughly. Be direct - flag only real issues.`;
+
+            // Model + token budget are configurable via repo variables.
+            // NOTE: deepseek-v4-pro is a reasoning model — reasoning tokens
+            // count against max_tokens, so a small budget (e.g. 4096) can be
+            // fully consumed before any visible content is produced, yielding
+            // an empty review. Default high (65536) to leave room for output.
+            const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro';
+            const maxTokens = intFromEnv('DEEPSEEK_MAX_TOKENS', 8192 * 8);
+
+            // Call DeepSeek API (OpenAI-compatible endpoint).
+            async function requestReview() {
+              const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`
+                },
+                body: JSON.stringify({
+                  model,
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                  ],
+                  max_tokens: maxTokens,
+                  temperature: 0.3
+                })
+              });
+              const data = await response.json();
+              if (!response.ok) {
+                throw new Error(`DeepSeek API error (${response.status}): ${JSON.stringify(data)}`);
+              }
+              const choice = data.choices && data.choices[0];
+              return {
+                reviewText: ((choice && choice.message && choice.message.content) || '').trim(),
+                finishReason: (choice && choice.finish_reason) || 'unknown',
+                usage: data.usage ? JSON.stringify(data.usage) : 'unknown'
+              };
+            }
+
+            // Empty content usually means the token budget was exhausted by
+            // reasoning or the model id is invalid/aliased. Retry once before
+            // surfacing a diagnostic instead of posting a blank review.
+            let { reviewText, finishReason, usage } = await requestReview();
+            if (!reviewText) {
+              core.warning(
+                `DeepSeek returned no content (model=${model}, finish_reason=${finishReason}, usage=${usage}); retrying once.`
+              );
+              ({ reviewText, finishReason, usage } = await requestReview());
+            }
+
+            // Build comment body
+            const triggerInfo = context.eventName === 'pull_request'
+              ? 'Automatically triggered on PR update'
+              : 'Triggered by `@deepseek` comment';
+            const footer = `*${triggerInfo} • model: \`${model}\`*`;
+
+            const commentBody = reviewText
+              ? `## 🐋 DeepSeek Code Review\n\n${reviewText}\n\n---\n${footer}`
+              : `## 🐋 DeepSeek Code Review\n\n⚠️ The model returned no review content after a retry `
+                + `(model: \`${model}\`, finish_reason: \`${finishReason}\`, usage: \`${usage}\`). `
+                + `This usually means the configured model id is invalid/aliased or the token budget was `
+                + `exhausted before any visible output. Override via the \`DEEPSEEK_MODEL\` / `
+                + `\`DEEPSEEK_MAX_TOKENS\` repo variables.\n\n---\n${footer}`;
+
+            // Check for existing bot comment to update (sticky behavior)
+            const comments = await github.rest.issues.listComments({
+              owner, repo,
+              issue_number: prNumber,
+              per_page: 100
+            });
+
+            const existingComment = comments.data.find(c =>
+              c.body.includes('🐋 DeepSeek Code Review') &&
+              c.user.login === 'github-actions[bot]'
+            );
+
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner, repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+              console.log(`✅ Updated existing review comment #${existingComment.id}`);
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+              console.log('✅ Posted new review comment');
+            }
+
+            return { success: !!reviewText, reviewLength: reviewText.length, finishReason };

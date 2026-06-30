@@ -6,17 +6,11 @@
 //! - Event handling for gossip subscriptions
 //! - Submitting preconfirmation inputs to the driver
 
-use std::{
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Instant};
 
-use tokio::{
-    sync::{broadcast, mpsc},
-    time::sleep,
-};
+use tokio::sync::{broadcast, mpsc};
 use tokio_stream::StreamExt;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 use preconfirmation_net::{
     LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, PreconfStorage, ValidationAdapter,
@@ -36,23 +30,15 @@ use crate::{
 
 /// Capacity for the broadcast event channel used by the client.
 const EVENT_CHANNEL_CAPACITY: usize = 16;
-/// Base delay used when restarting the P2P event loop.
-const P2P_RESTART_BACKOFF_BASE: Duration = Duration::from_secs(1);
-/// Maximum delay between P2P event loop restarts.
-const P2P_RESTART_BACKOFF_MAX: Duration = Duration::from_secs(12);
 
 /// A ready-to-run client that has completed sync and catchup.
 ///
 /// This struct holds the state needed to run the blocking event loop.
-/// Call [`EventLoop::run_with_retry`] to start processing P2P events.
+/// Call [`EventLoop::run`] to start processing P2P events.
 pub struct EventLoop<D>
 where
     D: DriverClient + 'static,
 {
-    /// Client configuration snapshot used for rebuilds.
-    config: PreconfirmationClientConfig,
-    /// Storage shared with the P2P node for catch-up and gossip state.
-    p2p_storage: Arc<dyn PreconfStorage>,
     /// Handle to the P2P node task.
     ///
     /// The task returns a [`Result<()>`] using the crate's error type
@@ -68,30 +54,6 @@ impl<D> EventLoop<D>
 where
     D: DriverClient + 'static,
 {
-    /// Run the event loop forever, retrying on errors with exponential backoff.
-    ///
-    /// Note: restart only refreshes the event-loop-owned P2P sender used by
-    /// internal handlers. Any cloned RPC API values (`NodeRpcApiImpl`/`RunnerRpcApiImpl`)
-    /// still hold their original `command_tx` sender and will continue targeting the old
-    /// handle after a rebuild.
-    pub async fn run_with_retry(mut self) -> Result<()> {
-        let mut backoff = RetryBackoff::new(P2P_RESTART_BACKOFF_BASE, P2P_RESTART_BACKOFF_MAX);
-
-        loop {
-            match self.run().await {
-                Ok(()) => {
-                    warn!("event loop exited without error; restarting");
-                }
-                Err(err) => {
-                    error!(error = %err, "event loop failed; restarting");
-                }
-            }
-
-            sleep(backoff.next_delay()).await;
-            self.rebuild_after_failure().await?;
-        }
-    }
-
     /// Run the event loop, returning on error (fail-fast).
     pub async fn run(&mut self) -> Result<()> {
         let node_handle = &mut self.node_handle;
@@ -119,28 +81,6 @@ where
             }
         }
     }
-
-    /// Rebuild the event loop after a failure.
-    async fn rebuild_after_failure(&mut self) -> Result<()> {
-        self.node_handle.abort();
-
-        let validator: Box<dyn ValidationAdapter> =
-            Box::new(LocalValidationAdapter::new(self.config.expected_slasher.clone()));
-        let (handle, node) = P2pNode::new_with_validator_and_storage(
-            self.config.p2p.clone(),
-            validator,
-            self.p2p_storage.clone(),
-        )
-        .map_err(|err| PreconfirmationClientError::Network(err.to_string()))?;
-
-        self.handle = handle;
-        self.handler.set_command_tx(self.handle.command_sender());
-        self.node_handle = tokio::spawn(async move {
-            node.run().await.map_err(|err| PreconfirmationClientError::Network(err.to_string()))
-        });
-
-        Ok(())
-    }
 }
 
 /// The main preconfirmation client.
@@ -164,8 +104,6 @@ where
     handle: P2pHandle,
     /// P2P node used to run the P2P network.
     node: P2pNode,
-    /// Storage shared with the P2P node.
-    p2p_storage: Arc<dyn PreconfStorage>,
     /// Broadcast channel for outbound events.
     event_tx: broadcast::Sender<PreconfirmationEvent>,
 }
@@ -199,16 +137,7 @@ where
         // Build the broadcast channel for events.
         let (event_tx, _event_rx) = broadcast::channel(EVENT_CHANNEL_CAPACITY);
 
-        Ok(Self {
-            config,
-            store,
-            codec,
-            driver: Arc::new(driver),
-            handle,
-            node,
-            p2p_storage,
-            event_tx,
-        })
+        Ok(Self { config, store, codec, driver: Arc::new(driver), handle, node, event_tx })
     }
 
     /// Subscribe to client events.
@@ -248,16 +177,8 @@ where
     /// 4. Emits a synced event.
     /// 5. Returns a [`EventLoop`] that can be used to run the blocking event loop.
     pub async fn sync_and_catchup(self) -> Result<EventLoop<D>> {
-        let PreconfirmationClient {
-            config,
-            store,
-            codec,
-            driver,
-            mut handle,
-            node,
-            p2p_storage,
-            event_tx,
-        } = self;
+        let PreconfirmationClient { config, store, codec, driver, mut handle, node, event_tx } =
+            self;
 
         info!("waiting for driver event sync to complete");
         // Wait for the driver to report event sync completion.
@@ -269,15 +190,18 @@ where
         info!(event_sync_tip = %event_sync_tip, "driver event sync complete, starting preconfirmation client");
 
         // Build the event handler for gossip processing.
-        let handler = EventHandler::new(EventHandlerParams {
-            store: store.clone(),
-            codec: codec.clone(),
-            driver: driver.clone(),
-            expected_slasher: config.expected_slasher.clone(),
-            event_tx: event_tx.clone(),
-            command_tx: handle.command_sender(),
-            lookahead_resolver: Arc::clone(&config.lookahead_resolver),
-        });
+        let handler = EventHandler::new_with_local_peer_id(
+            EventHandlerParams {
+                store: store.clone(),
+                codec: codec.clone(),
+                driver: driver.clone(),
+                expected_slasher: config.expected_slasher.clone(),
+                event_tx: event_tx.clone(),
+                command_tx: handle.command_sender(),
+                lookahead_resolver: Arc::clone(&config.lookahead_resolver),
+            },
+            handle.local_peer_id(),
+        );
 
         // Spawn the P2P node loop before running catch-up.
         // Convert anyhow::Result from P2pNode::run() to our crate's Result type.
@@ -287,18 +211,16 @@ where
 
         // If pre-dial peers are configured, dial them and wait for a connection
         // before attempting catch-up. Use the pre_dial_timeout if configured.
-        if !config.p2p.pre_dial_peers.is_empty() {
-            let pre_dial_result = dial_and_wait_for_peer(&mut handle, &config, &event_tx).await;
-            if let Err(err) = pre_dial_result {
-                node_handle.abort();
-                return Err(err);
-            }
+        if !config.p2p.pre_dial_peers.is_empty() &&
+            let Err(err) = dial_and_wait_for_peer(&mut handle, &config, &event_tx).await
+        {
+            node_handle.abort();
+            return Err(err);
         }
 
         // Run the catch-up flow.
-        let catchup_result =
-            run_catchup(&config, &store, &mut handle, event_sync_tip, &handler).await;
-        if let Err(err) = catchup_result {
+        if let Err(err) = run_catchup(&config, &store, &mut handle, event_sync_tip, &handler).await
+        {
             node_handle.abort();
             return Err(err);
         }
@@ -307,9 +229,9 @@ where
         if let Err(err) = event_tx.send(PreconfirmationEvent::Synced) {
             warn!(error = %err, "failed to emit synced event");
         }
-        metrics::counter!(PreconfirmationClientMetrics::SYNCED_TOTAL).increment(1);
+        PreconfirmationClientMetrics::synced_total().inc();
 
-        Ok(EventLoop { config, p2p_storage, node_handle, handle, handler })
+        Ok(EventLoop { node_handle, handle, handler })
     }
 }
 
@@ -350,52 +272,8 @@ where
         handler.handle_commitment(commitment).await?;
     }
 
-    metrics::histogram!(PreconfirmationClientMetrics::CATCHUP_DURATION_SECONDS)
-        .record(catchup_start.elapsed().as_secs_f64());
+    PreconfirmationClientMetrics::catchup_duration_seconds()
+        .observe(catchup_start.elapsed().as_secs_f64());
 
     Ok(())
-}
-
-/// Simple exponential backoff helper for P2P restarts.
-#[derive(Debug)]
-struct RetryBackoff {
-    /// Current backoff duration.
-    current: Duration,
-    /// Maximum backoff duration.
-    max: Duration,
-}
-
-impl RetryBackoff {
-    /// Create a new `RetryBackoff` with the given base and maximum durations.
-    fn new(base: Duration, max: Duration) -> Self {
-        Self { current: base, max }
-    }
-
-    /// Get the next delay duration, doubling the current delay up to the maximum.
-    fn next_delay(&mut self) -> Duration {
-        let delay = self.current.min(self.max);
-        self.current = (self.current * 2).min(self.max);
-        delay
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::time::Duration;
-
-    use super::RetryBackoff;
-
-    #[test]
-    fn retry_backoff_doubles_until_max() {
-        let base = Duration::from_millis(100);
-        let max = Duration::from_secs(1);
-        let mut backoff = RetryBackoff::new(base, max);
-
-        assert_eq!(backoff.next_delay(), base);
-        assert_eq!(backoff.next_delay(), base + base);
-        assert_eq!(backoff.next_delay(), base + base + base + base);
-        assert_eq!(backoff.next_delay(), Duration::from_millis(800));
-        assert_eq!(backoff.next_delay(), max);
-        assert_eq!(backoff.next_delay(), max);
-    }
 }

@@ -10,13 +10,13 @@ use alloy_rpc_types_engine::ExecutionPayloadV1;
 use protocol::{FixedKSigner, codec::ZlibTxListCodec};
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope, error::WhitelistPreconfirmationDriverError,
-    tx_list::MAX_COMPRESSED_TX_LIST_BYTES,
+    codec::{MAX_COMPRESSED_TX_LIST_BYTES, WhitelistExecutionPayloadEnvelope},
+    error::WhitelistPreconfirmationDriverError,
 };
 
 use super::{
     cache_import::{should_defer_cached_import_error, should_drop_cached_import_error},
-    sync_ready_transition,
+    should_enable_preconf_imports,
     validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
 };
 
@@ -31,6 +31,7 @@ fn sample_execution_payload_with_transactions(
         end_of_sequencing: None,
         is_forced_inclusion: None,
         parent_beacon_block_root: None,
+        header_difficulty: Some(U256::from(1_000_000u64)),
         execution_payload: ExecutionPayloadV1 {
             parent_hash: B256::from([0x10u8; 32]),
             fee_recipient: Address::from([0x11u8; 20]),
@@ -149,11 +150,11 @@ fn drops_cached_import_errors_for_invalid_block_driver_error() {
 }
 
 #[test]
-fn defers_cached_import_errors_for_missing_parent_driver_error() {
+fn defers_cached_import_errors_for_missing_payload_id_driver_error() {
     let err =
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfInjectionFailed {
             block_number: 42,
-            source: driver::sync::error::EngineSubmissionError::MissingParent,
+            source: driver::sync::error::EngineSubmissionError::MissingPayloadId,
         });
     assert!(!should_drop_cached_import_error(&err));
     assert!(should_defer_cached_import_error(&err));
@@ -167,13 +168,23 @@ fn propagates_cached_import_errors_for_non_payload_failures() {
 }
 
 #[test]
-fn propagates_cached_import_errors_for_driver_queue_timeouts() {
+fn defers_cached_import_errors_for_preconf_enqueue_timeout() {
     let err =
         WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfEnqueueTimeout {
             waited: Duration::from_secs(1),
         });
     assert!(!should_drop_cached_import_error(&err));
-    assert!(!should_defer_cached_import_error(&err));
+    assert!(should_defer_cached_import_error(&err));
+}
+
+#[test]
+fn defers_cached_import_errors_for_preconf_response_timeout() {
+    let err =
+        WhitelistPreconfirmationDriverError::Driver(driver::DriverError::PreconfResponseTimeout {
+            waited: Duration::from_secs(12),
+        });
+    assert!(!should_drop_cached_import_error(&err));
+    assert!(should_defer_cached_import_error(&err));
 }
 
 #[test]
@@ -227,7 +238,7 @@ fn validate_payload_rejects_oversized_compressed_transactions_list() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("compressed transactions size exceeds")
+            if msg.contains("compressed txlist exceeds max size")
     ));
 }
 
@@ -360,7 +371,7 @@ fn validate_payload_rejects_invalid_zlib_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("invalid zlib bytes for transactions")
+            if msg.contains("zlib decode failed")
     ));
 }
 
@@ -378,7 +389,7 @@ fn validate_payload_rejects_invalid_rlp_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("invalid RLP bytes for transactions")
+            if msg.contains("rlp decode failed")
     ));
 }
 
@@ -398,7 +409,7 @@ fn validate_payload_rejects_oversized_decompressed_transactions_bytes() {
     assert!(matches!(
         err,
         WhitelistPreconfirmationDriverError::InvalidPayload(msg)
-            if msg.contains("decompressed transactions size exceeds")
+            if msg.contains("decompressed txlist exceeds max size")
     ));
 }
 
@@ -508,9 +519,21 @@ fn normalizes_unsafe_payload_envelope_keeps_existing_signature() {
 }
 
 #[test]
-fn sync_ready_transition_detects_first_ready_edge() {
-    assert!(!sync_ready_transition(false, false));
-    assert!(sync_ready_transition(false, true));
-    assert!(!sync_ready_transition(true, true));
-    assert!(!sync_ready_transition(true, false));
+fn should_enable_preconf_imports_when_head_origin_written() {
+    assert!(should_enable_preconf_imports(true, None));
+}
+
+#[test]
+fn should_enable_preconf_imports_at_genesis_before_first_proposal() {
+    assert!(should_enable_preconf_imports(false, Some(1)));
+}
+
+#[test]
+fn should_not_enable_preconf_imports_when_proposals_exist_without_origin() {
+    assert!(!should_enable_preconf_imports(false, Some(2)));
+}
+
+#[test]
+fn should_not_enable_preconf_imports_when_next_proposal_id_unknown() {
+    assert!(!should_enable_preconf_imports(false, None));
 }

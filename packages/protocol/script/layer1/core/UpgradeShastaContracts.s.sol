@@ -13,14 +13,14 @@ import "test/shared/DeployCapability.sol";
 /// - PRIVATE_KEY: Deployer private key
 /// - PRECONF_WHITELIST_IMPL: New preconf whitelist implementation address
 /// - PROVER_WHITELIST_PROXY: Prover whitelist proxy address (from deployment)
-/// - SIGNAL_SERVICE_FORK_ROUTER_IMPL: Signal service fork router implementation address
+/// - SIGNAL_SERVICE_IMPL: New signal service implementation address
 contract UpgradeShastaContracts is DeployCapability {
     struct UpgradeConfig {
         address preconfWhitelistProxy;
         address preconfWhitelistImpl;
         address proverWhitelistProxy;
         address signalServiceProxy;
-        address signalServiceForkRouterImpl;
+        address signalServiceImpl;
     }
 
     modifier broadcast() {
@@ -44,7 +44,7 @@ contract UpgradeShastaContracts is DeployCapability {
         // Load deployment-specific values from environment
         config.preconfWhitelistImpl = vm.envAddress("PRECONF_WHITELIST_IMPL");
         config.proverWhitelistProxy = vm.envAddress("PROVER_WHITELIST_PROXY");
-        config.signalServiceForkRouterImpl = vm.envAddress("SIGNAL_SERVICE_FORK_ROUTER_IMPL");
+        config.signalServiceImpl = vm.envAddress("SIGNAL_SERVICE_IMPL");
     }
 
     function _validateConfig(UpgradeConfig memory config) private pure {
@@ -52,15 +52,12 @@ contract UpgradeShastaContracts is DeployCapability {
         require(config.preconfWhitelistImpl != address(0), "PRECONF_WHITELIST_IMPL not set");
         require(config.proverWhitelistProxy != address(0), "PROVER_WHITELIST_PROXY not set");
         require(config.signalServiceProxy != address(0), "SIGNAL_SERVICE_PROXY not set");
-        require(
-            config.signalServiceForkRouterImpl != address(0),
-            "SIGNAL_SERVICE_FORK_ROUTER_IMPL not set"
-        );
+        require(config.signalServiceImpl != address(0), "SIGNAL_SERVICE_IMPL not set");
     }
 
     function _upgrade(UpgradeConfig memory config) private {
         UUPSUpgradeable(config.preconfWhitelistProxy).upgradeTo(config.preconfWhitelistImpl);
         Ownable2StepUpgradeable(config.proverWhitelistProxy).acceptOwnership();
-        UUPSUpgradeable(config.signalServiceProxy).upgradeTo(config.signalServiceForkRouterImpl);
+        UUPSUpgradeable(config.signalServiceProxy).upgradeTo(config.signalServiceImpl);
     }
 }

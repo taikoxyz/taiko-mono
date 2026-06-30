@@ -1,55 +1,89 @@
 //! Whitelist preconfirmation API service implementation.
 
-use std::{sync::Arc, time::Instant};
-
-use alethia_reth_primitives::payload::{
-    attributes::{RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes},
-    builder::payload_id_taiko,
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
 };
+
+use alethia_reth_primitives::payload::attributes::TaikoPayloadAttributes;
 use alloy_eips::BlockNumberOrTag;
-use alloy_primitives::{Address, B256, Bloom, FixedBytes, U256};
+use alloy_primitives::{B256, Bloom, FixedBytes, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::SyncStatus;
-use alloy_rpc_types_engine::{ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes};
+use alloy_rpc_types_engine::ExecutionPayloadV1;
 use async_trait::async_trait;
 use driver::{PreconfPayload, sync::event::EventSyncer};
-use metrics::histogram;
-use protocol::{
-    shasta::{PAYLOAD_ID_VERSION_V2, calculate_shasta_difficulty, payload_id_to_bytes},
-    signer::FixedKSigner,
-};
+use protocol::{shasta::calculate_shasta_mix_hash, signer::FixedKSigner};
 use rpc::{beacon::BeaconClient, client::Client};
-use tokio::sync::{Mutex, RwLock, broadcast, mpsc};
+use tokio::sync::{Mutex, broadcast, mpsc};
 use tracing::{debug, warn};
 
 use crate::{
     api::{
         WhitelistApi,
         types::{
-            BuildPreconfBlockRequest, BuildPreconfBlockResponse, EndOfSequencingNotification,
-            LookaheadStatus, SlotRange, WhitelistStatus,
+            ApiStatus, BuildPreconfBlockRequest, BuildPreconfBlockResponse,
+            EndOfSequencingNotification, ExecutableData,
         },
     },
-    cache::SharedPreconfCacheState,
+    cache::SharedPreconfState,
     codec::{WhitelistExecutionPayloadEnvelope, block_signing_hash, encode_envelope_ssz},
     error::{Result, WhitelistPreconfirmationDriverError},
     importer::validate_execution_payload_for_preconf,
     network::NetworkCommand,
-    whitelist_fetcher::WhitelistSequencerFetcher,
+    operator_set::SharedOperatorSet,
 };
 
-mod api_impl;
-mod lookahead;
+mod handlers;
 mod payload_build;
 mod status;
 
 #[cfg(test)]
 mod tests;
 
-/// Default handover-skip slots used for sequencing window split.
-const DEFAULT_HANDOVER_SKIP_SLOTS: u64 = 8;
 /// Maximum number of pending EOS notifications retained for `/ws` subscribers.
 const EOS_NOTIFICATION_CHANNEL_CAPACITY: usize = 128;
+
+/// Number of L1 slots in the preconfer hand-over window. Doubled relative to
+/// the Go client's default `handover_slots = 4` because the Rust whitelist
+/// driver lacks lookahead-aware logic and must rely on a coarser time-based
+/// heuristic. See PR #21648 for the Go counterpart.
+const HAND_OVER_WINDOW_SLOTS: u64 = 8;
+
+/// L1 slot duration in seconds (Ethereum mainnet).
+const SECONDS_PER_SLOT: u64 = 12;
+
+/// Duration during which a recently received `build_preconf_block` request
+/// blocks pod shutdown. Computed as `1.5 × HAND_OVER_WINDOW_SLOTS ×
+/// SECONDS_PER_SLOT`, expressed as integer math (`× 3 / 2`) so the result is
+/// `const`-evaluable. Equals 144 s.
+const SHUTDOWN_BLOCK_WINDOW: Duration =
+    Duration::from_secs(HAND_OVER_WINDOW_SLOTS * SECONDS_PER_SLOT * 3 / 2);
+
+/// Pure helper deciding whether the pod is safe to shut down given the time
+/// of the most recent `build_preconf_block` invocation. Returns `true` when
+/// no invocation has been recorded or when the elapsed time meets or exceeds
+/// `SHUTDOWN_BLOCK_WINDOW`.
+fn can_shutdown_for(last_preconf_request: Option<Instant>) -> bool {
+    match last_preconf_request {
+        None => true,
+        Some(at) => at.elapsed() >= SHUTDOWN_BLOCK_WINDOW,
+    }
+}
+
+/// Report `head` whenever it is known; fall back to `tracked` when it is `None`.
+///
+/// The tracked value only moves on preconfirmation imports and local builds, so it can
+/// drift from the head in both directions: an L1 reorg rewinds the head below the
+/// counter, while canonical L1 derivation with no gossip traffic advances the head past
+/// it. Every canonical block was inserted by this driver, so the head is always an
+/// honest answer — and the Catalyst sidecar's sync gate requires the reported value to
+/// equal the execution head exactly before it starts (or resumes) preconfirming. A
+/// permanently lagging report would wedge the operator in a restart loop that only a
+/// driver restart clears.
+fn reconcile_highest_unsafe(tracked: u64, head: Option<u64>) -> u64 {
+    head.unwrap_or(tracked)
+}
 
 /// Implements whitelist preconfirmation API business logic.
 pub(crate) struct WhitelistApiService<P>
@@ -70,18 +104,17 @@ where
     network_command_tx: mpsc::Sender<NetworkCommand>,
     /// Serializes build requests to avoid concurrent insertion/signing races.
     build_preconf_lock: Mutex<()>,
-    /// Fetcher that provides cached, retry-safe whitelist operator lookups.
-    sequencer_fetcher: Mutex<WhitelistSequencerFetcher<P>>,
-    /// Local peer ID string.
-    local_peer_id: String,
-    /// Highest unsafe payload block ID tracked by this node (shared with importer).
-    highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
-    /// Cached lookahead status used for fee-recipient validation.
-    lookahead_status: RwLock<Option<LookaheadStatus>>,
-    /// Shared cache state used to back `/status` and EOS visibility.
-    cache_state: SharedPreconfCacheState,
+    /// Lock-free shared set of whitelisted sequencer addresses; used to refuse
+    /// build requests when this node's own P2P signer has been deregistered on-chain.
+    operator_set: SharedOperatorSet,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    state: SharedPreconfState,
     /// Broadcast channel for API `/ws` end-of-sequencing notifications.
     eos_notification_tx: broadcast::Sender<EndOfSequencingNotification>,
+    /// Wall-clock instant of the most recent `build_preconf_block` invocation,
+    /// regardless of the request's outcome. `None` until the first request
+    /// arrives. Read by `/status` to compute `can_shutdown`.
+    last_preconf_request_at: Mutex<Option<Instant>>,
 }
 
 /// Dependency bundle for constructing `WhitelistApiService`.
@@ -99,16 +132,12 @@ where
     pub(crate) signer: FixedKSigner,
     /// Beacon client used for epoch calculations.
     pub(crate) beacon_client: Arc<BeaconClient>,
-    /// Pre-built fetcher for cached whitelist operator lookups.
-    pub(crate) sequencer_fetcher: WhitelistSequencerFetcher<P>,
-    /// Shared highest unsafe payload block ID (also updated by importer on P2P import).
-    pub(crate) highest_unsafe_l2_payload_block_id: Arc<Mutex<u64>>,
+    /// Shared operator set used to gate the build API on the node's own whitelist status.
+    pub(crate) operator_set: SharedOperatorSet,
+    /// Shared driver state (recent envelopes, EOS markers, highest unsafe block id).
+    pub(crate) state: SharedPreconfState,
     /// Network command sender for gossip publishing.
     pub(crate) network_command_tx: mpsc::Sender<NetworkCommand>,
-    /// Shared preconfirmation cache state.
-    pub(crate) cache_state: SharedPreconfCacheState,
-    /// Local peer ID string.
-    pub(crate) local_peer_id: String,
 }
 
 impl<P> WhitelistApiService<P>
@@ -123,11 +152,9 @@ where
             chain_id,
             signer,
             beacon_client,
-            sequencer_fetcher,
-            highest_unsafe_l2_payload_block_id,
+            operator_set,
+            state,
             network_command_tx,
-            cache_state,
-            local_peer_id,
         }: WhitelistApiServiceParams<P>,
     ) -> Self {
         let (eos_notification_tx, _) = broadcast::channel(EOS_NOTIFICATION_CHANNEL_CAPACITY);
@@ -137,14 +164,25 @@ where
             chain_id,
             signer,
             beacon_client,
-            sequencer_fetcher: Mutex::new(sequencer_fetcher),
-            local_peer_id,
-            highest_unsafe_l2_payload_block_id,
-            lookahead_status: RwLock::new(None),
-            cache_state,
+            operator_set,
+            state,
             eos_notification_tx,
             network_command_tx,
             build_preconf_lock: Mutex::new(()),
+            last_preconf_request_at: Mutex::new(None),
         }
+    }
+
+    /// Record that a `build_preconf_block` request has been received.
+    /// Called at the top of the request handler so that even rejected
+    /// requests count toward shutdown-safety.
+    pub(super) async fn mark_preconf_request_received(&self) {
+        *self.last_preconf_request_at.lock().await = Some(Instant::now());
+    }
+
+    /// Returns `true` when no `build_preconf_block` request has been received
+    /// within the last `SHUTDOWN_BLOCK_WINDOW`.
+    pub(super) async fn compute_can_shutdown(&self) -> bool {
+        can_shutdown_for(*self.last_preconf_request_at.lock().await)
     }
 }

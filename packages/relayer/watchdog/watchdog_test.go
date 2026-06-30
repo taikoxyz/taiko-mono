@@ -1,9 +1,12 @@
 package watchdog
 
 import (
+	"encoding/json"
+	"errors"
 	"math/big"
 	"testing"
 
+	cybererrors "github.com/cyberhorsey/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -20,4 +23,13 @@ func Test_queueName(t *testing.T) {
 	}
 
 	assert.Equal(t, "1-2-MessageProcessed-queue", w.queueName())
+}
+
+func TestShouldRequeueCheckMessageErrorReturnsFalseForMalformedJSON(t *testing.T) {
+	var syntaxErr *json.SyntaxError
+
+	err := json.Unmarshal([]byte("{"), &struct{}{})
+	assert.True(t, errors.As(err, &syntaxErr))
+
+	assert.False(t, shouldRequeueCheckMessageError(cybererrors.Wrap(err, "json.Unmarshal")))
 }

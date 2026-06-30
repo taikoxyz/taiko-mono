@@ -1,5 +1,8 @@
 //! E2E tests for P2P preconfirmation block production.
 
+#[path = "common/helpers.rs"]
+mod helpers;
+
 use std::{sync::Arc, time::Duration};
 
 use alloy_consensus::{
@@ -7,33 +10,29 @@ use alloy_consensus::{
     proofs::{calculate_receipt_root, calculate_transaction_root, calculate_withdrawals_root},
     transaction::SignerRecoverable,
 };
-use alloy_eips::BlockId;
+use alloy_eips::{BlockId, eip7685::EMPTY_REQUESTS_HASH};
 use alloy_primitives::{Address, B64, B256, Bloom, U256};
 use alloy_provider::Provider;
 use alloy_rpc_types::{BlockNumberOrTag, TransactionReceipt, eth::Block as RpcBlock};
 use anyhow::{Context, Result, anyhow, ensure};
-use driver::{
-    DriverConfig,
-    sync::{SyncStage, event::EventSyncer},
-};
-use preconfirmation_driver::{DriverClient, PreconfirmationClient, PreconfirmationClientConfig};
+use helpers::start_preconf_client;
 use preconfirmation_net::{InMemoryStorage, LocalValidationAdapter, P2pNode};
 use preconfirmation_types::{SignedCommitment, uint256_to_u256};
-use protocol::shasta::{calculate_shasta_difficulty, encode_extra_data};
-use rpc::client::{Client, ClientConfig};
+use protocol::shasta::{
+    calculate_shasta_mix_hash, encode_extra_data, unzen_active_for_chain_timestamp,
+};
 use serial_test::serial;
 use test_context::test_context;
 use test_harness::{
-    BeaconStubServer, PreconfTxList, ShastaEnv, TransferPayload, build_preconf_txlist,
-    compute_next_block_base_fee, fetch_block_by_number,
+    PreconfTxList, ShastaEnv, TransferPayload, build_preconf_txlist, compute_next_block_base_fee,
+    fetch_block_by_number,
     preconfirmation::{
-        EventSyncerDriverClient, LoggingDriverClient, StaticLookaheadResolver,
-        build_publish_payloads_with_txs, derive_signer, test_p2p_config,
-        wait_for_commitment_and_txlist, wait_for_peer_connected,
+        RealDriverSetup, build_publish_payloads_with_txs, derive_signer, test_p2p_config,
+        wait_for_commitment_and_txlist,
     },
     verify_anchor_block, wait_for_block_or_loop_error,
 };
-use tokio::{spawn, sync::oneshot};
+use tokio::spawn;
 
 // ============================================================================
 // Block Validation Helper (test-specific)
@@ -61,7 +60,7 @@ where
     let parent_block = fetch_block_by_number(provider, block_number.saturating_sub(1)).await?;
     let parent_header = &parent_block.header.inner;
 
-    let expected_mix_hash = calculate_shasta_difficulty(
+    let expected_mix_hash = calculate_shasta_mix_hash(
         B256::from(parent_header.difficulty.to_be_bytes::<32>()),
         block_number,
     );
@@ -70,6 +69,9 @@ where
         .context("computing base fee")?;
     let expected_extra =
         encode_extra_data(basefee_sharing_pctg, uint256_to_u256(&preconf.proposal_id).to::<u64>());
+    let chain_id = provider.get_chain_id().await?;
+    let unzen_active = unzen_active_for_chain_timestamp(chain_id, header.timestamp)
+        .map_err(|err| anyhow!("resolving Unzen activation: {err}"))?;
 
     // Verify header fields.
     ensure!(block.header.hash == header.hash_slow(), "header hash mismatch");
@@ -83,7 +85,14 @@ where
         "beneficiary mismatch"
     );
     ensure!(header.state_root != B256::ZERO, "state root missing");
-    ensure!(header.difficulty == U256::ZERO, "difficulty should be zero");
+    if unzen_active {
+        ensure!(
+            header.difficulty > U256::ZERO,
+            "difficulty should carry finalized zk gas after Unzen"
+        );
+    } else {
+        ensure!(header.difficulty == U256::ZERO, "difficulty should be zero");
+    }
     ensure!(
         header.number == uint256_to_u256(&preconf.block_number).to::<u64>(),
         "block number mismatch"
@@ -105,11 +114,24 @@ where
         ensure!(withdrawals_root == calculate_withdrawals_root(&[]), "withdrawals root mismatch");
     }
 
-    // Verify EIP-4844 fields are absent.
-    ensure!(header.blob_gas_used.is_none(), "blob gas used should be none");
-    ensure!(header.excess_blob_gas.is_none(), "excess blob gas should be none");
-    ensure!(header.parent_beacon_block_root.is_none(), "parent beacon root should be none");
-    ensure!(header.requests_hash.is_none(), "requests hash should be none");
+    // Verify EIP-4844 fields and Unzen fork fields.
+    if unzen_active {
+        ensure!(header.blob_gas_used == Some(0), "blob gas used should be zero");
+        ensure!(header.excess_blob_gas == Some(0), "excess blob gas should be zero");
+        ensure!(
+            header.parent_beacon_block_root == Some(B256::ZERO),
+            "parent beacon root should be zero"
+        );
+        ensure!(
+            header.requests_hash == Some(EMPTY_REQUESTS_HASH),
+            "requests hash should be the empty requests hash"
+        );
+    } else {
+        ensure!(header.blob_gas_used.is_none(), "blob gas used should be none");
+        ensure!(header.excess_blob_gas.is_none(), "excess blob gas should be none");
+        ensure!(header.parent_beacon_block_root.is_none(), "parent beacon root should be none");
+        ensure!(header.requests_hash.is_none(), "requests hash should be none");
+    }
 
     // Verify transactions.
     let txs = block
@@ -195,62 +217,26 @@ where
 #[serial]
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
-    let beacon_server = BeaconStubServer::start().await?;
-
-    // Configure and start the driver with preconfirmation enabled.
-    let mut driver_config = DriverConfig::new(
-        ClientConfig {
-            l1_provider_source: env.l1_source.clone(),
-            l2_provider_url: env.l2_ws_0.clone(),
-            l2_auth_provider_url: env.l2_auth_0.clone(),
-            jwt_secret: env.jwt_secret.clone(),
-            inbox_address: env.inbox_address,
-        },
-        Duration::from_millis(50),
-        beacon_server.endpoint().clone(),
-        None,
-        None,
-    );
-    driver_config.preconfirmation_enabled = true;
-
-    let rpc_client = Client::new(driver_config.client.clone()).await?;
-    let event_syncer = Arc::new(EventSyncer::new(&driver_config, rpc_client.clone()).await?);
-    let event_handle = spawn({
-        let syncer = event_syncer.clone();
-        async move { syncer.run().await }
-    });
-
-    event_syncer
-        .wait_preconf_ingress_ready()
-        .await
-        .map_err(|err| anyhow!("preconfirmation ingress unavailable: {err}"))?;
-
-    // Set up driver client with logging wrapper.
-    let embedded_client = EventSyncerDriverClient::new(event_syncer.clone(), rpc_client.clone());
-    let driver_client = LoggingDriverClient::new(Arc::new(embedded_client));
+    // Start a real driver connected to L2 with preconfirmation enabled.
+    let setup = RealDriverSetup::start(env).await?;
 
     // Derive signer from deterministic secret key.
     let (signer_sk, signer) = derive_signer(1);
 
-    // Determine target block number.
+    // Determine target block number and preconfirmation metadata from driver tips.
     let submission_window_end = U256::from(1000u64);
-    let event_sync_tip = driver_client.event_sync_tip().await?;
-    let preconf_tip = driver_client.preconf_tip().await?;
-    let commitment_block = event_sync_tip.max(preconf_tip) + U256::ONE;
-    let commitment_block_num = commitment_block.to::<u64>();
+    let starting_block = setup.compute_starting_block_info().await?;
+    let commitment_block_num = starting_block.block_number;
+    let commitment_block = U256::from(commitment_block_num);
+    let preconf_timestamp = starting_block.base_timestamp;
+    let preconf_gas_limit = starting_block.parent_gas_limit;
 
-    // Derive preconfirmation metadata from parent block.
+    // Fetch the parent block (for its hash) and compute the next block base fee.
     let parent_block =
-        fetch_block_by_number(&env.client.l2_provider, commitment_block_num.saturating_sub(1))
+        fetch_block_by_number(&setup.l2_provider, commitment_block_num.saturating_sub(1)).await?;
+    let preconf_base_fee =
+        compute_next_block_base_fee(&setup.l2_provider, commitment_block_num.saturating_sub(1))
             .await?;
-    let parent_header = &parent_block.header.inner;
-    let preconf_timestamp = parent_header.timestamp.saturating_add(1);
-    let preconf_gas_limit = parent_header.gas_limit;
-    let preconf_base_fee = compute_next_block_base_fee(
-        &env.client.l2_provider,
-        commitment_block_num.saturating_sub(1),
-    )
-    .await?;
 
     // Set up P2P nodes: external publisher and internal subscriber.
     let (mut ext_handle, ext_node) = P2pNode::new_with_validator_and_storage(
@@ -260,23 +246,13 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     )?;
     let ext_node_handle = spawn(async move { ext_node.run().await });
 
-    let mut int_cfg = PreconfirmationClientConfig::new_with_resolver(
-        test_p2p_config(),
-        Arc::new(StaticLookaheadResolver::new(signer, submission_window_end)),
-    );
-    int_cfg.p2p.pre_dial_peers = vec![ext_handle.dialable_addr().await?];
-
-    let internal_client = PreconfirmationClient::new(int_cfg, driver_client)?;
-    let mut events = internal_client.subscribe();
-
-    let mut event_loop = internal_client.sync_and_catchup().await?;
-    let (event_loop_tx, mut event_loop_rx) = oneshot::channel::<anyhow::Result<()>>();
-    let event_loop_handle = spawn(async move {
-        let _ = event_loop_tx.send(event_loop.run().await.map_err(Into::into));
-    });
-
-    // Wait for peer connection.
-    wait_for_peer_connected(&mut events).await;
+    let (mut events, event_loop_handle, mut event_loop_rx) = start_preconf_client(
+        signer,
+        submission_window_end,
+        vec![ext_handle.dialable_addr().await?],
+        setup.driver_client.clone(),
+    )
+    .await?;
     ext_handle.wait_for_peer_connected().await?;
 
     // Build anchor + test transfers using helper.
@@ -305,7 +281,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
 
     // Wait for block production or event loop failure.
     let produced_block = wait_for_block_or_loop_error(
-        &env.client.l2_provider,
+        &setup.l2_provider,
         commitment_block_num,
         Duration::from_secs(30),
         &mut event_loop_rx,
@@ -316,7 +292,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     // Verify block contents.
     let inbox_config = env.client.shasta.inbox.getConfig().call().await?;
     assert_block_fields(
-        &env.client.l2_provider,
+        &setup.l2_provider,
         &produced_block,
         &signed_commitment,
         inbox_config.basefeeSharingPctg,
@@ -331,8 +307,7 @@ async fn p2p_preconfirmation_produces_block(env: &mut ShastaEnv) -> Result<()> {
     // Cleanup background tasks.
     event_loop_handle.abort();
     ext_node_handle.abort();
-    event_handle.abort();
-    beacon_server.shutdown().await?;
+    setup.stop().await?;
 
     Ok(())
 }

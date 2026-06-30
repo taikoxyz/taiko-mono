@@ -3,7 +3,7 @@ use alloy_rpc_types::BlockNumberOrTag;
 use event_scanner::{Notification, ScannerMessage};
 
 use tokio::{sync::oneshot, time::Duration};
-use tokio_retry::{RetryIf, strategy::ExponentialBackoff};
+use tokio_retry::{Retry, strategy::ExponentialBackoff};
 use tokio_stream::StreamExt;
 use tracing::{error, info};
 
@@ -22,13 +22,6 @@ const INGEST_BACKOFF_BASE_MS: u64 = 200;
 const INGEST_BACKOFF_MAX_MS: u64 = 5_000;
 /// Number of epochs to backfill when starting the scanner.
 const SCAN_EPOCH_LOOKBACK: u64 = 3;
-
-/// Error wrapper used to classify ingest failures; all variants are retryable.
-#[derive(Debug)]
-enum IngestError {
-    /// Ingest failed with an error that should be retried with backoff.
-    Retryable(LookaheadError),
-}
 
 impl LookaheadResolver {
     /// Construct a resolver and immediately start a background event-scanner from the latest
@@ -132,21 +125,15 @@ impl LookaheadResolver {
                         let backoff = ExponentialBackoff::from_millis(INGEST_BACKOFF_BASE_MS)
                             .max_delay(Duration::from_millis(INGEST_BACKOFF_MAX_MS));
 
-                        let retry_result = RetryIf::spawn(
-                            backoff,
-                            || {
-                                let resolver = resolver.clone();
-                                let logs = logs.clone();
-                                async move {
-                                    resolver.ingest_logs(logs).await.map_err(IngestError::Retryable)
-                                }
-                            },
-                            // Retry on every failure; we do not drop lookahead logs.
-                            |_: &IngestError| true,
-                        )
+                        // Retry on every failure; we do not drop lookahead logs.
+                        let retry_result = Retry::spawn(backoff, || {
+                            let resolver = resolver.clone();
+                            let logs = logs.clone();
+                            async move { resolver.ingest_logs(logs).await }
+                        })
                         .await;
 
-                        if let Err(IngestError::Retryable(err)) = retry_result {
+                        if let Err(err) = retry_result {
                             error!(
                                 ?err,
                                 "unexpected failure in lookahead log ingestion retry mechanism"

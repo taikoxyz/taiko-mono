@@ -59,6 +59,15 @@ impl DerivationSourceManifest {
     /// Decompress and decode a derivation source manifest from the Shasta protocol payload bytes.
     /// Ref: https://github.com/taikoxyz/taiko-mono/blob/main/packages/protocol/docs/Derivation.md
     pub fn decompress_and_decode(bytes: &[u8], offset: usize) -> Result<Self> {
+        Self::decompress_and_decode_with_max_blocks(bytes, offset, DERIVATION_SOURCE_MAX_BLOCKS)
+    }
+
+    /// Decompress and decode a derivation source manifest with a caller-selected block limit.
+    pub fn decompress_and_decode_with_max_blocks(
+        bytes: &[u8],
+        offset: usize,
+        max_blocks: usize,
+    ) -> Result<Self> {
         let decoded = match decode_manifest_payload(bytes, offset) {
             Ok(d) => d,
             Err(err) => {
@@ -76,10 +85,10 @@ impl DerivationSourceManifest {
             }
         };
 
-        if manifest.blocks.len() > DERIVATION_SOURCE_MAX_BLOCKS {
+        if manifest.blocks.len() > max_blocks {
             warn!(
                 blocks = manifest.blocks.len(),
-                max = DERIVATION_SOURCE_MAX_BLOCKS,
+                max = max_blocks,
                 "manifest contains too many blocks; returning default manifest"
             );
             return Ok(DerivationSourceManifest::default());
@@ -113,6 +122,13 @@ where
     Ok(output)
 }
 
+/// Return the least significant 64 bits of a 32-byte big-endian word.
+fn low_u64_from_word(word: &[u8]) -> u64 {
+    let mut low = [0u8; 8];
+    low.copy_from_slice(&word[24..32]);
+    u64::from_be_bytes(low)
+}
+
 /// Decode a manifest from the Shasta protocol payload format.
 fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     if bytes.len() < offset + 64 {
@@ -124,19 +140,17 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
     }
 
     let version_raw = U256::from_be_slice(&bytes[offset..offset + 32]);
-    let version = u32::try_from(version_raw).map_err(|_| {
-        ProtocolError::InvalidPayload(format!("version field exceeds u32 range: {version_raw}"))
+    let version_u64 = u64::try_from(version_raw).map_err(|_| {
+        ProtocolError::InvalidPayload(format!("version field exceeds u64 range: {version_raw}"))
     })?;
+    let version = version_u64 as u32;
     if version != SHASTA_PAYLOAD_VERSION as u32 {
         return Err(ProtocolError::InvalidPayload(format!(
             "unsupported payload version: expected {SHASTA_PAYLOAD_VERSION}, got {version}"
         )));
     }
 
-    let size_raw = U256::from_be_slice(&bytes[offset + 32..offset + 64]);
-    let size_u64 = u64::try_from(size_raw).map_err(|_| {
-        ProtocolError::InvalidPayload(format!("size field exceeds u64 range: {size_raw}"))
-    })?;
+    let size_u64 = low_u64_from_word(&bytes[offset + 32..offset + 64]);
     let size = usize::try_from(size_u64).map_err(|_| {
         ProtocolError::InvalidPayload(format!("size field exceeds usize range: {size_u64}"))
     })?;
@@ -163,6 +177,17 @@ fn decode_manifest_payload(bytes: &[u8], offset: usize) -> Result<Vec<u8>> {
 mod tests {
     use super::*;
 
+    fn manifest_with_gas_limit(gas_limit: u64) -> DerivationSourceManifest {
+        DerivationSourceManifest { blocks: vec![BlockManifest { gas_limit, ..Default::default() }] }
+    }
+
+    fn assert_decoded_gas_limit(payload: &[u8], expected_gas_limit: u64) {
+        let decoded = DerivationSourceManifest::decompress_and_decode(payload, 0)
+            .expect("manifest decoding should not return a hard error");
+        assert_eq!(decoded.blocks.len(), 1);
+        assert_eq!(decoded.blocks[0].gas_limit, expected_gas_limit);
+    }
+
     #[test]
     fn test_decode_manifest_payload_too_short() {
         let payload = vec![0u8; 32];
@@ -183,15 +208,43 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_manifest_payload_size_too_large() {
-        let mut payload = vec![0u8; 64];
-        payload[31] = SHASTA_PAYLOAD_VERSION;
-        // size_raw > u64::MAX should yield error.
-        payload[32] = 1;
+    fn test_decode_manifest_payload_version_truncates_uint64_to_uint32() {
+        let manifest = manifest_with_gas_limit(98_765);
+        let mut payload = manifest.encode_and_compress().unwrap();
+        let go_accepted_version = (1u64 << 32) + u64::from(SHASTA_PAYLOAD_VERSION);
 
-        let result = decode_manifest_payload(&payload, 0);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("size field exceeds u64 range"));
+        payload[..32].copy_from_slice(&U256::from(go_accepted_version).to_be_bytes::<32>());
+
+        assert_decoded_gas_limit(&payload, 98_765);
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_version_above_uint64_returns_default() {
+        let manifest = manifest_with_gas_limit(77_777);
+        let mut payload = manifest.encode_and_compress().unwrap();
+
+        // Any non-zero byte before the final 8 bytes makes the 32-byte word exceed uint64.
+        payload[23] = 1;
+
+        let decoded = DerivationSourceManifest::decompress_and_decode(&payload, 0)
+            .expect("manifest decoding should fall back instead of returning a hard error");
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+        assert_eq!(
+            decoded.blocks[0].gas_limit,
+            DerivationSourceManifest::default().blocks[0].gas_limit
+        );
+    }
+
+    #[test]
+    fn test_decode_manifest_payload_size_uses_low_64_bits() {
+        let manifest = manifest_with_gas_limit(123_456);
+        let mut payload = manifest.encode_and_compress().unwrap();
+
+        // Set a high bit outside the low uint64 size word. Go's big.Int.Uint64() keeps
+        // the low 64 bits, so Rust must keep decoding the real compressed length.
+        payload[55] = 1;
+
+        assert_decoded_gas_limit(&payload, 123_456);
     }
 
     #[test]
@@ -238,6 +291,42 @@ mod tests {
         let encoded = manifest.encode_and_compress().unwrap();
 
         let decoded = DerivationSourceManifest::decompress_and_decode(&encoded, 0).unwrap();
+        assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
+    }
+
+    #[test]
+    fn test_derivation_manifest_unzen_max_blocks() {
+        use crate::shasta::constants::UNZEN_DERIVATION_SOURCE_MAX_BLOCKS;
+
+        let blocks: Vec<BlockManifest> =
+            (0..UNZEN_DERIVATION_SOURCE_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
+        let manifest = DerivationSourceManifest { blocks };
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode_with_max_blocks(
+            &encoded,
+            0,
+            UNZEN_DERIVATION_SOURCE_MAX_BLOCKS,
+        )
+        .unwrap();
+        assert_eq!(decoded.blocks.len(), UNZEN_DERIVATION_SOURCE_MAX_BLOCKS);
+    }
+
+    #[test]
+    fn test_derivation_manifest_unzen_too_many_blocks() {
+        use crate::shasta::constants::UNZEN_DERIVATION_SOURCE_MAX_BLOCKS;
+
+        let blocks: Vec<BlockManifest> =
+            (0..=UNZEN_DERIVATION_SOURCE_MAX_BLOCKS).map(|_| BlockManifest::default()).collect();
+        let manifest = DerivationSourceManifest { blocks };
+        let encoded = manifest.encode_and_compress().unwrap();
+
+        let decoded = DerivationSourceManifest::decompress_and_decode_with_max_blocks(
+            &encoded,
+            0,
+            UNZEN_DERIVATION_SOURCE_MAX_BLOCKS,
+        )
+        .unwrap();
         assert_eq!(decoded.blocks.len(), DerivationSourceManifest::default().blocks.len());
     }
 

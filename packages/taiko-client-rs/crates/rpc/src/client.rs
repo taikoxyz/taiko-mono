@@ -7,14 +7,14 @@ use std::{
 };
 
 use alethia_reth_primitives::addresses::get_treasury_address;
-use alloy::{eips::BlockNumberOrTag, rpc::client::RpcClient, transports::http::reqwest::Url};
+use alloy::{rpc::client::RpcClient, transports::http::reqwest::Url};
 use alloy_eips::{BlockId, eip1898::RpcBlockHash};
 use alloy_primitives::{Address, B256};
 use alloy_provider::{
     Provider, ProviderBuilder, RootProvider, WsConnect, fillers::FillProvider,
     utils::JoinedRecommendedFillers,
 };
-use alloy_rpc_types::engine::JwtSecret;
+use alloy_rpc_types_engine::JwtSecret;
 use alloy_transport_http::{AuthLayer, Http, HyperClient};
 use bindings::{anchor::Anchor::AnchorInstance, inbox::Inbox::InboxInstance};
 use http_body_util::Full;
@@ -57,6 +57,8 @@ pub struct AnchorState {
 /// A client for interacting with L1 and L2 providers and Shasta protocol contracts.
 #[derive(Clone, Debug)]
 pub struct Client<P: Provider + Clone> {
+    /// L2 chain ID, fetched from the L2 provider at startup.
+    pub chain_id: u64,
     /// L1 provider (optionally with wallet) used for contract calls.
     pub l1_provider: P,
     /// L2 public provider for read-only access.
@@ -126,7 +128,7 @@ impl<P: Provider + Clone> Client<P> {
             build_jwt_http_provider(config.l2_auth_provider_url.clone(), jwt_secret);
 
         let chain_id = l2_provider.get_chain_id().await.map_err(|e| {
-            RpcClientError::Rpc(format!(
+            RpcClientError::RpcMessage(format!(
                 "L2 HTTP RPC (l2.http) failed to get chain id from {}: {}",
                 config.l2_provider_url, e
             ))
@@ -143,16 +145,7 @@ impl<P: Provider + Clone> Client<P> {
 
         let shasta = ShastaProtocolInstance { inbox, anchor };
 
-        Ok(Self { l1_provider, l2_provider, l2_auth_provider, shasta })
-    }
-
-    /// Fetch the L1 block hash for a given block number.
-    pub async fn l1_block_hash_by_number(&self, block_number: u64) -> Result<Option<B256>> {
-        self.l1_provider
-            .get_block_by_number(BlockNumberOrTag::Number(block_number))
-            .await
-            .map(|origin_block| origin_block.map(|block| block.hash()))
-            .map_err(|err| RpcClientError::Provider(err.to_string()))
+        Ok(Self { chain_id, l1_provider, l2_provider, l2_auth_provider, shasta })
     }
 
     /// Fetch the Shasta anchor state for the given parent block hash.

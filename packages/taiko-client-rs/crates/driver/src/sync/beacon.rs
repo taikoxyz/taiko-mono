@@ -1,6 +1,6 @@
 //! Beacon sync logic.
 
-use std::{borrow::Cow, marker::PhantomData, sync::Arc, time::Duration};
+use std::{borrow::Cow, sync::Arc, time::Duration};
 
 use alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar;
 use alloy::providers::Provider;
@@ -12,7 +12,6 @@ use alloy_rpc_types_engine::{
     ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
 use anyhow::anyhow;
-use metrics::{counter, gauge};
 use rpc::{
     client::{Client, connect_http_with_timeout},
     error::RpcClientError,
@@ -40,8 +39,6 @@ where
     checkpoint: Option<RootProvider>,
     /// Shared checkpoint head used to resume event sync after beacon sync.
     checkpoint_resume_head: Arc<CheckpointResumeHead>,
-    /// Marker that ties this type to the generic provider parameter.
-    _marker: PhantomData<P>,
 }
 
 impl<P> BeaconSyncer<P>
@@ -58,13 +55,7 @@ where
         let checkpoint =
             config.l2_checkpoint_url.as_ref().map(|url| connect_http_with_timeout(url.clone()));
 
-        Self {
-            retry_interval: config.retry_interval,
-            rpc,
-            checkpoint,
-            checkpoint_resume_head,
-            _marker: PhantomData,
-        }
+        Self { retry_interval: config.retry_interval, rpc, checkpoint, checkpoint_resume_head }
     }
 
     /// Query the checkpoint node for its head L1 origin block number.
@@ -92,6 +83,7 @@ where
         let block_number = block.header.number;
         let block_hash = block.hash();
         let tx_root = block.header.transactions_root;
+        let header_difficulty = block.header.difficulty;
         let parent_hash = block.header.parent_hash;
         let withdrawals_root = block.header.withdrawals_root;
         debug!(block_number, ?block_hash, "submitting checkpoint block to execution engine");
@@ -109,6 +101,9 @@ where
         let sidecar = TaikoExecutionDataSidecar {
             tx_hash: tx_root,
             withdrawals_hash: withdrawals_root,
+            // Checkpoint import bypasses the local getPayload/newPayload round trip, so preserve
+            // the sealed block's header difficulty explicitly in the Taiko sidecar.
+            header_difficulty: Some(header_difficulty),
             taiko_block: Some(true),
         };
 
@@ -170,7 +165,7 @@ where
             return Err(SyncError::CheckpointNoOrigin);
         };
 
-        gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
+        DriverMetrics::beacon_sync_checkpoint_head_block().set(checkpoint_head as f64);
         info!(checkpoint_head, "initial checkpoint head");
 
         let poll_interval = if self.retry_interval.is_zero() {
@@ -190,7 +185,7 @@ where
             let local_head =
                 match self.rpc.l2_provider.get_block_number().await.map_err(RpcClientError::from) {
                     Ok(block_id) => {
-                        gauge!(DriverMetrics::BEACON_SYNC_LOCAL_HEAD_BLOCK).set(block_id as f64);
+                        DriverMetrics::beacon_sync_local_head_block().set(block_id as f64);
                         block_id
                     }
                     Err(err) => {
@@ -204,8 +199,8 @@ where
                 .await
                 .map_err(SyncError::CheckpointQuery)?
                 .ok_or(SyncError::CheckpointNoOrigin)?;
-            gauge!(DriverMetrics::BEACON_SYNC_CHECKPOINT_HEAD_BLOCK).set(checkpoint_head as f64);
-            gauge!(DriverMetrics::BEACON_SYNC_HEAD_LAG_BLOCKS)
+            DriverMetrics::beacon_sync_checkpoint_head_block().set(checkpoint_head as f64);
+            DriverMetrics::beacon_sync_head_lag_blocks()
                 .set(checkpoint_head.saturating_sub(local_head) as f64);
 
             if checkpoint_head > local_head {
@@ -237,7 +232,7 @@ where
                         error: err.into(),
                     }
                 })?;
-                counter!(DriverMetrics::BEACON_SYNC_REMOTE_SUBMISSIONS_TOTAL).increment(1);
+                DriverMetrics::beacon_sync_remote_submissions_total().inc();
             } else {
                 // Persist the checkpoint head we have confirmed local execution is synced to.
                 // Event sync uses this exact value as its authoritative resume source when

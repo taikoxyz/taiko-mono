@@ -1,3 +1,5 @@
+//! Payload-level validation for preconfirmation import compatibility.
+
 use alethia_reth_consensus::validation::ANCHOR_V4_SELECTOR;
 use alethia_reth_primitives::addresses::TAIKO_GOLDEN_TOUCH_ADDRESS;
 use alloy_consensus::{
@@ -6,13 +8,15 @@ use alloy_consensus::{
 };
 use alloy_eips::Decodable2718;
 use alloy_primitives::Address;
-use protocol::codec::{TxListCodecError, ZlibTxListCodec};
+use protocol::{codec::ZlibTxListCodec, shasta::unzen_active_for_chain_timestamp};
 use thiserror::Error;
 
 use crate::{
-    codec::WhitelistExecutionPayloadEnvelope,
+    codec::{
+        MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
+        WhitelistExecutionPayloadEnvelope,
+    },
     error::{Result, WhitelistPreconfirmationDriverError},
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES},
 };
 
 /// Validation failures for the first transaction that must be the Shasta anchor call.
@@ -100,46 +104,16 @@ pub(crate) fn validate_execution_payload_for_preconf(
     }
 
     let compressed_tx_list = &payload.transactions[0];
-    if compressed_tx_list.len() > MAX_COMPRESSED_TX_LIST_BYTES {
-        return Err(WhitelistPreconfirmationDriverError::invalid_payload(
-            "compressed transactions size exceeds max blob data size".to_string(),
-        ));
-    }
-
     let txs = ZlibTxListCodec::new_with_limits(
         MAX_COMPRESSED_TX_LIST_BYTES,
         MAX_DECOMPRESSED_TX_LIST_BYTES,
     )
     .decode(compressed_tx_list)
-    .map_err(|err| match err {
-        TxListCodecError::ZlibDecode(reason) => {
-            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "invalid zlib bytes for transactions",
-                reason,
-            )
-        }
-        TxListCodecError::RlpDecode(reason) => {
-            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "invalid RLP bytes for transactions",
-                reason,
-            )
-        }
-        TxListCodecError::CompressedTooLarge { .. } => {
-            WhitelistPreconfirmationDriverError::invalid_payload(
-                "compressed transactions size exceeds max blob data size".to_string(),
-            )
-        }
-        TxListCodecError::DecompressedTooLarge { .. } => {
-            WhitelistPreconfirmationDriverError::invalid_payload(
-                "decompressed transactions size exceeds max tx list size".to_string(),
-            )
-        }
-        TxListCodecError::ZlibEncode(reason) | TxListCodecError::ZlibFinish(reason) => {
-            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                "invalid transactions list bytes",
-                reason,
-            )
-        }
+    .map_err(|err| {
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            "invalid transactions list bytes",
+            err,
+        )
     })?;
 
     if txs.is_empty() {
@@ -222,4 +196,33 @@ pub(super) fn normalize_unsafe_payload_envelope(
         envelope.signature = Some(wire_signature);
     }
     envelope
+}
+
+/// Reject envelopes whose `header_difficulty` presence contradicts the Unzen
+/// status at the payload timestamp.
+///
+/// - Unzen active + `None` or zero                → error
+/// - Unzen inactive + `Some(non_zero)`            → error
+pub(crate) fn validate_envelope_header_difficulty(
+    chain_id: u64,
+    timestamp: u64,
+    header_difficulty: Option<alloy_primitives::U256>,
+) -> Result<()> {
+    let unzen = unzen_active_for_chain_timestamp(chain_id, timestamp).map_err(|err| {
+        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+            &format!("unzen fork lookup failed for chain {chain_id} at timestamp {timestamp}"),
+            err,
+        )
+    })?;
+    let present = header_difficulty.map(|v| !v.is_zero()).unwrap_or(false);
+
+    match (unzen, present) {
+        (true, false) => Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "unzen active at timestamp {timestamp} but envelope is missing header difficulty",
+        ))),
+        (false, true) => Err(WhitelistPreconfirmationDriverError::invalid_payload(format!(
+            "unzen inactive at timestamp {timestamp} but envelope carries non-zero header difficulty",
+        ))),
+        _ => Ok(()),
+    }
 }

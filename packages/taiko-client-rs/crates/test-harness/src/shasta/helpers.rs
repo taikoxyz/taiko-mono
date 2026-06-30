@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 
-use alethia_reth_primitives::payload::attributes::{
-    RpcL1Origin, TaikoBlockMetadata, TaikoPayloadAttributes,
-};
+use alethia_reth_primitives::payload::attributes::RpcL1Origin;
 use alloy::{eips::BlockNumberOrTag, rpc::client::NoParams, sol_types::SolCall};
 use alloy_consensus::{Transaction, TxEnvelope};
 use alloy_primitives::{Address, B256, Bytes, FixedBytes, U256};
@@ -12,11 +10,11 @@ use alloy_provider::{
 use alloy_rlp::{BytesMut, encode_list};
 use alloy_rpc_types::{Transaction as RpcTransaction, eth::Block as RpcBlock};
 use alloy_rpc_types_engine::{
-    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadAttributes,
-    PayloadStatusEnum,
+    ExecutionPayloadFieldV2, ExecutionPayloadInputV2, ForkchoiceState, PayloadStatusEnum,
 };
 use anyhow::{Context, Result, ensure};
 use bindings::anchor::Anchor::anchorV4Call;
+use protocol::shasta::{PayloadAttributesInput, build_payload_attributes};
 use rpc::{
     client::{Client, ClientWithWallet},
     error::RpcClientError,
@@ -46,11 +44,15 @@ pub async fn ensure_preconf_whitelist_active(client: &RpcClient) -> Result<()> {
 
 /// Checks if the RPC error indicates a geth-style "not found" error.
 fn is_not_found_error(err: &RpcClientError) -> bool {
-    matches!(err, RpcClientError::Rpc(message) if message.contains("not found"))
+    match err {
+        RpcClientError::Rpc(err) => err.to_string().contains("not found"),
+        RpcClientError::RpcMessage(message) => message.contains("not found"),
+        _ => false,
+    }
 }
 
 /// Reset the authenticated L1 RPC head.
-pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
     // Choose the highest L2 block that actually has an L1 origin row, then repoint
     // `head_l1_origin` there. Hardcoding block 1 is brittle when tests reset chains to genesis
     // or run against nodes with sparse origin rows.
@@ -92,7 +94,7 @@ pub async fn reset_head_l1_origin(client: &RpcClient) -> Result<()> {
 }
 
 /// Revert the L1 snapshot.
-pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
+pub(crate) async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Result<()> {
     let reverted = provider
         .raw_request::<_, bool>(Cow::Borrowed("evm_revert"), (&snapshot_id,))
         .await
@@ -102,7 +104,10 @@ pub async fn revert_snapshot(provider: &RootProvider, snapshot_id: &str) -> Resu
 }
 
 /// Create a new L1 snapshot to reuse across a single test run.
-pub async fn create_snapshot(phase: &'static str, provider: &RootProvider) -> Result<String> {
+pub(crate) async fn create_snapshot(
+    phase: &'static str,
+    provider: &RootProvider,
+) -> Result<String> {
     provider
         .raw_request::<_, String>(Cow::Borrowed("evm_snapshot"), NoParams::default())
         .await
@@ -114,7 +119,7 @@ fn payload_status_is_ok(status: &PayloadStatusEnum) -> bool {
 }
 
 /// Reset the L2 chain head to the base block (height 1) using the engine API.
-pub async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
+pub(crate) async fn reset_to_base_block(client: &RpcClient) -> Result<()> {
     let head: RpcBlock<TxEnvelope> = client
         .l2_provider
         .get_block_by_number(BlockNumberOrTag::Latest)
@@ -187,6 +192,7 @@ async fn fork_to(
     let timestamp = block.header.timestamp;
     let mix_digest = block.header.mix_hash;
     let gas_limit = block.header.gas_limit;
+    let header_difficulty = block.header.difficulty;
     let extra_data = block.header.extra_data.clone();
     let base_fee = block.header.base_fee_per_gas.unwrap_or_default();
 
@@ -200,40 +206,22 @@ async fn fork_to(
         })
         .unwrap_or_default();
 
-    let payload_attributes = PayloadAttributes {
-        timestamp,
-        prev_randao: mix_digest,
-        suggested_fee_recipient: coinbase,
-        withdrawals: Some(Vec::new()),
-        parent_beacon_block_root: None,
-    };
-
-    let block_metadata = TaikoBlockMetadata {
+    let taiko_attrs = build_payload_attributes(PayloadAttributesInput {
         beneficiary: coinbase,
-        gas_limit,
-        timestamp: U256::from(timestamp),
+        timestamp,
         mix_hash: mix_digest,
+        gas_limit,
         tx_list: Some(tx_list),
         extra_data,
-    };
-
-    let l1_origin_attrs = RpcL1Origin {
-        block_id: U256::from(block_number),
-        l2_block_hash: B256::ZERO,
+        base_fee_per_gas: U256::from(base_fee),
+        block_number,
         l1_block_height: l1_origin.l1_block_height,
         l1_block_hash: l1_origin.l1_block_hash,
-        build_payload_args_id: [0u8; 8],
         is_forced_inclusion: l1_origin.is_forced_inclusion,
         signature: l1_origin.signature,
-    };
-
-    let taiko_attrs = TaikoPayloadAttributes {
-        payload_attributes,
-        base_fee_per_gas: U256::from(base_fee),
-        block_metadata,
-        l1_origin: l1_origin_attrs,
+        parent_beacon_block_root: None,
         anchor_transaction: None,
-    };
+    });
 
     let forkchoice_state = ForkchoiceState {
         head_block_hash: parent_hash,
@@ -280,6 +268,7 @@ async fn fork_to(
     let sidecar = alethia_reth_primitives::engine::types::TaikoExecutionDataSidecar {
         tx_hash,
         withdrawals_hash,
+        header_difficulty: Some(header_difficulty),
         taiko_block: Some(true),
     };
 

@@ -41,7 +41,7 @@ use rpc::client::Client;
 /// let mut txlist = vec![anchor_tx];
 /// txlist.extend(transfer_txs);
 /// ```
-pub async fn build_anchor_tx_bytes<P>(
+pub(crate) async fn build_anchor_tx_bytes<P>(
     client: &Client<P>,
     parent_hash: B256,
     block_number: u64,

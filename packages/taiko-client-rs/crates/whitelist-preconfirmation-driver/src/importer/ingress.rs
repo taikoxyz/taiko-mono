@@ -1,69 +1,37 @@
-use std::{sync::Arc, time::Instant};
+//! Ingress entrypoints for unsafe payload handling and request/response serving.
+//!
+//! Signature authenticity and operator-set membership are enforced at gossip
+//! acceptance time in the network layer's inbound validation
+//! (`network::handler::GossipsubInboundState`) before events are forwarded
+//! here, so these entrypoints perform payload-level validation only.
 
-use alloy_primitives::B256;
+use std::sync::Arc;
+
+use alloy_consensus::TxEnvelope;
+use alloy_eips::Encodable2718;
+use alloy_primitives::{B256, Bytes, U256};
 use alloy_provider::Provider;
-use tracing::debug;
+use alloy_rpc_types::eth::Transaction as RpcTransaction;
+use protocol::codec::ZlibTxListCodec;
+use tracing::{debug, warn};
 
 use crate::{
     codec::{
-        DecodedUnsafePayload, WhitelistExecutionPayloadEnvelope, block_signing_hash,
-        encode_unsafe_response_message, recover_signer,
+        DecodedUnsafePayload, MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES,
+        WhitelistExecutionPayloadEnvelope,
     },
     error::{Result, WhitelistPreconfirmationDriverError},
     metrics::WhitelistPreconfirmationDriverMetrics,
+    network::NetworkCommand,
 };
 
 use super::{
     WhitelistPreconfirmationImporter,
-    validation::{normalize_unsafe_payload_envelope, validate_execution_payload_for_preconf},
+    validation::{
+        normalize_unsafe_payload_envelope, validate_envelope_header_difficulty,
+        validate_execution_payload_for_preconf,
+    },
 };
-
-/// Increment validation failure metrics for the given ingest stage.
-fn record_validation_failure(stage: &'static str) {
-    metrics::counter!(
-        WhitelistPreconfirmationDriverMetrics::VALIDATION_FAILURES_TOTAL,
-        "stage" => stage,
-    )
-    .increment(1);
-}
-
-/// Pre-resolved metric labels for a block-by-hash lookup path.
-struct LookupLabels {
-    /// Label used in log messages.
-    log_prefix: &'static str,
-    /// Metric result label for cache hits.
-    cache_hit: &'static str,
-    /// Metric result label for L2 hits.
-    l2_hit: &'static str,
-    /// Metric result label for misses.
-    not_found: &'static str,
-}
-
-/// Metric and log labels for direct block hash lookup traffic.
-const DIRECT_LOOKUP_LABELS: LookupLabels = LookupLabels {
-    log_prefix: "direct",
-    cache_hit: "direct_cache_hit",
-    l2_hit: "direct_l2_hit",
-    not_found: "direct_not_found",
-};
-
-/// Metric and log labels for gossip-derived block hash lookup traffic.
-const GOSSIP_LOOKUP_LABELS: LookupLabels = LookupLabels {
-    log_prefix: "gossip",
-    cache_hit: "cache_hit",
-    l2_hit: "l2_hit",
-    not_found: "not_found",
-};
-
-/// Transport-agnostic outcome of serving a block-by-hash lookup.
-pub(super) enum LookupResult {
-    /// Envelope found in the recent cache.
-    CacheHit(Arc<WhitelistExecutionPayloadEnvelope>),
-    /// Envelope rebuilt from local L2 state.
-    L2Hit(Arc<WhitelistExecutionPayloadEnvelope>),
-    /// Block not found.
-    NotFound,
-}
 
 impl<P> WhitelistPreconfirmationImporter<P>
 where
@@ -76,8 +44,8 @@ where
         ingress_source: &'static str,
     ) {
         self.cache.insert(envelope.clone());
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
+        self.update_pending_cache_gauge();
+        self.state.insert_recent(envelope.clone()).await;
         self.record_eos_epoch_if_marked(&envelope, ingress_source).await;
     }
 
@@ -106,209 +74,235 @@ where
                 ingress_source,
                 "recording end-of-sequencing envelope for epoch"
             );
-            self.cache_state
-                .record_end_of_sequencing(epoch, envelope.execution_payload.block_hash)
-                .await;
+            self.state.record_end_of_sequencing(epoch, envelope.execution_payload.block_hash).await;
         }
     }
 
-    /// Handle an incoming unsafe payload.
+    /// Handle an incoming unsafe payload from the `preconfBlocks` topic.
     pub(super) async fn handle_unsafe_payload(
         &mut self,
         payload: DecodedUnsafePayload,
     ) -> Result<()> {
-        let prehash = block_signing_hash(self.chain_id, payload.payload_bytes.as_slice());
-        let signer = recover_signer(prehash, &payload.wire_signature).inspect_err(|_err| {
-            record_validation_failure("payload_signature_recover");
-        })?;
-        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
-            record_validation_failure("payload_signer_check");
-        })?;
-
         let envelope = normalize_unsafe_payload_envelope(payload.envelope, payload.wire_signature);
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
             self.chain_id,
             self.anchor_address,
-        )
-        .inspect_err(|_err| {
-            record_validation_failure("payload_validate");
-        })?;
+        )?;
+        validate_envelope_header_difficulty(
+            self.chain_id,
+            envelope.execution_payload.timestamp,
+            envelope.header_difficulty,
+        )?;
         self.ingest_validated_envelope(Arc::new(envelope), "payload").await;
 
         Ok(())
     }
 
-    /// Handle an incoming unsafe response (gossip or direct).
-    ///
-    /// The embedded `envelope.signature` is verified over
-    /// `block_signing_hash(chain_id, block_hash)`. This matches the signing
-    /// domain used by the sequencer when it stores the signature in L1 origin
-    /// (see `rest_handler.rs` — `set_l1_origin_signature`).  It is distinct
-    /// from the gossip *wire* signature on the `preconfBlocks` topic, which
-    /// signs SSZ envelope bytes instead.
+    /// Handle an incoming unsafe response from the `responsePreconfBlocks` topic.
     pub(super) async fn handle_unsafe_response(
         &mut self,
         envelope: WhitelistExecutionPayloadEnvelope,
     ) -> Result<()> {
-        let Some(signature) = envelope.signature else {
-            record_validation_failure("response_missing_signature");
-            return Err(WhitelistPreconfirmationDriverError::invalid_signature(
-                "response payload is missing embedded signature",
-            ));
-        };
-
-        // Signing domain: block_signing_hash(chain_id, block_hash).
-        let prehash =
-            block_signing_hash(self.chain_id, envelope.execution_payload.block_hash.as_slice());
-        let signer = recover_signer(prehash, &signature).inspect_err(|_err| {
-            record_validation_failure("response_signature_recover");
-        })?;
-        self.ensure_signer_allowed(signer).await.inspect_err(|_err| {
-            record_validation_failure("response_signer_check");
-        })?;
-
         validate_execution_payload_for_preconf(
             &envelope.execution_payload,
             self.chain_id,
             self.anchor_address,
-        )
-        .inspect_err(|_err| {
-            record_validation_failure("response_validate");
-        })?;
+        )?;
+        validate_envelope_header_difficulty(
+            self.chain_id,
+            envelope.execution_payload.timestamp,
+            envelope.header_difficulty,
+        )?;
 
         self.ingest_validated_envelope(Arc::new(envelope), "response").await;
 
         Ok(())
     }
 
-    /// Shared cache/L2 lookup used by both gossip and direct request handlers.
-    async fn lookup_block_for_serving(
+    /// Serve an envelope by block hash from the recent cache or local L2 state,
+    /// publishing it on the response topic.
+    ///
+    /// Returns the source label of the served envelope, or `None` when the hash
+    /// is not servable. `mark_end_of_sequencing` tags envelopes rebuilt from L2
+    /// so EOS catch-up responses carry the marker.
+    pub(super) async fn serve_envelope_by_hash(
         &mut self,
-        from: libp2p::PeerId,
         hash: B256,
-        labels: &LookupLabels,
-    ) -> Result<LookupResult> {
-        if let Some(envelope) = self.recent_cache.get_recent(&hash) {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => labels.cache_hit,
-            )
-            .increment(1);
-            debug!(
-                peer = %from,
-                hash = %hash,
-                "{}: serving response from recent cache", labels.log_prefix,
-            );
-            // Re-insert to refresh LRU position so recently-served blocks stay cached.
-            self.recent_cache.insert_recent(envelope.clone());
-            self.update_cache_gauges();
-            return Ok(LookupResult::CacheHit(envelope));
-        }
-
-        let Some(envelope) = self.build_response_envelope_from_l2(hash).await? else {
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => labels.not_found,
-            )
-            .increment(1);
-            debug!(
-                peer = %from,
-                hash = %hash,
-                "{}: hash not found in recent cache or local l2", labels.log_prefix,
-            );
-            return Ok(LookupResult::NotFound);
+        mark_end_of_sequencing: bool,
+    ) -> Result<Option<&'static str>> {
+        let (envelope, source) = if let Some(envelope) = self.state.get_recent(&hash).await {
+            (envelope, "cache_hit")
+        } else if let Some(mut envelope) = self.build_response_envelope_from_l2(hash).await? {
+            if mark_end_of_sequencing {
+                envelope.end_of_sequencing = Some(true);
+            }
+            (Arc::new(envelope), "l2_hit")
+        } else {
+            return Ok(None);
         };
 
-        metrics::counter!(
-            WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-            "result" => labels.l2_hit,
-        )
-        .increment(1);
-        debug!(
-            peer = %from,
-            hash = %hash,
-            "{}: serving response from local l2 block lookup", labels.log_prefix,
-        );
-        let envelope = Arc::new(envelope);
-        self.recent_cache.insert_recent(envelope.clone());
-        self.update_cache_gauges();
-        Ok(LookupResult::L2Hit(envelope))
-    }
-
-    /// Handle a direct block-hash request from a peer via req/resp protocol.
-    pub(super) async fn handle_direct_request(
-        &mut self,
-        from: libp2p::PeerId,
-        hash: B256,
-        request_id: libp2p::request_response::InboundRequestId,
-    ) -> Result<()> {
-        let now = Instant::now();
-
-        // Apply per-peer rate limiting to prevent a single peer from spamming
-        // expensive L2 lookups via the direct req/resp protocol.
-        if !self.direct_request_rate.allow(from, now) {
-            tracing::debug!(
-                peer = %from,
-                hash = %hash,
-                ?request_id,
-                "rate-limited direct block request"
-            );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "direct_rate_limited",
-            )
-            .increment(1);
-            self.send_direct_response(request_id, Vec::new()).await?;
-            return Ok(());
-        }
-
-        // Dedup: skip lookup if this (peer, hash) pair was already served recently.
-        if self.direct_request_seen.is_seen(from, hash, now) {
-            tracing::debug!(
-                peer = %from,
-                hash = %hash,
-                ?request_id,
-                "deduped direct block request"
-            );
-            metrics::counter!(
-                WhitelistPreconfirmationDriverMetrics::RESPONSE_LOOKUPS_TOTAL,
-                "result" => "direct_deduped",
-            )
-            .increment(1);
-            self.send_direct_response(request_id, Vec::new()).await?;
-            return Ok(());
-        }
-        self.direct_request_seen.mark(from, hash, now);
-
-        let response_bytes =
-            match self.lookup_block_for_serving(from, hash, &DIRECT_LOOKUP_LABELS).await? {
-                LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
-                    encode_unsafe_response_message(&envelope).map_err(|err| {
-                        WhitelistPreconfirmationDriverError::invalid_payload_with_context(
-                            "failed to encode direct response envelope",
-                            err,
-                        )
-                    })?
-                }
-                LookupResult::NotFound => Vec::new(),
-            };
-        self.send_direct_response(request_id, response_bytes).await?;
-        Ok(())
+        self.state.insert_recent(envelope.clone()).await;
+        self.publish_unsafe_response(envelope).await;
+        Ok(Some(source))
     }
 
     /// Handle a block-hash request from the request topic.
-    pub(super) async fn handle_unsafe_request(
-        &mut self,
-        from: libp2p::PeerId,
-        hash: B256,
-    ) -> Result<()> {
-        match self.lookup_block_for_serving(from, hash, &GOSSIP_LOOKUP_LABELS).await? {
-            LookupResult::CacheHit(envelope) | LookupResult::L2Hit(envelope) => {
-                self.publish_unsafe_response(envelope).await;
-            }
-            LookupResult::NotFound => {}
-        }
+    pub(super) async fn handle_unsafe_request(&mut self, hash: B256) -> Result<()> {
+        let label = self.serve_envelope_by_hash(hash, false).await?.unwrap_or("not_found");
+        WhitelistPreconfirmationDriverMetrics::inc_response_lookup(label);
         Ok(())
+    }
+
+    /// Build a response envelope from local L2 state for an unsafe request hash.
+    async fn build_response_envelope_from_l2(
+        &self,
+        hash: B256,
+    ) -> Result<Option<WhitelistExecutionPayloadEnvelope>> {
+        let Some(block) = self
+            .rpc
+            .l2_provider
+            .get_block_by_hash(hash)
+            .full()
+            .await
+            .map_err(WhitelistPreconfirmationDriverError::provider)?
+            .map(|block| block.map_transactions(|tx: RpcTransaction| tx.into()))
+        else {
+            return Ok(None);
+        };
+
+        if self
+            .head_l1_origin_block_id()
+            .await?
+            .is_some_and(|head_l1_origin_block_id| block.header.number <= head_l1_origin_block_id)
+        {
+            return Ok(None);
+        }
+
+        let Some(l1_origin) = self.rpc.l1_origin_by_id(U256::from(block.header.number)).await?
+        else {
+            return Ok(None);
+        };
+
+        if l1_origin.signature == [0u8; 65] {
+            return Ok(None);
+        }
+
+        let Some(transactions) = block.transactions.as_transactions() else {
+            return Err(WhitelistPreconfirmationDriverError::invalid_payload(
+                "request-response block missing full transaction bodies",
+            ));
+        };
+
+        let raw_transactions = transactions
+            .iter()
+            .map(|tx: &TxEnvelope| tx.encoded_2718().to_vec())
+            .collect::<Vec<_>>();
+        let compressed_tx_list = ZlibTxListCodec::new_with_limits(
+            MAX_COMPRESSED_TX_LIST_BYTES,
+            MAX_DECOMPRESSED_TX_LIST_BYTES,
+        )
+        .encode(&raw_transactions)
+        .map_err(|err| {
+            WhitelistPreconfirmationDriverError::invalid_payload_with_context(
+                "failed to encode request-response tx list",
+                err,
+            )
+        })?;
+
+        let end_of_sequencing = self
+            .cache
+            .get(&hash)
+            .and_then(|envelope| envelope.end_of_sequencing)
+            .filter(|&enabled| enabled);
+        let base_fee = block.header.base_fee_per_gas.ok_or_else(|| {
+            WhitelistPreconfirmationDriverError::invalid_payload(format!(
+                "request-response block {} missing base fee",
+                block.header.number
+            ))
+        })?;
+
+        Ok(Some(WhitelistExecutionPayloadEnvelope {
+            end_of_sequencing,
+            is_forced_inclusion: l1_origin.is_forced_inclusion.then_some(true),
+            // Intentionally None — the sequencer never populates this field
+            // in the envelope (see rest_handler.rs), and the SSZ wire format
+            // encodes None as 32 zero bytes which is the expected default.
+            parent_beacon_block_root: None,
+            // Carry Unzen header.difficulty (= block_zk_gas_used) so receivers
+            // can reconstruct the sender's block hash. Left `None` for Shasta
+            // blocks whose difficulty is zero.
+            header_difficulty: (!block.header.difficulty.is_zero())
+                .then_some(block.header.difficulty),
+            execution_payload: alloy_rpc_types_engine::ExecutionPayloadV1 {
+                parent_hash: block.header.parent_hash,
+                fee_recipient: block.header.beneficiary,
+                state_root: block.header.state_root,
+                receipts_root: block.header.receipts_root,
+                logs_bloom: block.header.logs_bloom,
+                prev_randao: block.header.mix_hash,
+                block_number: block.header.number,
+                gas_limit: block.header.gas_limit,
+                gas_used: block.header.gas_used,
+                timestamp: block.header.timestamp,
+                extra_data: block.header.extra_data.clone(),
+                base_fee_per_gas: U256::from(base_fee),
+                block_hash: block.header.hash,
+                transactions: vec![Bytes::from(compressed_tx_list)],
+            },
+            // Use L1-origin signature as-is. This endpoint serves responses
+            // only from the local node; caller-side validation and allowlist
+            // checks are performed when importing the envelope.
+            signature: Some(l1_origin.signature),
+        }))
+    }
+
+    /// Queue an outbound network command and record the publish-queue outcome.
+    ///
+    /// `topic_label` identifies the metric series, `hash` is included in the failure
+    /// log to identify the affected block, and `failure_message` is the static log
+    /// message emitted when queuing fails.
+    async fn queue_network_command(
+        &self,
+        command: NetworkCommand,
+        topic_label: &'static str,
+        hash: B256,
+        failure_message: &'static str,
+    ) {
+        if let Err(err) = self.network_command_tx.send(command).await {
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                topic_label,
+                "queue_failed",
+            );
+            warn!(hash = %hash, error = %err, "{failure_message}");
+        } else {
+            WhitelistPreconfirmationDriverMetrics::inc_network_outbound_publish(
+                topic_label,
+                "queued",
+            );
+        }
+    }
+
+    /// Publish a block-hash request on `requestPreconfBlocks`.
+    pub(super) async fn publish_unsafe_request(&self, hash: B256) {
+        self.queue_network_command(
+            NetworkCommand::PublishUnsafeRequest { hash },
+            "request_preconf_blocks",
+            hash,
+            "failed to queue whitelist preconfirmation request publish command",
+        )
+        .await;
+    }
+
+    /// Publish an envelope response on `responsePreconfBlocks`.
+    async fn publish_unsafe_response(&self, envelope: Arc<WhitelistExecutionPayloadEnvelope>) {
+        let hash = envelope.execution_payload.block_hash;
+        self.queue_network_command(
+            NetworkCommand::PublishUnsafeResponse { envelope },
+            "response_preconf_blocks",
+            hash,
+            "failed to queue whitelist preconfirmation response publish command",
+        )
+        .await;
     }
 }

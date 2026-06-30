@@ -1,13 +1,14 @@
-use std::io::Write;
+use std::{
+    io::Write,
+    time::{Duration, Instant},
+};
 
-use alloy_primitives::Address;
 use flate2::{Compression, write::ZlibEncoder};
 
-use super::lookahead::{is_fee_recipient_allowed_for_slot, slot_matches_range};
 use crate::{
-    api::types::{LookaheadStatus, SlotRange},
+    api::service::{SHUTDOWN_BLOCK_WINDOW, can_shutdown_for, reconcile_highest_unsafe},
+    codec::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
     error::WhitelistPreconfirmationDriverError,
-    tx_list::{MAX_COMPRESSED_TX_LIST_BYTES, MAX_DECOMPRESSED_TX_LIST_BYTES, decompress_tx_list},
 };
 
 fn compress(payload: &[u8]) -> Vec<u8> {
@@ -49,29 +50,59 @@ fn decompress_tx_list_accepts_non_empty_payload_within_limits() {
 }
 
 #[test]
-fn slot_matches_range_checks_slot_bounds() {
-    let ranges = vec![SlotRange { start: 10, end: 20 }, SlotRange { start: 30, end: 40 }];
-
-    assert!(slot_matches_range(10, &ranges));
-    assert!(slot_matches_range(19, &ranges));
-    assert!(!slot_matches_range(20, &ranges));
-    assert!(!slot_matches_range(25, &ranges));
-    assert!(slot_matches_range(30, &ranges));
-    assert!(!slot_matches_range(40, &ranges));
+fn can_shutdown_returns_true_when_no_request_received() {
+    assert!(can_shutdown_for(None));
 }
 
 #[test]
-fn fee_recipient_allowed_for_slot_matches_only_assigned_operator() {
-    let lookahead = LookaheadStatus {
-        curr_operator: Address::from([0x11u8; 20]),
-        next_operator: Address::from([0x22u8; 20]),
-        curr_ranges: vec![SlotRange { start: 10, end: 20 }],
-        next_ranges: vec![SlotRange { start: 20, end: 30 }],
-    };
+fn can_shutdown_returns_false_for_request_just_now() {
+    assert!(!can_shutdown_for(Some(Instant::now())));
+}
 
-    assert!(is_fee_recipient_allowed_for_slot(Address::from([0x11u8; 20]), 15, &lookahead));
-    assert!(is_fee_recipient_allowed_for_slot(Address::from([0x22u8; 20]), 25, &lookahead));
-    assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x33u8; 20]), 15, &lookahead));
-    assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x11u8; 20]), 25, &lookahead));
-    assert!(!is_fee_recipient_allowed_for_slot(Address::from([0x22u8; 20]), 15, &lookahead));
+#[test]
+fn can_shutdown_returns_true_after_full_window_has_elapsed() {
+    let well_past = Instant::now()
+        .checked_sub(SHUTDOWN_BLOCK_WINDOW + Duration::from_secs(1))
+        .expect("test platform must support subtracting from Instant::now");
+    assert!(can_shutdown_for(Some(well_past)));
+}
+
+#[test]
+fn can_shutdown_returns_false_just_before_window_boundary() {
+    let almost = Instant::now()
+        .checked_sub(SHUTDOWN_BLOCK_WINDOW - Duration::from_secs(1))
+        .expect("test platform must support subtracting from Instant::now");
+    assert!(!can_shutdown_for(Some(almost)));
+}
+
+#[test]
+fn shutdown_block_window_is_one_hundred_forty_four_seconds() {
+    assert_eq!(SHUTDOWN_BLOCK_WINDOW, Duration::from_secs(144));
+}
+
+#[test]
+fn reconcile_clamps_down_when_counter_exceeds_reth_head() {
+    // The L1-reorg wedge: counter stuck above reth's rewound head -> report the head.
+    assert_eq!(reconcile_highest_unsafe(5_811_227, Some(5_811_208)), 5_811_208);
+}
+
+#[test]
+fn reconcile_keeps_counter_when_equal_to_reth_head() {
+    // Healthy steady state.
+    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_208)), 5_811_208);
+}
+
+#[test]
+fn reconcile_reports_head_when_counter_below_reth_head() {
+    // The catch-up wedge: reth advanced via canonical L1 derivation while no gossip was
+    // flowing, so the counter was never raised. Catalyst's sync gate requires the
+    // reported value to equal the head exactly; a lagging report blocks preconfirmation
+    // (and triggers Catalyst self-restarts) until a driver restart re-seeds the counter.
+    assert_eq!(reconcile_highest_unsafe(5_811_208, Some(5_811_227)), 5_811_227);
+}
+
+#[test]
+fn reconcile_keeps_counter_when_reth_head_unknown() {
+    // Best-effort: a failed reth head read leaves the counter untouched.
+    assert_eq!(reconcile_highest_unsafe(5_811_227, None), 5_811_227);
 }

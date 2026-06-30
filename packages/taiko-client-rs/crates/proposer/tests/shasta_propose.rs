@@ -4,7 +4,7 @@ use alloy::primitives::{B256, U256};
 use proposer::{config::ProposerConfigs, proposer::Proposer};
 use serial_test::serial;
 use test_context::test_context;
-use test_harness::{ShastaEnv, evm_mine, shasta::get_proposal_hash};
+use test_harness::{ShastaEnv, mine_l1_block, shasta::get_proposal_hash};
 
 fn base_proposer_config(env: &ShastaEnv) -> ProposerConfigs {
     ProposerConfigs {
@@ -39,7 +39,7 @@ async fn propose_shasta_batches(env: &mut ShastaEnv) -> anyhow::Result<()> {
     for i in 0..3 {
         assert_eq!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);
 
-        evm_mine(&provider).await?;
+        mine_l1_block(&provider).await?;
         assert!(proposer.fetch_and_propose().await?.status());
 
         assert_ne!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);
@@ -62,7 +62,7 @@ async fn propose_shasta_batches_engine_mode(env: &mut ShastaEnv) -> anyhow::Resu
     for i in 0..3 {
         assert_eq!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);
 
-        evm_mine(&provider).await?;
+        mine_l1_block(&provider).await?;
         assert!(proposer.fetch_and_propose().await?.status());
 
         assert_ne!(B256::ZERO, get_proposal_hash(&provider, U256::from(i + 1)).await?);

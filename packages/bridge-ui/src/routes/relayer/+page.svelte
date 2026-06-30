@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>Taiko Bridge | Relayer</title>
+  <title>Taiko Bridge | Manual Claim</title>
 </svelte:head>
 <Page>
   <Relayer />

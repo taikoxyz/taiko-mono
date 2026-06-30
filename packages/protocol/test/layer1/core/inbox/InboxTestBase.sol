@@ -63,7 +63,6 @@ abstract contract InboxTestBase is CommonTest {
         inbox = _deployInbox();
         codec = ICodec(address(inbox));
         _setSignalServiceSyncer(address(inbox));
-        inbox.activate(bytes32(uint256(1)));
 
         _seedBondBalances();
 
@@ -118,7 +117,18 @@ abstract contract InboxTestBase is CommonTest {
     // ---------------------------------------------------------------
 
     function _deployProxy(address _impl) internal returns (Inbox) {
-        return Inbox(address(new ERC1967Proxy(_impl, abi.encodeCall(Inbox.init, (address(this))))));
+        return Inbox(
+            address(
+                new ERC1967Proxy(
+                    _impl, abi.encodeCall(Inbox.init, (address(this), bytes32(uint256(1))))
+                )
+            )
+        );
+    }
+
+    function _deployUninitializedInbox() internal returns (Inbox) {
+        address impl = address(new Inbox(config));
+        return Inbox(address(new ERC1967Proxy(impl, bytes(""))));
     }
 
     function _deploySignalService(address _authorizedSyncer) internal returns (SignalService) {

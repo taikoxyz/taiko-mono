@@ -2,33 +2,24 @@
 
 use std::{sync::Arc, time::Instant};
 
-use super::{ProductionError, ProductionInput, ProductionPathKind};
+use super::{ProductionInput, UnsupportedInputError};
 pub use crate::sync::engine::EngineBlockOutcome;
 use crate::{
-    derivation::DerivationPipeline,
+    derivation::ShastaDerivationPipeline,
     error::DriverError,
     metrics::DriverMetrics,
     sync::{engine::PayloadApplier, error::SyncError},
 };
 use alloy::{eips::BlockNumberOrTag, primitives::B256, providers::Provider};
 use async_trait::async_trait;
-use metrics::{counter, histogram};
 use rpc::{RpcClientError, client::Client};
 use tracing::{debug, error};
 
 /// A block-production path capable of materialising the provided input into execution blocks.
 ///
-/// Each path specialises on a `ProductionPathKind` and may reject unsupported inputs.
+/// Each path specialises on one `ProductionInput` variant and rejects the others.
 #[async_trait]
 pub trait BlockProductionPath: Send + Sync {
-    /// Identify this path (for routing/metrics).
-    fn kind(&self) -> ProductionPathKind;
-
-    /// Optional hook to initialise internal cursors or resources.
-    async fn prepare(&self) -> Result<(), DriverError> {
-        Ok(())
-    }
-
     /// Turn the given production input into one or more execution engine blocks.
     async fn produce(&self, input: ProductionInput)
     -> Result<Vec<EngineBlockOutcome>, DriverError>;
@@ -82,11 +73,6 @@ impl<A> BlockProductionPath for PreconfirmationPath<A>
 where
     A: PayloadApplier + BlockHashReader + Send + Sync,
 {
-    /// Identify this path as preconfirmation.
-    fn kind(&self) -> ProductionPathKind {
-        ProductionPathKind::Preconfirmation
-    }
-
     /// Produce blocks by injecting the preconfirmation payloads.
     async fn produce(
         &self,
@@ -102,8 +88,8 @@ where
                 let lookup_start = Instant::now();
                 let parent_hash_result = self.applier.block_hash_by_number(parent_number).await;
                 let lookup_duration_secs = lookup_start.elapsed().as_secs_f64();
-                histogram!(DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_DURATION_SECONDS)
-                    .record(lookup_duration_secs);
+                DriverMetrics::preconf_parent_hash_lookup_duration_seconds()
+                    .observe(lookup_duration_secs);
 
                 let parent_hash = match parent_hash_result {
                     Ok(hash) => {
@@ -117,8 +103,7 @@ where
                         hash
                     }
                     Err(err) => {
-                        counter!(DriverMetrics::PRECONF_PARENT_HASH_LOOKUP_FAILURES_TOTAL)
-                            .increment(1);
+                        DriverMetrics::preconf_parent_hash_lookup_failures_total().inc();
                         error!(
                             block_number,
                             parent_number,
@@ -136,46 +121,40 @@ where
                     )?;
                 Ok(vec![applied.outcome])
             }
-            ProductionInput::L1ProposalLog(_) => Err(ProductionError::UnsupportedInput {
-                path: ProductionPathKind::Preconfirmation,
-                input: ProductionPathKind::L1Events,
-            }
-            .into()),
+            ProductionInput::L1ProposalLog(_) => Err(UnsupportedInputError.into()),
         }
     }
 }
 
 /// `BlockProductionPath` implementation for canonical L1 proposal logs.
-pub struct CanonicalL1ProductionPath<D>
+pub struct CanonicalL1ProductionPath<P>
 where
-    D: DerivationPipeline + ?Sized,
+    P: Provider + Clone + Send + Sync + 'static,
 {
     /// Derivation pipeline used to decode L1 proposal logs.
-    derivation: Arc<D>,
+    derivation: Arc<ShastaDerivationPipeline<P>>,
     /// Engine payload applier shared with the canonical path.
     applier: Arc<dyn PayloadApplier + Send + Sync>,
 }
 
-impl<D> CanonicalL1ProductionPath<D>
+impl<P> CanonicalL1ProductionPath<P>
 where
-    D: DerivationPipeline + ?Sized,
+    P: Provider + Clone + Send + Sync + 'static,
 {
     /// Construct a new canonical path backed by the provided derivation pipeline.
-    pub fn new(derivation: Arc<D>, applier: Arc<dyn PayloadApplier + Send + Sync>) -> Self {
+    pub fn new(
+        derivation: Arc<ShastaDerivationPipeline<P>>,
+        applier: Arc<dyn PayloadApplier + Send + Sync>,
+    ) -> Self {
         Self { derivation, applier }
     }
 }
 
 #[async_trait]
-impl<D> BlockProductionPath for CanonicalL1ProductionPath<D>
+impl<P> BlockProductionPath for CanonicalL1ProductionPath<P>
 where
-    D: DerivationPipeline + Send + Sync + ?Sized + 'static,
+    P: Provider + Clone + Send + Sync + 'static,
 {
-    /// Identify this path as canonical L1 events.
-    fn kind(&self) -> ProductionPathKind {
-        ProductionPathKind::L1Events
-    }
-
     /// Produce blocks by processing L1 proposal logs via the derivation pipeline.
     async fn produce(
         &self,
@@ -188,11 +167,7 @@ where
                 .await
                 .map_err(SyncError::from)
                 .map_err(DriverError::from),
-            ProductionInput::Preconfirmation(_) => Err(ProductionError::UnsupportedInput {
-                path: ProductionPathKind::L1Events,
-                input: ProductionPathKind::Preconfirmation,
-            }
-            .into()),
+            ProductionInput::Preconfirmation(_) => Err(UnsupportedInputError.into()),
         }
     }
 }
@@ -211,10 +186,8 @@ mod tests {
     use alloy_consensus::TxEnvelope;
     use alloy_primitives::{Address, B256, Bytes, U256};
     use alloy_rpc_types::eth::Block as RpcBlock;
-    use alloy_rpc_types_engine::{
-        ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadAttributes as EthPayloadAttributes,
-        PayloadId,
-    };
+    use alloy_rpc_types_engine::{ExecutionPayloadInputV2, ExecutionPayloadV1, PayloadId};
+    use alloy_rpc_types_engine_2::PayloadAttributes as EthPayloadAttributes;
     use std::sync::{Arc, Mutex};
     use tokio::runtime::Runtime;
 
@@ -225,6 +198,7 @@ mod tests {
             suggested_fee_recipient: Address::ZERO,
             withdrawals: Some(Vec::new()),
             parent_beacon_block_root: None,
+            slot_number: None,
         };
         let block_metadata = TaikoBlockMetadata {
             beneficiary: Address::ZERO,
@@ -271,13 +245,6 @@ mod tests {
 
     #[async_trait]
     impl PayloadApplier for MockApplier {
-        async fn attributes_to_blocks(
-            &self,
-            _payloads: &[TaikoPayloadAttributes],
-        ) -> Result<Vec<EngineBlockOutcome>, EngineSubmissionError> {
-            Ok(Vec::new())
-        }
-
         async fn apply_payload(
             &self,
             _payload: &TaikoPayloadAttributes,
@@ -326,13 +293,12 @@ mod tests {
 
     #[derive(Clone)]
     struct MockPath {
-        kind: ProductionPathKind,
         calls: Arc<Mutex<u64>>,
     }
 
     impl MockPath {
-        fn new(kind: ProductionPathKind) -> Self {
-            Self { kind, calls: Arc::new(Mutex::new(0)) }
+        fn new() -> Self {
+            Self { calls: Arc::new(Mutex::new(0)) }
         }
         fn calls(&self) -> u64 {
             *self.calls.lock().unwrap()
@@ -341,10 +307,6 @@ mod tests {
 
     #[async_trait]
     impl BlockProductionPath for MockPath {
-        fn kind(&self) -> ProductionPathKind {
-            self.kind
-        }
-
         async fn produce(
             &self,
             _input: ProductionInput,
@@ -359,8 +321,9 @@ mod tests {
 
     #[test]
     fn router_routes_l1_to_canonical() {
-        let canonical = Arc::new(MockPath::new(ProductionPathKind::L1Events));
-        let router = ProductionRouter::new(vec![canonical.clone()]);
+        let canonical = Arc::new(MockPath::new());
+        let preconf = Arc::new(MockPath::new());
+        let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
         let log = Log::default();
 
         let rt = Runtime::new().unwrap();
@@ -369,13 +332,15 @@ mod tests {
             .expect("router should route to canonical path");
 
         assert_eq!(canonical.calls(), 1);
+        assert_eq!(preconf.calls(), 0);
         assert_eq!(outcomes.len(), 1);
     }
 
     #[test]
     fn router_routes_preconf_to_preconf_path() {
-        let preconf = Arc::new(MockPath::new(ProductionPathKind::Preconfirmation));
-        let router = ProductionRouter::new(vec![preconf.clone()]);
+        let canonical = Arc::new(MockPath::new());
+        let preconf = Arc::new(MockPath::new());
+        let router = ProductionRouter::new(canonical.clone(), Some(preconf.clone()));
         let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
 
         let rt = Runtime::new().unwrap();
@@ -384,7 +349,23 @@ mod tests {
             .expect("router should route to preconfirmation path");
 
         assert_eq!(preconf.calls(), 1);
+        assert_eq!(canonical.calls(), 0);
         assert_eq!(outcomes.len(), 1);
+    }
+
+    #[test]
+    fn router_rejects_preconf_without_path() {
+        let canonical = Arc::new(MockPath::new());
+        let router = ProductionRouter::new(canonical.clone(), None);
+        let payload = Arc::new(PreconfPayload::new(sample_payload(0)));
+
+        let rt = Runtime::new().unwrap();
+        let err = rt
+            .block_on(router.produce(ProductionInput::Preconfirmation(payload)))
+            .expect_err("router should reject preconfirmation input without a path");
+
+        assert!(matches!(err, DriverError::PreconfirmationDisabled));
+        assert_eq!(canonical.calls(), 0);
     }
 
     #[test]
