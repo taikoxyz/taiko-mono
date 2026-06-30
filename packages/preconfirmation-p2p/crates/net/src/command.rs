@@ -7,6 +7,28 @@ use libp2p::{Multiaddr, PeerId};
 use preconfirmation_types::{Bytes32, RawTxListGossip, SignedCommitment, Uint256};
 use tokio::sync::oneshot;
 
+/// Snapshot of peer state exposed for operator-facing logs and status checks.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PeerInfoSnapshot {
+    /// Local peer ID for this node.
+    pub local_peer_id: PeerId,
+    /// Currently connected peer IDs.
+    pub peers: Vec<PeerId>,
+    /// Known remote addresses for currently connected peers.
+    pub addr_info: Vec<Multiaddr>,
+    /// Current local listening addresses.
+    pub listen_addrs: Vec<Multiaddr>,
+    /// Current externally observed addresses for this swarm.
+    pub external_addrs: Vec<Multiaddr>,
+}
+
+impl PeerInfoSnapshot {
+    /// Return the number of connected peers represented in this snapshot.
+    pub fn peers_len(&self) -> usize {
+        self.peers.len()
+    }
+}
+
 /// Commands the service can issue to the network driver.
 ///
 /// These commands instruct the network layer to perform actions such as publishing
@@ -88,5 +110,10 @@ pub enum NetworkCommand {
     GetPeerCount {
         /// Responder to deliver the peer count.
         respond_to: oneshot::Sender<u64>,
+    },
+    /// Get a snapshot of connected peers and known peer/local addresses.
+    GetPeerInfo {
+        /// Responder to deliver the peer information snapshot.
+        respond_to: oneshot::Sender<PeerInfoSnapshot>,
     },
 }

@@ -67,8 +67,13 @@ impl NetworkDriver {
             SwarmEvent::NewListenAddr { address, .. } => {
                 let _ = self.events_tx.try_send(NetworkEvent::NewListenAddr(address));
             }
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            SwarmEvent::ConnectionEstablished { peer_id, endpoint, .. } => {
                 self.connected_peers += 1;
+                let remote_addr = endpoint.get_remote_address().clone();
+                let addrs = self.peer_addresses.entry(peer_id).or_default();
+                if !addrs.contains(&remote_addr) {
+                    addrs.push(remote_addr);
+                }
                 metrics::set_gauge("p2p_connected_peers", self.connected_peers as f64);
                 if self.reputation.is_banned(&peer_id) {
                     let _ = self.swarm.disconnect_peer_id(peer_id);
@@ -77,6 +82,9 @@ impl NetworkDriver {
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 self.connected_peers -= 1;
+                if !self.swarm.is_connected(&peer_id) {
+                    self.peer_addresses.remove(&peer_id);
+                }
                 metrics::set_gauge("p2p_connected_peers", self.connected_peers.max(0) as f64);
                 let _ = self.events_tx.try_send(NetworkEvent::PeerDisconnected(peer_id));
                 self.emit_error(
@@ -204,6 +212,9 @@ impl NetworkDriver {
             }
             NetworkCommand::GetPeerCount { respond_to } => {
                 let _ = respond_to.send(self.connected_peers.max(0) as u64);
+            }
+            NetworkCommand::GetPeerInfo { respond_to } => {
+                let _ = respond_to.send(self.peer_info_snapshot());
             }
         }
     }
