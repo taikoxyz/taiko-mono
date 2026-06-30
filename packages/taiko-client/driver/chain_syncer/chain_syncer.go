@@ -99,7 +99,7 @@ func (s *L2ChainSyncer) Sync() error {
 		return nil
 	}
 
-	if s.progressTracker.Triggered() && !s.progressTracker.Finished() {
+	if s.progressTracker.Triggered() && !s.progressTracker.Finished() && !s.progressTracker.OutOfSync() {
 		progress, err := s.progressTracker.SyncProgress(s.ctx)
 		if err != nil {
 			return fmt.Errorf("failed to fetch L2 execution engine sync progress: %w", err)
