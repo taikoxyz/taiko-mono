@@ -2,6 +2,7 @@ name: "Build and Push Multi-Arch Docker Image (eventindexer)"
 
 permissions:
   contents: read
+  id-token: write
 
 on:
   push:
@@ -15,6 +16,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Keyless GAR auth via Workload Identity Federation (replaces secrets.GAR_JSON_KEY).
+  WIF_PROVIDER: projects/790288402401/locations/global/workloadIdentityPools/terraform-pool/providers/github-provider
+  WIF_SERVICE_ACCOUNT: gar-github-action@evmchain.iam.gserviceaccount.com
+
 jobs:
   push-eventindexer-docker-image:
     name: Build and push docker image
@@ -26,12 +32,21 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      - name: Authenticate to Google Cloud (Workload Identity)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_lifetime: 3600s
+          create_credentials_file: false
       - name: Login to GAR
         uses: docker/login-action@v4
         with:
           registry: us-docker.pkg.dev
-          username: _json_key
-          password: ${{ secrets.GAR_JSON_KEY }}
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
