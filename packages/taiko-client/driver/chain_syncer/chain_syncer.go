@@ -98,6 +98,17 @@ func (s *L2ChainSyncer) Sync() error {
 		return nil
 	}
 
+	if s.progressTracker.Triggered() && !s.progressTracker.Finished() {
+		progress, err := s.progressTracker.SyncProgress(s.ctx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch L2 execution engine sync progress: %w", err)
+		}
+		if progress != nil {
+			log.Info("L2 execution engine is still syncing, postpone event synchronization", "progress", progress)
+			return nil
+		}
+	}
+
 	// Mark the beacon sync progress as finished, to make sure that
 	// we will only check and trigger P2P sync progress once right after the driver starts.
 	s.progressTracker.MarkFinished()
