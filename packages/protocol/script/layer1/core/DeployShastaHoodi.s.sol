@@ -34,8 +34,11 @@ contract DeployShastaHoodi is DeployShastaContracts {
         config.sgxRethAutomataProxy = 0xebA89cA02449070b902A5DDc406eE709940e280E;
         config.sp1PlonkVerifier = 0x2a5A70409Ee9F057503a50E0F4614A6d8CcBb462;
 
-        // Hoodi is a testnet: use the lenient TCB-status policy for liveness on dev hardware.
-        config.useInsecureSgxPolicy = true;
+        // Hoodi is a public testnet, so it MUST use the strict SecureSgxVerifier (secure default),
+        // matching mainnet and every other public network. The lenient InsecureSgxVerifier is for
+        // local devnets only. A prover whose platform reports an out-of-date TCB must update its
+        // microcode rather than rely on a weakened public-testnet policy.
+        config.useInsecureSgxPolicy = false;
 
         // Load deployment-specific values from environment
         config.activator = vm.envAddress("ACTIVATOR");
