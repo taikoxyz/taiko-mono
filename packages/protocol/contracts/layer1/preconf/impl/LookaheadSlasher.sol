@@ -10,7 +10,7 @@ import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/shared/common/EssentialContract.sol";
 
 /// @title LookaheadSlasher
-/// @dev This is a stateless contract intended to be delegatecall-ed to by the `UnifiedSlasher`
+/// @dev This is a stateless contract intended to be delegatecall-ed to by a URC slasher entrypoint
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadSlasher is ILookaheadSlasher {
     address public immutable urc;
