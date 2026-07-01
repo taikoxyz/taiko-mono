@@ -1,6 +1,6 @@
 {
   "name": "@taiko/protocol",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "private": true,
   "scripts": {
     "postinstall": "[ -n \"$CI\" ] || foundryup --version $(grep foundry .tool-versions | awk '{print $2}') 2>/dev/null || true",
