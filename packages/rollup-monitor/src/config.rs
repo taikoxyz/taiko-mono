@@ -12,6 +12,7 @@ pub const DEFAULT_CONFIRMATIONS: u64 = 3;
 pub const DEFAULT_START_BLOCK_LOOKBACK: u64 = 7200;
 pub const DEFAULT_OVERLAP_BLOCKS: u64 = 20;
 pub const DEFAULT_MAX_BLOCK_RANGE: u64 = 2000;
+pub const DEFAULT_EOA_SCAN_MAX_BLOCK_RANGE: u64 = 25;
 pub const DEFAULT_SEEN_LOG_CACHE_SIZE: usize = 10_000;
 
 #[derive(Parser, Debug, Clone)]
@@ -51,6 +52,16 @@ pub struct Config {
 
     #[arg(long, env = "MAX_BLOCK_RANGE", default_value_t = DEFAULT_MAX_BLOCK_RANGE)]
     pub max_block_range: u64,
+
+    #[arg(long, env = "EOA_SCAN_ENABLED", default_value_t = false)]
+    pub eoa_scan_enabled: bool,
+
+    #[arg(
+        long,
+        env = "EOA_SCAN_MAX_BLOCK_RANGE",
+        default_value_t = DEFAULT_EOA_SCAN_MAX_BLOCK_RANGE
+    )]
+    pub eoa_scan_max_block_range: u64,
 
     #[arg(
         long,
@@ -234,6 +245,8 @@ mod tests {
         assert_eq!(config.start_block_lookback, 7200);
         assert_eq!(config.overlap_blocks, 20);
         assert_eq!(config.max_block_range, 2000);
+        assert!(!config.eoa_scan_enabled);
+        assert_eq!(config.eoa_scan_max_block_range, 25);
         assert_eq!(config.seen_log_cache_size, 10000);
         assert!(config.watched_contracts.is_empty());
         assert!(config.allowed_provers.is_empty());
@@ -268,6 +281,9 @@ mod tests {
             "7",
             "--max-block-range",
             "89",
+            "--eoa-scan-enabled",
+            "--eoa-scan-max-block-range",
+            "11",
             "--seen-log-cache-size",
             "321",
             "--watched-contracts",
@@ -298,6 +314,8 @@ mod tests {
         assert_eq!(config.start_block_lookback, 456);
         assert_eq!(config.overlap_blocks, 7);
         assert_eq!(config.max_block_range, 89);
+        assert!(config.eoa_scan_enabled);
+        assert_eq!(config.eoa_scan_max_block_range, 11);
         assert_eq!(config.seen_log_cache_size, 321);
         assert_eq!(
             config.watched_contracts.get("inbox"),

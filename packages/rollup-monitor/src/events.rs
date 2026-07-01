@@ -264,12 +264,6 @@ pub fn decode_contract_log(target: &str, log: &RpcLog) -> Vec<ObservedEvent> {
             proxy: log.address(),
             implementation: decoded.inner.data.implementation,
         });
-        if target.contains("verifier") {
-            events.push(ObservedEvent::VerifierChange {
-                target: target.to_string(),
-                verifier: B256::left_padding_from(&decoded.inner.data.implementation.0.0),
-            });
-        }
     }
     if let Ok(decoded) = log.log_decode::<bindings::OwnershipTransferred>() {
         events.push(ObservedEvent::OwnershipTransfer {
@@ -786,6 +780,24 @@ mod tests {
                 role,
                 account,
                 action: RoleAction::Granted,
+            }]
+        );
+    }
+
+    #[test]
+    fn decodes_verifier_proxy_upgrade_only_as_proxy_upgrade() {
+        let proxy = addr("0x0000000000000000000000000000000000000030");
+        let implementation = addr("0x0000000000000000000000000000000000000031");
+
+        assert_eq!(
+            decode_contract_log(
+                "risc0_verifier",
+                &rpc_log(proxy, bindings::Upgraded { implementation }),
+            ),
+            vec![ObservedEvent::ProxyUpgrade {
+                target: "risc0_verifier".to_string(),
+                proxy,
+                implementation,
             }]
         );
     }

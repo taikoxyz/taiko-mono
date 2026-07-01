@@ -72,16 +72,8 @@ impl RollupMonitor {
         }
     }
 
-    pub fn execute_l1_cycle(&mut self, latest_block: u64) {
-        let Some((from_block, safe_head)) =
-            self.l1_cursor.next_range(latest_block, self.config.confirmations)
-        else {
-            return;
-        };
-
-        info!(from_block, safe_head, "planned L1 rollup monitor scan");
-        self.l1_cursor.mark_scanned(safe_head);
-        metrics::set_scan_position("l1", safe_head, safe_head);
+    fn next_l1_scan_range(&self, latest_block: u64) -> Option<(u64, u64)> {
+        self.l1_cursor.next_range(latest_block, self.config.confirmations)
     }
 
     pub async fn execute_l1_cycle_with_provider<P>(
@@ -93,9 +85,7 @@ impl RollupMonitor {
     where
         P: Provider<Ethereum>,
     {
-        let Some((from_block, safe_head)) =
-            self.l1_cursor.next_range(latest_block, self.config.confirmations)
-        else {
+        let Some((from_block, safe_head)) = self.next_l1_scan_range(latest_block) else {
             return Ok(());
         };
 
@@ -104,7 +94,9 @@ impl RollupMonitor {
             chunk_ranges(from_block, safe_head, self.config.max_block_range)
         {
             self.scan_contract_logs(provider, chain_id, chunk_from, chunk_to).await?;
-            self.scan_eoa_transactions(provider, chunk_from, chunk_to).await?;
+            if let Some((eoa_from, eoa_to)) = self.eoa_scan_range(chunk_from, chunk_to) {
+                self.scan_eoa_transactions(provider, eoa_from, eoa_to).await?;
+            }
         }
 
         self.l1_cursor.mark_scanned(safe_head);
@@ -176,6 +168,22 @@ impl RollupMonitor {
             .watched_contracts
             .iter()
             .find_map(|(name, candidate)| (*candidate == address).then(|| name.clone()))
+    }
+
+    pub fn eoa_scan_range(&self, from_block: u64, to_block: u64) -> Option<(u64, u64)> {
+        if !self.config.eoa_scan_enabled
+            || self.config.watched_eoas.is_empty()
+            || from_block > to_block
+        {
+            return None;
+        }
+
+        let max_blocks = self.config.eoa_scan_max_block_range.max(1);
+        let span = to_block - from_block + 1;
+        let limited_from =
+            if span > max_blocks { to_block.saturating_sub(max_blocks - 1) } else { from_block };
+
+        Some((limited_from, to_block))
     }
 
     pub fn classify_and_record(&self, chain: &str, event: &ObservedEvent) -> Option<Alert> {
@@ -329,13 +337,13 @@ mod tests {
     }
 
     #[test]
-    fn execute_l1_cycle_advances_cursor_without_error() {
+    fn next_l1_scan_range_plans_without_advancing_cursor() {
         let config =
             config(&["--start-block", "100", "--confirmations", "3", "--overlap-blocks", "20"]);
-        let mut monitor = RollupMonitor::new(config);
+        let monitor = RollupMonitor::new(config);
 
-        monitor.execute_l1_cycle(120);
-        assert_eq!(monitor.l1_cursor.next_range(130, 3), Some((97, 127)));
+        assert_eq!(monitor.next_l1_scan_range(120), Some((100, 117)));
+        assert_eq!(monitor.next_l1_scan_range(130), Some((100, 127)));
     }
 
     #[test]
@@ -429,5 +437,28 @@ mod tests {
             Some(Alert::UnexpectedEoaTransaction { signer, to: Some(unexpected), allowed: false })
         );
         assert_eq!(monitor.process_eoa_transaction("l1", unexpected, Some(unexpected)), None);
+    }
+
+    #[test]
+    fn eoa_scan_range_is_disabled_by_default_even_with_watched_eoas() {
+        let config = config(&["--watched-eoas", "0x0000000000000000000000000000000000000035"]);
+        let monitor = RollupMonitor::new(config);
+
+        assert_eq!(monitor.eoa_scan_range(100, 200), None);
+    }
+
+    #[test]
+    fn eoa_scan_range_uses_tail_limited_independent_range_when_enabled() {
+        let config = config(&[
+            "--watched-eoas",
+            "0x0000000000000000000000000000000000000035",
+            "--eoa-scan-enabled",
+            "--eoa-scan-max-block-range",
+            "25",
+        ]);
+        let monitor = RollupMonitor::new(config);
+
+        assert_eq!(monitor.eoa_scan_range(100, 200), Some((176, 200)));
+        assert_eq!(monitor.eoa_scan_range(190, 200), Some((190, 200)));
     }
 }

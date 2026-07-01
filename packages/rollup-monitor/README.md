@@ -19,6 +19,8 @@ Configuration is provided through CLI flags or environment variables.
 | `START_BLOCK_LOOKBACK`           | `7200`   | Startup lookback when `START_BLOCK` is unset.                                                                                                         |
 | `OVERLAP_BLOCKS`                 | `20`     | Blocks to rescan each cycle.                                                                                                                          |
 | `MAX_BLOCK_RANGE`                | `2000`   | Maximum block span per scan chunk.                                                                                                                    |
+| `EOA_SCAN_ENABLED`               | `false`  | Enables full-block transaction polling for `WATCHED_EOAS`. Keep disabled unless the RPC budget supports it.                                           |
+| `EOA_SCAN_MAX_BLOCK_RANGE`       | `25`     | Maximum number of recent safe blocks to scan for EOA transactions per contract-log chunk.                                                             |
 | `SEEN_LOG_CACHE_SIZE`            | `10000`  | In-memory dedupe cache size.                                                                                                                          |
 | `WATCHED_CONTRACTS`              | empty    | Comma-separated `name=address` pairs.                                                                                                                 |
 | `ALLOWED_PROVERS`                | empty    | Comma-separated prover addresses.                                                                                                                     |
@@ -51,9 +53,9 @@ Implemented L1 checks:
 - Common admin events: `Upgraded`, `OwnershipTransferred`, `RoleGranted`, `RoleRevoked`.
 - Pause events: `Paused`, `Unpaused`.
 - Safe activity: `ExecutionSuccess`, `ExecutionFailure`.
-- Verifier trust/config events: `ImageTrusted`, `ProgramTrusted`, and verifier proxy `Upgraded` events.
+- Verifier trust/config events: `ImageTrusted`, `ProgramTrusted`. Verifier proxy `Upgraded` events are reported by the proxy upgrade metric.
 - SGX registry events: `InstanceAdded`, `InstanceDeleted`.
-- Watched EOA transactions: full-block polling catches configured signers sending to unapproved destinations.
+- Watched EOA transactions: optional full-block polling catches configured signers sending to unapproved destinations. This is disabled by default and independently capped by `EOA_SCAN_MAX_BLOCK_RANGE`.
 
 ## Metrics
 
