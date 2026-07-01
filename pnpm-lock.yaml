@@ -313,7 +313,7 @@ importers:
         version: 1.1.0
       '@automata-network/on-chain-pccs':
         specifier: 1.1.1
-        version: 1.1.1(@openzeppelin/contracts@4.9.6)(solady@https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d)
+        version: 1.1.1(@openzeppelin/contracts@4.9.6)(solady@https://codeload.github.com/Vectorized/solady/tar.gz/acd959aa4bd04720d640bf4e6a5c71037510cc4b)
       '@openzeppelin/contracts':
         specifier: 4.9.6
         version: 4.9.6
@@ -10613,10 +10613,10 @@ snapshots:
 
   '@automata-network/automata-dcap-attestation@1.1.0': {}
 
-  '@automata-network/on-chain-pccs@1.1.1(@openzeppelin/contracts@4.9.6)(solady@https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d)':
+  '@automata-network/on-chain-pccs@1.1.1(@openzeppelin/contracts@4.9.6)(solady@https://codeload.github.com/Vectorized/solady/tar.gz/acd959aa4bd04720d640bf4e6a5c71037510cc4b)':
     dependencies:
       '@openzeppelin/contracts': 4.9.6
-      solady: https://codeload.github.com/Vectorized/solady/tar.gz/523915e79648c5b11e99fe3054ebca75d803782d
+      solady: https://codeload.github.com/Vectorized/solady/tar.gz/acd959aa4bd04720d640bf4e6a5c71037510cc4b
 
   '@aws-crypto/crc32@5.2.0':
     dependencies:
