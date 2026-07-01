@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,7 +24,8 @@ func TestRisc0BacklogTestSuite(t *testing.T) {
 func (s *Risc0BacklogTestSuite) TestStatusCleanReturnsTrue() {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.Equal(http.MethodGet, r.Method)
-		s.Equal("/v3/prover/status", r.URL.Path)
+		s.Equal("/v4/prover/status", r.URL.Path)
+		s.Equal("risc0", r.URL.Query().Get("proof_type"))
 		_, _ = w.Write([]byte(
 			`{"status":"ok","data":{"clean":true,"tasks":{"pending":0},"network":{"risc0":{"inflight_orders":0}}}}`,
 		))
@@ -68,10 +70,12 @@ func (s *Risc0BacklogTestSuite) TestStatusCleanDummyShortCircuits() {
 
 func (s *Risc0BacklogTestSuite) TestClearBacklogPostsToEndpoint() {
 	var called bool
+	var gotBody map[string]string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		s.Equal(http.MethodPost, r.Method)
-		s.Equal("/v3/prover/clear", r.URL.Path)
+		s.Equal("/v4/prover/clear", r.URL.Path)
+		s.NoError(json.NewDecoder(r.Body).Decode(&gotBody))
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}))
 	defer server.Close()
@@ -79,6 +83,7 @@ func (s *Risc0BacklogTestSuite) TestClearBacklogPostsToEndpoint() {
 	p := &ComposeProofProducer{RaikoHostEndpoint: server.URL, RaikoRequestTimeout: time.Second}
 	s.NoError(p.ClearBacklog(s.T().Context()))
 	s.True(called)
+	s.Equal("risc0", gotBody["proof_type"])
 }
 
 func (s *Risc0BacklogTestSuite) TestClearBacklogErrorsOnNon200() {
