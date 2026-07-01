@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@p256-verifier/contracts/P256Verifier.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
-import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
-import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
-import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
+import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 
 import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
@@ -19,9 +15,10 @@ import "src/layer1/mainnet/MainnetERC20Vault.sol";
 import "src/layer1/mainnet/MainnetERC721Vault.sol";
 import "src/layer1/mainnet/TaikoToken.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SecureSgxVerifier.sol";
+import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
 import "src/shared/common/DefaultResolver.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/signal/SignalService.sol";
@@ -59,8 +56,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoToken;
         address taikoTokenPremintRecipient;
         address proposerAddress;
+        address automataDcap;
         bool useDummyVerifiers;
         bool pauseBridge;
+        // When true, deploy the lenient InsecureSgxVerifier; otherwise deploy the strict
+        // SgxVerifier. The secure default (false) selects the strict mainnet policy.
+        bool useInsecureSgxPolicy;
     }
 
     modifier broadcast() {
@@ -115,8 +116,15 @@ contract DeployProtocolOnL1 is DeployCapability {
         config.taikoTokenPremintRecipient = vm.envAddress("TAIKO_TOKEN_PREMINT_RECIPIENT");
         config.proposerAddress = vm.envAddress("PROPOSER_ADDRESS");
         config.preconfWhitelist = vm.envOr("PRECONF_WHITELIST", address(0));
+        // Taiko-owned Automata DCAP attestation entrypoint for the SGX verifiers. Deploy it first
+        // with DeployAutomataDcapAttestation (under FOUNDRY_PROFILE=layer1o) and pass its address
+        // here. Optional for dummy-verifier deployments, which don't exercise real attestation.
+        config.automataDcap = vm.envOr("DCAP_ATTESTATION", address(0));
         config.useDummyVerifiers = vm.envBool("DUMMY_VERIFIERS");
         config.pauseBridge = vm.envBool("PAUSE_BRIDGE");
+        // Secure default: when INSECURE_SGX_VERIFIER is unset or false, deploy the strict
+        // SgxVerifier. Only an explicit true selects the lenient InsecureSgxVerifier.
+        config.useInsecureSgxPolicy = vm.envOr("INSECURE_SGX_VERIFIER", false);
 
         require(config.contractOwner != address(0), "CONTRACT_OWNER not set");
         require(config.l2GenesisHash != bytes32(0), "L2_GENESIS_HASH not set");
@@ -130,22 +138,50 @@ contract DeployProtocolOnL1 is DeployCapability {
         verifiers.op = address(new OpVerifier());
         console2.log("OpVerifier deployed:", verifiers.op);
 
-        // Deploy automata attestation for SGX
-        (address automataProxy, address sgxGethAutomataProxy) =
-            _deployAutomataAttestation(config.contractOwner);
+        // Taiko-owned Automata DCAP attestation entrypoint (deployed separately by
+        // DeployAutomataDcapAttestation), shared by both SGX verifier instances; each SgxVerifier
+        // enforces its own MRENCLAVE/MRSIGNER allowlist (configured post-deployment). Required for
+        // real deployments; dummy deployments don't exercise real attestation.
+        address automataDcap = config.automataDcap;
+        if (!config.useDummyVerifiers) {
+            require(automataDcap != address(0), "DCAP_ATTESTATION not set");
+        }
 
-        // Deploy SGX verifier. The registrar is set to address(0), leaving `registerInstance`
-        // permissionless; set a non-zero registrar to restrict instance registration.
-        verifiers.sgx = address(
-            new SecureSgxVerifier(config.l2ChainId, config.contractOwner, automataProxy, address(0))
-        );
+        // Deploy SGX verifiers. Mainnet AND all (public) testnets MUST use SecureSgxVerifier (strict
+        // TCB-status policy + per-MRENCLAVE ATTRIBUTES pin); the strict SecureSgxVerifier is the
+        // secure default, and only an explicit `useInsecureSgxPolicy` selects the lenient
+        // InsecureSgxVerifier, which relaxes the TCB-status policy for lagging dev hardware and MUST
+        // be used by local devnets ONLY — never by a public testnet or mainnet.
+        // The registrar is set to address(0), leaving `registerInstance` permissionless; set a
+        // non-zero registrar to restrict instance registration (a non-zero registrar may also
+        // fail-close a compromised enclave via `removeEnclaveAttributePolicy`). The 24h
+        // instance-validity delay gives off-chain monitoring time to evict a rogue self-registered
+        // instance before it can prove (owner `addInstances` registrations are not delayed); it
+        // applies to SecureSgxVerifier only.
+        verifiers.sgx = config.useInsecureSgxPolicy
+            ? address(
+                new InsecureSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                )
+            )
+            : address(
+                new SecureSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0), 24 hours
+                )
+            );
         console2.log("SgxVerifier deployed:", verifiers.sgx);
 
-        verifiers.sgxGeth = address(
-            new SecureSgxVerifier(
-                config.l2ChainId, config.contractOwner, sgxGethAutomataProxy, address(0)
+        verifiers.sgxGeth = config.useInsecureSgxPolicy
+            ? address(
+                new InsecureSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0)
+                )
             )
-        );
+            : address(
+                new SecureSgxVerifier(
+                    config.l2ChainId, config.contractOwner, automataDcap, address(0), 24 hours
+                )
+            );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
         // Deploy ZK verifiers (RISC0 and SP1)
@@ -373,37 +409,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         register(
             sharedResolver, "bridged_erc1155", address(new BridgedERC1155(address(erc1155Vault)))
         );
-    }
-
-    function _deployAutomataAttestation(address owner)
-        private
-        returns (address automataProxy, address automataProxySgxGeth)
-    {
-        // Deploy library dependencies
-        SigVerifyLib sigVerifyLib = new SigVerifyLib(address(new P256Verifier()));
-        PEMCertChainLib pemCertChainLib = new PEMCertChainLib();
-
-        console2.log("SigVerifyLib deployed:", address(sigVerifyLib));
-        console2.log("PEMCertChainLib deployed:", address(pemCertChainLib));
-
-        // Deploy automata attestation proxy
-        automataProxy = deployProxy({
-            name: "automata_dcap_attestation",
-            impl: address(new AutomataDcapV3Attestation()),
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
-            )
-        });
-        // Deploy sgx-geth automata attestation proxy
-        automataProxySgxGeth = deployProxy({
-            name: "sgx_geth_automata_dcap_attestation",
-            impl: address(new AutomataDcapV3Attestation()),
-            data: abi.encodeCall(
-                AutomataDcapV3Attestation.init,
-                (owner, address(sigVerifyLib), address(pemCertChainLib))
-            )
-        });
     }
 
     function _deployZKVerifiers(

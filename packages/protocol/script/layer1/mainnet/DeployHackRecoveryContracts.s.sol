@@ -84,7 +84,8 @@ contract DeployHackRecoveryContracts is Script {
                 LibNetwork.TAIKO_MAINNET,
                 LibL1Addrs.DAO_CONTROLLER,
                 LibL1Addrs.SGXGETH_ATTESTER,
-                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                24 hours
             )
         );
 
@@ -93,7 +94,8 @@ contract DeployHackRecoveryContracts is Script {
                 LibNetwork.TAIKO_MAINNET,
                 LibL1Addrs.DAO_CONTROLLER,
                 LibL1Addrs.SGXRETH_ATTESTER,
-                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH
+                LibL1Addrs.MULTISIG_ADMIN_TAIKO_ETH,
+                24 hours
             )
         );
 

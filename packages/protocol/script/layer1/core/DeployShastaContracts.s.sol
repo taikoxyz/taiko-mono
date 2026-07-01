@@ -6,9 +6,10 @@ import { Inbox } from "src/layer1/core/impl/Inbox.sol";
 import { ProverWhitelist } from "src/layer1/core/impl/ProverWhitelist.sol";
 import { MainnetInbox } from "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import { InsecureSgxVerifier } from "src/layer1/verifiers/InsecureSgxVerifier.sol";
 import "src/layer1/verifiers/Risc0Verifier.sol";
 import "src/layer1/verifiers/SP1Verifier.sol";
-import "src/layer1/verifiers/SecureSgxVerifier.sol";
+import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
 import "src/shared/signal/SignalService.sol";
 import { SignalServiceForkRouter } from "src/shared/signal/SignalServiceForkRouter.sol";
 import "test/shared/DeployCapability.sol";
@@ -41,6 +42,9 @@ abstract contract DeployShastaContracts is DeployCapability {
         uint64 shastaForkTimestamp;
         address preconfWhitelist;
         address signalServicePauser;
+        // When true, deploy the lenient InsecureSgxVerifier; otherwise deploy the strict
+        // SgxVerifier. The secure default (false) selects the strict mainnet policy.
+        bool useInsecureSgxPolicy;
     }
 
     modifier broadcast() {
@@ -142,19 +146,30 @@ abstract contract DeployShastaContracts is DeployCapability {
         private
         returns (VerifierAddresses memory verifiers)
     {
-        // The registrar is set to address(0), leaving `registerInstance` permissionless;
-        // set a non-zero registrar to restrict instance registration.
-        verifiers.sgxReth = address(
-            new SecureSgxVerifier(
-                config.l2ChainId, config.contractOwner, config.sgxRethAutomataProxy, address(0)
-            )
+        // Mainnet AND all (public) testnets MUST use SecureSgxVerifier (strict TCB-status policy +
+        // per-MRENCLAVE ATTRIBUTES pin); the strict SecureSgxVerifier is the secure default, and only
+        // an explicit `useInsecureSgxPolicy` selects the lenient InsecureSgxVerifier, which relaxes
+        // the TCB-status policy for lagging dev hardware and MUST be used by local devnets ONLY —
+        // never by a public testnet or mainnet.
+        // The registrar is set to address(0), leaving `registerInstance` permissionless; set a
+        // non-zero registrar to restrict instance registration (a non-zero registrar may also
+        // fail-close a compromised enclave via `removeEnclaveAttributePolicy`). The 24h
+        // instance-validity delay gives off-chain monitoring time to evict a rogue self-registered
+        // instance before it can prove (owner `addInstances` registrations are not delayed); it
+        // applies to SecureSgxVerifier only.
+        verifiers.sgxReth = _deploySgxVerifier(
+            config.useInsecureSgxPolicy,
+            config.l2ChainId,
+            config.contractOwner,
+            config.sgxRethAutomataProxy
         );
         console2.log("SgxVerifier deployed:", verifiers.sgxReth);
 
-        verifiers.sgxGeth = address(
-            new SecureSgxVerifier(
-                config.l2ChainId, config.contractOwner, config.sgxGethAutomataProxy, address(0)
-            )
+        verifiers.sgxGeth = _deploySgxVerifier(
+            config.useInsecureSgxPolicy,
+            config.l2ChainId,
+            config.contractOwner,
+            config.sgxGethAutomataProxy
         );
         console2.log("SgxGethVerifier deployed:", verifiers.sgxGeth);
 
@@ -167,5 +182,30 @@ abstract contract DeployShastaContracts is DeployCapability {
             new SP1Verifier(config.l2ChainId, config.sp1PlonkVerifier, config.contractOwner)
         );
         console2.log("SP1Verifier deployed:", verifiers.sp1);
+    }
+
+    /// @dev Deploys an SGX verifier, selecting the strict SecureSgxVerifier by default and the
+    /// lenient InsecureSgxVerifier only when `useInsecureSgxPolicy` is true. The registrar is set to
+    /// address(0), leaving registerInstance permissionless. SecureSgxVerifier is given a 24h
+    /// instance-validity delay so off-chain monitoring can evict a rogue self-registered instance
+    /// before it can prove (owner `addInstances` registrations are not delayed).
+    function _deploySgxVerifier(
+        bool useInsecureSgxPolicy,
+        uint64 l2ChainId,
+        address contractOwner,
+        address automataProxy
+    )
+        private
+        returns (address)
+    {
+        if (useInsecureSgxPolicy) {
+            return
+                address(
+                    new InsecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0))
+                );
+        }
+        return address(
+            new SecureSgxVerifier(l2ChainId, contractOwner, automataProxy, address(0), 24 hours)
+        );
     }
 }
