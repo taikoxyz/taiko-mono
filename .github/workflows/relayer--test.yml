@@ -48,7 +48,7 @@ jobs:
           echo "::error::Fork PR CI on self-hosted runners is disabled for security."
           echo "::error::A maintainer must move this CI to a hosted-runner job or trigger from a trusted ref."
           exit 1
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-go@v6
@@ -95,7 +95,7 @@ jobs:
         with:
           access_token: ${{ github.token }}
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: actions/setup-go@v6
@@ -108,7 +108,7 @@ jobs:
         run: go test `go list ./... | grep -v ./contracts | grep -v ./mock | grep -v ./cmd` -timeout=20m -coverprofile=coverage.txt -covermode=atomic
 
       - name: relayer - Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./packages/relayer/coverage.txt
           flags: relayer
