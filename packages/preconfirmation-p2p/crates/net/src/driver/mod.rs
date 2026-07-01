@@ -19,7 +19,7 @@ use tokio::sync::mpsc::{self, Receiver, Sender, error::TrySendError};
 use crate::{
     behaviour::NetBehaviourEvent,
     builder::build_transport_and_behaviour,
-    command::NetworkCommand,
+    command::{NetworkCommand, PeerInfoSnapshot},
     config::NetworkConfig,
     discovery::spawn_discovery,
     event::{NetworkError, NetworkErrorKind, NetworkEvent},
@@ -72,6 +72,8 @@ pub struct NetworkDriver {
     discovery_rx: Option<Receiver<Multiaddr>>,
     /// Counter for currently connected peers.
     connected_peers: i64,
+    /// Known remote addresses for currently connected peers.
+    peer_addresses: HashMap<PeerId, Vec<Multiaddr>>,
     /// The current local preconfirmation head, served to peers on request.
     head: PreconfHead,
     /// Kona connection gater for managing inbound and outbound connections.
@@ -184,6 +186,7 @@ impl NetworkDriver {
                 validator,
                 discovery_rx,
                 connected_peers: 0,
+                peer_addresses: HashMap::new(),
                 head: PreconfHead::default(),
                 kona_gater: build_kona_gater(&cfg),
                 storage: storage.unwrap_or_else(default_storage),
@@ -244,6 +247,26 @@ impl NetworkDriver {
         }
         if ev.is_greylisted && !ev.was_greylisted {
             metrics::inc("p2p_reputation_greylist");
+        }
+    }
+
+    /// Build a point-in-time snapshot of local and connected peer metadata.
+    fn peer_info_snapshot(&self) -> PeerInfoSnapshot {
+        let peers: Vec<_> = self.swarm.connected_peers().copied().collect();
+        let addr_info = peers
+            .iter()
+            .filter_map(|peer| self.peer_addresses.get(peer))
+            .flat_map(|addrs| addrs.iter().cloned())
+            .collect();
+        let listen_addrs = self.swarm.listeners().cloned().collect();
+        let external_addrs = self.swarm.external_addresses().cloned().collect();
+
+        PeerInfoSnapshot {
+            local_peer_id: *self.swarm.local_peer_id(),
+            peers,
+            addr_info,
+            listen_addrs,
+            external_addrs,
         }
     }
 }

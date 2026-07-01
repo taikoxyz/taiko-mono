@@ -14,7 +14,7 @@ use tokio::sync::{
 };
 
 use crate::{
-    command::NetworkCommand,
+    command::{NetworkCommand, PeerInfoSnapshot},
     driver::NetworkHandle,
     event::{NetworkError, NetworkErrorKind, NetworkEvent},
 };
@@ -84,6 +84,18 @@ impl P2pHandle {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.commands
             .send(NetworkCommand::GetPeerCount { respond_to: tx })
+            .await
+            .map_err(|_| NetworkError::new(NetworkErrorKind::Other, "command channel closed"))?;
+        rx.await.map_err(|_| NetworkError::new(NetworkErrorKind::Other, "response channel closed"))
+    }
+
+    /// Get a point-in-time snapshot of connected peers and known peer addresses.
+    ///
+    /// Sends a command to the network driver and awaits the response.
+    pub async fn peer_info(&self) -> Result<PeerInfoSnapshot, NetworkError> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.commands
+            .send(NetworkCommand::GetPeerInfo { respond_to: tx })
             .await
             .map_err(|_| NetworkError::new(NetworkErrorKind::Other, "command channel closed"))?;
         rx.await.map_err(|_| NetworkError::new(NetworkErrorKind::Other, "response channel closed"))
