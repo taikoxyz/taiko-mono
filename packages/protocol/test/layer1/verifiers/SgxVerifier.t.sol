@@ -13,6 +13,12 @@ import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 contract MockAttestation is IAttestation {
     bool private _shouldSucceed;
     uint8 private _tcbStatus;
+    // By default every measurement is trusted so the existing happy-path tests (which leave
+    // mrEnclave/mrSigner at zero) keep passing. Set `_trustAllMeasurements` to false to exercise the
+    // MRENCLAVE/MRSIGNER allowlist explicitly.
+    bool private _trustAllMeasurements = true;
+    mapping(bytes32 mrEnclave => bool trusted) private _mrEnclaveTrusted;
+    mapping(bytes32 mrSigner => bool trusted) private _mrSignerTrusted;
 
     function setResult(bool _result) external {
         _shouldSucceed = _result;
@@ -20,6 +26,18 @@ contract MockAttestation is IAttestation {
 
     function setTcbStatus(uint8 _status) external {
         _tcbStatus = _status;
+    }
+
+    function setTrustAllMeasurements(bool _trustAll) external {
+        _trustAllMeasurements = _trustAll;
+    }
+
+    function setMrEnclaveTrusted(bytes32 _mrEnclave, bool _trusted) external {
+        _mrEnclaveTrusted[_mrEnclave] = _trusted;
+    }
+
+    function setMrSignerTrusted(bytes32 _mrSigner, bool _trusted) external {
+        _mrSignerTrusted[_mrSigner] = _trusted;
     }
 
     function verifyAttestation(bytes calldata) external view override returns (bool) {
@@ -35,6 +53,14 @@ contract MockAttestation is IAttestation {
         // Mirror AutomataDcapV3Attestation: on a successful verification the return data is
         // abi.encodePacked(sha256(quote), uint8 tcbStatus), so the TCB status is the 33rd byte.
         return (_shouldSucceed, abi.encodePacked(sha256(abi.encode(_quote)), _tcbStatus));
+    }
+
+    function trustedUserMrEnclave(bytes32 _mrEnclave) external view override returns (bool) {
+        return _trustAllMeasurements || _mrEnclaveTrusted[_mrEnclave];
+    }
+
+    function trustedUserMrSigner(bytes32 _mrSigner) external view override returns (bool) {
+        return _trustAllMeasurements || _mrSignerTrusted[_mrSigner];
     }
 }
 
@@ -179,6 +205,51 @@ abstract contract SgxVerifierTestBase is Test {
         attestation.setTcbStatus(uint8(TCBInfoStruct.TCBStatus.TCB_SW_HARDENING_NEEDED));
 
         uint256 id = verifier.registerInstance(_makeQuote(address(0xC0FFEE)));
+        assertEq(id, 0);
+    }
+
+    function test_registerInstance_RevertWhen_MrEnclaveUntrusted() external {
+        // A genuinely-attested enclave whose code measurement (MRENCLAVE) is not on the allowlist must
+        // be rejected even when the attestation itself verifies and the signer is trusted. This is the
+        // code-identity pinning that is enforced unconditionally by the verifier (independent of the
+        // attestation contract's `checkLocalEnclaveReport` toggle).
+        attestation.setResult(true);
+        attestation.setTrustAllMeasurements(false);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        // signer trusted, enclave measurement NOT trusted
+        attestation.setMrSignerTrusted(quote.localEnclaveReport.mrSigner, true);
+
+        vm.expectRevert(SgxVerifier.SGX_UNTRUSTED_MRENCLAVE.selector);
+        verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_RevertWhen_MrSignerUntrusted() external {
+        // A trusted MRENCLAVE with an untrusted MRSIGNER must also be rejected.
+        attestation.setResult(true);
+        attestation.setTrustAllMeasurements(false);
+
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(address(0xC0FFEE));
+        attestation.setMrEnclaveTrusted(quote.localEnclaveReport.mrEnclave, true);
+
+        vm.expectRevert(SgxVerifier.SGX_UNTRUSTED_MRSIGNER.selector);
+        verifier.registerInstance(quote);
+    }
+
+    function test_registerInstance_AcceptsWhenMeasurementsExplicitlyTrusted() external {
+        // With both MRENCLAVE and MRSIGNER on the allowlist, registration succeeds.
+        attestation.setResult(true);
+        attestation.setTrustAllMeasurements(false);
+
+        address newInstance = address(0xC0FFEE);
+        V3Struct.ParsedV3QuoteStruct memory quote = _makeQuote(newInstance);
+        attestation.setMrEnclaveTrusted(quote.localEnclaveReport.mrEnclave, true);
+        attestation.setMrSignerTrusted(quote.localEnclaveReport.mrSigner, true);
+
+        vm.expectEmit(true, true, true, true);
+        emit SgxVerifier.InstanceAdded(0, newInstance, address(0), block.timestamp);
+
+        uint256 id = verifier.registerInstance(quote);
         assertEq(id, 0);
     }
 
