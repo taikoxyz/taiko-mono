@@ -3,7 +3,12 @@ use std::path::PathBuf;
 use clap::Parser;
 use color_eyre::Result;
 use dotenvy::{dotenv, from_path};
-use rollup_monitor::{config::Config, metrics, monitor::RollupMonitor, server::spawn_server};
+use rollup_monitor::{
+    config::Config,
+    metrics,
+    monitor::RollupMonitor,
+    server::{HealthState, spawn_server},
+};
 use tokio::signal;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal as unix_signal};
@@ -35,18 +40,23 @@ async fn main() -> Result<()> {
 
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     let http_port = config.http_port;
+    let health = HealthState::new(std::time::Duration::from_secs(
+        config.poll_interval_seconds.saturating_mul(3).max(1),
+    ));
+    let server_health = health.clone();
+    let monitor_health = health.clone();
 
     let server_handle = tokio::spawn(async move {
         let shutdown = async move {
             let _ = shutdown_rx.await;
         };
 
-        if let Err(error) = spawn_server(http_port, shutdown).await {
+        if let Err(error) = spawn_server(http_port, server_health, shutdown).await {
             tracing::error!("server exited with error: {error:?}");
         }
     });
 
-    let monitor = RollupMonitor::new(config);
+    let monitor = RollupMonitor::with_health(config, monitor_health);
     let monitor_handle = tokio::spawn(async move {
         if let Err(error) = monitor.run().await {
             tracing::error!("rollup monitor exited with error: {error:?}");
@@ -62,6 +72,9 @@ async fn main() -> Result<()> {
     #[cfg(not(unix))]
     let term = std::future::pending::<()>();
 
+    tokio::pin!(server_handle);
+    tokio::pin!(monitor_handle);
+
     tokio::select! {
         _ = signal::ctrl_c() => {
             tracing::warn!("Ctrl+C received; shutting down");
@@ -69,10 +82,18 @@ async fn main() -> Result<()> {
         _ = term => {
             tracing::warn!("SIGTERM received; shutting down");
         }
+        result = &mut monitor_handle => {
+            tracing::error!("monitor task exited unexpectedly: {result:?}");
+            std::process::exit(1);
+        }
+        result = &mut server_handle => {
+            tracing::error!("server task exited unexpectedly: {result:?}");
+            std::process::exit(1);
+        }
     }
 
     let _ = shutdown_tx.send(());
-    monitor_handle.abort();
+    monitor_handle.as_mut().abort();
 
     let _ = monitor_handle.await;
     let _ = server_handle.await;

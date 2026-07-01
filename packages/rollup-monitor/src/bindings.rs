@@ -53,8 +53,8 @@ sol! {
     event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
     event Paused(address account);
     event Unpaused(address account);
-    event ExecutionSuccess(bytes32 txHash, uint256 payment);
-    event ExecutionFailure(bytes32 txHash, uint256 payment);
+    event ExecutionSuccess(bytes32 indexed txHash, uint256 payment);
+    event ExecutionFailure(bytes32 indexed txHash, uint256 payment);
     event ImageTrusted(bytes32 imageId, bool trusted);
     event ProgramTrusted(bytes32 programVKey, bool trusted);
     event InstanceAdded(

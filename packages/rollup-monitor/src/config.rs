@@ -6,7 +6,7 @@ use std::{
 use alloy::primitives::{Address, B256};
 use clap::Parser;
 
-pub const DEFAULT_HTTP_PORT: u64 = 8080;
+pub const DEFAULT_HTTP_PORT: u16 = 8080;
 pub const DEFAULT_POLL_INTERVAL_SECONDS: u64 = 12;
 pub const DEFAULT_CONFIRMATIONS: u64 = 3;
 pub const DEFAULT_START_BLOCK_LOOKBACK: u64 = 7200;
@@ -25,7 +25,7 @@ pub struct Config {
     pub l2_http_url: Option<String>,
 
     #[arg(long, env = "HTTP_PORT", default_value_t = DEFAULT_HTTP_PORT)]
-    pub http_port: u64,
+    pub http_port: u16,
 
     #[arg(
         long,
@@ -153,7 +153,9 @@ fn parse_named_addresses(value: &str) -> Result<HashMap<String, Address>, String
         let name = normalize_name(name)?;
         let address = Address::from_str(address.trim())
             .map_err(|error| format!("invalid address for '{name}': {error}"))?;
-        parsed.insert(name, address);
+        if parsed.insert(name.clone(), address).is_some() {
+            return Err(format!("duplicate name '{name}'"));
+        }
     }
 
     Ok(parsed)
@@ -183,7 +185,9 @@ fn parse_named_u128s(value: &str) -> Result<HashMap<String, u128>, String> {
             .trim()
             .parse::<u128>()
             .map_err(|error| format!("invalid integer for '{name}': {error}"))?;
-        parsed.insert(name, amount);
+        if parsed.insert(name.clone(), amount).is_some() {
+            return Err(format!("duplicate name '{name}'"));
+        }
     }
 
     Ok(parsed)
@@ -215,7 +219,7 @@ fn normalize_name(name: &str) -> Result<String, String> {
         return Err("name cannot be empty".to_string());
     }
 
-    Ok(name.to_string())
+    Ok(name.to_ascii_lowercase())
 }
 
 #[cfg(test)]
@@ -225,7 +229,7 @@ mod tests {
     use alloy::primitives::{Address, B256};
     use clap::Parser;
 
-    use super::Config;
+    use super::{Config, parse_named_addresses, parse_named_u128s};
 
     fn addr(value: &str) -> Address {
         Address::from_str(value).expect("test address should parse")
@@ -362,5 +366,46 @@ mod tests {
         );
         assert_eq!(config.withdrawal_thresholds_wei.get("bridge"), Some(&1000));
         assert_eq!(config.withdrawal_thresholds_wei.get("erc20_vault"), Some(&2000));
+    }
+
+    #[test]
+    fn rejects_http_port_outside_u16_range() {
+        let error = Config::try_parse_from([
+            "rollup-monitor",
+            "--l1-http-url",
+            "http://localhost:8545",
+            "--http-port",
+            "70000",
+        ])
+        .expect_err("invalid port should be rejected");
+
+        assert!(error.to_string().contains("70000"));
+    }
+
+    #[test]
+    fn normalizes_named_config_keys_to_lowercase() {
+        let parsed = parse_named_addresses(
+            "Inbox=0x0000000000000000000000000000000000000001, BRIDGE = 0x0000000000000000000000000000000000000002",
+        )
+        .expect("named addresses should parse");
+
+        assert!(parsed.contains_key("inbox"));
+        assert!(parsed.contains_key("bridge"));
+    }
+
+    #[test]
+    fn rejects_duplicate_single_value_named_keys() {
+        assert!(
+            parse_named_addresses(
+                "inbox=0x0000000000000000000000000000000000000001,inbox=0x0000000000000000000000000000000000000002",
+            )
+            .expect_err("duplicate address key should fail")
+            .contains("duplicate name 'inbox'")
+        );
+        assert!(
+            parse_named_u128s("bridge=1,BRIDGE=2")
+                .expect_err("duplicate threshold key should fail")
+                .contains("duplicate name 'bridge'")
+        );
     }
 }

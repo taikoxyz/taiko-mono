@@ -5,18 +5,31 @@ use alloy::primitives::B256;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct LogKey {
     pub chain_id: u64,
+    pub block_hash: Option<B256>,
     pub tx_hash: B256,
     pub log_index: u64,
 }
 
-#[derive(Debug)]
-pub struct SeenLogCache {
-    capacity: usize,
-    order: VecDeque<LogKey>,
-    keys: HashSet<LogKey>,
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct TxKey {
+    pub chain_id: u64,
+    pub tx_hash: B256,
 }
 
-impl SeenLogCache {
+#[derive(Debug)]
+pub struct SeenKeyCache<T>
+where
+    T: Clone + Eq + std::hash::Hash,
+{
+    capacity: usize,
+    order: VecDeque<T>,
+    keys: HashSet<T>,
+}
+
+impl<T> SeenKeyCache<T>
+where
+    T: Clone + Eq + std::hash::Hash,
+{
     pub fn new(capacity: usize) -> Self {
         Self {
             capacity: capacity.max(1),
@@ -25,7 +38,7 @@ impl SeenLogCache {
         }
     }
 
-    pub fn insert(&mut self, key: LogKey) -> bool {
+    pub fn insert(&mut self, key: T) -> bool {
         if self.keys.contains(&key) {
             return false;
         }
@@ -42,6 +55,9 @@ impl SeenLogCache {
         true
     }
 }
+
+pub type SeenLogCache = SeenKeyCache<LogKey>;
+pub type SeenTxCache = SeenKeyCache<TxKey>;
 
 #[derive(Clone, Debug)]
 pub struct ScanCursor {
@@ -107,7 +123,7 @@ pub fn chunk_ranges(from: u64, to: u64, max_block_range: u64) -> Vec<(u64, u64)>
 mod tests {
     use alloy::primitives::B256;
 
-    use super::{LogKey, ScanCursor, SeenLogCache, chunk_ranges};
+    use super::{LogKey, ScanCursor, SeenLogCache, SeenTxCache, TxKey, chunk_ranges};
 
     fn hash(id: u64) -> B256 {
         let mut bytes = [0u8; 32];
@@ -152,7 +168,8 @@ mod tests {
     #[test]
     fn seen_log_cache_accepts_new_key_and_rejects_duplicate() {
         let mut cache = SeenLogCache::new(10);
-        let key = LogKey { chain_id: 1, tx_hash: hash(1), log_index: 2 };
+        let key =
+            LogKey { chain_id: 1, block_hash: Some(hash(10)), tx_hash: hash(1), log_index: 2 };
 
         assert!(cache.insert(key.clone()));
         assert!(!cache.insert(key));
@@ -161,13 +178,25 @@ mod tests {
     #[test]
     fn seen_log_cache_prunes_oldest_key() {
         let mut cache = SeenLogCache::new(2);
-        let first = LogKey { chain_id: 1, tx_hash: hash(1), log_index: 0 };
-        let second = LogKey { chain_id: 1, tx_hash: hash(2), log_index: 0 };
-        let third = LogKey { chain_id: 1, tx_hash: hash(3), log_index: 0 };
+        let first =
+            LogKey { chain_id: 1, block_hash: Some(hash(10)), tx_hash: hash(1), log_index: 0 };
+        let second =
+            LogKey { chain_id: 1, block_hash: Some(hash(10)), tx_hash: hash(2), log_index: 0 };
+        let third =
+            LogKey { chain_id: 1, block_hash: Some(hash(10)), tx_hash: hash(3), log_index: 0 };
 
         assert!(cache.insert(first.clone()));
         assert!(cache.insert(second));
         assert!(cache.insert(third));
         assert!(cache.insert(first));
+    }
+
+    #[test]
+    fn seen_tx_cache_accepts_new_key_and_rejects_duplicate() {
+        let mut cache = SeenTxCache::new(10);
+        let key = TxKey { chain_id: 1, tx_hash: hash(1) };
+
+        assert!(cache.insert(key.clone()));
+        assert!(!cache.insert(key));
     }
 }

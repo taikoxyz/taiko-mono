@@ -51,7 +51,7 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
   test:
-    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') }}
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 25

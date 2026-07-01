@@ -1,4 +1,3 @@
-use alloy::primitives::Address;
 use axum::{Router, http::StatusCode, response::IntoResponse};
 use once_cell::sync::Lazy;
 use prometheus::{Encoder, IntCounterVec, IntGaugeVec, Opts, Registry, core::Collector};
@@ -10,7 +9,7 @@ static PROXY_UPGRADES_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_proxy_upgrades_total",
         "Unexpected and expected proxy upgrade events observed",
-        &["chain", "target", "proxy", "implementation", "expected"],
+        &["chain", "target", "expected"],
     )
 });
 
@@ -18,7 +17,7 @@ static OWNERSHIP_TRANSFERS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_ownership_transfers_total",
         "Ownership transfer events observed",
-        &["chain", "target", "previous_owner", "new_owner", "expected"],
+        &["chain", "target", "expected"],
     )
 });
 
@@ -26,7 +25,7 @@ static ROLE_CHANGES_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_role_changes_total",
         "Role grant and revoke events observed",
-        &["chain", "target", "role", "account", "action", "expected"],
+        &["chain", "target", "action"],
     )
 });
 
@@ -50,7 +49,7 @@ static UNEXPECTED_EOA_TRANSACTIONS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_unexpected_eoa_transactions_total",
         "Unexpected watched EOA transactions observed",
-        &["chain", "signer", "to", "allowed"],
+        &["chain", "allowed"],
     )
 });
 
@@ -58,7 +57,7 @@ static LARGE_WITHDRAWALS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_large_withdrawals_total",
         "Bridge or vault withdrawals over configured threshold",
-        &["chain", "target", "token", "recipient"],
+        &["chain", "target"],
     )
 });
 
@@ -66,7 +65,7 @@ static NON_WHITELISTED_PROVERS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_non_whitelisted_provers_total",
         "Proof events from non-whitelisted provers",
-        &["chain", "prover"],
+        &["chain"],
     )
 });
 
@@ -74,7 +73,7 @@ static NON_WHITELISTED_PROPOSERS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_non_whitelisted_proposers_total",
         "Proposal events from non-whitelisted proposers",
-        &["chain", "proposer"],
+        &["chain"],
     )
 });
 
@@ -82,7 +81,7 @@ static VERIFIER_CHANGES_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_verifier_changes_total",
         "Verifier configuration changes observed",
-        &["chain", "target", "verifier", "expected"],
+        &["chain", "target", "expected"],
     )
 });
 
@@ -90,15 +89,7 @@ static SGX_ANOMALIES_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_sgx_anomalies_total",
         "SGX or TEE registration anomalies observed",
-        &["chain", "instance", "reason"],
-    )
-});
-
-static RECONCILIATION_MISMATCHES_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
-    new_int_counter_vec(
-        "rollup_monitor_reconciliation_mismatches_total",
-        "Rollup reconciliation mismatches observed",
-        &["chain", "check"],
+        &["chain", "reason"],
     )
 });
 
@@ -106,7 +97,7 @@ static PROPOSAL_REORGS_TOTAL: Lazy<IntCounterVec> = Lazy::new(|| {
     new_int_counter_vec(
         "rollup_monitor_proposal_reorgs_total",
         "Inbox proposal observations that changed block or transaction after being seen",
-        &["chain", "proposal_id"],
+        &["chain"],
     )
 });
 
@@ -203,10 +194,6 @@ pub fn init() {
             Box::new(SGX_ANOMALIES_TOTAL.clone()),
         );
         register_metric(
-            "rollup_monitor_reconciliation_mismatches_total",
-            Box::new(RECONCILIATION_MISMATCHES_TOTAL.clone()),
-        );
-        register_metric(
             "rollup_monitor_proposal_reorgs_total",
             Box::new(PROPOSAL_REORGS_TOTAL.clone()),
         );
@@ -240,101 +227,52 @@ pub fn inc_scan_error(chain: &str, check: &str) {
     SCAN_ERRORS_TOTAL.with_label_values(&[chain, check]).inc();
 }
 
-pub fn inc_non_whitelisted_prover(chain: &str, prover: Address) {
-    NON_WHITELISTED_PROVERS_TOTAL.with_label_values(&[chain, prover.to_string().as_str()]).inc();
+pub fn inc_non_whitelisted_prover(chain: &str) {
+    NON_WHITELISTED_PROVERS_TOTAL.with_label_values(&[chain]).inc();
 }
 
-pub fn inc_non_whitelisted_proposer(chain: &str, proposer: Address) {
-    NON_WHITELISTED_PROPOSERS_TOTAL
-        .with_label_values(&[chain, proposer.to_string().as_str()])
-        .inc();
+pub fn inc_non_whitelisted_proposer(chain: &str) {
+    NON_WHITELISTED_PROPOSERS_TOTAL.with_label_values(&[chain]).inc();
 }
 
-pub fn inc_large_withdrawal(chain: &str, target: &str, token: Address, recipient: Address) {
-    LARGE_WITHDRAWALS_TOTAL
-        .with_label_values(&[
-            chain,
-            target,
-            token.to_string().as_str(),
-            recipient.to_string().as_str(),
-        ])
-        .inc();
+pub fn inc_large_withdrawal(chain: &str, target: &str) {
+    LARGE_WITHDRAWALS_TOTAL.with_label_values(&[chain, target]).inc();
 }
 
 pub fn inc_pause_event(chain: &str, target: &str, action: &str) {
     PAUSE_EVENTS_TOTAL.with_label_values(&[chain, target, action]).inc();
 }
 
-pub fn inc_proxy_upgrade(
-    chain: &str,
-    target: &str,
-    proxy: Address,
-    implementation: Address,
-    expected: bool,
-) {
-    PROXY_UPGRADES_TOTAL
-        .with_label_values(&[
-            chain,
-            target,
-            proxy.to_string().as_str(),
-            implementation.to_string().as_str(),
-            bool_label(expected),
-        ])
-        .inc();
+pub fn inc_proxy_upgrade(chain: &str, target: &str, expected: bool) {
+    PROXY_UPGRADES_TOTAL.with_label_values(&[chain, target, bool_label(expected)]).inc();
 }
 
-pub fn inc_ownership_transfer(
-    chain: &str,
-    target: &str,
-    previous_owner: Address,
-    new_owner: Address,
-    expected: bool,
-) {
-    OWNERSHIP_TRANSFERS_TOTAL
-        .with_label_values(&[
-            chain,
-            target,
-            previous_owner.to_string().as_str(),
-            new_owner.to_string().as_str(),
-            bool_label(expected),
-        ])
-        .inc();
+pub fn inc_ownership_transfer(chain: &str, target: &str, expected: bool) {
+    OWNERSHIP_TRANSFERS_TOTAL.with_label_values(&[chain, target, bool_label(expected)]).inc();
 }
 
-pub fn inc_role_change(chain: &str, target: &str, role: &str, account: Address, action: &str) {
-    ROLE_CHANGES_TOTAL
-        .with_label_values(&[chain, target, role, account.to_string().as_str(), action, "false"])
-        .inc();
+pub fn inc_role_change(chain: &str, target: &str, action: &str) {
+    ROLE_CHANGES_TOTAL.with_label_values(&[chain, target, action]).inc();
 }
 
 pub fn inc_safe_transaction(chain: &str, safe: &str, operation: &str) {
     SAFE_TRANSACTIONS_TOTAL.with_label_values(&[chain, safe, operation]).inc();
 }
 
-pub fn inc_unexpected_eoa_transaction(
-    chain: &str,
-    signer: Address,
-    to: Option<Address>,
-    allowed: bool,
-) {
-    let to = to.map_or_else(|| "create".to_string(), |address| address.to_string());
-    UNEXPECTED_EOA_TRANSACTIONS_TOTAL
-        .with_label_values(&[chain, signer.to_string().as_str(), to.as_str(), bool_label(allowed)])
-        .inc();
+pub fn inc_unexpected_eoa_transaction(chain: &str, allowed: bool) {
+    UNEXPECTED_EOA_TRANSACTIONS_TOTAL.with_label_values(&[chain, bool_label(allowed)]).inc();
 }
 
-pub fn inc_verifier_change(chain: &str, target: &str, verifier: &str, expected: bool) {
-    VERIFIER_CHANGES_TOTAL
-        .with_label_values(&[chain, target, verifier, bool_label(expected)])
-        .inc();
+pub fn inc_verifier_change(chain: &str, target: &str, expected: bool) {
+    VERIFIER_CHANGES_TOTAL.with_label_values(&[chain, target, bool_label(expected)]).inc();
 }
 
-pub fn inc_sgx_anomaly(chain: &str, instance: Address, reason: &str) {
-    SGX_ANOMALIES_TOTAL.with_label_values(&[chain, instance.to_string().as_str(), reason]).inc();
+pub fn inc_sgx_anomaly(chain: &str, reason: &str) {
+    SGX_ANOMALIES_TOTAL.with_label_values(&[chain, reason]).inc();
 }
 
-pub fn inc_proposal_reorg(chain: &str, proposal_id: u64) {
-    PROPOSAL_REORGS_TOTAL.with_label_values(&[chain, proposal_id.to_string().as_str()]).inc();
+pub fn inc_proposal_reorg(chain: &str) {
+    PROPOSAL_REORGS_TOTAL.with_label_values(&[chain]).inc();
 }
 
 fn bool_label(value: bool) -> &'static str {

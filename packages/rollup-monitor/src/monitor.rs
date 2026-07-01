@@ -1,8 +1,8 @@
-use std::time::Duration;
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use alloy::consensus::Transaction as TransactionTrait;
-use alloy::network::Ethereum;
-use alloy::primitives::Address;
+use alloy::network::{Ethereum, TransactionResponse};
+use alloy::primitives::{Address, B256};
 use alloy::providers::{Provider, ProviderBuilder};
 use alloy::rpc::types::{BlockNumberOrTag, Filter, Log as RpcLog};
 use eyre::Result;
@@ -14,26 +14,50 @@ use crate::{
     config::Config,
     events::{
         Alert, ObservedEvent, ProposalTracker, RoleAction, SafeOperation, SgxReason,
-        classify_eoa_transaction, classify_event, decode_contract_log,
+        classify_eoa_transaction, classify_event, decode_contract_log_for_chain,
         proposal_observation_from_log,
     },
     metrics,
-    scanner::{LogKey, ScanCursor, SeenLogCache, chunk_ranges},
+    scanner::{LogKey, ScanCursor, SeenLogCache, SeenTxCache, TxKey, chunk_ranges},
+    server::HealthState,
 };
 
 pub struct RollupMonitor {
     config: Config,
     l1_cursor: ScanCursor,
+    contract_names: HashMap<Address, String>,
     seen_logs: SeenLogCache,
+    seen_txs: SeenTxCache,
     proposals: ProposalTracker,
+    health: Option<Arc<HealthState>>,
 }
 
 impl RollupMonitor {
     pub fn new(config: Config) -> Self {
         let l1_cursor =
             ScanCursor::new(config.start_block, config.start_block_lookback, config.overlap_blocks);
+        let contract_names = config
+            .watched_contracts
+            .iter()
+            .map(|(name, address)| (*address, name.clone()))
+            .collect();
         let seen_logs = SeenLogCache::new(config.seen_log_cache_size);
-        Self { config, l1_cursor, seen_logs, proposals: ProposalTracker::default() }
+        let seen_txs = SeenTxCache::new(config.seen_log_cache_size);
+        Self {
+            config,
+            l1_cursor,
+            contract_names,
+            seen_logs,
+            seen_txs,
+            proposals: ProposalTracker::default(),
+            health: None,
+        }
+    }
+
+    pub fn with_health(config: Config, health: Arc<HealthState>) -> Self {
+        let mut monitor = Self::new(config);
+        monitor.health = Some(health);
+        monitor
     }
 
     pub async fn run(mut self) -> Result<()> {
@@ -41,13 +65,10 @@ impl RollupMonitor {
             eyre::eyre!("invalid L1_HTTP_URL '{}': {error}", self.config.l1_http_url)
         })?;
         let l1_provider = ProviderBuilder::new().connect_http(l1_url);
-        let l1_chain_id = match l1_provider.get_chain_id().await {
-            Ok(chain_id) => chain_id,
-            Err(error) => {
-                warn!("failed to fetch L1 chain ID: {error}");
-                0
-            }
-        };
+        let l1_chain_id = l1_provider
+            .get_chain_id()
+            .await
+            .map_err(|error| eyre::eyre!("failed to fetch L1 chain ID: {error}"))?;
         let mut interval = time::interval(Duration::from_secs(self.config.poll_interval_seconds));
 
         info!("rollup monitor polling L1 HTTP RPC {}", self.config.l1_http_url);
@@ -62,6 +83,8 @@ impl RollupMonitor {
                     {
                         warn!("failed to execute L1 rollup monitor cycle: {error}");
                         metrics::inc_scan_error("l1", "cycle");
+                    } else if let Some(health) = &self.health {
+                        health.mark_successful_scan();
                     }
                 }
                 Err(error) => {
@@ -95,12 +118,12 @@ impl RollupMonitor {
         {
             self.scan_contract_logs(provider, chain_id, chunk_from, chunk_to).await?;
             if let Some((eoa_from, eoa_to)) = self.eoa_scan_range(chunk_from, chunk_to) {
-                self.scan_eoa_transactions(provider, eoa_from, eoa_to).await?;
+                self.scan_eoa_transactions(provider, chain_id, eoa_from, eoa_to).await?;
             }
         }
 
         self.l1_cursor.mark_scanned(safe_head);
-        metrics::set_scan_position("l1", safe_head, safe_head);
+        metrics::set_scan_position("l1", safe_head, latest_block);
         Ok(())
     }
 
@@ -133,8 +156,9 @@ impl RollupMonitor {
     }
 
     async fn scan_eoa_transactions<P>(
-        &self,
+        &mut self,
         provider: &P,
+        chain_id: u64,
         from_block: u64,
         to_block: u64,
     ) -> Result<()>
@@ -150,13 +174,13 @@ impl RollupMonitor {
                 provider.get_block_by_number(BlockNumberOrTag::Number(block_number)).full().await?
             else {
                 metrics::inc_scan_error("l1", "block_missing");
-                continue;
+                eyre::bail!("block {block_number} missing from EOA scan range");
             };
 
             for tx in block.into_transactions_vec() {
                 let signer = tx.inner.signer();
                 let to = tx.inner.inner().to();
-                self.process_eoa_transaction("l1", signer, to);
+                self.process_eoa_transaction("l1", chain_id, tx.tx_hash(), signer, to);
             }
         }
 
@@ -164,10 +188,7 @@ impl RollupMonitor {
     }
 
     fn contract_name(&self, address: Address) -> Option<String> {
-        self.config
-            .watched_contracts
-            .iter()
-            .find_map(|(name, candidate)| (*candidate == address).then(|| name.clone()))
+        self.contract_names.get(&address).cloned()
     }
 
     pub fn eoa_scan_range(&self, from_block: u64, to_block: u64) -> Option<(u64, u64)> {
@@ -194,7 +215,7 @@ impl RollupMonitor {
 
     pub fn process_log(&mut self, chain: &str, chain_id: u64, target: &str, log: &RpcLog) -> usize {
         if let (Some(tx_hash), Some(log_index)) = (log.transaction_hash, log.log_index) {
-            let key = LogKey { chain_id, tx_hash, log_index };
+            let key = LogKey { chain_id, block_hash: log.block_hash, tx_hash, log_index };
             if !self.seen_logs.insert(key) {
                 return 0;
             }
@@ -207,7 +228,7 @@ impl RollupMonitor {
             recorded += usize::from(self.classify_and_record(chain, &event).is_some());
         }
 
-        for event in decode_contract_log(target, log) {
+        for event in decode_contract_log_for_chain(chain, target, log) {
             recorded += usize::from(self.classify_and_record(chain, &event).is_some());
         }
 
@@ -215,11 +236,17 @@ impl RollupMonitor {
     }
 
     pub fn process_eoa_transaction(
-        &self,
+        &mut self,
         chain: &str,
+        chain_id: u64,
+        tx_hash: B256,
         signer: Address,
         to: Option<Address>,
     ) -> Option<Alert> {
+        if !self.seen_txs.insert(TxKey { chain_id, tx_hash }) {
+            return None;
+        }
+
         let event = classify_eoa_transaction(&self.config.watched_eoas, signer, to)?;
         self.classify_and_record(chain, &event)
     }
@@ -228,46 +255,62 @@ impl RollupMonitor {
 pub fn record_alert(chain: &str, alert: &Alert) {
     match alert {
         Alert::NonWhitelistedProver { prover } => {
-            metrics::inc_non_whitelisted_prover(chain, *prover);
+            warn!(chain, %prover, "non-whitelisted prover observed");
+            metrics::inc_non_whitelisted_prover(chain);
         }
         Alert::NonWhitelistedProposer { proposer } => {
-            metrics::inc_non_whitelisted_proposer(chain, *proposer);
+            warn!(chain, %proposer, "non-whitelisted proposer observed");
+            metrics::inc_non_whitelisted_proposer(chain);
         }
         Alert::LargeWithdrawal { target, token, recipient, .. } => {
-            metrics::inc_large_withdrawal(chain, target, *token, *recipient);
+            warn!(chain, target, %token, %recipient, "large withdrawal observed");
+            metrics::inc_large_withdrawal(chain, target);
         }
         Alert::PauseEvent { target, action } => {
+            warn!(chain, target, action, "pause state change observed");
             metrics::inc_pause_event(chain, target, action);
         }
         Alert::ProxyUpgrade { target, proxy, implementation, expected } => {
-            metrics::inc_proxy_upgrade(chain, target, *proxy, *implementation, *expected);
+            warn!(chain, target, %proxy, %implementation, expected, "proxy upgrade observed");
+            metrics::inc_proxy_upgrade(chain, target, *expected);
         }
         Alert::OwnershipTransfer { target, previous_owner, new_owner, expected } => {
-            metrics::inc_ownership_transfer(chain, target, *previous_owner, *new_owner, *expected);
-        }
-        Alert::RoleChange { target, role, account, action } => {
-            metrics::inc_role_change(
+            warn!(
                 chain,
                 target,
-                &role.to_string(),
-                *account,
-                role_action(*action),
+                %previous_owner,
+                %new_owner,
+                expected,
+                "ownership transfer observed"
             );
+            metrics::inc_ownership_transfer(chain, target, *expected);
+        }
+        Alert::RoleChange { target, role, account, action } => {
+            let action = role_action(*action);
+            warn!(chain, target, %role, %account, action, "role change observed");
+            metrics::inc_role_change(chain, target, action);
         }
         Alert::SafeTransaction { safe, operation } => {
-            metrics::inc_safe_transaction(chain, safe, safe_operation(*operation));
+            let operation = safe_operation(*operation);
+            warn!(chain, safe, operation, "safe transaction observed");
+            metrics::inc_safe_transaction(chain, safe, operation);
         }
         Alert::VerifierChange { target, verifier, expected } => {
-            metrics::inc_verifier_change(chain, target, &verifier.to_string(), *expected);
+            warn!(chain, target, %verifier, expected, "verifier change observed");
+            metrics::inc_verifier_change(chain, target, *expected);
         }
         Alert::SgxAnomaly { instance, reason } => {
-            metrics::inc_sgx_anomaly(chain, *instance, sgx_reason(*reason));
+            let reason = sgx_reason(*reason);
+            warn!(chain, %instance, reason, "SGX registry change observed");
+            metrics::inc_sgx_anomaly(chain, reason);
         }
         Alert::UnexpectedEoaTransaction { signer, to, allowed } => {
-            metrics::inc_unexpected_eoa_transaction(chain, *signer, *to, *allowed);
+            warn!(chain, %signer, ?to, allowed, "unexpected watched EOA transaction observed");
+            metrics::inc_unexpected_eoa_transaction(chain, *allowed);
         }
         Alert::ProposalReorg { proposal_id } => {
-            metrics::inc_proposal_reorg(chain, *proposal_id);
+            warn!(chain, proposal_id, "proposal reorg observed");
+            metrics::inc_proposal_reorg(chain);
         }
     }
 }
@@ -419,6 +462,33 @@ mod tests {
     }
 
     #[test]
+    fn process_log_detects_proposal_reorg_with_same_tx_hash_and_log_index() {
+        let proposer = addr("0x0000000000000000000000000000000000000033");
+        let inbox = addr("0x0000000000000000000000000000000000000034");
+        let config = config(&["--allowed-proposers", "0x0000000000000000000000000000000000000033"]);
+        let mut monitor = RollupMonitor::new(config);
+        let mut first = rpc_log(
+            inbox,
+            B256::repeat_byte(0x02),
+            0,
+            bindings::Proposed {
+                id: u48(2),
+                proposer,
+                parentProposalHash: B256::ZERO,
+                endOfSubmissionWindowTimestamp: u48(0),
+                basefeeSharingPctg: 0,
+                sources: Vec::new(),
+            },
+        );
+        first.block_hash = Some(B256::repeat_byte(0x10));
+        let mut replacement = first.clone();
+        replacement.block_hash = Some(B256::repeat_byte(0x11));
+
+        assert_eq!(monitor.process_log("l1", 1, "inbox", &first), 0);
+        assert_eq!(monitor.process_log("l1", 1, "inbox", &replacement), 1);
+    }
+
+    #[test]
     fn process_eoa_transaction_records_only_watched_unapproved_sender() {
         let signer = addr("0x0000000000000000000000000000000000000035");
         let allowed = addr("0x0000000000000000000000000000000000000036");
@@ -429,14 +499,56 @@ mod tests {
             "--allowed-eoa-destinations",
             "0x0000000000000000000000000000000000000036",
         ]);
-        let monitor = RollupMonitor::new(config);
+        let mut monitor = RollupMonitor::new(config);
 
-        assert_eq!(monitor.process_eoa_transaction("l1", signer, Some(allowed)), None);
         assert_eq!(
-            monitor.process_eoa_transaction("l1", signer, Some(unexpected)),
+            monitor.process_eoa_transaction(
+                "l1",
+                1,
+                B256::repeat_byte(0x40),
+                signer,
+                Some(allowed)
+            ),
+            None
+        );
+        assert_eq!(
+            monitor.process_eoa_transaction(
+                "l1",
+                1,
+                B256::repeat_byte(0x41),
+                signer,
+                Some(unexpected)
+            ),
             Some(Alert::UnexpectedEoaTransaction { signer, to: Some(unexpected), allowed: false })
         );
-        assert_eq!(monitor.process_eoa_transaction("l1", unexpected, Some(unexpected)), None);
+        assert_eq!(
+            monitor.process_eoa_transaction(
+                "l1",
+                1,
+                B256::repeat_byte(0x42),
+                unexpected,
+                Some(unexpected)
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn process_eoa_transaction_dedupes_repeated_tx_hash() {
+        let signer = addr("0x0000000000000000000000000000000000000035");
+        let unexpected = addr("0x0000000000000000000000000000000000000037");
+        let tx_hash = B256::repeat_byte(0x43);
+        let config = config(&["--watched-eoas", "0x0000000000000000000000000000000000000035"]);
+        let mut monitor = RollupMonitor::new(config);
+
+        assert_eq!(
+            monitor.process_eoa_transaction("l1", 1, tx_hash, signer, Some(unexpected)),
+            Some(Alert::UnexpectedEoaTransaction { signer, to: Some(unexpected), allowed: false })
+        );
+        assert_eq!(
+            monitor.process_eoa_transaction("l1", 1, tx_hash, signer, Some(unexpected)),
+            None
+        );
     }
 
     #[test]

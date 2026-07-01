@@ -4,7 +4,11 @@ permissions:
 
 on:
   push:
-    branches: [new-alerting-infra]
+    branches:
+      - main
+      - new-alerting-infra
+    tags:
+      - "rollup-monitor-v*"
     paths:
       - "packages/rollup-monitor/**"
 

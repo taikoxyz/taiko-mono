@@ -74,7 +74,6 @@ Initial metrics include:
 - `rollup_monitor_non_whitelisted_proposers_total`
 - `rollup_monitor_verifier_changes_total`
 - `rollup_monitor_sgx_anomalies_total`
-- `rollup_monitor_reconciliation_mismatches_total`
 - `rollup_monitor_proposal_reorgs_total`
 - `rollup_monitor_scan_errors_total`
 - `rollup_monitor_last_scanned_block`

@@ -2,9 +2,12 @@ use std::collections::{HashMap, HashSet};
 
 use alloy::primitives::{Address, B256, U256};
 use alloy::rpc::types::Log as RpcLog;
+use alloy::sol_types::SolEvent;
+use tracing::warn;
 
 use crate::bindings;
 use crate::config::Config;
+use crate::metrics;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ObservedEvent {
@@ -226,106 +229,138 @@ pub fn classify_eoa_transaction(
 }
 
 pub fn decode_contract_log(target: &str, log: &RpcLog) -> Vec<ObservedEvent> {
+    decode_contract_log_for_chain("l1", target, log)
+}
+
+pub fn decode_contract_log_for_chain(
+    chain: &str,
+    target: &str,
+    log: &RpcLog,
+) -> Vec<ObservedEvent> {
     let mut events = Vec::new();
 
-    if let Ok(decoded) = log.log_decode::<bindings::Proposed>() {
-        events.push(ObservedEvent::Proposer { proposer: decoded.inner.data.proposer });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::Proved>() {
-        events.push(ObservedEvent::Prover { prover: decoded.inner.data.actualProver });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::TokenSent>() {
-        events.push(ObservedEvent::Withdrawal {
+    decode_matched::<bindings::Proposed, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::Proposer { proposer: decoded.proposer }
+    });
+    decode_matched::<bindings::Proved, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::Prover { prover: decoded.actualProver }
+    });
+    decode_matched::<bindings::TokenSent, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::Withdrawal {
             target: target.to_string(),
-            token: decoded.inner.data.ctoken,
-            recipient: decoded.inner.data.to,
-            amount_wei: decoded.inner.data.amount,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::TokenReleased>() {
-        events.push(ObservedEvent::Withdrawal {
+            token: decoded.ctoken,
+            recipient: decoded.to,
+            amount_wei: decoded.amount,
+        }
+    });
+    decode_matched::<bindings::TokenReleased, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::Withdrawal {
             target: target.to_string(),
-            token: decoded.inner.data.ctoken,
-            recipient: decoded.inner.data.from,
-            amount_wei: decoded.inner.data.amount,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::Paused>() {
-        let _ = decoded;
-        events.push(ObservedEvent::Pause { target: target.to_string(), paused: true });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::Unpaused>() {
-        let _ = decoded;
-        events.push(ObservedEvent::Pause { target: target.to_string(), paused: false });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::Upgraded>() {
-        events.push(ObservedEvent::ProxyUpgrade {
+            token: decoded.ctoken,
+            recipient: decoded.from,
+            amount_wei: decoded.amount,
+        }
+    });
+    decode_matched::<bindings::Paused, _>(chain, target, log, &mut events, |_| {
+        ObservedEvent::Pause { target: target.to_string(), paused: true }
+    });
+    decode_matched::<bindings::Unpaused, _>(chain, target, log, &mut events, |_| {
+        ObservedEvent::Pause { target: target.to_string(), paused: false }
+    });
+    decode_matched::<bindings::Upgraded, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::ProxyUpgrade {
             target: target.to_string(),
             proxy: log.address(),
-            implementation: decoded.inner.data.implementation,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::OwnershipTransferred>() {
-        events.push(ObservedEvent::OwnershipTransfer {
+            implementation: decoded.implementation,
+        }
+    });
+    decode_matched::<bindings::OwnershipTransferred, _>(
+        chain,
+        target,
+        log,
+        &mut events,
+        |decoded| ObservedEvent::OwnershipTransfer {
             target: target.to_string(),
-            previous_owner: decoded.inner.data.previousOwner,
-            new_owner: decoded.inner.data.newOwner,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::RoleGranted>() {
-        events.push(ObservedEvent::RoleChange {
+            previous_owner: decoded.previousOwner,
+            new_owner: decoded.newOwner,
+        },
+    );
+    decode_matched::<bindings::RoleGranted, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::RoleChange {
             target: target.to_string(),
-            role: decoded.inner.data.role,
-            account: decoded.inner.data.account,
+            role: decoded.role,
+            account: decoded.account,
             action: RoleAction::Granted,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::RoleRevoked>() {
-        events.push(ObservedEvent::RoleChange {
+        }
+    });
+    decode_matched::<bindings::RoleRevoked, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::RoleChange {
             target: target.to_string(),
-            role: decoded.inner.data.role,
-            account: decoded.inner.data.account,
+            role: decoded.role,
+            account: decoded.account,
             action: RoleAction::Revoked,
-        });
-    }
-    if log.log_decode::<bindings::ExecutionSuccess>().is_ok() {
-        events.push(ObservedEvent::SafeTransaction {
+        }
+    });
+    decode_matched::<bindings::ExecutionSuccess, _>(chain, target, log, &mut events, |_| {
+        ObservedEvent::SafeTransaction {
             safe: target.to_string(),
             operation: SafeOperation::Success,
-        });
-    }
-    if log.log_decode::<bindings::ExecutionFailure>().is_ok() {
-        events.push(ObservedEvent::SafeTransaction {
+        }
+    });
+    decode_matched::<bindings::ExecutionFailure, _>(chain, target, log, &mut events, |_| {
+        ObservedEvent::SafeTransaction {
             safe: target.to_string(),
             operation: SafeOperation::Failure,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::ImageTrusted>() {
-        events.push(ObservedEvent::VerifierChange {
-            target: target.to_string(),
-            verifier: decoded.inner.data.imageId,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::ProgramTrusted>() {
-        events.push(ObservedEvent::VerifierChange {
-            target: target.to_string(),
-            verifier: decoded.inner.data.programVKey,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::InstanceAdded>() {
-        events.push(ObservedEvent::SgxInstanceChange {
-            instance: decoded.inner.data.instance,
+        }
+    });
+    decode_matched::<bindings::ImageTrusted, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::VerifierChange { target: target.to_string(), verifier: decoded.imageId }
+    });
+    decode_matched::<bindings::ProgramTrusted, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::VerifierChange { target: target.to_string(), verifier: decoded.programVKey }
+    });
+    decode_matched::<bindings::InstanceAdded, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::SgxInstanceChange {
+            instance: decoded.instance,
             reason: SgxReason::InstanceAdded,
-        });
-    }
-    if let Ok(decoded) = log.log_decode::<bindings::InstanceDeleted>() {
-        events.push(ObservedEvent::SgxInstanceChange {
-            instance: decoded.inner.data.instance,
+        }
+    });
+    decode_matched::<bindings::InstanceDeleted, _>(chain, target, log, &mut events, |decoded| {
+        ObservedEvent::SgxInstanceChange {
+            instance: decoded.instance,
             reason: SgxReason::InstanceDeleted,
-        });
-    }
+        }
+    });
 
     events
+}
+
+fn decode_matched<E, F>(
+    chain: &str,
+    target: &str,
+    log: &RpcLog,
+    events: &mut Vec<ObservedEvent>,
+    map: F,
+) where
+    E: SolEvent,
+    F: FnOnce(E) -> ObservedEvent,
+{
+    if log.topics().first().copied() != Some(E::SIGNATURE_HASH) {
+        return;
+    }
+
+    match log.log_decode::<E>() {
+        Ok(decoded) => events.push(map(decoded.inner.data)),
+        Err(error) => {
+            warn!(
+                target,
+                event = E::SIGNATURE,
+                error = %error,
+                "failed to decode known rollup monitor event"
+            );
+            metrics::inc_scan_error(chain, "decode");
+        }
+    }
 }
 
 pub fn proposal_observation_from_log(log: &RpcLog) -> Option<ProposalObservation> {
@@ -341,7 +376,7 @@ pub fn proposal_observation_from_log(log: &RpcLog) -> Option<ProposalObservation
 mod tests {
     use std::str::FromStr;
 
-    use alloy::primitives::{Address, B256, Log as PrimitiveLog, U256, Uint};
+    use alloy::primitives::{Address, B256, Bytes, Log as PrimitiveLog, LogData, U256, Uint};
     use alloy::rpc::types::Log as RpcLog;
     use alloy::sol_types::SolEvent;
     use clap::Parser;
@@ -370,6 +405,22 @@ mod tests {
     fn rpc_log<E: SolEvent>(address: Address, event: E) -> RpcLog {
         RpcLog {
             inner: E::encode_log(&PrimitiveLog { address, data: event }),
+            block_hash: Some(B256::repeat_byte(0xaa)),
+            block_number: Some(100),
+            block_timestamp: None,
+            transaction_hash: Some(B256::repeat_byte(0xbb)),
+            transaction_index: Some(1),
+            log_index: Some(2),
+            removed: false,
+        }
+    }
+
+    fn raw_log(address: Address, topics: Vec<B256>, data: Vec<u8>) -> RpcLog {
+        RpcLog {
+            inner: PrimitiveLog {
+                address,
+                data: LogData::new_unchecked(topics, Bytes::from(data)),
+            },
             block_hash: Some(B256::repeat_byte(0xaa)),
             block_number: Some(100),
             block_timestamp: None,
@@ -842,6 +893,42 @@ mod tests {
                 &rpc_log(sgx, bindings::InstanceDeleted { id: U256::from(1u64), instance },),
             ),
             vec![ObservedEvent::SgxInstanceChange { instance, reason: SgxReason::InstanceDeleted }]
+        );
+    }
+
+    #[test]
+    fn decodes_real_safe_execution_success_with_indexed_tx_hash() {
+        let safe = addr("0x0000000000000000000000000000000000000033");
+        let log = raw_log(
+            safe,
+            vec![bindings::ExecutionSuccess::SIGNATURE_HASH, B256::repeat_byte(0x55)],
+            vec![0; 32],
+        );
+
+        assert_eq!(
+            decode_contract_log("guardian_safe", &log),
+            vec![ObservedEvent::SafeTransaction {
+                safe: "guardian_safe".to_string(),
+                operation: SafeOperation::Success,
+            }]
+        );
+    }
+
+    #[test]
+    fn decodes_real_safe_execution_failure_with_indexed_tx_hash() {
+        let safe = addr("0x0000000000000000000000000000000000000033");
+        let log = raw_log(
+            safe,
+            vec![bindings::ExecutionFailure::SIGNATURE_HASH, B256::repeat_byte(0x55)],
+            vec![0; 32],
+        );
+
+        assert_eq!(
+            decode_contract_log("guardian_safe", &log),
+            vec![ObservedEvent::SafeTransaction {
+                safe: "guardian_safe".to_string(),
+                operation: SafeOperation::Failure,
+            }]
         );
     }
 }
