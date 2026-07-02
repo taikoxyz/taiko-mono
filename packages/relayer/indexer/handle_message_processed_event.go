@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
@@ -89,7 +90,7 @@ func (i *Indexer) handleMessageProcessedEvent(
 	// it, alert. This runs after saveEventToDB and is best-effort: the indexer's
 	// filter loop advances the block number even when the handler errors, so a
 	// propagated origin-chain RPC error would drop the already-indexed event.
-	forged, err := i.isForgedMessage(message)
+	forged, err := i.isForgedMessage(ctx, message)
 	if err != nil {
 		slog.Warn("could not verify whether message was sent; skipping forged-message check",
 			"msgId", message.Id,
@@ -111,8 +112,11 @@ func (i *Indexer) handleMessageProcessedEvent(
 // isForgedMessage reports whether the bridge that should have originated this
 // message (destBridge) has no record of having sent it — the signature of a
 // forged message. Relocated from the removed watchdog.
-func (i *Indexer) isForgedMessage(message bridge.IBridgeMessage) (bool, error) {
-	sent, err := i.destBridge.IsMessageSent(nil, message)
+func (i *Indexer) isForgedMessage(ctx context.Context, message bridge.IBridgeMessage) (bool, error) {
+	callCtx, cancel := context.WithTimeout(ctx, i.ethClientTimeout)
+	defer cancel()
+
+	sent, err := i.destBridge.IsMessageSent(&bind.CallOpts{Context: callCtx}, message)
 	if err != nil {
 		return false, errors.Wrap(err, "i.destBridge.IsMessageSent")
 	}

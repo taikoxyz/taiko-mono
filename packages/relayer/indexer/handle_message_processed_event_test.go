@@ -17,15 +17,30 @@ func Test_isForgedMessage(t *testing.T) {
 
 	// destBridge has no record of sending this message => forged.
 	mockBridge.IsMessageSentResult = false
-	forged, err := svc.isForgedMessage(bridge.IBridgeMessage{Id: 5})
+	forged, err := svc.isForgedMessage(context.Background(), bridge.IBridgeMessage{Id: 5})
 	assert.Nil(t, err)
 	assert.True(t, forged)
 
 	// destBridge did send this message => not forged.
 	mockBridge.IsMessageSentResult = true
-	forged, err = svc.isForgedMessage(bridge.IBridgeMessage{Id: 5})
+	forged, err = svc.isForgedMessage(context.Background(), bridge.IBridgeMessage{Id: 5})
 	assert.Nil(t, err)
 	assert.False(t, forged)
+}
+
+func Test_isForgedMessageUsesBoundedContext(t *testing.T) {
+	svc, b := newTestService(Sync, FilterAndSubscribe)
+	mockBridge := b.(*mock.Bridge)
+
+	forged, err := svc.isForgedMessage(context.Background(), bridge.IBridgeMessage{Id: 5})
+	assert.Nil(t, err)
+	assert.True(t, forged)
+
+	if assert.NotNil(t, mockBridge.IsMessageSentOpts) &&
+		assert.NotNil(t, mockBridge.IsMessageSentOpts.Context) {
+		_, ok := mockBridge.IsMessageSentOpts.Context.Deadline()
+		assert.True(t, ok)
+	}
 }
 
 // A transient origin-chain RPC failure on the forged-message check must not
