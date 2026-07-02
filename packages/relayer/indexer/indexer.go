@@ -119,6 +119,8 @@ type Indexer struct {
 
 	minFeeToIndex uint64
 
+	ignoredMsgHashes map[common.Hash]struct{}
+
 	cfg *Config
 
 	confirmations uint64
@@ -239,6 +241,7 @@ func InitFromConfig(ctx context.Context, i *Indexer, cfg *Config) (err error) {
 	i.ctx = ctx
 
 	i.minFeeToIndex = i.cfg.MinFeeToIndex
+	i.ignoredMsgHashes = cfg.IgnoredMsgHashes
 
 	slog.Info("minFeeToIndex", "minFeeToIndex", i.minFeeToIndex)
 
