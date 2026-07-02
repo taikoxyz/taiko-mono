@@ -73,11 +73,15 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 		return
 	}
 
+	if t.finished {
+		return
+	}
+
 	if t.outOfSync {
 		return
 	}
 
-	progress, err := t.client.SyncProgress(ctx)
+	progress, err := t.SyncProgress(ctx)
 	if err != nil {
 		log.Error("Get L2 execution engine sync progress error", "error", err)
 		return
@@ -133,6 +137,11 @@ func (t *SyncProgressTracker) track(ctx context.Context) {
 			"timeout", t.timeout,
 		)
 	}
+}
+
+// SyncProgress fetches the L2 execution engine's current sync progress.
+func (t *SyncProgressTracker) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, error) {
+	return t.client.SyncProgress(ctx)
 }
 
 // UpdateMeta updates the inner beacon sync metadata.
@@ -278,10 +287,16 @@ func syncProgressed(last *ethereum.SyncProgress, new *ethereum.SyncProgress) boo
 
 // MarkFinished marks the current beacon sync as finished.
 func (t *SyncProgressTracker) MarkFinished() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	t.finished = true
 }
 
 // Finished returns whether the current beacon sync has been finished.
 func (t *SyncProgressTracker) Finished() bool {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
 	return t.finished
 }

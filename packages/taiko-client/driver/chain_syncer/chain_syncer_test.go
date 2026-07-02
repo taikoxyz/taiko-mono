@@ -2,7 +2,10 @@ package chainsyncer
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -13,11 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -131,6 +136,104 @@ func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 
 func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
+}
+
+func TestSyncPostponesEventSyncWhileExecutionEngineSyncing(t *testing.T) {
+	l2Client := newSyncingEthClient(t)
+	tracker := beaconsync.NewSyncProgressTracker(l2Client, time.Hour)
+	tracker.UpdateMeta(common.Big1, common.Hash{})
+
+	syncer := &L2ChainSyncer{
+		ctx:             context.Background(),
+		progressTracker: tracker,
+	}
+
+	require.NotPanics(t, func() {
+		require.NoError(t, syncer.Sync())
+	})
+	require.True(t, tracker.Triggered())
+	require.False(t, tracker.Finished())
+}
+
+func newSyncingEthClient(t *testing.T) *rpc.EthClient {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Helper()
+
+		var req struct {
+			ID     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
+		}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+
+		var result any
+		switch req.Method {
+		case "eth_chainId":
+			result = "0x1"
+		case "eth_syncing":
+			result = map[string]string{
+				"startingBlock": "0x0",
+				"currentBlock":  "0x1",
+				"highestBlock":  "0x2",
+			}
+		default:
+			t.Fatalf("unexpected RPC method: %s", req.Method)
+		}
+
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      req.ID,
+			"result":  result,
+		}))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := rpc.NewEthClient(context.Background(), server.URL, time.Second)
+	require.NoError(t, err)
+	return client
+}
+
+func TestShouldEnablePreconfImportsAfterEventSync(t *testing.T) {
+	tests := []struct {
+		name                string
+		headL1OriginWritten bool
+		nextProposalID      *big.Int
+		expected            bool
+	}{
+		{
+			name:                "ready when head L1 origin exists",
+			headL1OriginWritten: true,
+			nextProposalID:      common.Big2,
+			expected:            true,
+		},
+		{
+			name:                "ready before first proposal",
+			headL1OriginWritten: false,
+			nextProposalID:      common.Big1,
+			expected:            true,
+		},
+		{
+			name:                "not ready without head L1 origin after proposals exist",
+			headL1OriginWritten: false,
+			nextProposalID:      common.Big2,
+			expected:            false,
+		},
+		{
+			name:                "not ready without any signal",
+			headL1OriginWritten: false,
+			nextProposalID:      nil,
+			expected:            false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldEnablePreconfImports(tt.headL1OriginWritten, tt.nextProposalID); got != tt.expected {
+				t.Fatalf("expected %v, got %v", tt.expected, got)
+			}
+		})
+	}
 }
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
