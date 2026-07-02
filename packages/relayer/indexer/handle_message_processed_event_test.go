@@ -1,6 +1,9 @@
 package indexer
 
 import (
+	"context"
+	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,4 +26,32 @@ func Test_isForgedMessage(t *testing.T) {
 	forged, err = svc.isForgedMessage(bridge.IBridgeMessage{Id: 5})
 	assert.Nil(t, err)
 	assert.False(t, forged)
+}
+
+// A transient origin-chain RPC failure on the forged-message check must not
+// drop the processed event: the indexer's filter loop advances the block number
+// even when the handler errors, so a propagated error would skip the event
+// permanently. The event must be indexed and the handler must not fail.
+func Test_handleMessageProcessedEvent_indexesWhenForgedCheckRPCFails(t *testing.T) {
+	svc, b := newTestService(Sync, FilterAndSubscribe)
+
+	mockBridge := b.(*mock.Bridge)
+	mockBridge.IsMessageSentErr = errors.New("origin-chain rpc down")
+
+	repo := svc.eventRepo.(*mock.EventRepository)
+
+	event := &bridge.BridgeMessageProcessed{
+		Message: bridge.IBridgeMessage{
+			Id:          5,
+			DestChainId: mock.MockChainID.Uint64(),
+			Value:       big.NewInt(0),
+		},
+	}
+
+	err := svc.handleMessageProcessedEvent(context.Background(), mock.MockChainID, event, false)
+
+	// The batch must not fail on the RPC error...
+	assert.Nil(t, err)
+	// ...and the event must still be indexed.
+	assert.Equal(t, 1, repo.SavedCount())
 }

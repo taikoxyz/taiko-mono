@@ -65,21 +65,6 @@ func (i *Indexer) handleMessageProcessedEvent(
 		return nil
 	}
 
-	// Forged-message detection (relocated from the removed watchdog): if the
-	// bridge that should have originated this message has no record of sending
-	// it, alert. Runs before saveEventToDB so an RPC failure leaves no
-	// half-saved state and the event is cleanly re-indexed on retry.
-	forged, err := i.isForgedMessage(message)
-	if err != nil {
-		return errors.Wrap(err, "i.isForgedMessage")
-	}
-
-	if forged {
-		slog.Warn("dest bridge did not send this message", "msgId", message.Id)
-
-		relayer.BridgeMessageNotSent.Inc()
-	}
-
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
@@ -97,6 +82,27 @@ func (i *Indexer) handleMessageProcessedEvent(
 		event.Raw.BlockNumber,
 	); err != nil {
 		return errors.Wrap(err, "i.saveEventToDB")
+	}
+
+	// Forged-message detection (relocated from the removed watchdog): if the
+	// bridge that should have originated this message has no record of sending
+	// it, alert. This runs after saveEventToDB and is best-effort: the indexer's
+	// filter loop advances the block number even when the handler errors, so a
+	// propagated origin-chain RPC error would drop the already-indexed event.
+	forged, err := i.isForgedMessage(message)
+	if err != nil {
+		slog.Warn("could not verify whether message was sent; skipping forged-message check",
+			"msgId", message.Id,
+			"err", err.Error(),
+		)
+
+		return nil
+	}
+
+	if forged {
+		slog.Warn("dest bridge did not send this message", "msgId", message.Id)
+
+		relayer.BridgeMessageNotSent.Inc()
 	}
 
 	return nil

@@ -31,6 +31,9 @@ type Bridge struct {
 	// IsMessageSentResult is returned by IsMessageSent. Defaults to false so
 	// existing callers see the previous hardcoded behavior.
 	IsMessageSentResult bool
+	// IsMessageSentErr, when set, is returned by IsMessageSent to simulate an
+	// origin-chain RPC failure.
+	IsMessageSentErr error
 }
 
 func (b *Bridge) SuspendMessages(
@@ -42,7 +45,7 @@ func (b *Bridge) SuspendMessages(
 }
 
 func (b *Bridge) IsMessageSent(opts *bind.CallOpts, _message bridge.IBridgeMessage) (bool, error) {
-	return b.IsMessageSentResult, nil
+	return b.IsMessageSentResult, b.IsMessageSentErr
 }
 
 func (b *Bridge) FilterMessageSent(
