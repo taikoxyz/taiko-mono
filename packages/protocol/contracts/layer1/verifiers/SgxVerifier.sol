@@ -136,6 +136,13 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     mapping(bytes32 mrEnclave => MrEnclaveState state) internal mrEnclaveState;
     mapping(bytes32 mrSigner => bool trusted) public trustedUserMrSigner;
 
+    /// @dev Once an MRENCLAVE/MRSIGNER has been untrusted it is recorded here and can never be
+    /// re-trusted, so instances revoked by an allowlist removal can never be silently revived by
+    /// re-adding the same value. Set only on a trusted -> untrusted transition in
+    /// `setMrEnclave`/`setMrSigner`.
+    mapping(bytes32 mrEnclave => bool revoked) public revokedMrEnclave;
+    mapping(bytes32 mrSigner => bool revoked) public revokedMrSigner;
+
     /// @notice Emitted when a new SGX instance is added to the registry.
     /// @param id The ID of the SGX instance.
     /// @param instance The address of the SGX instance.
@@ -172,6 +179,8 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
     error SGX_NOT_REGISTRAR();
+    error SGX_MR_ENCLAVE_REVOKED();
+    error SGX_MR_SIGNER_REVOKED();
 
     constructor(
         uint64 _taikoChainId,
@@ -221,9 +230,20 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Sets whether a given MRENCLAVE is trusted for instance registration.
+    /// @dev Untrusting a currently-trusted MRENCLAVE is permanent: the value is recorded as revoked
+    /// and can never be re-trusted. Without this, untrusting a measurement (to revoke its fleet) and
+    /// later re-trusting the same value — e.g. to onboard a new fleet under it — would silently
+    /// revive every previously-revoked instance, because the proof-time re-check keys only off the
+    /// current boolean. Onboard a new enclave build under a fresh MRENCLAVE instead. Concrete
+    /// compromised instances are revoked irreversibly with `deleteInstances`.
     /// @param _mrEnclave The MRENCLAVE value.
     /// @param _trusted Whether the value is trusted.
     function setMrEnclave(bytes32 _mrEnclave, bool _trusted) external onlyOwner {
+        if (_trusted) {
+            require(!revokedMrEnclave[_mrEnclave], SGX_MR_ENCLAVE_REVOKED());
+        } else if (mrEnclaveState[_mrEnclave].trusted) {
+            revokedMrEnclave[_mrEnclave] = true;
+        }
         mrEnclaveState[_mrEnclave].trusted = _trusted;
         emit MrEnclaveUpdated(_mrEnclave, _trusted);
     }
@@ -236,9 +256,16 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     }
 
     /// @notice Sets whether a given MRSIGNER is trusted for instance registration.
+    /// @dev Untrusting a currently-trusted MRSIGNER is permanent (see `setMrEnclave` for the
+    /// revival hazard this closes): the value is recorded as revoked and can never be re-trusted.
     /// @param _mrSigner The MRSIGNER value.
     /// @param _trusted Whether the value is trusted.
     function setMrSigner(bytes32 _mrSigner, bool _trusted) external onlyOwner {
+        if (_trusted) {
+            require(!revokedMrSigner[_mrSigner], SGX_MR_SIGNER_REVOKED());
+        } else if (trustedUserMrSigner[_mrSigner]) {
+            revokedMrSigner[_mrSigner] = true;
+        }
         trustedUserMrSigner[_mrSigner] = _trusted;
         emit MrSignerUpdated(_mrSigner, _trusted);
     }
