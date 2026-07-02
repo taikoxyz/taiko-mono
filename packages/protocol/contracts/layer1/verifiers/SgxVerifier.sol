@@ -150,6 +150,12 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @param instance The address of the SGX instance.
     event InstanceDeleted(uint256 indexed id, address indexed instance);
 
+    /// @notice Emitted when an SGX instance's remaining validity delay is cancelled.
+    /// @param id The ID of the SGX instance.
+    /// @param instance The address of the SGX instance.
+    /// @param validSince The new (current) time from which the instance is valid.
+    event InstancePromoted(uint256 indexed id, address indexed instance, uint64 validSince);
+
     /// @notice Emitted when a trusted MRENCLAVE value is updated.
     /// @param mrEnclave The MRENCLAVE value.
     /// @param trusted Whether the value is trusted.
@@ -169,6 +175,7 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     error SGX_FORBIDDEN_ATTRIBUTES();
     error SGX_INVALID_ATTESTATION();
     error SGX_INVALID_INSTANCE();
+    error SGX_INSTANCE_NOT_DELAYED();
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
     error SGX_NOT_REGISTRAR();
@@ -217,6 +224,36 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
             emit InstanceDeleted(idx, instances[idx].addr);
 
             delete instances[idx];
+        }
+    }
+
+    /// @notice Cancels the remaining validity delay on already-attested instances, making them
+    /// usable immediately.
+    /// @dev Recovery path for a front-run permissionless registration: because `registerInstance`
+    /// is permissionless (when no `registrar` is set) and grants the instant-valid path only to the
+    /// owner, anyone can copy a pending quote from the mempool and register it first, forcing the
+    /// instance through the validity delay; the replay guard then blocks the owner from
+    /// re-registering the same enclave key. The instance still belongs to the attested enclave, so
+    /// the owner can adopt it here instead of provisioning a new keypair. Owner-only, so it grants no
+    /// power beyond `addInstances` (which already registers instant-valid). It only ever moves
+    /// `validSince` earlier, and only for a not-yet-active instance, so it can never extend an
+    /// instance's lifetime or revive an expired one.
+    /// @param _ids The ids array of SGX instances to promote.
+    function promoteInstances(uint256[] calldata _ids) external onlyOwner {
+        uint64 nowTs = uint64(block.timestamp);
+        uint256 size = _ids.length;
+        for (uint256 i; i < size; ++i) {
+            uint256 idx = _ids[i];
+            Instance storage inst = instances[idx];
+
+            require(inst.addr != address(0), SGX_INVALID_INSTANCE());
+            // Only a still-delayed (not-yet-active) instance can be promoted. This both makes the
+            // operation a pure delay cancellation and prevents it from pushing an active instance's
+            // expiry (`validSince + INSTANCE_EXPIRY`) further into the future.
+            require(inst.validSince > nowTs, SGX_INSTANCE_NOT_DELAYED());
+
+            inst.validSince = nowTs;
+            emit InstancePromoted(idx, inst.addr, nowTs);
         }
     }
 

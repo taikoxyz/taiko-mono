@@ -550,6 +550,35 @@ abstract contract SgxVerifierTestBase is Test {
         verifier.deleteInstances(ids);
     }
 
+    function test_promoteInstances_RevertWhen_NotOwner() external {
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 0;
+        vm.prank(address(0xD00D));
+        vm.expectRevert();
+        verifier.promoteInstances(ids);
+    }
+
+    function test_promoteInstances_RevertWhen_InvalidInstance() external {
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 42; // never added
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        verifier.promoteInstances(ids);
+    }
+
+    /// @dev An already-active instance (here an owner-added, instant-valid one) has no pending delay,
+    /// so promoting it reverts — the operation only ever cancels a *remaining* delay and never
+    /// extends an active instance's lifetime.
+    function test_promoteInstances_RevertWhen_NotDelayed() external {
+        address[] memory addrs = new address[](1);
+        addrs[0] = address(0xA1);
+        verifier.addInstances(addrs);
+
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = 0;
+        vm.expectRevert(SgxVerifier.SGX_INSTANCE_NOT_DELAYED.selector);
+        verifier.promoteInstances(ids);
+    }
+
     function test_deleteInstances_RevertWhen_InvalidInstance() external {
         uint256[] memory ids = new uint256[](1);
         ids[0] = 42; // never added
@@ -1115,6 +1144,45 @@ contract SecureSgxVerifierTest is SgxVerifierTestBase {
         // After the delay elapses, the same proof is accepted.
         vm.warp(block.timestamp + VALIDITY_DELAY);
         verifier.verifyProof(0, aggHash, proof);
+    }
+
+    /// @dev The owner can adopt a front-run permissionless registration: an attacker who copies a
+    /// pending quote from the mempool registers the enclave key first (from a non-owner address, so
+    /// the instance is delayed), and the replay guard then blocks the owner from re-registering it.
+    /// `promoteInstances` cancels the remaining delay so the legitimately-attested instance is usable
+    /// immediately, without provisioning a new keypair.
+    function test_promoteInstances_recoversFrontRunRegistration() external {
+        _trustStandardEnclave();
+        uint256 key = 0xA11CE;
+        address instance = vm.addr(key);
+        bytes memory quote = _mockValidQuote(instance);
+
+        // Attacker front-runs the owner from a non-owner address → instance is delayed.
+        vm.prank(NON_OWNER);
+        uint256 id = verifier.registerInstance(quote);
+
+        bytes32 aggHash = bytes32(uint256(0x1234));
+        bytes memory proof = _proof(uint32(id), instance, _sign(key, aggHash, instance));
+
+        // The owner cannot re-register the same enclave key (replay guard).
+        vm.expectRevert(SgxVerifier.SGX_ALREADY_ATTESTED.selector);
+        verifier.registerInstance(quote);
+
+        // Within the delay the instance cannot prove yet.
+        vm.expectRevert(SgxVerifier.SGX_INVALID_INSTANCE.selector);
+        verifier.verifyProof(0, aggHash, proof);
+
+        // The owner promotes it, cancelling the remaining delay.
+        uint256[] memory ids = new uint256[](1);
+        ids[0] = id;
+        vm.expectEmit();
+        emit SgxVerifier.InstancePromoted(id, instance, uint64(block.timestamp));
+        verifier.promoteInstances(ids);
+
+        // Now immediately usable, and `validSince` is the current time.
+        verifier.verifyProof(0, aggHash, proof);
+        (, uint64 validSince,,,) = verifier.instances(id);
+        assertEq(validSince, uint64(block.timestamp));
     }
 
     // ---------------------------------------------------------------
