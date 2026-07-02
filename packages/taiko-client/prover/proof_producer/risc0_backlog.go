@@ -8,14 +8,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// ZKBacklogController is implemented by proof producers whose backend exposes the
-// raiko2 control-plane endpoints for draining the ZK (`zk_any`) task backlog and
+// Risc0BacklogController is implemented by proof producers whose backend exposes the
+// raiko2 control-plane endpoints for draining the RISC0 task backlog and
 // reporting when the backend is idle. See raiko2 issue #93.
-type ZKBacklogController interface {
-	// ClearBacklog discards all non-terminal `zk_any` tasks on the ZK backend
-	// (POST /v3/prover/clear).
+type Risc0BacklogController interface {
+	// ClearBacklog discards non-terminal proof tasks on the RISC0 backend.
 	ClearBacklog(ctx context.Context) error
-	// StatusClean reports whether the ZK backend is fully idle, i.e. the
+	// StatusClean reports whether the RISC0 backend is fully idle, i.e. the
 	// `data.clean` field of GET /v3/prover/status is true.
 	StatusClean(ctx context.Context) (bool, error)
 }
@@ -29,7 +28,7 @@ type raikoProverStatusResponse struct {
 	} `json:"data"`
 }
 
-// ClearBacklog implements the ZKBacklogController interface.
+// ClearBacklog implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 	if s.Dummy {
 		return nil
@@ -45,12 +44,12 @@ func (s *ComposeProofProducer) ClearBacklog(ctx context.Context) error {
 		s.ApiKey,
 		nil,
 	); err != nil {
-		return fmt.Errorf("failed to clear ZK backlog: %w", err)
+		return fmt.Errorf("failed to clear RISC0 backlog: %w", err)
 	}
 	return nil
 }
 
-// StatusClean implements the ZKBacklogController interface.
+// StatusClean implements the Risc0BacklogController interface.
 func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 	if s.Dummy {
 		return true, nil
@@ -66,7 +65,7 @@ func (s *ComposeProofProducer) StatusClean(ctx context.Context) (bool, error) {
 		nil,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to get ZK prover status: %w", err)
+		return false, fmt.Errorf("failed to get RISC0 prover status: %w", err)
 	}
 	return out.Data.Clean, nil
 }

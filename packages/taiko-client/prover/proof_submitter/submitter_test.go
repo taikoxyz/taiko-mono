@@ -84,20 +84,20 @@ func TestIsProposalOutOfRange(t *testing.T) {
 	})
 }
 
-func TestShouldUseZKProof(t *testing.T) {
-	submitter := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(30)}
+func TestShouldUseRisc0Proof(t *testing.T) {
+	submitter := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(30)}
 
 	lastFinalizedProposalID := big.NewInt(10)
-	require.True(t, submitter.shouldUseZKProof(big.NewInt(40), lastFinalizedProposalID))
-	require.False(t, submitter.shouldUseZKProof(big.NewInt(41), lastFinalizedProposalID))
+	require.True(t, submitter.shouldUseRisc0Proof(big.NewInt(40), lastFinalizedProposalID))
+	require.False(t, submitter.shouldUseRisc0Proof(big.NewInt(41), lastFinalizedProposalID))
 }
 
-func TestShouldUseZKProofUsesConfiguredDistance(t *testing.T) {
-	submitter := &ProofSubmitter{maxZKProofProposalDistance: big.NewInt(5)}
+func TestShouldUseRisc0ProofUsesConfiguredDistance(t *testing.T) {
+	submitter := &ProofSubmitter{maxRisc0ProofProposalDistance: big.NewInt(5)}
 
 	lastFinalizedProposalID := big.NewInt(10)
-	require.True(t, submitter.shouldUseZKProof(big.NewInt(15), lastFinalizedProposalID))
-	require.False(t, submitter.shouldUseZKProof(big.NewInt(16), lastFinalizedProposalID))
+	require.True(t, submitter.shouldUseRisc0Proof(big.NewInt(15), lastFinalizedProposalID))
+	require.False(t, submitter.shouldUseRisc0Proof(big.NewInt(16), lastFinalizedProposalID))
 }
 
 func TestFlushCacheSkipsEmptyCache(t *testing.T) {

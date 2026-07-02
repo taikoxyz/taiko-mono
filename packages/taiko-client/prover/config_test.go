@@ -70,17 +70,37 @@ func (s *ProverTestSuite) TestProverConfigShastaOnlySurface() {
 	}))
 }
 
-func TestNewConfigFromCliContextMaxZKProofProposalDistance(t *testing.T) {
+func TestNewConfigFromCliContextMaxRisc0ProofProposalDistance(t *testing.T) {
 	t.Run("uses default value", func(t *testing.T) {
 		cfg := newTestConfigFromCLI(t)
 
-		require.Equal(t, uint64(30), cfg.MaxZKProofProposalDistance)
+		require.Equal(t, uint64(30), cfg.MaxRisc0ProofProposalDistance)
 	})
 
 	t.Run("uses flag value", func(t *testing.T) {
-		cfg := newTestConfigFromCLI(t, "--"+flags.MaxZKProofProposalDistance.Name, "12")
+		cfg := newTestConfigFromCLI(t, "--"+flags.MaxRisc0ProofProposalDistance.Name, "12")
 
-		require.Equal(t, uint64(12), cfg.MaxZKProofProposalDistance)
+		require.Equal(t, uint64(12), cfg.MaxRisc0ProofProposalDistance)
+	})
+
+	t.Run("rejects removed legacy flag", func(t *testing.T) {
+		err := runTestConfigFromCLI(t, "--prover.maxZKProofProposalDistance", "13")
+
+		require.ErrorContains(t, err, "flag provided but not defined")
+	})
+}
+
+func TestNewConfigFromCliContextForceSP1Proof(t *testing.T) {
+	t.Run("uses default value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t)
+
+		require.False(t, cfg.ForceSP1Proof)
+	})
+
+	t.Run("uses flag value", func(t *testing.T) {
+		cfg := newTestConfigFromCLI(t, "--"+flags.ForceSP1Proof.Name)
+
+		require.True(t, cfg.ForceSP1Proof)
 	})
 }
 
@@ -119,6 +139,21 @@ func (s *ProverTestSuite) SetupApp() *cli.App {
 func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 	t.Helper()
 
+	var cfg *Config
+	require.NoError(t, runTestConfigFromCLIWithConfig(t, &cfg, extraArgs...))
+	return cfg
+}
+
+func runTestConfigFromCLI(t *testing.T, extraArgs ...string) error {
+	t.Helper()
+
+	var cfg *Config
+	return runTestConfigFromCLIWithConfig(t, &cfg, extraArgs...)
+}
+
+func runTestConfigFromCLIWithConfig(t *testing.T, cfg **Config, extraArgs ...string) error {
+	t.Helper()
+
 	jwtSecret := t.TempDir() + "/jwt-secret.txt"
 	require.NoError(
 		t,
@@ -137,18 +172,22 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.L1ProverPrivKey.Name},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
-		&cli.Uint64Flag{Name: flags.MaxZKProofProposalDistance.Name, Value: flags.MaxZKProofProposalDistance.Value},
+		&cli.Uint64Flag{
+			Name:    flags.MaxRisc0ProofProposalDistance.Name,
+			Aliases: flags.MaxRisc0ProofProposalDistance.Aliases,
+			Value:   flags.MaxRisc0ProofProposalDistance.Value,
+		},
+		&cli.BoolFlag{Name: flags.ForceSP1Proof.Name},
 	}
 
-	var cfg *Config
 	app.Action = func(ctx *cli.Context) error {
 		var err error
-		cfg, err = NewConfigFromCliContext(ctx)
+		*cfg, err = NewConfigFromCliContext(ctx)
 		return err
 	}
 
 	args := []string{
-		"TestNewConfigFromCliContextMaxZKProofProposalDistance",
+		"TestNewConfigFromCliContextMaxRisc0ProofProposalDistance",
 		"--" + flags.L1WSEndpoint.Name, "http://localhost:8545",
 		"--" + flags.L2WSEndpoint.Name, "http://localhost:9545",
 		"--" + flags.InboxAddress.Name, common.HexToAddress("0x00000000000000000000000000000000000000aa").Hex(),
@@ -158,6 +197,5 @@ func newTestConfigFromCLI(t *testing.T, extraArgs ...string) *Config {
 	}
 	args = append(args, extraArgs...)
 
-	require.NoError(t, app.Run(args))
-	return cfg
+	return app.Run(args)
 }
