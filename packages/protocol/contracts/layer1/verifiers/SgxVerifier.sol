@@ -237,7 +237,9 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// the owner can adopt it here instead of provisioning a new keypair. Owner-only, so it grants no
     /// power beyond `addInstances` (which already registers instant-valid). It only ever moves
     /// `validSince` earlier, and only for a not-yet-active instance, so it can never extend an
-    /// instance's lifetime or revive an expired one.
+    /// instance's lifetime or revive an expired one. A duplicate id within `_ids` reverts
+    /// `SGX_INSTANCE_NOT_DELAYED` on its second occurrence (the first already set `validSince` to
+    /// now), which is harmless — the owner controls the input.
     /// @param _ids The ids array of SGX instances to promote.
     function promoteInstances(uint256[] calldata _ids) external onlyOwner {
         uint64 nowTs = uint64(block.timestamp);
