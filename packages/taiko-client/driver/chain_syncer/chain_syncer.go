@@ -188,6 +188,9 @@ func shouldEnablePreconfImports(headL1OriginWritten bool, nextProposalID *big.In
 // `eth_syncing` also stays non-nil during the post-sync transaction / state index backfill
 // (`SyncProgress.Done` requires both indexes to finish), but chain data is already complete
 // then and event synchronization is safe to start, so index-only progress does not count.
+// The legacy fast-sync fields (`PulledStates` / `KnownStates`) are deliberately ignored:
+// they have been dead since go-ethereum v1.10 and taiko-geth's `eth_syncing` response
+// never populates them.
 func chainDataStillSyncing(progress *ethereum.SyncProgress) bool {
 	if progress == nil {
 		return false
