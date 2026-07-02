@@ -25,8 +25,8 @@ libp2p-allow-block-list.workspace = true
 libp2p-connection-limits.workspace = true
 libp2p-request-response.workspace = true
 once_cell.workspace = true
-prometheus.workspace = true
 preconfirmation-types = { path = "../types" }
+prometheus.workspace = true
 rand.workspace = true
 reth-discv5.workspace = true
 reth-network-types.workspace = true

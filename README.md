@@ -16,7 +16,6 @@
 [![Discord](https://img.shields.io/discord/984015101017346058?color=%235865F2&label=Discord&logo=discord&logoColor=%23fff)](https://discord.gg/aGZYtKqMjj)
 [![YouTube](https://img.shields.io/youtube/channel/subscribers/UCxd_ARE9LtAEdnRQA6g1TaQ)](https://www.youtube.com/@taikoxyz)
 
-[![GitPOAP Badge](https://public-api.gitpoap.io/v1/repo/taikoxyz/taiko-mono/badge)](https://www.gitpoap.io/gh/taikoxyz/taiko-mono)
 [![License](https://img.shields.io/github/license/taikoxyz/taiko-mono)](https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE)
 
 </div>
@@ -45,6 +44,7 @@ Get started with Taiko Alethia:
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
+| [preconfirmation-p2p](./packages/preconfirmation-p2p)         | Permissionless preconfirmation P2P networking libraries.           |
 | [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
 | [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |
 | [snaefell-ui](./packages/snaefell-ui)                         | Snaefell UI.                                                       |
@@ -53,6 +53,7 @@ Get started with Taiko Alethia:
 | [taiko-client-rs](./packages/taiko-client-rs)                 | Taiko Alethia client implementation in Rust.                       |
 | [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
 | [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
+| [urcindexer-rs](./packages/urcindexer-rs)                     | URC registry indexer service backed by MySQL.                      |
 
 ## Issues
 

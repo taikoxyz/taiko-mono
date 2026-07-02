@@ -18,6 +18,7 @@ library LibL1Addrs {
     address public constant INBOX = 0x6f21C543a4aF5189eBdb0723827577e1EF57ef1f;
     address public constant PRECONF_WHITELIST = 0xFD019460881e6EeC632258222393d5821029b2ac;
 
+    address public constant QUOTA_MANAGER = 0xBaCb003f0B13CeAF09Eb9Baf5915A640BD4Bc6cC;
     address public constant BRIDGE = 0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC;
     address public constant TAIKO_TOKEN = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
     address public constant SIGNAL_SERVICE = 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
