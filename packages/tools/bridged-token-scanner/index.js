@@ -24,7 +24,7 @@ async function getLastScannedBlock(dataDir, networkName, vaultName) {
     const files = await fs.readdir(dir);
     const chunkFiles = files.filter(f => f.startsWith("chunk_") && f.endsWith(".json"));
     const lastBlocks = chunkFiles.map(f => {
-      const match = f.match(/^chunk_(\d+)_\d+_BridgedTokenDeployed\.json$/);
+      const match = f.match(/^chunk_\d+_(\d+)_BridgedTokenDeployed\.json$/);
       return match ? parseInt(match[1]) : null;
     }).filter(Boolean);
     return lastBlocks.length > 0 ? Math.max(...lastBlocks) + 1 : null;
