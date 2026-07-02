@@ -271,7 +271,6 @@ func (d *Driver) eventLoop() {
 			log.Error("Sync L2 execution engine's block chain error", "error", err)
 		}
 	}
-
 	// Call doSync() right away to catch up with the latest known L1 head.
 	doSyncWithBackoff()
 
