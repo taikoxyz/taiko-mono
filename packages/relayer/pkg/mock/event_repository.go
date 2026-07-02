@@ -40,7 +40,7 @@ func (r *EventRepository) Close() error {
 }
 
 func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts) (*relayer.Event, error) {
-	r.events = append(r.events, &relayer.Event{
+	event := &relayer.Event{
 		ID:           rand.Int(), // nolint: gosec
 		Data:         datatypes.JSON(opts.Data),
 		Status:       opts.Status,
@@ -50,9 +50,11 @@ func (r *EventRepository) Save(ctx context.Context, opts *relayer.SaveEventOpts)
 		MessageOwner: opts.MessageOwner,
 		MsgHash:      opts.MsgHash,
 		EventType:    opts.EventType,
-	})
+	}
 
-	return nil, nil
+	r.events = append(r.events, event)
+
+	return event, nil
 }
 
 func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relayer.EventStatus) error {

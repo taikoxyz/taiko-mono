@@ -1,6 +1,7 @@
 package watchdog
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"math/big"
@@ -8,6 +9,10 @@ import (
 
 	cybererrors "github.com/cyberhorsey/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/mock"
+	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
 func Test_Name(t *testing.T) {
@@ -32,4 +37,21 @@ func TestShouldRequeueCheckMessageErrorReturnsFalseForMalformedJSON(t *testing.T
 	assert.True(t, errors.As(err, &syntaxErr))
 
 	assert.False(t, shouldRequeueCheckMessageError(cybererrors.Wrap(err, "json.Unmarshal")))
+}
+
+func TestCheckMessageReturnsAfterAlertWhenMessageWasNotSent(t *testing.T) {
+	w := Watchdog{
+		srcBridge:  &mock.Bridge{},
+		destBridge: &mock.Bridge{},
+		cfg:        &Config{},
+	}
+
+	body, err := json.Marshal(queue.QueueMessageProcessedBody{
+		Message: bridge.IBridgeMessage{Id: 1},
+	})
+	require.NoError(t, err)
+
+	err = w.checkMessage(context.Background(), queue.Message{Body: body})
+
+	require.NoError(t, err)
 }

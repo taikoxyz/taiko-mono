@@ -37,6 +37,22 @@ func (i *Indexer) handleMessageProcessedEvent(
 		return nil
 	}
 
+	if new(big.Int).SetUint64(message.SrcChainId).Cmp(i.destChainId) != 0 {
+		slog.Info("skipping event, wrong source chainID",
+			"messageSrcChainID",
+			message.SrcChainId,
+			"indexerDestChainID",
+			i.destChainId.Uint64(),
+		)
+
+		return nil
+	}
+
+	if _, ignored := i.ignoredMsgHashes[event.MsgHash]; ignored {
+		slog.Warn("skipping ignored MessageProcessed msgHash", "msgHash", event.MsgHash)
+		return nil
+	}
+
 	if event.Raw.Removed {
 		slog.Info("event is removed")
 		return nil
