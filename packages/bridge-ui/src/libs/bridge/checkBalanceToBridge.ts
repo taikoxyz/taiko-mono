@@ -39,6 +39,11 @@ type CheckBalanceToBridgeTokenArgs = CheckBalanceToBridgeCommonArgs & {
   tokenIds?: bigint[];
 };
 
+type BridgedTokenState = {
+  isTokenAlreadyDeployed: boolean;
+  shouldReturnEarly: boolean;
+};
+
 export async function checkBalanceToBridge(args: CheckBalanceToBridgeTokenArgs) {
   switch (args.token.type) {
     case TokenType.ETH:
@@ -50,6 +55,36 @@ export async function checkBalanceToBridge(args: CheckBalanceToBridgeTokenArgs) 
     default:
       throw new Error('Unsupported token type');
   }
+}
+
+function resolveBridgedTokenState({
+  tokenInfo,
+  tokenAddress,
+}: {
+  tokenInfo: {
+    bridged: {
+      chainId: number;
+      address: Address;
+    } | null;
+  };
+  tokenAddress: Address;
+}): BridgedTokenState {
+  let isTokenAlreadyDeployed = false;
+
+  if (tokenInfo.bridged) {
+    const { address, chainId } = tokenInfo.bridged;
+    if (address && address !== tokenAddress) {
+      log('token is bridged, no need for allowance check');
+      return { shouldReturnEarly: true, isTokenAlreadyDeployed };
+    }
+
+    if (address && address === tokenAddress) {
+      log('Token already deployed to destination chain', address, chainId);
+      isTokenAlreadyDeployed = true;
+    }
+  }
+
+  return { shouldReturnEarly: false, isTokenAlreadyDeployed };
 }
 
 async function handleEthBridge(args: CheckBalanceToBridgeCommonArgs): Promise<void> {
@@ -112,19 +147,11 @@ async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
   const tokenInfo = await getTokenAddresses({ token, srcChainId, destChainId });
   if (!tokenInfo) throw new NoCanonicalInfoFoundError();
 
-  let isTokenAlreadyDeployed = false;
-
-  if (tokenInfo.bridged) {
-    const { address } = tokenInfo.bridged;
-    if (address && address !== tokenAddress) {
-      // we have a bridged token, no need for allowance check as we will burn the token
-      log('token is bridged, no need for allowance check');
-      return;
-    } else if (address && address === tokenAddress) {
-      log('Token already deployed to destination chain', address, tokenInfo.bridged.chainId);
-      isTokenAlreadyDeployed = true;
-    }
-  }
+  const { isTokenAlreadyDeployed, shouldReturnEarly } = resolveBridgedTokenState({
+    tokenInfo,
+    tokenAddress,
+  });
+  if (shouldReturnEarly) return;
   let estimatedCost;
   try {
     estimatedCost = await estimateCostOfBridging(bridges.ERC1155, {
@@ -188,19 +215,11 @@ async function handleErc20Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<v
     const tokenInfo = await getTokenAddresses({ token, srcChainId, destChainId });
     if (!tokenInfo) throw new NoCanonicalInfoFoundError();
 
-    let isTokenAlreadyDeployed = false;
-
-    if (tokenInfo.bridged) {
-      const { address } = tokenInfo.bridged;
-      if (address && address !== tokenAddress) {
-        // we have a bridged token, no need for allowance check as we will burn the token
-        log('token is bridged, no need for allowance check');
-        return;
-      } else if (address && address === tokenAddress) {
-        log('Token already deployed to destination chain', address, tokenInfo.bridged.chainId);
-        isTokenAlreadyDeployed = true;
-      }
-    }
+    const { isTokenAlreadyDeployed, shouldReturnEarly } = resolveBridgedTokenState({
+      tokenInfo,
+      tokenAddress,
+    });
+    if (shouldReturnEarly) return;
 
     let estimatedCost;
     try {
