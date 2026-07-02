@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.2...relayer-v0.14.0) (2026-07-02)
+
+
+### Features
+
+* **relayer:** watchdog alerts on unsent messages without pausing ([#21888](https://github.com/taikoxyz/taiko-mono/issues/21888)) ([668d57a](https://github.com/taikoxyz/taiko-mono/commit/668d57a54503275fee75ef5df6b5ad07a2366b30))
+
+
+### Bug Fixes
+
+* **relayer:** crash on RabbitMQ subscription retry exhaustion instead of zombieing ([#21731](https://github.com/taikoxyz/taiko-mono/issues/21731)) ([7a685cc](https://github.com/taikoxyz/taiko-mono/commit/7a685cc5f1e7ddf4f8e4484061a527ac9858a21a))
+* **relayer:** floor profitability estimate tip at MinTipCap ([#21897](https://github.com/taikoxyz/taiko-mono/issues/21897)) ([4d756f0](https://github.com/taikoxyz/taiko-mono/commit/4d756f0c018cc816b2db9c7dc3c8e25ff5be3172))
+
+
+### Code Refactoring
+
+* **taiko-client-rs:** share fallback whitelist timeline across resolver clones, drop dead code ([#21774](https://github.com/taikoxyz/taiko-mono/issues/21774)) ([8219429](https://github.com/taikoxyz/taiko-mono/commit/8219429f2572ef65e8463e679a9897a28a227a06))
+
 ## [0.13.2](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.13.1...relayer-v0.13.2) (2026-05-18)
 
 
