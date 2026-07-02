@@ -31,6 +31,7 @@ type Bridge struct {
 	// IsMessageSentResult is returned by IsMessageSent. Defaults to false so
 	// existing callers see the previous hardcoded behavior.
 	IsMessageSentResult bool
+	IsMessageSentCalls  int
 }
 
 func (b *Bridge) SuspendMessages(
@@ -42,6 +43,7 @@ func (b *Bridge) SuspendMessages(
 }
 
 func (b *Bridge) IsMessageSent(opts *bind.CallOpts, _message bridge.IBridgeMessage) (bool, error) {
+	b.IsMessageSentCalls++
 	return b.IsMessageSentResult, nil
 }
 

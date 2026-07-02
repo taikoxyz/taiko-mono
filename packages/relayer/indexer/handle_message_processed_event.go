@@ -36,6 +36,11 @@ func (i *Indexer) handleMessageProcessedEvent(
 		return nil
 	}
 
+	if _, ignored := i.ignoredMsgHashes[event.MsgHash]; ignored {
+		slog.Warn("skipping ignored MessageProcessed msgHash", "msgHash", event.MsgHash)
+		return nil
+	}
+
 	if event.Raw.Removed {
 		slog.Info("event is removed")
 		return nil
