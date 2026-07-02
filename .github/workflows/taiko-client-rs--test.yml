@@ -24,7 +24,7 @@ jobs:
     runs-on: [arc-runner-set]
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -41,7 +41,7 @@ jobs:
     runs-on: [arc-runner-set]
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Ensure native build tools
         shell: bash
@@ -90,7 +90,7 @@ jobs:
             packages/taiko-client-rs -> target
 
       - name: Setup just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
         with:
           just-version: 1.5.0
 
@@ -116,7 +116,7 @@ jobs:
       PROTOCOL_FORK_DIR: protocol-taiko-mono
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Ensure native build tools
         shell: bash
@@ -217,7 +217,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
         with:
           version: 9
           run_install: false
@@ -232,14 +232,14 @@ jobs:
             ${{ env.PROTOCOL_FORK_DIR }}/pnpm-lock.yaml
 
       - name: Setup just
-        uses: extractions/setup-just@v3
+        uses: extractions/setup-just@v4
         with:
           just-version: 1.5.0
 
       - uses: taiki-e/install-action@nextest
 
       - name: Checkout protocol for testing
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: taikoxyz/taiko-mono
           path: ${{ env.PROTOCOL_FORK_DIR }}
