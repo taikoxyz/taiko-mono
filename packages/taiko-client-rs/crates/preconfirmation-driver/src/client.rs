@@ -6,14 +6,21 @@
 //! - Event handling for gossip subscriptions
 //! - Submitting preconfirmation inputs to the driver
 
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
-use tokio::sync::{broadcast, mpsc};
+use tokio::{
+    sync::{broadcast, mpsc, oneshot},
+    time::{self, MissedTickBehavior},
+};
 use tokio_stream::StreamExt;
 use tracing::{info, warn};
 
 use preconfirmation_net::{
-    LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, PreconfStorage, ValidationAdapter,
+    LocalValidationAdapter, NetworkCommand, P2pHandle, P2pNode, PeerInfoSnapshot, PreconfStorage,
+    ValidationAdapter,
 };
 use preconfirmation_types::MAX_TXLIST_BYTES;
 use protocol::codec::ZlibTxListCodec;
@@ -30,6 +37,8 @@ use crate::{
 
 /// Capacity for the broadcast event channel used by the client.
 const EVENT_CHANNEL_CAPACITY: usize = 16;
+/// Interval for logging preconfirmation P2P peer state.
+const PEER_LOOP_REPORT_INTERVAL: Duration = Duration::from_secs(30);
 
 /// A ready-to-run client that has completed sync and catchup.
 ///
@@ -59,10 +68,19 @@ where
         let node_handle = &mut self.node_handle;
         let handle = &mut self.handle;
         let handler = &self.handler;
+        let command_tx = handle.command_sender();
+        let mut peer_report_interval = time::interval_at(
+            time::Instant::now() + PEER_LOOP_REPORT_INTERVAL,
+            PEER_LOOP_REPORT_INTERVAL,
+        );
+        peer_report_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         let mut events = handle.events();
         loop {
             tokio::select! {
+                _ = peer_report_interval.tick() => {
+                    log_peer_tick(&command_tx).await;
+                }
                 result = &mut *node_handle => {
                     return Err(PreconfirmationClientError::Network(match result {
                         Ok(Ok(())) => "p2p node exited unexpectedly".to_string(),
@@ -79,6 +97,42 @@ where
                     handler.handle_event(event).await?;
                 }
             }
+        }
+    }
+}
+
+/// Query the P2P network driver for a point-in-time peer information snapshot.
+async fn query_peer_info(command_tx: &mpsc::Sender<NetworkCommand>) -> Result<PeerInfoSnapshot> {
+    let (tx, rx) = oneshot::channel();
+    command_tx.send(NetworkCommand::GetPeerInfo { respond_to: tx }).await.map_err(|_| {
+        PreconfirmationClientError::Network(
+            "peer info query failed: P2P command channel closed".to_string(),
+        )
+    })?;
+
+    rx.await.map_err(|_| {
+        PreconfirmationClientError::Network(
+            "peer info query failed: response channel dropped".to_string(),
+        )
+    })
+}
+
+/// Log connected preconfirmation P2P peer state without interrupting the event loop.
+async fn log_peer_tick(command_tx: &mpsc::Sender<NetworkCommand>) {
+    match query_peer_info(command_tx).await {
+        Ok(snapshot) => {
+            info!(
+                peersLen = snapshot.peers_len(),
+                peers = ?snapshot.peers,
+                addrInfo = ?snapshot.addr_info,
+                id = %snapshot.local_peer_id,
+                listenAddrs = ?snapshot.listen_addrs,
+                externalAddrs = ?snapshot.external_addrs,
+                "Peer tick"
+            );
+        }
+        Err(err) => {
+            warn!(error = %err, "failed to log peer tick");
         }
     }
 }
@@ -276,4 +330,38 @@ where
         .observe(catchup_start.elapsed().as_secs_f64());
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use preconfirmation_net::{PeerId, PeerInfoSnapshot};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn query_peer_info_returns_snapshot_from_network_command() {
+        let (command_tx, mut command_rx) = mpsc::channel::<NetworkCommand>(1);
+        let expected = PeerInfoSnapshot {
+            local_peer_id: PeerId::random(),
+            peers: vec![PeerId::random()],
+            addr_info: vec!["/memory/1".parse().unwrap()],
+            listen_addrs: vec!["/memory/2".parse().unwrap()],
+            external_addrs: vec![],
+        };
+        let response = expected.clone();
+
+        let responder = tokio::spawn(async move {
+            match command_rx.recv().await.expect("peer info command") {
+                NetworkCommand::GetPeerInfo { respond_to } => {
+                    respond_to.send(response).expect("send peer info response");
+                }
+                command => panic!("unexpected command: {command:?}"),
+            }
+        });
+
+        let snapshot = query_peer_info(&command_tx).await.expect("peer info snapshot");
+        responder.await.expect("responder task");
+
+        assert_eq!(snapshot, expected);
+    }
 }

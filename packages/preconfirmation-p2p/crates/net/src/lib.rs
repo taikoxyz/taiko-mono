@@ -25,7 +25,7 @@ mod reputation;
 mod storage;
 mod validation;
 
-pub use command::NetworkCommand;
+pub use command::{NetworkCommand, PeerInfoSnapshot};
 pub use config::{NetworkConfig, P2pConfig, RateLimitConfig};
 pub use discovery::spawn_discovery;
 pub use driver::{NetworkDriver, NetworkHandle};

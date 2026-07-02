@@ -180,6 +180,7 @@ fn driver_from_parts(
             validator: Box::new(LookaheadValidationAdapter::new(None, lookahead)),
             discovery_rx: None,
             connected_peers: 0,
+            peer_addresses: HashMap::new(),
             head: PreconfHead::default(),
             kona_gater: super::build_kona_gater(cfg),
             storage: crate::storage::default_storage(),
@@ -458,6 +459,43 @@ async fn reqresp_errors_when_no_peer_available() {
         panic!("expected req/resp error when no peers available");
     };
     assert_eq!(err.kind, NetworkErrorKind::ReqRespBackpressure);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn peer_info_command_reports_connected_peers_and_local_addresses() {
+    let cfg = NetworkConfig { enable_discovery: false, ..Default::default() };
+    let parts1 = build_memory_parts(cfg.chain_id, &cfg);
+    let parts2 = build_memory_parts(cfg.chain_id, &cfg);
+    let lookahead = Arc::new(StaticLookaheadResolver { signer: alloy_primitives::Address::ZERO });
+    let (mut driver1, handle1) = driver_from_parts(parts1, &cfg, lookahead.clone());
+    let (mut driver2, _handle2) = driver_from_parts(parts2, &cfg, lookahead);
+
+    let peer2_id = *driver2.swarm.local_peer_id();
+    let addr1: Multiaddr = "/memory/1201".parse().unwrap();
+    let mut addr1_full = addr1.clone();
+    addr1_full.push(libp2p::multiaddr::Protocol::P2p(*driver1.swarm.local_peer_id()));
+
+    driver1.swarm.listen_on(addr1.clone()).unwrap();
+    driver2.swarm.dial(addr1_full).unwrap();
+    for _ in 0..200 {
+        pump_async(&mut driver1).await;
+        pump_async(&mut driver2).await;
+        if driver1.swarm.is_connected(&peer2_id) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(driver1.swarm.is_connected(&peer2_id), "peers failed to connect");
+
+    let (tx, rx) = oneshot::channel();
+    handle1.commands.send(NetworkCommand::GetPeerInfo { respond_to: tx }).await.unwrap();
+    pump_async(&mut driver1).await;
+
+    let snapshot = rx.await.expect("peer info response");
+    assert_eq!(snapshot.local_peer_id, *driver1.swarm.local_peer_id());
+    assert_eq!(snapshot.peers_len(), 1);
+    assert_eq!(snapshot.peers, vec![peer2_id]);
+    assert!(snapshot.listen_addrs.contains(&addr1));
 }
 
 /// Local reputation changes are mirrored into gossipsub's app-specific score (spec §7.1),
