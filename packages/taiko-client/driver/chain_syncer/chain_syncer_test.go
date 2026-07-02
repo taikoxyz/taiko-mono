@@ -108,6 +108,13 @@ func (s *ChainSyncerTestSuite) TestGetInnerSyncers() {
 	s.NotNil(s.s.EventSyncer())
 }
 
+func (s *ChainSyncerTestSuite) TestPreconfImportsPendingOnStart() {
+	// The preconf import gate must start closed, so that a driver restart landing
+	// between a beacon sync and the first event sync insertion can not re-open
+	// imports while the head L1 origin base is still missing.
+	s.True(s.s.preconfImportsPending)
+}
+
 func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
 }
