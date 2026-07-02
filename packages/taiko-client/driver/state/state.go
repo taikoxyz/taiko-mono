@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -74,13 +75,6 @@ func (s *State) init(ctx context.Context) error {
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
 
-	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
-	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get latest L2 known L1 header: %w", err)
-	}
-	s.l1Current.Store(latestL2KnownL1Header)
-
 	// L1 head
 	l1Head, err := s.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -96,6 +90,44 @@ func (s *State) init(ctx context.Context) error {
 
 	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
 	s.setL2Head(l2Head)
+
+	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
+	if err := s.initL1Current(ctx, l2Head); err != nil {
+		return fmt.Errorf("failed to initialize L1 current cursor: %w", err)
+	}
+
+	return nil
+}
+
+// initL1Current initializes the L1 current cursor from the L2 head's latest known L1 origin.
+func (s *State) initL1Current(ctx context.Context, l2Head *types.Header) error {
+	headL1Origin, err := s.rpc.L2.HeadL1Origin(ctx)
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return fmt.Errorf("failed to get head L1 origin: %w", err)
+	}
+
+	// The L2 chain is non-empty but has no head L1 origin recorded: the execution engine
+	// was synced without the driver writing L1 origins (a beacon sync interrupted by a
+	// restart before the first event sync insertion, or a snapshot restore without
+	// L1Origin data). Derive the cursor from the head block's anchor instead of falling
+	// back to the activation block, which would rescan the whole proposal history.
+	if headL1Origin == nil && l2Head.Number.Sign() > 0 {
+		resetErr := s.ResetL1Current(ctx, l2Head.Number)
+		if resetErr == nil {
+			return nil
+		}
+		log.Warn(
+			"Failed to derive the L1 current cursor from the L2 head, use the last known L1 origin instead",
+			"l2Head", l2Head.Number,
+			"error", resetErr,
+		)
+	}
+
+	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get latest L2 known L1 header: %w", err)
+	}
+	s.l1Current.Store(latestL2KnownL1Header)
 
 	return nil
 }
