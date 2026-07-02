@@ -24,12 +24,11 @@ abstract contract EssentialResolverContract is EssentialContract {
         _;
     }
 
-    /// @dev Modifier that ensures the caller is a resolved address to either _name1 or _name2
-    /// name.
-    /// @param _address1 The first name to check against.
-    /// @param _address2 The second name to check against.
-    modifier onlyFromNamedEither(address _address1, address _address2) {
-        _checkFromNamedEither(_address1, _address2);
+    /// @dev Resolves both names on the current chain and checks msg.sender equality.
+    /// @param _name1 The first name to resolve and check.
+    /// @param _name2 The second name to resolve and check.
+    modifier onlyFromNamedEither(bytes32 _name1, bytes32 _name2) {
+        _checkFromNamedEither(_name1, _name2);
         _;
     }
 
@@ -90,8 +89,10 @@ abstract contract EssentialResolverContract is EssentialContract {
         require(msg.sender == resolve(_name, true), ACCESS_DENIED());
     }
 
-    function _checkFromNamedEither(address _address1, address _address2) private view {
-        require(msg.sender == _address1 || msg.sender == _address2, ACCESS_DENIED());
+    function _checkFromNamedEither(bytes32 _name1, bytes32 _name2) private view {
+        address addr1 = resolve(_name1, true);
+        address addr2 = resolve(_name2, true);
+        require(msg.sender == addr1 || msg.sender == addr2, ACCESS_DENIED());
     }
 
     function _checkFromOptionalNamed(bytes32 _name) private view {
