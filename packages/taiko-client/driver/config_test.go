@@ -151,6 +151,8 @@ func (s *DriverTestSuite) SetupApp() *cli.App {
 		&cli.Uint64Flag{Name: flags.PreconfHandoverSkipSlots.Name, Value: 8},
 		&cli.Uint64Flag{Name: flags.PreconfBlockServerPort.Name},
 		&cli.StringFlag{Name: flags.PreconfBlockServerJWTSecret.Name},
+		&cli.BoolFlag{Name: flags.ProposalAPIEnabled.Name},
+		&cli.StringFlag{Name: flags.ProposalAPIAddr.Name, Value: "127.0.0.1:9876"},
 		&cli.StringFlag{Name: flags.JWTSecret.Name},
 		&cli.BoolFlag{Name: flags.P2PSync.Name},
 		&cli.DurationFlag{Name: flags.P2PSyncTimeout.Name},
@@ -213,4 +215,35 @@ func (s *DriverTestSuite) defaultCliP2PConfigs() (*p2p.Config, p2p.SignerSetup) 
 	}))
 
 	return <-p2pConfigCh, <-signerSetupCh
+}
+
+func TestNewConfigFromCliContextRejectsRemoteProposalAPIAddress(t *testing.T) {
+	jwtFile := t.TempDir() + "/jwt.hex"
+	if err := os.WriteFile(jwtFile, []byte(strings.Repeat("11", 32)), 0o600); err != nil {
+		t.Fatalf("write jwt file: %v", err)
+	}
+
+	app := cli.NewApp()
+	app.Flags = []cli.Flag{
+		&cli.StringFlag{Name: flags.JWTSecret.Name},
+		&cli.StringFlag{Name: flags.L1BeaconEndpoint.Name},
+		&cli.Uint64Flag{Name: flags.PreconfBlockServerPort.Name},
+		&cli.StringFlag{Name: flags.PreconfBlockServerJWTSecret.Name},
+		&cli.BoolFlag{Name: flags.ProposalAPIEnabled.Name},
+		&cli.StringFlag{Name: flags.ProposalAPIAddr.Name, Value: "127.0.0.1:9876"},
+	}
+	app.Action = func(ctx *cli.Context) error {
+		_, err := NewConfigFromCliContext(ctx)
+		return err
+	}
+
+	if err := app.Run([]string{
+		"TestNewConfigFromCliContextRejectsRemoteProposalAPIAddress",
+		"--" + flags.JWTSecret.Name, jwtFile,
+		"--" + flags.L1BeaconEndpoint.Name, "http://localhost:5052",
+		"--" + flags.ProposalAPIEnabled.Name,
+		"--" + flags.ProposalAPIAddr.Name, "0.0.0.0:9876",
+	}); err == nil || !strings.Contains(err.Error(), "invalid proposal API address") {
+		t.Fatalf("expected invalid proposal API address error, got %v", err)
+	}
 }
