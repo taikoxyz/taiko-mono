@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"github.com/taikoxyz/taiko-mono/packages/relayer/bindings/bridge"
-	"github.com/taikoxyz/taiko-mono/packages/relayer/pkg/queue"
 )
 
 // handleMessageProcessedEvent handles an individual MessageProcessed event
@@ -66,12 +65,27 @@ func (i *Indexer) handleMessageProcessedEvent(
 		return nil
 	}
 
+	// Forged-message detection (relocated from the removed watchdog): if the
+	// bridge that should have originated this message has no record of sending
+	// it, alert. Runs before saveEventToDB so an RPC failure leaves no
+	// half-saved state and the event is cleanly re-indexed on retry.
+	forged, err := i.isForgedMessage(message)
+	if err != nil {
+		return errors.Wrap(err, "i.isForgedMessage")
+	}
+
+	if forged {
+		slog.Warn("dest bridge did not send this message", "msgId", message.Id)
+
+		relayer.BridgeMessageNotSent.Inc()
+	}
+
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	id, err := i.saveEventToDB(
+	if _, err := i.saveEventToDB(
 		ctx,
 		marshaled,
 		"0x",
@@ -81,26 +95,21 @@ func (i *Indexer) handleMessageProcessedEvent(
 		message.Data,
 		message.Value,
 		event.Raw.BlockNumber,
-	)
-	if err != nil {
+	); err != nil {
 		return errors.Wrap(err, "i.saveEventToDB")
 	}
 
-	msg := queue.QueueMessageProcessedBody{
-		ID:      id,
-		Message: message,
-	}
-
-	marshalledMsg, err := json.Marshal(msg)
-	if err != nil {
-		return errors.Wrap(err, "json.Marshal")
-	}
-
-	// we add it to the queue, so the processor can pick up and attempt to process
-	// the message onchain.
-	if err := i.queue.Publish(ctx, i.queueName(), marshalledMsg, nil, nil); err != nil {
-		return errors.Wrap(err, "i.queue.Publish")
-	}
-
 	return nil
+}
+
+// isForgedMessage reports whether the bridge that should have originated this
+// message (destBridge) has no record of having sent it — the signature of a
+// forged message. Relocated from the removed watchdog.
+func (i *Indexer) isForgedMessage(message bridge.IBridgeMessage) (bool, error) {
+	sent, err := i.destBridge.IsMessageSent(nil, message)
+	if err != nil {
+		return false, errors.Wrap(err, "i.destBridge.IsMessageSent")
+	}
+
+	return !sent, nil
 }
