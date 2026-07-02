@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.5.0...taiko-alethia-client-v2.5.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **taiko-client:** only postpone event sync while chain data is syncing ([#21896](https://github.com/taikoxyz/taiko-mono/issues/21896)) ([97abf8b](https://github.com/taikoxyz/taiko-mono/commit/97abf8b2ee0479a496c6301e509457d5bbc6cb44))
+* **taiko-client:** wait for execution sync before events ([#21877](https://github.com/taikoxyz/taiko-mono/issues/21877)) ([035d817](https://github.com/taikoxyz/taiko-mono/commit/035d817bb62073a277dccbd4a49a3ca068fde217))
+
 ## [2.5.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v2.4.0...taiko-alethia-client-v2.5.0) (2026-06-30)
 
 
