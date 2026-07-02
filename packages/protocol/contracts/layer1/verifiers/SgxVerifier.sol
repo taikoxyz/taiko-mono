@@ -130,6 +130,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// pre-migration security model. Enabled by default (set in the constructor); toggle off with
     /// toggleLocalReportCheck().
     bool public checkLocalEnclaveReport;
+    /// @notice Whether `registerInstance` requires the attested quote to commit a recent L1 block,
+    /// bounding how old the quote may be. Off by default (backward compatible; requires prover
+    /// support to embed the block commitment in reportData). Toggle with `toggleQuoteFreshnessCheck`.
+    bool public requireQuoteFreshness;
     /// @dev Trusted-MRENCLAVE allowlist + policy version, co-located per measurement. Exposed via the
     /// `trustedUserMrEnclave` view (allowlist flag) and, in versioned subclasses, a policy-version
     /// view; `internal` so those subclasses can maintain the version in the same slot.
@@ -164,6 +168,10 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     /// @param checkLocalEnclaveReport Whether the allowlist is enforced.
     event LocalReportCheckToggled(bool checkLocalEnclaveReport);
 
+    /// @notice Emitted when enforcement of the quote-freshness gate is toggled.
+    /// @param requireQuoteFreshness Whether a recent-block commitment is required at registration.
+    event QuoteFreshnessCheckToggled(bool requireQuoteFreshness);
+
     error SGX_ALREADY_ATTESTED();
     error SGX_DEBUG_ENCLAVE();
     error SGX_FORBIDDEN_ATTRIBUTES();
@@ -172,6 +180,8 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     error SGX_INVALID_PROOF();
     error SGX_INVALID_CHAIN_ID();
     error SGX_NOT_REGISTRAR();
+    error SGX_STALE_QUOTE();
+    error SGX_QUOTE_BLOCK_HASH_MISMATCH();
 
     constructor(
         uint64 _taikoChainId,
@@ -247,6 +257,15 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
     function toggleLocalReportCheck() external onlyOwner {
         checkLocalEnclaveReport = !checkLocalEnclaveReport;
         emit LocalReportCheckToggled(checkLocalEnclaveReport);
+    }
+
+    /// @notice Toggles enforcement of the quote-freshness gate in `registerInstance`.
+    /// @dev Enable only once the prover embeds a recent L1 block commitment (block number then that
+    /// block's hash) into reportData immediately after the instance address; otherwise every
+    /// registration reverts with `SGX_STALE_QUOTE`.
+    function toggleQuoteFreshnessCheck() external onlyOwner {
+        requireQuoteFreshness = !requireQuoteFreshness;
+        emit QuoteFreshnessCheckToggled(requireQuoteFreshness);
     }
 
     /// @notice Adds an SGX instance after remote attestation is verified fully on-chain.
@@ -366,6 +385,28 @@ abstract contract SgxVerifier is IProofVerifier, Ownable2Step, ReentrancyGuard {
         // bound to the verified enclave report by the body-hash check above.
         address[] memory addresses = new address[](1);
         addresses[0] = address(bytes20(_rawQuote[REPORT_DATA_OFFSET:REPORT_DATA_OFFSET + 20]));
+
+        // Optional quote-freshness gate. INSTANCE_EXPIRY only bounds key exposure *after*
+        // registration; nothing otherwise bounds how old the attested quote itself is, so a quote (or
+        // a slowly side-channel-extracted key) from long ago could be registered today and trusted
+        // for a fresh 90-day window. When enabled, require the enclave to have committed a recent L1
+        // block into reportData right after the instance address — block number (8 bytes, BE) then
+        // that block's hash (32 bytes) — and check the hash matches on-chain. `blockhash` returns
+        // zero outside the most recent 256 blocks, so a non-zero match bounds the quote's age to that
+        // window. Both fields are bound to the verified enclave report by the body-hash check above.
+        // Off by default (backward compatible); requires prover support to embed the block commitment.
+        if (requireQuoteFreshness) {
+            uint64 quoteBlock =
+                uint64(bytes8(_rawQuote[REPORT_DATA_OFFSET + 20:REPORT_DATA_OFFSET + 28]));
+            bytes32 quoteBlockHash =
+                bytes32(_rawQuote[REPORT_DATA_OFFSET + 28:REPORT_DATA_OFFSET + 60]);
+            bytes32 actualBlockHash = blockhash(quoteBlock);
+            // A zero `blockhash` means the committed block is outside the most recent 256 (too old,
+            // or the current/a future block) — the quote is stale. A non-zero hash that does not
+            // match means the commitment is wrong. Split for on-chain diagnosability.
+            require(actualBlockHash != bytes32(0), SGX_STALE_QUOTE());
+            require(actualBlockHash == quoteBlockHash, SGX_QUOTE_BLOCK_HASH_MISMATCH());
+        }
 
         // An owner-submitted registration is as trusted as `addInstances`, so it skips the validity
         // delay; permissionless (and registrar) registrations remain delayed. The attested MRENCLAVE,

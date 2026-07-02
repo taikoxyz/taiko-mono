@@ -166,6 +166,44 @@ abstract contract SgxVerifierTestBase is Test {
         return _mockQuote(bytes16(0), MR_ENCLAVE, MR_SIGNER, instance, 3, 1, TCB_OK);
     }
 
+    /// @dev Builds a 64-byte reportData: instance address (20) then a recent-block commitment used by
+    /// the quote-freshness gate — block number (8, BE) and that block's hash (32) — then 4 zero bytes.
+    function _reportData(
+        address instance,
+        uint64 blockNumber,
+        bytes32 blockHash
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodePacked(bytes20(instance), bytes8(blockNumber), blockHash, new bytes(4));
+    }
+
+    /// @dev Like `_mockValidQuote` but embeds a block commitment in reportData for the freshness gate.
+    function _mockFreshQuote(
+        address instance,
+        uint64 blockNumber,
+        bytes32 blockHash
+    )
+        internal
+        returns (bytes memory quote)
+    {
+        bytes memory reportData = _reportData(instance, blockNumber, blockHash);
+        bytes memory report = abi.encodePacked(
+            new bytes(48), // cpuSvn+miscSelect+reserved1                    [0:48]
+            bytes16(0), // attributes                                       [48:64]
+            MR_ENCLAVE, //                                                  [64:96]
+            bytes32(0), // reserved2                                        [96:128]
+            MR_SIGNER, //                                                   [128:160]
+            new bytes(96), // reserved3                                     [160:256]
+            new bytes(64), // isvProdId+isvSvn+reserved4                    [256:320]
+            reportData //                                                   [320:384]
+        );
+        quote = abi.encodePacked(new bytes(48), report);
+        _mockAttest(true, _output(3, 1, TCB_OK, report));
+    }
+
     /// @dev Trusts the standard MRENCLAVE/MRSIGNER on `verifier` so registrations pass the
     /// allowlist, which is enforced by default (checkLocalEnclaveReport == true).
     function _trustStandardEnclave() internal {
@@ -486,6 +524,109 @@ abstract contract SgxVerifierTestBase is Test {
         vm.prank(address(0xD00D));
         vm.expectRevert();
         verifier.toggleLocalReportCheck();
+    }
+
+    // ---------------------------------------------------------------
+    // admin: toggleQuoteFreshnessCheck / quote-freshness gate
+    // ---------------------------------------------------------------
+
+    function test_toggleQuoteFreshnessCheck_togglesAndEmits() external {
+        // Off by default (backward compatible).
+        assertFalse(verifier.requireQuoteFreshness());
+        vm.expectEmit();
+        emit SgxVerifier.QuoteFreshnessCheckToggled(true);
+        verifier.toggleQuoteFreshnessCheck();
+        assertTrue(verifier.requireQuoteFreshness());
+        verifier.toggleQuoteFreshnessCheck();
+        assertFalse(verifier.requireQuoteFreshness());
+    }
+
+    function test_toggleQuoteFreshnessCheck_RevertWhen_NotOwner() external {
+        vm.prank(address(0xD00D));
+        vm.expectRevert();
+        verifier.toggleQuoteFreshnessCheck();
+    }
+
+    /// @dev With the gate off (default), a quote carrying no block commitment registers normally.
+    function test_registerInstance_FreshnessOffIgnoresBlockCommitment() external {
+        _trustStandardEnclave();
+        address instance = address(0xBEEF);
+        verifier.registerInstance(_mockValidQuote(instance));
+        assertTrue(verifier.addressRegistered(instance));
+    }
+
+    /// @dev With the gate on, a quote committing a recent, correct block hash registers.
+    function test_registerInstance_SucceedsWhen_FreshQuote() external {
+        _trustStandardEnclave();
+        verifier.toggleQuoteFreshnessCheck();
+
+        // Move well past block 256 so a recent block's hash is available and non-zero.
+        vm.roll(1000);
+        uint64 bn = uint64(block.number - 1);
+        bytes32 bh = blockhash(bn);
+        assertTrue(bh != bytes32(0));
+
+        address instance = address(0xC0FFEE);
+        bytes memory quote = _mockFreshQuote(instance, bn, bh);
+        verifier.registerInstance(quote);
+        assertTrue(verifier.addressRegistered(instance));
+    }
+
+    /// @dev With the gate on, a quote committing a block outside the 256-block `blockhash` window
+    /// (its on-chain hash reads back as zero) is rejected as stale.
+    function test_registerInstance_RevertWhen_StaleQuote() external {
+        _trustStandardEnclave();
+        verifier.toggleQuoteFreshnessCheck();
+
+        vm.roll(1000);
+        // Block 1 is >256 behind, so blockhash(1) == 0 → the committed hash cannot match.
+        bytes memory quote = _mockFreshQuote(address(0xC0FFEE), 1, blockhash(1));
+        vm.expectRevert(SgxVerifier.SGX_STALE_QUOTE.selector);
+        verifier.registerInstance(quote);
+    }
+
+    /// @dev With the gate on, a recent block number paired with a wrong hash is rejected with the
+    /// dedicated mismatch error (distinct from the stale/out-of-window case).
+    function test_registerInstance_RevertWhen_FreshQuoteHashMismatch() external {
+        _trustStandardEnclave();
+        verifier.toggleQuoteFreshnessCheck();
+
+        vm.roll(1000);
+        uint64 bn = uint64(block.number - 1);
+        bytes memory quote = _mockFreshQuote(address(0xC0FFEE), bn, bytes32(uint256(0xBAD)));
+        vm.expectRevert(SgxVerifier.SGX_QUOTE_BLOCK_HASH_MISMATCH.selector);
+        verifier.registerInstance(quote);
+    }
+
+    /// @dev The oldest in-window block (`block.number - 256`) still has a non-zero `blockhash`, so a
+    /// correct commitment to it is accepted — the exact freshness boundary.
+    function test_registerInstance_SucceedsAtOldestFreshBlock() external {
+        _trustStandardEnclave();
+        verifier.toggleQuoteFreshnessCheck();
+
+        vm.roll(1000);
+        uint64 bn = uint64(block.number - 256);
+        bytes32 bh = blockhash(bn);
+        assertTrue(bh != bytes32(0));
+
+        address instance = address(0xC0FFEE);
+        verifier.registerInstance(_mockFreshQuote(instance, bn, bh));
+        assertTrue(verifier.addressRegistered(instance));
+    }
+
+    /// @dev One block older than the window (`block.number - 257`) reads back a zero `blockhash` and
+    /// is rejected as stale.
+    function test_registerInstance_RevertWhen_JustOutsideFreshWindow() external {
+        _trustStandardEnclave();
+        verifier.toggleQuoteFreshnessCheck();
+
+        vm.roll(1000);
+        uint64 bn = uint64(block.number - 257);
+        assertEq(blockhash(bn), bytes32(0));
+
+        bytes memory quote = _mockFreshQuote(address(0xC0FFEE), bn, bytes32(uint256(0x1234)));
+        vm.expectRevert(SgxVerifier.SGX_STALE_QUOTE.selector);
+        verifier.registerInstance(quote);
     }
 
     // ---------------------------------------------------------------
