@@ -3,11 +3,12 @@ pragma solidity ^0.8.24;
 
 import "forge-std/src/console2.sol";
 import "script/BaseScript.sol";
+import { SecureSgxVerifier } from "src/layer1/verifiers/SecureSgxVerifier.sol";
 import { SgxVerifier } from "src/layer1/verifiers/SgxVerifier.sol";
 
 /// @title ConfigureSgxVerifier
 /// @notice Minimal script to configure the SGX verifier: the trusted MRENCLAVE/MRSIGNER allowlist,
-/// instance registration, and the local-report-check toggle.
+/// SecureSgxVerifier attribute policy, instance registration, and the local-report-check toggle.
 /// @dev TCB info and QE identity are no longer configured on-chain by Taiko; they are sourced from
 /// Automata's on-chain PCCS through the DCAP attestation entrypoint. The MRENCLAVE/MRSIGNER
 /// allowlist now lives on the SGX verifier (previously on `AutomataDcapV3Attestation`). The config
@@ -22,6 +23,14 @@ contract ConfigureSgxVerifier is BaseScript {
 
         console2.log("=== Configuring SGX Verifier ===");
         console2.log("SGX Verifier:", address(sgxVerifier));
+
+        if (vm.envOr("SET_ATTRIBUTE_POLICY", false)) {
+            bytes32 mrEnclave = vm.envBytes32("ATTRIBUTE_POLICY_MRENCLAVE");
+            bytes16 mask = _envBytes16("ATTRIBUTE_POLICY_MASK");
+            bytes16 expected = _envBytes16("ATTRIBUTE_POLICY_EXPECTED");
+            console2.log("Setting SecureSgxVerifier attribute policy");
+            SecureSgxVerifier(sgxVerifierAddr).setEnclaveAttributePolicy(mrEnclave, mask, expected);
+        }
 
         if (vm.envOr("SET_MRENCLAVE", false)) {
             bytes32 mrEnclave = vm.envBytes32("MRENCLAVE");
@@ -50,5 +59,13 @@ contract ConfigureSgxVerifier is BaseScript {
         }
 
         console2.log("=== Configuration Complete ===");
+    }
+
+    function _envBytes16(string memory name) private view returns (bytes16 value_) {
+        bytes memory raw = vm.envBytes(name);
+        require(raw.length == 16, "env value must be bytes16");
+        assembly {
+            value_ := mload(add(raw, 0x20))
+        }
     }
 }

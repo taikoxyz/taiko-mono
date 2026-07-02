@@ -2,14 +2,106 @@
 
 # Simple wrapper for ConfigureSgxVerifier.s.sol
 #
-# Configures the SGX verifier's trusted MRENCLAVE/MRSIGNER allowlist, registers
-# SGX instances from raw Intel DCAP quotes, and toggles local-report enforcement.
+# Configures the SGX verifier's trusted MRENCLAVE/MRSIGNER allowlist, SecureSgxVerifier
+# attribute policy, registers SGX instances from raw Intel DCAP quotes, and toggles
+# local-report enforcement.
 #
 # NOTE: TCB info and QE identity are NO LONGER configured here. They are sourced
 # from Automata's on-chain PCCS through the DCAP attestation entrypoint, so the
 # old --qeid / --tcb flags (and ATTESTATION_ADDRESS) have been removed.
 
 set -e
+
+SKIP_SIMULATION="${SKIP_SIMULATION:-false}"
+REGISTER_INSTANCE_GAS_LIMIT="${REGISTER_INSTANCE_GAS_LIMIT:-8000000}"
+AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE="${AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE:-true}"
+DEFAULT_ATTRIBUTE_POLICY_MASK="${DEFAULT_ATTRIBUTE_POLICY_MASK:-0xffffffffffffffff0000000000000000}"
+DEFAULT_ATTRIBUTE_POLICY_EXPECTED="${DEFAULT_ATTRIBUTE_POLICY_EXPECTED:-0x05000000000000000000000000000000}"
+
+redact_rpc() {
+    echo "$1" | sed -E 's#(https?://[^/?]+).*#\1/<redacted>#'
+}
+
+send_cast() {
+    local desc="$1"
+    shift
+
+    echo "$desc"
+    cast send "$SGX_VERIFIER_ADDRESS" "$@" \
+        --rpc-url "$FORK_URL" \
+        --private-key "$PRIVATE_KEY" \
+        --legacy
+}
+
+run_with_cast() {
+    echo "=== Configuring SGX Verifier (direct cast mode) ==="
+
+    if [[ "$SET_ATTRIBUTE_POLICY" == "true" ]]; then
+        send_cast "Setting SecureSgxVerifier attribute policy" \
+            "setEnclaveAttributePolicy(bytes32,bytes16,bytes16)" \
+            "$ATTRIBUTE_POLICY_MRENCLAVE" \
+            "$ATTRIBUTE_POLICY_MASK" \
+            "$ATTRIBUTE_POLICY_EXPECTED"
+    fi
+
+    if [[ "$SET_MRENCLAVE" == "true" ]]; then
+        send_cast "Setting MRENCLAVE (enable=$MRENCLAVE_ENABLE)" \
+            "setMrEnclave(bytes32,bool)" "$MRENCLAVE" "$MRENCLAVE_ENABLE"
+    fi
+
+    if [[ "$SET_MRSIGNER" == "true" ]]; then
+        send_cast "Setting MRSIGNER (enable=$MRSIGNER_ENABLE)" \
+            "setMrSigner(bytes32,bool)" "$MRSIGNER" "$MRSIGNER_ENABLE"
+    fi
+
+    if [[ "$REGISTER_INSTANCE" == "true" ]]; then
+        echo "Registering SGX instance from a raw Intel DCAP quote"
+        cast send "$SGX_VERIFIER_ADDRESS" "registerInstance(bytes)" "$QUOTE_BYTES" \
+            --rpc-url "$FORK_URL" \
+            --private-key "$PRIVATE_KEY" \
+            --legacy \
+            --gas-limit "$REGISTER_INSTANCE_GAS_LIMIT"
+    fi
+
+    if [[ "$TOGGLE_CHECK" == "true" ]]; then
+        send_cast "Toggling MRENCLAVE/MRSIGNER allowlist enforcement" \
+            "toggleLocalReportCheck()"
+    fi
+
+    echo "✓ Configuration complete"
+}
+
+maybe_default_attribute_policy_for_mrenclave() {
+    if [[ "$AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE" != "true" ]]; then
+        return
+    fi
+    if [[ "$SET_MRENCLAVE" != "true" || "$MRENCLAVE_ENABLE" != "true" ]]; then
+        return
+    fi
+    if [[ "$SET_ATTRIBUTE_POLICY" == "true" ]]; then
+        return
+    fi
+
+    local policy_version
+    if ! policy_version=$(cast call "$SGX_VERIFIER_ADDRESS" \
+        "enclaveAttributePolicyVersion(bytes32)(uint32)" "$MRENCLAVE" \
+        --rpc-url "$FORK_URL" 2>/dev/null); then
+        echo "Default attribute policy skipped: verifier does not expose enclaveAttributePolicyVersion(bytes32)."
+        return
+    fi
+
+    policy_version=$(echo "$policy_version" | awk '{print $1}')
+    if [[ "$policy_version" != "0" ]]; then
+        echo "Default attribute policy skipped: MRENCLAVE already has policyVersion=$policy_version."
+        return
+    fi
+
+    export ATTRIBUTE_POLICY_MRENCLAVE="$MRENCLAVE"
+    export ATTRIBUTE_POLICY_MASK="$DEFAULT_ATTRIBUTE_POLICY_MASK"
+    export ATTRIBUTE_POLICY_EXPECTED="$DEFAULT_ATTRIBUTE_POLICY_EXPECTED"
+    SET_ATTRIBUTE_POLICY=true
+    echo "Default attribute policy enabled for MRENCLAVE $MRENCLAVE"
+}
 
 usage() {
     cat << 'EOF'
@@ -23,11 +115,22 @@ Required Environment Variables:
   FORK_URL              - RPC URL (e.g., https://ethereum-hoodi-rpc.publicnode.com)
   SGX_VERIFIER_ADDRESS  - SgxVerifier contract address
                           (or supply it via --env NAME)
+  SKIP_SIMULATION=true  - Optional. Use direct cast sends instead of forge script
+                          simulation, useful on chains whose P256 precompile is
+                          not modeled by the local fork EVM.
+  AUTO_ATTRIBUTE_POLICY_ON_MRENCLAVE=true
+                        - Optional. When --mrenclave trusts a SecureSgxVerifier
+                          MRENCLAVE with no existing policy, also set the default
+                          ATTRIBUTES policy. Set false to disable.
+  DEFAULT_ATTRIBUTE_POLICY_MASK / DEFAULT_ATTRIBUTE_POLICY_EXPECTED
+                        - Optional defaults for the automatic ATTRIBUTES policy.
 
 Options:
   --env NAME                    Load a predefined SGX_VERIFIER_ADDRESS (see list below)
   --mrenclave HASH              Trust MRENCLAVE (0x... format)
   --mrsigner HASH               Trust MRSIGNER (0x... format)
+  --attribute-policy HASH MASK EXPECTED
+                                Set SecureSgxVerifier ATTRIBUTES policy for MRENCLAVE
   --unset-mrenclave HASH        Untrust MRENCLAVE
   --unset-mrsigner HASH         Untrust MRSIGNER
   --quote HEX                   Register an SGX instance from a raw Intel DCAP quote
@@ -109,6 +212,7 @@ load_env() {
 # Parse arguments
 SET_MRENCLAVE=false
 SET_MRSIGNER=false
+SET_ATTRIBUTE_POLICY=false
 REGISTER_INSTANCE=false
 TOGGLE_CHECK=false
 MRENCLAVE_ENABLE=true
@@ -135,6 +239,14 @@ while [[ $# -gt 0 ]]; do
             SET_MRSIGNER=true
             MRSIGNER_ENABLE=true
             shift 2
+            ;;
+        --attribute-policy)
+            [[ $# -lt 4 ]] && { echo "Error: --attribute-policy requires HASH MASK EXPECTED"; exit 1; }
+            export ATTRIBUTE_POLICY_MRENCLAVE="$2"
+            export ATTRIBUTE_POLICY_MASK="$3"
+            export ATTRIBUTE_POLICY_EXPECTED="$4"
+            SET_ATTRIBUTE_POLICY=true
+            shift 4
             ;;
         --unset-mrenclave)
             export MRENCLAVE="$2"
@@ -175,22 +287,36 @@ if [[ -n "${ATTESTATION_ADDRESS:-}" || -n "${PEM_CERTCHAIN_ADDRESS:-}" ]]; then
     echo "WARNING: ATTESTATION_ADDRESS/PEM_CERTCHAIN_ADDRESS are no longer used and will be ignored."
 fi
 
+maybe_default_attribute_policy_for_mrenclave
+
 # Export configuration flags consumed by ConfigureSgxVerifier.s.sol
 export SET_MRENCLAVE=$SET_MRENCLAVE
 export SET_MRSIGNER=$SET_MRSIGNER
+export SET_ATTRIBUTE_POLICY=$SET_ATTRIBUTE_POLICY
 export REGISTER_INSTANCE=$REGISTER_INSTANCE
 export TOGGLE_CHECK=$TOGGLE_CHECK
 export MRENCLAVE_ENABLE=$MRENCLAVE_ENABLE
 export MRSIGNER_ENABLE=$MRSIGNER_ENABLE
 
 echo "=== Configuration ==="
-echo "RPC: $FORK_URL"
+echo "RPC: $(redact_rpc "$FORK_URL")"
 echo "SGX Verifier: $SGX_VERIFIER_ADDRESS"
+if [[ "$SET_ATTRIBUTE_POLICY" == "true" ]]; then
+    echo "Attribute policy MRENCLAVE: $ATTRIBUTE_POLICY_MRENCLAVE"
+    echo "Attribute policy mask: $ATTRIBUTE_POLICY_MASK"
+    echo "Attribute policy expected: $ATTRIBUTE_POLICY_EXPECTED"
+fi
 [[ "$SET_MRENCLAVE" == "true" ]] && echo "MRENCLAVE: $MRENCLAVE (enable=$MRENCLAVE_ENABLE)"
 [[ "$SET_MRSIGNER" == "true" ]] && echo "MRSIGNER: $MRSIGNER (enable=$MRSIGNER_ENABLE)"
 [[ "$REGISTER_INSTANCE" == "true" ]] && echo "Register instance: yes (from raw DCAP quote)"
 [[ "$TOGGLE_CHECK" == "true" ]] && echo "Toggle local report check: yes"
+[[ "$SKIP_SIMULATION" == "true" ]] && echo "Skip forge simulation: yes (direct cast mode)"
 echo "===================="
+
+if [[ "$SKIP_SIMULATION" == "true" ]]; then
+    run_with_cast
+    exit 0
+fi
 
 # Run forge script
 forge script script/layer1/verifiers/ConfigureSgxVerifier.s.sol:ConfigureSgxVerifier \
