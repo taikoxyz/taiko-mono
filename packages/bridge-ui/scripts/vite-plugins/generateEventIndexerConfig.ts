@@ -9,6 +9,7 @@ import type { ConfiguredEventIndexer, EventIndexerConfig } from '../../src/libs/
 import { decodeBase64ToJson } from './../utils/decodeBase64ToJson';
 import { formatSourceFile } from './../utils/formatSourceFile';
 import { PluginLogger } from './../utils/PluginLogger';
+import { toTsLiteral } from './../utils/toTsLiteral';
 import { validateJsonAgainstSchema } from './../utils/validateJson';
 
 dotenv.config();
@@ -133,9 +134,9 @@ async function buildEventIndexerConfig(
 }
 
 const _formatEventIndexerConfigToTsLiteral = (config: EventIndexerConfig): string => {
-  return `{chainIds: [${config.chainIds ? config.chainIds.join(', ') : ''}], url: "${config.url}"}`;
+  return toTsLiteral(config);
 };
 
-const _formatObjectToTsLiteral = (indexer: EventIndexerConfig[]): string => {
+export const _formatObjectToTsLiteral = (indexer: EventIndexerConfig[]): string => {
   return `[${indexer.map(_formatEventIndexerConfigToTsLiteral).join(', ')}]`;
 };
